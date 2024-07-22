@@ -1,10 +1,10 @@
 <svelte:head>
 	<title>About</title>
-	<meta name="description" content="About this app" />
+	<meta name="description" content="Dashboard" />
 </svelte:head>
 
 <div class="text-column">
-	<h1>About this app</h1>
+	<h1>Dashboard</h1>
 
 	<p>
 		This is a <a href="https://kit.svelte.dev">SvelteKit</a> app. You can make your own by typing the
@@ -24,3 +24,11 @@
 		using it with JavaScript disabled!
 	</p>
 </div>
+
+
+<style>
+	.text-column {
+		color: white;
+	}
+</style>
+

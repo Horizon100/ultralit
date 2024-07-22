@@ -8,6 +8,11 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+	interface Window {
+		google: any;
+		msal: any;
+		AppleID: any;
+	  }
 }
 
 export {};
