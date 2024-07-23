@@ -1,70 +1,189 @@
 <script>
+	import { page } from '$app/stores';
 	import { writable } from 'svelte/store';
-  
-	const mode = writable('light');
-  
-	function setMode(newMode) {
-	  mode.set(newMode);
+	import github from '$lib/images/github.svg';
+	import { LightSwitch } from '@skeletonlabs/skeleton';
+	
+	export let toggleOverlay;
+	export let overlayOpen;
+	
+	const avatarOverlayOpen = writable(false);
+	let overlayPosition = writable(550); // Start with 50px visible (600 - 50)
+	let isDragging = false;
+	let startY = 0;
+	let startPosition = 0;
+
+	// New store to track active inner overlay
+	const activeOverlay = writable('main');
+
+	const overlayContents = {
+		main: { title: "Main Overlay", content: "This is the main content of the overlay." },
+		profile: { title: "Profile", content: "View and edit your profile information here." },
+		settings: { title: "Settings", content: "Adjust your app settings and preferences." },
+		help: { title: "Help", content: "Get assistance and view FAQs." }
+	};
+
+	function toggleAvatarOverlay() {
+		avatarOverlayOpen.update(n => !n);
+		$overlayPosition = $avatarOverlayOpen ? 0 : 550;
 	}
-  </script>
-  
-  <footer>
-	<nav>
-	  <svg viewBox="0 0 24 24" aria-hidden="true" class:active={$mode === 'light'} on:click={() => setMode('light')}>
-		<path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z" />
-	  </svg>
-	  <svg viewBox="0 0 24 24" aria-hidden="true" class:active={$mode === 'dark'} on:click={() => setMode('dark')}>
-		<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z" />
-	  </svg>
-	  <svg viewBox="0 0 24 24" aria-hidden="true" class:active={$mode === 'system'} on:click={() => setMode('system')}>
-		<path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm1-17.93c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93V4.07z" />
-	  </svg>
-	</nav>
-	<p>Horizon100</p>
-  </footer>
-  
-  <style>
+
+	function handleDragStart(event) {
+		isDragging = true;
+		startY = event.type.includes('mouse') ? event.clientY : event.touches[0].clientY;
+		startPosition = $overlayPosition;
+		event.preventDefault();
+	}
+
+	function handleDragMove(event) {
+		if (!isDragging) return;
+		const currentY = event.type.includes('mouse') ? event.clientY : event.touches[0].clientY;
+		const diff = startY - currentY;
+		let newPosition = startPosition - diff;
+
+		newPosition = Math.max(Math.min(newPosition, 550), 0);
+		$overlayPosition = newPosition;
+	}
+
+	function handleDragEnd() {
+		isDragging = false;
+		if ($overlayPosition < 275) {
+			$avatarOverlayOpen = true;
+			$overlayPosition = 0;
+		} else {
+			$avatarOverlayOpen = false;
+			$overlayPosition = 550;
+		}
+	}
+
+	function setActiveOverlay(overlay) {
+		activeOverlay.set(overlay);
+	}
+</script>
+
+<svelte:window 
+	on:mousemove={handleDragMove}
+	on:touchmove={handleDragMove}
+	on:mouseup={handleDragEnd}
+	on:touchend={handleDragEnd}
+/>
+
+<footer>
+	<div class="corner-l">
+		<!-- Left corner content -->
+	</div>
+
+
+    <div class="corner-r">
+		<!-- Right corner content -->
+	</div>
+</footer>
+
+<div 
+	class="avatar-overlay" 
+	class:open={$avatarOverlayOpen}
+	style="transform: translateY({$overlayPosition}px)"
+    
+	on:mousedown={handleDragStart}
+	on:touchstart={handleDragStart}
+>
+	<div class="drag-handle"></div>
+	<div class="button-row">
+		<button class="round-button" on:click={() => setActiveOverlay('main')}>M</button>
+		<button class="round-button" on:click={() => setActiveOverlay('profile')}>P</button>
+		<button class="round-button" on:click={() => setActiveOverlay('settings')}>S</button>
+		<button class="round-button" on:click={() => setActiveOverlay('help')}>H</button>
+	</div>
+	<h2>{overlayContents[$activeOverlay].title}</h2>
+	<p>{overlayContents[$activeOverlay].content}</p>
+</div>
+
+<style>
 	footer {
-	  display: flex;
-	  flex-direction: column;
-	  justify-content: center;
-	  align-items: center;
-	  padding: 12px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		height: 50px;
+		background-color: none;
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		z-index: 1001;
 	}
-  
-	nav {
-	  display: flex;
-	  justify-content: center;
-	  gap: 20px;
-	  margin-bottom: 10px;
+
+	.corner-l, .corner-r {
+		display: flex;
+		align-items: center;
+		width: 25%;
 	}
-  
-	svg {
-	  width: 24px;
-	  height: 24px;
-	  cursor: pointer;
-	  transition: all 0.3s ease;
+
+    .corner-c {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-grow: 1;
 	}
-  
-	svg:hover {
-	  transform: scale(1.1);
+
+	.overlay-toggle {
+		width: 100px;
+		height: 5px;
+		background-color: #30363d;
+		border-radius: 10px;
+		cursor: grab;
 	}
-  
-	svg.active {
-	  fill: #ff3e00;
+
+	.avatar-overlay {
+		position: fixed;
+		bottom: 40px;
+		left: 5%;
+		width: 90%;
+		height: 43%;
+        border-top-left-radius: 100px;
+		border-top-right-radius: 100px;
+        background: linear-gradient(to top, #292929, #333333);
+		overflow: hidden;
+		z-index: 1000;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		padding-top: 20px;
+		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 	}
-  
-	svg:not(.active) {
-	  fill: #888;
+
+	.drag-handle {
+		width: 300px;
+		height: 10px;
+        border-radius: 20px;
+		background-color: #30363d;
+		margin-bottom: 20px;
+		cursor: grab;
 	}
-  
-	p {
-	  margin: 0;
+
+	.button-row {
+		display: flex;
+		justify-content: center;
+		gap: 20px;
+		margin-bottom: 20px;
 	}
-  
-	@media (min-width: 480px) {
-	  footer {
-		padding: 12px 0;
-	  }
+
+	.round-button {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background-color: #30363d;
+		color: white;
+		border: none;
+		cursor: pointer;
+		font-size: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background-color 0.3s;
 	}
-  </style>
+
+	.round-button:hover {
+		background-color: #444c56;
+	}
+</style>

@@ -1,107 +1,230 @@
 @import '@fontsource/fira-mono';
 
 :root {
-	--font-body: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-	--font-mono: 'Fira Mono', monospace;
-	--color-bg-0: rgb(44, 44, 44);
-	--color-bg-1: hsl(0, 0%, 16%);
-	--color-bg-2: hsl(0, 0%, 9%);
-	--color-theme-1: #290070;
-	--color-theme-2: #4075a6;
-	--color-text: rgba(0, 0, 0, 0.7);
+	/* Sleek sans-serif options */
+	--font-body-sleek: 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Raleway', 'Nunito Sans', Arial, sans-serif;
+	
+	/* Sleek monospace options */
+	--font-mono-sleek: 'Source Code Pro', 'Inconsolata', 'IBM Plex Mono', 'Fira Code', 'Roboto Mono', monospace;
+  
+	/* Original variables with new options added */
+	--font-body: var(--font-body-sleek), -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu,
+	  Cantarell, 'Helvetica Neue', sans-serif;
+	--font-mono: var(--font-mono-sleek), 'Fira Mono', monospace;
+  
+	/* Existing variables remain unchanged */
 	--column-width: 42rem;
 	--column-margin-top: 4rem;
-	font-family: var(--font-body);
-	color: var(--color-text);
+  }
+
+:root [data-theme='skeleton'] {
+	--color-bg-0: rgb(44, 44, 44);
+  --color-bg-1: hsl(0, 0%, 16%);
+  --color-bg-2: hsl(0, 0%, 9%);
+  --color-theme-1: #ff7e5f;
+  --color-theme-2: #7eb0db;
+  --color-text: rgba(255, 255, 255, 0.7);
+}
+
+:root [data-theme='dark'] {
+	--color-bg-0: rgb(44, 44, 44);
+  --color-bg-1: hsl(0, 0%, 16%);
+  --color-bg-2: hsl(0, 0%, 9%);
+  --color-theme-1: #ff7e5f;
+  --color-theme-2: #7eb0db;
+  --color-text: rgba(255, 255, 255, 0.7);
 }
 
 body {
-	min-height: 100vh;
-	margin: 0;
-	background-attachment: fixed;
-	background-color: var(--color-bg-1);
-	background-size: 100vw 100vh;
-	background-image: radial-gradient(
-			50% 50% at 50% 50%,
-			rgba(41, 41, 41, 0.75) 0%,
-			rgba(37, 37, 37, 0) 100%
-		),
-		linear-gradient(180deg, var(--color-bg-0) 0%, var(--color-bg-1) 15%, var(--color-bg-2) 50%);
-}
-
-h1,
-h2,
-p {
-	font-weight: 400;
-}
-
-p {
-	line-height: 1.5;
-}
-
-a {
-	color: var(--color-theme-1);
-	text-decoration: none;
-}
-
-a:hover {
-	text-decoration: underline;
+  min-height: 100vh;
+  margin: 0;
+  background-attachment: fixed;
+  background-color: var(--color-bg-1);
+  background-size: 100vw 100vh;
+  background-image: radial-gradient(
+      50% 50% at 50% 50%,
+      rgba(var(--color-bg-0), 0.75) 0%,
+      rgba(var(--color-bg-1), 0) 100%
+    ),
+    linear-gradient(180deg, var(--color-bg-0) 0%, var(--color-bg-1) 15%, var(--color-bg-2) 50%);
+  font-family: var(--font-body);
+  color: var(--color-text);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 h1 {
-	font-size: 2rem;
+	font-family: var(--font-mono);
+	font-size: 100px;
+	color: #ffffff;
+	font-weight: 100;
 	text-align: center;
+	will-change: filter, transform;
+	transition: filter 300ms, transform 300ms ease-in-out;
 }
 
+h1:hover {
+filter: drop-shadow(0 2em 3em #ffffff);
+}
+
+
+
+
+
+p {
+	display: flex;
+	flex-direction: column;
+	font-family: 'Montserrat', var(--font-body);
+	font-size: 20px;
+	color: white;
+	text-align: left;
+	max-width: 600px; /* Adjust this value as needed */
+	margin: 0 auto; /* Centers the paragraph block */
+	line-height: 2; /* Slightly increased for better readability */
+		will-change: filter, transform;
+	transition: filter 300ms;
+	
+	/* New properties for adjusting justification and line spacing */
+	text-justify: inter-word; /* Adjusts space between words for better justification */
+	letter-spacing: 0.03em; /* Slight increase in letter spacing for readability */
+	word-spacing: 0.05em; /* Slight increase in word spacing for readability */
+  }
+
+  p:hover {
+	filter: drop-shadow(0 1em 2em #ffffff);
+	
+}
+  
+  /* Alternative alignment options */
+  .text-left {
+	text-align: left;
+  }
+  
+  .text-center {
+	text-align: center;
+  }
+  
+  .text-right {
+	text-align: right;
+  }
+  
+  /* Line height variations */
+  .line-space-tight {
+	line-height: 1.3;
+  }
+  
+  .line-space-normal {
+	line-height: 1.6;
+  }
+  
+  .line-space-loose {
+	line-height: 1.8;
+  }
+
+
+
+a {
+  color: var(--color-theme-1);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+
 h2 {
-	font-size: 1rem;
+  font-size: 1rem;
 }
 
 pre {
-	font-size: 16px;
-	font-family: var(--font-mono);
-	background-color: rgba(255, 255, 255, 0.45);
-	border-radius: 3px;
-	box-shadow: 2px 2px 6px rgb(255 255 255 / 25%);
-	padding: 0.5em;
-	overflow-x: auto;
-	color: var(--color-text);
+  font-size: 16px;
+  font-family: var(--font-mono);
+  background-color: rgba(255, 255, 255, 0.45);
+  border-radius: 3px;
+  box-shadow: 2px 2px 6px rgb(255 255 255 / 25%);
+  padding: 0.5em;
+  overflow-x: auto;
+  color: var(--color-text);
 }
 
 .text-column {
-	display: flex;
-	max-width: 48rem;
-	flex: 0.6;
-	flex-direction: column;
-	justify-content: center;
-	margin: 0 auto;
+  display: flex;
+  max-width: 48rem;
+  flex: 0.6;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 input,
 button {
-	font-size: inherit;
-	font-family: inherit;
+  font-size: inherit;
+  font-family: inherit;
 }
 
 button:focus:not(:focus-visible) {
-	outline: none;
+  outline: none;
 }
 
 @media (min-width: 720px) {
-	h1 {
-		font-size: 2.4rem;
-	}
+  h1 {
+    font-size: 2.4rem;
+  }
 }
 
 .visually-hidden {
-	border: 0;
-	clip: rect(0 0 0 0);
-	height: auto;
-	margin: 0;
-	overflow: hidden;
-	padding: 0;
-	position: absolute;
-	width: 1px;
-	white-space: nowrap;
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+}
+
+.row-container {
+	display: flex;
+	flex-direction: row;
+	width: 800px;
+	justify-content: center;
+	align-items: center;
+}
+
+section {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	flex: 0.6;
+	text-align: center;
+	padding: 1em;
+	width: 800px;
+	margin: 0 auto;
+  }
+
+  .toggle-btn {
+	padding: 0.5rem;
+	background-color: var(--color-primary-500);
+	color: white;
+	border: none;
+	border-radius: 0.25rem;
+	cursor: pointer;
+	font-size: 30px;
+	transition: background-color 0.2s ease-in-out;
+	font-weight: bold;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-btn:hover {
+	background-color: var(--color-primary-700);
+}
+
+:global(.dark) .toggle-btn {
+	background-color: var(--color-primary-700);
+}
+
+:global(.dark) .toggle-btn:hover {
+	background-color: var(--color-primary-900);
 }

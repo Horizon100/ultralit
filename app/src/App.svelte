@@ -1,41 +1,35 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from '/vite.svg'
-  import Counter from './lib/Counter.svelte'
-  import { Router, Link, Route } from "svelte-routing";
-  import Index from "./routes/index.svelte";
-  export let url = "";
+  import { Router, Link, Route } from 'svelte-routing';
+  import { setContext } from 'svelte';
+  import { writable } from 'svelte/store';
+  import './app.css';
 
+  // Define the theme store and updater function
+  const theme = writable('skeleton'); // Change the default theme here
+  
+  function setTheme(newTheme: string) {
+    theme.set(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme); // Apply theme to the root element
+  }
+
+  setContext('theme', { theme, setTheme });
 </script>
 
-<Router {url}>
+<Router>
   <nav>
     <Link to="/">Home</Link>
   </nav>
 
   <main>
-    <Route path="/"><Index /></Route>
   </main>
 </Router>
 
-<main>
-
-</main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
+  :global(body) {
+    background-color: var(--color-bg-1);
+    color: var(--color-text);
+    transition: background-color 0.3s, color 0.3s;
   }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+
 </style>

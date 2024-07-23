@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	
+	import horizon100 from '$lib/images/horizon100.svg';
+
 	let user: { provider: string; token: string } | null = null;
 	
 	onMount(() => {
@@ -95,65 +96,58 @@
 </svelte:head>
 
 <section>
-  <h1>UltraLit</h1>
-  <p>This is testing environment for horizon100 multi-ai-agent interactions on various discrete applications. Collabarion options are included to share projects.</p>
-  
-  {#if user}
-    <p>Welcome, you're signed in with {user.provider}!</p>
-    <button on:click={signOut}>Sign Out</button>
-  {:else}
-    <div class="signin-container">
-      <div id="google-signin-button"></div>
-      <button id="microsoft-signin-button">Sign in with Microsoft</button>
-      <button id="apple-signin-button">Sign in with Apple</button>
-    </div>
-  {/if}
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+
+	<div class="row-container">
+		<img src={horizon100} alt="Horizon100" class="horizon100-image" />
+
+		<h1>UltraLit</h1>
+	</div>
+	<br>
+	<br>
+	<br>
+
+	<div class="row-container">
+		<p>This is testing environment for horizon100 multi-ai-agent interactions on various discrete applications. Collabarion options are included to share projects.</p>
+		
+		{#if user}
+			<p>Welcome, you're signed in with {user.provider}!</p>
+			<button on:click={signOut}>Sign Out</button>
+		{:else}
+			<div class="signin-container">
+			<div id="google-signin-button"></div>
+			<button id="microsoft-signin-button">Sign in with Microsoft</button>
+			<button id="apple-signin-button">Sign in with Apple</button>
+			</div>
+		{/if}
+	</div>
+
 </section>
 
-
-
 <style>
-	section {
-	  display: flex;
-	  flex-direction: column;
-	  justify-content: center;
-	  align-items: center;
-	  flex: 0.6;
-	  text-align: center;
-	  padding: 1em;
-	  max-width: 400px;
-	  margin: 0 auto;
-	}
-  
-	h1 {
-		width: 100%;
-		color: #ffffff;
-		text-transform: uppercase;
-		font-size: 5rem;
-		font-weight: 100;
-		will-change: filter, transform;
-		transition: filter 300ms, transform 300ms ease-in-out;
-	}
 
-	h1:hover {
-	filter: drop-shadow(0 2em 3em #ffffff);
-	}
-  
-	p {
-    font-size: 16px;
-    color: white;
-    text-align: justify;
-    max-width: 600px; /* Adjust this value as needed */
-    margin: 0 auto; /* Centers the paragraph block */
-    line-height: 1.5; /* Improves readability */
-	will-change: filter;
-	transition: filter 300ms;
-	}
 
-	p:hover {
-		filter: drop-shadow(0 1em 2em #ffffff);
-		
-	}
+h1 {
+	font-size: 3rem;
+}
+  
 	.signin-container {
 	  display: flex;
 	  flex-direction: column;
@@ -204,4 +198,34 @@
 	  background-color: #ff3e00;
 	  color: #ffffff;
 	}
-  </style>
+
+	/* New styles for horizon100 image */
+	.horizon100-image {
+		animation: pulse 2s infinite ease-in-out;
+		transition: transform 0.5s ease-in-out, filter 0.5s ease-in-out;
+		width: 100px;
+		filter: drop-shadow(0 2em 3em #2e2d2d);
+		will-change: filter, transform;
+	}
+
+	.horizon100-image:hover {
+	  animation: rotate360 0.7s forwards, glowBrighter 1s forwards;
+	  transition: filter 300ms, transform 300ms ease-in-out;
+
+	}
+
+	@keyframes pulse {
+	  0% { transform: scale(1); }
+	  50% { transform: scale(1.05); }
+	  100% { transform: scale(1); }
+	}
+
+	@keyframes rotate360 {
+	  from { transform: rotate(0deg); }
+	  to { transform: rotate(360deg); }
+	}
+
+	@keyframes glowBrighter {
+	  to { filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.9)); }
+	}
+</style>
