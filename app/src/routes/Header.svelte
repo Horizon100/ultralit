@@ -4,7 +4,9 @@
 	import github from '$lib/images/github.svg';
 	import avatar from '$lib/images/avatar.svg';
 	import { LightSwitch } from '@skeletonlabs/skeleton';
-	
+	import Login from "../lib/Login.svelte";
+
+
 	export let toggleOverlay;
 	export let overlayOpen;
 	
@@ -62,34 +64,21 @@
 	</div>
 
 	<div class="corner-r">
+		<Login />
 
 
 	</div>
 
 	<div class="corner-c">
+		<button 
+			on:click={toggleAvatarOverlay}
+			on:mousedown={handleDragStart}
+			on:touchstart={handleDragStart}
+			class="avatar-btn"
+		>
+			<!-- <img src={avatar} alt="Avatar" class="avatar" /> -->
+		</button>
 
-		<button 
-			on:click={toggleAvatarOverlay}
-			on:mousedown={handleDragStart}
-			on:touchstart={handleDragStart}
-			class="avatar-btn"
-		>
-			<img src={avatar} alt="Avatar" class="avatar" />
-		</button>
-		<button 
-			on:click={toggleAvatarOverlay}
-			on:mousedown={handleDragStart}
-			on:touchstart={handleDragStart}
-			class="avatar-btn"
-		>
-		<button 
-			on:click={toggleAvatarOverlay}
-			on:mousedown={handleDragStart}
-			on:touchstart={handleDragStart}
-			class="avatar-btn"
-		>
-			<img src={avatar} alt="Avatar" class="avatar" />
-		</button>
 
 	</div>
 </header>
@@ -110,7 +99,7 @@
 <style>
 	header {
 		display: flex;
-		justify-content: space-between;
+		justify-content: center;
 		align-items: center;
 		width: 100%;
 		height: 50px;
@@ -125,20 +114,23 @@
 		display: flex;
 		align-items: center;
 		margin-left: 1.5rem;
+		
 	}
 
 	.corner-r {
 		display: flex;
 		align-items: center;
-		margin-right: 50px;
+		justify-content: center;
 	}
 
 	.corner-c {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		flex-grow: 1; /* This allows the center section to take up available space */
-		gap: 20px;
+		max-width: 300px;
+		justify-content: center;
+		align-items: center;
+
 	}
 
 
@@ -147,13 +139,31 @@
 		border: none;
 		cursor: pointer;
 		padding: 0;
-		
+
+	}
+
+	.avatar-btn:hover {
+
+
 	}
 
 	.avatar {
-		width: 2em;
-		height: 2em;
+		width: 34px;
+		height: 34px;
 		border-radius: 50%;
+		transition: transform 1.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+		transform: rotate(0deg);
+		position: absolute;
+		left: 34%;
+		top: 5px;
+
+		
+	}
+
+
+	.avatar:hover {
+
+		transform: rotate(1080deg);
 
 	}
 
@@ -185,9 +195,14 @@
 	.drag-handle {
 		width: 300px;
 		height: 10px;
-		border-radius: 20px;
-		background-color: #30363d;
+		bottom: 0;
+		display: flex;
+		position: absolute;
+		border-top-left-radius: 20px;
+		border-top-right-radius: 20px;
+		background-color: #1c1c1c;
 		margin-top: 45%;
+		cursor: grab;
 		
 		
 	}

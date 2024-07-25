@@ -2,6 +2,7 @@
 	import { AppShell } from '@skeletonlabs/skeleton';
 	import Header from './Header.svelte';
 	import Footer from './Footer.svelte';
+	import Messages from "../lib/Messages.svelte";
 
 	import { slide } from 'svelte/transition';
 	import { writable } from 'svelte/store';
@@ -29,11 +30,13 @@
 	}
 
 	function handleDragStart(event: MouseEvent | TouchEvent, side: 'left' | 'right') {
-		isDragging = true;
-		activeOverlay = side;
-		startX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
-		startPosition = side === 'left' ? $leftOverlayPosition : $rightOverlayPosition;
-		event.preventDefault();
+		if (event.target instanceof HTMLElement && event.target.closest('.drag-handle')) {
+			isDragging = true;
+			activeOverlay = side;
+			startX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+			startPosition = side === 'left' ? $leftOverlayPosition : $rightOverlayPosition;
+			event.preventDefault();
+		}
 	}
 
 	function handleDragMove(event: MouseEvent | TouchEvent) {
@@ -53,6 +56,7 @@
 	}
 
 	function handleDragEnd() {
+		if (!isDragging) return;
 		isDragging = false;
 		if (activeOverlay === 'left') {
 			if ($leftOverlayPosition > -125) {
@@ -102,41 +106,7 @@
 	>
 		<div class="drag-handle"></div>
 		<nav class="list-nav p-4">
-			<ul>
-				<h3>Goals</h3>
-				<li><a href="/" class="overlay-link">#erp</a></li>
-
-				<hr class="solid">
-
-				<li><a href="/calendar" class="overlay-link">Calendar</a></li>
-				<li><a href="/about" class="overlay-link">Tasks</a></li>
-
-				<hr class="solid">
-				<li><a href="/home" class="overlay-link">Marketplace</a></li>
-				<li><a href="/about" class="overlay-link">Discover</a></li>
-
-				<hr class="solid">
-
-				<li><a href="/home" class="overlay-link">Marketplace</a></li>
-				<li><a href="/about" class="overlay-link">Discover</a></li>
-
-				<hr class="solid">
-
-
-				<a href="https://github.com/Horizon100/ultralit" class="github-link">
-					<img src={github} alt="GitHub" />
-				</a>
-			</ul>
-			<h4>© 2024 Horizon, Inc.
-
-			</h4>
-			<a href="/about" class="overlay-link">About</a>
-			<a href="/about" class="overlay-link">Blog</a>
-			<a href="/about" class="overlay-link">Terms & Privacy</a>
-			<a href="/about" class="overlay-link">FAQ</a>
-
-
-
+			<!-- Left overlay content -->
 		</nav>
 	</div>
 
@@ -148,12 +118,12 @@
 		on:mousedown={(e) => handleDragStart(e, 'right')}
 		on:touchstart={(e) => handleDragStart(e, 'right')}
 	> 
-
 		<div class="drag-handle"></div>
 		<nav class="list-nav p-4">
 			<ul>
-				<li><a href="/" class="overlay-link">Chat</a></li>
+				<li><a href="/" class="overlay-link"><h1>Chat</h1></a></li>
 			</ul>
+			<Messages />
 		</nav>
 	</div>
 	
@@ -183,47 +153,45 @@
 		border-bottom-right-radius: 50px;
 		width: 280px;
 		background: linear-gradient(to right, #292929, #333333);
-
 		overflow-x: hidden;
-
 	}
 
 	.right-overlay {
-		right: 0;
+		right: -15px;
 		width: 280px;
 		border-top-left-radius: 50px;
-		border-bottom-left-radius: 50px;
+		border-bottom-left-radius: 5px;
 		background: linear-gradient(to left, #292929, #333333);
-
 		overflow-x: hidden;
 	}
 
 	.left-overlay .drag-handle {
-		right: -20px;
-		border-top-right-radius: 20px;
-		border-bottom-right-radius: 20px;
+		border-top-left-radius: 20px;
+		border-bottom-left-radius: 20px;
+		width: 15px;
+		background-color: #1c1c1c;
+		position: absolute;
+		right: 0;
 	}
 
 	.right-overlay .drag-handle {
-		left: -20px;
-		border-top-left-radius: 20px;
-		border-bottom-left-radius: 20px;
+		border-top-right-radius: 20px;
+		border-bottom-right-radius: 20px;
+		width: 15px;
+		left: 0;
 	}
 
 	.drag-handle {
 		position: absolute;
 		top: 50%;
-		width: 40px;
 		height: 300px;
-		border-radius: 20px;
-		background-color: #30363d;
+		background-color: #1c1c1c;
 		cursor: grab;
 	}
 
 	.list-nav ul {
 		list-style-type: none;
 		padding: 1rem;
-
 	}
 
 	.list-nav li {
@@ -244,18 +212,8 @@
 		color: white;
 	}
 
-	.github-link {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2em;
-		height: 2em;
-		margin-right: 2rem;
-	}
-
-	.github-link img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
+	h1 {
+		margin-bottom: 0;
+		margin-top: 0;
 	}
 </style>
