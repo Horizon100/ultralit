@@ -172,7 +172,7 @@
 		top: 0;
 		left: 8%;
 		width: 84%;
-		height: 47%;
+		height: 650px;
 		border-bottom-left-radius: 100px;
 		border-bottom-right-radius: 100px;
         background: linear-gradient(to bottom, #292929, #333333);
@@ -184,12 +184,12 @@
 		justify-content: flex-start;
 		padding-top: 20px;
 		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		transform: translateY(-600px); /* Start off-screen */
+		transform: translateY(100px); /* Start off-screen */
 		
 	}
 
 	.avatar-overlay.open {
-		transform: translateY(50px);
+		transform: translateY(500px);
 	}
 
 	.drag-handle {

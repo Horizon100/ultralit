@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Router, Link, Route } from 'svelte-routing';
   import { setContext } from 'svelte';
   import { writable } from 'svelte/store';
-  import Login from "./lib/Login.svelte";
+  import { page } from '$app/stores';
+  import Login from "$lib/Login.svelte";
   import Assistant from "./routes/Assistant.svelte";
 
   import './app.css';
@@ -18,20 +18,18 @@
   setContext('theme', { theme, setTheme });
 </script>
 
-<Login/>
+<nav>
+  <a href="/">Home</a>
+  <a href="/assistant">Assistant</a>
+</nav>
 
-<Router>
-  <nav>
-    <Link to="/">Home</Link>
-    <Link to="/assistant">Assistant</Link>
-  </nav>
-
-  <main>
-    <!-- Define the routes here -->
-    <Route path="/" component={Login} />
-    <Route path="/assistant" component={Assistant} />
-  </main>
-</Router>
+<main>
+  {#if $page.url.pathname === '/'}
+    <Login />
+  {:else if $page.url.pathname === '/assistant'}
+    <Assistant />
+  {/if}
+</main>
 
 <style>
   :global(body) {

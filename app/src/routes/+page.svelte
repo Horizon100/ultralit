@@ -1,32 +1,39 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import horizon100 from '$lib/images/horizon100.svg';
-	import ArrowIndicator from '$lib/components/ArrowIndicator.svelte';
-	import { navigate } from 'svelte-routing';
-  
-	let user: { provider: string; token: string } | null = null;
-	let showArrow = true;
-  
-	onMount(() => {
-	  // Code that should run on component mount
-	});
-  
-	function signOut() {
-	  user = null;
-	  if (browser && window.google) window.google.accounts.id.disableAutoSelect();
-	  // Add sign-out logic for Microsoft and Apple if needed
-	}
-  
-	function hideArrow() {
-	  showArrow = false;
-	}
-  
-	// Function to navigate to the Assistant page
-	function goToAssistant() {
-	  navigate('/assistant');
-	}
-  </script>
+    import { onMount } from 'svelte';
+    import { browser } from '$app/environment';
+    import horizon100 from '$lib/images/horizon100.svg';
+    import ArrowIndicator from '$lib/components/ArrowIndicator.svelte';
+    import { goto } from '$app/navigation';
+
+    interface User {
+        provider: string;
+        token: string;
+    }
+
+    let user: User | null = null;
+    let showArrow = true;
+
+    onMount(() => {
+        // Code that should run on component mount
+    });
+
+    function signOut() {
+        user = null;
+        if (browser && 'google' in window && 'accounts' in window.google) {
+            window.google.accounts.id.disableAutoSelect();
+        }
+        // Add sign-out logic for Microsoft and Apple if needed
+    }
+
+    function hideArrow() {
+        showArrow = false;
+    }
+
+    // Function to navigate to the Assistant page
+    function goToAssistant() {
+        goto('/assistant');
+    }
+</script>
   
   <section on:click={hideArrow}>
 	<br>
