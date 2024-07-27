@@ -5,6 +5,7 @@
 	import avatar from '$lib/images/avatar.svg';
 	import { LightSwitch } from '@skeletonlabs/skeleton';
 	import Login from "../lib/Login.svelte";
+	import Author from "../lib/Author.svelte";
 
 
 	export let toggleOverlay;
@@ -90,8 +91,7 @@
 	on:mousedown={handleDragStart}
 	on:touchstart={handleDragStart}
 >
-	<h2>Avatar Overlay</h2>
-	<p>This is the content of the avatar overlay.</p>
+	<Author />
 	<div class="drag-handle"></div>
 
 </div>
@@ -107,7 +107,7 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		z-index: 1001;
+		z-index: 1010;
 	}
 
 	.corner-l {
@@ -170,14 +170,14 @@
 	.avatar-overlay {
 		position: fixed;
 		top: 0;
-		left: 5%;
-		width: 90%;
+		left: 8%;
+		width: 84%;
 		height: 47%;
 		border-bottom-left-radius: 100px;
 		border-bottom-right-radius: 100px;
         background: linear-gradient(to bottom, #292929, #333333);
 		overflow: hidden;
-		z-index: 1000;
+		z-index: 1005;
 		display: flex;
 		flex-direction: column;
 		align-items: center;

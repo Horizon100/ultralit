@@ -15,4 +15,18 @@ const config = {
 	}
 };
 
+import sveltePreprocess from 'svelte-preprocess';
+
+
+
+module.exports = {
+
+  preprocess: sveltePreprocess(),
+
+  // ...other configurations
+
+};
+
+
+
 export default config;

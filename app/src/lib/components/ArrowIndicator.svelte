@@ -19,7 +19,7 @@
     <style>
         .arrow-container {
             position: fixed;
-            top: -50px;
+            top: -4px;
             z-index: 1040;
             left: 50%;
             transform: translateX(-50%);
@@ -40,21 +40,24 @@
         
         .arrow:hover {
             transition: filter 300ms, transform 300ms ease-in-out; 
-            background-color: green; 
+            height: 100px;
                   
         }
 
         p {
-            font-size: 20px;
+            font-size: 16px;
+            width: 500px;
             text-align: center;
             display: flex;
             padding: 10px;
+            font-weight: 100;
             position: absolute;
-            bottom: 10px;
+            top: 60px;
+            right:-70%;
             text-decoration:dotted;
             border-radius: 20px;
             background-color: rgb(0, 0, 0);
-            opacity: 0.9;
+            opacity: 0.8;
 
 
         }

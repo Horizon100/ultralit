@@ -8,8 +8,9 @@
 	export let toggleOverlay;
 	export let overlayOpen;
 	
-	const avatarOverlayOpen = writable(false);
-	let overlayPosition = writable(550); // Start with 50px visible (600 - 50)
+	
+	const avatarOverlayOpen = writable(true);
+	let overlayPosition = writable(550); // Start with 60px visible (calculated as 100% height - 60px)
 	let isDragging = false;
 	let startX = 0; // Start X position for horizontal dragging
 	let startY = 0; // Start Y position for vertical dragging
@@ -29,7 +30,7 @@
 
 	function toggleAvatarOverlay() {
 		avatarOverlayOpen.update(n => !n);
-		$overlayPosition = $avatarOverlayOpen ? 0 : 550;
+		$overlayPosition = $avatarOverlayOpen ? 0 : 200;
 	}
 
 	function handleDragStart(event) {
@@ -39,14 +40,14 @@
 		startPosition = $overlayPosition;
 		event.preventDefault();
 	}
-
+	
 	function handleDragMove(event) {
 		if (!isDragging) return;
 		const currentY = event.type.includes('mouse') ? event.clientY : event.touches[0].clientY;
 		const currentX = event.type.includes('mouse') ? event.clientX : event.touches[0].clientX;
-		const diffY = startY - currentY;
+		const diffY = currentY - startY; // Calculate the difference in the opposite direction
 		const diffX = startX - currentX;
-		let newPosition = startPosition - diffY;
+		let newPosition = startPosition + diffY; // Add the difference to the start position
 
 		newPosition = Math.max(Math.min(newPosition, 550), 0);
 		$overlayPosition = newPosition;
@@ -66,14 +67,14 @@
 
 	function handleDragEnd() {
 		isDragging = false;
-		if ($overlayPosition < 275) {
+		if ($overlayPosition < 340) {
 			$avatarOverlayOpen = true;
 			$overlayPosition = 0;
 		} else {
 			$avatarOverlayOpen = false;
 			$overlayPosition = 550;
 		}
-	}
+		}
 
     function changeOverlay(direction) {
 	const currentIndex = overlayOrder.indexOf($activeOverlay);
@@ -159,7 +160,7 @@
 		position: fixed;
 		bottom: 0;
 		left: 0;
-		z-index: 1001;
+        z-index: 1000;
 	}
 
 	.corner-l, .corner-r {
@@ -179,13 +180,13 @@
 	transition: transform 0.3s ease-in-out;
     }
 
-    .overlay-content-enter {
-        transform: translateX(100%);
+    /* .overlay-content-enter {
+        transform: translateY(100%);
     }
 
     .overlay-content-leave {
-        transform: translateX(-100%);
-    }
+        transform: translate(-100%);
+    } */
 	.overlay-toggle {
 		width: 100px;
 		height: 50px;
@@ -196,22 +197,23 @@
 
 	.avatar-overlay {
 		position: fixed;
-		bottom: 0px;
-		left: 5%;
-		width: 90%;
-		height: 43%;
-		border-top-left-radius: 100px;
-		border-top-right-radius: 100px;
+		display: flex;
+		left: 10%;
+		bottom: 50px; /* Start the overlay 550px below the viewport */
+		width: 80%;
+		height: 550px;
+		border-top-left-radius: 20px;
+		border-top-right-radius: 20px;
 		background: linear-gradient(to top, #292929, #333333);
 		overflow: hidden;
-		z-index: 1000;
-		display: flex;
+		z-index: 1005;
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
 		padding-top: 20px;
+		box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
 		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-	}
+	}	
 
 	.drag-handle {
 		width: 300px;
