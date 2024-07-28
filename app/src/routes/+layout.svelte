@@ -200,7 +200,7 @@ function handleDragEnd() {
     }
 
     .left-overlay {
-        left: -450px;
+        left: 0;
         border-top-right-radius: 10px;
         border-bottom-right-radius: 10px;
         width: 600px;

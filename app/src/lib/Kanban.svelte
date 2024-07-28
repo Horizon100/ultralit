@@ -52,6 +52,15 @@
     let selectedTask: Task | null = null;
     let isModalOpen = false;
     let newTagName = '';
+    let isEditingDescription = false;
+    let isEditingTitle = false;
+    let selectedDeadline: number | null = null;
+
+
+
+
+
+
 
     function deepCopy<T>(obj: T): T {
         if (obj === null || typeof obj !== 'object') {
@@ -154,8 +163,10 @@
         event.stopPropagation();
         selectedTask = deepCopy(task);
         isModalOpen = true;
+        isEditingTitle = false;
+        isEditingDescription = false;
+        selectedDeadline = null;  // Reset selected deadline
     }
-
     function saveAndCloseModal() {
         if (selectedTask) {
             columns.update(cols => {
@@ -170,7 +181,6 @@
         selectedTask = null;
         isModalOpen = false;
     }
-
     function addTag() {
         if (newTagName.trim()) {
             tags.update(t => {
@@ -179,8 +189,7 @@
                     name: newTagName.trim(),
                     color: getRandomBrightColor(newTagName.trim())
                 };
-                t.push(newTag);
-                return t;
+                return [...t, newTag];
             });
             newTagName = '';
         }
@@ -208,17 +217,32 @@
             deadline.setDate(deadline.getDate() + days);
             selectedTask.deadline = deadline;
             selectedTask = { ...selectedTask };
+            selectedDeadline = days;
         }
     }
 
     function setEndOfWeekDeadline() {
         if (selectedTask) {
             const deadline = new Date();
-            deadline.setDate(deadline.getDate() + (7 - deadline.getDay()));
+            const daysUntilEndOfWeek = 7 - deadline.getDay();
+            deadline.setDate(deadline.getDate() + daysUntilEndOfWeek);
             selectedTask.deadline = deadline;
             selectedTask = { ...selectedTask };
+            selectedDeadline = 'endOfWeek';
         }
     }
+
+    function toggleTag(tagId: number) {
+    if (selectedTask) {
+        const tagIndex = selectedTask.tags.indexOf(tagId);
+        if (tagIndex === -1) {
+            selectedTask.tags = [...selectedTask.tags, tagId];
+        } else {
+            selectedTask.tags = selectedTask.tags.filter(id => id !== tagId);
+        }
+        selectedTask = { ...selectedTask };  // Trigger reactivity
+    }
+}
 
     
 
@@ -243,15 +267,16 @@
                             on:click={(e) => openModal(task, e)}
                         >
                             <h4>{task.title}</h4>
-                            {#if task.tags.length > 0}
-                                <div class="tag-list">
-                                    {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
-                                        <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
-                                    {/each}
-                                </div>
-                            {/if}
+
                             {#if task.deadline}
-                                <p class="deadline">Deadline: {task.deadline.toLocaleDateString()}</p>
+                                <p class="deadline">⌛ {task.deadline.toLocaleDateString()}</p>
+                            {/if}
+                            {#if task.tags.length > 0}
+                            <div class="tag-list">
+                                {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
+                                    <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
+                                {/each}
+                            </div>
                             {/if}
                             {#if task.attachments.length > 0}
                                 <div class="attachment-indicator">
@@ -269,17 +294,60 @@
 {#if isModalOpen && selectedTask}
     <div class="modal-overlay" on:click={saveAndCloseModal}>
         <div class="modal-content" on:click|stopPropagation>
-            <h1>{selectedTask.title}</h1>
-            <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
+            {#if isEditingTitle}
+                <textarea
+                    type="text"
+                    bind:value={selectedTask.title}
+                    on:blur={() => isEditingTitle = false}
+                    on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
+                    autoFocus
+                    class="title-input"
+                />
+            {:else}
+                <h1 on:click={() => isEditingTitle = true}>
+                    {selectedTask.title}
+                </h1>
+            {/if}
+            <div class="description-section">
+                <p>Description:</p>
+                {#if isEditingDescription}
+                    <textarea
+                        bind:value={selectedTask.description}
+                        on:blur={() => isEditingDescription = false}
+                        autoFocus
+                    ></textarea>
+                {:else}
+                    <div 
+                        class="description-display"
+                        on:click={() => isEditingDescription = true}
+                    >
+                        {selectedTask.description || 'Click to add a description'}
+                    </div>
+                {/if}
+            </div>
             <div class="deadline-section">
                 <p>Deadline:</p>
                 <div class="deadline-controls">
-                    <!-- <input type="date" bind:value={selectedTask.deadline}> -->
-                    <button on:click={() => setQuickDeadline(1)}>Tomorrow</button>
-                    <button on:click={setEndOfWeekDeadline}>End of Week</button>
-                    <button on:click={() => setQuickDeadline(7)}>1 Week</button>
-                    <button on:click={() => setQuickDeadline(14)}>2 Weeks</button>
-                    <button on:click={() => setQuickDeadline(30)}>1 Month</button>
+                    <button 
+                        on:click={() => setQuickDeadline(1)}
+                        class:selected={selectedDeadline === 1}
+                    >Tomorrow</button>
+                    <button 
+                        on:click={setEndOfWeekDeadline}
+                        class:selected={selectedDeadline === 'endOfWeek'}
+                    >End of Week</button>
+                    <button 
+                        on:click={() => setQuickDeadline(7)}
+                        class:selected={selectedDeadline === 7}
+                    >1 Week</button>
+                    <button 
+                        on:click={() => setQuickDeadline(14)}
+                        class:selected={selectedDeadline === 14}
+                    >2 Weeks</button>
+                    <button 
+                        on:click={() => setQuickDeadline(30)}
+                        class:selected={selectedDeadline === 30}
+                    >1 Month</button>
                 </div>
             </div>
             <div class="tag-section">
@@ -291,6 +359,8 @@
                             class:selected={selectedTask.tags.includes(tag.id)}
                             on:click={() => toggleTag(tag.id)}
                             style="background-color: {tag.color}"
+                            data-color={tag.color}
+
                         >
                             {tag.name}
                         </button>
@@ -311,24 +381,35 @@
                 </div>
             </div>
             <button class="done-button" on:click={saveAndCloseModal}>Done</button>
+            <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
+
         </div>
     </div>
 {/if}
 
 <style>
+
+    p {
+        font-size: 14px;
+    }
     .kanban-board {
         display: flex;
+        flex-direction: row;
         gap: 10px;
         padding: 10px;
-        overflow-x: hidden;
-        justify-content: center;
-        align-items: center;
+        overflow-x: auto;
+        justify-content: flex-start; 
+        align-items: flex-start;
+        height: 100%;
+
     }
 
     .kanban-column {
         background-color: none;
         border-radius: 5px;
-        flex: 1;
+        flex: 0 0 auto;
+        display: flex;        
+        flex-direction: column;
         max-width: 300px;
         min-width: 200px;
         padding: 10px;
@@ -374,15 +455,21 @@
         background-color: #1c1c1c;
         border-radius: 10px;
         padding: 5px;
-        margin-bottom: 10px;
+        margin-bottom: 10px;;
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(5px);        
+        transform: scale(1.05) translateX(5px) rotate(5deg);        
     }
+
+
+    .task-card:active {
+        transform: rotate(-5deg);
+    }
+
 
     .tag-list {
         display: flex;
@@ -394,15 +481,36 @@
     .tag {
         color: white;
         padding: 2px 5px;
-        border-radius: 3px;
+        border-radius: 10px;
         font-size: 0.8em;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        cursor: pointer;
     }
+
+    .tag:hover {
+        opacity: 0.8;
+    }
+
+    .tag.selected {
+        border-color: white;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }
+
+
+
 
     .deadline {
         font-size: 0.8em;
         color: #888;
         margin-top: 5px;
     }
+
+    .deadline.selected {
+        border-color: white;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }    
+
 
     .attachment-indicator {
         position: absolute;
@@ -464,9 +572,11 @@
         font-size: 0.8em;
     }
 
-    .deadline-controls button:hover {
-        background-color: #45a049;
+    .deadline-controls button.selected {
+        border: 2px solid white;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }
+
 
     .tag-section, .attachment-section {
         margin-top: 10px;
@@ -523,6 +633,16 @@
 
     .done-button:hover {
         background-color: #45a049;
+    }
+
+    @keyframes selectPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    .tag.selected {
+        animation: selectPulse 0.3s ease-in-out;
     }
 
     @media (max-width: 970px) {
