@@ -1,313 +1,473 @@
-Svelte Component with Independent Overlays
-
 <script lang="ts">
-import { AppShell } from '@skeletonlabs/skeleton';
-import Header from './Header.svelte';
-import Footer from './Footer.svelte';
-import Messages from "../lib/Messages.svelte";    
-import Kanban from "../lib/Kanban.svelte"; 
-import Icon from '@iconify/svelte';
+    import { fly, fade } from 'svelte/transition';
+    import { currentUser } from '$lib/pocketbase';
+    import horizon100 from '$lib/assets/horizon100.svg';
+    import Auth from '../lib/components/auth/Auth.svelte';
+    import { Brain, Menu, LogIn, User, LogOut } from 'lucide-svelte';
+    import { navigating } from '$app/stores';
+    import { isNavigating } from '$lib/stores/navigationStore';
+    import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+    import { onMount } from 'svelte';
 
-import { writable } from 'svelte/store';
-import github from '$lib/images/github.svg';
+    let isMenuOpen = false;
+    let showAuth = false;
+    let innerWidth: number;
 
-import '../app.css';
+    $: isNarrowScreen = innerWidth <= 700;
 
-const leftOverlayOpen = writable(false);
-const leftOverlayPosition = writable(-95);
-const rightOverlayOpen = writable(false);
-const rightOverlayPosition = writable(300);
-let isDragging = false;
-let startX = 0;
-let startPosition = 0;
-let activeOverlay: 'left' | 'right' | null = null;
-const activeIcon = writable(0);
+    onMount(() => {
+        const unsubscribe = navigating.subscribe((navigationData) => {
+            if (navigationData) {
+                isNavigating.set(true);
+            } else {
+                // Add a small delay before hiding the spinner to ensure content is ready
+                setTimeout(() => {
+                    isNavigating.set(false);
+                }, 300);
+            }
+        });
 
-function setActiveIcon(index: number) {
-    activeIcon.set(index);
-    if (!$leftOverlayOpen) {
-        toggleLeftOverlay();
+        return () => {
+            unsubscribe();
+        };
+    });
+
+    function toggleMenu() {
+        isMenuOpen = !isMenuOpen;
     }
-}
 
-function toggleLeftOverlay() {
-    leftOverlayOpen.update(n => !n);
-    leftOverlayPosition.set($leftOverlayOpen ? 0 : -95);
-}
-
-function toggleRightOverlay() {
-    rightOverlayOpen.update(n => !n);
-    rightOverlayPosition.set($rightOverlayOpen ? 0 : 300);
-}
-
-function handleDragStart(event: MouseEvent | TouchEvent, side: 'left' | 'right') {
-    if (event.target instanceof HTMLElement && event.target.closest('.drag-handle')) {
-        isDragging = true;
-        activeOverlay = side;
-        startX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
-        startPosition = side === 'left' ? $leftOverlayPosition : $rightOverlayPosition;
-        event.preventDefault();
+    function toggleAuth() {
+        showAuth = !showAuth;
     }
-}
 
-function handleDragMove(event: MouseEvent | TouchEvent) {
-    if (!isDragging) return;
-    const currentX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
-    const diff = currentX - startX;
-    let newPosition = startPosition + (activeOverlay === 'left' ? diff : -diff);
-
-    if (activeOverlay === 'left') {
-        newPosition = Math.min(Math.max(newPosition, -95), 0);
-        leftOverlayPosition.set(newPosition);
-    } else {
-        newPosition = Math.min(Math.max(newPosition, 0), 300);
-        rightOverlayPosition.set(newPosition);
+    function handleAuthSuccess() {
+        showAuth = false;
     }
-}
 
-function handleDragEnd() {
-    if (!isDragging) return;
-    isDragging = false;
-    if (activeOverlay === 'left') {
-        if ($leftOverlayPosition > -47.5) {
-            leftOverlayOpen.set(true);
-            leftOverlayPosition.set(0);
-        } else {
-            leftOverlayOpen.set(false);
-            leftOverlayPosition.set(-95);
-        }
-    } else {
-        if ($rightOverlayPosition < 150) {
-            rightOverlayOpen.set(true);
-            rightOverlayPosition.set(0);
-        } else {
-            rightOverlayOpen.set(false);
-            rightOverlayPosition.set(300);
-        }
+    function handleLogout() {
+        // Any additional logout logic can go here
+        showAuth = false;
     }
-    activeOverlay = null;
-}
 </script>
 
-<svelte:window 
-    on:mousemove={handleDragMove}
-    on:touchmove={handleDragMove}
-    on:mouseup={handleDragEnd}
-    on:touchend={handleDragEnd}
-/>
+<svelte:window bind:innerWidth />
 
-<AppShell>
-    <svelte:fragment slot="header">
-        <Header 
-            toggleOverlay={toggleLeftOverlay} 
-            toggleRightOverlay={toggleRightOverlay}
-            overlayOpen={$leftOverlayOpen}
-            rightOverlayOpen={$rightOverlayOpen}
-        />
-    </svelte:fragment>
-    
-    <!-- Left Overlay -->
-    <div 
-        role="dialog"
-        aria-label="Left sidebar"
-        class="overlay left-overlay bg-surface-200 dark:bg-surface-800 shadow-lg"
-        class:open={$leftOverlayOpen}
-        style="transform: translateX({$leftOverlayPosition}px)"
-        on:mousedown={(e) => handleDragStart(e, 'left')}
-        on:touchstart={(e) => handleDragStart(e, 'left')}
-    >
-        <div class="drag-handle"></div>
-        <div class="overlay-content">
-            <div class="flex">
-                <div class="content-section">
-                    {#if $activeIcon === 0}
-                        <h1>            
-                            Schedule
-                        </h1>
-                    {:else if $activeIcon === 1}
-                        <h1>
-                            Kanban
-                        </h1>
-                        <Kanban />
-                    {:else if $activeIcon === 2}
-                        <h1>            
-                            Values
-                        </h1>
-                    {:else if $activeIcon === 3}
-                        <h1>            
-                            Sprints
-                        </h1>
-                    {/if}
-                </div>
-                <div class="icon-column">
-                    <button on:click={() => setActiveIcon(0)} class:active={$activeIcon === 0}>
-                        <Icon icon="mdi:calendar" />
-                    </button>
-                    <button on:click={() => setActiveIcon(1)} class:active={$activeIcon === 1}>
-                        <Icon icon="mdi:view-column" />                    
-                    </button>
-                    <button on:click={() => setActiveIcon(2)} class:active={$activeIcon === 2}>
-                        <Icon icon="mdi:lightbulb-outline" />                    
-                    </button>
-                    <button on:click={() => setActiveIcon(3)} class:active={$activeIcon === 3}>
-                        <Icon icon="mdi:run" />                    
+<div class="app-container">
+    <header>
+        <nav>
+            <a href="/" class="header-logo">
+                <img src={horizon100} alt="Horizon100" class="logo" />
+                <h1 class="h1">vRAZUM</h1>
+            </a>
+            {#if isNarrowScreen}
+                <button class="menu-button" on:click={toggleMenu}>
+                    <Menu size={24} />
+                </button>
+            {:else}
+                <div class="nav-links">
+                    <!-- <a href="/launcher" class="svg-container">
+                        <Brain size={24} />
+                    </a> -->
+                    <button class="menu-button" on:click={toggleAuth}>
+                        {#if $currentUser}
+                            <User size={24} />
+                            <span class="user-name">{$currentUser.name || $currentUser.email}</span>
+                        {:else}
+                            <LogIn size={24} />
+                        {/if}
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
+            {/if}
+        </nav>
+    </header>
 
-    <!-- Right Overlay -->
-    <div 
-        role="dialog"
-        aria-label="Right sidebar"
-        class="overlay right-overlay bg-surface-200 dark:bg-surface-800 shadow-lg"
-        class:open={$rightOverlayOpen}
-        style="transform: translateX({$rightOverlayPosition}px)"
-        on:mousedown={(e) => handleDragStart(e, 'right')}
-        on:touchstart={(e) => handleDragStart(e, 'right')}
-    > 
-        <div class="drag-handle"></div>
-        <div class="overlay-content">
-            <nav class="list-nav p-4">
-                <ul>
-                    <li><a href="/" class="overlay-link"><h1>Chat</h1></a></li>
-                </ul>
-                <Messages />
-            </nav>
+    {#if showAuth}
+        <div class="auth-overlay" on:click|self={toggleAuth}>
+            <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
         </div>
-    </div>
+    {/if}
 
-    <main class="p-4">
+    {#if isNarrowScreen && isMenuOpen}
+        <div class="mobile-menu" transition:fly={{ y: -200, duration: 300 }}>
+            <a href="/canvas" class="svg-container">SVG</a>
+            <a href="/launcher" class="svg-container">Launcher</a>
+            <a href="/html-canvas" class="svg-container">html</a>
+            <button class="menu-button" on:click={toggleAuth}>
+                {#if $currentUser}
+                    <User size={24} />
+                    <span class="user-name">{$currentUser.name || $currentUser.email}</span>
+                {:else}
+                    <LogIn size={24} />
+                    <span>Login</span>
+                {/if}
+            </button>
+        </div>
+    {/if}
+
+	{#if $isNavigating}
+		<LoadingSpinner />
+	{/if}
+
+    <main>
         <slot />
     </main>
+	<footer>
+	  <!-- <p>&copy; 2024 vRAZUM. All rights reserved.</p> -->
+	</footer>
+  </div>
+  
+  <style>
+	@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap');
+  
+	* {
+	  font-family: 'Source Code Pro', monospace;
+	  
+	}
 
-    <svelte:fragment slot="footer">
-        <Footer />
-    </svelte:fragment>
-</AppShell>
-
-<style>
-    .overlay {
+	:global(.loading-spinner) {
         position: fixed;
-        top: 5%;
-        height: 90%;        
-        transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-        z-index: 1004;
-        border: solid 2px #30363e;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .left-overlay {
+        top: 0;
         left: 0;
-        border-top-right-radius: 10px;
-        border-bottom-right-radius: 10px;
-        width: 600px;
-        background: linear-gradient(to right, #292929, #333333);
-    }
-
-    .right-overlay {
-        right: 50px;
-        width: 400px;
-        border-top-left-radius: 10px;
-        border-bottom-left-radius: 10px;
-        background: linear-gradient(to left, #292929, #333333);
-        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-    }
-    .overlay-content {
-        flex-grow: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
-
-
-    .left-overlay .drag-handle {
-        border-top-left-radius: 20px;
-        border-bottom-left-radius: 20px;
-        width: 15px;
-        background-color: #1c1c1c;
-        position: absolute;
         right: 0;
-    }
-
-    .right-overlay .drag-handle {
-        border-top-right-radius: 20px;
-        border-bottom-right-radius: 20px;
-        width: 15px;
-        left: 0;
-    }
-
-    .drag-handle {
-        position: absolute;
-        top: 50%;
-        height: 300px;
-        background-color: #1c1c1c;
-        cursor: grab;
-    }
-
-    .list-nav ul {
-        list-style-type: none;
-        padding: 1rem;
-    }
-
-    .list-nav li {
-        margin-bottom: 0.75rem;
-    }
-
-    .overlay-link {
-        display: block;
-        padding: 0.5rem 1rem;
-        color: var(--color-text-base);
-        text-decoration: none;
-        transition: all 0.2s ease-in-out;
-        border-radius: 0.25rem;
-    }
-
-    .overlay-link:hover {
-        background-color: var(--color-primary-500);
-        color: white;
-    }
-
-    h1 {
-        margin-bottom: 0;
-        margin-top: 0;
-        font-size: 24px;
-    }
-
-    .icon-column {
-        width: 50px;
+        bottom: 0;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding-top: 20px;
-        position: absolute;
-        right: 0;
-        top: 80%;
         justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
     }
+	.app-container {
+	  display: flex;
+	  flex-direction: column;
+	  /* justify-content: center; */
+	  /* align-items: center; */
+	  overflow: hidden;
+	  /* height: 100vh; */
+	  /* width: 100vw; */;
+	  
+	  
+	}
+  
+	header {
+	  display: flex;
+	  flex-direction: row;
+	  justify-content: right;
+	  height: 40px;
+	  /* align-items: center; */
+	  /* width: 100%; */
+	  /* height: 60px; */
+	  /* padding: 5px 5px; */
+	  border-bottom-left-radius: 0px; 
+	  border-bottom-right-radius: 0px;
+	  border-top-left-radius: 8px;
+	  border-top-right-radius: 8px;
+	  z-index: 100;;
+	  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
+	  /* background: linear-gradient(to bottom, #3f4b4b, #333333); */
 
-    .icon-column button {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 1px solid #1c1c1c;
-        background: linear-gradient(to left, #292929, #333333);
-        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);        
-        color: #ffffff;
-        margin-bottom: 20px;
+      /* background: linear-gradient(
+        to bottom, 
+        rgba(117, 118, 114, 0.9) 0%,
+        rgba(117, 118, 114, 0.85) 5%,
+        rgba(117, 118, 114, 0.8) 10%,
+        rgba(117, 118, 114, 0.75) 15%,
+        rgba(117, 118, 114, 0.7) 20%,
+        rgba(117, 118, 114, 0.65) 25%,
+        rgba(117, 118, 114, 0.6) 30%,
+        rgba(117, 118, 114, 0.55) 35%,
+        rgba(117, 118, 114, 0.5) 40%,
+        rgba(117, 118, 114, 0.45) 45%,
+        rgba(117, 118, 114, 0.4) 50%,
+        rgba(117, 118, 114, 0.35) 55%,
+        rgba(117, 118, 114, 0.3) 60%,
+        rgba(117, 118, 114, 0.25) 65%,
+        rgba(117, 118, 114, 0.2) 70%,
+        rgba(117, 118, 114, 0.15) 75%,
+        rgba(117, 118, 114, 0.1) 80%,
+        rgba(117, 118, 114, 0.05) 85%,
+        rgba(117, 118, 114, 0) 100%
+        
+      ); */
+      /* backdrop-filter: blur(3px); */
+	  /* padding: 1rem 0; */
+	}
+  
+	.header-logo {
+	  display: flex;
+	  flex-direction: row;
+	  /* position: absolute; */
+
+	  /* margin-left: 10%; */
+	  /* border: 1px solid #000000; */
+	  border-radius: 16px;
+		margin-top: 10px;
+	  /* background-color: #2a3130; */
+	  /* box-shadow: #000000 5px 5px 5px 1px; */
+	  text-decoration: none;
+	  transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+	  justify-content: center;
+	  align-items: center;
+	  height: auto;
+	  user-select: none;
+
+	}
+  
+	.header-logo:hover {
+	  transform: scale(1.1);
+	}
+  
+	.logo {
+	  width: 30px;
+	  height: 30px;
+	  margin-right: 10px;
+	}
+  
+	.h1 {
+	  color: white;
+	  font-size: 20px;
+	  line-height: 1.5;
+	}
+  
+	nav {
+	  display: flex;
+	  flex-direction: row;
+	  justify-content: center;
+	  align-items: center;
+	  padding: 5px;
+		
+	  gap: 1rem;
+	  /* margin-right: 10%; */
+	  align-items: center;
+	  justify-content: center;
+	  /* padding: 10px; */
+	}
+  
+	nav a {
+		justify-content: center;
+		align-items: center;
+		margin-left: 20px;
+		font-weight: bold;
+		font-size: 24px;
+		color: black;
+		text-decoration: none;
+		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+	}
+
+	  
+	nav a:hover {
+	  opacity: 0.8;
+	  background-color: blue;
+	}
+
+	  
+	 a {
+		justify-content: center;
+		align-items: center;
+		margin-left: 20px;
+		margin-bottom: 10px;
+		font-weight: bold;
+		width: 90%;
+		font-size: 24px;
+		color: black;
+		text-decoration: none;
+		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+	}
+  
+
+
+	.nav-links {
+		display: flex;
+		gap: 1rem;
+		align-items: center;
+		justify-content: center;
+		align-items: center;
+	}
+  
+	.svg-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		text-align: center;
+		color: white;
+		font-size: 20px;
+		border-radius: 8px;
+		border: 2px solid #4b4b4b;
+		cursor: pointer;
+		text-decoration: none;
+		transition: all 0.3s ease;
+		width: 100px;
+		background-color: #352e2e;
+		height: 30px;
+		width: 40px;
+	}
+
+	.svg-container:hover {
+		opacity: 0.8;
+		background-color: black;
+	}
+
+	.menu-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: none;
+        border: none;
+		/* background-color: red; */
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        font-size: 14px;
     }
 
-    .icon-column button:hover,
-    .icon-column button.active {
+    .user-name {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+ 
+
+	.mobile-menu {
+		position: absolute;
+		bottom: calc(100% - 280px);
+		width: calc(100% - 60px);
+		left: 10px;
+		right: 0;
+		padding: 20px;
+		z-index: 99;
+		border: 1px solid #000000;
+		background: linear-gradient(to top, #3f4b4b, #333333);
+	}
+	@media (max-width: 700px) {
+		.nav-links {
+			display: none;
+		}
+	}
+
+	/* .auth-button {
+	  background-color: rgb(4, 4, 4);
+	  padding: 20px 40px;
+	  border-radius: 20px;
+	  color: white;
+	  
+	  font-size: 30px;
+	  cursor: pointer;
+	  transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+	  
+	}
+  
+	.auth-button:hover {
+	  opacity: 0.9;
+	  transform: scale(1.05);
+	} */
+  
+	/* main {
+	  /* flex-grow: 1; */
+	  /* padding: 2rem 10%; */
+	  /* width: 100%; */
+	  
+	
+	/* .svg-container { */
+		/* display: flex; */
+		/* justify-content: center; */
+		/* text-align: center; */
+		/* background: linear-gradient(to top, #3f4b4b, #333333); */
+		/* color: white; */
+		/* font-size: 1rem; */
+		/* height: 40px; */
+		/* border-radius: 8px; */
+		/* border: 2px solid #222222; */
+		/* padding: 5px; */
+		/* cursor: pointer; */
+		/* margin-left: 200px; */
+
+	/* } */
+
+	/* .svg-container:hover { */
+	  /* opacity: 0.8; */
+	  /* background-color: blue; */
+	/* } */
+	
+
+	button {
+		display: flex;
+		justify-content: center;
+		text-align: center;
+		background-color: #222222;
+		color: white;
+		font-size: 1rem;
+		border-radius: 8px;
+		border: 2px solid #222222;
+		padding: 5px;
+		cursor: pointer;
+	}
+
+	button:hover {
+	  opacity: 0.8;
+	  background-color: red;
+	}
+  
+	footer {
+	  /* background-color: #1d2026; */
+	  color: white;
+	  text-align: center;
+	  justify-content: center;
+	  align-items: center;
+	  /* padding: 1rem; */
+	  width: 100%;
+	  position: fixed;
+	  bottom: 0;
+	  height: 0;
+	}
+
+	/* .auth-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    } */
+
+	.user-button {
+        background-color: #3c3c3c;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .user-button:hover {
         background-color: #4a4a4a;
     }
 
-    .content-section {
-        flex-grow: 1;
-        padding: 10px;
-        overflow-y: auto;
-    }
-</style>
+	@media (max-width: 700px) {
+		.nav-links {
+			display: none;
+		}
+
+	main {
+		flex-grow: 1;
+		padding-top: 1rem;
+	}
+
+	footer {
+		color: white;
+		text-align: center;
+		width: 100%;
+		padding: 1rem 0;
+	}
+	}
+
+
+
+  </style>

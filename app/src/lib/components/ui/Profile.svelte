@@ -1,0 +1,214 @@
+<script lang="ts">
+    import { fade, slide } from 'svelte/transition';
+    import { pb } from '$lib/pocketbase';
+    import { Camera } from 'lucide-svelte';
+
+    export let user: any;
+    export let onClose: () => void;
+
+    let isEditing = false;
+    let editedUser = { ...user };
+
+    function toggleEdit() {
+        isEditing = !isEditing;
+    }
+
+    async function saveChanges() {
+        try {
+            await pb.collection('users').update(user.id, editedUser);
+            user = { ...editedUser };
+            isEditing = false;
+        } catch (error) {
+            console.error('Error updating user:', error);
+        }
+    }
+
+    function handleOutsideClick(event: MouseEvent) {
+        if (event.target === event.currentTarget) {
+            onClose();
+        }
+    }
+</script>
+
+<div class="modal-overlay" on:click={handleOutsideClick} transition:fade={{ duration: 300 }}>
+    <div class="modal-content" transition:slide={{ duration: 300 }}>
+        <div class="profile-header">
+            <div class="avatar-container">
+                {#if user.avatar}
+                    <img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
+                {:else}
+                    <div class="avatar-placeholder">
+                        <Camera size={48} />
+                    </div>
+                {/if}
+            </div>
+            <div class="info-row">
+                {#if isEditing}
+                    <input bind:value={editedUser.username} />
+                {:else}
+                    <span>{user.username || 'Not set'}</span>
+                {/if}
+            </div>        </div>
+        <div class="profile-info">
+            <div class="info-row">
+                <span class="label">Name:</span>
+                {#if isEditing}
+                    <input bind:value={editedUser.name} />
+                {:else}
+                    <span>{user.name || 'Not set'}</span>
+                {/if}
+            </div>
+            <div class="info-row">
+                <span class="label">Email:</span>
+                <span>{user.email}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Role:</span>
+                <span>{user.role}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Created:</span>
+                <span>{new Date(user.created).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Updated:</span>
+                <span>{new Date(user.updated).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Verified:</span>
+                <span>{user.verified ? 'Yes' : 'No'}</span>
+            </div>
+
+        </div>
+        <div class="actions">
+            {#if isEditing}
+                <button on:click={saveChanges}>Save</button>
+                <button on:click={toggleEdit}>Cancel</button>
+            {:else}
+                <button on:click={toggleEdit}>Edit</button>
+            {/if}
+            <button on:click={onClose}>Close</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 60px;
+        /* left: 0; */
+        /* max-width: 100%; */
+        /* height: 100%; */
+        /* background-color: rgba(0, 0, 0, 0.5); */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        border-radius: 10px;
+
+    }
+
+    .modal-content {
+        background: linear-gradient(
+            to top, 
+            rgba(70, 118, 114, 0.9) 0%,
+            rgba(70, 118, 114, 0.85) 5%,
+            rgba(70, 118, 114, 0.8) 10%,
+            rgba(70, 118, 114, 0.75) 15%,
+            rgba(70, 118, 114, 0.7) 20%,
+            rgba(70, 118, 114, 0.65) 25%,
+            rgba(70, 118, 114, 0.6) 30%,
+            rgba(70, 118, 114, 0.55) 35%,
+            rgba(70, 118, 114, 0.5) 40%,
+            rgba(70, 118, 114, 0.45) 45%,
+            rgba(70, 118, 114, 0.4) 50%,
+            rgba(70, 118, 114, 0.35) 55%,
+            rgba(70, 118, 114, 0.3) 60%,
+            rgba(70, 118, 114, 0.25) 65%,
+            rgba(70, 118, 114, 0.2) 70%,
+            rgba(70, 118, 114, 0.15) 75%,
+            rgba(70, 118, 114, 0.1) 80%,
+            rgba(70, 118, 114, 0.05) 85%,
+            rgba(70, 118, 114, 0) 100%
+            );
+        backdrop-filter: blur(40px);        
+        padding: 2rem;
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+        /* max-width: 100%; */
+
+        /* max-width: 500px; */
+        width: 90%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .profile-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .avatar-container {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-right: 1rem;
+    }
+
+    .avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #e0e0e0;
+        color: #757575;
+    }
+
+    h2 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .profile-info {
+        margin-bottom: 1rem;
+    }
+
+    .info-row {
+        display: flex;
+        margin-bottom: 0.5rem;
+    }
+
+    .label {
+        font-weight: bold;
+        width: 100px;
+    }
+
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    button {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.3s;
+    }
+
+    button:hover {
+        opacity: 0.8;
+    }
+</style>

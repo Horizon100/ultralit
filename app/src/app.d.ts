@@ -1,18 +1,18 @@
-// See https://kit.svelte.dev/docs/types#app
-// for information about these interfaces
+/// <reference types="@sveltejs/kit" />
+
 declare global {
 	namespace App {
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+	//   interface Locals {}
+	//   interface PageData {}
+	//   interface Error {}
+	//   interface Platform {}
 	}
-	interface Window {
-		google: any;
-		msal: any;
-		AppleID: any;
-	  }
-}
+  
+	interface ImportMetaEnv {
+	  VITE_OPENAI_API_KEY: string;
+	}
+  
 
-export {};
+  }
+  
+  export {};

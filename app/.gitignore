@@ -1,21 +1,52 @@
-node_modules
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
 
-# Output
-.output
-.vercel
+# Build outputs
 /.svelte-kit
 /build
+/.vercel
+/.output
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Env
+# Environment variables
 .env
 .env.*
 !.env.example
 !.env.test
 
+# OS files
+.DS_Store
+Thumbs.db
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.log
+*.bak
+*.tmp
+*~
+
+# Cache
+.cache
+.parcel-cache
+
+# Misc
+*.pem
