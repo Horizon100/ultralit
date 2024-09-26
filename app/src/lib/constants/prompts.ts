@@ -43,7 +43,7 @@ Each task should be clear, concise, and directly related to the scenario and use
 
 
 
-export const promptOptions: Array<{value: PromptType; label: string; icon: any}> = [
+export const availablePrompts: Array<{value: PromptType; label: string; icon: any}> = [
   { value: 'SCENARIO_GENERATION', label: 'Generate Scenarios', icon: BookOpen },
   { value: 'TASK_GENERATION', label: 'Generate Tasks', icon: List },
   { value: 'AGENT_CREATION', label: 'Create AI Agent', icon: User },
@@ -53,3 +53,4 @@ export const promptOptions: Array<{value: PromptType; label: string; icon: any}>
   { value: 'NETWORK_GENERATION', label: 'Generate Network', icon: Share2 },
   { value: 'CASUAL_CHAT', label: 'Casual Chat', icon: Coffee },
 ];
+

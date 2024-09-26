@@ -1,7 +1,8 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance, PartialAIAgent, VisNode } from '$lib/types';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance, PartialAIAgent, VisNode, Messages, Threads } from '$lib/types';
 
 import { getPrompt } from '$lib/constants/prompts';
 import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
+import { pb } from '$lib/pocketbase';
 
 const toVisNode = (agent: AIAgent): VisNode => {
     const position = typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position;
@@ -348,6 +349,39 @@ export async function generateNetwork(summary: string, model: AIModel, userId: s
         nodes,
         edges,
     };
+}
+
+export async function createThread(name: string, userId: string): Promise<Threads> {
+    const thread = await pb.collection('threads').create<Threads>({
+        name,
+        created_by: userId
+    });
+    return thread;
+}
+
+export async function fetchThreads(userId: string): Promise<Threads[]> {
+    const threads = await pb.collection('threads').getFullList<Threads>({
+        sort: '-created',
+        filter: `created_by = "${userId}"`
+    });
+    return threads;
+}
+
+export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
+    try {
+        const messages = await pb.collection('messages').getFullList<Messages>({
+            sort: 'created',
+            filter: `thread = "${threadId}"`,
+            expand: 'user'
+        });
+        return messages;
+    } catch (error) {
+        console.error('Error fetching messages for thread:', error);
+        if (error instanceof Error) {
+            console.error('Error details:', error.message);
+        }
+        return [];
+    }
 }
 
 // export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {

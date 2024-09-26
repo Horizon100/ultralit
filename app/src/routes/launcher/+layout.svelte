@@ -34,6 +34,7 @@
   import { Chat } from 'openai/resources/index.mjs';
   import { quotes } from '$lib/quotes';
   import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
+  import itImage from '$lib/assets/illustrations/italian.jpeg';
 
   let showOverlay = false;
   let overlayContent = '';
@@ -299,28 +300,37 @@
 <svelte:window bind:innerWidth />
 
 <div class="layout">
+  <img src={itImage} alt="Italian illustration" class="illustration" />
+
   {#if isLoading}
-  <div class="loading-overlay">
-    <LoadingSpinner />
+    <div class="loading-overlay">
+      <LoadingSpinner />
+    </div>
+  {/if}
+
+  <div class="workspace-container">
+    <div class="workspace-selector"
+      on:mousedown={handleMouseDown}
+      on:mouseleave={handleMouseLeave}
+      on:mouseup={handleMouseUp}
+      on:mousemove={handleMouseMove}
+      style="cursor: grab;">        
+      {#each workspaces as workspace (workspace.id)}
+        <button class="workspace-button" on:click={() => selectWorkspace(workspace.id)}>
+          {#if getAvatarUrl(workspace)}
+            <img src={getAvatarUrl(workspace)} alt={workspace.name} class="workspace-avatar" />
+          {:else}
+            <DefaultAvatar name={workspace.name} size={40} />
+          {/if}
+          <span>{workspace.name}</span>
+        </button>
+      {/each}
+    </div>
+    {#if currentWorkspace}
+      <div class="workspace-name">{currentWorkspace.name}</div>
+    {/if}
   </div>
-{/if}
-  <div class="workspace-selector"
-  on:mousedown={handleMouseDown}
-  on:mouseleave={handleMouseLeave}
-  on:mouseup={handleMouseUp}
-  on:mousemove={handleMouseMove}
-  style="cursor: grab;">        
-  {#each workspaces as workspace (workspace.id)}
-    <button class="workspace-button" on:click={() => selectWorkspace(workspace.id)}>
-      {#if getAvatarUrl(workspace)}
-        <img src={getAvatarUrl(workspace)} alt={workspace.name} class="workspace-avatar" />
-      {:else}
-        <DefaultAvatar name={workspace.name} size={40} />
-      {/if}
-      <span>{workspace.name}</span>
-    </button>
-  {/each}
-</div>
+
   <nav class="config-selector" class:collapsed={!isNavExpanded && isNarrowScreen}>
     {#if isNarrowScreen}
       <button class="toggle-nav" on:click={toggleNav}>
@@ -358,18 +368,6 @@
     >
       <Target size={24} class="nav-icon" />
     </button>
-    {#if currentWorkspace}
-      <div class="workspace-handle">
-        <!-- <button class="menu-button" on:click={goBack}>
-          <ArrowLeft size={40} class="nav-icon" />
-        </button> -->
-        <!-- <span class="workshop-count">{workshopCount}</span> -->
-        <span>{currentWorkspace.name}</span>
-        <!-- <button class="menu-button" on:click={createNewWorkshop}>
-          <Plus size={40} class="nav-icon" />
-        </button> -->
-      </div>
-    {/if}
   </nav>
 
   <CursorEffect />
@@ -478,11 +476,20 @@
   .layout {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    width: 100vw;
+    position: relative;
+    margin-top: 1rem;
+    height: 94vh;
+    /* width: 100vw; */
     overflow: hidden;
+    /* background-color:#010e0e; */
+    /* background-color:#142e2e; */
+    background-color:#010e0e;
+    width: 96%;
+    margin-left: 2%;
+    border-radius: 40px;
+    
   }
-
+ 
   main {
     flex-grow: 1;
     overflow-y: auto;
@@ -490,22 +497,37 @@
     padding: 20px;
   }
 
+  .workspace-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.workspace-selector:hover + .workspace-name {
+  opacity: 0;
+}
+
   .config-selector {
-    position: fixed;
-    justify-content: center;
-    align-items: center;
     display: flex;
-    bottom: 0;
-    height: 60px;
-    left: 80px;
+    margin-left: 20px;
+    padding: 10px 10px;
+    /* position: absolute; */
+    justify-content: space-between;
+    align-items: center;
+    /* bottom: 80px; */
+    /* height: 60px; */
+    /* left: 80px; */
     flex-direction: row;
-    gap: 20px;
-    padding: 5px;
+    /* gap: 20px; */
+    /* padding: 5px; */
     /* border-radius: 20px; */
     z-index: 1002;
+    width: 400px;
+    border-radius: 20px;
+
     /* background-color: rgb(58, 50, 50); */
     background-color: #262929;
-    width: 300px;
+    /* width: 300px; */
     transition: all 0.3s ease;  /* Added transition for smooth toggle */
   }
 
@@ -673,54 +695,38 @@
 }
 .workspace-selector {
   display: flex;
-  flex-direction: column;
-  position: fixed;
+  flex-direction: row;
+  position: relative;
   align-items: center;
   justify-content: flex-start;
-  border-right: 1px solid black;
-  left: 0;
-  top: 0;
+  /* border-right: 1px solid black; */
+  left: 10px;
+  top: 10px;
+  /* border-radius: 20px; */
   /* padding: 10px; */
-  width: 80px;
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden; 
-  background: linear-gradient(
-    125deg,
-    rgba(117, 118, 114, 0.9) 0%,
-    /* rgba(0, 0, 0, 0.85) 5%, */
-    rgba(117, 118, 114, 0.8) 10%,
-    rgba(117, 118, 114, 0.75) 15%,
-    rgba(117, 118, 114, 0.7) 20%,
-    /* rgba(0, 0, 0, 0.65) 25%, */
-    rgba(117, 118, 114, 0.6) 30%,
-    /* rgba(0, 0, 0, 0.55) 35%, */
-    /* rgba(0, 0, 0, 0.5) 40%, */
-    rgba(117, 118, 114, 0.45) 45%,
-    /* rgba(0, 0, 0, 0.4) 50%, */
-    /* rgba(0, 0, 0, 0.35) 55%, */
-    rgba(117, 118, 114, 0.3) 60%,
-    rgba(117, 118, 114, 0.25) 65%,
-    rgba(117, 118, 114, 0.2) 70%,
-    rgba(117, 118, 114, 0.15) 75%,
-    /* rgba(0, 0, 0, 0.1) 80%, */
-    /* rgba(1, 1, 1, 0.05) 85%, */
-    rgba(117, 118, 114, 0) 100%
-  );
-  backdrop-filter: blur(10px);
+  /* height: 100%; */
+ /* overflow-y: hide; */
+  overflow-x: scroll; 
+
+  height: 60px;
+  width: 60px;
   user-select: none;
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: white transparent;
+  scrollbar-color: transparent transparent;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
-  transition: width 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .workspace-selector:hover {
-  width: 390px;
+  width: 90%;
+  overflow-x: scroll;
+  overflow-y: hidden;
+
   z-index: 10000;
-  
+  overflow-y: hide;
+  /* background-color: rgb(37, 37, 37); */
 
 }
 
@@ -745,15 +751,15 @@
 }
 
 .workspace-selector:hover .workspace-button {
-  width: 100%;
-  height: 60px;
-  border-radius: 0;
+  width: 90%;
+  /* height: 60px; */
+  border-radius: 50px;
   flex-direction: row;
   justify-content: flex-start;
   gap: 10px;
-  font-size: 18px;
+  /* font-size: 18px; */
   text-align: left;
-  border-bottom: 1px solid white;
+  /* border-bottom: 1px solid white; */
 
 }
 
@@ -781,6 +787,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: all 0.3s ease;
+  font-family: 'Lora', serif;
 }
 
 .workspace-selector:hover .workspace-button span {
@@ -789,22 +796,25 @@
 }
 
 .workspace-handle {
-  left: 80px;
+display: none;
   width: 300px;
-  height: 60px;
+  height: 50px;
   padding: 5px;
   background-color: #262929;
   color: white;
   font-weight: bolder;
   text-transform: uppercase;
   transition: left 0.3s ease;
-  display: flex;
-  font-size: 20px;
+  /* display: flex; */
+  font-size: 16px;
   flex-direction: row;
   justify-content: center;
   align-items: center;
   position: fixed;
-  top: 0;
+  top: 60px;
+  left: 110px;
+  border-radius: 8px;
+  border: 2px solid rgb(56, 56, 56);
   /* border-right: 1px solid black; */
 }
 
@@ -990,6 +1000,24 @@
     z-index: 9999;
   }
 
+  .illustration {
+  position: absolute;
+  width: 95%;
+  height: auto;
+  left: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.025;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.workspace-name {
+  margin-left: 20px;
+  font-size: 18px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
   @media (max-width: 700px) {
     .config-selector {
       width: auto;
@@ -1013,7 +1041,7 @@
     }
 
     .config-selector:not(.expanded) {
-      width: 80px;
+      width: 60px;
       height: 60px;
       /* bottom: 24px; */
       /* left: 40px; */
@@ -1060,8 +1088,9 @@
     .toggle-nav {
       display: flex;
       position: absolute;
-      left: 0;      
-      width: 80px;
+      left: 1rem;      
+      bottom: 1rem;
+      /* width: 80px; */
     }
 
     .config-selector button:not(.toggle-nav) {

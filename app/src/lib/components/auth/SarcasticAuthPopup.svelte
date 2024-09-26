@@ -243,7 +243,7 @@
     }
 
     input {
-        background-color: red;
+        /* background-color: red; */
         height: 100px;
         color: red;
     }

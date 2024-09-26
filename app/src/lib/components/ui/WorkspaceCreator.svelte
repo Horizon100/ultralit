@@ -209,7 +209,7 @@ border-radius: 20px;
 }
 
 .swap-container,   .auth-overlay{
-  background-color: red;
+  /* background-color: red; */
   border-radius: 10px;
   /* padding: 3px; */
   /* margin-bottom: 20px; */

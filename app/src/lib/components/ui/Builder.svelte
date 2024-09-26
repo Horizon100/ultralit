@@ -219,8 +219,9 @@
   display: flex;
 flex-direction: column;
     gap: 3px;
-width: 100%;
+width: 50%;
 position: relative;
+margin-left: 25%;
 /* background: linear-gradient(to right, red, purple); */
 /* padding: 3px; */
 border-radius: 20px;
@@ -263,7 +264,7 @@ border-radius: 20px;
 }
 
 .swap-container,   .auth-overlay{
-  background-color: red;
+  /* background-color: red; */
   border-radius: 10px;
   /* padding: 3px; */
   /* margin-bottom: 20px; */

@@ -164,12 +164,15 @@
 
 <style>
     .overlay {
-        height: 100%;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         width: auto;
-        position: relative;
+        height:99%;
+        /* margin-top: 220px; */
+
+        /* position: relative; */
         border: 4px solid rgb(45, 45, 45);
         border-radius: 20px;
         right: 0;
@@ -199,12 +202,14 @@
     }
 
     .overlay-content {
-        /* background-color: rgb(31, 31, 31); */
+        background-color: rgb(31, 31, 31);
         border-radius: 10px;
         overflow-y: auto;
-
-        width: 100%;
+        height: 89vh;
+        /* width: 100%; */
         color: white;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
     }
 
     .close-button {
@@ -250,6 +255,7 @@
         flex-direction: column;
         padding: 20px;
         overflow-y: auto;
+
     }
 
     .tab-buttons {

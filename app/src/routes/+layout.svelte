@@ -1,17 +1,19 @@
 <script lang="ts">
-    import { fly, fade } from 'svelte/transition';
+	import { onMount } from 'svelte';
+    import { fly, fade, slide } from 'svelte/transition';
     import { currentUser } from '$lib/pocketbase';
     import horizon100 from '$lib/assets/horizon100.svg';
     import Auth from '../lib/components/auth/Auth.svelte';
-    import { Brain, Menu, LogIn, User, LogOut } from 'lucide-svelte';
+    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs } from 'lucide-svelte';
     import { navigating } from '$app/stores';
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-    import { onMount } from 'svelte';
+    import TimeTracker from '$lib/components/features/TimeTracker.svelte';
 
     let isMenuOpen = false;
     let showAuth = false;
     let innerWidth: number;
+    let activeLink = '/';  // New variable to track active link
 
     $: isNarrowScreen = innerWidth <= 700;
 
@@ -48,29 +50,45 @@
         // Any additional logout logic can go here
         showAuth = false;
     }
+
+	function setActiveLink(path: string) {
+        activeLink = path;
+    }
 </script>
 
 <svelte:window bind:innerWidth />
 
 <div class="app-container">
-    <header>
+	<header>
         <nav>
-            <a href="/" class="header-logo">
+            <a href="/" class="header-logo" on:click={() => setActiveLink('/')}>
                 <img src={horizon100} alt="Horizon100" class="logo" />
                 <h1 class="h1">vRAZUM</h1>
             </a>
             {#if isNarrowScreen}
-                <button class="menu-button" on:click={toggleMenu}>
-                    <Menu size={24} />
+                <button class="menu-button" transition:fly={{ y: -200, duration: 300 }} on:click={toggleMenu}>
+                    <Menu size={20} />
                 </button>
             {:else}
-                <div class="nav-links">
-                    <!-- <a href="/launcher" class="svg-container">
-                        <Brain size={24} />
-                    </a> -->
+                <div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+                    <a href="/ask" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/ask'} on:click={() => setActiveLink('/ask')}>
+                        <MessageCircle size={20} />
+                        Ask
+                    </a>
+                    <a href="/launcher" class="nav-link" transition:fly={{ y: -200, duration: 300 }}  class:active={activeLink === '/launcher'} on:click={() => setActiveLink('/launcher')}>
+                        <Drill size={20} />
+                        Build
+                    </a>
+					<a href="/notes" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/notes'} on:click={() => setActiveLink('/notes')}>
+						<NotebookTabs size={20} />
+
+						Notes
+					</a>
+                    <a href="/canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/canvas'} on:click={() => setActiveLink('/canvas')}>Draw</a>
+                    <a href="/html-canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/html-canvas'} on:click={() => setActiveLink('/html-canvas')}>HTML</a>
                     <button class="menu-button" on:click={toggleAuth}>
                         {#if $currentUser}
-                            <User size={24} />
+                            <User size={20} />
                             <span class="user-name">{$currentUser.name || $currentUser.email}</span>
                         {:else}
                             <LogIn size={24} />
@@ -80,25 +98,33 @@
             {/if}
         </nav>
     </header>
+	<TimeTracker />
 
     {#if showAuth}
-        <div class="auth-overlay" on:click|self={toggleAuth}>
+        <div class="auth-overlay" on:click|self={toggleAuth}  transition:fly={{ y: -200, duration: 300 }}>
             <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
         </div>
     {/if}
 
     {#if isNarrowScreen && isMenuOpen}
         <div class="mobile-menu" transition:fly={{ y: -200, duration: 300 }}>
-            <a href="/canvas" class="svg-container">SVG</a>
+			<a href="/ask" class="svg-container">
+				<MessageCircle size={24} />
+			</a>
+            <a href="/launcher" class="svg-container">
+				<Drill size={24} />
+			</a>
             <a href="/launcher" class="svg-container">Launcher</a>
             <a href="/html-canvas" class="svg-container">html</a>
+
+
             <button class="menu-button" on:click={toggleAuth}>
                 {#if $currentUser}
                     <User size={24} />
-                    <span class="user-name">{$currentUser.name || $currentUser.email}</span>
+                    <!-- <span class="user-name">{$currentUser.name || $currentUser.email}</span> -->
                 {:else}
                     <LogIn size={24} />
-                    <span>Login</span>
+                    <!-- <span>Login</span> -->
                 {/if}
             </button>
         </div>
@@ -151,7 +177,8 @@
 	header {
 	  display: flex;
 	  flex-direction: row;
-	  justify-content: right;
+	  justify-content: center;
+	  align-items: center;
 	  height: 40px;
 	  /* align-items: center; */
 	  /* width: 100%; */
@@ -161,7 +188,8 @@
 	  border-bottom-right-radius: 0px;
 	  border-top-left-radius: 8px;
 	  border-top-right-radius: 8px;
-	  z-index: 100;;
+	  /* z-index: 100;; */
+	  transition: all 0.3s ease;
 	  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
 	  /* background: linear-gradient(to bottom, #3f4b4b, #333333); */
 
@@ -191,16 +219,15 @@
       /* backdrop-filter: blur(3px); */
 	  /* padding: 1rem 0; */
 	}
+
   
 	.header-logo {
-	  display: flex;
+	  display: none;
 	  flex-direction: row;
 	  /* position: absolute; */
-
 	  /* margin-left: 10%; */
 	  /* border: 1px solid #000000; */
 	  border-radius: 16px;
-		margin-top: 10px;
 	  /* background-color: #2a3130; */
 	  /* box-shadow: #000000 5px 5px 5px 1px; */
 	  text-decoration: none;
@@ -233,24 +260,24 @@
 	  flex-direction: row;
 	  justify-content: center;
 	  align-items: center;
-	  padding: 5px;
-		
+	  padding: 5px 10px;
+	  background-color: #151515;
+	  border-radius: 20px;
+	  /* background-color: black; */
+		/* height: 80px; */
 	  gap: 1rem;
 	  /* margin-right: 10%; */
-	  align-items: center;
-	  justify-content: center;
 	  /* padding: 10px; */
 	}
   
 	nav a {
 		justify-content: center;
 		align-items: center;
-		margin-left: 20px;
 		font-weight: bold;
-		font-size: 24px;
 		color: black;
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+		font-family: 'Merriweather', serif;
 
 	}
 
@@ -264,12 +291,8 @@
 	 a {
 		justify-content: center;
 		align-items: center;
-		margin-left: 20px;
-		margin-bottom: 10px;
-		font-weight: bold;
-		width: 90%;
-		font-size: 24px;
-		color: black;
+		padding: 20px;
+
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
@@ -279,11 +302,45 @@
 
 	.nav-links {
 		display: flex;
-		gap: 1rem;
+		gap: 20px;
 		align-items: center;
 		justify-content: center;
-		align-items: center;
+
 	}
+
+	.nav-link {
+		display: flex;
+		gap: 8px;
+		justify-content: center;
+		align-items: center;
+		/* background-color: red; */
+		border-radius: 10px;
+		padding: 5px 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 16px;
+        /* padding: 5px 10px; */
+        /* border-radius: 20px; */
+        transition: all 0.3s ease;
+		/* border-left: 1px solid rgb(130, 130, 130); */
+		
+    }
+
+	.nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+		transform: translateY(-2px);
+
+    }
+
+	.nav-link.active {
+        background-color: #365040;  /* Different color for active state */
+        font-weight: bold;
+		/* height: 100px; */
+		/* width: 100px; */
+		/* border-radius: 50%; */
+		/* scale: 1.2; */
+
+    }
   
 	.svg-container {
 		display: flex;
@@ -293,30 +350,35 @@
 		color: white;
 		font-size: 20px;
 		border-radius: 8px;
-		border: 2px solid #4b4b4b;
+		/* border: 2px solid #4b4b4b; */
 		cursor: pointer;
 		text-decoration: none;
 		transition: all 0.3s ease;
 		width: 100px;
-		background-color: #352e2e;
+		/* background-color: #352e2e; */
 		height: 30px;
 		width: 40px;
 	}
 
 	.svg-container:hover {
-		opacity: 0.8;
-		background-color: black;
+		/* opacity: 0.8; */
+		background-color: #222222;
+		border: none;
 	}
 
 	.menu-button {
         display: flex;
         align-items: center;
+		position: absolute;
+		right: 10px;
+		margin-right: 0;
         gap: 8px;
         background: none;
         border: none;
 		/* background-color: red; */
         cursor: pointer;
         font-size: 14px;
+		
     }
 
     .user-name {
@@ -329,23 +391,22 @@
  
 
 	.mobile-menu {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
 		position: absolute;
-		bottom: calc(100% - 280px);
-		width: calc(100% - 60px);
-		left: 10px;
-		right: 0;
-		padding: 20px;
+		bottom: 20px;
+		width: 100%;
+		gap: 1rem;
+		/* bottom: calc(100% - 280px); */
+		/* width: calc(100% - 60px); */
+		/* padding: 20px; */
 		z-index: 99;
-		border: 1px solid #000000;
+		/* border: 1px solid #000000; */
 		background: linear-gradient(to top, #3f4b4b, #333333);
 	}
-	@media (max-width: 700px) {
-		.nav-links {
-			display: none;
-		}
-	}
 
-	/* .auth-button {
+		/* .auth-button {
 	  background-color: rgb(4, 4, 4);
 	  padding: 20px 40px;
 	  border-radius: 20px;
@@ -421,18 +482,16 @@
 	  height: 0;
 	}
 
-	/* .auth-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+	.auth-overlay {
+        position: absolute;
+        top: 50px;
+		width: 100%;
         background-color: rgba(0, 0, 0, 0.5);
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 1000;
-    } */
+    }
 
 	.user-button {
         background-color: #3c3c3c;
@@ -451,21 +510,35 @@
     }
 
 	@media (max-width: 700px) {
-		.nav-links {
+
+
+		.nav-links, h1 {
 			display: none;
 		}
 
-	main {
-		flex-grow: 1;
-		padding-top: 1rem;
-	}
+		header {
+			justify-content: center;
+		}
 
-	footer {
-		color: white;
-		text-align: center;
-		width: 100%;
-		padding: 1rem 0;
-	}
+		.header-logo {
+			display: flex;
+		}
+
+		.menu-button {
+			position: relative;
+		}
+
+		main {
+			flex-grow: 1;
+			padding-top: 1rem;
+		}
+
+		footer {
+			color: white;
+			text-align: center;
+			width: 100%;
+			padding: 1rem 0;
+		}
 	}
 
 

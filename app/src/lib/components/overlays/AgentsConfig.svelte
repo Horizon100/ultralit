@@ -1468,8 +1468,9 @@
         
     }
 
-
-
+    .column-agents {
+        /* background-color: blue; */
+    }
     .agent-name {
         color: white;
         font-size: 16px;

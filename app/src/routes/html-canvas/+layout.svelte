@@ -959,12 +959,15 @@ function handleMenuAction(action: string) {
 
 
 <style>
+
+
   .canvas-container {
     width: 100%;
     height: 100%;
     position: relative;
     overflow: hidden;
     background-color: #eaece4;
+    /* z-index: 100000; */
   }
 
   .canvas-container:focus {

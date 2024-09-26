@@ -18,6 +18,7 @@
   // import Builder from '$lib/components/ui/Builder.svelte'
   import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
   import Builder from '$lib/components/ui/Builder.svelte'
+  import greekImage from '$lib/assets/illustrations/greek.png';
 
   let workspaces: Workspaces[] = [];
   let currentWorkspace: Workspaces | undefined;
@@ -35,7 +36,8 @@
     let textareaElement: HTMLTextAreaElement | null = null;
 
 
-    
+    let showBuilder = false;
+
 
 
   onMount(async () => {
@@ -186,6 +188,10 @@
     // This might involve calling handleGetStarted again or setting a flag
   }
 
+  function toggleBuilder() {
+    showBuilder = !showBuilder;
+  }
+
   </script>
   
 
@@ -232,11 +238,39 @@
       <p>We optimize your workflow with AI that anticipates and accelerates your progress.</p>
     </div>
   </div> -->
-  <Builder/>
+  <main>
+    <button class="toggle-button" on:click={toggleBuilder}>
+      {showBuilder ? 'X' : '+ New Workspace'}
+    </button>
+    
+    {#if showBuilder}
+      <Builder/>
+    {/if}
+  </main>
 
   
   <style>
 
+main {
+  display: flex;
+    border-radius: 40px;
+    padding: 10px;
+    height: 94vh;
+    width: 90%;
+    height: 100%;
+    /* position: absolute; */
+    top: 80px;
+    /* min-width: 400px; */
+    background-color:#010e0e;
+    /* width: 50%; */
+    /* left: 2rem; */
+    /* transform: translate(-50%, 0%); */
+    /* border-radius: 80px; */
+    /* background-color: red; */
+    transition: all 1.2s ease-in-out;
+    /* z-index: 1000; */
+    
+  }
 
     .columns {
       display: flex;
@@ -260,6 +294,8 @@
 
 
     }
+
+
 
     .workspace-menu {
       display: flex;
@@ -311,7 +347,7 @@
       flex-direction: column;
       position: fixed;
       left: 0;
-      width: 300px;
+      width: 500px;
       height: 100vh;
       overflow-y: auto;
       padding: 20px;
@@ -830,8 +866,23 @@ textarea {
 
 
 
-/* Extra wide screens */
+.toggle-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
 
+.toggle-button:hover {
+  background-color: #45a049;
+}
 
 
 

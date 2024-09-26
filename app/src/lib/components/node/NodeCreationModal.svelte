@@ -429,6 +429,7 @@
     justify-content: bottom;
     gap: 20px;
     align-items: bottom;
+    background-color: transparent;
   }
 
   .attachment-icon {

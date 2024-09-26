@@ -390,3 +390,67 @@ export interface Workshops {
     tags?: number[];
     status?: string;
 }
+
+export interface Messages extends RecordModel {
+    id: string;
+    text: string;
+    user: string;
+    parent_msg: string | null;
+    task_relation: string | null;
+    agent_relation: string | null;
+    type: 'human' | 'robot';
+    read_by: string[];
+    thread: string;
+    attachments: string;
+    reactions: {
+        [key: string]: number;
+    };
+    created: string;
+    updated: string;
+}
+
+export interface Threads extends RecordModel {
+    id: string;
+    name: string;
+    op: string;
+    updated: string;
+}
+
+export type Folders = {
+    id: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+    order: number;
+    parentId: string | null;
+
+}
+
+export interface Attachment {
+    id: string;
+    fileName: string;
+    note: string;
+    created: string;
+    updated: string;
+    
+}
+export type Notes = {
+    id: string;
+    title: string;
+    content: string;
+    folder: string; 
+    created_at: string;
+    updated_at: string;
+    attachments?: Attachment[]; 
+    order: number;
+}
+
+export type FolderRecord = Folders & {
+    collectionId: string;
+    collectionName: 'folders';
+}
+
+export type NoteRecord = Notes & {
+    collectionId: string;
+    collectionName: 'notes';
+}

@@ -275,23 +275,33 @@
   .workspace-layout {
         display: flex;
         flex-direction: column;
-        position: fixed;
-        height: 89vh;
+        position: relative;
+        height: auto;
+        /* height: 89vh; */
         width: 300px;
-        bottom: 60px;
-        left: 80px;
+        /* top: 130px; */
+        left: 0;
+        border-radius: 20px;
         justify-content: center;
         align-items: center;
         border: 5px solid #262929;
+        transition: all ease-in 0.3s;
     }
 
+    .workspace-layout:hover {
+        /* width: 100%; */
+        /* height: 100%; */
+    }
+
+
     .content-area {
-        position: fixed;
-        top: 60px;
+        display: flex;
+        position: absolute;
         left: 390px; /* Adjust based on your workspace-layout width */
         right: 0;
         bottom: 0;
         overflow: hidden; /* Changed from auto to hidden */
+        /* background-color: red; */
     }
 
     .empty-state {
@@ -360,8 +370,7 @@
         /* position: absolute; */
         /* bottom: 100px; */
         width: 100%;
-        height: 100%;
-
+        height: 100%;;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;

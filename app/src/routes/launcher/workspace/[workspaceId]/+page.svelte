@@ -20,6 +20,7 @@
 {/if} -->
 
 <slot />
+
 <style>
     .workshops-container {
         display: flex;
@@ -28,7 +29,7 @@
       align-items: center;
       position: fixed;
       /* bottom: 50px; */
-        background-color: #363f3f;
+        background-color: #15a2a2;
         position: fixed;
         left: 200px;
         bottom: 40px;
@@ -232,7 +233,7 @@
       /* scroll-behavior: smooth; */
       width: 96%;
       margin-left: 2%;
-      background-color: red;
+      /* background-color: red; */
       height: 80px;
       
     }
@@ -302,7 +303,17 @@
         
 
     }
-
+    .illustration {
+  position: absolute;
+  width: 90%;
+  height: auto;
+  left: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.025;
+  z-index: 1;
+  pointer-events: none;
+}
 
 @media (max-width: 700px) {
     .workshops-container {

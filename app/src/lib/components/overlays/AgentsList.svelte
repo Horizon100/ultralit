@@ -804,7 +804,7 @@
         /* height: 100%; */
         overflow: hidden;
         /* width: 97%; */
-        height: 89vh;
+        min-height: 50px;
         /* border-radius: 30px; */
         /* border-bottom-left-radius: 20px;  */
         /* border-bottom-right-radius: 20px; */
@@ -817,7 +817,14 @@
         /* width: calc(100% - 40px); */
         /* margin-left: 10px; */
         /* height: calc(100vh - 260px); */
+        transition: all 1.8s cubic-bezier(0.075, 0.82, 0.165, 1);
 
+    }
+
+    .agents-config:hover {
+        transform: scale(0.99);
+        height: 94vh;
+        border-radius: 50px;
     }
 
     .column {

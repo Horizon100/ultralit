@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase';
 import type { AuthModel } from 'pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { writable } from 'svelte/store'
-import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Workshops } from '$lib/types';
+import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Workshops, Threads, Messages } from '$lib/types';
 // import type { ClientResponseError } from 'pocketbase'; // Unused
 // import type { RecordModel } from 'pocketbase'; // Unused
 
@@ -338,28 +338,7 @@ export async function createAIAgent(agentData: Partial<AIAgent>): Promise<AIAgen
 
 // Message functions
 
-export async function createMessage(message: Partial<Message>): Promise<Message> {
-    const messageData = {
-        text: message.text,
-        user: pb.authStore.model?.id,
-        task_id: message.task_id,
-        parent_msg_id: message.parent_msg_id,
-        ai_agent_id: message.ai_agent_id,
-        type: message.type || 'text',
-        sender: message.sender,
-        receiver: message.receiver,
-        attachments: message.attachments,
-        reactions: message.reactions,
-        update_status: message.update_status || 'not_updated'
-    };
-    const record = await pb.collection('messages').create(messageData);
-    return record as Message;
-}
 
-export async function updateMessage(id: string, message: Partial<Message>): Promise<Message> {
-    const record = await pb.collection('messages').update(id, message);
-    return record as Message;
-}
 
 export async function getMessagesByTaskId(taskId: string): Promise<Message[]> {
     try {
@@ -546,5 +525,143 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
     } catch (error) {
         console.error('Error fetching user workspaces:', error);
         return [];
+    }
+}
+
+
+// Thread functions
+export async function fetchThreads(userId: string): Promise<Threads[]> {
+    try {
+        const records = await pb.collection('threads').getFullList<Threads>({
+            sort: '-created',
+            // filter: `created_by = "${userId}" || collaborators ?~ "${userId}"`,
+        });
+        return records;
+    } catch (error) {
+        console.error('Error fetching threads:', error);
+        throw error;
+    }
+}
+
+export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
+    try {
+        const record = await pb.collection('threads').create<Threads>(threadData);
+        return record;
+    } catch (error) {
+        console.error('Error creating thread:', error);
+        throw error;
+    }
+}
+
+export async function updateThread(id: string, threadData: Partial<Threads>): Promise<Threads> {
+    try {
+        const record = await pb.collection('threads').update<Threads>(id, threadData);
+        return record;
+    } catch (error) {
+        console.error('Error updating thread:', error);
+        throw error;
+    }
+}
+
+export async function deleteThread(id: string): Promise<boolean> {
+    try {
+        await pb.collection('threads').delete(id);
+        return true;
+    } catch (error) {
+        console.error('Error deleting thread:', error);
+        return false;
+    }
+}
+
+// Message functions for threads
+export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
+    try {
+        const records = await pb.collection('messages').getFullList<Messages>({
+            // sort: 'created',
+            filter: `thread = "${threadId}"`,
+            // expand: 'user',
+        });
+        return records;
+    } catch (error) {
+        console.error('Error fetching messages for thread:', error);
+        throw error;
+    }
+}
+
+
+
+
+// export async function createMessage(messageData: Partial<Messages>): Promise<Messages> {
+//     try {
+//         const record = await pb.collection('messages').create<Messages>(messageData);
+//         return record;
+//     } catch (error) {
+//         console.error('Error creating message:', error);
+//         throw error;
+//     }
+// }
+
+// export async function updateMessage(id: string, messageData: Partial<Messages>): Promise<Messages> {
+//     try {
+//         const record = await pb.collection('messages').update<Messages>(id, messageData);
+//         return record;
+//     } catch (error) {
+//         console.error('Error updating message:', error);
+//         throw error;
+//     }
+// }
+
+// export async function deleteMessage(id: string): Promise<boolean> {
+//     try {
+//         await pb.collection('messages').delete(id);
+//         return true;
+//     } catch (error) {
+//         console.error('Error deleting message:', error);
+//         return false;
+//     }
+// }
+
+export async function createMessage(messageData: Partial<Message>): Promise<Message> {
+    try {
+        const defaultedMessageData = {
+            text: messageData.text,
+            user: messageData.user || pb.authStore.model?.id,
+            thread: messageData.thread,
+            task_id: messageData.task_id,
+            parent_msg_id: messageData.parent_msg_id,
+            ai_agent_id: messageData.ai_agent_id,
+            type: messageData.type || 'text',
+            sender: messageData.sender,
+            receiver: messageData.receiver,
+            attachments: messageData.attachments,
+            reactions: messageData.reactions || {},
+            update_status: messageData.update_status || 'not_updated'
+        };
+
+        const record = await pb.collection('messages').create<Message>(defaultedMessageData);
+        return record;
+    } catch (error) {
+        console.error('Error creating message:', error);
+        throw error;
+    }
+}
+
+export async function updateMessage(id: string, messageData: Partial<Message>): Promise<Message> {
+    try {
+        const record = await pb.collection('messages').update<Message>(id, messageData);
+        return record;
+    } catch (error) {
+        console.error('Error updating message:', error);
+        throw error;
+    }
+}
+
+export async function deleteMessage(id: string): Promise<boolean> {
+    try {
+        await pb.collection('messages').delete(id);
+        return true;
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        return false;
     }
 }
