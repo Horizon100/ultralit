@@ -9,11 +9,15 @@
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
     import TimeTracker from '$lib/components/features/TimeTracker.svelte';
+	import GamePlay from '$lib/components/features/GamePlay.svelte';
+
 
     let isMenuOpen = false;
     let showAuth = false;
     let innerWidth: number;
-    let activeLink = '/';  // New variable to track active link
+    let activeLink = '/'; 
+	let showGamePlay = false;
+
 
     $: isNarrowScreen = innerWidth <= 700;
 
@@ -54,6 +58,11 @@
 	function setActiveLink(path: string) {
         activeLink = path;
     }
+
+	function toggleGamePlay() {
+        showGamePlay = !showGamePlay;
+    }
+	
 </script>
 
 <svelte:window bind:innerWidth />
@@ -86,7 +95,14 @@
 					</a>
                     <a href="/canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/canvas'} on:click={() => setActiveLink('/canvas')}>Draw</a>
                     <a href="/html-canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/html-canvas'} on:click={() => setActiveLink('/html-canvas')}>HTML</a>
-                    <button class="menu-button" on:click={toggleAuth}>
+					<a href="/map" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/map'} on:click={() => setActiveLink('/map')}>Map</a>
+
+                   
+					<button class="nav-link" on:click={toggleGamePlay}>
+						<Brain size={20} />
+						GamePlay
+					</button>
+					<button class="menu-button" on:click={toggleAuth}>
                         {#if $currentUser}
                             <User size={20} />
                             <span class="user-name">{$currentUser.name || $currentUser.email}</span>
@@ -106,6 +122,15 @@
         </div>
     {/if}
 
+	{#if showGamePlay}
+		<div class="gameplay-overlay" transition:fade={{duration: 300}} on:click|self={toggleGamePlay}>
+		<div class="gameplay-content" transition:fly={{y: 50, duration: 300}}>
+			<GamePlay />
+			<button class="close-button" on:click={toggleGamePlay}>Close</button>
+		</div>
+		</div>
+	{/if}
+
     {#if isNarrowScreen && isMenuOpen}
         <div class="mobile-menu" transition:fly={{ y: -200, duration: 300 }}>
 			<a href="/ask" class="svg-container">
@@ -116,6 +141,7 @@
 			</a>
             <a href="/launcher" class="svg-container">Launcher</a>
             <a href="/html-canvas" class="svg-container">html</a>
+
 
 
             <button class="menu-button" on:click={toggleAuth}>

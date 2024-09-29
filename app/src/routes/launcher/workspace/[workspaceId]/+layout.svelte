@@ -278,7 +278,7 @@
         position: relative;
         height: auto;
         /* height: 89vh; */
-        width: 300px;
+        width: 410px;
         /* top: 130px; */
         left: 0;
         border-radius: 20px;
@@ -297,9 +297,12 @@
     .content-area {
         display: flex;
         position: absolute;
-        left: 390px; /* Adjust based on your workspace-layout width */
-        right: 0;
-        bottom: 0;
+        left:20%;
+        top: 1rem;
+        padding: 1rem;
+        justify-content: center;
+        align-items: center;
+
         overflow: hidden; /* Changed from auto to hidden */
         /* background-color: red; */
     }
@@ -354,7 +357,6 @@
     .agents-container {
         flex: 1;
         overflow-x: hidden;
-
     }
 
     .workshop-header {

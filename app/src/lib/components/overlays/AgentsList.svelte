@@ -803,7 +803,7 @@
         position: relative;
         /* height: 100%; */
         overflow: hidden;
-        /* width: 97%; */
+        width: 97%;
         min-height: 50px;
         /* border-radius: 30px; */
         /* border-bottom-left-radius: 20px;  */
@@ -822,9 +822,9 @@
     }
 
     .agents-config:hover {
-        transform: scale(0.99);
-        height: 94vh;
-        border-radius: 50px;
+        /* transform: scale(0.99); */
+        height: 82vh;
+        /* border-radius: 50px; */
     }
 
     .column {

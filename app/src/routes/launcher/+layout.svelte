@@ -597,7 +597,7 @@
     border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
     height:85vh;
-    width: 100%;
+    width: 100vh;
     overflow: hidden;
   }
 
@@ -911,7 +911,7 @@ display: none;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    z-index: 2000;
+    /* z-index: 2000; */
     /* gap: 40px; */
 
   }

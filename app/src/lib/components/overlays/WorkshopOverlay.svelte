@@ -168,14 +168,17 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        width: auto;
-        height:99%;
+        width: 96vh;
+        /* height:99%; */
         /* margin-top: 220px; */
-
+        /* height: 90%; */
+        /* width: 80%; */
+        /* margin-left: 20%; */
+        /* margin-top: 10%; */
         /* position: relative; */
         border: 4px solid rgb(45, 45, 45);
         border-radius: 20px;
-        right: 0;
+        /* right: 0; */
         background: linear-gradient (
         90deg,
         rgba(117, 118, 114, 0.9) 0%,
@@ -205,8 +208,8 @@
         background-color: rgb(31, 31, 31);
         border-radius: 10px;
         overflow-y: auto;
-        height: 89vh;
-        /* width: 100%; */
+
+        width: 100%;
         color: white;
         scrollbar-width: thin;
         scrollbar-color: transparent transparent;
@@ -328,10 +331,11 @@
         display: flex;
         flex-direction: row;
         align-items: flex-end;
+        justify-content: center;
         position: absolute;
         bottom: 0;
         left: 0;
-        width: 100%;
+        width: 90%;
         padding: 10px;
         background-color: #21201d;
     }

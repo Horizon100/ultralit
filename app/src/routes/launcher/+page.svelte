@@ -446,7 +446,7 @@ main {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    z-index: 2000;
+    /* z-index: 2000; */
     /* gap: 40px; */
 
   }

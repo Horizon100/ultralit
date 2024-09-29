@@ -1082,7 +1082,7 @@
 
     .agent-item:hover {
         /* background-color: #f0f0f0; */
-        transform: scale(0.95);
+        /* transform: scale(0.95); */
         border: 1px solid lightblue;
         cursor: pointer;
         opacity: 1;
@@ -1549,7 +1549,7 @@
       .agent-item{
         width: 70px;
         height: 100%;
-        border-radius: 50%;
+        /* border-radius: 50%; */
       }
 
       .agent-name{
