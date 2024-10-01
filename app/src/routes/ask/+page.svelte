@@ -1,30 +1,65 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { currentUser } from '$lib/pocketbase';
+  import { elasticOut, elasticIn } from 'svelte/easing';
   import Dialog from '$lib/components/ai/Dialog.svelte';
   import { fade, fly, blur, scale } from 'svelte/transition';
   import Auth from '$lib/components/auth/Auth.svelte';
-  import { elasticOut } from 'svelte/easing';
   import greekImage from '$lib/assets/illustrations/greek.png';
+  import AIChat from '$lib/components/ai/AIChat.svelte';
+  import { threadsStore } from '$lib/stores/threadsStore';
+  import { page } from '$app/stores';
 
-  let showDialog = true;  // Changed to true to show dialog by default
+  let showAuthPopup = false;
+  let showFade = false;
+  let showH2 = false;
+  let showH3 = false;
+  let showButton = false;
+  let showTypeWriter = false;
+  let threadId: string | null = null;
+  let messageId: string | null = null;
+
+  $: user = $currentUser;
+  // let showDialog = true;  // Changed to true to show dialog by default
   
-  function openDialog() {
-      showDialog = true;
-  }
+  // function openDialog() {
+  //     showDialog = true;
+  // }
   
-  function closeDialog() {
-      showDialog = false;
-  }
+  // function closeDialog() {
+  //     showDialog = false;
+  // }
   
-  onMount(() => {
-    // Automatically open the dialog after a short delay
-    setTimeout(openDialog, 500);
+  onMount(async () => {
+    user = $currentUser;
+
+    // Animation timings
+    setTimeout(() => showFade = true, 50);
+    setTimeout(() => showH2 = true, 50);
+    setTimeout(() => showH3 = true, 150);
+    setTimeout(() => showButton = true, 300);
+    setTimeout(() => showTypeWriter = true, 2000); // Show TypeWriter 500ms after the button
+
+    // Get parameters from the URL
+    threadId = $page.url.searchParams.get('threadId');
+    messageId = $page.url.searchParams.get('messageId');
+
+    if (threadId) {
+      // Set the active thread
+      await threadsStore.setActiveThread(threadId);
+
+      // Load messages for the thread
+      await threadsStore.loadMessages(threadId);
+    }
+
+    // Other setup code...
   });
+
 </script>
   
-  <main transition:fade={{ duration: 300 }}>
-  
-    {#if showDialog}
+
+
+    <!-- {#if showDialog}
       <div class="dialog-overlay" transition:fade={{ duration: 300 }}>
         <div 
           class="dialog-container"
@@ -51,10 +86,25 @@
           </div>
         </div>
       </div>
-    {/if}
-    <img src={greekImage} alt="Greek illustration" class="illustration" />
+    {/if} -->
+    <main>
+      {#if showFade}
+        <div in:fade="{{ duration: 300 }}" out:fade="{{ duration: 300 }}">
+          {#if showH2}
+            <div in:fly="{{ x: 200, y: -400, duration: 400 }}" out:fade="{{ duration: 300 }}">
+              <AIChat 
+                threadId={threadId}
+                initialMessageId={messageId}
+              />
+            </div>
+          {/if}
+          <img src={greekImage} alt="Greek illustration" class="illustration" />
+        </div>
+      {/if}
+    </main>
 
-  </main>
+
+
   
   <style>
       main {
@@ -63,8 +113,8 @@
         position: absolute;
         width: 96%;
         right: 2%;
-        bottom: 50px;
-        height: 94vh;
+        top: 60px;
+        height: 90vh;
           text-align: center;
           justify-content: right;
           align-items: right;

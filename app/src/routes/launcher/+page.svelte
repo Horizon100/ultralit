@@ -37,10 +37,19 @@
 
 
     let showBuilder = false;
+    let showFade = false;
+
+let showH2 = false;
+    $: user = $currentUser;
+
+
 
 
 
   onMount(async () => {
+    user = $currentUser;
+      setTimeout(() => showFade = true, 50);
+      setTimeout(() => showH2 = true, 50);
   if ($currentUser && $currentUser.id) {
     try {
       const workspaceId = $page.params.workspaceId;
@@ -238,15 +247,23 @@
       <p>We optimize your workflow with AI that anticipates and accelerates your progress.</p>
     </div>
   </div> -->
-  <main>
-    <button class="toggle-button" on:click={toggleBuilder}>
-      {showBuilder ? 'X' : '+ New Workspace'}
-    </button>
+
+  
+
+    {#if showFade}
+
     
-    {#if showBuilder}
-      <Builder/>
-    {/if}
-  </main>
+    <div in:fly="{{ x: 200, y: -400, duration: 400 }}" out:fade="{{ duration: 300 }}">
+  
+      <main>
+      </main>
+
+  
+  
+  </div>
+  {/if}
+  
+
 
   
   <style>
@@ -261,7 +278,7 @@ main {
     /* position: absolute; */
     top: 80px;
     /* min-width: 400px; */
-    background-color:#010e0e;
+    /* background-color:#010e0e; */
     /* width: 50%; */
     /* left: 2rem; */
     /* transform: translate(-50%, 0%); */

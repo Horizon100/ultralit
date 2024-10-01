@@ -45,7 +45,7 @@
       on:click={toggleDropdown}
     >
       <span class="model-name">{selectedModel.name}</span>
-      <Bot size={24} />
+      <Bot size={30} />
     </button>
     {#if isOpen}
       <div class="dropdown-content" transition:fly={{ y: 10, duration: 200 }}>
@@ -63,23 +63,24 @@
 </div>
   
 <style>
-    .dropbtn {
-      /* background-color: #4d9f4d; */
-      color: white;
-      padding: 4px;
-      font-size: 16px;
-      border: none;
-      cursor: pointer;
-      border-radius: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 50px;
-      height: 50px;
-      border: 2px solid #506262;
-      transition: all 0.3s ease-in-out;
-      overflow: hidden;
-    }
+  .dropbtn {
+    background-color: #283428;
+    color: white;
+    padding: 4px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 60px;
+    height: 60px;
+    padding: 10px;
+    border: 2px solid #506262;
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+  }
 
     .dropbtn.hovered {
       width: auto;
@@ -101,12 +102,13 @@
     .dropdown {
       position: relative;
       display: flex;
+      
     }
   
     .dropdown-content {
       display: none;
       position: absolute;
-      bottom: 3rem;
+      bottom: 5rem;
       background-color: #21201d;
       min-width: 300px;
       box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);

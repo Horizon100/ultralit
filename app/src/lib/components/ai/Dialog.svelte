@@ -3,8 +3,8 @@
   import AIChat from '$lib/components/ai/AIChat.svelte';
   import { networkStore } from '$lib/stores/networkStore';
   import { threadsStore } from '$lib/stores/threadsStore';
-  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages } from '$lib/types';
-  import { ArrowRight, Paperclip } from 'lucide-svelte';
+  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types';
+  import { ArrowRight, Paperclip, CheckCircle, Bot } from 'lucide-svelte';
   import { createAgentWithSummary, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { goto } from '$app/navigation';
   import { quotes } from '$lib/quotes';
@@ -13,6 +13,8 @@
   import { fly, fade, blur } from 'svelte/transition';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
+  import { navigating } from '$app/stores';
+  import { isNavigating } from '$lib/stores/navigationStore';
 
   export let x: number;
   export let y: number;
@@ -56,6 +58,23 @@
     cancel: void;
   }>();
 
+  onMount(() => {
+        const unsubscribe = navigating.subscribe((navigationData) => {
+            if (navigationData) {
+                isNavigating.set(true);
+            } else {
+                // Add a small delay before hiding the spinner to ensure content is ready
+                setTimeout(() => {
+                    isNavigating.set(false);
+                }, 300);
+            }
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    });
+
   onMount(async () => {
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
@@ -79,7 +98,7 @@
       }
     }
 
-    await threadsStore.loadThreads(userId);
+    await threadsStore.loadThreads(); 
     if (threads.length === 0) {
       await handleCreateNewThread();
     }
@@ -89,7 +108,11 @@
   });
 
   async function handleLoadThread(threadId: string) {
-    await threadsStore.loadMessages(threadId);
+    try {
+      await threadsStore.loadMessages(threadId);
+    } catch (error) {
+      console.error(`Error loading messages for thread ${threadId}:`, error);
+    }
   }
 
   async function handleCreateNewThread() {
@@ -131,28 +154,62 @@
     console.log('Selected prompt:', event.detail);
   }
 
+
   async function handleSeedPromptSubmit() {
-    console.log("handleSeedPromptSubmit called");
-    if (seedPrompt.trim() || attachment) {
-      isLoading = true;
-      try {
-        const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
-        if (newThread && newThread.id) {
-          threads = [...(threads || []), newThread];
-          await handleLoadThread(newThread.id);
-          newThreadName = newThread.name;
-          showConfirmation = true;
-        } else {
-          console.error("Failed to create new thread: Thread object is undefined or missing id");
+  console.log("handleSeedPromptSubmit called");
+  if (seedPrompt.trim() || attachment) {
+    isLoading = true;
+    try {
+      // Create new thread
+      const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
+      if (newThread && newThread.id) {
+        threads = [...(threads || []), newThread];
+        await threadsStore.setActiveThread(newThread.id);
+        newThreadName = newThread.name;
+
+        // Add the seed prompt as the first message
+        let firstMessageId = null;
+        if (seedPrompt.trim()) {
+          const firstMessage = await threadsStore.addMessage({
+            thread: newThread.id,
+            text: seedPrompt.trim(),
+            type: 'human',
+            user: userId,
+          });
+          firstMessageId = firstMessage.id;
         }
-      } catch (error) {
-        console.error("Error creating new thread:", error);
-      } finally {
-        isLoading = false;
+        
+        // Construct the query parameters
+        const params = new URLSearchParams();
+        params.append('threadId', newThread.id);
+        if (firstMessageId) {
+          params.append('messageId', firstMessageId);
+        }
+        if (attachment) {
+          params.append('attachmentId', attachment.id);
+        }
+        if (aiModel && aiModel.id) {
+          params.append('modelId', aiModel.id);
+        }
+        params.append('promptType', selectedPromptType);
+
+        // Show confirmation briefly
+        showConfirmation = true;
+        setTimeout(async () => {
+          showConfirmation = false;
+          // Redirect to the ask route with the query parameters
+          await goto(`/ask?${params.toString()}`);
+        }, 2000);
+      } else {
+        console.error("Failed to create new thread: Thread object is undefined or missing id");
       }
+    } catch (error) {
+      console.error("Error creating new thread or redirecting:", error);
+    } finally {
+      isLoading = false;
     }
   }
-
+}
   function handleConfirmation() {
     showConfirmation = false;
     showChat = true;
@@ -196,11 +253,16 @@
         <div class="seed-prompt-input" transition:blur={{ duration: 300 }}>
           <div class="text-container">
             <textarea 
-              bind:this={textareaElement} 
-              bind:value={seedPrompt} 
-              placeholder={currentQuote}
-              on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && handleSeedPromptSubmit()}
-            ></textarea>
+            bind:this={textareaElement} 
+            bind:value={seedPrompt} 
+            placeholder={currentQuote}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSeedPromptSubmit();
+              }
+            }}
+          ></textarea>
           </div>
           <div class="button-row">
             {#if attachment}
@@ -232,11 +294,13 @@
         </div>
         <img src={greekImage} alt="Greek illustration" class="illustration" />
       {:else}
-        <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
-          <h2>New Thread Created</h2>
-          <p>"{newThreadName}" has been successfully created.</p>
-          <button on:click={handleConfirmation}>Continue to Chat</button>
+      <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
+        <div class="spinner">
+          <Bot size={40} class="bot-icon" />
         </div>
+        <p>New thread "{newThreadName}" created</p>
+      </div>
+
       {/if}
     {:else}
       <AIChat 
@@ -251,6 +315,11 @@
     {/if}
   </div>
 </div>
+
+{#if $isNavigating}
+<LoadingSpinner />
+{/if}
+
 <input
   type="file"
   bind:this={fileInput}
@@ -274,14 +343,14 @@
   .modal {
     display: flex;
     flex-direction: column;
-    border-radius: 40px;
+    /* border-radius: 40px; */
     /* padding: 10px; */
     height: 90vh;
     width: 100%;
     /* margin-top: 100px; */
     position: relative;
     /* min-width: 400px; */
-    background-color:#010e0e;
+    /* background-color:#010e0e; */
     /* width: 50%; */
     /* left: 2rem; */
     /* transform: translate(-50%, 0%); */
@@ -300,7 +369,7 @@
     justify-content:end;
     /* align-items: center; */
     /* margin-top: 25%; */
-    height: 100%;
+    /* height: 100%; */
     gap: 20px;
     /* height: auto; */
     /* align-content: center; */
@@ -543,15 +612,23 @@
   pointer-events: none;
 }
 
+
+
 .thread-list {
-  display: grid;
-  grid-template-columns: repeat(1, 2fr); /* Two columns */
-  gap: 20px;
-  width: 50%;
-  height: 50%;    
+  /* display: grid; */
+  /* grid-template-columns: repeat(3, 2fr); Two columns */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start; 
+  align-content: flex-start; 
+  max-height: calc(100vh - 200px);   
+  gap: 30px;
+  width: 100%;
+  top: 50%;
+  /* height: 50%; */
   scrollbar-width: thin;
   scrollbar-color: #ffffff transparent;
-  flex-direction: column;
   overflow-y: auto;
   grid-column: auto / span 2;
   grid-row: auto / span 2;
@@ -559,29 +636,32 @@
   color: black;
   border-radius: 20px;
   scroll-behavior: smooth;
+  transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
 }
 
 
 
 .thread-list button {
   display: flex;
-  width: 100%;
-  height: 60px;
-  /* padding: 20px; */
+  width: auto;
+  /* height: 60px; */
+  padding: 20px;
   text-align: left;
   border-bottom: 1px solid #4b4b4b;
   /* border-left: 1px solid #4b4b4b; */
   /* border-top: 1px solid #4b4b4b; */
   padding: 20px;
   /* background-color: red; */
-  border-end-end-radius: 0;
+  border-radius: 10px;
   /* border-end-start-radius: 50px; */
-  border-top-right-radius: 0;
+  border-radius: 10px;
   /* border-top-left-radius: 50px; */
   cursor: pointer;
+  background-color: rgb(71, 59, 59);
+
   color: #fff;
-  transition: background-color 0.3s;
-  letter-spacing: 4px;
+  transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
   font-size: 24px;
   justify-content: left;
   align-items: center;
@@ -590,7 +670,11 @@
 
     .thread-list button:hover {
         background-color: #2c3e50;
-    }
+        transform: scale(1.25) translateX(5px) rotate(3deg);          
+        letter-spacing: 4px;
+        padding: 20px;
+
+      }
 
     .thread-list button.selected {
         /* background-color: #2980b9; */
@@ -607,28 +691,52 @@
     }
 
     .thread-list .add-button {
-      background-color: rgb(71, 59, 59);
+      background-color: rgb(62, 75, 92);
       font-style: italic;
       font-weight: bolder;
       border-bottom: 1px solid #6b6b6b;
       border-radius: 10px;
-      margin-bottom: 2rem;
+      transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+      /* margin-bottom: 2rem; */
     }
 
+    .thread-list .add-button:hover {
+      background-color: rgb(207, 207, 207);
+      font-style: italic;
+      font-weight: bolder;
+      border-bottom: 1px solid #6b6b6b;
+      border-radius: 10px;
+      transform: scale(1.05) translateX(5px) translatey(5px) rotate(0deg);          
+
+      /* margin-bottom: 2rem; */
+    }
+
+  
+
     .confirmation {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    text-align: center;
-    color: white;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
   }
 
-  .confirmation h2 {
-    font-size: 24px;
-    margin-bottom: 20px;
+  .confirmation p {
+    margin: 10px 0 0 0;
+    font-size: 16px;
+    color: #333;
   }
+
+
 
   .confirmation p {
     font-size: 18px;
@@ -651,4 +759,44 @@
   .confirmation button:hover {
     background-color: #34495e;
   }
+
+  .spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 80px;
+    height: 80px;
+    border: 4px dashed #363f3f;
+    border-radius: 50%;
+    position: relative;
+    animation: nonlinearSpin 4.2s infinite;
+    animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  .bot-icon {
+    width: 100%;
+    height: 100%;
+    color: #363f3f;
+  }
+
+  @keyframes nonlinearSpin {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(1080deg);
+    }
+    50% {
+      transform: rotate(0deg);
+    }
+    75% {
+      transform: rotate(1080deg);
+    }
+    100% {
+      transform: rotate(2160deg);
+    }
+  }
+
+
+  
 </style>

@@ -70,7 +70,7 @@
 <div class="app-container">
 	<header>
         <nav>
-            <a href="/" class="header-logo" on:click={() => setActiveLink('/')}>
+            <a href="/" class="logo" on:click={() => setActiveLink('/')}>
                 <img src={horizon100} alt="Horizon100" class="logo" />
                 <h1 class="h1">vRAZUM</h1>
             </a>
@@ -79,7 +79,12 @@
                     <Menu size={20} />
                 </button>
             {:else}
+			
                 <div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+					<a href="/" class="header-logo" on:click={() => setActiveLink('/')}>
+						<img src={horizon100} alt="Horizon100" class="logo" />
+						<h1 class="h1">vRAZUM</h1>
+					</a>
                     <a href="/ask" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/ask'} on:click={() => setActiveLink('/ask')}>
                         <MessageCircle size={20} />
                         Ask

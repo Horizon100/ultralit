@@ -8,10 +8,12 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
             throw new Error('User is not authenticated');
         }
 
+        console.log(`Attempting to fetch messages for thread: ${threadId}`);
+
         const messages = await pb.collection('messages').getFullList<Messages>({
-            sort: 'created',
             filter: `thread = "${threadId}"`,
-            expand: 'user',
+            sort: '-created',
+            expand: 'user,parent_msg,task_relation,agent_relation'
         });
 
         console.log(`Fetched ${messages.length} messages for thread ${threadId}`);
@@ -19,6 +21,7 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
     } catch (error) {
         if (error instanceof ClientResponseError) {
             console.error('PocketBase error fetching messages:', error.data, error.message);
+            console.error('Full error object:', JSON.stringify(error, null, 2));
         } else {
             console.error('Error fetching messages for thread:', error);
         }
@@ -71,6 +74,10 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
     }
 }
 
+export async function updateMessage(id: string, data: Partial<Messages>): Promise<Messages> {
+    return await pb.collection('messages').update<Messages>(id, data);
+}
+
 export async function updateThread(id: string, changes: Partial<Threads>): Promise<Threads> {
     try {
         if (!pb.authStore.isValid) {
@@ -95,9 +102,6 @@ export async function addMessageToThread(message: Omit<Messages, 'id' | 'created
         }
 
         const createdMessage = await pb.collection('messages').create<Messages>(message);
-        await pb.collection('threads').update(message.thread, {
-            "messages+": createdMessage.id
-        });
         return createdMessage;
     } catch (error) {
         if (error instanceof ClientResponseError) {

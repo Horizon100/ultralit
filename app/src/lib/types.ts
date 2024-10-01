@@ -414,6 +414,14 @@ export interface Threads extends RecordModel {
     name: string;
     op: string;
     updated: string;
+    tags: string[];
+}
+
+export interface Tag {
+    id: number;
+    name: string;
+    selected: boolean;
+    color: string;
 }
 
 export type Folders = {

@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Messages, Threads } from '$lib/types';
+import type { Messages, Threads, Tag } from '$lib/types';
 import { debounce } from 'lodash-es';
 import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
 import { browser } from '$app/environment';
@@ -7,22 +7,26 @@ import { browser } from '$app/environment';
 function createThreadsStore() {
   const initialThreads = browser ? JSON.parse(localStorage.getItem('userThreads') || '[]') : [];
   const initialCurrentThreadId = browser ? localStorage.getItem('currentThreadId') || null : null;
+  const initialTags = browser ? JSON.parse(localStorage.getItem('userTags') || '[]') : [];
   
   const store = writable<{
     threads: Threads[],
     currentThreadId: string | null,
     messages: Messages[],
-    updateStatus: string
+    updateStatus: string,
+    tags: Tag[]
   }>({
     threads: initialThreads,
     currentThreadId: initialCurrentThreadId,
     messages: [],
-    updateStatus: ''
+    updateStatus: '',
+    tags: initialTags
   });
   
   if (browser) {
     store.subscribe(state => {
       localStorage.setItem('userThreads', JSON.stringify(state.threads));
+      localStorage.setItem('userTags', JSON.stringify(state.tags));
       if (state.currentThreadId) {
         localStorage.setItem('currentThreadId', state.currentThreadId);
       } else {
@@ -121,7 +125,52 @@ function createThreadsStore() {
       currentThreadId: id,
       updateStatus: 'Current thread updated'
     })),
-    reset: () => store.set({ threads: [], currentThreadId: null, messages: [], updateStatus: '' }),
+    reset: () => store.set({ threads: [], currentThreadId: null, messages: [], updateStatus: '', tags: [] }),
+    
+    addTag: (tagName: string) => {
+      store.update(state => {
+        const newTag: Tag = { name: tagName, selected: false };
+        return { ...state, tags: [...state.tags, newTag] };
+      });
+    },
+    updateTag: (index: number, newName: string) => {
+      store.update(state => {
+        const updatedTags = [...state.tags];
+        updatedTags[index].name = newName;
+        return { ...state, tags: updatedTags };
+      });
+    },
+    toggleTag: (index: number) => {
+      store.update(state => {
+        const updatedTags = [...state.tags];
+        updatedTags[index].selected = !updatedTags[index].selected;
+        return { ...state, tags: updatedTags };
+      });
+    },
+    addTagToThread: (threadId: string, tagName: string) => {
+      store.update(state => {
+        const updatedThreads = state.threads.map(thread => {
+          if (thread.id === threadId) {
+            return { ...thread, tags: [...(thread.tags || []), tagName] };
+          }
+          return thread;
+        });
+        return { ...state, threads: updatedThreads };
+      });
+      debouncedUpdateThread(threadId, { tags: get(store).threads.find(t => t.id === threadId)?.tags || [] });
+    },
+    removeTagFromThread: (threadId: string, tagName: string) => {
+      store.update(state => {
+        const updatedThreads = state.threads.map(thread => {
+          if (thread.id === threadId) {
+            return { ...thread, tags: (thread.tags || []).filter(tag => tag !== tagName) };
+          }
+          return thread;
+        });
+        return { ...state, threads: updatedThreads };
+      });
+      debouncedUpdateThread(threadId, { tags: get(store).threads.find(t => t.id === threadId)?.tags || [] });
+    },
     
     getCurrentThread: derived(store, $store => {
       return $store.threads.find(t => t.id === $store.currentThreadId) || null;
@@ -141,6 +190,16 @@ function createThreadsStore() {
         groups[date].push(message);
       });
       return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
+    }),
+
+    getFilteredThreads: derived(store, $store => {
+      const selectedTags = $store.tags.filter(tag => tag.selected).map(tag => tag.name);
+      if (selectedTags.length === 0) {
+        return $store.threads;
+      }
+      return $store.threads.filter(thread => 
+        selectedTags.every(tag => thread.tags?.includes(tag))
+      );
     })
   };
 }

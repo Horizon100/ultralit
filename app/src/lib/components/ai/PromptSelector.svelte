@@ -51,7 +51,7 @@
   >
     <span class="prompt-name">{selectedPromptLabel}</span>
     {#if selectedIcon}
-      <svelte:component this={selectedIcon} size={24} />
+      <svelte:component this={selectedIcon} size={40} />
     {/if}
   </button>
   {#if isOpen}
@@ -81,8 +81,9 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
+    padding: 10px;
     border: 2px solid #506262;
     transition: all 0.3s ease-in-out;
     overflow: hidden;
@@ -90,9 +91,7 @@
 
   .dropbtn.hovered {
     width: auto;
-    padding-left: 15px;
-    padding-right: 15px;
-    justify-content: space-between;
+    justify-content: right;
   }
 
   .prompt-name {
@@ -113,7 +112,7 @@
   .dropdown-content {
     display: none;
     position: absolute;
-    bottom: 3rem;
+    bottom: 5rem;
     background-color: #21201d;
     min-width: 300px;
     box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);

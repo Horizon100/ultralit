@@ -3,14 +3,15 @@
   import { onMount, afterUpdate, createEventDispatcher } from 'svelte';
   import { fade, fly, scale } from 'svelte/transition';
   import { elasticOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
+  import { messagesStore} from '$lib/stores/messagesStore';
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { Spinner } from 'flowbite-svelte';
   import { updateAIAgent, ensureAuthenticated } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages} from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages, Tag} from '$lib/types';
   import Auth from '$lib/components/auth/Auth.svelte';
 	import ModelSelector from './ModelSelector.svelte';
   import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
@@ -27,12 +28,37 @@ import { threadsStore } from '$lib/stores/threadsStore';
 
 let threads: Threads[];
 let currentThreadId: string | null;
-let messages: Messages[];
-let showThreadList = false;
+let showThreadList = true;
 let updateStatus: string;
+let currentThreadName: string = '';
+let messages: Messages[] = [];
+let quotedMessage: Messages | null = null;
+let isEditingThreadName = false;
+let editedThreadName = '';
+
+let showReactions: string | null = null;  
+let editingTagIndex: number | null = null;
+  let newTag = '';
+  let availableTags: Tag[] = [
+  { id: 1, name: 'Work', color: '#FF6B6B', selected: false },
+  { id: 2, name: 'Personal', color: '#4ECDC4', selected: false },
+  { id: 3, name: 'Urgent', color: '#FFD93D', selected: false },
+  { id: 4, name: 'Ideas', color: '#6BCB77', selected: false },
+  { id: 5, name: 'Learning', color: '#4D96FF', selected: false },
+];
+  let selectedTagIds = new Set<number>();
 
 
+  const reactions = ['😊', '👍', '❤️', '😂', '😮', '😢'];
 
+
+messagesStore.subscribe(value => messages = value);
+
+function toggleReactions(messageId: string) {
+    showReactions = showReactions === messageId ? null : messageId;
+  }
+
+  
 threadsStore.subscribe(state => {
   threads = state.threads;
   currentThreadId = state.currentThreadId;
@@ -52,6 +78,7 @@ threadsStore.subscribe(state => {
     created: new Date().toISOString(),
     updated: new Date().toISOString()
   };
+  $: currentThread = threads.find(t => t.id === currentThreadId);
 
   $: safeAIModel = aiModel || defaultAIModel;
 
@@ -89,27 +116,10 @@ threadsStore.subscribe(state => {
 
 
 
-  async function handleLoadThread(threadId: string) {
-    console.log("Loading thread:", threadId);
-    try {
-        messages = await threadsStore.loadMessages(threadId);
-        console.log("Loaded messages:", messages);
-    } catch (error) {
-        console.error("Error in handleLoadThread:", error);
-        if (error instanceof Error && error.message === 'User is not authenticated') {
-            // Handle authentication error
-            showAuth = true;
-        } else {
-            // Handle other errors
-            alert("Failed to load messages. Please try again later.");
-        }
-        messages = [];
-    }
-}
-  $: groupedMessages = groupMessagesByDate(messages);
-  
 
-  function groupMessagesByDate(messages: Messages[]): { date: string; messages: Messages[] }[] {
+$: groupedMessages = groupMessagesByDate(messages);
+
+function groupMessagesByDate(messages: Messages[]): { date: string; messages: Messages[] }[] {
   const groups: { [key: string]: Messages[] } = {};
   messages.forEach(message => {
     const date = new Date(message.created).toLocaleDateString();
@@ -118,8 +128,174 @@ threadsStore.subscribe(state => {
     }
     groups[date].push(message);
   });
-  return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
+  return Object.entries(groups).map(([date, messages]) => ({ date, messages: messages.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()) }));
 }
+
+async function addReaction(messageId: string, reaction: string) {
+    try {
+      const messageIndex = chatMessages.findIndex(m => m.id === messageId);
+      if (messageIndex !== -1) {
+        const updatedMessage = { ...chatMessages[messageIndex] };
+        updatedMessage.selectedReaction = reaction;
+        updatedMessage.reactions = updatedMessage.reactions || {};
+        updatedMessage.reactions[reaction] = (updatedMessage.reactions[reaction] || 0) + 1;
+        
+        const updatedMessages = [...chatMessages];
+        updatedMessages[messageIndex] = updatedMessage;
+        chatMessages = updatedMessages;
+
+        await messagesStore.updateMessage(messageId, updatedMessage);
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+    showReactions = null;
+  }
+
+  function toggleTagCreation() {
+    if (editingTagIndex !== null) {
+      saveTag();
+    } else {
+      newTag = '';
+      editingTagIndex = -1;
+    }
+  }
+
+  function getRandomColor(tagName: string): string {
+        const hash = tagName.split('').reduce((acc, char) => {
+            return char.charCodeAt(0) + ((acc << 5) - acc);
+        }, 0);
+        const h = hash % 360;
+        return `hsl(${h}, 70%, 60%)`;
+    }
+
+  function saveTag() {
+  if (newTag.trim()) {
+    if (editingTagIndex === -1) {
+      const newTagObject: Tag = {
+        id: availableTags.length + 1,
+        name: newTag.trim(),
+        color: getRandomColor(newTag.trim()),
+        selected: false
+      };
+      availableTags = [...availableTags, newTagObject];
+    } else if (editingTagIndex !== null) {
+      availableTags[editingTagIndex].name = newTag.trim();
+    }
+    newTag = '';
+    editingTagIndex = null;
+  }
+}
+
+
+
+
+    function toggleTag(tag: Tag) {
+      tag.selected = !tag.selected;
+      availableTags = [...availableTags]; // Trigger reactivity
+      updateThreadTags();
+    }
+
+    async function updateThreadTags() {
+      if (currentThreadId && currentThread) {
+        const updatedTags = availableTags.filter(tag => tag.selected).map(tag => tag.name);
+        await updateThread(currentThreadId, { tags: updatedTags });
+        currentThread.tags = updatedTags;
+      }
+    }
+
+  function addNewTag() {
+  const newTag: Tag = {
+    id: availableTags.length + 1,
+    name: `Tag ${availableTags.length + 1}`,
+    color: getRandomColor(`Tag ${availableTags.length + 1}`),
+    selected: false
+  };
+  availableTags = [...availableTags, newTag];
+}
+  
+  function filterThreads() {
+    if (selectedTags.length === 0) {
+      // Show all threads
+    } else {
+      // Filter threads based on selectedTags
+    }
+  }
+
+  
+
+  function getThreadDateGroup(thread: Threads): string {
+    const now = new Date();
+    const threadDate = new Date(thread.updated);
+    const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return 'This Week';
+    if (diffDays < 30) return 'This Month';
+    return 'Older';
+  }
+
+  $: groupedThreads = threads.reduce((acc, thread) => {
+    const group = getThreadDateGroup(thread);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(thread);
+    return acc;
+  }, {} as Record<string, Threads[]>);
+
+function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
+  const messageGroups: Messages[][] = [];
+  const messageMap = new Map<string, Messages>();
+
+  messages.forEach(message => {
+    if (!message.parent_msg) {
+      messageGroups.push([message]);
+      messageMap.set(message.id, message);
+    } else {
+      const parentGroup = messageGroups.find(group => group[0].id === message.parent_msg);
+      if (parentGroup) {
+        parentGroup.push(message);
+      } else {
+        const parent = messageMap.get(message.parent_msg);
+        if (parent) {
+          const newGroup = [parent, message];
+          messageGroups.push(newGroup);
+        } else {
+          messageGroups.push([message]);
+        }
+      }
+    }
+  });
+
+  return messageGroups;
+}
+
+let expandedGroups: Set<string> = new Set();
+
+function toggleGroupExpansion(groupId: string) {
+  if (expandedGroups.has(groupId)) {
+    expandedGroups.delete(groupId);
+  } else {
+    expandedGroups.add(groupId);
+  }
+  expandedGroups = expandedGroups; // Trigger reactivity
+}
+
+async function handleLoadThread(threadId: string) {
+  try {
+    const thread = threads.find(t => t.id === threadId);
+    if (thread) {
+      currentThreadName = thread.name;
+      currentThreadId = threadId;
+    }
+    await messagesStore.fetchMessages(threadId);
+    chatMessages = messages.map(msg => addMessage(msg.type === 'human' ? 'user' : 'assistant', msg.text, msg.parent_msg));
+  } catch (error) {
+    console.error(`Error loading messages for thread ${threadId}:`, error);
+  }
+}
+  
+
 
 afterUpdate(() => {
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
@@ -188,22 +364,33 @@ afterUpdate(() => {
   }
 
 
-  function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content: string | Scenario[] | Task[]): InternalChatMessage {
-  messageIdCounter++;
-  const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
-  return { 
-    role: role as 'user' | 'assistant' | 'thinking', // Cast to allowed roles
-    content: messageContent,
-    id: `msg-${messageIdCounter}`, 
-    isTyping: role === 'assistant',
-    text: messageContent,
-    user: userId,
-    collectionId: '',
-    collectionName: '',
-    created: new Date().toISOString(),
-    updated: new Date().toISOString(),
-  };
-}
+  function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
+    messageIdCounter++;
+    const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+    return { 
+      role: role as 'user' | 'assistant' | 'thinking',
+      content: messageContent,
+      id: `msg-${messageIdCounter}`, 
+      isTyping: role === 'assistant',
+      text: messageContent,
+      user: userId,
+      collectionId: '',
+      collectionName: '',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      parent_msg: parentMsgId,
+    };
+  }
+
+  function handleQuoteMessage(message: Messages) {
+    quotedMessage = message;
+  }
+
+  function handleCancelQuote() {
+    quotedMessage = null;
+  }
+
+
   const thinkingPhrases = [
     "Consulting my digital crystal ball...",
     "Asking the oracle of ones and zeros...",
@@ -292,109 +479,71 @@ afterUpdate(() => {
   }
   
   async function handleSendMessage(message: string = userInput) {
-    
-    console.log("Handling send message:", message);
-    
     if (!message && chatMessages.length === 0 && !attachment) return;
 
-    chatMessages = [...chatMessages, addMessage('user', message)];
-    userInput = '';
-    resetTextareaHeight();
-
-    thinkingPhrase = getRandomThinkingPhrase();
-    const thinkingMessage = addMessage('thinking', thinkingPhrase);
-    thinkingMessageId = thinkingMessage.id;
-    chatMessages = [...chatMessages, thinkingMessage];
-    isLoading = true;
-
-    const minDisplayTime = 2000;
-    const startTime = Date.now();
+    if (!currentThreadId) {
+        console.error('No thread selected');
+        return;
+    }
 
     try {
-        const formData = new FormData();
-        formData.append('message', message);
-        formData.append('model', safeAIModel.api_type);
-        formData.append('userId', userId);
-        if (attachment) {
-            formData.append('attachment', attachment);
-        }
-        if (additionalPrompt) {
-            formData.append('additionalPrompt', additionalPrompt);
-        }
+        // Save user message
+        const userMessage = await messagesStore.saveMessage({
+            text: message,
+            type: 'human',
+            thread: currentThreadId,
+            parent_msg: quotedMessage ? quotedMessage.id : null,
+        }, currentThreadId);
 
-        const systemMessage = getSystemMessage(currentPromptType);
-        const updatedMessages: AIMessage[] = [
-            { role: 'system', content: systemMessage },
-            ...chatMessages
-                .filter(msg => msg.role !== 'thinking')
-                .map(({ role, content }) => ({ role: role as 'user' | 'assistant' | 'thinking' | 'system', content }))
-        ];
-        formData.append('messages', JSON.stringify(updatedMessages));
+        chatMessages = [...chatMessages, addMessage('user', message, quotedMessage ? quotedMessage.id : null)];
+        userInput = '';
+        quotedMessage = null;
+        resetTextareaHeight();
 
-        console.log("Fetching AI response for messages:", updatedMessages);
-        const response = await fetch('/api/ai', {
-            method: 'POST',
-            body: formData,
-        });
+        thinkingPhrase = getRandomThinkingPhrase();
+        const thinkingMessage = addMessage('thinking', thinkingPhrase);
+        thinkingMessageId = thinkingMessage.id;
+        chatMessages = [...chatMessages, thinkingMessage];
+        isLoading = true;
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }6
-
-        const data = await response.json();
+        // Fetch AI response
         const aiResponse = await fetchAIResponse(
-            updatedMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+            chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
             aiModel,
             userId,
-            attachment  
-        );     
-        console.log("Received AI response:", aiResponse);
+            attachment
+        );
 
-        const elapsedTime = Date.now() - startTime;
-        if (elapsedTime < minDisplayTime) {
-            await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
-        }
-
+        // Remove thinking message
         chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-        
-        const assistantMessage = addMessage('assistant', '');
-        chatMessages = [...chatMessages, assistantMessage];
-        typingMessageId = assistantMessage.id;
 
+        // Save AI response
+        const assistantMessage = await messagesStore.saveMessage({
+            text: aiResponse,
+            type: 'robot',
+            thread: currentThreadId,
+            parent_msg: userMessage.id,
+        }, currentThreadId);
+
+        // Add an empty message for typewriting effect
+        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+        chatMessages = [...chatMessages, newAssistantMessage];
+        typingMessageId = newAssistantMessage.id;
+
+        // Use typewriting effect
         await typeMessage(aiResponse);
 
-        // Handle different prompt types
-        switch (currentPromptType) {
-            case 'SCENARIO_GENERATION':
-                if (currentStage === 'initial') {
-                    scenarios = await generateScenarios(message, aiModel, userId);
-                    chatMessages = [...chatMessages, addMessage('options', scenarios)];
-                    currentStage = 'scenarios';
-                }
-                break;
-            case 'TASK_GENERATION':
-                if (currentStage === 'scenarios' && selectedScenario) {
-                    tasks = await generateTasksAPI(selectedScenario, aiModel, userId);
-                    chatMessages = [...chatMessages, addMessage('options', tasks)];
-                    currentStage = 'tasks';
-                } else if (currentStage === 'initial') {
-                    chatMessages = [...chatMessages, addMessage('assistant', "Please select a scenario first.")];
-                }
-                break;
-            case 'AGENT_CREATION':
-                if (currentStage === 'tasks' && selectedTask) {
-                    await finalizeProcess();
-                } else {
-                    chatMessages = [...chatMessages, addMessage('assistant', "Please select a task first.")];
-                }
-                break;
-            case 'CASUAL_CHAT':
-            default:
-                // No additional action needed for casual chat
-                break;
-        }
+        // Update the message with the full response after typewriting is complete
+        chatMessages = chatMessages.map(msg => 
+            msg.id === String(typingMessageId) 
+                ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+                : msg
+        );
+
+        await messagesStore.fetchMessages(currentThreadId);
+
     } catch (error) {
-        console.error('Error fetching AI response:', error);
+        console.error('Error in handleSendMessage:', error);
         chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
         let errorMessage = 'An unexpected error occurred. Please try again later.';
         if (error instanceof Error) {
@@ -405,9 +554,56 @@ afterUpdate(() => {
         isLoading = false;
         thinkingMessageId = null;
         typingMessageId = null;
-        attachment = null; 
+        attachment = null;
     }
 }
+
+// async function typeMessage(message: string) {
+//     const typingSpeed = 10; // milliseconds per character
+//     let typedMessage = '';
+    
+//     for (let i = 0; i <= message.length; i++) {
+//         typedMessage = message.slice(0, i);
+//         chatMessages = chatMessages.map(msg => 
+//             msg.id === String(typingMessageId) 
+//                 ? { ...msg, content: typedMessage, text: typedMessage, isTyping: i < message.length }
+//                 : msg
+//         );
+//         await new Promise(resolve => setTimeout(resolve, typingSpeed));
+//     }
+// }
+
+        // Handle different prompt types
+        // switch (currentPromptType) {
+        //     case 'SCENARIO_GENERATION':
+        //         if (currentStage === 'initial') {
+        //             scenarios = await generateScenarios(message, aiModel, userId);
+        //             chatMessages = [...chatMessages, addMessage('options', scenarios)];
+        //             currentStage = 'scenarios';
+        //         }
+        //         break;
+        //     case 'TASK_GENERATION':
+        //         if (currentStage === 'scenarios' && selectedScenario) {
+        //             tasks = await generateTasksAPI(selectedScenario, aiModel, userId);
+        //             chatMessages = [...chatMessages, addMessage('options', tasks)];
+        //             currentStage = 'tasks';
+        //         } else if (currentStage === 'initial') {
+        //             chatMessages = [...chatMessages, addMessage('assistant', "Please select a scenario first.")];
+        //         }
+        //         break;
+        //     case 'AGENT_CREATION':
+        //         if (currentStage === 'tasks' && selectedTask) {
+        //             await finalizeProcess();
+        //         } else {
+        //             chatMessages = [...chatMessages, addMessage('assistant', "Please select a task first.")];
+        //         }
+        //         break;
+        //     case 'CASUAL_CHAT':
+        //     default:
+        //         // No additional action needed for casual chat
+        //         break;
+        // }
+
 
   // async function typeMessage(message: string) {
   //   const assistantMessage = addMessage('assistant', '');
@@ -426,19 +622,19 @@ afterUpdate(() => {
   // }
 
   async function typeMessage(message: string) {
-  const typingSpeed = 1; // milliseconds per character
-  let typedMessage = '';
-  
-  for (let i = 0; i <= message.length; i++) {
-    typedMessage = message.slice(0, i);
-    chatMessages = chatMessages.map(msg => 
-      msg.id === String(typingMessageId) 
-        ? { ...msg, content: typedMessage, text: typedMessage, isTyping: i < message.length }
-        : msg
-    );
-    await new Promise(resolve => setTimeout(resolve, typingSpeed));
+    const typingSpeed = 10; // milliseconds per character
+    let typedMessage = '';
+    
+    for (let i = 0; i <= message.length; i++) {
+      typedMessage = message.slice(0, i);
+      chatMessages = chatMessages.map(msg => 
+        msg.id === String(typingMessageId) 
+          ? { ...msg, content: typedMessage, text: typedMessage, isTyping: i < message.length }
+          : msg
+      );
+      await new Promise(resolve => setTimeout(resolve, typingSpeed));
+    }
   }
-}
   
 async function handleScenarioSelection(scenario: Scenario) {
   selectedScenario = scenario;
@@ -720,99 +916,186 @@ function handleAuthSuccess() {
     currentStage = 'initial';
   }
 
+  function startEditingThreadName() {
+  isEditingThreadName = true;
+  editedThreadName = currentThread?.name || '';
+}
+
+async function submitThreadNameChange() {
+  if (currentThreadId && editedThreadName.trim() !== '') {
+    await updateThread(currentThreadId, { name: editedThreadName.trim() });
+    if (currentThread) {
+      currentThread.name = editedThreadName.trim();
+    }
+    isEditingThreadName = false;
+  }
+}
+
   
 </script>
-<button class="thread-toggle" on:click={toggleThreadList}>
-  <Menu size={24} />
-</button>
-<div class="threads-container" class:thread-list-visible={showThreadList}>
 
-  {#if showThreadList}
-  <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
-    <button class="add-button" on:click={createThread}>+ New Thread</button>
-
-    {#each threads as thread}
-      <button 
-        on:click={() => handleLoadThread(thread.id)}
-        class:selected={currentThreadId === thread.id}
-      >
-        {thread.name}
-      </button>
-    {/each}
-  </div>
-{/if}
-  <div class="chat-container">
-   
-    <div class="chat-content">
-      
-      <div class="chat-messages" bind:this={chatMessagesDiv}>
-        
-        {#each chatMessages as message (message.id)}
-        <div class="message {message.role}" in:fly="{{ x: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-          <div class="message-header">
-            {#if message.role === 'user'}
-              <div class="avatar-container">
-                {#if avatarUrl}
-                  <img src={avatarUrl} alt="User avatar" class="avatar" />
-                {:else}
-                  <div class="avatar-placeholder">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  </div>
-                {/if}
-              </div>
-              <span class="role">{username}</span>
-            {:else if message.role === 'thinking'}
-              <span class="role">
-                <Bot size="50" color="white" />
-              </span>
-            {:else if message.role === 'options'}
-              <!-- <span class="role">Select scenario</span> -->
-            {:else}
-              <span class="role">
-                <Bot size="30" color="white" />
-                AI
-              </span>
-            {/if}
-          </div>
-            {#if message.role === 'options'}
-              <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
-                {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
-                  <button 
-                    on:click={() => currentStage === 'scenarios'
-                      ? handleScenarioSelection(option) 
-                      : handleTaskSelection(option)}
-                  >
-                    <span class="option-description">{option.description}</span>
-                    <span class="option-id">{option.id}</span>
-                  </button>
-                {/each}
-              </div>
-            {:else if message.isHighlighted}
-              <p>{@html message.content}</p>
-            {:else}
-              <p class:typing={message.isTyping}>{message.content}</p>
-            {/if}
-            
-            {#if message.role === 'thinking'}
-              <div class="thinking-animation">
-                <span>
-                  <Bot size="20" color="white" />
-                </span>
-                <span>
-                  <Bot size="20" color="white" />
-                </span>
-                <span>
-                  <Bot size="20" color="white" />
-                </span>
-              </div>
-            {/if}
-            
-            <div class="message-time">{new Date(message.created).toLocaleTimeString()}</div>
-          </div>
+<div class="chat-interface">
+  <button class="thread-toggle" on:click={toggleThreadList}>
+    <Menu size={24} />
+  </button>
+  <div class="threads-container" transition:fly="{{ y: 300, duration: 300 }}" class:thread-list-visible={showThreadList}>
+    {#if showThreadList}
+    <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
+      <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
+      <div class="tag-list">
+        {#each availableTags as tag, index}
+          <button class="tag" class:selected={tag.selected} on:click={() => toggleTag(tag)}>
+            {tag.name}
+          </button>
+        {/each}
+        <button class="add-tag" on:click={toggleTagCreation}>
+          <Plus size={16} />
+        </button>
+      </div>
+      {#if editingTagIndex !== null}
+        <div class="new-tag-input">
+          <input bind:value={newTag} placeholder="New tag" on:keydown={(e) => e.key === 'Enter' && saveTag()} />
+          <button on:click={saveTag}><Plus size={16} /></button>
+        </div>
+      {/if}
+      {#each Object.entries(groupedThreads) as [group, groupThreads]}
+      <div class="thread-group">
+        <div class="thread-group-header">{group}</div>
+        {#each groupThreads as thread}
+          <button class="thread-button"
+            on:click={() => handleLoadThread(thread.id)}
+            class:selected={currentThreadId === thread.id}
+          >
+            {thread.name}
+          </button>
         {/each}
       </div>
+    {/each}
     </div>
-
+    {/if}
+    <div class="chat-container" transition:fly="{{ y: 300, duration: 300 }}">
+      <div class="thread-info">
+        {#if currentThread}
+          {#if isEditingThreadName}
+            <input
+              bind:value={editedThreadName}
+              on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
+              on:blur={() => isEditingThreadName = false}
+              autofocus
+            />
+            <button on:click={submitThreadNameChange}>Save</button>
+          {:else}
+            <h1>{currentThread.name}</h1>
+            <button on:click={startEditingThreadName}>Edit</button>
+            <div class="thread-tags">
+              {#each currentThread.tags || [] as tag}
+                <span class="tag">{tag}</span>
+              {/each}
+              <button class="add-tag" on:click={toggleTagCreation}>
+                <Plus size={16} />
+              </button>
+            </div>
+          {/if}
+          
+          <div class="thread-stats">
+            <span>{messages.length} messages</span>
+            <span>Created: {new Date(currentThread.created).toLocaleDateString()}</span>
+            <span>Last updated: {new Date(currentThread.updated).toLocaleDateString()}</span>
+          </div>
+        {:else}
+          <h1>Select a thread</h1>
+        {/if}
+      </div>
+      <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+        <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+          {#each chatMessages as message (message.id)}
+            <div class="message {message.role}" in:fly="{{ x: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+              <div class="message-header">
+                {#if message.role === 'user'}
+                  <div class="avatar-container">
+                    {#if avatarUrl}
+                      <img src={avatarUrl} alt="User avatar" class="avatar" />
+                    {:else}
+                      <div class="avatar-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                      </div>
+                    {/if}
+                  </div>
+                  <span class="role">{username}</span>
+                {:else if message.role === 'thinking'}
+                  <span class="role">
+                    <Bot size="50" color="white" />
+                  </span>
+                {:else if message.role === 'options'}
+                  <!-- <span class="role">Select scenario</span> -->
+                {:else}
+                  <span class="role">
+                    <Bot size="40" color="white" />
+                    AI
+                  </span>
+                {/if}
+              </div>
+              {#if message.role === 'options'}
+                <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
+                  {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
+                    <button 
+                      on:click={() => currentStage === 'scenarios'
+                        ? handleScenarioSelection(option) 
+                        : handleTaskSelection(option)}
+                    >
+                      <span class="option-description">{option.description}</span>
+                      <span class="option-id">{option.id}</span>
+                    </button>
+                  {/each}
+                </div>
+              {:else if message.isHighlighted}
+                <p>{@html message.content}</p>
+              {:else}
+                <p class:typing={message.isTyping}>{message.content}</p>
+              {/if}
+              
+              {#if message.role === 'thinking'}
+                <div class="thinking-animation">
+                  <span>
+                    <Bot size="40" color="white" />
+                  </span>
+                  <span>
+                    <Bot size="40" color="gray" />
+                  </span>
+                  <span>
+                    <Bot size="40" color="white" />
+                  </span>
+                </div>
+              {/if}
+              
+              <div class="message-footer">
+                <div class="message-time">{new Date(message.created).toLocaleTimeString()}</div>
+                <div class="message-reactions">
+                  {#if message.selectedReaction}
+                    <span class="reaction selected">{message.selectedReaction}</span>
+                  {:else}
+                    <button 
+                      class="reaction-button" 
+                      on:mousedown={() => showReactions = message.id}
+                      on:click={() => showReactions = null}
+                    >
+                      <Smile size={16} />
+                    </button>
+                  {/if}
+                  {#if showReactions === message.id}
+                    <div class="reaction-picker">
+                      {#each reactions as reaction}
+                        <button class="reaction-btn" on:click={() => addReaction(message.id, reaction)}>{reaction}</button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
 
   </div>  
   <div class="input-container">
@@ -825,23 +1108,19 @@ function handleAuthSuccess() {
       rows="1"
     ></textarea>
     
-    <div class="btn-model">
-      <ModelSelector/>
-    </div>
-    <div class="btn-mode">
-      <PromptSelector/>
+    <div class="button-row">
+      <div class="btn-model">
+        <ModelSelector/>
+        <PromptSelector/>
+        <button>
+          <Paperclip size="30" color="white" />
+        </button>
+        <button on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
+          <Send size="30" color="white" />
+        </button>
+      </div>
     </div>
 
-    <div class=btn-upload>
-      <button>
-        <Paperclip size="20" color="white" />
-      </button>
-    </div>
-    <div class="btn-send">
-      <button on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
-        <Send size="20" color="white" />
-      </button>
-    </div>
 
 
     {#if currentStage === 'summary'}
@@ -868,9 +1147,9 @@ function handleAuthSuccess() {
     .threads-container {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       width: 100%;
-      position: relative;
+      /* position: relative; */
 
     }
 
@@ -882,49 +1161,20 @@ function handleAuthSuccess() {
       flex-direction: column;
       position: relative;
       transition: all 0.3s ease-in-out;
-      height:99%;
+      height:94%;
       overflow-y: auto;
-      left: 25%;
-      width: 50%;
+      /* left: 20%; */
+      width: 100%;
+      padding: 10px;
 
     }
 
+   
 
-
-    @media (min-width: 1200px) {
-      .chat-container {
-        width: 50%;
-        height: 95vh;
-        margin-left: 25%;
-        /* margin-right: 25%; */
-
-
-      }
-
-
-      .threads-container {
-          /* background-color: red; */
-        }
-      .thread-list {
-          width: 25%;
-        }
-
-        .thread-list-visible .chat-container {
-          margin-left: 0;
-          left: 0;
-          overflow-y: auto;
-          margin-right: 0;
-          margin-left: 0;
-
-
-        }
-
-        .thread-list-visible .thread-toggle {
-          left: 10px;
-        }
+    .button-row {
+      display: flex;
+      flex-direction: row;
     }
-
-
 
   
     .chat-messages {
@@ -935,11 +1185,12 @@ function handleAuthSuccess() {
       display: flex;
       flex-direction: column;
       align-items: stretch;
+      
       scrollbar-width:1px;
       scrollbar-color: #898989 transparent;
-      margin-bottom: 10px;
+      margin-bottom: 100px;
       padding-top: 40px;
-      height: 74vh;
+      height: 90vh;
       border-radius: 50px;
       padding-bottom: 40px;
       background: linear-gradient (
@@ -1069,7 +1320,7 @@ function handleAuthSuccess() {
     /* font-family: 'Roboto', serif; */
 
     transition: all 0.3s ease-in-out;
-    width: 100%;  /* Add this to ensure the message takes full width */
+    width: 300px;  
   }
 
   .message p {
@@ -1079,8 +1330,8 @@ function handleAuthSuccess() {
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
-  width: 100%;  /* Add this to ensure the paragraph takes full width */
-  text-align: left;  /* Add this to ensure text starts from the left */
+  width: 100%;  
+  text-align: left; 
 }
   
     .message::before {
@@ -1113,7 +1364,7 @@ function handleAuthSuccess() {
   /* margin-bottom: 20px; */
   margin-left: 0px;
   font-style: italic;
-  max-width: 80%;  /* Limit the maximum width of the message */
+  width: 50%;  
   border: 1px solid black
 
 }
@@ -1138,7 +1389,7 @@ function handleAuthSuccess() {
       text-justify: center;
       justify-content: center;
       /* margin-right: 20px; */
-      max-width: 80%;
+      width: 50%;  
       /* background: #3c3b35; */
           background-color: #2e3838;
 
@@ -1160,7 +1411,19 @@ function handleAuthSuccess() {
       word-wrap: break-word;
       hyphens: auto;
     }
+
+    .reaction-btn {
+      border: none;
+      height: 50px;
+      width: 50px;
+      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+    }
   
+    .reaction-btn:hover {
+      transform: scale(1.2);
+    }
+
     .options {
       display: flex;
       flex-direction: column;
@@ -1246,10 +1509,218 @@ function handleAuthSuccess() {
     margin-bottom: 20px;
     font-style: italic;
     width: auto;  /* Allow the message to shrink-wrap its content */
-    max-width: 80%;  /* Limit the maximum width of the message */
+    width: 50%;  
+
+  }
+/* 
+  .tag-list {
+    display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start; 
+  align-content: flex-start; 
+    gap: 5px;
+    margin-bottom: 10px;
+
+  } */
+
+  .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.tag {
+  /* background-color: #302626; */
+  border: none;
+  border-radius: 15px;
+  padding: 5px 10px;
+  font-size: 10px;
+  height: auto;
+  min-height: 20px;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.tag.selected {
+  background-color: #007bff;
+  color: white;
+}
+
+.add-tag {
+  /* background-color: red; */
+  border: 1px dashed #ccc;
+  border-radius: 15px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.new-tag-input {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.new-tag-input input {
+  flex-grow: 1;
+  border: 1px solid #ccc;
+  border-radius: 15px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.thread-group-header {
+  font-weight: bold;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  color: #666;
+  font-size: 30px;
+  width: 100%;
+
+  
+}
+
+.thread-group {
+  display: flex;
+  flex-wrap: wrap;
+  /* background-color: red; */
+  margin-top: 10px;
+  gap: 39px 20px;
+  /* background-color: #302626; */
+  border: none;
+  border-radius: 15px;
+  padding: 5px 10px;
+  font-size: 10px;
+  height: auto;
+  min-height: 20px;
+  width: auto;
+  display: inline-flex;
+  /* align-items: center; */
+  /* justify-content: center; */
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+}
+
+.thread-button {
+  display: flex;
+  
+
+
+}
+
+
+
+
+
+  .message-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+  }
+
+  .message-reactions {
+    display: flex;
+    align-items: center;
+    transition: all ease-in 0,3s;
+  }
+
+  .message-reactions:hover {
+    display: flex;
+    align-items: center;
+    transform: scale(1.2);
+    /* background-color: red; */
+  }
+  .reaction-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 5px;
+  }
+
+  .reaction-picker {
+    position: absolute;
+    /* background-color: white; */
+    /* border: 1px solid #ccc; */
+    border-radius: 5px;
+    padding: 5px;
+    display: flex;
+    gap: 5px;
+    z-index: 10;
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
   }
 
+  .reaction {
+    font-size: 16px;
+    cursor: pointer;
+    position: absolute;
+    display: flex;
+    align-items: right;
+  }
+
+  .reaction.selected {
+    /* border: 1px solid #007bff; */
+    border-radius: 50%;
+    padding: 0px 20px;
+  }
+
+  @media (min-width: 1200px) {
+      .chat-container {
+        /* width: 50%; */
+        height: 95vh;
+        margin-left: 25%;
+        /* margin-right: 25%; */
+
+
+      }
+
+
+      .threads-container {
+          /* background-color: red; */
+        }
+      .thread-list {
+          /* width: 25%; */
+          margin-top: 20px;
+          height: 80%;
+          overflow-y: scroll;
+          overflow-x: none;
+          scrollbar-width:1px;
+          scrollbar-color: #c8c8c8 transparent;
+          
+
+        }
+
+        .thread-list-visible .chat-container {
+          margin-left: 0;
+          left: 0;
+          overflow-y: auto;
+          margin-right: 0;
+          margin-left: 0;
+          width: auto;
+
+
+        }
+
+        .thread-list-visible .thread-toggle {
+          left: 10px;
+        }
+    }
+
+
+    @keyframes glowy {
+    0% { box-shadow: 0 0 0 #2b2b29, 0 0 2px #4b505d; }
+    0% { box-shadow: 0 1px 0 #2b2b29, 0 0 15px #4c4e55; }
+
+    100% { box-shadow: 0 0 1px #474539, 0 0 50px #32322e; }
+  }
 
   @keyframes pulsate {
     0% { box-shadow: 0 0 0 #FFD700, 0 0 2px #FFD700; }
@@ -1293,6 +1764,7 @@ function handleAuthSuccess() {
     border-radius: 70%;
     background: linear-gradient(45deg, rgba(0, 0, 0, 0.8) 50%, rgba(128, 128, 128, 0.8) 100%);
     display: flex;
+    border: 1px solid rgb(44, 44, 44);
     background-color: rgb(17, 56, 39);
 
   }
@@ -1304,10 +1776,11 @@ function handleAuthSuccess() {
     height: 50px;
     font-size: 18px;
     border-radius: 25px;
-    background-color: #21201d;
+    background-color: #000000;
     color: #818380;
     border: none;
     transition: all ease-in 0.3s;
+    outline: none;
   }
 
   .input-container input:focus {
@@ -1318,18 +1791,20 @@ function handleAuthSuccess() {
 }
 
 .input-container textarea:focus {
-    border: 1px solid white;
-    /* background-color: lightgrey; */
+    border: 1px solid rgb(54, 54, 54);
+    background-color: rgb(0, 0, 0);
     color: white;
-    font-size: 26px;
+    font-size: 40px;
+    animation: glowy 1.5s infinite alternate;
+    display: flex;
 
 }
 
   button {
     display: flex;
     
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     padding: 10px;
     background-color: #21201d;    
     color: white;
@@ -1398,15 +1873,17 @@ function handleAuthSuccess() {
 
   
   .btn-model {
-    position: absolute;
-    bottom: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
     right: 0;
-  
-
-  }
+    bottom: 40px;
+    align-items: flex-end;
+}
 
   .btn-mode {
-    position: absolute;
+    position: relative;
     bottom: 200px;
     right: 0;
   
@@ -1414,7 +1891,7 @@ function handleAuthSuccess() {
   }
 
   .btn-send {
-    position: absolute;
+    position: relative;
     bottom: 20px;
     right: 0;
 
@@ -1422,7 +1899,7 @@ function handleAuthSuccess() {
 
 
   .btn-upload {
-    position: absolute;
+    position: relative;
     margin-bottom: 20px;
     right: 0;
 
@@ -1432,7 +1909,7 @@ function handleAuthSuccess() {
     display: flex;
     flex-direction: column;
     font-family: 'Merriweather', serif;
-    width: 98%;
+    width: 96%;
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
     padding: 20px;
@@ -1454,6 +1931,7 @@ function handleAuthSuccess() {
     scrollbar-width:none;
     scrollbar-color: #21201d transparent;
     vertical-align: middle; /* Align text vertically */
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
   }
 
 
@@ -1461,7 +1939,12 @@ function handleAuthSuccess() {
     outline: none;
     border: 2px solid #000000;
     color: white;
-    
+    transform: translateY(-10px) rotate(0deg); 
+    font-size: 30px;
+    padding: 60px;
+    /* height: 300px; */
+    display: flex;
+
   }
 
   @keyframes blink {
@@ -1508,6 +1991,16 @@ span {
   gap: 10px;
 }
 
+.thread-tags span {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  /* background-color: blue; */
+  color: white;
+  width: 100px;
+}
+
 .avatar-container {
   width: 30px;
   height: 30px;
@@ -1546,42 +2039,55 @@ span {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    width: 50%;
+    width: 100%;
+    overflow-y: hidden;
   }
 
   .thread-list {
+    display: flex;
+    flex-direction: column;
+    justify-content: top;
+    align-items: center;
+    overflow: auto;
   position: fixed;
-  left: 30px;
-  top: 80px;
-  bottom: 60px;
+  padding: 20px 0px;
+  /* left: 30px; */
+  /* top: 80px; */
+  /* bottom: 60px; */
   /* border-radius: 50px; */
-  width: 300px;
-  /* background-color: #2a2a2a; */
-  transition: transform 0.3s ease-in-out;
-  z-index: 10;
+  width: 20%;
+  transition: all 0.3s ease-in-out;
+  /* z-index: 10; */
 }
 
 .thread-list.hidden {
+  display: none;
   transform: translateX(-100%);
 }
 
+
+.thread-list-visible {
+  /* background-color: blue; */
+}
 .thread-list-visible .chat-container {
-  margin-left: 300px;
+  /* margin-left: 300px; */
 }
 
 
   .thread-list button {
       display: flex;
-      width: 100%;
+      flex-direction: rows;
+      justify-content: center;
+      margin-left: 5%;
+      /* width: 88%; */
       padding: 20px 20px;
+      border-radius: 10px;
       /* margin-bottom: 5px; */
       text-align: left;
-      /* background-color: #080808; */
-      border-bottom: 1px solid #4b4b4b;
-      border-radius: 0;
+      /* border-bottom: 1px solid #4b4b4b; */
       cursor: pointer;
       color: #fff;
-      transition: background-color 0.3s;
+      transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       letter-spacing: 4px;
       font-size: 20px;
       justify-content: center;
@@ -1591,7 +2097,12 @@ span {
 
     .thread-list button:hover {
         background-color: #2c3e50;
-    }
+        transform: scale(1.62) translateX(5px) rotate(5deg);          
+        letter-spacing: 4px;
+        padding: 20px;
+        /* font-size: 30px; */
+
+      }
 
     .thread-list button.selected {
         /* background-color: #2980b9; */
@@ -1609,19 +2120,24 @@ span {
     .thread-list .add-button {
       background-color: rgb(71, 59, 59);
       font-style: italic;
-      font-weight: bolder;
+      /* font-weight: bolder; */
       border-bottom: 1px solid #6b6b6b;
       border-radius: 10px;
       margin-bottom: 2rem;
     }
 
     .thread-toggle {
+      display: flex;
+      flex-direction: row;
       position: fixed;
-      top: 10px;
-      left: 10px;
+      height: 60px;
+      width: 60px;
+      bottom: 80px;
+      left: 0;
       z-index: 1000;
-      background-color: transparent;
-      border: none;
+      background-color: rgb(24, 24, 24);
+      border: 1px solid gray;
+      border-radius: 50px;
       cursor: pointer;
       transition: left 0.3s ease-in-out;
     }
@@ -1634,6 +2150,91 @@ span {
     background-color: black;
   }
 
+  .thread-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    border-radius: 5px;
+    font-size: 20px;
+    color: white;
+    height: 60px;
+    /* background-color: black; */
+  }
+
+  .thread-stats {
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+    align-items: center;    
+    position: relative;
+    gap: 40px;
+    font-size: 0.9em;
+    color: #666;
+    font-size: 20px;
+
+  }
+
+  .message-actions {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .message.human:hover .message-actions {
+    opacity: 1;
+  }
+
+  .message.robot .message-actions {
+    display: none;
+  }
+
+  .quote-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 10px;
+  }
+
+  .quoted-message {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-left: 3px solid #888;
+    padding: 5px 10px;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+  }
+
+  .quoted-message span {
+    margin-left: 5px;
+  }
+
+  .typing::after {
+    content: '▋';
+    display: inline-block;
+    vertical-align: bottom;
+    animation: blink 0.7s infinite;
+  }
+
+  .thread-list button.selected {
+    background-color: #2c3e50;
+    font-weight: bold;
+  }
+
+  .thread-tags {
+    display: flex;
+    flex-direction: row;
+  }
+
+  @keyframes blink {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+
+
   @media (max-width: 768px) {
   .threads-container {
     flex-direction: column;
@@ -1642,6 +2243,7 @@ span {
 
   .chat-content {
     width: 100%;
+    
   }
 
   .thread-list {
@@ -1651,7 +2253,6 @@ span {
     bottom: 0;
     width: 90%;
     height: 100%;
-    
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     z-index: 1000;
@@ -1684,36 +2285,44 @@ span {
     left: 10px;
   }
 
+  h1 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+  }
 
 
-      .chat-content {
+.chat-content {
 
-      }
-      .threads-container {
-          /* background-color: red; */
-          width: 100%;
+}
+.threads-container {
+    /* background-color: red; */
+    width: 100%;
 
-        }
-      .thread-list {
-          width: 100%;
-          
-        }
+  }
+.thread-list {
+    width: 100%;
+    
+  }
 
-        .thread-list-visible .chat-container {
-          margin-left: 0;
-          display: none;
-          
-        }
+  .thread-list-visible .chat-container {
+    margin-left: 0;
+    display: none;
+    
+  }
 
 
 
-        .thread-list-visible .thread-toggle {
-          left: 10px;
-        }
+  .thread-list-visible .thread-toggle {
+    left: 10px;
+  }
 
-        .input-container {
-          /* background-color: red; */
-        }
+  .input-container {
+    /* background-color: red; */
+  }
     }
 
 

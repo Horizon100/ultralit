@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
   import { get } from 'svelte/store';
+  import { elasticOut, elasticIn } from 'svelte/easing';
   import { showLoading, hideLoading } from '$lib/stores/loadingStore';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { fade, slide, fly } from 'svelte/transition';
@@ -58,6 +59,10 @@
   let textareaElement: HTMLTextAreaElement | null = null;
   let showBuilder = false;
   let isLoading = false;
+  let showFade = false;
+  let showH2 = false;
+
+  $: user = $currentUser;
 
   $: isNarrowScreen = innerWidth <= 700;
 
@@ -78,6 +83,11 @@
       agentStore.loadAgents(currentWorkspaceId);
     }
   }
+  onMount(() => {
+        user = $currentUser;
+        setTimeout(() => showFade = true, 50);
+        setTimeout(() => showH2 = true, 50);
+    });
 
   onMount(async () => {
     if ($currentUser && $currentUser.id) {
@@ -298,8 +308,9 @@
 </script>
 
 <svelte:window bind:innerWidth />
+{#if showH2}
 
-<div class="layout">
+<div class="layout" in:fly="{{ y: -400, duration: 400 }}" out:fade="{{ duration: 300 }}">
   <img src={itImage} alt="Italian illustration" class="illustration" />
 
   {#if isLoading}
@@ -460,6 +471,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 {#if showGenericOverlay}
   <GenericOverlay 
@@ -481,9 +493,9 @@
     height: 94vh;
     /* width: 100vw; */
     overflow: hidden;
-    /* background-color:#010e0e; */
-    /* background-color:#142e2e; */
     background-color:#010e0e;
+    /* background-color:#142e2e; */
+      /* background-color: red; */
     width: 96%;
     margin-left: 2%;
     border-radius: 40px;
