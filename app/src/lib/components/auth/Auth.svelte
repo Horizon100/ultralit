@@ -97,37 +97,51 @@
                 <strong>{$currentUser.username || $currentUser.email}</strong>
             </p>
         </div>
-        <button class="logout-button" on:click={logout}>
+        <!-- <button class="logout-button" on:click={logout}>
             <LogOutIcon size={24} />
             <span>Logout</span>
-        </button>
+        </button> -->
     {:else}
-        <form on:submit|preventDefault class="auth-form">
-            <input
-                class="input"
-                type="email"
-                bind:value={email}
-                placeholder="Email"
-                required
-            />
-            <input
-                class="input"
-                type="password"
-                bind:value={password}
-                placeholder="Password"
-                required
-            />
-            <div class="button-group">
-                <button class="button button-signup" on:click={signUp}>
-                    <UserPlus size={16} />
-                    <span>Sign Up</span>
-                </button>
-                <button class="button button-login" on:click={login}>
-                    <LogIn size={16} />
-                    <span>Login</span>
-                </button>
+        <div class="login-container">
+            <form on:submit|preventDefault class="auth-form">
+                <input
+                    class="input"
+                    type="email"
+                    bind:value={email}
+                    placeholder="Email"
+                    required
+                    style="background-color: #444444;"
+
+                />
+                <input
+                    class="input"
+                    type="password"
+                    bind:value={password}
+                    placeholder="Password"
+                    required
+                />
+                <div class="button-group">
+                    <button class="button button-signup" on:click={signUp}>
+                        <UserPlus size={16} />
+                        <span>Sign Up</span>
+                    </button>
+                    <button class="button button-login" on:click={login}>
+                        <LogIn size={16} />
+                        <span>Login</span>
+                    </button>
+                </div>
+            </form>
+            <div class="terms">
+                <p>
+                    By using our service you agree:
+                </p>
+                <p>Privacy Policy</p>
+                <p>&</p>
+                <p>Terms of Use</p>
             </div>
-        </form>
+
+        </div>
+
     {/if}
     
     {#if errorMessage}
@@ -137,21 +151,53 @@
 
 {#if showProfileModal}
     <Profile user={$currentUser} onClose={toggleProfileModal} />
+    <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+        <LogOutIcon size={24} />
+        <span>Logout</span>
+    </button>
 {/if}
 
 <style>
     .auth-container {
+        display: flex;
         background-color: #131313;
         color: #ffffff;
+        border: 1px solid rgb(53, 53, 53);
+        /* border-radius: 20px; */
+        border-bottom-left-radius: 100%;
+        border-bottom-right-radius: 100%;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        /* height: 50px; */
+        padding: 10px 20px;
+        /* width: 100%; */
         /* padding: 20px; */
-        border-radius: 10px;
-        width: 100%;
+        /* width: 100%; */
+        /* width: 300px; */
+
+        /* height: 40px; */
+
     }
 
+    .login-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .terms {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        justify-content: center;
+        color: gray;
+        height: 40px;
+    }
     .user-info {
         display: flex;
         align-items: center;
         gap: 10px;
+        user-select: none;
     }
 
     .avatar-container {
@@ -180,20 +226,44 @@
 
     .auth-form {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        /* height: 100px; */
         gap: 3px;
 
     }
 
-    .input {
-        padding: 10px;
-        border-radius: 5px;
-        border: none;
-        background-color: #2c3e50;
-        color: white;
-    }
 
+    .auth-form input {
+    background-color: #3f9fff; /* Blue background color */
+    color: #ffffff; /* White text color */
+    /* height: 20px; Consistent height */
+    padding: 10px; /* Padding for text */
+    border-radius: 5px; /* Rounded corners */
+    border: 1px solid #34495e; /* Subtle border */
+    font-size: 16px; /* Readable font size */
+    /* width: 90%; Full width of container */
+    /* margin-left: 5%; */
+    transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
+}
 
+.auth-form input:focus {
+    outline: none; /* Remove default focus outline */
+    border-color: #3498db; /* Highlight border color on focus */
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25); /* Subtle glow effect */
+    background-color: #34495e; /* Slightly lighter background on focus */
+}
+
+.auth-form input::placeholder {
+    color: #95a5a6; /* Lighter color for placeholder text */
+}
+
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+    background-color: #08090a;
+    /* ... other styles ... */
+}
 
     .button {
         display: flex;
@@ -209,14 +279,14 @@
 
     .button-signup {
         background-color: #27ae60;
-        width: 49%;
+        width: 100%;
         display: flex;
 
     }
 
     .button-login {
         background-color: #3498db;
-        width: 49%;
+        width: 100%;
         display: flex;
 
     }
@@ -225,16 +295,21 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        position: fixed;
+        right: 2rem;
+        top: 70px;
         gap: 5px;
-        width: 100%;
+        /* width: 100%; */
         padding: 10px;
-        margin-top: 10px;
+        /* margin-top: 10px; */
         background-color: #e74c3c;
         border: none;
         border-radius: 5px;
         color: white;
         cursor: pointer;
         transition: background-color 0.3s;
+        font-size: 16px;
+        z-index: 1000;
     }
 
     .error {
@@ -242,38 +317,18 @@
         margin-top: 10px;
     }
 
-    input {
-        background-color: red;
-        height: 100px;
-        color: red;
-    }
 
-    input.textarea {
-    background-color: lightblue; /* Replace with your desired color */
-    color: black; /* Adjust text color to ensure readability */
-    height: 40px; /* Adjust height as needed */
-    padding: 10px; /* Add some padding for better appearance */
-    border-radius: 4px; /* Optional: rounded corners */
-    border: 1px solid #ccc; /* Optional: border color */
-    margin-bottom: 10px; /* Space between inputs */
-}
 
-/* Style for the password input */
-input.input {
-    background-color: lightgreen; /* Replace with your desired color */
-    color: black; /* Adjust text color to ensure readability */
-    height: 40px; /* Adjust height as needed */
-    padding: 10px; /* Add some padding for better appearance */
-    border-radius: 4px; /* Optional: rounded corners */
-    border: 1px solid #ccc; /* Optional: border color */
-    margin-bottom: 10px; /* Space between inputs */
-    font-size: 20px;
-}
+
 
 .button-group {
         display: flex;
         flex-direction: row;
         justify-content: space-between;
+        align-items: center;
+        width: 250px;
+        gap: 2px;
+        /* margin-left: 5%; */
         /* margin-top: 10px; */
         /* width: 100%; */
         
@@ -281,7 +336,7 @@ input.input {
     }
 
 .button-group .button {
-    background-color: #007bff; /* Button background color */
+    /* background-color: #007bff; Button background color */
     color: white; /* Button text color */
     border: none; /* Remove default border */
     border-radius: 4px; /* Rounded corners */
@@ -289,6 +344,7 @@ input.input {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 16px;
 }
 
 /* Hover effects for buttons */

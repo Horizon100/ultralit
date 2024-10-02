@@ -269,18 +269,21 @@
     {/if}
 </div>
 
-<slot />
+<!-- <slot /> -->
 
 <style>
+
+
   .workspace-layout {
         display: flex;
         flex-direction: column;
-        position: relative;
+        position: absolute;
         height: auto;
         /* height: 89vh; */
         width: 410px;
         /* top: 130px; */
-        left: 0;
+        left: 20px;
+        top: 160px;
         border-radius: 20px;
         justify-content: center;
         align-items: center;

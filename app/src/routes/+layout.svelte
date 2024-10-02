@@ -1,23 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+    import { onMount } from 'svelte';
     import { fly, fade, slide } from 'svelte/transition';
     import { currentUser } from '$lib/pocketbase';
     import horizon100 from '$lib/assets/horizon100.svg';
     import Auth from '../lib/components/auth/Auth.svelte';
-    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs } from 'lucide-svelte';
+    import Profile from '$lib/components/ui/Profile.svelte';
+    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X } from 'lucide-svelte';
     import { navigating } from '$app/stores';
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
     import TimeTracker from '$lib/components/features/TimeTracker.svelte';
-	import GamePlay from '$lib/components/features/GamePlay.svelte';
-
+    import { pb } from '$lib/pocketbase';
+    import { Camera } from 'lucide-svelte';
+    import { goto } from '$app/navigation';
 
     let isMenuOpen = false;
     let showAuth = false;
+    let showProfile = false;
     let innerWidth: number;
-    let activeLink = '/'; 
-	let showGamePlay = false;
-
+    let activeLink = '/';
 
     $: isNarrowScreen = innerWidth <= 700;
 
@@ -26,7 +27,6 @@
             if (navigationData) {
                 isNavigating.set(true);
             } else {
-                // Add a small delay before hiding the spinner to ensure content is ready
                 setTimeout(() => {
                     isNavigating.set(false);
                 }, 300);
@@ -42,8 +42,14 @@
         isMenuOpen = !isMenuOpen;
     }
 
-    function toggleAuth() {
-        showAuth = !showAuth;
+    function toggleAuthOrProfile() {
+        if ($currentUser) {
+            showProfile = !showProfile;
+            showAuth = false;
+        } else {
+            showAuth = !showAuth;
+            showProfile = false;
+        }
     }
 
     function handleAuthSuccess() {
@@ -51,18 +57,21 @@
     }
 
     function handleLogout() {
-        // Any additional logout logic can go here
+        showProfile = false;
         showAuth = false;
+        goto('/');
     }
 
-	function setActiveLink(path: string) {
+    function setActiveLink(path: string) {
         activeLink = path;
     }
 
-	function toggleGamePlay() {
-        showGamePlay = !showGamePlay;
+    function handleOverlayClick(event: MouseEvent) {
+        if (event.target === event.currentTarget) {
+            showAuth = false;
+            showProfile = false;
+        }
     }
-	
 </script>
 
 <svelte:window bind:innerWidth />
@@ -72,7 +81,7 @@
         <nav>
             <a href="/" class="logo" on:click={() => setActiveLink('/')}>
                 <img src={horizon100} alt="Horizon100" class="logo" />
-                <h1 class="h1">vRAZUM</h1>
+                <!-- <h1 class="h1">vRAZUM</h1> -->
             </a>
             {#if isNarrowScreen}
                 <button class="menu-button" transition:fly={{ y: -200, duration: 300 }} on:click={toggleMenu}>
@@ -103,18 +112,32 @@
 					<a href="/map" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/map'} on:click={() => setActiveLink('/map')}>Map</a>
 
                    
-					<button class="nav-link" on:click={toggleGamePlay}>
+					<!-- <button class="nav-link" on:click={toggleGamePlay}>
 						<Brain size={20} />
 						GamePlay
+					</button> -->
+					<button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
+						{#if $currentUser}
+							<div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
+								<span class="user-name">{$currentUser.name || $currentUser.email}</span>
+								<div class="avatar-container">
+									{#if $currentUser.avatar}
+										<img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
+									{:else}
+										<div class="avatar-placeholder">
+											<Camera size={24} />
+										</div>
+									{/if}
+								</div>
+							</div>
+							
+						{:else}
+							<LogIn size={24} />
+							<span>Login</span>
+						{/if}
 					</button>
-					<button class="menu-button" on:click={toggleAuth}>
-                        {#if $currentUser}
-                            <User size={20} />
-                            <span class="user-name">{$currentUser.name || $currentUser.email}</span>
-                        {:else}
-                            <LogIn size={24} />
-                        {/if}
-                    </button>
+
+					
                 </div>
             {/if}
         </nav>
@@ -122,19 +145,36 @@
 	<TimeTracker />
 
     {#if showAuth}
-        <div class="auth-overlay" on:click|self={toggleAuth}  transition:fly={{ y: -200, duration: 300 }}>
-            <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+        <div class="auth-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
+            <div class="auth-content" transition:fly={{y: 200, duration: 300}}>
+                <button class="close-button" transition:fly={{ y: -200, duration: 300}} on:click={() => showAuth = false}>
+                    <X size={24} />
+                </button>
+                <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+            </div>
         </div>
     {/if}
 
-	{#if showGamePlay}
+    {#if showProfile}
+        <div class="profile-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
+            <div class="profile-content" transition:fly={{ y: -200, duration: 300}} >
+                <button class="close-button" on:click={() => showProfile = false}>
+                    <X size={24} />
+                </button>
+                <Profile user={$currentUser} onClose={() => showProfile = false} on:logout={handleLogout} />
+            </div>
+        </div>
+    {/if}
+
+
+	<!-- {#if showGamePlay}
 		<div class="gameplay-overlay" transition:fade={{duration: 300}} on:click|self={toggleGamePlay}>
 		<div class="gameplay-content" transition:fly={{y: 50, duration: 300}}>
 			<GamePlay />
 			<button class="close-button" on:click={toggleGamePlay}>Close</button>
 		</div>
 		</div>
-	{/if}
+	{/if} -->
 
     {#if isNarrowScreen && isMenuOpen}
         <div class="mobile-menu" transition:fly={{ y: -200, duration: 300 }}>
@@ -160,18 +200,19 @@
             </button>
         </div>
     {/if}
-
 	{#if $isNavigating}
-		<LoadingSpinner />
-	{/if}
+	<LoadingSpinner />
+{/if}
 
-    <main>
-        <slot />
-    </main>
+	<main>
+		<slot />
+	</main>
+
 	<footer>
-	  <!-- <p>&copy; 2024 vRAZUM. All rights reserved.</p> -->
+		<!-- Footer content -->
 	</footer>
-  </div>
+</div>
+
   
   <style>
 	@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap');
@@ -204,21 +245,41 @@
 	  
 	  
 	}
-  
+    .auth-content {
+        position: fixed;
+		top: 0;
+        /* background-color: #2b2a2a; */
+        /* padding: 2rem; */
+        width: 100%;
+        /* max-width: 500px; */
+        height: auto;
+        overflow-y: auto;
+    }
+	.profile-content {
+        position: relative;
+        background-color: #2b2a2a;
+        padding: 2rem;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
 	header {
 	  display: flex;
 	  flex-direction: row;
+	  position: fixed;
 	  justify-content: center;
-	  align-items: center;
-	  height: 40px;
+	  	  align-items: center;
+	  top: 0;
+	  width: 100%;
+	  /* height: 80px; */
+	  /* margin-top: 0; */
 	  /* align-items: center; */
 	  /* width: 100%; */
 	  /* height: 60px; */
 	  /* padding: 5px 5px; */
-	  border-bottom-left-radius: 0px; 
-	  border-bottom-right-radius: 0px;
-	  border-top-left-radius: 8px;
-	  border-top-right-radius: 8px;
+
 	  /* z-index: 100;; */
 	  transition: all 0.3s ease;
 	  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
@@ -291,12 +352,18 @@
 	  flex-direction: row;
 	  justify-content: center;
 	  align-items: center;
-	  padding: 5px 10px;
-	  background-color: #151515;
-	  border-radius: 20px;
+	  height: auto;
+	  /* padding: 5px 10px; */
+	  background-color: #2b2a2a;
+	  /* border-radius: 20px; */
 	  /* background-color: black; */
 		/* height: 80px; */
 	  gap: 1rem;
+	  padding: 0 50px;
+	  border-bottom-left-radius: 20px; 
+	  border-bottom-right-radius: 20px;
+	  border-top-left-radius: 20px;
+	  border-top-right-radius: 20px;
 	  /* margin-right: 10%; */
 	  /* padding: 10px; */
 	}
@@ -322,7 +389,7 @@
 	 a {
 		justify-content: center;
 		align-items: center;
-		padding: 20px;
+		/* padding: 20px; */
 
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -333,9 +400,11 @@
 
 	.nav-links {
 		display: flex;
-		gap: 20px;
+		/* gap: 20px; */
 		align-items: center;
 		justify-content: center;
+		padding: 10px;
+		height: 50%;
 
 	}
 
@@ -399,18 +468,39 @@
 
 	.menu-button {
         display: flex;
+		flex-direction: row;
+		/* width: 200px; */
+		/* min-width: 200px; */
         align-items: center;
+		justify-content: center;
+		/* padding: 10px; */
+		background-color: transparent;
 		position: absolute;
-		right: 10px;
-		margin-right: 0;
-        gap: 8px;
-        background: none;
-        border: none;
+		right: 2rem;
+		transition: all ease-in 0.2s;
+		/* margin-right: 0; */
+        gap: 10px;
+		/* padding: 0 20px; */
+        border: 20px;
 		/* background-color: red; */
         cursor: pointer;
-        font-size: 14px;
+        font-size: 20px;
 		
     }
+
+	.profile-button {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+        align-items: center;
+		gap: 20px;
+
+	}
+
+	button.menu-button {
+		/* display: flex; */
+		/* flex-direction: row; */
+	}
 
     .user-name {
         max-width: 150px;
@@ -497,7 +587,7 @@
 
 	button:hover {
 	  opacity: 0.8;
-	  background-color: red;
+	  background-color: rgb(62, 137, 194);
 	}
   
 	footer {
@@ -512,12 +602,27 @@
 	  bottom: 0;
 	  height: 0;
 	}
+	.profile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
 
 	.auth-overlay {
-        position: absolute;
-        top: 50px;
-		width: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        /* background-color: rgba(0, 0, 0, 0.5); */
         display: flex;
         justify-content: center;
         align-items: center;
@@ -540,6 +645,45 @@
         background-color: #4a4a4a;
     }
 
+
+    .avatar-container {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-right: 10px;
+    }
+
+    .avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #444;
+        color: #fff;
+    }
+
+	.close-button {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+
+	.no-user-message {
+        text-align: center;
+        padding: 2rem;
+    }
 	@media (max-width: 700px) {
 
 

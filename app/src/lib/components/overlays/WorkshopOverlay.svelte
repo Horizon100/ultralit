@@ -168,7 +168,8 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        width: 96vh;
+        width: 75vw;
+        margin-top: 44px;
         /* height:99%; */
         /* margin-top: 220px; */
         /* height: 90%; */
@@ -236,7 +237,8 @@
     .layout {
         display: flex;
         flex-direction: column;
-        height: 95vh;
+        height:84vh;
+        width: 100%;
         overflow: hidden;
     }
 

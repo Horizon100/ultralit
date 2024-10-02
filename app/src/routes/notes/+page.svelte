@@ -319,64 +319,36 @@ onMount(() => {
     });
 
 </script>
-{#if showFade}
 
-<div in:fade="{{ duration: 500 }}" out:fade="{{ duration: 300 }}">
+    {#if showFade}
 
-
-    <img src={Headmaster} alt="Notes illustration" class="illustration" />
-</div>
-{/if}
-{#if showH2}
-
-<div in:fly="{{ x: 200, duration: 400 }}" out:fade="{{ duration: 300 }}">
+    <div in:fade="{{ duration: 500 }}" out:fade="{{ duration: 300 }}">
 
 
-    <div class="tab-row">
-        <button class="new-tab" on:click={createNewNote}>
-            <Plus size={24} />
-        </button>
-        {#each openTabs as tab (tab.id)}
-            <div class="tab" class:active={currentNote && currentNote.id === tab.id} transition:fly={{ x: 100, duration: 200 }}>
-                <span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
-                <button class="close-tab" on:click={() => closeTab(tab)}>
-                    <X size={24} />
-                </button>
-            </div>
-        {/each}
+        <img src={Headmaster} alt="Notes illustration" class="illustration" />
     </div>
+    {/if}
+    {#if showH2}
+
+    <div in:fly="{{ x: 200, duration: 400 }}" out:fade="{{ duration: 300 }}">
+
+
+        <div class="tab-row">
+            <button class="new-tab" on:click={createNewNote}>
+                <Plus size={24} />
+            </button>
+            {#each openTabs as tab (tab.id)}
+                <div class="tab" class:active={currentNote && currentNote.id === tab.id} transition:fly={{ x: 100, duration: 200 }}>
+                    <span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
+                    <button class="close-tab" on:click={() => closeTab(tab)}>
+                        <X size={24} />
+                    </button>
+                </div>
+            {/each}
+        </div>
 
 
 
-    <input
-        type="file"
-        accept="image/*"
-        style="display: none"
-        on:change={(e) => onFileSelected(e, updateNoteContent)}
-        bind:this={fileInput}
-    />
-
-    {#if currentNote}
-        <input
-            type="text"
-            bind:value={currentNote.title}
-            on:input={handleNoteTitleChange}
-            placeholder="Note title"
-            class="note-title"
-        />
-        <div
-            contenteditable="true"
-            on:input={handleNoteContentChange}
-            on:contextmenu={handleContextMenu}
-            on:click={showTooltip}
-            on:dragenter={handleDragEnter}
-            on:dragleave={handleDragLeave}
-            on:dragover={handleDragOver}
-            on:drop={handleDrop}
-            class="note-content"
-            class:dragging={isDragging}
-            bind:innerHTML={currentNote.content}
-        ></div>
         <input
             type="file"
             accept="image/*"
@@ -384,60 +356,89 @@ onMount(() => {
             on:change={(e) => onFileSelected(e, updateNoteContent)}
             bind:this={fileInput}
         />
-        <div class="attachments-toggle" on:click={toggleAttachments}>
-            Attachments ({currentNote.attachments?.length || 0})
-        </div>
-        {#if attachmentsVisible}
+
+        {#if currentNote}
+            <input
+                type="text"
+                bind:value={currentNote.title}
+                on:input={handleNoteTitleChange}
+                placeholder="Note title"
+                class="note-title"
+            />
+            <div
+                contenteditable="true"
+                on:input={handleNoteContentChange}
+                on:contextmenu={handleContextMenu}
+                on:click={showTooltip}
+                on:dragenter={handleDragEnter}
+                on:dragleave={handleDragLeave}
+                on:dragover={handleDragOver}
+                on:drop={handleDrop}
+                class="note-content"
+                class:dragging={isDragging}
+                bind:innerHTML={currentNote.content}
+            ></div>
+            <input
+                type="file"
+                accept="image/*"
+                style="display: none"
+                on:change={(e) => onFileSelected(e, updateNoteContent)}
+                bind:this={fileInput}
+            />
+            <div class="attachments-toggle" on:click={toggleAttachments}>
+                Attachments ({currentNote.attachments?.length || 0})
+            </div>
+            {#if attachmentsVisible}
+                <div class="attachments-container" transition:slide>
+                    {#each currentNote.attachments || [] as attachment}
+                        <div class="attachment">
+                            <FileIcon />
+                            <span>{attachment.name}</span>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        {:else}
+            <div class="no-document">
+                <h1>No documents</h1>
+                <button on:click={createNewNote}>
+                    <Plus size={16} />
+                    Create new note
+                </button>
+            </div>
+        {/if}
+
+        {#if contextMenuVisible}
+            <div
+                class="context-menu"
+                style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
+                on:mouseleave={hideContextMenu}
+            >
+                <button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
+                <button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
+                {#if selectedText}
+                    <button on:click={() => handleContextMenuOption('summarize')}>Summarize selected text</button>
+                    <button on:click={() => handleContextMenuOption('criticize')}>Criticize selected text</button>
+                {/if}
+                <button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
+                <button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
+                <button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
+                <button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
+            </div>
+        {/if}
+
+        {#if attachmentsVisible && currentNote?.attachments}
             <div class="attachments-container" transition:slide>
-                {#each currentNote.attachments || [] as attachment}
+                {#each currentNote.attachments as attachment (attachment.id)}
                     <div class="attachment">
                         <FileIcon />
-                        <span>{attachment.name}</span>
+                        <span>{attachment.fileName}</span>
                     </div>
                 {/each}
             </div>
         {/if}
-    {:else}
-        <div class="no-document">
-            <h1>No documents</h1>
-            <button on:click={createNewNote}>
-                <Plus size={16} />
-                Create new note
-            </button>
-        </div>
+    </div>
     {/if}
-
-    {#if contextMenuVisible}
-        <div
-            class="context-menu"
-            style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
-            on:mouseleave={hideContextMenu}
-        >
-            <button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
-            <button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
-            {#if selectedText}
-                <button on:click={() => handleContextMenuOption('summarize')}>Summarize selected text</button>
-                <button on:click={() => handleContextMenuOption('criticize')}>Criticize selected text</button>
-            {/if}
-            <button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
-            <button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
-            <button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
-            <button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
-        </div>
-    {/if}
-
-    {#if attachmentsVisible && currentNote?.attachments}
-        <div class="attachments-container" transition:slide>
-            {#each currentNote.attachments as attachment (attachment.id)}
-                <div class="attachment">
-                    <FileIcon />
-                    <span>{attachment.fileName}</span>
-                </div>
-            {/each}
-        </div>
-    {/if}
-</div>
-{/if}
 
 <style>
     .tab-row {
@@ -499,7 +500,8 @@ onMount(() => {
 
     .note-title {
         display: flex;
-        width: 100%;
+        flex-direction: row;
+        width: 96%;
         padding: 30px;
         font-size: 40px;
         font-weight: bold;

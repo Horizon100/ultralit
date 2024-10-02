@@ -486,21 +486,26 @@
 <style>
 
   .layout {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    margin-top: 1rem;
-    height: 94vh;
-    /* width: 100vw; */
-    overflow: hidden;
-    background-color:#010e0e;
-    /* background-color:#142e2e; */
-      /* background-color: red; */
-    width: 96%;
-    margin-left: 2%;
-    border-radius: 40px;
-    
-  }
+    position: absolute;
+
+justify-content: center;
+align-items: center;
+margin-left: auto;
+margin-right: auto;
+/* margin: 1rem; */
+width: 96%;
+top: 60px;
+
+right: 2%;
+/* max-width: 1200px; */
+/* margin-top: 80px; */
+height: 90vh;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+background-color:#010e0e;
+border-radius: 40px;
+}
  
   main {
     flex-grow: 1;
@@ -521,15 +526,18 @@
 
   .config-selector {
     display: flex;
-    margin-left: 20px;
-    padding: 10px 10px;
+    flex-direction: row;
+    position: absolute;
+    left:20px;
+    top: 80px;
+    /* margin-left: 20px; */
+    padding: 20px 10px;
     /* position: absolute; */
     justify-content: space-between;
     align-items: center;
     /* bottom: 80px; */
     /* height: 60px; */
     /* left: 80px; */
-    flex-direction: row;
     /* gap: 20px; */
     /* padding: 5px; */
     /* border-radius: 20px; */
@@ -608,9 +616,12 @@
     /* padding: 20px; */
     border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
-    height:85vh;
-    width: 100vh;
+    height:80%;
+    width: 96%;
     overflow: hidden;
+    position: absolute;
+    left: 70px;
+    top: 300px;
   }
 
   .close-button {
@@ -712,8 +723,8 @@
   align-items: center;
   justify-content: flex-start;
   /* border-right: 1px solid black; */
-  left: 10px;
-  top: 10px;
+  left: 20px;
+  top: 20px;
   /* border-radius: 20px; */
   /* padding: 10px; */
   /* height: 100%; */
@@ -721,7 +732,7 @@
   overflow-x: scroll; 
 
   height: 60px;
-  width: 60px;
+  width: 600px;
   user-select: none;
   scroll-behavior: smooth;
   scrollbar-width: thin;

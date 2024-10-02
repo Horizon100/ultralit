@@ -15,6 +15,7 @@
   import greekImage from '$lib/assets/illustrations/greek.png';
   import { navigating } from '$app/stores';
   import { isNavigating } from '$lib/stores/navigationStore';
+  import { fetchThreads, fetchMessagesForThread, addMessageToThread, updateThread, updateMessage, createThread } from '$lib/threadsClient';
 
   export let x: number;
   export let y: number;
@@ -48,7 +49,8 @@
   let updateStatus: string;
   let showConfirmation = false;
   let newThreadName = '';
-  
+  let newThreadId: string | null = null;
+
 
   $: ({ threads, currentThreadId, messages, updateStatus } = $threadsStore);
   $: groupedMessages = $threadsStore.getMessagesByDate;
@@ -75,11 +77,21 @@
         };
     });
 
+    async function handleLoadThread(threadId: string) {
+    try {
+      await threadsStore.loadMessages(threadId);
+      // Don't automatically redirect, instead update the UI to show the loaded thread
+      currentThreadId = threadId;
+      // You might want to update other UI elements here
+    } catch (error) {
+      console.error(`Error loading messages for thread ${threadId}:`, error);
+    }
+  }
+
   onMount(async () => {
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in to create a network.');
-      // goto('/login');
     }
 
     if (textareaElement) {
@@ -96,38 +108,49 @@
       if (!showChat) {
         textareaElement.focus();
       }
+
+      const loadedThreads = await threadsStore.loadThreads();
+      threads = loadedThreads;
+      
     }
 
     await threadsStore.loadThreads(); 
     if (threads.length === 0) {
       await handleCreateNewThread();
+      goto('/ask');
+
     }
     if (currentThreadId) {
       await handleLoadThread(currentThreadId);
+      goto('/ask');
+
     }
   });
 
-  async function handleLoadThread(threadId: string) {
-    try {
-      await threadsStore.loadMessages(threadId);
-    } catch (error) {
-      console.error(`Error loading messages for thread ${threadId}:`, error);
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSeedPromptSubmit();
     }
   }
 
+
+
+
   async function handleCreateNewThread() {
-  try {
-    const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
-    if (newThread && newThread.id) {
-      threads = [...(threads || []), newThread];
-      await handleLoadThread(newThread.id);
-    } else {
-      console.error("Failed to create new thread: Thread object is undefined or missing id");
+    try {
+      const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
+      if (newThread && newThread.id) {
+        threads = [...(threads || []), newThread];
+        await handleLoadThread(newThread.id);
+      } else {
+        console.error("Failed to create new thread: Thread object is undefined or missing id");
+      }
+    } catch (error) {
+      console.error("Error creating new thread:", error);
     }
-  } catch (error) {
-    console.error("Error creating new thread:", error);
   }
-}
+
   function handleUpload() {
     fileInput.click();
   }
@@ -154,66 +177,58 @@
     console.log('Selected prompt:', event.detail);
   }
 
-
   async function handleSeedPromptSubmit() {
-  console.log("handleSeedPromptSubmit called");
-  if (seedPrompt.trim() || attachment) {
-    isLoading = true;
-    try {
-      // Create new thread
-      const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
-      if (newThread && newThread.id) {
-        threads = [...(threads || []), newThread];
-        await threadsStore.setActiveThread(newThread.id);
-        newThreadName = newThread.name;
+    console.log("handleSeedPromptSubmit called");
+    if (seedPrompt.trim() || attachment) {
+      isLoading = true;
+      try {
+        // Create new thread
+        const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
+        if (newThread && newThread.id) {
+          threads = [...(threads || []), newThread];
+          await threadsStore.setCurrentThread(newThread.id);  
+          newThreadName = newThread.name;
+          newThreadId = newThread.id;
 
-        // Add the seed prompt as the first message
-        let firstMessageId = null;
-        if (seedPrompt.trim()) {
-          const firstMessage = await threadsStore.addMessage({
-            thread: newThread.id,
-            text: seedPrompt.trim(),
-            type: 'human',
-            user: userId,
-          });
-          firstMessageId = firstMessage.id;
+          // Add the seed prompt as the first message
+          let firstMessageId = null;
+          if (seedPrompt.trim()) {
+            const firstMessage = await threadsStore.addMessage({
+              thread: newThread.id,
+              text: seedPrompt.trim(),
+              type: 'human',
+              user: userId,
+            });
+            firstMessageId = firstMessage.id;
+          }
+          
+          // Show confirmation
+          showConfirmation = true;
+        } else {
+          console.error("Failed to create new thread: Thread object is undefined or missing id");
         }
-        
-        // Construct the query parameters
-        const params = new URLSearchParams();
-        params.append('threadId', newThread.id);
-        if (firstMessageId) {
-          params.append('messageId', firstMessageId);
-        }
-        if (attachment) {
-          params.append('attachmentId', attachment.id);
-        }
-        if (aiModel && aiModel.id) {
-          params.append('modelId', aiModel.id);
-        }
-        params.append('promptType', selectedPromptType);
 
-        // Show confirmation briefly
-        showConfirmation = true;
-        setTimeout(async () => {
-          showConfirmation = false;
-          // Redirect to the ask route with the query parameters
-          await goto(`/ask?${params.toString()}`);
-        }, 2000);
-      } else {
-        console.error("Failed to create new thread: Thread object is undefined or missing id");
-      }
+
+      handleConfirmation();
     } catch (error) {
-      console.error("Error creating new thread or redirecting:", error);
+      console.error("Error creating new thread:", error);
     } finally {
       isLoading = false;
     }
   }
 }
+
   function handleConfirmation() {
+    if (newThreadId) {
+      const params = new URLSearchParams();
+      params.append('threadId', newThreadId);
+      if (aiModel && aiModel.id) {
+        params.append('modelId', aiModel.id);
+      }
+      params.append('promptType', selectedPromptType);
+      goto(`/ask?${params.toString()}`);
+    }
     showConfirmation = false;
-    showChat = true;
-    showIntro = false;
   }
   function resetSeedPrompt() {
     seedPrompt = '';
@@ -244,6 +259,8 @@
     aiModel = event.detail;
     console.log('Selected model:', event.detail);
   }
+
+
 </script>
 
 <div class="seed-container" transition:fade={{ duration: 300 }}>
@@ -253,15 +270,10 @@
         <div class="seed-prompt-input" transition:blur={{ duration: 300 }}>
           <div class="text-container">
             <textarea 
-            bind:this={textareaElement} 
-            bind:value={seedPrompt} 
-            placeholder={currentQuote}
-            on:keydown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSeedPromptSubmit();
-              }
-            }}
+              bind:this={textareaElement} 
+              bind:value={seedPrompt} 
+              placeholder={currentQuote}
+              on:keydown={handleKeydown}
           ></textarea>
           </div>
           <div class="button-row">
@@ -292,14 +304,17 @@
             {/each}
           </div>
         </div>
-        <img src={greekImage} alt="Greek illustration" class="illustration" />
+        <!-- <img src={greekImage} alt="Greek illustration" class="illustration" /> -->
       {:else}
+      {#if showConfirmation}
       <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
         <div class="spinner">
           <Bot size={40} class="bot-icon" />
         </div>
         <p>New thread "{newThreadName}" created</p>
+        <button on:click={handleConfirmation}>Continue to Chat</button>
       </div>
+    {/if}
 
       {/if}
     {:else}

@@ -1,13 +1,17 @@
 <script lang="ts">
     import { fade, slide } from 'svelte/transition';
     import { pb } from '$lib/pocketbase';
-    import { Camera } from 'lucide-svelte';
+    import { Camera, LogOutIcon } from 'lucide-svelte';
+    import { currentUser } from '$lib/pocketbase';
+    import { createEventDispatcher } from 'svelte';
 
     export let user: any;
     export let onClose: () => void;
 
     let isEditing = false;
-    let editedUser = { ...user };
+    let editedUser = user ? { ...user } : {};
+
+    const dispatch = createEventDispatcher();
 
     function toggleEdit() {
         isEditing = !isEditing;
@@ -15,9 +19,11 @@
 
     async function saveChanges() {
         try {
-            await pb.collection('users').update(user.id, editedUser);
-            user = { ...editedUser };
-            isEditing = false;
+            if (user && user.id) {
+                await pb.collection('users').update(user.id, editedUser);
+                user = { ...editedUser };
+                isEditing = false;
+            }
         } catch (error) {
             console.error('Error updating user:', error);
         }
@@ -28,67 +34,88 @@
             onClose();
         }
     }
+
+    async function logout() {
+        try {
+            await pb.authStore.clear();
+            currentUser.set(null);
+            dispatch('logout');
+            onClose();
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
+    }
 </script>
 
 <div class="modal-overlay" on:click={handleOutsideClick} transition:fade={{ duration: 300 }}>
-    <div class="modal-content" transition:slide={{ duration: 300 }}>
-        <div class="profile-header">
-            <div class="avatar-container">
-                {#if user.avatar}
-                    <img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
-                {:else}
-                    <div class="avatar-placeholder">
-                        <Camera size={48} />
-                    </div>
-                {/if}
+    <div class="modal-content" on:click|stopPropagation>
+        <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+            <LogOutIcon size={24} />
+            <span>Logout</span>
+        </button>
+        {#if user}
+            <div class="profile-header">
+                <div class="avatar-container">
+                    {#if user.avatar}
+                        <img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
+                    {:else}
+                        <div class="avatar-placeholder">
+                            <Camera size={48} />
+                        </div>
+                    {/if}
+                </div>
+                <div class="info-row">
+                    {#if isEditing}
+                        <input bind:value={editedUser.username} />
+                    {:else}
+                        <span>{user.username || 'Not set'}</span>
+                    {/if}
+                </div>        
             </div>
-            <div class="info-row">
+            <div class="profile-info">
+                <div class="info-row">
+                    <span class="label">Name:</span>
+                    {#if isEditing}
+                        <input bind:value={editedUser.name} />
+                    {:else}
+                        <span>{user.name || 'Not set'}</span>
+                    {/if}
+                </div>
+                <div class="info-row">
+                    <span class="label">Email:</span>
+                    <span>{user.email}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Role:</span>
+                    <span>{user.role}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Created:</span>
+                    <span>{new Date(user.created).toLocaleString()}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Updated:</span>
+                    <span>{new Date(user.updated).toLocaleString()}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Verified:</span>
+                    <span>{user.verified ? 'Yes' : 'No'}</span>
+                </div>
+            </div>
+            <div class="actions">
                 {#if isEditing}
-                    <input bind:value={editedUser.username} />
+                    <button on:click={saveChanges}>Save</button>
+                    <button on:click={toggleEdit}>Cancel</button>
                 {:else}
-                    <span>{user.username || 'Not set'}</span>
+                    <button on:click={toggleEdit}>Edit</button>
                 {/if}
-            </div>        </div>
-        <div class="profile-info">
-            <div class="info-row">
-                <span class="label">Name:</span>
-                {#if isEditing}
-                    <input bind:value={editedUser.name} />
-                {:else}
-                    <span>{user.name || 'Not set'}</span>
-                {/if}
+                <button on:click={onClose}>Close</button>
             </div>
-            <div class="info-row">
-                <span class="label">Email:</span>
-                <span>{user.email}</span>
+        {:else}
+            <div class="no-user-message">
+                <p>No user information available.</p>
             </div>
-            <div class="info-row">
-                <span class="label">Role:</span>
-                <span>{user.role}</span>
-            </div>
-            <div class="info-row">
-                <span class="label">Created:</span>
-                <span>{new Date(user.created).toLocaleString()}</span>
-            </div>
-            <div class="info-row">
-                <span class="label">Updated:</span>
-                <span>{new Date(user.updated).toLocaleString()}</span>
-            </div>
-            <div class="info-row">
-                <span class="label">Verified:</span>
-                <span>{user.verified ? 'Yes' : 'No'}</span>
-            </div>
-
-        </div>
-        <div class="actions">
-            {#if isEditing}
-                <button on:click={saveChanges}>Save</button>
-                <button on:click={toggleEdit}>Cancel</button>
-            {:else}
-                <button on:click={toggleEdit}>Edit</button>
-            {/if}
-            <button on:click={onClose}>Close</button>
-        </div>
+        {/if}
     </div>
 </div>
 
@@ -96,20 +123,31 @@
     .modal-overlay {
         position: fixed;
         top: 60px;
-        /* left: 0; */
-        /* max-width: 100%; */
+        left: 0;
+        max-width: 100%;
         /* height: 100%; */
         /* background-color: rgba(0, 0, 0, 0.5); */
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 1000;
-        border-radius: 10px;
+        width: 100%;
+        display: flex;
+        /* background-color: #131313; */
+        color: #ffffff;
+        /* border: 1px solid rgb(53, 53, 53); */
+        border-radius: 20px;
+        justify-content: center;
+        align-items: center;
+        /* gap: 20px; */
+        /* height: 50px; */
+        /* padding: 10px 20px; */
+
 
     }
 
     .modal-content {
-        background: linear-gradient(
+        /* background: linear-gradient(
             to top, 
             rgba(70, 118, 114, 0.9) 0%,
             rgba(70, 118, 114, 0.85) 5%,
@@ -130,17 +168,20 @@
             rgba(70, 118, 114, 0.1) 80%,
             rgba(70, 118, 114, 0.05) 85%,
             rgba(70, 118, 114, 0) 100%
-            );
+            ); */
         backdrop-filter: blur(40px);        
         padding: 2rem;
-        border-top-left-radius: 0px;
+        border-radius: 20px;
+        /* border-top-left-radius: 0px;
         border-top-right-radius: 0px;
         border-bottom-left-radius: 8px;
-        border-bottom-right-radius: 8px;
+        border-bottom-right-radius: 8px; */
         /* max-width: 100%; */
+        border: 1px solid rgb(53, 53, 53);
 
         /* max-width: 500px; */
-        width: 90%;
+        width: 100vw;
+        /* height: 100vh; */
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
@@ -148,6 +189,8 @@
         display: flex;
         align-items: center;
         margin-bottom: 1rem;
+        color: white;
+
     }
 
     .avatar-container {
@@ -177,10 +220,13 @@
     h2 {
         margin: 0;
         font-size: 1.5rem;
+        color: white;
+
     }
 
     .profile-info {
         margin-bottom: 1rem;
+        color: white;
     }
 
     .info-row {
@@ -210,5 +256,13 @@
 
     button:hover {
         opacity: 0.8;
+    }
+
+    .logout-button {
+        display: flex;
+        gap: 10px;
+        position: absolute;
+        right: 20px;
+        top: 20px;
     }
 </style>

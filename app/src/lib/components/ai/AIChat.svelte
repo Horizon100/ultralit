@@ -1,9 +1,9 @@
 <script lang="ts">
   import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
-  import { onMount, afterUpdate, createEventDispatcher } from 'svelte';
-  import { fade, fly, scale } from 'svelte/transition';
+  import { onMount, afterUpdate, createEventDispatcher, onDestroy } from 'svelte';
+import { fade, fly, scale, slide } from 'svelte/transition';
   import { elasticOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -975,28 +975,37 @@ async function submitThreadNameChange() {
     {/if}
     <div class="chat-container" transition:fly="{{ y: 300, duration: 300 }}">
       <div class="thread-info">
-        {#if currentThread}
-          {#if isEditingThreadName}
-            <input
-              bind:value={editedThreadName}
-              on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-              on:blur={() => isEditingThreadName = false}
-              autofocus
-            />
-            <button on:click={submitThreadNameChange}>Save</button>
-          {:else}
-            <h1>{currentThread.name}</h1>
-            <button on:click={startEditingThreadName}>Edit</button>
-            <div class="thread-tags">
-              {#each currentThread.tags || [] as tag}
-                <span class="tag">{tag}</span>
-              {/each}
-              <button class="add-tag" on:click={toggleTagCreation}>
-                <Plus size={16} />
+          {#if currentThread}
+            {#if isEditingThreadName}
+              <input
+                bind:value={editedThreadName}
+                on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
+                on:blur={() => isEditingThreadName = false}
+                autofocus
+              />
+              <button on:click={submitThreadNameChange}>
+                <Save size={24} />
+              </button>
+            {:else}
+            <div class="title-container">
+              <h1>{currentThread.name}</h1>
+              <button on:click={startEditingThreadName}>
+                <FilePenLine size={24} />
               </button>
             </div>
-          {/if}
+
+
+            {/if}
           
+
+          <div class="thread-tags">
+            {#each currentThread.tags || [] as tag}
+              <span class="tag">{tag}</span>
+            {/each}
+            <!-- <button class="add-tag" on:click={toggleTagCreation}>
+              <Plus size={24} />
+            </button> -->
+          </div>
           <div class="thread-stats">
             <span>{messages.length} messages</span>
             <span>Created: {new Date(currentThread.created).toLocaleDateString()}</span>
@@ -1005,7 +1014,9 @@ async function submitThreadNameChange() {
         {:else}
           <h1>Select a thread</h1>
         {/if}
+        
       </div>
+      
       <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
         <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
           {#each chatMessages as message (message.id)}
@@ -1176,7 +1187,12 @@ async function submitThreadNameChange() {
       flex-direction: row;
     }
 
-  
+  .title-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    height: auto;
+  }
     .chat-messages {
       flex-grow: 1;
       overflow-y: auto;
@@ -1532,7 +1548,7 @@ async function submitThreadNameChange() {
 }
 
 .tag {
-  /* background-color: #302626; */
+  background-color: #302626;
   border: none;
   border-radius: 15px;
   padding: 5px 10px;
@@ -1544,6 +1560,7 @@ async function submitThreadNameChange() {
   align-items: center;
   cursor: pointer;
   transition: background-color 0.3s;
+  user-select: none;
 }
 
 .tag.selected {
@@ -1576,42 +1593,32 @@ async function submitThreadNameChange() {
 
 .thread-group-header {
   font-weight: bold;
-  margin-top: 10px;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   color: #666;
-  font-size: 30px;
-  width: 100%;
-
-  
+  font-size: 24px;
+  font-weight: 100;
+  text-align: right;
+  border-top: 1px solid gray;
+  padding: 10px 20px;
 }
 
 .thread-group {
   display: flex;
-  flex-wrap: wrap;
-  /* background-color: red; */
-  margin-top: 10px;
-  gap: 39px 20px;
-  /* background-color: #302626; */
-  border: none;
-  border-radius: 15px;
-  padding: 5px 10px;
-  font-size: 10px;
-  height: auto;
-  min-height: 20px;
-  width: auto;
-  display: inline-flex;
-  /* align-items: center; */
-  /* justify-content: center; */
-  cursor: pointer;
-  transition: background-color 0.3s;
-
+  flex-direction: column;
+  width: 98%;
+  margin-left: 2%;
+  margin-bottom: 20px;;
+  /* padding: 20px 10px; */
 }
 
 .thread-button {
   display: flex;
-  
-
-
+  flex-direction: row;
+  width: 70%;
+  left: 15%;
+  /* width: 100%; */
+  position: relative;
+  height: 30px;
 }
 
 
@@ -1694,8 +1701,7 @@ async function submitThreadNameChange() {
           overflow-x: none;
           scrollbar-width:1px;
           scrollbar-color: #c8c8c8 transparent;
-          
-
+          display: flex;
         }
 
         .thread-list-visible .chat-container {
@@ -1996,9 +2002,17 @@ span {
   justify-content: center;
   align-items: center;
   gap: 10px;
+  width: 100%;
   /* background-color: blue; */
   color: white;
-  width: 100px;
+  /* width: 100px; */
+  font-size: 16px;
+  padding: 10px;
+}
+
+.thread-tags span:hover {
+  background-color: gray;
+
 }
 
 .avatar-container {
@@ -2044,22 +2058,20 @@ span {
   }
 
   .thread-list {
-    display: flex;
-    flex-direction: column;
-    justify-content: top;
-    align-items: center;
-    overflow: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  overflow: auto;
   position: fixed;
-  padding: 20px 0px;
-  /* left: 30px; */
-  /* top: 80px; */
-  /* bottom: 60px; */
-  /* border-radius: 50px; */
+  padding: 20px 10px;
+  left: 30px;
+  top: 80px;
+  bottom: 60px;
   width: 20%;
+  height: 85%;
   transition: all 0.3s ease-in-out;
-  /* z-index: 10; */
 }
-
 .thread-list.hidden {
   display: none;
   transform: translateX(-100%);
@@ -2076,14 +2088,15 @@ span {
 
   .thread-list button {
       display: flex;
-      flex-direction: rows;
+      flex-direction: row;
       justify-content: center;
-      margin-left: 5%;
-      /* width: 88%; */
+      /* margin-left: 5%; */
       padding: 20px 20px;
+      margin-bottom: 10px;
+      margin-left: 10px;
       border-radius: 10px;
       /* margin-bottom: 5px; */
-      text-align: left;
+      /* text-align: left; */
       /* border-bottom: 1px solid #4b4b4b; */
       cursor: pointer;
       color: #fff;
@@ -2097,7 +2110,7 @@ span {
 
     .thread-list button:hover {
         background-color: #2c3e50;
-        transform: scale(1.62) translateX(5px) rotate(5deg);          
+        transform: scale(1.2) translateX(5px) rotate(5deg);          
         letter-spacing: 4px;
         padding: 20px;
         /* font-size: 30px; */
@@ -2121,10 +2134,44 @@ span {
       background-color: rgb(71, 59, 59);
       font-style: italic;
       /* font-weight: bolder; */
-      border-bottom: 1px solid #6b6b6b;
+      border-bottom: 1px solid #633c3c;
       border-radius: 10px;
       margin-bottom: 2rem;
     }
+
+    .thread-list .add-button:hover {
+      background-color: #4a4a4a;
+        transform:  translateX(5px);          
+        letter-spacing: 4px;
+        padding: 230px 0;
+        /* height: 300px; */
+        font-size: 60px;
+            animation: pulsate 1.5s infinite alternate;
+
+}
+
+
+    .add-button {
+      background-color: #3c3b35;
+      font-style: italic;
+      border: none;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      width: 90%;
+      padding: 10px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      user-select: none;
+    }
+
+.add-button:hover {
+  background-color: #4a4a4a;
+        transform: scale(1.0) translateX(5px) rotate(520deg);          
+        letter-spacing: 4px;
+        padding: 20px;
+}
 
     .thread-toggle {
       display: flex;
@@ -2152,26 +2199,32 @@ span {
 
   .thread-info {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    /* align-items: center; */
     padding: 0 20px;
     border-radius: 5px;
     font-size: 20px;
     color: white;
-    height: 60px;
+    /* height: 140px; */
+    gap: 20px;
     /* background-color: black; */
   }
 
   .thread-stats {
     display: flex;
     flex-direction: row;
-    justify-content: left;
+    justify-content: flex-end;
     align-items: center;    
-    position: relative;
+    /* position: absolute; */
+    /* right: 2rem; */
     gap: 40px;
+    /* width: 100%; */
     font-size: 0.9em;
     color: #666;
     font-size: 20px;
+    margin-bottom: 10px;
 
   }
 
@@ -2225,6 +2278,18 @@ span {
   .thread-tags {
     display: flex;
     flex-direction: row;
+    gap: 20px;
+    /* height: 40px; */
+    /* z-index: 1000; */
+    user-select: none;
+  }
+  
+  .thread-tags:hover {
+    /* height: 100%; */
+  }
+
+  h1 {
+    font-size: 32px;
   }
 
   @keyframes blink {

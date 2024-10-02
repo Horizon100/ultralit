@@ -314,14 +314,33 @@
 
 <style>
 	  
+
 	
     .container {
         display: flex;
-        height: 96vh;
-        margin-top: 10px;
-        background-color: #151515;
+        flex-direction: row;
+        position: absolute;
+        width: 96%;
+        right: 2%;
+        top: 60px;
+        height: 90vh;
+          text-align: center;
+          justify-content: right;
+          align-items: right;
+          /* padding: 1em; */
+          /* height: 94vh; */
+          /* width: 59%; */
+          /* margin-left: 50%; */
+          /* margin-top: 25%; */
+          /* max-width: 240px; */
+          /* margin: 0 auto; */
+          color: #FFD700;
+          border-radius: 50px;
+          transition: all ease 0.3s;
+          background: #000000;
+          animation: pulsate 1.5s infinite alternate;
 
-    }
+      }
 
     .side-column {
         width: 60px;

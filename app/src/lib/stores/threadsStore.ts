@@ -5,33 +5,23 @@ import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMe
 import { browser } from '$app/environment';
 
 function createThreadsStore() {
-  const initialThreads = browser ? JSON.parse(localStorage.getItem('userThreads') || '[]') : [];
-  const initialCurrentThreadId = browser ? localStorage.getItem('currentThreadId') || null : null;
-  const initialTags = browser ? JSON.parse(localStorage.getItem('userTags') || '[]') : [];
-  
   const store = writable<{
     threads: Threads[],
     currentThreadId: string | null,
     messages: Messages[],
     updateStatus: string,
-    tags: Tag[]
+    isThreadsLoaded: boolean
   }>({
-    threads: initialThreads,
-    currentThreadId: initialCurrentThreadId,
+    threads: [],
+    currentThreadId: null,
     messages: [],
     updateStatus: '',
-    tags: initialTags
+    isThreadsLoaded: false
   });
   
   if (browser) {
     store.subscribe(state => {
-      localStorage.setItem('userThreads', JSON.stringify(state.threads));
       localStorage.setItem('userTags', JSON.stringify(state.tags));
-      if (state.currentThreadId) {
-        localStorage.setItem('currentThreadId', state.currentThreadId);
-      } else {
-        localStorage.removeItem('currentThreadId');
-      }
     });
   }
 
@@ -59,7 +49,7 @@ function createThreadsStore() {
         store.update(state => ({
           ...state,
           threads,
-          currentThreadId: state.currentThreadId || (threads.length > 0 ? threads[0].id : null),
+          isThreadsLoaded: true,
           updateStatus: 'Threads loaded successfully'
         }));
         setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
@@ -74,7 +64,7 @@ function createThreadsStore() {
     loadMessages: async (threadId: string): Promise<Messages[]> => {
       try {
         const messages = await fetchMessagesForThread(threadId);
-        store.update(state => ({ ...state, messages }));
+        store.update(state => ({ ...state, messages, currentThreadId: threadId }));
         return messages;
       } catch (error) {
         console.error('Error loading messages:', error);
@@ -125,7 +115,7 @@ function createThreadsStore() {
       currentThreadId: id,
       updateStatus: 'Current thread updated'
     })),
-    reset: () => store.set({ threads: [], currentThreadId: null, messages: [], updateStatus: '', tags: [] }),
+    reset: () => store.set({ threads: [], currentThreadId: null, messages: [], updateStatus: '', tags: [], isThreadsLoaded: false }),
     
     addTag: (tagName: string) => {
       store.update(state => {
@@ -151,27 +141,34 @@ function createThreadsStore() {
       store.update(state => {
         const updatedThreads = state.threads.map(thread => {
           if (thread.id === threadId) {
-            return { ...thread, tags: [...(thread.tags || []), tagName] };
+            const updatedTags = [...new Set([...(thread.tags || []), tagName])];
+            return { ...thread, tags: updatedTags };
           }
           return thread;
         });
         return { ...state, threads: updatedThreads };
       });
-      debouncedUpdateThread(threadId, { tags: get(store).threads.find(t => t.id === threadId)?.tags || [] });
+      const thread = get(store).threads.find(t => t.id === threadId);
+      if (thread) {
+        debouncedUpdateThread(threadId, { tags: thread.tags });
+      }
     },
     removeTagFromThread: (threadId: string, tagName: string) => {
       store.update(state => {
         const updatedThreads = state.threads.map(thread => {
           if (thread.id === threadId) {
-            return { ...thread, tags: (thread.tags || []).filter(tag => tag !== tagName) };
+            const updatedTags = (thread.tags || []).filter(tag => tag !== tagName);
+            return { ...thread, tags: updatedTags };
           }
           return thread;
         });
         return { ...state, threads: updatedThreads };
       });
-      debouncedUpdateThread(threadId, { tags: get(store).threads.find(t => t.id === threadId)?.tags || [] });
+      const thread = get(store).threads.find(t => t.id === threadId);
+      if (thread) {
+        debouncedUpdateThread(threadId, { tags: thread.tags });
+      }
     },
-    
     getCurrentThread: derived(store, $store => {
       return $store.threads.find(t => t.id === $store.currentThreadId) || null;
     }),
@@ -192,15 +189,21 @@ function createThreadsStore() {
       return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
     }),
 
-    getFilteredThreads: derived(store, $store => {
-      const selectedTags = $store.tags.filter(tag => tag.selected).map(tag => tag.name);
+    getUniqueTags: derived(store, $store => {
+      const allTags = $store.threads.flatMap(thread => thread.tags || []);
+      return [...new Set(allTags)];
+    }),
+
+    getFilteredThreads: derived(store, $store => (selectedTags: string[]) => {
       if (selectedTags.length === 0) {
         return $store.threads;
       }
       return $store.threads.filter(thread => 
         selectedTags.every(tag => thread.tags?.includes(tag))
       );
-    })
+    }),
+
+    isThreadsLoaded: derived(store, $store => $store.isThreadsLoaded)
   };
 }
 
