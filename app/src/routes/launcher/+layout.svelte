@@ -1,4 +1,5 @@
-<script lang="ts">
+<slot></slot>
+<!-- <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
   import { get } from 'svelte/store';
   import { elasticOut, elasticIn } from 'svelte/easing';
@@ -1183,4 +1184,4 @@ display: none;
 
 
   }
-</style>
+</style> -->

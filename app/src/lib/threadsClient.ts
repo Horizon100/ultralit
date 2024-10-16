@@ -1,4 +1,4 @@
-import type { Messages, Threads } from '$lib/types';
+import type { Messages, Threads, Tag } from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 
@@ -95,6 +95,17 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
             throw new Error('User is not authenticated');
         }
 
+        // If tags are being updated, ensure they're in the correct format
+        if (changes.tags) {
+            changes.tags = changes.tags.map(tag => {
+                if (!tag.includes('#')) {
+                    const color = getRandomBrightColor(tag);
+                    return `${tag} #${color.slice(1)}`; // Remove the # from the color
+                }
+                return tag;
+            });
+        }
+
         return await pb.collection('threads').update<Threads>(id, changes);
     } catch (error) {
         console.error('Error updating thread:', error);
@@ -106,13 +117,23 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
     }
 }
 
+function getRandomBrightColor(tagName: string): string {
+    const hash = tagName.split('').reduce((acc, char) => {
+        return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    const h = hash % 360;
+    return `hsl(${h}, 70%, 60%)`;
+}
+
 export async function addMessageToThread(message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages> {
     try {
         if (!pb.authStore.isValid) {
             throw new Error('User is not authenticated');
         }
 
-        console.log('Attempting to add message:', message);
+        console.log('Attempting to add message:', JSON.stringify(message, null, 2));
+        console.log('User ID:', pb.authStore.model?.id);
+
 
         const createdMessage = await pb.collection('messages').create<Messages>(message);
         console.log('Created message:', createdMessage);
@@ -120,8 +141,10 @@ export async function addMessageToThread(message: Omit<Messages, 'id' | 'created
     } catch (error) {
         console.error('Error adding message to thread:', error);
         if (error instanceof ClientResponseError) {
+            
             console.error('Response data:', error.data);
             console.error('Status code:', error.status);
+            console.error('Error details:', error.data?.data);
         }
         throw error;
     }

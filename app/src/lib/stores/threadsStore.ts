@@ -90,9 +90,34 @@ function createThreadsStore() {
         return null;
       }
     },
-    updateThread: (id: string, changes: Partial<Threads>) => {
-      debouncedUpdateThread(id, changes);
+    updateThread: async (id: string, changes: Partial<Threads>) => {
+      try {
+        const updatedThread = await updateThread(id, changes);
+        store.update(state => ({
+          ...state,
+          threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
+          updateStatus: 'Thread updated successfully'
+        }));
+        
+        // If the current thread is being updated, also update the currentThreadId
+        if (get(store).currentThreadId === id) {
+          store.update(state => ({ ...state, currentThreadId: id }));
+        }
+        
+        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+        return updatedThread;
+      } catch (error) {
+        console.error('Failed to update thread in backend:', error);
+        store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
+        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+        throw error;
+      }
     },
+    
+    // Add a new function to get the current thread
+    getCurrentThread: derived(store, $store => 
+      $store.threads.find(t => t.id === $store.currentThreadId) || null
+    ),
     addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages | null> => {
       try {
         const newMessage = await addMessageToThread(message);

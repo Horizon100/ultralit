@@ -121,7 +121,7 @@
 
 <style>
     .modal-overlay {
-        position: fixed;
+        /* position: fixed; */
         top: 60px;
         left: 0;
         max-width: 100%;
@@ -131,7 +131,7 @@
         justify-content: center;
         align-items: center;
         z-index: 1000;
-        width: 100%;
+        /* width: 100%; */
         display: flex;
         /* background-color: #131313; */
         color: #ffffff;
@@ -169,20 +169,23 @@
             rgba(70, 118, 114, 0.05) 85%,
             rgba(70, 118, 114, 0) 100%
             ); */
-        backdrop-filter: blur(40px);        
-        padding: 2rem;
-        border-radius: 20px;
+
         /* border-top-left-radius: 0px;
         border-top-right-radius: 0px;
         border-bottom-left-radius: 8px;
         border-bottom-right-radius: 8px; */
         /* max-width: 100%; */
+        /* backdrop-filter: blur(40px);        
+        padding: 2rem;
+        border-radius: 20px;
         border: 1px solid rgb(53, 53, 53);
+        top: 0;
+        position: absolute;
+        width: 96vw;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
 
         /* max-width: 500px; */
-        width: 100vw;
         /* height: 100vh; */
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
     .profile-header {

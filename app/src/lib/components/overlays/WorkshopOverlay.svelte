@@ -385,7 +385,7 @@
         margin-right: 20px;
         background-color: rgb(0, 120, 212);
         color: white;
-        border: none;
+        /* border: none; */
         height: 50px;
         width: 50px;
         min-width: 50px;

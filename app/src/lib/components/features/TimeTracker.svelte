@@ -1,9 +1,13 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import { Timer, TimerOff } from 'lucide-svelte';
+    import { pb, currentUser } from '$lib/pocketbase';
+    import type { User } from '$lib/types';
 
     let isTracking = false;
     let seconds = 0;
     let interval: number;
+    let startTime: Date;
 
     $: hours = Math.floor(seconds / 3600);
     $: minutes = Math.floor((seconds % 3600) / 60);
@@ -15,9 +19,9 @@
         remainingSeconds.toString().padStart(2, '0')
     ].join(':');
 
-    function toggleTracking() {
+    async function toggleTracking() {
         if (isTracking) {
-            stopTracking();
+            await stopAndSaveTracking();
         } else {
             startTracking();
         }
@@ -25,48 +29,72 @@
 
     function startTracking() {
         isTracking = true;
+        startTime = new Date();
         interval = setInterval(() => {
             seconds++;
         }, 1000);
     }
 
-    function stopTracking() {
+    async function stopAndSaveTracking() {
         isTracking = false;
         clearInterval(interval);
+
+        const endTime = new Date();
+        const duration = seconds;
+
+        if ($currentUser) {
+            try {
+                const timerSession = {
+                    date: startTime.toISOString().split('T')[0],
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    duration: duration
+                };
+
+                const currentSessions = $currentUser.timer_sessions || [];
+                const updatedUser = await pb.collection('users').update<User>($currentUser.id, {
+                    timer_sessions: [...currentSessions, timerSession]
+                });
+
+                $currentUser = updatedUser;
+                console.log('Timer session saved:', timerSession);
+            } catch (error) {
+                console.error('Error saving timer session:', error);
+            }
+        }
+        
+        seconds = 0; // Reset the timer after saving
     }
 
-    function resetAndStart() {
-        seconds = 0;
-        startTracking();
-    }
-
-    onDestroy(() => {
+    onDestroy(async () => {
         if (interval) clearInterval(interval);
+        if (isTracking) {
+            await stopAndSaveTracking();
+        }
     });
 </script>
-
 <div class="time-tracker" class:tracking={isTracking}>
-    <button on:click={isTracking ? stopTracking : resetAndStart}>
-        {isTracking ? 'Stop' : 'Track'}
+    <button on:click={toggleTracking}>
+        {#if isTracking}
+            <TimerOff size={20} />
+        {:else}
+            <Timer size={20} />
+        {/if}
     </button>
     {#if isTracking}
         <span class="time-display">{timeDisplay}</span>
     {/if}
 </div>
-
 <style>
     .time-tracker {
         display: flex;
+        flex-direction: row;
         align-items: center;
-        justify-content: flex-start;
-        position: absolute;
-        left: 50px;
+        justify-content: center;
         height: 50px;
-        width: 100px;
+        width: 59px;
         padding: 0 15px;
-        /* background-color: #2c3e50; */
         border-radius: 25px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: width 0.3s ease;
     }
 
@@ -74,7 +102,6 @@
         width: 200px;
         justify-content: space-between;
         background-color: #2c3e50;
-
     }
 
     button {

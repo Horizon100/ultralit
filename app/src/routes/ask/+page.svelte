@@ -1,112 +1,75 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { currentUser } from '$lib/pocketbase';
-  import { elasticOut, elasticIn } from 'svelte/easing';
-  import Dialog from '$lib/components/ai/Dialog.svelte';
-  import { fade, fly, blur, scale } from 'svelte/transition';
-  import Auth from '$lib/components/auth/Auth.svelte';
-  import greekImage from '$lib/assets/illustrations/greek.png';
-  import AIChat from '$lib/components/ai/AIChat.svelte';
-  import { threadsStore } from '$lib/stores/threadsStore';
   import { page } from '$app/stores';
+  import { threadsStore } from '$lib/stores/threadsStore';
+  import AIChat from '$lib/components/ai/AIChat.svelte';
+  import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+  import { Bot } from 'lucide-svelte';
+  import { fade } from 'svelte/transition';
 
-  let showAuthPopup = false;
-  let showFade = false;
-  let showH2 = false;
-  let showH3 = false;
-  let showButton = false;
-  let showTypeWriter = false;
   let threadId: string | null = null;
   let messageId: string | null = null;
+  let isLoading = true;
+  let error: string | null = null;
 
-  $: user = $currentUser;
-  // let showDialog = true;  // Changed to true to show dialog by default
-  
-  // function openDialog() {
-  //     showDialog = true;
-  // }
-  
-  // function closeDialog() {
-  //     showDialog = false;
-  // }
-  
   onMount(async () => {
-    user = $currentUser;
+    try {
+      threadId = $page.url.searchParams.get('threadId');
+      messageId = $page.url.searchParams.get('messageId');
 
-    // Animation timings
-    setTimeout(() => showFade = true, 50);
-    setTimeout(() => showH2 = true, 50);
-    setTimeout(() => showH3 = true, 150);
-    setTimeout(() => showButton = true, 300);
-    setTimeout(() => showTypeWriter = true, 2000); // Show TypeWriter 500ms after the button
-
-    // Get parameters from the URL
-    threadId = $page.url.searchParams.get('threadId');
-    messageId = $page.url.searchParams.get('messageId');
-
-    if (threadId) {
-      // Set the active thread
-      await threadsStore.setActiveThread(threadId);
-
-      // Load messages for the thread
-      await threadsStore.loadMessages(threadId);
+      if (threadId) {
+        await threadsStore.loadMessages(threadId);
+      }
+    } catch (e) {
+      error = "Failed to load thread. Please try again.";
+      console.error(e);
+    } finally {
+      // Add a small delay before setting isLoading to false
+      setTimeout(() => {
+        isLoading = false;
+      }, 500);
     }
-
-    // Other setup code...
   });
-
 </script>
-  
 
-
-    <!-- {#if showDialog}
-      <div class="dialog-overlay" transition:fade={{ duration: 300 }}>
-        <div 
-          class="dialog-container"
-          in:scale={{
-            duration: 700,
-            delay: 300,
-            opacity: 0,
-            start: 0.5,
-            easing: elasticOut,
-          }}
-          out:scale={{
-            duration: 300,
-            opacity: 0,
-            start: 1.2
-          }}
-        >
-          <div in:blur={{ amount: 10, duration: 500, delay: 700 }}>
-            <Dialog on:close={closeDialog}>
-              <div in:fly={{ y: 50, duration: 500, delay: 1000 }}>
-                <h2>Dialog Content</h2>
-                <p>This is the content of the dialog.</p>
-              </div>
-            </Dialog>
-          </div>
+<main>
+  {#if isLoading}
+    <div class="center-container" transition:fade={{ duration: 300 }}>
+      <div class="loading-overlay">
+        <div class="spinner">
+          <Bot size={80} class="bot-icon" />
         </div>
       </div>
-    {/if} -->
-    <main>
-      {#if showFade}
-        <div in:fade="{{ duration: 300 }}" out:fade="{{ duration: 300 }}">
-          {#if showH2}
-            <div in:fly="{{ x: 200, y: -400, duration: 400 }}" out:fade="{{ duration: 300 }}">
-              <AIChat 
-                threadId={threadId}
-                initialMessageId={messageId}
-              />
-            </div>
-          {/if}
-          <img src={greekImage} alt="Greek illustration" class="illustration" />
-        </div>
-      {/if}
-    </main>
+    </div>
+  {:else if error}
+    <div class="error" transition:fade>{error}</div>
+  {:else}
+    <div transition:fade={{ duration: 300 }}>
+      <AIChat 
+        threadId={threadId}
+        initialMessageId={messageId}
+      />
+    </div>
+  {/if}
+</main>
 
 
 
   
   <style>
+
+:global(.loading-spinner) {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+    }
       main {
         display: flex;
         flex-direction: column;
@@ -164,6 +127,89 @@
         z-index: 1;
         pointer-events: none;
       }
+
+      .loading, .error {
+        font-size: 1.2rem;
+        color: #333;
+        text-align: center;
+      }
+
+      .error {
+        color: #ff3e00;
+      }
+
+      .center-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        width: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        /* top: 40px; */
+        /* left: calc(50% - 40px); */
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+        position: fixed;
+        right: calc(50% - 40px);
+        top: calc(50% - 40px);
+        color: #363f3f;
+
+        /* bottom: 0; */
+
+
+    }
+
+    .spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 60px;
+        height: 60px;
+        color: rgb(71, 69, 69);
+        border: 20px dashed #363f3f;
+        border-radius: 50%;
+        position: relative;
+        /* background-color: yellow; */
+        animation: nonlinearSpin 4.2s infinite;
+        animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+
+
+    }
+
+    .bot-icon {
+        width: 100%;
+        height: 100%;
+    }
+
+    @keyframes nonlinearSpin {
+        0% {
+            transform: rotate(0deg);
+        }
+        25% {
+            transform: rotate(1080deg);
+        }
+        50% {
+            transform: rotate(0deg);
+        }
+        75% {
+            transform: rotate(1080deg);
+        }
+        100% {
+            transform: rotate(2160deg);
+        }
+    }
   
       @media (min-width: 640px) {
           main {

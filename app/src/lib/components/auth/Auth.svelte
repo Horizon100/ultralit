@@ -1,11 +1,11 @@
 <script lang="ts">
-    
     import { onMount, createEventDispatcher } from 'svelte';
     import { fade } from 'svelte/transition';
     import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
     import { Camera, LogIn, UserPlus, LogOutIcon } from 'lucide-svelte';
     import Profile from '../ui/Profile.svelte';
-
+    import Terms from '$lib/components/overlays/Terms.svelte';
+    import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
     let email: string = '';
     let password: string = '';
     let errorMessage: string = '';
@@ -13,6 +13,22 @@
     let showProfileModal = false;
 
     const dispatch = createEventDispatcher();
+
+    let showTermsOverlay = false;
+    let showPrivacyOverlay = false;
+
+    function openTermsOverlay() {
+        showTermsOverlay = true;
+    }
+
+    function openPrivacyOverlay() {
+        showPrivacyOverlay = true;
+    }
+
+    function closeOverlay() {
+        showTermsOverlay = false;
+        showPrivacyOverlay = false;
+    }
 
     onMount(async () => {
         const isConnected = await checkPocketBaseConnection();
@@ -131,13 +147,15 @@
                     </button>
                 </div>
             </form>
-            <div class="terms">
-                <p>
-                    By using our service you agree:
-                </p>
-                <p>Privacy Policy</p>
-                <p>&</p>
-                <p>Terms of Use</p>
+            <div class="terms-privacy">
+                <span>By using vRazum you automatically agree to our</span>
+                <button on:click={openTermsOverlay}>
+                    Terms
+                </button>
+                <span>and</span>
+                <button on:click={openPrivacyOverlay}>
+                    Privacy Policy
+                </button>
             </div>
 
         </div>
@@ -157,6 +175,14 @@
     </button>
 {/if}
 
+{#if showTermsOverlay}
+    <Terms on:close={closeOverlay} />
+{/if}
+
+{#if showPrivacyOverlay}
+    <PrivacyPolicy on:close={closeOverlay} />
+{/if}
+
 <style>
     .auth-container {
         display: flex;
@@ -164,8 +190,8 @@
         color: #ffffff;
         border: 1px solid rgb(53, 53, 53);
         /* border-radius: 20px; */
-        border-bottom-left-radius: 100%;
-        border-bottom-right-radius: 100%;
+        /* border-bottom-left-radius: 100%; */
+        /* border-bottom-right-radius: 100%; */
         justify-content: center;
         align-items: center;
         gap: 20px;
@@ -185,13 +211,33 @@
         flex-direction: column;
     }
 
-    .terms {
+    .terms-privacy {
+        font-size: 1rem;
+        color: #ffffff;
+        width: 100%;
         display: flex;
-        flex-direction: row;
-        gap: 10px;
         justify-content: center;
-        color: gray;
-        height: 40px;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .terms-privacy button {
+        background: none;
+        border: none;
+        color: #6fdfc4;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0;
+        margin: 0;
+        display: inline;
+        width: auto;
+    }
+
+    .terms-privacy button:hover {
+        color: #ffffff;
     }
     .user-info {
         display: flex;
@@ -236,17 +282,17 @@
 
 
     .auth-form input {
-    background-color: #3f9fff; /* Blue background color */
-    color: #ffffff; /* White text color */
-    /* height: 20px; Consistent height */
-    padding: 10px; /* Padding for text */
-    border-radius: 5px; /* Rounded corners */
-    border: 1px solid #34495e; /* Subtle border */
-    font-size: 16px; /* Readable font size */
-    /* width: 90%; Full width of container */
-    /* margin-left: 5%; */
-    transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
-}
+        background-color: #3f9fff; /* Blue background color */
+        color: #ffffff; /* White text color */
+        /* height: 20px; Consistent height */
+        padding: 10px; /* Padding for text */
+        border-radius: 5px; /* Rounded corners */
+        border: 1px solid #34495e; /* Subtle border */
+        font-size: 16px; /* Readable font size */
+        /* width: 90%; Full width of container */
+        /* margin-left: 5%; */
+        transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
+    }
 
 .auth-form input:focus {
     outline: none; /* Remove default focus outline */
@@ -350,6 +396,32 @@
 /* Hover effects for buttons */
 .button-group .button:hover {
     background-color: #0056b3; /* Darken background on hover */
+}
+
+@media (max-width: 767px) {
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        /* height: 100px; */
+        gap: 3px;
+
+    }
+
+    .auth-form input {
+        background-color: #3f9fff; /* Blue background color */
+        color: #ffffff; /* White text color */
+        /* height: 20px; Consistent height */
+        padding: 10px; /* Padding for text */
+        border-radius: 5px; /* Rounded corners */
+        border: 1px solid #34495e; /* Subtle border */
+        font-size: 16px; /* Readable font size */
+        width: 45%;
+        /* margin-left: 5%; */
+        transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
+    }
+
 }
 
 </style>

@@ -57,6 +57,14 @@ export interface AIAgent extends RecordModel {
 
 }
 
+export interface Tag extends RecordModel {
+    id: string;
+    name: string;
+    color: string;
+    selected_threads: string[];
+    user: string; 
+}
+
 export interface PartialAIAgent {
     id?: string;
     user_id?: string;
@@ -174,8 +182,12 @@ export interface Message extends RecordModel {
     receiver: string;
     attachments: string;
     reactions: {
-        [key: string]: number;       // Reactions with count, e.g., {'⏱️': 2, '📌': 1}
-    };    
+        upvote: number,
+        downvote: number,
+        bookmark: string[], // Array of user IDs who bookmarked
+        highlight: string[], // Array of user IDs who highlighted
+        question: number
+      }; 
     update_status: 'not_updated' | 'updated' | 'deleted';
 }
 
@@ -202,6 +214,9 @@ export interface User extends RecordModel {
     preferences: string[];
     messages: string[];
     last_login: Date;
+    bookmarks: string[];
+    timer_sessions: string[];
+
 }
 
 export interface Node extends RecordModel {
@@ -403,8 +418,12 @@ export interface Messages extends RecordModel {
     thread: string;
     attachments: string;
     reactions: {
-        [key: string]: number;
-    };
+        upvote: number,
+        downvote: number,
+        bookmark: string[], // Array of user IDs who bookmarked
+        highlight: string[], // Array of user IDs who highlighted
+        question: number
+      };
     created: string;
     updated: string;
 }
@@ -414,7 +433,7 @@ export interface Threads extends RecordModel {
     name: string;
     op: string;
     updated: string;
-    tags: string[];
+    tags: string[]; 
 }
 
 export interface Tag {

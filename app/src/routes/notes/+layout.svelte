@@ -339,7 +339,7 @@
           transition: all ease 0.3s;
           background: #000000;
           animation: pulsate 1.5s infinite alternate;
-
+        
       }
 
     .side-column {
@@ -452,6 +452,7 @@
     .editor {
         flex-grow: 1;
         width: 100%;
+        text-align: left;
         /* background-color: #1e1e1e; */
     }
 

@@ -1,22 +1,22 @@
 <script lang="ts">
   import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy } from 'svelte';
+  import { page } from '$app/stores';
 import { fade, fly, scale, slide } from 'svelte/transition';
-  import { elasticOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save} from 'lucide-svelte';
+  import { elasticOut, cubicOut } from 'svelte/easing';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash } from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { Spinner } from 'flowbite-svelte';
-  import { updateAIAgent, ensureAuthenticated } from '$lib/pocketbase';
+  import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages, Tag} from '$lib/types';
   import Auth from '$lib/components/auth/Auth.svelte';
 	import ModelSelector from './ModelSelector.svelte';
   import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
-
-import { threadsStore } from '$lib/stores/threadsStore';
+  import { threadsStore } from '$lib/stores/threadsStore';
 
 
   export let seedPrompt: string = '';
@@ -27,6 +27,9 @@ import { threadsStore } from '$lib/stores/threadsStore';
   export let promptType: PromptType = 'CASUAL_CHAT';
 
 let threads: Threads[];
+let currentThread: Threads | null = null;
+let initialThreadId: string | null = null;
+
 let currentThreadId: string | null;
 let showThreadList = true;
 let updateStatus: string;
@@ -35,22 +38,32 @@ let messages: Messages[] = [];
 let quotedMessage: Messages | null = null;
 let isEditingThreadName = false;
 let editedThreadName = '';
+let isTextareaFocused = false;
+let latestAssistantMessageId = null;
+let expandedDates = new Set<string>();
+  let showTagSelector = false;
+  let showTagFilters = true;
+  let newTagName = '';
 
 let showReactions: string | null = null;  
 let editingTagIndex: number | null = null;
   let newTag = '';
-  let availableTags: Tag[] = [
-  { id: 1, name: 'Work', color: '#FF6B6B', selected: false },
-  { id: 2, name: 'Personal', color: '#4ECDC4', selected: false },
-  { id: 3, name: 'Urgent', color: '#FFD93D', selected: false },
-  { id: 4, name: 'Ideas', color: '#6BCB77', selected: false },
-  { id: 5, name: 'Learning', color: '#4D96FF', selected: false },
+  let availableTags: Tag[] = [];
+  let editingTagId: string | null = null;
+
+  let selectedTagIds = new Set();
+  
+    let isMinimized = false;
+    let lastScrollTop = 0;
+
+    const reactions = [
+  { symbol: '▲', action: 'upvote', label: 'Upvote' },
+  { symbol: '▼', action: 'downvote', label: 'Downvote' },
+  { symbol: '★', action: 'bookmark', label: 'Bookmark' },
+  { symbol: '⧉', action: 'copy', label: 'Copy to Clipboard' },
+  { symbol: '☆', action: 'highlight', label: 'Highlight' },
+  { symbol: '?', action: 'question', label: 'Ask for Clarification' }
 ];
-  let selectedTagIds = new Set<number>();
-
-
-  const reactions = ['😊', '👍', '❤️', '😂', '😮', '😢'];
-
 
 messagesStore.subscribe(value => messages = value);
 
@@ -82,6 +95,9 @@ threadsStore.subscribe(state => {
 
   $: safeAIModel = aiModel || defaultAIModel;
 
+  $: sortedMessages = chatMessages.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+
+
   let chatMessages: InternalChatMessage[] = [];
 
   let userInput: string = '';
@@ -106,6 +122,7 @@ threadsStore.subscribe(state => {
   let guidance: Guidance | null = null;
   
   let textareaElement: HTMLTextAreaElement | null = null;
+  let defaultTextareaHeight = '60px'; 
 
   let isAuthenticated = false;
   let showAuth = false;
@@ -117,18 +134,65 @@ threadsStore.subscribe(state => {
 
 
 
-$: groupedMessages = groupMessagesByDate(messages);
+  $: groupedMessages = groupMessagesByDate(messages);
 
-function groupMessagesByDate(messages: Messages[]): { date: string; messages: Messages[] }[] {
-  const groups: { [key: string]: Messages[] } = {};
-  messages.forEach(message => {
-    const date = new Date(message.created).toLocaleDateString();
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(message);
-  });
-  return Object.entries(groups).map(([date, messages]) => ({ date, messages: messages.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()) }));
+  function groupMessagesByDate(messages: InternalChatMessage[]): { date: string; messages: InternalChatMessage[]; isRecent: boolean }[] {
+    const groups: { [key: string]: InternalChatMessage[] } = {};
+    const today = new Date().setHours(0, 0, 0, 0);
+    const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
+
+    messages.forEach(message => {
+      const messageDate = new Date(message.created).setHours(0, 0, 0, 0);
+      let dateKey: string;
+
+      if (messageDate === today) {
+        dateKey = 'Today';
+      } else if (messageDate === yesterday) {
+        dateKey = 'Yesterday';
+      } else {
+        dateKey = new Date(messageDate).toISOString().split('T')[0];
+      }
+
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(message);
+    });
+
+    return Object.entries(groups)
+      .map(([date, messages]) => ({ date, messages }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  function formatDate(date: string): string {
+    if (date === 'Today' || date === 'Yesterday') return date;
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function getTotalMessages(): number {
+    return messages.length;
+  }
+
+function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
+  messageIdCounter++;
+  const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+  const newMessageId = `msg-${messageIdCounter}`;
+  latestMessageId = newMessageId;
+  const createdDate = new Date().toISOString();
+  console.log(`Adding message: role=${role}, id=${newMessageId}, created=${createdDate}`);
+  return { 
+    role: role as 'user' | 'assistant' | 'thinking',
+    content: messageContent,
+    id: newMessageId, 
+    isTyping: role === 'assistant',
+    text: messageContent,
+    user: userId,
+    collectionId: '',
+    collectionName: '',
+    created: createdDate,
+    updated: createdDate,
+    parent_msg: parentMsgId,
+  };
 }
 
 async function addReaction(messageId: string, reaction: string) {
@@ -152,15 +216,33 @@ async function addReaction(messageId: string, reaction: string) {
     showReactions = null;
   }
 
-  function toggleTagCreation() {
-    if (editingTagIndex !== null) {
-      saveTag();
-    } else {
-      newTag = '';
-      editingTagIndex = -1;
+  async function createTag(name: string) {
+    if (!name.trim()) return;
+
+    try {
+      const newTag = await pb.collection('tags').create<Tag>({
+        name: name.trim(),
+        color: getRandomBrightColor(name),
+        user: $currentUser?.id,
+        selected_threads: [],
+      });
+
+      availableTags = [...availableTags, newTag];
+      newTagName = ''; // Clear the input
+      editingTagIndex = null; // Close the input
+    } catch (error) {
+      console.error('Error creating tag:', error);
     }
   }
 
+  function toggleTagCreation() {
+    if (editingTagIndex !== null) {
+      editingTagIndex = null; // Close the input
+    } else {
+      editingTagIndex = -1; // Open the input
+    }
+    newTagName = ''; // Clear the input when toggling
+  }
   function getRandomColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {
             return char.charCodeAt(0) + ((acc << 5) - acc);
@@ -187,22 +269,23 @@ async function addReaction(messageId: string, reaction: string) {
   }
 }
 
-
-
-
-    function toggleTag(tag: Tag) {
-      tag.selected = !tag.selected;
-      availableTags = [...availableTags]; // Trigger reactivity
-      updateThreadTags();
+function handleScroll(event) {
+    const currentScrollTop = event.target.scrollTop;
+    if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
+      isMinimized = true;
+    } else if (currentScrollTop < lastScrollTop || currentScrollTop <= 50) {
+      isMinimized = false;
     }
+    lastScrollTop = currentScrollTop;
+  }
 
-    async function updateThreadTags() {
-      if (currentThreadId && currentThread) {
-        const updatedTags = availableTags.filter(tag => tag.selected).map(tag => tag.name);
-        await updateThread(currentThreadId, { tags: updatedTags });
-        currentThread.tags = updatedTags;
-      }
-    }
+
+    // function toggleTag(tag: Tag) {
+    //   tag.selected = !tag.selected;
+    //   availableTags = [...availableTags]; // Trigger reactivity
+    //   updateThreadTags();
+    // }
+
 
   function addNewTag() {
   const newTag: Tag = {
@@ -214,34 +297,31 @@ async function addReaction(messageId: string, reaction: string) {
   availableTags = [...availableTags, newTag];
 }
   
-  function filterThreads() {
-    if (selectedTags.length === 0) {
-      // Show all threads
-    } else {
-      // Filter threads based on selectedTags
-    }
-  }
 
-  
+function getThreadDateGroup(thread: Threads): string {
+  const now = new Date();
+  const threadDate = new Date(thread.updated);
+  const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
 
-  function getThreadDateGroup(thread: Threads): string {
-    const now = new Date();
-    const threadDate = new Date(thread.updated);
-    const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return 'This Week';
+  if (diffDays < 30) return 'This Month';
+  return 'Older';
+}
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return 'This Week';
-    if (diffDays < 30) return 'This Month';
-    return 'Older';
-  }
+const groupOrder = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
 
-  $: groupedThreads = threads.reduce((acc, thread) => {
-    const group = getThreadDateGroup(thread);
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(thread);
-    return acc;
-  }, {} as Record<string, Threads[]>);
+$: groupedThreads = threads.reduce((acc, thread) => {
+  const group = getThreadDateGroup(thread);
+  if (!acc[group]) acc[group] = [];
+  acc[group].push(thread);
+  return acc;
+}, {} as Record<string, Threads[]>);
+
+$: orderedGroupedThreads = groupOrder
+  .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
+  .map(group => ({ group, threads: groupedThreads[group] }));
 
 function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
   const messageGroups: Messages[][] = [];
@@ -281,21 +361,45 @@ function toggleGroupExpansion(groupId: string) {
   expandedGroups = expandedGroups; // Trigger reactivity
 }
 
+let isLoadingMessages = false;
+
 async function handleLoadThread(threadId: string) {
   try {
-    const thread = threads.find(t => t.id === threadId);
-    if (thread) {
-      currentThreadName = thread.name;
-      currentThreadId = threadId;
-    }
+    const thread = await pb.collection('threads').getOne(threadId, {
+      expand: 'tags'
+    });
+    currentThread = thread;
+    currentThreadId = thread.id;
+    console.log("Loaded thread:", currentThread);
+    
+    isLoadingMessages = true; // Start loading
+    chatMessages = [];
+
     await messagesStore.fetchMessages(threadId);
-    chatMessages = messages.map(msg => addMessage(msg.type === 'human' ? 'user' : 'assistant', msg.text, msg.parent_msg));
+    chatMessages = messages.map(msg => ({
+      role: msg.type === 'human' ? 'user' : 'assistant',
+      content: msg.text,
+      id: msg.id,
+      isTyping: false,
+      text: msg.text,
+      user: msg.user,
+      created: msg.created,
+      updated: msg.updated,
+      parent_msg: msg.parent_msg
+    }));
+
+    const groupedMessages = groupMessagesByDate(chatMessages);
+    if (groupedMessages.length > 0) {
+      expandedDates.add(groupedMessages[0].date);
+    }
+
+    console.log('Loaded messages:', chatMessages);
   } catch (error) {
     console.error(`Error loading messages for thread ${threadId}:`, error);
+  } finally {
+    isLoadingMessages = false; // End loading
   }
 }
-  
-
 
 afterUpdate(() => {
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
@@ -304,83 +408,53 @@ afterUpdate(() => {
   }
 });
 
+let showScrollButton = false;
 
-  const dispatch = createEventDispatcher();
 
-    function copyToClipboard(content: string) {
-    navigator.clipboard.writeText(content).then(() => {
-      console.log('Content copied to clipboard');
-    }, (err) => {
-      console.error('Could not copy text: ', err);
-    });
+
+
+function scrollToBottom() {
+  console.log('Scroll button clicked');
+  const chatMessages = chatMessagesDiv.querySelector('.chat-messages');
+  if (chatMessages) {
+    console.log('Before scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    console.log('After scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
+    showScrollButton = false;
+    console.log('showScrollButton set to false');
+  } else {
+    console.log('chat-messages div not found');
   }
+}
 
-  function handleReaction(messageId: string, reaction: 'up' | 'down') {
-    console.log(`Reaction ${reaction} for message ${messageId}`);
-    // Implement reaction logic here
-  }
-
-  function toggleThreadList() {
-    showThreadList = !showThreadList;
-  }
+afterUpdate(() => {
+  scrollToBottom();
+});
 
 
-  function getSystemMessage(promptType: PromptType): string {
-    switch (promptType) {
-      case 'SCENARIO_GENERATION':
-        return "You are an AI assistant specialized in generating creative scenarios. Please provide detailed and imaginative scenarios based on the user's input.";
-      case 'TASK_GENERATION':
-        return "You are an AI assistant focused on breaking down scenarios into actionable tasks. Please generate specific, well-defined tasks based on the given scenario.";
-      case 'AGENT_CREATION':
-        return "You are an AI assistant designed to create AI agent profiles. Please generate detailed agent profiles based on the provided scenario and tasks.";
-      case 'NETWORK_STRUCTURE':
-        return "You are an AI assistant specialized in determining optimal network structures. Please analyze the given scenario and tasks to suggest the most suitable network structure.";
-      case 'REFINE_SUGGESTION':
-        return "You are an AI assistant focused on refining and improving suggestions. Please provide constructive feedback and enhancements to the given suggestions.";
-      case 'SUMMARY_GENERATION':
-        return "You are an AI assistant specialized in summarizing conversations. Please provide concise and accurate summaries of the given conversation.";
-      case 'NETWORK_GENERATION':
-        return "You are an AI assistant designed to generate network structures. Please create a detailed network structure based on the provided summary.";
-      default:
-        return "You are a helpful AI assistant. Please provide informative and relevant responses to the user's queries.";
-    }
-  }
 
-  function handleFileSelected(event: Event) {
-    const target = event.target as HTMLInputElement;
-    if (target.files && target.files[0]) {
-        const file = target.files[0];
-        attachment = {
-            // id: crypto.randomUUID(),
-            name: file.name,
-            url: URL.createObjectURL(file),
-            file: file
-        };
-    }
-  }
+const dispatch = createEventDispatcher();
 
-    function deleteAttachment() {
-    attachment = null;
-  }
+  function copyToClipboard(content: string) {
+  navigator.clipboard.writeText(content).then(() => {
+    console.log('Content copied to clipboard');
+  }, (err) => {
+    console.error('Could not copy text: ', err);
+  });
+}
 
 
-  function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
-    messageIdCounter++;
-    const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
-    return { 
-      role: role as 'user' | 'assistant' | 'thinking',
-      content: messageContent,
-      id: `msg-${messageIdCounter}`, 
-      isTyping: role === 'assistant',
-      text: messageContent,
-      user: userId,
-      collectionId: '',
-      collectionName: '',
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
-      parent_msg: parentMsgId,
-    };
-  }
+function toggleThreadList() {
+  showThreadList = !showThreadList;
+}
+
+
+
+  let latestMessageId: string | null = null;
+
+
+
+
 
   function handleQuoteMessage(message: Messages) {
     quotedMessage = message;
@@ -477,151 +551,111 @@ afterUpdate(() => {
   $: if (currentStage === 'tasks' && selectedScenario) {
     generateLocalTasks();
   }
-  
+
   async function handleSendMessage(message: string = userInput) {
-    if (!message && chatMessages.length === 0 && !attachment) return;
+    if (!message.trim() && chatMessages.length === 0 && !attachment) return;
 
     if (!currentThreadId) {
-        console.error('No thread selected');
-        return;
+      console.error('No thread selected. Please select a thread before sending a message.');
+      return;
     }
+
+    // Clear input immediately for responsiveness
+    const currentMessage = message.trim();
+    userInput = '';
+    resetTextareaHeight();
 
     try {
-        // Save user message
-        const userMessage = await messagesStore.saveMessage({
-            text: message,
-            type: 'human',
-            thread: currentThreadId,
-            parent_msg: quotedMessage ? quotedMessage.id : null,
-        }, currentThreadId);
+      // Add user message to UI immediately
+      const userMessageUI = addMessage('user', currentMessage, quotedMessage ? quotedMessage.id : null);
+      chatMessages = [...chatMessages, userMessageUI];
 
-        chatMessages = [...chatMessages, addMessage('user', message, quotedMessage ? quotedMessage.id : null)];
-        userInput = '';
-        quotedMessage = null;
-        resetTextareaHeight();
+      // Save user message to database
+      const userMessage = await messagesStore.saveMessage({
+        text: currentMessage,
+        type: 'human',
+        thread: currentThreadId,
+        parent_msg: quotedMessage ? quotedMessage.id : null,
+      }, currentThreadId);
 
-        thinkingPhrase = getRandomThinkingPhrase();
-        const thinkingMessage = addMessage('thinking', thinkingPhrase);
-        thinkingMessageId = thinkingMessage.id;
-        chatMessages = [...chatMessages, thinkingMessage];
-        isLoading = true;
+      quotedMessage = null;
 
-        // Fetch AI response
-        const aiResponse = await fetchAIResponse(
-            chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
-            aiModel,
-            userId,
-            attachment
-        );
+      // Start thinking animation
+      thinkingPhrase = getRandomThinkingPhrase();
+      const thinkingMessage = addMessage('thinking', thinkingPhrase);
+      thinkingMessageId = thinkingMessage.id;
+      chatMessages = [...chatMessages, thinkingMessage];
+      isLoading = true;
 
-        // Remove thinking message
-        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+      // Fetch AI response
+      const aiResponse = await fetchAIResponse(
+        chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+        aiModel,
+        userId,
+        attachment
+      );
 
-        // Save AI response
-        const assistantMessage = await messagesStore.saveMessage({
-            text: aiResponse,
-            type: 'robot',
-            thread: currentThreadId,
-            parent_msg: userMessage.id,
-        }, currentThreadId);
+      // Remove thinking message
+      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
-        // Add an empty message for typewriting effect
-        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-        chatMessages = [...chatMessages, newAssistantMessage];
-        typingMessageId = newAssistantMessage.id;
+      // Save AI response
+      const assistantMessage = await messagesStore.saveMessage({
+        text: aiResponse,
+        type: 'robot',
+        thread: currentThreadId,
+        parent_msg: userMessage.id,
+      }, currentThreadId);
 
-        // Use typewriting effect
-        await typeMessage(aiResponse);
+      // Add AI response to UI
+      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      chatMessages = [...chatMessages, newAssistantMessage];
+      typingMessageId = newAssistantMessage.id;
 
-        // Update the message with the full response after typewriting is complete
-        chatMessages = chatMessages.map(msg => 
-            msg.id === String(typingMessageId) 
-                ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-                : msg
-        );
+      // Use typewriting effect
+      await typeMessage(aiResponse);
 
-        await messagesStore.fetchMessages(currentThreadId);
+      // Update the message with the full response after typewriting is complete
+      chatMessages = chatMessages.map(msg => 
+        msg.id === String(typingMessageId) 
+          ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+          : msg
+      );
 
-    } catch (error) {
-        console.error('Error in handleSendMessage:', error);
-        chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-        let errorMessage = 'An unexpected error occurred. Please try again later.';
-        if (error instanceof Error) {
-            errorMessage = `Error: ${error.message}`;
-        }
-        chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
-    } finally {
-        isLoading = false;
-        thinkingMessageId = null;
-        typingMessageId = null;
-        attachment = null;
-    }
-}
-
-// async function typeMessage(message: string) {
-//     const typingSpeed = 10; // milliseconds per character
-//     let typedMessage = '';
+      await messagesStore.fetchMessages(currentThreadId);
     
-//     for (let i = 0; i <= message.length; i++) {
-//         typedMessage = message.slice(0, i);
-//         chatMessages = chatMessages.map(msg => 
-//             msg.id === String(typingMessageId) 
-//                 ? { ...msg, content: typedMessage, text: typedMessage, isTyping: i < message.length }
-//                 : msg
-//         );
-//         await new Promise(resolve => setTimeout(resolve, typingSpeed));
-//     }
-// }
+        console.log('Message sent, checking if scroll needed');
+        setTimeout(() => {
+          if (chatMessagesDiv) {
+            const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+            console.log('Current scroll state:', { scrollTop, scrollHeight, clientHeight });
+            if (scrollHeight - scrollTop - clientHeight < 200) {
+              console.log('Scrolling to bottom after sending message');
+              scrollToBottom();
+            } else {
+              console.log('Not scrolling to bottom, user has scrolled up');
+            }
+          } else {
+            console.log('chatMessagesDiv is null after sending message');
+          }
+        }, 0);
 
-        // Handle different prompt types
-        // switch (currentPromptType) {
-        //     case 'SCENARIO_GENERATION':
-        //         if (currentStage === 'initial') {
-        //             scenarios = await generateScenarios(message, aiModel, userId);
-        //             chatMessages = [...chatMessages, addMessage('options', scenarios)];
-        //             currentStage = 'scenarios';
-        //         }
-        //         break;
-        //     case 'TASK_GENERATION':
-        //         if (currentStage === 'scenarios' && selectedScenario) {
-        //             tasks = await generateTasksAPI(selectedScenario, aiModel, userId);
-        //             chatMessages = [...chatMessages, addMessage('options', tasks)];
-        //             currentStage = 'tasks';
-        //         } else if (currentStage === 'initial') {
-        //             chatMessages = [...chatMessages, addMessage('assistant', "Please select a scenario first.")];
-        //         }
-        //         break;
-        //     case 'AGENT_CREATION':
-        //         if (currentStage === 'tasks' && selectedTask) {
-        //             await finalizeProcess();
-        //         } else {
-        //             chatMessages = [...chatMessages, addMessage('assistant', "Please select a task first.")];
-        //         }
-        //         break;
-        //     case 'CASUAL_CHAT':
-        //     default:
-        //         // No additional action needed for casual chat
-        //         break;
-        // }
+      } catch (error) {
+      console.error('Error in handleSendMessage:', error);
+      chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
+    } finally {
+      isLoading = false;
+      thinkingMessageId = null;
+      typingMessageId = null;
+      attachment = null;
+    }
+  }
 
-
-  // async function typeMessage(message: string) {
-  //   const assistantMessage = addMessage('assistant', '');
-  //   chatMessages = [...chatMessages, assistantMessage];
-  //   typingMessageId = assistantMessage.id;
-
-  //   const typingSpeed = 1; // milliseconds per character
-  //   for (let i = 0; i <= message.length; i++) {
-  //     chatMessages = chatMessages.map(msg => 
-  //       msg.id === String(typingMessageId) 
-  //         ? { ...msg, content: message.slice(0, i), text: message.slice(0, i), isTyping: i < message.length }
-  //         : msg
-  //     );
-  //     await new Promise(resolve => setTimeout(resolve, typingSpeed));
-  //   }
-  // }
-
-  async function typeMessage(message: string) {
+async function typeMessage(message: string) {
     const typingSpeed = 10; // milliseconds per character
     let typedMessage = '';
     
@@ -629,13 +663,25 @@ afterUpdate(() => {
       typedMessage = message.slice(0, i);
       chatMessages = chatMessages.map(msg => 
         msg.id === String(typingMessageId) 
-          ? { ...msg, content: typedMessage, text: typedMessage, isTyping: i < message.length }
+          ? { ...msg, content: typedMessage, text: typedMessage, isTyping: true }
           : msg
       );
       await new Promise(resolve => setTimeout(resolve, typingSpeed));
     }
+
+    // Set isTyping to false when typing is complete
+    chatMessages = chatMessages.map(msg => 
+      msg.id === String(typingMessageId) 
+        ? { ...msg, isTyping: false }
+        : msg
+    );
+    
+    // Scroll to the bottom after typing is complete
+    if (chatMessagesDiv) {
+      chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+    }
   }
-  
+
 async function handleScenarioSelection(scenario: Scenario) {
   selectedScenario = scenario;
   chatMessages = [...chatMessages, addMessage('user', `Selected scenario: ${scenario.description}`)];
@@ -677,15 +723,6 @@ async function handleTaskSelection(task: Task) {
 }
 
 
-// // Call these functions at appropriate times in your component
-// $: if (currentStage === 'summary') {
-//     generateSummary();
-// }
-
-// $: if (currentStage === 'tasks') {
-//     generateTasks();
-// }
-
 async function finalizeProcess() {
   if (selectedScenario && selectedTask) {
     isLoading = true;
@@ -718,12 +755,7 @@ async function finalizeProcess() {
       const keywords = extractKeywords(summary);
       const highlightedSummary = highlightKeywords(summary, keywords);
       
-      // Generate network data based on AI agents
-      // networkData = {
-      //   rootAgent,
-      //   childAgents,
-      //   // Add any other relevant network information
-      // };
+
 
       chatMessages = chatMessages.filter(msg => msg.role !== 'thinking');
       await typeMessage('Process complete. AI agent created and network structure determined.');
@@ -759,10 +791,41 @@ async function finalizeProcess() {
 });
 
 
+async function fetchTags() {
+  try {
+    const records = await pb.collection('tags').getFullList<Tag>({
+      sort: 'name',
+      expand: 'selected_threads'
+    });
+    availableTags = records;
+    console.log("Fetched tags:", availableTags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+  }
+}
+
+function adjustFontSize(element: HTMLTextAreaElement) {
+    const maxFontSize = 40;
+    const minFontSize = 20;
+    const maxLength = 200; // Adjust this value to determine when to start shrinking the font
+
+    const contentLength = element.value.length;
+    
+    if (contentLength <= maxLength) {
+        element.style.fontSize = `${maxFontSize}px`;
+    } else {
+        const fontSize = Math.max(
+            minFontSize,
+            maxFontSize - (contentLength - maxLength) / 2
+        );
+        element.style.fontSize = `${fontSize}px`;
+    }
+}
 
 
 onMount(async () => {
-  await threadsStore.loadThreads(userId);
+  // await threadsStore.loadThreads(userId);
+  await fetchTags();
 
     try {
         isAuthenticated = await ensureAuthenticated();
@@ -778,9 +841,9 @@ onMount(async () => {
             threads = [newThread];
             console.log("Created new thread:", newThread);
         }
-        if (threads.length > 0) {
-            await handleLoadThread(threads[0].id);
-        }
+        // if (threads.length > 0) {
+        //     await handleLoadThread(threads[0].id);
+        // }
 
         // New user-related code
         if ($currentUser && $currentUser.id) {
@@ -789,27 +852,32 @@ onMount(async () => {
         }
 
         if (textareaElement) {
-            const adjustTextareaHeight = () => {
-                if (textareaElement) {
-                    textareaElement.style.height = 'auto';
-                    textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
-                }
-            };
+        const adjustTextareaHeight = () => {
+          textareaElement.style.height = 'auto';
+          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+        };
 
-            textareaElement.addEventListener('input', adjustTextareaHeight);
-            adjustTextareaHeight();
+        const resetTextareaHeight = () => {
+          textareaElement.style.height = defaultTextareaHeight;
+        };
 
-            return () => {
-                if (textareaElement) {
-                    textareaElement.removeEventListener('input', adjustTextareaHeight);
-                }
-            };
-        }
+        textareaElement.addEventListener('input', adjustTextareaHeight);
+        textareaElement.addEventListener('blur', resetTextareaHeight);
+
+        return () => {
+          textareaElement.removeEventListener('input', adjustTextareaHeight);
+          textareaElement.removeEventListener('blur', resetTextareaHeight);
+        };
+      }
     } catch (error) {
-        console.error("Error in onMount:", error);
-        // Handle the error appropriately, e.g., show an error message to the user
+      console.error("Error in onMount:", error);
+      // Handle the error appropriately, e.g., show an error message to the user
     }
-});
+  });
+
+  $: if (currentThreadId) {
+  handleLoadThread(currentThreadId);
+}
   
   $: console.log("isLoading changed:", isLoading);
 
@@ -880,9 +948,6 @@ function updateAvatarUrl() {
       textareaElement.addEventListener('input', adjustTextareaHeight);
       adjustTextareaHeight();
 
-      // if (!showChat) {
-      //   textareaElement.focus();
-      // }
 
       return undefined;
 
@@ -892,7 +957,7 @@ function updateAvatarUrl() {
   function resetTextareaHeight() {
   if (textareaElement) {
     textareaElement.style.height = 'auto';
-    textareaElement.style.height = '50px'; // Set this to your default height
+    textareaElement.style.height = '50px'; 
   }
 }
 
@@ -903,12 +968,10 @@ function handleAuthSuccess() {
 
   function handleAuthFailure() {
     console.error('Authentication failed');
-    // You can add additional error handling here
   }
 
   function handlePromptTypeChange(event: CustomEvent<PromptType>) {
     currentPromptType = event.detail;
-    // Reset relevant state variables when prompt type changes
     scenarios = [];
     tasks = [];
     selectedScenario = null;
@@ -923,214 +986,673 @@ function handleAuthSuccess() {
 
 async function submitThreadNameChange() {
   if (currentThreadId && editedThreadName.trim() !== '') {
-    await updateThread(currentThreadId, { name: editedThreadName.trim() });
-    if (currentThread) {
-      currentThread.name = editedThreadName.trim();
+    try {
+      await updateThread(currentThreadId, { name: editedThreadName.trim() });
+      if (currentThread) {
+        currentThread.name = editedThreadName.trim();
+      }
+      // Update the thread in the threads array
+      threads = threads.map(thread => 
+        thread.id === currentThreadId 
+          ? { ...thread, name: editedThreadName.trim() } 
+          : thread
+      );
+      // Trigger reactivity for orderedGroupedThreads
+      orderedGroupedThreads = groupOrder
+        .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
+        .map(group => ({ 
+          group, 
+          threads: groupedThreads[group].map(thread => 
+            thread.id === currentThreadId 
+              ? { ...thread, name: editedThreadName.trim() } 
+              : thread
+          ) 
+        }));
+    } catch (error) {
+      console.error("Error updating thread name:", error);
+    } finally {
+      isEditingThreadName = false;
     }
-    isEditingThreadName = false;
   }
 }
 
+function handleTextareaFocus() {
+    isTextareaFocused = true;
+  }
+
+  function handleTextareaBlur() {
+    isTextareaFocused = false;
+  }
+
+  async function handleDeleteThread(event: MouseEvent, threadId: string) {
+  event.stopPropagation();
+  if (confirm('Are you sure you want to delete this thread?')) {
+    const success = await deleteThread(threadId);
+    if (success) {
+      threads = threads.filter(t => t.id !== threadId);
+      if (currentThreadId === threadId) {
+        currentThreadId = null;
+        chatMessages = [];
+      }
+    }
+  }
+}
+async function handleDeleteTag(event: MouseEvent, tagId: string) {
+  event.stopPropagation();
+  if (confirm('Are you sure you want to delete this tag?')) {
+    try {
+      await pb.collection('tags').delete(tagId);
+      availableTags = availableTags.filter(tag => tag.id !== tagId);
+      console.log('Tag deleted successfully');
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+    }
+  }
+}
+
+
+
+function toggleDateExpansion(date: string) {
+  if (expandedDates.has(date)) {
+    if (!groupedMessages.find(group => group.date === date)?.isRecent) {
+      expandedDates.delete(date);
+    }
+    
+  } else {
+    expandedDates.add(date);
+    
+  }
+  expandedDates = expandedDates;
+
+}
+
+   function getRandomBrightColor(tagName: string): string {
+    const hash = tagName.split('').reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    const h = hash % 360;
+    return `hsl(${h}, 70%, 60%)`;
+  }
+
+
+  let isTags = true; 
+
+
+
+  function toggleTagSelector() {
+    showTagSelector = !showTagSelector;
+    isTags = !isTags;
+
+  }
+
+
+
+  function toggleTagFilters() {
+    showTagFilters = !showTagFilters;
+  }
+
+  let filteredThreads: Threads[] = [];
+
+
+  async function toggleTagSelection(tagId: string) {
+    if (selectedTagIds.has(tagId)) {
+      selectedTagIds.delete(tagId);
+    } else {
+      selectedTagIds.add(tagId);
+    }
+    selectedTagIds = selectedTagIds; // Trigger reactivity
+    handleTagFilter();
+  }
+
+  function handleTagFilter() {
+  if (selectedTagIds.size === 0) {
+    filteredThreads = threads;
+  } else {
+    filteredThreads = threads.filter(thread => 
+      availableTags.some(tag => 
+        selectedTagIds.has(tag.id) && tag.selected_threads?.includes(thread.id)
+      )
+    );
+  }
+}
+
+$: {
+  handleTagFilter();
+}
+
+  // function startEditingTag(tagId: string) {
+  //     editingTagId = tagId;
+  //   }
+
+  function filterThreads() {
+    if (selectedTagIds.size === 0) {
+      // Show all threads if no tags are selected
+      filteredThreads = threads;
+    } else {
+      filteredThreads = threads.filter(thread => 
+        availableTags.some(tag => 
+          selectedTagIds.has(tag.id) && tag.selected_threads?.includes(thread.id)
+        )
+      );
+    }
+  }
+
+  $: {
+    // Re-filter threads whenever availableTags or threads change
+    filterThreads();
+  }
+
+  // function filterThreads(threads: Threads[], selectedTags: Tag[]): Threads[] {
+  //   if (selectedTags.length === 0) return threads;
+  //   return threads.filter(thread => 
+  //     selectedTags.every(tag => thread.tags?.includes(tag.id))
+  //   );
+  // }
+
+  $: filteredThreads = currentThreadId 
+    ? filterThreads(
+        threads, 
+        availableTags.filter(tag => tag.selected_threads?.includes(currentThreadId))
+      )
+    : threads;
+
+  async function saveSelectedTags() {
+    if (currentThreadId && currentThread) {
+      const selectedTags = availableTags
+        .filter(tag => tag.selected)
+        .map(tag => `${tag.name} #${tag.color}`);
+      await updateThread(currentThreadId, { tags: selectedTags });
+      currentThread.tags = selectedTags;
+    }
+  }
+
+  async function toggleTag(tag: Tag) {
+    if (!currentThreadId) return;
+
+    try {
+      const isCurrentlySelected = tag.selected_threads?.includes(currentThreadId);
+      let updatedSelectedThreads: string[];
+
+      if (isCurrentlySelected) {
+        updatedSelectedThreads = tag.selected_threads.filter(id => id !== currentThreadId);
+      } else {
+        updatedSelectedThreads = [...(tag.selected_threads || []), currentThreadId];
+      }
+
+      // Update local state immediately
+      availableTags = availableTags.map(t => 
+        t.id === tag.id 
+          ? { ...t, selected_threads: updatedSelectedThreads } 
+          : t
+      );
+
+      // Update in PocketBase
+      const updatedTag = await pb.collection('tags').update(tag.id, {
+        selected_threads: updatedSelectedThreads
+      });
+
+      console.log('Tag toggled successfully:', updatedTag);
+    } catch (error) {
+      console.error('Error toggling tag:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      // Revert local state if PocketBase update fails
+      refreshTags();
+    }
+  }
+
+  // async function updateThreadTags() {
+  //     if (currentThreadId && currentThread) {
+  //       const updatedTags = availableTags.filter(tag => tag.selected).map(tag => tag.name);
+  //       await updateThread(currentThreadId, { tags: updatedTags });
+  //       currentThread.tags = updatedTags;
+  //     }
+  //   }
+
+
+  async function updateThreadTags() {
+  if (!currentThreadId || !currentThread) return;
+
+  try {
+    const updatedThread = await pb.collection('threads').getOne<Threads>(currentThreadId, {
+      expand: 'tags'
+    });
+
+    currentThread = updatedThread;
+    console.log('Thread tags updated:', updatedThread.tags);
+  } catch (error) {
+    console.error('Error updating thread tags:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+    }
+  }
+}
+
+
+    
+    function startEditingTag(tagId: string) {
+      editingTagId = tagId;
+    }
+
+async function updateTag(tag: Tag) {
+  if (!tag.name.trim()) {
+    console.error('Tag name cannot be empty');
+    return;
+  }
+
+  try {
+    const updatedTag = await pb.collection('tags').update<Tag>(tag.id, {
+      name: tag.name.trim(),
+      color: tag.color // Include this if you allow color editing
+    });
+
+    // Update the tag in the local state
+    const tagIndex = availableTags.findIndex(t => t.id === updatedTag.id);
+    if (tagIndex !== -1) {
+      availableTags[tagIndex] = updatedTag;
+      availableTags = [...availableTags]; // Trigger reactivity
+    }
+
+    console.log('Tag updated successfully:', updatedTag);
+    editingTagId = null; // Exit editing mode
+  } catch (error) {
+    console.error('Error updating tag:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+    }
+    // Optionally, you can set an error state here to display to the user
+  }
+}
+
+async function handleReaction(messageId: string, action: string) {
+  try {
+    const message = chatMessages.find(msg => msg.id === messageId);
+    if (!message) return;
+
+    switch (action) {
+      case 'upvote':
+      case 'downvote':
+      case 'question':
+        message.reactions[action] = (message.reactions[action] || 0) + 1;
+        break;
+      case 'bookmark':
+        if (!$currentUser.bookmarks.includes(messageId)) {
+          $currentUser.bookmarks.push(messageId);
+          await pb.collection('users').update($currentUser.id, { bookmarks: $currentUser.bookmarks });
+        }
+        break;
+      case 'highlight':
+        if (!message.reactions.highlight.includes($currentUser.id)) {
+          message.reactions.highlight.push($currentUser.id);
+        }
+        break;
+      case 'copy':
+        await copyToClipboard(message.content);
+        // Maybe show a temporary notification that the content was copied
+        break;
+    }
+
+    // Update the message in the database
+    await messagesStore.updateMessage(messageId, message);
+
+    // Update local state
+    chatMessages = [...chatMessages];
+  } catch (error) {
+    console.error('Error handling reaction:', error);
+  }
+}
+
+async function refreshTags() {
+  try {
+    const records = await pb.collection('tags').getFullList<Tag>({
+      sort: 'name',
+      expand: 'selected_threads'
+    });
+    availableTags = records;
+    console.log("Refreshed tags:", availableTags);
+  } catch (error) {
+    console.error('Error refreshing tags:', error);
+  }
+}
+
+// Call this function when the currentThreadId changes
+$: if (currentThreadId) {
+  refreshTags();
+}
   
 </script>
 
 <div class="chat-interface">
-  <button class="thread-toggle" on:click={toggleThreadList}>
-    <Menu size={24} />
-  </button>
+  <div class="button-column">
+    <div class="btn-col-left">
+      <button class="thread-toggle" on:click={toggleThreadList}>
+        <Menu size={24} />
+      </button>
+    </div>
+  </div>
+
   <div class="threads-container" transition:fly="{{ y: 300, duration: 300 }}" class:thread-list-visible={showThreadList}>
     {#if showThreadList}
     <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
       <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
       <div class="tag-list">
-        {#each availableTags as tag, index}
-          <button class="tag" class:selected={tag.selected} on:click={() => toggleTag(tag)}>
-            {tag.name}
-          </button>
+        {#each availableTags as tag (tag.id)}
+          <div class="tag-item">
+            {#if editingTagId === tag.id}
+              <div class="tag-edit-container">
+                <input 
+                  bind:value={tag.name}
+                  on:blur={() => updateTag(tag)}
+                  on:keydown={(e) => e.key === 'Enter' && updateTag(tag)}
+                />
+                <span class="tag-edit-buttons">
+                  <span class="save-tag-button" on:click={() => updateTag(tag)}>
+                    <Check />
+                  </span>
+                  <span class="delete-tag-button" on:click={(e) => handleDeleteTag(e, tag.id)}>
+                    <Trash />
+                  </span>
+                </span>
+              </div>
+            {:else}
+              <span 
+                  class="tag" 
+                  class:selected={selectedTagIds.has(tag.id)}
+                  style="background-color: {tag.color}"
+                  on:click={() => toggleTagSelection(tag.id)}
+                >
+                  {tag.name}
+                  <span class="edit-tag" on:click|stopPropagation={() => startEditingTag(tag.id)}>
+                    <Pen size={16} />
+                  </span>
+              </span>
+            {/if}
+          </div>
         {/each}
-        <button class="add-tag" on:click={toggleTagCreation}>
-          <Plus size={16} />
-        </button>
       </div>
+      <button class="add-tag" on:click={toggleTagCreation}>
+        <Plus />
+        Add tag
+      </button>
       {#if editingTagIndex !== null}
         <div class="new-tag-input">
-          <input bind:value={newTag} placeholder="New tag" on:keydown={(e) => e.key === 'Enter' && saveTag()} />
-          <button on:click={saveTag}><Plus size={16} /></button>
+          <input 
+          type="text" 
+          placeholder="New tag" 
+          on:keydown={(e) => e.key === 'Enter' && createTag(e.target.value)}
+        >          
+          <span class="new-tag" on:click={saveTag}>
+            <Plus size={16} />
+          </span>
         </div>
       {/if}
-      {#each Object.entries(groupedThreads) as [group, groupThreads]}
+      {#each orderedGroupedThreads as { group, threads }}
       <div class="thread-group">
         <div class="thread-group-header">{group}</div>
-        {#each groupThreads as thread}
+        {#each threads as thread}
           <button class="thread-button"
             on:click={() => handleLoadThread(thread.id)}
             class:selected={currentThreadId === thread.id}
           >
             {thread.name}
+            <span class="delete-thread-button" on:click={(e) => handleDeleteThread(e, thread.id)}>
+              <X size={14} />
+            </span>
           </button>
+
         {/each}
+        
       </div>
-    {/each}
+      {/each}
     </div>
     {/if}
-    <div class="chat-container" transition:fly="{{ y: 300, duration: 300 }}">
-      <div class="thread-info">
-          {#if currentThread}
+    <div class="chat-container" on:scroll={handleScroll}>
+      <div class="thread-info" class:minimized={isMinimized}>
+        {#if currentThread}
+          {#if isEditingThreadName}
+            <input class="tag-item"
+              bind:value={editedThreadName}
+              on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
+              on:blur={() => isEditingThreadName = false}
+              autofocus
+            />
+            <span class="save-button" on:click={submitThreadNameChange}>
+              <Save />
+            </span>
+          {:else}
+          <div class="title-container">
             {#if isEditingThreadName}
               <input
                 bind:value={editedThreadName}
                 on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-                on:blur={() => isEditingThreadName = false}
+                on:blur={submitThreadNameChange}
                 autofocus
               />
-              <button on:click={submitThreadNameChange}>
-                <Save size={24} />
-              </button>
             {:else}
-            <div class="title-container">
-              <h1>{currentThread.name}</h1>
-              <button on:click={startEditingThreadName}>
-                <FilePenLine size={24} />
-              </button>
-            </div>
-
-
+              <h1 on:click={startEditingThreadName}>
+                {currentThread.name}
+              </h1>
             {/if}
-          
-
-          <div class="thread-tags">
-            {#each currentThread.tags || [] as tag}
-              <span class="tag">{tag}</span>
-            {/each}
-            <!-- <button class="add-tag" on:click={toggleTagCreation}>
-              <Plus size={24} />
-            </button> -->
-          </div>
-          <div class="thread-stats">
             <span>{messages.length} messages</span>
-            <span>Created: {new Date(currentThread.created).toLocaleDateString()}</span>
-            <span>Last updated: {new Date(currentThread.updated).toLocaleDateString()}</span>
+
           </div>
-        {:else}
-          <h1>Select a thread</h1>
-        {/if}
-        
-      </div>
-      
-      <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
-        <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
-          {#each chatMessages as message (message.id)}
-            <div class="message {message.role}" in:fly="{{ x: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-              <div class="message-header">
-                {#if message.role === 'user'}
-                  <div class="avatar-container">
-                    {#if avatarUrl}
-                      <img src={avatarUrl} alt="User avatar" class="avatar" />
-                    {:else}
-                      <div class="avatar-placeholder">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          {/if}
+    
+          {#if !isMinimized}
+            <div transition:slide={{duration: 300, easing: cubicOut}}>
+
+    
+              <div class="tag-row" transition:fly="{{ x: -300, duration: 300 }}">
+                {#if currentThreadId}
+                  {#if showTagSelector}
+                    <div class="tag-selector" transition:fly="{{ x: 20, duration: 500 }}">
+                      {#each availableTags as tag (tag.id)}
+                        <div class="tag-item" transition:fly="{{ x: 20, duration: 50 }}">
+                          <button 
+                            class="tag" 
+                            class:selected={tag.selected_threads?.includes(currentThreadId)}
+                            on:click={() => toggleTag(tag)}
+                            style="background-color: {tag.color}"
+                          >
+                            {tag.name}
+                            {#if tag.selected_threads?.includes(currentThreadId)}
+                            <span class="checkmark">✓</span>
+                          {/if}
+                        </button>                        
                       </div>
-                    {/if}
-                  </div>
-                  <span class="role">{username}</span>
-                {:else if message.role === 'thinking'}
-                  <span class="role">
-                    <Bot size="50" color="white" />
-                  </span>
-                {:else if message.role === 'options'}
-                  <!-- <span class="role">Select scenario</span> -->
-                {:else}
-                  <span class="role">
-                    <Bot size="40" color="white" />
-                    AI
-                  </span>
-                {/if}
-              </div>
-              {#if message.role === 'options'}
-                <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
-                  {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
-                    <button 
-                      on:click={() => currentStage === 'scenarios'
-                        ? handleScenarioSelection(option) 
-                        : handleTaskSelection(option)}
-                    >
-                      <span class="option-description">{option.description}</span>
-                      <span class="option-id">{option.id}</span>
-                    </button>
-                  {/each}
-                </div>
-              {:else if message.isHighlighted}
-                <p>{@html message.content}</p>
-              {:else}
-                <p class:typing={message.isTyping}>{message.content}</p>
-              {/if}
-              
-              {#if message.role === 'thinking'}
-                <div class="thinking-animation">
-                  <span>
-                    <Bot size="40" color="white" />
-                  </span>
-                  <span>
-                    <Bot size="40" color="gray" />
-                  </span>
-                  <span>
-                    <Bot size="40" color="white" />
-                  </span>
-                </div>
-              {/if}
-              
-              <div class="message-footer">
-                <div class="message-time">{new Date(message.created).toLocaleTimeString()}</div>
-                <div class="message-reactions">
-                  {#if message.selectedReaction}
-                    <span class="reaction selected">{message.selectedReaction}</span>
+                      {/each}
+                    </div>
                   {:else}
-                    <button 
-                      class="reaction-button" 
-                      on:mousedown={() => showReactions = message.id}
-                      on:click={() => showReactions = null}
-                    >
-                      <Smile size={16} />
-                    </button>
-                  {/if}
-                  {#if showReactions === message.id}
-                    <div class="reaction-picker">
-                      {#each reactions as reaction}
-                        <button class="reaction-btn" on:click={() => addReaction(message.id, reaction)}>{reaction}</button>
+                    <div class="assigned-tags" on:click={toggleTagSelector} transition:fly="{{ x: -300, duration: 300 }}">
+                      {#each availableTags.filter(tag => tag.selected_threads?.includes(currentThreadId)) as tag (tag.id)}
+                        <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
                       {/each}
                     </div>
                   {/if}
-                </div>
+                  <button on:click={toggleTagSelector} class="tag-selector-toggle" transition:fly="{{ x: -300, duration: 300 }}">
+                    {#if isTags}
+                      <Tag size={20} />
+                    {:else}
+                      <Tags size={24} />
+                    {/if}
+                  </button>
+                {/if}
+
               </div>
+    
+              <!-- <div class="thread-stats">
+                <span>{messages.length} messages</span>
+                <span>Created: {new Date(currentThread.created).toLocaleDateString()}</span>
+                <span>Last updated: {new Date(currentThread.updated).toLocaleDateString()}</span>
+              </div> -->
             </div>
-          {/each}
+          {/if}
+        {:else}
+          <h1>Select a thread</h1>
+        {/if}
+      </div>
+        <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+          {#if isLoadingMessages}
+            <div class="loading-overlay">
+              <div class="spinner"></div>
+              <p>Loading messages...</p>
+            </div>
+          {/if}
+          <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+            {#each groupMessagesByDate(chatMessages) as { date, messages }}
+            <div class="date-divider" on:click={() => toggleDateExpansion(date)} transition:slide>
+                {formatDate(date)}
+                {#if expandedDates.has(date)}
+                  <ChevronUp />
+                {:else}
+                  <ChevronDown />
+                {/if}
+              </div>  
+                
+              {#if expandedDates.has(date)}
+
+                {#each messages as message (message.id)}
+                  <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                    <div class="message-header">
+                      {#if message.role === 'user'}
+                        <div class="avatar-container">
+                          {#if avatarUrl}
+                            <img src={avatarUrl} alt="User avatar" class="avatar" />
+                          {:else}
+                            <div class="avatar-placeholder">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </div>
+                          {/if}
+                        </div>
+                        <span class="role">{username}</span>
+                        <div class="message-time">
+                          {#if message.created}
+                            {new Date(message.created).toLocaleTimeString()}
+                          {:else}
+                            Time not available
+                          {/if}
+                        </div>
+                      {:else if message.role === 'thinking'}
+                        <span class="role">
+                          <Bot size="50" color="white" />
+                        </span>
+                      {:else}
+                        <!-- <span class="role">
+                          <Bot size="40" color="white" />
+                          AI
+                        </span> -->
+                      {/if}
+                    </div>
+                    {#if message.role === 'options'}
+                      <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
+                        {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
+                          <button 
+                            on:click={() => currentStage === 'scenarios'
+                              ? handleScenarioSelection(option) 
+                              : handleTaskSelection(option)}
+                          >
+                            <span class="option-description">{option.description}</span>
+                            <span class="option-id">{option.id}</span>
+                          </button>
+                        {/each}
+                      </div>
+                    {:else if message.isHighlighted}
+                      <p>{@html message.content}</p>
+                    {:else}
+                    <p class:typing={message.isTyping && message.id === latestMessageId}>{message.content}</p>
+                    {/if}
+                    
+                    {#if message.role === 'thinking'}
+                      <div class="thinking-animation">
+                        <span>
+                          <Bot size="40" color="white" />
+                        </span>
+                        <span>
+                          <Bot size="40" color="gray" />
+                        </span>
+                        <span>
+                          <Bot size="40" color="white" />
+                        </span>
+                      </div>
+                    {/if}
+                    {#if message.role === 'assistant'}
+
+                    <div class="message-footer">
+                      
+                      <div class="message-reactions">
+                        <div class="reaction-toggle">
+                          ⋯
+                        </div>
+                        <div class="reaction-buttons">
+                          {#each reactions as reaction}
+                            <button 
+                              class="reaction-btn" 
+                              on:click={() => handleReaction(message.id, reaction.action)}
+                              title={reaction.label}
+                            >
+                              {reaction.symbol} 
+                              {#if message.reactions && message.reactions[reaction.action]}
+                                <span class="reaction-count">{message.reactions[reaction.action]}</span>
+                              {/if}
+                            </button>
+                          {/each}
+                        </div>
+                      </div>
+                      
+                    </div>
+                    {/if}
+
+                  </div>
+                {/each}
+                <div class="date-divider bottom" on:click={() => toggleDateExpansion(date)} transition:slide>
+                  <ChevronUp size={16} />
+                </div>
+                {/if}
+            {/each}
+            
+          </div>
         </div>
       </div>
-    </div>
+    </div>  
 
-  </div>  
+    <button class="scroll-bottom-btn" on:click={scrollToBottom}>
+      <ChevronDown size={24} />
+    </button>
+
   <div class="input-container">
     <textarea
       bind:this={textareaElement}
       bind:value={userInput}
-      on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && !isLoading && handleSendMessage()}
+      on:input={(e) => adjustFontSize(e.target)}
+
+      on:keydown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSendMessage();
+        }
+      }}      
+      on:focus={handleTextareaFocus}
+      on:blur={handleTextareaBlur}
       placeholder="Type your message..."
       disabled={isLoading}
       rows="1"
-    ></textarea>
-    
-    <div class="button-row">
-      <div class="btn-model">
-        <ModelSelector/>
-        <PromptSelector/>
-        <button>
-          <Paperclip size="30" color="white" />
-        </button>
-        <button on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
-          <Send size="30" color="white" />
-        </button>
-      </div>
-    </div>
+  ></textarea>
+
+  <div class="selector-row"  transition:slide>
+    <ModelSelector/>
+    <PromptSelector/>
+  </div>
+      
+
+  <div class="btn-row-right"  transition:slide>
+      <span>
+        <Paperclip size="30" color="white" />
+      </span>
+    <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
+      <Send color="white" />
+    </span>
+  </div>
 
 
 
@@ -1149,10 +1671,13 @@ async function submitThreadNameChange() {
   </div>
 </div>
 {/if}
-  
+<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
+
   <style>
   * {
-    font-family: 'Merriweather', serif;
+    /* font-family: 'Merriweather', serif; */
+    /* font-family: 'Roboto', sans-serif; */
+    font-family: 'Montserrat';
 
   }
     .threads-container {
@@ -1174,41 +1699,100 @@ async function submitThreadNameChange() {
       transition: all 0.3s ease-in-out;
       height:94%;
       overflow-y: auto;
+      overflow-x: none;
       /* left: 20%; */
       width: 100%;
       padding: 10px;
 
     }
 
-   
+   .save-button {
+    position: absolute;
+    right: 2rem;
+    top: 1rem;
+    transition: all 0.3s ease;
+   }
+
+   .save-button:hover {
+    color: #6fdfc4;
+   }
 
     .button-row {
       display: flex;
       flex-direction: row;
     }
 
+    .button-column {
+      display: flex;
+      flex-direction: column;
+    }
+
   .title-container {
     display: flex;
     flex-direction: row;
-    justify-content: center;
-    height: auto;
+    justify-content: space-between;
+    align-items: center;
+    height: 40px;
+    padding: 0 20px;
+    transition: all 0.3s ease;
+    user-select: none;
+    border-radius: 20px;
+  }
+
+  .title-container:hover {
+    background-color: rgba(149, 149, 149, 0.3);
+  }
+
+  .title-container span {
+    color: gray;
+    font-size: 16px;
+  }
+
+  .title-container h1 {
+    width: auto;
+    transition: all 0.3s ease;
+  }
+
+  .title-container h1:hover {
+    cursor:text;
+    color: rgb(113, 249, 243);
+  }
+
+
+
+
+  .thread-info input  {
+    background-color: rgb(0, 0, 0);
+    border-bottom: 1px solid rgb(134, 134, 134);
+    border-radius: 0;
+    width: auto;
+    height: 40px;
+    padding: 0 20px;
+    margin-right: 2rem;
+    margin-bottom: 0;
+    font-size: 24px;
+
   }
     .chat-messages {
       flex-grow: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 10px;
+      /* padding: 10px; */
       display: flex;
       flex-direction: column;
+      justify-content: flex-start;
       align-items: stretch;
-      
       scrollbar-width:1px;
       scrollbar-color: #898989 transparent;
+      scroll-behavior: smooth;
       margin-bottom: 100px;
-      padding-top: 40px;
+      padding-top: 20px;
       height: 90vh;
+      width: 100%;
       border-radius: 50px;
       padding-bottom: 40px;
+      border: 1px solid rgb(41, 41, 41);
+
       background: linear-gradient (
         90deg,
         rgba(117, 118, 114, 0.9) 0%,
@@ -1235,7 +1819,11 @@ async function submitThreadNameChange() {
 
     }
     
-    .chat-messages::before,
+    .chat-messages::before {
+      display: flex;
+      flex-direction: column;
+      
+    }
     .chat-messages::after {
       content: '';
       position: absolute;
@@ -1247,7 +1835,20 @@ async function submitThreadNameChange() {
       /* border-radius: 20px; */
     }
 
-    
+    span.edit-tag {
+      background-color: transparent;
+      scale: 0.8;
+      border: none;
+      position: relative;
+      transition: all ease 0.3s;
+      color: rgb(131, 131, 131);
+
+
+    }
+
+    span.edit-tag:hover{
+      color: rgb(0, 248, 166);
+    }
   
     .chat-messages::before {
       /* top: 0;
@@ -1320,20 +1921,34 @@ async function submitThreadNameChange() {
       background: #888;
       border-radius: 5px;
     }
+
+    .selector-row {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      position: absolute;
+      bottom: 10px;
+      right: 2rem;
+      gap: 20px;
+      z-index: 20000;
+      width: auto;
+      /* background-color: black; */
+    }
   
     .message {
     display: flex;
     flex-direction: column;
     align-items: flex-start;  /* Change this from 'stretch' to 'flex-start' */
     padding: 20px;
-    border-radius: 20px;
+    /* border-radius: 20px; */
     font-size: 18px;
     /* font-weight: 300; */
     font-weight: 100;
     letter-spacing: 1px;
     line-height: 1.5;
-    font-family: 'Merriweather', serif;
+    /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', serif; */
+    
 
     transition: all 0.3s ease-in-out;
     width: 300px;  
@@ -1365,6 +1980,8 @@ async function submitThreadNameChange() {
   
     .message:hover::before {
       opacity: 0.8;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+
     }
   
     .role {
@@ -1372,18 +1989,34 @@ async function submitThreadNameChange() {
         margin-bottom: 5px;  /* Add some space between the role and the message content */
 }
 
-/* Adjust assistant message alignment */
-.message.assistant {
-  align-self: flex-start;
-  background: #21201d;
-  color: white;
-  /* margin-bottom: 20px; */
-  margin-left: 0px;
-  font-style: italic;
-  width: 50%;  
-  border: 1px solid black
+  /* Adjust assistant message alignment */
+  .message.assistant {
+    display: flex;
+    /* position: relative; */
+    align-self: flex-start;
+    /* background-color: #2e3838; */
+    /* border-bottom: 5px solid #242d2d;
+    border-right: 5px solid #242d2d;
+    border-left: 2px solid #242d2d;
+    border-top: 2px solid #242d2d; */
+    /* border-bottom: 2px solid #585858; */
+    border-bottom-right-radius: 20px;
+    color: white;
+    margin-bottom: 20px;
+    /* font-style: italic; */
+    /* width: auto;  Allow the message to shrink-wrap its content */
+    /* margin-left: 200px; */
+    width: auto;  
+    /* border: 1px solid black; */
+    margin-left: 6rem;
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
-}
+  }
+
+  /* .message.assistant:hover {
+      opacity: 0.8;
+      background: radial-gradient(circle at center, rgba(204, 213, 213, 0.2) 0%, rgba(2, 28, 28, 0.6) 100%);
+      /* font-size: 40px; */
   
     .message.options {
       align-self: flex-end;
@@ -1400,45 +2033,56 @@ async function submitThreadNameChange() {
   
     .message.user {
       display: flex;
-      position: relative;
-      align-self: flex-end;
+      /* position: relative; */
+      /* align-self: flex-end; */
       text-justify: center;
       justify-content: center;
-      /* margin-right: 20px; */
-      width: 50%;  
+      margin-right: 20px;
+      width: auto;  
       /* background: #3c3b35; */
-          background-color: #2e3838;
-
-      color: white;
-      border: 1px solid rgb(54, 54, 54);
-
-      margin-bottom: 20px;
-      /* border: none; */
+          /* background-color: #2e3838; */
       border-radius: 20px;
+      color: white;
+      /* border-left: 2px solid #585858; */
+      /* border-top: 2px solid #585858; */
+      
+      /* border-top-left-radius: 20px; */
+
+      /* border: 1px solid rgb(54, 54, 54); */
+      /* border-bottom: 5px solid #293434;
+    border-right: 5px solid #242d2d;
+    border-left: 2px solid #242d2d;
+    border-top: 2px solid #242d2d; */
+      /* margin-bottom: 20px; */
+      margin-left: 2rem;
+      /* border: none; */
+      /* border-radius: 20px; */
 
     }
+
+    .message.user p {
+      font-weight: 600;
+      font-size: 1.2rem;
+      background: #21201d;
+      padding: 20px 10px;
+      border-radius: 20px;
+    }
+
+    .message.assistant p {
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+
 
     .message p {
       font-size: calc(10px + 1vmin);
       margin: 0;
       white-space: pre-wrap;
-      
       overflow-wrap: break-word;
       word-wrap: break-word;
       hyphens: auto;
     }
 
-    .reaction-btn {
-      border: none;
-      height: 50px;
-      width: 50px;
-      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-
-    }
-  
-    .reaction-btn:hover {
-      transform: scale(1.2);
-    }
 
     .options {
       display: flex;
@@ -1454,7 +2098,7 @@ async function submitThreadNameChange() {
       width: 100%;
       height: 100%;
       font-size: 14px;
-      font-family: 'Roboto', sans-serif;
+      /* font-family: 'Roboto', sans-serif; */
       font-weight: 100;
       color: #000;
       background: linear-gradient(45deg, rgba(255, 255, 255, 0.8) 0%, rgba(128, 128, 128, 0.8) 100%);
@@ -1517,35 +2161,42 @@ async function submitThreadNameChange() {
     /* margin-bottom: 5px;  Add some space between the role and the message content */
   }
 
-/* Adjust assistant message alignment */
-  .message.assistant {
-    align-self: flex-start;
-    background: #21201d;
-    color: white;
-    margin-bottom: 20px;
-    font-style: italic;
-    width: auto;  /* Allow the message to shrink-wrap its content */
-    width: 50%;  
+  .thread-info.minimized {
+  max-height: 50px; /* Adjust this value to fit your h1 */
+  overflow: hidden;
+}
 
-  }
-/* 
-  .tag-list {
-    display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: flex-start; 
-  align-content: flex-start; 
-    gap: 5px;
-    margin-bottom: 10px;
+.thread-info h1 {
+  margin: 0;
+  padding: 10px 0;
+}
 
-  } */
+.thread-info.minimized h1 {
+  font-size: 1.2em; /* Smaller font size when minimized */
+}
 
-  .tag-list {
+
+.tag-buttons {
+  display: flex;
+  margin-left: 5px;
+  background-color: red;
+
+}
+
+
+
+
+
+.tag-list:hover {
   display: flex;
   flex-wrap: wrap;
+  justify-content: right;
   gap: 5px;
   margin-bottom: 10px;
+  background-color: rgba(149, 149, 149, 0.3);
+  height: auto;
 }
+
 
 .tag {
   background-color: #302626;
@@ -1553,7 +2204,7 @@ async function submitThreadNameChange() {
   border-radius: 15px;
   padding: 5px 10px;
   font-size: 10px;
-  height: auto;
+  height: 20px;
   min-height: 20px;
   width: auto;
   display: inline-flex;
@@ -1561,34 +2212,140 @@ async function submitThreadNameChange() {
   cursor: pointer;
   transition: background-color 0.3s;
   user-select: none;
+  display: flex;
+  flex-direction: row;
+  color: rgb(0, 0, 0);
+  font-size: 20px;
+  
 }
 
-.tag.selected {
-  background-color: #007bff;
+.edit-tag,
+span.delete-tag-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 2px;
   color: white;
+  opacity: 0.7;
+  transition: all ease 0.3s;
 }
 
-.add-tag {
-  /* background-color: red; */
-  border: 1px dashed #ccc;
+span.delete-tag-button:hover {
+  color: rgb(255, 0, 0);
+}
+
+
+.delete-tag-button svg {
+  height: 30px;
+  width: 30px;
+}
+
+.tag-edit-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* background-color: rgba(255, 255, 255, 0.1); */
+  padding: 2px;
+  border-radius: 15px;
+  margin-left: 1rem;
+}
+
+.tag-edit-container input {
+  width: 80%;
+}
+
+
+.tag-edit-buttons {
+  display: flex;
+  width: auto;
+  gap: 20px;
+}
+span.save-tag-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 2px;
+  color: white;
+  opacity: 0.7;
+  transition: all ease 0.3s;
+
+}
+
+span.save-tag-button:hover {
+  color: rgb(0, 248, 166);
+}
+
+.save-tag-button svg {
+  height: 30px;
+  width: 30px;
+}
+
+button.tag {
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+
+button.tag.selected {
+  color: black;
+  opacity: 1;
+}
+
+button.add-tag {
+  background-color: rgb(0, 0, 0);
   border-radius: 15px;
   padding: 5px 10px;
   font-size: 12px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all ease 0.3s;
+  width: 100%;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+span.new-tag {
+  border: none;
+    color: #606060;
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    position: relative;
+    justify-content: right;
+    transition: all ease 0.3s;
+}
+
+span.new-tag:hover {
+    color: rgb(0, 248, 166);
+    transform: scale(1.5);
+
+  }
+
+.new-tag svg {
+  height: 50px;
+  width: 50px;
 }
 
 .new-tag-input {
   display: flex;
   margin-bottom: 10px;
+  width: 96%;
+  margin-left: 2%;
+  background-color: rgb(0, 0, 0);
+
 }
 
 .new-tag-input input {
   flex-grow: 1;
   border: 1px solid #ccc;
   border-radius: 15px;
+  background-color: #353535;
   padding: 5px 10px;
   font-size: 12px;
+  color: white;
+  font-size: 16px;
 }
 
 .thread-group-header {
@@ -1611,15 +2368,7 @@ async function submitThreadNameChange() {
   /* padding: 20px 10px; */
 }
 
-.thread-button {
-  display: flex;
-  flex-direction: row;
-  width: 70%;
-  left: 15%;
-  /* width: 100%; */
-  position: relative;
-  height: 30px;
-}
+
 
 
 
@@ -1630,20 +2379,10 @@ async function submitThreadNameChange() {
     justify-content: space-between;
     align-items: center;
     margin-top: 5px;
+    width: 100%;
   }
 
-  .message-reactions {
-    display: flex;
-    align-items: center;
-    transition: all ease-in 0,3s;
-  }
 
-  .message-reactions:hover {
-    display: flex;
-    align-items: center;
-    transform: scale(1.2);
-    /* background-color: red; */
-  }
   .reaction-button {
     background: none;
     border: none;
@@ -1661,7 +2400,7 @@ async function submitThreadNameChange() {
     display: flex;
     gap: 5px;
     z-index: 10;
-    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
 
   }
 
@@ -1679,12 +2418,97 @@ async function submitThreadNameChange() {
     padding: 0px 20px;
   }
 
-  @media (min-width: 1200px) {
+  .message-reactions {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  height: 30px;
+  transition: width 0.3s ease-in-out;
+  width: 100%;
+}
+
+.reaction-toggle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: black;
+  cursor: pointer;
+  background-color: #3f3f3f;
+  border-radius: 15px;
+}
+
+.reaction-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 35px; /* Slightly more than the width of the toggle */
+  height: 100%;
+  width: 90%;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+  border-radius: 20px;
+
+  
+}
+
+.reaction-buttons:hover {
+  backdrop-filter: blur(10px);
+  background-color: rgba(110, 110, 110, 0.35);
+}
+
+.reaction-btn {
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin: 0 2px;
+  transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.reaction-count {
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+/* Hover effect */
+.message-reactions:hover {
+  width: 100%; /* Or a fixed width that fits all buttons */
+}
+
+.message-reactions:hover .reaction-btn {
+  opacity: 1;
+
+}
+
+.reaction-btn:hover {
+  transform: scale(1.2);
+  background-color: transparent;
+  color: white;
+}
+
+.reaction-btn:active {
+  transform: scale(0.9);
+}
+
+  @media (min-width: 300px) {
       .chat-container {
         /* width: 50%; */
-        height: 95vh;
-        margin-left: 25%;
+        height: 90vh;
+        /* margin-left: 25%; */
         /* margin-right: 25%; */
+        overflow-x: hidden;
 
 
       }
@@ -1695,7 +2519,6 @@ async function submitThreadNameChange() {
         }
       .thread-list {
           /* width: 25%; */
-          margin-top: 20px;
           height: 80%;
           overflow-y: scroll;
           overflow-x: none;
@@ -1717,6 +2540,7 @@ async function submitThreadNameChange() {
 
         .thread-list-visible .thread-toggle {
           left: 10px;
+          
         }
     }
 
@@ -1731,6 +2555,17 @@ async function submitThreadNameChange() {
   @keyframes pulsate {
     0% { box-shadow: 0 0 0 #FFD700, 0 0 2px #FFD700; }
     100% { box-shadow: 0 0 1px #FFD700, 0 0 10px #FFD700; }
+  }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+  }
+
+  @keyframes blink {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
   }
 
   .thinking-animation {
@@ -1754,30 +2589,28 @@ async function submitThreadNameChange() {
   .thinking-animation span:nth-child(1) { animation-delay: -0.32s; }
   .thinking-animation span:nth-child(2) { animation-delay: -0.16s; }
 
-  @keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1); }
-  }
+
 
   .input-container {
     display: flex;
     position: fixed;
-    bottom: 400px;
-    width: 95%;
+    width: 98%;
     padding: 10px;
-    bottom: 20px;
+    left: 0;
+    bottom: 0;
     /* margin-bottom: 0; */
-    border-radius: 70%;
-    background: linear-gradient(45deg, rgba(0, 0, 0, 0.8) 50%, rgba(128, 128, 128, 0.8) 100%);
+    /* border-radius: 70%; */
+    background: transparent;
+    /* background: linear-gradient(45deg, rgba(0, 0, 0, 0.8) 50%, rgba(128, 128, 128, 0.8) 100%); */
     display: flex;
-    border: 1px solid rgb(44, 44, 44);
-    background-color: rgb(17, 56, 39);
+    /* border: 1px solid rgb(44, 44, 44); */
+    /* background-color: rgb(17, 56, 39); */
 
   }
 
   input {
     flex-grow: 1;
-    margin-right: 10px;
+    margin-right: 20px;
     padding: 10px;
     height: 50px;
     font-size: 18px;
@@ -1800,10 +2633,9 @@ async function submitThreadNameChange() {
     border: 1px solid rgb(54, 54, 54);
     background-color: rgb(0, 0, 0);
     color: white;
-    font-size: 40px;
     animation: glowy 1.5s infinite alternate;
     display: flex;
-
+    transition: font-size 0.3s ease; /* Add smooth transition for font size changes */
 }
 
   button {
@@ -1814,7 +2646,8 @@ async function submitThreadNameChange() {
     padding: 10px;
     background-color: #21201d;    
     color: white;
-    border: 2px solid rgb(0, 0, 0);
+    /* border: 2px solid rgb(0, 0, 0); */
+    border: 1px solid rgba(53, 63, 63, 0.3);
     border-radius: 30px;
     cursor: pointer;
     transition: background-color 0.3s;
@@ -1825,16 +2658,10 @@ async function submitThreadNameChange() {
 
   button:hover {
     background: #000000;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    /* box-shadow: 0 0 10px rgba(0,0,0,0.1); */
   }
 
-  .typing::after {
-    content: '▋';
-    display: inline-block;
-    vertical-align: bottom;
-    animation: blink 0.7s infinite;
-    
-  }
+
 
   .highlight {
     background-color: rgba(255, 255, 0, 0.3);
@@ -1877,16 +2704,72 @@ async function submitThreadNameChange() {
     color: #888;
   }
 
-  
-  .btn-model {
+  .btn-col-left {
     display: flex;
     flex-direction: column;
     gap: 10px;
     position: fixed;
-    right: 0;
+    left: 0;
     bottom: 40px;
     align-items: flex-end;
+    z-index: 10;
 }
+
+.btn-row-right {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: absolute;
+    right: 2rem;
+    bottom: 60px;
+    height: auto;
+    align-items: flex-end;
+    transition: all 0.3s ease;
+    z-index: 1100;
+  }
+
+  .btn-row-right span {
+    height: 40px;
+    width: 40px;
+    padding: 4px;
+    background-color: transparent;
+    border: none;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    background-color: rgb(0, 160, 155);
+
+
+  }
+
+  .btn-row-right span:hover {
+    height: 50px;
+    width: 50px;
+    background-color: rgb(2, 119, 115);
+  }
+
+  .btn-row-right.expanded {
+    opacity: 1;
+    bottom: 140px;
+    gap: 1rem;
+    right: 2rem;
+    display: flex;
+
+
+  }
+
+  .btn-row-right > *:not(:last-child) {
+    display: none;
+    
+  }
+
+  .btn-row-right.expanded > * {
+    display: flex;
+
+  }
+
+  .btn-row-right:hover {
+    opacity: 1;
+  }
 
   .btn-mode {
     position: relative;
@@ -1900,6 +2783,8 @@ async function submitThreadNameChange() {
     position: relative;
     bottom: 20px;
     right: 0;
+    border: 1px solid rgba(53, 63, 63, 0.5);   
+
 
   }
 
@@ -1908,23 +2793,26 @@ async function submitThreadNameChange() {
     position: relative;
     margin-bottom: 20px;
     right: 0;
+    border: 1px solid rgba(53, 63, 63, 0.5);   
 
   }
 
   textarea {
     display: flex;
     flex-direction: column;
-    font-family: 'Merriweather', serif;
+    /* font-family: 'Merriweather', serif; */
     width: 96%;
+    min-height: 60px;
+
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
-    padding: 20px;
+    padding: 20px 90px;
     text-justify: center;
     justify-content: center;
     resize: none;
-    font-size: 16px;
+    font-size: 24px;
     letter-spacing: 1.4px;
-    border: none;
+    border: 1px solid rgba(53, 63, 63, 0.5);   
     border-radius: 20px;
     /* background-color: #2e3838; */
     background-color: #020101;
@@ -1938,26 +2826,26 @@ async function submitThreadNameChange() {
     scrollbar-color: #21201d transparent;
     vertical-align: middle; /* Align text vertically */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    z-index: 1101;
+
   }
 
 
   textarea:focus {
+    /* margin-right: 5rem; */
     outline: none;
     border: 2px solid #000000;
     color: white;
-    transform: translateY(-10px) rotate(0deg); 
+    transform: translateY(0) rotate(0deg); 
     font-size: 30px;
-    padding: 60px;
+    padding: 100px 70px;
     /* height: 300px; */
     display: flex;
+    /* min-height: 200px; */
+    z-index: 1000;
 
   }
 
-  @keyframes blink {
-    0% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
-  }
 
   .auth-overlay {
     position: fixed;
@@ -1985,7 +2873,7 @@ async function submitThreadNameChange() {
     justify-content: left;
     align-items: center;
     width: 100%;
-    margin-bottom: 10px;
+    margin-bottom: 1rem;
 
 
   }
@@ -1994,7 +2882,7 @@ span {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  /* gap: 10px; */
 }
 
 .thread-tags span {
@@ -2047,31 +2935,43 @@ span {
     color: #888;
     text-align: right;
     margin-top: 5px;
+    position: absolute;
+    right: 2rem;
   }
 
   .chat-content {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    width: 100%;
+    width: 50%;
+    margin-left: 25%;
+    padding: 0 10px;
     overflow-y: hidden;
+    overflow-x: hidden;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    transition: all ease 0.3s;
   }
 
+
+
   .thread-list {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
-  overflow: auto;
-  position: fixed;
-  padding: 20px 10px;
-  left: 30px;
-  top: 80px;
-  bottom: 60px;
-  width: 20%;
-  height: 85%;
-  transition: all 0.3s ease-in-out;
-}
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    padding: 20px 10px;
+    top: 60px;
+    bottom: 60px;
+    width: 20%;
+    height: 84%;
+    transition: all 0.3s ease-in-out;
+    scrollbar-width:1px;
+    scrollbar-color: #c8c8c8 transparent;
+
+  }
 .thread-list.hidden {
   display: none;
   transform: translateX(-100%);
@@ -2085,11 +2985,45 @@ span {
   /* margin-left: 300px; */
 }
 
+.thread-button {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  width: 90%;
+  left: 5%;
+  /* width: 100%; */
+  position: relative;
+  /* border: 10px solid rgb(0, 0, 0); */
+  border-left: 14px solid rgb(24, 24, 24);
+  border-top: 1px solid rgb(21, 21, 21);
+
+  border-bottom: 14px solid rgb(15, 15, 15);
+  border-right: 1px solid rgb(59, 59, 59);
+  
+  border-bottom-left-radius: 0px;
+}
+
+.thread-button button {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  /* left: 15%; */
+  /* width: 100%; */
+  position: relative;
+
+}
+
+
 
   .thread-list button {
       display: flex;
       flex-direction: row;
-      justify-content: center;
+      justify-content: space-between;
+      align-items: center;
+
       /* margin-left: 5%; */
       padding: 20px 20px;
       margin-bottom: 10px;
@@ -2103,14 +3037,13 @@ span {
       transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       letter-spacing: 4px;
       font-size: 20px;
-      justify-content: center;
-      align-items: center;
       
   }
 
     .thread-list button:hover {
-        background-color: #2c3e50;
-        transform: scale(1.2) translateX(5px) rotate(5deg);          
+      background-color: #3f3f3f;
+      transform: scale(0.97) translateX(-3px) translateY(5px) rotate(0deg);          
+      
         letter-spacing: 4px;
         padding: 20px;
         /* font-size: 30px; */
@@ -2118,7 +3051,7 @@ span {
       }
 
     .thread-list button.selected {
-        /* background-color: #2980b9; */
+        background-color: #000000;
         font-weight: 200;
         
     }
@@ -2140,13 +3073,13 @@ span {
     }
 
     .thread-list .add-button:hover {
-      background-color: #4a4a4a;
+      background: #f4f4f4;
         transform:  translateX(5px);          
         letter-spacing: 4px;
-        padding: 230px 0;
+        color: black;
+        /* padding: 230px 0; */
         /* height: 300px; */
-        font-size: 60px;
-            animation: pulsate 1.5s infinite alternate;
+            animation: pulsate 0.5s infinite alternate;
 
 }
 
@@ -2162,28 +3095,30 @@ span {
       color: white;
       font-size: 16px;
       cursor: pointer;
-      transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      
+      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
       user-select: none;
     }
 
-.add-button:hover {
-  background-color: #4a4a4a;
-        transform: scale(1.0) translateX(5px) rotate(520deg);          
-        letter-spacing: 4px;
-        padding: 20px;
-}
+  .add-button:hover {
+    background-color: #4a4a4a;
+    transform: scale(1.0) translateX(5px) rotate(520deg);          
+    letter-spacing: 4px;
+    padding: 20px;
+        
+  }
 
     .thread-toggle {
       display: flex;
       flex-direction: row;
       position: fixed;
-      height: 60px;
-      width: 60px;
-      bottom: 80px;
-      left: 0;
+      height: 50px;
+      width: 50px;
+      bottom: 2.5rem;
+      left: 1.5rem;
       z-index: 1000;
       background-color: rgb(24, 24, 24);
-      border: 1px solid gray;
+      border: 1px solid rgba(53, 63, 63, 0.5);   
       border-radius: 50px;
       cursor: pointer;
       transition: left 0.3s ease-in-out;
@@ -2207,8 +3142,9 @@ span {
     border-radius: 5px;
     font-size: 20px;
     color: white;
+    z-index: 2000;
     /* height: 140px; */
-    gap: 20px;
+    /* gap: 20px; */
     /* background-color: black; */
   }
 
@@ -2233,13 +3169,7 @@ span {
     transition: opacity 0.3s ease;
   }
 
-  .message.human:hover .message-actions {
-    opacity: 1;
-  }
 
-  .message.robot .message-actions {
-    display: none;
-  }
 
   .quote-button {
     background: none;
@@ -2288,17 +3218,304 @@ span {
     /* height: 100%; */
   }
 
+  .scroll-bottom-btn {
+    position: fixed;
+    bottom: 120px;
+    right: -10px;
+    background-color: #21201d;
+    color: white;
+    border: 1px solid rgba(53, 63, 63, 0.5);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    z-index: 100;
+    align-self: flex-end;
+    margin-right: 20px;
+  }
+
+  .scroll-bottom-btn:hover {
+    background-color: #000000;
+  }
+
+  .thread-button-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  span.delete-thread-button   {
+    border: none;
+    color: #606060;
+    cursor: pointer;
+    padding: 6px;
+    height: 30px;
+    width: 30px;
+    display: flex;
+    position: relative;
+    justify-content: right;
+    transition: all ease 0.3s;
+  }
+
+  span.delete-thread-button:hover {
+    height: 30px;
+    width: 30px;
+    color: red;
+    transform: scale(1.5);
+
+  }
+
+
+
+  .thread-stats-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+
+    color: #fff;
+    
+  }
+
+  .tag-selector.tag-item {
+    background-color: red;
+  }
+
+  .tag-selector-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: white;
+    position: absolute;
+    right: 1rem;
+    top: 2.1rem;
+  }
+
+  .tag-selector-toggle:hover {
+    color: rgb(69, 171, 202);
+    background-color: transparent;
+
+  }
+
+
+
+  .tag-selector {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: right;
+    align-items: center;
+    gap: 5px;
+    width: auto;
+    border-radius: 20px;
+    transition: all ease 0.3s;
+    border-radius: 20px;
+  }
+
+
+
+
+
+  .assigned-tags {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    transition: all 0.3s ease;
+    justify-content: flex-end;
+    
+  }
+
+
+  .tag-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: right;
+  align-items: right;
+  gap: 5px;
+  /* height: 50px; */
+  border-radius: 20px;
+  transition: all ease 0.3s;
+  margin-right: 2rem;
+
+
+}
+
+  .tag-row:hover {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: right;
+
+}
+
+  .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: right;
+  gap: 5px;
+  background-color: transparent;
+  padding: 10px;
+  border-radius: 10px;
+  transition: all ease 0.3s;
+
+
+}
+
+  .assigned-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: rgb(255, 255, 255);
+  transition: all 0.1s ease;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255, 255, 255, 0) 50%);
+  
+}
+
+
+  .tag:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+
+  .tag.selected {
+    box-shadow: 0 0 0 2px rgb(51, 121, 105);
+    font-weight: bolder;
+    width: auto;
+    height: auto;
+    color: white;
+
+  }
+
+
+  .tag-item {
+    display: inline-block;
+
+  }
+
+  .tag-item input {
+    background-color: rgb(36, 36, 36);
+    color: white;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    display: flex;
+  flex-wrap: wrap;
+  justify-content: right;
+  width: 50%;
+  height: 30px;
+  gap: 5px;
+  margin-top: 5px;
+
+  margin-bottom: 10px;
+
+  }
+
+
+
+
+
+  .date-divider {
+    display: flex;
+    justify-content: flex-end;
+    align-items: right;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%);
+    margin: 10px 10px;
+    /* border-radius: 5px; */
+    cursor: pointer;
+    border-top: 1px solid rgb(82, 82, 82);
+    border-bottom: 1px solid rgb(82, 82, 82);
+    border-radius: 30px;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    transition: all ease 0.15s;
+    color: #a5a5a5;
+    user-select: none;
+    /* backdrop-filter: blur(10px); */
+
+  }
+
+
+
+  .date-divider:hover{
+    transform: translateY(-10px) rotate(0deg); 
+  }
+
+  .date-divider.bottom {
+    display: flex;
+    justify-content: right;
+    align-items: right;
+    padding: 10px;
+    border: 0;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 59%);
+    backdrop-filter: none;
+    border-top: none;
+    border-top-left-radius: none;
+    border-top-right-radius: none;
+    border-bottom: none;
+    border-bottom-left-radius: 30px;
+    border-bottom-right-radius: 30px;
+
+    /* background-color: rgba(255, 255, 255, 0.1); */
+    margin: 10px 10px;
+    /* border-radius: 5px; */
+    cursor: pointer;
+  }
+
+  .icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   h1 {
-    font-size: 32px;
+    font-size: 24px;
   }
 
-  @keyframes blink {
-    0% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 1000;
+    border-radius: 50px;
   }
 
+  .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+  }
 
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 
   @media (max-width: 768px) {
   .threads-container {
@@ -2306,21 +3523,62 @@ span {
 
   }
 
-  .chat-content {
-    width: 100%;
-    
+
+
+  .new-tag-input {
+    display: flex;
+    margin-bottom: 10px;
+    width: 90%;
+    margin-left: 3.5rem;
+    justify-content: space-between;
+    background-color: rgb(0, 0, 0);
+
   }
 
+  .new-tag-input input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    border-radius: 15px;
+    background-color: #353535;
+    padding: 5px 10px;
+    color: white;
+    font-size: 16px;
+  }
+
+  .tag-list {
+    margin-left: 3rem;
+
+  }
+
+  .thread-info .add-button {
+      background-color: rgb(189, 16, 16);
+      font-style: italic;
+      /* font-weight: bolder; */
+      border-bottom: 1px solid #633c3c;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+    }
+
+  .thread-list .add-button {
+      font-style: italic;
+      /* font-weight: bolder; */
+      border-bottom: 1px solid #633c3c;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+      margin-left: 3.5rem;
+      width: 90%;
+      justify-content: center;
+    }
   .thread-list {
     position: fixed;
-    margin-left: 1%;
-    top: 100px;
-    bottom: 0;
+    top: 60px;
+    right: 1rem;
+    
     width: 90%;
-    height: 100%;
+    height: 84%;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
-    z-index: 1000;
+    /* z-index: 1000; */
   }
 
   .thread-list-visible .thread-list {
@@ -2331,20 +3589,11 @@ span {
     display: none;
   }
 
-  .chat-container {
-        width: 96%;
-        height: 95vh;
-        margin-left: 2%;
-        left: 0;
 
-      }
 
-  .thread-toggle {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 1001;
-  }
+
+
+
 
   .thread-list-visible .thread-toggle {
     left: 10px;
@@ -2355,14 +3604,12 @@ span {
     font-weight: bold;
     margin-bottom: 16px;
     padding: 10px;
-    background-color: #f0f0f0;
     border-radius: 5px;
   }
 
 
-.chat-content {
 
-}
+
 .threads-container {
     /* background-color: red; */
     width: 100%;
@@ -2371,6 +3618,13 @@ span {
 .thread-list {
     width: 100%;
     
+  }
+
+
+
+  .chat-messages {
+    width: auto;
+    margin-right: 1rem;
   }
 
   .thread-list-visible .chat-container {
@@ -2416,6 +3670,62 @@ span {
 
   .thread-toggle {
     /* display: none; */
+  }
+
+  
+}
+
+@media (max-width: 1000px) {
+
+  .scroll-bottom-btn {
+    bottom: 200px;
+  }
+
+  .thread-toggle {
+    bottom: 120px;
+  }
+  button.add-tag  {
+    border-radius: 15px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all ease 0.3s;
+    width: 94%;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-left: 3.5rem;
+}
+
+  .input-container {
+    margin-bottom: 80px;
+    width: 98%;
+    margin-left: 0;
+  }
+
+
+
+    .input-container textarea:focus {
+      border: 1px solid rgb(54, 54, 54);
+      background-color: rgb(0, 0, 0);
+      color: white;
+      font-size: 20px;
+      animation: glowy 1.5s infinite alternate;
+      display: flex;
+
+  }
+
+
+
+}
+@media (max-width: 1900px) {
+
+.chat-content {
+    width: 99%;
+    margin-left: 0;
+    margin-top: 1rem;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
   }
 }
 </style>

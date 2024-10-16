@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
   import AIChat from '$lib/components/ai/AIChat.svelte';
+  import { quintOut } from 'svelte/easing';
+  import { pb, currentUser} from '$lib/pocketbase';
+
   import { networkStore } from '$lib/stores/networkStore';
   import { threadsStore } from '$lib/stores/threadsStore';
   import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types';
-  import { ArrowRight, Paperclip, CheckCircle, Bot } from 'lucide-svelte';
+  import { ArrowRight, Paperclip, CheckCircle, Bot, Clock, MessageSquare, Tag, User } from 'lucide-svelte';
   import { createAgentWithSummary, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { goto } from '$app/navigation';
   import { quotes } from '$lib/quotes';
@@ -32,7 +35,13 @@
   };
   let summary: string = '';
   let tasks: Task[] = [];
+
+  let isTextareaFocused = false;
+  let placeholderText = '';
   let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+
+  $: placeholderText = isTextareaFocused ? "Start writing..." : currentQuote;
+
   let textareaElement: HTMLTextAreaElement | null = null;
   let isAuthenticated = false;
 
@@ -51,6 +60,7 @@
   let newThreadName = '';
   let newThreadId: string | null = null;
 
+  let showArrowOverlay = false;
 
   $: ({ threads, currentThreadId, messages, updateStatus } = $threadsStore);
   $: groupedMessages = $threadsStore.getMessagesByDate;
@@ -60,22 +70,89 @@
     cancel: void;
   }>();
 
-  onMount(() => {
-        const unsubscribe = navigating.subscribe((navigationData) => {
-            if (navigationData) {
-                isNavigating.set(true);
-            } else {
-                // Add a small delay before hiding the spinner to ensure content is ready
-                setTimeout(() => {
-                    isNavigating.set(false);
-                }, 300);
-            }
-        });
+  function handleOverlayClick(event: MouseEvent) {
+      if (event.target === event.currentTarget) {
+          showArrowOverlay = false;
+      }
+  }
 
-        return () => {
-            unsubscribe();
-        };
+  function toggleArrow() {
+      showArrowOverlay = !showArrowOverlay;
+
+  }
+
+  function handleTextareaFocus() {
+    isTextareaFocused = true;
+    showArrowOverlay = false;
+  }
+
+  function handleTextareaBlur() {
+    isTextareaFocused = false;
+    showArrowOverlay = true;
+  }
+
+  function groupThreadsByDate(threads: Threads[]): Record<string, Threads[]> {
+    const grouped: Record<string, Threads[]> = {};
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+    threads.forEach(thread => {
+      const threadDate = new Date(thread.updated).toDateString();
+      let groupKey: string;
+
+      if (threadDate === today) {
+        groupKey = 'Today';
+      } else if (threadDate === yesterday) {
+        groupKey = 'Yesterday';
+      } else {
+        groupKey = threadDate;
+      }
+
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = [];
+      }
+      grouped[groupKey].push(thread);
     });
+
+    return grouped;
+  }
+
+  $: groupedThreads = groupThreadsByDate(threads);
+
+  onMount(() => {
+    const unsubscribe = navigating.subscribe((navigationData) => {
+        if (navigationData) {
+            isNavigating.set(true);
+        } else {
+            // Add a small delay before hiding the spinner to ensure content is ready
+            setTimeout(() => {
+                isNavigating.set(false);
+            }, 300);
+        }
+    });
+
+    return () => {
+        unsubscribe();
+    };
+  });
+
+
+  async function handleThreadSelection(threadId: string) {
+  try {
+    await threadsStore.setCurrentThread(threadId);
+    
+    const params = new URLSearchParams();
+    params.append('threadId', threadId);
+    if (aiModel && aiModel.id) {
+      params.append('modelId', aiModel.id);
+    }
+    params.append('promptType', selectedPromptType);
+    
+    goto(`/ask?${params.toString()}`);
+  } catch (error) {
+    console.error(`Error setting active thread ${threadId}:`, error);
+  }
+}
 
     async function handleLoadThread(threadId: string) {
     try {
@@ -98,7 +175,7 @@
       const adjustTextareaHeight = () => {
         if (textareaElement) {
           textareaElement.style.height = 'auto';
-          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 1000)}px`;
         }
       };
 
@@ -117,12 +194,12 @@
     await threadsStore.loadThreads(); 
     if (threads.length === 0) {
       await handleCreateNewThread();
-      goto('/ask');
+      // goto('/ask');
 
     }
     if (currentThreadId) {
       await handleLoadThread(currentThreadId);
-      goto('/ask');
+      // goto('/ask');
 
     }
   });
@@ -131,6 +208,8 @@
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleSeedPromptSubmit();
+            goto('/ask');
+
     }
   }
 
@@ -259,22 +338,155 @@
     aiModel = event.detail;
     console.log('Selected model:', event.detail);
   }
+  
+  function getMessageCount(threadId: string): number {
+    return messages.filter(message => message.thread === threadId).length;
+  }
 
+  let threadCount = 0;
+  let messageCount = 0;
+  let tagCount = 0;
+  let timerCount: number = 0;
+
+  let lastActive = null;
+
+  function formatTimerCount(seconds: number): string {
+  const hours = Math.floor(seconds / 60);
+  const remainingMinutes = seconds % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+  async function fetchCount(collection: string, filter: string): Promise<number> {
+  if (!pb.authStore.isValid) {
+    console.error('User is not authenticated');
+    return 0;
+  }
+
+  try {
+    const resultList = await pb.collection(collection).getList(1, 1, {
+      sort: '-created',
+      filter: filter
+    });
+    return resultList.totalItems;
+  } catch (error) {
+    console.error(`Error fetching ${collection} count:`, error);
+    return 0;
+  }
+}
+
+async function fetchThreadCount(): Promise<number> {
+  return fetchCount('threads', `op = "${$currentUser?.id}"`);
+}
+
+async function fetchMessageCount(): Promise<number> {
+  return fetchCount('messages', `user = "${$currentUser?.id}"`);
+}
+
+async function fetchTagCount(): Promise<number> {
+  return fetchCount('tags', `user = "${$currentUser?.id}"`);
+}
+
+async function fetchTimerCount(): Promise<number> {
+  if (!pb.authStore.isValid || !$currentUser) {
+    console.error('User is not authenticated');
+    return 0;
+  }
+
+  try {
+    const user = await pb.collection('users').getOne($currentUser.id);
+
+    if (!user.timer_sessions || !Array.isArray(user.timer_sessions)) {
+      return 0;
+    }
+
+    const totalSeconds = user.timer_sessions.reduce((total, session) => {
+      return total + (session.duration || 0);
+    }, 0);
+
+    return totalSeconds;
+  } catch (error) {
+    console.error('Error fetching timer sessions:', error);
+    return 0;
+  }
+}
+
+async function fetchLastActiveTime(): Promise<Date | null> {
+  if (!pb.authStore.isValid || !$currentUser) {
+    console.error('User is not authenticated');
+    return null;
+  }
+
+  try {
+    const lastMessageResult = await pb.collection('messages').getList(1, 1, {
+      filter: `user = "${$currentUser.id}"`,
+      sort: '-created',
+    });
+    if (lastMessageResult.items.length > 0) {
+      return new Date(lastMessageResult.items[0].created);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching last active time:', error);
+    return null;
+  }
+}
+
+function calculatePercentage(count: number, target: number): number {
+  return Math.min(Math.round((count / target) * 100), 100);
+}
+
+onMount(async () => {
+  
+  if (!pb.authStore.isValid) {
+    console.error('User is not authenticated');
+    return;
+  }
+
+  try {
+    // Fetch all stats concurrently
+    const [ threads, messages, tags, users, lastActiveTime] = await Promise.all([
+      fetchThreadCount(),
+      fetchMessageCount(),
+      fetchTagCount(),
+      fetchTimerCount(),
+      fetchLastActiveTime()
+    ]);
+
+    threadCount = threads;
+    messageCount = messages;
+    tagCount = tags;
+    timerCount = await fetchTimerCount();
+
+    lastActive = lastActiveTime;
+
+    console.log('Stats fetched successfully');
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+  }
+});
+
+  function formatDate(date) {
+    if (!date) return 'Never';
+    return date.toLocaleString();
+  }
 
 </script>
+<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
 
 <div class="seed-container" transition:fade={{ duration: 300 }}>
   <div class="modal" in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
     {#if !showChat}
       {#if !showConfirmation}
         <div class="seed-prompt-input" transition:blur={{ duration: 300 }}>
-          <div class="text-container">
+          <div class="text-container" on:click={handleOverlayClick}>
             <textarea 
               bind:this={textareaElement} 
               bind:value={seedPrompt} 
-              placeholder={currentQuote}
+              placeholder={placeholderText}
               on:keydown={handleKeydown}
-          ></textarea>
+              on:focus={handleTextareaFocus}
+              on:blur={handleTextareaBlur}
+            ></textarea>
           </div>
           <div class="button-row">
             {#if attachment}
@@ -292,19 +504,53 @@
               <ArrowRight size="20" color="white" />
             </button>
           </div>
-          <div class="thread-list">
-            <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
-            {#each threads as thread}
-              <button 
-                on:click={() => handleLoadThread(thread.id)}
-                class:selected={currentThreadId === thread.id}
-              >
-                {thread.name}
-              </button>
-            {/each}
+          <div class="thread-columns">
+            <div class="stats-container">
+              <h2>Your vRazum experience</h2>
+              <div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
+                <span>{threadCount} Threads</span>
+                <span class="target">1000 ✰</span>
+              </div>
+            
+              <div class="stat-item" style="--progress: {calculatePercentage(messageCount, 1000)}%">
+                <span>{messageCount} Messages</span>
+                <span class="target">1000 ✰</span>
+              </div>
+            
+              <div class="stat-item" style="--progress: {calculatePercentage(tagCount, 1000)}%">
+                <span>{tagCount} Tags</span>
+                <span class="target">1000 ✰</span>
+              </div>
+            
+              <div class="stat-item" style="--progress: {calculatePercentage(timerCount, 3600)}%">
+                <span>{formatTimerCount(timerCount)}</span>
+                <span class="target">1000 ✰</span>
+              </div>
+            
+              <div class="last-active">
+                Last Active: {formatDate(lastActive)}
+              </div>
+            </div>
+            <div class="thread-list">
+              <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
+              {#each Object.entries(groupedThreads) as [dateGroup, threadsInGroup]}
+                <div class="thread-group">
+                  <h3>{dateGroup}</h3>
+                  {#each threadsInGroup as thread}
+                    <button on:click={() => handleThreadSelection(thread.id)}>
+                      <span class="thread-name">{thread.name}</span>
+                      <span class="message-count">
+                        ✉
+                        {getMessageCount(thread.id)} 
+                      </span>
+                    </button>
+                  {/each}
+                </div>
+              {/each}
+            </div>
           </div>
+            
         </div>
-        <!-- <img src={greekImage} alt="Greek illustration" class="illustration" /> -->
       {:else}
       {#if showConfirmation}
       <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
@@ -316,7 +562,7 @@
       </div>
     {/if}
 
-      {/if}
+    {/if}
     {:else}
       <AIChat 
         {seedPrompt} 
@@ -333,6 +579,12 @@
 
 {#if $isNavigating}
 <LoadingSpinner />
+{/if}
+
+{#if showArrowOverlay && !isTextareaFocused}
+  <div class="arrow-overlay" transition:fly="{{ y: 200, duration: 300, easing: quintOut }}">
+    <div class="arrow"></div>
+  </div>
 {/if}
 
 <input
@@ -353,6 +605,9 @@
 
 * {
   font-family: 'Merriweather', serif;
+  /* font-family: 'Merriweather', sans-serif; */
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  /* font-family: 'Montserrat'; */
 
 }
   .modal {
@@ -377,19 +632,160 @@
     
   }
 
+  .thread-columns {
+    display: flex;
+    flex-direction: row;
+    width: 98%;
+    margin-left: 1rem;
+  }
+
+  .stats-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+
+  /* Neomorphic shadow */
+  box-shadow: 
+    8px 8px 16px rgba(0, 0, 0, 0.3),
+    -8px -8px 16px rgba(255, 255, 255, 0.1);
+}
+
+
+.thread-name {
+  /* font-family: 'Montserrat'; */
+
+}
+/* Create the pseudo-element for the light reflection */
+.stats-container::before {
+  content: "";
+  position: absolute;
+  top: -150%;
+  left: -150%;
+  width: 300%;
+  height: 300%;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2));
+  transform: translateX(-100%) rotate(45deg); /* Initial off-screen position */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none; /* So it doesn't interfere with clicks */
+}
+
+/* Hover trigger */
+.stats-container:hover::before {
+  animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1); /* Custom easing for non-linear motion */
+  opacity: 1;
+}
+
+/* Keyframes for the swipe animation */
+@keyframes swipe {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+
+  .progress-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 50px;
+    border-left: 20px solid rgb(0, 0, 0);
+    border-bottom: 10px solid black;
+    border-top: 4px solid black;
+    border-right: 4px solid black;
+    backdrop-filter: blur(15px);
+    transition: all 0.3s ease;
+    padding: 1rem;
+  }
+
+  .progress-bar:hover {
+    backdrop-filter: blur(15px);
+    transform:  translateX(-30px);   
+  }
+
+  .stats-container h2 {
+    display: flex;
+    justify-content: right;
+    color: white;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding: 1rem;
+    margin-bottom: 8px;
+    justify-content: space-between;
+    color: #cccccc;
+    font-size: 20px;
+    overflow: hidden;
+    transition: all 0.5s ease;
+    border-radius: 0.5rem;
+    font-family: 'Montserrat';
+
+      background: linear-gradient(to right, 
+      rgba(0, 128, 0, 0.2) var(--progress), 
+      rgba(128, 128, 128, 0.1) var(--progress)
+    );
+  }
+
+  .stat-item:hover {
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 20%, rgba(247, 247, 247, 0.2) 96%);       
+
+  }
+
+  .stat-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, 
+      rgba(0, 128, 0, 0.5) var(--progress), 
+      transparent var(--progress)
+    );
+    z-index: -1;
+  }
+
+
+  .stat-item :global(svg) {
+    margin-right: 8px;
+  }
+
+  .target-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    color: #cccccc;
+    font-size: 20px;
+  }
 
   .seed-prompt-input {
     display: flex;
     flex-direction: column;
-    justify-content:end;
+    justify-content:center;
     /* align-items: center; */
     /* margin-top: 25%; */
     /* height: 100%; */
-    gap: 20px;
+    width: 94vw;
+    margin-right: 2rem;
+    margin-left: 2rem;
+    gap: 10px;
     /* height: auto; */
     /* align-content: center; */
     /* justify-content: center; */
-    padding: 10px;
+    /* padding: 10px; */
 
     /* gap: 10px; */
     /* align-items: bottom; */
@@ -403,11 +799,25 @@
       flex-direction: column;
       /* width: 90%; */
     }
+
+    .button-row {
+      justify-content: center;
+    /* align-items: center; */
+
+    /* position: relative; */
+    /* bottom: 3rem; */
+    /* right: 1rem; */
+    /* padding: 10px; */
+
+    /* background-color: red; */
+    }
   }
+
 
   .text-container {
     display: flex;
-
+    width: 98%;
+    margin-left: 1rem;
 
 
   }
@@ -429,9 +839,9 @@
  */
 
   @media (max-width: 600px) {
-    .text-container {
-      flex-direction: column;
-    }
+
+
+
 
     .landing-footer {
       flex-direction: column;
@@ -447,19 +857,22 @@
 
     display: flex;
     position: relative;
-    width: 98%;
-    /* margin-left: 1%; */
+    width: 100%;
+    margin-left: 2%;
     top: 0;
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
     padding: 10px;
     text-justify: center;
     justify-content: center;
+    align-items: center;
     resize: none;
     font-size: 30px;
     letter-spacing: 1.4px;
     border: none;
     border-radius: 20px;
+    margin: 10px;
+
     /* background-color: #2e3838; */
     background-color: #21201d;
     color: #818380;
@@ -496,14 +909,14 @@
     display: flex;
     flex-direction: row;
     justify-content:flex-end;
-    /* align-items: center; */
+    align-items: center;
 
     /* position: relative; */
     /* bottom: 3rem; */
     /* right: 1rem; */
     gap: 20px;
     /* padding: 10px; */
-    width: 100%;
+    width: 92vw;
     /* background-color: red; */
 
   }
@@ -520,13 +933,13 @@
   }
 
   button {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     /* padding: 12px; */
     justify-content: center;
     align-items: center;
     /* margin-bottom: 20px; */
-    background: transparent;    
+    background: rgb(54, 54, 54);    
     color: black;
     font-size: 18px;
     border: none;
@@ -534,6 +947,7 @@
     border-radius: 80px;
     cursor: pointer;
     transition: background-color 0.3s;
+    
   }
 
   button:hover {
@@ -630,65 +1044,99 @@
 
 
 .thread-list {
-  /* display: grid; */
-  /* grid-template-columns: repeat(3, 2fr); Two columns */
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: flex-start; 
-  align-content: flex-start; 
-  max-height: calc(100vh - 200px);   
-  gap: 30px;
-  width: 100%;
-  top: 50%;
-  /* height: 50%; */
-  scrollbar-width: thin;
-  scrollbar-color: #ffffff transparent;
-  overflow-y: auto;
-  grid-column: auto / span 2;
-  grid-row: auto / span 2;
-  padding: 10px;
-  color: black;
-  border-radius: 20px;
-  scroll-behavior: smooth;
-  transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start; 
+    align-content: flex-start; 
+    max-height: calc(100vh - 100px);   
+    gap: 20px;
+    overflow-y: auto;
+    padding: 10px;
+    color: black;
+    width: 50%;
+    border-radius: 20px;
+    scroll-behavior: smooth;
+    transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+  }
 
-}
+  .thread-group button {
+    width: 100%;
+  }
+
+ .thread-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: right;    
+    background-color: transparent;
+
+  }
+
+  .thread-group h3 {
+    display:flex;
+    flex-direction: row;
+    font-size: 24px;
+    color: #818380;
+    margin-bottom: 5px;
+    position: relative;
+    margin-bottom: 40px;
+    justify-content: right;
+    font-family: 'Montserrat';
 
 
+  }
+
+  
 
 .thread-list button {
   display: flex;
-  width: auto;
+  /* width: 50%; */
   /* height: 60px; */
   padding: 20px;
+  margin-top: -3px;
+  margin-right: 2rem;
   text-align: left;
-  border-bottom: 1px solid #4b4b4b;
+  border: 10px solid rgb(0, 0, 0);
+  border-left: 40px solid rgb(24, 24, 24);
+  border-bottom: 18px solid rgb(82, 82, 82);
+  border-bottom-left-radius: 0px;
   /* border-left: 1px solid #4b4b4b; */
   /* border-top: 1px solid #4b4b4b; */
-  padding: 20px;
   /* background-color: red; */
-  border-radius: 10px;
   /* border-end-start-radius: 50px; */
   border-radius: 10px;
   /* border-top-left-radius: 50px; */
   cursor: pointer;
   background-color: rgb(71, 59, 59);
-
+position: relative;
   color: #fff;
   transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
   font-size: 24px;
-  justify-content: left;
+  justify-content: space-between;
   align-items: center;
+  border-bottom-right-radius: 19px;
+        border-left: 40px solid rgb(169, 189, 209);
+        border-top: 4px solid rgb(129, 160, 190);
+        border-right: 1px solid black;
+        border-bottom: 20px solid rgb(80, 80, 80);
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 20%, rgba(247, 247, 247, 0.2) 96%);       
+
 }
 
 
     .thread-list button:hover {
-        background-color: #2c3e50;
-        transform: scale(1.25) translateX(5px) rotate(3deg);          
+        background-color: rgb(44, 62, 80);
+        transform: scale(1.1) translateX(60px) rotate(3deg);   
+
         letter-spacing: 4px;
         padding: 20px;
-
+        width: 70%;
+        z-index: 10;
+        border-bottom-right-radius: 19px;
+        border-left: 40px solid rgb(169, 189, 209);
+        border-top: 4px solid rgb(129, 160, 190);
+        border-right: 1px solid black;
+        border-bottom: 20px solid rgb(80, 80, 80);
       }
 
     .thread-list button.selected {
@@ -706,24 +1154,31 @@
     }
 
     .thread-list .add-button {
-      background-color: rgb(62, 75, 92);
+      /* background-color: rgb(62, 75, 92); */
+      width: 100%;
       font-style: italic;
       font-weight: bolder;
-      border-bottom: 1px solid #6b6b6b;
-      border-radius: 10px;
+      border-radius: 30px;
       transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      justify-content: center;
+
 
       /* margin-bottom: 2rem; */
     }
 
     .thread-list .add-button:hover {
-      background-color: rgb(207, 207, 207);
-      font-style: italic;
-      font-weight: bolder;
-      border-bottom: 1px solid #6b6b6b;
-      border-radius: 10px;
-      transform: scale(1.05) translateX(5px) translatey(5px) rotate(0deg);          
-
+        background-color: #2c3e50;
+        transform: scale(1.1)  translateY(20px) rotate(0deg);          
+        letter-spacing: 4px;
+        padding: 20px;
+        width: 100%;
+        z-index: 10;
+        border-top-right-radius: 10px;         
+      font-size: 30px;
+      border-radius: 0;
+      border: none;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(44, 193, 216, 0.2) 50%);       
+      justify-content: center;
       /* margin-bottom: 2rem; */
     }
 
@@ -811,6 +1266,60 @@
       transform: rotate(2160deg);
     }
   }
+
+  .arrow-overlay {
+        position: fixed;
+        top: 100px;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        pointer-events: none;
+        z-index: 1001; 
+    }
+
+    .arrow {
+        width: 0;
+        height: 0;
+        border-left: 50px solid transparent;
+        border-right: 50px solid transparent;
+        border-top: 70px solid #6fdfc4;
+        margin-top: 40px;
+        top: 80px;
+        position: absolute;
+        display: flex;
+
+        left: 100px;
+        animation: bounce 1s infinite;
+        filter: drop-shadow(0 0 10px rgba(111, 223, 196, 0.7));
+    }
+
+    .message-count {
+      padding: 4px 10px;
+      width: auto;
+      background-color: rgb(53, 53, 53);
+      border-radius: 16px;
+      border: 1px solid gray;
+      display: flex;
+      flex-direction: row;
+      height: 20px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+  .thread-list button:hover .message-count {
+    font-size: 16px;
+  }
+    @keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-30px);
+        }
+    }
 
 
   

@@ -71,7 +71,7 @@
 
 <style>
   .dropbtn {
-    background-color: #283428;
+    /* background-color: #283428; */
     color: white;
     padding: 4px;
     font-size: 16px;
@@ -81,18 +81,22 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 60px;
-    height: 60px;
-    padding: 10px;
-    border: 2px solid #506262;
+    width: 40px;
+    height: 40px;
+    padding: 5px;
+    /* border: 2px solid #506262; */
+    border: 1px solid rgba(53, 63, 63, 0.3);
     transition: all 0.3s ease-in-out;
     overflow: hidden;
+    user-select: none;
   }
 
-  .dropbtn.hovered {
-    width: auto;
-    justify-content: right;
-  }
+    .dropbtn.hovered {
+      width: auto;
+      padding-left: 15px;
+      padding-right: 15px;
+      justify-content: space-between;
+    }
 
   .prompt-name {
     display: none;
@@ -112,7 +116,7 @@
   .dropdown-content {
     display: none;
     position: absolute;
-    bottom: 5rem;
+    bottom: 2.6rem;
     background-color: #21201d;
     min-width: 300px;
     box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
@@ -133,26 +137,26 @@
   }
 
   .dropdown:hover .dropbtn {
-    background-color: #3e8e41;
-  }
-
+      background-color: #050705;
+    }
+  
   .dropdown:hover .dropbtn.active {
     background-color: red;
   }
 
   button {
-    background-color: #21201d;
-    color: rgb(116, 116, 116);
-    border: none;
-    transition: all 0.3s ease-in-out;
-    border-radius: 10px;
-    justify-content: center;
-    align-items: center;
-  }
-
-  button:hover {
-    background-color: #21201d;
-    color: white;
-    border-radius: 10px;
-  }
+      background-color: transparent;
+      color: rgb(116, 116, 116);
+      border: none;
+      transition: all 0.3s ease-in-out;
+      border-radius: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+  
+    button:hover {
+      background-color: #21201d;
+      color: white;
+      border-radius: 10px;
+    }
 </style>

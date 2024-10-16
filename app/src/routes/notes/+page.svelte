@@ -10,6 +10,7 @@
     import Headmaster from '$lib/assets/illustrations/headmaster2.png';
     import { handleImageUpload, onFileSelected, handleImageResize, handleImageAlign } from '$lib/utils/imageHandlers';
     import { notesClient } from '$lib/notesClient';
+    import { page } from '$app/stores';
 
     $: currentNote = $notesStore.currentNote;
     $: openTabs = $notesStore.openTabs;

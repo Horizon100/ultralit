@@ -573,21 +573,30 @@ export async function deleteThread(id: string): Promise<boolean> {
     }
 }
 
+export async function deleteTag(id: string): Promise<boolean> {
+    try {
+        await pb.collection('tags').delete(id);
+        return true;
+    } catch (error) {
+        console.error('Error deleting tag:', error);
+        return false;
+    }
+}
+
 // Message functions for threads
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
     try {
         const records = await pb.collection('messages').getFullList<Messages>({
-            // sort: 'created',
+            sort: '+created',
             filter: `thread = "${threadId}"`,
-            // expand: 'user',
         });
+        console.log('Fetched messages:', records);
         return records;
     } catch (error) {
         console.error('Error fetching messages for thread:', error);
         throw error;
     }
 }
-
 
 
 

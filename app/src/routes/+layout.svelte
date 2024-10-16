@@ -5,7 +5,7 @@
     import horizon100 from '$lib/assets/horizon100.svg';
     import Auth from '../lib/components/auth/Auth.svelte';
     import Profile from '$lib/components/ui/Profile.svelte';
-    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X } from 'lucide-svelte';
+    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Code } from 'lucide-svelte';
     import { navigating } from '$app/stores';
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
@@ -14,13 +14,13 @@
     import { Camera } from 'lucide-svelte';
     import { goto } from '$app/navigation';
 
-    let isMenuOpen = false;
+    let isMenuOpen = true;
     let showAuth = false;
     let showProfile = false;
     let innerWidth: number;
     let activeLink = '/';
 
-    $: isNarrowScreen = innerWidth <= 700;
+    $: isNarrowScreen = innerWidth <= 1000;
 
     onMount(() => {
         const unsubscribe = navigating.subscribe((navigationData) => {
@@ -62,8 +62,14 @@
         goto('/');
     }
 
-    function setActiveLink(path: string) {
-        activeLink = path;
+	function setActiveLink(path: string) {
+		goto(path);
+		activeLink = path;
+	}
+
+	function handleLogoClick(event: MouseEvent) {
+        event.preventDefault();
+        setActiveLink('/');
     }
 
     function handleOverlayClick(event: MouseEvent) {
@@ -72,93 +78,127 @@
             showProfile = false;
         }
     }
+
+    function scrollToSection(id: string) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+	
 </script>
 
 <svelte:window bind:innerWidth />
 
 <div class="app-container">
-	<header>
+    <header>
         <nav>
-            <a href="/" class="logo" on:click={() => setActiveLink('/')}>
-                <img src={horizon100} alt="Horizon100" class="logo" />
-                <!-- <h1 class="h1">vRAZUM</h1> -->
-            </a>
+            <div class="logo-container" on:click={handleLogoClick}>
+                <a href="/" class="logo-link">
+                    <img src={horizon100} alt="Horizon100" class="logo" />
+                    <h2>vRAZUM</h2>
+                </a>
+            </div>
             {#if isNarrowScreen}
-                <button class="menu-button" transition:fly={{ y: -200, duration: 300 }} on:click={toggleMenu}>
-                    <Menu size={20} />
+                <button class="menu-button" on:click={toggleAuthOrProfile}>
+                    {#if $currentUser}
+                        <User size={24} />
+                    {:else}
+                        <LogIn size={24} />
+                    {/if}
                 </button>
             {:else}
-			
-                <div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
-					<a href="/" class="header-logo" on:click={() => setActiveLink('/')}>
-						<img src={horizon100} alt="Horizon100" class="logo" />
-						<h1 class="h1">vRAZUM</h1>
+			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+				{#if $currentUser}
+				  <TimeTracker />
+				  <a
+					href="/ask"
+					class="nav-link"
+					class:active={activeLink === '/ask'}
+					on:click|preventDefault={() => setActiveLink('/ask')}
+				  >
+					<MessageCircle size={20} />
+					Ask
+				  </a>
+				  <a
+					href="/launcher"
+					class="nav-link"
+					class:active={activeLink === '/launcher'}
+					on:click|preventDefault={() => setActiveLink('/launcher')}
+				  >
+					<Drill size={20} />
+					Build
+				  </a>
+				  <a
+					href="/notes"
+					class="nav-link"
+					class:active={activeLink === '/notes'}
+					on:click|preventDefault={() => setActiveLink('/notes')}
+				  >
+					<NotebookTabs size={20} />
+					Notes
+				  </a>
+				{:else}
+					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
+						Features
 					</a>
-                    <a href="/ask" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/ask'} on:click={() => setActiveLink('/ask')}>
-                        <MessageCircle size={20} />
-                        Ask
-                    </a>
-                    <a href="/launcher" class="nav-link" transition:fly={{ y: -200, duration: 300 }}  class:active={activeLink === '/launcher'} on:click={() => setActiveLink('/launcher')}>
-                        <Drill size={20} />
-                        Build
-                    </a>
-					<a href="/notes" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/notes'} on:click={() => setActiveLink('/notes')}>
-						<NotebookTabs size={20} />
-
-						Notes
+					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
+						Pricing
 					</a>
-                    <a href="/canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/canvas'} on:click={() => setActiveLink('/canvas')}>Draw</a>
-                    <a href="/html-canvas" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/html-canvas'} on:click={() => setActiveLink('/html-canvas')}>HTML</a>
-					<a href="/map" class="nav-link" transition:fly={{ y: -200, duration: 300 }} class:active={activeLink === '/map'} on:click={() => setActiveLink('/map')}>Map</a>
-
-                   
-					<!-- <button class="nav-link" on:click={toggleGamePlay}>
-						<Brain size={20} />
-						GamePlay
-					</button> -->
-					<button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
-						{#if $currentUser}
-							<div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
-								<span class="user-name">{$currentUser.name || $currentUser.email}</span>
-								<div class="avatar-container">
-									{#if $currentUser.avatar}
-										<img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
-									{:else}
-										<div class="avatar-placeholder">
-											<Camera size={24} />
-										</div>
-									{/if}
-								</div>
-							</div>
-							
-						{:else}
-							<LogIn size={24} />
-							<span>Login</span>
-						{/if}
-					</button>
-
-					
-                </div>
+					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
+						Blog
+					</a>
+					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
+						Help
+					</a>
+				{/if}
+			</div>
+                <button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
+                    {#if $currentUser}
+                        <div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
+                            <span class="user-name">{$currentUser.name || $currentUser.email}</span>
+                            <div class="avatar-container">
+                                {#if $currentUser.avatar}
+                                    <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
+                                {:else}
+                                    <div class="avatar-placeholder">
+                                        <Camera size={24} />
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    {:else}
+                        <LogIn size={24} />
+                    {/if}
+                </button>
             {/if}
         </nav>
     </header>
-	<TimeTracker />
 
     {#if showAuth}
-        <div class="auth-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
-            <div class="auth-content" transition:fly={{y: 200, duration: 300}}>
-                <button class="close-button" transition:fly={{ y: -200, duration: 300}} on:click={() => showAuth = false}>
+        <div class="auth-overlay" on:click={handleOverlayClick}                                  
+			in:fly="{{ y: -50, duration: 250, delay: 200 }}" out:fly="{{ y: -50, duration: 500, delay: 400 }}"
+		>
+            <div class="auth-content">
+                <button 
+					on:click={() => showAuth = false}
+					class="close-button" 
+					in:fly="{{ y: 50, duration: 500, delay: 400 }}" out:fly="{{ y: 50, duration: 500, delay: 400 }}"
+
+				>
                     <X size={24} />
                 </button>
-                <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+                <Auth on:success={handleAuthSuccess} on:logout={handleLogout} 
+				/>
             </div>
         </div>
     {/if}
 
     {#if showProfile}
         <div class="profile-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
-            <div class="profile-content" transition:fly={{ y: -200, duration: 300}} >
-                <button class="close-button" on:click={() => showProfile = false}>
+            <div class="profile-content" transition:fly={{ y: -20, duration: 300}} >
+                <button class="close-button" transition:fly={{ y: -200, duration: 300}}  on:click={() => showProfile = false}>
                     <X size={24} />
                 </button>
                 <Profile user={$currentUser} onClose={() => showProfile = false} on:logout={handleLogout} />
@@ -176,30 +216,33 @@
 		</div>
 	{/if} -->
 
-    {#if isNarrowScreen && isMenuOpen}
-        <div class="mobile-menu" transition:fly={{ y: -200, duration: 300 }}>
-			<a href="/ask" class="svg-container">
-				<MessageCircle size={24} />
-			</a>
-            <a href="/launcher" class="svg-container">
-				<Drill size={24} />
-			</a>
-            <a href="/launcher" class="svg-container">Launcher</a>
-            <a href="/html-canvas" class="svg-container">html</a>
-
-
-
-            <button class="menu-button" on:click={toggleAuth}>
-                {#if $currentUser}
-                    <User size={24} />
-                    <!-- <span class="user-name">{$currentUser.name || $currentUser.email}</span> -->
-                {:else}
-                    <LogIn size={24} />
-                    <!-- <span>Login</span> -->
-                {/if}
-            </button>
-        </div>
-    {/if}
+	{#if isNarrowScreen && isMenuOpen}
+	<div class="mobile-menu" transition:fly={{ y: 200, duration: 300 }}>
+		<div class="mobile-btns">
+			{#if $currentUser}
+				<a href="/ask" class="nav-link">
+					<MessageCircle size={24} />
+					Ask
+				</a>
+				<a href="/launcher" class="nav-link">
+					<Drill size={24} />
+					Build
+				</a>
+				<a href="/notes" class="nav-link">
+					<NotebookTabs size={24} />
+					Notes
+				</a>
+				{:else}
+					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
+						Features
+					</a>
+					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
+						Pricing
+					</a>
+				{/if}
+		</div>
+	</div>
+{/if}
 	{#if $isNavigating}
 	<LoadingSpinner />
 {/if}
@@ -241,7 +284,7 @@
 	  /* align-items: center; */
 	  overflow: hidden;
 	  /* height: 100vh; */
-	  /* width: 100vw; */;
+	  /* width: 100vw;; */
 	  
 	  
 	}
@@ -256,29 +299,33 @@
         overflow-y: auto;
     }
 	.profile-content {
-        position: relative;
-        background-color: #2b2a2a;
+        position: absolute;
+		top: 0;
+		width: 94%;
+        /* background-color: #2b2a2a; */
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+        backdrop-filter: blur(40px);         
+		
         padding: 2rem;
         border-radius: 20px;
-        width: 90%;
-        max-width: 500px;
-        max-height: 90vh;
-        overflow-y: auto;
+        /* width: 90%; */
+        /* max-width: 500px; */
+        /* max-height: 90vh; */
+        overflow: none;
     }
 	header {
 	  display: flex;
 	  flex-direction: row;
 	  position: fixed;
-	  justify-content: center;
-	  	  align-items: center;
 	  top: 0;
+	  left: 0;
 	  width: 100%;
 	  /* height: 80px; */
 	  /* margin-top: 0; */
 	  /* align-items: center; */
-	  /* width: 100%; */
-	  /* height: 60px; */
+	  height: 60px;
 	  /* padding: 5px 5px; */
+		background: linear-gradient(to bottom, #2b2a2a, #353f3f);
 
 	  /* z-index: 100;; */
 	  transition: all 0.3s ease;
@@ -314,12 +361,11 @@
 
   
 	.header-logo {
-	  display: none;
+	  display: flex;
 	  flex-direction: row;
 	  /* position: absolute; */
 	  /* margin-left: 10%; */
 	  /* border: 1px solid #000000; */
-	  border-radius: 16px;
 	  /* background-color: #2a3130; */
 	  /* box-shadow: #000000 5px 5px 5px 1px; */
 	  text-decoration: none;
@@ -328,11 +374,26 @@
 	  align-items: center;
 	  height: auto;
 	  user-select: none;
+		gap: 8px;
+		padding: 5px 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 16px;
 
 	}
   
 	.header-logo:hover {
-	  transform: scale(1.1);
+        background-color: rgba(255, 255, 255, 0.1);
+		transform: translateY(-2px);	
+	}
+
+	.logo-container {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		height: 60px;
+		user-select: none;
 	}
   
 	.logo {
@@ -340,6 +401,14 @@
 	  height: 30px;
 	  margin-right: 10px;
 	}
+
+	.logo-link {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        text-decoration: none;
+        color: inherit;
+    }
   
 	.h1 {
 	  color: white;
@@ -350,16 +419,18 @@
 	nav {
 	  display: flex;
 	  flex-direction: row;
-	  justify-content: center;
+	  justify-content: space-between;
 	  align-items: center;
-	  height: auto;
-	  /* padding: 5px 10px; */
-	  background-color: #2b2a2a;
+		width: 96%;
+        margin-left: 2%;
+        margin-right: 2%;	  
+		/* padding: 5px 10px; */
+	  /* background-color: #2b2a2a; */
 	  /* border-radius: 20px; */
 	  /* background-color: black; */
 		/* height: 80px; */
 	  gap: 1rem;
-	  padding: 0 50px;
+	  padding: 0 10px;
 	  border-bottom-left-radius: 20px; 
 	  border-bottom-right-radius: 20px;
 	  border-top-left-radius: 20px;
@@ -376,13 +447,15 @@
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		font-family: 'Merriweather', serif;
+		border-radius: 20px;
 
 	}
 
 	  
 	nav a:hover {
 	  opacity: 0.8;
-	  background-color: blue;
+	  /* background-color: rgba(255, 255, 255, 0.1); */
+	  transform: scale(1.1);	
 	}
 
 	  
@@ -400,50 +473,51 @@
 
 	.nav-links {
 		display: flex;
-		/* gap: 20px; */
+		gap: 1rem;
 		align-items: center;
 		justify-content: center;
-		padding: 10px;
-		height: 50%;
+		/* padding: 10px; */
+		width: 100%;
 
 	}
 
 	.nav-link {
 		display: flex;
 		gap: 8px;
+		font-family: 'Courier New', Courier, monospace;
+		font-weight: 400;
 		justify-content: center;
 		align-items: center;
 		/* background-color: red; */
 		border-radius: 10px;
 		padding: 5px 10px;
-        color: white;
+		color: rgb(255, 255, 255);
         text-decoration: none;
-        font-size: 16px;
+        font-size: 20px;
         /* padding: 5px 10px; */
         /* border-radius: 20px; */
-        transition: all 0.3s ease;
+		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		/* border-left: 1px solid rgb(130, 130, 130); */
-		
+		user-select: none;
     }
 
 	.nav-link:hover {
         background-color: rgba(255, 255, 255, 0.1);
 		transform: translateY(-2px);
+        color: #6fdfc4;
 
     }
 
 	.nav-link.active {
-        background-color: #365040;  /* Different color for active state */
-        font-weight: bold;
-		/* height: 100px; */
-		/* width: 100px; */
-		/* border-radius: 50%; */
-		/* scale: 1.2; */
-
-    }
+    background-color: #365040;
+    font-weight: bold;
+    color: #6fdfc4;
+    transform: translateY(-2px);
+  }
   
 	.svg-container {
 		display: flex;
+		flex-direction: row;
 		justify-content: center;
 		align-items: center;
 		text-align: center;
@@ -475,16 +549,17 @@
 		justify-content: center;
 		/* padding: 10px; */
 		background-color: transparent;
-		position: absolute;
-		right: 2rem;
+		border: none;
+		/* position: absolute; */
+		/* right: 2rem; */
 		transition: all ease-in 0.2s;
 		/* margin-right: 0; */
         gap: 10px;
 		/* padding: 0 20px; */
-        border: 20px;
+        /* border: 20px; */
 		/* background-color: red; */
         cursor: pointer;
-        font-size: 20px;
+        /* font-size: 20px; */
 		
     }
 
@@ -493,7 +568,9 @@
 		flex-direction: row;
 		justify-content: center;
         align-items: center;
+		right: 2rem;
 		gap: 20px;
+		padding: 0 20px;
 
 	}
 
@@ -513,18 +590,40 @@
 
 	.mobile-menu {
 		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		position: absolute;
-		bottom: 20px;
+
+		align-items: center;
+		position: fixed;
+		bottom: 0;
+		left:0;
 		width: 100%;
-		gap: 1rem;
+		height: 80px;
 		/* bottom: calc(100% - 280px); */
 		/* width: calc(100% - 60px); */
 		/* padding: 20px; */
 		z-index: 99;
 		/* border: 1px solid #000000; */
-		background: linear-gradient(to top, #3f4b4b, #333333);
+		/* background: linear-gradient(to top, #3f4b4b, #333333); */
+		/* background-color: #2b2a2a; */
+		background: linear-gradient(to top, #2b2a2a, #353f3f);
+
+		/* border-radius: 20px; */
+		/* background-color: black; */
+		/* height: 80px; */
+		border-bottom-left-radius: 0; 
+		border-bottom-right-radius: 0;
+		border-top-left-radius: 20px;
+		border-top-right-radius: 20px;
+	}
+
+	.mobile-btns {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;	
+		align-items: center;
+		width: 90%;
+		margin-left: 5%;
+		padding: 20px;
+
 	}
 
 		/* .auth-button {
@@ -571,7 +670,10 @@
 	  /* background-color: blue; */
 	/* } */
 	
-
+	h2 {
+        font-size: 1.5rem;
+        color: #fff;
+    }
 	button {
 		display: flex;
 		justify-content: center;
@@ -608,11 +710,12 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: rgba(0, 0, 0, 0.2);
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 1000;
+        z-index: 1002;
+		
     }
 
 
@@ -670,21 +773,36 @@
         color: #fff;
     }
 
-	.close-button {
+    .close-button {
         position: fixed;
         top: 10px;
         left: 10px;
-        background: none;
+        width: 30px;
+        height: 30px;
         border: none;
         color: white;
         cursor: pointer;
+        background: none;
+        display: flex;
+		justify-content: center;
+		text-align: center;
+		font-size: 1rem;
+		border-radius: 8px;
+		padding: 5px;
+        transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+    }
+
+    .close-button:hover {
+	  opacity: 0.8;
+	  background-color: rgb(62, 137, 194);
     }
 
 	.no-user-message {
         text-align: center;
         padding: 2rem;
     }
-	@media (max-width: 700px) {
+	@media (max-width: 1000px) {
 
 
 		.nav-links, h1 {
@@ -700,12 +818,17 @@
 		}
 
 		.menu-button {
-			position: relative;
+			position: absolute;
+			right: 2rem;
 		}
 
 		main {
 			flex-grow: 1;
 			padding-top: 1rem;
+		}
+
+		nav {
+			justify-content: center;
 		}
 
 		footer {
