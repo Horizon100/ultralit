@@ -6,6 +6,9 @@
     import Profile from '../ui/Profile.svelte';
     import Terms from '$lib/components/overlays/Terms.svelte';
     import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
+    import { t } from '$lib/stores/translationStore';
+
+
     let email: string = '';
     let password: string = '';
     let errorMessage: string = '';
@@ -119,42 +122,59 @@
         </button> -->
     {:else}
         <div class="login-container">
-            <form on:submit|preventDefault class="auth-form">
-                <input
-                    class="input"
-                    type="email"
+            <div class="credentials">
+                <form on:submit|preventDefault class="auth-form">
+                    <input
+                        class="input"
+                        type="email"
+                        bind:value={email}
+                        placeholder="Email"
+                        required
+                        style="background-color: #444444;"
+
+                    />
+                    <input
+                        class="input"
+                        type="password"
+                        bind:value={password}
+                        placeholder="Password"
+                        required
+                    />
+                    <div class="button-group">
+                        <button class="button button-signup" on:click={signUp}>
+                            <UserPlus size={16} />
+                            <span>
+                                {$t('profile.signup')}
+                            </span>
+                        </button>
+                        <button class="button button-login" on:click={login}>
+                            <LogIn size={16} />
+                            <span>
+                                {$t('profile.login')}
+                            </span>
+                        </button>
+                    </div>
+                </form>
+                <!-- <input
+                    class="code"
+                    type="password"
                     bind:value={email}
                     placeholder="Email"
                     required
                     style="background-color: #444444;"
-
-                />
-                <input
-                    class="input"
-                    type="password"
-                    bind:value={password}
-                    placeholder="Password"
-                    required
-                />
-                <div class="button-group">
-                    <button class="button button-signup" on:click={signUp}>
-                        <UserPlus size={16} />
-                        <span>Sign Up</span>
-                    </button>
-                    <button class="button button-login" on:click={login}>
-                        <LogIn size={16} />
-                        <span>Login</span>
-                    </button>
-                </div>
-            </form>
+                /> -->
+            </div>
+               
             <div class="terms-privacy">
-                <span>By using vRazum you automatically agree to our</span>
+                <span>
+                    {$t('profile.clause')}
+                </span>
                 <button on:click={openTermsOverlay}>
-                    Terms
+                    {$t('profile.terms')}
                 </button>
-                <span>and</span>
+                <span>&</span>
                 <button on:click={openPrivacyOverlay}>
-                    Privacy Policy
+                    {$t('profile.privacy')}
                 </button>
             </div>
 
@@ -183,7 +203,9 @@
     <PrivacyPolicy on:close={closeOverlay} />
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;    
+    
     .auth-container {
         display: flex;
         background-color: #131313;
@@ -266,6 +288,10 @@
         background-color: #2c3e50;
     }
 
+    .credentials {
+        display: flex;
+        flex-direction: row;
+    }
     .welcome-message {
         cursor: pointer;
     }
@@ -311,6 +337,8 @@
     /* ... other styles ... */
 }
 
+
+
     .button {
         display: flex;
         align-items: center;
@@ -324,17 +352,18 @@
     }
 
     .button-signup {
-        background-color: #27ae60;
+        background-color: var(--tertiary-color);
+        opacity: 0.8;
         width: 100%;
         display: flex;
 
     }
 
     .button-login {
-        background-color: #3498db;
+        background-color: var(--bg-gradient-r);
         width: 100%;
         display: flex;
-
+        opacity: 0.8;
     }
 
     .logout-button {
@@ -391,11 +420,13 @@
     align-items: center;
     justify-content: center;
     font-size: 16px;
+    transition: all 0.3s ease;
 }
 
 /* Hover effects for buttons */
 .button-group .button:hover {
-    background-color: #0056b3; /* Darken background on hover */
+    background-color: var(--tertiary-color); /* Darken background on hover */
+    opacity: 1;
 }
 
 @media (max-width: 767px) {

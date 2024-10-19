@@ -1,28 +1,69 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { fly, fade, slide } from 'svelte/transition';
     import { currentUser } from '$lib/pocketbase';
     import horizon100 from '$lib/assets/horizon100.svg';
     import Auth from '../lib/components/auth/Auth.svelte';
     import Profile from '$lib/components/ui/Profile.svelte';
-    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Code } from 'lucide-svelte';
-    import { navigating } from '$app/stores';
+    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Languages, Code} from 'lucide-svelte';
+	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
+	import { navigating } from '$app/stores';
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
     import TimeTracker from '$lib/components/features/TimeTracker.svelte';
     import { pb } from '$lib/pocketbase';
     import { Camera } from 'lucide-svelte';
     import { goto } from '$app/navigation';
+	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+    import { currentTheme } from '$lib/stores/themeStore';
+    import { currentLanguage, languages, setLanguage, initializeLanguage } from '$lib/stores/languageStore';
+    import { t } from '$lib/stores/translationStore';
+
+    let showLanguageNotification = false;
+    let selectedLanguageName = '';
+	let placeholderText = '';
+
+
+	function getRandomQuote() {
+		const quotes = $t('extras.quotes');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
+	$: placeholderText = getRandomQuote();
 
     let isMenuOpen = true;
+	let isStylesOpen = true;
+    let currentStyle = 'default';
+
     let showAuth = false;
     let showProfile = false;
+	let showStyles = false;
+
     let innerWidth: number;
     let activeLink = '/';
 
+	   const styles = [
+      { name: 'Daylight Delight', value: 'default', icon: Sun },
+      { name: 'Midnight Madness', value: 'dark', icon: Moon },
+      { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+      { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+      { name: 'Laser Focus', value: 'focus', icon: Focus },
+      { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+      { name: 'Turbo Mode', value: 'turbo', icon: Gauge }
+    ];
+
+
+    let showLanguageSelector = false;
+
+
+    function toggleLanguageSelector() {
+        showLanguageSelector = !showLanguageSelector;
+    }
+
+
+
     $: isNarrowScreen = innerWidth <= 1000;
 
-    onMount(() => {
+    onMount(async () => {
         const unsubscribe = navigating.subscribe((navigationData) => {
             if (navigationData) {
                 isNavigating.set(true);
@@ -33,13 +74,53 @@
             }
         });
 
+        await initializeLanguage();
+
         return () => {
             unsubscribe();
         };
     });
 
+	async function handleLanguageChange() {
+		showLanguageNotification = false; // Reset notification state
+		await tick(); // Wait for the DOM to update
+		await new Promise(resolve => setTimeout(resolve, 10)); // Small delay to ensure reset
+
+		const currentLang = $currentLanguage;
+		const currentIndex = languages.findIndex(lang => lang.code === currentLang);
+		const nextIndex = (currentIndex + 1) % languages.length;
+		const nextLanguage = languages[nextIndex];
+
+		await setLanguage(nextLanguage.code);
+		selectedLanguageName = nextLanguage.name;
+		
+		await tick(); // Wait for the DOM to update after language change
+		// await new Promise(resolve => setTimeout(resolve, 10)); // Delay before showing notification
+		
+		setTimeout(() => {
+			showLanguageNotification = true;
+		}, 0);
+		setTimeout(() => {
+			showLanguageNotification = false;
+		}, 600);
+	}
+
+	onMount(() => {
+        return currentTheme.subscribe(theme => {
+            document.documentElement.className = theme;
+        });
+    });
+
     function toggleMenu() {
         isMenuOpen = !isMenuOpen;
+    }
+
+	function toggleStyles() {
+        showStyles = !showStyles;
+    }
+
+	function handleStyleClose() {
+        showStyles = false;
     }
 
     function toggleAuthOrProfile() {
@@ -76,6 +157,8 @@
         if (event.target === event.currentTarget) {
             showAuth = false;
             showProfile = false;
+			showStyles = false;
+
         }
     }
 
@@ -85,15 +168,19 @@
             element.scrollIntoView({ behavior: 'smooth' });
         }
     }
-
+	$: {
+		if ($t) {
+			placeholderText = getRandomQuote();
+		}
+	}
 	
 </script>
 
 <svelte:window bind:innerWidth />
 
-<div class="app-container">
+<div class="app-container {$currentTheme}">
     <header>
-        <nav>
+		<nav style="z-index: 1000;">
             <div class="logo-container" on:click={handleLogoClick}>
                 <a href="/" class="logo-link">
                     <img src={horizon100} alt="Horizon100" class="logo" />
@@ -110,50 +197,59 @@
                 </button>
             {:else}
 			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
-				{#if $currentUser}
-				  <TimeTracker />
-				  <a
+			{#if $currentUser}
+				<TimeTracker />
+				<a
 					href="/ask"
 					class="nav-link"
 					class:active={activeLink === '/ask'}
 					on:click|preventDefault={() => setActiveLink('/ask')}
-				  >
+				>
 					<MessageCircle size={20} />
-					Ask
-				  </a>
-				  <a
+                    {$t('nav.ask')}
+				</a>
+				<a
 					href="/launcher"
 					class="nav-link"
 					class:active={activeLink === '/launcher'}
 					on:click|preventDefault={() => setActiveLink('/launcher')}
-				  >
+				>
 					<Drill size={20} />
-					Build
-				  </a>
-				  <a
+                    {$t('nav.build')}
+				</a>
+				<a
 					href="/notes"
 					class="nav-link"
 					class:active={activeLink === '/notes'}
 					on:click|preventDefault={() => setActiveLink('/notes')}
-				  >
+				>
 					<NotebookTabs size={20} />
-					Notes
-				  </a>
+                    {$t('nav.notes')}
+				</a>
+
 				{:else}
 					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
-						Features
+						{$t('nav.features')}
 					</a>
 					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
-						Pricing
+						{$t('nav.pricing')}
 					</a>
 					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
-						Blog
+						{$t('nav.blog')}
 					</a>
 					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
-						Help
+						{$t('nav.help')}
 					</a>
 				{/if}
 			</div>
+
+			<button class="menu-button" on:click={handleLanguageChange} >
+				<Languages size={24} />
+				<span class="language-code">{$currentLanguage.toUpperCase()}</span>
+			</button>
+				<button class="menu-button style-switcher-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
+					<svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
+				</button>
                 <button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
                     {#if $currentUser}
                         <div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
@@ -178,9 +274,9 @@
 
     {#if showAuth}
         <div class="auth-overlay" on:click={handleOverlayClick}                                  
-			in:fly="{{ y: -50, duration: 250, delay: 200 }}" out:fly="{{ y: -50, duration: 500, delay: 400 }}"
+		transition:fly={{ y: -20, duration: 300}}
 		>
-            <div class="auth-content">
+            <div class="auth-content" transition:fly={{ y: -20, duration: 300}} >
                 <button 
 					on:click={() => showAuth = false}
 					class="close-button" 
@@ -206,6 +302,30 @@
         </div>
     {/if}
 
+	{#if showStyles}
+    <div class="style-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300}}>
+        <div class="style-content" transition:fly={{ y: -20, duration: 300}}>
+            <button class="close-button" transition:fly={{ y: -200, duration: 300}} on:click={() => showStyles = false}>
+                <X size={24} />
+            </button>
+            <StyleSwitcher on:close={handleStyleClose} />
+        </div>
+    </div>
+{/if}
+
+
+
+{#if showLanguageNotification}
+    <div class="language-overlay" transition:fade={{ duration: 300 }}>
+        <div class="language-notification" transition:fade={{ duration: 300 }}>
+            {$t('lang.notification')}
+            <div class="quote">
+                {placeholderText}
+            </div>
+        </div>
+    </div>
+{/if}
+
 
 	<!-- {#if showGamePlay}
 		<div class="gameplay-overlay" transition:fade={{duration: 300}} on:click|self={toggleGamePlay}>
@@ -222,22 +342,22 @@
 			{#if $currentUser}
 				<a href="/ask" class="nav-link">
 					<MessageCircle size={24} />
-					Ask
+                    {$t('nav.ask')}
 				</a>
 				<a href="/launcher" class="nav-link">
 					<Drill size={24} />
-					Build
+                    {$t('nav.build')}
 				</a>
 				<a href="/notes" class="nav-link">
 					<NotebookTabs size={24} />
-					Notes
+                    {$t('nav.notes')}
 				</a>
 				{:else}
 					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
-						Features
+						{$t('nav.features')}
 					</a>
 					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
-						Pricing
+						{$t('nav.pricing')}
 					</a>
 				{/if}
 		</div>
@@ -246,24 +366,46 @@
 	{#if $isNavigating}
 	<LoadingSpinner />
 {/if}
+<main>
+	<slot />
+</main>
 
-	<main>
-		<slot />
-	</main>
+<footer>
+	<!-- Footer content -->
+</footer>
 
-	<footer>
-		<!-- Footer content -->
-	</footer>
 </div>
 
-  
-  <style>
-	@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap');
-  
+
+
+<style lang="scss">
+	@use "src/themes.scss" as *;
 	* {
-	  font-family: 'Source Code Pro', monospace;
-	  
+	//   font-family: 'Source Code Pro', monospace;
+	font-family: var(--font-family);
+
 	}
+
+	main {
+        background-color: var(--bg-color);
+		color: var(--text-color);
+        width: 100%;
+		height: 100%;
+		height: auto;
+		left: 0;
+		top: 60px;
+		bottom: 0;
+		position: fixed;
+		display: flex;
+		flex-grow: 1;
+
+
+
+		
+	}
+
+
+	  
 
 	:global(.loading-spinner) {
         position: fixed;
@@ -284,8 +426,9 @@
 	  /* align-items: center; */
 	  overflow: hidden;
 	  /* height: 100vh; */
-	  /* width: 100vw;; */
-	  
+	//   /* width: 100vw;; */
+
+;
 	  
 	}
     .auth-content {
@@ -298,21 +441,7 @@
         height: auto;
         overflow-y: auto;
     }
-	.profile-content {
-        position: absolute;
-		top: 0;
-		width: 94%;
-        /* background-color: #2b2a2a; */
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
-        backdrop-filter: blur(40px);         
-		
-        padding: 2rem;
-        border-radius: 20px;
-        /* width: 90%; */
-        /* max-width: 500px; */
-        /* max-height: 90vh; */
-        overflow: none;
-    }
+
 	header {
 	  display: flex;
 	  flex-direction: row;
@@ -325,8 +454,7 @@
 	  /* align-items: center; */
 	  height: 60px;
 	  /* padding: 5px 5px; */
-		background: linear-gradient(to bottom, #2b2a2a, #353f3f);
-
+        background: var(--bg-gradient);
 	  /* z-index: 100;; */
 	  transition: all 0.3s ease;
 	  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
@@ -411,11 +539,42 @@
     }
   
 	.h1 {
-	  color: white;
-	  font-size: 20px;
-	  line-height: 1.5;
-	}
-  
+		font-size: 20px;
+		line-height: 1.5;
+		}
+
+
+.style-switcher-button {
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        margin-right: 16px;
+    }
+
+    .style-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1002;
+    }
+
+    .style-content {
+        background-color: #2b2a2a;
+        padding: 1rem;
+		border: 1px solid rgb(69, 69, 69);
+        border-radius: 20px;
+        position: relative;
+        max-width: 90%;
+        max-height: 90%;
+        overflow: auto;
+    }
+
 	nav {
 	  display: flex;
 	  flex-direction: row;
@@ -437,17 +596,17 @@
 	  border-top-right-radius: 20px;
 	  /* margin-right: 10%; */
 	  /* padding: 10px; */
+	  
 	}
   
 	nav a {
 		justify-content: center;
 		align-items: center;
 		font-weight: bold;
-		color: black;
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		font-family: 'Merriweather', serif;
 		border-radius: 20px;
+		color: var(--text-color);
 
 	}
 
@@ -456,6 +615,7 @@
 	  opacity: 0.8;
 	  /* background-color: rgba(255, 255, 255, 0.1); */
 	  transform: scale(1.1);	
+	  
 	}
 
 	  
@@ -478,20 +638,19 @@
 		justify-content: center;
 		/* padding: 10px; */
 		width: 100%;
+		font-family: var(--font-family);
 
 	}
 
 	.nav-link {
 		display: flex;
 		gap: 8px;
-		font-family: 'Courier New', Courier, monospace;
 		font-weight: 400;
 		justify-content: center;
 		align-items: center;
 		/* background-color: red; */
 		border-radius: 10px;
 		padding: 5px 10px;
-		color: rgb(255, 255, 255);
         text-decoration: none;
         font-size: 20px;
         /* padding: 5px 10px; */
@@ -499,6 +658,7 @@
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		/* border-left: 1px solid rgb(130, 130, 130); */
 		user-select: none;
+
     }
 
 	.nav-link:hover {
@@ -538,6 +698,53 @@
 		/* opacity: 0.8; */
 		background-color: #222222;
 		border: none;
+	}
+
+
+	.language-overlay {
+		position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1002;
+	}
+
+	.language-notification {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: var(--primary-color);
+        color: var(--text-color);
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+		border: 1px solid var(--tertiary-color);
+		display: flex;
+		flex-direction: column;
+		text-justify: center;
+		justify-content: center;
+		align-items: center;
+		gap: 2rem;
+		font-size: 24px;
+
+    }
+
+    .language-notification p {
+        margin: 0;
+    }
+
+	.quote {
+		font-size: 16px;
+		font-style: italic;
+		line-height: 1.5;
+
+
 	}
 
 	.menu-button {
@@ -584,6 +791,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+
     }
 
  
@@ -672,14 +880,12 @@
 	
 	h2 {
         font-size: 1.5rem;
-        color: #fff;
     }
 	button {
 		display: flex;
 		justify-content: center;
 		text-align: center;
-		background-color: #222222;
-		color: white;
+		color: var(--text-color);
 		font-size: 1rem;
 		border-radius: 8px;
 		border: 2px solid #222222;
@@ -704,21 +910,42 @@
 	  bottom: 0;
 	  height: 0;
 	}
+
+	.style-switcher-container {
+        display: flex;
+        align-items: center;
+        margin-right: 16px;
+        z-index: 1001;
+    }
 	.profile-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.2);
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 1002;
-		
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
     }
 
-
+	.profile-content {
+        position: absolute;
+		width: 92%;
+		height: auto;
+		top: 60px;
+        /* background-color: #2b2a2a; */
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+        backdrop-filter: blur(40px);   
+		border: 1px solid var(--tertiary-color);
+        padding: 2rem;
+        border-radius: 50px;
+        /* width: 90%; */
+        /* max-width: 500px; */
+        /* max-height: 90vh; */
+        overflow: none;
+    }
 	.auth-overlay {
         position: fixed;
         top: 0;

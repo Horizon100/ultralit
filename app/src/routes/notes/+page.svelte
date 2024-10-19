@@ -449,6 +449,8 @@ onMount(() => {
         align-items: center;
         padding-top: 10px;
         gap: 4px;
+        border-radius: 50px;
+
 
     }
     
@@ -592,6 +594,8 @@ onMount(() => {
     .editor-toolbar button:hover {
         background-color: #3a3a3a;
     }
+
+
 
 
 

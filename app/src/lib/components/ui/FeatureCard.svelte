@@ -14,7 +14,7 @@
 </script>
 
 <div class="card-container">
-    <div class="card"  on:click={toggleExpand}>
+    <div class="card" class:selected={isExpanded} on:click={toggleExpand}>
         <h3>{title}</h3>
         <span class="plan-type">{isPro ? 'Pro' : 'Free'}</span>
         <ul>
@@ -22,7 +22,7 @@
                 <li>{feature}</li>
             {/each}
         </ul>
-        <span class="toggle-btn" >
+        <span class="toggle-btn">
             <span class="icon-wrapper" class:rotated={isExpanded}>
                 <ChevronDown size={24} color="white" />
             </span>
@@ -40,27 +40,44 @@
     {/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
+
+    * {
+		font-family: var(--font-family);
+
+        /* font-family: 'Merriweather', serif; */
+        /* font-family: Georgia, 'Times New Roman', Times, serif; */
+    }
     .card-container {
         display: inline-block;
         min-width: 250px;
+        max-width: 300px;
         margin: 1rem;
         vertical-align: top;
     }
 
     .card {
-        background-color: #2b2a2a;
+        background: var(--bg-gradient-r);
         padding: 2rem;
         text-align: center;
-        transition: all 0.3s ease;
+        transition: border 0.3s ease;
         position: relative;
-        height: 200px;
+        border: 1px solid var(--bg-color);
+        border-radius: 20px;
+        height: auto;
         z-index: 10;
+        &.selected {
+            border: 1px solid var(--tertiary-color);
+            /* You can add more styles for the selected state here */
+        }
     }
 
     .card:hover {
-        background-color: #3a3939;
+        border: 1px solid var(--tertiary-color);
     }
+
+
 
     .card h3 {
         font-size: 1.5rem;
@@ -114,14 +131,19 @@
     }
 
     .expanded-content {
-        background-color: #2b2a2a;
+        background: var(--bg-gradient);
         position: relative;
-        width: 100%;
         z-index: 11;
         margin-top: -17px;
-        padding: 20px 0;
-        
+        padding: 2rem;
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+        border-left: 1px solid var(--tertiary-color);
+        border-right: 1px solid var(--tertiary-color);
+        border-bottom: 1px solid var(--tertiary-color);
     }
+
+
 
     @media (max-width: 991px) {
         .card-container {

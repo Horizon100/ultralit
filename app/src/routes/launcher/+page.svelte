@@ -492,7 +492,6 @@
     margin-left: auto;
     margin-right: auto;
     width: 96%;
-    top: 60px;
     right: 2%;
     height: 90vh;
     display: flex;

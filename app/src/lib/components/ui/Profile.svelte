@@ -4,6 +4,7 @@
     import { Camera, LogOutIcon } from 'lucide-svelte';
     import { currentUser } from '$lib/pocketbase';
     import { createEventDispatcher } from 'svelte';
+    import { t } from '$lib/stores/translationStore';
 
     export let user: any;
     export let onClose: () => void;
@@ -51,7 +52,7 @@
     <div class="modal-content" on:click|stopPropagation>
         <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
             <LogOutIcon size={24} />
-            <span>Logout</span>
+            <span>{$t('profile.logout')}</span>
         </button>
         {#if user}
             <div class="profile-header">
@@ -74,7 +75,9 @@
             </div>
             <div class="profile-info">
                 <div class="info-row">
-                    <span class="label">Name:</span>
+                    <span class="label">
+                        <span>{$t('profile.name')}</span>
+                    </span>
                     {#if isEditing}
                         <input bind:value={editedUser.name} />
                     {:else}
@@ -82,34 +85,52 @@
                     {/if}
                 </div>
                 <div class="info-row">
-                    <span class="label">Email:</span>
+                    <span class="label">
+                        <span>{$t('profile.email')}</span>
+                    </span>
                     <span>{user.email}</span>
                 </div>
                 <div class="info-row">
-                    <span class="label">Role:</span>
+                    <span class="label">
+                        <span>{$t('profile.role')}</span>
+                    </span>
                     <span>{user.role}</span>
                 </div>
                 <div class="info-row">
-                    <span class="label">Created:</span>
+                    <span class="label">
+                        <span>{$t('profile.created')}</span>
+                    </span>
                     <span>{new Date(user.created).toLocaleString()}</span>
                 </div>
                 <div class="info-row">
-                    <span class="label">Updated:</span>
+                    <span class="label">
+                        <span>{$t('profile.updated')}</span>
+                    </span>
                     <span>{new Date(user.updated).toLocaleString()}</span>
                 </div>
                 <div class="info-row">
-                    <span class="label">Verified:</span>
+                    <span class="label">
+                        <span>{$t('profile.verified')}</span>
+                    </span>
                     <span>{user.verified ? 'Yes' : 'No'}</span>
                 </div>
             </div>
             <div class="actions">
                 {#if isEditing}
-                    <button on:click={saveChanges}>Save</button>
-                    <button on:click={toggleEdit}>Cancel</button>
+                    <button on:click={saveChanges}>
+                        <span>{$t('profile.save')}</span>
+                    </button>
+                    <button on:click={toggleEdit}>
+                        <span>{$t('profile.edit')}</span>
+                    </button>
                 {:else}
-                    <button on:click={toggleEdit}>Edit</button>
+                    <button on:click={toggleEdit}>
+                        <span>{$t('profile.edit')}</span>
+                    </button>
                 {/if}
-                <button on:click={onClose}>Close</button>
+                <button on:click={onClose}>
+                    <span>{$t('profile.close')}</span>
+                </button>
             </div>
         {:else}
             <div class="no-user-message">
@@ -119,8 +140,16 @@
     </div>
 </div>
 
-<style>
-    .modal-overlay {
+<style lang="scss">
+	@use "src/themes.scss" as *;
+  * {
+    /* font-family: 'Merriweather', serif; */
+    /* font-family: 'Roboto', sans-serif; */
+    /* font-family: 'Montserrat'; */
+    font-family: var(--font-family);
+    color: var(--text-color);
+
+  }    .modal-overlay {
         /* position: fixed; */
         top: 60px;
         left: 0;
@@ -133,7 +162,7 @@
         z-index: 1000;
         /* width: 100%; */
         display: flex;
-        /* background-color: #131313; */
+        /* background-color: #131313;
         color: #ffffff;
         /* border: 1px solid rgb(53, 53, 53); */
         border-radius: 20px;
@@ -254,7 +283,8 @@
         border-radius: 4px;
         cursor: pointer;
         font-size: 1rem;
-        transition: background-color 0.3s;
+        background: var(--secondary-color);
+        transition: all ease 0.3s;
     }
 
     button:hover {
@@ -267,5 +297,12 @@
         position: absolute;
         right: 20px;
         top: 20px;
+        background-color: red;
+        color: white;
+    }
+
+    .logout-button span {
+        color: white;
+        
     }
 </style>

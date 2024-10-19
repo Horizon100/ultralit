@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount, createEventDispatcher, tick } from 'svelte';
+  import { get } from 'svelte/store';
+  import { currentLanguage } from '$lib/stores/languageStore';    
   import AIChat from '$lib/components/ai/AIChat.svelte';
   import { quintOut } from 'svelte/easing';
   import { pb, currentUser} from '$lib/pocketbase';
@@ -10,7 +12,6 @@
   import { ArrowRight, Paperclip, CheckCircle, Bot, Clock, MessageSquare, Tag, User } from 'lucide-svelte';
   import { createAgentWithSummary, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { goto } from '$app/navigation';
-  import { quotes } from '$lib/quotes';
   import ModelSelector from './ModelSelector.svelte';
   import PromptSelector from '../ai/PromptSelector.svelte';
   import { fly, fade, blur } from 'svelte/transition';
@@ -19,12 +20,33 @@
   import { navigating } from '$app/stores';
   import { isNavigating } from '$lib/stores/navigationStore';
   import { fetchThreads, fetchMessagesForThread, addMessageToThread, updateThread, updateMessage, createThread } from '$lib/threadsClient';
+  import { t } from '$lib/stores/translationStore';
 
   export let x: number;
   export let y: number;
   export let aiModel: AIModel;
   export let userId: string = crypto.randomUUID();
   export let availableModels: AIModel[] = []; 
+
+  let showFade = false;
+
+  let pageReady = false;
+
+  $: if ($currentLanguage) {
+      updatePageContent();
+  }
+
+  async function updatePageContent() {
+      pageReady = false;
+      await tick();
+      pageReady = true;
+  }
+
+  onMount(() => {
+    setTimeout(() => showFade = true, 200);
+
+      updatePageContent();
+  });
 
   let seedPrompt = '';
   let showChat = false;
@@ -38,9 +60,20 @@
 
   let isTextareaFocused = false;
   let placeholderText = '';
-  let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
-  $: placeholderText = isTextareaFocused ? "Start writing..." : currentQuote;
+  function getRandomQuote() {
+		const quotes = $t('extras.quotes');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
+
+  function getPlaceholder() {
+    return $t('landing.textplaceholder');
+}
+
+
+$: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
+
+  
 
   let textareaElement: HTMLTextAreaElement | null = null;
   let isAuthenticated = false;
@@ -116,6 +149,24 @@
 
     return grouped;
   }
+
+  function adjustFontSize(element: HTMLTextAreaElement) {
+    const maxFontSize = 40;
+    const minFontSize = 20;
+    const maxLength = 600; // Adjust this value to determine when to start shrinking the font
+
+    const contentLength = element.value.length;
+    
+    if (contentLength <= maxLength) {
+        element.style.fontSize = `${maxFontSize}px`;
+    } else {
+        const fontSize = Math.max(
+            minFontSize,
+            maxFontSize - (contentLength - maxLength) / 2
+        );
+        element.style.fontSize = `${fontSize}px`;
+    }
+}
 
   $: groupedThreads = groupThreadsByDate(threads);
 
@@ -313,7 +364,7 @@
     seedPrompt = '';
     showChat = false;
     showIntro = true;
-    currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    getRandomQuote
   }
 
   async function handleFinalize() {
@@ -470,112 +521,123 @@ onMount(async () => {
     return date.toLocaleString();
   }
 
+  $: {
+    if ($t) {
+        placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
+    }
+}
+
 </script>
-<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
+{#if pageReady}
+  <div class="seed-container" transition:fade={{ duration: 300 }}>
+    <div class="modal" in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
+      {#if !showChat}
+        {#if !showConfirmation}
+          <div class="seed-prompt-input" transition:blur={{ duration: 300 }}>
+            <div class="text-container" on:click={handleOverlayClick}>
+              <textarea 
+                bind:this={textareaElement} 
+                bind:value={seedPrompt} 
+                placeholder={placeholderText}
+                on:keydown={handleKeydown}
+                on:focus={handleTextareaFocus}
+                on:blur={handleTextareaBlur}
+                on:input={(e) => adjustFontSize(e.target)}
 
-<div class="seed-container" transition:fade={{ duration: 300 }}>
-  <div class="modal" in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
-    {#if !showChat}
-      {#if !showConfirmation}
-        <div class="seed-prompt-input" transition:blur={{ duration: 300 }}>
-          <div class="text-container" on:click={handleOverlayClick}>
-            <textarea 
-              bind:this={textareaElement} 
-              bind:value={seedPrompt} 
-              placeholder={placeholderText}
-              on:keydown={handleKeydown}
-              on:focus={handleTextareaFocus}
-              on:blur={handleTextareaBlur}
-            ></textarea>
-          </div>
-          <div class="button-row">
-            {#if attachment}
-              <button class="attachment-icon" on:dblclick={deleteAttachment}>
-                <Paperclip size="20" color="white" />
-                <span class="file-name">{attachment.name}</span>
+              ></textarea>
+            </div>
+            <div class="button-row">
+              {#if attachment}
+                <button class="attachment-icon" on:dblclick={deleteAttachment}>
+                  <Paperclip size="20" color="white" />
+                  <span class="file-name">{attachment.name}</span>
+                </button>
+              {/if}
+              <ModelSelector models={availableModels} selectedModel={aiModel} on:select={handleModelSelection} />
+              <PromptSelector on:select={handlePromptSelection} />
+              <button on:click={handleUpload}>
+                <Paperclip  />
               </button>
-            {/if}
-            <ModelSelector models={availableModels} selectedModel={aiModel} on:select={handleModelSelection} />
-            <PromptSelector on:select={handlePromptSelection} />
-            <button on:click={handleUpload}>
-              <Paperclip size="20" color="white" />
-            </button>
-            <button on:click={handleSeedPromptSubmit}>
-              <ArrowRight size="20" color="white" />
-            </button>
-          </div>
-          <div class="thread-columns">
-            <div class="stats-container">
-              <h2>Your vRazum experience</h2>
-              <div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
-                <span>{threadCount} Threads</span>
-                <span class="target">1000 ✰</span>
-              </div>
-            
-              <div class="stat-item" style="--progress: {calculatePercentage(messageCount, 1000)}%">
-                <span>{messageCount} Messages</span>
-                <span class="target">1000 ✰</span>
-              </div>
-            
-              <div class="stat-item" style="--progress: {calculatePercentage(tagCount, 1000)}%">
-                <span>{tagCount} Tags</span>
-                <span class="target">1000 ✰</span>
-              </div>
-            
-              <div class="stat-item" style="--progress: {calculatePercentage(timerCount, 3600)}%">
-                <span>{formatTimerCount(timerCount)}</span>
-                <span class="target">1000 ✰</span>
-              </div>
-            
-              <div class="last-active">
-                Last Active: {formatDate(lastActive)}
-              </div>
+              <button on:click={handleSeedPromptSubmit}>
+                <ArrowRight />
+              </button>
             </div>
-            <div class="thread-list">
-              <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
-              {#each Object.entries(groupedThreads) as [dateGroup, threadsInGroup]}
-                <div class="thread-group">
-                  <h3>{dateGroup}</h3>
-                  {#each threadsInGroup as thread}
-                    <button on:click={() => handleThreadSelection(thread.id)}>
-                      <span class="thread-name">{thread.name}</span>
-                      <span class="message-count">
-                        ✉
-                        {getMessageCount(thread.id)} 
-                      </span>
-                    </button>
-                  {/each}
+            <div class="thread-columns">
+              
+              <div class="stats-container">
+                <h2>{$t('dashboard.title')}</h2>
+                <div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
+                  <span>{threadCount} {$t('dashboard.nameThreads')}</span>
+                  <span class="target">1000 ✰</span>
                 </div>
-              {/each}
+              
+                <div class="stat-item" style="--progress: {calculatePercentage(messageCount, 1000)}%">
+                  <span>{messageCount} {$t('dashboard.nameMessages')}</span>
+                  <span class="target">1000 ✰</span>
+                </div>
+              
+                <div class="stat-item" style="--progress: {calculatePercentage(tagCount, 1000)}%">
+                  <span>{tagCount} {$t('dashboard.nameTags')}</span>
+                  <span class="target">1000 ✰</span>
+                </div>
+              
+                <div class="stat-item" style="--progress: {calculatePercentage(timerCount, 3600)}%">
+                  <span>{formatTimerCount(timerCount)} {$t('dashboard.nameTimer')}</span>
+                  <span class="target">1000 ✰</span>
+                </div>
+              
+                <div class="last-active">
+                  {$t('dashboard.nameActive')} {formatDate(lastActive)}
+                </div>
+              </div>
+              <div class="thread-list">
+                <button class="add-button" on:click={handleCreateNewThread}>
+                  {$t('threads.newThread')}
+                </button>
+                {#each Object.entries(groupedThreads) as [dateGroup, threadsInGroup]}
+                  <div class="thread-group">
+                    <h3>{dateGroup}</h3>
+                    {#each threadsInGroup as thread}
+                      <button on:click={() => handleThreadSelection(thread.id)}>
+                        <span class="thread-name">{thread.name}</span>
+                        <span class="message-count">
+                          ✉
+                          {getMessageCount(thread.id)} 
+                        </span>
+                      </button>
+                    {/each}
+                  </div>
+                {/each}
+              </div>
             </div>
+              
           </div>
-            
+        {:else}
+        {#if showConfirmation}
+        <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
+          <div class="spinner">
+            <Bot size={40} class="bot-icon" />
+          </div>
+          <p>"{newThreadName}" thread created</p>
+          <button on:click={handleConfirmation}>Continue to Chat</button>
         </div>
-      {:else}
-      {#if showConfirmation}
-      <div class="confirmation" transition:fly={{ y: -20, duration: 300 }}>
-        <div class="spinner">
-          <Bot size={40} class="bot-icon" />
-        </div>
-        <p>New thread "{newThreadName}" created</p>
-        <button on:click={handleConfirmation}>Continue to Chat</button>
-      </div>
-    {/if}
+      {/if}
 
-    {/if}
-    {:else}
-      <AIChat 
-        {seedPrompt} 
-        {aiModel} 
-        {userId}
-        attachment={attachment?.file}
-        promptType={selectedPromptType}
-        on:summary={handleSummaryGeneration}
-        on:tasks={handleTasksGeneration}
-      />
-    {/if}
+      {/if}
+      {:else}
+        <AIChat 
+          {seedPrompt} 
+          {aiModel} 
+          {userId}
+          attachment={attachment?.file}
+          promptType={selectedPromptType}
+          on:summary={handleSummaryGeneration}
+          on:tasks={handleTasksGeneration}
+        />
+      {/if}
+    </div>
   </div>
-</div>
+{/if}
 
 {#if $isNavigating}
 <LoadingSpinner />
@@ -601,21 +663,19 @@ onMount(async () => {
   on:change={handleFileSelected}
 />
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
 
 * {
-  font-family: 'Merriweather', serif;
-  /* font-family: 'Merriweather', sans-serif; */
-  font-family: Georgia, 'Times New Roman', Times, serif;
-  /* font-family: 'Montserrat'; */
-
+  font-family: var(--font-family);
+  color: var(--text-color)
 }
   .modal {
     display: flex;
     flex-direction: column;
     /* border-radius: 40px; */
     /* padding: 10px; */
-    height: 90vh;
+    height: 100%;
     width: 100%;
     /* margin-top: 100px; */
     position: relative;
@@ -635,8 +695,8 @@ onMount(async () => {
   .thread-columns {
     display: flex;
     flex-direction: row;
-    width: 98%;
-    margin-left: 1rem;
+    height: 40vh;
+    
   }
 
   .stats-container {
@@ -714,6 +774,10 @@ onMount(async () => {
     transform:  translateX(-30px);   
   }
 
+  .stats-container {
+    background-color:  var(--secondary-color);;
+  }
+
   .stats-container h2 {
     display: flex;
     justify-content: right;
@@ -731,7 +795,6 @@ onMount(async () => {
     overflow: hidden;
     transition: all 0.5s ease;
     border-radius: 0.5rem;
-    font-family: 'Montserrat';
 
       background: linear-gradient(to right, 
       rgba(0, 128, 0, 0.2) var(--progress), 
@@ -752,9 +815,10 @@ onMount(async () => {
     right: 0;
     bottom: 0;
     background: linear-gradient(to right, 
-      rgba(0, 128, 0, 0.5) var(--progress), 
+      rgba(1, 149, 137, 0.5) var(--progress), 
       transparent var(--progress)
     );
+
     z-index: -1;
   }
 
@@ -777,10 +841,9 @@ onMount(async () => {
     justify-content:center;
     /* align-items: center; */
     /* margin-top: 25%; */
-    /* height: 100%; */
-    width: 94vw;
-    margin-right: 2rem;
-    margin-left: 2rem;
+
+
+
     gap: 10px;
     /* height: auto; */
     /* align-content: center; */
@@ -814,13 +877,7 @@ onMount(async () => {
   }
 
 
-  .text-container {
-    display: flex;
-    width: 98%;
-    margin-left: 1rem;
 
-
-  }
 
 
 
@@ -852,29 +909,32 @@ onMount(async () => {
     }
   }
 
-  textarea {
-    font-family: 'Merriweather', serif;
+  .text-container {
+    display: flex;
+    width: 100%;
+    
 
+  }
+
+  textarea {
     display: flex;
     position: relative;
     width: 100%;
-    margin-left: 2%;
+    padding: 2rem;
     top: 0;
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
-    padding: 10px;
     text-justify: center;
     justify-content: center;
     align-items: center;
     resize: none;
-    font-size: 30px;
+    font-size: 24px;
     letter-spacing: 1.4px;
     border: none;
     border-radius: 20px;
-    margin: 10px;
-
+    margin: 1rem;
     /* background-color: #2e3838; */
-    background-color: #21201d;
+    background-color: var(--secondary-color);
     color: #818380;
     line-height: 1.4;
     /* height: auto; */
@@ -893,12 +953,13 @@ onMount(async () => {
     border: 2px solid #000000;
     color: white;
     font-size: 40px;
-    padding: 10px 20px;
+    padding: 3rem;
     line-height: 1.4;
     margin: 10px;
     flex-direction: column;
-    background-color: #474747;
-    max-height: 600px;
+    background-color: var(--bg-color);
+    height: 30vh;
+    z-index: 3000;
     /* width: 100%; */
 
 
@@ -939,8 +1000,8 @@ onMount(async () => {
     justify-content: center;
     align-items: center;
     /* margin-bottom: 20px; */
-    background: rgb(54, 54, 54);    
-    color: black;
+    background-color: var(--bg-color);
+    color: var(--secondary-color);
     font-size: 18px;
     border: none;
     /* border: 2px solid #506262; */
@@ -951,8 +1012,9 @@ onMount(async () => {
   }
 
   button:hover {
-    background: #818380;
-    color: white;
+    background: var(--tertiary-color);
+    color: var(--bg-color);
+
   }
 
   p {
@@ -993,12 +1055,12 @@ onMount(async () => {
 
   .seed-container {
     display: flex;
+    width: 100%;
     /* max-width: 900px; */
     flex-direction: column;
     align-items: right;
     justify-content: center;
     gap: 20px;
-    height: 90vh;
     /* border: 7px solid black; */
     align-items: bottom;
     /* background-color: red; */
@@ -1052,9 +1114,10 @@ onMount(async () => {
     max-height: calc(100vh - 100px);   
     gap: 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 10px;
     color: black;
-    width: 50%;
+    width: 360px;
     border-radius: 20px;
     scroll-behavior: smooth;
     transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -1062,6 +1125,7 @@ onMount(async () => {
 
   .thread-group button {
     width: 100%;
+    
   }
 
  .thread-group {
@@ -1081,7 +1145,6 @@ onMount(async () => {
     position: relative;
     margin-bottom: 40px;
     justify-content: right;
-    font-family: 'Montserrat';
 
 
   }
@@ -1107,11 +1170,11 @@ onMount(async () => {
   border-radius: 10px;
   /* border-top-left-radius: 50px; */
   cursor: pointer;
-  background-color: rgb(71, 59, 59);
+  // background-color: rgb(71, 59, 59);
 position: relative;
   color: #fff;
   transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-  font-size: 24px;
+  font-size: 20px;
   justify-content: space-between;
   align-items: center;
   border-bottom-right-radius: 19px;
@@ -1119,13 +1182,13 @@ position: relative;
         border-top: 4px solid rgb(129, 160, 190);
         border-right: 1px solid black;
         border-bottom: 20px solid rgb(80, 80, 80);
-    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 20%, rgba(247, 247, 247, 0.2) 96%);       
+    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 20%, rgba(247, 247, 247, 0.2) 96%);       
 
 }
 
 
     .thread-list button:hover {
-        background-color: rgb(44, 62, 80);
+        background-color: var(--primary-color);
         transform: scale(1.1) translateX(60px) rotate(3deg);   
 
         letter-spacing: 4px;
@@ -1161,6 +1224,7 @@ position: relative;
       border-radius: 30px;
       transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       justify-content: center;
+      color: var(--tertiary-color)
 
 
       /* margin-bottom: 2rem; */
@@ -1168,15 +1232,9 @@ position: relative;
 
     .thread-list .add-button:hover {
         background-color: #2c3e50;
-        transform: scale(1.1)  translateY(20px) rotate(0deg);          
-        letter-spacing: 4px;
-        padding: 20px;
+        transform: scale(0.9)  translateY(20px) rotate(5deg);          
         width: 100%;
-        z-index: 10;
-        border-top-right-radius: 10px;         
-      font-size: 30px;
-      border-radius: 0;
-      border: none;
+
       background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(44, 193, 216, 0.2) 50%);       
       justify-content: center;
       /* margin-bottom: 2rem; */
@@ -1268,8 +1326,8 @@ position: relative;
   }
 
   .arrow-overlay {
-        position: fixed;
-        top: 100px;
+        position: absolute;
+        top: -200px;
         left: 0;
         width: 100%;
         height: 100%;

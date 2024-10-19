@@ -17,6 +17,7 @@ import { fade, fly, scale, slide } from 'svelte/transition';
 	import ModelSelector from './ModelSelector.svelte';
   import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
+  import { t } from '$lib/stores/translationStore';
 
 
   export let seedPrompt: string = '';
@@ -137,36 +138,49 @@ threadsStore.subscribe(state => {
   $: groupedMessages = groupMessagesByDate(messages);
 
   function groupMessagesByDate(messages: InternalChatMessage[]): { date: string; messages: InternalChatMessage[]; isRecent: boolean }[] {
-    const groups: { [key: string]: InternalChatMessage[] } = {};
-    const today = new Date().setHours(0, 0, 0, 0);
-    const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
+  const groups: { [key: string]: InternalChatMessage[] } = {};
+  const today = new Date().setHours(0, 0, 0, 0);
+  const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
 
-    messages.forEach(message => {
-      const messageDate = new Date(message.created).setHours(0, 0, 0, 0);
-      let dateKey: string;
+  messages.forEach(message => {
+    const messageDate = new Date(message.created).setHours(0, 0, 0, 0);
+    let dateKey = new Date(messageDate).toISOString().split('T')[0];
+    let displayDate: string;
 
-      if (messageDate === today) {
-        dateKey = 'Today';
-      } else if (messageDate === yesterday) {
-        dateKey = 'Yesterday';
-      } else {
-        dateKey = new Date(messageDate).toISOString().split('T')[0];
-      }
+    if (messageDate === today) {
+      displayDate = $t('threads.today');
+    } else if (messageDate === yesterday) {
+      displayDate = $t('threads.yesterday');
+    } else {
+      displayDate = dateKey;
+    }
 
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(message);
-    });
+    if (!groups[dateKey]) {
+      groups[dateKey] = { messages: [], displayDate };
+    }
+    groups[dateKey].messages.push(message);
+  });
 
-    return Object.entries(groups)
-      .map(([date, messages]) => ({ date, messages }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortedGroups = Object.entries(groups)
+    .map(([date, { messages, displayDate }]) => ({ 
+      date, 
+      displayDate,
+      messages, 
+      isRecent: false 
+    }))
+    .sort((a, b) => new Date(b.date).getTime() + new Date(a.date).getTime());
+
+  // Mark the last group as isRecent
+  if (sortedGroups.length > 0) {
+    sortedGroups[sortedGroups.length - 1].isRecent = true;
   }
+
+  return sortedGroups;
+}
 
   function formatDate(date: string): string {
     if (date === 'Today' || date === 'Yesterday') return date;
-    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });  
   }
 
   function getTotalMessages(): number {
@@ -303,14 +317,14 @@ function getThreadDateGroup(thread: Threads): string {
   const threadDate = new Date(thread.updated);
   const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return 'This Week';
-  if (diffDays < 30) return 'This Month';
-  return 'Older';
+  if (diffDays === 0) return $t('threads.today');
+  if (diffDays === 1) return $t('threads.yesterday');
+  if (diffDays < 7) return $t('threads.lastweek');
+  if (diffDays < 30) return $t('threads.thismonth');
+  return $t('threads.older');
 }
 
-const groupOrder = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
+const groupOrder = [$t('threads.today'), $t('threads.today'), $t('threads.lastweek'), $t('threads.thismonth'), $t('threads.older')];
 
 $: groupedThreads = threads.reduce((acc, thread) => {
   const group = getThreadDateGroup(thread);
@@ -352,13 +366,13 @@ function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
 
 let expandedGroups: Set<string> = new Set();
 
-function toggleGroupExpansion(groupId: string) {
-  if (expandedGroups.has(groupId)) {
-    expandedGroups.delete(groupId);
+function toggleGroupExpansion(displayDate: string) {
+  if (expandedGroups.has(displayDate)) {
+    expandedGroups.delete(displayDate);
   } else {
-    expandedGroups.add(groupId);
+    expandedGroups.add(displayDate);
   }
-  expandedGroups = expandedGroups; // Trigger reactivity
+  expandedGroups = new Set(expandedGroups); // Trigger reactivity
 }
 
 let isLoadingMessages = false;
@@ -428,7 +442,7 @@ function scrollToBottom() {
 }
 
 afterUpdate(() => {
-  scrollToBottom();
+  // scrollToBottom();
 });
 
 
@@ -1335,7 +1349,9 @@ $: if (currentThreadId) {
   <div class="threads-container" transition:fly="{{ y: 300, duration: 300 }}" class:thread-list-visible={showThreadList}>
     {#if showThreadList}
     <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
-      <button class="add-button" on:click={handleCreateNewThread}>+ New Thread</button>
+      <button class="add-button" on:click={handleCreateNewThread}>
+        {$t('threads.newThread')}
+      </button>
       <div class="tag-list">
         {#each availableTags as tag (tag.id)}
           <div class="tag-item">
@@ -1373,7 +1389,7 @@ $: if (currentThreadId) {
       </div>
       <button class="add-tag" on:click={toggleTagCreation}>
         <Plus />
-        Add tag
+        {$t('threads.newTag')}
       </button>
       {#if editingTagIndex !== null}
         <div class="new-tag-input">
@@ -1434,7 +1450,9 @@ $: if (currentThreadId) {
                 {currentThread.name}
               </h1>
             {/if}
-            <span>{messages.length} messages</span>
+            <span>{messages.length}
+              {$t('chat.messagecount')}
+            </span>
 
           </div>
           {/if}
@@ -1489,14 +1507,14 @@ $: if (currentThreadId) {
             </div>
           {/if}
         {:else}
-          <h1>Select a thread</h1>
+          <h1>{$t('threads.selectThread')}</h1>
         {/if}
       </div>
         <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
           {#if isLoadingMessages}
             <div class="loading-overlay">
               <div class="spinner"></div>
-              <p>Loading messages...</p>
+              <p>{$t('chat.loading')}</p>
             </div>
           {/if}
           <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
@@ -1634,7 +1652,8 @@ $: if (currentThreadId) {
       }}      
       on:focus={handleTextareaFocus}
       on:blur={handleTextareaBlur}
-      placeholder="Type your message..."
+      placeholder={$t('chat.placeholder')}
+
       disabled={isLoading}
       rows="1"
   ></textarea>
@@ -1673,11 +1692,13 @@ $: if (currentThreadId) {
 {/if}
 <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
 
-  <style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
   * {
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', sans-serif; */
-    font-family: 'Montserrat';
+    /* font-family: 'Montserrat'; */
+    /* color: var(--text-color); */
 
   }
     .threads-container {
@@ -1740,7 +1761,7 @@ $: if (currentThreadId) {
   }
 
   .title-container:hover {
-    background-color: rgba(149, 149, 149, 0.3);
+    background-color: var(--bg-color);
   }
 
   .title-container span {
@@ -1762,15 +1783,14 @@ $: if (currentThreadId) {
 
 
   .thread-info input  {
-    background-color: rgb(0, 0, 0);
+    background-color: var(--primary-color);
     border-bottom: 1px solid rgb(134, 134, 134);
-    border-radius: 0;
     width: auto;
     height: 40px;
     padding: 0 20px;
     margin-right: 2rem;
-    margin-bottom: 0;
     font-size: 24px;
+    border-radius: 0;
 
   }
     .chat-messages {
@@ -1791,7 +1811,8 @@ $: if (currentThreadId) {
       width: 100%;
       border-radius: 50px;
       padding-bottom: 40px;
-      border: 1px solid rgb(41, 41, 41);
+      border: 2px solid var(--bg-color);
+      background-color: var(--secondary-color);
 
       background: linear-gradient (
         90deg,
@@ -2037,12 +2058,12 @@ $: if (currentThreadId) {
       /* align-self: flex-end; */
       text-justify: center;
       justify-content: center;
-      margin-right: 20px;
+      margin-right: 2rem;
       width: auto;  
       /* background: #3c3b35; */
           /* background-color: #2e3838; */
       border-radius: 20px;
-      color: white;
+      color: var(--text-color);
       /* border-left: 2px solid #585858; */
       /* border-top: 2px solid #585858; */
       
@@ -2061,16 +2082,18 @@ $: if (currentThreadId) {
     }
 
     .message.user p {
-      font-weight: 600;
+      /* font-weight: 600; */
       font-size: 1.2rem;
-      background: #21201d;
-      padding: 20px 10px;
+      background: var(--secondary-color);
+      padding: 20px;
       border-radius: 20px;
+      border: 1px solid var(--primary-color);
     }
 
     .message.assistant p {
-      font-weight: 600;
+      /* font-weight: 600; */
       font-size: 1.2rem;
+      color: var(--text-color)
     }
 
 
@@ -2169,6 +2192,8 @@ $: if (currentThreadId) {
 .thread-info h1 {
   margin: 0;
   padding: 10px 0;
+  color: var(--text-color)
+
 }
 
 .thread-info.minimized h1 {
@@ -2187,15 +2212,6 @@ $: if (currentThreadId) {
 
 
 
-.tag-list:hover {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: right;
-  gap: 5px;
-  margin-bottom: 10px;
-  background-color: rgba(149, 149, 149, 0.3);
-  height: auto;
-}
 
 
 .tag {
@@ -2226,7 +2242,7 @@ span.delete-tag-button {
   cursor: pointer;
   padding: 2px;
   margin-left: 2px;
-  color: white;
+  color: var(--text-color);
   opacity: 0.7;
   transition: all ease 0.3s;
 }
@@ -2249,6 +2265,7 @@ span.delete-tag-button:hover {
   padding: 2px;
   border-radius: 15px;
   margin-left: 1rem;
+  
 }
 
 .tag-edit-container input {
@@ -2266,7 +2283,7 @@ span.save-tag-button {
   border: none;
   cursor: pointer;
   margin-left: 2px;
-  color: white;
+  color: var(--text-color);
   opacity: 0.7;
   transition: all ease 0.3s;
 
@@ -2293,7 +2310,7 @@ button.tag.selected {
 }
 
 button.add-tag {
-  background-color: rgb(0, 0, 0);
+  background-color: var(--primary-color);
   border-radius: 15px;
   padding: 5px 10px;
   font-size: 12px;
@@ -2306,20 +2323,31 @@ button.add-tag {
   align-items: center;
 }
 
+button.add-tag:hover {
+  background-color: var(--tertiary-color);
+
+}
+
 span.new-tag {
   border: none;
-    color: #606060;
     cursor: pointer;
     padding: 6px;
     display: flex;
     position: relative;
-    justify-content: right;
+    justify-content: center;
     transition: all ease 0.3s;
+    background-color: var(--bg-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+
 }
 
 span.new-tag:hover {
-    color: rgb(0, 248, 166);
-    transform: scale(1.5);
+    background-color: var(--tertiary-color);
+    color: var(--text-color);
+    transform: scale(1.1);
 
   }
 
@@ -2333,7 +2361,6 @@ span.new-tag:hover {
   margin-bottom: 10px;
   width: 96%;
   margin-left: 2%;
-  background-color: rgb(0, 0, 0);
 
 }
 
@@ -2341,7 +2368,7 @@ span.new-tag:hover {
   flex-grow: 1;
   border: 1px solid #ccc;
   border-radius: 15px;
-  background-color: #353535;
+  background-color:  var(--secondary-color);
   padding: 5px 10px;
   font-size: 12px;
   color: white;
@@ -2425,6 +2452,7 @@ span.new-tag:hover {
   height: 30px;
   transition: width 0.3s ease-in-out;
   width: 100%;
+  margin-top: 1rem;
 }
 
 .reaction-toggle {
@@ -2437,9 +2465,9 @@ span.new-tag:hover {
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: black;
+  color: var(--text-color);
   cursor: pointer;
-  background-color: #3f3f3f;
+  background-color: var(--tertiary-color);
   border-radius: 15px;
 }
 
@@ -2459,7 +2487,7 @@ span.new-tag:hover {
 
 .reaction-buttons:hover {
   backdrop-filter: blur(10px);
-  background-color: rgba(110, 110, 110, 0.35);
+
 }
 
 .reaction-btn {
@@ -2475,6 +2503,9 @@ span.new-tag:hover {
   transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
+  color: var(--text-color);
+
+  
 }
 
 .reaction-count {
@@ -2647,7 +2678,7 @@ span.new-tag:hover {
     background-color: #21201d;    
     color: white;
     /* border: 2px solid rgb(0, 0, 0); */
-    border: 1px solid rgba(53, 63, 63, 0.3);
+    border: none;
     border-radius: 30px;
     cursor: pointer;
     transition: background-color 0.3s;
@@ -2656,10 +2687,6 @@ span.new-tag:hover {
     justify-content: center;
   }
 
-  button:hover {
-    background: #000000;
-    /* box-shadow: 0 0 10px rgba(0,0,0,0.1); */
-  }
 
 
 
@@ -2948,8 +2975,8 @@ span {
     padding: 0 10px;
     overflow-y: hidden;
     overflow-x: hidden;
-    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     transition: all ease 0.3s;
+
   }
 
 
@@ -2995,10 +3022,10 @@ span {
   /* width: 100%; */
   position: relative;
   /* border: 10px solid rgb(0, 0, 0); */
-  border-left: 14px solid rgb(24, 24, 24);
-  border-top: 1px solid rgb(21, 21, 21);
-
-  border-bottom: 14px solid rgb(15, 15, 15);
+  border-left: 14px solid var(--secondary-color);
+  border-top: 1px solid  var(--bg-color);
+  background-color: var(--tertiary-color);
+  border-bottom: 14px solid  var(--bg-color);
   border-right: 1px solid rgb(59, 59, 59);
   
   border-bottom-left-radius: 0px;
@@ -3023,7 +3050,7 @@ span {
       flex-direction: row;
       justify-content: space-between;
       align-items: center;
-
+      background-color: var(--secondary-color);
       /* margin-left: 5%; */
       padding: 20px 20px;
       margin-bottom: 10px;
@@ -3041,7 +3068,7 @@ span {
   }
 
     .thread-list button:hover {
-      background-color: #3f3f3f;
+      /* background-color: #3f3f3f; */
       transform: scale(0.97) translateX(-3px) translateY(5px) rotate(0deg);          
       
         letter-spacing: 4px;
@@ -3073,10 +3100,9 @@ span {
     }
 
     .thread-list .add-button:hover {
-      background: #f4f4f4;
+      background: var(--tertiary-color);
         transform:  translateX(5px);          
         letter-spacing: 4px;
-        color: black;
         /* padding: 230px 0; */
         /* height: 300px; */
             animation: pulsate 0.5s infinite alternate;
@@ -3201,7 +3227,7 @@ span {
   }
 
   .thread-list button.selected {
-    background-color: #2c3e50;
+    background-color: var(--tertiary-color);
     font-weight: bold;
   }
 
@@ -3336,6 +3362,7 @@ span {
   justify-content: right;
   align-items: right;
   gap: 5px;
+  margin-top: 1rem;
   /* height: 50px; */
   border-radius: 20px;
   transition: all ease 0.3s;
@@ -3362,6 +3389,16 @@ span {
   transition: all ease 0.3s;
 
 
+}
+
+.tag-list:hover {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: right;
+  gap: 5px;
+  margin-bottom: 10px;
+  background-color: var(--bg-color);
+  height: auto;
 }
 
   .assigned-tags {
@@ -3432,8 +3469,8 @@ span {
     justify-content: flex-end;
     align-items: right;
     padding: 20px;
-    background-color: rgba(255, 255, 255, 0.1);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%);
+    background: var(--bg-gradient);
+    /* background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%); */
     margin: 10px 10px;
     /* border-radius: 5px; */
     cursor: pointer;
@@ -3492,19 +3529,21 @@ span {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    border-top-right-radius: 50px;
+    border-bottom-right-radius: 50px;
     color: white;
     z-index: 1000;
-    border-radius: 50px;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(20px);
   }
 
   .spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
+    border: 4px solid var(--text-color);
+    border-top: 4px solid var(--tertiary-color);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -3531,7 +3570,6 @@ span {
     width: 90%;
     margin-left: 3.5rem;
     justify-content: space-between;
-    background-color: rgb(0, 0, 0);
 
   }
 
@@ -3539,7 +3577,7 @@ span {
     flex-grow: 1;
     border: 1px solid #ccc;
     border-radius: 15px;
-    background-color: #353535;
+    background-color: var(--bg-color);
     padding: 5px 10px;
     color: white;
     font-size: 16px;
@@ -3625,6 +3663,7 @@ span {
   .chat-messages {
     width: auto;
     margin-right: 1rem;
+    
   }
 
   .thread-list-visible .chat-container {
@@ -3696,6 +3735,8 @@ span {
     justify-content: center;
     align-items: center;
     margin-left: 3.5rem;
+    background-color: var(--tertiary-color);
+
 }
 
   .input-container {
@@ -3726,6 +3767,12 @@ span {
     margin-left: 0;
     margin-top: 1rem;
     background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    border: none;
+  }
+
+  .chat-messages {
+    border: none;
+    background: none;
   }
 }
 </style>

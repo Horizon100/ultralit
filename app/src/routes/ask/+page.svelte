@@ -56,45 +56,45 @@
 
 
   
-  <style>
-
-:global(.loading-spinner) {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
+<style lang="scss">
+	@use "src/themes.scss" as *;
+  :global(.loading-spinner) {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
     }
-      main {
-        display: flex;
-        flex-direction: column;
-        position: absolute;
-        width: 96%;
-        right: 2%;
-        top: 60px;
-        height: 90vh;
-          text-align: center;
-          justify-content: right;
-          align-items: right;
-          /* padding: 1em; */
-          /* height: 94vh; */
-          /* width: 59%; */
-          /* margin-left: 50%; */
-          /* margin-top: 25%; */
-          /* max-width: 240px; */
-          /* margin: 0 auto; */
-          color: #FFD700;
-          border-radius: 50px;
-          transition: all ease 0.3s;
-          background: #000000;
-          animation: pulsate 1.5s infinite alternate;
+    main {
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      width: 98%;
+      right: 1%;
+      height: 90vh;
+        text-align: center;
+        justify-content: right;
+        align-items: right;
+        /* padding: 1em; */
+        /* height: 94vh; */
+        /* width: 59%; */
+        /* margin-left: 50%; */
+        /* margin-top: 25%; */
+        /* max-width: 240px; */
+        /* margin: 0 auto; */
+        color: #FFD700;
+        border-radius: 50px;
+        transition: all ease 0.3s;
 
-      }
+        background-color: var(--primary-color);
+        animation: pulsate 1.5s infinite alternate;
+
+    }
 
       @keyframes pulsate {
     0% { box-shadow: 0 0 5px #f8f8f8, 0 0 2px #39ff88; }

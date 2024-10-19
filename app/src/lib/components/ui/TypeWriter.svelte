@@ -42,17 +42,21 @@
 
 <p>{displayText}{#if !isTypingComplete}<span class:blink={!showCursor}>|</span>{/if}</p>
 
-<style>
+
+<style lang="scss">
+	@use "src/themes.scss" as *;
+
+    
     p {
         line-height: 1.5;
         text-align: justify;
         
         font-size: 1.2rem;
-        color: #fff;
+		color: var(--text-color);
         margin-top: 2rem;
         font-size: 32px;
-        width: 50%;
-        margin-left: 25%;
+        // width: 50%;
+        // margin-left: 25%;
         display: flex;
     }
 
@@ -61,12 +65,14 @@
         transition: opacity 0.1s;
     }
 
-    @media (max-width: 1199px) {
-        p {
-            width: 98%;
-            margin-left: 1%;
-        }
-    }
+    // @media (max-width: 1199px) {
+    //     p {
+    //         width: 90%;
+    //         margin-left: 5%;
+    //     }
+    // }
+
+    
 
     @media (max-width: 767px) {
         p {
