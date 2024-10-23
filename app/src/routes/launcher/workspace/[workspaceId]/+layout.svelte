@@ -262,17 +262,22 @@
                 <WorkshopOverlay workshop={selectedWorkshop} onClose={closeWorkshop} user={$currentUser} />
             </div>
         {/key}
-    {:else}
+    <!-- {:else}
         <div class="empty-state" in:fade={{ duration: 300 }}>
             <p>Choose a workshop or agent to get started</p>
-        </div>
+        </div> -->
     {/if}
 </div>
 
 <!-- <slot /> -->
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
 
+    * {
+    font-family: var(--font-family);
+    color: var(--text-color)
+    }
 
   .workspace-layout {
         display: flex;
@@ -280,15 +285,14 @@
         position: absolute;
         height: auto;
         /* height: 89vh; */
-        width: 410px;
+        width: 98%;
+        left: 1%;
         /* top: 130px; */
-        left: 20px;
-        top: 160px;
-        border-radius: 20px;
+        top: 0;
         justify-content: center;
         align-items: center;
-        border: 5px solid #262929;
         transition: all ease-in 0.3s;
+        
     }
 
     .workspace-layout:hover {
@@ -309,6 +313,7 @@
         overflow: hidden; /* Changed from auto to hidden */
         /* background-color: red; */
     }
+    
 
     .empty-state {
         display: flex;
@@ -326,7 +331,7 @@
         justify-content: center;
         /* padding: 10px; */
         width: 100%;
-        background-color: #262929;
+        background: var(--bg-gradient);
         border-bottom: 1px solid #4b4b49;
 
     }

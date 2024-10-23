@@ -75,6 +75,8 @@
   }
 
   async function changeStyle(style: string) {
+    await currentTheme.set(style);
+
     currentTheme.set(style);
     applyTheme(style);
     if ($currentUser) {
@@ -151,9 +153,10 @@
       flex-direction: row;
       gap: 1rem;
       padding: 1rem;
-      background-color: var(--bg-color);
       border-radius: 8px;
       color: var(--text-color);
+      width: 100%;
+
   }
 
   .current-style {
@@ -161,10 +164,8 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      width: 300px;
       padding: 1rem;
-      background-color: var(--secondary-color);
-      border-radius: 8px;
+      // background-color: var(--secondary-color);
       text-align: center;
   }
 
@@ -254,4 +255,20 @@
   p {
       margin: 0.5rem 0;
   }
+
+  @media (max-width: 1000px) {
+    .style-switcher {
+      flex-direction: column;
+      padding: 0;
+      width: 100%;
+
+    }
+
+    .style-list {
+      margin-left: 1%;
+      margin-bottom: 1rem;
+      width: 98%;
+    }
+  }
+  
 </style>

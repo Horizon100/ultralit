@@ -692,7 +692,7 @@
     left: 0;
     right: 0;
     height: 100vh;
-    background: linear-gradient(
+    /* background: linear-gradient(
       90deg,
       rgba(117, 118, 114, 0.9) 0%,
       rgba(0, 0, 0, 0.85) 5%,
@@ -713,7 +713,7 @@
       rgba(0, 0, 0, 0.1) 80%,
       rgba(1, 1, 1, 0.05) 85%,
       rgba(117, 118, 114, 0) 100%
-    );
+    ); */
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;

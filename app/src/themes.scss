@@ -7,20 +7,27 @@ $themes: (
     bg-color: #353f3f,
     bg-gradient: linear-gradient(to bottom, #2b2a2a, #353f3f),
     bg-gradient-r: linear-gradient(to top, #2b2a2a, #353f3f),
+    bg-gradient-left: linear-gradient(to left, #2b2a2a, #353f3f),
+    bg-gradient-right: linear-gradient(to right, #2b2a2a, #353f3f),
     text-color: #ffffff,
+    placeholder-color: rgb(255, 255, 255, 0.5),
     font-family: 'Merriweather',
     primary-color: #2b2a2a,
     secondary-color: #474747,
     tertiary-color: #50e3c2,
-    text-color-rgb: '51, 51, 51'
+    text-color-rgb: '51, 51, 51',
+
+
 
   ),
   dark: (
     bg-color: #000000,
     bg-gradient: linear-gradient(to bottom, #1a1a1a, #000000),
     bg-gradient-r: linear-gradient(to top, #1a1a1a, #000000),
-
+    bg-gradient-left: linear-gradient(to left, #1a1a1a, #000000),
+    bg-gradient-right: linear-gradient(to right, #1a1a1a, #000000),
     text-color: #f0f0f0,
+    placeholder-color: rgb(240, 240, 240, 0.5),
     font-family: 'Montserrat',
         primary-color: #0e0e0e,
     secondary-color: #1c1f21,
@@ -33,8 +40,10 @@ $themes: (
     bg-color: #ffe5b4,
     bg-gradient: linear-gradient(to bottom, #fff1d6, #ffe5b4),
     bg-gradient-r: linear-gradient(to top, #fff1d6, #ffe5b4),
-
+    bg-gradient-left: linear-gradient(to left, #fff1d6, #ffe5b4),
+    bg-gradient-right: linear-gradient(to right, #fff1d6, #ffe5b4),
     text-color: #4a4a4a,
+    placeholder-color: rgb(74, 74, 74, 0.5),
     font-family: 'Courier New',
     primary-color: #ecf0f1,
     secondary-color: #bdc3c7,
@@ -44,8 +53,10 @@ $themes: (
     bg-color: #745803,
     bg-gradient: linear-gradient(to bottom, #ff9966, #745803),
     bg-gradient-r: linear-gradient(to top, #ff9966, #745803),
-
+    bg-gradient-left: linear-gradient(to left, #ff9966, #745803),
+    bg-gradient-right: linear-gradient(to right, #ff9966, #745803),
     text-color: #4a0e0e,
+    placeholder-color: rgb(74, 14, 14, 0.5),
     font-family: 'Arial',
     primary-color: #684504,
     secondary-color: #543707,
@@ -55,8 +66,10 @@ $themes: (
     bg-color: #ffffff,
     bg-gradient: linear-gradient(to bottom, #f0f0f0, #ffffff),
     bg-gradient-r: linear-gradient(to top, #f0f0f0, #ffffff),
-
+    bg-gradient-left: linear-gradient(to left, #f0f0f0, #ffffff),
+    bg-gradient-right: linear-gradient(to right, #f0f0f0, #ffffff),
     text-color: #000000,
+    placeholder-color: rgb(255, 255, 255, 0.5),
     font-family: 'Source Code Pro',
     primary-color: #2ecc71,
     secondary-color: #27ae60,
@@ -66,8 +79,10 @@ $themes: (
     bg-color: #151720,
     bg-gradient: linear-gradient(to bottom, #000000, #151720),
     bg-gradient-r: linear-gradient(to top, #000000, #151720),
-
+    bg-gradient-left: linear-gradient(to left, #000000, #151720),
+    bg-gradient-right: linear-gradient(to right, #000000, #151720),
     text-color: #ffffff,
+    placeholder-color: rgb(255, 255, 255, 0.5),
     font-family: 'Helvetica Neue',
     primary-color: #3a2c3f,
     secondary-color: #4a3951,
@@ -77,7 +92,10 @@ $themes: (
     bg-color: #92dcdc,
     bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
     bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
+    bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
+    bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
     text-color: #000000,
+    placeholder-color: rgb(0, 0, 0, 0.5),
     font-family: 'Times New Roman',
     primary-color: #f1c40f,
     secondary-color: #f39c12,
@@ -92,6 +110,8 @@ $themes: (
       background: map-get($colors, bg-gradient);
       color: map-get($colors, text-color);
       font-family: map-get($colors, font-family);
+      background-image: map-get($colors, bg-gradient);
+
     }
   }
 }
@@ -108,7 +128,10 @@ $themes: (
       --bg-color: #{map-get($colors, bg-color)};
       --bg-gradient: #{map-get($colors, bg-gradient)};
       --bg-gradient-r: #{map-get($colors, bg-gradient-r)};
+      --bg-gradient-left: #{map-get($colors, bg-gradient-left)};
+      --bg-gradient-right: #{map-get($colors, bg-gradient-right)};
       --text-color: #{map-get($colors, text-color)};
+      --placeholder-color: #{map-get($colors, placeholder-color)};
       --font-family: #{map-get($colors, font-family)};
       --primary-color: #{map-get($colors, primary-color)};
       --secondary-color: #{map-get($colors, secondary-color)};

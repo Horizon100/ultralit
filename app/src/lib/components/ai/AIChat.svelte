@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
 import { fade, fly, scale, slide } from 'svelte/transition';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash } from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus } from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -12,7 +12,7 @@ import { fade, fly, scale, slide } from 'svelte/transition';
   import { Spinner } from 'flowbite-svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages, Tag} from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import Auth from '$lib/components/auth/Auth.svelte';
 	import ModelSelector from './ModelSelector.svelte';
   import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
@@ -32,6 +32,8 @@ let currentThread: Threads | null = null;
 let initialThreadId: string | null = null;
 
 let currentThreadId: string | null;
+
+
 let showThreadList = true;
 let updateStatus: string;
 let currentThreadName: string = '';
@@ -56,6 +58,8 @@ let editingTagIndex: number | null = null;
   
     let isMinimized = false;
     let lastScrollTop = 0;
+
+    $: ({ threads, currentThreadId, messages, updateStatus } = $threadsStore);
 
     const reactions = [
   { symbol: '▲', action: 'upvote', label: 'Upvote' },
@@ -324,7 +328,7 @@ function getThreadDateGroup(thread: Threads): string {
   return $t('threads.older');
 }
 
-const groupOrder = [$t('threads.today'), $t('threads.today'), $t('threads.lastweek'), $t('threads.thismonth'), $t('threads.older')];
+const groupOrder = [$t('threads.today'), $t('threads.yesterday'), $t('threads.lastweek'), $t('threads.thismonth'), $t('threads.older')];
 
 $: groupedThreads = threads.reduce((acc, thread) => {
   const group = getThreadDateGroup(thread);
@@ -1349,9 +1353,6 @@ $: if (currentThreadId) {
   <div class="threads-container" transition:fly="{{ y: 300, duration: 300 }}" class:thread-list-visible={showThreadList}>
     {#if showThreadList}
     <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
-      <button class="add-button" on:click={handleCreateNewThread}>
-        {$t('threads.newThread')}
-      </button>
       <div class="tag-list">
         {#each availableTags as tag (tag.id)}
           <div class="tag-item">
@@ -1387,10 +1388,12 @@ $: if (currentThreadId) {
           </div>
         {/each}
       </div>
-      <button class="add-tag" on:click={toggleTagCreation}>
-        <Plus />
+      
+      <button class="new-button" on:click={toggleTagCreation}>
+        <Tag />
         {$t('threads.newTag')}
       </button>
+
       {#if editingTagIndex !== null}
         <div class="new-tag-input">
           <input 
@@ -1403,6 +1406,10 @@ $: if (currentThreadId) {
           </span>
         </div>
       {/if}
+      <button class="new-button" on:click={handleCreateNewThread}>
+        <MessageCirclePlus />
+        {$t('threads.newThread')}
+      </button>
       {#each orderedGroupedThreads as { group, threads }}
       <div class="thread-group">
         <div class="thread-group-header">{group}</div>
@@ -1699,6 +1706,7 @@ $: if (currentThreadId) {
     /* font-family: 'Roboto', sans-serif; */
     /* font-family: 'Montserrat'; */
     /* color: var(--text-color); */
+    font-family: var(--font-family);
 
   }
     .threads-container {
@@ -2309,26 +2317,27 @@ button.tag.selected {
   opacity: 1;
 }
 
-button.add-tag {
+button.new-button {
   background-color: var(--primary-color);
   border-radius: 15px;
   padding: 5px 10px;
   font-size: 12px;
   cursor: pointer;
   transition: all ease 0.3s;
-  width: 100%;
-  height: 20px;
+  width: 94%;
+  height: 60px;
   display: flex;
   justify-content: center;
   align-items: center;
+  
 }
 
-button.add-tag:hover {
+button.new-button:hover {
   background-color: var(--tertiary-color);
-
+  
 }
 
-span.new-tag {
+span.new-button {
   border: none;
     cursor: pointer;
     padding: 6px;
@@ -2376,23 +2385,27 @@ span.new-tag:hover {
 }
 
 .thread-group-header {
-  font-weight: bold;
   margin-bottom: 10px;
-  color: #666;
+  color: var(--text-color);
+  justify-content: center;
+  display: flex;
+  margin-left: 2rem;
   font-size: 24px;
   font-weight: 100;
   text-align: right;
-  border-top: 1px solid gray;
   padding: 10px 20px;
 }
 
 .thread-group {
   display: flex;
   flex-direction: column;
-  width: 98%;
-  margin-left: 2%;
-  margin-bottom: 20px;;
+  width: 100%;
+  margin-bottom: 20px;
+  backdrop-filter: blur(20px);
+  background: var(--bg-gradient-left);
+  border-radius: 10px;
   /* padding: 20px 10px; */
+  
 }
 
 
@@ -2551,11 +2564,13 @@ span.new-tag:hover {
       .thread-list {
           /* width: 25%; */
           height: 80%;
+          border-top-left-radius: 50px;
           overflow-y: scroll;
           overflow-x: none;
           scrollbar-width:1px;
           scrollbar-color: #c8c8c8 transparent;
           display: flex;
+          background-color: var(--primary-color);
         }
 
         .thread-list-visible .chat-container {
@@ -3040,7 +3055,6 @@ span {
   /* left: 15%; */
   /* width: 100%; */
   position: relative;
-
 }
 
 
@@ -3064,6 +3078,7 @@ span {
       transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       letter-spacing: 4px;
       font-size: 20px;
+      font-family: var(--font-family);
       
   }
 
@@ -3723,21 +3738,21 @@ span {
   .thread-toggle {
     bottom: 120px;
   }
-  button.add-tag  {
-    border-radius: 15px;
-    padding: 5px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all ease 0.3s;
-    width: 94%;
-    height: 40px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-left: 3.5rem;
-    background-color: var(--tertiary-color);
+//   button.new-button  {
+//     border-radius: 15px;
+//     padding: 5px 10px;
+//     font-size: 12px;
+//     cursor: pointer;
+//     transition: all ease 0.3s;
+//     width: 94%;
+//     height: 40px;
+//     display: flex;
+//     justify-content: center;
+//     align-items: center;
+//     margin-left: 3.5rem;
+//     background-color: var(--tertiary-color);
 
-}
+// }
 
   .input-container {
     margin-bottom: 80px;

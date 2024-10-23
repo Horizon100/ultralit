@@ -795,7 +795,6 @@
         align-items: flex-start;
 
 
-
         
     }
 
@@ -809,7 +808,7 @@
         scrollbar-width: thin;
         scrollbar-color: gray transparent;
         background: linear-gradient(to bottom, #2c3e50, #4ca1af); 
-        
+
 
     }
 

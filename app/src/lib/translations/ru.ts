@@ -231,7 +231,7 @@ export default {
 
     threads: {
         selectThread: "Выбрать обсуждение",
-        newThread: "+ Новое обсуждение",
+        newThread: "Новое обсуждение",
         newTag: "Добавить тег",
         today: "Сегодня",
         yesterday: "Вчера",

@@ -519,7 +519,6 @@
         align-items: center;
         text-align: center;
         margin-top: 2rem;
-        background-color: var(--bg-color);
 
 
     }
@@ -539,6 +538,7 @@
         flex-direction: column;
         width: 100%;
         /* height: 40%; */
+        
     }
 
 	.auth-overlay {
@@ -684,6 +684,7 @@
         opacity: 0.025;
         z-index: 1;
         pointer-events: none;
+        
     }
 
 

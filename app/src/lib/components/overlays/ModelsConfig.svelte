@@ -210,8 +210,18 @@
     </div>
 {/if}
 
-<style>
-    .models-config {
+<style lang="scss">
+	@use "src/themes.scss" as *;
+  * {
+    /* font-family: 'Merriweather', serif; */
+    /* font-family: 'Roboto', sans-serif; */
+    /* font-family: 'Montserrat'; */
+    /* color: var(--text-color); */
+    font-family: var(--font-family);
+
+  }
+    
+  .models-config {
         display: flex;
         gap: 20px;
         /* height: 100%; */
@@ -225,7 +235,7 @@
         border-bottom: 20px solid #262929;
         border-left: 5px solid #262929;
         border-right: 20px solid #262929;
-        background: linear-gradient(145deg, #363f3f, #1a1a1a);
+        background: var(--bg-gradient);
         justify-content: center;
         align-items: center;
         padding: 20px;

@@ -484,7 +484,7 @@
         <div class="bottom-container">
             <div class="search-and-sort-container">
                 <div class="search-container">
-                    <Search size={24} />
+                    <Search size={30} />
                     <input type="text" bind:value={searchQuery} placeholder="Search agents...">
                     <div class="container-row">
                         {#if !showCreateForm}
@@ -797,19 +797,24 @@
 {/if}
 
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
+
+    * {
+    font-family: var(--font-family);
+    color: var(--text-color)
+    }
     .agents-config {
         display: flex;
         position: relative;
         /* height: 100%; */
         overflow: hidden;
-        width: 97%;
-        min-height: 50px;
+        width: 100%;
+        height: 80vh;
         /* border-radius: 30px; */
         /* border-bottom-left-radius: 20px;  */
         /* border-bottom-right-radius: 20px; */
         /* border-top: 5px solid #262929; */
-
         /* background: linear-gradient(145deg, #363f3f, #1a1a1a); */
         /* justify-content: center; */
         /* align-items: center; */
@@ -823,7 +828,7 @@
 
     .agents-config:hover {
         /* transform: scale(0.99); */
-        height: 82vh;
+        /* height: 82vh; */
         /* border-radius: 50px; */
     }
 
@@ -842,8 +847,7 @@
     .agents-column {
         display: flex;
         flex-direction: column;
-        border-radius: 20px;
-        background-color: rgb(58, 58, 58);
+        background-color: var(--secondary-color);
         /* align-items: flex-start; */;
         overflow-y: auto;
         overflow-x: hidden;
@@ -869,7 +873,9 @@
         flex-grow: 1;
         overflow: hidden;
         /* background: linear-gradient(to bottom, #2c3e50, #4ca1af);  */
-        background: linear-gradient(to bottom, #e6f3ff, #759ca2);
+        // background: linear-gradient(to bottom, #e6f3ff, #759ca2);
+        background: var(--bg-gradient-right);
+
         padding: 20px;
         border-radius: 20px;
         border-left: 3px solid #323232;
@@ -1108,7 +1114,9 @@
     .agent-item {
         display: flex;
         flex-direction: row;
-        width: 94%;
+        width: auto;
+        margin-left: 1rem;
+        margin-right: 1rem;
         justify-content: flex-start;
         align-items: center;
         border-bottom: 1px solid #ffffff;
@@ -1280,9 +1288,9 @@
     flex-direction: row;
     padding-left: 10px;
     /* border-radius: 8px; */
-    background-color: #1f1f1f;
+
     z-index: 1002;
-    background-color: rgb(58, 50, 50);
+    background-color: var(--primary-color);
     width: 100%;
     /* background-image: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0)); */
     color: white;
@@ -1294,14 +1302,17 @@
         display: flex;
         /* align-items: center; */
         /* margin-bottom: 10px; */
-        width: 150px;
-        background-color: #323232;
+        width: 100%;
 
     }
 
     .sort-container select {
         border-radius: 0;
         user-select: none;
+        background-color: var(--primary-color);
+
+        color: var(--text-color);
+
     }
 
 
@@ -1310,6 +1321,7 @@
         display: flex;
         flex-direction: row;
         justify-content: center;
+        width: 100%;
     }
 
 
@@ -1513,6 +1525,7 @@
     justify-content: center ;
     align-items: center;
     left: 0;
+    right: 0;
     color: gray;
     /* width: calc(100vh - 40px); */
     /* height: 50px; */
@@ -1542,19 +1555,19 @@
         gap: 5px;
         padding: 8px 12px;
         height: 40px;
-        background-color: #323232;
-        color: gray;
+        background-color: var(--primary-color);
+        color: var(--text-color);
         border-right: 1px solid black;
         /* border-radius: 14px; */
         cursor: pointer;
         transition: background-color 0.3s;
         user-select: none;
-        width: 150px;
+        width: 100%;
         font-size: 16px;
     }
 
     .filter-toggle-button:hover,     .sort-container select:hover {
-        background-color: black;
+        background-color: var(--tertiary-color);
     }
 
     .filter-toggle-button.active {
@@ -1574,10 +1587,12 @@
     }
 
     input {
-        color: white;
+        color: var(--text-color);
         outline: none;
+        background-color: var(--primary-color);
 
     }
+
 
 
     @media (max-width: 1700px) {

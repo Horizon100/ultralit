@@ -64,6 +64,8 @@
     $: isNarrowScreen = innerWidth <= 1000;
 
     onMount(async () => {
+		currentTheme.initialize();
+
         const unsubscribe = navigating.subscribe((navigationData) => {
             if (navigationData) {
                 isNavigating.set(true);
@@ -242,17 +244,18 @@
 					</a>
 				{/if}
 			</div>
-
-			<button class="menu-button" on:click={handleLanguageChange} >
+			<!-- <button class="hover-button" on:click={handleLanguageChange} >
 				<Languages size={24} />
 				<span class="language-code">{$currentLanguage.toUpperCase()}</span>
 			</button>
-				<button class="menu-button style-switcher-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
+				<button class="hover-button style-switcher-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
 					<svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
-				</button>
+				</button> -->
+
                 <button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
                     {#if $currentUser}
                         <div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
+							
                             <span class="user-name">{$currentUser.name || $currentUser.email}</span>
                             <div class="avatar-container">
                                 {#if $currentUser.avatar}
@@ -304,7 +307,7 @@
 
 	{#if showStyles}
     <div class="style-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300}}>
-        <div class="style-content" transition:fly={{ y: -20, duration: 300}}>
+        <div class="style-content" transition:fly={{ x: -20, duration: 300}}>
             <button class="close-button" transition:fly={{ y: -200, duration: 300}} on:click={() => showStyles = false}>
                 <X size={24} />
             </button>
@@ -387,7 +390,7 @@
 	}
 
 	main {
-        background-color: var(--bg-color);
+        background: var(--bg-gradient-r);
 		color: var(--text-color);
         width: 100%;
 		height: 100%;
@@ -658,6 +661,7 @@
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		/* border-left: 1px solid rgb(130, 130, 130); */
 		user-select: none;
+		color: var(--text-color);
 
     }
 
@@ -671,7 +675,7 @@
 	.nav-link.active {
     background-color: #365040;
     font-weight: bold;
-    color: #6fdfc4;
+	color: var(--text-color);
     transform: translateY(-2px);
   }
   
@@ -762,7 +766,7 @@
 		transition: all ease-in 0.2s;
 		/* margin-right: 0; */
         gap: 10px;
-		/* padding: 0 20px; */
+		/* padding: 0 20px; 
         /* border: 20px; */
 		/* background-color: red; */
         cursor: pointer;
@@ -775,10 +779,16 @@
 		flex-direction: row;
 		justify-content: center;
         align-items: center;
-		right: 2rem;
 		gap: 20px;
-		padding: 0 20px;
+		margin-left: 1rem;
 
+	}
+	
+
+	.hover-button  {
+		color: transparent;
+		border: none;
+		background-color: transparent;
 	}
 
 	button.menu-button {
@@ -812,7 +822,7 @@
 		/* border: 1px solid #000000; */
 		/* background: linear-gradient(to top, #3f4b4b, #333333); */
 		/* background-color: #2b2a2a; */
-		background: linear-gradient(to top, #2b2a2a, #353f3f);
+		background: var(--bg-gradient-r);
 
 		/* border-radius: 20px; */
 		/* background-color: black; */
@@ -828,10 +838,12 @@
 		flex-direction: row;
 		justify-content: space-between;	
 		align-items: center;
-		width: 90%;
-		margin-left: 5%;
-		padding: 20px;
+		width: 100%;
+		backdrop-filter: blur(20px);
+	}
 
+	.mobile-btns a {
+		width: 100%;
 	}
 
 		/* .auth-button {
@@ -895,7 +907,7 @@
 
 	button:hover {
 	  opacity: 0.8;
-	  background-color: rgb(62, 137, 194);
+	  background-color: var(--tertiary-color);
 	}
   
 	footer {
@@ -924,15 +936,18 @@
         width: 100%;
         height: 100%;
         display: flex;
+		flex-grow: 1;
+
         justify-content: center;
         align-items: center;
         z-index: 1002;
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+		transition: all 0.3s ease;
     }
 
 	.profile-content {
         position: absolute;
-		width: 92%;
+		width: 94%;
 		height: auto;
 		top: 60px;
         /* background-color: #2b2a2a; */
@@ -945,6 +960,8 @@
         /* max-width: 500px; */
         /* max-height: 90vh; */
         overflow: none;
+		transition: all 0.3s ease;
+
     }
 	.auth-overlay {
         position: fixed;
@@ -1051,7 +1068,6 @@
 
 		main {
 			flex-grow: 1;
-			padding-top: 1rem;
 		}
 
 		nav {

@@ -96,7 +96,6 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
   let showArrowOverlay = false;
 
   $: ({ threads, currentThreadId, messages, updateStatus } = $threadsStore);
-  $: groupedMessages = $threadsStore.getMessagesByDate;
 
   const dispatch = createEventDispatcher<{
     create: { node: Node; networkData: NetworkData | null };
@@ -124,51 +123,52 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
     showArrowOverlay = true;
   }
 
-  function groupThreadsByDate(threads: Threads[]): Record<string, Threads[]> {
-    const grouped: Record<string, Threads[]> = {};
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
 
-    threads.forEach(thread => {
-      const threadDate = new Date(thread.updated).toDateString();
-      let groupKey: string;
-
-      if (threadDate === today) {
-        groupKey = 'Today';
-      } else if (threadDate === yesterday) {
-        groupKey = 'Yesterday';
-      } else {
-        groupKey = threadDate;
-      }
-
-      if (!grouped[groupKey]) {
-        grouped[groupKey] = [];
-      }
-      grouped[groupKey].push(thread);
-    });
-
-    return grouped;
-  }
 
   function adjustFontSize(element: HTMLTextAreaElement) {
-    const maxFontSize = 40;
-    const minFontSize = 20;
+    if (!element) return;
+
+    const maxFontSize = 3;
+    const minFontSize = 1;
     const maxLength = 600; // Adjust this value to determine when to start shrinking the font
 
     const contentLength = element.value.length;
     
     if (contentLength <= maxLength) {
-        element.style.fontSize = `${maxFontSize}px`;
+        element.style.fontSize = `${maxFontSize}rem`;
     } else {
         const fontSize = Math.max(
             minFontSize,
             maxFontSize - (contentLength - maxLength) / 2
         );
-        element.style.fontSize = `${fontSize}px`;
+        element.style.fontSize = `${fontSize}rem`;
     }
 }
 
-  $: groupedThreads = groupThreadsByDate(threads);
+function groupThreadsByDate(thread: Threads): string {
+  const now = new Date();
+  const threadDate = new Date(thread.updated);
+  const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
+
+  if (diffDays === 0) return $t('threads.today');
+  if (diffDays === 1) return $t('threads.yesterday');
+  if (diffDays < 7) return $t('threads.lastweek');
+  if (diffDays < 30) return $t('threads.thismonth');
+  return $t('threads.older');
+}
+
+const groupOrder = [$t('threads.today'), $t('threads.yesterday'), $t('threads.lastweek'), $t('threads.thismonth'), $t('threads.older')];
+
+$: groupedThreads = threads.reduce((acc, thread) => {
+  const group = groupThreadsByDate(thread);
+  if (!acc[group]) acc[group] = [];
+  acc[group].push(thread);
+  return acc;
+}, {} as Record<string, Threads[]>);
+
+  $: orderedGroupedThreads = groupOrder
+  .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
+  .map(group => ({ group, threads: groupedThreads[group] }));
 
   onMount(() => {
     const unsubscribe = navigating.subscribe((navigationData) => {
@@ -190,8 +190,11 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
 
   async function handleThreadSelection(threadId: string) {
   try {
+    // Just set the current thread and load its messages
     await threadsStore.setCurrentThread(threadId);
+    await threadsStore.loadMessages(threadId);
     
+    // Navigate to the ask page with the existing thread
     const params = new URLSearchParams();
     params.append('threadId', threadId);
     if (aiModel && aiModel.id) {
@@ -201,7 +204,7 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
     
     goto(`/ask?${params.toString()}`);
   } catch (error) {
-    console.error(`Error setting active thread ${threadId}:`, error);
+    console.error(`Error selecting thread ${threadId}:`, error);
   }
 }
 
@@ -285,19 +288,35 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
     fileInput.click();
   }
 
-  function handleFileSelected(event: Event) {
-    const target = event.target as HTMLInputElement;
-    if (target.files && target.files[0]) {
-        const file = target.files[0];
-        attachment = {
-            id: crypto.randomUUID(),
-            name: file.name,
-            url: URL.createObjectURL(file),
-            file: file
-        };
-    }
+  interface Attachment {
+  id: string;
+  fileName: string;
+  note?: string;
+  created: string;
+  updated: string;
+  url: string;
+  file?: File;
+}
+
+// Fix the getMessagesByDate access
+$: groupedMessages = threadsStore.getMessagesByDate;
+
+// Fix attachment creation
+function handleFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    const file = target.files[0];
+    attachment = {
+      id: crypto.randomUUID(),
+      fileName: file.name,
+      note: '',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      url: URL.createObjectURL(file),
+      file: file
+    };
   }
-  
+}
   function deleteAttachment() {
     attachment = null;
   }
@@ -399,7 +418,7 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
   let tagCount = 0;
   let timerCount: number = 0;
 
-  let lastActive = null;
+  let lastActive: Date | null = null;
 
   function formatTimerCount(seconds: number): string {
   const hours = Math.floor(seconds / 60);
@@ -516,9 +535,9 @@ onMount(async () => {
   }
 });
 
-  function formatDate(date) {
-    if (!date) return 'Never';
-    return date.toLocaleString();
+function formatDate(date: string): string {
+    if (date === 'Today' || date === 'Yesterday') return date;
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });  
   }
 
   $: {
@@ -553,7 +572,7 @@ onMount(async () => {
                   <span class="file-name">{attachment.name}</span>
                 </button>
               {/if}
-              <ModelSelector models={availableModels} selectedModel={aiModel} on:select={handleModelSelection} />
+              <ModelSelector selectedModel={aiModel} on:select={handleModelSelection} />
               <PromptSelector on:select={handlePromptSelection} />
               <button on:click={handleUpload}>
                 <Paperclip  />
@@ -563,7 +582,7 @@ onMount(async () => {
               </button>
             </div>
             <div class="thread-columns">
-              
+
               <div class="stats-container">
                 <h2>{$t('dashboard.title')}</h2>
                 <div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
@@ -591,13 +610,13 @@ onMount(async () => {
                 </div>
               </div>
               <div class="thread-list">
-                <button class="add-button" on:click={handleCreateNewThread}>
+                <!-- <button class="add-button" on:click={handleCreateNewThread}>
                   {$t('threads.newThread')}
-                </button>
-                {#each Object.entries(groupedThreads) as [dateGroup, threadsInGroup]}
-                  <div class="thread-group">
-                    <h3>{dateGroup}</h3>
-                    {#each threadsInGroup as thread}
+                </button> -->
+                {#each orderedGroupedThreads as { group, threads }}
+                <div class="thread-group">
+                    <h3>{group}</h3>
+                    {#each threads as thread}
                       <button on:click={() => handleThreadSelection(thread.id)}>
                         <span class="thread-name">{thread.name}</span>
                         <span class="message-count">
@@ -928,14 +947,14 @@ onMount(async () => {
     justify-content: center;
     align-items: center;
     resize: none;
-    font-size: 24px;
+    font-size: 2rem;
     letter-spacing: 1.4px;
     border: none;
     border-radius: 20px;
     margin: 1rem;
     /* background-color: #2e3838; */
     background-color: var(--secondary-color);
-    color: #818380;
+    color: var(--placeholder-color);
     line-height: 1.4;
     /* height: auto; */
     text-justify: center;
@@ -946,13 +965,18 @@ onMount(async () => {
     vertical-align: middle; /* Align text vertically */
     transition: 0.6s cubic-bezier(0.075, 1.82, 0.165, 1);
     opacity: 0.8;
+    box-shadow: 
+    8px 8px 16px rgba(0, 0, 0, 0.3),
+    -8px -8px 16px rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
   }
 
   textarea:focus {
     outline: none;
-    border: 2px solid #000000;
-    color: white;
-    font-size: 40px;
+    // border: 1px solid var(---color);
+    color: var(--text-color);
+    font-size: 3rem;
     padding: 3rem;
     line-height: 1.4;
     margin: 10px;
@@ -962,10 +986,11 @@ onMount(async () => {
     z-index: 3000;
     /* width: 100%; */
 
-
-    
   }
 
+  textarea::placeholder {
+    font-size: 2rem;
+  }
   .button-row {
     display: flex;
     flex-direction: row;
@@ -1131,7 +1156,7 @@ onMount(async () => {
  .thread-group {
     display: flex;
     flex-direction: column;
-    justify-content: right;    
+    justify-content: flex-start;    
     background-color: transparent;
 
   }

@@ -214,6 +214,9 @@ function createThreadsStore() {
       return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
     }),
 
+
+    
+
     getUniqueTags: derived(store, $store => {
       const allTags = $store.threads.flatMap(thread => thread.tags || []);
       return [...new Set(allTags)];
@@ -230,6 +233,8 @@ function createThreadsStore() {
 
     isThreadsLoaded: derived(store, $store => $store.isThreadsLoaded)
   };
+
+  
 }
 
 export const threadsStore = createThreadsStore();

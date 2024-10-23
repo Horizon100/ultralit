@@ -44,7 +44,7 @@ export default {
             "Utilize AI for rapid prototyping and design iterations.",
             "Employ AI-powered analytics to track and improve your productivity metrics."
         ],
-        textplaceholder: "Start writing..."
+        textplaceholder: "What's on your mind?"
     },
 
     features: {
@@ -230,7 +230,7 @@ export default {
 
     threads: {
         selectThread: "Select threads",
-        newThread: "+ New discussion",
+        newThread: "New chat",
         newTag: "Add tag",
         today: "Today",
         yesterday: "Yesterday",
