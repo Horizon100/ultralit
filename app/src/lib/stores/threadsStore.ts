@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Messages, Threads, Tag } from '$lib/types';
 import { debounce } from 'lodash-es';
-import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
+import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/threadsClient';
 import { browser } from '$app/environment';
 
 function createThreadsStore() {
@@ -24,6 +24,8 @@ function createThreadsStore() {
       localStorage.setItem('userTags', JSON.stringify(state.tags));
     });
   }
+
+  
 
   const debouncedUpdateThread = debounce(async (id: string, changes: Partial<Threads>) => {
     try {
@@ -113,11 +115,51 @@ function createThreadsStore() {
         throw error;
       }
     },
+
+    autoUpdateThreadName: async (threadId: string) => {
+      try {
+        const state = get(store);
+        if (!state.messages.length) {
+          return null;
+        }
+
+        const updatedThread = await autoUpdateThreadName(threadId, state.messages);
+        
+        store.update(state => ({
+          ...state,
+          threads: state.threads.map(t => 
+            t.id === threadId ? { ...t, ...updatedThread } : t
+          ),
+          updateStatus: 'Thread name updated automatically'
+        }));
+
+        setTimeout(() => store.update(state => ({ 
+          ...state, 
+          updateStatus: '' 
+        })), 3000);
+
+        return updatedThread;
+      } catch (error) {
+        console.error('Error in autoUpdateThreadName:', error);
+        store.update(state => ({ 
+          ...state, 
+          updateStatus: 'Failed to auto-update thread name' 
+        }));
+        setTimeout(() => store.update(state => ({ 
+          ...state, 
+          updateStatus: '' 
+        })), 3000);
+        return null;
+      }
+    },
     
     // Add a new function to get the current thread
     getCurrentThread: derived(store, $store => 
       $store.threads.find(t => t.id === $store.currentThreadId) || null
     ),
+    // getCurrentThread: derived(store, $store => {
+    //   return $store.threads.find(t => t.id === $store.currentThreadId) || null;
+    // }),
     addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages | null> => {
       try {
         const newMessage = await addMessageToThread(message);
@@ -135,12 +177,40 @@ function createThreadsStore() {
         return null;
       }
     },
-    setCurrentThread: (id: string) => store.update(state => ({
+    setCurrentThread: (id: string | null) => store.update(state => ({
       ...state,
       currentThreadId: id,
-      updateStatus: 'Current thread updated'
+      messages: id === null ? [] : state.messages, // Clear messages if setting to null
+      updateStatus: id ? 'Current thread updated' : 'Thread selection cleared'
     })),
-    reset: () => store.set({ threads: [], currentThreadId: null, messages: [], updateStatus: '', tags: [], isThreadsLoaded: false }),
+
+    reset: () => {
+      store.update(state => ({
+        ...state,
+        currentThreadId: null,
+        messages: [],
+        updateStatus: '',
+        isThreadsLoaded: false
+      }));
+      
+      // Also clear URL parameters
+      if (browser) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('threadId');
+        url.searchParams.delete('messageId');
+        url.searchParams.delete('autoTrigger');
+        window.history.replaceState({}, '', url);
+      }
+    },
+
+    clearCurrentThread: () => {
+      store.update(state => ({
+        ...state,
+        currentThreadId: null,
+        messages: [],
+        updateStatus: 'Thread selection cleared'
+      }));
+    },
     
     addTag: (tagName: string) => {
       store.update(state => {
@@ -194,9 +264,7 @@ function createThreadsStore() {
         debouncedUpdateThread(threadId, { tags: thread.tags });
       }
     },
-    getCurrentThread: derived(store, $store => {
-      return $store.threads.find(t => t.id === $store.currentThreadId) || null;
-    }),
+
     
     getThreadById: (id: string) => derived(store, $store => {
       return $store.threads.find(t => t.id === id) || null;
@@ -233,6 +301,8 @@ function createThreadsStore() {
 
     isThreadsLoaded: derived(store, $store => $store.isThreadsLoaded)
   };
+
+  
 
   
 }

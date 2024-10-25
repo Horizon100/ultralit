@@ -17,14 +17,14 @@
       threadId = $page.url.searchParams.get('threadId');
       messageId = $page.url.searchParams.get('messageId');
 
+      // Don't load messages here, just set the current thread in store
       if (threadId) {
-        await threadsStore.loadMessages(threadId);
+        threadsStore.setCurrentThread(threadId);
       }
     } catch (e) {
       error = "Failed to load thread. Please try again.";
       console.error(e);
     } finally {
-      // Add a small delay before setting isLoading to false
       setTimeout(() => {
         isLoading = false;
       }, 500);

@@ -62,10 +62,21 @@
     {/if}
 </div>
   
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
+  * {
+    /* font-family: 'Merriweather', serif; */
+    /* font-family: 'Roboto', sans-serif; */
+    /* font-family: 'Montserrat'; */
+    /* color: var(--text-color); */
+    font-family: var(--font-family);
+
+  }
+  
   .dropbtn {
     /* background-color: #283428; */
-    color: white;
+    color: var(--text-color);
+    background: var(--bg-gradient-right);
     padding: 4px;
     font-size: 16px;
     border: none;
@@ -74,17 +85,17 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 40px;
-    height: 40px;
-    padding: 5px;
+    width: 50px;
+    height: 50px;
+    padding: 0.5rem;
     /* border: 2px solid #506262; */
-    border: 1px solid rgba(53, 63, 63, 0.3);
     transition: all 0.3s ease-in-out;
     overflow: hidden;
+    user-select: none;
   }
 
     .dropbtn.hovered {
-      width: auto;
+      width: 300px;
       padding-left: 15px;
       padding-right: 15px;
       justify-content: space-between;
@@ -109,13 +120,15 @@
     .dropdown-content {
       display: none;
       position: absolute;
-      bottom: 2.5rem;
-      background-color: #21201d;
-      min-width: 300px;
+      left: 0.5rem;
+      bottom: 0;
+      /* background-color: #21201d; */
+      backdrop-filter: blur(20px);
+      background-color: var(--bg-color);
       box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-      z-index: 1;
       padding: 10px;
       border-radius: 10px;
+      width: auto;
     }
   
     .dropdown-item {
@@ -143,8 +156,9 @@
       border: none;
       transition: all 0.3s ease-in-out;
       border-radius: 10px;
-      justify-content: center;
+      justify-content: left;
       align-items: center;
+      width: 100%;
     }
   
     button:hover {
@@ -152,4 +166,14 @@
       color: white;
       border-radius: 10px;
     }
+
+    @media (max-width: 768px) {
+    .dropbtn.hovered {
+      width: 90vw;
+      padding-left: 15px;
+      padding-right: 15px;
+      justify-content: space-between;
+
+    }
+  }
 </style>

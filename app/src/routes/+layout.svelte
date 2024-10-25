@@ -343,18 +343,33 @@
 	<div class="mobile-menu" transition:fly={{ y: 200, duration: 300 }}>
 		<div class="mobile-btns">
 			{#if $currentUser}
-				<a href="/ask" class="nav-link">
-					<MessageCircle size={24} />
-                    {$t('nav.ask')}
-				</a>
-				<a href="/launcher" class="nav-link">
-					<Drill size={24} />
-                    {$t('nav.build')}
-				</a>
-				<a href="/notes" class="nav-link">
-					<NotebookTabs size={24} />
-                    {$t('nav.notes')}
-				</a>
+			<a
+				href="/ask"
+				class="nav-link"
+				class:active={activeLink === '/ask'}
+				on:click|preventDefault={() => setActiveLink('/ask')}
+			>
+				<MessageCircle size={20} />
+				{$t('nav.ask')}
+			</a>
+			<a
+				href="/launcher"
+				class="nav-link"
+				class:active={activeLink === '/launcher'}
+				on:click|preventDefault={() => setActiveLink('/launcher')}
+			>
+				<Drill size={20} />
+				{$t('nav.build')}
+			</a>
+			<a
+				href="/notes"
+				class="nav-link"
+				class:active={activeLink === '/notes'}
+				on:click|preventDefault={() => setActiveLink('/notes')}
+			>
+				<NotebookTabs size={20} />
+				{$t('nav.notes')}
+			</a>
 				{:else}
 					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
 						{$t('nav.features')}
@@ -673,9 +688,11 @@
     }
 
 	.nav-link.active {
-    background-color: #365040;
+    background: var(--bg-gradient-r);
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); 
+	
     font-weight: bold;
-	color: var(--text-color);
+	color: var(--tertiary-color);
     transform: translateY(-2px);
   }
   
@@ -829,8 +846,8 @@
 		/* height: 80px; */
 		border-bottom-left-radius: 0; 
 		border-bottom-right-radius: 0;
-		border-top-left-radius: 20px;
-		border-top-right-radius: 20px;
+		// border-top-left-radius: 20px;
+		// border-top-right-radius: 20px;
 	}
 
 	.mobile-btns {
@@ -839,7 +856,9 @@
 		justify-content: space-between;	
 		align-items: center;
 		width: 100%;
-		backdrop-filter: blur(20px);
+		height: 39px;
+		backdrop-filter: blur(50px);
+		background: var(--bg-gradient-left);
 	}
 
 	.mobile-btns a {
@@ -1065,6 +1084,7 @@
 			position: absolute;
 			right: 2rem;
 		}
+
 
 		main {
 			flex-grow: 1;

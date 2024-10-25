@@ -3,8 +3,12 @@
   import { fly } from 'svelte/transition';
   import { createEventDispatcher } from 'svelte';
   import { availablePrompts } from '$lib/constants/prompts';
+  import { promptStore } from '$lib/stores/promptStore';
 
-  let selectedPrompt: PromptType = 'CASUAL_CHAT';
+  // Subscribe to the store and sync with local state
+  let selectedPrompt: PromptType;
+  $: selectedPrompt = $promptStore;
+
   let selectedIcon = availablePrompts.find(option => option.value === selectedPrompt)?.icon;
   let isOpen = false; 
   let isButtonActive = false;  
@@ -15,22 +19,54 @@
   }>();
 
   function handlePromptSelection(promptType: PromptType) {
+    console.log('Previous prompt:', selectedPrompt);
+    
+    // Update both local state and store
     selectedPrompt = promptType;
+    promptStore.set(promptType);
+    
+    console.log('New prompt selected:', promptType);
+
     const selectedOption = availablePrompts.find(option => option.value === promptType);
     if (selectedOption) {
       selectedIcon = selectedOption.icon;
+      console.log('Icon updated to:', selectedOption.label);
     }
+    
     isOpen = false;
     dispatch('select', promptType);
   }
 
+  // Watch for changes in store
+  $: {
+    if ($promptStore) {
+      selectedIcon = availablePrompts.find(option => option.value === $promptStore)?.icon;
+      console.log('Prompt selector updated from store:', {
+        prompt: $promptStore,
+        icon: selectedIcon ? 'Icon updated' : 'No icon'
+      });
+    }
+  }
+
   function toggleDropdown() {
-    isOpen = !isOpen; 
+    isOpen = !isOpen;
+    console.log('Dropdown toggled, isOpen:', isOpen);
   }
 
   function closeDropdown() {
     if (!isOpen) {  
       isOpen = false;
+    }
+  }
+
+  // Watch for changes in selectedPrompt
+  $: {
+    if (selectedPrompt) {
+      console.log('Current prompt state:', {
+        prompt: selectedPrompt,
+        label: selectedPromptLabel,
+        icon: selectedIcon ? 'Icon present' : 'No icon'
+      });
     }
   }
 
@@ -69,10 +105,22 @@
   {/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/themes.scss" as *;
+  * {
+    /* font-family: 'Merriweather', serif; */
+    /* font-family: 'Roboto', sans-serif; */
+    /* font-family: 'Montserrat'; */
+    /* color: var(--text-color); */
+    font-family: var(--font-family);
+
+  }
+
+
   .dropbtn {
     /* background-color: #283428; */
-    color: white;
+    color: var(--text-color);
+    background: var(--bg-gradient-right);
     padding: 4px;
     font-size: 16px;
     border: none;
@@ -81,21 +129,22 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 40px;
-    height: 40px;
-    padding: 5px;
+    width: 50px;
+    height: 50px;
+    padding: 0.5rem;
     /* border: 2px solid #506262; */
-    border: 1px solid rgba(53, 63, 63, 0.3);
     transition: all 0.3s ease-in-out;
     overflow: hidden;
     user-select: none;
   }
 
+
     .dropbtn.hovered {
-      width: auto;
+      width: 300px;
       padding-left: 15px;
       padding-right: 15px;
       justify-content: space-between;
+
     }
 
   .prompt-name {
@@ -111,19 +160,23 @@
   .dropdown {
     position: relative;
     display: flex;
+    
   }
 
   .dropdown-content {
-    display: none;
-    position: absolute;
-    bottom: 2.6rem;
-    background-color: #21201d;
-    min-width: 300px;
-    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-    z-index: 1;
-    padding: 10px;
-    border-radius: 10px;
-  }
+      display: none;
+      position: absolute;
+      left: 0.5rem;
+      bottom: 0;
+      /* background-color: #21201d; */
+      backdrop-filter: blur(20px);
+      background-color: var(--bg-color);
+      box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+      padding: 10px;
+      border-radius: 10px;
+      width: auto;
+    }
+
 
   .dropdown-item {
     padding: 12px 16px;
@@ -150,8 +203,9 @@
       border: none;
       transition: all 0.3s ease-in-out;
       border-radius: 10px;
-      justify-content: center;
+      justify-content: left;
       align-items: center;
+      width: 100%;
     }
   
     button:hover {
@@ -159,4 +213,14 @@
       color: white;
       border-radius: 10px;
     }
+
+    @media (max-width: 768px) {
+    .dropbtn.hovered {
+      width: 90vw;
+      padding-left: 15px;
+      padding-right: 15px;
+      justify-content: space-between;
+
+    }
+  }
 </style>

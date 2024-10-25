@@ -1,6 +1,7 @@
 import type { Messages, Threads, Tag } from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
+import { fetchNamingResponse } from '$lib/aiClient'
 
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
     try {
@@ -13,7 +14,7 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
         const messages = await pb.collection('messages').getFullList<Messages>({
             filter: `thread = "${threadId}"`,
             sort: '-created',
-            expand: 'user,parent_msg,task_relation,agent_relation'
+            expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
         });
 
         console.log(`Fetched ${messages.length} messages for thread ${threadId}`);
@@ -109,6 +110,29 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
         return await pb.collection('threads').update<Threads>(id, changes);
     } catch (error) {
         console.error('Error updating thread:', error);
+        if (error instanceof ClientResponseError) {
+            console.error('Response data:', error.data);
+            console.error('Status code:', error.status);
+        }
+        throw error;
+    }
+}
+
+export async function autoUpdateThreadName(threadId: string, userMessage: string, aiResponse: string, model: AIModel, userId: string): Promise<Threads> {
+    try {
+        if (!pb.authStore.isValid) {
+            throw new Error('User is not authenticated');
+        }
+
+        // Get the AI-generated thread name
+        const threadName = await fetchNamingResponse(userMessage, aiResponse, model, userId);
+
+        // Update the thread with the new name
+        return await pb.collection('threads').update<Threads>(threadId, {
+            name: threadName
+        });
+    } catch (error) {
+        console.error('Error auto-updating thread name:', error);
         if (error instanceof ClientResponseError) {
             console.error('Response data:', error.data);
             console.error('Status code:', error.status);

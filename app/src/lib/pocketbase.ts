@@ -644,7 +644,10 @@ export async function createMessage(messageData: Partial<Message>): Promise<Mess
             receiver: messageData.receiver,
             attachments: messageData.attachments,
             reactions: messageData.reactions || {},
-            update_status: messageData.update_status || 'not_updated'
+            update_status: messageData.update_status || 'not_updated',
+            prompt_type: messageData.prompt_type,
+            model: messageData.model,
+
         };
 
         const record = await pb.collection('messages').create<Message>(defaultedMessageData);

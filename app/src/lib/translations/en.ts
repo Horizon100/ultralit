@@ -229,7 +229,7 @@ export default {
     },
 
     threads: {
-        selectThread: "Select threads",
+        selectThread: "Select thread or create new",
         newThread: "New chat",
         newTag: "Add tag",
         today: "Today",

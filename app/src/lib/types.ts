@@ -2,7 +2,13 @@
 
 import type { RecordModel } from 'pocketbase'; 
 
-
+export interface Prompt {
+    value: PromptType;
+    label: string;
+    icon: any;
+    description: string;
+    youtubeUrl: string;
+  }
 export type PromptType = 
     'SCENARIO_GENERATION' | 
     'TASK_GENERATION' | 
@@ -189,6 +195,9 @@ export interface Message extends RecordModel {
         question: number
       }; 
     update_status: 'not_updated' | 'updated' | 'deleted';
+    prompt_type: string | null;
+    model: string | null;
+
 }
 
 
@@ -426,6 +435,8 @@ export interface Messages extends RecordModel {
       };
     created: string;
     updated: string;
+    prompt_type: string | null;
+    model: string | null;
 }
 
 export interface Threads extends RecordModel {

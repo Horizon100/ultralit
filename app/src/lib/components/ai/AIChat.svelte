@@ -12,12 +12,15 @@ import { fade, fly, scale, slide } from 'svelte/transition';
   import { Spinner } from 'flowbite-svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
+  import PromptCatalog from './PromptCatalog.svelte';
+
   import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import Auth from '$lib/components/auth/Auth.svelte';
 	import ModelSelector from './ModelSelector.svelte';
   import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
+  import { promptStore } from '$lib/stores/promptStore';
 
 
   export let seedPrompt: string = '';
@@ -26,6 +29,8 @@ import { fade, fly, scale, slide } from 'svelte/transition';
   export let userId: string;
   export let attachment: File | null = null;
   export let promptType: PromptType = 'CASUAL_CHAT';
+  export let threadId: string | null = null;
+  export let initialMessageId: string | null = null;
 
 let threads: Threads[];
 let currentThread: Threads | null = null;
@@ -176,7 +181,7 @@ threadsStore.subscribe(state => {
 
   // Mark the last group as isRecent
   if (sortedGroups.length > 0) {
-    sortedGroups[sortedGroups.length - 1].isRecent = true;
+    sortedGroups[sortedGroups.length - 1].isRecent = false;
   }
 
   return sortedGroups;
@@ -210,6 +215,9 @@ function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content
     created: createdDate,
     updated: createdDate,
     parent_msg: parentMsgId,
+    prompt_type: promptType,
+    model: aiModel,
+
   };
 }
 
@@ -380,6 +388,8 @@ function toggleGroupExpansion(displayDate: string) {
 }
 
 let isLoadingMessages = false;
+let initialLoadComplete = false;
+
 
 async function handleLoadThread(threadId: string) {
   try {
@@ -390,7 +400,7 @@ async function handleLoadThread(threadId: string) {
     currentThreadId = thread.id;
     console.log("Loaded thread:", currentThread);
     
-    isLoadingMessages = true; // Start loading
+    isLoadingMessages = true;
     chatMessages = [];
 
     await messagesStore.fetchMessages(threadId);
@@ -403,7 +413,9 @@ async function handleLoadThread(threadId: string) {
       user: msg.user,
       created: msg.created,
       updated: msg.updated,
-      parent_msg: msg.parent_msg
+      parent_msg: msg.parent_msg,
+      prompt_type: msg.prompt_type,
+      model: msg.model
     }));
 
     const groupedMessages = groupMessagesByDate(chatMessages);
@@ -415,7 +427,7 @@ async function handleLoadThread(threadId: string) {
   } catch (error) {
     console.error(`Error loading messages for thread ${threadId}:`, error);
   } finally {
-    isLoadingMessages = false; // End loading
+    isLoadingMessages = false;
   }
 }
 
@@ -622,6 +634,9 @@ function toggleThreadList() {
         type: 'robot',
         thread: currentThreadId,
         parent_msg: userMessage.id,
+        prompt_type: seedPrompt,
+        mode: aiModel
+
       }, currentThreadId);
 
       // Add AI response to UI
@@ -639,23 +654,34 @@ function toggleThreadList() {
           : msg
       );
 
+      // Add auto-update thread name after first AI response
+      const currentMessages = await messagesStore.fetchMessages(currentThreadId);
+      const robotMessages = currentMessages.filter((m: Messages) => m.type === 'robot');
+      if (robotMessages.length === 1) {
+        // This is the first AI response, update thread name
+        await threadsStore.autoUpdateThreadName(currentThreadId);
+      }
+
+
       await messagesStore.fetchMessages(currentThreadId);
     
-        console.log('Message sent, checking if scroll needed');
-        setTimeout(() => {
-          if (chatMessagesDiv) {
-            const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-            console.log('Current scroll state:', { scrollTop, scrollHeight, clientHeight });
-            if (scrollHeight - scrollTop - clientHeight < 200) {
-              console.log('Scrolling to bottom after sending message');
-              scrollToBottom();
-            } else {
-              console.log('Not scrolling to bottom, user has scrolled up');
-            }
+      console.log('Message sent, checking if scroll needed');
+      setTimeout(() => {
+        if (chatMessagesDiv) {
+          const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+          console.log('Current scroll state:', { scrollTop, scrollHeight, clientHeight });
+          if (scrollHeight - scrollTop - clientHeight < 200) {
+            console.log('Scrolling to bottom after sending message');
+            scrollToBottom();
           } else {
-            console.log('chatMessagesDiv is null after sending message');
+            console.log('Not scrolling to bottom, user has scrolled up');
           }
-        }, 0);
+        } else {
+          console.log('chatMessagesDiv is null after sending message');
+        }
+      }, 0);
+
+        
 
       } catch (error) {
       console.error('Error in handleSendMessage:', error);
@@ -842,58 +868,138 @@ function adjustFontSize(element: HTMLTextAreaElement) {
 
 
 onMount(async () => {
-  // await threadsStore.loadThreads(userId);
   await fetchTags();
+  let initialLoadComplete = false;
 
-    try {
-        isAuthenticated = await ensureAuthenticated();
-        if (!isAuthenticated) {
-            console.error('User is not logged in. Please log in to create a network.');
-            showAuth = true;
-        }
-
-        threads = await fetchThreads(userId);
-        console.log("Fetched threads:", threads);
-        if (threads.length === 0) {
-            const newThread = await createThread({ userId, name: `Thread ${threads.length + 1}` });
-            threads = [newThread];
-            console.log("Created new thread:", newThread);
-        }
-        // if (threads.length > 0) {
-        //     await handleLoadThread(threads[0].id);
-        // }
-
-        // New user-related code
-        if ($currentUser && $currentUser.id) {
-            updateAvatarUrl();
-            username = $currentUser.username || $currentUser.email;
-        }
-
-        if (textareaElement) {
-        const adjustTextareaHeight = () => {
-          textareaElement.style.height = 'auto';
-          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
-        };
-
-        const resetTextareaHeight = () => {
-          textareaElement.style.height = defaultTextareaHeight;
-        };
-
-        textareaElement.addEventListener('input', adjustTextareaHeight);
-        textareaElement.addEventListener('blur', resetTextareaHeight);
-
-        return () => {
-          textareaElement.removeEventListener('input', adjustTextareaHeight);
-          textareaElement.removeEventListener('blur', resetTextareaHeight);
-        };
-      }
-    } catch (error) {
-      console.error("Error in onMount:", error);
-      // Handle the error appropriately, e.g., show an error message to the user
+  try {
+    isAuthenticated = await ensureAuthenticated();
+    if (!isAuthenticated) {
+      console.error('User is not logged in. Please log in to create a network.');
+      showAuth = true;
+      return;
     }
-  });
 
-  $: if (currentThreadId) {
+    if ($currentUser && $currentUser.id) {
+      updateAvatarUrl();
+      username = $currentUser.username || $currentUser.email;
+    }
+
+    threads = await fetchThreads(userId);
+    console.log("Fetched threads:", threads);
+
+    // Get URL parameters once
+    const urlParams = new URLSearchParams(window.location.search);
+    const threadIdFromUrl = urlParams.get('threadId');
+    const messageIdFromUrl = urlParams.get('messageId');
+    const shouldAutoTrigger = urlParams.get('autoTrigger') === 'true';
+
+    if (threadIdFromUrl) {
+      currentThreadId = threadIdFromUrl;
+      await handleLoadThread(threadIdFromUrl);
+
+      if (messageIdFromUrl && shouldAutoTrigger) {
+        const targetMessage = messages.find(m => m.id === messageIdFromUrl);
+        if (targetMessage) {
+          try {
+            isLoading = true;
+            
+            // Start thinking animation
+            thinkingPhrase = getRandomThinkingPhrase();
+            const thinkingMessage = addMessage('thinking', thinkingPhrase);
+            thinkingMessageId = thinkingMessage.id;
+            chatMessages = [...chatMessages, thinkingMessage];
+
+            // Fetch AI response
+            const aiResponse = await fetchAIResponse(
+              chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+              aiModel,
+              userId,
+              attachment
+            );
+
+            // Remove thinking message
+            chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+            // Save AI response
+            const assistantMessage = await messagesStore.saveMessage({
+              text: aiResponse,
+              type: 'robot',
+              thread: currentThreadId,
+              parent_msg: targetMessage.id,
+              prompt_type: prompt
+            }, currentThreadId);
+
+            // Add AI response to UI
+            const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
+            chatMessages = [...chatMessages, newAssistantMessage];
+            typingMessageId = newAssistantMessage.id;
+
+            // Use typewriting effect
+            await typeMessage(aiResponse);
+
+            // Update the message with the full response
+            chatMessages = chatMessages.map(msg => 
+              msg.id === String(typingMessageId) 
+                ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+                : msg
+            );
+
+            // Update thread name after first AI response
+            const robotMessages = messages.filter(m => m.type === 'robot');
+            if (robotMessages.length === 1) {
+              await threadsStore.autoUpdateThreadName(currentThreadId);
+            }
+
+            await messagesStore.fetchMessages(currentThreadId);
+          } catch (error) {
+            console.error('Error processing AI response:', error);
+            chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
+            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+            chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
+          } finally {
+            isLoading = false;
+            thinkingMessageId = null;
+            typingMessageId = null;
+          }
+        }
+      }
+    } else {
+      // If no specific thread ID, don't automatically load any thread
+      currentThreadId = null;
+    }
+
+    // Set up textarea handlers
+    if (textareaElement) {
+      const adjustTextareaHeight = () => {
+        textareaElement.style.height = 'auto';
+        textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+      };
+
+      const resetTextareaHeight = () => {
+        textareaElement.style.height = defaultTextareaHeight;
+      };
+
+      textareaElement.addEventListener('input', adjustTextareaHeight);
+      textareaElement.addEventListener('blur', resetTextareaHeight);
+
+      return () => {
+        textareaElement.removeEventListener('input', adjustTextareaHeight);
+        textareaElement.removeEventListener('blur', resetTextareaHeight);
+      };
+    }
+
+    initialLoadComplete = true;
+  } catch (error) {
+    console.error("Error in onMount:", error);
+  }
+});
+
+
+
+let isCleaningUp = false;
+
+
+$: if (currentThreadId && !isCleaningUp) {
   handleLoadThread(currentThreadId);
 }
   
@@ -902,6 +1008,30 @@ onMount(async () => {
   $: if ($currentUser && $currentUser.avatar) {
     updateAvatarUrl();
 }
+onDestroy(() => {
+  // Reset current thread
+  currentThreadId = null;
+  
+  // Reset thread selection in store
+  threadsStore.setCurrentThread(null);
+  
+  // Clear messages
+  chatMessages = [];
+  messages = [];
+  
+  // Reset any other state you want to clear
+  quotedMessage = null;
+  isLoading = false;
+  thinkingMessageId = null;
+  typingMessageId = null;
+  
+  // Clean up URL parameters
+  const url = new URL(window.location.href);
+  url.searchParams.delete('threadId');
+  url.searchParams.delete('messageId');
+  url.searchParams.delete('autoTrigger');
+  window.history.replaceState({}, '', url);
+});
 
 async function handleCreateNewThread() {
   try {
@@ -1109,70 +1239,56 @@ function toggleDateExpansion(date: string) {
     showTagFilters = !showTagFilters;
   }
 
-  let filteredThreads: Threads[] = [];
+let filteredThreads: Threads[] = [];
 
-
-  async function toggleTagSelection(tagId: string) {
-    if (selectedTagIds.has(tagId)) {
-      selectedTagIds.delete(tagId);
-    } else {
-      selectedTagIds.add(tagId);
-    }
-    selectedTagIds = selectedTagIds; // Trigger reactivity
-    handleTagFilter();
+// Toggle tag selection and update filtered threads
+async function toggleTagSelection(tagId: string) {
+  if (selectedTagIds.has(tagId)) {
+    selectedTagIds.delete(tagId);
+  } else {
+    selectedTagIds.add(tagId);
   }
+  selectedTagIds = selectedTagIds; // Trigger reactivity
+  filterThreads();
+}
 
-  function handleTagFilter() {
+// Filter threads based on selected tags
+function filterThreads() {
   if (selectedTagIds.size === 0) {
+    // Show all threads if no tags selected
     filteredThreads = threads;
   } else {
-    filteredThreads = threads.filter(thread => 
-      availableTags.some(tag => 
-        selectedTagIds.has(tag.id) && tag.selected_threads?.includes(thread.id)
-      )
-    );
-  }
-}
-
-$: {
-  handleTagFilter();
-}
-
-  // function startEditingTag(tagId: string) {
-  //     editingTagId = tagId;
-  //   }
-
-  function filterThreads() {
-    if (selectedTagIds.size === 0) {
-      // Show all threads if no tags are selected
-      filteredThreads = threads;
-    } else {
-      filteredThreads = threads.filter(thread => 
-        availableTags.some(tag => 
-          selectedTagIds.has(tag.id) && tag.selected_threads?.includes(thread.id)
-        )
+    // Filter threads that have ANY of the selected tags
+    filteredThreads = threads.filter(thread => {
+      // Get all tags associated with this thread
+      const threadTags = availableTags
+        .filter(tag => tag.selected_threads?.includes(thread.id))
+        .map(tag => tag.id);
+      
+      // Check if thread has any of the selected tags
+      return Array.from(selectedTagIds).some(selectedTagId => 
+        threadTags.includes(selectedTagId)
       );
-    }
+    });
   }
+}
 
-  $: {
-    // Re-filter threads whenever availableTags or threads change
-    filterThreads();
-  }
+// Create a reactive statement to update filtered threads when dependencies change
+$: {
+  filteredThreads = selectedTagIds.size === 0 ? threads : filteredThreads;
+}
 
-  // function filterThreads(threads: Threads[], selectedTags: Tag[]): Threads[] {
-  //   if (selectedTags.length === 0) return threads;
-  //   return threads.filter(thread => 
-  //     selectedTags.every(tag => thread.tags?.includes(tag.id))
-  //   );
-  // }
+// Update the thread display logic - replace threads with filteredThreads
+$: groupedThreads = filteredThreads.reduce((acc, thread) => {
+  const group = getThreadDateGroup(thread);
+  if (!acc[group]) acc[group] = [];
+  acc[group].push(thread);
+  return acc;
+}, {} as Record<string, Threads[]>);
 
-  $: filteredThreads = currentThreadId 
-    ? filterThreads(
-        threads, 
-        availableTags.filter(tag => tag.selected_threads?.includes(currentThreadId))
-      )
-    : threads;
+$: orderedGroupedThreads = groupOrder
+  .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
+  .map(group => ({ group, threads: groupedThreads[group] }));
 
   async function saveSelectedTags() {
     if (currentThreadId && currentThread) {
@@ -1344,7 +1460,13 @@ $: if (currentThreadId) {
 <div class="chat-interface">
   <div class="button-column">
     <div class="btn-col-left">
-      <button class="thread-toggle" on:click={toggleThreadList}>
+      <ModelSelector/>
+      <PromptSelector 
+      on:select={(event) => {
+        console.log('Parent received selection from selector:', event.detail);
+      }}
+    />
+    <button class="thread-toggle" on:click={toggleThreadList}>
         <Menu size={24} />
       </button>
     </div>
@@ -1410,24 +1532,27 @@ $: if (currentThreadId) {
         <MessageCirclePlus />
         {$t('threads.newThread')}
       </button>
-      {#each orderedGroupedThreads as { group, threads }}
-      <div class="thread-group">
-        <div class="thread-group-header">{group}</div>
-        {#each threads as thread}
-          <button class="thread-button"
-            on:click={() => handleLoadThread(thread.id)}
-            class:selected={currentThreadId === thread.id}
-          >
-            {thread.name}
-            <span class="delete-thread-button" on:click={(e) => handleDeleteThread(e, thread.id)}>
-              <X size={14} />
-            </span>
-          </button>
+      <div class="thread-catalog">
+        {#each orderedGroupedThreads as { group, threads }}
+        <div class="thread-group">
+          <div class="thread-group-header">{group}</div>
+          {#each threads as thread}
+            <button class="thread-button"
+              on:click={() => handleLoadThread(thread.id)}
+              class:selected={currentThreadId === thread.id}
+            >
+              {thread.name}
+              <span class="delete-thread-button" on:click={(e) => handleDeleteThread(e, thread.id)}>
+                <X size={14} />
+              </span>
+            </button>
 
+          {/each}
+          
+        </div>
         {/each}
-        
       </div>
-      {/each}
+
     </div>
     {/if}
     <div class="chat-container" on:scroll={handleScroll}>
@@ -1515,6 +1640,11 @@ $: if (currentThreadId) {
           {/if}
         {:else}
           <h1>{$t('threads.selectThread')}</h1>
+          <PromptCatalog
+          on:select={(event) => {
+            console.log('Parent received selection from catalog:', event.detail);
+          }}
+        />
         {/if}
       </div>
         <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
@@ -1631,7 +1761,7 @@ $: if (currentThreadId) {
                   </div>
                 {/each}
                 <div class="date-divider bottom" on:click={() => toggleDateExpansion(date)} transition:slide>
-                  <ChevronUp size={16} />
+                  <ChevronUp size={30} />
                 </div>
                 {/if}
             {/each}
@@ -1664,21 +1794,22 @@ $: if (currentThreadId) {
       disabled={isLoading}
       rows="1"
   ></textarea>
-
-  <div class="selector-row"  transition:slide>
-    <ModelSelector/>
-    <PromptSelector/>
-  </div>
-      
-
-  <div class="btn-row-right"  transition:slide>
+    <div class="btn-row-right"  transition:slide>
       <span>
         <Paperclip size="30" color="white" />
       </span>
-    <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
-      <Send color="white" />
-    </span>
-  </div>
+      <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
+        <Send color="white" />
+      </span>
+    </div>
+
+
+  <!-- <div class="selector-row"  transition:slide>
+    <ModelSelector/>
+    <PromptSelector/>
+  </div> -->
+      
+
 
 
 
@@ -1807,6 +1938,7 @@ $: if (currentThreadId) {
       overflow-x: hidden;
       /* padding: 10px; */
       display: flex;
+      gap: 4px;
       flex-direction: column;
       justify-content: flex-start;
       align-items: stretch;
@@ -1821,6 +1953,7 @@ $: if (currentThreadId) {
       padding-bottom: 40px;
       border: 2px solid var(--bg-color);
       background-color: var(--secondary-color);
+      // backdrop-filter: blur(10px);
 
       background: linear-gradient (
         90deg,
@@ -1844,7 +1977,6 @@ $: if (currentThreadId) {
         rgba(1, 1, 1, 0.05) 85%,
         rgba(117, 118, 114, 0) 100%
       );
-      backdrop-filter: blur(10px);
 
     }
     
@@ -1959,7 +2091,7 @@ $: if (currentThreadId) {
       bottom: 10px;
       right: 2rem;
       gap: 20px;
-      z-index: 20000;
+
       width: auto;
       /* background-color: black; */
     }
@@ -1968,7 +2100,7 @@ $: if (currentThreadId) {
     display: flex;
     flex-direction: column;
     align-items: flex-start;  /* Change this from 'stretch' to 'flex-start' */
-    padding: 20px;
+      padding: 2rem;
     /* border-radius: 20px; */
     font-size: 18px;
     /* font-weight: 300; */
@@ -1977,10 +2109,9 @@ $: if (currentThreadId) {
     line-height: 1.5;
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', serif; */
-    
 
     transition: all 0.3s ease-in-out;
-    width: 300px;  
+
   }
 
   .message p {
@@ -1990,7 +2121,7 @@ $: if (currentThreadId) {
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
-  width: 100%;  
+  width: 100%;
   text-align: left; 
 }
   
@@ -2031,16 +2162,21 @@ $: if (currentThreadId) {
     /* border-bottom: 2px solid #585858; */
     border-bottom-right-radius: 20px;
     color: white;
-    margin-bottom: 20px;
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
     /* margin-left: 200px; */
-    width: auto;  
+    height: auto;
     /* border: 1px solid black; */
-    margin-left: 6rem;
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
   }
+
+  .message.assistant p {
+      /* font-weight: 600; */
+      font-size: 1.2rem;
+      color: var(--text-color);
+      height: auto;
+    }
 
   /* .message.assistant:hover {
       opacity: 0.8;
@@ -2062,47 +2198,41 @@ $: if (currentThreadId) {
   
     .message.user {
       display: flex;
-      /* position: relative; */
-      /* align-self: flex-end; */
-      text-justify: center;
-      justify-content: center;
-      margin-right: 2rem;
-      width: auto;  
-      /* background: #3c3b35; */
-          /* background-color: #2e3838; */
-      border-radius: 20px;
-      color: var(--text-color);
-      /* border-left: 2px solid #585858; */
-      /* border-top: 2px solid #585858; */
-      
-      /* border-top-left-radius: 20px; */
-
-      /* border: 1px solid rgb(54, 54, 54); */
-      /* border-bottom: 5px solid #293434;
+    /* position: relative; */
+    align-self: flex-start;
+      margin: 1rem;
+      /* background-color: #2e3838; */
+    /* border-bottom: 5px solid #242d2d;
     border-right: 5px solid #242d2d;
     border-left: 2px solid #242d2d;
     border-top: 2px solid #242d2d; */
-      /* margin-bottom: 20px; */
-      margin-left: 2rem;
-      /* border: none; */
-      /* border-radius: 20px; */
+    /* border-bottom: 2px solid #585858; */
+    border-bottom-right-radius: 20px;
+    color: white;
+    /* font-style: italic; */
+    /* width: auto;  Allow the message to shrink-wrap its content */
+    /* margin-left: 200px; */
+    /* border: 1px solid black; */
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    background: var(--secondary-color);
+      border-radius: 20px;
+      border: 1px solid var(--primary-color); 
+      width: calc(94% - 2rem);
+
 
     }
+
 
     .message.user p {
       /* font-weight: 600; */
       font-size: 1.2rem;
-      background: var(--secondary-color);
-      padding: 20px;
-      border-radius: 20px;
-      border: 1px solid var(--primary-color);
+      width: 100%;
+      margin-top: 1rem;
+
+
     }
 
-    .message.assistant p {
-      /* font-weight: 600; */
-      font-size: 1.2rem;
-      color: var(--text-color)
-    }
+
 
 
     .message p {
@@ -2404,8 +2534,24 @@ span.new-tag:hover {
   backdrop-filter: blur(20px);
   background: var(--bg-gradient-left);
   border-radius: 10px;
-  /* padding: 20px 10px; */
+  scrollbar-width:1px;
+    scrollbar-color: #c8c8c8 transparent;
+    scroll-behavior: smooth;
   
+}
+
+.thread-catalog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 20px;
+  backdrop-filter: blur(20px);
+  background: var(--bg-gradient-left);
+  border-radius: 10px;
+  overflow-y: auto;
+  scrollbar-width:1px;
+    scrollbar-color: var(--text-color) transparent;
+    scroll-behavior: smooth;
 }
 
 
@@ -2418,7 +2564,6 @@ span.new-tag:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 5px;
     width: 100%;
   }
 
@@ -2478,9 +2623,9 @@ span.new-tag:hover {
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: var(--text-color);
+  color: transparent;
   cursor: pointer;
-  background-color: var(--tertiary-color);
+  background-color: none;
   border-radius: 15px;
 }
 
@@ -2641,9 +2786,11 @@ span.new-tag:hover {
     display: flex;
     position: fixed;
     width: 98%;
-    padding: 10px;
+    padding: 1rem;
     left: 0;
     bottom: 0;
+    justify-content: center;
+    align-items: flex-end;
     /* margin-bottom: 0; */
     /* border-radius: 70%; */
     background: transparent;
@@ -2681,7 +2828,7 @@ span.new-tag:hover {
     color: white;
     animation: glowy 1.5s infinite alternate;
     display: flex;
-    transition: font-size 0.3s ease; /* Add smooth transition for font size changes */
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 }
 
   button {
@@ -2752,22 +2899,32 @@ span.new-tag:hover {
     gap: 10px;
     position: fixed;
     left: 0;
-    bottom: 40px;
-    align-items: flex-end;
+    top: 60px;
+    height: 94%;
+    bottom: 1rem;
+    width: auto;
+    align-items: left;
+    justify-content: flex-end;
     z-index: 10;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    transition: all 0.3s ease-in;
+}
+
+.btn-col-left:hover {
+  backdrop-filter: blur(10px);
 }
 
 .btn-row-right {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    position: absolute;
-    right: 2rem;
-    bottom: 60px;
     height: auto;
-    align-items: flex-end;
+    justify-content: center;
     transition: all 0.3s ease;
-    z-index: 1100;
+  padding: 1rem;
+    bottom: 2.5rem;
+    right: 2rem;
+    z-index: 20000;
   }
 
   .btn-row-right span {
@@ -2775,18 +2932,17 @@ span.new-tag:hover {
     width: 40px;
     padding: 4px;
     background-color: transparent;
-    border: none;
     border-radius: 50%;
     transition: all 0.3s ease;
-    background-color: rgb(0, 160, 155);
+    background-color: var(--primary-color);
 
 
   }
 
   .btn-row-right span:hover {
-    height: 50px;
-    width: 50px;
-    background-color: rgb(2, 119, 115);
+    background-color: var(--tertiary-color);
+    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+
   }
 
   .btn-row-right.expanded {
@@ -2843,12 +2999,12 @@ span.new-tag:hover {
     display: flex;
     flex-direction: column;
     /* font-family: 'Merriweather', serif; */
-    width: 96%;
+    width: 100%;
     min-height: 60px;
-
+    margin-left: 4rem;
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
-    padding: 20px 90px;
+    padding: 1rem;
     text-justify: center;
     justify-content: center;
     resize: none;
@@ -2868,7 +3024,6 @@ span.new-tag:hover {
     scrollbar-color: #21201d transparent;
     vertical-align: middle; /* Align text vertically */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    z-index: 1101;
 
   }
 
@@ -2884,7 +3039,6 @@ span.new-tag:hover {
     /* height: 300px; */
     display: flex;
     /* min-height: 200px; */
-    z-index: 1000;
 
   }
 
@@ -2915,7 +3069,6 @@ span.new-tag:hover {
     justify-content: left;
     align-items: center;
     width: 100%;
-    margin-bottom: 1rem;
 
 
   }
@@ -2976,9 +3129,10 @@ span {
     font-size: 0.8em;
     color: #888;
     text-align: right;
+    justify-content: right;
+    width: 90%;
     margin-top: 5px;
-    position: absolute;
-    right: 2rem;
+    right: auto;
   }
 
   .chat-content {
@@ -2991,7 +3145,30 @@ span {
     overflow-y: hidden;
     overflow-x: hidden;
     transition: all ease 0.3s;
+      // backdrop-filter: blur(10px);
 
+      background: linear-gradient (
+        90deg,
+        rgba(117, 118, 114, 0.9) 0%,
+        rgba(0, 0, 0, 0.85) 5%,
+        rgba(117, 118, 114, 0.8) 10%,
+        rgba(117, 118, 114, 0.75) 15%,
+        rgba(117, 118, 114, 0.7) 20%,
+        rgba(0, 0, 0, 0.65) 25%,
+        rgba(117, 118, 114, 0.6) 30%,
+        rgba(0, 0, 0, 0.55) 35%,
+        rgba(0, 0, 0, 0.5) 40%,
+        rgba(117, 118, 114, 0.45) 45%,
+        rgba(0, 0, 0, 0.4) 50%,
+        rgba(0, 0, 0, 0.35) 55%,
+        rgba(117, 118, 114, 0.3) 60%,
+        rgba(117, 118, 114, 0.25) 65%,
+        rgba(117, 118, 114, 0.2) 70%,
+        rgba(117, 118, 114, 0.15) 75%,
+        rgba(0, 0, 0, 0.1) 80%,
+        rgba(1, 1, 1, 0.05) 85%,
+        rgba(117, 118, 114, 0) 100%
+      );
   }
 
 
@@ -3002,18 +3179,23 @@ span {
     justify-content: flex-start;
     align-items: center;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     position: fixed;
     padding: 20px 10px;
-    top: 60px;
+    border-top-left-radius: 50px;
+    top: 80px;
     bottom: 60px;
     width: 20%;
-    height: 84%;
+    height: 86%;
+    border-radius: 100px;
     transition: all 0.3s ease-in-out;
     scrollbar-width:1px;
     scrollbar-color: #c8c8c8 transparent;
-
+    scroll-behavior: smooth;
   }
+
+
+  /* padding: 20px 10px; */
 .thread-list.hidden {
   display: none;
   transform: translateX(-100%);
@@ -3150,19 +3332,24 @@ span {
   }
 
     .thread-toggle {
-      display: flex;
-      flex-direction: row;
-      position: fixed;
-      height: 50px;
-      width: 50px;
-      bottom: 2.5rem;
-      left: 1.5rem;
-      z-index: 1000;
-      background-color: rgb(24, 24, 24);
-      border: 1px solid rgba(53, 63, 63, 0.5);   
-      border-radius: 50px;
-      cursor: pointer;
-      transition: left 0.3s ease-in-out;
+    /* background-color: #283428; */
+    color: var(--text-color);
+    background: var(--bg-gradient-right);
+    padding: 4px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 50px;
+    height: 50px;
+    padding: 0.5rem;
+    /* border: 2px solid #506262; */
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+    user-select: none;
     }
 
     .thread-list-visible .thread-toggle {
@@ -3170,7 +3357,7 @@ span {
     }
 
   .thread-toggle:hover {
-    background-color: black;
+    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
   }
 
   .thread-info {
@@ -3179,14 +3366,14 @@ span {
     justify-content: flex-start;
     flex-wrap: wrap;
     /* align-items: center; */
-    padding: 0 20px;
+    // padding: 0 20px;
     border-radius: 5px;
     font-size: 20px;
     color: white;
-    z-index: 2000;
     /* height: 140px; */
     /* gap: 20px; */
     /* background-color: black; */
+
   }
 
   .thread-stats {
@@ -3262,7 +3449,7 @@ span {
   .scroll-bottom-btn {
     position: fixed;
     bottom: 120px;
-    right: -10px;
+    right: 0;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -3482,21 +3669,25 @@ span {
   .date-divider {
     display: flex;
     justify-content: flex-end;
-    align-items: right;
-    padding: 20px;
-    background: var(--bg-gradient);
+    align-items: center;
+    padding: 0.5rem;
+    gap: 2rem;
+    // background: var(--bg-gradient-left);
     /* background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%); */
-    margin: 10px 10px;
     /* border-radius: 5px; */
     cursor: pointer;
-    border-top: 1px solid rgb(82, 82, 82);
-    border-bottom: 1px solid rgb(82, 82, 82);
+    // border-top: 1px solid rgb(82, 82, 82);
+    border-bottom: 1px solid var(--secondary-color);
+    backdrop-filter: blur(100px);
+    // background: var(--bg-color);
     border-radius: 30px;
     border-top-left-radius: 30px;
     border-top-right-radius: 30px;
     transition: all ease 0.15s;
     color: #a5a5a5;
     user-select: none;
+    width: 96%;
+    margin-left: 1rem;
     /* backdrop-filter: blur(10px); */
 
   }
@@ -3504,16 +3695,20 @@ span {
 
 
   .date-divider:hover{
-    transform: translateY(-10px) rotate(0deg); 
+    transform: translateY(-5px) rotate(0deg); 
+    background: var(--bg-gradient-left);
+    color: var(--tertiary-color);
   }
 
   .date-divider.bottom {
     display: flex;
     justify-content: right;
     align-items: right;
-    padding: 10px;
     border: 0;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 59%);
+    padding: 0;
+    margin-right: 2rem;
+    background: none;
+    // background: linear-gradient(to top, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 59%);
     backdrop-filter: none;
     border-top: none;
     border-top-left-radius: none;
@@ -3523,7 +3718,6 @@ span {
     border-bottom-right-radius: 30px;
 
     /* background-color: rgba(255, 255, 255, 0.1); */
-    margin: 10px 10px;
     /* border-radius: 5px; */
     cursor: pointer;
   }
@@ -3625,10 +3819,10 @@ span {
   .thread-list {
     position: fixed;
     top: 60px;
-    right: 1rem;
-    
-    width: 90%;
-    height: 84%;
+
+
+
+
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     /* z-index: 1000; */
@@ -3670,7 +3864,8 @@ span {
   }
 .thread-list {
     width: 100%;
-    
+    padding: 0;
+
   }
 
 
@@ -3722,6 +3917,8 @@ span {
   }
 
 
+
+
   .thread-toggle {
     /* display: none; */
   }
@@ -3731,6 +3928,27 @@ span {
 
 @media (max-width: 1000px) {
 
+
+  .btn-col-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 90%;
+    width: auto;
+    align-items: left;
+    justify-content: flex-end;
+    z-index: 10;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    transition: all 0.3s ease-in;
+}
+
+.btn-col-left:hover {
+  width: 96%;
+}
   .scroll-bottom-btn {
     bottom: 200px;
   }
@@ -3769,8 +3987,48 @@ span {
       font-size: 20px;
       animation: glowy 1.5s infinite alternate;
       display: flex;
+      z-index: 1000;
 
   }
+
+  .message.user {
+    margin-right: 2rem;
+    margin-left: 2rem;
+
+    width: auto;
+    align-self: flex-end;
+  }
+    .message.user p {
+      /* font-weight: 600; */
+      font-size: 1.2rem;
+    }
+
+    .date-divider {
+      margin-right: 2rem;
+    }
+
+    .message.assistant  {
+      display: flex;
+    /* position: relative; */
+    align-self: flex-end;
+    /* background-color: #2e3838; */
+    /* border-bottom: 5px solid #242d2d;
+    border-right: 5px solid #242d2d;
+    border-left: 2px solid #242d2d;
+    border-top: 2px solid #242d2d; */
+    /* border-bottom: 2px solid #585858; */
+    border-bottom-right-radius: 20px;
+    color: white;
+    margin-bottom: 20px;
+    /* font-style: italic; */
+    /* width: auto;  Allow the message to shrink-wrap its content */
+    /* margin-left: 200px; */
+    margin-right: 2rem;
+    margin-left: 2rem;
+
+    width: auto;    /* border: 1px solid black; */
+
+    }
 
 
 
@@ -3778,8 +4036,8 @@ span {
 @media (max-width: 1900px) {
 
 .chat-content {
-    width: 99%;
-    margin-left: 0;
+    width: auto;
+    margin-left: 1rem;
     margin-top: 1rem;
     background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     border: none;

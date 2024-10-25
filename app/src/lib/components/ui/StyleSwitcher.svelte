@@ -164,20 +164,24 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      padding: 1rem;
-      // background-color: var(--secondary-color);
+      background-color: var(--secondary-color);
       text-align: center;
+      border-radius: 50px;
+      width: 50%;
+      height: 100%;
   }
 
   .dummy {
       display: flex;
-      width: 100%;
+      width: 90%;
+      border-radius: 25px;
       height: 50%;
-      margin-top: 1rem;
-      padding: 0.5rem;
-      border-radius: 4px;
       justify-content: center;
       align-items: center;
+  }
+
+  .current-style span {
+    background-color: blue;
   }
 
   .style-list {
@@ -185,6 +189,7 @@
       flex-direction: column;
       gap: 0.5rem;
       width: 50%;
+      height: 100%;
   }
 
   .style-button {
@@ -197,7 +202,8 @@
       cursor: pointer;
       transition: all ease 0.3s;
       width: 100%;
-      
+      height: 100%;
+
 
       &.default {
           background-color: var(--primary-color);

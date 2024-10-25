@@ -58,6 +58,34 @@ export async function fetchAIResponse(messages: AIMessage[], model: AIModel, use
     }
 }
 
+export async function fetchNamingResponse(userMessage: string, aiResponse: string, model: AIModel, userId: string): Promise<string> {
+    try {
+        const messages: AIMessage[] = [
+            { 
+                role: 'system', 
+                content: 'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.' 
+            },
+            { 
+                role: 'user', 
+                content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:` 
+            }
+        ];
+
+        const response = await fetchAIResponse(messages, model, userId);
+        
+        // Clean and format the response
+        const threadName = response
+            .trim()
+            .replace(/^["']|["']$/g, '') // Remove quotes if present
+            .slice(0, 50);               // Enforce max length
+            
+        return threadName;
+    } catch (error) {
+        console.error('Error in fetchNamingResponse:', error);
+        throw error;
+    }
+}
+
 export async function generateGuidance(context: { type: string; description: string }, model: AIModel, userId: string): Promise<Guidance> {
     const messages: AIMessage[] = [
         { role: 'system', content: getPrompt('GUIDANCE_GENERATION', '') },

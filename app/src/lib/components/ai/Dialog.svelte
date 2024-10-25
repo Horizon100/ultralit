@@ -13,7 +13,7 @@
   import { createAgentWithSummary, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { goto } from '$app/navigation';
   import ModelSelector from './ModelSelector.svelte';
-  import PromptSelector from '../ai/PromptSelector.svelte';
+  import PromptSelector from './PromptSelector.svelte';
   import { fly, fade, blur } from 'svelte/transition';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
@@ -248,6 +248,8 @@ $: groupedThreads = threads.reduce((acc, thread) => {
     await threadsStore.loadThreads(); 
     if (threads.length === 0) {
       await handleCreateNewThread();
+      await handleSeedPromptSubmit();
+
       // goto('/ask');
 
     }
@@ -327,43 +329,83 @@ function handleFileSelected(event: Event) {
   }
 
   async function handleSeedPromptSubmit() {
-    console.log("handleSeedPromptSubmit called");
-    if (seedPrompt.trim() || attachment) {
-      isLoading = true;
-      try {
-        // Create new thread
-        const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
-        if (newThread && newThread.id) {
-          threads = [...(threads || []), newThread];
-          await threadsStore.setCurrentThread(newThread.id);  
-          newThreadName = newThread.name;
-          newThreadId = newThread.id;
+  console.log("handleSeedPromptSubmit called");
+  if (seedPrompt.trim() || attachment) {
+    isLoading = true;
+    try {
+      // Create new thread
+      const newThread = await threadsStore.addThread({ 
+        op: pb.authStore.model?.id, 
+        name: `Thread ${threads?.length ? threads.length + 1 : 1}` 
+      });
+      
+      if (newThread && newThread.id) {
+        // Add the seed prompt message first
+        if (seedPrompt.trim()) {
+          const messageData = {
+            thread: newThread.id,
+            text: seedPrompt.trim(),
+            type: 'human',
+            user: pb.authStore.model?.id,
+          };
 
-          // Add the seed prompt as the first message
-          let firstMessageId = null;
-          if (seedPrompt.trim()) {
-            const firstMessage = await threadsStore.addMessage({
-              thread: newThread.id,
-              text: seedPrompt.trim(),
-              type: 'human',
-              user: userId,
+          try {
+            // Add message using the existing addMessageToThread function
+            const createdMessage = await addMessageToThread(messageData);
+            
+            // Only after message is saved, update the thread list and set current thread
+            threads = [...(threads || []), newThread];
+            await threadsStore.setCurrentThread(newThread.id);
+            newThreadName = newThread.name;
+            newThreadId = newThread.id;
+            
+            showConfirmation = true;
+            handleConfirmation();
+
+            // Navigate to AIChat with the thread ID and trigger message
+            const params = new URLSearchParams({
+              threadId: newThread.id,
+              messageId: createdMessage.id,
+              autoTrigger: 'true'
             });
-            firstMessageId = firstMessage.id;
+            
+            goto(`/ask?${params.toString()}`);
+
+          } catch (messageError) {
+            console.error("Error creating message:", messageError);
+            // If message creation fails, delete the thread to maintain consistency
+            await pb.collection('threads').delete(newThread.id);
+            throw messageError;
           }
-          
-          // Show confirmation
-          showConfirmation = true;
-        } else {
-          console.error("Failed to create new thread: Thread object is undefined or missing id");
         }
+      } else {
+        throw new Error("Failed to create new thread: Thread object is undefined or missing id");
+      }
 
-
-      handleConfirmation();
     } catch (error) {
-      console.error("Error creating new thread:", error);
+      console.error("Error in handleSeedPromptSubmit:", error);
+      if (error instanceof ClientResponseError) {
+        console.error('Response data:', error.data);
+        console.error('Status code:', error.status);
+      }
+      // Add user-friendly error handling here
     } finally {
       isLoading = false;
     }
+  }
+}
+
+async function verifyUser() {
+  if (!userId) {
+    throw new Error('No user ID available');
+  }
+  
+  try {
+    const userRecord = await pb.collection('users').getOne(userId);
+    return userRecord;
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    throw new Error('User verification failed');
   }
 }
 
@@ -408,15 +450,27 @@ function handleFileSelected(event: Event) {
     aiModel = event.detail;
     console.log('Selected model:', event.detail);
   }
-  
-  function getMessageCount(threadId: string): number {
-    return messages.filter(message => message.thread === threadId).length;
-  }
 
   let threadCount = 0;
   let messageCount = 0;
+  let threadMessageCounts: Record<string, number> = {}; // Object to store message counts for each thread
+
+  $: {
+  if (threads && messages) {
+    threadMessageCounts = threads.reduce((acc, thread) => {
+      const count = messages.filter(message => message.thread === thread.id).length;
+      acc[thread.id] = count;
+      return acc;
+    }, {} as Record<string, number>);
+  }
+}
+
   let tagCount = 0;
   let timerCount: number = 0;
+  
+
+
+
 
   let lastActive: Date | null = null;
 
@@ -442,6 +496,12 @@ function handleFileSelected(event: Event) {
     console.error(`Error fetching ${collection} count:`, error);
     return 0;
   }
+}
+
+// Assuming `messages` is an array of message objects, where each message has a `thread` property
+
+function fetchThreadMessageCounts(threadId: string): number {
+  return messages.filter(message => message.thread === threadId).length;
 }
 
 async function fetchThreadCount(): Promise<number> {
@@ -519,7 +579,8 @@ onMount(async () => {
       fetchMessageCount(),
       fetchTagCount(),
       fetchTimerCount(),
-      fetchLastActiveTime()
+      fetchLastActiveTime(),
+      
     ]);
 
     threadCount = threads;
@@ -615,19 +676,18 @@ function formatDate(date: string): string {
                 </button> -->
                 {#each orderedGroupedThreads as { group, threads }}
                 <div class="thread-group">
-                    <h3>{group}</h3>
-                    {#each threads as thread}
-                      <button on:click={() => handleThreadSelection(thread.id)}>
-                        <span class="thread-name">{thread.name}</span>
-                        <span class="message-count">
-                          ✉
-                          {getMessageCount(thread.id)} 
-                        </span>
-                      </button>
-                    {/each}
-                  </div>
-                {/each}
-              </div>
+                  <h3>{group}</h3>
+                  {#each threads as thread}
+                    <button on:click={() => handleThreadSelection(thread.id)}>
+                      <span class="thread-name">{thread.name}</span>
+                      <span class="message-count">
+                        ✉ {fetchThreadMessageCounts(thread.id)} 
+                      </span>
+                    </button>
+                  {/each}
+                </div>
+              {/each}
+            </div>
             </div>
               
           </div>
@@ -719,7 +779,9 @@ function formatDate(date: string): string {
   }
 
   .stats-container {
-  background: rgba(255, 255, 255, 0.1);
+  // background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-gradient);
+
   backdrop-filter: blur(10px);
   border-radius: 20px;
   padding: 16px;
@@ -793,9 +855,9 @@ function formatDate(date: string): string {
     transform:  translateX(-30px);   
   }
 
-  .stats-container {
-    background-color:  var(--secondary-color);;
-  }
+  // .stats-container {
+  //   background-color:  var(--secondary-color);;
+  // }
 
   .stats-container h2 {
     display: flex;
@@ -989,7 +1051,7 @@ function formatDate(date: string): string {
   }
 
   textarea::placeholder {
-    font-size: 2rem;
+    font-size: 1.6rem;
   }
   .button-row {
     display: flex;
@@ -1141,11 +1203,20 @@ function formatDate(date: string): string {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 10px;
-    color: black;
     width: 360px;
     border-radius: 20px;
     scroll-behavior: smooth;
     transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    background: var(--bg-gradient-right);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 16px;
+    display: flex;
+
+  /* Neomorphic shadow */
+  box-shadow: 
+    8px 8px 16px rgba(0, 0, 0, 0.3),
+    -8px -8px 16px rgba(255, 255, 255, 0.1);
   }
 
   .thread-group button {
@@ -1208,17 +1279,16 @@ position: relative;
         border-right: 1px solid black;
         border-bottom: 20px solid rgb(80, 80, 80);
     // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 20%, rgba(247, 247, 247, 0.2) 96%);       
-
+  user-select: none;
 }
 
 
     .thread-list button:hover {
         background-color: var(--primary-color);
-        transform: scale(1.1) translateX(60px) rotate(3deg);   
+        transform: scale(1.1) translateX(30px) rotate(3deg);   
 
         letter-spacing: 4px;
-        padding: 20px;
-        width: 70%;
+        width: calc(100% - 40px);
         z-index: 10;
         border-bottom-right-radius: 19px;
         border-left: 40px solid rgb(169, 189, 209);
@@ -1380,11 +1450,7 @@ position: relative;
     }
 
     .message-count {
-      padding: 4px 10px;
       width: auto;
-      background-color: rgb(53, 53, 53);
-      border-radius: 16px;
-      border: 1px solid gray;
       display: flex;
       flex-direction: row;
       height: 20px;

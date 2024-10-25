@@ -55,6 +55,9 @@ function createMessagesStore() {
                     thread: threadId,
                     attachments: message.attachments || '',
                     reactions: message.reactions || {},
+                    prompt_type: message.prompt_type || null,
+                    model: message.model || null,
+
                 };
 
                 const savedMessage = await addMessageToThread(newMessage);
