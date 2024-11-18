@@ -662,6 +662,7 @@
 
 	.nav-link {
 		display: flex;
+		flex-direction: row;
 		gap: 8px;
 		font-weight: 400;
 		justify-content: center;
@@ -690,7 +691,6 @@
 	.nav-link.active {
     background: var(--bg-gradient-r);
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); 
-	
     font-weight: bold;
 	color: var(--tertiary-color);
     transform: translateY(-2px);
@@ -863,6 +863,8 @@
 
 	.mobile-btns a {
 		width: 100%;
+		flex-direction: column;
+
 	}
 
 		/* .auth-button {

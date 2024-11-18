@@ -1463,6 +1463,11 @@
     "@typescript-eslint/types" "8.0.0"
     eslint-visitor-keys "^3.4.3"
 
+"@vavite/node-loader@^5.0.1":
+  version "5.0.1"
+  resolved "https://registry.yarnpkg.com/@vavite/node-loader/-/node-loader-5.0.1.tgz#820f769f5323a950704a3b757cabdffc3d238252"
+  integrity sha512-qj+QZvFfMlApiHqdnLgPc5eUe1YsEqlSewxsMnrWEXRmlts+7odVW+NMhziT2WDaYoC3ypgfZ4j6Go1KUnFKyw==
+
 "@vitest/expect@2.0.5":
   version "2.0.5"
   resolved "https://registry.npmjs.org/@vitest/expect/-/expect-2.0.5.tgz"

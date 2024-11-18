@@ -225,7 +225,10 @@ export interface User extends RecordModel {
     last_login: Date;
     bookmarks: string[];
     timer_sessions: string[];
-
+    token_balance: number;
+    lifetime_tokens: number;
+    current_subscription?: string;
+    activated_features: string[];
 }
 
 export interface Node extends RecordModel {

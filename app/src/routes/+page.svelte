@@ -29,8 +29,10 @@
     import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
 	import { showLoading } from '../lib/stores/loadingStore';
     import { t } from '$lib/stores/translationStore';
+    import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte'
 
     let pageReady = false;
+    let showNewsletterPopup = false;
 
     $: if ($currentLanguage) {
         updatePageContent();
@@ -189,6 +191,7 @@
     }
 
     function subscribeToNewsletter() {
+        showNewsletterPopup = true;
         // Implement newsletter subscription logic
     }
 
@@ -382,6 +385,8 @@
                                     <Mail size="30"/>
                                     {$t('landing.subscribing')}
                                 </button>
+                                <NewsletterPopup bind:showPopup={showNewsletterPopup} />
+
                                 <a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
                                     <button>
                                         <Send size="30"/>

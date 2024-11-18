@@ -9,5 +9,6 @@ export default defineConfig({
         additionalData: '@use "src/themes.scss" as *;'
       }
     }
-  }
+  },
+  
 });
