@@ -9,6 +9,8 @@
     import Auth from '$lib/components/auth/Auth.svelte';
     import Paper from '$lib/components/network/Paper.svelte';
     import { agentStore } from '$lib/stores/agentStore';
+    import { initializeLanguage } from '$lib/stores/languageStore';
+
     import { goto } from '$app/navigation';
     import Builder from '$lib/components/ui/Builder.svelte'
     import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
@@ -31,6 +33,8 @@
     import { t } from '$lib/stores/translationStore';
     import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte'
 
+    let threadId: string | null = null;
+    let messageId: string | null = null;
     let pageReady = false;
     let showNewsletterPopup = false;
 
@@ -44,6 +48,9 @@
         await new Promise(resolve => setTimeout(resolve, 600));
         pageReady = true;
     }
+
+    $: userId = $currentUser?.id;
+
 
     onMount(() => {
         

@@ -11,6 +11,7 @@
     import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';
     import { currentTheme } from '$lib/stores/themeStore';
 	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+    import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 
     export let user: any;
     export let onClose: () => void;
@@ -27,6 +28,13 @@
 	let showStyles = false;
     let currentStyle = 'default';
 
+    let threadCount = 0;
+    let messageCount = 0;
+    let threadMessageCounts: Record<string, number> = {}; 
+    let tagCount = 0;
+    let timerCount: number = 0;
+    let lastActive: Date | null = null;
+    
     const styles = [
       { name: 'Daylight Delight', value: 'default', icon: Sun },
       { name: 'Midnight Madness', value: 'dark', icon: Moon },
@@ -212,7 +220,16 @@
                     </span>
                     <span>{user.verified ? 'Yes' : 'No'}</span>
                 </div>
+                
             </div>
+            
+            <StatsContainer
+            {threadCount}
+            {messageCount}
+            {tagCount}
+            {timerCount}
+            {lastActive}
+          />
             <div class="actions">
                 {#if isEditing}
                     <button on:click={saveChanges}>

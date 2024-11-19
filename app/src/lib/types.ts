@@ -1,11 +1,41 @@
 // src/lib/types.ts
 
 import type { RecordModel } from 'pocketbase'; 
+import PocketBase, { AuthModel } from 'pocketbase';
+import { writable } from 'svelte/store';
 
+
+
+export interface User extends RecordModel {
+    username: string;
+    email: string;
+    emailVisibility: boolean;
+    verified: boolean;
+    name?: string;
+    avatar: string;
+    role: string;
+    network_preferences: string[];
+    preferences: string[];
+    messages: string[];
+    last_login: Date;
+    bookmarks: string[];
+    timer_sessions: string[];
+    token_balance: number;
+    lifetime_tokens: number;
+    current_subscription?: string;
+    activated_features: string[];
+    theme_preference?: string;
+    created: string;
+    updated: string;
+    id: string;
+    collectionId: string;
+    collectionName: string;
+
+} 
 export interface Prompt {
     value: PromptType;
     label: string;
-    icon: any;
+    icon: unknown;
     description: string;
     youtubeUrl: string;
   }
@@ -120,7 +150,7 @@ export interface AIMessage {
 
 // export type AIModel = 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
 
-export interface AIModel {
+export interface AIModel extends RecordModel {
     id: string;
     name: string;
     api_key: string;
@@ -211,25 +241,6 @@ export interface CursorPosition extends RecordModel {
     userData: User;
 }
 
-export interface User extends RecordModel {
-    username: string;
-    email: string;
-    emailVisibility: boolean;
-    verified: boolean;
-    name?: string;
-    avatar: string;
-    role: string;
-    network_preferences: string[];
-    preferences: string[];
-    messages: string[];
-    last_login: Date;
-    bookmarks: string[];
-    timer_sessions: string[];
-    token_balance: number;
-    lifetime_tokens: number;
-    current_subscription?: string;
-    activated_features: string[];
-}
 
 export interface Node extends RecordModel {
     id: string;
@@ -251,16 +262,7 @@ export interface NodeConfig {
 }
 
 
-export interface ChatMessage extends RecordModel {
-    text: string;
-    role: 'user' | 'assistant' | 'thinking';
-    user: string;
-    expand?: {
-        user?: {
-            username: string;
-        };
-    };
-}
+
 
 
 
@@ -352,11 +354,7 @@ export interface Transform {
 
 
 
-export interface InternalChatMessage extends ChatMessage {
-    id: string;
-    isTyping?: boolean;
-    isHighlighted?: boolean;
-}
+
 
 export interface Shape {
     id: string;
@@ -418,6 +416,26 @@ export interface Workshops {
     status?: string;
 }
 
+export interface InternalChatMessage extends ChatMessage {
+    id: string;
+    isTyping?: boolean;
+    isHighlighted?: boolean;
+    content: string;
+    text: string;
+    collectionId: string; 
+    collectionName: string;
+    parent_msg: string | null;
+    reactions?: {
+        upvote: number;
+        downvote: number;
+        bookmark: string[];
+        highlight: string[];
+        question: number;
+    };
+    prompt_type: PromptType;
+    model: string | null;
+    thread?: string;
+}
 export interface Messages extends RecordModel {
     id: string;
     text: string;
@@ -442,16 +460,29 @@ export interface Messages extends RecordModel {
     model: string | null;
 }
 
+export interface ChatMessage extends RecordModel {
+    text: string;
+    role: 'user' | 'assistant' | 'thinking';
+    user: string;
+    expand?: {
+        user?: {
+            username: string;
+        };
+    };
+}
+
 export interface Threads extends RecordModel {
     id: string;
     name: string;
     op: string;
+    created: string;
     updated: string;
     tags: string[]; 
+    last_message?: Messages;
 }
 
 export interface Tag {
-    id: number;
+    id: string;
     name: string;
     selected: boolean;
     color: string;
@@ -495,3 +526,4 @@ export type NoteRecord = Notes & {
     collectionId: string;
     collectionName: 'notes';
 }
+

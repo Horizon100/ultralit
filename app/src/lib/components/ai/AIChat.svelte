@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
 import { fade, fly, scale, slide } from 'svelte/transition';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus } from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search } from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -17,7 +17,7 @@ import { fade, fly, scale, slide } from 'svelte/transition';
   import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import Auth from '$lib/components/auth/Auth.svelte';
 	import ModelSelector from './ModelSelector.svelte';
-  import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
+  import { fetchThreads, fetchMessagesForThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
@@ -37,6 +37,7 @@ let currentThread: Threads | null = null;
 let initialThreadId: string | null = null;
 
 let currentThreadId: string | null;
+let searchQuery = '';
 
 
 let showThreadList = true;
@@ -196,28 +197,34 @@ threadsStore.subscribe(state => {
     return messages.length;
   }
 
-function addMessage(role: 'user' | 'assistant' | 'thinking' | 'options', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
+  function addMessage(role: 'user' | 'assistant' | 'thinking', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
   messageIdCounter++;
   const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
   const newMessageId = `msg-${messageIdCounter}`;
   latestMessageId = newMessageId;
   const createdDate = new Date().toISOString();
-  console.log(`Adding message: role=${role}, id=${newMessageId}, created=${createdDate}`);
+
   return { 
+    id: newMessageId,
     role: role as 'user' | 'assistant' | 'thinking',
     content: messageContent,
-    id: newMessageId, 
-    isTyping: role === 'assistant',
     text: messageContent,
     user: userId,
-    collectionId: '',
-    collectionName: '',
+    isTyping: role === 'assistant',
+    collectionId: '',     
+    collectionName: '',   
     created: createdDate,
     updated: createdDate,
     parent_msg: parentMsgId,
     prompt_type: promptType,
-    model: aiModel,
-
+    model: aiModel?.id || null,
+    reactions: {
+      upvote: 0,
+      downvote: 0,
+      bookmark: [],
+      highlight: [],
+      question: 0
+    }
   };
 }
 
@@ -866,9 +873,15 @@ function adjustFontSize(element: HTMLTextAreaElement) {
     }
 }
 
+function getLastMessage(): Messages | null {
+  if (messages && messages.length > 0) {
+    return messages[messages.length - 1]; // Returns the last message in the array
+  }
+  return null; // Return null if there are no messages
+}
+
 
 onMount(async () => {
-  await fetchTags();
   let initialLoadComplete = false;
 
   try {
@@ -883,9 +896,15 @@ onMount(async () => {
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
+    await fetchTags();
 
-    threads = await fetchThreads(userId);
-    console.log("Fetched threads:", threads);
+    // Fetch threads
+    try {
+      threads = await fetchThreads();
+      console.log("Fetched threads:", threads);
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+    }
 
     // Get URL parameters once
     const urlParams = new URLSearchParams(window.location.search);
@@ -896,6 +915,13 @@ onMount(async () => {
     if (threadIdFromUrl) {
       currentThreadId = threadIdFromUrl;
       await handleLoadThread(threadIdFromUrl);
+
+      // After fetching messages for the thread, get the last message
+      if (currentThreadId) {
+        messages = await fetchMessagesForThread(currentThreadId);
+        const lastMessage = getLastMessage();
+        console.log('Last message:', lastMessage);
+      }
 
       if (messageIdFromUrl && shouldAutoTrigger) {
         const targetMessage = messages.find(m => m.id === messageIdFromUrl);
@@ -1509,29 +1535,42 @@ $: if (currentThreadId) {
             {/if}
           </div>
         {/each}
+        <button class="new-button" on:click={toggleTagCreation}>
+          <Tag />
+          {$t('threads.newTag')}
+        </button>
       </div>
-      
-      <button class="new-button" on:click={toggleTagCreation}>
-        <Tag />
-        {$t('threads.newTag')}
-      </button>
 
-      {#if editingTagIndex !== null}
-        <div class="new-tag-input">
-          <input 
-          type="text" 
-          placeholder="New tag" 
-          on:keydown={(e) => e.key === 'Enter' && createTag(e.target.value)}
-        >          
-          <span class="new-tag" on:click={saveTag}>
-            <Plus size={16} />
-          </span>
+
+
+        {#if editingTagIndex !== null}
+          <div class="new-tag-input">
+            <input 
+            type="text" 
+            placeholder="New tag" 
+            on:keydown={(e) => e.key === 'Enter' && createTag(e.target.value)}
+          >          
+            <span class="new-tag" on:click={saveTag}>
+              <Plus size={16} />
+            </span>
+          </div>
+        {/if}
+
+      <div class="thread-actions">
+        <div class="search-bar">
+            <Search size={30} />
+            <input
+              type="text"
+              bind:value={searchQuery}
+              placeholder="Search threads..."
+            />
         </div>
-      {/if}
-      <button class="new-button" on:click={handleCreateNewThread}>
-        <MessageCirclePlus />
-        {$t('threads.newThread')}
-      </button>
+        <button class="new-button" on:click={handleCreateNewThread}>
+          <MessageCirclePlus size={30}/>
+          <!-- {$t('threads.newThread')} -->
+        </button>
+      </div>
+
       <div class="thread-catalog">
         {#each orderedGroupedThreads as { group, threads }}
         <div class="thread-group">
@@ -1541,10 +1580,18 @@ $: if (currentThreadId) {
               on:click={() => handleLoadThread(thread.id)}
               class:selected={currentThreadId === thread.id}
             >
-              {thread.name}
-              <span class="delete-thread-button" on:click={(e) => handleDeleteThread(e, thread.id)}>
-                <X size={14} />
-              </span>
+              <div class="thread-card">
+                <span class="thread-title">{thread.name}</span>
+                <span class="thread-message">
+                  {thread.last_message?.content || 'No messages yet'}
+                </span>
+                <span class="thread-time">
+                  {new Date(thread.updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span class="delete-thread-button" on:click={(e) => handleDeleteThread(e, thread.id)}>
+                  <X size={14} />
+                </span>
+              </div>
             </button>
 
           {/each}
@@ -1866,6 +1913,9 @@ $: if (currentThreadId) {
 
     }
 
+
+  
+
    .save-button {
     position: absolute;
     right: 2rem;
@@ -1943,7 +1993,7 @@ $: if (currentThreadId) {
       justify-content: flex-start;
       align-items: stretch;
       scrollbar-width:1px;
-      scrollbar-color: #898989 transparent;
+      scrollbar-color: var(--secondary-color) transparent;
       scroll-behavior: smooth;
       margin-bottom: 100px;
       padding-top: 20px;
@@ -1952,7 +2002,7 @@ $: if (currentThreadId) {
       border-radius: 50px;
       padding-bottom: 40px;
       border: 2px solid var(--bg-color);
-      background-color: var(--secondary-color);
+      // background-color: var(--secondary-color);
       // backdrop-filter: blur(10px);
 
       background: linear-gradient (
@@ -2447,19 +2497,53 @@ button.tag.selected {
   opacity: 1;
 }
 
+.thread-actions {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  background: var(--bg-gradient-right);
+  border-radius: var(--spacing-md);
+  margin-bottom: 0.5rem;
+
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  // padding: var(--spacing-sm);
+  border-radius: var(--radius-m);
+  height: var(--spacing-xl);
+  width: 80%;
+  height: auto;
+  margin: 0 var(--spacing-md);
+
+  input {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    width: 100%;
+    outline: none;
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+  }
+}
+
 button.new-button {
   background-color: var(--primary-color);
-  border-radius: 15px;
-  padding: 5px 10px;
-  font-size: 12px;
+  font-size: var(--font-size-s);
+  font-weight: bold;
   cursor: pointer;
   transition: all ease 0.3s;
-  width: 94%;
-  height: 60px;
+  // width: 100%;
+  padding: var(--spacing-md);
   display: flex;
-  justify-content: center;
-  align-items: center;
-  
+  margin: var(--spacing-sm) 0;
+  user-select: none;
+  gap: var(--spacing-sm);
+
 }
 
 button.new-button:hover {
@@ -2467,21 +2551,26 @@ button.new-button:hover {
   
 }
 
+.new-button svg {
+  color: red;
+}
+
 span.new-button {
   border: none;
     cursor: pointer;
-    padding: 6px;
     display: flex;
     position: relative;
     justify-content: center;
     transition: all ease 0.3s;
-    background-color: var(--bg-color);
     border-radius: 50%;
-    width: 50px;
-    height: 50px;
+    width: auto;
+    height: auto;
     display: flex;
 
+
 }
+
+
 
 span.new-tag:hover {
     background-color: var(--tertiary-color);
@@ -2514,31 +2603,36 @@ span.new-tag:hover {
   font-size: 16px;
 }
 
-.thread-group-header {
-  margin-bottom: 10px;
-  color: var(--text-color);
-  justify-content: center;
-  display: flex;
-  margin-left: 2rem;
-  font-size: 24px;
-  font-weight: 100;
-  text-align: right;
-  padding: 10px 20px;
-}
-
 .thread-group {
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-sm);
   backdrop-filter: blur(20px);
   background: var(--bg-gradient-left);
   border-radius: 10px;
   scrollbar-width:1px;
     scrollbar-color: #c8c8c8 transparent;
     scroll-behavior: smooth;
+    padding: 0 var(--spacing-sm);
+
   
 }
+
+.thread-group-header {
+  // margin-bottom: 10px;
+  color: var(--placeholder-color);
+  justify-content: left;
+  display: flex;
+  font-size: var(--font-size-s);
+  padding: var(--spacing-sm) var(--spacing-sm);
+  border-top: 1px solid var(--bg-color);
+  text-align: right;
+  
+  text-transform:uppercase;
+}
+
+
 
 .thread-catalog {
   display: flex;
@@ -2834,19 +2928,15 @@ span.new-tag:hover {
   button {
     display: flex;
     
-    width: 60px;
-    height: 60px;
-    padding: 10px;
-    background-color: #21201d;    
-    color: white;
+    // width: 60px;
+    // height: 60px;
+    // padding: 10px;
+    // background-color: #21201d;    
+    // color: white;
     /* border: 2px solid rgb(0, 0, 0); */
-    border: none;
-    border-radius: 30px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    // border: none;
+    // border-radius: 30px;
+    // transition: background-color 0.3s;
   }
 
 
@@ -3075,7 +3165,7 @@ span.new-tag:hover {
 
 span {
   display: flex;
-  justify-content: center;
+  justify-content: left;
   align-items: center;
   /* gap: 10px; */
 }
@@ -3139,8 +3229,9 @@ span {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    width: 50%;
-    margin-left: 25%;
+    // width: 50%;
+    margin: 0 1rem;
+    // margin-left: 25%;
     padding: 0 10px;
     overflow-y: hidden;
     overflow-x: hidden;
@@ -3211,33 +3302,26 @@ span {
 
 .thread-button {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: space-between;
+  // align-items: left;
   width: 90%;
-  left: 5%;
+
+  // left: 5%;
   /* width: 100%; */
-  position: relative;
+  // position: relative;
   /* border: 10px solid rgb(0, 0, 0); */
-  border-left: 14px solid var(--secondary-color);
-  border-top: 1px solid  var(--bg-color);
-  background-color: var(--tertiary-color);
-  border-bottom: 14px solid  var(--bg-color);
-  border-right: 1px solid rgb(59, 59, 59);
-  
-  border-bottom-left-radius: 0px;
+  // border-left: 14px solid var(--secondary-color);
+  // border-top: 1px solid  var(--bg-color);
+  // background-color: var(--tertiary-color);
+  // border-bottom: 14px solid  var(--bg-color);
+  // border-right: 1px solid rgb(59, 59, 59);
+  // border-bottom-left-radius: 0px;
+  margin-bottom: var(--spacing-xs);
+
 }
 
-.thread-button button {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  /* left: 15%; */
-  /* width: 100%; */
-  position: relative;
-}
 
 
 
@@ -3245,66 +3329,121 @@ span {
       display: flex;
       flex-direction: row;
       justify-content: space-between;
-      align-items: center;
-      background-color: var(--secondary-color);
-      /* margin-left: 5%; */
-      padding: 20px 20px;
-      margin-bottom: 10px;
-      margin-left: 10px;
-      border-radius: 10px;
+      background-color: transparent;
+      // margin-left: 5%;
+      // padding: 20px 20px;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border: none;
+      // margin-bottom: 10px;
+      // margin-left: 10px;
+      // border-radius: 10px;
       /* margin-bottom: 5px; */
       /* text-align: left; */
       /* border-bottom: 1px solid #4b4b4b; */
       cursor: pointer;
       color: #fff;
-      transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      letter-spacing: 4px;
-      font-size: 20px;
+      transition: background-color var(--transition-speed);
+      // transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      border-radius: var(--radius-m);
+
+      // letter-spacing: 4px;
+      // font-size: 20px;
       font-family: var(--font-family);
-      
-  }
 
-    .thread-list button:hover {
-      /* background-color: #3f3f3f; */
-      transform: scale(0.97) translateX(-3px) translateY(5px) rotate(0deg);          
-      
-        letter-spacing: 4px;
-        padding: 20px;
-        /* font-size: 30px; */
-
+      &:hover {
+        background: var(--secondary-color);
       }
 
-    .thread-list button.selected {
-        background-color: #000000;
-        font-weight: 200;
-        
-    }
+      
+  }
+  .thread-list button.selected {
+    background-color: var(--tertiary-color);
+    font-weight: bold;
+  }
 
-    .landing-footer {
+
+  .thread-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    /* align-items: center; */
+    // padding: 0 20px;
+    font-size: 20px;
+    color: white;
+    /* height: 140px; */
+    /* gap: 20px; */
+    /* background-color: black; */
+
+  }
+
+  .thread-stats {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    // align-items: center;    
+    /* position: absolute; */
+    /* right: 2rem; */
+    gap: 40px;
+    /* width: 100%; */
+    font-size: 0.9em;
+    color: #666;
+    font-size: 20px;
+    margin-bottom: 10px;
+
+  }
+
+    .thread-card {
       display: flex;
-      flex-direction: row;
-      width: 98%;
-      margin-left: 1%;
+      flex-direction: column;
+    align-items: left;    
+    text-align: left;
+    gap: 2px;
+      flex-grow: 1;
     }
 
-    .thread-list .add-button {
-      background-color: rgb(71, 59, 59);
-      font-style: italic;
-      /* font-weight: bolder; */
-      border-bottom: 1px solid #633c3c;
-      border-radius: 10px;
-      margin-bottom: 2rem;
+    .thread-title {
+      font-weight: bold;
+      color: var(--text-color);
+      font-size: var( --font-size-s);
     }
 
-    .thread-list .add-button:hover {
-      background: var(--tertiary-color);
-        transform:  translateX(5px);          
-        letter-spacing: 4px;
-        /* padding: 230px 0; */
-        /* height: 300px; */
-            animation: pulsate 0.5s infinite alternate;
+    .thread-message {
+      font-size: var(--font-size-xs);
+      color: var(--placeholder-color);
 
-}
+    }
+
+    .thread-time {
+      font-size: var(--font-size-xs);
+      color: var(--placeholder-color);
+    }
+
+  .landing-footer {
+    display: flex;
+    flex-direction: row;
+    width: 98%;
+    margin-left: 1%;
+  }
+
+  .thread-list .add-button {
+    background-color: rgb(71, 59, 59);
+    font-style: italic;
+    /* font-weight: bolder; */
+    border-bottom: 1px solid #633c3c;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+  }
+
+  .thread-list .add-button:hover {
+    background: var(--tertiary-color);
+    transform:  translateX(5px);          
+    letter-spacing: 4px;
+    /* padding: 230px 0; */
+    /* height: 300px; */
+    animation: pulsate 0.5s infinite alternate;
+
+  }
 
 
     .add-button {
@@ -3360,37 +3499,7 @@ span {
     box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
   }
 
-  .thread-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    /* align-items: center; */
-    // padding: 0 20px;
-    border-radius: 5px;
-    font-size: 20px;
-    color: white;
-    /* height: 140px; */
-    /* gap: 20px; */
-    /* background-color: black; */
 
-  }
-
-  .thread-stats {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-end;
-    align-items: center;    
-    /* position: absolute; */
-    /* right: 2rem; */
-    gap: 40px;
-    /* width: 100%; */
-    font-size: 0.9em;
-    color: #666;
-    font-size: 20px;
-    margin-bottom: 10px;
-
-  }
 
   .message-actions {
     opacity: 0;
@@ -3428,10 +3537,7 @@ span {
     animation: blink 0.7s infinite;
   }
 
-  .thread-list button.selected {
-    background-color: var(--tertiary-color);
-    font-weight: bold;
-  }
+
 
   .thread-tags {
     display: flex;
@@ -3484,8 +3590,8 @@ span {
     height: 30px;
     width: 30px;
     display: flex;
-    position: relative;
-    justify-content: right;
+    position: absolute;
+    right: var(--spacing-xl);
     transition: all ease 0.3s;
   }
 
@@ -3493,7 +3599,7 @@ span {
     height: 30px;
     width: 30px;
     color: red;
-    transform: scale(1.5);
+    transform: scale(1.3);
 
   }
 
@@ -3584,10 +3690,11 @@ span {
   display: flex;
   flex-wrap: wrap;
   justify-content: right;
-  gap: 5px;
+  gap: var(--spacing-xs);
+  // padding: var(--spacing-sm);
+  margin-top: var(--spacing-xl);
   background-color: transparent;
-  padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-m);
   transition: all ease 0.3s;
 
 

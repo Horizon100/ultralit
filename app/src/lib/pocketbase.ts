@@ -24,11 +24,11 @@ let lastPublishedPosition: { userId: string, x: number, y: number, name: string 
 export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
 pb.autoCancellation(false);
 
-export const currentUser = writable<User | null>(pb.authStore.model);
+export const currentUser = writable<User | null>(pb.authStore.model as User | null);
 
 pb.authStore.onChange((auth) => {
     console.log('authStore changed', auth);
-    currentUser.set(pb.authStore.model);
+    currentUser.set(pb.authStore.model as User | null);
 });
 
 
@@ -63,7 +63,9 @@ export async function ensureAuthenticated(): Promise<boolean> {
     console.log('Is auth valid?', pb.authStore.isValid);
 
     if (!pb.authStore.isValid) {
+        
         console.log('Auth token is invalid. Attempting to refresh...');
+        
         try {
             const authData = await pb.collection('users').authRefresh();
             console.log('Auth token refreshed successfully');
@@ -123,6 +125,8 @@ export async function getUserById(id: string): Promise<User | null> {
         return null;
     }
 }
+
+
 
 ////////////////////////////////////////////////////////////////
 
@@ -454,17 +458,16 @@ export async function fetchUserAgents(userId: string): Promise<AIAgent[]> {
 
 export async function fetchUserModels(userId: string): Promise<AIModel[]> {
     try {
-        const records = await pb.collection('models').getFullList({
+        const records = await pb.collection('models').getFullList<AIModel>({
             filter: `user ~ "${userId}"`,
         });
 
-        return records.map(record => record as AIModel);
+        return records; 
     } catch (error) {
         console.error('Error fetching user models:', error);
         return [];
     }
 }
-
 export async function fetchUserActions(userId: string): Promise<Actions[]> {
     try {
         console.log('Fetching actions for user:', userId);
@@ -530,11 +533,10 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
 
 
 // Thread functions
-export async function fetchThreads(userId: string): Promise<Threads[]> {
+export async function fetchThreads(): Promise<Threads[]> {
     try {
         const records = await pb.collection('threads').getFullList<Threads>({
             sort: '-created',
-            // filter: `created_by = "${userId}" || collaborators ?~ "${userId}"`,
         });
         return records;
     } catch (error) {

@@ -6,11 +6,34 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { Bot } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
+  import type { AIModel, User } from '$lib/types';
+  import { currentUser } from '$lib/pocketbase';
 
+
+  let userId: string;
+
+  const defaultAIModel: AIModel = {
+    id: 'default',
+    name: 'Default Model',
+    api_key: 'default_key',
+    base_url: 'https://api.openai.com/v1',
+    api_type: 'gpt-3.5-turbo',
+    api_version: 'v1',
+    description: 'Default OpenAI Model',
+    user: [],
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    collectionId: '',
+    collectionName: ''
+  };
+
+  let aiModel: AIModel = defaultAIModel;  // Initialize aiModel
   let threadId: string | null = null;
   let messageId: string | null = null;
   let isLoading = true;
   let error: string | null = null;
+
+  
 
   onMount(async () => {
     try {
@@ -30,6 +53,11 @@
       }, 500);
     }
   });
+
+  $: userId = $currentUser?.id;
+  $: aiModel = defaultAIModel;
+
+
 </script>
 
 <main>
@@ -48,6 +76,8 @@
       <AIChat 
         threadId={threadId}
         initialMessageId={messageId}
+        aiModel={aiModel}   
+        userId={userId}  
       />
     </div>
   {/if}
@@ -58,6 +88,8 @@
   
 <style lang="scss">
 	@use "src/themes.scss" as *;
+
+
   :global(.loading-spinner) {
       position: fixed;
       top: 0;

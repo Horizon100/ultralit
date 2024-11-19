@@ -21,6 +21,7 @@
   import { isNavigating } from '$lib/stores/navigationStore';
   import { fetchThreads, fetchMessagesForThread, addMessageToThread, updateThread, updateMessage, createThread } from '$lib/threadsClient';
   import { t } from '$lib/stores/translationStore';
+  import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 
   export let x: number;
   export let y: number;
@@ -453,7 +454,7 @@ async function verifyUser() {
 
   let threadCount = 0;
   let messageCount = 0;
-  let threadMessageCounts: Record<string, number> = {}; // Object to store message counts for each thread
+  let threadMessageCounts: Record<string, number> = {}; 
 
   $: {
   if (threads && messages) {
@@ -467,12 +468,8 @@ async function verifyUser() {
 
   let tagCount = 0;
   let timerCount: number = 0;
-  
-
-
-
-
   let lastActive: Date | null = null;
+
 
   function formatTimerCount(seconds: number): string {
   const hours = Math.floor(seconds / 60);
@@ -500,23 +497,23 @@ async function verifyUser() {
 
 // Assuming `messages` is an array of message objects, where each message has a `thread` property
 
-function fetchThreadMessageCounts(threadId: string): number {
+export function fetchThreadMessageCounts(threadId: string): number {
   return messages.filter(message => message.thread === threadId).length;
 }
 
-async function fetchThreadCount(): Promise<number> {
+export async function fetchThreadCount(): Promise<number> {
   return fetchCount('threads', `op = "${$currentUser?.id}"`);
 }
 
-async function fetchMessageCount(): Promise<number> {
+export async function fetchMessageCount(): Promise<number> {
   return fetchCount('messages', `user = "${$currentUser?.id}"`);
 }
 
-async function fetchTagCount(): Promise<number> {
+export async function fetchTagCount(): Promise<number> {
   return fetchCount('tags', `user = "${$currentUser?.id}"`);
 }
 
-async function fetchTimerCount(): Promise<number> {
+export async function fetchTimerCount(): Promise<number> {
   if (!pb.authStore.isValid || !$currentUser) {
     console.error('User is not authenticated');
     return 0;
@@ -540,7 +537,7 @@ async function fetchTimerCount(): Promise<number> {
   }
 }
 
-async function fetchLastActiveTime(): Promise<Date | null> {
+export async function fetchLastActiveTime(): Promise<Date | null> {
   if (!pb.authStore.isValid || !$currentUser) {
     console.error('User is not authenticated');
     return null;
@@ -565,36 +562,36 @@ function calculatePercentage(count: number, target: number): number {
   return Math.min(Math.round((count / target) * 100), 100);
 }
 
-onMount(async () => {
+// onMount(async () => {
   
-  if (!pb.authStore.isValid) {
-    console.error('User is not authenticated');
-    return;
-  }
+//   if (!pb.authStore.isValid) {
+//     console.error('User is not authenticated');
+//     return;
+//   }
 
-  try {
-    // Fetch all stats concurrently
-    const [ threads, messages, tags, users, lastActiveTime] = await Promise.all([
-      fetchThreadCount(),
-      fetchMessageCount(),
-      fetchTagCount(),
-      fetchTimerCount(),
-      fetchLastActiveTime(),
+//   try {
+//     // Fetch all stats concurrently
+//     const [ threads, messages, tags, users, lastActiveTime] = await Promise.all([
+//       fetchThreadCount(),
+//       fetchMessageCount(),
+//       fetchTagCount(),
+//       fetchTimerCount(),
+//       fetchLastActiveTime(),
       
-    ]);
+//     ]);
 
-    threadCount = threads;
-    messageCount = messages;
-    tagCount = tags;
-    timerCount = await fetchTimerCount();
+//     threadCount = threads;
+//     messageCount = messages;
+//     tagCount = tags;
+//     timerCount = await fetchTimerCount();
 
-    lastActive = lastActiveTime;
+//     lastActive = lastActiveTime;
 
-    console.log('Stats fetched successfully');
-  } catch (error) {
-    console.error('Error fetching stats:', error);
-  }
-});
+//     console.log('Stats fetched successfully');
+//   } catch (error) {
+//     console.error('Error fetching stats:', error);
+//   }
+// });
 
 function formatDate(date: string): string {
     if (date === 'Today' || date === 'Yesterday') return date;
@@ -644,32 +641,13 @@ function formatDate(date: string): string {
             </div>
             <div class="thread-columns">
 
-              <div class="stats-container">
-                <h2>{$t('dashboard.title')}</h2>
-                <div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
-                  <span>{threadCount} {$t('dashboard.nameThreads')}</span>
-                  <span class="target">1000 ✰</span>
-                </div>
-              
-                <div class="stat-item" style="--progress: {calculatePercentage(messageCount, 1000)}%">
-                  <span>{messageCount} {$t('dashboard.nameMessages')}</span>
-                  <span class="target">1000 ✰</span>
-                </div>
-              
-                <div class="stat-item" style="--progress: {calculatePercentage(tagCount, 1000)}%">
-                  <span>{tagCount} {$t('dashboard.nameTags')}</span>
-                  <span class="target">1000 ✰</span>
-                </div>
-              
-                <div class="stat-item" style="--progress: {calculatePercentage(timerCount, 3600)}%">
-                  <span>{formatTimerCount(timerCount)} {$t('dashboard.nameTimer')}</span>
-                  <span class="target">1000 ✰</span>
-                </div>
-              
-                <div class="last-active">
-                  {$t('dashboard.nameActive')} {formatDate(lastActive)}
-                </div>
-              </div>
+              <!-- <StatsContainer
+              {threadCount}
+              {messageCount}
+              {tagCount}
+              {timerCount}
+              {lastActive}
+            /> -->
               <div class="thread-list">
                 <!-- <button class="add-button" on:click={handleCreateNewThread}>
                   {$t('threads.newThread')}
@@ -778,25 +756,6 @@ function formatDate(date: string): string {
     
   }
 
-  .stats-container {
-  // background: rgba(255, 255, 255, 0.1);
-  background: var(--bg-gradient);
-
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-
-  /* Neomorphic shadow */
-  box-shadow: 
-    8px 8px 16px rgba(0, 0, 0, 0.3),
-    -8px -8px 16px rgba(255, 255, 255, 0.1);
-}
 
 
 .thread-name {
@@ -804,25 +763,7 @@ function formatDate(date: string): string {
 
 }
 /* Create the pseudo-element for the light reflection */
-.stats-container::before {
-  content: "";
-  position: absolute;
-  top: -150%;
-  left: -150%;
-  width: 300%;
-  height: 300%;
-  background: linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2));
-  transform: translateX(-100%) rotate(45deg); /* Initial off-screen position */
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none; /* So it doesn't interfere with clicks */
-}
-
 /* Hover trigger */
-.stats-container:hover::before {
-  animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1); /* Custom easing for non-linear motion */
-  opacity: 1;
-}
 
 /* Keyframes for the swipe animation */
 @keyframes swipe {

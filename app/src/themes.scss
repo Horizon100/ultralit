@@ -34,6 +34,7 @@ $themes: (
     // primary-color: #2c3e50,
     // secondary-color: #34495e,
     tertiary-color: #7f8c8d,
+
     
   ),
   light: (
@@ -47,7 +48,8 @@ $themes: (
     font-family: 'Courier New',
     primary-color: #ecf0f1,
     secondary-color: #bdc3c7,
-    tertiary-color: #95a5a6
+    tertiary-color: #95a5a6,
+
   ),
   sunset: (
     bg-color: #745803,
@@ -60,7 +62,8 @@ $themes: (
     font-family: 'Arial',
     primary-color: #684504,
     secondary-color: #543707,
-    tertiary-color: #e67e22
+    tertiary-color: #e67e22,
+
   ),
   focus: (
     bg-color: #ffffff,
@@ -73,7 +76,7 @@ $themes: (
     font-family: 'Source Code Pro',
     primary-color: #2ecc71,
     secondary-color: #27ae60,
-    tertiary-color: #16a085
+    tertiary-color: #16a085,
   ),
   bold: (
     bg-color: #151720,
@@ -86,7 +89,7 @@ $themes: (
     font-family: 'Helvetica Neue',
     primary-color: #3a2c3f,
     secondary-color: #4a3951,
-    tertiary-color: #e90000
+    tertiary-color: #e90000,
   ),
   turbo: (
     bg-color: #92dcdc,
@@ -99,7 +102,7 @@ $themes: (
     font-family: 'Times New Roman',
     primary-color: #f1c40f,
     secondary-color: #f39c12,
-    tertiary-color: #d35400
+    tertiary-color: #d35400,
   )
 );
 
@@ -136,6 +139,40 @@ $themes: (
       --primary-color: #{map-get($colors, primary-color)};
       --secondary-color: #{map-get($colors, secondary-color)};
       --tertiary-color: #{map-get($colors, tertiary-color)};
+      
+      // Typography
+      --font-size-xs:  0.85rem;
+      --font-size-s: 1rem;
+      --font-size-sm: 1.25rem;
+      --font-size-m: 1.5rem;
+      --font-size-l: 1.75rem;
+      --font-size-xl: 2.25rem;
+      --font-size-xxl: 3rem;
+      --line-height-base: 1.5;
+      
+      // Spacing
+      --spacing-xs: 0.25rem;
+      --spacing-sm: 0.5rem;
+      --spacing-md: 1rem;
+      --spacing-lg: 1.5rem;
+      --spacing-xl: 2rem;
+
+      // Radius
+      --radius-xs: 4px;
+      --radius-s: 8px;
+      --radius-m: 16px;
+      --radius-l: 32px;
+      --radius-xl: 64px;
+      
+      // Breakpoints
+      --breakpoint-sm: 576px;
+      --breakpoint-md: 768px;
+      --breakpoint-lg: 992px;
+      --breakpoint-xl: 1200px;
+      
+      // Component Specific
+      --transition-speed: 0.3s;
+      --header-height: 100px;
     }
   }
 }

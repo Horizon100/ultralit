@@ -1,4 +1,4 @@
-import type { Messages, Threads, Tag } from '$lib/types';
+import type { Messages, Threads, Tag, AIModel, User} from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { fetchNamingResponse } from '$lib/aiClient'
@@ -29,14 +29,48 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
     }
 }
 
+export async function fetchLastMessageForThread(threadId: string): Promise<Messages | null> {
+    try {
+        if (!pb.authStore.isValid) {
+            throw new Error('User is not authenticated');
+        }
+
+        const messages = await pb.collection('messages').getFullList<Messages>({
+            filter: `thread = "${threadId}"`,
+            sort: '-created', // Sort messages by creation date, descending
+            limit: 1
+        });
+
+        return messages.length > 0 ? messages[0] : null;
+    } catch (error) {
+        console.error('Error fetching last message for thread:', error);
+        if (error instanceof ClientResponseError) {
+            console.error('Response data:', error.data);
+            console.error('Status code:', error.status);
+        }
+        throw error;
+    }
+}
+
 export async function fetchThreads(): Promise<Threads[]> {
     try {
         if (!pb.authStore.isValid) {
             throw new Error('User is not authenticated');
         }
 
-        const threads = await pb.collection('threads').getFullList<Threads>();
-        console.log('Fetched threads:', threads);
+        // Fetch threads with expanded last_message field
+        const threads = await pb.collection('threads').getFullList<Threads>({
+            expand: 'last_message', // Ensure last_message is expanded
+        });
+
+        // If the last_message is expanded, you can access the details of the last message
+        threads.forEach(thread => {
+            if (thread.expand?.last_message) {
+                console.log(`Last message for thread ${thread.id}:`, thread.expand.last_message);
+            }
+        });
+
+        console.log('Fetched threads with last_message:', threads);
         return threads;
     } catch (error) {
         console.error('Error fetching threads:', error);
