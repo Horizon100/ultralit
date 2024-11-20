@@ -40,7 +40,7 @@ let currentThreadId: string | null;
 let searchQuery = '';
 
 
-let showThreadList = true;
+export let showThreadList = true;
 let updateStatus: string;
 let currentThreadName: string = '';
 let messages: Messages[] = [];
@@ -1077,7 +1077,7 @@ function updateAvatarUrl() {
     if ($currentUser && $currentUser.avatar) {
         avatarUrl = pb.getFileUrl($currentUser, $currentUser.avatar);
     }
-}6
+}
   
   let isDragging = false;
   let startY: number;
@@ -1476,6 +1476,9 @@ async function refreshTags() {
   }
 }
 
+$: showThreadList = $threadsStore.showThreadList;
+
+
 // Call this function when the currentThreadId changes
 $: if (currentThreadId) {
   refreshTags();
@@ -1484,23 +1487,33 @@ $: if (currentThreadId) {
 </script>
 
 <div class="chat-interface">
-  <div class="button-column">
-    <div class="btn-col-left">
-      <ModelSelector/>
-      <PromptSelector 
-      on:select={(event) => {
-        console.log('Parent received selection from selector:', event.detail);
-      }}
-    />
-    <button class="thread-toggle" on:click={toggleThreadList}>
-        <Menu size={24} />
-      </button>
-    </div>
-  </div>
 
-  <div class="threads-container" transition:fly="{{ y: 300, duration: 300 }}" class:thread-list-visible={showThreadList}>
+
+  <div class="threads-container" 
+    transition:fly="{{ y: 300, duration: 300 }}" 
+    class:thread-list-visible={showThreadList}
+    >
     {#if showThreadList}
     <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
+      <div class="tags">
+        <button class="add-tag" on:click={toggleTagCreation}>
+          <Tag />
+          {$t('threads.newTag')}
+        </button>
+        {#if editingTagIndex !== null}
+          <div class="new-tag-input">
+            <input 
+            type="text" 
+            placeholder="New tag" 
+            on:keydown={(e) => e.key === 'Enter' && createTag(e.target.value)}
+          >          
+            <span class="new-tag" on:click={saveTag}>
+              <Plus size={16} />
+            </span>
+          </div>
+        {/if}
+      </div>
+
       <div class="tag-list">
         {#each availableTags as tag (tag.id)}
           <div class="tag-item">
@@ -1535,26 +1548,11 @@ $: if (currentThreadId) {
             {/if}
           </div>
         {/each}
-        <button class="new-button" on:click={toggleTagCreation}>
-          <Tag />
-          {$t('threads.newTag')}
-        </button>
       </div>
 
 
 
-        {#if editingTagIndex !== null}
-          <div class="new-tag-input">
-            <input 
-            type="text" 
-            placeholder="New tag" 
-            on:keydown={(e) => e.key === 'Enter' && createTag(e.target.value)}
-          >          
-            <span class="new-tag" on:click={saveTag}>
-              <Plus size={16} />
-            </span>
-          </div>
-        {/if}
+
 
       <div class="thread-actions">
         <div class="search-bar">
@@ -1891,7 +1889,8 @@ $: if (currentThreadId) {
       display: flex;
       flex-direction: column;
       height: 100%;
-      width: 100%;
+      margin-left: 64px;
+      width: calc(100% - 64px);
       /* position: relative; */
 
     }
@@ -2504,7 +2503,6 @@ button.tag.selected {
   background: var(--bg-gradient-right);
   border-radius: var(--spacing-md);
   margin-bottom: 0.5rem;
-
 }
 
 .search-bar {
@@ -2531,13 +2529,32 @@ button.tag.selected {
   }
 }
 
+button.add-tag {
+  background-color: var(--primary-color);
+  font-size: var(--font-size-s);
+  font-weight: bold;
+  cursor: pointer;
+  height: auto;
+  transition: all ease 0.3s;
+  height: 64px;
+  display: flex;
+  user-select: none;
+  gap: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+}
+
+
+
 button.new-button {
   background-color: var(--primary-color);
   font-size: var(--font-size-s);
   font-weight: bold;
   cursor: pointer;
   transition: all ease 0.3s;
-  // width: 100%;
+  width: 20% !important;
   padding: var(--spacing-md);
   display: flex;
   margin: var(--spacing-sm) 0;
@@ -2546,7 +2563,8 @@ button.new-button {
 
 }
 
-button.new-button:hover {
+button.new-button:hover, 
+button.add-tag:hover {
   background-color: var(--tertiary-color);
   
 }
@@ -2570,6 +2588,12 @@ span.new-button {
 
 }
 
+.tags {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  width: 100%;
+}
 
 
 span.new-tag:hover {
@@ -2587,8 +2611,8 @@ span.new-tag:hover {
 .new-tag-input {
   display: flex;
   margin-bottom: 10px;
-  width: 96%;
-  margin-left: 2%;
+  width: 500px;
+  margin-left: 0;
 
 }
 
@@ -2601,6 +2625,7 @@ span.new-tag:hover {
   font-size: 12px;
   color: white;
   font-size: 16px;
+  width: 100%;
 }
 
 .thread-group {
@@ -2609,12 +2634,11 @@ span.new-tag:hover {
   width: 100%;
   margin-bottom: var(--spacing-sm);
   backdrop-filter: blur(20px);
-  background: var(--bg-gradient-left);
   border-radius: 10px;
   scrollbar-width:1px;
     scrollbar-color: #c8c8c8 transparent;
     scroll-behavior: smooth;
-    padding: 0 var(--spacing-sm);
+
 
   
 }
@@ -2643,6 +2667,7 @@ span.new-tag:hover {
   background: var(--bg-gradient-left);
   border-radius: 10px;
   overflow-y: auto;
+
   scrollbar-width:1px;
     scrollbar-color: var(--text-color) transparent;
     scroll-behavior: smooth;
@@ -2813,12 +2838,11 @@ span.new-tag:hover {
         }
 
         .thread-list-visible .chat-container {
-          margin-left: 0;
-          left: 0;
           overflow-y: auto;
           margin-right: 0;
-          margin-left: 0;
-          width: auto;
+          width: 66%;
+          left: calc(1% + 64px);
+
 
 
         }
@@ -3269,16 +3293,17 @@ span {
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
-    overflow-x: hidden;
+    overflow-x: none;
     overflow-y: hidden;
     position: fixed;
     padding: 20px 10px;
     border-top-left-radius: 50px;
-    top: 80px;
+    top: 1rem;
+    left: 64px;
     bottom: 60px;
     width: 20%;
     height: 86%;
-    border-radius: 100px;
+    border-radius: var(--radius-l);
     transition: all 0.3s ease-in-out;
     scrollbar-width:1px;
     scrollbar-color: #c8c8c8 transparent;
@@ -3307,7 +3332,6 @@ span {
   justify-content: space-between;
   // align-items: left;
   width: 90%;
-
   // left: 5%;
   /* width: 100%; */
   // position: relative;
@@ -3319,9 +3343,7 @@ span {
   // border-right: 1px solid rgb(59, 59, 59);
   // border-bottom-left-radius: 0px;
   margin-bottom: var(--spacing-xs);
-
 }
-
 
 
 
@@ -3332,7 +3354,6 @@ span {
       background-color: transparent;
       // margin-left: 5%;
       // padding: 20px 20px;
-      padding: var(--spacing-sm) var(--spacing-md);
       border: none;
       // margin-bottom: 10px;
       // margin-left: 10px;
@@ -3345,11 +3366,10 @@ span {
       transition: background-color var(--transition-speed);
       // transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       border-radius: var(--radius-m);
-
       // letter-spacing: 4px;
       // font-size: 20px;
       font-family: var(--font-family);
-
+    width: 100%;
       &:hover {
         background: var(--secondary-color);
       }
@@ -3396,10 +3416,12 @@ span {
     .thread-card {
       display: flex;
       flex-direction: column;
-    align-items: left;    
-    text-align: left;
-    gap: 2px;
+      align-items: left;    
+      text-align: left;
+      gap: 2px;
       flex-grow: 1;
+      padding: var(--spacing-sm) var(--spacing-md);
+
     }
 
     .thread-title {
@@ -3591,7 +3613,7 @@ span {
     width: 30px;
     display: flex;
     position: absolute;
-    right: var(--spacing-xl);
+    right: 0;
     transition: all ease 0.3s;
   }
 
@@ -3692,7 +3714,7 @@ span {
   justify-content: right;
   gap: var(--spacing-xs);
   // padding: var(--spacing-sm);
-  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
   background-color: transparent;
   border-radius: var(--radius-m);
   transition: all ease 0.3s;
@@ -4013,7 +4035,7 @@ span {
   }
 
   .thread-list-visible .chat-container {
-    margin-left: 300px;
+    margin-left: calc(20% + 64px);
   }
 
   .chat-container {

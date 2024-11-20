@@ -88,31 +88,39 @@
 <style>
     .time-tracker {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 50px;
-        width: 59px;
-        padding: 0 15px;
-        border-radius: 25px;
+        height: auto;
+        width: auto;
         transition: width 0.3s ease;
     }
 
+
+
     .time-tracker.tracking {
-        width: 200px;
         justify-content: space-between;
-        background-color: #2c3e50;
+        height: 40px;
     }
 
+
+
     button {
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 20px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background-color 0.3s ease;
+        color: var(--text-color);
+    background: var(--bg-gradient-right);
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 0.5rem;
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+    user-select: none;
+
     }
 
     button:hover {
@@ -121,7 +129,7 @@
 
     .time-display {
         font-family: 'Courier New', Courier, monospace;
-        font-size: 1.2em;
+        font-size: 0.6rem;
         color: #ecf0f1;
     }
 </style>

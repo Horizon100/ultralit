@@ -32,6 +32,7 @@
   let messageId: string | null = null;
   let isLoading = true;
   let error: string | null = null;
+  export let showThreadList;
 
   
 

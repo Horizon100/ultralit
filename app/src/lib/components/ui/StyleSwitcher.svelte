@@ -155,7 +155,8 @@
       padding: 1rem;
       border-radius: 8px;
       color: var(--text-color);
-      width: 100%;
+      width: 300px;
+      height: 100%;
 
   }
 
@@ -167,13 +168,14 @@
       background-color: var(--secondary-color);
       text-align: center;
       border-radius: 50px;
-      width: 50%;
+
       height: 100%;
+
   }
 
   .dummy {
       display: flex;
-      width: 90%;
+      width: 150px;
       border-radius: 25px;
       height: 50%;
       justify-content: center;

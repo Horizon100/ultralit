@@ -10,7 +10,6 @@
     import Paper from '$lib/components/network/Paper.svelte';
     import { agentStore } from '$lib/stores/agentStore';
     import { initializeLanguage } from '$lib/stores/languageStore';
-
     import { goto } from '$app/navigation';
     import Builder from '$lib/components/ui/Builder.svelte'
     import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
@@ -25,18 +24,41 @@
     import { page } from '$app/stores';
     import AIChat from '$lib/components/ai/AIChat.svelte';
     import horizon100 from '$lib/assets/horizon100.svg';
-    import { Mail, Send, Github, X, ChevronDown } from 'lucide-svelte';
+    import { Mail, Bot, Send, Github, X, ChevronDown } from 'lucide-svelte';
     import Terms from '$lib/components/overlays/Terms.svelte';
     import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
     import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
 	import { showLoading } from '../lib/stores/loadingStore';
     import { t } from '$lib/stores/translationStore';
     import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte'
+    import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+
+    const defaultAIModel: AIModel = {
+        id: 'default',
+        name: 'Default Model',
+        api_key: 'default_key',
+        base_url: 'https://api.openai.com/v1',
+        api_type: 'gpt-3.5-turbo',
+        api_version: 'v1',
+        description: 'Default OpenAI Model',
+        user: [],
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        collectionId: '',
+        collectionName: ''
+    };
+
+    let userId: string;
+    let aiModel: AIModel = defaultAIModel;  
 
     let threadId: string | null = null;
     let messageId: string | null = null;
     let pageReady = false;
     let showNewsletterPopup = false;
+
+    let isLoading = true;
+    let error: string | null = null;
+
 
     $: if ($currentLanguage) {
         updatePageContent();
@@ -52,10 +74,6 @@
     $: userId = $currentUser?.id;
 
 
-    onMount(() => {
-        
-        updatePageContent();
-    });
 
     // export let userId: string = crypto.randomUUID();
     let threads: Threads[];
@@ -72,7 +90,6 @@
     let showH3 = false;
     let showButton = false;
     let showTypeWriter = false;
-    let isLoading = false;
     let placeholderText = '';
 
     let showAuth = false;
@@ -210,58 +227,78 @@
         }
     }
 
+
     onMount(async () => {
+    try {
+        // Initialize loading state
+        isLoading = true;
+        updatePageContent();
+
+        // Check auth and set initial states
         if (!pb.authStore.isValid) {
-            // Set showContent to true for non-logged-in users
             showContent = true;
         }
-        // Rest of your onMount logic
+        
         user = $currentUser;
         currentTip = getRandomTip();
-        setTimeout(() => showFade = true, 200);
-        setTimeout(() => {
-            showLogo = true;
-            // After a short delay, shrink the logo and move it up
-            setTimeout(() => {
-                logoSize.set(0); // Shrink to 20% of container height
-                logoMargin.set(0); // Move up by adding negative margin
-            }, 300); // Adjust this delay as needed
-        }, 150);
 
-        // Adjust other elements' appearance timing
-        setTimeout(() => showH1 = true, 600);
-        setTimeout(() => showH2 = true, 700);
-        setTimeout(() => showH3 = true, 800);
-        setTimeout(() => showTypeWriter = true, 900);
-
-        setTimeout(() => showButton = true, 1000);
-
-        await initializeLanguage();
-
-        await fetchUserCount();
-
-    });
-
-    
-
-
-  onMount(() => {
+        // Handle navigation subscription
         const unsubscribe = navigating.subscribe((navigationData) => {
             if (navigationData) {
                 isNavigating.set(true);
             } else {
-                // Add a small delay before hiding the spinner to ensure content is ready
                 setTimeout(() => {
                     isNavigating.set(false);
                 }, 300);
             }
         });
 
+        // Get URL parameters if they exist
+        threadId = $page.url.searchParams.get('threadId');
+        messageId = $page.url.searchParams.get('messageId');
+
+        // Set current thread if threadId exists
+        if (threadId) {
+            await threadsStore.setCurrentThread(threadId);
+        }
+
+        // Initialize necessary data
+        await initializeLanguage();
+        await fetchUserCount();
+
+        // Landing page animations (only if not logged in)
+        if (!user) {
+            setTimeout(() => showFade = true, 200);
+            setTimeout(() => {
+                showLogo = true;
+                setTimeout(() => {
+                    logoSize.set(0);
+                    logoMargin.set(0);
+                }, 300);
+            }, 150);
+
+            setTimeout(() => showH1 = true, 600);
+            setTimeout(() => showH2 = true, 700);
+            setTimeout(() => showH3 = true, 800);
+            setTimeout(() => showTypeWriter = true, 900);
+            setTimeout(() => showButton = true, 1000);
+        }
+
         return () => {
             unsubscribe();
         };
-    });
 
+    } catch (e) {
+        error = "Failed to load thread. Please try again.";
+        console.error(e);
+    } finally {
+        // Ensure minimum loading time
+        const minimumLoadingTime = 800;
+        setTimeout(() => {
+            isLoading = false;
+        }, minimumLoadingTime);
+    }
+});
 
 
 
@@ -281,60 +318,32 @@
 		}
 	}
 
+    $: userId = $currentUser?.id;
+    $: aiModel = defaultAIModel;
+
 </script>
 
 {#if pageReady}
     {#if user}
-        <div class="hero-container"  in:fly="{{ y: -200, duration: 100 }}" out:fade="{{ duration: 300 }}">
-            {#if showFade}
-                <img src={Headmaster} alt="Landing illustration" class="illustration" in:fade="{{ duration: 2000 }}"/>
-            {/if}
-            <div class="half-container" in:fade="{{ duration: 777 }}" out:fade="{{ duration: 300 }}">
-                <div class="split-container">
-                    {#if showH2}
-                        <h2 in:fly="{{ y: -50, duration: 500, delay: 300 }}" out:fade="{{ duration: 300 }}">
-                            {$t('landing.h2')}
-                            <span class="user-name">
-                                {$currentUser?.name || 'User'}
-                            </span>
-                        </h2>
-                    {/if}
-                    {#if showH3}
-                        <h3 in:fly="{{ y: -50, duration: 500, delay: 400 }}" out:fade="{{ duration: 300 }}">
-                            {placeholderText}
-                        </h3>
-                    {/if}
-                </div>
-                {#if showButton}
-                    <div class="dialog-overlay" in:fly="{{ y: 500, duration: 500, delay: 500 }}" out:fade="{{ duration: 300 }}">
-                        <div 
-                        class="dialog-container"
-                        in:scale={{
-                            duration: 700,
-                            delay: 300,
-                            opacity: 0,
-                            start: 0.5,
-                            // easing: elasticOut,
-                        }}
-                        out:scale={{
-                            duration: 300,
-                            opacity: 0,
-                            start: 1.2
-                        }}
-                        >
-                        <Dialog 
-                        on:submit={handleDialogSubmit}
-                        x={0}
-                        y={0}
-                        aiModel={{}} 
-                    />
-                        </div>
+        {#if isLoading}
+            <div class="center-container" transition:fade={{ duration: 300 }}>
+                <div class="loading-overlay">
+                    <div class="spinner">
+                        <Bot size={80} class="bot-icon" />
                     </div>
-                {/if}
-                <!-- <button on:click={() => goto('/launcher')}>Go to Launcher</button> -->
+                </div>
             </div>
-        </div>
         {:else}
+            <div class="chat" in:fly="{{ x: 200, duration: 400 }}" out:fade="{{ duration: 300 }}">
+                <AIChat  
+                    threadId={threadId}
+                    initialMessageId={messageId}
+                    aiModel={aiModel}   
+                    userId={userId}  
+                />
+            </div>
+        {/if}
+    {:else}
         <div class="hero-container" in:fly="{{ y: -200, duration: 500 }}" out:fade="{{ duration: 300 }}">
             {#if showFade}
                 <img src={Headmaster} alt="Landing illustration" class="illustration" in:fade="{{ duration: 2000 }}"/>
@@ -376,16 +385,7 @@
                                 {$t('landing.cta')}
                             </button>
                             {/if}
-                            <!-- <div class="terms-privacy">
-                                <span>By using vRazum you automatically agree to our</span>
-                                <button on:click={openTermsOverlay}>
-                                    Terms
-                                </button>
-                                <span>and</span>
-                                <button on:click={openPrivacyOverlay}>
-                                    Privacy Policy
-                                </button>
-                            </div> -->
+                            
 
                             <div class="cta-buttons">
                                 <button on:click={subscribeToNewsletter}>
@@ -455,7 +455,7 @@
             </div>
         </div>
     {/if}
-{/if}
+    {/if}
 
 
 
@@ -505,6 +505,110 @@
         /* font-family: Georgia, 'Times New Roman', Times, serif; */
     }
 
+    :global(.loading-spinner) {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+    }
+
+
+    .center-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        width: 100%;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        z-index: 9999;
+        background-color: var(--bg-color);
+    }
+
+
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        /* top: 40px; */
+        /* left: calc(50% - 40px); */
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+        position: fixed;
+        right: calc(50% - 40px);
+        top: calc(50% - 40px);
+        color: var(--tertiary-color);
+
+        /* bottom: 0; */
+
+
+    }
+
+    .spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 60px;
+        height: 60px;
+        color: var(--tertiary-color);
+        border: 20px dashed var(--primary-color);
+        border-radius: 50%;
+        position: relative;
+        /* background-color: yellow; */
+        animation: nonlinearSpin 4.2s infinite;
+        animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+
+
+    }
+
+    .loading, .error {
+        font-size: 1.2rem;
+        color: #333;
+        text-align: center;
+      }
+
+      .error {
+        color: #ff3e00;
+      }
+
+    .bot-icon {
+        width: 100%;
+        height: 100%;
+    }
+
+    @keyframes nonlinearSpin {
+        0% {
+            transform: rotate(0deg);
+        }
+        25% {
+            transform: rotate(1080deg);
+        }
+        50% {
+            transform: rotate(0deg);
+        }
+        75% {
+            transform: rotate(1080deg);
+        }
+        100% {
+            transform: rotate(2160deg);
+        }
+    }
+  
+      @media (min-width: 640px) {
+          main {
+              max-width: none;
+          }
+      }
+
     .section {
         padding: 1rem;
         margin-top: 2rem;
@@ -512,6 +616,10 @@
         width: 50%;
     }
 
+    .chat {
+
+        width: 100%;
+    }
 
     .hero-container {
         display: flex;

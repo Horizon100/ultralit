@@ -10,13 +10,16 @@ function createThreadsStore() {
     currentThreadId: string | null,
     messages: Messages[],
     updateStatus: string,
-    isThreadsLoaded: boolean
+    isThreadsLoaded: boolean,
+    showThreadList: boolean
   }>({
     threads: [],
     currentThreadId: null,
     messages: [],
     updateStatus: '',
-    isThreadsLoaded: false
+    isThreadsLoaded: false,
+    showThreadList: true
+
   });
   
   if (browser) {
@@ -74,6 +77,12 @@ function createThreadsStore() {
         setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
         return [];
       }
+    },
+    toggleThreadList: () => {
+      store.update(state => ({
+        ...state,
+        showThreadList: !state.showThreadList
+      }));
     },
     addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
       try {

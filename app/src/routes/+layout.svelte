@@ -3,8 +3,6 @@
     import { fly, fade, slide } from 'svelte/transition';
     import { currentUser } from '$lib/pocketbase';
     import horizon100 from '$lib/assets/horizon100.svg';
-    import Auth from '../lib/components/auth/Auth.svelte';
-    import Profile from '$lib/components/ui/Profile.svelte';
     import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Languages, Code} from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
 	import { navigating } from '$app/stores';
@@ -14,16 +12,24 @@
     import { pb } from '$lib/pocketbase';
     import { Camera } from 'lucide-svelte';
     import { goto } from '$app/navigation';
-	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
     import { currentTheme } from '$lib/stores/themeStore';
     import { currentLanguage, languages, setLanguage, initializeLanguage } from '$lib/stores/languageStore';
     import { t } from '$lib/stores/translationStore';
+	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 
     let showLanguageNotification = false;
     let selectedLanguageName = '';
 	let placeholderText = '';
+	let showThreadList = true;
 
+	function handlePromptSelect(event) {
+    console.log('Layout received selection:', event.detail);
+  }
 
+  function handleThreadList(event) {
+    showThreadList = event.detail;
+    console.log('Thread list visibility:', showThreadList);
+  }
 	function getRandomQuote() {
 		const quotes = $t('extras.quotes');
 		return quotes[Math.floor(Math.random() * quotes.length)];
@@ -40,24 +46,6 @@
 
     let innerWidth: number;
     let activeLink = '/';
-
-	   const styles = [
-      { name: 'Daylight Delight', value: 'default', icon: Sun },
-      { name: 'Midnight Madness', value: 'dark', icon: Moon },
-      { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-      { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-      { name: 'Laser Focus', value: 'focus', icon: Focus },
-      { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-      { name: 'Turbo Mode', value: 'turbo', icon: Gauge }
-    ];
-
-
-    let showLanguageSelector = false;
-
-
-    function toggleLanguageSelector() {
-        showLanguageSelector = !showLanguageSelector;
-    }
 
 
 
@@ -135,15 +123,8 @@
         }
     }
 
-    function handleAuthSuccess() {
-        showAuth = false;
-    }
 
-    function handleLogout() {
-        showProfile = false;
-        showAuth = false;
-        goto('/');
-    }
+
 
 	function setActiveLink(path: string) {
 		goto(path);
@@ -155,14 +136,8 @@
         setActiveLink('/');
     }
 
-    function handleOverlayClick(event: MouseEvent) {
-        if (event.target === event.currentTarget) {
-            showAuth = false;
-            showProfile = false;
-			showStyles = false;
 
-        }
-    }
+
 
     function scrollToSection(id: string) {
         const element = document.getElementById(id);
@@ -175,6 +150,8 @@
 			placeholderText = getRandomQuote();
 		}
 	}
+
+	
 	
 </script>
 
@@ -183,12 +160,7 @@
 <div class="app-container {$currentTheme}">
     <header>
 		<nav style="z-index: 1000;">
-            <div class="logo-container" on:click={handleLogoClick}>
-                <a href="/" class="logo-link">
-                    <img src={horizon100} alt="Horizon100" class="logo" />
-                    <h2>vRAZUM</h2>
-                </a>
-            </div>
+			
             {#if isNarrowScreen}
                 <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
@@ -200,134 +172,39 @@
             {:else}
 			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 			{#if $currentUser}
-				<TimeTracker />
-				<a
-					href="/ask"
-					class="nav-link"
-					class:active={activeLink === '/ask'}
-					on:click|preventDefault={() => setActiveLink('/ask')}
-				>
-					<MessageCircle size={20} />
-                    {$t('nav.ask')}
+			{:else}
+				<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
+					{$t('nav.features')}
 				</a>
-				<a
-					href="/launcher"
-					class="nav-link"
-					class:active={activeLink === '/launcher'}
-					on:click|preventDefault={() => setActiveLink('/launcher')}
-				>
-					<Drill size={20} />
-                    {$t('nav.build')}
+				<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
+					{$t('nav.pricing')}
 				</a>
-				<a
-					href="/notes"
-					class="nav-link"
-					class:active={activeLink === '/notes'}
-					on:click|preventDefault={() => setActiveLink('/notes')}
-				>
-					<NotebookTabs size={20} />
-                    {$t('nav.notes')}
+				<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
+					{$t('nav.blog')}
 				</a>
-
-				{:else}
-					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
-						{$t('nav.features')}
-					</a>
-					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
-						{$t('nav.pricing')}
-					</a>
-					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
-						{$t('nav.blog')}
-					</a>
-					<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
-						{$t('nav.help')}
-					</a>
-				{/if}
+				<a href="#blog" class="nav-link" on:click|preventDefault={() => scrollToSection('blog')}>
+					{$t('nav.help')}
+				</a>
+			{/if}
 			</div>
-			<!-- <button class="hover-button" on:click={handleLanguageChange} >
-				<Languages size={24} />
-				<span class="language-code">{$currentLanguage.toUpperCase()}</span>
-			</button>
-				<button class="hover-button style-switcher-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
-					<svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
-				</button> -->
-
-                <button class="menu-button" on:click={toggleAuthOrProfile} transition:fly={{ y: -200, duration: 300}}>
-                    {#if $currentUser}
-                        <div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
-							
-                            <span class="user-name">{$currentUser.name || $currentUser.email}</span>
-                            <div class="avatar-container">
-                                {#if $currentUser.avatar}
-                                    <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
-                                {:else}
-                                    <div class="avatar-placeholder">
-                                        <Camera size={24} />
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
-                    {:else}
-                        <LogIn size={24} />
-                    {/if}
-                </button>
+            <div class="logo-container" on:click={handleLogoClick}>
+                <a href="/" class="logo-link">
+                    <img src={horizon100} alt="Horizon100" class="logo" />
+                    <h2>vRAZUM</h2>
+                </a>
+            </div>
             {/if}
         </nav>
     </header>
-
-    {#if showAuth}
-        <div class="auth-overlay" on:click={handleOverlayClick}                                  
-		transition:fly={{ y: -20, duration: 300}}
-		>
-            <div class="auth-content" transition:fly={{ y: -20, duration: 300}} >
-                <button 
-					on:click={() => showAuth = false}
-					class="close-button" 
-					in:fly="{{ y: 50, duration: 500, delay: 400 }}" out:fly="{{ y: 50, duration: 500, delay: 400 }}"
-
-				>
-                    <X size={24} />
-                </button>
-                <Auth on:success={handleAuthSuccess} on:logout={handleLogout} 
-				/>
-            </div>
-        </div>
-    {/if}
-
-    {#if showProfile}
-        <div class="profile-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
-            <div class="profile-content" transition:fly={{ y: -20, duration: 300}} >
-                <button class="close-button" transition:fly={{ y: -200, duration: 300}}  on:click={() => showProfile = false}>
-                    <X size={24} />
-                </button>
-                <Profile user={$currentUser} onClose={() => showProfile = false} on:logout={handleLogout} />
-            </div>
-        </div>
-    {/if}
-
-	{#if showStyles}
-    <div class="style-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300}}>
-        <div class="style-content" transition:fly={{ x: -20, duration: 300}}>
-            <button class="close-button" transition:fly={{ y: -200, duration: 300}} on:click={() => showStyles = false}>
-                <X size={24} />
-            </button>
-            <StyleSwitcher on:close={handleStyleClose} />
-        </div>
-    </div>
-{/if}
+	<Sidenav 
+    on:promptSelect={handlePromptSelect}
+    on:threadListToggle={handleThreadList}
+  />
 
 
 
-{#if showLanguageNotification}
-    <div class="language-overlay" transition:fade={{ duration: 300 }}>
-        <div class="language-notification" transition:fade={{ duration: 300 }}>
-            {$t('lang.notification')}
-            <div class="quote">
-                {placeholderText}
-            </div>
-        </div>
-    </div>
-{/if}
+
+
 
 
 	<!-- {#if showGamePlay}
@@ -401,6 +278,7 @@
 	* {
 	//   font-family: 'Source Code Pro', monospace;
 	font-family: var(--font-family);
+	transition: all 0.3s ease;
 
 	}
 
@@ -444,11 +322,18 @@
 	  /* align-items: center; */
 	  overflow: hidden;
 	  /* height: 100vh; */
-	//   /* width: 100vw;; */
-
-;
-	  
+	//   /* width: 100vw;; */;
 	}
+	  
+
+	.auth-container {
+		background-color: #fff;
+		padding: 2rem;
+		border-radius: 10px;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+	
+	
     .auth-content {
         position: fixed;
 		top: 0;
@@ -540,6 +425,7 @@
 		align-items: center;
 		height: 60px;
 		user-select: none;
+
 	}
   
 	.logo {
@@ -596,11 +482,10 @@
 	nav {
 	  display: flex;
 	  flex-direction: row;
-	  justify-content: space-between;
+	  justify-content: right;
 	  align-items: center;
-		width: 96%;
-        margin-left: 2%;
-        margin-right: 2%;	  
+		width: 100%;
+  
 		/* padding: 5px 10px; */
 	  /* background-color: #2b2a2a; */
 	  /* border-radius: 20px; */
@@ -655,7 +540,7 @@
 		align-items: center;
 		justify-content: center;
 		/* padding: 10px; */
-		width: 100%;
+		width: auto;
 		font-family: var(--font-family);
 
 	}
@@ -722,51 +607,7 @@
 	}
 
 
-	.language-overlay {
-		position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: var(--bg-color);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1002;
-	}
 
-	.language-notification {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: var(--primary-color);
-        color: var(--text-color);
-        padding: 20px;
-        border-radius: 10px;
-        z-index: 1000;
-		border: 1px solid var(--tertiary-color);
-		display: flex;
-		flex-direction: column;
-		text-justify: center;
-		justify-content: center;
-		align-items: center;
-		gap: 2rem;
-		font-size: 24px;
-
-    }
-
-    .language-notification p {
-        margin: 0;
-    }
-
-	.quote {
-		font-size: 16px;
-		font-style: italic;
-		line-height: 1.5;
-
-
-	}
 
 	.menu-button {
         display: flex;
@@ -803,7 +644,7 @@
 	
 
 	.hover-button  {
-		color: transparent;
+		color: var(--text-color);
 		border: none;
 		background-color: transparent;
 	}
