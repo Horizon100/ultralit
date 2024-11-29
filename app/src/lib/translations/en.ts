@@ -131,7 +131,20 @@ export default {
             "I think, therefore I am. - René Descartes",
             "The unexamined life is not worth living. - Socrates",
             "To know, is to know that you know nothing. That is the meaning of true knowledge. - Socrates"
-        ]
+        ],
+        thinking: [
+            "Consulting my digital crystal ball...",
+            "Asking the oracle of ones and zeros...",
+            "Summoning the spirits of Silicon Valley...",
+            "Decoding the matrix...",
+            "Channeling the ghost in the machine...",
+            "Pondering the meaning of artificial life...",
+            "Calculating the answer to life, the universe, and everything...",
+            "Divining the digital tea leaves...",
+            "Consulting the sacred scrolls of binary...",
+            "Communing with the AI hive mind..."
+          ]
+        
     
     },
 

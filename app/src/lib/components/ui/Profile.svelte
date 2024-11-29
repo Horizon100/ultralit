@@ -2,7 +2,7 @@
     import { fade, fly, slide } from 'svelte/transition';
     import { pb } from '$lib/pocketbase';
     import { Camera, LogOutIcon, Languages, Palette, X} from 'lucide-svelte';
-    import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
+    import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key} from 'lucide-svelte';
     import { onMount, tick } from 'svelte';
 
     import { currentUser } from '$lib/pocketbase';
@@ -12,12 +12,18 @@
     import { currentTheme } from '$lib/stores/themeStore';
 	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
     import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
+    import APIKeyInput from '$lib/components/common/keys/APIKeyInput.svelte';
+    import { apiKey } from '$lib/stores/apiKeyStore';
+    import KeyStatusButton from '$lib/components/common/buttons/KeyStatusButton.svelte';
+
+    $: hasApiKey = $apiKey !== '';
+
 
     export let user: any;
     export let onClose: () => void;
     export let onStyleClick: () => void;
 
-
+    let showKeyInput = false;
     let isEditing = false;
     let editedUser = user ? { ...user } : {};
     let showLanguageNotification = false;
@@ -154,6 +160,11 @@
             <button class="settings-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
                 <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
             </button>
+
+            <KeyStatusButton bind:showKeyInput />
+            {#if showKeyInput}
+              <APIKeyInput />
+            {/if}
             <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
                 <LogOutIcon size={24} />
                 <span>{$t('profile.logout')}</span>
@@ -283,6 +294,12 @@
     </div>
 {/if}
 
+{#if !hasApiKey}
+  <div class="key-overlay">
+    <APIKeyInput />
+  </div>
+{/if}
+
 
 
 <style lang="scss">
@@ -364,6 +381,19 @@
         width: 100%;
         /* max-width: 500px; */
         /* height: 100vh; */
+    }
+
+    .key-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
     }
 
     .profile-header {
@@ -490,6 +520,7 @@
         padding: 0.5rem 1rem;
         border-radius: 20px;
         width: auto;
+        height: 60px;
         background: var(--bg-gradient);
         border: 1px solid var(--border-color);
         color: var(--text-color);

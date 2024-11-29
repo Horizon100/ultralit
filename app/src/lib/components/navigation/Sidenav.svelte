@@ -130,7 +130,7 @@
 
 </script>
 
-<div class="sidenav">
+<div class="sidenav" transition:slide={{ x: -200, duration: 300}}>
   <div class="top-buttons">
     <!-- Authentication/Profile Button -->
     <button class="nav-button auth-button" on:click={toggleAuthOrProfile}>

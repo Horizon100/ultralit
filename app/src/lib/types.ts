@@ -1,9 +1,7 @@
-// src/lib/types.ts
-
 import type { RecordModel } from 'pocketbase'; 
 import PocketBase, { AuthModel } from 'pocketbase';
 import { writable } from 'svelte/store';
-
+import { type ProviderType }  from '$lib/constants/providers';
 
 
 export interface User extends RecordModel {
@@ -30,7 +28,9 @@ export interface User extends RecordModel {
     id: string;
     collectionId: string;
     collectionName: string;
-
+    keys: string[];
+    selected_provider?: string;  
+    selected_model?: string;     
 } 
 export interface Prompt {
     value: PromptType;
@@ -161,7 +161,16 @@ export interface AIModel extends RecordModel {
     user: string[];
     created: string;
     updated: string;
+    provider?: ProviderType;
+}
 
+export interface UserModelPreferences {
+    id: string;
+    user: string;
+    selected_provider: ProviderType;
+    selected_models: string[]; // Array of model IDs
+    created: string;
+    updated: string;
 }
 
 export interface AIResponse {

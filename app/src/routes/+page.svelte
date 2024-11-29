@@ -258,9 +258,9 @@
         messageId = $page.url.searchParams.get('messageId');
 
         // Set current thread if threadId exists
-        if (threadId) {
-            await threadsStore.setCurrentThread(threadId);
-        }
+        // if (threadId) {
+        //     await threadsStore.setCurrentThread(threadId);
+        // }
 
         // Initialize necessary data
         await initializeLanguage();

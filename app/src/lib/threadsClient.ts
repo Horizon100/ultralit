@@ -3,12 +3,16 @@ import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { fetchNamingResponse } from '$lib/aiClient'
 
+/** Utility to ensure user is authenticated */
+function ensureAuthenticated(): void {
+    if (!pb.authStore.isValid) {
+        throw new Error('User is not authenticated');
+    }
+}
+
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
-
+        ensureAuthenticated();
         console.log(`Attempting to fetch messages for thread: ${threadId}`);
 
         const messages = await pb.collection('messages').getFullList<Messages>({
@@ -31,9 +35,8 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
 
 export async function fetchLastMessageForThread(threadId: string): Promise<Messages | null> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
 
         const messages = await pb.collection('messages').getFullList<Messages>({
             filter: `thread = "${threadId}"`,
@@ -54,9 +57,7 @@ export async function fetchLastMessageForThread(threadId: string): Promise<Messa
 
 export async function fetchThreads(): Promise<Threads[]> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
 
         // Fetch threads with expanded last_message field
         const threads = await pb.collection('threads').getFullList<Threads>({
@@ -84,9 +85,8 @@ export async function fetchThreads(): Promise<Threads[]> {
 
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
 
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
@@ -110,9 +110,8 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 
 export async function updateMessage(id: string, data: Partial<Messages>): Promise<Messages> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
         return await pb.collection('messages').update<Messages>(id, data);
     } catch (error) {
         console.error('Error updating message:', error);
@@ -126,9 +125,8 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
 
 export async function updateThread(id: string, changes: Partial<Threads>): Promise<Threads> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
 
         // If tags are being updated, ensure they're in the correct format
         if (changes.tags) {
@@ -154,9 +152,8 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
 
 export async function autoUpdateThreadName(threadId: string, userMessage: string, aiResponse: string, model: AIModel, userId: string): Promise<Threads> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
 
         // Get the AI-generated thread name
         const threadName = await fetchNamingResponse(userMessage, aiResponse, model, userId);
@@ -185,9 +182,8 @@ function getRandomBrightColor(tagName: string): string {
 
 export async function addMessageToThread(message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages> {
     try {
-        if (!pb.authStore.isValid) {
-            throw new Error('User is not authenticated');
-        }
+        ensureAuthenticated();
+
 
         console.log('Attempting to add message:', JSON.stringify(message, null, 2));
         console.log('User ID:', pb.authStore.model?.id);

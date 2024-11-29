@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase';
 import type { AuthModel } from 'pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { writable } from 'svelte/store'
-import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Workshops, Threads, Messages } from '$lib/types';
+import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Workshops, Threads, Messages, UserModelPreferences } from '$lib/types';
 // import type { ClientResponseError } from 'pocketbase'; // Unused
 // import type { RecordModel } from 'pocketbase'; // Unused
 
@@ -461,13 +461,52 @@ export async function fetchUserModels(userId: string): Promise<AIModel[]> {
         const records = await pb.collection('models').getFullList<AIModel>({
             filter: `user ~ "${userId}"`,
         });
-
-        return records; 
+        return records;
     } catch (error) {
         console.error('Error fetching user models:', error);
         return [];
     }
 }
+
+// Get user's current model preferences
+export async function fetchUserModelPreferences(userId: string): Promise<{ provider: string | null, model: string | null }> {
+    try {
+        const user = await pb.collection('users').getOne<User>(userId);
+        return {
+            provider: user.selected_provider || null,
+            model: user.selected_model || null
+        };
+    } catch (error) {
+        console.error('Error fetching user model preferences:', error);
+        return {
+            provider: null,
+            model: null
+        };
+    }
+}
+
+// Update user's model preferences
+export async function updateUserModelPreferences(userId: string, provider: string, model: string): Promise<User> {
+    try {
+        const updated = await pb.collection('users').update<User>(userId, {
+            selected_provider: provider,
+            selected_model: model
+        });
+        return updated;
+    } catch (error) {
+        console.error('Error updating user model preferences:', error);
+        throw error;
+    }
+}
+
+// Optional: Helper function to get default model if none is selected
+export function getDefaultModelPreferences() {
+    return {
+        provider: 'openai',  // or whatever your default provider is
+        model: 'gpt-3.5-turbo'  // or whatever your default model is
+    };
+}
+
 export async function fetchUserActions(userId: string): Promise<Actions[]> {
     try {
         console.log('Fetching actions for user:', userId);
