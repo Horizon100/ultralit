@@ -3,6 +3,7 @@ import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance
 import { getPrompt } from '$lib/constants/prompts';
 import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
 import { pb } from '$lib/pocketbase';
+import type { ProviderType } from '$lib/constants/providers';
 
 const toVisNode = (agent: AIAgent): VisNode => {
     const position = typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position;
@@ -14,11 +15,24 @@ const toVisNode = (agent: AIAgent): VisNode => {
     };
 };
 
-export async function fetchAIResponse(messages: AIMessage[], model: AIModel, userId: string, attachment: File | null = null): Promise<string> {
+export async function fetchAIResponse(
+    messages: AIMessage[], 
+    model: AIModel, 
+    userId: string, 
+    attachment: File | null = null
+): Promise<string> {
     try {
-        const supportedMessages = messages.filter(msg => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role));
-        
-        console.log('Sending messages to API:', supportedMessages);
+        const supportedMessages = messages.filter(msg => 
+            ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role)
+        );
+
+        const modelData = {
+            id: model.id,
+            name: model.name,
+            api_type: model.api_type,
+            provider: model.provider,
+            base_url: model.base_url
+        };
 
         let body;
         let headers;
@@ -26,14 +40,17 @@ export async function fetchAIResponse(messages: AIMessage[], model: AIModel, use
         if (attachment) {
             const formData = new FormData();
             formData.append('messages', JSON.stringify(supportedMessages));
-            formData.append('model', model);
+            formData.append('model', JSON.stringify(modelData));
             formData.append('userId', userId);
             formData.append('attachment', attachment);
 
             body = formData;
-            // Don't set Content-Type header for FormData, let the browser set it
         } else {
-            body = JSON.stringify({ messages: supportedMessages, model, userId });
+            body = JSON.stringify({ 
+                messages: supportedMessages, 
+                model: modelData,
+                userId 
+            });
             headers = {
                 'Content-Type': 'application/json',
             };

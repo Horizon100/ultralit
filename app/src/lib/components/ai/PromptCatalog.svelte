@@ -115,10 +115,12 @@
           </button>
         {/if}
         <div class="content-wrapper" class:fullscreen={isFullScreen && selectedPrompt === value}>
-          <Icon size={isFullScreen && selectedPrompt === value ? 80 : 40} />
-          <h3>{label}</h3>
+          <div class="content-header" transition:fly={{ x: 20, duration: 300, delay: 200 }}>
+            <Icon size={isFullScreen && selectedPrompt === value ? 20 : 20} />
+          </div>
           {#if isFullScreen && selectedPrompt === value && youtubeUrl}
-            <div class="video-container" transition:fly={{ y: 20, duration: 300, delay: 200 }}>
+            <div class="video-container" transition:fly={{ x: 20, duration: 300, delay: 200 }}>
+
               <iframe 
                 width="560" 
                 height="315" 
@@ -129,8 +131,11 @@
                 allowfullscreen
               ></iframe>
             </div>
+            <h3>{label}</h3>
+
+            <p class="description">{description}</p>
+
           {/if}
-          <p class="description">{description}</p>
 
         </div>
       </div>
@@ -149,11 +154,9 @@
 
   .prompt-overlay {
     display: flex;
-    position: absolute;
-    height: 90%;
-    width: 94%;
-    margin-left: 3%;
-    margin-top: 4rem;
+    position: relative;
+    height: auto;
+    width: auto;
     justify-content: center;
     align-items: center;
     
@@ -174,7 +177,7 @@
     border-radius: 20px;
     pointer-events: none;
     transition: opacity 0.3s ease;
-    z-index: 1;
+    // z-index: 1;
 
     &.visible {
       opacity: 1;
@@ -183,9 +186,9 @@
   }
   .prompt-grid-container {
     display: flex;
+    justify-content: left;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 1rem; /* Adjust the gap as needed */
+
     overflow-y: auto;
     width: 100%;
     height: 100%;
@@ -199,36 +202,39 @@
     }
   }
 
+
   .prompt-grid-item {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     border-radius: 20px;
-    padding: 2rem;
     text-align: center;
     background: var(--bg-gradient-r);
     cursor: pointer;
-    transition: all 0.3s ease;
     position: relative;
     user-select: none;
-    font-size: 1rem;
-    flex: 1 1 calc(33% - 2rem); /* Auto-resizes the buttons, subtracting gap */
-    max-width: 80%; /* Limits maximum size */
-    min-width: 150px; /* Ensures buttons don't shrink too small */
-    height: auto; /* Allows button height to adjust automatically */
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 50px; 
+    height: 50px;
     opacity: 0.3;
-    color: var(--text-color);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Remove flex-wrap from item since it should be on container */
+    /* Remove flex property since we're using fixed width/height */
+
+
+    // color: var(--text-color);
 
 
     &.fullscreen {
-      position: absolute;
+      position: relative;
+      flex-direction: column;
+
       top: 0;
-      left: 50%;
-      transform: translate(-50%, 0%);
-      width: 90%;
-      height: 73%;
+      left: 0;
+      // transform: translate(-50%, 0%);
+      // width: 300px;
+      height: auto;
+      width: 100%;
       max-width: none;
       margin: 0;
       background: var(--bg-gradient-r);
@@ -247,12 +253,13 @@
       pointer-events: none;
       transform: scale(0.95);
       transition: all 0.3s ease;
+      height: 0;
     }
 
   }
 
   .prompt-grid-item.active {
-    background: var(--bg-gradient-r);
+    background: var(--secondary-color);
     backdrop-filter: blur(20px);
     opacity: 1;
     
@@ -271,6 +278,8 @@
   .prompt-grid-item h3 {
     margin-bottom: 1rem;
     color: var(--text-color);
+    font-size: 1rem;
+    text-align: left;
   }
 
   /* Active state for selected grid items */
@@ -286,32 +295,51 @@
     text-align: center;
   }
 
+  .content-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+  }
+
   .content-wrapper {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    justify-content: left;
     width: 100%;
     height: 100%;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: 1rem;
+
+    gap: 1rem;
 
     &.fullscreen {
-      padding: 2rem;
-      justify-content: flex-start;
-      gap: 2rem;
+      justify-content: center;
+      flex-direction: column;
+      margin-top: 1rem;
 
       h3 {
-        font-size: 2.5rem;
-        margin: 1rem 0 2rem;
+        // font-size: 2.5rem;
+        width: 100%;
+      }
+
+      .content-header {
+        display: none;
       }
 
       .description {
-        font-size: 1.5rem;
-        margin: 1rem 0 2rem;
+        // font-size: 1.5rem;
+        margin: 0 0 1rem;
+        width: 90%;        
       }
 
       .video-container {
-        margin-top: 0;
+        // margin-top: 0;
       }
+      
     }
   }
 
@@ -332,20 +360,20 @@
     line-height: 2;
     text-align: left;
     color: var(--text-color);
-    padding: 2rem;
 
   }
 
   .close-button {
     position: fixed;
-    top: 10px;
-    right: 2rem;
+    top: 0;
+    right: 0;
     border-radius: 50%;
-    height: 60px;
-    width: 60px;
-    background: rgba(255, 255, 255, 0.1);
+    height: 30px;
+    width: 30px;
+    background: none;
     color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    // border: 1px solid rgba(255, 255, 255, 0.2);
+    border: none;
     cursor: pointer;
     transition: all 0.3s ease;
     pointer-events: auto;
@@ -357,7 +385,6 @@
   .video-container {
     width: 100%;
     max-width: 1200px;
-    margin: 2rem auto;
     position: relative;
     padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
     height: 0;
@@ -368,7 +395,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
+      width: 90%;
       height: 100%;
       border-radius: 2rem;
       border: 1px solid rgba(255, 255, 255, 0.2);

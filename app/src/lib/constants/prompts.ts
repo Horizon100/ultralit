@@ -73,7 +73,7 @@ export const availablePrompts: Array<{
   },
   { 
     value: 'NETWORK_STRUCTURE', 
-    label: 'Determine Network Structure', 
+    label: 'Determine Structure', 
     icon: Network,
     description: 'Analyze and optimize the relationships between different components in your system. Visualize connections, identify bottlenecks, and design efficient network architectures.',
     youtubeUrl: 'https://www.youtube.com/embed/9bZkp7q19f0'

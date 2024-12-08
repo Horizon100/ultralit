@@ -16,6 +16,8 @@
     import { currentLanguage, languages, setLanguage, initializeLanguage } from '$lib/stores/languageStore';
     import { t } from '$lib/stores/translationStore';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
+	import  '$lib/stores/threadsStore';
+
 
     let showLanguageNotification = false;
     let selectedLanguageName = '';
@@ -198,8 +200,10 @@
     </header>
 	<Sidenav 
     on:promptSelect={handlePromptSelect}
-    on:threadListToggle={handleThreadList}
-  />
+	on:threadListToggle={() => {
+		// Handle the toggle here
+		threadsStore.toggleThreadList();
+	  }}  />
 
 
 

@@ -11,6 +11,10 @@
   import { modelStore } from '$lib/stores/modelStore';
   import { currentUser } from '$lib/pocketbase';
 
+  let isOffline = false;
+  modelStore.subscribe(state => {
+    isOffline = state.isOffline;
+});
   export let selectedModel: AIModel = defaultModel;
 
   const dispatch = createEventDispatcher<{
@@ -39,29 +43,50 @@
         showAPIKeyInput = true;
     } else {
         if ($currentUser) {
-            await modelStore.setSelectedProvider($currentUser.id, provider);
+            try {
+                await modelStore.setSelectedProvider($currentUser.id, provider);
+                await loadProviderModels(provider);
+                showAPIKeyInput = false;
+            } catch (error) {
+                console.warn('Error setting provider:', error);
+                // The store will handle offline status automatically
+            }
         }
-        await loadProviderModels(provider);
-        showAPIKeyInput = false;
-
     }
 
-    // Only close the dropdown if no model list is open or if switching providers
+    // Only close if no models are available
     if (!availableProviderModels[provider].length) {
         isOpen = false;
     }
 }
 
-  async function loadProviderModels(provider: ProviderType) {
-      const currentKey = get(apiKey)[provider];
-      if (currentKey) {
-          try {
-              availableProviderModels[provider] = await providers[provider].fetchModels(currentKey);
-          } catch (error) {
-              console.error(`Error fetching models for ${provider}:`, error);
-          }
-      }
-  }
+async function handleModelSelection(model: AIModel) {
+    if ($currentUser) {
+        try {
+            const success = await modelStore.setSelectedModel($currentUser.id, model);
+            if (success) {
+                selectedModel = model;
+            }
+        } catch (error) {
+            console.warn('Error selecting model:', error);
+        }
+    }
+    isOpen = false;
+    dispatch('select', model);
+}
+
+// We can simplify loadProviderModels since we don't need to save them immediately
+async function loadProviderModels(provider: ProviderType) {
+    const currentKey = get(apiKey)[provider];
+    if (currentKey) {
+        try {
+            const providerModelList = await providers[provider].fetchModels(currentKey);
+            availableProviderModels[provider] = providerModelList;
+        } catch (error) {
+            console.error(`Error fetching models for ${provider}:`, error);
+        }
+    }
+}
 
   async function handleAPIKeySubmit(event: CustomEvent<string>) {
       if (currentProvider) {
@@ -71,14 +96,7 @@
       }
   }
 
-  async function handleModelSelection(model: AIModel) {
-      selectedModel = model;
-      if ($currentUser) {
-          await modelStore.setSelectedModel($currentUser.id, model.id);
-      }
-      isOpen = false;
-      dispatch('select', selectedModel);
-  }
+
 </script>
 
 <div 
@@ -155,6 +173,13 @@
   </button>
 </div>
 
+{#if isOffline}
+    <div class="offline-indicator">
+        <XCircle size={16} color="orange" />
+        <span>Offline</span>
+    </div>
+{/if}
+
 <style lang="scss">
   @use "src/themes.scss" as *;
 
@@ -166,6 +191,17 @@
     font-family: var(--font-family);
 
   }
+
+  .offline-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        background-color: rgba(255, 165, 0, 0.1);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        color: orange;
+    }
   .provider-icon {
     width: 18px;
     height: 18px;

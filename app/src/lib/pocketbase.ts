@@ -39,6 +39,8 @@ console.log('PocketBase URL:', pb.baseUrl);
 
 // Debugging
 
+
+
 export async function checkPocketBaseConnection() {
     try {
         const health = await pb.health.check();

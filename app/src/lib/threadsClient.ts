@@ -83,6 +83,8 @@ export async function fetchThreads(): Promise<Threads[]> {
     }
 }
 
+
+
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
     try {
         ensureAuthenticated();
@@ -203,3 +205,28 @@ export async function addMessageToThread(message: Omit<Messages, 'id' | 'created
         throw error;
     }
 }
+
+export async function resetThread(threadId: string): Promise<void> {
+    try {
+      ensureAuthenticated();
+      
+      if (!threadId) {
+        throw new Error('Thread ID is required');
+      }
+  
+      // Update the thread in the database if needed
+      await pb.collection('threads').update(threadId, {
+        selected: false
+        // Add any other reset properties you need
+      });
+      
+      console.log('Thread reset successfully');
+    } catch (error) {
+      console.error('Error resetting thread:', error);
+      if (error instanceof ClientResponseError) {
+        console.error('Response data:', error.data);
+        console.error('Status code:', error.status);
+      }
+      throw error;
+    }
+  }

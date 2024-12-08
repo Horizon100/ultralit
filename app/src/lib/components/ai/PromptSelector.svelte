@@ -1,41 +1,29 @@
 <script lang="ts">
-  import type { PromptType } from '$lib/types';
-  import { fly } from 'svelte/transition';
-  import { createEventDispatcher } from 'svelte';
-  import { availablePrompts } from '$lib/constants/prompts';
-  import { promptStore } from '$lib/stores/promptStore';
+import type { PromptType } from '$lib/types';
+import { fly } from 'svelte/transition';
+import { createEventDispatcher } from 'svelte';
+import { availablePrompts } from '$lib/constants/prompts';
+import { promptStore } from '$lib/stores/promptStore';
 
-  // Subscribe to the store and sync with local state
-  let selectedPrompt: PromptType;
-  $: selectedPrompt = $promptStore;
+let selectedPrompt: PromptType;
+$: selectedPrompt = $promptStore;
 
-  let selectedIcon = availablePrompts.find(option => option.value === selectedPrompt)?.icon;
-  let isOpen = false; 
-  let isButtonActive = false;  
-  let isHovered = false;
+let selectedIcon = availablePrompts.find(option => option.value === selectedPrompt)?.icon;
+let isOpen = false; 
+let isButtonActive = false;  
+let isHovered = false;
 
   const dispatch = createEventDispatcher<{
     select: PromptType;
   }>();
 
   function handlePromptSelection(promptType: PromptType) {
-    console.log('Previous prompt:', selectedPrompt);
-    
-    // Update both local state and store
-    selectedPrompt = promptType;
-    promptStore.set(promptType);
-    
-    console.log('New prompt selected:', promptType);
-
-    const selectedOption = availablePrompts.find(option => option.value === promptType);
-    if (selectedOption) {
-      selectedIcon = selectedOption.icon;
-      console.log('Icon updated to:', selectedOption.label);
-    }
-    
-    isOpen = false;
-    dispatch('select', promptType);
-  }
+  selectedPrompt = promptType;
+  promptStore.set(promptType);
+  selectedIcon = availablePrompts.find(option => option.value === promptType)?.icon;
+  isOpen = false;
+  dispatch('select', promptType);
+}
 
   // Watch for changes in store
   $: {
@@ -61,16 +49,14 @@
 
   // Watch for changes in selectedPrompt
   $: {
-    if (selectedPrompt) {
-      console.log('Current prompt state:', {
-        prompt: selectedPrompt,
-        label: selectedPromptLabel,
-        icon: selectedIcon ? 'Icon present' : 'No icon'
-      });
-    }
+  if ($promptStore) {
+    selectedIcon = availablePrompts.find(option => option.value === $promptStore)?.icon;
   }
+}
 
-  $: selectedPromptLabel = availablePrompts.find(option => option.value === selectedPrompt)?.label || '';
+$: selectedPromptLabel = availablePrompts.find(option => option.value === selectedPrompt)?.label || '';
+
+
 </script>
 
 <div 
@@ -93,10 +79,7 @@
   {#if isOpen}
     <div class="dropdown-content" transition:fly={{ y: 10, duration: 200 }}>
       {#each availablePrompts as { value, label, icon: Icon }}
-        <button 
-          on:click={() => handlePromptSelection(value)}
-          class="dropdown-item"
-        >
+        <button on:click={() => handlePromptSelection(value)}>
           <Icon size={18} />
           {label}
         </button>
@@ -166,6 +149,7 @@
   .dropdown-content {
       display: none;
       position: absolute;
+      align-items: left;
       left: 0.5rem;
       bottom: 0;
       /* background-color: #21201d; */
@@ -186,7 +170,7 @@
 
   .dropdown:hover .dropdown-content {
     display: block;
-    right: 0;
+    left: 0;
   }
 
   .dropdown:hover .dropbtn {

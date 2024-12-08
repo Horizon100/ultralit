@@ -144,7 +144,7 @@ export interface PartialAIAgent {
 }
 
 export interface AIMessage {
-    role: 'user' | 'assistant' | 'system' | 'thinking';
+    role: RoleType;
     content: string;
 }
 
@@ -155,13 +155,14 @@ export interface AIModel extends RecordModel {
     name: string;
     api_key: string;
     base_url: string;
-    api_type: 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
+    api_type: string;  // This will be the model identifier (e.g., 'gpt-4', 'claude-3-opus')
+    // api_type: 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
     api_version: string;
     description: string;
     user: string[];
     created: string;
     updated: string;
-    provider?: ProviderType;
+    provider: ProviderType;
 }
 
 export interface UserModelPreferences {
@@ -444,11 +445,13 @@ export interface InternalChatMessage extends ChatMessage {
     prompt_type: PromptType;
     model: string | null;
     thread?: string;
+    role: RoleType;
 }
 export interface Messages extends RecordModel {
     id: string;
     text: string;
     user: string;
+    
     parent_msg: string | null;
     task_relation: string | null;
     agent_relation: string | null;
@@ -469,9 +472,18 @@ export interface Messages extends RecordModel {
     model: string | null;
 }
 
+export type RoleType = 
+    'human' | 
+    'user' | 
+    'assistant' | 
+    'proxy' | 
+    'hub' | 
+    'moderator' | 
+    'thinking' ;
+
 export interface ChatMessage extends RecordModel {
     text: string;
-    role: 'user' | 'assistant' | 'thinking';
+    role: RoleType;
     user: string;
     expand?: {
         user?: {
@@ -488,6 +500,9 @@ export interface Threads extends RecordModel {
     updated: string;
     tags: string[]; 
     last_message?: Messages;
+    current_thread: string;
+    messageCount?: number;
+
 }
 
 export interface Tag {

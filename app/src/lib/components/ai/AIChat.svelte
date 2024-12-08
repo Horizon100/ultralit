@@ -1,10 +1,11 @@
 <script lang="ts">
   import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { page } from '$app/stores';
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search } from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search } from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -13,13 +14,14 @@
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
   import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
-  import { fetchThreads, fetchMessagesForThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
+  import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
   import ThreadTags from '$lib/components/common/chat/ThreadTags.svelte';
   import ThreadListTags from '$lib/components/common/chat/ThreadListTags.svelte';
+  import { messageCountsStore, messageCounts } from '$lib/stores/messageCountStore';
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
@@ -38,6 +40,29 @@
   let searchQuery = '';
   let isTags = true; 
   let filteredThreads: Threads[] = [];
+
+  function mapMessageToInternal(message: Messages): InternalChatMessage {
+  return {
+    id: message.id,
+    content: message.text, // Map text to content
+    text: message.text,
+    role: message.type === 'human' ? 'user' : 'assistant' as RoleType, // Map type to role
+    collectionId: message.collectionId,
+    collectionName: message.collectionName,
+    parent_msg: message.parent_msg,
+    reactions: message.reactions,
+    prompt_type: message.prompt_type as PromptType,
+    model: message.model,
+    thread: message.thread,
+    isTyping: false,
+    isHighlighted: false,
+    user: message.user,
+    created: message.created,
+    updated: message.updated
+  };
+}
+
+
   let messages: Messages[] = [];
   let quotedMessage: Messages | null = null;
   let isEditingThreadName = false;
@@ -87,6 +112,8 @@
   let startY: number;
   let scrollTopStart: number;
   let isCreatingThread = false;
+  let showPromptCatalog = false;
+  let currentPage = 1;
 
   const dispatch = createEventDispatcher();
 
@@ -95,11 +122,20 @@
 
   messagesStore.subscribe(value => messages = value);
 
-  threadsStore.subscribe(state => {
+  interface ThreadStoreState {
+    threads: Threads[];
+    currentThreadId: string | null;
+    messages: Messages[];
+    updateStatus: string;
+    showThreadList: boolean;
+  }
+
+  threadsStore.subscribe((state: ThreadStoreState) => {
     threads = state.threads;
     currentThreadId = state.currentThreadId;
     messages = state.messages;
     updateStatus = state.updateStatus;
+    showThreadList = state.showThreadList;
   });
 
   const defaultAIModel: AIModel = {
@@ -117,11 +153,25 @@
 
   $: currentThread = threads.find(t => t.id === currentThreadId) || null;  
   $: safeAIModel = aiModel || defaultAIModel;
-  $: sortedMessages = chatMessages.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
-  $: groupedMessages = groupMessagesByDate(messages);
+  $: groupedMessages = groupMessagesByDate(messages.map(mapMessageToInternal));
+  $: {
+  if (groupedMessages.length > 0 && expandedDates.size === 0) {
+    expandedDates = new Set([groupedMessages[0].date]);
+  }
+}
 
-  function groupMessagesByDate(messages: InternalChatMessage[]): { date: string; messages: InternalChatMessage[]; isRecent: boolean }[] {
-  const groups: { [key: string]: InternalChatMessage[] } = {};
+  function initializeExpandedDates() {
+  if (groupedMessages.length > 0) {
+    const latestGroup = groupedMessages[0];
+    expandedDates.add(latestGroup.date);
+    expandedDates = expandedDates;
+  }
+}
+
+
+
+function groupMessagesByDate(messages: Messages[]): { date: string; displayDate: string; messages: Messages[]; isRecent: boolean }[] {
+  const groups: { [key: string]: { messages: Messages[]; displayDate: string } } = {};
   const today = new Date().setHours(0, 0, 0, 0);
   const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
 
@@ -151,15 +201,34 @@
       messages, 
       isRecent: false 
     }))
-    .sort((a, b) => new Date(b.date).getTime() + new Date(a.date).getTime());
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Mark the last group as isRecent
-    if (sortedGroups.length > 0) {
-      sortedGroups[sortedGroups.length - 1].isRecent = false;
-    }
-
-    return sortedGroups;
+  // Change this line - mark the first (newest) group as recent instead of the last
+  if (sortedGroups.length > 0) {
+    sortedGroups[0].isRecent = true;  // Changed from length-1 to 0
   }
+
+  return sortedGroups;
+}
+
+function toggleDateExpansion(date: string, event?: Event) {
+  // Prevent any scroll behavior
+  event?.preventDefault();
+  event?.stopPropagation();
+
+  const newExpandedDates = new Set(expandedDates);
+  
+  if (newExpandedDates.has(date)) {
+    if (date !== groupedMessages[0]?.date) {  // If it's not the most recent group
+      newExpandedDates.delete(date);
+    }
+  } else {
+    newExpandedDates.add(date);
+  }
+  
+  expandedDates = newExpandedDates;
+}
+
 
   function formatDate(date: string): string {
     if (date === 'Today' || date === 'Yesterday') return date;
@@ -170,37 +239,46 @@
     return messages.length;
   }
 
-  function addMessage(role: 'user' | 'assistant' | 'thinking', content: string | Scenario[] | Task[], parentMsgId: string | null = null): InternalChatMessage {
+  function addMessage(
+  role: 'user' | 'assistant' | 'thinking', 
+  content: string | Scenario[] | Task[], 
+  parentMsgId: string | null = null
+): InternalChatMessage {
   messageIdCounter++;
-  const messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+  let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+  
+  // Add prompt context to assistant messages
+  if (role === 'assistant' && promptType) {
+    messageContent = `[Prompt: ${promptType}]\n${messageContent}`;
+  }
+  
   const newMessageId = `msg-${messageIdCounter}`;
   latestMessageId = newMessageId;
   const createdDate = new Date().toISOString();
 
   return { 
-      id: newMessageId,
-      role: role as 'user' | 'assistant' | 'thinking',
-      content: messageContent,
-      text: messageContent,
-      user: userId,
-      isTyping: role === 'assistant',
-      collectionId: '',     
-      collectionName: '',   
-      created: createdDate,
-      updated: createdDate,
-      parent_msg: parentMsgId,
-      prompt_type: promptType,
-      model: aiModel?.id || null,
-      reactions: {
-        upvote: 0,
-        downvote: 0,
-        bookmark: [],
-        highlight: [],
-        question: 0
-      }
-    };
-  }
-
+    id: newMessageId,
+    role,
+    content: messageContent,
+    text: messageContent,
+    user: userId,
+    isTyping: role === 'assistant',
+    collectionId: '',     
+    collectionName: '',   
+    created: createdDate,
+    updated: createdDate,
+    parent_msg: parentMsgId,
+    prompt_type: promptType,
+    model: aiModel?.id || null,
+    reactions: {
+      upvote: 0,
+      downvote: 0,
+      bookmark: [],
+      highlight: [],
+      question: 0
+    }
+  };
+}
   async function createTag(name: string) {
     if (!name.trim()) return;
 
@@ -244,16 +322,16 @@
 
   const groupOrder = [$t('threads.today'), $t('threads.yesterday'), $t('threads.lastweek'), $t('threads.thismonth'), $t('threads.older')];
 
-  $: groupedThreads = threads.reduce((acc, thread) => {
-    const group = getThreadDateGroup(thread);
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(thread);
-    return acc;
-  }, {} as Record<string, Threads[]>);
+  // $: groupedThreads = threads.reduce((acc, thread) => {
+  //   const group = getThreadDateGroup(thread);
+  //   if (!acc[group]) acc[group] = [];
+  //   acc[group].push(thread);
+  //   return acc;
+  // }, {} as Record<string, Threads[]>);
 
-  $: orderedGroupedThreads = groupOrder
-    .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
-    .map(group => ({ group, threads: groupedThreads[group] }));
+  // $: orderedGroupedThreads = groupOrder
+  //   .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
+  //   .map(group => ({ group, threads: groupedThreads[group] }));
 
   function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
     const messageGroups: Messages[][] = [];
@@ -283,42 +361,87 @@
   }
 
   async function handleLoadThread(threadId: string) {
+  try {
+    const thread = await pb.collection('threads').getOne(threadId, {
+      expand: 'tags'
+    });
+    
+    currentThreadId = thread.id;
+    
+    isLoadingMessages = true;
+    await messagesStore.fetchMessages(threadId);
+    
+    chatMessages = messages.map(msg => ({
+      role: msg.type === 'human' ? 'user' : 'assistant',
+      content: msg.text,
+      id: msg.id,
+      isTyping: false,
+      text: msg.text,
+      user: msg.user,
+      created: msg.created,
+      updated: msg.updated,
+      parent_msg: msg.parent_msg,
+      prompt_type: msg.prompt_type,
+      model: msg.model
+    }));
+
+    // Ensure prompt catalog is hidden and chat is shown
+    showPromptCatalog = false;
+    
+  } catch (error) {
+    console.error(`Error loading messages for thread ${threadId}:`, error);
+  } finally {
+    isLoadingMessages = false;
+  }
+}
+
+  async function handleCreateNewThread() {
     try {
-      const thread = await pb.collection('threads').getOne(threadId, {
-        expand: 'tags'
-      });
-      currentThread = thread;
-      currentThreadId = thread.id;
-      console.log("Loaded thread:", currentThread);
+      isCreatingThread = true;
       
-      isLoadingMessages = true;
-      chatMessages = [];
-
-      await messagesStore.fetchMessages(threadId);
-      chatMessages = messages.map(msg => ({
-        role: msg.type === 'human' ? 'user' : 'assistant',
-        content: msg.text,
-        id: msg.id,
-        isTyping: false,
-        text: msg.text,
-        user: msg.user,
-        created: msg.created,
-        updated: msg.updated,
-        parent_msg: msg.parent_msg,
-        prompt_type: msg.prompt_type,
-        model: msg.model
-      }));
-
-      const groupedMessages = groupMessagesByDate(chatMessages);
-      if (groupedMessages.length > 0) {
-        expandedDates.add(groupedMessages[0].date);
+      // Create new thread
+      const newThread = await threadsStore.addThread({ 
+        op: userId, 
+        name: `Thread ${threads?.length ? threads.length + 1 : 1}` 
+      });
+      
+      if (!newThread?.id) {
+        throw new Error("Failed to create thread: No thread ID returned");
       }
 
-      console.log('Loaded messages:', chatMessages);
+      // Fetch all threads again to ensure we have the complete list
+      await threadsStore.loadThreads();
+      
+      // Set current thread and load it
+      currentThreadId = newThread.id;
+      await handleLoadThread(newThread.id);
+      !isLoading && handleSendMessage();
+
+      return newThread;
     } catch (error) {
-      console.error(`Error loading messages for thread ${threadId}:`, error);
+      console.error("Error creating new thread:", error);
+      return null;
     } finally {
-      isLoadingMessages = false;
+      isCreatingThread = false;
+    }
+  }
+
+  async function loadThreadCounts(threads: Threads[]) {
+    isLoading = true;
+    try {
+      const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
+      if (totalThreads > currentPage * 20) {
+        currentPage++;
+      }
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
+  $: {
+    if (visibleThreads.length > 0) {
+      loadThreadCounts(visibleThreads);
     }
   }
 
@@ -333,15 +456,77 @@
     console.log('Scroll button clicked');
     const chatMessages = chatMessagesDiv.querySelector('.chat-messages');
     if (chatMessages) {
-      console.log('Before scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
+      // console.log('Before scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
       chatMessages.scrollTop = chatMessages.scrollHeight;
-      console.log('After scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
+      // console.log('After scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
       showScrollButton = false;
-      console.log('showScrollButton set to false');
+      // console.log('showScrollButton set to false');
     } else {
       console.log('chat-messages div not found');
     }
   }
+
+  async function goBack() {
+  console.log('Back button clicked');
+  console.log('Initial state:', {
+    currentThreadId,
+    threads: threads?.length,
+    showThreadList
+  });
+  
+  try {
+    if (currentThreadId) {
+      isLoading = true;
+      console.log('Starting thread reset...');
+      
+      // First update any pending changes
+      await resetThread(currentThreadId);
+      console.log('Thread reset complete');
+      
+      // Keep a copy of current threads before clearing state
+      const currentThreads = [...threads];
+      
+      // Clear local state
+      currentThread = null;
+      currentThreadId = null;
+      chatMessages = [];
+      messages = [];
+      expandedDates = new Set();
+      quotedMessage = null;
+      thinkingMessageId = null;
+      typingMessageId = null;
+      
+      console.log('Local state cleared');
+      
+      // Reset store current thread but maintain threads list
+      threadsStore.clearCurrentThread();
+      console.log('Store thread cleared');
+
+      // Update URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('threadId');
+      url.searchParams.delete('messageId');
+      url.searchParams.delete('autoTrigger');
+      history.replaceState({}, '', url.toString());
+      console.log('URL updated');
+      
+      // Show thread list and restore threads
+      showThreadList = true;
+      threads = currentThreads;
+      
+      console.log('Final threads length:', threads?.length);
+    }
+  } catch (error) {
+    console.error('Error going back:', error);
+  } finally {
+    isLoading = false;
+    console.log('Final state:', {
+      currentThreadId,
+      threads: threads?.length,
+      showThreadList
+    });
+  }
+}
 
   afterUpdate(() => {
     // scrollToBottom();
@@ -476,6 +661,7 @@
       type: 'human',
       thread: currentThreadId,
       parent_msg: quotedMessage ? quotedMessage.id : null,
+      prompt_type: promptType
     }, currentThreadId);
 
     quotedMessage = null;
@@ -485,17 +671,31 @@
     const thinkingMessage = addMessage('thinking', thinkingPhrase);
     thinkingMessageId = thinkingMessage.id;
     chatMessages = [...chatMessages, thinkingMessage];
-    isLoading = true;
+    // isLoading = true;
 
     // Prepare messages for AI
     const messagesToSend = chatMessages
-      .filter(({ role, content }) => role && content) // Ensure valid messages
-      .map(({ role, content }) => ({ role, content: content.toString() }));
-
-    console.log('Messages to send:', messagesToSend); // Debug log
+      .filter(({ role, content }) => role && content)
+      .map(({ role, content }) => {
+        if (role === 'user' && promptType) {
+          // Add prompt context to the last user message
+          return {
+            role,
+            content: `[Using ${promptType} prompt]\n${content.toString()}`
+          };
+        }
+        return { role, content: content.toString() };
+      });
 
     if (messagesToSend.length > 0) {
-      // Fetch AI response
+      // Add system message with prompt context if prompt type exists
+      if (promptType) {
+        messagesToSend.unshift({
+          role: 'system',
+          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`
+        });
+      }
+
       const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
 
       // Remove thinking message
@@ -507,7 +707,7 @@
         type: 'robot',
         thread: currentThreadId,
         parent_msg: userMessage.id,
-        prompt_type: seedPrompt,
+        prompt_type: promptType,
         mode: aiModel,
       }, currentThreadId);
 
@@ -528,11 +728,13 @@
 
       // Add auto-update thread name after first AI response
       const currentMessages = await messagesStore.fetchMessages(currentThreadId);
-      const robotMessages = currentMessages.filter((m: Messages) => m.type === 'robot');
-      if (robotMessages.length === 1) {
-        // This is the first AI response, update thread name
-        await threadsStore.autoUpdateThreadName(currentThreadId);
-      }
+        if (currentMessages) {
+          const robotMessages = currentMessages.filter((m: Messages) => m.type === 'robot');
+          if (robotMessages.length === 1) {
+            // This is the first AI response, update thread name
+            await threadsStore.autoUpdateThreadName(currentThreadId);
+          }
+        }
 
       await messagesStore.fetchMessages(currentThreadId);
 
@@ -746,7 +948,7 @@ async function finalizeProcess() {
 
 
   onMount(async () => {
-    let initialLoadComplete = false;
+    initializeExpandedDates();
 
     try {
       isAuthenticated = await ensureAuthenticated();
@@ -775,7 +977,6 @@ async function finalizeProcess() {
       const threadIdFromUrl = urlParams.get('threadId');
       const messageIdFromUrl = urlParams.get('messageId');
       const shouldAutoTrigger = urlParams.get('autoTrigger') === 'true';
-
       if (threadIdFromUrl) {
         currentThreadId = threadIdFromUrl;
         await handleLoadThread(threadIdFromUrl);
@@ -885,9 +1086,7 @@ async function finalizeProcess() {
   });
 
 
-  $: if (currentThreadId && !isCleaningUp) {
-    handleLoadThread(currentThreadId);
-  }
+
   
   $: console.log("isLoading changed:", isLoading);
 
@@ -920,19 +1119,7 @@ async function finalizeProcess() {
   });
 
 
-  async function handleCreateNewThread() {
-    try {
-      const newThread = await threadsStore.addThread({ op: userId, name: `Thread ${threads?.length ? threads.length + 1 : 1}` });
-      if (newThread && newThread.id) {
-        threads = [...(threads || []), newThread];
-        await handleLoadThrecad(newThread.id);
-      } else {
-        console.error("Failed to create new thread: Thread object is undefined or missing id");
-      }
-    } catch (error) {
-      console.error("Error creating new thread:", error);
-    }
-  }
+
 
   function updateAvatarUrl() {
       if ($currentUser && $currentUser.avatar) {
@@ -1084,18 +1271,44 @@ onMount(async () => {
     }
   }
 
-  function toggleDateExpansion(date: string) {
-    if (expandedDates.has(date)) {
-      if (!groupedMessages.find(group => group.date === date)?.isRecent) {
-        expandedDates.delete(date);
-      }
+
+
+
+
+  // function toggleDateExpansion(date: string) {
+  //   if (expandedDates.has(date)) {
+  //     if (!groupedMessages.find(group => group.date === date)?.isRecent) {
+  //       expandedDates.delete(date);
+  //     }
       
-    } else {
-      expandedDates.add(date);
+  //   } else {
+  //     expandedDates.add(date);
       
-    }
-    expandedDates = expandedDates;
-  }
+  //   }
+  //   expandedDates = expandedDates;
+  // }
+
+//   function toggleDateExpansion(date: string) {
+//     if (expandedDates.has(date)) {
+//         if (!groupedMessages.find(group => group.date === date)?.isRecent) {
+//             expandedDates.delete(date);
+//         }
+//     } else {
+//         expandedDates.add(date);
+//     }
+// }
+
+//   function toggleDateExpansion(date: string) {
+//     if (expandedDates.has(date)) {
+//         if (!groupedMessages.find(group => group.date === date)?.isRecent) {
+//             expandedDates.delete(date);
+//         }
+//     } else {
+//         expandedDates.add(date);
+//     }
+// }
+
+
 
    function getRandomBrightColor(tagName: string): string {
     const hash = tagName.split('').reduce((acc, char) => {
@@ -1263,7 +1476,21 @@ $: if (currentThreadId) {
         }}
         on:deleteTag={({ detail }) => handleDeleteTag(detail.tagId)}
       />
+        <h3>
+          {$t('chat.prompts')}
+        </h3>
 
+      <PromptCatalog 
+
+      on:select={(event) => {
+        showPromptCatalog = !showPromptCatalog;
+
+        console.log('Parent received selection from catalog:', event.detail);
+      }}
+    />
+    <h3>
+      {$t('threads.threadHeader')}
+    </h3>
         <div class="thread-actions">
           <div class="search-bar">
               <Search size={30} />
@@ -1274,39 +1501,46 @@ $: if (currentThreadId) {
               />
           </div>
           <button 
-          class="new-button" 
-          on:click={async () => {
-            const newThread = await handleCreateNewThread();
-            if (newThread) await handleLoadThread(newThread.id);
-          }}
-          disabled={isCreatingThread}
-        >
-          {#if isCreatingThread}
-            <div class="spinner2">
-              <Bot size={80} class="bot-icon" />
-
-            </div>
-          {:else}
-            <MessageCirclePlus size={30} />
-          {/if}
+          class="new-button"
+            on:click={async () => {
+              if (isCreatingThread) return;
+              
+              const newThread = await handleCreateNewThread();
+              if (newThread) {
+                // Hide prompt catalog and show chat
+                showPromptCatalog = false;
+              }
+            }}
+            disabled={isCreatingThread}
+          >
+            {#if isCreatingThread}
+              <div class="spinner2">
+                <Bot size={80} class="bot-icon" />
+              </div>
+            {:else}
+              <MessageCirclePlus size={30} />
+            {/if}
         </button>
           
         </div>
 
         <div class="thread-catalog">
+
           {#each orderedGroupedThreads as { group, threads }}
           <div class="thread-group">
             <div class="thread-group-header">{group}</div>
+
             {#each threads as thread}
               <button class="thread-button"
                 on:click={() => handleLoadThread(thread.id)}
                 class:selected={currentThreadId === thread.id}
               >
-                <div class="thread-card">
-                  <span class="thread-title">{thread.name}</span>
-                  <span class="thread-message">
-                    {thread.last_message?.content || 'No messages yet'}
-                  </span>
+              <div class="thread-card">
+                <span class="thread-title">{thread.name}</span>
+                <span class="message-count">
+                  {$messageCounts.getCount(thread.id)}
+                  {$t('chat.messagecount')}
+                </span>
                   <span class="thread-time">
                     {new Date(thread.updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -1326,7 +1560,12 @@ $: if (currentThreadId) {
       {/if}
       <div class="chat-container" on:scroll={handleScroll}>
         <div class="thread-info" class:minimized={isMinimized}>
+
+
           {#if currentThread}
+            <!-- <button class="btn-back" on:click={goBack}>
+              <ChevronLeft size={30} />
+            </button> -->
             {#if isEditingThreadName}
               <input class="tag-item"
                 bind:value={editedThreadName}
@@ -1375,11 +1614,7 @@ $: if (currentThreadId) {
           {/if}
           {:else}
             <h1>{$t('threads.selectThread')}</h1>
-            <PromptCatalog
-            on:select={(event) => {
-              console.log('Parent received selection from catalog:', event.detail);
-            }}
-          />
+
           {/if}
         </div>
           <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
@@ -1391,14 +1626,14 @@ $: if (currentThreadId) {
             {/if}
             <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
               {#each groupMessagesByDate(chatMessages) as { date, messages }}
-              <div class="date-divider" on:click={() => toggleDateExpansion(date)} transition:slide>
-                  {formatDate(date)}
-                  {#if expandedDates.has(date)}
-                    <ChevronUp />
-                  {:else}
-                    <ChevronDown />
-                  {/if}
-                </div>  
+                <div class="date-divider" on:click={() => toggleDateExpansion(date)} transition:slide>
+                    {formatDate(date)}
+                    {#if expandedDates.has(date)}
+                        <ChevronUp />
+                    {:else}
+                        <ChevronDown />
+                    {/if}
+                </div>
                   
                 {#if expandedDates.has(date)}
 
@@ -1514,8 +1749,10 @@ $: if (currentThreadId) {
         on:keydown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSendMessage();
+            !isLoading && handleSendMessage();
+            
           }
+          
         }}      
         on:focus={handleTextareaFocus}
         on:blur={handleTextareaBlur}
@@ -1636,14 +1873,13 @@ $: if (currentThreadId) {
     color: rgb(113, 249, 243);
   }
   .thread-info input  {
-    background-color: var(--primary-color);
+    background-color: var(--secondary-color);
     border-bottom: 1px solid rgb(134, 134, 134);
     width: auto;
     height: 40px;
     padding: 0 20px;
-    margin-right: 2rem;
     font-size: 24px;
-    border-radius: 0;
+    border-radius: var(--radius-l);
 
   }
     .chat-messages {
@@ -1653,8 +1889,7 @@ $: if (currentThreadId) {
       /* padding: 10px; */
       display: flex;
       gap: 4px;
-      flex-direction: column;
-      justify-content: flex-start;
+      flex-direction: column-reverse;
       align-items: stretch;
       scrollbar-width:1px;
       scrollbar-color: var(--secondary-color) transparent;
@@ -1697,7 +1932,6 @@ $: if (currentThreadId) {
     .chat-messages::before {
       display: flex;
       flex-direction: column;
-      
     }
     .chat-messages::after {
       content: '';
@@ -1864,7 +2098,7 @@ $: if (currentThreadId) {
   .message.assistant {
     display: flex;
     /* position: relative; */
-    align-self: flex-start;
+    align-self: flex-end;
     /* background-color: #2e3838; */
     /* border-bottom: 5px solid #242d2d;
     border-right: 5px solid #242d2d;
@@ -1919,15 +2153,15 @@ $: if (currentThreadId) {
     border-top: 2px solid #242d2d; */
     /* border-bottom: 2px solid #585858; */
     border-bottom-right-radius: 20px;
-    color: white;
+    color: var(--text-color);
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
     /* margin-left: 200px; */
     /* border: 1px solid black; */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    background: var(--secondary-color);
+    background: var(--bg-color);
       border-radius: 20px;
-      border: 1px solid var(--primary-color); 
+      border: 1px solid var(--secondary-color); 
       width: calc(94% - 2rem);
 
 
@@ -2216,8 +2450,9 @@ span.new-button {
   }
 
   @keyframes pulsate {
-    0% { box-shadow: 0 0 0 #FFD700, 0 0 2px #FFD700; }
-    100% { box-shadow: 0 0 1px #FFD700, 0 0 10px #FFD700; }
+    0% { box-shadow: 0 0 0 var(--secondary-color), 0 0 4px var(--tertiary-color); }
+    
+    100% { box-shadow: 0 0 1px var(--secondary-color), 0 0 6px var(--bg-color); }
   }
 
   @keyframes bounce {
@@ -2229,6 +2464,12 @@ span.new-button {
     0% { opacity: 0; }
     50% { opacity: 1; }
     100% { opacity: 0; }
+  }
+
+  @keyframes blink-slow {
+    0% { opacity: 0.2; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.2; }
   }
 
   .thinking-animation {
@@ -2292,14 +2533,27 @@ span.new-button {
     font-size: 24px;
 }
 
+.input-container textarea {
+    border: 1px solid rgb(54, 54, 54);
+    background-color:var(--bg-gradient-left);
+    color: white;
+    animation: pulsate 4.5s infinite alternate;
+    display: flex;
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    z-index: 1000;
+    backdrop-filter: blur(40px);
+  }
+
 .input-container textarea:focus {
     border: 1px solid rgb(54, 54, 54);
-    background-color: rgb(0, 0, 0);
+    background-color:var(--bg-gradient-r);
     color: white;
     animation: glowy 1.5s infinite alternate;
     display: flex;
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-}
+    z-index: 1000;
+    backdrop-filter: blur(40px);
+  }
 
   button {
     display: flex;
@@ -2383,17 +2637,18 @@ span.new-button {
     flex-direction: column;
     height: auto;
     justify-content: center;
+    align-items: center;
     transition: all 0.3s ease;
     padding: 1rem;
-    bottom: 2.5rem;
-    right: 2rem;
-    z-index: 20000;
+    z-index: 1000;
   }
 
   .btn-row-right span {
-    height: 40px;
-    width: 40px;
+    height: 60px;
+    width: 60px;
     padding: 4px;
+    justify-content: center;
+    align-items: center;
     background-color: transparent;
     border-radius: 50%;
     transition: all 0.3s ease;
@@ -2465,7 +2720,7 @@ span.new-button {
     border: 1px solid rgba(53, 63, 63, 0.5);   
     border-radius: 20px;
     /* background-color: #2e3838; */
-    background-color: #020101;
+    // background-color: #020101;
     color: #818380;
     line-height: 1.4;
     height: auto;
@@ -2525,6 +2780,10 @@ span {
   justify-content: left;
   align-items: center;
   /* gap: 10px; */
+}
+
+.message-count {
+  color: var(--placeholder-color);
 }
 
 .thread-tags span {
@@ -2592,6 +2851,7 @@ span {
     padding: 0 10px;
     overflow-y: hidden;
     overflow-x: hidden;
+    boreder-radius: var(--radius-l);
     transition: all ease 0.3s;
       // backdrop-filter: blur(10px);
 
@@ -2702,11 +2962,11 @@ span {
       font-family: var(--font-family);
     width: 100%;
       &:hover {
-        background: var(--secondary-color);
+        background: var(--tertiary-color);
       }
   }
   .thread-list button.selected {
-    background-color: var(--tertiary-color);
+    background-color: var(--secondary-color);
     font-weight: bold;
   }
 
@@ -2883,6 +3143,31 @@ span {
     animation: blink 0.7s infinite;
   }
 
+  .btn-back {
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  // top: 3rem;
+  background: transparent;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  border-radius: var(--radius-l);
+  transition: all 0.3s ease;
+  z-index: 1000;
+
+  &:hover {
+    background-color: var(--secondary-color);
+    transform: translateX(10px);
+  }
+
+  &:active {
+  }
+}
+
   .scroll-bottom-btn {
     position: fixed;
     bottom: 120px;
@@ -2990,12 +3275,20 @@ span {
   display: flex;
   flex-wrap: nowrap;
   justify-content: right;
-
 }
+
+.date-divider-row {
+  display: flex;
+  justify-content: space-between; /* Align date dividers side by side */
+  margin-bottom: 10px; /* Space between date dividers */
+}
+
 
   .date-divider {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: row;
+    justify-content: center;
+
     align-items: center;
     padding: 0.5rem;
     gap: 2rem;
@@ -3011,10 +3304,12 @@ span {
     border-top-left-radius: 30px;
     border-top-right-radius: 30px;
     transition: all ease 0.15s;
-    color: #a5a5a5;
+    color:var(--text-color);
+    background: var(--bg-gradient-left);
     user-select: none;
-    width: 96%;
-    margin-left: 1rem;
+    width: auto;
+    margin-left: calc(25% + 300px);
+    width: 300px;
     /* backdrop-filter: blur(10px); */
 
   }
@@ -3027,11 +3322,11 @@ span {
 
   .date-divider.bottom {
     display: flex;
-    justify-content: right;
-    align-items: right;
+    justify-content: center;
+    align-items: center;
+    background: var(--bg-gradient-right);
     border: 0;
     padding: 0;
-    margin-right: 2rem;
     background: none;
     // background: linear-gradient(to top, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 59%);
     backdrop-filter: none;
@@ -3072,6 +3367,7 @@ span {
     z-index: 1000;
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
+    border-radius: var(--radius-l);
   }
 
   .spinner {

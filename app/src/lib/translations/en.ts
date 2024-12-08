@@ -249,13 +249,15 @@ export default {
         yesterday: "Yesterday",
         lastweek: "Last Week",
         thismonth: "This Month",
-        older: "Older"
+        older: "Older",
+        threadHeader: "Discussions"
     },
 
     chat: {
         placeholder: "Message Vrazum",
         loading: "Loading messages...",
-        messagecount: "messages"
+        messagecount: "messages",
+        prompts: "Quick prompts"
     },
 
     profile: {

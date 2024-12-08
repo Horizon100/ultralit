@@ -18,7 +18,10 @@
   import Auth from '$lib/components/auth/Auth.svelte';
 	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
 
-  const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher<{
+    threadListToggle: void;
+    promptSelect: any;
+  }>();  
   export let onStyleClick: () => void;
 
   let showLanguageNotification = false;
@@ -33,7 +36,6 @@
 	}
 	$: placeholderText = getRandomQuote();
 
-  $: showThreadList = $threadsStore.showThreadList;
   $: currentPath = $page.url.pathname;
   $: showBottomButtons = currentPath === '/';
   
@@ -74,7 +76,9 @@
 
   function toggleThreadList() {
     threadsStore.toggleThreadList();
-    dispatch('threadListToggle', showThreadList);
+    // dispatch('threadListToggle', showThreadList);
+    dispatch('threadListToggle');
+
   }
 
   function toggleStyles() {
@@ -193,13 +197,11 @@
   </div>
   
   <div class="bottom-buttons">
-
-
     {#if showBottomButtons}
       <ModelSelector />
       <PromptSelector on:select={handlePromptSelect} />
       <button class="thread-toggle" on:click={toggleThreadList}>
-        {#if showThreadList}
+        {#if $threadsStore.showThreadList}
           <PanelLeftClose size={24} />
         {:else}
           <PanelLeftOpen size={24} />

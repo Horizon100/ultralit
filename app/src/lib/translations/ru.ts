@@ -249,13 +249,17 @@ export default {
         yesterday: "Вчера",
         lastweek: "На прошлой неделе",
         thismonth: "В этом месяце",
-        older: "Старше"
+        older: "Старше",
+        threadHeader: "Дискуссии"
+
     },
 
     chat: {
         placeholder: "Расследовать Вразум",
         loading: "Загрузка сообщений...",
-        messagecount: "сообщений"
+        messagecount: "сообщений",
+        prompts: "Быстрые запросы"
+
     },
 
     profile: {
