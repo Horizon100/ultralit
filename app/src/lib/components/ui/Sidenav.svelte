@@ -65,6 +65,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
     }
   
     .nav-icons {
@@ -81,7 +83,7 @@
       align-items: center;
       padding: 0.75rem;
       color: rgb(156 163 175);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.3s ease-in;
       border-left: 2px solid transparent;
     }
   

@@ -201,6 +201,7 @@
       <ModelSelector />
       <PromptSelector on:select={handlePromptSelect} />
       <button class="thread-toggle" on:click={toggleThreadList}>
+        
         {#if $threadsStore.showThreadList}
           <PanelLeftClose size={24} />
         {:else}

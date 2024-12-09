@@ -38,6 +38,8 @@
   let currentThread: Threads | null = null;
   let currentThreadId: string | null = null;  
   let searchQuery = '';
+
+  
   let isTags = true; 
   let filteredThreads: Threads[] = [];
 
@@ -205,7 +207,7 @@ function groupMessagesByDate(messages: Messages[]): { date: string; displayDate:
 
   // Change this line - mark the first (newest) group as recent instead of the last
   if (sortedGroups.length > 0) {
-    sortedGroups[0].isRecent = true;  // Changed from length-1 to 0
+    sortedGroups[0].isRecent = false;  // Changed from length-1 to 0
   }
 
   return sortedGroups;
@@ -368,7 +370,7 @@ function toggleDateExpansion(date: string, event?: Event) {
     
     currentThreadId = thread.id;
     
-    isLoadingMessages = true;
+    // isLoadingMessages = true;
     await messagesStore.fetchMessages(threadId);
     
     chatMessages = messages.map(msg => ({
@@ -391,14 +393,13 @@ function toggleDateExpansion(date: string, event?: Event) {
   } catch (error) {
     console.error(`Error loading messages for thread ${threadId}:`, error);
   } finally {
-    isLoadingMessages = false;
+    // isLoadingMessages = false;
   }
 }
-
-  async function handleCreateNewThread() {
+async function handleCreateNewThread() {
     try {
       isCreatingThread = true;
-      
+
       // Create new thread
       const newThread = await threadsStore.addThread({ 
         op: userId, 
@@ -409,13 +410,21 @@ function toggleDateExpansion(date: string, event?: Event) {
         throw new Error("Failed to create thread: No thread ID returned");
       }
 
-      // Fetch all threads again to ensure we have the complete list
+      // Ensure threads are fully reloaded
       await threadsStore.loadThreads();
       
       // Set current thread and load it
       currentThreadId = newThread.id;
+      isLoadingMessages = true;
+
       await handleLoadThread(newThread.id);
-      !isLoading && handleSendMessage();
+      isLoading = false;
+      isLoadingMessages = false;
+
+      // Trigger a re-render of the threads list
+      threads = threads; // Force update
+
+      handleSendMessage();
 
       return newThread;
     } catch (error) {
@@ -427,14 +436,14 @@ function toggleDateExpansion(date: string, event?: Event) {
   }
 
   async function loadThreadCounts(threads: Threads[]) {
-    isLoading = true;
+    // isLoading = true;
     try {
       const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
       if (totalThreads > currentPage * 20) {
         currentPage++;
       }
     } finally {
-      isLoading = false;
+      // isLoading = false;
     }
   }
 
@@ -947,145 +956,302 @@ async function finalizeProcess() {
   }
 
 
+  // onMount(async () => {
+  //   initializeExpandedDates();
+
+  //   try {
+  //     isAuthenticated = await ensureAuthenticated();
+  //     if (!isAuthenticated) {
+  //       console.error('User is not logged in. Please log in to create a network.');
+  //       showAuth = true;
+  //       return;
+  //     }
+
+  //     if ($currentUser && $currentUser.id) {
+  //       updateAvatarUrl();
+  //       username = $currentUser.username || $currentUser.email;
+  //     }
+  //     await fetchTags();
+
+  //     // Fetch threads
+  //     try {
+  //       threads = await fetchThreads();
+  //       console.log("Fetched threads:", threads);
+  //     } catch (error) {
+  //       console.error('Error fetching threads:', error);
+  //     }
+
+  //     // Get URL parameters once
+  //     const urlParams = new URLSearchParams(window.location.search);
+  //     const threadIdFromUrl = urlParams.get('threadId');
+  //     const messageIdFromUrl = urlParams.get('messageId');
+  //     const shouldAutoTrigger = urlParams.get('autoTrigger') === 'true';
+  //     if (threadIdFromUrl) {
+  //       currentThreadId = threadIdFromUrl;
+  //       await handleLoadThread(threadIdFromUrl);
+
+  //       // After fetching messages for the thread, get the last message
+  //       if (currentThreadId) {
+  //         messages = await fetchMessagesForThread(currentThreadId);
+  //         const lastMessage = getLastMessage();
+  //         console.log('Last message:', lastMessage);
+  //       }
+
+  //       if (messageIdFromUrl && shouldAutoTrigger) {
+  //         const targetMessage = messages.find(m => m.id === messageIdFromUrl);
+  //         if (targetMessage) {
+  //           try {
+  //             isLoading = true;
+              
+  //             // Start thinking animation
+  //             thinkingPhrase = getRandomThinkingPhrase();
+  //             const thinkingMessage = addMessage('thinking', thinkingPhrase);
+  //             thinkingMessageId = thinkingMessage.id;
+  //             chatMessages = [...chatMessages, thinkingMessage];
+
+  //             // Fetch AI response
+  //             const aiResponse = await fetchAIResponse(
+  //               chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+  //               aiModel,
+  //               userId,
+  //               attachment
+  //             );
+
+  //             // Remove thinking message
+  //             chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+  //             // Save AI response
+  //             const assistantMessage = await messagesStore.saveMessage({
+  //               text: aiResponse,
+  //               type: 'robot',
+  //               thread: currentThreadId,
+  //               parent_msg: targetMessage.id,
+  //               prompt_type: prompt
+  //             }, currentThreadId);
+
+  //             // Add AI response to UI
+  //             const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
+  //             chatMessages = [...chatMessages, newAssistantMessage];
+  //             typingMessageId = newAssistantMessage.id;
+
+  //             // Use typewriting effect
+  //             await typeMessage(aiResponse);
+
+  //             // Update the message with the full response
+  //             chatMessages = chatMessages.map(msg => 
+  //               msg.id === String(typingMessageId) 
+  //                 ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+  //                 : msg
+  //             );
+
+  //             // Update thread name after first AI response
+  //             const robotMessages = messages.filter(m => m.type === 'robot');
+  //             if (robotMessages.length === 1) {
+  //               await threadsStore.autoUpdateThreadName(currentThreadId);
+  //             }
+
+  //             await messagesStore.fetchMessages(currentThreadId);
+  //           } catch (error) {
+  //             console.error('Error processing AI response:', error);
+  //             chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
+  //             const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+  //             chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
+  //           } finally {
+  //             isLoading = false;
+  //             thinkingMessageId = null;
+  //             typingMessageId = null;
+  //           }
+  //         }
+  //       }
+  //     } else {
+  //       // If no specific thread ID, don't automatically load any thread
+  //       currentThreadId = null;
+  //     }
+
+  //     // Set up textarea handlers
+  //     if (textareaElement) {
+  //       const adjustTextareaHeight = () => {
+  //         textareaElement.style.height = 'auto';
+  //         textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+  //       };
+
+  //       const resetTextareaHeight = () => {
+  //         textareaElement.style.height = defaultTextareaHeight;
+  //       };
+
+  //       textareaElement.addEventListener('input', adjustTextareaHeight);
+  //       textareaElement.addEventListener('blur', resetTextareaHeight);
+
+  //       return () => {
+  //         textareaElement.removeEventListener('input', adjustTextareaHeight);
+  //         textareaElement.removeEventListener('blur', resetTextareaHeight);
+  //       };
+  //     }
+
+  //     initialLoadComplete = true;
+  //   } catch (error) {
+  //     console.error("Error in onMount:", error);
+  //   }
+  // });
+
   onMount(async () => {
+  try {
     initializeExpandedDates();
 
-    try {
-      isAuthenticated = await ensureAuthenticated();
-      if (!isAuthenticated) {
-        console.error('User is not logged in. Please log in to create a network.');
-        showAuth = true;
-        return;
-      }
-
-      if ($currentUser && $currentUser.id) {
-        updateAvatarUrl();
-        username = $currentUser.username || $currentUser.email;
-      }
-      await fetchTags();
-
-      // Fetch threads
-      try {
-        threads = await fetchThreads();
-        console.log("Fetched threads:", threads);
-      } catch (error) {
-        console.error('Error fetching threads:', error);
-      }
-
-      // Get URL parameters once
-      const urlParams = new URLSearchParams(window.location.search);
-      const threadIdFromUrl = urlParams.get('threadId');
-      const messageIdFromUrl = urlParams.get('messageId');
-      const shouldAutoTrigger = urlParams.get('autoTrigger') === 'true';
-      if (threadIdFromUrl) {
-        currentThreadId = threadIdFromUrl;
-        await handleLoadThread(threadIdFromUrl);
-
-        // After fetching messages for the thread, get the last message
-        if (currentThreadId) {
-          messages = await fetchMessagesForThread(currentThreadId);
-          const lastMessage = getLastMessage();
-          console.log('Last message:', lastMessage);
-        }
-
-        if (messageIdFromUrl && shouldAutoTrigger) {
-          const targetMessage = messages.find(m => m.id === messageIdFromUrl);
-          if (targetMessage) {
-            try {
-              isLoading = true;
-              
-              // Start thinking animation
-              thinkingPhrase = getRandomThinkingPhrase();
-              const thinkingMessage = addMessage('thinking', thinkingPhrase);
-              thinkingMessageId = thinkingMessage.id;
-              chatMessages = [...chatMessages, thinkingMessage];
-
-              // Fetch AI response
-              const aiResponse = await fetchAIResponse(
-                chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
-                aiModel,
-                userId,
-                attachment
-              );
-
-              // Remove thinking message
-              chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-              // Save AI response
-              const assistantMessage = await messagesStore.saveMessage({
-                text: aiResponse,
-                type: 'robot',
-                thread: currentThreadId,
-                parent_msg: targetMessage.id,
-                prompt_type: prompt
-              }, currentThreadId);
-
-              // Add AI response to UI
-              const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
-              chatMessages = [...chatMessages, newAssistantMessage];
-              typingMessageId = newAssistantMessage.id;
-
-              // Use typewriting effect
-              await typeMessage(aiResponse);
-
-              // Update the message with the full response
-              chatMessages = chatMessages.map(msg => 
-                msg.id === String(typingMessageId) 
-                  ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-                  : msg
-              );
-
-              // Update thread name after first AI response
-              const robotMessages = messages.filter(m => m.type === 'robot');
-              if (robotMessages.length === 1) {
-                await threadsStore.autoUpdateThreadName(currentThreadId);
-              }
-
-              await messagesStore.fetchMessages(currentThreadId);
-            } catch (error) {
-              console.error('Error processing AI response:', error);
-              chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-              const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-              chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
-            } finally {
-              isLoading = false;
-              thinkingMessageId = null;
-              typingMessageId = null;
-            }
-          }
-        }
-      } else {
-        // If no specific thread ID, don't automatically load any thread
-        currentThreadId = null;
-      }
-
-      // Set up textarea handlers
-      if (textareaElement) {
-        const adjustTextareaHeight = () => {
-          textareaElement.style.height = 'auto';
-          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
-        };
-
-        const resetTextareaHeight = () => {
-          textareaElement.style.height = defaultTextareaHeight;
-        };
-
-        textareaElement.addEventListener('input', adjustTextareaHeight);
-        textareaElement.addEventListener('blur', resetTextareaHeight);
-
-        return () => {
-          textareaElement.removeEventListener('input', adjustTextareaHeight);
-          textareaElement.removeEventListener('blur', resetTextareaHeight);
-        };
-      }
-
-      initialLoadComplete = true;
-    } catch (error) {
-      console.error("Error in onMount:", error);
+    // Authentication check
+    isAuthenticated = await ensureAuthenticated();
+    if (!isAuthenticated) {
+      console.error('User is not logged in. Please log in.');
+      showAuth = true;
+      return;
     }
-  });
 
+    // User details
+    if ($currentUser && $currentUser.id) {
+      updateAvatarUrl();
+      username = $currentUser.username || $currentUser.email;
+    }
 
+    // Fetch tags
+    await fetchTags();
+
+    // Fetch threads
+    try {
+      threads = await fetchThreads();
+      console.log("Fetched threads:", threads);
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+    }
+
+    // Textarea height adjustment
+    if (textareaElement) {
+      const adjustTextareaHeight = () => {
+        textareaElement.style.height = 'auto';
+        textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+      };
+
+      const resetTextareaHeight = () => {
+        textareaElement.style.height = defaultTextareaHeight;
+      };
+
+      textareaElement.addEventListener('input', adjustTextareaHeight);
+      textareaElement.addEventListener('blur', resetTextareaHeight);
+
+      // Cleanup listeners
+      return () => {
+        textareaElement.removeEventListener('input', adjustTextareaHeight);
+        textareaElement.removeEventListener('blur', resetTextareaHeight);
+      };
+    }
+
+    // URL parameter handling
+    const urlParams = new URLSearchParams(window.location.search);
+    const threadIdFromUrl = urlParams.get('threadId');
+    const messageIdFromUrl = urlParams.get('messageId');
+    const shouldAutoTrigger = urlParams.get('autoTrigger') === 'true';
+
+    // Handle thread loading from URL or create new thread
+    if (threadIdFromUrl) {
+      currentThreadId = threadIdFromUrl;
+      await handleLoadThread(threadIdFromUrl);
+
+      // Fetch messages for the thread
+      if (currentThreadId) {
+        messages = await fetchMessagesForThread(currentThreadId);
+        const lastMessage = getLastMessage();
+        console.log('Last message:', lastMessage);
+      }
+
+      // Auto-trigger message response if specified
+      if (messageIdFromUrl && shouldAutoTrigger) {
+        const targetMessage = messages.find(m => m.id === messageIdFromUrl);
+        if (targetMessage) {
+          await handleAutoTriggerResponse(targetMessage);
+        }
+      }
+    } else if (!currentThreadId) {
+      // Create a new thread if no thread exists
+      const newThread = await threadsStore.addThread({ 
+        op: userId, 
+        name: `Thread ${threads?.length ? threads.length + 1 : 1}` 
+      });
+      
+      if (newThread?.id) {
+        threads = [...(threads || []), newThread];
+        currentThreadId = newThread.id;
+      }
+    }
+
+    initialLoadComplete = true;
+  } catch (error) {
+    console.error("Error in onMount:", error);
+  }
+});
+
+// Separate function for auto-triggered response to keep onMount clean
+async function handleAutoTriggerResponse(targetMessage) {
+  try {
+    isLoading = true;
+    
+    // Start thinking animation
+    thinkingPhrase = getRandomThinkingPhrase();
+    const thinkingMessage = addMessage('thinking', thinkingPhrase);
+    thinkingMessageId = thinkingMessage.id;
+    chatMessages = [...chatMessages, thinkingMessage];
+
+    // Fetch AI response
+    const aiResponse = await fetchAIResponse(
+      chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+      aiModel,
+      userId,
+      attachment
+    );
+
+    // Remove thinking message
+    chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+    // Save AI response
+    const assistantMessage = await messagesStore.saveMessage({
+      text: aiResponse,
+      type: 'robot',
+      thread: currentThreadId,
+      parent_msg: targetMessage.id,
+      prompt_type: prompt
+    }, currentThreadId);
+
+    // Add AI response to UI
+    const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
+    chatMessages = [...chatMessages, newAssistantMessage];
+    typingMessageId = newAssistantMessage.id;
+
+    // Use typewriting effect
+    await typeMessage(aiResponse);
+
+    // Update the message with the full response
+    chatMessages = chatMessages.map(msg => 
+      msg.id === String(typingMessageId) 
+        ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+        : msg
+    );
+
+    // Update thread name after first AI response
+    const robotMessages = messages.filter(m => m.type === 'robot');
+    if (robotMessages.length === 1) {
+      await threadsStore.autoUpdateThreadName(currentThreadId);
+    }
+
+    await messagesStore.fetchMessages(currentThreadId);
+  } catch (error) {
+    console.error('Error processing AI response:', error);
+    chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
+  } finally {
+    isLoading = false;
+    thinkingMessageId = null;
+    typingMessageId = null;
+  }
+}
 
   
   $: console.log("isLoading changed:", isLoading);
@@ -1140,58 +1306,58 @@ async function finalizeProcess() {
     document.removeEventListener('mouseup', stopDrag);
   }
 
-onMount(async () => {
-  try {
-    // Ensure user is authenticated
-    isAuthenticated = await ensureAuthenticated();
-    if (!isAuthenticated) {
-      console.error('User is not logged in. Please log in to create a network.');
-      showAuth = true;
-      return;
-    }
+// onMount(async () => {
+//   try {
+//     // Ensure user is authenticated
+//     isAuthenticated = await ensureAuthenticated();
+//     if (!isAuthenticated) {
+//       console.error('User is not logged in. Please log in to create a network.');
+//       showAuth = true;
+//       return;
+//     }
 
-    // Initialize textarea adjustment logic
-    if (textareaElement) {
-      const adjustTextareaHeight = () => {
-        if (textareaElement) {
-          textareaElement.style.height = 'auto';
-          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`; // Cap the height to 300px
-        }
-      };
+//     // Initialize textarea adjustment logic
+//     if (textareaElement) {
+//       const adjustTextareaHeight = () => {
+//         if (textareaElement) {
+//           textareaElement.style.height = 'auto';
+//           textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`; // Cap the height to 300px
+//         }
+//       };
 
-      // Add event listener for input
-      textareaElement.addEventListener('input', adjustTextareaHeight);
+//       // Add event listener for input
+//       textareaElement.addEventListener('input', adjustTextareaHeight);
 
-      // Initial adjustment
-      adjustTextareaHeight();
+//       // Initial adjustment
+//       adjustTextareaHeight();
 
-      // Cleanup listener on destroy
-      return () => {
-        textareaElement.removeEventListener('input', adjustTextareaHeight);
-      };
-    }
+//       // Cleanup listener on destroy
+//       return () => {
+//         textareaElement.removeEventListener('input', adjustTextareaHeight);
+//       };
+//     }
 
-    // If no thread is selected, ensure a thread exists
-    if (!currentThreadId) {
-      console.log("No thread selected, creating a new thread...");
-      const newThread = await threadsStore.addThread({
-        op: userId,
-        name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
-      });
+//     // If no thread is selected, ensure a thread exists
+//     if (!currentThreadId) {
+//       console.log("No thread selected, creating a new thread...");
+//       const newThread = await threadsStore.addThread({
+//         op: userId,
+//         name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
+//       });
 
-      if (newThread && newThread.id) {
-        threads = [...(threads || []), newThread];
-        currentThreadId = newThread.id;
-        console.log("Created new thread:", newThread);
-      } else {
-        console.error("Failed to create a new thread.");
-      }
-    }
+//       if (newThread && newThread.id) {
+//         threads = [...(threads || []), newThread];
+//         currentThreadId = newThread.id;
+//         console.log("Created new thread:", newThread);
+//       } else {
+//         console.error("Failed to create a new thread.");
+//       }
+//     }
 
-  } catch (error) {
-    console.error("Error in onMount:", error);
-  }
-});
+//   } catch (error) {
+//     console.error("Error in onMount:", error);
+//   }
+// });
 
   function resetTextareaHeight() {
   if (textareaElement) {
@@ -1453,7 +1619,7 @@ $: if (currentThreadId) {
   
 </script>
 
-  <div class="chat-interface">
+  <div class="chat-interface" in:fly="{{ x: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
     <div class="threads-container" 
       transition:fly="{{ y: 300, duration: 300 }}" 
       class:thread-list-visible={showThreadList}
@@ -1491,7 +1657,7 @@ $: if (currentThreadId) {
     <h3>
       {$t('threads.threadHeader')}
     </h3>
-        <div class="thread-actions">
+        <div class="thread-actions" >
           <div class="search-bar">
               <Search size={30} />
               <input
@@ -1524,10 +1690,10 @@ $: if (currentThreadId) {
           
         </div>
 
-        <div class="thread-catalog">
+        <div class="thread-catalog" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
 
           {#each orderedGroupedThreads as { group, threads }}
-          <div class="thread-group">
+          <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
             <div class="thread-group-header">{group}</div>
 
             {#each threads as thread}
@@ -1889,7 +2055,7 @@ $: if (currentThreadId) {
       /* padding: 10px; */
       display: flex;
       gap: 4px;
-      flex-direction: column-reverse;
+      flex-direction: column;
       align-items: stretch;
       scrollbar-width:1px;
       scrollbar-color: var(--secondary-color) transparent;
@@ -3287,10 +3453,9 @@ span {
   .date-divider {
     display: flex;
     flex-direction: row;
-    justify-content: center;
-
+    justify-content: space-between;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.5rem 1rem;
     gap: 2rem;
     // background: var(--bg-gradient-left);
     /* background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%); */
@@ -3308,8 +3473,8 @@ span {
     background: var(--bg-gradient-left);
     user-select: none;
     width: auto;
-    margin-left: calc(25% + 300px);
-    width: 300px;
+    margin-left: 35%;
+    margin-right: 35%;
     /* backdrop-filter: blur(10px); */
 
   }

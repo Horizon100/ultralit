@@ -11,14 +11,16 @@ function createThreadsStore() {
     messages: Messages[],
     updateStatus: string,
     isThreadsLoaded: boolean,
-    showThreadList: boolean
+    showThreadList: boolean,
+    searchQuery: string
   }>({
     threads: [],
     currentThreadId: null,
     messages: [],
     updateStatus: '',
     isThreadsLoaded: false,
-    showThreadList: true
+    showThreadList: true,
+    searchQuery: '' 
 
   });
   
@@ -124,6 +126,14 @@ function createThreadsStore() {
         throw error;
       }
     },
+    setSearchQuery: (query: string) => {
+      store.update(state => ({
+        ...state,
+        searchQuery: query
+      }));
+    },
+
+
 
     autoUpdateThreadName: async (threadId: string) => {
       try {
@@ -298,7 +308,18 @@ function createThreadsStore() {
       const allTags = $store.threads.flatMap(thread => thread.tags || []);
       return [...new Set(allTags)];
     }),
+    
 
+    getSearchedThreads: derived(store, $store => {
+      const query = $store.searchQuery.toLowerCase().trim();
+      if (!query) return $store.threads;
+
+      return $store.threads.filter(thread => 
+        thread.name?.toLowerCase().includes(query) || 
+        thread.last_message?.content?.toLowerCase().includes(query)
+      );
+    }),
+    
     getFilteredThreads: derived(store, $store => (selectedTags: string[]) => {
       if (selectedTags.length === 0) {
         return $store.threads;
@@ -309,7 +330,7 @@ function createThreadsStore() {
     }),
 
     isThreadsLoaded: derived(store, $store => $store.isThreadsLoaded)
-  };
+};
 
   
 
