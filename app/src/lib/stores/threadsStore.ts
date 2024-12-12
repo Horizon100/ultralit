@@ -86,23 +86,47 @@ function createThreadsStore() {
         showThreadList: !state.showThreadList
       }));
     },
+    // addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
+    //   try {
+    //     const newThread = await createThread(threadData);
+    //     store.update(state => ({
+    //       ...state,
+    //       threads: [...state.threads, newThread],
+    //       isThreadsLoaded: true,
+    //       updateStatus: 'Thread added successfully'
+    //     }));
+    //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+    //     return newThread;
+    //   } catch (error) {
+    //     console.error('Error adding thread:', error);
+    //     store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
+    //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+    //     return null;
+    //   }
+    // },
+
     addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
-      try {
-        const newThread = await createThread(threadData);
-        store.update(state => ({
-          ...state,
-          threads: [...state.threads, newThread],
-          updateStatus: 'Thread added successfully'
-        }));
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        return newThread;
-      } catch (error) {
-        console.error('Error adding thread:', error);
-        store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        return null;
-      }
-    },
+  try {
+    const newThread = await createThread(threadData);
+    
+    // Reload all threads after adding the new one
+    const updatedThreads = await fetchThreads();
+    store.update(state => ({
+      ...state,
+      threads: updatedThreads,
+      isThreadsLoaded: true,
+      updateStatus: 'Thread added successfully'
+    }));
+    
+    setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+    return newThread;
+  } catch (error) {
+    console.error('Error adding thread:', error);
+    store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
+    setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+    return null;
+  }
+},
     updateThread: async (id: string, changes: Partial<Threads>) => {
       try {
         const updatedThread = await updateThread(id, changes);

@@ -13,7 +13,7 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
@@ -54,7 +54,7 @@
     parent_msg: message.parent_msg,
     reactions: message.reactions,
     prompt_type: message.prompt_type as PromptType,
-    model: message.model,
+    model: message.model || 'fail',
     thread: message.thread,
     isTyping: false,
     isHighlighted: false,
@@ -242,45 +242,48 @@ function toggleDateExpansion(date: string, event?: Event) {
   }
 
   function addMessage(
-  role: 'user' | 'assistant' | 'thinking', 
-  content: string | Scenario[] | Task[], 
-  parentMsgId: string | null = null
-): InternalChatMessage {
-  messageIdCounter++;
-  let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
-  
-  // Add prompt context to assistant messages
-  if (role === 'assistant' && promptType) {
-    messageContent = `[Prompt: ${promptType}]\n${messageContent}`;
-  }
-  
-  const newMessageId = `msg-${messageIdCounter}`;
-  latestMessageId = newMessageId;
-  const createdDate = new Date().toISOString();
+    role: RoleType,
+    content: string | Scenario[] | Task[], 
+    parentMsgId: string | null = null,
+    model: string
+    
+  ): InternalChatMessage {
+    messageIdCounter++;
 
-  return { 
-    id: newMessageId,
-    role,
-    content: messageContent,
-    text: messageContent,
-    user: userId,
-    isTyping: role === 'assistant',
-    collectionId: '',     
-    collectionName: '',   
-    created: createdDate,
-    updated: createdDate,
-    parent_msg: parentMsgId,
-    prompt_type: promptType,
-    model: aiModel?.id || null,
-    reactions: {
-      upvote: 0,
-      downvote: 0,
-      bookmark: [],
-      highlight: [],
-      question: 0
+    let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+    
+    // Add prompt context to assistant messages
+    if (role === 'assistant' && promptType) {
+      messageContent = `[Prompt: ${promptType}]\n${messageContent}`;
     }
-  };
-}
+    
+    const newMessageId = `msg-${messageIdCounter}`;
+    latestMessageId = newMessageId;
+    const createdDate = new Date().toISOString();
+
+    return { 
+      id: newMessageId,
+      role,
+      content: messageContent,
+      text: messageContent,
+      user: userId,
+      isTyping: role === 'assistant',
+      collectionId: '',     
+      collectionName: '',   
+      created: createdDate,
+      updated: createdDate,
+      parent_msg: parentMsgId,
+      prompt_type: promptType,
+      model: model,
+      reactions: {
+        upvote: 0,
+        downvote: 0,
+        bookmark: [],
+        highlight: [],
+        question: 0
+      }
+    };
+  }
   async function createTag(name: string) {
     if (!name.trim()) return;
 
@@ -1619,7 +1622,7 @@ $: if (currentThreadId) {
   
 </script>
 
-  <div class="chat-interface" in:fly="{{ x: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+  <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
     <div class="threads-container" 
       transition:fly="{{ y: 300, duration: 300 }}" 
       class:thread-list-visible={showThreadList}
@@ -1645,12 +1648,11 @@ $: if (currentThreadId) {
         <h3>
           {$t('chat.prompts')}
         </h3>
-
+        
       <PromptCatalog 
 
       on:select={(event) => {
         showPromptCatalog = !showPromptCatalog;
-
         console.log('Parent received selection from catalog:', event.detail);
       }}
     />
@@ -1666,6 +1668,7 @@ $: if (currentThreadId) {
                 placeholder="Search threads..."
               />
           </div>
+
           <button 
           class="new-button"
             on:click={async () => {
@@ -1690,7 +1693,7 @@ $: if (currentThreadId) {
           
         </div>
 
-        <div class="thread-catalog" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+        <div class="thread-catalog">
 
           {#each orderedGroupedThreads as { group, threads }}
           <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">

@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 import type { Messages, Threads, Tag } from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { fetchMessagesForThread, addMessageToThread } from '$lib/threadsClient';
+import { User } from 'lucide-svelte';
 
 // Add this function to your threadsClient.ts file and export it
 async function updateMessage(id: string, data: Partial<Messages>): Promise<Messages> {
@@ -56,7 +57,7 @@ function createMessagesStore() {
                     attachments: message.attachments || '',
                     reactions: message.reactions || {},
                     prompt_type: message.prompt_type || null,
-                    model: message.model || null,
+                    model: userId.selected_model || null,
 
                 };
 

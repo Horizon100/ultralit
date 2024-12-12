@@ -3,7 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { availablePrompts } from '$lib/constants/prompts';
   import { promptStore } from '$lib/stores/promptStore'; // Create this store
-  import { fly } from 'svelte/transition';
+  import { fly, fade } from 'svelte/transition';
   import { X } from 'lucide-svelte';
 
   // Use the store value instead of local state
@@ -92,7 +92,7 @@
     class:fullscreen={isFullScreen}
   >
     <div 
-      class="backdrop" 
+      class="backdrop"  transition:fly={{ y: -100, duration: 300, delay: 200 }}
       class:visible={isFullScreen} 
       on:click={handleClickOutside}
     ></div>
@@ -107,19 +107,21 @@
         on:click|stopPropagation={() => handlePromptSelection(value)}
       >
         {#if isFullScreen && selectedPrompt === value}
-          <button 
+          <button transition:fade={{ x: -100, duration: 300, delay: 200 }}
             class="close-button" 
             on:click={handleClose}
           >
             <X/>
           </button>
         {/if}
-        <div class="content-wrapper" class:fullscreen={isFullScreen && selectedPrompt === value}>
-          <div class="content-header" transition:fly={{ x: 20, duration: 300, delay: 200 }}>
+        <div class="content-wrapper" class:fullscreen={isFullScreen && selectedPrompt === value} >
+          <div class="content-header" >
             <Icon size={isFullScreen && selectedPrompt === value ? 20 : 20} />
+            <h3>{label}</h3>
+
           </div>
           {#if isFullScreen && selectedPrompt === value && youtubeUrl}
-            <div class="video-container" transition:fly={{ x: 20, duration: 300, delay: 200 }}>
+            <div class="video-container" transition:fly={{ y: -200, duration: 100, delay: 50 }}>
 
               <iframe 
                 width="560" 
@@ -131,9 +133,10 @@
                 allowfullscreen
               ></iframe>
             </div>
-            <h3>{label}</h3>
 
-            <p class="description">{description}</p>
+            <p class="description" transition:fly={{ y: 200, duration: 100, delay: 0 }}>
+              {description}
+            </p>
 
           {/if}
 
@@ -192,7 +195,7 @@
     overflow-y: auto;
     width: 100%;
     height: 100%;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     scrollbar-width: thin;
     scrollbar-color: var(--bg-color) transparent;
 
@@ -217,7 +220,7 @@
     width: 50px; 
     height: 50px;
     opacity: 0.3;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     /* Remove flex-wrap from item since it should be on container */
     /* Remove flex property since we're using fixed width/height */
 
@@ -231,6 +234,7 @@
 
       top: 0;
       left: 0;
+      transform: all;
       // transform: translate(-50%, 0%);
       // width: 300px;
       height: auto;
@@ -300,7 +304,7 @@
     flex-direction: row;
     align-items: center;
     justify-content: left;
-    gap: 1rem;
+    gap: 0.5rem;
 
   }
 
@@ -311,10 +315,15 @@
     justify-content: left;
     width: 100%;
     height: 100%;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-left: 1rem;
 
     gap: 1rem;
+
+    h3 {
+      display: none;
+
+    }
 
     &.fullscreen {
       justify-content: center;
@@ -324,10 +333,12 @@
       h3 {
         // font-size: 2.5rem;
         width: 100%;
+        display: flex;
+
       }
 
       .content-header {
-        display: none;
+        display: flex;
       }
 
       .description {
@@ -345,9 +356,8 @@
 
   .details {
     opacity: 0;
-    animation: fadeIn 0.3s forwards;
+    // animation: fadeIn 0.3s forwards;
     width: 100%;
-    max-width: 800px;
     margin: 0 auto;
     color: white;
     display: flex;

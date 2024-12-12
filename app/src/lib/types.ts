@@ -1,6 +1,4 @@
 import type { RecordModel } from 'pocketbase'; 
-import PocketBase, { AuthModel } from 'pocketbase';
-import { writable } from 'svelte/store';
 import { type ProviderType }  from '$lib/constants/providers';
 
 
@@ -30,7 +28,7 @@ export interface User extends RecordModel {
     collectionName: string;
     keys: string[];
     selected_provider?: string;  
-    selected_model?: string;     
+    model?: string;     
 } 
 export interface Prompt {
     value: PromptType;
@@ -50,48 +48,6 @@ export type PromptType =
     'GUIDANCE_GENERATION' | 
     'CASUAL_CHAT' ;
 
-export interface AIAgent extends RecordModel {
-    id: string;
-    user_id: string;
-    name: string;
-    description: string;
-    max_attempts: number;
-    user_input: 'end' | 'never' | 'always';
-    prompt: string;
-    model: string[];
-    actions: string[];
-    owner: string;
-    editors: string[];
-    viewers: string[];
-    avatar: string;
-    role: 'hub' | 'proxy' | 'assistant' | 'moderator';
-    capabilities: string[];
-    tasks: string[];
-    status: 'active' | 'inactive' | 'maintenance' | 'paused';
-    messages: string[];
-    tags: string[];
-    performance: number;
-    version: string;
-    last_activity: Date;
-    parent_agent?: string;
-    child_agents: string[];
-    base_priority: number;
-    adaptive_priority: number;
-    weight_altruism: number;
-    weight_survival: number;
-    weight_exploration: number;
-    weight_aspiration: number;
-    weight_surrogate: number;
-    weight_selfdev: number;
-    label?: string;
-    position: string | { x: number; y: number };
-    expanded: boolean;
-    created: string;
-    updated: string;
-
-
-
-}
 
 export interface Tag extends RecordModel {
     id: string;
@@ -101,21 +57,22 @@ export interface Tag extends RecordModel {
     user: string; 
 }
 
+// Adjusted PartialAIAgent interface
 export interface PartialAIAgent {
     id?: string;
     user_id?: string;
     name?: string;
     description?: string;
-    max_attempts?: number;
-    user_input: 'end' | 'never' | 'always';
+    max_attempts?: number;  // Required in AIAgent
+    user_input?: 'end' | 'never' | 'always';
     prompt?: string;
-    model?: string[];
-    actions?: string[];
-    owner?: string;
+    model?: string[];  // Required in AIAgent
+    actions?: string[];  // Required in AIAgent
+    owner?: string;  // Required in AIAgent
     editors?: string[];
     viewers?: string[];
     avatar?: string;
-    role: 'hub' | 'proxy' | 'assistant' | 'moderator';
+    role?: RoleType;
     capabilities?: string[];
     tasks?: string[];
     status?: 'active' | 'inactive' | 'maintenance' | 'paused';
@@ -135,17 +92,62 @@ export interface PartialAIAgent {
     weight_surrogate?: number;
     weight_selfdev?: number;
     label?: string;
-    position: string | { x: number; y: number };
+    position: string | { x: number; y: number };  // Required in AIAgent
     expanded?: boolean;
     type?: 'host' | 'sub' | 'peer';
-    focus?: string;
-    created?: string
+    created?: string;
     updated?: string;
+    provider: ProviderType;
+    collectionId: string; 
+    collectionName: string;
+}
+
+
+// Adjusted AIAgent interface
+export interface AIAgent extends RecordModel {
+    id: string;
+    user_id: string;
+    name: string;
+    description: string;
+    max_attempts: number;  // Required
+    user_input: 'end' | 'never' | 'always';
+    prompt: string;
+    model: string[];  // Required
+    actions: string[];  // Required
+    owner: string;  // Required
+    editors: string[];
+    viewers: string[];
+    avatar: string;
+    role: RoleType;
+    capabilities: string[];
+    tasks: string[];
+    status: 'active' | 'inactive' | 'maintenance' | 'paused';
+    messages: string[];
+    tags: string[];
+    performance: number;
+    version: string;
+    last_activity: Date;
+    parent_agent?: string;
+    child_agents: string[];  // Required
+    base_priority: number;  // Required
+    adaptive_priority: number;  // Required
+    weight_altruism: number;  // Required
+    weight_survival: number;  // Required
+    weight_exploration: number;  // Required
+    weight_aspiration: number;  // Required
+    weight_surrogate: number;  // Required
+    weight_selfdev: number;  // Required
+    label?: string;
+    position: string | { x: number; y: number };  // Required
+    expanded: boolean;  // Required
+    created: string;  // Required
+    updated: string;  // Required
 }
 
 export interface AIMessage {
     role: RoleType;
     content: string;
+    model: string;
 }
 
 // export type AIModel = 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
@@ -163,13 +165,15 @@ export interface AIModel extends RecordModel {
     created: string;
     updated: string;
     provider: ProviderType;
+    collectionId: string; 
+    collectionName: string;
 }
 
 export interface UserModelPreferences {
     id: string;
     user: string;
     selected_provider: ProviderType;
-    selected_models: string[]; // Array of model IDs
+    model: string;
     created: string;
     updated: string;
 }
@@ -236,7 +240,7 @@ export interface Message extends RecordModel {
       }; 
     update_status: 'not_updated' | 'updated' | 'deleted';
     prompt_type: string | null;
-    model: string | null;
+    model: string;
 
 }
 
@@ -443,7 +447,7 @@ export interface InternalChatMessage extends ChatMessage {
         question: number;
     };
     prompt_type: PromptType;
-    model: string | null;
+    model: User['model'];
     thread?: string;
     role: RoleType;
 }
@@ -469,10 +473,11 @@ export interface Messages extends RecordModel {
     created: string;
     updated: string;
     prompt_type: string | null;
-    model: string | null;
+    model: string;
 }
 
-export type RoleType = 
+export type RoleType =
+    'system' |
     'human' | 
     'user' | 
     'assistant' | 
@@ -480,6 +485,7 @@ export type RoleType =
     'hub' | 
     'moderator' | 
     'thinking' ;
+    
 
 export interface ChatMessage extends RecordModel {
     text: string;

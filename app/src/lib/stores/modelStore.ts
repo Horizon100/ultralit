@@ -3,40 +3,40 @@ import type { AIModel } from '$lib/types';
 import type { ProviderType } from '$lib/constants/providers';
 import { pb, checkPocketBaseConnection } from '$lib/pocketbase';
 import { defaultModel } from '$lib/constants/models';
-import { browser } from '$app/environment';
+// import { browser } from '$app/environment';
 
-interface ModelState {
+export interface ModelState {
     models: AIModel[];
-    selectedModel: AIModel;
+    selectedModel: AIModel['api_type'];
     selectedProvider: ProviderType | null;
     updateStatus: string;
     isOffline: boolean;
 }
 
-const getFromStorage = <T>(key: string, defaultValue: T): T => {
-    if (!browser) return defaultValue;
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-    try {
-        return JSON.parse(stored);
-    } catch {
-        return defaultValue;
-    }
-};
+// const getFromStorage = <T>(key: string, defaultValue: T): T => {
+//     if (!browser) return defaultValue;
+//     const stored = localStorage.getItem(key);
+//     if (!stored) return defaultValue;
+//     try {
+//         return JSON.parse(stored);
+//     } catch {
+//         return defaultValue;
+//     }
+// };
 
-const setInStorage = (key: string, value: any): void => {
-    if (!browser) return;
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-        console.warn('Error saving to localStorage:', error);
-    }
-};
+// const setInStorage = (key: string, value: any): void => {
+//     if (!browser) return;
+//     try {
+//         localStorage.setItem(key, JSON.stringify(value));
+//     } catch (error) {
+//         console.warn('Error saving to localStorage:', error);
+//     }
+// };
 
 const createModelStore = () => {
     const initialState: ModelState = {
         models: [],
-        selectedModel: defaultModel,
+        selectedModel: '',
         selectedProvider: null,
         updateStatus: '',
         isOffline: false
@@ -45,16 +45,17 @@ const createModelStore = () => {
     const { subscribe, set, update } = writable<ModelState>(initialState);
 
     const saveModelToPocketBase = async (model: AIModel, userId: string): Promise<AIModel | null> => {
+        console.log('Saving model to PocketBase:', { model, userId });
         try {
-            // Check if model already exists for this user
             const existingModels = await pb.collection('models').getFullList<AIModel>({
                 filter: `api_type = "${model.api_type}" && provider = "${model.provider}" && user ~ "${userId}"`,
             });
     
-            // If model exists, return the existing one
+            console.log('Existing models found:', existingModels);
+    
             if (existingModels.length > 0) {
                 const existingModel = existingModels[0];
-                // Optionally update the existing model if needed
+                console.log('Updating existing model:', existingModel.id);
                 const updatedModel = await pb.collection('models').update(existingModel.id, {
                     name: model.name,
                     api_key: model.api_key,
@@ -62,10 +63,11 @@ const createModelStore = () => {
                     description: model.description || '',
                     api_version: model.api_version || ''
                 });
+                console.log('Model updated successfully:', updatedModel);
                 return updatedModel as AIModel;
             }
     
-            // If no existing model found, create new one
+            console.log('Creating a new model in PocketBase...');
             const modelData = {
                 name: model.name,
                 api_key: model.api_key,
@@ -78,9 +80,10 @@ const createModelStore = () => {
             };
     
             const savedModel = await pb.collection('models').create(modelData);
+            console.log('Model created successfully:', savedModel);
             return savedModel as AIModel;
         } catch (error) {
-            console.error('Error saving model to PocketBase:', error);
+            console.error('Error saving model to PocketBase:', error, 'Model Data:', model);
             return null;
         }
     };
@@ -114,32 +117,50 @@ const createModelStore = () => {
         },
 
         async setSelectedModel(userId: string, model: AIModel) {
+            console.log('setSelectedModel called with:', { userId, model });
             try {
+
                 // Get or create the model in PocketBase
                 let savedModel = model;
                 const currentState = get({ subscribe });
                 
+                console.log('Current state of models:', currentState.models);
+                // Use the correct API endpoint for updating users
+                await pb.collection('users').update(userId, {
+                    selected_model: savedModel.id
+                }, {
+                    // Add these options to handle potential CORS issues
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
+                    }
+                });
+        
                 // Only save to PocketBase if it's not already in our models list
-                if (!currentState.models.find(m => 
+                const existingModel = currentState.models.find(m => 
                     m.api_type === model.api_type && 
                     m.provider === model.provider
-                )) {
+                );
+        
+                if (!existingModel) {
+                    console.log('Model not found in local state. Attempting to save to PocketBase...');
                     const newModel = await saveModelToPocketBase(model, userId);
                     if (newModel) {
+                        console.log('New model saved to PocketBase:', newModel);
                         savedModel = newModel;
+                    } else {
+                        console.warn('Failed to save new model to PocketBase.');
                     }
                 } else {
-                    // If it exists in our list, find it
-                    savedModel = currentState.models.find(m => 
-                        m.api_type === model.api_type && 
-                        m.provider === model.provider
-                    ) || model;
+                    console.log('Model already exists in local state:', existingModel);
+                    savedModel = existingModel;
                 }
         
-                // Update user's selected model
+                console.log('Updating user\'s selected model in PocketBase...');
                 await pb.collection('users').update(userId, {
                     selected_model: savedModel.id
                 });
+                console.log('User\'s selected model updated successfully.');
         
                 // Update store state
                 update(state => {
@@ -155,10 +176,11 @@ const createModelStore = () => {
                         updateStatus: 'Model selected successfully'
                     };
                 });
+                console.log('Store state updated with selected model:', savedModel);
         
                 return true;
             } catch (error) {
-                console.error('Error setting selected model:', error);
+                console.error('Error setting selected model:', error, 'Model:', model, 'UserId:', userId);
                 update(state => ({ ...state, isOffline: true }));
                 return false;
             }

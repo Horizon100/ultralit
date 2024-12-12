@@ -463,7 +463,10 @@ export async function fetchUserModels(userId: string): Promise<AIModel[]> {
         const records = await pb.collection('models').getFullList<AIModel>({
             filter: `user ~ "${userId}"`,
         });
-        return records;
+        return records.map(record => {
+            const model = record as AIModel;
+            return model;
+        });
     } catch (error) {
         console.error('Error fetching user models:', error);
         return [];
@@ -678,7 +681,7 @@ export async function createMessage(messageData: Partial<Message>): Promise<Mess
         const defaultedMessageData = {
             text: messageData.text,
             user: messageData.user || pb.authStore.model?.id,
-            thread: messageData.thread,
+            thread: messageData.thread_id,
             task_id: messageData.task_id,
             parent_msg_id: messageData.parent_msg_id,
             ai_agent_id: messageData.ai_agent_id,
@@ -689,7 +692,7 @@ export async function createMessage(messageData: Partial<Message>): Promise<Mess
             reactions: messageData.reactions || {},
             update_status: messageData.update_status || 'not_updated',
             prompt_type: messageData.prompt_type,
-            model: messageData.model,
+            model: messageData.model_id,
 
         };
 

@@ -1,9 +1,12 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance, PartialAIAgent, VisNode, Messages, Threads } from '$lib/types';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance, PartialAIAgent, VisNode, Messages, Threads, User } from '$lib/types';
+import { availableModels } from '$lib/constants/models';
+import { modelStore } from '$lib/stores/modelStore';
+import type { ModelState } from '$lib/stores/modelStore';
 
 import { getPrompt } from '$lib/constants/prompts';
 import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
-import { pb } from '$lib/pocketbase';
-import type { ProviderType } from '$lib/constants/providers';
+import { pb, fetchUserModelPreferences } from '$lib/pocketbase';
+// import type { ProviderType } from '$lib/constants/providers';
 
 const toVisNode = (agent: AIAgent): VisNode => {
     const position = typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position;
@@ -15,9 +18,9 @@ const toVisNode = (agent: AIAgent): VisNode => {
     };
 };
 
-export async function fetchAIResponse(
+export async function fetchAIResponse (
     messages: AIMessage[], 
-    model: AIModel, 
+    model: ModelState['selectedModel'], 
     userId: string, 
     attachment: File | null = null
 ): Promise<string> {
@@ -26,21 +29,28 @@ export async function fetchAIResponse(
             ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role)
         );
 
-        const modelData = {
-            id: model.id,
-            name: model.name,
-            api_type: model.api_type,
-            provider: model.provider,
-            base_url: model.base_url
-        };
+        // Fetch the user's selected model from PocketBase
+        let userSelectedModel: string | undefined;
+        try {
+            const user = await pb.collection('users').getOne(userId, {
+                fields: 'selected_model'
+            });
+            userSelectedModel = user.selected_model;
+        } catch (error) {
+            console.warn('Error fetching user model:', error);
+            // Fallback to the provided model's ID if user fetch fails
+            // userSelectedModel = model.id;
+        }
 
         let body;
-        let headers;
+        const headers: HeadersInit = {
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        };
 
         if (attachment) {
             const formData = new FormData();
             formData.append('messages', JSON.stringify(supportedMessages));
-            formData.append('model', JSON.stringify(modelData));
+            formData.append('model', userSelectedModel || model.id); // Use user's selected model or fallback
             formData.append('userId', userId);
             formData.append('attachment', attachment);
 
@@ -48,12 +58,11 @@ export async function fetchAIResponse(
         } else {
             body = JSON.stringify({ 
                 messages: supportedMessages, 
-                model: modelData,
-                userId 
+                model: userSelectedModel || model.id, // Use user's selected model or fallback
+                userId,
             });
-            headers = {
-                'Content-Type': 'application/json',
-            };
+            headers['Content-Type'] = 'application/json';
+
         }
 
         const response = await fetch('/api/ai', {
@@ -79,7 +88,7 @@ export async function fetchNamingResponse(userMessage: string, aiResponse: strin
     try {
         const messages: AIMessage[] = [
             { 
-                role: 'system', 
+                role: 'assistant', 
                 content: 'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.' 
             },
             { 
@@ -105,7 +114,7 @@ export async function fetchNamingResponse(userMessage: string, aiResponse: strin
 
 export async function generateGuidance(context: { type: string; description: string }, model: AIModel, userId: string): Promise<Guidance> {
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('GUIDANCE_GENERATION', '') },
+        { role: 'assistant', content: getPrompt('GUIDANCE_GENERATION', '') },
         { role: 'user', content: JSON.stringify(context) }
     ];
 
@@ -119,7 +128,7 @@ export async function generateGuidance(context: { type: string; description: str
 
 export async function generateScenarios(seedPrompt: string, model: AIModel, userId: string): Promise<Scenario[]> {
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('SCENARIO_GENERATION', '') },
+        { role: 'assistant', content: getPrompt('SCENARIO_GENERATION', '') },
         { role: 'user', content: seedPrompt }
     ];
 
@@ -141,7 +150,7 @@ export async function generateScenarios(seedPrompt: string, model: AIModel, user
 
 export async function generateTasks(scenario: Scenario, model: AIModel, userId: string): Promise<Task[]> {
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('TASK_GENERATION', '') },
+        { role: 'assistant', content: getPrompt('TASK_GENERATION', '') },
         { role: 'user', content: scenario.description }
     ];
 
@@ -189,7 +198,7 @@ export async function generateTasks(scenario: Scenario, model: AIModel, userId: 
 export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AIModel, userId: string): Promise<AIAgent> {
     const context = `Scenario: ${scenario.description}\nTasks: ${tasks.map(t => t.description).join(', ')}`;
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('AGENT_CREATION', context) }
+        { role: 'assistant', content: getPrompt('AGENT_CREATION', context) }
     ];
 
     const response = await fetchAIResponse(messages, model, userId);
@@ -233,7 +242,6 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 }
 
 function parseAgentProperties(response: string): PartialAIAgent {
-    
     const properties: PartialAIAgent = {
         position: { x: 0, y: 0 } // Set a default position as a stringified object
     };
@@ -263,7 +271,6 @@ function parseAgentProperties(response: string): PartialAIAgent {
                     try {
                         const positionObject = JSON.parse(value);
                         properties.position = JSON.stringify(positionObject);
-
                     } catch {
                         console.warn('Invalid position format:', value);
                     }
@@ -280,7 +287,7 @@ function parseAgentProperties(response: string): PartialAIAgent {
 export async function determineNetworkStructure(scenario: Scenario, tasks: Task[], model: AIModel, userId: string): Promise<string> {
     const context = `Scenario: ${scenario.description}\nTasks: ${tasks.map(t => t.description).join(', ')}`;
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('NETWORK_STRUCTURE', context) }
+        { role: 'assistant', content: getPrompt('NETWORK_STRUCTURE', context) }
     ];
 
     const response = await fetchAIResponse(messages, model, userId);
@@ -297,7 +304,7 @@ export async function determineNetworkStructure(scenario: Scenario, tasks: Task[
 
 export async function refineSuggestion(currentSuggestion: string, feedback: string, model: AIModel, userId: string): Promise<string> {
     const messages: AIMessage[] = [
-        { role: 'system', content: getPrompt('REFINE_SUGGESTION', '') },
+        { role: 'assistant', content: getPrompt('REFINE_SUGGESTION', '') },
         { role: 'user', content: `Current suggestion: ${currentSuggestion}\nFeedback: ${feedback}` }
     ];
 
@@ -307,7 +314,7 @@ export async function refineSuggestion(currentSuggestion: string, feedback: stri
 
 export async function generateSummary(messages: AIMessage[], model: AIModel, userId: string): Promise<string> {
     const summaryMessages: AIMessage[] = [
-        { role: 'system', content: getPrompt('SUMMARY_GENERATION', '') },
+        { role: 'assistant', content: getPrompt('SUMMARY_GENERATION', '') },
         ...messages
     ];
 
@@ -318,7 +325,7 @@ export async function generateSummary(messages: AIMessage[], model: AIModel, use
 
 export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {
     const messages: AIMessage[] = [
-      { role: 'system', content: getPrompt('NETWORK_GENERATION', '') },
+      { role: 'assistant', content: getPrompt('NETWORK_GENERATION', '') },
       { role: 'user', content: summary }
     ];
 

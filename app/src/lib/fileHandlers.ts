@@ -2,6 +2,7 @@
 
 import type { TextFile } from '$lib/types';
 
+
 import { uploadedFiles } from './stores/fileStore';
 
 export async function handleFileUpload(files: File[], x: number, y: number) {
@@ -21,8 +22,9 @@ export async function handleFileUpload(files: File[], x: number, y: number) {
   }
 }
 
-export function isTextFile(file: any): file is TextFile {
-  return 'type' in file && 'name' in file && 'content' in file && 'lastModified' in file && 'size' in file;
+export function isTextFile(file: unknown): file is TextFile {
+  return typeof file === 'object' &&
+    file !== null && 'type' in file && 'name' in file && 'content' in file && 'lastModified' in file && 'size' in file;
 }
 
 export function handleDrop(event: DragEvent) {
@@ -60,11 +62,12 @@ export function handleFileInputChange(event: Event, contextMenuX: number, contex
 
 export function handleFileMove(event: CustomEvent<{ id: string; x: number; y: number }>) {
   const { id, x, y } = event.detail;
-  uploadedFiles = uploadedFiles.map(file => 
-    file.file.name === id ? { ...file, x, y } : file
+  uploadedFiles.update(files => 
+    files.map(file => 
+      file.file.name === id ? { ...file, x, y } : file
+    )
   );
 }
-
 export function handleImportComplete(event: CustomEvent<File[]>, importX: number, importY: number) {
   handleFileUpload(event.detail, importX, importY);
   return false; // to indicate that ImportDocs should be hidden
