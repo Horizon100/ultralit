@@ -245,6 +245,7 @@ export default {
         selectThread: "Select thread or create new",
         newThread: "New chat",
         newTag: "Add tag",
+        tagsHeader: "Tags",
         today: "Today",
         yesterday: "Yesterday",
         lastweek: "Last Week",
@@ -257,7 +258,7 @@ export default {
         placeholder: "Message Vrazum",
         loading: "Loading messages...",
         messagecount: "messages",
-        prompts: "Quick prompts"
+        prompts: "Assistants"
     },
 
     profile: {

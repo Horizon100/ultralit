@@ -1,22 +1,22 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent, NetworkData, Guidance, PartialAIAgent, VisNode, Messages, Threads, User } from '$lib/types';
-import { availableModels } from '$lib/constants/models';
-import { modelStore } from '$lib/stores/modelStore';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib/types';
+// import { availableModels } from '$lib/constants/models';
+// import { modelStore } from '$lib/stores/modelStore';
 import type { ModelState } from '$lib/stores/modelStore';
 
 import { getPrompt } from '$lib/constants/prompts';
-import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
-import { pb, fetchUserModelPreferences } from '$lib/pocketbase';
+// import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
+import { pb } from '$lib/pocketbase';
 // import type { ProviderType } from '$lib/constants/providers';
 
-const toVisNode = (agent: AIAgent): VisNode => {
-    const position = typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position;
-    return {
-      id: agent.id,
-      label: agent.name,
-      x: position.x,
-      y: position.y
-    };
-};
+// const toVisNode = (agent: AIAgent): VisNode => {
+//     const position = typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position;
+//     return {
+//       id: agent.id,
+//       label: agent.name,
+//       x: position.x,
+//       y: position.y
+//     };
+// };
 
 export async function fetchAIResponse (
     messages: AIMessage[], 
@@ -33,9 +33,9 @@ export async function fetchAIResponse (
         let userSelectedModel: string | undefined;
         try {
             const user = await pb.collection('users').getOne(userId, {
-                fields: 'selected_model'
+                fields: 'model'
             });
-            userSelectedModel = user.selected_model;
+            userSelectedModel = user.model;
         } catch (error) {
             console.warn('Error fetching user model:', error);
             // Fallback to the provided model's ID if user fetch fails
@@ -50,7 +50,7 @@ export async function fetchAIResponse (
         if (attachment) {
             const formData = new FormData();
             formData.append('messages', JSON.stringify(supportedMessages));
-            formData.append('model', userSelectedModel || model.id); // Use user's selected model or fallback
+            formData.append('model', userSelectedModel || model); // Use user's selected model or fallback
             formData.append('userId', userId);
             formData.append('attachment', attachment);
 
@@ -58,7 +58,7 @@ export async function fetchAIResponse (
         } else {
             body = JSON.stringify({ 
                 messages: supportedMessages, 
-                model: userSelectedModel || model.id, // Use user's selected model or fallback
+                model: userSelectedModel || model, // Use user's selected model or fallback
                 userId,
             });
             headers['Content-Type'] = 'application/json';
@@ -89,21 +89,22 @@ export async function fetchNamingResponse(userMessage: string, aiResponse: strin
         const messages: AIMessage[] = [
             { 
                 role: 'assistant', 
-                content: 'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.' 
+                content: 'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
+                model: model.api_type // Add model property
             },
             { 
                 role: 'user', 
-                content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:` 
+                content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
+                model: model.api_type // Add model property
             }
         ];
 
-        const response = await fetchAIResponse(messages, model, userId);
+        const response = await fetchAIResponse(messages, model.api_type, userId);
         
-        // Clean and format the response
         const threadName = response
             .trim()
-            .replace(/^["']|["']$/g, '') // Remove quotes if present
-            .slice(0, 50);               // Enforce max length
+            .replace(/^["']|["']$/g, '')
+            .slice(0, 50);
             
         return threadName;
     } catch (error) {
@@ -114,11 +115,19 @@ export async function fetchNamingResponse(userMessage: string, aiResponse: strin
 
 export async function generateGuidance(context: { type: string; description: string }, model: AIModel, userId: string): Promise<Guidance> {
     const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('GUIDANCE_GENERATION', '') },
-        { role: 'user', content: JSON.stringify(context) }
+        { 
+            role: 'assistant', 
+            content: getPrompt('GUIDANCE_GENERATION', ''),
+            model: model.api_type 
+        },
+        { 
+            role: 'user', 
+            content: JSON.stringify(context),
+            model: model.api_type 
+        }
     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
+    const response = await fetchAIResponse(messages, model.api_type, userId);
     
     return {
         type: context.type,
@@ -128,20 +137,28 @@ export async function generateGuidance(context: { type: string; description: str
 
 export async function generateScenarios(seedPrompt: string, model: AIModel, userId: string): Promise<Scenario[]> {
     const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('SCENARIO_GENERATION', '') },
-        { role: 'user', content: seedPrompt }
+        { 
+            role: 'assistant', 
+            content: getPrompt('SCENARIO_GENERATION', ''),
+            model: model.api_type
+        },
+        { 
+            role: 'user', 
+            content: seedPrompt,
+            model: model.api_type 
+        }
     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
+    const response = await fetchAIResponse(messages, model.api_type, userId);
     
     // Parse the response into three scenarios
     const scenarios: Scenario[] = response.split('\n').filter(Boolean).map((desc, index) => ({
         id: `scenario-${index + 1}`,
         description: desc.trim(),
-        collectionId: '', // Add this
-        collectionName: '', // Add this
-        created: '', // Add this
-        updated: '' // Add this
+        collectionId: '',
+        collectionName: '', 
+        created: '', 
+        updated: '' 
     }));
 
     return scenarios;
@@ -150,11 +167,18 @@ export async function generateScenarios(seedPrompt: string, model: AIModel, user
 
 export async function generateTasks(scenario: Scenario, model: AIModel, userId: string): Promise<Task[]> {
     const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('TASK_GENERATION', '') },
-        { role: 'user', content: scenario.description }
+        { 
+            role: 'assistant', 
+            content: getPrompt('TASK_GENERATION', ''),
+            model: model.api_type 
+        },
+        {   role: 'user', 
+            content: scenario.description,
+            model: model.api_type 
+        }
     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
+    const response = await fetchAIResponse(messages, model.api_type , userId);
     
     const tasks: Task[] = response.split('\n').filter(Boolean).map((desc, index) => ({
         id: `task-${index + 1}`,
@@ -198,243 +222,222 @@ export async function generateTasks(scenario: Scenario, model: AIModel, userId: 
 export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AIModel, userId: string): Promise<AIAgent> {
     const context = `Scenario: ${scenario.description}\nTasks: ${tasks.map(t => t.description).join(', ')}`;
     const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('AGENT_CREATION', context) }
+        { 
+            role: 'assistant', 
+            content: getPrompt('AGENT_CREATION', context),
+            model: model.api_type 
+        }
     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
-    
-    const agentProperties = parseAgentProperties(response);
-
-    return {
-        id: `agent-${Date.now()}`,
-        prompt: agentProperties.prompt || '',
-        user_id: userId,
-        editors: [userId],
-        viewers: [userId],
-        name: agentProperties.name || `Agent for ${scenario.id}`,
-        description: agentProperties.description || '',
-        avatar: agentProperties.avatar || '',
-        role: agentProperties.role || [],
-        capabilities: agentProperties.capabilities || [],
-        tasks: tasks.map(t => t.id),
-        status: 'active',
-        messages: [],
-        tags: agentProperties.tags || [],
-        performance: 0,
-        version: '1.0',
-        last_activity: new Date(),
-        child_agents: [],
-        base_priority: 0,
-        adaptive_priority: 0,
-        weight_altruism: 0,
-        weight_survival: 0,
-        weight_exploration: 0,
-        weight_aspiration: 0,
-        weight_surrogate: 0,
-        weight_selfdev: 0,
-        collectionId: '',
-        collectionName: '',
-        position:({ x: 0, y: 0 }),
-        expanded: false,
-        created: '',
-        updated: ''
-    };
-}
-
-function parseAgentProperties(response: string): PartialAIAgent {
-    const properties: PartialAIAgent = {
-        position: { x: 0, y: 0 } // Set a default position as a stringified object
-    };
-    const lines = response.split('\n');
-
-    lines.forEach(line => {
-        const [key, value] = line.split(':').map(s => s.trim());
-        if (key && value) {
-            switch (key) {
-                case 'type':
-                    if (value === 'host' || value === 'sub' || value === 'peer') {
-                        properties.type = value;
-                    }
-                    break;
-                case 'role':
-                case 'capabilities':
-                case 'tags':
-                    properties[key] = value.split(',').map(item => item.trim());
-                    break;
-                case 'prompt':
-                case 'name':
-                case 'description':
-                case 'avatar':
-                    properties[key] = value;
-                    break;
-                case 'position':
-                    try {
-                        const positionObject = JSON.parse(value);
-                        properties.position = JSON.stringify(positionObject);
-                    } catch {
-                        console.warn('Invalid position format:', value);
-                    }
-                    break;
-                default:
-                    console.warn(`Unexpected property: ${key}`);
+    const response = await fetchAIResponse(messages, model.api_type, userId);
+    [{
+        "resource": "/Users/jr/Repositories/ultralit/app/src/lib/aiClient.ts",
+        "owner": "typescript",
+        "code": "2322",
+        "severity": 8,
+        "message": "Type 'RoleType | never[]' is not assignable to type 'RoleType'.\n  Type 'never[]' is not assignable to type 'RoleType'.",
+        "source": "ts",
+        "startLineNumber": 245,
+        "startColumn": 9,
+        "endLineNumber": 245,
+        "endColumn": 13,
+        "relatedInformation": [
+            {
+                "startLineNumber": 118,
+                "startColumn": 5,
+                "endLineNumber": 118,
+                "endColumn": 9,
+                "message": "The expected type comes from property 'role' which is declared here on type 'AIAgent'",
+                "resource": "/Users/jr/Repositories/ultralit/app/src/lib/types.ts"
             }
-        }
-    });
+        ]
+    }]
 
-    return properties;
-}
+// function parseAgentProperties(response: string): PartialAIAgent {
+//     const properties: PartialAIAgent = {
+//         position: { x: 0, y: 0 } // Set a default position as a stringified object
+//     };
+//     const lines = response.split('\n');
 
-export async function determineNetworkStructure(scenario: Scenario, tasks: Task[], model: AIModel, userId: string): Promise<string> {
-    const context = `Scenario: ${scenario.description}\nTasks: ${tasks.map(t => t.description).join(', ')}`;
-    const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('NETWORK_STRUCTURE', context) }
-    ];
+//     lines.forEach(line => {
+//         const [key, value] = line.split(':').map(s => s.trim());
+//         if (key && value) {
+//             switch (key) {
+//                 case 'type':
+//                     if (value === 'host' || value === 'sub' || value === 'peer') {
+//                         properties.type = value;
+//                     }
+//                     break;
+//                 case 'role':
+//                 case 'capabilities':
+//                 case 'tags':
+//                     // properties[key] = value.split(',').map(item => item.trim());
+//                     break;
+//                 case 'prompt':
+//                 case 'name':
+//                 case 'description':
+//                 case 'avatar':
+//                     properties[key] = value;
+//                     break;
+//                 case 'position':
+//                     try {
+//                         const positionObject = JSON.parse(value);
+//                         properties.position = JSON.stringify(positionObject);
+//                     } catch {
+//                         console.warn('Invalid position format:', value);
+//                     }
+//                     break;
+//                 default:
+//                     console.warn(`Unexpected property: ${key}`);
+//             }
+//         }
+//     });
 
-    const response = await fetchAIResponse(messages, model, userId);
+//     return properties;
+// }
+
+// export async function determineNetworkStructure(scenario: Scenario, tasks: Task[], model: AIModel, userId: string): Promise<string> {
+//     const context = `Scenario: ${scenario.description}\nTasks: ${tasks.map(t => t.description).join(', ')}`;
+//     const messages: AIMessage[] = [
+//         { 
+//             role: 'assistant', 
+//             content: getPrompt('NETWORK_STRUCTURE', context), 
+//             model: model.api_type 
+//         }
+//     ];
+
+//     const response = await fetchAIResponse(messages, model.api_type, userId);
     
-    if (response.toLowerCase().includes('hierarchical')) {
-        return 'hierarchical';
-    } else if (response.toLowerCase().includes('flat')) {
-        return 'flat';
-    } else {
-        console.warn('Unclear network structure response, defaulting to flat');
-        return 'flat';
-    }
-}
+//     if (response.toLowerCase().includes('hierarchical')) {
+//         return 'hierarchical';
+//     } else if (response.toLowerCase().includes('flat')) {
+//         return 'flat';
+//     } else {
+//         console.warn('Unclear network structure response, defaulting to flat');
+//         return 'flat';
+//     }
+// }
 
-export async function refineSuggestion(currentSuggestion: string, feedback: string, model: AIModel, userId: string): Promise<string> {
-    const messages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('REFINE_SUGGESTION', '') },
-        { role: 'user', content: `Current suggestion: ${currentSuggestion}\nFeedback: ${feedback}` }
-    ];
+// export async function refineSuggestion(currentSuggestion: string, feedback: string, model: AIModel, userId: string): Promise<string> {
+//     const messages: AIMessage[] = [
+//         { 
+//             role: 'assistant', 
+//             content: getPrompt('REFINE_SUGGESTION', ''),
+//             model: model.api_type 
+//         },
+//         { 
+//             role: 'user', 
+//             content: `Current suggestion: ${currentSuggestion}\nFeedback: ${feedback}`,
+//             model: model.api_type 
+//         }
+//     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
-    return response;
-}
+//     const response = await fetchAIResponse(messages, model.api_type, userId);
+//     return response;
+// }
 
-export async function generateSummary(messages: AIMessage[], model: AIModel, userId: string): Promise<string> {
-    const summaryMessages: AIMessage[] = [
-        { role: 'assistant', content: getPrompt('SUMMARY_GENERATION', '') },
-        ...messages
-    ];
+// export async function generateSummary(messages: AIMessage[], model: AIModel, userId: string): Promise<string> {
+//     const summaryMessages: AIMessage[] = [
+//         { 
+//             role: 'assistant', 
+//             content: getPrompt('SUMMARY_GENERATION', ''),            
+//             model: model.api_type 
+//         },
+//         ...messages
+//     ];
 
-    const response = await fetchAIResponse(summaryMessages, model, userId);
-    return response;
+//     const response = await fetchAIResponse(summaryMessages, model.api_type, userId);
+//     return response;
     
-}
+// }
 
-export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {
-    const messages: AIMessage[] = [
-      { role: 'assistant', content: getPrompt('NETWORK_GENERATION', '') },
-      { role: 'user', content: summary }
-    ];
+// export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {
+//     const messages: AIMessage[] = [
+//       { 
+//         role: 'assistant', 
+//         content: getPrompt('NETWORK_GENERATION', ''),
+//         model: model.api_type 
+//     },
+//       { 
+//         role: 'user', 
+//         content: summary,
+//         model: model.api_type,
+//     }
+//     ];
 
-    const response = await fetchAIResponse(messages, model, userId);
+//     const response = await fetchAIResponse(messages, model.api_type, userId);
     
-    const rootScenario: Scenario = {
-        id: `scenario-root`,
-        description: summary,
-        collectionId: '',
-        collectionName: '',
-        created: '',
-        updated: ''
-    };
+//     const rootScenario: Scenario = {
+//         id: `scenario-root`,
+//         description: summary,
+//         collectionId: '',
+//         collectionName: '',
+//         created: '',
+//         updated: ''
+//     };
 
-    const rootAgent = await createAIAgent(rootScenario, [], model, userId);
+//     const rootAgent = await createAIAgent(rootScenario, [], model, userId);
 
-    const childAgents: AIAgent[] = [];
-    const tasks: Task[] = [];
+//     const childAgents: AIAgent[] = [];
+//     const tasks: Task[] = [];
 
-    const lines = response.split('\n');
-    for (const line of lines) {
-      if (line.startsWith('Agent:')) {
-        const childScenario: Scenario = {
-            id: `scenario-${Date.now()}`,
-            description: line.substr(7),
-            collectionId: '',
-            collectionName: '',
-            created: '',
-            updated: ''
-        };
-        const childAgent = await createAIAgent(childScenario, [], model, userId);
-        childAgents.push(childAgent);
-      } else if (line.startsWith('Task:')) {
-        const task = await createTask({
-          title: line.substr(6),
-          description: `Task for ${rootAgent.name}`,
-          status: 'todo',
-          priority: 'medium',
-          assigned_to: rootAgent.id,
-          created_by: userId,
-        } as Partial<Task>);
-        tasks.push(task);
-      }
-    }
+//     const lines = response.split('\n');
+//     for (const line of lines) {
+//       if (line.startsWith('Agent:')) {
+//         const childScenario: Scenario = {
+//             id: `scenario-${Date.now()}`,
+//             description: line.substr(7),
+//             collectionId: '',
+//             collectionName: '',
+//             created: '',
+//             updated: ''
+//         };
+//         const childAgent = await createAIAgent(childScenario, [], model, userId);
+//         childAgents.push(childAgent);
+//       } else if (line.startsWith('Task:')) {
+//         const task = await createTask({
+//           title: line.substr(6),
+//           description: `Task for ${rootAgent.name}`,
+//           status: 'todo',
+//           priority: 'medium',
+//           assigned_to: rootAgent.id,
+//           created_by: userId,
+//         } as Partial<Task>);
+//         tasks.push(task);
+//       }
+//     }
 
-    await updateAIAgent(rootAgent.id, {
-      child_agents: childAgents.map(agent => agent.id),
-    });
+//     await updateAIAgent(rootAgent.id, {
+//       child_agents: childAgents.map(agent => agent.id),
+//     });
 
-    await createNetwork({
-      name: `Network for ${rootAgent.name}`,
-      description: 'Generated network',
-      user_id: userId,
-      root_agent: rootAgent.id,
-      agents: [rootAgent.id, ...childAgents.map(agent => agent.id)],
-    });
+//     await createNetwork({
+//       name: `Network for ${rootAgent.name}`,
+//       description: 'Generated network',
+//       user_id: userId,
+//       root_agent: rootAgent.id,
+//       agents: [rootAgent.id, ...childAgents.map(agent => agent.id)],
+//     });
 
-    // Mapping AIAgent to VisNode
-    const nodes: VisNode[] = [
-        { id: rootAgent.id, label: rootAgent.name },
-        ...childAgents.map(agent => ({ id: agent.id, label: agent.name }))
-    ];
+//     // Mapping AIAgent to VisNode
+//     const nodes: VisNode[] = [
+//         { id: rootAgent.id, label: rootAgent.name },
+//         ...childAgents.map(agent => ({ id: agent.id, label: agent.name }))
+//     ];
 
-    const edges = childAgents.map(child => ({
-      source: rootAgent.id,
-      target: child.id
-    }));
+//     const edges = childAgents.map(child => ({
+//       source: rootAgent.id,
+//       target: child.id
+//     }));
 
-    return { 
-        rootAgent: toVisNode(rootAgent),
-        childAgents: childAgents.map(toVisNode),
-        tasks,
-        nodes,
-        edges,
-    };
-}
-
-export async function createThread(name: string, userId: string): Promise<Threads> {
-    const thread = await pb.collection('threads').create<Threads>({
-        name,
-        created_by: userId
-    });
-    return thread;
-}
-
-export async function fetchThreads(userId: string): Promise<Threads[]> {
-    const threads = await pb.collection('threads').getFullList<Threads>({
-        sort: '-created',
-        filter: `created_by = "${userId}"`
-    });
-    return threads;
-}
-
-export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
-    try {
-        const messages = await pb.collection('messages').getFullList<Messages>({
-            sort: 'created',
-            filter: `thread = "${threadId}"`,
-            expand: 'user'
-        });
-        return messages;
-    } catch (error) {
-        console.error('Error fetching messages for thread:', error);
-        if (error instanceof Error) {
-            console.error('Error details:', error.message);
-        }
-        return [];
-    }
-}
+//     return { 
+//         rootAgent: toVisNode(rootAgent),
+//         childAgents: childAgents.map(toVisNode),
+//         tasks,
+//         nodes,
+//         edges,
+//     };
+// }
 
 // export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {
 //     const messages: AIMessage[] = [
@@ -522,5 +525,4 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
 //         }
 //     });
     
-//     return relationships;
-// }
+}

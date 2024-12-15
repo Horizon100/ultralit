@@ -9,6 +9,8 @@ async function updateMessage(id: string, data: Partial<Messages>): Promise<Messa
     return await pb.collection('messages').update<Messages>(id, data);
 }
 
+
+
 function createMessagesStore() {
     const { subscribe, set, update } = writable<Messages[]>([]);
 
@@ -29,6 +31,7 @@ function createMessagesStore() {
             try {
                 const messages = await fetchMessagesForThread(threadId);
                 set(messages);
+                return messages;
             } catch (error) {
                 console.error('Error fetching messages:', error);
                 throw error;
@@ -57,7 +60,7 @@ function createMessagesStore() {
                     attachments: message.attachments || '',
                     reactions: message.reactions || {},
                     prompt_type: message.prompt_type || null,
-                    model: userId.selected_model || null,
+                    model: message.model || 'fail',
 
                 };
 

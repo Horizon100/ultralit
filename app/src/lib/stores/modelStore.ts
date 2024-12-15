@@ -127,7 +127,7 @@ const createModelStore = () => {
                 console.log('Current state of models:', currentState.models);
                 // Use the correct API endpoint for updating users
                 await pb.collection('users').update(userId, {
-                    selected_model: savedModel.id
+                    model: savedModel.id
                 }, {
                     // Add these options to handle potential CORS issues
                     headers: {
@@ -158,7 +158,7 @@ const createModelStore = () => {
         
                 console.log('Updating user\'s selected model in PocketBase...');
                 await pb.collection('users').update(userId, {
-                    selected_model: savedModel.id
+                    model: savedModel.id
                 });
                 console.log('User\'s selected model updated successfully.');
         

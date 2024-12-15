@@ -47,26 +47,11 @@
 </script>
 
 <div class="tags">
-  <button class="add-tag" on:click={toggleTagCreation}>
-    <Tag />
-    {$t('threads.newTag')}
-  </button>
-  {#if editingTagIndex !== null}
-    <div class="new-tag-input">
-      <input 
-        type="text" 
-        placeholder="New tag" 
-        bind:value={newTagName}
-        on:keydown={(e) => e.key === 'Enter' && dispatch('createTag', { name: newTagName })}
-      >
-      <span class="new-tag" on:click={() => dispatch('createTag', { name: newTagName })}>
-        <Plus size={16} />
-      </span>
-    </div>
-  {/if}
+  
 </div>
 
 <div class="tag-list">
+  
   {#each availableTags as tag (tag.id)}
     <div class="tag-item">
       {#if editingTagId === tag.id}
@@ -100,6 +85,23 @@
       {/if}
     </div>
   {/each}
+  <button class="add-tag" on:click={toggleTagCreation}>
+    <Plus />
+    {$t('threads.newTag')}
+  </button>
+  {#if editingTagIndex !== null}
+    <div class="new-tag-input">
+      <input 
+        type="text" 
+        placeholder="New tag" 
+        bind:value={newTagName}
+        on:keydown={(e) => e.key === 'Enter' && dispatch('createTag', { name: newTagName })}
+      >
+      <span class="new-tag" on:click={() => dispatch('createTag', { name: newTagName })}>
+        <Plus/>
+      </span>
+    </div>
+  {/if}
 </div>
 
 
@@ -108,6 +110,7 @@
 .tag-list {
   display: flex;
   flex-wrap: wrap;
+  width: auto;
   justify-content: right;
   gap: var(--spacing-xs);
   // padding: var(--spacing-sm);
@@ -136,12 +139,12 @@
   /* background-color: rgba(255, 255, 255, 0.1); */
   padding: 2px;
   border-radius: 15px;
-  margin-left: 1rem;
+  // margin-left: 1rem;
   
 }
 
 .tag-edit-container input {
-  width: 80%;
+  width: auto;
 }
 
 
@@ -312,7 +315,7 @@ button.tag.selected {
   .new-tag-input {
     display: flex;
     margin-bottom: 10px;
-    width: 500px;
+    width: auto;
     margin-left: 0;
 
     input {
@@ -337,6 +340,7 @@ button.tag.selected {
     border-radius: 50%;
     width: auto;
     height: auto;
+    padding: 1rem;
 
     &:hover {
       background-color: var(--tertiary-color);
@@ -368,7 +372,7 @@ span.new-tag:hover {
 .new-tag-input {
   display: flex;
   margin-bottom: 10px;
-  width: 500px;
+  // width: 500px;
   margin-left: 0;
 
 }
@@ -427,12 +431,15 @@ button {
 
 button.add-tag {
   background-color: var(--primary-color);
-  font-size: var(--font-size-s);
+  // font-size: var(--font-size-s);
   font-weight: bold;
   cursor: pointer;
   height: auto;
+  margin-top: 1rem;
   transition: all ease 0.3s;
-  height: 64px;
+  height: 2rem;
+  width: 100%;
+  // padding: 1rem;
   display: flex;
   user-select: none;
   gap: var(--spacing-sm);

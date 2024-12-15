@@ -1,7 +1,7 @@
 import { debounce } from 'lodash-es';
 import { ClientResponseError } from 'pocketbase';
 import { pb } from './pocketbase';
-import type { AIAgent, Actions } from './types';
+import type { AIAgent } from './types';
 
 export async function createAgent(agentData: Partial<AIAgent> | FormData): Promise<AIAgent> {
   try {
@@ -18,7 +18,7 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
       for (const key in finalAgentData) {
         try {
           finalAgentData[key] = JSON.parse(finalAgentData[key] as string);
-        } catch (e) {
+        } catch {
           // If parsing fails, keep the original value
         }
       }
@@ -80,7 +80,7 @@ export const updateAgentDebounced = debounce(async (id: string, agentData: Parti
         if (typeof finalAgentData[key] === 'string') {
           try {
             finalAgentData[key] = JSON.parse(finalAgentData[key] as string);
-          } catch (e) {
+          } catch {
             // If parsing fails, keep the original value
           }
         }

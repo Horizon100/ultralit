@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Messages, Threads, Tag } from '$lib/types';
+import type { Messages, Threads, Tag, AIModel } from '$lib/types';
 import { debounce } from 'lodash-es';
 import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/threadsClient';
 import { browser } from '$app/environment';
@@ -12,7 +12,8 @@ function createThreadsStore() {
     updateStatus: string,
     isThreadsLoaded: boolean,
     showThreadList: boolean,
-    searchQuery: string
+    searchQuery: string,
+    namingThreadId: string | null 
   }>({
     threads: [],
     currentThreadId: null,
@@ -20,8 +21,9 @@ function createThreadsStore() {
     updateStatus: '',
     isThreadsLoaded: false,
     showThreadList: true,
-    searchQuery: '' 
-
+    searchQuery: '',
+    namingThreadId: null,
+    // tags: []
   });
   
   if (browser) {
@@ -105,96 +107,92 @@ function createThreadsStore() {
     //   }
     // },
 
-    addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
-  try {
-    const newThread = await createThread(threadData);
-    
-    // Reload all threads after adding the new one
-    const updatedThreads = await fetchThreads();
-    store.update(state => ({
-      ...state,
-      threads: updatedThreads,
-      isThreadsLoaded: true,
-      updateStatus: 'Thread added successfully'
-    }));
-    
-    setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    return newThread;
-  } catch (error) {
-    console.error('Error adding thread:', error);
-    store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
-    setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    return null;
-  }
-},
-    updateThread: async (id: string, changes: Partial<Threads>) => {
-      try {
-        const updatedThread = await updateThread(id, changes);
-        store.update(state => ({
-          ...state,
-          threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
-          updateStatus: 'Thread updated successfully'
-        }));
-        
-        // If the current thread is being updated, also update the currentThreadId
-        if (get(store).currentThreadId === id) {
-          store.update(state => ({ ...state, currentThreadId: id }));
-        }
-        
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        return updatedThread;
-      } catch (error) {
-        console.error('Failed to update thread in backend:', error);
-        store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        throw error;
-      }
-    },
-    setSearchQuery: (query: string) => {
+  addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
+    try {
+      const newThread = await createThread(threadData);
+      
+      // Reload all threads after adding the new one
+      const updatedThreads = await fetchThreads();
       store.update(state => ({
         ...state,
-        searchQuery: query
+        threads: updatedThreads,
+        isThreadsLoaded: true,
+        updateStatus: 'Thread added successfully'
       }));
-    },
+      
+      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+      return newThread;
+    } catch (error) {
+      console.error('Error adding thread:', error);
+      store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
+      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+      return null;
+    }
+  },
+  updateThread: async (id: string, changes: Partial<Threads>) => {
+    try {
+      console.log('Attempting to update thread:', id, 'with changes:', changes);
+      const updatedThread = await updateThread(id, changes);
+      console.log('Thread updated successfully:', updatedThread);
+      
+      store.update(state => ({
+        ...state,
+        threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
+        updateStatus: 'Thread updated successfully'
+      }));
+      
+      console.log('Store updated with new thread data');
+      return updatedThread;
+    } catch (error) {
+      console.error('Failed to update thread in backend:', error);
+      store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
+      throw error;
+    }
+  },
+  setSearchQuery: (query: string) => {
+    store.update(state => ({
+      ...state,
+      searchQuery: query
+    }));
+  },
 
 
 
-    autoUpdateThreadName: async (threadId: string) => {
-      try {
-        const state = get(store);
-        if (!state.messages.length) {
-          return null;
-        }
+  autoUpdateThreadName: async (threadId: string, messages: Messages[], model: AIModel, userId: string) => {
+    try {
+      store.update(state => ({ ...state, namingThreadId: threadId }));
 
-        const updatedThread = await autoUpdateThreadName(threadId, state.messages);
-        
-        store.update(state => ({
-          ...state,
-          threads: state.threads.map(t => 
-            t.id === threadId ? { ...t, ...updatedThread } : t
-          ),
-          updateStatus: 'Thread name updated automatically'
-        }));
+      const updatedThread = await autoUpdateThreadName(threadId, messages, model, userId);
+      
+      store.update(state => ({
+        ...state,
+        threads: state.threads.map(t => 
+          t.id === threadId ? { ...t, ...updatedThread } : t
+        ),
+        updateStatus: 'Thread name updated automatically',
+        namingThreadId: null 
+      }));
 
-        setTimeout(() => store.update(state => ({ 
-          ...state, 
-          updateStatus: '' 
-        })), 3000);
+      setTimeout(() => store.update(state => ({ 
+        ...state, 
+        updateStatus: '' 
+      })), 3000);
 
-        return updatedThread;
-      } catch (error) {
-        console.error('Error in autoUpdateThreadName:', error);
-        store.update(state => ({ 
-          ...state, 
-          updateStatus: 'Failed to auto-update thread name' 
-        }));
-        setTimeout(() => store.update(state => ({ 
-          ...state, 
-          updateStatus: '' 
-        })), 3000);
-        return null;
-      }
-    },
+      return updatedThread;
+    } catch (error) {
+      console.error('Error in autoUpdateThreadName:', error);
+      store.update(state => ({ 
+        ...state, 
+        updateStatus: 'Failed to auto-update thread name',
+        namingThreadId: null  
+      }));
+      setTimeout(() => store.update(state => ({ 
+        ...state, 
+        updateStatus: '' 
+      })), 3000);
+      return null;
+    }
+  },
     
     // Add a new function to get the current thread
     getCurrentThread: derived(store, $store => 
@@ -226,7 +224,12 @@ function createThreadsStore() {
       messages: id === null ? [] : state.messages, // Clear messages if setting to null
       updateStatus: id ? 'Current thread updated' : 'Thread selection cleared'
     })),
-
+    setNamingThreadId: (threadId: string | null) => {
+      store.update(state => ({
+        ...state,
+        namingThreadId: threadId
+      }));
+    },
     reset: () => {
       store.update(state => ({
         ...state,

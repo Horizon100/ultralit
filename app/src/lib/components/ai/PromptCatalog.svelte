@@ -2,7 +2,7 @@
   import type { PromptType } from '$lib/types';
   import { createEventDispatcher } from 'svelte';
   import { availablePrompts } from '$lib/constants/prompts';
-  import { promptStore } from '$lib/stores/promptStore'; // Create this store
+  import { promptStore } from '$lib/stores/promptStore';
   import { fly, fade } from 'svelte/transition';
   import { X } from 'lucide-svelte';
 

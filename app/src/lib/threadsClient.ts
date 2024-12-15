@@ -1,7 +1,8 @@
-import type { Messages, Threads, Tag, AIModel, User} from '$lib/types';
+import type { Messages, Threads, AIModel} from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
-import { fetchNamingResponse } from '$lib/aiClient'
+// import { fetchNamingResponse } from '$lib/aiClient'
+import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 
 /** Utility to ensure user is authenticated */
 function ensureAuthenticated(): void {
@@ -152,34 +153,26 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
     }
 }
 
-export async function autoUpdateThreadName(threadId: string, userMessage: string, aiResponse: string, model: AIModel, userId: string): Promise<Threads> {
+export async function autoUpdateThreadName(
+    threadId: string, 
+    messages: Messages[], 
+    model: AIModel,
+    userId: string
+): Promise<Threads | null> {
     try {
-        ensureAuthenticated();
-
-
-        // Get the AI-generated thread name
-        const threadName = await fetchNamingResponse(userMessage, aiResponse, model, userId);
-
-        // Update the thread with the new name
-        return await pb.collection('threads').update<Threads>(threadId, {
-            name: threadName
-        });
+        // First check authentication
+        await ensureAuthenticated();
+  
+        // Then return the result of updateThreadNameIfNeeded
+        return await updateThreadNameIfNeeded(threadId, messages, model, userId);
     } catch (error) {
-        console.error('Error auto-updating thread name:', error);
+        console.error('Error in autoUpdateThreadName:', error);
         if (error instanceof ClientResponseError) {
             console.error('Response data:', error.data);
             console.error('Status code:', error.status);
         }
-        throw error;
+        return null;
     }
-}
-
-function getRandomBrightColor(tagName: string): string {
-    const hash = tagName.split('').reduce((acc, char) => {
-        return char.charCodeAt(0) + ((acc << 5) - acc);
-    }, 0);
-    const h = hash % 360;
-    return `hsl(${h}, 70%, 60%)`;
 }
 
 export async function addMessageToThread(message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages> {

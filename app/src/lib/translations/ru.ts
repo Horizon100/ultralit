@@ -244,6 +244,7 @@ export default {
     threads: {
         selectThread: "Выберите тему или создайте новую",
         newThread: "Новое обсуждение",
+        tagsHeader: "Теги",
         newTag: "Добавить тег",
         today: "Сегодня",
         yesterday: "Вчера",
@@ -258,7 +259,7 @@ export default {
         placeholder: "Расследовать Вразум",
         loading: "Загрузка сообщений...",
         messagecount: "сообщений",
-        prompts: "Быстрые запросы"
+        prompts: "Ассистенты"
 
     },
 

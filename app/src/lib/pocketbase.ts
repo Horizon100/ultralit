@@ -2,7 +2,8 @@ import PocketBase from 'pocketbase';
 import type { AuthModel } from 'pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { writable } from 'svelte/store'
-import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Workshops, Threads, Messages, UserModelPreferences } from '$lib/types';
+import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Threads, Messages } from '$lib/types';
+// import { role } from './components/common/chat/MessageHeader.svelte';
 // import type { ClientResponseError } from 'pocketbase'; // Unused
 // import type { RecordModel } from 'pocketbase'; // Unused
 
@@ -143,7 +144,6 @@ export async function createAgentWithSummary(summary: string, userId: string): P
         name: `Agent ${Date.now()}`,
         description: `Agent created from summary: ${summary.substring(0, 50)}...`,
         avatar: '',
-        role: 'hub',
         capabilities: [],
         focus: 'processor',
         status: 'active',
@@ -479,7 +479,7 @@ export async function fetchUserModelPreferences(userId: string): Promise<{ provi
         const user = await pb.collection('users').getOne<User>(userId);
         return {
             provider: user.selected_provider || null,
-            model: user.selected_model || null
+            model: user.model || null
         };
     } catch (error) {
         console.error('Error fetching user model preferences:', error);
@@ -495,7 +495,7 @@ export async function updateUserModelPreferences(userId: string, provider: strin
     try {
         const updated = await pb.collection('users').update<User>(userId, {
             selected_provider: provider,
-            selected_model: model
+            model: model
         });
         return updated;
     } catch (error) {
@@ -692,7 +692,7 @@ export async function createMessage(messageData: Partial<Message>): Promise<Mess
             reactions: messageData.reactions || {},
             update_status: messageData.update_status || 'not_updated',
             prompt_type: messageData.prompt_type,
-            model: messageData.model_id,
+            model: messageData.model  
 
         };
 
