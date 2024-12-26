@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { MessageSquare, X, PanelLeftClose, PanelLeftOpen, Drill, NotebookTabs, 
-           Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge } from 'lucide-svelte';
+           Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge, 
+		   Bone} from 'lucide-svelte';
   import { currentUser, pb } from '$lib/pocketbase';
   import { currentTheme } from '$lib/stores/themeStore';
   import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
@@ -19,9 +20,11 @@
 	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
 
   const dispatch = createEventDispatcher<{
-    threadListToggle: void;
     promptSelect: any;
-  }>();  
+    promptAuxclick: any;
+    threadListToggle: void;
+  }>();
+
   export let onStyleClick: () => void;
 
   let showLanguageNotification = false;
@@ -50,7 +53,9 @@
       { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
       { name: 'Laser Focus', value: 'focus', icon: Focus },
       { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-      { name: 'Turbo Mode', value: 'turbo', icon: Gauge }
+      { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+      { name: 'Bone Tone', value: 'bone', icon: Bone }
+
     ];
 
   async function handleLanguageChange() {
@@ -127,7 +132,7 @@
     goto(path);
   }
 
-  function handlePromptSelect(event) {
+  function handlePromptSelect(event: CustomEvent) {
     dispatch('promptSelect', event.detail);
   }
 
@@ -180,6 +185,15 @@
         <TimeTracker />
       </button>
     {/if}
+
+  </div>
+
+  <div class="middle-buttons">
+    
+  </div>
+  
+  <div class="bottom-buttons">
+    {#if showBottomButtons}
         <!-- Language Toggle -->
         <button class="nav-button" on:click={handleLanguageChange}>
           <Languages size={24} />
@@ -190,18 +204,9 @@
         <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
           <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
       </button>
-  </div>
-
-  <div class="middle-buttons">
-    
-  </div>
-  
-  <div class="bottom-buttons">
-    {#if showBottomButtons}
-      <ModelSelector />
-      <PromptSelector on:select={handlePromptSelect} />
+      <!-- <ModelSelector /> -->
+      <!-- <PromptSelector on:select={handlePromptSelect} /> -->
       <button class="thread-toggle" on:click={toggleThreadList}>
-        
         {#if $threadsStore.showThreadList}
           <PanelLeftClose size={24} />
         {:else}

@@ -228,7 +228,15 @@ export default {
                 icon: Gauge,
                 description: 'Ускорьте свой рабочий процесс',
                 dummyContent: 'Быстрее скорости света'
-              }
+              },
+              {
+                name: 'Bone',
+                value: 'bone',
+                icon: Gauge,
+                description: 'Ускорьте свой рабочий процесс',
+                dummyContent: 'Быстрее скорости света'
+              },
+              
         ]
     },
 
@@ -259,8 +267,8 @@ export default {
         placeholder: "Расследовать Вразум",
         loading: "Загрузка сообщений...",
         messagecount: "сообщений",
-        prompts: "Ассистенты"
-
+        prompts: "Ассистенты",
+        models: "Моделы"
     },
 
     profile: {

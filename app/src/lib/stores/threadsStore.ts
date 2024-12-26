@@ -328,15 +328,7 @@ function createThreadsStore() {
       return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
     }),
 
-
-    
-
-    getUniqueTags: derived(store, $store => {
-      const allTags = $store.threads.flatMap(thread => thread.tags || []);
-      return [...new Set(allTags)];
-    }),
-    
-
+    // Modify the derived store for searched threads
     getSearchedThreads: derived(store, $store => {
       const query = $store.searchQuery.toLowerCase().trim();
       if (!query) return $store.threads;
@@ -345,6 +337,16 @@ function createThreadsStore() {
         thread.name?.toLowerCase().includes(query) || 
         thread.last_message?.content?.toLowerCase().includes(query)
       );
+    }),
+
+    // Add a new derived store to check if search is active
+    isSearchActive: derived(store, $store => 
+      $store.searchQuery.trim().length > 0
+    ),
+
+    getUniqueTags: derived(store, $store => {
+      const allTags = $store.threads.flatMap(thread => thread.tags || []);
+      return [...new Set(allTags)];
     }),
     
     getFilteredThreads: derived(store, $store => (selectedTags: string[]) => {
@@ -363,6 +365,8 @@ function createThreadsStore() {
 
   
 }
+
+
 
 export const threadsStore = createThreadsStore();
 

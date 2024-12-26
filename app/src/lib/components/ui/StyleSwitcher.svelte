@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from 'svelte';
-    import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
+    import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Bone } from 'lucide-svelte';
     import { currentUser, pb } from '$lib/pocketbase';
     import { currentTheme } from '$lib/stores/themeStore';
     import { t } from '$lib/stores/translationStore';
@@ -67,6 +67,13 @@
         icon: Gauge,
         description: 'Speed up your workflow',
         dummyContent: 'Faster than the speed of light'
+      },
+      {
+        name: 'Bone',
+        value: 'bone',
+        icon: Gauge,
+        description: 'Contrasts brights up.',
+        dummyContent: 'Shake it, make it.'
       }
     ];
   

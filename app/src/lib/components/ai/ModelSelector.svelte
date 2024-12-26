@@ -14,14 +14,14 @@
   let isOffline = false;
   modelStore.subscribe(state => {
     isOffline = state.isOffline;
-});
+  });
+  
   export let selectedModel: AIModel = defaultModel;
 
   const dispatch = createEventDispatcher<{
-      select: AIModel;
+    select: AIModel;
   }>();
 
-  let isOpen = false;
   let currentProvider: ProviderType | null = null;
   let showAPIKeyInput = false;
   let availableProviderModels: Record<ProviderType, AIModel[]> = {
@@ -29,434 +29,245 @@
     anthropic: [],
     google: [],
     grok: []
-};
-  function toggleDropdown() {
-      isOpen = !isOpen;
-  }
+  };
 
   async function handleProviderClick(key: string) {
     const provider = key as ProviderType;
     const currentKey = get(apiKey)[provider];
+    
+    if (currentProvider === provider) {
+      currentProvider = null;
+      return;
+    }
+    
     currentProvider = provider;
 
     if (!currentKey) {
-        showAPIKeyInput = true;
+      showAPIKeyInput = true;
     } else {
-        if ($currentUser) {
-            try {
-                await modelStore.setSelectedProvider($currentUser.id, provider);
-                await loadProviderModels(provider);
-                showAPIKeyInput = false;
-            } catch (error) {
-                console.warn('Error setting provider:', error);
-                // The store will handle offline status automatically
-            }
-        }
-    }
-
-    // Only close if no models are available
-    if (!availableProviderModels[provider].length) {
-        isOpen = false;
-    }
-}
-
-async function handleModelSelection(model: AIModel) {
-    if ($currentUser) {
+      if ($currentUser) {
         try {
-            const success = await modelStore.setSelectedModel($currentUser.id, model);
-            if (success) {
-                selectedModel = model;
-            }
-        } catch (error) {
-            console.warn('Error selecting model:', error);
-        }
-    }
-    isOpen = false;
-    dispatch('select', model);
-}
-
-// We can simplify loadProviderModels since we don't need to save them immediately
-async function loadProviderModels(provider: ProviderType) {
-    const currentKey = get(apiKey)[provider];
-    if (currentKey) {
-        try {
-            const providerModelList = await providers[provider].fetchModels(currentKey);
-            availableProviderModels[provider] = providerModelList;
-        } catch (error) {
-            console.error(`Error fetching models for ${provider}:`, error);
-        }
-    }
-}
-
-  async function handleAPIKeySubmit(event: CustomEvent<string>) {
-      if (currentProvider) {
-          await apiKey.setKey(currentProvider, event.detail);
+          await modelStore.setSelectedProvider($currentUser.id, provider);
+          await loadProviderModels(provider);
           showAPIKeyInput = false;
-          await loadProviderModels(currentProvider);
+        } catch (error) {
+          console.warn('Error setting provider:', error);
+        }
       }
+    }
   }
 
+  async function handleModelSelection(model: AIModel) {
+    if ($currentUser) {
+      try {
+        const success = await modelStore.setSelectedModel($currentUser.id, model);
+        if (success) {
+          selectedModel = model;
+        }
+      } catch (error) {
+        console.warn('Error selecting model:', error);
+      }
+    }
+    dispatch('select', model);
+  }
 
+  async function loadProviderModels(provider: ProviderType) {
+    const currentKey = get(apiKey)[provider];
+    if (currentKey) {
+      try {
+        const providerModelList = await providers[provider].fetchModels(currentKey);
+        availableProviderModels[provider] = providerModelList;
+      } catch (error) {
+        console.error(`Error fetching models for ${provider}:`, error);
+      }
+    }
+  }
+
+  async function handleAPIKeySubmit(event: CustomEvent<string>) {
+    if (currentProvider) {
+      await apiKey.setKey(currentProvider, event.detail);
+      showAPIKeyInput = false;
+      await loadProviderModels(currentProvider);
+    }
+  }
 </script>
 
-<div 
-    class="dropdown"
-    role="menu"
->
-
-
-
-    {#if isOpen}
-        <div class="dropdown-content" transition:fly={{ y: 10, duration: 200 }}>
-            {#each Object.entries(providers) as [key, provider]}
-              <div class="provider-button">
-                <button class="provider-snippet"
-                    on:click={() => handleProviderClick(key)}
-                    class:provider-selected={currentProvider === key}
-                    transition:fly={{ y: -100, duration: 200 }}
-                >
-                    <img src={provider.icon} alt={provider.name} class="provider-icon" />
-                    {provider.name}
-                </button>
-                <div class="provider-status">
-                    {#if $apiKey[key]}
-                        <CheckCircle2 size={16} color="green" class="status-icon success" />
-                    {:else}
-                        <XCircle size={16} color="red" class="status-icon error" />
-                    {/if}
-                </div>
-              </div>
+<div class="selector-container">
+  <div class="providers-list">
+    {#each Object.entries(providers) as [key, provider]}
+      <div class="provider-item">
+        <button 
+          class="provider-button"
+          class:provider-selected={currentProvider === key}
+          on:click={() => handleProviderClick(key)}
+        >
+          <div class="provider-info">
+            <img src={provider.icon} alt={provider.name} class="provider-icon" />
+            <span class="provider-name">{provider.name}</span>
+          </div>
+          <div class="provider-status">
+            {#if $apiKey[key]}
+              <CheckCircle2 size={16} color="green" class="status-icon success" />
+            {:else}
+              <XCircle size={16} color="red" class="status-icon error" />
+            {/if}
+          </div>
+        </button>
+        
+        {#if currentProvider === key && availableProviderModels[key].length > 0}
+          <div class="model-list" in:fly={{ y: 10, duration: 200 }} out:fly={{ y: -10, duration: 200 }}>
+            {#each availableProviderModels[key] as model}
+              <button 
+                class="model-button"
+                class:model-selected={selectedModel.id === model.id}
+                on:click={() => handleModelSelection(model)}
+              >
+                {model.name}
+              </button>
             {/each}
+          </div>
+        {/if}
+      </div>
+    {/each}
+  </div>
 
-            {#if currentProvider && availableProviderModels[currentProvider]}
-                <div class="model-list">
-                    {#each availableProviderModels[currentProvider] as model}
-                        <button 
-                            on:click={() => handleModelSelection(model)}
-                            class="dropdown-item"
-                            class:model-selected={selectedModel.id === model.id}
-                            transition:fly={{ y: -100, duration: 200 }}
-                        >
-                            {model.name}
-                        </button>
-                    {/each}
-                </div>
-            {/if}
-            
-            {#if showAPIKeyInput}
-                <APIKeyInput
-                    provider={currentProvider ?? ''}
-                    on:submit={handleAPIKeySubmit}
-                    on:close={() => showAPIKeyInput = false}
-                />
-            {/if}
-        </div>
-    {/if}
-
-    <button 
-      class="dropbtn"
-      on:click={toggleDropdown}
-  >
-      <span class="model-name">{selectedModel.name}</span>
-      {#if selectedModel.provider && providers[selectedModel.provider]}
-          <img 
-              src={providers[selectedModel.provider].icon} 
-              alt={providers[selectedModel.provider].name} 
-              class="provider-icon"
-          />
-      {:else}
-          <Bot size={30} />
-      {/if}
-      {#if get(apiKey)[selectedModel.provider]}
-          <Settings class="gear-icon" size={18} on:click={() => showAPIKeyInput = true} />
-      {/if}
-  </button>
+  {#if showAPIKeyInput}
+    <APIKeyInput
+      provider={currentProvider ?? ''}
+      on:submit={handleAPIKeySubmit}
+      on:close={() => showAPIKeyInput = false}
+    />
+  {/if}
 </div>
 
 {#if isOffline}
-    <div class="offline-indicator">
-        <XCircle size={16} color="orange" />
-        <span>Offline</span>
-    </div>
+  <div class="offline-indicator">
+    <XCircle size={16} color="orange" />
+    <span>Offline</span>
+  </div>
 {/if}
 
 <style lang="scss">
   @use "src/themes.scss" as *;
 
-* {
-    /* font-family: 'Merriweather', serif; */
-    /* font-family: 'Roboto', sans-serif; */
-    /* font-family: 'Montserrat'; */
-    /* color: var(--text-color); */
+  * {
     font-family: var(--font-family);
+  }
 
+  .selector-container {
+    width: 100%;
+    max-width: 300px;
+    // background: var(--bg-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+  }
+
+  .providers-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .provider-item {
+    width: 100%;
+  }
+
+  .provider-button {
+    width: 90%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--bg-hover);
+    }
+
+    &.provider-selected {
+      background-color: #1d6bff;
+      color: white;
+    }
+  }
+
+  .provider-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .provider-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .provider-name {
+    font-size: 16px;
+  }
+
+  .model-list {
+    position: relative;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin-top: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    background: var(--bg-gradient-right);
+    border-radius: var(--radius-m);
+    max-height: 300px;
+    overflow-y: auto;
+    backdrop-filter: blur(10px);
+  }
+
+  .model-button {
+    padding: var(--spacing-sm);
+    background: var(--bg-alt);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-color);
+    font-size: 14px;
+    transition: all 0.2s ease;
+    z-index: 1000;
+
+    &:hover {
+      background: var(--bg-hover);
+      color: white;
+    }
+
+    &.model-selected {
+      background-color: #1dff1d;
+      color: white;
+    }
   }
 
   .offline-indicator {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.25rem 0.5rem;
-        background-color: rgba(255, 165, 0, 0.1);
-        border-radius: 4px;
-        font-size: 0.75rem;
-        color: orange;
-    }
-  .provider-icon {
-    width: 18px;
-    height: 18px;
-    margin-right: 8px;
-}
-
-  .rotate-180 {
-      transform: rotate(180deg);
-  }
-
-  .model-selector {
-      position: relative;
-      z-index: 50;
-  }
-
-  button {
-      width: 100%;
-      text-align: left;
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      color: var(--text-color);
-      
-      &:hover {
-          background: var(--bg-hover-color);
-      }
-  }
-
-  img.provider-icon {
-  color: white;
-  stroke: 1px solid white;
-  }
-
-.dropbtn {
-  /* background-color: #283428; */
-  color: var(--text-color);
-  background: var(--bg-gradient-right);
-  padding: 4px;
-  font-size: 16px;
-  border: none;
-  cursor: pointer;
-  border-radius: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 50px;
-  height: 50px;
-  padding: 0.5rem;
-  /* border: 2px solid #506262; */
-  transition: all 0.3s ease-in-out;
-  overflow: hidden;
-  user-select: none;
-  position: relative;
-
-  
-    .provider-icon {
-      width: 30px;
-      height: 30px;
-      transition: all 0.3s ease-in-out;
-
-  }
-}
-
-.dropbtn.hovered {
-  width: 300px;
-  padding-left: 15px;
-  padding-right: 15px;
-  justify-content: space-between;
-
-  .provider-icon {
-      width: 24px;
-      height: 24px;
-  }
-}
-
-  .model-name {
-    display: none;
-    margin-right: 10px;
-    white-space: nowrap;
-  }
-
-  .dropbtn.hovered .model-name {
-    display: inline;
-  }
-
-  .dropdown {
-    position: relative;
-    display: flex;
-    flex-direction: column-reverse;
-    transform-origin: bottom center; /* Adjust the transition origin */
-
-  }
-
-  .dropdown {
-    position: relative;
-    display: flex;
-    transform-origin: bottom center;
-}
-
-.dropdown-content {
-    display: none;
-    position: absolute;
-    left: 0.5rem;
-    bottom: 0;
-    backdrop-filter: blur(20px);
-    background-color: var(--bg-color);
-    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-    padding: 10px;
-    border-radius: 10px;
-    width: 300px;
-}
-
-.provider-section {
-    display: flex;
-    flex-direction: column-reverse; /* Reverse the order of providers */
-    gap: 8px;
-}
-
-button {
-    background-color: transparent;
-    color: rgb(116, 116, 116);
-    border: none;
-    transition: all 0.3s ease-in-out;
-    border-radius: 10px;
     display: flex;
     align-items: center;
-    justify-content: left;
-    width: 100%;
-    padding: 8px;
-    cursor: pointer;
-}
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(255, 165, 0, 0.1);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: orange;
+  }
 
-button:hover {
-    background-color: #21201d;
-    color: white;
-    border-radius: 10px;
-}
-
-button.provider-selected {
-    background-color: #1d6bff; /* Highlight active provider */
-    color: white;
-}
-
-button.model-selected {
-    background-color: #1dff1d; /* Highlight active model */
-    color: white;
-}
-
-.model-list {
+  .provider-status {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-    padding: var(--spacing-md);
-    border-radius: var(--radius-m);
-    // border: 1px solid var(--primary-color);
-    background: var(--bg-gradient-right);
-}
-
-.dropdown:hover .dropdown-content {
-    display: flex;
-}
-
-  .dropdown-item {
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-  }
-
-  .dropdown-item2 {
-    padding: 12px 16px;
-    text-decoration: none;
-    display: flex;
-    position: relative;
-    left: 200px;
-    background-color: red;
-  }
-
-  .dropdown:hover .dropdown-content {
-    display: block;
-    right: 0;
-  }
-
-  .dropdown:hover .dropbtn {
-    background-color: #050705;
-  }
-
-  .dropdown:hover .dropbtn.active {
-    background-color: red;
-  }
-
-  button {
-    background-color: transparent;
-    color: rgb(116, 116, 116);
-    border: none;
-    transition: all 0.3s ease-in-out;
-    border-radius: 10px;
-    justify-content: left;
     align-items: center;
-    width: 100%;
+    gap: 0.5rem;
   }
 
-  button:hover {
-    background-color: #21201d;
-    color: white;
-    border-radius: 10px;
+  .status-icon {
+    &.success { color: var(--success-color); }
+    &.error { color: var(--error-color); }
   }
-
-  @media (max-width: 768px) {
-  .dropbtn.hovered {
-    width: 90vw;
-    padding-left: 15px;
-    padding-right: 15px;
-    justify-content: space-between;
-
-  }
-}
-
-    .model-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 8px;
-    }
-
-    .dropdown-item {
-        padding: 8px 12px;
-        border-radius: 8px;
-        background: var(--item-bg);
-        cursor: pointer;
-    }
-
-    .key-statuses {
-      display: flex;
-      flex-direction: row;
-      gap: 0.5rem;
-    }
-    
-    .provider-status {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-    
-    .status-icon {
-      &.success { color: var(--success-color); }
-      &.error { color: var(--error-color); }
-    }
-
-    .provider-button {
-      display: flex;
-      flex-direction: row;
-      gap: var(--spacing-md);
-    }
-    .provider-snippet {
-      font-size: var(--font-size-s);
-    }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { fade, fly, slide } from 'svelte/transition';
     import { pb } from '$lib/pocketbase';
-    import { Camera, LogOutIcon, Languages, Palette, X} from 'lucide-svelte';
+    import { Camera, LogOutIcon, Languages, Palette, X, Bone} from 'lucide-svelte';
     import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key} from 'lucide-svelte';
     import { onMount, tick } from 'svelte';
 
@@ -48,7 +48,8 @@
       { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
       { name: 'Laser Focus', value: 'focus', icon: Focus },
       { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-      { name: 'Turbo Mode', value: 'turbo', icon: Gauge }
+      { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+      { name: 'Bone Tone', value: 'bone', icon: Bone }
     ];
 
 

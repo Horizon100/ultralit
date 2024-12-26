@@ -110,7 +110,7 @@
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  width: auto;
+  width: 100%;
   justify-content: right;
   gap: var(--spacing-xs);
   // padding: var(--spacing-sm);
@@ -184,6 +184,26 @@ button.tag.selected {
   opacity: 1;
 }
 
+.tag.selected .edit-tag {
+  opacity: 0.7;
+  color: var(--text-color);
+  pointer-events: auto;
+  display: inline-flex;
+}
+
+span.delete-tag-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 2px;
+  color: transparent;
+  opacity: 0.7;
+  transition: all ease 0.3s;
+  display: inline-flex;
+  position: relative;
+}
+
   .assigned-tags {
     display: flex;
     flex-wrap: wrap;
@@ -236,10 +256,10 @@ button.tag.selected {
     border: none;
     cursor: pointer;
     font-size: 14px;
-    color: rgb(255, 255, 255);
+    color: var(--secondary-color);
     transition: all 0.1s ease;
     background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255, 255, 255, 0) 50%);
-    
+    user-select: none;
     &:hover {
       opacity: 0.8;
       transform: scale(1.1);
@@ -248,9 +268,13 @@ button.tag.selected {
     &.selected {
       box-shadow: 0 0 0 2px rgb(51, 121, 105);
       font-weight: bolder;
+      font-size: 20px;
       width: auto;
       height: auto;
-      color: white;
+      color: var(--text-color);
+
+      border-color: var(--tertiary-color);
+      background: var(--bg-gradient-right);
     }
   }
 
@@ -290,7 +314,6 @@ button.tag.selected {
     gap: 20px;
   }
 
-  .edit-tag,
   .save-tag-button,
   .delete-tag-button {
     background: none;
@@ -507,17 +530,32 @@ span.new-button {
 
 
 
-.edit-tag,
+.edit-tag {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 2px;
+  color: transparent;
+  opacity: 0;
+  transition: all ease 0.3s;
+  display: none;
+  position: relative;
+  pointer-events: none;
+}
 span.delete-tag-button {
   background: none;
   border: none;
   cursor: pointer;
   padding: 2px;
   margin-left: 2px;
-  color: var(--text-color);
+  color: transparent;
   opacity: 0.7;
   transition: all ease 0.3s;
+  display:inline-flex;
+  position: relative;
 }
+
 
 span.delete-tag-button:hover {
   color: rgb(255, 0, 0);
@@ -601,4 +639,10 @@ span.new-button {
 
 
 }
+
+@keyframes pulsate {
+    0% { box-shadow: 0 0 0 var(--secondary-color), 0 0 4px var(--tertiary-color); }
+    
+    100% { box-shadow: 0 0 1px var(--secondary-color), 0 0 6px var(--bg-color); }
+  }
 </style>

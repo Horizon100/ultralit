@@ -228,7 +228,14 @@ export default {
                 icon: Gauge,
                 description: 'Speed up your workflow',
                 dummyContent: 'Faster than the speed of light'
-              }
+              },
+              {
+                name: 'Bone',
+                value: 'bone',
+                icon: Gauge,
+                description: 'Speed up your workflow',
+                dummyContent: 'Faster than the speed of light'
+              },
         ]
     },
 
@@ -258,7 +265,8 @@ export default {
         placeholder: "Message Vrazum",
         loading: "Loading messages...",
         messagecount: "messages",
-        prompts: "Assistants"
+        prompts: "Prompts",
+        models: "Models",
     },
 
     profile: {

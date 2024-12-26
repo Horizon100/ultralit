@@ -103,6 +103,19 @@ $themes: (
     primary-color: #f1c40f,
     secondary-color: #f39c12,
     tertiary-color: #d35400,
+  ),
+  bone: (
+    bg-color: #92dcdc,
+    bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
+    bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
+    bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
+    bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
+    text-color: #000000,
+    placeholder-color: rgb(0, 0, 0, 0.5),
+    font-family: 'Century Gothic, sans-serif',
+    primary-color: #f1c40f,
+    secondary-color: #f39c12,
+    tertiary-color: #d35400,
   )
 );
 

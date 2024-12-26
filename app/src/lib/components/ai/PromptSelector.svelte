@@ -13,17 +13,75 @@ let isOpen = false;
 let isButtonActive = false;  
 let isHovered = false;
 
-  const dispatch = createEventDispatcher<{
-    select: PromptType;
-  }>();
 
-  function handlePromptSelection(promptType: PromptType) {
+
+
+
+const dispatch = createEventDispatcher<{
+  select: PromptType;
+  auxclick: PromptType;  // Add this type
+}>();
+
+function handleMouseDown(event: MouseEvent) {
+  console.log("Mouse button pressed:", event.button);
+  if (event.button === 1) { // Middle button
+    event.preventDefault();
+    console.log("Middle button press detected");
+    if (selectedPrompt) {
+      dispatch('select', selectedPrompt);
+      isButtonActive = true;
+    }
+  }
+}
+
+function handleMouseUp(event: MouseEvent) {
+  console.log("Mouse button released:", event.button);
+  if (event.button === 1) {
+    isButtonActive = false;
+  }
+}
+function handleAuxClick(event: MouseEvent) {
+  if (event.button === 1) {
+    event.preventDefault();
+    console.log("PromptSelector: Middle click detected");
+    if (selectedPrompt) {
+      console.log("PromptSelector: Dispatching auxclick with prompt:", selectedPrompt);
+      dispatch('auxclick', selectedPrompt);  // Dispatch auxclick instead of select
+      isButtonActive = true;
+    }
+  }
+}
+
+function handleContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  console.log("Right click detected");
+  if (selectedPrompt) {
+    console.log("Dispatching select with prompt:", selectedPrompt);
+    dispatch('select', selectedPrompt);
+    isButtonActive = true;
+  }
+}
+
+function handleMouseLeave() {
+  isButtonActive = false;
+  closeDropdown();
+  isHovered = false;
+}
+
+
+function closeDropdown() {
+  isOpen = false;
+}
+
+
+
+function handlePromptSelection(promptType: PromptType) {
   selectedPrompt = promptType;
   promptStore.set(promptType);
   selectedIcon = availablePrompts.find(option => option.value === promptType)?.icon;
   isOpen = false;
   dispatch('select', promptType);
-}
+  }
 
   // Watch for changes in store
   $: {
@@ -41,11 +99,11 @@ let isHovered = false;
     console.log('Dropdown toggled, isOpen:', isOpen);
   }
 
-  function closeDropdown() {
-    if (!isOpen) {  
-      isOpen = false;
-    }
-  }
+  // function closeDropdown() {
+  //   if (!isOpen) {  
+  //     isOpen = false;
+  //   }
+  // }
 
   // Watch for changes in selectedPrompt
   $: {
@@ -65,17 +123,20 @@ $: selectedPromptLabel = availablePrompts.find(option => option.value === select
   on:mouseleave={() => { closeDropdown(); isHovered = false; }}
   role="menu"
 >
-  <button 
-    class="dropbtn"
-    class:active={isButtonActive} 
-    class:hovered={isHovered}
-    on:click={toggleDropdown}
-  >
-    <span class="prompt-name">{selectedPromptLabel}</span>
-    {#if selectedIcon}
-      <svelte:component this={selectedIcon} size={40} />
-    {/if}
-  </button>
+<button 
+  class="dropbtn"
+  class:active={isButtonActive} 
+  class:hovered={isHovered}
+  on:click={toggleDropdown}
+  on:mousedown|preventDefault={handleMouseDown}
+  on:mouseup|preventDefault={handleMouseUp}
+  on:mouseleave={handleMouseLeave}
+>
+  <span class="prompt-name">{selectedPromptLabel}</span>
+  {#if selectedIcon}
+    <svelte:component this={selectedIcon} size={40} />
+  {/if}
+</button>
   {#if isOpen}
     <div class="dropdown-content" transition:fly={{ y: 10, duration: 200 }}>
       {#each availablePrompts as { value, label, icon: Icon }}
@@ -110,17 +171,24 @@ $: selectedPromptLabel = availablePrompts.find(option => option.value === select
     cursor: pointer;
     border-radius: 20px;
     display: flex;
+    position: relative;
     justify-content: center;
     align-items: center;
     width: 50px;
     height: 50px;
     padding: 0.5rem;
     /* border: 2px solid #506262; */
-    transition: all 0.3s ease-in-out;
+    transition: transform 0.2s ease;
     overflow: hidden;
     user-select: none;
   }
 
+
+
+
+.dropbtn.active {
+  transform: scale(0.9);
+}
 
     .dropbtn.hovered {
       width: 300px;
@@ -145,6 +213,11 @@ $: selectedPromptLabel = availablePrompts.find(option => option.value === select
     display: flex;
     
   }
+
+  .dropbtn.pressing {
+  transition: transform 1.4s linear;
+  transform: scale(0.95);
+}
 
   .dropdown-content {
       display: none;
@@ -180,6 +253,7 @@ $: selectedPromptLabel = availablePrompts.find(option => option.value === select
   .dropdown:hover .dropbtn.active {
     background-color: red;
   }
+
 
   button {
       background-color: transparent;

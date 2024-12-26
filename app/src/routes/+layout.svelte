@@ -17,6 +17,7 @@
     import { t } from '$lib/stores/translationStore';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import  '$lib/stores/threadsStore';
+	export let onStyleClick: (() => void) | undefined = undefined;
 
 
     let showLanguageNotification = false;
@@ -24,9 +25,14 @@
 	let placeholderText = '';
 	let showThreadList = true;
 
-	function handlePromptSelect(event) {
-    console.log('Layout received selection:', event.detail);
-  }
+	function handlePromptSelect(event: CustomEvent<any>) {
+		console.log('Layout: Received promptSelect:', event.detail);
+	}
+
+	function handlePromptAuxclick(event: CustomEvent<any>) {
+		console.log('Layout: Received promptAuxclick:', event.detail);
+		handlePromptSelect(event);
+	}
 
   function handleThreadList(event) {
     showThreadList = event.detail;
@@ -199,11 +205,12 @@
         </nav>
     </header>
 	<Sidenav 
-    on:promptSelect={handlePromptSelect}
-	on:threadListToggle={() => {
-		// Handle the toggle here
+		on:promptSelect={handlePromptSelect}
+		on:promptAuxclick={handlePromptAuxclick}
+		on:threadListToggle={() => {
 		threadsStore.toggleThreadList();
-	  }}  />
+		}}  
+	/>
 
 
 
