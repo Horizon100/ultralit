@@ -270,4 +270,40 @@
     &.success { color: var(--success-color); }
     &.error { color: var(--error-color); }
   }
+
+  @media (max-width: 768px) {
+
+    .selector-container {
+      height: auto;
+    }
+
+    .providers-list {
+      display: flex;
+      flex-direction: row;
+      height: auto;
+      gap: var(--spacing-sm);
+    }
+
+    .provider-item {
+      height: auto;
+    }
+
+    .model-list {
+      position: relative;
+      z-index: 1000;
+      margin-top: var(--spacing-xs);
+      padding: var(--spacing-sm);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      background: var(--bg-gradient-right);
+      border-radius: var(--radius-m);
+      max-height: 300px;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+    }
+
+
+}
+
 </style>

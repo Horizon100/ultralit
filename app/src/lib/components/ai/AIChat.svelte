@@ -2731,7 +2731,7 @@ span.new-button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 61vh;
+  height: 50vh;
   margin-bottom: 20px;
   backdrop-filter: blur(20px);
   background: var(--bg-gradient-left);
@@ -3933,7 +3933,7 @@ span.delete-thread-button {
   @media (max-width: 768px) {
   .threads-container {
     flex-direction: column;
-
+    margin-left: 0;
   }
 
 
@@ -3982,15 +3982,43 @@ span.delete-thread-button {
       justify-content: center;
     }
   .thread-list {
-    position: fixed;
-    top: 60px;
-
-
-
-
+    position: relative;
+    top: 0;
+    height: auto;
+    align-items: center;
+    justify-content: center;
+    // margin-bottom: 4rem;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     /* z-index: 1000; */
+  }
+
+  .section-content {
+    width: 80%;
+    padding: 0;
+  }
+
+  .thread-title {
+    font-size: 1.5rem;
+    font-style: bold;
+  }
+
+  .thread-group-header {
+    font-size: 2rem;
+  }
+
+  .group-title {
+    font-size: 1.5rem;
+    font-style: bold;
+
+  }
+
+  .group-title-active {
+    font-size: 3rem;
+  }
+
+  .thread-group {
+    padding: 1rem;
   }
 
   .thread-list-visible .thread-list {
@@ -4014,6 +4042,7 @@ span.delete-thread-button {
 .threads-container {
     /* background-color: red; */
     width: 100%;
+    
 
   }
 .thread-list {
@@ -4040,6 +4069,7 @@ span.delete-thread-button {
 
   .input-container {
     /* background-color: red; */
+    left: 0;
   }
     }
 

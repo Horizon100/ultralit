@@ -1,8 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { get } from 'svelte/store';
   import { MessageSquare, X, PanelLeftClose, PanelLeftOpen, Drill, NotebookTabs, 
            Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge, 
-		   Bone} from 'lucide-svelte';
+           Bone} from 'lucide-svelte';
   import { currentUser, pb } from '$lib/pocketbase';
   import { currentTheme } from '$lib/stores/themeStore';
   import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
@@ -17,7 +18,38 @@
   import { tick } from 'svelte';
   import Profile from '$lib/components/ui/Profile.svelte';
   import Auth from '$lib/components/auth/Auth.svelte';
-	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+  import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+  import type { SlideParams } from 'svelte/transition';
+
+
+  let showLanguageNotification = false;
+  let selectedLanguageName = '';
+  let isStylesOpen = false;
+  let showThreadList: boolean;
+  let placeholderText = '';
+
+
+  let innerWidth: number;
+
+  let showAuth = false;
+  let showProfile = false;
+  let showStyles = false;
+  let currentStyle = 'default';
+
+  function getRandomQuote() {
+    const quotes = $t('extras.quotes');
+    return quotes[Math.floor(Math.random() * quotes.length)];
+  }
+  
+
+
+
+  $: placeholderText = getRandomQuote();
+  $: showThreadList = $threadsStore.showThreadList;
+  $: currentPath = $page.url.pathname;
+  $: showBottomButtons = currentPath === '/';
+  $: isNarrowScreen = innerWidth <= 768;
+
 
   const dispatch = createEventDispatcher<{
     promptSelect: any;
@@ -25,38 +57,21 @@
     threadListToggle: void;
   }>();
 
-  export let onStyleClick: () => void;
+  const styles = [
+    { name: 'Daylight Delight', value: 'default', icon: Sun },
+    { name: 'Midnight Madness', value: 'dark', icon: Moon },
+    { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+    { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+    { name: 'Laser Focus', value: 'focus', icon: Focus },
+    { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+    { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+    { name: 'Bone Tone', value: 'bone', icon: Bone }
+  ];
 
-  let showLanguageNotification = false;
-  let selectedLanguageName = '';
-  let isStylesOpen = false;
-
-  let placeholderText = '';
-
-  function getRandomQuote() {
-		const quotes = $t('extras.quotes');
-		return quotes[Math.floor(Math.random() * quotes.length)];
-	}
-	$: placeholderText = getRandomQuote();
-
-  $: currentPath = $page.url.pathname;
-  $: showBottomButtons = currentPath === '/';
-  
-  let showAuth = false;
-  let showProfile = false;
-	let showStyles = false;
-  let currentStyle = 'default';
-	const styles = [
-      { name: 'Daylight Delight', value: 'default', icon: Sun },
-      { name: 'Midnight Madness', value: 'dark', icon: Moon },
-      { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-      { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-      { name: 'Laser Focus', value: 'focus', icon: Focus },
-      { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-      { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-      { name: 'Bone Tone', value: 'bone', icon: Bone }
-
-    ];
+  // Handle style changes
+  function handleStyleClick() {
+    showStyles = !showStyles;
+  }
 
   async function handleLanguageChange() {
     showLanguageNotification = true;
@@ -80,25 +95,24 @@
   }
 
   function toggleThreadList() {
+    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
     threadsStore.toggleThreadList();
-    // dispatch('threadListToggle', showThreadList);
     dispatch('threadListToggle');
-
   }
 
   function toggleStyles() {
-        showStyles = !showStyles;
-    }
-    function handleStyleClose() {
-        showStyles = false;
-    }
+    showStyles = !showStyles;
+  }
 
+  function handleStyleClose() {
+    showStyles = false;
+  }
 
-    async function handleStyleChange(event: CustomEvent) {
-        const { style } = event.detail;
-        await currentTheme.set(style);
-        showStyles = false;
-    }
+  async function handleStyleChange(event: CustomEvent) {
+    const { style } = event.detail;
+    await currentTheme.set(style);
+    showStyles = false;
+  }
 
   function toggleAuthOrProfile() {
     if ($currentUser) {
@@ -111,22 +125,22 @@
   }
 
   function handleAuthSuccess() {
-        showAuth = false;
-    }
+    showAuth = false;
+  }
 
-    function handleLogout() {
-        showProfile = false;
-        showAuth = false;
-        goto('/');
-    }
+  function handleLogout() {
+    showProfile = false;
+    showAuth = false;
+    goto('/');
+  }
 
-	function handleOverlayClick(event: MouseEvent) {
-        if (event.target === event.currentTarget) {
-            showAuth = false;
-            showProfile = false;
-            showStyles = false;
-        }
+  function handleOverlayClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      showAuth = false;
+      showProfile = false;
+      showStyles = false;
     }
+  }
 
   function navigateTo(path: string) {
     goto(path);
@@ -135,11 +149,9 @@
   function handlePromptSelect(event: CustomEvent) {
     dispatch('promptSelect', event.detail);
   }
-
-
 </script>
 
-<div class="sidenav" transition:slide={{ x: -200, duration: 300}}>
+<div class="sidenav" transition:slide={{ duration: 300 }}>
   <div class="top-buttons">
     <!-- Authentication/Profile Button -->
     <button class="nav-button auth-button" on:click={toggleAuthOrProfile}>
@@ -159,61 +171,68 @@
     </button>
 
     <!-- Navigation Buttons -->
-    <button 
-      class="nav-button" 
-      class:active={currentPath === '/'} 
-      on:click={() => navigateTo('/')}
-    >
-      <MessageSquare size={24} />
-    </button>
-    <button 
-      class="nav-button" 
-      class:active={currentPath === '/launcher'}
-      on:click={() => navigateTo('/launcher')}
-    >
-      <Drill size={24} />
-    </button>
-    <button 
-      class="nav-button" 
-      class:active={currentPath === '/notes'}
-      on:click={() => navigateTo('/notes')}
-    >
-      <NotebookTabs size={24} />
-    </button>
-    {#if $currentUser}
-      <button class="nav-button">
-        <TimeTracker />
+     
+    <div class="navigation-buttons" class:hidden={isNarrowScreen}>
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/'} 
+        on:click={() => navigateTo('/')}
+      >
+        <MessageSquare size={24} />
       </button>
-    {/if}
-
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/launcher'}
+        on:click={() => navigateTo('/launcher')}
+      >
+        <Drill size={24} />
+      </button>
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/notes'}
+        on:click={() => navigateTo('/notes')}
+      >
+        <NotebookTabs size={24} />
+      </button>
+    </div>
   </div>
 
   <div class="middle-buttons">
     
   </div>
+
+  
   
   <div class="bottom-buttons">
     {#if showBottomButtons}
-        <!-- Language Toggle -->
-        <button class="nav-button" on:click={handleLanguageChange}>
-          <Languages size={24} />
-          <span class="language-code">{$currentLanguage.toUpperCase()}</span>
+      {#if $currentUser}
+        <button class="nav-button">
+          <TimeTracker />
         </button>
-    
-        <!-- Theme Toggle -->
-        <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
-          <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
+      {/if}
+      <!-- Language Toggle -->
+      <button class="nav-button" on:click={handleLanguageChange}>
+        <Languages size={24} />
+        <span class="language-code">{$currentLanguage.toUpperCase()}</span>
       </button>
+  
+      <!-- Theme Toggle -->
+      <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
+        <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
+    </button>
       <!-- <ModelSelector /> -->
       <!-- <PromptSelector on:select={handlePromptSelect} /> -->
-      <button class="thread-toggle" on:click={toggleThreadList}>
-        {#if $threadsStore.showThreadList}
+      <!-- <button 
+        class="thread-toggle" 
+        on:click={toggleThreadList}
+      >
+        {#if showThreadList}
           <PanelLeftClose size={24} />
         {:else}
           <PanelLeftOpen size={24} />
         {/if}
-      </button>
-    {/if}
+    </button> -->
+{/if}
   </div>
 </div>
 
@@ -242,16 +261,19 @@
     {/if}
 
     {#if showProfile}
-        <div class="profile-overlay" on:click={handleOverlayClick}  transition:fly={{ y: -200, duration: 300}} >
-            <div class="profile-content" transition:fly={{ y: -20, duration: 300}} >
-                <button class="close-button" transition:fly={{ y: -200, duration: 300}}  on:click={() => showProfile = false}>
-                    <X size={24} />
-                </button>
-                <Profile user={$currentUser} onClose={() => showProfile = false} on:logout={handleLogout} />
-            </div>
+      <div class="profile-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300 }}>
+        <div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+          <button class="close-button" transition:fly={{ y: -200, duration: 300 }} on:click={() => showProfile = false}>
+            <X size={24} />
+          </button>
+          <Profile 
+            user={$currentUser} 
+            onClose={() => showProfile = false}
+            onStyleClick={handleStyleClick}
+          />
         </div>
+      </div>
     {/if}
-
     {#if showLanguageNotification}
     <div class="language-overlay" transition:fade={{ duration: 300 }}>
         <div class="language-notification" transition:fade={{ duration: 300 }}>
@@ -278,6 +300,9 @@
     </div>
 {/if}
 
+<svelte:window bind:innerWidth />
+
+
 <style>
   .sidenav {
     display: flex;
@@ -300,6 +325,17 @@
   .sidenav:hover {
     backdrop-filter: blur(10px);
   }
+
+  .navigation-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .navigation-buttons.hidden {
+    display: none;
+  }
+
 	.auth-overlay {
         position: fixed;
         top: 0;
@@ -516,7 +552,7 @@
     width: 50px;
     height: 50px;
     padding: 0.5rem;
-    transition: all 0.3s ease-in-out;
+    transition: all 0.2s ease-in-out;
     overflow: hidden;
     user-select: none;
   }
@@ -534,12 +570,12 @@
   .nav-button:hover,
   .thread-toggle:hover {
     box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-    transform: scale(1.1);
+    transform: scale(1.2);
   }
 
   :global(.sidenav .nav-button svg),
   :global(.sidenav .thread-toggle svg) {
-    transition: transform 0.3s ease;
+    transition: transform 0.1s ease;
   }
 
   :global(.sidenav .nav-button:hover svg),
@@ -592,4 +628,47 @@
 
 
 	}
+
+  @media (max-width: 768px) {
+  .sidenav {
+    flex-direction: row;
+      height: auto;
+      width: 100%;
+      bottom: auto;
+      padding: 0.5rem;
+      background: var(--bg-gradient-right);
+      backdrop-filter: blur(10px);
+    }
+
+    .navigation-buttons {
+      flex-direction: row;
+    }
+
+    .bottom-buttons {
+      flex-direction: row;
+      margin: 0;
+      gap: 8px;
+    }
+
+  .top-buttons {
+      flex-direction: row;
+      margin: 0;
+      gap: 8px;
+    }
+
+    .nav-button,
+    .thread-toggle,
+    .avatar-container {
+      width: 40px;
+      height: 40px;
+      padding: 0.3rem;
+    }
+
+    .nav-button:hover,
+    .thread-toggle:hover {
+      transform: scale(1.1);
+    }
+}
+
 </style>
+

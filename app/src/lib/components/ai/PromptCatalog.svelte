@@ -106,18 +106,21 @@
         class:hidden={isFullScreen && selectedPrompt !== value}
         on:click|stopPropagation={() => handlePromptSelection(value)}
       >
+
         {#if isFullScreen && selectedPrompt === value}
           <button transition:fade={{ x: -100, duration: 300, delay: 200 }}
             class="close-button" 
             on:click={handleClose}
           >
+          
             <X/>
           </button>
         {/if}
         <div class="content-wrapper" class:fullscreen={isFullScreen && selectedPrompt === value} >
           <div class="content-header" >
-            <Icon size={isFullScreen && selectedPrompt === value ? 20 : 20} />
             <h3>{label}</h3>
+
+            <Icon size={isFullScreen && selectedPrompt === value ? 20 : 20} />
 
           </div>
           {#if isFullScreen && selectedPrompt === value && youtubeUrl}
@@ -141,7 +144,10 @@
           {/if}
 
         </div>
+        <h3>{label}</h3>
+
       </div>
+      
     {/each}
   </div>
 </div>
@@ -213,6 +219,8 @@
     border-radius: 20px;
     text-align: center;
     background: var(--bg-gradient-r);
+    flex: 1 1 calc(100% - 1rem); /* Adjust to take up more space on smaller screens */
+
     cursor: pointer;
     position: relative;
     user-select: none;
@@ -242,7 +250,7 @@
       margin: 0;
       background: var(--bg-gradient-r);
       z-index: 2;
-      border: 1px solid var(--tertiary-color);
+      border: 1px solid var(--bg-color);
       color: var(--text-color);
       opacity: 1;
       cursor: default; 
@@ -262,7 +270,7 @@
   }
 
   .prompt-grid-item.active {
-    background: var(--secondary-color);
+    background: var(--bg-gradient-left);
     backdrop-filter: blur(20px);
     opacity: 1;
     
@@ -429,6 +437,10 @@
       height: 84%;
 
     }
+
+    // .content-header h3 {
+    //   font-size: 1rem;
+    // }
     .prompt-grid-item {
       flex: 1 1 calc(50% - 1rem); /* Adjust to take up more space on smaller screens */
     }
@@ -447,6 +459,8 @@
       border-radius: 0;
     }
 
+
+
     .content-wrapper.fullscreen {
       h3 {
         font-size: 2rem;
@@ -456,5 +470,19 @@
     .description {
       font-size: 1rem;
     }
+
+    .content-wrapper {
+    width: 100%;
   }
+
+  .prompt-grid-item.active {
+    background: var(--secondary-color);
+    backdrop-filter: blur(20px);
+    opacity: 1;
+    width: 100%;
+    
+  }
+  }
+
+
 </style>

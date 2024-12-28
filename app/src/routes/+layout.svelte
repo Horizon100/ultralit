@@ -17,13 +17,15 @@
     import { t } from '$lib/stores/translationStore';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import  '$lib/stores/threadsStore';
+	import { threadsStore } from '$lib/stores/threadsStore';
 	export let onStyleClick: (() => void) | undefined = undefined;
 
 
     let showLanguageNotification = false;
     let selectedLanguageName = '';
 	let placeholderText = '';
-	let showThreadList = true;
+
+    $: showThreadList = $threadsStore.showThreadList;
 
 	function handlePromptSelect(event: CustomEvent<any>) {
 		console.log('Layout: Received promptSelect:', event.detail);
@@ -34,10 +36,10 @@
 		handlePromptSelect(event);
 	}
 
-  function handleThreadList(event) {
-    showThreadList = event.detail;
-    console.log('Thread list visibility:', showThreadList);
-  }
+    function handleThreadListToggle() {
+        threadsStore.toggleThreadList();
+    }
+
 	function getRandomQuote() {
 		const quotes = $t('extras.quotes');
 		return quotes[Math.floor(Math.random() * quotes.length)];
@@ -57,10 +59,11 @@
 
 
 
-    $: isNarrowScreen = innerWidth <= 1000;
+    $: isNarrowScreen = innerWidth <= 768;
 
-    onMount(async () => {
-		currentTheme.initialize();
+	onMount(async () => {
+        currentTheme.initialize();
+        await initializeLanguage();
 
         const unsubscribe = navigating.subscribe((navigationData) => {
             if (navigationData) {
@@ -71,8 +74,6 @@
                 }, 300);
             }
         });
-
-        await initializeLanguage();
 
         return () => {
             unsubscribe();
@@ -205,12 +206,13 @@
         </nav>
     </header>
 	<Sidenav 
-		on:promptSelect={handlePromptSelect}
-		on:promptAuxclick={handlePromptAuxclick}
-		on:threadListToggle={() => {
-		threadsStore.toggleThreadList();
-		}}  
+	on:promptSelect={handlePromptSelect}
+	on:promptAuxclick={handlePromptAuxclick}
 	/>
+
+	<!-- on:threadListToggle={() => {
+		threadsStore.toggleThreadList();
+	}} -->
 
 
 

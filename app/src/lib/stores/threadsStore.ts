@@ -25,6 +25,11 @@ function createThreadsStore() {
     namingThreadId: null,
     // tags: []
   });
+
+  const { subscribe, update } = store;
+
+  
+
   
   if (browser) {
     store.subscribe(state => {
@@ -51,7 +56,7 @@ function createThreadsStore() {
   }, 300);
   
   return {
-    subscribe: store.subscribe,
+    subscribe,
     loadThreads: async (): Promise<Threads[]> => {
       try {
         const threads = await fetchThreads();
@@ -83,29 +88,19 @@ function createThreadsStore() {
       }
     },
     toggleThreadList: () => {
-      store.update(state => ({
-        ...state,
-        showThreadList: !state.showThreadList
-      }));
+      update(state => {
+        const newState = {
+          ...state,
+          showThreadList: !state.showThreadList
+        };
+        console.log('ThreadStore - Toggling thread list:', { 
+          from: state.showThreadList, 
+          to: newState.showThreadList 
+        });
+        return newState;
+      });
     },
-    // addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
-    //   try {
-    //     const newThread = await createThread(threadData);
-    //     store.update(state => ({
-    //       ...state,
-    //       threads: [...state.threads, newThread],
-    //       isThreadsLoaded: true,
-    //       updateStatus: 'Thread added successfully'
-    //     }));
-    //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    //     return newThread;
-    //   } catch (error) {
-    //     console.error('Error adding thread:', error);
-    //     store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
-    //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    //     return null;
-    //   }
-    // },
+
 
   addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
     try {
