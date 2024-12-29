@@ -140,6 +140,7 @@
     <div class="last-active">
       {$t('dashboard.nameActive')} {lastActive ? formatDate(lastActive.toString()) : 'Never'}
     </div>
+    
   </div>
   
   <style lang="scss">
@@ -147,11 +148,11 @@
       background: var(--bg-gradient);
       backdrop-filter: blur(10px);
       border-radius: 20px;
-      padding: 16px;
+      padding: 2rem;
       display: flex;
       flex-direction: column;
       gap: 20px;
-      width: 100%;
+      width: auto;
       position: relative;
       overflow: hidden;
       box-shadow: 
@@ -234,4 +235,6 @@
       text-align: right;
       font-size: 0.9em;
     }
+
+    
   </style>

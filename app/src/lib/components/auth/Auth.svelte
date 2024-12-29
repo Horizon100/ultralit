@@ -7,6 +7,7 @@
     import Terms from '$lib/components/overlays/Terms.svelte';
     import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
     import { t } from '$lib/stores/translationStore';
+    import { spring } from 'svelte/motion';
 
 
     let email: string = '';
@@ -14,12 +15,66 @@
     let errorMessage: string = '';
     let avatarUrl: string | null = null;
     let showProfileModal = false;
-
-    const dispatch = createEventDispatcher();
-
     let showTermsOverlay = false;
     let showPrivacyOverlay = false;
 
+    let startY: number = 0;
+    let currentY: number = 0;
+    let isDragging: boolean = false;
+    const SWIPE_THRESHOLD = 100;
+
+    const yPosition = spring(0, {
+        stiffness: 0.15,  
+        damping: 0.7      
+    });
+
+    const dispatch = createEventDispatcher();
+
+    function handleTouchStart(event: TouchEvent) {
+        // Only initiate drag if touch starts in the top portion of the container
+        const touch = event.touches[0];
+        const element = event.currentTarget as HTMLElement;
+        const rect = element.getBoundingClientRect();
+        const touchY = touch.clientY - rect.top;
+        
+        // Only start dragging if touch begins in top 20% of container
+        if (touchY < rect.height * 0.2) {
+            startY = touch.clientY;
+            isDragging = true;
+            currentY = 0;
+        }
+    }
+    function handleTouchMove(event: TouchEvent) {
+        if (!isDragging) return;
+        
+        const deltaY = event.touches[0].clientY - startY;
+        if (deltaY > 0) {  // Only allow downward dragging
+            currentY = deltaY;
+            yPosition.set(deltaY);
+            
+            // Add opacity based on drag distance
+            const opacity = Math.max(0, 1 - (deltaY / window.innerHeight));
+            event.currentTarget.style.opacity = opacity.toString();
+        }
+        
+        event.preventDefault();
+    }
+
+    function handleTouchEnd() {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        if (currentY > SWIPE_THRESHOLD) {
+            // If dragged far enough down, close
+            yPosition.set(window.innerHeight, { hard: false }).then(() => {
+                dispatch('close');
+            });
+        } else {
+            // Spring back if not dragged far enough
+            yPosition.set(0);
+            event.currentTarget.style.opacity = '1';
+        }
+    }
     function openTermsOverlay() {
         showTermsOverlay = true;
     }
@@ -33,15 +88,7 @@
         showPrivacyOverlay = false;
     }
 
-    onMount(async () => {
-        const isConnected = await checkPocketBaseConnection();
-        if (!isConnected) {
-            errorMessage = 'Unable to connect to the server. Please try again later.';
-        }
-        if ($currentUser && $currentUser.id) {
-            updateAvatarUrl();
-        }
-    });
+
 
     function handleAuthSuccess() {
         dispatch('success');
@@ -98,9 +145,25 @@
     $: if ($currentUser && $currentUser.avatar) {
         updateAvatarUrl();
     }
+
+    onMount(async () => {
+        const isConnected = await checkPocketBaseConnection();
+        if (!isConnected) {
+            errorMessage = 'Unable to connect to the server. Please try again later.';
+        }
+        if ($currentUser && $currentUser.id) {
+            updateAvatarUrl();
+        }
+    });
 </script>
 
-<div class="auth-container">
+<div 
+    class="auth-container"
+    style="transform: translateY({$yPosition}px)"
+    on:touchstart={handleTouchStart}
+    on:touchmove={handleTouchMove}
+    on:touchend={handleTouchEnd}
+>
     {#if $currentUser}
         <div class="user-info">
             <div class="avatar-container">
@@ -116,12 +179,9 @@
                 <strong>{$currentUser.username || $currentUser.email}</strong>
             </p>
         </div>
-        <!-- <button class="logout-button" on:click={logout}>
-            <LogOutIcon size={24} />
-            <span>Logout</span>
-        </button> -->
     {:else}
         <div class="login-container">
+            <!-- Swipe indicator -->
             <div class="credentials">
                 <form on:submit|preventDefault class="auth-form">
                     <input
@@ -130,8 +190,6 @@
                         bind:value={email}
                         placeholder="Email"
                         required
-                        style="background-color: #444444;"
-
                     />
                     <input
                         class="input"
@@ -143,43 +201,23 @@
                     <div class="button-group">
                         <button class="button button-signup" on:click={signUp}>
                             <UserPlus size={16} />
-                            <span>
-                                {$t('profile.signup')}
-                            </span>
+                            <span>{$t('profile.signup')}</span>
                         </button>
                         <button class="button button-login" on:click={login}>
                             <LogIn size={16} />
-                            <span>
-                                {$t('profile.login')}
-                            </span>
+                            <span>{$t('profile.login')}</span>
                         </button>
                     </div>
                 </form>
-                <!-- <input
-                    class="code"
-                    type="password"
-                    bind:value={email}
-                    placeholder="Email"
-                    required
-                    style="background-color: #444444;"
-                /> -->
             </div>
-               
+            
             <div class="terms-privacy">
-                <span>
-                    {$t('profile.clause')}
-                </span>
-                <button on:click={openTermsOverlay}>
-                    {$t('profile.terms')}
-                </button>
+                <span>{$t('profile.clause')}</span>
+                <button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
                 <span>&</span>
-                <button on:click={openPrivacyOverlay}>
-                    {$t('profile.privacy')}
-                </button>
+                <button on:click={openPrivacyOverlay}>{$t('profile.privacy')}</button>
             </div>
-
         </div>
-
     {/if}
     
     {#if errorMessage}
@@ -205,6 +243,11 @@
 
 <style lang="scss">
 	@use "src/themes.scss" as *;    
+    *{
+        font-family: var(--font-family);
+
+    }
+
     
     .auth-container {
         display: flex;
@@ -223,7 +266,6 @@
         /* padding: 20px; */
         /* width: 100%; */
         /* width: 300px; */
-
         /* height: 40px; */
 
     }
@@ -243,6 +285,7 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         margin-top: 1rem;
+        user-select: none;
     }
 
     .terms-privacy button {
@@ -307,8 +350,9 @@
     }
 
 
+
     .auth-form input {
-        background-color: #3f9fff; /* Blue background color */
+        background-color: #8cff3f; /* Blue background color */
         color: #ffffff; /* White text color */
         /* height: 20px; Consistent height */
         padding: 10px; /* Padding for text */
@@ -429,7 +473,54 @@
     opacity: 1;
 }
 
-@media (max-width: 767px) {
+
+
+@media (max-width: 768px) {
+
+    .auth-container {
+        display: flex;
+        background-color: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);        
+        color: #ffffff;
+        border: 1px solid rgb(53, 53, 53);
+        /* border-radius: 20px; */
+        /* border-bottom-left-radius: 100%; */
+        /* border-bottom-right-radius: 100%; */
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        height: 90vh;
+        width: auto;
+        margin-top: 4rem;
+        margin-left: 1rem;
+        margin-right: 1rem;
+        border-radius: var(--radius-m);
+        /* height: 50px; */
+        // padding: 10px 20px;
+        /* width: 100%; */
+        /* padding: 20px; */
+        // /* width: 100%; */
+        /* width: 300px; */
+
+        /* height: 40px; */
+
+    }
+
+    .login-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: auto;
+    }
+
+    .credentials {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        
+    }
+
     .auth-form {
         display: flex;
         flex-direction: column;
@@ -437,7 +528,13 @@
         align-items: center;
         /* height: 100px; */
         gap: 3px;
+        width: 100%;
+        
 
+    }
+
+    form {
+        width: 100%;
     }
 
     .auth-form input {
@@ -447,10 +544,65 @@
         padding: 10px; /* Padding for text */
         border-radius: 5px; /* Rounded corners */
         border: 1px solid #34495e; /* Subtle border */
-        font-size: 16px; /* Readable font size */
-        width: 45%;
+        font-size: 1.5rem; /* Readable font size */
+        width: 100%;
         /* margin-left: 5%; */
         transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
+    }
+
+    .button-group {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 2px;
+        /* margin-left: 5%; */
+        /* margin-top: 10px; */
+        /* width: 100%; */
+        
+
+    }
+
+    .button-group .button {
+        /* background-color: #007bff; Button background color */
+        color: white; /* Button text color */
+        border: none; /* Remove default border */
+        border-radius: 4px; /* Rounded corners */
+        cursor: pointer; /* Pointer cursor on hover */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        transition: all 0.3s ease;
+    }
+
+    .terms-privacy {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        font-size: 1rem;
+        color: #ffffff;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .terms-privacy button {
+        background: none;
+        border: none;
+        color: #6fdfc4;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0;
+        margin: 0;
+        display: inline;
+        width: auto;
     }
 
 }

@@ -130,8 +130,8 @@
       cursor: pointer;
       color: white;
       position: absolute;
-      right: 1rem;
-      top: 2.1rem;
+      right: 0;
+      top: 0.5rem;
   
       &:hover {
         color: rgb(69, 171, 202);

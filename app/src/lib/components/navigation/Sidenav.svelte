@@ -156,7 +156,8 @@
     <!-- Authentication/Profile Button -->
     <button class="nav-button auth-button" on:click={toggleAuthOrProfile}>
       {#if $currentUser}
-      <div class="profile-button" transition:fly={{ y: -200, duration: 300}}>
+      
+      <div class="profile-button" in:fly="{{ y: -200, duration: 300}}" out:fly="{{ y:  200, duration: 300}}">
         <div class="avatar-container">
             {#if $currentUser.avatar}
               <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
@@ -172,29 +173,31 @@
 
     <!-- Navigation Buttons -->
      
-    <div class="navigation-buttons" class:hidden={isNarrowScreen}>
-      <button 
-        class="nav-button" 
-        class:active={currentPath === '/'} 
-        on:click={() => navigateTo('/')}
-      >
-        <MessageSquare size={24} />
-      </button>
-      <button 
-        class="nav-button" 
-        class:active={currentPath === '/launcher'}
-        on:click={() => navigateTo('/launcher')}
-      >
-        <Drill size={24} />
-      </button>
-      <button 
-        class="nav-button" 
-        class:active={currentPath === '/notes'}
-        on:click={() => navigateTo('/notes')}
-      >
-        <NotebookTabs size={24} />
-      </button>
-    </div>
+    {#if $currentUser}
+      <div class="navigation-buttons" class:hidden={isNarrowScreen}>
+        <button 
+          class="nav-button" 
+          class:active={currentPath === '/'} 
+          on:click={() => navigateTo('/')}
+        >
+          <MessageSquare size={24} />
+        </button>
+        <button 
+          class="nav-button" 
+          class:active={currentPath === '/launcher'}
+          on:click={() => navigateTo('/launcher')}
+        >
+          <Drill size={24} />
+        </button>
+        <button 
+          class="nav-button" 
+          class:active={currentPath === '/notes'}
+          on:click={() => navigateTo('/notes')}
+        >
+          <NotebookTabs size={24} />
+        </button>
+      </div>
+    {/if}
   </div>
 
   <div class="middle-buttons">
@@ -212,14 +215,16 @@
       {/if}
       <!-- Language Toggle -->
       <button class="nav-button" on:click={handleLanguageChange}>
-        <Languages size={24} />
-        <span class="language-code">{$currentLanguage.toUpperCase()}</span>
+        <!-- <Languages size={24} /> -->
+        <!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
+        <span>{$t('lang.flag')}</span>
+
       </button>
   
       <!-- Theme Toggle -->
-      <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
+      <!-- <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
         <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
-    </button>
+    </button> -->
       <!-- <ModelSelector /> -->
       <!-- <PromptSelector on:select={handlePromptSelect} /> -->
       <!-- <button 
@@ -273,6 +278,7 @@
           />
         </div>
       </div>
+
     {/if}
     {#if showLanguageNotification}
     <div class="language-overlay" transition:fade={{ duration: 300 }}>
@@ -312,9 +318,9 @@
     position: fixed;
     left: 0;
     top: 0;
-    height: 100%;
-    bottom: 1rem;
-    width: auto;
+    height: auto;
+    bottom: 0;
+    width: 3rem;
     align-items: left;
     z-index: 10;
     border-radius: 1rem;
@@ -349,6 +355,8 @@
         z-index: 1000;
     }
 
+
+
     .auth-container {
 		background-color: #fff;
 		padding: 2rem;
@@ -369,51 +377,41 @@
     }
   .profile-overlay {
         position: fixed;
-        top: 0;
+        top: 4rem;
         left: 0;
         width: 100%;
         height: 100%;
         display: flex;
 		flex-grow: 1;
-
-        justify-content: center;
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+    backdrop-filter: blur(5px);          
+    justify-content: center;
         align-items: center;
         z-index: 1002;
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
 		transition: all 0.3s ease;
     }
 
 	.profile-content {
     position: absolute;
-		width: 88%;
-		height: 83%;
-		top: 60px;
-    left: 60px;
+		width: auto;
+    height: auto;
+		top: 0;
+    /* right: 0; */
     /* background-color: #2b2a2a; */
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
     backdrop-filter: blur(40px);   
-		border: 1px solid var(--tertiary-color);
-    padding: 2rem;
-    border-radius: 50px;
-    /* width: 90%; */
+		border-bottom: 1px solid var(--secondary-color);
+    background: var(--bg-gradient-r);
+    border-bottom-left-radius: var(--radius-m);
+    border-bottom-right-radius: var(--radius-m);
+    width: 100%;
     /* max-width: 500px; */
     /* max-height: 90vh; */
     overflow: none;
 		transition: all 0.3s ease;
 
     }
-	.auth-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        /* background-color: rgba(0, 0, 0, 0.5); */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
+
 
     .profile-button {
 		display: flex;
@@ -483,13 +481,12 @@
       border: none;
       color: white;
       cursor: pointer;
-      background: none;
+      background: var(--secondary-color) !important;
       display: flex;
       justify-content: center;
       text-align: center;
       font-size: 1rem;
       border-radius: 8px;
-      padding: 5px;
       transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
 
     }
@@ -538,6 +535,7 @@
 
   .nav-button,
   .thread-toggle,
+  .close-button,
   .avatar-container {
     color: var(--text-color);
     background: var(--bg-gradient-right);
@@ -589,7 +587,8 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: var(--bg-color);
+        box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+        backdrop-filter: blur(40px);         
         display: flex;
         justify-content: center;
         align-items: center;
@@ -597,24 +596,23 @@
 	}
 
 	.language-notification {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: var(--primary-color);
-        color: var(--text-color);
-        padding: 20px;
-        border-radius: 10px;
-        z-index: 1000;
-		border: 1px solid var(--tertiary-color);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* background-color: var(--primary-color); */
+    color: var(--text-color);
+    padding: 20px;
+    border-radius: var(--radius-m);
+    z-index: 1000;
+		/* border: 1px solid var(--tertiary-color); */
 		display: flex;
 		flex-direction: column;
 		text-justify: center;
 		justify-content: center;
 		align-items: center;
 		gap: 2rem;
-		font-size: 24px;
-
+		font-size: 2rem;
     }
 
     .language-notification p {
@@ -625,9 +623,10 @@
 		font-size: 16px;
 		font-style: italic;
 		line-height: 1.5;
-
-
 	}
+
+
+
 
   @media (max-width: 768px) {
   .sidenav {
@@ -643,6 +642,7 @@
     .navigation-buttons {
       flex-direction: row;
     }
+    
 
     .bottom-buttons {
       flex-direction: row;
@@ -668,6 +668,24 @@
     .thread-toggle:hover {
       transform: scale(1.1);
     }
+
+    .profile-content {
+      position: absolute;
+      width: auto;
+      height: 83%;
+      top: 3rem;
+      /* background-color: #2b2a2a; */
+      box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+      backdrop-filter: blur(40px);  
+      border-bottom-left-radius: var(--radius-xl); 
+      border-bottom-right-radius: var(--radius-xl); 
+      /* width: 90%; */
+      /* max-width: 500px; */
+      /* max-height: 90vh; */
+      overflow: none;
+      transition: all 0.3s ease;
+    }
+
 }
 
 </style>

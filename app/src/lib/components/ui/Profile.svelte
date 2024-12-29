@@ -55,6 +55,13 @@
 
     const dispatch = createEventDispatcher();
 
+    function getRandomQuote() {
+        const quotes = $t('extras.quotes');
+        return quotes[Math.floor(Math.random() * quotes.length)];
+    }
+    
+
+
     function toggleEdit() {
         isEditing = !isEditing;
     }
@@ -108,29 +115,36 @@
         }
     }
 
-	async function handleLanguageChange() {
-		showLanguageNotification = false; // Reset notification state
-		await tick(); // Wait for the DOM to update
-		await new Promise(resolve => setTimeout(resolve, 10)); // Small delay to ensure reset
+    async function handleLanguageChange() {
+        showLanguageNotification = true;
 
-		const currentLang = $currentLanguage;
-		const currentIndex = languages.findIndex(lang => lang.code === currentLang);
-		const nextIndex = (currentIndex + 1) % languages.length;
-		const nextLanguage = languages[nextIndex];
+        const currentLang = $currentLanguage;
+        const currentIndex = languages.findIndex(lang => lang.code === currentLang);
+        const nextIndex = (currentIndex + 1) % languages.length;
+        const nextLanguage = languages[nextIndex];
 
-		await setLanguage(nextLanguage.code);
-		selectedLanguageName = nextLanguage.name;
-		
-		await tick(); // Wait for the DOM to update after language change
-		// await new Promise(resolve => setTimeout(resolve, 10)); // Delay before showing notification
-		
-		setTimeout(() => {
-			showLanguageNotification = true;
-		}, 0);
-		setTimeout(() => {
-			showLanguageNotification = false;
-		}, 600);
-	}
+        await setLanguage(nextLanguage.code);
+        selectedLanguageName = nextLanguage.name;
+        
+        await tick();
+        
+        setTimeout(() => {
+        showLanguageNotification = true;
+        }, 0);
+        setTimeout(() => {
+        showLanguageNotification = false;
+        }, 600);
+    }
+
+
+    async function handleStyleChange(event: CustomEvent) {
+        const { style } = event.detail;
+        await currentTheme.set(style);
+        showStyles = false;
+    }
+
+    $: placeholderText = getRandomQuote();
+
 
 	onMount(() => {
         currentTheme.initialize(); // Initialize theme when profile mounts
@@ -140,11 +154,6 @@
     });
 
 
-    async function handleStyleChange(event: CustomEvent) {
-        const { style } = event.detail;
-        await currentTheme.set(style);
-        showStyles = false;
-    }
     
 
 </script>
@@ -154,9 +163,15 @@
 
         
         <div class="settings-row">
+            <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+                <LogOutIcon size={24} />
+                <span>{$t('profile.logout')}</span>
+            </button>
             <button class="settings-button" on:click={handleLanguageChange}>
                 <Languages size={24} />
-                <span>{$currentLanguage.toUpperCase()}</span>
+                <!-- <span>{$currentLanguage.toUpperCase()}</span> -->
+                <span>{$t('lang.flag')}</span>
+
             </button>
             <button class="settings-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
                 <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
@@ -166,10 +181,7 @@
             {#if showKeyInput}
               <APIKeyInput />
             {/if}
-            <button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-                <LogOutIcon size={24} />
-                <span>{$t('profile.logout')}</span>
-            </button>
+
         </div>
 
         {#if user}
@@ -259,11 +271,16 @@
                     <span>{$t('profile.close')}</span>
                 </button>
             </div>
+
         {:else}
             <div class="no-user-message">
                 <p>No user information available.</p>
             </div>
         {/if}
+        
+    </div>
+    <div class="swipe-indicator">
+        <div class="indicator-bar"></div>
     </div>
 </div>
 
@@ -325,6 +342,7 @@
         z-index: 1000;
         /* width: 100%; */
         display: flex;
+        padding: 2rem;
         /* background-color: #131313;
         color: #ffffff;
         /* border: 1px solid rgb(53, 53, 53); */
@@ -405,6 +423,24 @@
 
     }
 
+    .swipe-indicator {
+        width: 100%;
+        height: 24px;
+        display: flex;
+        justify-content: center;
+        position: absolute;
+        bottom: 1rem;
+    }
+
+    .indicator-bar {
+        width: 100px;
+        height: 4px;
+        background: white;
+        border-radius: 2px;
+        opacity: 0.5;
+    }
+
+
     .avatar-container {
         width: 80px;
         height: 80px;
@@ -474,6 +510,7 @@
         display: flex;
         justify-content: flex-end;
         gap: 0.5rem;
+        padding: 2rem;
     }
 
     button {
@@ -493,22 +530,34 @@
 
     .logout-button {
         display: flex;
-        gap: 10px;
-        right: 20px;
-        top: 20px;
-        background-color: transparent;
-        justify-content: right;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        width: auto;
+        height: 60px;
+        background: var(--secondary-color);
+        opacity: 0.5;
+        border: 1px solid var(--border-color);
         color: var(--text-color);
-    }
+        transition: all 0.2s ease;
 
-    .logout-button span {
-        color: var(--text-color);
-        
+        &:hover {
+            transform: translateY(-4px);
+            background: red;
+            box-shadow: 0 4px 6px rgba(255, 0, 0, 0.5); 
+            font-weight: bold;
+
+        }
+
+        span {
+            font-size: 0.9rem;
+        }
     }
 
     .settings-row {
         display: flex;
-        justify-content: flex-start;
+        justify-content: flex-end;
         gap: 1rem;
         padding: 1rem;
         margin-bottom: 1rem;
@@ -529,7 +578,8 @@
 
         &:hover {
             transform: translateY(-4px);
-            background: var(--bg-gradient);
+            // background: var(--bg-gradient);
+            box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2); 
         }
 
         span {
@@ -575,12 +625,12 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: var(--bg-color);
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+        backdrop-filter: blur(40px);        
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 1002;
-        border-radius: 50px;
 	}
 
 	.language-notification {
@@ -588,25 +638,29 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background-color: var(--primary-color);
         color: var(--text-color);
         padding: 20px;
-        border-radius: 10px;
         z-index: 1000;
-		border: 1px solid var(--tertiary-color);
 		display: flex;
 		flex-direction: column;
 		text-justify: center;
 		justify-content: center;
 		align-items: center;
 		gap: 2rem;
-		font-size: 24px;
+		font-size: 2rem;
 
     }
 
     .language-notification p {
         margin: 0;
     }
+
+	.quote {
+		font-size: 16px;
+		font-style: italic;
+		line-height: 1.5;
+	}
+
 
     @media (max-width: 1000px) {
 
@@ -628,6 +682,46 @@
         height: 100%;
         overflow: auto;
         }
+    }
+
+    @media (max-width: 768px) {
+        .modal-content {
+        }
+
+
+        .settings-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .settings-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            width: 60px;
+            height: 60px;
+            background: var(--bg-gradient);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            transition: all 0.2s ease;
+
+        &:hover {
+            transform: translateY(-4px);
+            background: var(--bg-gradient);
+        }
+
+        span {
+            font-size: 0.9rem;
+        }
+        
+    }
     }
 
 </style>

@@ -12,7 +12,8 @@ export default {
     },
 
     lang: {
-        notification: "Language: English"
+        notification: "Language: English",
+        flag: "🇬🇧"
     },
 
     landing: {

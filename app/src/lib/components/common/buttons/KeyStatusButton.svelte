@@ -51,7 +51,8 @@
 
         &:hover {
             transform: translateY(-4px);
-            background: var(--bg-gradient);
+            // background: var(--bg-gradient);
+            box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2); 
         }
 
         span {
