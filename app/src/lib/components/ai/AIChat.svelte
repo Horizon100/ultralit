@@ -32,16 +32,8 @@
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
 
-  interface ThreadStoreState {
-    threads: Threads[];
-    currentThreadId: string | null;
-    messages: Messages[];
-    updateStatus: string;
-    showThreadList: boolean;
-    searchQuery: string;
-    isThreadsLoaded: boolean;
-    namingThreadId: string | null;
-  }
+  
+
   interface ExpandedGroups {
   [key: string]: boolean;
 }
@@ -65,9 +57,12 @@
   });
 
 
-const handleToggleThreadList = () => {
-  threadsStore.toggleThreadList();
-};
+  function toggleThreadList() {
+    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
+    threadsStore.toggleThreadList();
+    dispatch('threadListToggle');
+  }
+
 
   
 
@@ -105,8 +100,8 @@ const handleToggleThreadList = () => {
   let isEditingThreadName = false;
   let editedThreadName = '';
   let isCreatingThread = false;
-  let showThreadList = true;
   let updateStatus: string = ''; 
+  let showThreadList = $threadsStore.showThreadList;
 
 
   // UI state
@@ -142,6 +137,7 @@ const handleToggleThreadList = () => {
   $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
   $: selectedModelName = $modelStore?.selectedModel?.name || '';  
   $: selectedTagCount = selectedTagIds ? selectedTagIds.size : 0;  // Compute selected tags count
+  $: showThreadList = $threadsStore.showThreadList;
 
 
   // Tag state
@@ -387,6 +383,11 @@ $: {
       }
     };
   }
+
+  function handleThreadListToggle() {
+        threadsStore.toggleThreadList();
+    }
+    
   function getLastMessage(): Messages | null {
     if (messages && messages.length > 0) {
       return messages[messages.length - 1]; // Returns the last message in the array
@@ -1448,9 +1449,7 @@ function toggleSection(section: 'tags' | 'prompts' | 'models' | 'threads') {
   }
 }
 
-function toggleThreadList() {
-  threadsStore.toggleThreadList();
-}
+
 
 onMount(async () => {
   try {
@@ -1541,10 +1540,10 @@ onMount(async () => {
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
   <div class="threads-container" 
     transition:fly="{{ y: 300, duration: 300 }}" 
-    class:thread-list-visible={showThreadList}
+    class:thread-list-visible={$threadsStore.showThreadList}
   >
-    {#if showThreadList}
-      <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
+  {#if $threadsStore.showThreadList}
+  <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
        
         
         <h2>

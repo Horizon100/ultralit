@@ -4,7 +4,14 @@ import { debounce } from 'lodash-es';
 import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/threadsClient';
 import { browser } from '$app/environment';
 
+
+
 function createThreadsStore() {
+
+  const initialShowThreadList = browser ? 
+  localStorage.getItem('threadListVisible') !== 'false' : 
+  true;
+
   const store = writable<{
     threads: Threads[],
     currentThreadId: string | null,
@@ -20,13 +27,13 @@ function createThreadsStore() {
     messages: [],
     updateStatus: '',
     isThreadsLoaded: false,
-    showThreadList: true,
+      showThreadList: initialShowThreadList,
     searchQuery: '',
     namingThreadId: null,
     // tags: []
   });
 
-  const { subscribe, update } = store;
+  const { subscribe, update, set } = store;
 
   
 
@@ -54,27 +61,55 @@ function createThreadsStore() {
       setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
     }
   }, 300);
+
+  
   
   return {
     subscribe,
+    update,
+    toggleThreadList: () => {
+      update(state => {
+        const newShowThreadList = !state.showThreadList;
+        console.log('Toggling thread list visibility:', { 
+          old: state.showThreadList, 
+          new: newShowThreadList 
+        });
+        return {
+          ...state,
+          showThreadList: newShowThreadList
+        };
+      });
+    },
+    setThreadListVisibility: (visible: boolean) => {
+      update(state => ({
+        ...state,
+        showThreadList: visible
+      }));
+    },
+    getShowThreadList: derived({ subscribe }, $state => $state.showThreadList),
     loadThreads: async (): Promise<Threads[]> => {
       try {
-        const threads = await fetchThreads();
-        store.update(state => ({
-          ...state,
-          threads,
-          isThreadsLoaded: true,
-          updateStatus: 'Threads loaded successfully'
-        }));
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        return threads;
+          console.log('Starting loadThreads, current state:', get(store));
+          const threads = await fetchThreads();
+          console.log('Fetched threads, about to update store');
+          
+          store.update(state => {
+              console.log('Updating store with threads, current showThreadList:', state.showThreadList);
+              return {
+                  ...state,
+                  threads,
+                  isThreadsLoaded: true,
+                  updateStatus: 'Threads loaded successfully'
+              };
+          });
+          
+          console.log('Store updated, new state:', get(store));
+          return threads;
       } catch (error) {
-        console.error('Error loading threads:', error);
-        store.update(state => ({ ...state, updateStatus: 'Failed to load threads' }));
-        setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-        return [];
+          console.error('Error loading threads:', error);
+          return [];
       }
-    },
+  },
     loadMessages: async (threadId: string): Promise<Messages[]> => {
       try {
         const messages = await fetchMessagesForThread(threadId);
@@ -86,19 +121,6 @@ function createThreadsStore() {
         setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
         return [];
       }
-    },
-    toggleThreadList: () => {
-      update(state => {
-        const newState = {
-          ...state,
-          showThreadList: !state.showThreadList
-        };
-        console.log('ThreadStore - Toggling thread list:', { 
-          from: state.showThreadList, 
-          to: newState.showThreadList 
-        });
-        return newState;
-      });
     },
 
 
@@ -193,6 +215,7 @@ function createThreadsStore() {
     getCurrentThread: derived(store, $store => 
       $store.threads.find(t => t.id === $store.currentThreadId) || null
     ),
+    getShowThreadList: derived({ subscribe }, $state => $state.showThreadList),
     // getCurrentThread: derived(store, $store => {
     //   return $store.threads.find(t => t.id === $store.currentThreadId) || null;
     // }),

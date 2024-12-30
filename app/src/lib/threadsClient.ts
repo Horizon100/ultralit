@@ -62,7 +62,7 @@ export async function fetchThreads(): Promise<Threads[]> {
 
         // Fetch threads with expanded last_message field
         const threads = await pb.collection('threads').getFullList<Threads>({
-            expand: 'last_message', // Ensure last_message is expanded
+            expand: 'last_message',
         });
 
         // If the last_message is expanded, you can access the details of the last message

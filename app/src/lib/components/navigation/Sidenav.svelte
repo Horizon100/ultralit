@@ -94,12 +94,12 @@
     }, 600);
   }
 
-  function toggleThreadList() {
-    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
-    threadsStore.toggleThreadList();
-    dispatch('threadListToggle');
-  }
+  $: showThreadList = $threadsStore.showThreadList; 
 
+
+  function toggleThreadList() {
+    threadsStore.toggleThreadList();
+}
   function toggleStyles() {
     showStyles = !showStyles;
   }
@@ -227,7 +227,7 @@
     </button> -->
       <!-- <ModelSelector /> -->
       <!-- <PromptSelector on:select={handlePromptSelect} /> -->
-      <!-- <button 
+      <button 
         class="thread-toggle" 
         on:click={toggleThreadList}
       >
@@ -236,7 +236,7 @@
         {:else}
           <PanelLeftOpen size={24} />
         {/if}
-    </button> -->
+    </button>
 {/if}
   </div>
 </div>

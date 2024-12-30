@@ -208,11 +208,8 @@
 	<Sidenav 
 	on:promptSelect={handlePromptSelect}
 	on:promptAuxclick={handlePromptAuxclick}
-	/>
-
-	<!-- on:threadListToggle={() => {
-		threadsStore.toggleThreadList();
-	}} -->
+	on:threadListToggle={handleThreadListToggle} 
+  />
 
 
 

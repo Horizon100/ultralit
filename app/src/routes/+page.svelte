@@ -32,6 +32,7 @@
     import { t } from '$lib/stores/translationStore';
     import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte'
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+    $: showThreadList = $threadsStore.showThreadList; 
 
     const defaultAIModel: AIModel = {
         id: 'default',
