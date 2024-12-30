@@ -953,6 +953,27 @@
 			padding: 1rem 0;
 		}
 	}
+	@media (max-width: 450px) {
+
+	main {
+        background: var(--bg-gradient-r);
+		color: var(--text-color);
+        width: 100%;
+		height: 100%;
+		height: auto;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		position: absolute;
+		display: flex;
+		flex-grow: 1;
+
+
+
+		
+	}
+
+}
 
 
 

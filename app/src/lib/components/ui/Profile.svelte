@@ -592,7 +592,7 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%;
+        height: auto;
         display: flex;
         justify-content: right;
         align-items: top;
@@ -606,7 +606,7 @@
 		border: 1px solid rgb(69, 69, 69);
         border-radius: 50px;
         position: relative;
-        width: 50%;
+        width: 100%;
         height: 100%;
         overflow: auto;
     }

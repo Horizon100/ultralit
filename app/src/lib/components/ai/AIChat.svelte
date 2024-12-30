@@ -1539,7 +1539,7 @@ onMount(async () => {
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
   <div class="threads-container" 
-    transition:fly="{{ y: 300, duration: 300 }}" 
+    transition:fly="{{ x: 300, duration: 300 }}" 
     class:thread-list-visible={$threadsStore.showThreadList}
   >
   {#if $threadsStore.showThreadList}
@@ -2204,6 +2204,7 @@ onMount(async () => {
       height: 30px;
       width: 100%;
       pointer-events: none;
+      
       /* border-radius: 20px; */
     }
 
@@ -2361,20 +2362,27 @@ onMount(async () => {
   .message.assistant {
     display: flex;
     /* position: relative; */
-    align-self: flex-end;
+    align-self: center;
     /* background-color: #2e3838; */
     /* border-bottom: 5px solid #242d2d;
     border-right: 5px solid #242d2d;
     border-left: 2px solid #242d2d;
     border-top: 2px solid #242d2d; */
     /* border-bottom: 2px solid #585858; */
-    border-bottom-right-radius: 20px;
+    // border-bottom-right-radius: 20px;
+    border-radius: var(--radius-m);
     color: white;
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
     /* margin-left: 200px; */
     height: auto;
-    width: auto;
+    // background: var(--primary-color);
+    // box-shadow: 0px -1px 150px 4px rgba(255, 255, 255, 0.2);
+
+    padding: 1rem;
+    width: 90%;
+    margin-left: 1rem;
+    margin-right: 1rem;
     /* border: 1px solid black; */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
@@ -2383,7 +2391,7 @@ onMount(async () => {
   h3 {
     display: flex;
     justify-content: space-between;
-    width: 80%;
+    width: 100%;
   }
 
   .message.assistant p {
@@ -2414,7 +2422,7 @@ onMount(async () => {
     .message.user {
       display: flex;
       /* position: relative; */
-      align-self: flex-start;
+      align-self: flex-end;
       margin: 1rem;
       /* background-color: #2e3838; */
       /* border-bottom: 5px solid #242d2d;
@@ -2722,7 +2730,7 @@ span.new-button {
   .group-title-active {
     font-weight: 800;
     font-size: 1.2rem;
-
+    margin-bottom: 1rem;
   }
 
   .thread-count.active {
@@ -3993,9 +4001,12 @@ span.delete-thread-button {
         width: 90%;
         justify-content: center;
       }
+      
     .thread-list {
       position: relative;
       top: 0;
+      margin-left: 3rem;
+      width: 90% !important;
       height: auto;
       align-items: center;
       justify-content: center;
@@ -4062,6 +4073,7 @@ span.delete-thread-button {
       padding: 0;
 
     }
+    
 
     .chat-messages {
       width: auto;
@@ -4211,6 +4223,18 @@ span.delete-thread-button {
     padding: 0.5rem;
     transition: all 0.3s ease-in;
 }
+
+
+.chat-messages {
+    border: none;
+    background: none;
+    width: auto !important;
+    margin-left: 1rem !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    margin-right: 1rem;
+  }
+
 
 .btn-col-left:hover {
   width: 96%;
@@ -4401,6 +4425,145 @@ span.delete-thread-button {
       z-index: 1000;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
 
+  }
+}
+
+@media (max-width: 450px) {
+
+.chat-content {
+    width: 100%;
+    margin-left: 1rem;
+    margin-top: 1rem;
+    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    border: none;
+    
+  }
+  
+
+  .chat-messages {
+    width: auto;
+    border: none;
+    margin: 1rem;
+    margin-left: 0;
+    background: none;
+  }
+
+  .thread-catalog {
+    margin-top: 0 !important;
+    top: 0 !important;
+    
+
+  }
+
+  .thread-list {
+    width: 100%;
+    margin-top: 0 !important;
+    margin-left: 3rem;
+    height: 100vh;
+    overflow-y: scroll !important;
+    justify-content: top;
+
+  }
+
+  // .thread-list {
+  //   display: flex;
+  //   flex-direction: column;
+  //   justify-content: flex-start;
+  //   align-items: center;
+  //   overflow-x: hidden;
+  //   overflow-y: auto;
+  //   position: relative;
+  //   // padding: 20px 10px;
+  //   // border-top-left-radius: 50px;
+  //   // background-color: var(--bg-color);
+  //   top: 0;
+  //   gap: 1px;
+  //   // left: 64px;
+  //   height: 90%;
+  //   width: auto;
+  //   // height: 86%;
+  //   // background: var(bg-gradient-r);
+  //   // border-radius: var(--radius-l);
+  //   transition: all 0.3s ease-in-out;
+  //   scrollbar-width:1px;
+  //   scrollbar-color: #c8c8c8 transparent;
+  //   scroll-behavior: smooth;
+  // }
+  .input-container {
+    width: auto;
+    left: 0rem !important;
+    margin-left: 3rem !important;
+    right: 0;
+    bottom: 0;
+  }
+
+  .input-container textarea {
+    font-size: 1.5rem;
+    padding: 1rem;
+  }
+
+    .input-container textarea:focus {
+
+      background: transparent !important;
+      color: white;
+      font-size: 20px;
+      animation: pulse 10.5s infinite alternate;
+      display: flex;
+      z-index: 1000;
+      box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+
+  }
+
+  .section-header {
+    width: auto;
+    margin-right: 2rem;
+    height: 30px;
+    padding: 0.75rem 1rem;
+    // background: var(--bg-gradient-left);
+    border: none;
+    cursor: pointer;
+    color: var(--text-color);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+    // border-radius: var(--radius-m);
+    display: flex;
+    flex-direction: row;
+    background: var(--bg-gradient-left);
+    margin-bottom: 0.5rem;
+    border-radius: var(--radius-l);
+  }
+
+  .section-header:hover {
+    background-color: var(--hover-color);
+  }
+
+  .section-header-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .section-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .section-content {
+    width: 100%;
+    overflow: hidden;
+    padding: 0;
+    margin-left: 0;
+    // background: var(--bg-gradient-left);
+    // border-radius: var(--radius-m);
+  }
+
+  .section-icon {
+    display: flex;
+    align-items: center;
   }
 }
 </style>

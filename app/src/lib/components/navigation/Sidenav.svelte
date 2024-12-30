@@ -462,7 +462,7 @@
     }
 
     .style-content {
-        background-color: #2b2a2a;
+        background-color: #b11f1feb;
         padding: 1rem;
 		border: 1px solid rgb(69, 69, 69);
         border-radius: 20px;
@@ -630,22 +630,86 @@
 
   @media (max-width: 768px) {
   .sidenav {
-    flex-direction: row;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
       height: auto;
-      width: 100%;
-      bottom: auto;
+      width: auto;
+      bottom: 5rem;
       padding: 0.5rem;
       background: var(--bg-gradient-right);
       backdrop-filter: blur(10px);
     }
 
     .navigation-buttons {
-      flex-direction: row;
+      flex-direction: column;
     }
     
 
     .bottom-buttons {
+      flex-direction: column;
+      margin: 0;
+      gap: 8px;
+    }
+
+  .top-buttons {
       flex-direction: row;
+      margin: 0;
+      gap: 8px;
+    }
+
+    .nav-button,
+    .thread-toggle,
+    .avatar-container {
+      width: 40px;
+      height: 40px;
+      padding: 0.3rem;
+    }
+
+    .nav-button:hover,
+    .thread-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    .profile-content {
+      position: absolute;
+      width: auto;
+      height: 83%;
+      top: 3rem;
+      /* background-color: #2b2a2a; */
+      box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+      backdrop-filter: blur(40px);  
+      border-bottom-left-radius: var(--radius-xl); 
+      border-bottom-right-radius: var(--radius-xl); 
+      /* width: 90%; */
+      /* max-width: 500px; */
+      /* max-height: 90vh; */
+      overflow: none;
+      transition: all 0.3s ease;
+    }
+
+}
+
+@media (max-width: 450px) {
+  .sidenav {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+      height: auto;
+      width: auto;
+      bottom: 5rem;
+      padding: 0.5rem;
+      background: var(--bg-gradient-right);
+      backdrop-filter: blur(10px);
+    }
+
+    .navigation-buttons {
+      flex-direction: column;
+    }
+    
+
+    .bottom-buttons {
+      flex-direction: column;
       margin: 0;
       gap: 8px;
     }

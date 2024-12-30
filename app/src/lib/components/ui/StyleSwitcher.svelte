@@ -126,13 +126,16 @@
 </script>
 
 <div class="style-switcher">
-  <div class="current-style">
-      <svelte:component this={displayedStyle.icon} size={24} />
-      <p>{displayedStyle.description}</p>
-      <span class="dummy" style="background-color: var(--primary-color); color: var(--text-color);">
+  <!-- <div class="current-style"> -->
+      <!-- <svelte:component this={displayedStyle.icon} size={24} /> -->
+      <!-- <p>{displayedStyle.description}</p> -->
+      <!-- <span class="dummy" style="background-color: var(--primary-color); color: var(--text-color);">
           {displayedStyle.dummyContent}
-      </span>
-  </div>
+      </span> -->
+  <!-- </div> -->
+  <!-- <svelte:component this={displayedStyle.icon} size={24} /> -->
+  <h1>Switch theme</h1>
+
   <div class="style-list">
     {#each $t('ui.styles') as style}
         <button
@@ -157,13 +160,15 @@
 
   .style-switcher {
       display: flex;
-      flex-direction: row;
-      gap: 1rem;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: auto;
       padding: 1rem;
       border-radius: 8px;
       color: var(--text-color);
-      width: 300px;
       height: 100%;
+      width: 100%;
 
   }
 
@@ -182,7 +187,7 @@
 
   .dummy {
       display: flex;
-      width: 150px;
+      width: auto;
       border-radius: 25px;
       height: 50%;
       justify-content: center;
@@ -204,6 +209,7 @@
   .style-button {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
       border: none;
       padding: 0.5rem;
@@ -211,7 +217,8 @@
       cursor: pointer;
       transition: all ease 0.3s;
       width: 100%;
-      height: 100%;
+      height: 50px;
+      margin-bottom: 1rem;
 
 
       &.default {

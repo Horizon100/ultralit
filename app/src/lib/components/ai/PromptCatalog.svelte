@@ -202,8 +202,9 @@
     height: 100%;
     transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     scrollbar-width: thin;
-    scrollbar-color: var(--bg-color) transparent;
 
+    scrollbar-color: var(--bg-color) transparent;
+    gap: 2px;
     &.fullscreen {
       color: var(--secondary-color);
 
@@ -216,15 +217,17 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    border-radius: 20px;
+    border-radius: 0;
     text-align: center;
-    background: var(--bg-gradient-r);
+    background: var(--bg-gradient-left);
+    border-bottom: 1px solid var(--secondary-color);
+    // background: var(--bg-gradient-r);
     flex: 1 1 calc(100% - 1rem); /* Adjust to take up more space on smaller screens */
 
     cursor: pointer;
     position: relative;
     user-select: none;
-    width: 50px; 
+    width: 100%;
     height: 50px;
     opacity: 0.3;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -270,9 +273,10 @@
   }
 
   .prompt-grid-item.active {
-    background: var(--bg-gradient-left);
+    background: var(--secondary-color);
     backdrop-filter: blur(20px);
     opacity: 1;
+    border-radius: var(--radius-m);
     
   }
 
@@ -484,5 +488,121 @@
   }
   }
 
+  @media (max-width: 450px) {
+    .prompt-grid-container {
+    display: flex;
+    justify-content: left;
+    flex-wrap: wrap;
+    overflow-y: auto;
+    width: 100%;
+    height: 100%;
+    gap: 2px;
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-color) transparent;
+
+    &.fullscreen {
+      color: var(--secondary-color);
+
+    }
+  }
+
+
+  .prompt-grid-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    text-align: center;
+    background: var(--bg-gradient-r);
+    flex: 1 2 calc(200px - 1rem); /* Adjust to take up more space on smaller screens */
+
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+ 
+    height: 30px;
+    opacity: 0.3;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Remove flex-wrap from item since it should be on container */
+    /* Remove flex property since we're using fixed width/height */
+
+
+    // color: var(--text-color);
+
+
+    &.fullscreen {
+      position: relative;
+      flex-direction: column;
+
+      top: 0;
+      left: 0;
+      transform: all;
+      // transform: translate(-50%, 0%);
+      // width: 300px;
+      height: auto;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      background: var(--bg-gradient-r);
+      z-index: 2;
+      border: 1px solid var(--bg-color);
+      color: var(--text-color);
+      opacity: 1;
+      cursor: default; 
+      pointer-events: none;
+
+
+    }
+
+    &.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.95);
+      transition: all 0.3s ease;
+      height: 0;
+    }
+
+  }
+
+  .prompt-grid-item.active {
+    background: var(--bg-gradient-left);
+    backdrop-filter: blur(20px);
+    opacity: 1;
+    
+  }
+
+
+  .prompt-grid-item:hover {
+    // transform: scale(0.98) translateY(-10px);
+    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+    opacity: 0.75;
+
+
+
+  }
+
+  .prompt-grid-item h3 {
+    margin-bottom: 0rem;
+    width: 100%;
+    color: var(--text-color);
+    font-size: 0.7rem;
+    text-align: left;
+  }
+
+  /* Active state for selected grid items */
+  .prompt-grid-item.selected {
+    border: 1px solid var(--secondary-color);
+      color: var(--text-color);
+      
+  }
+
+  .prompt-label {
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: center;
+  }
+  }
 
 </style>
