@@ -148,6 +148,7 @@ export interface AIMessage {
     role: RoleType;
     content: string;
     model: string;
+    prompt_type?: PromptType;
 }
 
 // export type AIModel = 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';

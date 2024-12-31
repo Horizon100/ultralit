@@ -9,7 +9,8 @@
   // Use the store value instead of local state
   $: selectedPrompt = $promptStore;
   $: selectedIcon = availablePrompts.find(option => option.value === selectedPrompt)?.icon;
-  
+  $: promptType = $promptStore;
+
   let isOpen = false;
   let isHovered = false;
   let isFullScreen = false;
@@ -149,7 +150,9 @@
       </div>
       
     {/each}
+    
   </div>
+  
 </div>
 
 <style lang="scss">
@@ -165,10 +168,9 @@
     display: flex;
     position: relative;
     height: auto;
-    width: auto;
+    width: 300px !important;
     justify-content: center;
     align-items: center;
-    
     &.fullscreen {
       margin-top: 0;
 
@@ -179,6 +181,7 @@
     display: flex;
     position: absolute;
     height: 100%;
+    
     width: 100%;
     justify-content: center;
     align-items: center;
@@ -228,7 +231,7 @@
     cursor: pointer;
     position: relative;
     user-select: none;
-    width: 100%;
+    width: 50%;
     height: 50px;
     opacity: 0.3;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -252,7 +255,7 @@
       width: 100%;
       max-width: none;
       margin: 0;
-      background: var(--bg-gradient-r);
+      // background: var(--bg-gradient-r);
       z-index: 2;
       border: 1px solid var(--bg-color);
       color: var(--text-color);
@@ -274,7 +277,7 @@
   }
 
   .prompt-grid-item.active {
-    background: var(--secondary-color);
+    // background: var(--secondary-color);
     backdrop-filter: blur(20px);
     opacity: 1;
     border-radius: var(--radius-m);
@@ -325,8 +328,8 @@
     flex-direction: row;
     align-items: center;
     justify-content: left;
-    width: 100%;
-    height: 100%;
+    width: 50%;
+    height: 50%;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-left: 1rem;
 
@@ -459,7 +462,7 @@
 
   @media (max-width: 768px) {
     .prompt-grid-item.fullscreen {
-      width: 100%;
+      width: 50%;
       height: 50%;
       border-radius: 0;
     }
@@ -481,7 +484,7 @@
   }
 
   .prompt-grid-item.active {
-    background: var(--secondary-color);
+    // background: var(--secondary-color);
     backdrop-filter: blur(20px);
     opacity: 1;
     width: 100%;
@@ -522,7 +525,6 @@
     cursor: pointer;
     position: relative;
     user-select: none;
- 
     height: 30px;
     opacity: 0.3;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -571,6 +573,7 @@
     background: var(--bg-gradient-left);
     backdrop-filter: blur(20px);
     opacity: 1;
+    
     
   }
 

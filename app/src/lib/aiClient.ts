@@ -18,66 +18,50 @@ import { pb } from '$lib/pocketbase';
 //     };
 // };
 
-export async function fetchAIResponse (
+export async function fetchAIResponse(
     messages: AIMessage[], 
     model: ModelState['selectedModel'], 
     userId: string, 
     attachment: File | null = null
 ): Promise<string> {
     try {
-        const supportedMessages = messages.filter(msg => 
-            ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role)
-        );
+        const supportedMessages = messages
+            .filter(msg => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
+            .map(msg => ({
+                role: msg.role,
+                content: msg.prompt_type ? `${getPrompt(msg.prompt_type, '')}\n${msg.content}` : msg.content,
+                model: msg.model
+            }));
 
-        // Fetch the user's selected model from PocketBase
-        let userSelectedModel: string | undefined;
-        try {
-            const user = await pb.collection('users').getOne(userId, {
-                fields: 'model'
-            });
-            userSelectedModel = user.model;
-        } catch (error) {
-            console.warn('Error fetching user model:', error);
-            // Fallback to the provided model's ID if user fetch fails
-            // userSelectedModel = model.id;
-        }
+        const userSelectedModel = await pb.collection('users')
+            .getOne(userId, { fields: 'model' })
+            .then(user => user.model)
+            .catch(() => model);
 
-        let body;
-        const headers: HeadersInit = {
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        const body = attachment ? new FormData() : {
+            messages: supportedMessages,
+            model: userSelectedModel || model,
+            userId
         };
 
         if (attachment) {
-            const formData = new FormData();
-            formData.append('messages', JSON.stringify(supportedMessages));
-            formData.append('model', userSelectedModel || model); // Use user's selected model or fallback
-            formData.append('userId', userId);
-            formData.append('attachment', attachment);
-
-            body = formData;
-        } else {
-            body = JSON.stringify({ 
-                messages: supportedMessages, 
-                model: userSelectedModel || model, // Use user's selected model or fallback
-                userId,
-            });
-            headers['Content-Type'] = 'application/json';
-
+            (body as FormData).append('messages', JSON.stringify(supportedMessages));
+            (body as FormData).append('model', userSelectedModel || model);
+            (body as FormData).append('userId', userId);
+            (body as FormData).append('attachment', attachment);
         }
 
         const response = await fetch('/api/ai', {
             method: 'POST',
-            headers,
-            body,
+            headers: {
+                ...(!attachment && { 'Content-Type': 'application/json' }),
+                Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+            },
+            body: attachment ? body : JSON.stringify(body)
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.response;
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return (await response.json()).response;
     } catch (error) {
         console.error('Error in fetchAIResponse:', error);
         throw error;

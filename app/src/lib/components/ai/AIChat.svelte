@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -27,12 +27,21 @@
   import { messageCountsStore, messageCounts } from '$lib/stores/messageCountStore';
   import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
   import { tweened } from 'svelte/motion';
-  import { availablePrompts } from '$lib/constants/prompts';
+  import { availablePrompts, getPrompt} from '$lib/constants/prompts';
   import { availableModels } from '$lib/constants/models';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
 
-  
+  export let seedPrompt: string = '';
+  export let additionalPrompt: string = '';
+  export let aiModel: AIModel;
+  export let userId: string;
+  export let attachment: File | null = null;
+  export let promptType: PromptType = 'CASUAL_CHAT';
+  export let threadId: string | null = null;
+  export let initialMessageId: string | null = null;
+  // export let showThreadList = true;
+  export let namingThread = true;
 
   interface ExpandedGroups {
   [key: string]: boolean;
@@ -43,6 +52,51 @@
     group: string;
     threads: Threads[];
   }
+
+  interface MessageState {
+  messages: Messages[];
+  chatMessages: InternalChatMessage[];
+  userInput: string;
+  messageIdCounter: number;
+  latestMessageId: string | null;
+  thinkingMessageId: string | null;
+  typingMessageId: string | null;
+  quotedMessage: Messages | null;
+}
+
+interface PromptState {
+  promptType: PromptType;
+  currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
+  scenarios: Scenario[];
+  tasks: Task[];
+  guidance: Guidance | null;
+  selectedScenario: Scenario | null;
+  selectedTask: Task | null;
+  summary: string;
+  networkData: any;
+}
+
+interface ThreadState {
+  threads: Threads[];
+  currentThread: Threads | null;
+  currentThreadId: string | null;
+  namingThreadId: string | null;
+  filteredThreads: Threads[];
+  isEditingThreadName: boolean;
+  editedThreadName: string;
+  showThreadList: boolean;
+}
+
+interface UIState {
+  isLoading: boolean;
+  isLoadingMessages: boolean;
+  showPromptCatalog: boolean;
+  showModelSelector: boolean;
+  isMinimized: boolean;
+  showNetworkVisualization: boolean;
+  expandedDates: Set<string>;
+  searchQuery: string;
+}
 
   const dispatch = createEventDispatcher();
 
@@ -56,6 +110,9 @@
     threads: true
   });
 
+  $: promptType = $promptStore;
+
+
 
   function toggleThreadList() {
     console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
@@ -66,16 +123,7 @@
 
   
 
-  export let seedPrompt: string = '';
-  export let additionalPrompt: string = '';
-  export let aiModel: AIModel;
-  export let userId: string;
-  export let attachment: File | null = null;
-  export let promptType: PromptType = 'CASUAL_CHAT';
-  export let threadId: string | null = null;
-  export let initialMessageId: string | null = null;
-  // export let showThreadList = true;
-  export let namingThread = true;
+
 
   // Chat-related state
   let messages: Messages[] = [];
@@ -342,6 +390,29 @@ $: {
 
   // FUNCTIONS
 
+  function getPromptText(promptType: PromptType): string {
+  switch (promptType) {
+    case 'SCENARIO_GENERATION':
+      return 'Generate scenarios based on the following context';
+    case 'TASK_GENERATION':
+      return 'Generate tasks for the following scenario';
+    case 'AGENT_CREATION':
+      return 'Create an AI agent profile based on the following scenario and tasks';
+    case 'NETWORK_STRUCTURE':
+      return 'Determine the optimal network structure for the following scenario and tasks';
+    case 'REFINE_SUGGESTION':
+      return 'Refine the following suggestion based on the provided feedback';
+    case 'SUMMARY_GENERATION':
+      return 'Generate a concise summary of the following conversation';
+    case 'NETWORK_GENERATION':
+      return 'Generate a network structure based on the following summary';
+    case 'CASUAL_CHAT':
+      return 'Engage in casual conversation responding to';
+    default:
+      return '';
+  }
+}
+
   // Message handling functions
   function addMessage(
     role: RoleType,
@@ -397,13 +468,30 @@ $: {
     }
     return null; // Return null if there are no messages
   }
+
+  type MessageContent = string | Scenario[] | Task[] | AgentProfile | NetworkStructure;
+
+function formatContent(content: MessageContent, type: PromptType, role: RoleType): string {
+  const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
+  const promptText = type ? getPromptText(type) : '';
+  
+  return role === 'assistant' && promptText 
+    ? `[Instructions: ${promptText}]\n${baseContent}`
+    : baseContent;
+}
   function getTotalMessages(): number {
     return messages.length;
   }
   function mapMessageToInternal(message: Messages): InternalChatMessage {
+  const content = formatContent(
+    message.text,
+    message.prompt_type as PromptType || 'CASUAL_CHAT',
+    message.type === 'human' ? 'user' : 'assistant'
+  );
+
   return {
     id: message.id,
-    content: message.text,
+    content,
     text: message.text,
     role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
     collectionId: message.collectionId,
@@ -419,7 +507,7 @@ $: {
     created: message.created,
     updated: message.updated
   };
-  }
+}
   function groupMessagesByDate(messages: InternalChatMessage[]) {
   const groups: { [key: string]: { messages: InternalChatMessage[]; displayDate: string } } = {};
   const today = new Date().setHours(0, 0, 0, 0);
@@ -719,78 +807,68 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
       }
   }
 
+  function handlePromptSelection(newPromptType: PromptType) {
+  promptStore.set(newPromptType);
+  promptType = newPromptType;
+}
+
   // ASYNC
 
   // Message handling functions
   async function handleSendMessage(message: string = userInput) {
-    
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
 
   try {
     userInput = '';
     resetTextareaHeight();
-    // If no thread is selected, create a new one and set it as the current thread
+    
     if (!currentThreadId) {
-      console.log('No thread selected. Creating a new thread...');
       const newThread = await threadsStore.addThread({
         op: userId,
         name: `Thread ${threads?.length ? threads.length + 1 : 1}`
       });
 
-      if (newThread && newThread.id) {
-        threads = [...(threads || []), newThread];
-        currentThreadId = newThread.id;
-        await handleLoadThread(newThread.id);
-      } else {
-        console.error('Failed to create a new thread. Cannot proceed with sending the message.');
+      if (!newThread?.id) {
+        console.error('Thread creation failed');
         return;
       }
+
+      threads = [...(threads || []), newThread];
+      currentThreadId = newThread.id;
+      await handleLoadThread(newThread.id);
     }
 
-    // Clear input immediately for responsiveness
     const currentMessage = message.trim();
-
-
-    // Add user message to UI immediately
-    const userMessageUI = addMessage('user', currentMessage, quotedMessage ? quotedMessage.id : null);
+    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null);
     chatMessages = [...chatMessages, userMessageUI];
 
-    // Save user message to database
     const userMessage = await messagesStore.saveMessage({
       text: currentMessage,
       type: 'human',
       thread: currentThreadId,
-      parent_msg: quotedMessage ? quotedMessage.id : null,
-      prompt_type: promptType
+      parent_msg: quotedMessage?.id ?? null,
+      prompt_type: promptType // Using store value
     }, currentThreadId);
 
     quotedMessage = null;
 
-    // Start thinking animation
-    thinkingPhrase = getRandomThinkingPhrase();
-    const thinkingMessage = addMessage('thinking', thinkingPhrase);
+    const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
     thinkingMessageId = thinkingMessage.id;
     chatMessages = [...chatMessages, thinkingMessage];
 
-    // Prepare messages for AI
     const messagesToSend = chatMessages
       .filter(({ role, content }) => role && content)
-      .map(({ role, content }) => {
-        if (role === 'user' && promptType) {
-          return {
-            role,
-            content: `[Using ${promptType} prompt]\n${content.toString()}`
-          };
-        }
-        return { role, content: content.toString() };
-      });
+      .map(({ role, content }) => ({
+        role,
+        content: role === 'user' && promptType 
+          ? `[Using ${promptType} prompt]\n${content.toString()}`
+          : content.toString()
+      }));
 
-    if (messagesToSend.length === 0) {
-      console.error('No valid messages to send to the AI');
-      return;
+    if (!messagesToSend.length) {
+      throw new Error('No valid messages to send');
     }
 
-    // Add system message with prompt context if prompt type exists
     if (promptType) {
       messagesToSend.unshift({
         role: 'system',
@@ -798,14 +876,9 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
       });
     }
 
-    console.log('Sending messages to AI:', messagesToSend);
     const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-    console.log('Received AI response:', aiResponse);
-
-    // Remove thinking message
     chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
-    // Save AI response
     const assistantMessage = await messagesStore.saveMessage({
       text: aiResponse,
       type: 'robot',
@@ -815,75 +888,63 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
       mode: aiModel,
     }, currentThreadId);
 
-    // Add AI response to UI
     const newAssistantMessage = addMessage('assistant', '', userMessage.id);
     chatMessages = [...chatMessages, newAssistantMessage];
     typingMessageId = newAssistantMessage.id;
 
-    // Use typewriting effect
     await typeMessage(aiResponse);
 
-    // Update the message with the full response after typewriting is complete
     chatMessages = chatMessages.map(msg =>
       msg.id === String(typingMessageId)
         ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
         : msg
     );
 
-    // Fetch updated messages and update thread name if needed
-    try {
-      console.log('Fetching messages for thread name update:', currentThreadId);
-      const messages = await messagesStore.fetchMessages(currentThreadId);
-      console.log('Fetched messages for naming:', messages?.length);
-
-      if (messages && messages.length > 0) {
-        const robotMessages = messages.filter(m => m.type === 'robot');
-        console.log('Number of robot messages:', robotMessages.length);
-        
-        if (robotMessages.length === 1) {
-          console.log('First AI response detected, updating thread name');
-          await updateThreadNameIfNeeded(
-            currentThreadId,
-            messages,
-            aiModel,
-            userId
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Failed to update thread name:', error);
-    }
-
-    // Handle scrolling
-    console.log('Message sent, checking if scroll needed');
-    setTimeout(() => {
-      if (chatMessagesDiv) {
-        const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-        console.log('Current scroll state:', { scrollTop, scrollHeight, clientHeight });
-        if (scrollHeight - scrollTop - clientHeight < 200) {
-          console.log('Scrolling to bottom after sending message');
-          scrollToBottom();
-        } else {
-          console.log('Not scrolling to bottom, user has scrolled up');
-        }
-      }
-    }, 0);
+    await handleThreadNameUpdate(currentThreadId);
+    handleScrolling();
 
   } catch (error) {
-    console.error('Error in handleSendMessage:', error);
-    chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-    let errorMessage = 'An unexpected error occurred. Please try again later.';
-    if (error instanceof Error) {
-      errorMessage = `Error: ${error.message}`;
-    }
-    chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
+    handleError(error);
   } finally {
-    isLoading = false;
-    thinkingMessageId = null;
-    typingMessageId = null;
-    attachment = null;
+    cleanup();
   }
-  }
+}
+
+function handleThreadNameUpdate(threadId: string) {
+  return messagesStore.fetchMessages(threadId).then(messages => {
+    if (messages?.length > 0) {
+      const robotMessages = messages.filter(m => m.type === 'robot');
+      if (robotMessages.length === 1) {
+        return updateThreadNameIfNeeded(threadId, messages, aiModel, userId);
+      }
+    }
+  }).catch(error => console.error('Thread name update failed:', error));
+}
+
+function handleScrolling() {
+  setTimeout(() => {
+    if (chatMessagesDiv) {
+      const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+      if (scrollHeight - scrollTop - clientHeight < 200) {
+        scrollToBottom();
+      }
+    }
+  }, 0);
+}
+
+function cleanup() {
+  isLoading = false;
+  thinkingMessageId = null;
+  typingMessageId = null;
+  attachment = null;
+}
+
+function handleError(error: unknown) {
+  console.error('Message handling error:', error);
+  chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
+  const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+  chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
+}
   async function typeMessage(message: string) {
       const typingSpeed = 10; // milliseconds per character
       let typedMessage = '';
@@ -1554,77 +1615,6 @@ onMount(async () => {
         </h2>
 
 
-
-        <!-- Prompts Section -->
-        <button 
-        class="section-header"
-        on:click={() => toggleSection('prompts')}
-      >
-        <div class="section-header-content">
-          <span class="section-icon">
-            {#if $expandedSections.prompts}
-              <ChevronDown size={20} />
-            {:else}
-              <ChevronRight size={20} />
-            {/if}
-          </span>
-          {#if selectedPromptLabel}
-            {#if selectedIcon}
-              <svelte:component this={selectedIcon} size={50} />
-            {/if}
-            <h3>{$t('chat.prompts')}</h3>
-            <p class="selector-lable">{selectedPromptLabel}</p>
-          {:else}
-          <Bot size={20} />
-            <h3>{$t('chat.prompts')}</h3>
-          {/if}
-        </div>
-      </button>
-
-        {#if $expandedSections.prompts}
-          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-            <PromptCatalog 
-              on:select={(event) => {
-                showPromptCatalog = !showPromptCatalog;
-                console.log('Parent received selection from catalog:', event.detail);
-              }}
-            />
-          </div>
-        {/if}
-
-        <!-- Models Section -->
-        <button 
-        class="section-header"
-        on:click={() => toggleSection('models')}
-        >
-        <div class="section-header-content">
-          <span class="section-icon">
-            {#if $expandedSections.models}
-              <ChevronDown size={20} />
-            {:else}
-              <ChevronRight size={20} />
-            {/if}
-          </span>
-          <Brain size={20} />
-          {#if selectedModelLabel}
-            <h3>{$t('chat.models')}</h3>
-            <p class="selector-lable">{selectedModelLabel}</p>
-          {:else}
-            <h3>{$t('chat.models')}</h3>
-          {/if}
-        </div>
-        </button>
-
-        {#if $expandedSections.models}
-          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-            <ModelSelector
-              on:select={(event) => {
-                showModelSelector = !showModelSelector;
-                console.log('Parent received selection from catalog:', event.detail);
-              }}
-            />
-          </div>
-        {/if}
         
          <!-- Tags Section -->
          <button 
@@ -1651,7 +1641,7 @@ onMount(async () => {
 
 
        {#if $expandedSections.tags}
-         <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+         <div class="section-content2" in:slide={{duration: 200}} out:slide={{duration: 200}}>
            <ThreadListTags
              {availableTags}
              {selectedTagIds}
@@ -1994,43 +1984,131 @@ onMount(async () => {
         <ChevronDown size={24} />
       </button>
 
-    <div class="input-container">
-      <textarea
-        bind:this={textareaElement}
-        bind:value={userInput}
-        on:input={(e) => adjustFontSize(e.target)}
+      <div class="input-container">
 
-        on:keydown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            !isLoading && handleSendMessage();
-            
-          }
-          
-        }}      
-        on:focus={handleTextareaFocus}
-        on:blur={handleTextareaBlur}
-        placeholder={$t('chat.placeholder')}
+    
+        <!-- Prompts Section -->
+        <button 
+        class="btn"
 
-        disabled={isLoading}
-        rows="1"
-    ></textarea>
-      <div class="btn-row-right"  transition:slide>
-        <span>
-          <Paperclip size="30" color="white" />
-        </span>
-        <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
-          <Send color="white" />
-        </span>
-      </div>
+        on:click={() => toggleSection('prompts')}
+      >
+        <div class="section-header-content">
+          <span class="section-icon">
+            {#if $expandedSections.prompts}
+            <!-- <Command size={30} /> -->
+            {:else}
+            <!-- <Command size={20} /> -->
+            {/if}
+          </span>
+          {#if selectedPromptLabel}
+            {#if selectedIcon}
+              <svelte:component this={selectedIcon} size={50} />
+            {/if}
+            <!-- <h3>{$t('chat.prompts')}</h3> -->
+            <p class="selector-lable">{selectedPromptLabel}</p>
+          {:else}
+            <Command size={20} />
+            <!-- <h3>{$t('chat.prompts')}</h3> -->
+          {/if}
+        </div>
+      </button>
 
-      {#if currentStage === 'summary'}
-        <button on:click={toggleNetworkVisualization}>
-          {showNetworkVisualization ? 'Hide' : 'Show'} Network
+        {#if $expandedSections.prompts}
+          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+            <PromptCatalog 
+              on:select={(event) => {
+                showPromptCatalog = !showPromptCatalog;
+                console.log('Parent received selection from catalog:', event.detail);
+              }}
+            />
+          </div>
+        {/if}
+
+        <!-- Models Section -->
+        <button 
+        class="btn"
+        on:click={() => toggleSection('models')}
+        >
+        <div class="section-header-content">
+          <span class="section-icon">
+            {#if $expandedSections.models}
+            <Brain size={30} />
+            {:else}
+            <Brain size={20} />
+            {/if}
+          </span>
+          {#if selectedModelLabel}
+            <!-- <h3>{$t('chat.models')}</h3> -->
+            <p class="selector-lable">{selectedModelLabel}</p>
+          {:else}
+            <!-- <h3>{$t('chat.models')}</h3> -->
+          {/if}
+        </div>
         </button>
-      {/if}
-    </div>
-  </div>
+
+    
+        {#if $expandedSections.models}
+          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+            <ModelSelector
+              on:select={(event) => {
+                showModelSelector = !showModelSelector;
+                console.log('Parent received selection from catalog:', event.detail);
+              }}
+            />
+          </div>
+        {/if}
+          <textarea
+            bind:this={textareaElement}
+            bind:value={userInput}
+            on:input={(e) => adjustFontSize(e.target)}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                !isLoading && handleSendMessage();
+              }
+            }}      
+            on:focus={handleTextareaFocus}
+            on:blur={handleTextareaBlur}
+            placeholder={$t('chat.placeholder')}
+            disabled={isLoading}
+            rows="1"
+          />
+          
+          <div class="btn-row-right">
+
+            <span
+            on:click={() => toggleSection('prompts')}
+          >
+
+              <Bot size={20} />
+            </span>
+
+            
+            <span
+              on:click={() => toggleSection('models')}
+            >
+
+              <Brain size={20} />
+              <span>
+
+      
+            <span>
+              <Paperclip size="30" color="white" />
+            </span>
+            
+            <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
+              <Send color="white" />
+            </span>
+          </div>
+        </div>
+      
+        {#if currentStage === 'summary'}
+          <button on:click={toggleNetworkVisualization}>
+            {showNetworkVisualization ? 'Hide' : 'Show'} Network
+          </button>
+        {/if}
+      </div>
 
   {#if showNetworkVisualization && networkData}
   <div class="network-overlay">
@@ -3024,14 +3102,23 @@ span.new-button {
   backdrop-filter: blur(10px);
 }
 
+.input-row {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: flex-start;
+  width: 100%;
+  position: relative;
+
+}
 .btn-row-right {
     display: flex;
     flex-direction: column;
     height: auto;
-    justify-content: center;
-    align-items: center;
+    width: 100%;
+    // align-items: center;
     transition: all 0.3s ease;
-    padding: 1rem;
+    // padding: 1rem;
     z-index: 1000;
   }
 
@@ -3649,6 +3736,16 @@ margin-right: 2rem;
   }
 }
 
+.btn {
+  width: auto;
+  background-color: transparent;
+  height: 60px;
+  display: block;
+  border-radius: var(--radius-l);
+  box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
+
+}
+
   .scroll-bottom-btn {
     position: fixed;
     bottom: 120px;
@@ -3937,6 +4034,7 @@ span.delete-thread-button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    background: transparent;
     h3 {
       margin-right: .5rem;
     }
@@ -3949,10 +4047,27 @@ span.delete-thread-button {
     font-weight: 600;
   }
 
-  .section-content {
-    width: 90%;
+  .section-content2 {
+    width: 100%;
     overflow: hidden;
     padding: 0.5rem 1rem;
+    // background: var(--bg-gradient-left);
+    // border-radius: var(--radius-m);
+  }
+
+
+  .section-content {
+    width: 100%;
+    left: -1rem;
+    bottom: 6rem;
+    background: var(--bg-gradient-left);
+    
+    position: absolute;
+    overflow: hidden;
+    padding: 0.5rem 1rem;
+    scrollbar-width:1px;
+      scrollbar-color: var(--secondary-color) transparent;
+      scroll-behavior: smooth;
     // background: var(--bg-gradient-left);
     // border-radius: var(--radius-m);
   }
