@@ -67,11 +67,12 @@
       justify-content: right;
       align-items: right;
       gap: 5px;
-      margin-top: 1rem;
+      margin-top: 0;
       border-radius: 20px;
       transition: all ease 0.3s;
       margin-right: 2rem;
-  
+      margin-left: 2rem;
+
       &:hover {
         display: flex;
         flex-wrap: nowrap;
@@ -129,9 +130,9 @@
       border: none;
       cursor: pointer;
       color: white;
-      position: absolute;
+      position: relative;
       right: 0;
-      top: 0.5rem;
+
   
       &:hover {
         color: rgb(69, 171, 202);
@@ -146,7 +147,6 @@
       padding: 2px;
       border-radius: 15px;
       margin-left: 1rem;
-      
       input {
         width: 80%;
         background-color: var(--primary-color);
@@ -226,4 +226,38 @@
     /* z-index: 1000; */
     user-select: none;
   }
+
+  @media (max-width: 450px) {
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      position: relative;
+      justify-content: right;
+      align-items: right;
+      gap: 1px;
+      border-radius: 20px;
+      transition: all ease 0.3s;
+      margin-right: 0;
+      
+  
+      &:hover {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: right;
+      }
+    }
+  
+    .tag-selector {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: right;
+      align-items: center;
+      gap: 1px;
+      width: auto;
+      border-radius: 20px;
+      transition: all ease 0.3s;
+    }
+  
+  }
+
   </style>

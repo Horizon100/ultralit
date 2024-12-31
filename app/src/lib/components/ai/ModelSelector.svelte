@@ -156,16 +156,16 @@
 
   .selector-container {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
     // background: var(--bg-color);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-md);
+
   }
 
   .providers-list {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--spacing-sm);
     height: auto;
     position: relative;
@@ -222,6 +222,8 @@
 
   .provider-name {
     font-size: 16px;
+    user-select: none;
+
   }
 
   .model-list {

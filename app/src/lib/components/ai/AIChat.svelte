@@ -50,9 +50,9 @@
 
 // Store for expanded section states
   const expandedSections = writable({
-    tags: true,
-    prompts: true,
-    models: true,
+    tags: false,
+    prompts: false,
+    models: false,
     threads: true
   });
 
@@ -134,7 +134,10 @@
 
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
+
   $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
+  $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;
+  
   $: selectedModelName = $modelStore?.selectedModel?.name || '';  
   $: selectedTagCount = selectedTagIds ? selectedTagIds.size : 0;  // Compute selected tags count
   $: showThreadList = $threadsStore.showThreadList;
@@ -1543,7 +1546,7 @@ onMount(async () => {
     class:thread-list-visible={$threadsStore.showThreadList}
   >
   {#if $threadsStore.showThreadList}
-  <div class="thread-list" transition:fly="{{ y: 300, duration: 300 }}">
+  <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
        
         
         <h2>
@@ -1554,9 +1557,9 @@ onMount(async () => {
 
         <!-- Prompts Section -->
         <button 
-          class="section-header"
-          on:click={() => toggleSection('prompts')}
-        >
+        class="section-header"
+        on:click={() => toggleSection('prompts')}
+      >
         <div class="section-header-content">
           <span class="section-icon">
             {#if $expandedSections.prompts}
@@ -1565,15 +1568,18 @@ onMount(async () => {
               <ChevronRight size={20} />
             {/if}
           </span>
-          <Bot size={20} />
           {#if selectedPromptLabel}
+            {#if selectedIcon}
+              <svelte:component this={selectedIcon} size={50} />
+            {/if}
             <h3>{$t('chat.prompts')}</h3>
             <p class="selector-lable">{selectedPromptLabel}</p>
-         {:else}
+          {:else}
+          <Bot size={20} />
             <h3>{$t('chat.prompts')}</h3>
-         {/if}
+          {/if}
         </div>
-        </button>
+      </button>
 
         {#if $expandedSections.prompts}
           <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
@@ -1744,7 +1750,7 @@ onMount(async () => {
                 <div class="group-header-content">
                   <span class="group-icon">
                     {#if $expandedGroups[group]}
-                      <ChevronDown size={20} />
+                      <!-- <ChevronDown size={20} /> -->
                       <span class="group-title-active">{group}</span>
                       <span class="thread-count-active">({threads.length})</span>
                     {:else}
@@ -1807,7 +1813,7 @@ onMount(async () => {
         <div class="thread-info" class:minimized={isMinimized}>
           {#if currentThread}
             <button class="btn-back" on:click={goBack}>
-              <ChevronLeft size={30} />
+              <X size={30} />
             </button>
             {#if isEditingThreadName}
               <input class="tag-item"
@@ -1841,7 +1847,7 @@ onMount(async () => {
             {/if}
       
             {#if !isMinimized}
-              <div transition:slide={{duration: 300, easing: cubicOut}}>
+              <div class='tags' transition:slide={{duration: 300, easing: cubicOut}}>
                 <ThreadTags
                   {availableTags}
                   {currentThreadId}
@@ -2051,7 +2057,7 @@ onMount(async () => {
       height: 100%;
       margin-left: 64px;
       width: calc(100% - 64px);
-      /* position: relative; */
+      position: relative;
 
     }
     .chat-container {
@@ -2060,7 +2066,6 @@ onMount(async () => {
       flex-direction: column;
       position: relative;
       transition: all 0.3s ease-in-out;
-      height:100%;
       overflow-y: auto;
       overflow-x: none;
       /* left: 20%; */
@@ -2100,14 +2105,17 @@ onMount(async () => {
 
   .title-container {
     display: flex;
+    position: relative;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     height: 40px;
+    left: 25%;
     padding: 0 1rem;
     transition: all 0.3s ease;
     user-select: none;
     border-radius: 20px;
+    width: auto;
 
   }
 
@@ -2137,6 +2145,17 @@ onMount(async () => {
     padding: 0 20px;
     font-size: 24px;
     border-radius: var(--radius-l);
+  }
+
+  .tags {
+    display:flex;
+    position: relative;
+    justify-content: flex-end;
+    align-items: center;
+    width: auto;
+    backdrop-filter: blur(8px);
+  // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+  border-radius: var(--radius-m);
   }
     .chat-messages {
       flex-grow: 1;
@@ -2660,6 +2679,7 @@ span.new-button {
     width: 100%;
     padding: 0.5rem 1rem;
     background: transparent;
+    
     border: none;
     cursor: pointer;
     color: var(--text-color);
@@ -2707,44 +2727,52 @@ span.new-button {
 
   .group-icon {
     display: flex;
+    justify-content: center;
 
   }
   .group-header-content {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    width: 100%;
     padding: 0.5rem;
   }
 
   .group-title {
     font-weight: 400;
     font-size: 1rem;
+    color: var(--placeholder-color);
+    margin-right: 1rem;
 
   }
 
   .thread-count {
     color: var(--text-secondary);
     font-size: 0.9em;
+    color: var(--placeholder-color);
+
   }
 
   .group-title-active {
     font-weight: 800;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    color: var(--text-color);
     margin-bottom: 1rem;
+    margin-right: 1rem;
+
+
   }
 
   .thread-count.active {
     color: var(--text-secondary);
-    font-size: 1.1rem;
-
+    color: var(--text-color);
   }
 
 .thread-catalog {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 50vh;
-  margin-bottom: 20px;
+  height: 100vh;
   backdrop-filter: blur(20px);
   background: var(--bg-gradient-left);
   border-radius: 10px;
@@ -3221,12 +3249,16 @@ span {
   opacity: 0.5;
   display: inline;
   font-size: 12px;
-  width: 50%;
+  font-style: italic;;
+  font-weight: normal;
+  width: 100%;
+  user-select: none;
   // margin-left: 0.5rem;
 }
 
   .chat-content {
     flex-grow: 1;
+    height: auto;
     display: flex;
     flex-direction: column;
     // width: 50%;
@@ -3375,14 +3407,18 @@ span {
 .thread-info {
   display: flex;
   flex-direction: column;
-  justify-content: space;
   flex-wrap: wrap;
   position: relative;
+  width: auto;
+  z-index: 1000;
+  margin-right: 1rem;
   /* align-items: center; */
   // padding: 0 20px;
   font-size: 2rem;
-  margin-left: 2rem;
-  margin-right: 4rem;
+  margin-left: 0;
+  
+  margin-right: 2rem;
+  overflow-x: hidden;
   color: white;
   left: auto;
   overflow-y: hidden;
@@ -3585,8 +3621,12 @@ span {
   }
 
   .btn-back {
-  position: relative;
-  left: -2rem;
+  position: fixed;
+    display: flex;
+margin-right: 2rem;
+  overflow-x: none;
+  top: 10rem;
+  right: 0;
   // height: 50%;
   // top: 3rem;
   background: transparent;
@@ -3598,7 +3638,7 @@ span {
   border-radius: var(--radius-l);
   transition: all 0.3s ease;
   z-index: 1000;
-  width: 100%;
+  width: 50px;
 
   &:hover {
     background-color: var(--secondary-color);
@@ -3693,7 +3733,7 @@ span.delete-thread-button {
     color: white;
     position: absolute;
     right: 1rem;
-    top: 2.1rem;
+    top: 2.2rem;
   }
 
   .tag-selector-toggle:hover {
@@ -3897,8 +3937,11 @@ span.delete-thread-button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    width: 100%;
+    h3 {
+      margin-right: .5rem;
+    }
   }
+
 
   .section-header h3 {
     margin: 0;
@@ -3956,7 +3999,27 @@ span.delete-thread-button {
     .threads-container {
       flex-direction: column;
       margin-left: 0;
+      
     }
+
+    .chat-messages {
+      width: auto;
+      left: 2rem !important;
+      right: 2rem !important;
+      margin-top: 4rem;
+      margin-right: 2rem !important;
+      
+    }
+
+    .title-container {
+      left: 1rem;
+    }
+
+    .btn-back {
+      top: 4rem;
+    }
+
+
 
     .new-tag-input {
       display: flex;
@@ -3980,6 +4043,11 @@ span.delete-thread-button {
     .tag-list {
       margin-left: 3rem;
 
+    }
+
+    .thread-card {
+      margin-left: 0;
+      width: 100%;
     }
 
     .thread-info .add-button {
@@ -4027,21 +4095,23 @@ span.delete-thread-button {
     }
 
     .thread-group-header {
-      font-size: 2rem;
+      font-size: 1rem;
     }
 
     .group-title {
-      font-size: 1.5rem;
+      font-size: 1.2rem;
       font-style: bold;
 
     }
 
     .group-title-active {
-      font-size: 3rem;
+      font-size: 1.5rem;
+      
     }
 
     .thread-group {
-      padding: 1rem;
+      padding: 0.5rem;
+      margin-left: 0;
     }
 
     .thread-list-visible .thread-list {
@@ -4224,16 +4294,30 @@ span.delete-thread-button {
     transition: all 0.3s ease-in;
 }
 
+.tags {
+    margin-right:2rem;
+    justify-content: flex-end;
+    right: 2rem;
 
-.chat-messages {
-    border: none;
-    background: none;
-    width: auto !important;
-    margin-left: 1rem !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    margin-right: 1rem;
   }
+  
+
+// .btn-back {
+//   width: 50px;
+//   left: 2rem !important;
+//   top: 2rem;
+//   background: red;
+// }
+// .chat-messages {
+//     border: none;
+//     background: none;
+//     width: auto !important;
+//     margin-left: 1rem !important;
+//     left: 2rem !important;
+//     right: 1rem !important;
+//     margin-top: 2rem;
+//     margin-right: 1rem;
+//   }
 
 
 .btn-col-left:hover {
@@ -4245,6 +4329,22 @@ span.delete-thread-button {
 
   .thread-toggle {
     bottom: 120px;
+  }
+
+
+
+  .title-container {
+    justify-content: flex-start;
+    gap: 1rem;
+    margin-right: 1rem;
+    margin-left: 1rem;
+  }
+
+  .title-container h1 {
+    font-size: 1.2rem;
+    display: flex;
+    flex-wrap: wrap;
+
   }
 //   button.new-button  {
 //     border-radius: 15px;
@@ -4319,22 +4419,32 @@ span.delete-thread-button {
 }
 @media (max-width: 1900px) {
 
-.chat-content {
-    width: auto;
-    margin-left: 1rem;
-    margin-top: 1rem;
-    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+  .chat-container {
   }
 
   .chat-messages {
     border: none;
     background: none;
-    width: auto;
-    margin-left: 1rem !important;
+    width: auto !important;
+    margin-left: 0;
     left: auto;
-    right: auto;
-    margin-right: 1rem;
+    right: 0;
+    margin-top: 2rem !important;
+    margin-right: 0 !important;
+    margin-left: 4rem !important;
+    margin: 1rem;
+
   }
+
+  .chat-content {
+    width: 100%;
+    margin-left: 1rem;
+    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    border: none;
+    
+  }
+
+
 
   .input-container {
     margin-left: 2rem;
@@ -4347,6 +4457,16 @@ span.delete-thread-button {
   }
 
   
+  
+  .title-container {
+      left: 1rem;
+      width: 100%;
+
+    }
+
+    .btn-back {
+      top: 4rem;
+    }
 
   
 
@@ -4388,7 +4508,6 @@ span.delete-thread-button {
 .chat-content {
     width: 100%;
     margin-left: 1rem;
-    margin-top: 1rem;
     // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     border: none;
     
@@ -4430,6 +4549,13 @@ span.delete-thread-button {
 
 @media (max-width: 450px) {
 
+
+  .threads-container {
+    margin-right: 0;
+    margin-left: 0;
+    width: 100%;
+    
+  }
 .chat-content {
     width: 100%;
     margin-left: 1rem;
@@ -4438,14 +4564,19 @@ span.delete-thread-button {
     border: none;
     
   }
+
+  .chat-container {
+    padding: 0;
+
+  }
   
 
   .chat-messages {
     width: auto;
     border: none;
-    margin: 1rem;
-    margin-left: 0;
+    margin-left: 3rem !important;
     background: none;
+    
   }
 
   .thread-catalog {
@@ -4456,13 +4587,28 @@ span.delete-thread-button {
   }
 
   .thread-list {
-    width: 100%;
-    margin-top: 0 !important;
-    margin-left: 3rem;
-    height: 100vh;
-    overflow-y: scroll !important;
-    justify-content: top;
-
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: relative;
+    // padding: 20px 10px;
+    // border-top-left-radius: 50px;
+    // background-color: var(--bg-color);
+    top: 0;
+    gap: 1px;
+    // left: 64px;
+    height: 90%;
+    width: auto;
+    // height: 86%;
+    // background: var(bg-gradient-r);
+    // border-radius: var(--radius-l);
+    transition: all 0.3s ease-in-out;
+    scrollbar-width:1px;
+    scrollbar-color: #c8c8c8 transparent;
+    scroll-behavior: smooth;
   }
 
   // .thread-list {
@@ -4565,6 +4711,105 @@ span.delete-thread-button {
     display: flex;
     align-items: center;
   }
+
+  .thread-actions {
+  display: flex;
+  flex-direction: row;
+  width: auto;
+  height: 50px;
+  background: var(--bg-gradient-left);
+  margin-bottom: 0.5rem;
+  margin-left: 2rem;
+  margin-right: 2rem;
+  border-radius: var(--radius-l);
+}
+
+.thread-title-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      position: relative;
+    }
+
+  .title-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 40px;
+    margin-left: 2rem !important;
+    transition: all 0.3s ease;
+    user-select: none;
+    border-radius: 20px;
+
+  }
+
+  // .btn-back {
+  //   left: 2rem;
+  //   top:0.5rem;
+  //   width: 40px;
+  // }
+
+  .title-container:hover {
+    background-color: var(--bg-color);
+  }
+
+  .title-container span {
+    color: gray;
+    font-size: 16px;
+  }
+
+  .title-container h1 {
+    width: auto;
+    transition: all 0.3s ease;
+  }
+
+  .title-container h1:hover {
+    cursor:text;
+    color: rgb(113, 249, 243);
+  }
+  .thread-info input  {
+    background-color: var(--secondary-color);
+    border-bottom: 1px solid rgb(134, 134, 134);
+    width: auto;
+    margin-left: 1rem;
+    height: 400px;
+    padding: 1rem;
+    font-size: 24px;
+    border-radius: var(--radius-l);
+  }
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  // padding: var(--spacing-sm);
+  border-radius: var(--radius-m);
+  height: var(--spacing-xl);
+  width: auto;
+  height: auto;
+
+
+  input {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    width: 100%;
+    outline: none;
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+  }
+}
+
+
+
+
+
+  
+  
 }
 </style>
 

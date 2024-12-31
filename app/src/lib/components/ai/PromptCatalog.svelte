@@ -170,7 +170,7 @@
     align-items: center;
     
     &.fullscreen {
-      margin-top: 4rem;
+      margin-top: 0;
 
     } 
     
@@ -193,21 +193,22 @@
       pointer-events: auto;
     }
   }
+
   .prompt-grid-container {
     display: flex;
-    justify-content: left;
     flex-wrap: wrap;
-    overflow-y: auto;
+    justify-content: right; // Align to right like ThreadTagList
+    gap: var(--spacing-xs);
     width: 100%;
-    height: 100%;
     transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     scrollbar-width: thin;
-
     scrollbar-color: var(--bg-color) transparent;
-    gap: 2px;
+    margin-bottom: var(--spacing-md);
+    background-color: transparent;
+    border-radius: var(--radius-m);
+    
     &.fullscreen {
       color: var(--secondary-color);
-
     }
   }
 
@@ -217,13 +218,13 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    border-radius: 0;
+    border-radius: var(--radius-m);
     text-align: center;
     background: var(--bg-gradient-left);
     border-bottom: 1px solid var(--secondary-color);
     // background: var(--bg-gradient-r);
     flex: 1 1 calc(100% - 1rem); /* Adjust to take up more space on smaller screens */
-
+    padding: 0.5rem;
     cursor: pointer;
     position: relative;
     user-select: none;
@@ -293,8 +294,8 @@
   .prompt-grid-item h3 {
     margin-bottom: 1rem;
     color: var(--text-color);
-    font-size: 1rem;
-    text-align: left;
+    font-size: 0.9rem;
+    text-align: right;
   }
 
   /* Active state for selected grid items */
@@ -305,7 +306,7 @@
   }
 
   .prompt-label {
-    margin-top: 10px;
+    margin-top: 1rem;
     font-size: 14px;
     text-align: center;
   }
@@ -437,7 +438,7 @@
   /* Responsive adjustments */
   @media (max-width: 1000px) {
     .prompt-overlay {
-      margin-left: auto;
+      margin-left: 0;
       height: 84%;
 
     }

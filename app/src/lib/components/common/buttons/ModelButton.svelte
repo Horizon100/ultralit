@@ -43,7 +43,7 @@
         border-radius: 20px;
         width: auto;
         height: 60px;
-        background: var(--bg-gradient);
+        background: red;
         border: 1px solid var(--border-color);
         color: var(--text-color);
         transition: all 0.2s ease;
@@ -86,6 +86,7 @@
       font-size: 0.9rem;
       white-space: nowrap;
       color: red;
+      user-select: ;
   }
 
   .status-wrapper {

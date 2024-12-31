@@ -157,7 +157,7 @@
     <button class="nav-button auth-button" on:click={toggleAuthOrProfile}>
       {#if $currentUser}
       
-      <div class="profile-button" in:fly="{{ y: -200, duration: 300}}" out:fly="{{ y:  200, duration: 300}}">
+      <div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
         <div class="avatar-container">
             {#if $currentUser.avatar}
               <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
