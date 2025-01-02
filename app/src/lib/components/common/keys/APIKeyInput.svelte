@@ -34,88 +34,125 @@
   transition:fly={{ y: -20, duration: 200 }}
 >
   <form 
-      on:submit={handleSubmit}
-      class="bg-primary rounded-lg p-6 w-full max-w-md"
-      transition:fly={{ y: 20, duration: 200 }}
+    on:submit={handleSubmit}
+    class="bg-primary rounded-lg p-6 w-full max-w-md"
+    transition:fly={{ y: 20, duration: 200 }}
   >
-      <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold">Enter {provider} API Key</h2>
-          <!-- <button 
-              type="button" 
-              on:click={() => dispatch('close')}
-              class="text-gray-500 hover:text-gray-700"
-          >
-              <X size={24} />
-          </button> -->
+    <div class="space-y-4">
+      <div class="input-wrapper">
+        <input
+          type="password"
+          bind:value={key}
+          class="w-full px-4 py-2 rounded-lg bg-secondary"
+          placeholder="Enter your API key"
+          autofocus
+        />
       </div>
-
-      <div class="space-y-4">
-          <input
-              type="password"
-              bind:value={key}
-              class="w-full px-4 py-2 rounded-lg bg-secondary"
-              placeholder="Enter your API key"
-              autofocus
-          />
-          
-          <button
-              type="submit"
-              class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-              Save Key
-          </button>
-      </div>
+      
+      <button
+        type="submit"
+        class="submit-button"
+      >
+        Save Key
+      </button>
+    </div>
   </form>
 </div>
 
 <style lang="scss">
-  form {
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
+  .input-wrapper {
+    position: relative;
+    width: 100%;
   }
 
-  input {
-      width: 100%;
-      padding: 0.75rem;
-      padding-right: 3rem;
-      border: 1px solid var(--border-color);
-      border-radius: 0.5rem;
-      font-size: 1rem;
-      background: var(--background);
-      color: var(--text-color);
+ input {
+    width: 100%;
+    padding: 1.5rem;
+    padding-right: 3rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background: transparent;
+    color: var(--text-color);
+
+    /* Make the password reveal icon white */    
+    &::-ms-reveal {
+      filter: invert(100%) brightness(200%) contrast(100%);
+      margin-right: 2rem; /* Move the icon left */
+      position: relative;
+      right: 2rem;
+      
     }
-  
-    input:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 2px var(--primary-color-transparent);
-      z-index: 1000;
+
+    &::-webkit-credentials-auto-fill-button {
+      filter: invert(100%) brightness(200%) contrast(100%);
+      margin-right: 2rem; /* Move the icon left */
+      position: relative;
+      right: 2rem;
     }
+  }
+
+  /* Global styles for password reveal icon across browsers */
+  :global(input[type="password"]::-ms-reveal),
+  :global(input[type="password"]::-webkit-credentials-auto-fill-button) {
+    filter: invert(100%) brightness(200%) contrast(100%);
+    margin-right: 12px;
+  }
+
+  input::placeholder {
+    font-size: 1.2rem;
+    color: var(--placeholder-color);
+    width: 90%;
+    font-style: italic;
+  }
+
+  input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--primary-color-transparent);
+    z-index: 1000;
+    color: var(--text-color);
+  }
+
+  form {
+    border: 1px solid var(--border-color);
+    width: 100%;
+    background: var(--bg-color);
+  }
+
   button {
-      background: var(--primary-color);
-      color: var(--text-color);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        width: auto;
-        height: 60px;
-        background: var(--bg-gradient);
-        border: 1px solid var(--border-color);
-        color: var(--text-color);
-        transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    width: 100%;
+    height: 60px;
+    background: var(--bg-gradient);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+    font-size: 1.2rem;
 
-        &:hover {
-            transform: translateY(-4px);
-            background: var(--bg-gradient);
-        }
-
-        span {
-            font-size: 0.9rem;
-        }
+    &:hover {
+      transform: translateY(-4px);
+      background: var(--bg-gradient-r);
     }
 
+    span {
+      font-size: 0.9rem;
+    }
+  }
 
-  
+  /* Additional style to ensure password reveal icon is properly positioned */
+  :global(input[type="password"]::-ms-reveal) {
+    filter: invert(1);
+    margin-right: 8px;
+  }
+
+  :global(input[type="password"]::-webkit-credentials-auto-fill-button) {
+    filter: invert(1);
+    margin-right: 8px;
+  }
 </style>

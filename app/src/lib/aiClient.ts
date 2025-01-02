@@ -101,7 +101,7 @@ export async function generateGuidance(context: { type: string; description: str
     const messages: AIMessage[] = [
         { 
             role: 'assistant', 
-            content: getPrompt('GUIDANCE_GENERATION', ''),
+            content: getPrompt('BRAINSTORM', ''),
             model: model.api_type 
         },
         { 
@@ -123,7 +123,7 @@ export async function generateScenarios(seedPrompt: string, model: AIModel, user
     const messages: AIMessage[] = [
         { 
             role: 'assistant', 
-            content: getPrompt('SCENARIO_GENERATION', ''),
+            content: getPrompt('FLOW', ''),
             model: model.api_type
         },
         { 
@@ -153,7 +153,7 @@ export async function generateTasks(scenario: Scenario, model: AIModel, userId: 
     const messages: AIMessage[] = [
         { 
             role: 'assistant', 
-            content: getPrompt('TASK_GENERATION', ''),
+            content: getPrompt('PLANNER', ''),
             model: model.api_type 
         },
         {   role: 'user', 
@@ -208,7 +208,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
     const messages: AIMessage[] = [
         { 
             role: 'assistant', 
-            content: getPrompt('AGENT_CREATION', context),
+            content: getPrompt('CODER', context),
             model: model.api_type 
         }
     ];
@@ -285,7 +285,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 //     const messages: AIMessage[] = [
 //         { 
 //             role: 'assistant', 
-//             content: getPrompt('NETWORK_STRUCTURE', context), 
+//             content: getPrompt('RESEARCH', context), 
 //             model: model.api_type 
 //         }
 //     ];
@@ -306,7 +306,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 //     const messages: AIMessage[] = [
 //         { 
 //             role: 'assistant', 
-//             content: getPrompt('REFINE_SUGGESTION', ''),
+//             content: getPrompt('DESIGNER', ''),
 //             model: model.api_type 
 //         },
 //         { 
@@ -324,7 +324,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 //     const summaryMessages: AIMessage[] = [
 //         { 
 //             role: 'assistant', 
-//             content: getPrompt('SUMMARY_GENERATION', ''),            
+//             content: getPrompt('WRITER', ''),            
 //             model: model.api_type 
 //         },
 //         ...messages
@@ -339,7 +339,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 //     const messages: AIMessage[] = [
 //       { 
 //         role: 'assistant', 
-//         content: getPrompt('NETWORK_GENERATION', ''),
+//         content: getPrompt('ANALYZER', ''),
 //         model: model.api_type 
 //     },
 //       { 
@@ -425,7 +425,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 
 // export async function generateNetwork(summary: string, model: AIModel, userId: string): Promise<NetworkData> {
 //     const messages: AIMessage[] = [
-//         { role: 'system', content: getPrompt('NETWORK_GENERATION', '') },
+//         { role: 'system', content: getPrompt('ANALYZER', '') },
 //         { role: 'user', content: summary }
 //     ];
 

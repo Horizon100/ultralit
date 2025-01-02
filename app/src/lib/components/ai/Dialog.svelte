@@ -81,7 +81,7 @@ $: placeholderText = isTextareaFocused ? getPlaceholder() : getRandomQuote();
 
   let attachment: Attachment | null = null;
   let fileInput: HTMLInputElement;
-  let selectedPromptType: PromptType = 'CASUAL_CHAT';
+  let selectedPromptType: PromptType = 'TUTOR';
 
   let isLoading = false;
 

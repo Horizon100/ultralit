@@ -171,13 +171,13 @@
 		<nav style="z-index: 1000;">
 			
             {#if isNarrowScreen}
-                <button class="menu-button" on:click={toggleAuthOrProfile}>
+                <!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
                         <User size={24} />
                     {:else}
                         <LogIn size={24} />
                     {/if}
-                </button>
+                </button> -->
             {:else}
 			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 			{#if $currentUser}
@@ -968,10 +968,9 @@
 		display: flex;
 		flex-grow: 1;
 
-
-
-		
 	}
+
+	
 
 }
 

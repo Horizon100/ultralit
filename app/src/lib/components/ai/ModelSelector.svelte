@@ -12,6 +12,9 @@
   import { currentUser } from '$lib/pocketbase';
 
   let isOffline = false;
+
+  let expandedModelList: ProviderType | null = null;
+  
   modelStore.subscribe(state => {
     isOffline = state.isOffline;
   });
@@ -32,44 +35,48 @@
   };
 
   async function handleProviderClick(key: string) {
-    const provider = key as ProviderType;
-    const currentKey = get(apiKey)[provider];
-    
-    if (currentProvider === provider) {
-      currentProvider = null;
-      return;
-    }
-    
-    currentProvider = provider;
-
-    if (!currentKey) {
-      showAPIKeyInput = true;
-    } else {
-      if ($currentUser) {
-        try {
-          await modelStore.setSelectedProvider($currentUser.id, provider);
-          await loadProviderModels(provider);
-          showAPIKeyInput = false;
-        } catch (error) {
-          console.warn('Error setting provider:', error);
-        }
-      }
-    }
+  const provider = key as ProviderType;
+  const currentKey = get(apiKey)[provider];
+  
+  if (currentProvider === provider) {
+    currentProvider = null;
+    expandedModelList = null; // Reset the expanded list
+    return;
   }
+  
+  currentProvider = provider;
+  expandedModelList = provider;  // Set which provider's list is expanded
 
-  async function handleModelSelection(model: AIModel) {
+  if (!currentKey) {
+    showAPIKeyInput = true;
+  } else {
     if ($currentUser) {
       try {
-        const success = await modelStore.setSelectedModel($currentUser.id, model);
-        if (success) {
-          selectedModel = model;
-        }
+        await modelStore.setSelectedProvider($currentUser.id, provider);
+        await loadProviderModels(provider);
+        showAPIKeyInput = false;
       } catch (error) {
-        console.warn('Error selecting model:', error);
+        console.warn('Error setting provider:', error);
       }
     }
-    dispatch('select', model);
   }
+}
+
+async function handleModelSelection(model: AIModel) {
+  if ($currentUser) {
+    try {
+      const success = await modelStore.setSelectedModel($currentUser.id, model);
+      if (success) {
+        selectedModel = model;
+      }
+    } catch (error) {
+      console.warn('Error selecting model:', error);
+    }
+  }
+  expandedModelList = null; // Close the model list
+  currentProvider = null;  // Close the provider selection
+  dispatch('select', model);
+}
 
   async function loadProviderModels(provider: ProviderType) {
     const currentKey = get(apiKey)[provider];
@@ -107,14 +114,29 @@
           </div>
           <div class="provider-status">
             {#if $apiKey[key]}
-              <CheckCircle2 size={16} color="green" class="status-icon success" />
+              <div class="icon-wrapper success">
+                <CheckCircle2 size={16} />
+              </div>
             {:else}
-              <XCircle size={16} color="red" class="status-icon error" />
+              <div class="icon-wrapper error">
+                <XCircle size={16} />
+              </div>
             {/if}
           </div>
         </button>
         
-        {#if currentProvider === key && availableProviderModels[key].length > 0}
+        {#if currentProvider === key}
+        {#if showAPIKeyInput}
+          <div class="api-key-wrapper" in:fly={{ y: 10, duration: 200 }} out:fly={{ y: -10, duration: 200 }}>
+            <APIKeyInput
+              provider={currentProvider}
+              on:submit={handleAPIKeySubmit}
+              on:close={() => showAPIKeyInput = false}
+            />
+          </div>
+        {/if}
+      
+        {#if availableProviderModels[key].length > 0 && expandedModelList === key}
           <div class="model-list" in:fly={{ y: 10, duration: 200 }} out:fly={{ y: -10, duration: 200 }}>
             {#each availableProviderModels[key] as model}
               <button 
@@ -127,17 +149,10 @@
             {/each}
           </div>
         {/if}
+      {/if}
       </div>
     {/each}
   </div>
-
-  {#if showAPIKeyInput}
-    <APIKeyInput
-      provider={currentProvider ?? ''}
-      on:submit={handleAPIKeySubmit}
-      on:close={() => showAPIKeyInput = false}
-    />
-  {/if}
 </div>
 
 {#if isOffline}
@@ -152,35 +167,46 @@
 
   * {
     font-family: var(--font-family);
+    
   }
 
   .selector-container {
     display: flex;
     flex-direction: column;
-    width: 300px;
-    border-radius: var(--radius-lg);
-    backdrop-filter: blur(10px);
-    border-top-right-radius: var(--radius-m);
+    align-items: center;
+    height: 100%;
+    width: auto;
+    margin-bottom: 3rem;
+    margin-right: 1rem;
+    border-radius: var(--radius-m);
+    box-shadow: 2px 4px 20px 1px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(100px);
     transition: all 0,3s ease-in;
+    padding: 1rem;
   }
+
+  
 
   .providers-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    height: auto;
+    height: 100%;
     position: relative;
 
   }
 
   button {
-    width: 150px !important;
+    // width: 150px !important;
   }
 
   .provider-item {
     width: 100%;
     height: 20% !important;
     position: relative;
+    background: var(--secondary-color);
+    border-radius: var(--radius-m);
+    
 
   }
 
@@ -188,12 +214,15 @@
     width: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
+    
+    justify-content: space-between;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     background: transparent;
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border-top-left-radius: var(--radius-m);
+    border-top-right-radius: var(--radius-m);
+
     color: var(--text-color);
     transition: all 0.2s ease;
 
@@ -204,7 +233,7 @@
     &.provider-selected {
       background-color: var(--tertiary-color);
       color: white;
-      width: 94% !important;
+      width: 100% !important;
       // width: 400px !important;
     }
   }
@@ -228,18 +257,20 @@
 
   .model-list {
     position: relative;
-
-
+    border-left: 1px solid var(--tertiary-color);
+    border-right: 1px solid var(--tertiary-color);
+    border-bottom: 1px solid var(--tertiary-color);
     z-index: 2000;
     margin-left: 0 !important;
-    width: 88% !important;
+    width: auto !important;
     margin-top: 0;
     padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    background: var(--bg-gradient-right);
-    border-radius: var(--radius-m);
+    background: transparent;
+    border-bottom-left-radius: var(--radius-m);
+    border-bottom-right-radius: var(--radius-m);
     max-height: 300px;
     overflow-y: auto;
     backdrop-filter: blur(10px);
@@ -247,23 +278,28 @@
 
   .model-button {
     padding: var(--spacing-sm);
-    background: var(--bg-alt);
+    background: var(--bg-gradient-left);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-l);
     color: var(--text-color);
     font-size: 14px;
     transition: all 0.2s ease;
     z-index: 1000;
+    opacity: 0.6;
     width: 100% !important;
 
     &:hover {
-      background: var(--bg-hover);
+      background: var(--primary-color);
       color: white;
+      transform: translateX(2px);
+      opacity: 1;
     }
 
     &.model-selected {
       background-color: #1dff1d;
       color: white;
+      opacity: 1;
+
     }
   }
 
@@ -277,28 +313,47 @@
     font-size: 0.75rem;
     color: orange;
   }
-
   .provider-status {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-  }
 
-  .status-icon {
-    &.success { color: var(--success-color); }
-    &.error { color: var(--error-color); }
+    .icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &.success :global(svg) {
+        color: rgb(0, 200, 0);
+        stroke: rgb(0, 200, 0);
+        fill: none;
+      }
+
+      &.error :global(svg) {
+        color: rgb(255, 0, 0);
+        stroke: rgb(255, 0, 0);
+        fill: none;
+      }
+    }
   }
 
   @media (max-width: 768px) {
 
     .selector-container {
       height: auto;
+      width: 100%;
+      height: 100%;
+      margin-bottom: 4rem;
+      box-shadow: none !important;
     }
 
     .providers-list {
       display: flex;
-      flex-direction: row;
-      height: auto;
+      flex-direction: column;
+      position: relative;
+    
+      height: 100%;
+      width: 100%;
       gap: var(--spacing-sm);
       
     }
@@ -331,7 +386,6 @@
 
 .selector-container {
   height: 100%;
-  
 }
 
 .providers-list {

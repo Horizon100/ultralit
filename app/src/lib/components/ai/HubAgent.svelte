@@ -15,7 +15,7 @@
   export let aiModel: AIModel;
   export let userId: string;
   export let attachment: File | null = null;
-  export let promptType: PromptType = 'CASUAL_CHAT';
+  export let promptType: PromptType = 'TUTOR';
 
   const defaultAIModel: AIModel = {
     id: 'default',
@@ -64,19 +64,19 @@
 
   function getSystemMessage(promptType: PromptType): string {
     switch (promptType) {
-      case 'SCENARIO_GENERATION':
+      case 'FLOW':
         return "You are an AI assistant specialized in generating creative scenarios. Please provide detailed and imaginative scenarios based on the user's input.";
-      case 'TASK_GENERATION':
+      case 'PLANNER':
         return "You are an AI assistant focused on breaking down scenarios into actionable tasks. Please generate specific, well-defined tasks based on the given scenario.";
-      case 'AGENT_CREATION':
+      case 'CODER':
         return "You are an AI assistant designed to create AI agent profiles. Please generate detailed agent profiles based on the provided scenario and tasks.";
-      case 'NETWORK_STRUCTURE':
+      case 'RESEARCH':
         return "You are an AI assistant specialized in determining optimal network structures. Please analyze the given scenario and tasks to suggest the most suitable network structure.";
-      case 'REFINE_SUGGESTION':
+      case 'DESIGNER':
         return "You are an AI assistant focused on refining and improving suggestions. Please provide constructive feedback and enhancements to the given suggestions.";
-      case 'SUMMARY_GENERATION':
+      case 'WRITER':
         return "You are an AI assistant specialized in summarizing conversations. Please provide concise and accurate summaries of the given conversation.";
-      case 'NETWORK_GENERATION':
+      case 'ANALYZER':
         return "You are an AI assistant designed to generate network structures. Please create a detailed network structure based on the provided summary.";
       default:
         return "You are a helpful AI assistant. Please provide informative and relevant responses to the user's queries.";

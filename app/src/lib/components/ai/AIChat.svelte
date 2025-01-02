@@ -37,7 +37,7 @@
   export let aiModel: AIModel;
   export let userId: string;
   export let attachment: File | null = null;
-  export let promptType: PromptType = 'CASUAL_CHAT';
+  export let promptType: PromptType = 'TUTOR';
   export let threadId: string | null = null;
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
@@ -102,13 +102,17 @@ interface UIState {
 
   const expandedGroups = writable<ExpandedGroups>({});
 
+    interface ExpandedSections {
+  tags: boolean;
+  prompts: boolean;
+  models: boolean;
+}
 // Store for expanded section states
-  const expandedSections = writable({
-    tags: false,
-    prompts: false,
-    models: false,
-    threads: true
-  });
+export const expandedSections = writable<ExpandedSections>({
+  tags: false,
+  prompts: false,
+  models: false,
+});
 
   $: promptType = $promptStore;
 
@@ -156,6 +160,7 @@ interface UIState {
   let isLoading = false;
   // let isLoading: boolean = false;
   let isTextareaFocused = false;
+  let hideTimeout: ReturnType<typeof setTimeout>;
   let showPromptCatalog = false;
   let showModelSelector = false;
   let thinkingPhrase: string = '';
@@ -262,6 +267,7 @@ interface UIState {
   ];
 
 
+  const isMobileScreen = () => window.innerWidth < 768;
 
 
 // Handle seed prompt
@@ -392,21 +398,21 @@ $: {
 
   function getPromptText(promptType: PromptType): string {
   switch (promptType) {
-    case 'SCENARIO_GENERATION':
+    case 'FLOW':
       return 'Generate scenarios based on the following context';
-    case 'TASK_GENERATION':
+    case 'PLANNER':
       return 'Generate tasks for the following scenario';
-    case 'AGENT_CREATION':
+    case 'CODER':
       return 'Create an AI agent profile based on the following scenario and tasks';
-    case 'NETWORK_STRUCTURE':
+    case 'RESEARCH':
       return 'Determine the optimal network structure for the following scenario and tasks';
-    case 'REFINE_SUGGESTION':
+    case 'DESIGNER':
       return 'Refine the following suggestion based on the provided feedback';
-    case 'SUMMARY_GENERATION':
+    case 'WRITER':
       return 'Generate a concise summary of the following conversation';
-    case 'NETWORK_GENERATION':
+    case 'ANALYZER':
       return 'Generate a network structure based on the following summary';
-    case 'CASUAL_CHAT':
+    case 'TUTOR':
       return 'Engage in casual conversation responding to';
     default:
       return '';
@@ -485,7 +491,7 @@ function formatContent(content: MessageContent, type: PromptType, role: RoleType
   function mapMessageToInternal(message: Messages): InternalChatMessage {
   const content = formatContent(
     message.text,
-    message.prompt_type as PromptType || 'CASUAL_CHAT',
+    message.prompt_type as PromptType || 'TUTOR',
     message.type === 'human' ? 'user' : 'assistant'
   );
 
@@ -498,7 +504,7 @@ function formatContent(content: MessageContent, type: PromptType, role: RoleType
     collectionName: message.collectionName,
     parent_msg: message.parent_msg,
     reactions: message.reactions,
-    prompt_type: message.prompt_type as PromptType || 'CASUAL_CHAT',
+    prompt_type: message.prompt_type as PromptType || 'TUTOR',
     model: message.model,
     thread: message.thread,
     isTyping: false,
@@ -717,7 +723,7 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
   function adjustFontSize(element: HTMLTextAreaElement) {
       const maxFontSize = 30;
       const minFontSize = 20;
-      const maxLength = 200; // Adjust this value to determine when to start shrinking the font
+      const maxLength = 50; // Adjust this value to determine when to start shrinking the font
 
       const contentLength = element.value.length;
       
@@ -734,15 +740,21 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
   function resetTextareaHeight() {
     if (textareaElement) {
       textareaElement.style.height = defaultTextareaHeight;
-      textareaElement.style.height = '500px'; 
+      textareaElement.style.height = ''; 
     }
   }
-  function handleTextareaFocus() {
-    isTextareaFocused = true;
-  }
-  function handleTextareaBlur() {
+  const handleTextareaFocus = () => {
+  clearTimeout(hideTimeout); // Clear any existing timeout
+  isTextareaFocused = true;
+};
+const handleTextareaBlur = () => {
+  // Set a timeout before hiding the button
+  hideTimeout = setTimeout(() => {
     isTextareaFocused = false;
-  }
+  }, 1000); // 1000ms = 1 second delay
+};
+
+
   function copyToClipboard(content: string) {
     navigator.clipboard.writeText(content).then(() => {
       console.log('Content copied to clipboard');
@@ -1011,6 +1023,13 @@ async function handleLoadThread(threadId: string) {
     // Update local state
     currentThreadId = thread.id;
     currentThread = thread;
+
+    if (isMobileScreen()) {
+      threadsStore.update(state => ({
+        ...state,
+        showThreadList: false
+      }));
+    }
 
     // Fetch messages
     await messagesStore.fetchMessages(threadId);
@@ -1354,14 +1373,42 @@ async function handleLoadThread(threadId: string) {
     }
   }
 
+  
+
   // Toggle tag selection and update filtered threads
 
-function toggleSection(section: 'tags' | 'prompts' | 'models' | 'threads') {
-  expandedSections.update(state => ({
-    ...state,
-    [section]: !state[section]
-  }));
+  export function toggleSection(section: keyof ExpandedSections): void {
+  expandedSections.update(sections => {
+    // Create a new object with all sections closed
+    const newSections: ExpandedSections = {
+      tags: false,
+      prompts: false,
+      models: false
+    };
+    
+    // If the clicked section was not already open, open it
+    // If it was open, it remains closed (all sections false)
+    if (!sections[section]) {
+      newSections[section] = true;
+    }
+    
+    return newSections;
+  });
 }
+
+$: {
+  if ($expandedSections.models) {
+    showModelSelector = true;
+    showPromptCatalog = false;
+  } else if ($expandedSections.prompts) {
+    showPromptCatalog = true;
+    showModelSelector = false;
+  } else {
+    showModelSelector = false;
+    showPromptCatalog = false;
+  }
+}
+
   async function toggleTagSelection(tagId: string) {
     if (selectedTagIds.has(tagId)) {
       selectedTagIds.delete(tagId);
@@ -1577,7 +1624,9 @@ onMount(async () => {
   onDestroy(() => {
     // Reset current thread
     currentThreadId = null;
-    
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
     // Reset thread selection in store
     // threadsStore.setCurrentThread(null);
     
@@ -1621,7 +1670,6 @@ onMount(async () => {
          class="section-header"
          on:click={() => toggleSection('tags')}
        >
-        <div class="section-header-content">
           <span class="section-icon">
             {#if $expandedSections.tags}
               <ChevronDown size={20} />
@@ -1636,7 +1684,6 @@ onMount(async () => {
           {:else}
             <h3>{$t('threads.tagsHeader')}</h3>
           {/if}
-        </div>
        </button>
 
 
@@ -1829,31 +1876,32 @@ onMount(async () => {
                   {currentThread.name}
                 </h1>
               {/if}
-              <span>{messages.length}
+              <!-- <span class='counter'>{messages.length}
                 {$t('chat.messagecount')}
-              </span>
+              </span> -->
+              {#if !isMinimized}
 
+          {/if}
+          
             </div>
             {/if}
-      
-            {#if !isMinimized}
-              <div class='tags' transition:slide={{duration: 300, easing: cubicOut}}>
-                <ThreadTags
-                  {availableTags}
-                  {currentThreadId}
-                  {showTagSelector}
-                  {isTags}
-                  on:toggleTag={({ detail }) => toggleTag(detail.tag)}
-                  on:toggleSelector={() => {
-                    showTagSelector = !showTagSelector;
-                    isTags = !isTags;
-                  }}
-                />
-              </div>
-          {/if}
+            <div class='tags' transition:slide={{duration: 300, easing: cubicOut}}>
+              <ThreadTags
+                {availableTags}
+                {currentThreadId}
+                {showTagSelector}
+                {isTags}
+                on:toggleTag={({ detail }) => toggleTag(detail.tag)}
+                on:toggleSelector={() => {
+                  showTagSelector = !showTagSelector;
+                  isTags = !isTags;
+                }}
+              />
+            </div>
+            
           {:else}
               <div class="chat-placeholder">
-                <img src={greekImage} alt="Italian illustration" class="illustration" />
+                <!-- <img src={greekImage} alt="Italian illustration" class="illustration" /> -->
 
                 <h1>{$t('threads.selectThread')}</h1>
               </div>
@@ -1985,79 +2033,10 @@ onMount(async () => {
       </button>
 
       <div class="input-container">
-
-    
         <!-- Prompts Section -->
-        <button 
-        class="btn"
+         <div class="combo-input">
 
-        on:click={() => toggleSection('prompts')}
-      >
-        <div class="section-header-content">
-          <span class="section-icon">
-            {#if $expandedSections.prompts}
-            <!-- <Command size={30} /> -->
-            {:else}
-            <!-- <Command size={20} /> -->
-            {/if}
-          </span>
-          {#if selectedPromptLabel}
-            {#if selectedIcon}
-              <svelte:component this={selectedIcon} size={50} />
-            {/if}
-            <!-- <h3>{$t('chat.prompts')}</h3> -->
-            <p class="selector-lable">{selectedPromptLabel}</p>
-          {:else}
-            <Command size={20} />
-            <!-- <h3>{$t('chat.prompts')}</h3> -->
-          {/if}
-        </div>
-      </button>
 
-        {#if $expandedSections.prompts}
-          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-            <PromptCatalog 
-              on:select={(event) => {
-                showPromptCatalog = !showPromptCatalog;
-                console.log('Parent received selection from catalog:', event.detail);
-              }}
-            />
-          </div>
-        {/if}
-
-        <!-- Models Section -->
-        <button 
-        class="btn"
-        on:click={() => toggleSection('models')}
-        >
-        <div class="section-header-content">
-          <span class="section-icon">
-            {#if $expandedSections.models}
-            <Brain size={30} />
-            {:else}
-            <Brain size={20} />
-            {/if}
-          </span>
-          {#if selectedModelLabel}
-            <!-- <h3>{$t('chat.models')}</h3> -->
-            <p class="selector-lable">{selectedModelLabel}</p>
-          {:else}
-            <!-- <h3>{$t('chat.models')}</h3> -->
-          {/if}
-        </div>
-        </button>
-
-    
-        {#if $expandedSections.models}
-          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-            <ModelSelector
-              on:select={(event) => {
-                showModelSelector = !showModelSelector;
-                console.log('Parent received selection from catalog:', event.detail);
-              }}
-            />
-          </div>
-        {/if}
           <textarea
             bind:this={textareaElement}
             bind:value={userInput}
@@ -2074,34 +2053,111 @@ onMount(async () => {
             disabled={isLoading}
             rows="1"
           />
-          
-          <div class="btn-row-right">
+          <div class="ai-selector">
 
-            <span
+            <button 
+            class="btn-ai"
             on:click={() => toggleSection('prompts')}
           >
-
-              <Bot size={20} />
-            </span>
-
-            
-            <span
-              on:click={() => toggleSection('models')}
+            <div class="section-header-content">
+              <span class="section-icon">
+                {#if $expandedSections.prompts}
+                <!-- <Command size={30} /> -->
+                {:else}
+                <!-- <Command size={20} /> -->
+                {/if}
+              </span>
+              {#if selectedPromptLabel}
+                {#if selectedIcon}
+                <div class="icon-wrapper">
+                  <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                </div>
+              {/if}
+                <!-- <h3>{$t('chat.prompts')}</h3> -->
+                <p class="selector-lable">{selectedPromptLabel}</p>
+              {:else}
+                <!-- <Command size={20} /> -->
+                <!-- <h3>{$t('chat.prompts')}</h3> -->
+              {/if}
+            </div>
+          </button>
+    
+            {#if $expandedSections.prompts}
+              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                <PromptCatalog 
+                on:select={(event) => {
+                  // Close the prompt catalog by updating the expanded sections store
+                  expandedSections.update(sections => ({
+                    ...sections,
+                    prompts: false
+                  }));
+                  
+                  // Update the selected prompt
+                  showPromptCatalog = false;
+                  console.log('Parent received selection from catalog:', event.detail);
+                }}
+              />
+              </div>
+            {/if}
+    
+            <!-- Models Section -->
+            <button 
+            class="btn-ai"
+            on:click={() => toggleSection('models')}
             >
-
-              <Brain size={20} />
-              <span>
-
-      
-            <span>
-              <Paperclip size="30" color="white" />
-            </span>
-            
-            <span on:click={() => !isLoading && handleSendMessage()} disabled={isLoading}>
-              <Send color="white" />
-            </span>
-          </div>
+            <div class="section-header-content">
+              <span class="section-icon">
+                {#if $expandedSections.models}
+                <Brain size={20} />
+                {:else}
+                <Brain size={20} />
+                {/if}
+              </span>
+              {#if selectedModelLabel}
+                <!-- <h3>{$t('chat.models')}</h3> -->
+                <p class="selector-lable">{selectedModelLabel} </p>
+              {:else}
+                <p>{$t('chat.models')}</p>
+              {/if}
+            </div>
+            </button>
+    
+        
+            {#if $expandedSections.models}
+              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                <ModelSelector
+                  on:select={(event) => {
+                    showModelSelector = !showModelSelector;
+                    console.log('Parent received selection from catalog:', event.detail);
+                  }}
+                />
+              </div>
+            {/if}
+    
+              
+            </div>
         </div>
+
+
+          <div class="submission">
+            <span class="btn" >
+              <Paperclip size="30"  />
+            </span>
+
+            {#if isTextareaFocused}
+            <span 
+              class="btn send-btn" 
+              class:visible={isTextareaFocused}
+              transition:slide
+              on:click={() => !isLoading && handleSendMessage()} 
+              disabled={isLoading}
+            >
+              <Send />
+            </span>
+          {/if}
+        </div>
+
+          </div>
       
         {#if currentStage === 'summary'}
           <button on:click={toggleNetworkVisualization}>
@@ -2179,22 +2235,35 @@ onMount(async () => {
       justify-content: space-between;
       width: 100%;
       position: relative;
+      
+    }
+
+    .submission {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: center;
+      align-self: flex-end;
+      margin-bottom: 3.5rem;
+      margin-left: 1rem;
     }
 
   .title-container {
     display: flex;
-    position: relative;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
+    position: relative;
     align-items: center;
     height: 40px;
     left: 25%;
-    padding: 0 1rem;
+    margin-left: 2rem;
+    padding:  1rem;
     transition: all 0.3s ease;
     user-select: none;
     border-radius: 20px;
-    width: auto;
-
+    width: 70%;
+    backdrop-filter: blur(10px);
+    
   }
 
   .title-container:hover {
@@ -2204,11 +2273,37 @@ onMount(async () => {
   .title-container span {
     color: gray;
     font-size: 16px;
+    width: 100%;
+    margin: 0 !important;
+    display: flex;
+    flex-direction: row;
+    white-space: nowrap;    /* Prevents text from wrapping */
+  overflow: hidden;       /* Hides any overflow content */
+  text-overflow: ellipsis; /* Shows ... if text overflows */
+  }
+
+  span.counter {
+    color: gray;
+    font-size: 16px;
+    max-width: 100px;
+    margin: 0 !important;
+    display: flex;
+    flex-direction: row;
+    white-space: nowrap;    /* Prevents text from wrapping */
+  overflow: hidden;       /* Hides any overflow content */
+  text-overflow: ellipsis; /* Shows ... if text overflows */
+
   }
 
   .title-container h1 {
-    width: auto;
+    width: 100%;
+    font-size: 1.2rem;
     transition: all 0.3s ease;
+    text-overflow: ellipsis;
+    white-space: nowrap;    /* Prevents text from wrapping */
+    margin-left: 8rem !important;
+
+
   }
 
   .title-container h1:hover {
@@ -2230,7 +2325,12 @@ onMount(async () => {
     position: relative;
     justify-content: flex-end;
     align-items: center;
-    width: auto;
+    width:50%;
+    left: 25%;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 0;
+
     backdrop-filter: blur(8px);
   // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
   border-radius: var(--radius-m);
@@ -2550,6 +2650,9 @@ onMount(async () => {
 
     }
 
+    .btn.send-btn {
+
+    }
 
 
 
@@ -2895,8 +2998,8 @@ span.new-button {
         .thread-list-visible .chat-container {
           overflow-y: auto;
           margin-right: 0;
-          width: 66%;
-          left: calc(1% + 64px);
+          width: 70%;
+          left: auto;
         }
 
         .thread-list-visible .thread-toggle {
@@ -2961,20 +3064,38 @@ span.new-button {
     display: flex;
     position: fixed;
     width: auto;
-    padding: 1rem;
-    left: 25% !important;
+    margin-left: 25%;
     right: 0;
     bottom: 0;
-    justify-content: center;
-    align-items: flex-end;
+    gap: 2rem;
+    justify-content: top;
+    align-items: center;
     /* margin-bottom: 0; */
     /* border-radius: 70%; */
-    background: transparent;
     /* background: linear-gradient(45deg, rgba(0, 0, 0, 0.8) 50%, rgba(128, 128, 128, 0.8) 100%); */
     display: flex;
     /* border: 1px solid rgb(44, 44, 44); */
     /* background-color: rgb(17, 56, 39); */
 
+    :global(svg) {
+        color: var(--primary-color);
+        stroke: var(--primary-color);
+        fill: var(--tertiary-color);
+      }
+  }
+
+  .icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+
+    
+      :global(svg) {
+        color: var(--primary-color);
+        stroke: var(--primary-color);
+        fill: var(--tertiary-color);
+      }
   }
 
   input {
@@ -2998,6 +3119,13 @@ span.new-button {
     font-size: 24px;
 }
 
+.combo-input {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
   
 
 
@@ -3010,8 +3138,7 @@ span.new-button {
     // animation: pulsate 4.5s infinite alternate;
     display: flex;
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    z-index: 1000;
-    backdrop-filter: blur(40px);
+    width: 100%;
   }
 
 .input-container textarea:focus {
@@ -3021,8 +3148,7 @@ span.new-button {
     animation: pulse 1.5s infinite alternate;
     display: flex;
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    z-index: 1000;
-    backdrop-filter: blur(40px);
+
   }
 
   button {
@@ -3115,7 +3241,6 @@ span.new-button {
     display: flex;
     flex-direction: column;
     height: auto;
-    width: 100%;
     // align-items: center;
     transition: all 0.3s ease;
     // padding: 1rem;
@@ -3123,8 +3248,8 @@ span.new-button {
   }
 
   .btn-row-right span {
-    height: 60px;
-    width: 60px;
+    height: 100%;
+    width: 100%;
     padding: 4px;
     justify-content: center;
     align-items: center;
@@ -3223,6 +3348,7 @@ span.new-button {
     /* height: 300px; */
     display: flex;
     /* min-height: 200px; */
+    
   }
 
   .auth-overlay {
@@ -3257,6 +3383,7 @@ span {
   display: flex;
   justify-content: left;
   align-items: center;
+  color: var(--text-color);
   /* gap: 10px; */
 }
 
@@ -3270,9 +3397,18 @@ span {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height:87vh;
+  height:90vh;
+  bottom: 0 !important;
+  top: 0;
 
 }
+
+.chat-placeholder img {
+  width: 100%;
+  transform: translateX(25%) translateY(-20%);
+  
+}
+
 .thread-tags span {
   display: flex;
   justify-content: center;
@@ -3496,20 +3632,18 @@ span {
   flex-direction: column;
   flex-wrap: wrap;
   position: relative;
-  width: auto;
+  width: 100%;
   z-index: 1000;
   margin-right: 1rem;
   /* align-items: center; */
   // padding: 0 20px;
   font-size: 2rem;
-  margin-left: 0;
-  
+  margin-left: 0;  
   margin-right: 2rem;
   overflow-x: hidden;
   color: white;
   left: auto;
   overflow-y: hidden;
-
   /* height: 140px; */
   /* gap: 20px; */
   /* background-color: black; */
@@ -3737,12 +3871,21 @@ margin-right: 2rem;
 }
 
 .btn {
-  width: auto;
   background-color: transparent;
-  height: 60px;
-  display: block;
+  height: 50px;
+  width: 50px;
+  display: flexbox;
+  justify-content: center;
+  align-items: center;
   border-radius: var(--radius-l);
-  box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
+  box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  border: none;
+  &:hover {
+    transform: translateY(-10px);
+    background: var(--bg-gradient-left);
+
+  }
 
 }
 
@@ -3858,6 +4001,7 @@ span.delete-thread-button {
   border-radius: 20px;
   transition: all ease 0.3s;
   margin-right: 2rem;
+  
 }
 
   .tag-row:hover {
@@ -4005,6 +4149,8 @@ span.delete-thread-button {
         color: var(--primary-color);
 
     }
+    
+
 
     .section-header {
     width: 100%;
@@ -4015,12 +4161,12 @@ span.delete-thread-button {
     cursor: pointer;
     color: var(--text-color);
     text-align: left;
-    display: flex;
     align-items: center;
     transition: background-color 0.2s;
     // border-radius: var(--radius-m);
     display: flex;
     flex-direction: row;
+    justify-content: space-between;
     background: var(--bg-gradient-left);
     margin-bottom: 0.5rem;
     border-radius: var(--radius-l);
@@ -4030,15 +4176,19 @@ span.delete-thread-button {
     background-color: var(--hover-color);
   }
 
+  button.section-header {
+    justify-content: space-between;
+  }
+
   .section-header-content {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: transparent;
+    width: 100%;
     h3 {
       margin-right: .5rem;
     }
   }
+
 
 
   .section-header h3 {
@@ -4058,15 +4208,18 @@ span.delete-thread-button {
 
   .section-content {
     width: 100%;
-    left: -1rem;
+    display: flex;
+    justify-content: right;
+
     bottom: 6rem;
-    background: var(--bg-gradient-left);
-    
+    margin-right: 0;
+    right: 3rem;
+    height: auto;
     position: absolute;
     overflow: hidden;
     padding: 0.5rem 1rem;
     scrollbar-width:1px;
-      scrollbar-color: var(--secondary-color) transparent;
+      scrollbar-color: var(--primary-color) transparent;
       scroll-behavior: smooth;
     // background: var(--bg-gradient-left);
     // border-radius: var(--radius-m);
@@ -4075,7 +4228,40 @@ span.delete-thread-button {
   .section-icon {
     display: flex;
     align-items: center;
+    justify-content: center;
+    user-select: none;
   }
+
+p {
+    color: var(--placeholder-color);
+  }
+
+  .ai-selector {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .btn-ai {
+    background-color: transparent;
+    border-radius: var(--radius-m);
+    width: 100px;
+    height: 40px;
+    border: none;
+    display: flex;
+    margin-bottom: 0;
+    margin-top: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+
+    &:hover{
+      box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
+
+    }
+  }
+
 
 
     @keyframes swipe {
@@ -4200,8 +4386,12 @@ span.delete-thread-button {
     }
 
     .section-content {
-      width: 80%;
+      width: 94%;
       padding: 0;
+      left: 1rem;
+      margin-bottom: 2rem;
+      z-index: 0;
+      background: transparent;
     }
 
     .thread-title {
@@ -4211,6 +4401,17 @@ span.delete-thread-button {
 
     .thread-group-header {
       font-size: 1rem;
+    }
+
+    .combo-input {
+      width: 100% !important;
+
+    }
+
+    .ai-selector {
+      width: 100%;
+      align-items: right;
+      justify-content: flex-end;
     }
 
     .group-title {
@@ -4280,15 +4481,15 @@ span.delete-thread-button {
     bottom: 80px !important;
     width: auto !important;
     right: 0;
-    left:2 !important;
-    margin-left: 2rem !important;
+    gap: 0;
+    // left:1rem !important;
+    margin-left: 0 !important;
     margin-right: 0;
     padding: 0 0 0 0 !important;
     border-top-left-radius: var(--radius-m) !important;
-    box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
-
-    z-index: 2000;
-    
+    // box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+    z-index: 4000 !important;
 
   }
 
@@ -4296,8 +4497,11 @@ span.delete-thread-button {
     box-shadow: none;
     border: none !important;
     // font-size: 2rem !important;
-    padding: 2rem;
-    
+    padding-bottom: 2rem;
+    margin-left: 0;
+    background: auto !important;
+
+
 
 
   }
@@ -4308,13 +4512,19 @@ span.delete-thread-button {
       animation: pulse 10.5s infinite alternate;
       box-shadow: none;
       display: flex;
-      background: var(--bg-gradient-left) !important;
-      margin-bottom: 100px;
+      // background: var(--bg-gradient-left) !important;
+          // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+
+      background: black !important; 
       padding: 2rem;
+      margin-left: 2rem;
+      margin-right: 0;
       height: auto;
       box-shadow: none !important;
       
   }
+
+
 
   // textarea {
   //   display: flex;
@@ -4373,6 +4583,7 @@ span.delete-thread-button {
 
   .thread-list-visible .chat-container {
     margin-left: 300px;
+
     position: absolute;
     top: 0;
   }
@@ -4449,16 +4660,18 @@ span.delete-thread-button {
 
 
   .title-container {
-    justify-content: flex-start;
+    justify-content: flex-end;
     gap: 1rem;
-    margin-right: 1rem;
-    margin-left: 1rem;
+    height: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
   }
 
   .title-container h1 {
-    font-size: 1.2rem;
+    font-size: 0.9rem;
     display: flex;
     flex-wrap: wrap;
+    margin-left: 0 !important;
 
   }
 //   button.new-button  {
@@ -4534,17 +4747,39 @@ span.delete-thread-button {
 }
 @media (max-width: 1900px) {
 
+
+
+  .tags {
+    display:flex;
+    position: absolute;
+    justify-content: flex-end;
+    align-items: center;
+    width:auto;
+    top: 0rem;
+    height: 100%;
+    left: 0;
+    right: 0;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 0;
+    backdrop-filter: blur(8px);
+    // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+    border-radius: var(--radius-m);
+  }
   .chat-container {
+    left: 0;
   }
 
   .chat-messages {
     border: none;
     background: none;
     width: auto !important;
+    position: relative;
     margin-left: 0;
-    left: auto;
+    left: 0;
     right: 0;
-    margin-top: 2rem !important;
+    top: 2rem;
+    margin-top: 0 !important;
     margin-right: 0 !important;
     margin-left: 4rem !important;
     margin: 1rem;
@@ -4553,19 +4788,37 @@ span.delete-thread-button {
 
   .chat-content {
     width: 100%;
-    margin-left: 1rem;
+    // margin-left: 1rem;
     // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     border: none;
+    height: 100%;
     
   }
 
 
+  .chat-placeholder {
+  display: flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height:90vh;
+  bottom: 0 !important;
+  top: 0;
 
+}
+
+.chat-placeholder img {
+  width: 150%;
+  transform: translateX(2%) translateY(-20%);
+  
+}
   .input-container {
-    margin-left: 2rem;
-    left: 2rem !important;
+    left: 0;
+    margin-left: 0;
+    margin-right: 0;
     width: auto !important;
-    background: var(--bg-gradient-left);
+    background: var(--bg-gradient);
     &::placeholder {
       color: var(--placeholder-color);
     }
@@ -4574,8 +4827,11 @@ span.delete-thread-button {
   
   
   .title-container {
-      left: 1rem;
-      width: 100%;
+      left: 0;
+      width: 90%;
+      margin: 1rem;
+      height: 100%;
+
 
     }
 
@@ -4587,23 +4843,32 @@ span.delete-thread-button {
 
   .input-container textarea {
     font-size: 1.5rem;
-    background: var(--bg-gradient-left);
     border: none;
     box-shadow: none;
+    position: relative;
+    left: 0;
+    margin-left: 7rem;
+    margin-top: 0.5rem;
+    background-color: transparent !important;
+    width: calc(100% - 5rem);
     transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+    padding-top: 1rem;
+    padding-left: 1rem;
   }
 
 
     .input-container textarea:focus {
       border: none;
       color: white;
-      font-size: 20px;
+      margin-top: 2rem;
+
+      // font-size: 20px;
       animation: pulse 10.5s infinite alternate;
       display: flex;
-      z-index: 1000;
-      background: transparent !important;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
     }
+
+    
 
 
 }
@@ -4642,6 +4907,7 @@ span.delete-thread-button {
     left: 0;
     right: 25%;
     bottom: 0;
+    z-index: 4000;
   }
 
   .input-container textarea {
@@ -4651,14 +4917,12 @@ span.delete-thread-button {
 
     .input-container textarea:focus {
 
-      background: transparent !important;
       color: white;
       font-size: 20px;
       animation: pulse 10.5s infinite alternate;
       display: flex;
       z-index: 1000;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-
   }
 }
 
@@ -4845,6 +5109,7 @@ span.delete-thread-button {
       justify-content: space-between;
       width: 100%;
       position: relative;
+      
     }
 
   .title-container {
@@ -4857,6 +5122,7 @@ span.delete-thread-button {
     transition: all 0.3s ease;
     user-select: none;
     border-radius: 20px;
+    
 
   }
 

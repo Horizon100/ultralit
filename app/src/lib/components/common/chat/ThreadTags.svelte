@@ -70,8 +70,11 @@
       margin-top: 0;
       border-radius: 20px;
       transition: all ease 0.3s;
-      margin-right: 2rem;
-      margin-left: 2rem;
+      height: 100%;
+      margin-bottom: auto;
+      
+      // margin-right: 2rem;
+      // margin-left: 2rem;
 
       &:hover {
         display: flex;
@@ -85,10 +88,12 @@
       flex-wrap: wrap;
       justify-content: right;
       align-items: center;
+      height: 100%;
+      width: 100% !important;
       gap: 5px;
-      width: auto;
       border-radius: 20px;
       transition: all ease 0.3s;
+      
     }
   
     .assigned-tags {

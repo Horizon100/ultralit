@@ -10,7 +10,7 @@ export class HubAgent {
   private agents: Agent[] = [];
   private chatMessages: InternalChatMessage[] = [];
   private isLoading: boolean = false;
-  private currentStage: 'initial' | 'role_suggestion' | 'role_selection' | 'agent_creation' | 'chat' = 'initial';
+  private currentStage: 'initial' | 'role_suggestion' | 'role_selection' | 'CODER' | 'chat' = 'initial';
 
   constructor(private aiModel: AIModel, private userId: string) {}
 
@@ -42,7 +42,7 @@ export class HubAgent {
 
   async selectRole(role: Role): Promise<void> {
     this.selectedRole = role;
-    this.currentStage = 'agent_creation';
+    this.currentStage = 'CODER';
     await this.createAgents(role);
   }
 

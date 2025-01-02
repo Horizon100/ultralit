@@ -38,15 +38,15 @@ export interface Prompt {
     youtubeUrl: string;
   }
 export type PromptType = 
-    'SCENARIO_GENERATION' | 
-    'TASK_GENERATION' | 
-    'AGENT_CREATION' | 
-    'NETWORK_STRUCTURE' | 
-    'REFINE_SUGGESTION' | 
-    'SUMMARY_GENERATION' | 
-    'NETWORK_GENERATION' | 
-    'GUIDANCE_GENERATION' | 
-    'CASUAL_CHAT' ;
+    'FLOW' | 
+    'PLANNER' | 
+    'CODER' | 
+    'RESEARCH' | 
+    'DESIGNER' | 
+    'WRITER' | 
+    'ANALYZER' | 
+    'BRAINSTORM' | 
+    'TUTOR' ;
 
 
 export interface Tag extends RecordModel {

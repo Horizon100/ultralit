@@ -46,9 +46,9 @@
   }
 </script>
 
-<div class="tags">
+<!-- <div class="tags">
   
-</div>
+</div> -->
 
 <div class="tag-list">
   

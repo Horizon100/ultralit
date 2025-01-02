@@ -32,7 +32,7 @@
 
   let attachment: Attachment | null = null;
   let fileInput: HTMLInputElement;
-  let selectedPromptType: PromptType = 'CASUAL_CHAT';
+  let selectedPromptType: PromptType = 'TUTOR';
 
 
   const dispatch = createEventDispatcher<{

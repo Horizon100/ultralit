@@ -637,7 +637,7 @@
       width: auto;
       bottom: 5rem;
       padding: 0.5rem;
-      background: var(--bg-gradient-right);
+      background: transparent;
       backdrop-filter: blur(10px);
     }
 
@@ -699,7 +699,6 @@
       width: auto;
       bottom: 5rem;
       padding: 0.5rem;
-      background: var(--bg-gradient-right);
       backdrop-filter: blur(10px);
     }
 
