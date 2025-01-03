@@ -1977,7 +1977,7 @@ onMount(async () => {
                       {:else if message.isHighlighted}
                         <p>{@html message.content}</p>
                       {:else}
-                      <p class:typing={message.isTyping && message.id === latestMessageId}>{message.content}</p>
+                      <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
                       {/if}
                       
                       {#if message.role === 'thinking'}
@@ -2659,7 +2659,7 @@ onMount(async () => {
     .message p {
       font-size: calc(10px + 1vmin);
       margin: 0;
-      white-space: pre-wrap;
+      white-space: normal;
       overflow-wrap: break-word;
       word-wrap: break-word;
       hyphens: auto;
@@ -2674,6 +2674,202 @@ onMount(async () => {
       margin-bottom: 20px;
 
     }
+
+    :global(table) {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        background: var(--bg-gradient-left);
+        box-shadow: 0px 1px 40px 1px var(--secondary-color, 0.01);
+        border-radius: var(--radius-m);
+        overflow: hidden;
+        // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+
+      :global(th) {
+        background: var(--bg-gradient-r);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 400;
+        color: var(--text-color);
+        border-bottom: 1px solid var(--bg-color);
+        border-right: 1px solid var(--bg-color);
+        font-style: italic;
+
+        &:last-child {
+          border-right: none;
+          border-left: none;
+        }
+
+        &:first-child {
+          font-weight: 600;
+          text-transform: uppercase;
+          font-style: normal;
+        }
+
+        &:nth-child(even) {
+          background: var(--bg-gradient-left);
+
+          &:td {
+        // color: var(--placeholder-color);
+
+          }
+
+        } 
+
+    }
+
+
+
+
+      :global(td) {
+        padding: 1rem;
+        border-bottom: 1px solid var(--secondary-color);
+        border-right: 1px solid var(--secondary-color);
+
+        &:last-child {
+          border-right: none;
+          border-left: none;
+        }
+
+      }
+
+      :global(tr:last-of-type td) {
+        border-bottom: none;
+      }
+
+      :global(tr:nth-child(even)) {
+        background: var(--primary-color);
+      }
+
+      :global(tr:nth-child(even) td) {
+        // color: var(--placeholder-color);
+      }
+    :global(tr:hover) {
+      background: var(--bg-gradient-right);
+    }
+
+    :global(ul) {
+      // box-shadow: 1px -1px 20px 4px rgba(255, 255, 255, 0.2);
+      margin-left: 0;
+      padding-inline-start: 0;
+
+
+    }
+
+    :global(li li) {
+  margin-inline-start: 1.5rem;
+
+  padding-inline-start: 0;
+
+}
+
+    :global(ul li  ) {
+
+      &:first-child {
+        // font-size: 1.2rem;
+        &::marker{
+          // color: transparent;
+        }
+      }
+
+      
+    }
+
+    :global(ul li li ) {
+      
+      &:first-child {
+        background-color: transparent;
+
+        &::marker{
+          color: inherit;
+        }
+      }
+      
+    }
+
+    :global(ol p) {
+      margin-left: 0;
+      margin-bottom: 0;
+      font-size:1.5rem;
+
+    }
+
+    :global(p p) {
+      margin-left: 0;
+      margin-bottom: 0;
+      
+    }
+
+    :global(ol) {
+      transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+      border-radius: var(--radius-l);
+      border: 1px solid transparent;
+      padding-block-start: 0rem;    
+      padding-block-end: 0rem;     
+      margin-block-start: 0rem;    
+      margin-block-end: 0;    
+      row-gap: 1rem;             
+      line-height: 1.1;           
+  } 
+
+    :global(li) {
+      margin: 0;
+      transform: all;
+      margin-block-start: 1.5rem;
+      margin-block-end: 1rem;
+      letter-spacing: 0.1rem;
+      border-radius: var(--radius-m);
+      gap: 1rem;
+      &:hover {
+      // box-shadow: 1px -1px 20px 4px rgba(255, 255, 255, 0.2);
+      
+      }
+
+      &:first-child {
+        
+      }
+
+      &:li {
+        font-size: 1.2rem;
+        font-weight: 600;
+        transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+        background: var(--bg-gradient-right);
+
+      }
+
+    }
+
+    :global(ol li) {  /* Targets nested list items */
+      font-size: 1.2rem;
+      &:nth-child {
+
+        &:hover {
+          background-color: rgba(255, 0, 0, 0.583);
+
+        }
+    }
+
+    
+  }
+
+:global(ol li li li) {
+  padding: 0.5rem 1rem;
+  transform: all;
+  border: 1px solid transparent;
+  // box-shadow: 0px 1px 2px 1px var(--secondary-color, 0.01);
+
+
+
+  &:hover {
+    transition: 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    transform: translateX(-0.5rem);
+    scale: 1.1;
+    box-shadow: 0px 1px 2px 1px var(--secondary-color, 0.01);
+    background-color: var(--bg-color);
+  }
+}
+
   
     .options button {
       padding: 12px;

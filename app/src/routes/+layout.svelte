@@ -231,10 +231,10 @@
 		<div class="mobile-btns">
 			{#if $currentUser}
 			<a
-				href="/ask"
+				href="/"
 				class="nav-link"
-				class:active={activeLink === '/ask'}
-				on:click|preventDefault={() => setActiveLink('/ask')}
+				class:active={activeLink === '/'}
+				on:click|preventDefault={() => setActiveLink('/')}
 			>
 				<MessageCircle size={20} />
 				{$t('nav.ask')}

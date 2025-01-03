@@ -3,6 +3,38 @@ import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 // import { fetchNamingResponse } from '$lib/aiClient'
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
+import { marked } from 'marked';
+
+marked.setOptions({
+    gfm: true, // GitHub Flavored Markdown
+    breaks: true, // Convert \n to <br>
+    headerIds: false,
+    mangle: false
+  });
+
+  function processMarkdown(content: string): string {
+    try {
+      // Process content with marked
+      const processed = marked(content);
+      
+      // Additional formatting rules
+      return processed
+        // Ensure proper spacing around headers
+        .replace(/(<h[1-6]>)/g, '\n$1')
+        .replace(/(<\/h[1-6]>)/g, '$1\n')
+        // Proper list formatting
+        .replace(/(<[uo]l>)/g, '\n$1')
+        .replace(/(<\/[uo]l>)/g, '$1\n')
+        // Proper code block formatting
+        .replace(/(<pre>)/g, '\n$1')
+        .replace(/(<\/pre>)/g, '$1\n')
+        // Clean up excessive newlines
+        .replace(/\n{3,}/g, '\n\n');
+    } catch (error) {
+      console.error('Error processing markdown:', error);
+      return content;
+    }
+  }
 
 /** Utility to ensure user is authenticated */
 function ensureAuthenticated(): void {
@@ -10,6 +42,8 @@ function ensureAuthenticated(): void {
         throw new Error('User is not authenticated');
     }
 }
+
+
 
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
     try {
@@ -22,8 +56,14 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
             expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
         });
 
-        console.log(`Fetched ${messages.length} messages for thread ${threadId}`);
-        return messages;
+        // Process markdown for each message
+        const processedMessages = messages.map(message => ({
+            ...message,
+            text: processMarkdown(message.text)
+        }));
+
+        console.log(`Fetched ${processedMessages.length} messages for thread ${threadId}`);
+        return processedMessages;
     } catch (error) {
         console.error('Error fetching messages for thread:', error);
         if (error instanceof ClientResponseError) {
@@ -33,6 +73,7 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
         throw error;
     }
 }
+
 
 export async function fetchLastMessageForThread(threadId: string): Promise<Messages | null> {
     try {
@@ -45,7 +86,14 @@ export async function fetchLastMessageForThread(threadId: string): Promise<Messa
             limit: 1
         });
 
-        return messages.length > 0 ? messages[0] : null;
+        if (messages.length > 0) {
+            const lastMessage = messages[0];
+            return {
+                ...lastMessage,
+                text: processMarkdown(lastMessage.text)
+            };
+        }
+        return null;
     } catch (error) {
         console.error('Error fetching last message for thread:', error);
         if (error instanceof ClientResponseError) {
@@ -115,7 +163,13 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
     try {
         ensureAuthenticated();
 
-        return await pb.collection('messages').update<Messages>(id, data);
+        // Process markdown if text is being updated
+        const processedData = data.text ? {
+            ...data,
+            text: processMarkdown(data.text)
+        } : data;
+
+        return await pb.collection('messages').update<Messages>(id, processedData);
     } catch (error) {
         console.error('Error updating message:', error);
         if (error instanceof ClientResponseError) {
@@ -179,18 +233,21 @@ export async function addMessageToThread(message: Omit<Messages, 'id' | 'created
     try {
         ensureAuthenticated();
 
-
         console.log('Attempting to add message:', JSON.stringify(message, null, 2));
         console.log('User ID:', pb.authStore.model?.id);
 
+        // Process markdown before saving
+        const processedMessage = {
+            ...message,
+            text: processMarkdown(message.text)
+        };
 
-        const createdMessage = await pb.collection('messages').create<Messages>(message);
+        const createdMessage = await pb.collection('messages').create<Messages>(processedMessage);
         console.log('Created message:', createdMessage);
         return createdMessage;
     } catch (error) {
         console.error('Error adding message to thread:', error);
         if (error instanceof ClientResponseError) {
-            
             console.error('Response data:', error.data);
             console.error('Status code:', error.status);
             console.error('Error details:', error.data?.data);
