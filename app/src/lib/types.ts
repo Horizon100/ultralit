@@ -47,7 +47,23 @@ export type PromptType =
     'ANALYZER' | 
     'BRAINSTORM' | 
     'TUTOR' ;
-
+    
+    export interface ThreadStoreState {
+        threads: Threads[];
+        currentThreadId: string | null;
+        messages: Messages[];
+        updateStatus: string;
+        isThreadsLoaded: boolean;
+        showThreadList: boolean;
+        searchQuery: string;
+        namingThreadId: string | null;
+        selectedTagIds: Set<string>;
+        currentThread: Threads | null;
+        filteredThreads: Threads[];
+        isEditingThreadName: boolean;
+        editedThreadName: string;
+        tags: Tag[];
+    }
 
 export interface Tag extends RecordModel {
     id: string;
@@ -517,6 +533,8 @@ export interface Tag {
     name: string;
     selected: boolean;
     color: string;
+    user: string; 
+
 }
 
 export type Folders = {

@@ -20,7 +20,9 @@ function createThreadsStore() {
     isThreadsLoaded: boolean,
     showThreadList: boolean,
     searchQuery: string,
-    namingThreadId: string | null 
+    namingThreadId: string | null,
+    selectedTagIds: Set<string> 
+
   }>({
     threads: [],
     currentThreadId: null,
@@ -30,19 +32,19 @@ function createThreadsStore() {
       showThreadList: initialShowThreadList,
     searchQuery: '',
     namingThreadId: null,
-    // tags: []
+    selectedTagIds: new Set()
   });
 
-  const { subscribe, update, set } = store;
+  const { subscribe, update } = store;
 
   
 
   
-  if (browser) {
-    store.subscribe(state => {
-      localStorage.setItem('userTags', JSON.stringify(state.tags));
-    });
-  }
+  // if (browser) {
+  //   store.subscribe(state => {
+  //     localStorage.setItem('userTags', JSON.stringify(state.tags));
+  //   });
+  // }
 
   
 
@@ -173,7 +175,35 @@ function createThreadsStore() {
     }));
   },
 
-
+  setSelectedTags: (tagIds: string[]) => {
+    store.update(state => ({
+      ...state,
+      selectedTagIds: new Set(tagIds)
+    }));
+  },
+  toggleTagSelection: (tagId: string) => {
+    store.update(state => {
+      const currentTags = state.selectedTagIds;
+      const newSelectedTags = new Set(currentTags);
+      
+      console.log('Toggle tag:', tagId);
+      console.log('Before toggle:', Array.from(newSelectedTags));
+      
+      if (newSelectedTags.has(tagId)) {
+        newSelectedTags.delete(tagId);
+      } else {
+        newSelectedTags.add(tagId);
+      }
+      
+      console.log('After toggle:', Array.from(newSelectedTags));
+      
+      // Create a new state object to ensure reactivity
+      return {
+        ...state,
+        selectedTagIds: newSelectedTags
+      };
+    });
+  },
 
   autoUpdateThreadName: async (threadId: string, messages: Messages[], model: AIModel, userId: string) => {
     try {
@@ -302,7 +332,17 @@ function createThreadsStore() {
     
     addTag: (tagName: string) => {
       store.update(state => {
-        const newTag: Tag = { name: tagName, selected: false };
+        const newTag: Tag = {
+          id: crypto.randomUUID(), // Generate a unique ID
+          name: tagName,
+          color: '#000000', // Default color
+          selected_threads: [], // Empty array of selected threads
+          user: '', // This should probably be the current user's ID
+          collectionId: '', // Required by RecordModel
+          collectionName: '', // Required by RecordModel
+          created: new Date().toISOString(),
+          updated: new Date().toISOString()
+        };
         return { ...state, tags: [...state.tags, newTag] };
       });
     },
@@ -391,12 +431,17 @@ function createThreadsStore() {
       return [...new Set(allTags)];
     }),
     
-    getFilteredThreads: derived(store, $store => (selectedTags: string[]) => {
-      if (selectedTags.length === 0) {
+    getFilteredThreads: derived(store, $store => {
+      const selectedTags = $store.selectedTagIds;
+      
+      // If no tags selected, return all threads
+      if (selectedTags.size === 0) {
         return $store.threads;
       }
+    
+      // Filter threads that have any of the selected tags
       return $store.threads.filter(thread => 
-        selectedTags.every(tag => thread.tags?.includes(tag))
+        thread.tags?.some(tag => selectedTags.has(tag))
       );
     }),
 

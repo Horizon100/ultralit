@@ -1,20 +1,52 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import { Tag, Plus, Check, Trash, Pen } from 'lucide-svelte';
+  import { fly, slide } from 'svelte/transition';
+  import { Plus, Check, Trash, Pen } from 'lucide-svelte';
   import { pb } from '$lib/pocketbase';
   import type { Tag } from '$lib/types';
   import { t } from '$lib/stores/translationStore';
+  import { threadsStore } from '$lib/stores/threadsStore'; 
+
+  let selectedTagIds: Set<string>;
+
+  threadsStore.subscribe((state) => {
+    console.log('Thread store state updated:', state);
+    console.log('Thread store selectedTagIds:', state.selectedTagIds);
+  });
+
+
+  // Debug selectedTagIds changes
+  $: {
+    console.log('selectedTagIds reactive update:', selectedTagIds);
+    console.log('Is Set?', selectedTagIds instanceof Set);
+    console.log('Size:', selectedTagIds.size);
+    console.log('Contents:', Array.from(selectedTagIds));
+  }
 
   export let availableTags: Tag[] = [];
-  export let selectedTagIds: Set<string> = new Set();
   export let editingTagId: string | null = null;
   export let editingTagIndex: number | null = null;
   export let newTagName = '';
 
   const dispatch = createEventDispatcher();
 
+  $: selectedTagIds = $threadsStore.selectedTagIds;
+
+
   function toggleTagSelection(tagId: string) {
+    console.log('Toggling tag selection for:', tagId);
+    threadsStore.update(state => {
+      const newSelectedTags = new Set(state.selectedTagIds);
+      if (newSelectedTags.has(tagId)) {
+        newSelectedTags.delete(tagId);
+      } else {
+        newSelectedTags.add(tagId);
+      }
+      return {
+        ...state,
+        selectedTagIds: newSelectedTags
+      };
+    });
     dispatch('toggleSelection', { tagId });
   }
 
@@ -37,12 +69,22 @@
   }
 
   function toggleTagCreation() {
+    console.log('Toggling tag creation mode');
+    console.log('Current editingTagIndex:', editingTagIndex);
+    
     if (editingTagIndex !== null) {
       editingTagIndex = null;
     } else {
       editingTagIndex = -1;
     }
     newTagName = '';
+    
+    console.log('New editingTagIndex:', editingTagIndex);
+  }
+
+  // Log when component receives new availableTags
+  $: {
+    console.log('Available tags updated:', availableTags);
   }
 </script>
 
@@ -65,9 +107,11 @@
             <span class="save-tag-button" on:click={() => updateTag(tag)}>
               <Check />
             </span>
-            <span class="delete-tag-button" on:click={() => dispatch('deleteTag', { tagId: tag.id })}>
+            <span class="delete-tag-button" 
+              on:click|stopPropagation={(event) => dispatch('deleteTag', { tagId: tag.id })}
+            >
               <Trash />
-            </span>
+          </span>
           </span>
         </div>
       {:else}
@@ -90,14 +134,27 @@
     {$t('threads.newTag')}
   </button>
   {#if editingTagIndex !== null}
-    <div class="new-tag-input">
+      <div class="new-tag-input"
+      in:fly={{ y: -20, duration: 200 }}
+      out:slide={{ duration: 200 }}
+    >
       <input 
         type="text" 
         placeholder="New tag" 
         bind:value={newTagName}
-        on:keydown={(e) => e.key === 'Enter' && dispatch('createTag', { name: newTagName })}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') {
+            dispatch('createTag', { name: newTagName });
+            editingTagIndex = null;  // Reset the state
+            newTagName = '';         // Clear the input
+          }
+        }}
       >
-      <span class="new-tag" on:click={() => dispatch('createTag', { name: newTagName })}>
+      <span class="new-tag" on:click={() => {
+        dispatch('createTag', { name: newTagName });
+        editingTagIndex = null;  // Reset the state
+        newTagName = '';         // Clear the input
+      }}>
         <Plus/>
       </span>
     </div>
@@ -132,46 +189,31 @@
   height: auto;
 }
 
-.tag-edit-container {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  /* background-color: rgba(255, 255, 255, 0.1); */
-  padding: 2px;
-  border-radius: 15px;
-  // margin-left: 1rem;
-  
-}
 
-.tag-edit-container input {
-  width: auto;
-}
-
-
-.tag-edit-buttons {
-  display: flex;
-  width: auto;
-  gap: 20px;
-}
-span.save-tag-button {
+span.save-tag-button, span.delete-tag-button {
   background: none;
   border: none;
   cursor: pointer;
-  margin-left: 2px;
-  color: var(--text-color);
   opacity: 0.7;
   transition: all ease 0.3s;
+  display:inline-flex;
+  position: relative;
+  color: var(--placeholder-color);
 
 }
-
-span.save-tag-button:hover {
-  color: rgb(0, 248, 166);
+span.save-tag-button {
+  &:hover {
+    color: rgb(147, 255, 147);
+  }
+}
+span.delete-tag-button {
+  
+  &:hover {    
+    color: rgb(255, 0, 0);
+  }
 }
 
-.save-tag-button svg {
-  height: 30px;
-  width: 30px;
-}
+
 
 button.tag {
   opacity: 0.5;
@@ -191,18 +233,28 @@ button.tag.selected {
   display: inline-flex;
 }
 
-span.delete-tag-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  margin-left: 2px;
-  color: transparent;
-  opacity: 0.7;
-  transition: all ease 0.3s;
-  display: inline-flex;
-  position: relative;
-}
+// .delete-tag-button {
+//     background: none;
+//     border: none;
+//     cursor: pointer;
+//     padding: 2px;
+//     margin-left: 2px;
+//     color: var(--text-color);
+//     opacity: 0.7;
+//     transition: all ease 0.3s;
+
+//     &:hover {
+//       opacity: 1;
+//       transform: scale(1.1);
+//     }
+//   }
+
+//   .delete-tag-button:hover {
+//     color: rgb(255, 0, 0);
+//   }
+
+
+
 
   .assigned-tags {
     display: flex;
@@ -293,65 +345,50 @@ span.delete-tag-button {
     }
   }
 
-  .tag-edit-container {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding: 2px;
-    border-radius: 15px;
-    margin-left: 1rem;
-    
-    input {
-      width: 80%;
-      background-color: var(--primary-color);
-      color: var(--text-color);
-    }
-  }
+
+
 
   .tag-edit-buttons {
-    display: flex;
-    width: auto;
-    gap: 20px;
-  }
+  display: flex;
+  width: auto;  
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
 
-  .save-tag-button,
-  .delete-tag-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 2px;
-    margin-left: 2px;
-    color: var(--text-color);
-    opacity: 0.7;
-    transition: all ease 0.3s;
-
-    &:hover {
-      opacity: 1;
-      transform: scale(1.1);
-    }
-  }
-
-  .delete-tag-button:hover {
-    color: rgb(255, 0, 0);
-  }
-
-  .new-tag-input {
+  .new-tag-input, .tag-edit-container {
     display: flex;
     margin-bottom: 10px;
     width: auto;
     margin-left: 0;
-
+    padding: 1rem;
     input {
       flex-grow: 1;
       border: 1px solid #ccc;
       border-radius: 15px;
       background-color: var(--secondary-color);
-      padding: 5px 10px;
+      padding: 0 1rem;
       font-size: 16px;
       color: white;
       width: 100%;
     }
   }
+
+  // .tag-edit-container {
+  //   display: flex;
+  //   flex-direction: row;
+  //   align-items: center;
+  //   padding: 2px;
+  //   border-radius: 15px;
+  //   margin-left: 1rem;
+    
+  //   input {
+  //     width: 80%;
+  //     background-color: var(--primary-color);
+  //     color: var(--text-color);
+  //   }
+  // }
 
   .new-tag {
     border: none;
@@ -543,29 +580,10 @@ span.new-button {
   position: relative;
   pointer-events: none;
 }
-span.delete-tag-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  margin-left: 2px;
-  color: transparent;
-  opacity: 0.7;
-  transition: all ease 0.3s;
-  display:inline-flex;
-  position: relative;
-}
 
 
-span.delete-tag-button:hover {
-  color: rgb(255, 0, 0);
-}
 
 
-.delete-tag-button svg {
-  height: 30px;
-  width: 30px;
-}
 
 .thread-actions {
   display: flex;

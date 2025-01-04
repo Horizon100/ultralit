@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -15,7 +15,7 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Task, Tag, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
@@ -79,16 +79,7 @@ interface PromptState {
   networkData: any;
 }
 
-interface ThreadState {
-  threads: Threads[];
-  currentThread: Threads | null;
-  currentThreadId: string | null;
-  namingThreadId: string | null;
-  filteredThreads: Threads[];
-  isEditingThreadName: boolean;
-  editedThreadName: string;
-  showThreadList: boolean;
-}
+
 
 interface UIState {
   isLoading: boolean;
@@ -157,6 +148,7 @@ export const expandedSections = writable<ExpandedSections>({
   let isCreatingThread = false;
   let updateStatus: string = ''; 
   let showThreadList = $threadsStore.showThreadList;
+  let isThreadsLoaded: boolean;
 
 
   // UI state
@@ -191,12 +183,7 @@ export const expandedSections = writable<ExpandedSections>({
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
 
-  $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
-  $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;
-  
-  $: selectedModelName = $modelStore?.selectedModel?.name || '';  
-  $: selectedTagCount = selectedTagIds ? selectedTagIds.size : 0;  // Compute selected tags count
-  $: showThreadList = $threadsStore.showThreadList;
+
 
 
   // Tag state
@@ -206,7 +193,8 @@ export const expandedSections = writable<ExpandedSections>({
   let newTagName =  '';
   let availableTags: Tag[] = [];
   let editingTagId: string | null = null;
-  let selectedTagIds = new Set();
+  let selectedTagIds = new Set<string>();
+    let tags: Tag[] = [];
 
     // Message state
   let chatMessagesDiv: HTMLDivElement;
@@ -227,6 +215,13 @@ export const expandedSections = writable<ExpandedSections>({
   let networkData: any = null;
   let guidance: Guidance | null = null;
 
+  $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
+  $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;
+  
+  $: selectedModelName = $modelStore?.selectedModel?.name || '';  
+  $: selectedTagCount = selectedTagIds ? selectedTagIds.size : 0;  // Compute selected tags count
+  $: showThreadList = $threadsStore.showThreadList;
+
   messagesStore.subscribe(value => messages = value);
   threadsStore.subscribe((state: ThreadStoreState) => {
     threads = state.threads;
@@ -234,7 +229,13 @@ export const expandedSections = writable<ExpandedSections>({
     messages = state.messages;
     updateStatus = state.updateStatus;
     showThreadList = state.showThreadList;
-  });
+    selectedTagIds = state.selectedTagIds;
+    currentThread = state.currentThread;
+    filteredThreads = state.filteredThreads;
+    isEditingThreadName = state.isEditingThreadName;
+    editedThreadName = state.editedThreadName;
+    tags = state.tags;
+});
 
   const defaultAIModel: AIModel = {
     id: 'default',
@@ -293,43 +294,63 @@ $: {
    }
 }
 
+$: isTagFilterActive = $threadsStore.selectedTagIds.size > 0;
+const tagFilteredThreads = derived(threadsStore, ($store) => {
+    const selectedTags = $store.selectedTagIds;
+    if (selectedTags.size === 0) return $store.threads;
+    
+    return $store.threads.filter(thread => {
+        // Ensure thread.tags is always an array
+        const threadTags = Array.isArray(thread.tags) ? thread.tags : 
+                          typeof thread.tags === 'string' ? [thread.tags] : [];
+        
+        console.log('Thread:', thread.id, 'Tags:', threadTags);
+        const hasMatchingTag = threadTags.some(tagId => selectedTags.has(tagId));
+        console.log('Has matching tag:', hasMatchingTag);
+        return hasMatchingTag;
+    });
+});
+
 // Thread grouping and visibility management
 $: isSearchActive = searchQuery.trim().length > 0;
-$: searchedThreads = derived(threadsStore, $store => {
+const searchedThreads = derived(threadsStore, ($store) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return $store.threads;
     
     return $store.threads.filter(thread => 
-      thread.name?.toLowerCase().includes(query) || 
-      thread.last_message?.content?.toLowerCase().includes(query)
+        thread.name?.toLowerCase().includes(query) || 
+        thread.last_message?.content?.toLowerCase().includes(query)
     );
-  });
+});
 // Update store when search changes
 $: {
   threadsStore.setSearchQuery(searchQuery);
 }
 
-$: {
-   // Keep filteredThreads in sync with threads when no tags selected
-   if (threads) {
-       if (selectedTagIds.size === 0) {
-           filteredThreads = threads;
-       } else {
-           filteredThreads = threads.filter(thread => {
-               const threadTags = thread.tags || [];
-               return threadTags.some(tag => selectedTagIds.has(tag));
-           });
-       }
-   }
+// Add these reactive statements
+$: if ($threadsStore.selectedTagIds) filterThreads();
+$: if (threads) filterThreads();
+
+// $: {
+//    if (threads) {
+//        if (selectedTagIds.size === 0) {
+//            filteredThreads = threads;
+//        } else {
+//            filteredThreads = threads.filter(thread => {
+//                const threadTags = thread.tags || [];
+//                return threadTags.some(tag => selectedTagIds.has(tag.id));
+//            });
+//        }
+//    }
    
-   // Ensure thread list stays visible
-   if (filteredThreads?.length > 0 && !showThreadList) {
-       threadsStore.update(state => ({
-           ...state,
-           showThreadList: true
-       }));
-   }
-}
+//    // Ensure thread list stays visible
+//    if (filteredThreads?.length > 0 && !showThreadList) {
+//        threadsStore.update(state => ({
+//            ...state,
+//            showThreadList: true
+//        }));
+//    }
+// }
 
 $: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
 $: namingThreadId = $threadsStore?.namingThreadId;
@@ -372,6 +393,8 @@ $: {
        }
    }
 }
+
+
 
 // Tag and thread group management
 $: if (currentThreadId) {
@@ -483,7 +506,7 @@ $: if (date) {
     return null; // Return null if there are no messages
   }
 
-  type MessageContent = string | Scenario[] | Task[] | AgentProfile | NetworkStructure;
+  type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 function formatContent(content: MessageContent, type: PromptType, role: RoleType): string {
   const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
@@ -698,25 +721,45 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
     });
 }
 
-  function filterThreads() {
-    if (selectedTagIds.size === 0) {
-      // Show all threads if no tags selected
-      filteredThreads = threads;
-    } else {
-      // Filter threads that have ANY of the selected tags
-      filteredThreads = threads.filter(thread => {
-        // Get all tags associated with this thread
-        const threadTags = availableTags
-          .filter(tag => tag.selected_threads?.includes(thread.id))
-          .map(tag => tag.id);
-        
-        // Check if thread has any of the selected tags
-        return Array.from(selectedTagIds).some(selectedTagId => 
-          threadTags.includes(selectedTagId)
-        );
-      });
-    }
+
+
+
+
+
+
+
+function filterThreads() {
+  const selectedTags = $threadsStore.selectedTagIds;
+  console.log('Filtering with tags:', Array.from(selectedTags));
+  
+  if (selectedTags.size === 0) {
+    console.log('No tags selected');
+    filteredThreads = threads;
+  } else {
+    filteredThreads = threads.filter(thread => {
+      // Make sure thread.tags is an array before calling .some()
+      const threadTags = Array.isArray(thread.tags) ? thread.tags : 
+                        typeof thread.tags === 'string' ? [thread.tags] : [];
+      
+      const matches = threadTags.some(tagId => selectedTags.has(tagId));
+      console.log(`Thread ${thread.id} tags:`, threadTags, `matches:`, matches);
+      return matches;
+    });
   }
+  
+  console.log(`Filtered ${filteredThreads.length} threads`);
+}
+
+  function handleTagSelection({ detail }: CustomEvent<{tagId: string}>) {
+    // The store update is now handled in ThreadListTags
+    // Just trigger a re-filter
+    filterThreads();
+  }
+
+$: if (threads || $threadsStore.selectedTagIds) {
+  console.log('Triggering filter due to change in threads or selected tags');
+  filterThreads();
+}
 
 // UI helper functions
   function handleScroll(event: { target: HTMLElement }) {
@@ -814,7 +857,7 @@ const handleTextareaBlur = () => {
     document.removeEventListener('mousemove', drag);
     document.removeEventListener('mouseup', stopDrag);
   }
-  export async function getRandomBrightColor(tagName: string): string {
+  export function getRandomBrightColor(tagName: string): string {
     const hash = tagName.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
     }, 0);
@@ -1080,6 +1123,19 @@ async function handleLoadThread(threadId: string) {
     isLoadingMessages = false;
   }
 }
+
+  async function loadThreadCounts(threads: Threads[]) {
+    // isLoading = true;
+    try {
+      const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
+      if (totalThreads > currentPage * 20) {
+        currentPage++;
+      }
+    } finally {
+      // isLoading = false;
+    }
+  }
+
   async function handleDeleteThread(event: MouseEvent, threadId: string) {
     event.stopPropagation();
     if (confirm('Are you sure you want to delete this thread?')) {
@@ -1093,17 +1149,7 @@ async function handleLoadThread(threadId: string) {
       }
     }
   }
-  async function loadThreadCounts(threads: Threads[]) {
-    // isLoading = true;
-    try {
-      const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
-      if (totalThreads > currentPage * 20) {
-        currentPage++;
-      }
-    } finally {
-      // isLoading = false;
-    }
-  }
+  
   async function submitThreadNameChange() {
     if (currentThreadId && editedThreadName.trim() !== '') {
       try {
@@ -1425,15 +1471,31 @@ $: {
   }
 }
 
-  async function toggleTagSelection(tagId: string) {
-    if (selectedTagIds.has(tagId)) {
-      selectedTagIds.delete(tagId);
+async function toggleTagSelection(tagId: string) {
+    const newSelectedTagIds = new Set(selectedTagIds);
+    if (newSelectedTagIds.has(tagId)) {
+        newSelectedTagIds.delete(tagId);
     } else {
-      selectedTagIds.add(tagId);
+        newSelectedTagIds.add(tagId);
     }
-    selectedTagIds = selectedTagIds; // Trigger reactivity
-    filterThreads();
-  }
+    selectedTagIds = newSelectedTagIds; // Trigger reactivity
+
+    // Update filteredThreads based on selected tags
+    if (threads) {
+        if (selectedTagIds.size === 0) {
+            filteredThreads = threads;
+        } else {
+            filteredThreads = threads.filter(thread => {
+                // Make sure we're checking against the thread's tags array
+                return thread.tags?.some(threadTagId => 
+                    selectedTagIds.has(threadTagId)
+                );
+            });
+        }
+    }
+    console.log('Selected tags:', Array.from(selectedTagIds));
+    console.log('Filtered threads:', filteredThreads);
+}
   async function startEditingThreadName() {
     isEditingThreadName = true;
     editedThreadName = currentThread?.name || '';
@@ -1537,13 +1599,14 @@ $: {
         selected_threads: [],
       });
 
+      // Only update state if tag creation was successful
       availableTags = [...availableTags, newTag];
       newTagName = ''; 
-      editingTagIndex = null; 
-      console.error('Error creating tag:');
-    }
-    finally {
-
+      editingTagIndex = null;
+    } catch (error) {
+      console.error('Error creating tag:', error);
+      // Optionally show user feedback about the error
+      // You might want to add a toast or notification here
     }
   }
 
@@ -1688,7 +1751,7 @@ onMount(async () => {
             <ChevronRight size={20} />
           {/if}
         </span>
-        <Tag size={20} />
+        <Tags size={20} />
         {#if selectedTagCount > 0}
           <h3>{$t('threads.tagsHeader')}</h3>
           <p class="selector-lable">({selectedTagCount})</p>
@@ -1700,10 +1763,9 @@ onMount(async () => {
           <div class="section-content2" in:slide={{duration: 200}} out:slide={{duration: 200}}>
             <ThreadListTags
               {availableTags}
-              {selectedTagIds}
               {editingTagId}
               {editingTagIndex}
-              on:toggleSelection={({ detail }) => toggleTagSelection(detail.tagId)}
+              on:toggleSelection={handleTagSelection}
               on:createTag={({ detail }) => createTag(detail.name)}
               on:tagUpdated={({ detail }) => {
                 const tagIndex = availableTags.findIndex(t => t.id === detail.tag.id);
@@ -1712,7 +1774,17 @@ onMount(async () => {
                   availableTags = [...availableTags];
                 }
               }}
-              on:deleteTag={({ detail }) => handleDeleteTag(detail.tagId)}
+              on:deleteTag={async ({ detail }) => {
+                try {
+                  if (confirm('Are you sure you want to delete this tag?')) {
+                    await pb.collection('tags').delete(detail.tagId);
+                    availableTags = availableTags.filter(tag => tag.id !== detail.tagId);
+                    console.log('Tag deleted successfully');
+                  }
+                } catch (error) {
+                  console.error('Error deleting tag:', error);
+                }
+              }}
             />
           </div>
         {/if}
@@ -1754,39 +1826,40 @@ onMount(async () => {
         </div>
 
         <div class="thread-catalog">
-          {#if isSearchActive}
-          <div class="thread-search-results" transition:slide={{duration: 200}}>
-            {#each $searchedThreads as thread (thread.id)}
-            <button 
-                class="thread-button"
-                class:selected={currentThreadId === thread.id}
-                on:click={() => handleLoadThread(thread.id)}
-              >
-                <div class="thread-card" 
-                  class:active={currentThreadId === thread.id}
-                  in:fade
+          {#if isSearchActive || isTagFilterActive}
+        <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+            <!-- Use $tagFilteredThreads to access the store value -->
+            {#each (isSearchActive ? $searchedThreads : $tagFilteredThreads) as thread (thread.id)}
+                <button 
+                    class="thread-button"
+                    class:selected={currentThreadId === thread.id}
+                    on:click={() => handleLoadThread(thread.id)}
                 >
-                  <span class="thread-title">{thread.name}</span>
-                  <span class="thread-message">
-                    {thread.last_message?.content || 'No messages yet'}
-                  </span>
-                  <span class="thread-time">
-                    {new Date(thread.updated).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </span>
-                  <span 
-                    class="delete-thread-button" 
-                    on:click={(e) => handleDeleteThread(e, thread.id)}
-                  >
-                  <X size={14} />
-                </span>
-              </div>
-              </button>
+                    <div class="thread-card" 
+                        class:active={currentThreadId === thread.id}
+                        in:fade
+                    >
+                        <span class="thread-title">{thread.name}</span>
+                        <span class="thread-message">
+                            {thread.last_message?.content || 'No messages yet'}
+                        </span>
+                        <span class="thread-time">
+                            {new Date(thread.updated).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}
+                        </span>
+                        <span 
+                            class="delete-thread-button" 
+                            on:click={(e) => handleDeleteThread(e, thread.id)}
+                        >
+                            <X size={14} />
+                        </span>
+                    </div>
+                </button>
             {/each}
-          </div>
-        {:else}
+        </div>
+    {:else}
           {#each orderedGroupedThreads as { group, threads }}
             <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
               <button 
