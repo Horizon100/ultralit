@@ -236,12 +236,36 @@ function createThreadsStore() {
         return null;
       }
     },
-    setCurrentThread: (id: string | null) => store.update(state => ({
-      ...state,
-      currentThreadId: id,
-      messages: id === null ? [] : state.messages, // Clear messages if setting to null
-      updateStatus: id ? 'Current thread updated' : 'Thread selection cleared'
-    })),
+    
+    setCurrentThread: async (id: string | null) => {
+      if (id) {
+        // Load messages for the new thread
+        try {
+          const messages = await fetchMessagesForThread(id);
+          store.update(state => ({
+            ...state,
+            currentThreadId: id,
+            messages,
+            updateStatus: 'Current thread updated'
+          }));
+        } catch (error) {
+          console.error('Error loading messages for thread:', error);
+          store.update(state => ({
+            ...state,
+            currentThreadId: id,
+            updateStatus: 'Error loading messages'
+          }));
+        }
+      } else {
+        // Only clear messages when explicitly setting to null
+        store.update(state => ({
+          ...state,
+          currentThreadId: null,
+          messages: [],
+          updateStatus: 'Thread selection cleared'
+        }));
+      }
+    },
     setNamingThreadId: (threadId: string | null) => {
       store.update(state => ({
         ...state,

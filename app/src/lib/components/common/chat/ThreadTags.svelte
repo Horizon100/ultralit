@@ -22,12 +22,12 @@
     }
   </script>
   
-  <div class="tag-row" transition:fly="{{ x: -300, duration: 300 }}">
+  <div class="tag-row" transition:fly="{{ y: -300, duration: 300 }}">
     {#if currentThreadId}
       {#if showTagSelector}
-        <div class="tag-selector" transition:fly="{{ x: 20, duration: 500 }}">
+        <div class="tag-selector" transition:fly="{{ y: 20, duration: 500 }}">
           {#each availableTags as tag (tag.id)}
-            <div class="tag-item" transition:fly="{{ x: 20, duration: 50 }}">
+            <div class="tag-item" transition:fly="{{ y: 20, duration: 50 }}">
               <button 
                 class="tag" 
                 class:selected={tag.selected_threads?.includes(currentThreadId)}
@@ -43,13 +43,13 @@
           {/each}
         </div>
       {:else}
-        <div class="assigned-tags" on:click={toggleTagSelector} transition:fly="{{ x: -300, duration: 300 }}">
+        <div class="assigned-tags" on:click={toggleTagSelector} transition:fly="{{ y: -300, duration: 300 }}">
           {#each availableTags.filter(tag => tag.selected_threads?.includes(currentThreadId)) as tag (tag.id)}
             <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
           {/each}
         </div>
       {/if}
-      <button on:click={toggleTagSelector} class="tag-selector-toggle" transition:fly="{{ x: -300, duration: 300 }}">
+      <button on:click={toggleTagSelector} class="tag-selector-toggle" transition:fly="{{ y: -300, duration: 300 }}">
         {#if isTags}
           <Tag size={20} />
         {:else}
@@ -68,9 +68,10 @@
       align-items: right;
       gap: 5px;
       margin-top: 0;
+      user-select: none;
       border-radius: 20px;
       transition: all ease 0.3s;
-      height: 100%;
+      width: auto;
       margin-bottom: auto;
       
       // margin-right: 2rem;
@@ -80,6 +81,7 @@
         display: flex;
         flex-wrap: nowrap;
         justify-content: right;
+
       }
     }
   
@@ -88,18 +90,17 @@
       flex-wrap: wrap;
       justify-content: right;
       align-items: center;
-      height: 100%;
-      width: 100% !important;
       gap: 5px;
-      border-radius: 20px;
+      border-radius: var(--radius-m);
       transition: all ease 0.3s;
-      
+      background: var(--primary-color);
+
     }
   
     .assigned-tags {
       display: flex;
-      flex-wrap: wrap;
-      width: 100%;
+      width: 40px;
+      height: 100%;
       transition: all 0.3s ease;
       justify-content: flex-end;
     }
@@ -228,7 +229,7 @@
     flex-direction: row;
     gap: 20px;
     /* height: 40px; */
-    /* z-index: 1000; */
+    /* z-indey: 1000; */
     user-select: none;
   }
 

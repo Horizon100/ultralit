@@ -74,6 +74,44 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
     }
 }
 
+export async function fetchMessagesForThreadByDate(threadId: string, date?: Date): Promise<Messages[]> {
+    try {
+        ensureAuthenticated();
+        
+        let filter = `thread = "${threadId}"`;
+        
+        if (date) {
+            // Create date range for the selected date (start of day to end of day)
+            const startDate = new Date(date);
+            startDate.setHours(0, 0, 0, 0);
+            
+            const endDate = new Date(date);
+            endDate.setHours(23, 59, 59, 999);
+            
+            filter += ` && created >= "${startDate.toISOString()}" && created <= "${endDate.toISOString()}"`;
+        }
+
+        const messages = await pb.collection('messages').getFullList<Messages>({
+            filter: filter,
+            sort: '-created',
+            expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
+        });
+
+        // Process markdown for each message
+        const processedMessages = messages.map(message => ({
+            ...message,
+            text: processMarkdown(message.text)
+        }));
+
+        return processedMessages;
+    } catch (error) {
+        console.error('Error fetching messages for thread:', error);
+        throw error;
+    }
+}
+
+
+
 
 export async function fetchLastMessageForThread(threadId: string): Promise<Messages | null> {
     try {

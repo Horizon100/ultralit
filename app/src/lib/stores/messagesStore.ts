@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import type { Messages, Threads, Tag } from '$lib/types';
 import { pb } from '$lib/pocketbase';
-import { fetchMessagesForThread, addMessageToThread } from '$lib/threadsClient';
+import { fetchMessagesForThread, addMessageToThread, fetchMessagesForThreadByDate } from '$lib/threadsClient';
 import { User } from 'lucide-svelte';
 
 // Add this function to your threadsClient.ts file and export it
@@ -13,9 +13,11 @@ async function updateMessage(id: string, data: Partial<Messages>): Promise<Messa
 
 function createMessagesStore() {
     const { subscribe, set, update } = writable<Messages[]>([]);
-
     return {
         subscribe,
+        setSelectedDate: (date: string | null) => {
+            update(state => ({ ...state, selectedDate: date }));
+        },
         setMessages: (messages: Messages[]) => set(messages),
         addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>) => {
             try {

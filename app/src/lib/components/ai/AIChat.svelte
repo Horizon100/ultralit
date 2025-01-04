@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tag, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -31,6 +31,8 @@
   import { availableModels } from '$lib/constants/models';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
+	import { DateInput } from 'date-picker-svelte'
+  import { processMarkdown } from '$lib/scripts/markdownProcessor';
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
@@ -42,6 +44,7 @@
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
   export let namingThread = true;
+  export let date: Date | null = null;
 
   interface ExpandedGroups {
   [key: string]: boolean;
@@ -269,6 +272,7 @@ export const expandedSections = writable<ExpandedSections>({
 
   const isMobileScreen = () => window.innerWidth < 768;
 
+  
 
 // Handle seed prompt
 $: if (seedPrompt && !hasSentSeedPrompt) {
@@ -392,6 +396,10 @@ $: {
    }
 }
 
+$: if (date) {
+        messagesStore.setSelectedDate(date.toISOString());
+    }
+
 
 
   // FUNCTIONS
@@ -424,7 +432,7 @@ $: {
     role: RoleType,
     content: string | Scenario[] | Task[], 
     parentMsgId: string | null = null,
-    model: string
+    model: string = 'default',
     
   ): InternalChatMessage {
     messageIdCounter++;
@@ -851,15 +859,23 @@ const handleTextareaBlur = () => {
     }
 
     const currentMessage = message.trim();
-    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null);
+    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
     chatMessages = [...chatMessages, userMessageUI];
+
+    // Scroll the new message into view at the top
+    setTimeout(() => {
+      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
 
     const userMessage = await messagesStore.saveMessage({
       text: currentMessage,
       type: 'human',
       thread: currentThreadId,
       parent_msg: quotedMessage?.id ?? null,
-      prompt_type: promptType // Using store value
+      prompt_type: promptType
     }, currentThreadId);
 
     quotedMessage = null;
@@ -1656,57 +1672,50 @@ onMount(async () => {
     class:thread-list-visible={$threadsStore.showThreadList}
   >
   {#if $threadsStore.showThreadList}
-  <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
-       
-        
-        <h2>
-          {$t('threads.threadHeader')}
-        </h2>
-
-
-        
-         <!-- Tags Section -->
-         <button 
-         class="section-header"
-         on:click={() => toggleSection('tags')}
-       >
-          <span class="section-icon">
-            {#if $expandedSections.tags}
-              <ChevronDown size={20} />
-            {:else}
-              <ChevronRight size={20} />
-            {/if}
-          </span>
-          <Tag size={20} />
-          {#if selectedTagCount > 0}
-            <h3>{$t('threads.tagsHeader')}</h3>
-            <p class="selector-lable">({selectedTagCount})</p>
+    <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
+      <h2>
+        {$t('threads.threadHeader')}
+      </h2>
+        <!-- Tags Section -->
+      <button 
+        class="section-header"
+        on:click={() => toggleSection('tags')}
+      >
+        <span class="section-icon">
+          {#if $expandedSections.tags}
+            <ChevronDown size={20} />
           {:else}
-            <h3>{$t('threads.tagsHeader')}</h3>
+            <ChevronRight size={20} />
           {/if}
-       </button>
-
-
-       {#if $expandedSections.tags}
-         <div class="section-content2" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-           <ThreadListTags
-             {availableTags}
-             {selectedTagIds}
-             {editingTagId}
-             {editingTagIndex}
-             on:toggleSelection={({ detail }) => toggleTagSelection(detail.tagId)}
-             on:createTag={({ detail }) => createTag(detail.name)}
-             on:tagUpdated={({ detail }) => {
-               const tagIndex = availableTags.findIndex(t => t.id === detail.tag.id);
-               if (tagIndex !== -1) {
-                 availableTags[tagIndex] = detail.tag;
-                 availableTags = [...availableTags];
-               }
-             }}
-             on:deleteTag={({ detail }) => handleDeleteTag(detail.tagId)}
-           />
-         </div>
-       {/if}
+        </span>
+        <Tag size={20} />
+        {#if selectedTagCount > 0}
+          <h3>{$t('threads.tagsHeader')}</h3>
+          <p class="selector-lable">({selectedTagCount})</p>
+        {:else}
+          <h3>{$t('threads.tagsHeader')}</h3>
+        {/if}
+      </button>
+        {#if $expandedSections.tags}
+          <div class="section-content2" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+            <ThreadListTags
+              {availableTags}
+              {selectedTagIds}
+              {editingTagId}
+              {editingTagIndex}
+              on:toggleSelection={({ detail }) => toggleTagSelection(detail.tagId)}
+              on:createTag={({ detail }) => createTag(detail.name)}
+              on:tagUpdated={({ detail }) => {
+                const tagIndex = availableTags.findIndex(t => t.id === detail.tag.id);
+                if (tagIndex !== -1) {
+                  availableTags[tagIndex] = detail.tag;
+                  availableTags = [...availableTags];
+                }
+              }}
+              on:deleteTag={({ detail }) => handleDeleteTag(detail.tagId)}
+            />
+          </div>
+        {/if}
         <div class="thread-actions" >
           <div class="search-bar">
               <Search size={30} />
@@ -1844,7 +1853,7 @@ onMount(async () => {
 
         </div>
         
-      </div>
+    </div>
       {/if}
       <div class="chat-container" on:scroll={handleScroll}>
         <div class="thread-info" class:minimized={isMinimized}>
@@ -1852,6 +1861,7 @@ onMount(async () => {
             <button class="btn-back" on:click={goBack}>
               <X size={30} />
             </button>
+            
             {#if isEditingThreadName}
               <input class="tag-item"
                 bind:value={editedThreadName}
@@ -1885,19 +1895,7 @@ onMount(async () => {
           
             </div>
             {/if}
-            <div class='tags' transition:slide={{duration: 300, easing: cubicOut}}>
-              <ThreadTags
-                {availableTags}
-                {currentThreadId}
-                {showTagSelector}
-                {isTags}
-                on:toggleTag={({ detail }) => toggleTag(detail.tag)}
-                on:toggleSelector={() => {
-                  showTagSelector = !showTagSelector;
-                  isTags = !isTags;
-                }}
-              />
-            </div>
+
             
           {:else}
               <div class="chat-placeholder">
@@ -1907,6 +1905,34 @@ onMount(async () => {
               </div>
           {/if}
         </div>
+        <div class="message-filters" transition:slide={{duration: 300, easing: cubicOut}}>
+          <div class="calendar">
+            <Calendar size={20} />
+            <DateInput
+                bind:value={date}
+                closeOnSelection
+                format="dd.MM.yyyy"
+                on:change={() => {
+                    if ($threadsStore.currentThreadId) {
+                        messagesStore.setSelectedDate($threadsStore.currentThreadId, date);
+                    }
+                }}
+            />
+        </div>
+
+          <ThreadTags 
+            {availableTags}
+            {currentThreadId}
+            {showTagSelector}
+            {isTags}
+            on:toggleTag={({ detail }) => toggleTag(detail.tag)}
+            on:toggleSelector={() => {
+              showTagSelector = !showTagSelector;
+              isTags = !isTags;
+            }}
+          />
+        </div>
+
           <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
             {#if isLoadingMessages}
               <div class="loading-overlay">
@@ -1914,53 +1940,48 @@ onMount(async () => {
                 <p>{$t('chat.loading')}</p>
               </div>
             {/if}
-            <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-              {#each groupMessagesByDate(chatMessages) as { date, messages }}
-                <div class="date-divider" on:click={() => toggleDateExpansion(date)} transition:slide>
-                    {formatDate(date)}
-                    {#if expandedDates.has(date)}
-                        <ChevronUp />
-                    {:else}
-                        <ChevronDown />
-                    {/if}
+            <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+              {#if isLoadingMessages}
+                <div class="loading-overlay">
+                  <div class="spinner"></div>
+                  <p>{$t('chat.loading')}</p>
                 </div>
+              {/if}
+              
+              <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                {#each groupMessagesByDate(chatMessages) as { date, messages }}
+                  <div class="date-divider">
+                    {formatDate(date)}
+                  </div>
                   
-                {#if expandedDates.has(date)}
-
                   {#each messages as message (message.id)}
                     <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                      <div class="message-header">
                         {#if message.role === 'user'}
-                          <div class="user-header">
-                            <div class="avatar-container">
-                              {#if avatarUrl}
-                                <img src={avatarUrl} alt="User avatar" class="avatar" />
-                              {:else}
-                                <div class="avatar-placeholder">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                </div>
-                              {/if}
-                            </div>
-                            <span class="role">{username}</span>
-                          </div>
-                          <div class="message-time">
+                          <div class="message-footer">
                             {#if message.created}
                               {new Date(message.created).toLocaleTimeString()}
                             {:else}
                               Time not available
                             {/if}
                           </div>
+                          <!-- <div class="user-header">
+                              <div class="avatar-container">
+                                {#if avatarUrl}
+                                  <img src={avatarUrl} alt="User avatar" class="avatar" />
+                                {:else}
+                                  <div class="avatar-placeholder">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                  </div>
+                                {/if}
+                              </div>
+                              <span class="role">{username}</span>
+                            </div> -->             
                         {:else if message.role === 'thinking'}
                           <span class="role">
                             <Bot size="50" color="white" />
                           </span>
-                        {:else}
-                          <!-- <span class="role">
-                            <Bot size="40" color="white" />
-                            AI
-                          </span> -->
                         {/if}
-                      </div>
+            
                       {#if message.role === 'options'}
                         <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
                           {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
@@ -1977,7 +1998,7 @@ onMount(async () => {
                       {:else if message.isHighlighted}
                         <p>{@html message.content}</p>
                       {:else}
-                      <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
+                        <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
                       {/if}
                       
                       {#if message.role === 'thinking'}
@@ -1993,36 +2014,31 @@ onMount(async () => {
                           </span>
                         </div>
                       {/if}
+            
                       {#if message.role === 'assistant'}
-                      <div class="message-footer">
-                        <Reactions 
-                          {message}
-                          userId={$currentUser.id}
-                          on:update={async (event) => {
-                            const { messageId, reactions } = event.detail;
-                            await messagesStore.updateMessage(messageId, { reactions });
-                            chatMessages = chatMessages.map(msg => 
-                              msg.id === messageId 
-                                ? { ...msg, reactions }
-                                : msg
-                            );
-                          }}
-                          on:notification={(event) => {
-                            // Handle notifications if you have a notification system
-                            console.log(event.detail);
-                          }}
-                        />
-                      </div>
-                    {/if}
-
+                        <div class="message-footer">
+                          <Reactions 
+                            {message}
+                            userId={$currentUser.id}
+                            on:update={async (event) => {
+                              const { messageId, reactions } = event.detail;
+                              await messagesStore.updateMessage(messageId, { reactions });
+                              chatMessages = chatMessages.map(msg => 
+                                msg.id === messageId 
+                                  ? { ...msg, reactions }
+                                  : msg
+                              );
+                            }}
+                            on:notification={(event) => {
+                              console.log(event.detail);
+                            }}
+                          />
+                        </div>
+                      {/if}
                     </div>
                   {/each}
-                  <div class="date-divider bottom" on:click={() => toggleDateExpansion(date)} transition:slide>
-                    <ChevronUp size={30} />
-                  </div>
-                  {/if}
-              {/each}
-              
+                {/each}
+              </div>
             </div>
           </div>
         </div>
@@ -2185,6 +2201,43 @@ onMount(async () => {
     /* color: var(--text-color); */
     font-family: var(--font-family);
   }
+
+  :root {
+	--date-picker-background: var(--bg-color);
+	--date-picker-foreground: var(--placeholder-color);
+  --date-picker-highlight-border: var(--primary-color);
+  --date-picker-highlight-shadow:  var(--tertiary-color);
+  --date-picker-selected-color: var(--text-color);
+  --date-picker-selected-background: var(--tertiary-color);
+
+
+}
+
+.message-filters {
+  display: flex;
+  flex-direction: row;
+  margin-right: 2rem;
+  justify-content: space-between;
+  align-items: top;
+}
+.calendar {
+    display: flex;
+    align-items: top;
+    justify-content: top;
+    gap: 0.2rem;
+  }
+  
+  :global(.calendar input) {
+    border: none;
+    background: transparent;
+    padding-left: 0;
+    border: none !important;
+    font-size: 1rem;
+    font-weight: 500;
+    width: 100px !important;
+  }
+
+
     .threads-container {
       display: flex;
       flex-direction: column;
@@ -2506,13 +2559,13 @@ onMount(async () => {
     display: flex;
     flex-direction: column;
     align-items: flex-start;  /* Change this from 'stretch' to 'flex-start' */
-      padding: 2rem;
+      padding: 1rem;
     /* border-radius: 20px; */
-    font-size: 18px;
+    // font-size: 18px;
     /* font-weight: 300; */
-    font-weight: 100;
+    font-weight: 200;
     letter-spacing: 1px;
-    line-height: 1.5;
+    line-height: 1;
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', serif; */
 
@@ -2531,18 +2584,18 @@ onMount(async () => {
   text-align: left; 
 }
   
-    .message::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
-      opacity: 0.5;
-      z-index: -1;
-      transition: opacity 0.3s ease;
-    }
+    // .message::before {
+    //   content: '';
+    //   position: absolute;
+    //   top: 0;
+    //   left: 0;
+    //   right: 0;
+    //   bottom: 0;
+    //   background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    //   opacity: 0.5;
+    //   z-index: -1;
+    //   transition: opacity 0.3s ease;
+    // }
   
     .message:hover::before {
       opacity: 0.8;
@@ -2551,8 +2604,10 @@ onMount(async () => {
     }
   
     .role {
-        align-self: flex-start;
-        margin-bottom: 5px;  /* Add some space between the role and the message content */
+        align-self: center;
+        justify-content: center;
+        height: 100%;
+
 }
 
   /* Adjust assistant message alignment */
@@ -2567,7 +2622,7 @@ onMount(async () => {
     border-top: 2px solid #242d2d; */
     /* border-bottom: 2px solid #585858; */
     // border-bottom-right-radius: 20px;
-    border-radius: var(--radius-m);
+    // border-radius: var(--radius-m);
     color: white;
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
@@ -2575,11 +2630,10 @@ onMount(async () => {
     height: auto;
     // background: var(--primary-color);
     // box-shadow: 0px -1px 150px 4px rgba(255, 255, 255, 0.2);
-
+    background: var(--bg-color);
     padding: 1rem;
     width: 90%;
-    margin-left: 1rem;
-    margin-right: 1rem;
+
     /* border: 1px solid black; */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
@@ -2593,7 +2647,7 @@ onMount(async () => {
 
   .message.assistant p {
       /* font-weight: 600; */
-      font-size: 1.2rem;
+      font-size: auto;
       color: var(--text-color);
       height: auto;
     }
@@ -2618,35 +2672,46 @@ onMount(async () => {
   
     .message.user {
       display: flex;
-      /* position: relative; */
-      align-self: flex-end;
-      margin: 1rem;
-      /* background-color: #2e3838; */
-      /* border-bottom: 5px solid #242d2d;
-      border-right: 5px solid #242d2d;
-      border-left: 2px solid #242d2d;
-      border-top: 2px solid #242d2d; */
-      /* border-bottom: 2px solid #585858; */
-      border-bottom-right-radius: 20px;
-      color: var(--text-color);
-      /* font-style: italic; */
-      /* width: auto;  Allow the message to shrink-wrap its content */
-      /* margin-left: 200px; */
-      /* border: 1px solid black; */
-      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      background: var(--bg-color);
-      border-radius: 20px;
-      border: 1px solid var(--secondary-color); 
-      width: auto;
-      min-width: 200px;
+    /* position: relative; */
+    align-self: right;
+    /* background-color: #2e3838; */
+    /* border-bottom: 5px solid #242d2d;
+    border-right: 5px solid #242d2d;
+    border-left: 2px solid #242d2d;
+    border-top: 2px solid #242d2d; */
+    /* border-bottom: 2px solid #585858; */
+    // border-bottom-right-radius: 20px;
+    color: var(--text-color);
+    /* font-style: italic; */
+    /* width: auto;  Allow the message to shrink-wrap its content */
+    /* margin-left: 200px; */
+    height: auto;
+      width: 90% !important;
+      font-weight: 500;
+    // background: var(--primary-color);
+    background: var(--bg-color);
+    border-top: 1px solid var(--primary-color);
+    border-left: 1px solid var(--primary-color);
+    box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+      border-top-left-radius: var(--radius-m);
+      border-top-right-radius: var(--radius-m);
+
+    padding: 1rem;
+    width: auto;
+    margin-left: 1rem;
+    margin-right: 1rem;
+    /* border: 1px solid black; */
+    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
     }
 
 
     .message.user p {
+      display: flex;
+      justify-content: flex-start;
       /* font-weight: 600; */
-      font-size: 1.2rem;
       // width: 100%;
-      margin-top: 0.75rem;
+      // margin-top: 0.75rem;
 
     }
 
@@ -2795,11 +2860,14 @@ onMount(async () => {
 
     }
 
-    :global(p p) {
-      margin-left: 0;
-      margin-bottom: 0;
-      
-    }
+    // :global(p p) {
+    //   margin-left: 0;
+    //   margin-right: 2rem;
+    //   margin-block-end: 2rem;
+    //   margin-bottom: 0;
+          
+    // }
+    
 
     :global(ol) {
       transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
@@ -2993,6 +3061,8 @@ onMount(async () => {
 .user-header {
   display: flex;
   flex-direction: row;
+  justify-content: center;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -3037,6 +3107,12 @@ span.new-button {
     display: flex;
 
 
+}
+
+span.role {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .thread-group {
@@ -3166,6 +3242,8 @@ span.new-button {
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    color: var(--placeholder-color);
+    font-weight: 200;
   }
   @media (min-width: 300px) {
       .chat-container {
@@ -3194,8 +3272,11 @@ span.new-button {
         .thread-list-visible .chat-container {
           overflow-y: auto;
           margin-right: 0;
+          // width: 70%;
           width: 70%;
-          left: auto;
+          display: flex;
+          position: relative;
+
         }
 
         .thread-list-visible .thread-toggle {
@@ -3294,12 +3375,14 @@ span.new-button {
       }
   }
 
+  
+
   input {
     flex-grow: 1;
     margin-right: 20px;
     padding: 10px;
     height: 50px;
-    font-size: 18px;
+    font-size: 1rem;
     border-radius: 25px;
     background-color: #000000;
     color: #818380;
@@ -3570,7 +3653,9 @@ span.new-button {
   .message-header {
 		display: flex;
 		gap: 10px;
-    justify-content: left;
+    justify-content: flex-end;
+    align-self: bottom;
+    gap: 2rem;
     align-items: center;
     width: 100%;
   }
@@ -3654,11 +3739,8 @@ span {
 .message-time {
     font-size: 0.8em;
     color: #888;
-    text-align: right;
     width: auto;
-    position: absolute;
-    margin-top: -4rem;
-    margin-left: 8rem;
+    position: relative;
     // margin-top: 5px;
     right: auto;
   }
@@ -4208,7 +4290,7 @@ span.delete-thread-button {
 
 .date-divider-row {
   display: flex;
-  justify-content: space-between; /* Align date dividers side by side */
+  justify-content: center; /* Align date dividers side by side */
   margin-bottom: 10px; /* Space between date dividers */
 }
 
@@ -4216,9 +4298,14 @@ span.delete-thread-button {
   .date-divider {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
+    position: relative;
     padding: 0.5rem 1rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    margin-left: auto;
+
     gap: 2rem;
     // background: var(--bg-gradient-left);
     /* background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(128, 128, 128, 0) 100%); */
@@ -4227,16 +4314,18 @@ span.delete-thread-button {
     // border-top: 1px solid rgb(82, 82, 82);
     border-bottom: 1px solid var(--secondary-color);
     backdrop-filter: blur(100px);
-    background: var(--secondary-color);
+    background: var(--placeholder-color);
+
+    // background: var(--secondary-color);
     // background: var(--bg-color);
-    border-radius: 30px;
-    border-top-left-radius: 30px;
-    border-top-right-radius: 30px;
+    // border-radius: 30px;
+    // border-top-left-radius: 30px;
+    // border-top-right-radius: 30px;
     transition: all ease 0.15s;
     color: var(--text-color);
     user-select: none;
-    width: 100lv;
-    margin-left: 0;
+    max-width: 200px;
+    border-radius: var(--radius-m);
     /* backdrop-filter: blur(10px); */
 
   }
@@ -4251,7 +4340,7 @@ span.delete-thread-button {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: var(--bg-gradient-right);
+    background: var(--placeholder-color);
     border: 0;
     padding: 0;
     background: none;
@@ -4429,7 +4518,7 @@ span.delete-thread-button {
   }
 
 p {
-    color: var(--placeholder-color);
+    // color: var(--placeholder-color);
   }
 
   .ai-selector {
@@ -4853,6 +4942,13 @@ p {
     bottom: 120px;
   }
 
+  .chat-messages {
+    padding-right: 2rem !important;
+  }
+
+  .message.user {
+
+  }
 
 
   .title-container {
@@ -4903,15 +4999,17 @@ p {
   // }
 
   .message.user {
-    margin-right: 2rem;
+    margin-right: 1rem;
     margin-left: 2rem;
-
-    width: auto;
+    justify-content: flex-end;
+    width: 50%;
     align-self: flex-end;
   }
+
+  
     .message.user p {
       /* font-weight: 600; */
-      font-size: 1.2rem;
+      // font-size: 1.2rem;
     }
 
     .date-divider {
@@ -4921,7 +5019,7 @@ p {
     .message.assistant  {
       display: flex;
     /* position: relative; */
-    align-self: flex-end;
+    align-self: flex-start;
     /* background-color: #2e3838; */
     /* border-bottom: 5px solid #242d2d;
     border-right: 5px solid #242d2d;
@@ -4934,10 +5032,10 @@ p {
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
     /* margin-left: 200px; */
-    margin-right: 2rem;
-    margin-left: 2rem;
-
-    width: auto;    /* border: 1px solid black; */
+    // margin-right: 2rem;
+    // margin-left: 2rem;
+      margin-right: 2rem;
+    width: 90%;    /* border: 1px solid black; */
 
     }
 }
@@ -4971,13 +5069,12 @@ p {
     background: none;
     width: auto !important;
     position: relative;
-    margin-left: 0;
     left: 0;
     right: 0;
     top: 2rem;
     margin-top: 0 !important;
     margin-right: 0 !important;
-    margin-left: 4rem !important;
+    margin-left: 0 !important;
     margin: 1rem;
 
   }
@@ -5387,6 +5484,124 @@ p {
 
   
   
+}
+
+
+
+
+
+
+:global(pre.language-json) {
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+:global(code.language-json) {
+  display: block;
+  color: #d4d4d4;
+  padding: 1em;
+  border-radius: var(--radius-l);
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: auto;
+  tab-size: 2;
+  counter-reset: line;
+  background: var(--secondary-color);
+
+  /* Property names */
+  :global(.property) {
+    color: #9cdcfe;
+  }
+
+  /* String values */
+  :global(.string) {
+    color: #ce9178;
+  }
+
+  /* Numbers */
+  :global(.number) {
+    color: #b5cea8;
+  }
+
+  /* Boolean values */
+  :global(.boolean) {
+    color: #569cd6;
+  }
+
+  /* Null values */
+  :global(.null) {
+    color: #569cd6;
+  }
+
+  /* Punctuation */
+  :global(.punctuation) {
+    color: #d4d4d4;
+  }
+
+  /* Brackets and braces */
+  :global(.bracket) {
+    color: #ffd700;
+  }
+
+  /* Selection highlight */
+  ::selection {
+    background: rgba(97, 175, 239, 0.3);
+  }
+
+  /* Error highlighting */
+  :global(.error) {
+    background: rgba(255, 0, 0, 0.2);
+    border-bottom: 1px wavy #ff0000;
+  }
+
+  /* Indentation guides */
+  :global(.indent-guide) {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    position: absolute;
+    left: calc(var(--depth) * 2ch);
+    height: 100%;
+  }
+
+  /* Line numbers */
+  > code {
+    display: block;
+    position: relative;
+    padding-left: 3.5em;
+
+    &::before {
+      counter-increment: line;
+      content: counter(line);
+      position: absolute;
+      left: -2em;
+      width: 1.5em;
+      color: #858585;
+      text-align: right;
+      user-select: none;
+    }
+  }
+
+  /* Hover effect */
+  &:hover {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  /* Scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #2a2a2a;
+    border-radius: 4px;
+  }
 }
 </style>
 
