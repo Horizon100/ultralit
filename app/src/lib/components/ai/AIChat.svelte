@@ -31,8 +31,9 @@
   import { availableModels } from '$lib/constants/models';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
-	import { DateInput } from 'date-picker-svelte'
   import { processMarkdown } from '$lib/scripts/markdownProcessor';
+	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
+	import { hy } from 'date-fns/locale'
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
@@ -44,7 +45,9 @@
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
   export let namingThread = true;
-  export let date: Date | null = null;
+
+	let date = new Date()
+	let locale = localeFromDateFnsLocale(hy)
 
   interface ExpandedGroups {
   [key: string]: boolean;
@@ -120,7 +123,15 @@ export const expandedSections = writable<ExpandedSections>({
 
 
   
-
+  let deg = 0;
+	onMount(() => {
+		const interval = setInterval(() => {
+			deg += 2;
+			if (deg >= 360) deg = 0;
+			document.body.style.setProperty('--deg', deg);
+		}, 60);
+		return () => clearInterval(interval);
+	});
 
 
   // Chat-related state
@@ -167,6 +178,7 @@ export const expandedSections = writable<ExpandedSections>({
   let showScrollButton = false;
   let textareaElement: HTMLTextAreaElement;
   let defaultTextareaHeight = '60px'; 
+  let selected: Date = date || new Date(); 
 
   let showNetworkVisualization: boolean = false;
   let isDragging = false;
@@ -1936,70 +1948,72 @@ onMount(async () => {
     </div>
       {/if}
       <div class="chat-container" on:scroll={handleScroll}>
+        <!-- <div class="date-input-container">
+          <span class="section-icon">
+            <Calendar />
+          </span>
+          <div class="calendar">
+             <DatePicker /> -->
+            <!-- <DateInput
+              bind:value={date} {locale} 
+              format="yyyy/MM/dd"
+              placeholder="2000/31/12 23:59:59" 
+              on:change={() => {
+                if ($threadsStore.currentThreadId) {
+                    messagesStore.setSelectedDate($threadsStore.currentThreadId, date);
+                }
+            }}
+              />
+          </div>
+        </div> --> 
         <div class="thread-info" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
           {#if currentThread}
-              <button class="btn-back" on:click={goBack}>
-                <ArrowLeft size={30} />
+            <div class="thread-name">
+              <button class="btn-ai" on:click={goBack}>
+                <ArrowLeft style="color: var(--tertiary-color)" />
               </button>
-              <div class="calendar">
-                <Calendar size={20} />
-                <DateInput
-                    bind:value={date}
-                    closeOnSelection
-                    format="dd.MM.yyyy"
-                    on:change={() => {
-                        if ($threadsStore.currentThreadId) {
-                            messagesStore.setSelectedDate($threadsStore.currentThreadId, date);
-                        }
-                    }}
-                />
-              </div>
-              <ThreadTags 
-                {availableTags}
-                {currentThreadId}
-                {showTagSelector}
-                {isTags}
-                on:toggleTag={({ detail }) => toggleTag(detail.tag)}
-                on:toggleSelector={() => {
-                  showTagSelector = !showTagSelector;
-                  isTags = !isTags;
-                }}
-              />
-            {#if isEditingThreadName}
-              <input class="tag-item"
-                bind:value={editedThreadName}
-                on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-                on:blur={() => isEditingThreadName = false}
-                autofocus
-              />
-              <span class="save-button" on:click={submitThreadNameChange}>
-                <Save />
-              </span>
-            {:else}
+              
               {#if isEditingThreadName}
-                <input
+                <input 
+                  class="tag-item"
+                  transition:fade={{duration: 300, easing: cubicOut}}
                   bind:value={editedThreadName}
                   on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
                   on:blur={submitThreadNameChange}
                   autofocus
                 />
+                <span class="save-button" on:click={submitThreadNameChange}>
+                  <Save />
+                </span>
               {:else}
                 <h1 on:click={startEditingThreadName}>
                   {currentThread.name}
                 </h1>
               {/if}
-              <!-- <span class='counter'>{messages.length}
-                {$t('chat.messagecount')}
-              </span> -->
-              {#if !isMinimized}
-              {/if}
+            </div>
+        
+            <div class="thread-info-container">
+              <div>
+                <ThreadTags 
+                  {availableTags}
+                  {currentThreadId}
+                  {showTagSelector}
+                  {isTags}
+                  on:toggleTag={({ detail }) => toggleTag(detail.tag)}
+                  on:toggleSelector={() => {
+                    showTagSelector = !showTagSelector;
+                    isTags = !isTags;
+                  }}
+                />
+              </div>
+            </div>
+        
+            {#if !isMinimized}
             {/if}
           {:else}
-              <div class="chat-placeholder">
-                <!-- <img src={greekImage} alt="Italian illustration" class="illustration" /> -->
-
-                <h1>{$t('threads.selectThread')}</h1>
-              </div>
+            <div class="chat-placeholder">
+              <h1>{$t('threads.selectThread')}</h1>
+            </div>
           {/if}
         </div>
 
@@ -2273,16 +2287,39 @@ onMount(async () => {
     font-family: var(--font-family);
   }
 
-  :root {
-    --date-picker-background: var(--bg-color);
-    --date-picker-foreground: var(--placeholder-color);
-    --date-picker-highlight-border: var(--primary-color);
-    --date-picker-highlight-shadow:  var(--tertiary-color);
-    --date-picker-selected-color: var(--text-color);
-    --date-picker-selected-background: var(--tertiary-color);
-  }
 
+
+	:global(body) {
+
+		color: #ffffff;
+		transition: all 80ms ease-in-out;
+	}
+	div > :global(*) {
+
+	}
+
+  :global(body) {
+    --date-picker-background: var(--bg-gradient);
+		--date-picker-foreground: white;
+		--date-picker-highlight-border: var(--bg-color);
+		--date-picker-highlight-shadow: var(--tertiary-color);
+		--date-picker-selected-color: var(--text-color);
+		--date-picker-selected-background: var(--tertiary-color);
+    
+  }
+  .calendar {
+      // background: var(--bg-gradient);
+      width: auto;
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-m);
+
+      &input {
+        background: red;
+      }
+    }
+  
   :global {
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -2567,7 +2604,8 @@ onMount(async () => {
   }
 
   h1 {
-    font-size: 24px;
+    font-size: 1.5rem;
+    display: inline-block;
   }
 
   h3 {
@@ -2587,12 +2625,41 @@ onMount(async () => {
       background-color: red;
       position: relative;
       display: flex;
+      overflow-x: none;
+      // height: 50%;
+      // top: 3rem;
+      justify-content: center;
+      align-items: center;
+      border: none;
+      color: var(--text-color);
+      cursor: pointer;
+      border-radius: var(--radius-l);
+      transition: all 0.3s ease;
+    &:hover {
+      background-color: var(--secondary-color);
+      transform: translateX(10px);
+    }
+    &:active {
+    }
+
     }
 
     &.btn-ai {
+      border-radius: var(--radius-m);
+      width: auto;
+      height: 40px;
+      border: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s ease;
+      justify-content: center !important;
+      background-color: transparent;
+      &:hover{
+        background: var(--secondary-color);
+        // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
+        transform: translateY(-10px);
 
-      &:hover {
-        background-color: var(--secondary-color);
       }
     }
     &.section-header {
@@ -2726,9 +2793,59 @@ onMount(async () => {
     }
   }
 }
+.calendar {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
 
+  }
+
+  .date-input-container {
+    display: flex;
+    align-items: center;
+    justify-content: right;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 4000;
+    width: 99%;
+
+  }
+
+  :global(.date-input) {
+    display: flex;
+    flex-direction: row;
+    justify-content: right;
+    gap: 20px;
+    user-select: none;
+    position: relative;
+    z-index: 1000;
+    width: 100%;
+    z-index: 2000;
+    
+    // Similar to tag-row from ThreadTags
+    &:hover {
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: right;
+      background-color: red;
+    }
+  }
 
   /// CONTAINERS
+  .thread-info-container {
+    display: flex;
+    flex-direction:row;
+    width: auto;
+    margin-top: 0;
+    margin-right: 4rem;
+    position: relative;
+    justify-content: space-between;
+    align-items: flex-start;
+    min-height: fit-content;
+    overflow: visible;
+    z-index: 2000;
+  }
   .threads-container {
     display: flex;
     flex-direction: column;
@@ -2751,52 +2868,7 @@ onMount(async () => {
     padding: 1rem;
 
   }
-  .title-container {
-      display: flex;
-      flex-direction: row;
-      justify-content: center;
-      position: relative;
-      align-items: center;
-      height: 40px;
-      left: 25%;
-      margin-left: 2rem;
-      padding:  1rem;
-      transition: all 0.3s ease;
-      user-select: none;
-      border-radius: 20px;
-      width: 70%;
-      backdrop-filter: blur(10px);
-      
-
-    &:hover {
-      background-color: var(--bg-color);
-    }
-
-    span {
-      color: gray;
-      font-size: 16px;
-      width: 100%;
-      margin: 0 !important;
-      display: flex;
-      flex-direction: row;
-      white-space: nowrap;    /* Prevents text from wrapping */
-    overflow: hidden;       /* Hides any overflow content */
-    text-overflow: ellipsis; /* Shows ... if text overflows */
-    }
-    h1 {
-      width: 100%;
-      font-size: 1.2rem;
-      transition: all 0.3s ease;
-      text-overflow: ellipsis;
-      white-space: nowrap;    /* Prevents text from wrapping */
-      margin-left: 8rem !important;
-
-      &:hover {
-        cursor:text;
-        color: rgb(113, 249, 243);
-      }
-    }
-  }
+  
   .avatar-container {
     width: 30px;
     height: 30px;
@@ -2821,14 +2893,8 @@ onMount(async () => {
       }
     }
   }
-  .thread-title-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      position: relative;
-      
-  }
+
+
   .input-container {
     display: flex;
     position: fixed;
@@ -3611,7 +3677,6 @@ color: #6fdfc4;
     border: 1px solid rgba(53, 63, 63, 0.5);   
   }
 
-
   .btn-upload {
     position: relative;
     margin-bottom: 20px;
@@ -3662,7 +3727,6 @@ color: #6fdfc4;
       
     }
   }
-
 
   .auth-overlay {
     position: fixed;
@@ -3785,71 +3849,28 @@ color: #6fdfc4;
 
 
 
-  .add-button {
-    background-color: #3c3b35;
-    font-style: italic;
-    border: none;
-    border-radius: 10px;
-    margin-bottom: 15px;
-    width: 90%;
-    padding: 10px;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    
-    transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
-    user-select: none;
 
-    &:hover {
-      background-color: #4a4a4a;
-      transform: scale(1.0) translateX(5px) rotate(520deg);          
-      letter-spacing: 4px;
-      padding: 20px;
-    }
-  }
+.thread-name {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: center;
 
-  .btn-back {
-    position: relative;
-    display: flex;
-    margin-right: 2rem;
-    overflow-x: none;
-    right: 0;
-    // height: 50%;
-    // top: 3rem;
-    background: transparent;
-    justify-content: center;
-    align-items: center;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    border-radius: var(--radius-l);
-    transition: all 0.3s ease;
-    width: 50px;
-  &:hover {
-    background-color: var(--secondary-color);
-    transform: translateX(10px);
-  }
-  &:active {
-  }
 }
-.calendar {
-    display: flex;
-    align-items: top;
-    justify-content: top;
-    gap: 0.2rem;
-  }
 
 /// Thread styles
 .thread-info {
   display: flex;
-  flex-direction: row;
-  width: 100%;
-  flex-wrap: wrap;
+  flex-direction: column;
+  width: auto;
+  height: auto !important;
+  flex-wrap: nowrap;
   position: relative;
+  transition: all 0.3s ease;
   z-index: 1000;
   margin: {
     left: 0;
-    right: 2rem;
+    right: 25%;
   }
   overflow: {
     x: hidden;
@@ -3863,72 +3884,27 @@ color: #6fdfc4;
     overflow: hidden;
 
     & h1 {
-      font-size: 1.2em;
+      font-size: 1em;
+      margin: 0;
+      padding: 10px 0;
+      color: var(--text-color);
+      &:hover {
+        cursor:text;
+        color: rgb(113, 249, 243);
+      }
     }
   }
+
 
   & input {
     background-color: var(--secondary-color);
     border-bottom: 1px solid rgb(134, 134, 134);
     width: auto;
-    height: 40px;
-    padding: 0 20px;
-    font-size: 24px;
     border-radius: var(--radius-l);
-  }
-
-  & h1 {
-    margin: 0;
-    padding: 10px 0;
-    color: var(--text-color);
-  }
-
-  & .title-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
     position: relative;
-    align-items: center;
-    height: 40px;
-    left: 25%;
-    margin-left: 2rem;
-    padding: 1rem;
-    transition: all 0.3s ease;
-    user-select: none;
-    border-radius: 20px;
-    width: 70%;
-    backdrop-filter: blur(10px);
-
-    &:hover {
-      background-color: var(--bg-color);
-    }
-
-    & span {
-      color: gray;
-      font-size: 16px;
-      width: 100%;
-      margin: 0 !important;
-      display: flex;
-      flex-direction: row;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    & h1 {
-      width: 100%;
-      font-size: 1.2rem;
-      transition: all 0.3s ease;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      margin-left: 8rem !important;
-
-      &:hover {
-        cursor: text;
-        color: rgb(113, 249, 243);
-      }
-    }
   }
+
+
 }
   
   .thread-stats {
@@ -4046,20 +4022,6 @@ color: #6fdfc4;
     }
   }
 
-  & .add-button {
-    background-color: rgb(71, 59, 59);
-    font-style: italic;
-    border-bottom: 1px solid #633c3c;
-    border-radius: 10px;
-    margin-bottom: 2rem;
-
-    &:hover {
-      background: var(--tertiary-color);
-      transform: translateX(5px);
-      letter-spacing: 4px;
-      animation: pulsate 0.5s infinite alternate;
-    }
-  }
   }
   .thread-list-visible {
   & .chat-container {
@@ -4068,6 +4030,11 @@ color: #6fdfc4;
 
   & .thread-toggle {
     left: 310px;
+  }
+
+  & .thread-info {
+    margin-left: 0;
+    margin-right: 0;
   }
   }
   .thread-count {
@@ -4216,30 +4183,6 @@ color: #6fdfc4;
 
 
 
-  .tag-selector.tag-item {
-    background-color: red;
-  }
-
-  .tag-selector-toggle {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: white;
-    position: absolute;
-    right: 1rem;
-    top: 2.2rem;
-
-    &:hover {
-      color: rgb(69, 171, 202);
-      background-color: transparent;
-    }
-  }
-
-.date-divider-row {
-  display: flex;
-  justify-content: center; /* Align date dividers side by side */
-  margin-bottom: 10px; /* Space between date dividers */
-}
 
 .date-divider {
   display: flex;
@@ -4247,11 +4190,14 @@ color: #6fdfc4;
   justify-content: center;
   align-items: center;
   position: relative;
+  width: 200px;
+  background-color: red;
   padding: 0.5rem 1rem;
   margin: {
     top: 2rem;
     bottom: 1rem;
-    left: auto;
+    left: calc(50% - 100px);
+
   }
   gap: 2rem;
   cursor: pointer;
@@ -4261,7 +4207,6 @@ color: #6fdfc4;
   transition: all ease 0.15s;
   color: var(--text-color);
   user-select: none;
-  max-width: 200px;
   border-radius: var(--radius-m);
 
   &:hover {
@@ -4436,51 +4381,27 @@ color: #6fdfc4;
     width: 100%;
   }
 
-  .btn-ai {
-    border-radius: var(--radius-m);
-    width: auto;
-    height: 40px;
-    border: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: all 0.3s ease;
-    justify-content: center !important;
-    background-color: transparent;
-    &:hover{
-      background: var(--secondary-color);
-      // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
-      transform: translateY(-10px);
-      color: red;
 
-    }
-  }
 
 
 
   @media (max-width: 768px) {
     .threads-container {
       flex-direction: column;
-      margin-left: 0;
-      
+      margin-left: 3rem;
+
+    }
+
+    .chat-interface {
+      margin-right:2rem;
+
     }
 
     .chat-messages {
       width: auto;
-      left: 2rem !important;
-      right: 2rem !important;
-      margin-top: 4rem;
-      margin-right: 2rem !important;
+
       
     }
-
-    .title-container {
-      left: 1rem;
-    }
-
-    // .btn-back {
-    //   top: 4rem;
-    // }
 
 
 
@@ -4513,26 +4434,17 @@ color: #6fdfc4;
       width: 100%;
     }
 
-    .thread-info .add-button {
-        background-color: rgb(189, 16, 16);
-        font-style: italic;
-        /* font-weight: bolder; */
-        border-bottom: 1px solid #633c3c;
-        border-radius: 10px;
-        margin-bottom: 2rem;
+
+      .thread-info input  {
+        background-color: var(--secondary-color);
+        border-bottom: 1px solid rgb(134, 134, 134);
+        width: auto;
+        margin-left: 1rem;
+        padding: 1rem;
+        font-size: 24px;
+        border-radius: var(--radius-l);
       }
 
-    .thread-list .add-button {
-        font-style: italic;
-        /* font-weight: bolder; */
-        border-bottom: 1px solid #633c3c;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-        margin-left: 3.5rem;
-        width: 90%;
-        justify-content: center;
-      }
-      
     .thread-list {
       position: relative;
       top: 0;
@@ -4790,23 +4702,6 @@ color: #6fdfc4;
   }
   
 
-// .btn-back {
-//   width: 50px;
-//   left: 2rem !important;
-//   top: 2rem;
-//   background: red;
-// }
-// .chat-messages {
-//     border: none;
-//     background: none;
-//     width: auto !important;
-//     margin-left: 1rem !important;
-//     left: 2rem !important;
-//     right: 1rem !important;
-//     margin-top: 2rem;
-//     margin-right: 1rem;
-//   }
-
 
 .btn-col-left:hover {
   width: 96%;
@@ -4828,21 +4723,7 @@ color: #6fdfc4;
   }
 
 
-  .title-container {
-    justify-content: flex-end;
-    gap: 1rem;
-    height: 100%;
-    flex-wrap: wrap;
-    margin-left: 0;
-  }
 
-  .title-container h1 {
-    font-size: 0.9rem;
-    display: flex;
-    flex-wrap: wrap;
-    margin-left: 0 !important;
-
-  }
 //   button.new-button  {
 //     border-radius: 15px;
 //     padding: 5px 10px;
@@ -4918,7 +4799,54 @@ color: #6fdfc4;
 }
 @media (max-width: 1900px) {
 
+  .thread-info {
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  height: auto !important;
+  flex-wrap: nowrap;
+  position: relative;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  margin: {
+    left: 0;
+    right: 0;
+  }
+  overflow: {
+    x: hidden;
+    y: hidden;
+  }
+  color: white;
+  left: auto;
 
+  &.minimized {
+    max-height: 50px;
+    overflow: hidden;
+
+    & h1 {
+      font-size: 1em;
+      margin: 0;
+      padding: 10px 0;
+      color: var(--text-color);
+      &:hover {
+        cursor:text;
+        color: rgb(113, 249, 243);
+      }
+    }
+  }
+
+
+  & input {
+    background-color: var(--secondary-color);
+    border-bottom: 1px solid rgb(134, 134, 134);
+    width: auto;
+    border-radius: var(--radius-l);
+    position: relative;
+  }
+
+
+}
+  
 
   .tags {
     display:flex;
@@ -4948,11 +4876,10 @@ color: #6fdfc4;
     position: relative;
     left: 0;
     right: 0;
-    top: 2rem;
+    top: 0;
     margin-top: 0 !important;
     margin-right: 0 !important;
     margin-left: 0 !important;
-    margin: 1rem;
 
   }
 
@@ -4962,21 +4889,23 @@ color: #6fdfc4;
     // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     border: none;
     height: 100%;
-    
+
+
   }
+  
 
 
   .chat-placeholder {
-  display: flex;
-  position: relative;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height:90vh;
-  bottom: 0 !important;
-  top: 0;
+    display: flex;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height:90vh;
+    bottom: 0 !important;
+    top: 0;
 
-}
+  }
 
 .chat-placeholder img {
   width: 150%;
@@ -4993,21 +4922,6 @@ color: #6fdfc4;
       color: var(--placeholder-color);
     }
   }
-
-  
-  
-  .title-container {
-      left: 0;
-      width: 90%;
-      margin: 1rem;
-      height: 100%;
-
-
-    }
-
-    .btn-back {
-      top: 4rem;
-    }
 
   
 
@@ -5273,63 +5187,8 @@ color: #6fdfc4;
   border-radius: var(--radius-l);
 }
 
-.thread-title-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      position: relative;
-      
-    }
 
-  .title-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    height: 40px;
-    margin-left: 2rem !important;
-    transition: all 0.3s ease;
-    user-select: none;
-    border-radius: 20px;
-    
 
-  }
-
-  // .btn-back {
-  //   left: 2rem;
-  //   top:0.5rem;
-  //   width: 40px;
-  // }
-
-  .title-container:hover {
-    background-color: var(--bg-color);
-  }
-
-  .title-container span {
-    color: gray;
-    font-size: 16px;
-  }
-
-  .title-container h1 {
-    width: auto;
-    transition: all 0.3s ease;
-  }
-
-  .title-container h1:hover {
-    cursor:text;
-    color: rgb(113, 249, 243);
-  }
-  .thread-info input  {
-    background-color: var(--secondary-color);
-    border-bottom: 1px solid rgb(134, 134, 134);
-    width: auto;
-    margin-left: 1rem;
-    height: 400px;
-    padding: 1rem;
-    font-size: 24px;
-    border-radius: var(--radius-l);
-  }
 
 .search-bar {
   display: flex;

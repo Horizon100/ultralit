@@ -21,7 +21,8 @@ function createThreadsStore() {
     showThreadList: boolean,
     searchQuery: string,
     namingThreadId: string | null,
-    selectedTagIds: Set<string> 
+    selectedTagIds: Set<string>,
+    date: string,
 
   }>({
     threads: [],
@@ -32,7 +33,8 @@ function createThreadsStore() {
       showThreadList: initialShowThreadList,
     searchQuery: '',
     namingThreadId: null,
-    selectedTagIds: new Set()
+    selectedTagIds: new Set(),
+    date: '',
   });
 
   const { subscribe, update } = store;

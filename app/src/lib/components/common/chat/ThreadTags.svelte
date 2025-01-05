@@ -24,6 +24,13 @@
   
   <div class="tag-row" transition:fly="{{ y: -300, duration: 300 }}">
     {#if currentThreadId}
+    <button on:click={toggleTagSelector} class="tag-selector-toggle" transition:fly="{{ y: -300, duration: 300 }}">
+      {#if isTags}
+        <Tag style="color: var(--placeholder-color)"  />
+      {:else}
+        <Tags style="color: var(--tertiary-color)"  />
+      {/if}
+    </button>
       {#if showTagSelector}
         <div class="tag-selector" transition:fly="{{ y: 20, duration: 500 }}">
           {#each availableTags as tag (tag.id)}
@@ -49,13 +56,7 @@
           {/each}
         </div>
       {/if}
-      <button on:click={toggleTagSelector} class="tag-selector-toggle" transition:fly="{{ y: -300, duration: 300 }}">
-        {#if isTags}
-          <Tag size={20} />
-        {:else}
-          <Tags size={24} />
-        {/if}
-      </button>
+
     {/if}
   </div>
   
@@ -64,25 +65,22 @@
     .tag-row {
       display: flex;
       flex-wrap: nowrap;
-      justify-content: right;
-      align-items: right;
+      justify-content: top;
+      align-items: top;
+      position: relative;
       gap: 5px;
       margin-top: 0;
       user-select: none;
-      border-radius: 20px;
+      border-radius: 1rem;
       transition: all ease 0.3s;
-      width: auto;
-      margin-bottom: auto;
-      
+      width: 100% !important;
+      margin-bottom: 1rem;
+      margin-left: 0 !important;
+      left: 0;
+      margin-right: 4rem;
       // margin-right: 2rem;
       // margin-left: 2rem;
 
-      &:hover {
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: right;
-
-      }
     }
   
     .tag-selector {
@@ -93,7 +91,10 @@
       gap: 5px;
       border-radius: var(--radius-m);
       transition: all ease 0.3s;
-      background: var(--primary-color);
+      // background: var(--primary-color);
+      margin-bottom: 2rem !important;
+
+
 
     }
   
@@ -101,8 +102,9 @@
       display: flex;
       width: 40px;
       height: 100%;
+      width: 100%;
       transition: all 0.3s ease;
-      justify-content: flex-end;
+      justify-content: flex-start;
     }
   
     .tag {
@@ -137,7 +139,9 @@
       cursor: pointer;
       color: white;
       position: relative;
-      right: 0;
+      margin-top: 0 !important;
+      top: 0;
+      display: flex;
 
   
       &:hover {
