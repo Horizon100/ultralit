@@ -1057,38 +1057,44 @@ function handleError(error: unknown) {
   }
 
 // Thread management functions
-  async function handleCreateNewThread() {
-    if (isCreatingThread) return;
+async function handleCreateNewThread() {
+  if (isCreatingThread) return null;
   
   try {
-    isCreatingThread = true;
     const newThread = await threadsStore.addThread({
       op: userId,
       name: `Thread ${threads?.length ? threads.length + 1 : 1}`
     });
     
-    // Wait for thread to be fully created before updating UI
     await tick();
     
     if (newThread?.id) {
       threads = [...(threads || []), newThread];
       currentThreadId = newThread.id;
       showPromptCatalog = false;
+      
+      // Load the thread immediately after creation
+      await handleLoadThread(newThread.id);
+      
+      return newThread;
     }
-  } finally {
-    isCreatingThread = false;
+    
+    return null;
+  } catch (error) {
+    console.error('Error in handleCreateNewThread:', error);
+    return null;
   }
-};
+}
 async function handleLoadThread(threadId: string) {
   try {
     isLoadingMessages = true;
-    showThreadList = true;
+    showThreadList = false;
 
     // Get thread with expanded tags
     const thread = await pb.collection('threads').getOne(threadId, {
       expand: 'tags'
     });
-    
+
     // Update store first
     await threadsStore.setCurrentThread(threadId);
 
@@ -1254,7 +1260,6 @@ async function handleLoadThread(threadId: string) {
       console.log('URL updated');
       
       // Show thread list and restore threads
-      showThreadList = true;
       threads = currentThreads;
       
       console.log('Final threads length:', threads?.length);
@@ -1263,6 +1268,7 @@ async function handleLoadThread(threadId: string) {
     console.error('Error going back:', error);
   } finally {
     isLoading = false;
+    
     console.log('Final state:', {
       currentThreadId,
       threads: threads?.length,
@@ -1816,30 +1822,34 @@ onMount(async () => {
             />
           </div>
 
-          <button 
-            class="btn-ai"
-              on:click={async () => {
-                if (isCreatingThread) return;
-                
-                const newThread = await handleCreateNewThread();
-                if (newThread) {
-                  // Hide prompt catalog and show chat
-                  showPromptCatalog = false;
-                }
-              }}
-              disabled={isCreatingThread}
-            >
-            {#if isCreatingThread}
+        <button 
+          class="new-button"
+          on:click={async () => {
+            if (isCreatingThread) return;
+            
+            try {
+              const newThread = await handleCreateNewThread();
+              if (newThread?.id) { // Check for the id property specifically
+                showPromptCatalog = false;
+              }
+            } catch (error) {
+              console.error('Error creating new thread:', error);
+              // Handle error appropriately
+            }
+          }}
+          disabled={isCreatingThread}
+        >
+          {#if isCreatingThread}
             <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                <Bot size={30} class="bot-icon" />
-                </div>
-              {:else}
-              <span class="section-icon">
-                <div in:fade>
-                  <MessageCirclePlus />
-                </div> 
-                </span>           
-              {/if}
+              <Bot size={30} class="bot-icon" />
+            </div>
+          {:else}
+            <span class="section-icon">
+              <div in:fade>
+                <MessageCirclePlus />
+              </div> 
+            </span>           
+          {/if}
         </button>
           
         </div>
@@ -1859,9 +1869,9 @@ onMount(async () => {
                         in:fade
                     >
                         <span class="thread-title">{thread.name}</span>
-                        <span class="thread-message">
+                        <!-- <span class="thread-message">
                             {thread.last_message?.content || 'No messages yet'}
-                        </span>
+                        </span> -->
                         <span class="thread-time">
                             {new Date(thread.updated).toLocaleTimeString([], { 
                                 hour: '2-digit', 
@@ -1969,8 +1979,8 @@ onMount(async () => {
         <div class="thread-info" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
           {#if currentThread}
             <div class="thread-name">
-              <button class="btn-ai" on:click={goBack}>
-                <ArrowLeft style="color: var(--tertiary-color)" />
+              <button class="btn-back" on:click={goBack}>
+                <ArrowLeft />
               </button>
               
               {#if isEditingThreadName}
@@ -2039,34 +2049,44 @@ onMount(async () => {
                     {formatDate(date)}
                   </div>
                   
+                  
                   {#each messages as message (message.id)}
                     <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                      <div class="message-header">
                         {#if message.role === 'user'}
-                          <div class="message-footer">
+                          <div class="user-header">
+                            <div class="avatar-container">
+                              {#if avatarUrl}
+                                <img src={avatarUrl} alt="User avatar" class="avatar" />
+                              {:else}
+                                <div class="avatar-placeholder">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                </div>
+                              {/if}
+                            </div>
+                            <span class="role">{username}</span>
+                          </div>
+                          <div class="message-time">
                             {#if message.created}
                               {new Date(message.created).toLocaleTimeString()}
                             {:else}
                               Time not available
                             {/if}
                           </div>
-                          <!-- <div class="user-header">
-                              <div class="avatar-container">
-                                {#if avatarUrl}
-                                  <img src={avatarUrl} alt="User avatar" class="avatar" />
-                                {:else}
-                                  <div class="avatar-placeholder">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                  </div>
-                                {/if}
-                              </div>
-                              <span class="role">{username}</span>
-                            </div> -->             
                         {:else if message.role === 'thinking'}
                           <span class="role">
                             <Bot size="50" color="white" />
                           </span>
+                        {:else if message.role === 'assistant'}
+                          <div class="user-header">
+                            <div class="avatar-container">
+                              <Bot color="white" />
+                            </div>
+                            <span class="role">{promptType}</span>
+                          </div>
                         {/if}
-            
+                      </div>
+                
                       {#if message.role === 'options'}
                         <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
                           {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
@@ -2081,7 +2101,7 @@ onMount(async () => {
                           {/each}
                         </div>
                       {:else if message.isHighlighted}
-                        <p>{@html message.content}</p>
+                        <!-- <p>{@html message.content}</p> -->
                       {:else}
                         <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
                       {/if}
@@ -2099,7 +2119,7 @@ onMount(async () => {
                           </span>
                         </div>
                       {/if}
-            
+                
                       {#if message.role === 'assistant'}
                         <div class="message-footer">
                           <Reactions 
@@ -2124,14 +2144,17 @@ onMount(async () => {
                   {/each}
                 {/each}
               </div>
+              <button class="scroll-bottom-btn" on:click={scrollToBottom}>
+                <ChevronDown size={24} />
+              </button>
             </div>
+            
           </div>
+          
         </div>
       </div>  
 
-      <button class="scroll-bottom-btn" on:click={scrollToBottom}>
-        <ChevronDown size={24} />
-      </button>
+
 
       <div class="input-container">
         <!-- Prompts Section -->
@@ -2406,6 +2429,8 @@ onMount(async () => {
     }
   }
   ol {
+    display: flex;
+    flex-direction: column;
     transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
     border-radius: var(--radius-l);
     border: 1px solid transparent;
@@ -2539,6 +2564,8 @@ onMount(async () => {
     justify-content: left;
     align-items: center;
     color: var(--text-color);
+
+
     &.counter {
       color: gray;
       font-size: 16px;
@@ -2563,17 +2590,6 @@ onMount(async () => {
     }
 
 
-    &.new-button {
-      border: none;
-      cursor: pointer;
-      position: relative;
-      justify-content: center;
-      transition: all ease 0.3s;
-      border-radius: 50%;
-      width: auto;
-      height: auto;
-      display: flex;
-    }
     &.role {
       display: flex;
       justify-content: center;
@@ -2615,14 +2631,14 @@ onMount(async () => {
     }
 
   p {
-    // color: var(--placeholder-color);
+    
   }
 
   button {
     display: flex;
     user-select: none;
     &.btn-back {
-      background-color: red;
+      background-color: var(--placeholder-color);
       position: relative;
       display: flex;
       overflow-x: none;
@@ -2636,13 +2652,15 @@ onMount(async () => {
       border-radius: var(--radius-l);
       transition: all 0.3s ease;
     &:hover {
-      background-color: var(--secondary-color);
-      transform: translateX(10px);
+      background-color: var(--tertiary-color);
+      transform: translateX(2px);
     }
     &:active {
     }
 
     }
+
+    
 
     &.btn-ai {
       border-radius: var(--radius-m);
@@ -2655,6 +2673,7 @@ onMount(async () => {
       transition: all 0.3s ease;
       justify-content: center !important;
       background-color: transparent;
+      z-index: 2000;
       &:hover{
         background: var(--secondary-color);
         // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
@@ -2671,7 +2690,7 @@ onMount(async () => {
       }
     }
     &.new-button {
-      background-color: var(--primary-color);
+      background-color: transparent;
       font-size: var(--font-size-s);
       font-weight: bold;
       cursor: pointer;
@@ -2684,8 +2703,19 @@ onMount(async () => {
       user-select: none;
       gap: var(--spacing-sm);
 
+      & span.section-icon {
+        color: var(--placeholder-color);
+
+        &:hover {
+        color: var(--tertiary-color);
+      }
+
+      }
+      
+
+
       &:hover {
-        background-color: var(--tertiary-color);
+        color: var(--tertiary-color);
       }
     }
     &.add-tag {
@@ -2832,6 +2862,7 @@ onMount(async () => {
     }
   }
 
+
   /// CONTAINERS
   .thread-info-container {
     display: flex;
@@ -2873,8 +2904,14 @@ onMount(async () => {
     width: 30px;
     height: 30px;
     border-radius: 50%;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
     position: relative;
+    background: red;
+    display: flex;
+    object-fit: cover;
+
     & .avatar,
     & .avatar-placeholder {
       width: 100%;
@@ -2949,7 +2986,7 @@ onMount(async () => {
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
     padding: 20px;
     display: flex;
-    align-items: stre;
+    align-items: stretch;
   }
   .auth-container {
     background-color: #fff;
@@ -3024,6 +3061,7 @@ color: #6fdfc4;
     gap: 4px;
     position: fixed;
     top: 10rem;
+    padding-left: 2rem;
     width: 50vw !important;
     left: 25%;
     margin-right: 1rem;
@@ -3035,7 +3073,6 @@ color: #6fdfc4;
     scrollbar-color: var(--secondary-color) transparent;
     scroll-behavior: smooth;
     // margin-bottom: 100px;
-    padding-top: 20px;
     // height: 100%;
     width: auto;
     border-radius: var(--radius-l);
@@ -3043,6 +3080,8 @@ color: #6fdfc4;
     border: 2px solid var(--bg-color);
     // background-color: var(--secondary-color);
     // backdrop-filter: blur(10px);
+    background: var(--primary-color) !important;
+
     background: linear-gradient (
       90deg,
       rgba(117, 118, 114, 0.9) 0%,
@@ -3146,7 +3185,7 @@ color: #6fdfc4;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 1rem;
+    padding: 0 1rem;
     font-weight: 200;
     letter-spacing: 1px;
     line-height: 1;
@@ -3160,6 +3199,8 @@ color: #6fdfc4;
       hyphens: auto;
       width: 100%;
       text-align: left;
+      // margin-block-start: 1rem;
+      // margin-block-end: 1rem;
     }
     &:hover::before {
       opacity: 0.8;
@@ -3197,17 +3238,19 @@ color: #6fdfc4;
     }
     &.assistant {
       display: flex;
-      align-self: center;
+      align-self: flex-start;
       color: white;
       height: auto;
-      background: var(--bg-color);
-      padding: 1rem;
+      background: transparent;
+      margin-left: 1rem;
       width: 90%;
+      border: {
+        left: 1px solid var(--placeholder-color);
+      }
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       & p {
-        font-size: auto;
-        color: var(--text-color);
-        height: auto;
+        display: flex;
+        justify-content: flex-start;
       }
     }
     &.options {
@@ -3223,26 +3266,26 @@ color: #6fdfc4;
     }
     &.user {
       display: flex;
-      align-self: right;
+      align-self: flex-start;
       color: var(--text-color);
       height: auto;
       width: 90% !important;
       font-weight: 500;
-      background: var(--bg-color);
+      // background: var(--bg-color);
       border: {
-        top: 1px solid var(--primary-color);
-        left: 1px solid var(--primary-color);
+        // top: 1px solid var(--primary-color);
+        // left: 1px solid red;
       }
-      box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+      // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
       border-radius: {
         top-left: var(--radius-m);
         top-right: var(--radius-m);
       }
-      padding: 1rem;
       width: auto;
       margin: {
-        left: 1rem;
+        left: 0;
         right: 1rem;
+        top: 3rem;
       }
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       & p {
@@ -3347,11 +3390,29 @@ color: #6fdfc4;
   // padding: var(--spacing-sm);
   border-radius: var(--radius-m);
   height: 40px;
-  color: var(--placeholder-color);
+  color: var(--bg-color);
   &:hover {
     background-color: var(--secondary-color);
 
     }
+  button.search-bar {
+    border-radius: var(--radius-m);
+    width: auto;
+    height: 40px;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    justify-content: center !important;
+    z-index: 2000;
+    &:hover{
+      background: var(--secondary-color);
+      // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
+      transform: translateY(-10px);
+
+    }
+  }
 
     input {
       padding: 0.5rem;
@@ -3373,20 +3434,6 @@ color: #6fdfc4;
         }
       }
     }
-}
-
-.user-header {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-}
-
-
-
-.new-button svg {
-  color: red;
 }
 
 
@@ -3472,6 +3519,33 @@ color: #6fdfc4;
     margin-right: 1rem;
   }
 
+  .user-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  user-select: none;
+}
+
+  .message-header {
+    display: flex;
+    flex-direction: row;
+    margin-left: 0;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100% ;
+    gap: 1rem;
+  }
+
+  .message-time {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--placeholder-color);
+    
+  }
 
   .message-footer {
     display: flex;
@@ -3480,6 +3554,7 @@ color: #6fdfc4;
     width: 100%;
     color: var(--placeholder-color);
     font-weight: 200;
+    
   }
   @media (min-width: 300px) {
       .chat-container {
@@ -3743,16 +3818,6 @@ color: #6fdfc4;
 
 
 
-  .message-header {
-		display: flex;
-		gap: 10px;
-    justify-content: flex-end;
-    align-self: bottom;
-    gap: 2rem;
-    align-items: center;
-    width: 100%;
-  }
-
 
 
 .message-count {
@@ -3835,6 +3900,8 @@ color: #6fdfc4;
         rgba(1, 1, 1, 0.05) 85%,
         rgba(117, 118, 114, 0) 100%
       );
+
+      
   }
 
 
@@ -3855,6 +3922,7 @@ color: #6fdfc4;
   flex-direction: row;
   justify-content: left;
   align-items: center;
+  gap: 1rem;
 
 }
 
@@ -3928,7 +3996,7 @@ color: #6fdfc4;
     align-items: left;    
     text-align: left;
     margin-left: 1rem;
-    width: calc(80% - 1rem);
+    width: calc(100% - 1rem);
     padding: var(--spacing-sm) var(--spacing-md);
     // backdrop-filter: blur(8px);
     // background: var(--bg-gradient-left);
@@ -4144,9 +4212,8 @@ color: #6fdfc4;
 }
 
   .scroll-bottom-btn {
-    position: fixed;
-    bottom: 120px;
-    right: 0;
+    position: absolute;
+    bottom: 3rem;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -4160,7 +4227,8 @@ color: #6fdfc4;
     transition: background-color 0.3s;
     z-index: 100;
     align-self: flex-end;
-    margin-right: 20px;
+    margin-right: 2rem;
+    margin-bottom: 0;
 
     &:hover {
       background-color: #000000;
@@ -4191,7 +4259,6 @@ color: #6fdfc4;
   align-items: center;
   position: relative;
   width: 200px;
-  background-color: red;
   padding: 0.5rem 1rem;
   margin: {
     top: 2rem;
@@ -4448,8 +4515,9 @@ color: #6fdfc4;
     .thread-list {
       position: relative;
       top: 0;
-      margin-left: 3rem;
-      width: 90% !important;
+      margin-left: 1rem;
+      margin-right:1rem;
+      width: auto !important;
       height: auto;
       align-items: center;
       justify-content: center;
@@ -4718,9 +4786,6 @@ color: #6fdfc4;
     padding-right: 2rem !important;
   }
 
-  .message.user {
-
-  }
 
 
 
@@ -4756,20 +4821,8 @@ color: #6fdfc4;
   //     z-index: 1000;
   // }
 
-  .message.user {
-    margin-right: 1rem;
-    margin-left: 2rem;
-    justify-content: flex-end;
-    width: 50%;
-    align-self: flex-end;
-  }
-
+ 
   
-    .message.user p {
-      /* font-weight: 600; */
-      // font-size: 1.2rem;
-    }
-
     .date-divider {
       margin-right: 2rem;
     }
@@ -4786,13 +4839,11 @@ color: #6fdfc4;
     /* border-bottom: 2px solid #585858; */
     border-bottom-right-radius: 20px;
     color: white;
-    margin-bottom: 20px;
     /* font-style: italic; */
     /* width: auto;  Allow the message to shrink-wrap its content */
     /* margin-left: 200px; */
     // margin-right: 2rem;
     // margin-left: 2rem;
-      margin-right: 2rem;
     width: 90%;    /* border: 1px solid black; */
 
     }
@@ -4878,9 +4929,10 @@ color: #6fdfc4;
     right: 0;
     top: 0;
     margin-top: 0 !important;
-    margin-right: 0 !important;
+    margin-right: 3rem !important;
     margin-left: 0 !important;
-
+    margin-bottom: 8rem;
+    
   }
 
   .chat-content {
@@ -5037,8 +5089,7 @@ color: #6fdfc4;
   .chat-messages {
     width: auto;
     border: none;
-    margin-left: 3rem !important;
-    background: none;
+    margin-left: 2rem !important;
     
   }
 
@@ -5199,6 +5250,7 @@ color: #6fdfc4;
   height: var(--spacing-xl);
   width: auto;
   height: auto;
+  z-index: 2000;
 
 
 

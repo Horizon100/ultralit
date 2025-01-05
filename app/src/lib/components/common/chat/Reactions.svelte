@@ -64,9 +64,9 @@
 </script>
 
 <div class="message-reactions">
-  <div class="reaction-toggle">
+  <!-- <div class="reaction-toggle">
     ⋯
-  </div>
+  </div> -->
   <div class="reaction-buttons">
     {#each reactions as reaction}
       <button 
@@ -94,10 +94,11 @@
     position: relative;
     display: inline-block;
     overflow: hidden;
+    justify-content: center;
     height: 30px;
     transition: width 0.3s ease-in-out;
     width: 100%;
-    margin-top: 1rem;
+    // margin-top: 1rem;
   }
 
   .reaction-toggle {
@@ -119,10 +120,14 @@
   .reaction-buttons {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-left: 35px;
+    justify-content: left;
+    padding: {
+      left: 0;
+      right: 2rem;
+    }
+    gap: 1rem !important;
     height: 100%;
-    width: 90%;
+    width: 100%;
     white-space: nowrap;
     transition: all 0.3s ease;
     border-radius: 20px;
@@ -130,17 +135,21 @@
     &:hover {
       backdrop-filter: blur(10px);
     }
+
+
   }
+
 
   .reaction-btn {
     font-family: var(--font-family);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: bold;
-    color: var(--text-color);
-    background: none;
+    color: var(--placeholder-color);
+    background-color: transparent;
+
     border: none;
     cursor: pointer;
-    padding: 5px;
+    padding: 1rem;
     margin: 0 2px;
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 0.3s);
     opacity: 0;
@@ -148,13 +157,13 @@
 
     &:hover {
       transform: scale(1.2);
-      background-color: transparent;
-      color: white;
+      color: var(--tertiary-color);
     }
 
     &:active {
       transform: scale(0.9);
     }
+
   }
 
   .reaction-count {
