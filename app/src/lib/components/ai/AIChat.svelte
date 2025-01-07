@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -160,10 +160,12 @@ export const expandedSections = writable<ExpandedSections>({
   let updateStatus: string = ''; 
   let showThreadList = $threadsStore.showThreadList;
   let isThreadsLoaded: boolean;
-
+  let isThreadListVisible = false;
+  let isProjectListVisible = true;
 
   // UI state
   let isLoading = false;
+  let isExpanded = false;
   // let isLoading: boolean = false;
   let isTextareaFocused = false;
   let isFocused = false;
@@ -196,6 +198,8 @@ export const expandedSections = writable<ExpandedSections>({
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
 
+  let createHovered = false;
+  let searchHovered = false;
 
 
 
@@ -249,6 +253,10 @@ export const expandedSections = writable<ExpandedSections>({
     editedThreadName = state.editedThreadName;
     tags = state.tags;
 });
+
+  const focusOnMount = (node: HTMLElement) => {
+      node.focus();
+    };
 
   const defaultAIModel: AIModel = {
     id: 'default',
@@ -1760,7 +1768,7 @@ onMount(async () => {
         {$t('threads.threadHeader')}
       </h2>
         <!-- Tags Section -->
-      <button 
+      <!-- <button 
         class="section-header"
         on:click={() => toggleSection('tags')}
       >
@@ -1806,151 +1814,252 @@ onMount(async () => {
               }}
             />
           </div>
-        {/if}
-        <div class="section-header" >
-          <div class="search-bar">
-            <span class="section-icon" class:active={isFocused}>
-              <Search />
-            </span>
-            <input
-              type="text"
-              bind:value={searchQuery}
-              placeholder="Search threads..."
-              on:input={() => threadsStore.setSearchQuery(searchQuery)}
-              on:focus={() => isFocused = true}
-              on:blur={() => isFocused = false}
-            />
+        {/if} -->
+        
+        <div class="thread-catalog" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+          <div class="section-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+            <button 
+              class="new-button"
+              class:active={isProjectListVisible} 
+              on:click={() => {
+                isProjectListVisible = !isProjectListVisible;
+                if (isProjectListVisible) isThreadListVisible = false;
+              }}
+            >
+              <span 
+                class="section-icon"
+                class:active={isProjectListVisible} 
+              >
+                <Box />
+                {#if isProjectListVisible}
+                  <span class="button-text" in:fade>Projects</span>
+                {/if}
+              </span>
+            </button>
+            <button 
+              class="new-button"
+              class:active={isThreadListVisible} 
+              on:click={() => {
+                isThreadListVisible = !isThreadListVisible;
+                if (isThreadListVisible) isProjectListVisible = false;
+              }}
+            >
+              <span 
+                class="section-icon"
+                class:active={isThreadListVisible}
+              >
+                <ListTree />
+                {#if isThreadListVisible}
+                  <span class="button-text" in:fade>Threads</span>
+                {/if}
+              </span>
+            </button>
           </div>
 
-        <button 
-          class="new-button"
-          on:click={async () => {
-            if (isCreatingThread) return;
-            
-            try {
-              const newThread = await handleCreateNewThread();
-              if (newThread?.id) { // Check for the id property specifically
-                showPromptCatalog = false;
-              }
-            } catch (error) {
-              console.error('Error creating new thread:', error);
-              // Handle error appropriately
-            }
-          }}
-          disabled={isCreatingThread}
-        >
-          {#if isCreatingThread}
-            <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-              <Bot size={30} class="bot-icon" />
-            </div>
-          {:else}
-            <span class="section-icon">
-              <div in:fade>
-                <MessageCirclePlus />
-              </div> 
-            </span>           
-          {/if}
-        </button>
-          
-        </div>
-
-        <div class="thread-catalog">
-          {#if isSearchActive || isTagFilterActive}
-        <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-            <!-- Use $tagFilteredThreads to access the store value -->
-            {#each (isSearchActive ? $searchedThreads : $tagFilteredThreads) as thread (thread.id)}
-                <button 
-                    class="thread-button"
-                    class:selected={currentThreadId === thread.id}
-                    on:click={() => handleLoadThread(thread.id)}
-                >
-                    <div class="thread-card" 
-                        class:active={currentThreadId === thread.id}
-                        in:fade
-                    >
-                        <span class="thread-title">{thread.name}</span>
-                        <!-- <span class="thread-message">
-                            {thread.last_message?.content || 'No messages yet'}
-                        </span> -->
-                        <span class="thread-time">
-                            {new Date(thread.updated).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}
-                        </span>
-                        <span 
-                            class="delete-thread-button" 
-                            on:click={(e) => handleDeleteThread(e, thread.id)}
-                        >
-                            <X size={14} />
-                        </span>
-                    </div>
-                </button>
-            {/each}
-        </div>
-    {:else}
-          {#each orderedGroupedThreads as { group, threads }}
-            <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-              <button 
-                class="thread-group-header"
-                on:click={() => toggleGroup(group)}
-              >
-                <div class="group-header-content">
-                  <span class="group-icon">
-                    {#if $expandedGroups[group]}
-                      <!-- <ChevronDown size={20} /> -->
-                      <span class="group-title-active">{group}</span>
-                      <span class="thread-count-active">({threads.length})</span>
-                    {:else}
-                      <ChevronRight size={20} />
-                      <span class="group-title">{group}</span>
-                      <span class="thread-count">({threads.length})</span>
-
+          {#if isProjectListVisible}
+          <div class="section-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+            <button 
+              class="new-button"
+              on:click={async () => {
+                if (isCreatingThread) return;
+                try {
+                  const newThread = await handleCreateNewThread();
+                  if (newThread?.id) {
+                    showPromptCatalog = false;
+                  }
+                } catch (error) {
+                  console.error('Error creating new thread:', error);
+                }
+              }}
+              disabled={isCreatingThread}
+              on:mouseenter={() => createHovered = true}
+              on:mouseleave={() => createHovered = false}
+            >
+              {#if isCreatingThread}
+                <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                  <Bot size={30} class="bot-icon" />
+                </div>
+              {:else}
+                <span class="section-icon">
+                  <div class="icon-container" in:fade>
+                    <PackagePlus />
+                    {#if createHovered}
+                      <span class="tooltip" in:fade>Create New Project</span>
                     {/if}
-                  </span>
-                </div>
-              </button>
+                  </div>
+                </span>           
+              {/if}
+            </button>
+          </div>
+        {/if}
         
-              {#if $expandedGroups[group]}
-                <div class="thread-list" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                  {#each threads as thread (thread.id)}
-                    <button 
-                      class="thread-button"
-                      class:selected={currentThreadId === thread.id}
-                      on:click={() => handleLoadThread(thread.id)}
-                    >
-                      <div class="thread-card" 
-                          class:active={currentThreadId === thread.id}
-                          in:fade
-                        >
-                        {#if namingThreadId === thread.id}
-                          <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                            <Bot size={30} class="bot-icon" />
-                          </div>
-                        {:else}
-                          <div in:fade>
-                            <span class="thread-title">{thread.name}</span>
-                            <span class="thread-time">
-                              {new Date(thread.updated).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                            <span 
-                              class="delete-thread-button" 
-                              on:click={(e) => handleDeleteThread(e, thread.id)}
-                            >
-                              <Trash2 size={14} />
-                            </span>
-                          </div>
-                        {/if}
-                      </div>
-                    </button>
-                  {/each}
+
+        {#if isThreadListVisible}
+          <div class="section-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+            <button 
+              class="new-button"
+              on:click={async () => {
+                if (isCreatingThread) return;
+                try {
+                  const newThread = await handleCreateNewThread();
+                  if (newThread?.id) {
+                    showPromptCatalog = false;
+                  }
+                } catch (error) {
+                  console.error('Error creating new thread:', error);
+                }
+              }}
+              disabled={isCreatingThread}
+              on:mouseenter={() => createHovered = true}
+              on:mouseleave={() => createHovered = false}
+            >
+              {#if isCreatingThread}
+                <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                  <Bot size={30} class="bot-icon" />
                 </div>
+              {:else}
+                <span class="section-icon">
+                  <div class="icon-container" in:fade>
+                    <MessageCirclePlus />
+                    {#if createHovered}
+                      <span class="tooltip" in:fade>Create New Project</span>
+                    {/if}
+                  </div> 
+                </span>           
+              {/if}
+            </button>
+            
+            <div class="search-bar">
+              <span 
+                class="section-icon" 
+                class:active={isExpanded} 
+                on:click={() => isExpanded = !isExpanded}
+                on:mouseenter={() => searchHovered = true}
+                on:mouseleave={() => searchHovered = false}
+              >
+                <div class="icon-container" in:fade>
+                  <Search />
+                  {#if searchHovered && !isExpanded}
+                    <span class="tooltip" in:fade>Search Threads</span>
+                  {/if}
+                </div> 
+              </span>
+              {#if isExpanded}
+                <input
+                  transition:slide={{ duration: 300 }}
+                  type="text"
+                  bind:value={searchQuery}
+                  placeholder="Search..."
+                  on:input={() => threadsStore.setSearchQuery(searchQuery)}
+                  on:blur={() => {
+                    if (!searchQuery) {
+                      isExpanded = false;
+                    }
+                  }}
+                  use:focusOnMount
+                />
               {/if}
             </div>
-          {/each}
+            
+          </div>
+
+          {#if isSearchActive || isTagFilterActive}
+            <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+                <!-- Use $tagFilteredThreads to access the store value -->
+                {#each (isSearchActive ? $searchedThreads : $tagFilteredThreads) as thread (thread.id)}
+                    <button 
+                        class="thread-button"
+                        class:selected={currentThreadId === thread.id}
+                        on:click={() => handleLoadThread(thread.id)}
+                    >
+                        <div class="thread-card" 
+                            class:active={currentThreadId === thread.id}
+                            in:fade
+                        >
+                            <span class="thread-title">{thread.name}</span>
+                            <!-- <span class="thread-message">
+                                {thread.last_message?.content || 'No messages yet'}
+                            </span> -->
+                            <span class="thread-time">
+                                {new Date(thread.updated).toLocaleTimeString([], { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}
+                            </span>
+                            <span 
+                                class="delete-thread-button" 
+                                on:click={(e) => handleDeleteThread(e, thread.id)}
+                            >
+                                <X size={14} />
+                            </span>
+                        </div>
+                    </button>
+                {/each}
+            </div>
+              {:else}
+                {#each orderedGroupedThreads as { group, threads }}
+                  <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                    <button 
+                      class="thread-group-header"
+                      on:click={() => toggleGroup(group)}
+                    >
+                      <div class="group-header-content">
+                        <span class="group-icon">
+                          {#if $expandedGroups[group]}
+                            <!-- <ChevronDown size={20} /> -->
+                            <span class="group-title-active">{group}</span>
+                            <span class="thread-count-active">({threads.length})</span>
+                          {:else}
+                            <ChevronRight size={20} />
+                            <span class="group-title">{group}</span>
+                            <span class="thread-count">({threads.length})</span>
+
+                          {/if}
+                        </span>
+                      </div>
+                    </button>
+              
+                      {#if $expandedGroups[group]}
+                        <div class="thread-list" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          {#each threads as thread (thread.id)}
+                            <button 
+                              class="thread-button"
+                              class:selected={currentThreadId === thread.id}
+                              on:click={() => handleLoadThread(thread.id)}
+                            >
+                              <div class="thread-card" 
+                                  class:active={currentThreadId === thread.id}
+                                  in:fade
+                                >
+                                {#if namingThreadId === thread.id}
+                                  <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                                    <Bot size={30} class="bot-icon" />
+                                  </div>
+                                {:else}
+                                  <div in:fade>
+                                    <span class="thread-title">{thread.name}</span>
+                                    <span class="thread-time">
+                                      {new Date(thread.updated).toLocaleTimeString([], { 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </span>
+                                    <span 
+                                      class="delete-thread-button" 
+                                      on:click={(e) => handleDeleteThread(e, thread.id)}
+                                    >
+                                      <Trash2 size={14} />
+                                    </span>
+                                  </div>
+                                {/if}
+                              </div>
+                            </button>
+                          {/each}
+                        </div>
+                      {/if}
+                  </div>
+                {/each}
+              {/if}
           {/if}
 
         </div>
@@ -2002,7 +2111,7 @@ onMount(async () => {
               {/if}
             </div>
         
-            <div class="thread-info-container">
+            <!-- <div class="thread-info-container">
               <div>
                 <ThreadTags 
                   {availableTags}
@@ -2016,12 +2125,14 @@ onMount(async () => {
                   }}
                 />
               </div>
-            </div>
+            </div> -->
         
             {#if !isMinimized}
             {/if}
           {:else}
-            <div class="chat-placeholder">
+            <div class="chat-placeholder"
+            class:thread-list-visible={$threadsStore.showThreadList}
+            >              
               <h1>{$t('threads.selectThread')}</h1>
             </div>
           {/if}
@@ -2557,6 +2668,8 @@ onMount(async () => {
       border: none;
       transition: all ease-in 0.3s;
       outline: none;
+
+      
     }
 
   span {
@@ -2567,7 +2680,7 @@ onMount(async () => {
 
 
     &.counter {
-      color: gray;
+      color: var(--placeholder-color);
       font-size: 16px;
       max-width: 100px;
       margin: 0 !important;
@@ -2695,20 +2808,33 @@ onMount(async () => {
       font-weight: bold;
       cursor: pointer;
       transition: all ease 0.3s;
-      width: 20% !important;
       padding: var(--spacing-md);
       display: flex;
       justify-content: center;
       align-items: center;
+      position: relative;
       user-select: none;
-      gap: var(--spacing-sm);
+      transition: all 0.2s ease;
+      width: fit-content !important;
+
+      & span {
+
+      }
+
+      // gap: var(--spacing-sm);
 
       & span.section-icon {
         color: var(--placeholder-color);
+        gap: 0.5rem;
 
         &:hover {
         color: var(--tertiary-color);
       }
+
+      &.active {
+        color: var(--tertiary-color);
+      }
+      
 
       }
       
@@ -3061,7 +3187,6 @@ color: #6fdfc4;
     gap: 4px;
     position: fixed;
     top: 10rem;
-    padding-left: 2rem;
     width: 50vw !important;
     left: 25%;
     margin-right: 1rem;
@@ -3363,9 +3488,8 @@ color: #6fdfc4;
 }
 
   .section-header {
-    width: 100%;
     height: auto;
-    padding: 0.75rem 0;
+    width: auto;
     // background: var(--bg-gradient-left);
     border: none;
     cursor: pointer;
@@ -3375,9 +3499,11 @@ color: #6fdfc4;
     transition: background-color 0.2s;
     // border-radius: var(--radius-m);
     display: flex;
+    gap: 0.5rem;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: left;
     border-radius: var(--radius-m);
+    transition: all 0.2s ease;
 
   }
 
@@ -3385,16 +3511,24 @@ color: #6fdfc4;
 
 .search-bar {
   display: flex;
+  flex-direction: row;
+  position: relative;
   align-items: center;
-  gap: var(--spacing-sm);
-  // padding: var(--spacing-sm);
+  padding: 0.75rem 0;
+  gap: 0.5rem;
   border-radius: var(--radius-m);
   height: 40px;
+  width: fit-content;
   color: var(--bg-color);
+  padding: 0.5rem;
+  transition: all 0.3s ease;
+
   &:hover {
-    background-color: var(--secondary-color);
+    // background-color: var(--secondary-color);
 
     }
+
+
   button.search-bar {
     border-radius: var(--radius-m);
     width: auto;
@@ -3407,9 +3541,9 @@ color: #6fdfc4;
     justify-content: center !important;
     z-index: 2000;
     &:hover{
-      background: var(--secondary-color);
+      // background: var(--secondary-color);
       // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
-      transform: translateY(-10px);
+      // transform: translateY(-10px);
 
     }
   }
@@ -3418,6 +3552,7 @@ color: #6fdfc4;
       padding: 0.5rem;
       border: none;
       outline: none;
+      width: 150px;
       background: transparent;
       color: var(--text-color);
       transition: all 0.3s ease;
@@ -3429,7 +3564,7 @@ color: #6fdfc4;
         background-color: var(--secondary-color);
 
         &::placeholder {
-          color: var(--text-color);
+          color: var(--placeholder-color);
           
         }
       }
@@ -3559,7 +3694,7 @@ color: #6fdfc4;
   @media (min-width: 300px) {
       .chat-container {
         /* width: 50%; */
-        height: 90vh;
+        height: 87vh;
         /* margin-left: 25%; */
         /* margin-right: 25%; */
         overflow-x: hidden;
@@ -3583,11 +3718,21 @@ color: #6fdfc4;
         .thread-list-visible .chat-container {
           overflow-y: auto;
           margin-right: 0;
+          margin-left: 0;
+          left: 0;
           // width: 70%;
-          width: 70%;
           display: flex;
           position: relative;
+        }
 
+        .thread-list-visible .chat-messages {
+          
+        }
+
+        .thread-list-visible .chat-placeholder {
+          margin-right: 10rem;
+          right: 5rem;
+          bottom: 9rem;
         }
 
         .thread-list-visible .thread-toggle {
@@ -3826,14 +3971,30 @@ color: #6fdfc4;
 
 .chat-placeholder {
   display: flex;
-  position: relative;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height:90vh;
-  bottom: 0 !important;
+  width: auto !important;
+  height: auto !important;
   top: 0;
+  bottom: 10rem;
+  position: fixed;
+  top: 10rem;
+  width: auto;
+  left: 5rem;
+  right: 2rem;
+  margin-right: 1rem;
+}
 
+.thread-list-visible .chat-placeholder {
+  overflow-y: auto;
+  margin-left: 0;
+  left: 25%;
+  padding-left: 0;
+  right: 25%;
+  margin-right: 0;
+  // width: 70%;
+  width: auto;
+  display: flex;
 }
 
 .chat-placeholder img {
@@ -4104,6 +4265,8 @@ color: #6fdfc4;
     margin-left: 0;
     margin-right: 0;
   }
+
+
   }
   .thread-count {
       color: var(--text-secondary);
@@ -4436,6 +4599,10 @@ color: #6fdfc4;
       &.active {
         color: var(--tertiary-color);
       }
+
+      &:hover {
+        color: var(--tertiary-color);
+      }
     }
   
 
@@ -4448,28 +4615,42 @@ color: #6fdfc4;
     width: 100%;
   }
 
+  .icon-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .tooltip {
+    position: absolute;
+    left: 100%;
+    margin-left: 8px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    background-color: var(--secondary-color);
+    backdrop-filter: blur(80px);
+    border: 1px solid var(--secondary-color);
+      font-weight: 100;
+      animation: glow 0.5s 0.5s initial;    
+    padding: 4px 8px;
+    border-radius: var(--radius-s);
+    z-index: 2000;
+  }
+
 
 
 
 
   @media (max-width: 768px) {
-    .threads-container {
-      flex-direction: column;
-      margin-left: 3rem;
 
-    }
 
-    .chat-interface {
-      margin-right:2rem;
-
-    }
 
     .chat-messages {
       width: auto;
-
+      margin-right: 0;
+      right: 0;
       
     }
-
 
 
     .new-tag-input {
@@ -4583,6 +4764,11 @@ color: #6fdfc4;
       left: 10px;
     }
 
+    .chat-placeholder {
+      right: 0;
+      margin-right: 1rem;
+    }
+
     h1 {
       font-size: 24px;
       font-weight: bold;
@@ -4592,7 +4778,8 @@ color: #6fdfc4;
     }
   .threads-container {
       /* background-color: red; */
-      width: 100%;
+      width: auto;
+      margin-right: 2rem;
       
 
     }
@@ -4603,11 +4790,6 @@ color: #6fdfc4;
     }
     
 
-    .chat-messages {
-      width: auto;
-      margin-right: 1rem;
-      
-    }
 
     .thread-list-visible .chat-container {
       margin-left: 0;
@@ -4716,6 +4898,7 @@ color: #6fdfc4;
 @media (min-width: 769px) {
   .threads-container {
     display: flex;
+    margin-right: 1rem;
   }
 
   .thread-list {
@@ -4724,7 +4907,7 @@ color: #6fdfc4;
   }
 
   .thread-list-visible .chat-container {
-    margin-left: 300px;
+    margin-left: 364px;
 
     position: absolute;
     top: 0;
@@ -4786,7 +4969,18 @@ color: #6fdfc4;
     padding-right: 2rem !important;
   }
 
+  .thread-list-visible .chat-messages {
+  }
 
+  .thread-list-visible .chat-placeholder {
+    justify-content: center;
+    align-items: center;
+
+    & h1 {
+      width: 100% !important;
+      margin-right: 0;
+    }
+  }
 
 
 //   button.new-button  {
@@ -4920,20 +5114,38 @@ color: #6fdfc4;
     left: 0;
   }
 
+  .thread-list-visible .chat-container {
+    right: 0;
+    margin-right: 0;
+    width: auto;
+    left: 300px;
+    margin-left: 1rem;
+
+  }
+
   .chat-messages {
     border: none;
     background: none;
     width: auto !important;
-    position: relative;
-    left: 0;
+    position: absolute;
+    left: 1rem;
     right: 0;
-    top: 0;
+    top: 5rem;
+    bottom: 0;
     margin-top: 0 !important;
-    margin-right: 3rem !important;
+    margin-right: 1rem;
     margin-left: 0 !important;
-    margin-bottom: 8rem;
+    margin-bottom: 0;
     
   }
+
+  .thread-list-visible .chat-messages {
+    margin-left: 0 !important;
+    bottom: 0;
+    left: 0;
+    width: auto;
+  }
+
 
   .chat-content {
     width: 100%;
@@ -4941,23 +5153,41 @@ color: #6fdfc4;
     // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     border: none;
     height: 100%;
-
-
   }
+
   
+  .thread-list-visible .chat-placeholder {
+    right: 0;
+    margin-right: 1rem;
+    width: auto;
+    margin-left: 1rem;
+    left: 364px;
+}
 
 
-  .chat-placeholder {
-    display: flex;
-    position: relative;
-    align-items: center;
-    justify-content: center;
+
+.chat-placeholder {
+  // display: flex;
+  // position: relative;
+  // align-items: center;
+  // justify-content: center;
+  // width: 100%;
+  // height:90vh;
+  // bottom: 0 !important;
+  // top: 0;
+  margin-right: 0.5rem;
+  right: 0.5rem;
+  bottom: 9rem;
+  margin-left: 0.5rem;
+  & h1 {
     width: 100%;
-    height:90vh;
-    bottom: 0 !important;
-    top: 0;
-
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
+
+}
 
 .chat-placeholder img {
   width: 150%;
@@ -5016,9 +5246,6 @@ color: #6fdfc4;
   left: 2rem;
 }
 }
-
-
-
 @media (min-width: 1900px) {
 
 .chat-content {
@@ -5032,9 +5259,15 @@ color: #6fdfc4;
   .chat-messages {
     width: auto;
     border: none;
-    margin: 1rem;
     margin-left: 0;
     background: none;
+  }
+
+
+  .chat-placeholder {
+    left: 25%;
+    right: 25%;
+    margin-right: 0;
   }
 
 
@@ -5048,6 +5281,7 @@ color: #6fdfc4;
 
   .input-container textarea {
     font-size: 1.5rem;
+    margin-left: 2rem;
     padding: 1rem;
   }
 
@@ -5061,13 +5295,13 @@ color: #6fdfc4;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
   }
 }
-
 @media (max-width: 450px) {
 
 
   .threads-container {
-    margin-right: 0;
+    margin-right: 0 !important;
     margin-left: 0;
+    right: 0 !important;
     width: 100%;
     
   }
@@ -5090,6 +5324,8 @@ color: #6fdfc4;
     width: auto;
     border: none;
     margin-left: 2rem !important;
+    right: 0;
+    margin-right: 0;
     
   }
 
@@ -5179,7 +5415,6 @@ color: #6fdfc4;
     margin-right: 2rem;
     height: 30px;
     padding: 0.75rem 1rem;
-    // background: var(--bg-gradient-left);
     border: none;
     cursor: pointer;
     color: var(--text-color);
@@ -5196,7 +5431,7 @@ color: #6fdfc4;
   }
 
   .section-header:hover {
-    background-color: var(--hover-color);
+    // background-color: var(--hover-color);
   }
 
   .section-header-content {
