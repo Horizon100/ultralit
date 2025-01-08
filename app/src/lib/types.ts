@@ -576,3 +576,31 @@ export type NoteRecord = Notes & {
     collectionName: 'notes';
 }
 
+export interface ProjectStoreState {
+    threads: Threads[];
+    currentProjectId: string | null;
+    messages: Messages[];
+    updateStatus: string;
+    isProjectLoaded: boolean;
+    searchQuery: string;
+    namingProjectId: string | null;
+    currentProject: Threads | null;
+    filteredProject: Threads[];
+    isEditingProjectName: boolean;
+    editedProjectdName: string;
+    collaborators: User[];
+}
+
+
+export interface Projects extends RecordModel {
+    id: string;
+    name: string;
+    description: string;
+    created: string;
+    updated: string;
+    current_project: string;
+    threads?: string[]; 
+    op: string; 
+    collaborators: string[];
+}
+

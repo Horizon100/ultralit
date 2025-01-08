@@ -15,7 +15,9 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread, deleteTag } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Task, Tag, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Tag, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
+  import { projectStore } from '$lib/stores/projectStore';
+  import { fetchProjects, resetProject, fetchThreadsForProject, updateProject } from '$lib/projectClient';
   import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
@@ -231,6 +233,18 @@ export const expandedSections = writable<ExpandedSections>({
   let selectedTask: Task | null = null;
   let networkData: any = null;
   let guidance: Guidance | null = null;
+  
+    // Project state
+  let projects: Projects[] = [];
+  let currentProject: Projects | null = null;
+  let currentProjectId: string | null = null;
+  let isEditingProjectName = false;
+  let newProjectName = '';
+  let editingProjectId: string | null = null;
+
+  let editedProjectName = '';
+  let isCreatingProject = false;
+  let filteredProjects: Projects[] = [];
 
   $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
   $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;
@@ -240,6 +254,14 @@ export const expandedSections = writable<ExpandedSections>({
   $: showThreadList = $threadsStore.showThreadList;
 
   messagesStore.subscribe(value => messages = value);
+  projectStore.subscribe((state) => {
+    projects = state.threads;
+    currentProjectId = state.currentProjectId;
+    currentProject = state.currentProject;
+    filteredProjects = state.filteredProject;
+    isEditingProjectName = state.isEditingProjectName;
+    editedProjectName = state.editedProjectdName;
+  });
   threadsStore.subscribe((state: ThreadStoreState) => {
     threads = state.threads;
     currentThreadId = state.currentThreadId;
@@ -334,6 +356,8 @@ const tagFilteredThreads = derived(threadsStore, ($store) => {
 
 // Thread grouping and visibility management
 $: isSearchActive = searchQuery.trim().length > 0;
+$: isProjectActive = currentProjectId !== null;
+
 const searchedThreads = derived(threadsStore, ($store) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return $store.threads;
@@ -472,6 +496,71 @@ $: if (date) {
 }
 
   // Message handling functions
+
+  async function handleCreateNewProject(name: string) {
+    console.log('handleCreateNewProject called with name:', name);
+    if (!name.trim()) {
+      console.log('Invalid name:', { name });
+      return;
+    }
+    
+    try {
+      isCreatingProject = true; // Move inside try block
+      console.log('Starting project creation...');
+      
+      const newProject = await projectStore.addProject({
+        name: name.trim(),
+        description: ''
+      });
+      
+      console.log('Project created:', newProject);
+      if (newProject) {
+        newProjectName = '';
+        showPromptCatalog = false;
+        console.log('Project creation successful, state reset');
+      }
+    } catch (error) {
+      console.error('Error in handleCreateNewProject:', error);
+    } finally {
+      isCreatingProject = false;
+      console.log('Creation state reset in finally block');
+    }
+  }
+  async function handleSelectProject(projectId: string) {
+    await projectStore.setCurrentProject(projectId);
+    const threads = await fetchThreadsForProject(projectId);
+    threadsStore.update(state => ({...state, threads}));
+    isProjectListVisible = false;
+    isThreadListVisible = true;
+  }
+
+  async function handleDeleteProject(e: Event, projectId: string) {
+    e.stopPropagation();
+    // Add delete confirmation logic
+  }
+
+  function cancelEditing() {
+    editingProjectId = null;
+    editedProjectName = '';
+  }
+
+  function startEditingProjectName(projectId: string) {
+    const project = $projectStore.threads.find(p => p.id === projectId);
+    if (project) {
+      editingProjectId = projectId;
+      editedProjectName = project.name;
+    }
+  }
+
+  async function submitProjectNameChange(projectId: string) {
+    if (editedProjectName.trim()) {
+      await projectStore.updateProject(projectId, { name: editedProjectName.trim() });
+    }
+    cancelEditing();
+  }
+
+
+
   function addMessage(
     role: RoleType,
     content: string | Scenario[] | Task[], 
@@ -750,24 +839,7 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
 
 
 function filterThreads() {
-  const selectedTags = $threadsStore.selectedTagIds;
-  console.log('Filtering with tags:', Array.from(selectedTags));
-  
-  if (selectedTags.size === 0) {
-    console.log('No tags selected');
-    filteredThreads = threads;
-  } else {
-    filteredThreads = threads.filter(thread => {
-      // Make sure thread.tags is an array before calling .some()
-      const threadTags = Array.isArray(thread.tags) ? thread.tags : 
-                        typeof thread.tags === 'string' ? [thread.tags] : [];
-      
-      const matches = threadTags.some(tagId => selectedTags.has(tagId));
-      console.log(`Thread ${thread.id} tags:`, threadTags, `matches:`, matches);
-      return matches;
-    });
-  }
-  
+  filteredThreads = threads;
   console.log(`Filtered ${filteredThreads.length} threads`);
 }
 
@@ -1228,7 +1300,6 @@ async function handleLoadThread(threadId: string) {
   console.log('Initial state:', {
     currentThreadId,
     threads: threads?.length,
-    showThreadList
   });
   
   try {
@@ -1239,11 +1310,12 @@ async function handleLoadThread(threadId: string) {
       // First update any pending changes
       await resetThread(currentThreadId);
       console.log('Thread reset complete');
-      
+
       // Keep a copy of current threads before clearing state
       const currentThreads = [...threads];
       
       // Clear local state
+      
       currentThread = null;
       currentThreadId = null;
       chatMessages = [];
@@ -1638,33 +1710,33 @@ async function toggleTagSelection(tagId: string) {
   }
 
   async function initializeThreadsAndMessages(): Promise<void> {
-  try {
-    // Load threads from store instead of direct API call
-    threads = await threadsStore.loadThreads();
+    try {
+      // Load threads from store instead of direct API call
+      threads = await threadsStore.loadThreads();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const threadIdFromUrl = urlParams.get('threadId');
+      const urlParams = new URLSearchParams(window.location.search);
+      const threadIdFromUrl = urlParams.get('threadId');
 
-    if (threadIdFromUrl) {
-      await handleLoadThread(threadIdFromUrl);
-    } else if (!currentThreadId && threads.length === 0) {
-      const newThread = await threadsStore.addThread({ 
-        name: `Thread ${threads.length + 1}`,
-        op: userId 
-      });
-      
-      if (newThread?.id) {
-        currentThreadId = newThread.id;
-        await handleLoadThread(newThread.id);
+      if (threadIdFromUrl) {
+        await handleLoadThread(threadIdFromUrl);
+      } else if (!currentThreadId && threads.length === 0) {
+        const newThread = await threadsStore.addThread({ 
+          name: `Thread ${threads.length + 1}`,
+          op: userId 
+        });
+        
+        if (newThread?.id) {
+          currentThreadId = newThread.id;
+          await handleLoadThread(newThread.id);
+        }
       }
-    }
 
-    filteredThreads = threads;
-    initialLoadComplete = true;
-  } catch (error) {
-    console.error('Error initializing:', error);
+      filteredThreads = threads;
+      initialLoadComplete = true;
+    } catch (error) {
+      console.error('Error initializing:', error);
+    }
   }
-}
 
 
 
@@ -1688,7 +1760,8 @@ onMount(async () => {
 
     // Fetch initial data
     await Promise.all([
-      fetchTags(),
+      // fetchTags(),
+      projectStore.loadProjects(),
       initializeThreadsAndMessages()
     ]);
 
@@ -1767,75 +1840,31 @@ onMount(async () => {
       <h2>
         {$t('threads.threadHeader')}
       </h2>
-        <!-- Tags Section -->
-      <!-- <button 
-        class="section-header"
-        on:click={() => toggleSection('tags')}
-      >
-        <span class="section-icon">
-          {#if $expandedSections.tags}
-            <Tags style="color: var(--tertiary-color)" />
-          {:else}
-            <Tags style="color: var(--placeholder-color)" />
-          {/if}
-        </span>
-        {#if selectedTagCount > 0}
-          <h3>{$t('threads.tagsHeader')}</h3>
-          <p class="selector-lable">({selectedTagCount})</p>
-        {:else}
-          <h3>{$t('threads.tagsHeader')}</h3>
-        {/if}
-      </button>
-        {#if $expandedSections.tags}
-          <div class="section-content2" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-            <ThreadListTags
-              {availableTags}
-              {editingTagId}
-              {editingTagIndex}
-              on:toggleSelection={handleTagSelection}
-              on:createTag={({ detail }) => createTag(detail.name)}
-              on:tagUpdated={({ detail }) => {
-                const tagIndex = availableTags.findIndex(t => t.id === detail.tag.id);
-                if (tagIndex !== -1) {
-                  availableTags[tagIndex] = detail.tag;
-                  availableTags = [...availableTags];
-                }
-              }}
-              on:deleteTag={async ({ detail }) => {
-                try {
-                  if (confirm('Are you sure you want to delete this tag?')) {
-                    await pb.collection('tags').delete(detail.tagId);
-                    availableTags = availableTags.filter(tag => tag.id !== detail.tagId);
-                    console.log('Tag deleted successfully');
-                  }
-                } catch (error) {
-                  console.error('Error deleting tag:', error);
-                }
-              }}
-            />
-          </div>
-        {/if} -->
-        
         <div class="thread-catalog" in:fly={{duration: 200}} out:fade={{duration: 200}}>
           <div class="section-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <button 
               class="new-button"
               class:active={isProjectListVisible} 
               on:click={() => {
+                if (!isProjectListVisible && currentProjectId) {
+                  projectStore.setCurrentProject(null);
+                  threadsStore.update(state => ({...state, threads: []})); 
+                }
                 isProjectListVisible = !isProjectListVisible;
                 if (isProjectListVisible) isThreadListVisible = false;
               }}
             >
-              <span 
-                class="section-icon"
-                class:active={isProjectListVisible} 
-              >
+            <span class="section-icon" class:active={isProjectListVisible}>
+              {#if !isProjectListVisible && !currentProjectId}
                 <Box />
-                {#if isProjectListVisible}
-                  <span class="button-text" in:fade>Projects</span>
-                {/if}
-              </span>
-            </button>
+              {:else if !isProjectListVisible && currentProjectId}  
+                <ArrowLeft />
+              {:else}
+                <Box />
+                <span class="button-text" in:fade>Projects</span>
+              {/if}
+             </span>
+           </button>
             <button 
               class="new-button"
               class:active={isThreadListVisible} 
@@ -1850,50 +1879,121 @@ onMount(async () => {
               >
                 <ListTree />
                 {#if isThreadListVisible}
-                  <span class="button-text" in:fade>Threads</span>
-                {/if}
+                <span class="button-text" in:fade>
+                  {currentProjectId ? $projectStore.threads.find(p => p.id === currentProjectId)?.name : 'All Threads'}
+                </span>
+              {/if}
               </span>
             </button>
           </div>
 
           {#if isProjectListVisible}
-          <div class="section-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-            <button 
-              class="new-button"
-              on:click={async () => {
-                if (isCreatingThread) return;
-                try {
-                  const newThread = await handleCreateNewThread();
-                  if (newThread?.id) {
-                    showPromptCatalog = false;
-                  }
-                } catch (error) {
-                  console.error('Error creating new thread:', error);
-                }
-              }}
-              disabled={isCreatingThread}
-              on:mouseenter={() => createHovered = true}
-              on:mouseleave={() => createHovered = false}
-            >
-              {#if isCreatingThread}
-                <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                  <Bot size={30} class="bot-icon" />
-                </div>
-              {:else}
-                <span class="section-icon">
-                  <div class="icon-container" in:fade>
-                    <PackagePlus />
-                    {#if createHovered}
-                      <span class="tooltip" in:fade>Create New Project</span>
-                    {/if}
+          <div class="project-section" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+            <!-- Create Project Button -->
+            <div class="section-header">
+              <button 
+                class="new-button"
+                on:click={() => {
+                  console.log('New project button clicked');
+                  isCreatingProject = true;
+                }}
+                disabled={isCreatingProject}
+              >
+                {#if isCreatingProject}
+                  <div class="input-group" transition:slide>
+                    <input
+                      type="text"
+                      bind:value={newProjectName}
+                      placeholder="Project name..."
+                      on:keydown={(e) => {
+                        console.log('Keydown event:', e.key);
+                        if (e.key === 'Enter' && newProjectName.trim()) {
+                          console.log('Enter pressed with name:', newProjectName);
+                          handleCreateNewProject(newProjectName);
+                        } else if (e.key === 'Escape') {
+                          console.log('Escape pressed, canceling');
+                          isCreatingProject = false;
+                          newProjectName = '';
+                        }
+                      }}
+                      use:focusOnMount
+                      class="project-name-input"
+                    />
+                    <button 
+                      class="create-confirm"
+                      disabled={!newProjectName.trim()}
+                      on:click={() => {
+                        console.log('Confirm button clicked with name:', newProjectName);
+                        handleCreateNewProject(newProjectName);
+                      }}
+                    >
+                      <Check size={16} />
+                    </button>
                   </div>
-                </span>           
+                {:else}
+                  <PackagePlus />
+                {/if}
+              </button>
+              
+            </div>
+        
+            <!-- Project List -->
+            <div class="project-list" in:fly={{duration: 200}} out:fade={{duration: 200}}
+            class:empty={!$projectStore?.threads?.length}>
+              {#if $projectStore?.threads?.length > 0}
+                {#each $projectStore.threads as project (project.id)}
+                <div class="project-button">
+                  <div 
+                    class="project-card"
+                    class:active={currentProjectId === project.id}
+                    in:fly={{x: 20, duration: 200}}
+                  >
+                    {#if project.id === editingProjectId}
+                      <input
+                        type="text"
+                        bind:value={editedProjectName}
+                        on:keydown={(e) => {
+                          if (e.key === 'Enter') submitProjectNameChange(project.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        use:focusOnMount
+                        class="project-name-input"
+                      />
+                    {:else}
+                      <button 
+                        class="project-title" in:fly={{duration: 200}} out:fade={{duration: 200}}
+                        on:click={() => handleSelectProject(project.id)}
+                      >
+                        {project.name}
+                      </button>
+                    {/if}
+        
+                    <div class="project-actions">
+                      <button 
+                        class="action-btn"
+                        on:click={() => startEditingProjectName(project.id)}
+                      >
+                        <Pen size={14} />
+                      </button>
+                      <button 
+                        class="action-btn delete"
+                        on:click={(e) => handleDeleteProject(e, project.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/each}
+              {:else}
+                <div class="no-projects">
+                  <span>No projects yet</span>
+                </div>
               {/if}
-            </button>
+            </div>
           </div>
         {/if}
-        
-
         {#if isThreadListVisible}
           <div class="section-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
@@ -1960,11 +2060,9 @@ onMount(async () => {
                 />
               {/if}
             </div>
-            
           </div>
-
-          {#if isSearchActive || isTagFilterActive}
-            <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+          {#if isSearchActive}
+          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
                 <!-- Use $tagFilteredThreads to access the store value -->
                 {#each (isSearchActive ? $searchedThreads : $tagFilteredThreads) as thread (thread.id)}
                     <button 
@@ -2061,30 +2159,10 @@ onMount(async () => {
                 {/each}
               {/if}
           {/if}
-
         </div>
-        
     </div>
       {/if}
       <div class="chat-container" on:scroll={handleScroll}>
-        <!-- <div class="date-input-container">
-          <span class="section-icon">
-            <Calendar />
-          </span>
-          <div class="calendar">
-             <DatePicker /> -->
-            <!-- <DateInput
-              bind:value={date} {locale} 
-              format="yyyy/MM/dd"
-              placeholder="2000/31/12 23:59:59" 
-              on:change={() => {
-                if ($threadsStore.currentThreadId) {
-                    messagesStore.setSelectedDate($threadsStore.currentThreadId, date);
-                }
-            }}
-              />
-          </div>
-        </div> --> 
         <div class="thread-info" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
           {#if currentThread}
             <div class="thread-name">
@@ -2110,23 +2188,6 @@ onMount(async () => {
                 </h1>
               {/if}
             </div>
-        
-            <!-- <div class="thread-info-container">
-              <div>
-                <ThreadTags 
-                  {availableTags}
-                  {currentThreadId}
-                  {showTagSelector}
-                  {isTags}
-                  on:toggleTag={({ detail }) => toggleTag(detail.tag)}
-                  on:toggleSelector={() => {
-                    showTagSelector = !showTagSelector;
-                    isTags = !isTags;
-                  }}
-                />
-              </div>
-            </div> -->
-        
             {#if !isMinimized}
             {/if}
           {:else}
@@ -4198,7 +4259,7 @@ color: #6fdfc4;
     width: 100%;
     height: 100vh;
     backdrop-filter: blur(20px);
-    background: var(--bg-gradient-left);
+    background: transparent;
     border-radius: 10px;
     overflow-y: scroll;
     overflow-x: hidden;
@@ -4637,8 +4698,93 @@ color: #6fdfc4;
     z-index: 2000;
   }
 
+  .project-button {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: var(--spacing-xs);
+  }
+  
 
 
+  .project-card {
+    display: flex;
+    position: relative;
+    flex-direction: row;
+    align-items: left;    
+    text-align: left;
+    margin-left: 1rem;
+    width: auto;
+    padding: 1rem;
+    // backdrop-filter: blur(8px);
+    // background: var(--bg-gradient-left);
+    // border-bottom: 5px solid var(--bg-color);
+    // border-top: 1px solid var(--bg-color);
+    // border-left: 5px solid var(--bg-color);
+    // border-right: 1px solid var(--bg-color);
+    background: var(--bg-gradient-right);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        backdrop-filter: blur(8px);
+        background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+        transform: translateX(2px);
+        opacity: 1;
+        visibility: visible;
+        box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+      }
+    &.active {
+      background: var(--primary-color);
+      // border-left: 3px solid var(--primary-color);
+      color: var(--text-color);
+    }
+  }
+
+  .project-title {
+    font-weight: 300;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    display: flex;
+    width: auto;
+  }
+
+  .project-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    
+  }
+
+  .action-btn {
+    transition: all 0.1s ease;
+    &:hover {
+      color: var(--tertiary-color);
+    }
+  }
+
+
+
+  .project-name-input {
+    width: 200px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+
+  .create-confirm {
+    margin-left: 0.5rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .create-confirm:not(:disabled):hover {
+    opacity: 1;
+  }
 
 
   @media (max-width: 768px) {
