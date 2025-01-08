@@ -145,28 +145,42 @@ export async function fetchLastMessageForThread(threadId: string): Promise<Messa
 export async function fetchThreads(): Promise<Threads[]> {
     try {
         ensureAuthenticated();
-
-        // Fetch threads with expanded last_message field
-        const threads = await pb.collection('threads').getFullList<Threads>({
-            expand: 'last_message',
+        
+        // Use getList instead of getFullList for better error handling
+        const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
+            expand: 'last_message,project_id',
+            sort: '-created',
+            $cancelKey: 'threads' // Add cancellation key
         });
 
-        // If the last_message is expanded, you can access the details of the last message
-        threads.forEach(thread => {
-            if (thread.expand?.last_message) {
-                console.log(`Last message for thread ${thread.id}:`, thread.expand.last_message);
-            }
-        });
-
-        console.log('Fetched threads with last_message:', threads);
-        return threads;
-    } catch (error) {
-        console.error('Error fetching threads:', error);
-        if (error instanceof ClientResponseError) {
-            console.error('Response data:', error.data);
-            console.error('Status code:', error.status);
+        if (!resultList?.items) {
+            console.warn('No threads found or invalid response');
+            return [];
         }
-        throw error;
+
+        // Log successful fetch
+        console.log('Successfully fetched threads:', resultList.items.length);
+        return resultList.items;
+    } catch (error) {
+        if (error instanceof ClientResponseError) {
+            console.error('PocketBase Response Error:', {
+                status: error.status,
+                data: error.data,
+                message: error.message,
+                url: error.url
+            });
+            
+            // Check for authentication errors
+            if (error.status === 401) {
+                console.error('Authentication error - trying to reauthenticate');
+                // Handle reauthentication if needed
+            }
+        } else {
+            console.error('Unknown error fetching threads:', error);
+        }
+        
+        // Return empty array instead of throwing
+        return [];
     }
 }
 
@@ -175,24 +189,67 @@ export async function fetchThreads(): Promise<Threads[]> {
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
     try {
         ensureAuthenticated();
-
+        const userId = pb.authStore.model?.id;
+        if (!userId) {
+            throw new Error('User ID not found');
+        }
 
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
-            op: pb.authStore.model?.id,
+            op: userId,
+            created: new Date().toISOString(),
+            updated: new Date().toISOString(),
+            tags: [],
+            current_thread: '',
+            ...(threadData.project_id && { project_id: threadData.project_id })
         };
 
-        console.log('Attempting to create thread with data:', newThread);
+        console.log('Creating thread with data:', newThread);
+        
+        // Add retry logic for create operation
+        let retries = 3;
+        let createdThread = null;
+        
+        while (retries > 0 && !createdThread) {
+            try {
+                createdThread = await pb.collection('threads').create<Threads>(newThread);
+                break;
+            } catch (e) {
+                retries--;
+                if (retries === 0) throw e;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
 
-        const createdThread = await pb.collection('threads').create<Threads>(newThread);
-        console.log('Created thread:', createdThread);
-        return createdThread;
+        if (!createdThread) {
+            throw new Error('Failed to create thread after retries');
+        }
+
+        // If this thread belongs to a project, update the project's threads array
+        if (createdThread.project_id) {
+            try {
+                const project = await pb.collection('projects').getOne<Projects>(createdThread.project_id);
+                const updatedThreads = [...(project.threads || []), createdThread.id];
+                await pb.collection('projects').update(createdThread.project_id, {
+                    threads: updatedThreads
+                });
+            } catch (error) {
+                console.error('Error updating project threads:', error);
+            }
+        }
+
+        // Fetch the final thread state with expanded fields
+        try {
+            const finalThread = await pb.collection('threads').getOne<Threads>(createdThread.id, {
+                expand: 'last_message,project_id'
+            });
+            return finalThread;
+        } catch (error) {
+            console.error('Error fetching final thread state:', error);
+            return createdThread; // Return original thread if expanded fetch fails
+        }
     } catch (error) {
         console.error('Error creating thread:', error);
-        if (error instanceof ClientResponseError) {
-            console.error('Response data:', error.data);
-            console.error('Status code:', error.status);
-        }
         throw error;
     }
 }

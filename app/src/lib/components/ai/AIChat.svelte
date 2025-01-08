@@ -17,7 +17,7 @@
   import PromptCatalog from './PromptCatalog.svelte';
   import type { AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Tag, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import { projectStore } from '$lib/stores/projectStore';
-  import { fetchProjects, resetProject, fetchThreadsForProject, updateProject } from '$lib/projectClient';
+  import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/projectClient';
   import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
@@ -168,6 +168,7 @@ export const expandedSections = writable<ExpandedSections>({
   // UI state
   let isLoading = false;
   let isExpanded = false;
+
   // let isLoading: boolean = false;
   let isTextareaFocused = false;
   let isFocused = false;
@@ -318,157 +319,6 @@ export const expandedSections = writable<ExpandedSections>({
 
   
 
-// Handle seed prompt
-$: if (seedPrompt && !hasSentSeedPrompt) {
-   console.log("Processing seed prompt:", seedPrompt);
-   hasSentSeedPrompt = true;
-   handleSendMessage(seedPrompt);
-}
-
-// Core thread and message handling
-$: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
-$: safeAIModel = aiModel || defaultAIModel;
-$: groupedMessages = groupMessagesByDate(messages.map(m => mapMessageToInternal(m)));
-
-// Handle expanded dates
-$: {
-   if (groupedMessages?.length > 0 && expandedDates.size === 0) {
-       expandedDates = new Set([groupedMessages[groupedMessages.length - 1].date]);
-   }
-}
-
-$: isTagFilterActive = $threadsStore.selectedTagIds.size > 0;
-const tagFilteredThreads = derived(threadsStore, ($store) => {
-    const selectedTags = $store.selectedTagIds;
-    if (selectedTags.size === 0) return $store.threads;
-    
-    return $store.threads.filter(thread => {
-        // Ensure thread.tags is always an array
-        const threadTags = Array.isArray(thread.tags) ? thread.tags : 
-                          typeof thread.tags === 'string' ? [thread.tags] : [];
-        
-        console.log('Thread:', thread.id, 'Tags:', threadTags);
-        const hasMatchingTag = threadTags.some(tagId => selectedTags.has(tagId));
-        console.log('Has matching tag:', hasMatchingTag);
-        return hasMatchingTag;
-    });
-});
-
-// Thread grouping and visibility management
-$: isSearchActive = searchQuery.trim().length > 0;
-$: isProjectActive = currentProjectId !== null;
-
-const searchedThreads = derived(threadsStore, ($store) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return $store.threads;
-    
-    return $store.threads.filter(thread => 
-        thread.name?.toLowerCase().includes(query) || 
-        thread.last_message?.content?.toLowerCase().includes(query)
-    );
-});
-// Update store when search changes
-$: {
-  threadsStore.setSearchQuery(searchQuery);
-}
-
-// Add these reactive statements
-$: if ($threadsStore.selectedTagIds) filterThreads();
-$: if (threads) filterThreads();
-
-// $: {
-//    if (threads) {
-//        if (selectedTagIds.size === 0) {
-//            filteredThreads = threads;
-//        } else {
-//            filteredThreads = threads.filter(thread => {
-//                const threadTags = thread.tags || [];
-//                return threadTags.some(tag => selectedTagIds.has(tag.id));
-//            });
-//        }
-//    }
-   
-//    // Ensure thread list stays visible
-//    if (filteredThreads?.length > 0 && !showThreadList) {
-//        threadsStore.update(state => ({
-//            ...state,
-//            showThreadList: true
-//        }));
-//    }
-// }
-
-$: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
-$: namingThreadId = $threadsStore?.namingThreadId;
-$: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
-
-// Thread counts and visibility
-$: {
-   if (visibleThreads?.length > 5) {
-       loadThreadCounts(visibleThreads);
-   }
-}
-
-// Stage-based operations
-$: if (currentStage === 'summary') {
-   generateLocalSummary();
-}
-
-$: if (currentStage === 'tasks' && selectedScenario) {
-   generateLocalTasks();
-}
-
-// UI state updates
-$: console.log("isLoading changed:", isLoading);
-$: if ($currentUser?.avatar) {
-   updateAvatarUrl();
-}
-
-// Store synchronization with visibility protection
-$: {
-   const storeState = $threadsStore;
-   if (storeState) {
-       threads = storeState.threads;
-       currentThreadId = storeState.currentThreadId;
-       messages = storeState.messages;
-       updateStatus = storeState.updateStatus;
-       
-       // Only update showThreadList if threads exist and list should be visible
-       if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
-           showThreadList = true;
-       }
-   }
-}
-
-
-
-// Tag and thread group management
-$: if (currentThreadId) {
-   refreshTags();
-}
-
-$: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
-   const group = getThreadDateGroup(thread);
-   if (!acc[group]) acc[group] = [];
-   acc[group].push(thread);
-   return acc;
-}, {} as Record<string, Threads[]>);
-
-// Maintain thread visibility
-$: {
-   if (currentThreadId && threads?.length > 0 && !showThreadList) {
-       showThreadList = true;
-       threadsStore.update(state => ({
-           ...state,
-           showThreadList: true
-       }));
-   }
-}
-
-$: if (date) {
-        messagesStore.setSelectedDate(date.toISOString());
-    }
-
-
 
   // FUNCTIONS
 
@@ -498,41 +348,45 @@ $: if (date) {
   // Message handling functions
 
   async function handleCreateNewProject(name: string) {
-    console.log('handleCreateNewProject called with name:', name);
-    if (!name.trim()) {
-      console.log('Invalid name:', { name });
-      return;
-    }
+    if (!name.trim()) return;
     
     try {
-      isCreatingProject = true; // Move inside try block
-      console.log('Starting project creation...');
+      isCreatingProject = true;
       
       const newProject = await projectStore.addProject({
         name: name.trim(),
         description: ''
       });
       
-      console.log('Project created:', newProject);
       if (newProject) {
         newProjectName = '';
         showPromptCatalog = false;
-        console.log('Project creation successful, state reset');
       }
     } catch (error) {
       console.error('Error in handleCreateNewProject:', error);
     } finally {
       isCreatingProject = false;
-      console.log('Creation state reset in finally block');
     }
   }
+
   async function handleSelectProject(projectId: string) {
-    await projectStore.setCurrentProject(projectId);
-    const threads = await fetchThreadsForProject(projectId);
-    threadsStore.update(state => ({...state, threads}));
-    isProjectListVisible = false;
-    isThreadListVisible = true;
-  }
+    try {
+        // Set the current project in the store
+        await projectStore.setCurrentProject(projectId);
+
+        // Fetch the threads associated with the selected project
+        const threads = await fetchThreadsForProject(projectId);
+
+        // Update the threads store with the fetched threads
+        threadsStore.update(state => ({ ...state, threads }));
+
+        // Update visibility flags
+        isProjectListVisible = false; // Hide project list
+        isThreadListVisible = true;  // Show thread list
+    } catch (error) {
+        console.error("Error handling project selection:", error);
+    }
+}
 
   async function handleDeleteProject(e: Event, projectId: string) {
     e.stopPropagation();
@@ -838,21 +692,21 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
 
 
 
-function filterThreads() {
-  filteredThreads = threads;
-  console.log(`Filtered ${filteredThreads.length} threads`);
-}
+// function filterThreads() {
+//   filteredThreads = threads;
+//   console.log(`Filtered ${filteredThreads.length} threads`);
+// }
 
-  function handleTagSelection({ detail }: CustomEvent<{tagId: string}>) {
-    // The store update is now handled in ThreadListTags
-    // Just trigger a re-filter
-    filterThreads();
-  }
+//   function handleTagSelection({ detail }: CustomEvent<{tagId: string}>) {
+//     // The store update is now handled in ThreadListTags
+//     // Just trigger a re-filter
+//     filterThreads();
+//   }
 
-$: if (threads || $threadsStore.selectedTagIds) {
-  console.log('Triggering filter due to change in threads or selected tags');
-  filterThreads();
-}
+// $: if (threads || $threadsStore.selectedTagIds) {
+//   console.log('Triggering filter due to change in threads or selected tags');
+//   filterThreads();
+// }
 
 // UI helper functions
   function handleScroll(event: { target: HTMLElement }) {
@@ -1138,89 +992,122 @@ function handleError(error: unknown) {
 
 // Thread management functions
 async function handleCreateNewThread() {
-  if (isCreatingThread) return null;
-  
-  try {
-    const newThread = await threadsStore.addThread({
-      op: userId,
-      name: `Thread ${threads?.length ? threads.length + 1 : 1}`
-    });
+    if (isCreatingThread) return null;
     
-    await tick();
-    
-    if (newThread?.id) {
-      threads = [...(threads || []), newThread];
-      currentThreadId = newThread.id;
-      showPromptCatalog = false;
-      
-      // Load the thread immediately after creation
-      await handleLoadThread(newThread.id);
-      
-      return newThread;
+    try {
+        isCreatingThread = true;
+        const currentProjectId = get(projectStore).currentProjectId;
+        
+        const threadData: Partial<Threads> = {
+            op: userId,
+            name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
+            created: new Date().toISOString(),
+            updated: new Date().toISOString(),
+            tags: [],
+            current_thread: '',
+            ...(currentProjectId && { project_id: currentProjectId })
+        };
+
+        const newThread = await createThread(threadData);
+
+        if (newThread?.id) {
+            if (currentProjectId) {
+                // Update project's threads array
+                const currentProject = get(projectStore).currentProject;
+                if (currentProject) {
+                    await projectStore.updateProject(currentProjectId, {
+                        threads: [...(currentProject.threads || []), newThread.id]
+                    });
+                }
+
+                // Fetch only project threads
+                const projectThreads = await fetchThreadsForProject(currentProjectId);
+                threadsStore.update(state => ({
+                    ...state,
+                    threads: projectThreads
+                }));
+            } else {
+                // Fetch all threads if no project
+                const allThreads = await fetchThreads();
+                threadsStore.update(state => ({
+                    ...state,
+                    threads: allThreads
+                }));
+            }
+
+            currentThreadId = newThread.id;
+            showPromptCatalog = false;
+            await handleLoadThread(newThread.id);
+            return newThread;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error in handleCreateNewThread:', error);
+        return null;
+    } finally {
+        isCreatingThread = false;
     }
-    
-    return null;
-  } catch (error) {
-    console.error('Error in handleCreateNewThread:', error);
-    return null;
-  }
 }
+
 async function handleLoadThread(threadId: string) {
-  try {
-    isLoadingMessages = true;
-    showThreadList = false;
+    try {
+        isLoadingMessages = true;
+        showThreadList = false;
 
-    // Get thread with expanded tags
-    const thread = await pb.collection('threads').getOne(threadId, {
-      expand: 'tags'
-    });
+        const thread = await pb.collection('threads').getOne(threadId, {
+            expand: 'tags,project_id',
+            $autoCancel: false
+        });
 
-    // Update store first
-    await threadsStore.setCurrentThread(threadId);
+        if (!thread) {
+            throw new Error('Thread not found');
+        }
 
-    // Update local state
-    currentThreadId = thread.id;
-    currentThread = thread;
+        // Update stores
+        await threadsStore.setCurrentThread(threadId);
+        
+        // Handle project context
+        if (thread.project_id) {
+            await projectStore.setCurrentProject(thread.project_id);
+            const projectThreads = await fetchThreadsForProject(thread.project_id);
+            threadsStore.update(state => ({
+                ...state,
+                threads: projectThreads
+            }));
+        }
 
-    if (isMobileScreen()) {
-      threadsStore.update(state => ({
-        ...state,
-        showThreadList: false
-      }));
+        // Update local state
+        currentThreadId = thread.id;
+        currentThread = thread;
+
+        // Fetch messages
+        await messagesStore.fetchMessages(threadId);
+        
+        // Map messages
+        chatMessages = messages.map(msg => ({
+            role: msg.type === 'human' ? 'user' : 'assistant',
+            content: msg.text,
+            id: msg.id,
+            isTyping: false,
+            text: msg.text,
+            user: msg.user,
+            created: msg.created,
+            updated: msg.updated,
+            parent_msg: msg.parent_msg,
+            prompt_type: msg.prompt_type,
+            model: msg.model
+        }));
+
+        showPromptCatalog = false;
+
+        return thread;
+    } catch (error) {
+        console.error(`Error loading thread ${threadId}:`, error);
+        return null;
+    } finally {
+        isLoadingMessages = false;
     }
-
-    // Fetch messages
-    await messagesStore.fetchMessages(threadId);
-    
-    // Map messages
-    chatMessages = messages.map(msg => ({
-      role: msg.type === 'human' ? 'user' : 'assistant',
-      content: msg.text,
-      id: msg.id,
-      isTyping: false,
-      text: msg.text,
-      user: msg.user,
-      created: msg.created,
-      updated: msg.updated,
-      parent_msg: msg.parent_msg,
-      prompt_type: msg.prompt_type,
-      model: msg.model
-    }));
-
-    showPromptCatalog = false;
-
-    // Update URL
-    const url = new URL(window.location.href);
-    url.searchParams.set('threadId', threadId);
-    replaceState(url, '');
-
-    return thread;
-  } catch (error) {
-    console.error(`Error loading thread ${threadId}:`, error);
-    throw error;
-  } finally {
-    isLoadingMessages = false;
-  }
 }
 
   async function loadThreadCounts(threads: Threads[]) {
@@ -1599,115 +1486,6 @@ async function toggleTagSelection(tagId: string) {
     isEditingThreadName = true;
     editedThreadName = currentThread?.name || '';
   }
-  async function toggleTag(tag: Tag) {
-    if (!currentThreadId) return;
-
-    try {
-      const isCurrentlySelected = tag.selected_threads?.includes(currentThreadId);
-      let updatedSelectedThreads: string[];
-
-      if (isCurrentlySelected) {
-        updatedSelectedThreads = tag.selected_threads.filter(id => id !== currentThreadId);
-      } else {
-        updatedSelectedThreads = [...(tag.selected_threads || []), currentThreadId];
-      }
-
-      // Update local state immediately
-      availableTags = availableTags.map(t => 
-        t.id === tag.id 
-          ? { ...t, selected_threads: updatedSelectedThreads } 
-          : t
-      );
-
-      // Update in PocketBase
-      const updatedTag = await pb.collection('tags').update(tag.id, {
-        selected_threads: updatedSelectedThreads
-      });
-
-      console.log('Tag toggled successfully:', updatedTag);
-    } catch (error) {
-      console.error('Error toggling tag:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-      }
-      // Revert local state if PocketBase update fails
-      refreshTags();
-    }
-  }
-  async function updateThreadTags() {
-  if (!currentThreadId || !currentThread) return;
-
-  try {
-    const updatedThread = await pb.collection('threads').getOne<Threads>(currentThreadId, {
-      expand: 'tags'
-    });
-
-    currentThread = updatedThread;
-    console.log('Thread tags updated:', updatedThread.tags);
-  } catch (error) {
-    console.error('Error updating thread tags:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-    }
-  }
-  }
-  async function refreshTags() {
-    try {
-      const records = await pb.collection('tags').getFullList<Tag>({
-        sort: 'name',
-        expand: 'selected_threads'
-      });
-      availableTags = records;
-      console.log("Refreshed tags:", availableTags);
-    } catch (error) {
-      console.error('Error refreshing tags:', error);
-    }
-  }
-  async function handleDeleteTag(event: MouseEvent, tagId: string) {
-    event.stopPropagation();
-    if (confirm('Are you sure you want to delete this tag?')) {
-      try {
-        await pb.collection('tags').delete(tagId);
-        availableTags = availableTags.filter(tag => tag.id !== tagId);
-        console.log('Tag deleted successfully');
-      } catch (error) {
-        console.error('Error deleting tag:', error);
-      }
-    }
-  }
-  async function fetchTags() {
-    try {
-      const records = await pb.collection('tags').getFullList<Tag>({
-        sort: 'name',
-        expand: 'selected_threads'
-      });
-      availableTags = records;
-      console.log("Fetched tags:", availableTags);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  }
-  async function createTag(name: string) {
-    if (!name.trim()) return;
-
-    try {
-      const newTag = await pb.collection('tags').create<Tag>({
-        name: name.trim(),
-        color: getRandomBrightColor(name),
-        user: $currentUser?.id,
-        selected_threads: [],
-      });
-
-      // Only update state if tag creation was successful
-      availableTags = [...availableTags, newTag];
-      newTagName = ''; 
-      editingTagIndex = null;
-    } catch (error) {
-      console.error('Error creating tag:', error);
-      // Optionally show user feedback about the error
-      // You might want to add a toast or notification here
-    }
-  }
 
   async function initializeThreadsAndMessages(): Promise<void> {
     try {
@@ -1738,13 +1516,122 @@ async function toggleTagSelection(tagId: string) {
     }
   }
 
+// Handle seed prompt
+$: if (seedPrompt && !hasSentSeedPrompt) {
+   console.log("Processing seed prompt:", seedPrompt);
+   hasSentSeedPrompt = true;
+   handleSendMessage(seedPrompt);
+}
+
+// Core thread and message handling
+$: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
+$: safeAIModel = aiModel || defaultAIModel;
+$: groupedMessages = groupMessagesByDate(messages.map(m => mapMessageToInternal(m)));
+
+// Handle expanded dates
+$: {
+   if (groupedMessages?.length > 0 && expandedDates.size === 0) {
+       expandedDates = new Set([groupedMessages[groupedMessages.length - 1].date]);
+   }
+}
 
 
+  // Reactivity
+
+
+
+// Thread grouping and visibility management
+$: isSearchActive = searchQuery.trim().length > 0;
+$: isProjectActive = currentProjectId !== null;
+
+const searchedThreads = derived(threadsStore, ($store) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return $store.threads;
+    
+    return $store.threads.filter(thread => 
+        thread.name?.toLowerCase().includes(query) || 
+        thread.last_message?.content?.toLowerCase().includes(query)
+    );
+});
+// Update store when search changes
+$: {
+  threadsStore.setSearchQuery(searchQuery);
+}
+
+
+$: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
+$: namingThreadId = $threadsStore?.namingThreadId;
+// $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
+
+// // Thread counts and visibility
+// $: {
+//    if (visibleThreads?.length > 5) {
+//        loadThreadCounts(visibleThreads);
+//    }
+// }
+
+// Stage-based operations
+$: if (currentStage === 'summary') {
+   generateLocalSummary();
+}
+
+$: if (currentStage === 'tasks' && selectedScenario) {
+   generateLocalTasks();
+}
+
+// UI state updates
+$: console.log("isLoading changed:", isLoading);
+$: if ($currentUser?.avatar) {
+   updateAvatarUrl();
+}
+
+// Store synchronization with visibility protection
+$: {
+   const storeState = $threadsStore;
+   if (storeState) {
+       threads = storeState.threads;
+       currentThreadId = storeState.currentThreadId;
+       messages = storeState.messages;
+       updateStatus = storeState.updateStatus;
+       
+       // Only update showThreadList if threads exist and list should be visible
+       if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
+           showThreadList = true;
+       }
+   }
+}
+
+
+
+$: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
+   const group = getThreadDateGroup(thread);
+   if (!acc[group]) acc[group] = [];
+   acc[group].push(thread);
+   return acc;
+}, {} as Record<string, Threads[]>);
+
+// Maintain thread visibility
+$: {
+   if (currentThreadId && threads?.length > 0 && !showThreadList) {
+       showThreadList = true;
+       threadsStore.update(state => ({
+           ...state,
+           showThreadList: true
+       }));
+   }
+}
+
+$: if (date) {
+        messagesStore.setSelectedDate(date.toISOString());
+    }
+
+
+
+
+// Lifecycle hooks
 onMount(async () => {
   try {
-    initializeExpandedGroups(orderedGroupedThreads);
-    
-    // Authentication check
+    console.log('onMount initiated');
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
@@ -1752,80 +1639,57 @@ onMount(async () => {
       return undefined;
     }
 
-    // User details
     if ($currentUser && $currentUser.id) {
+      console.log('Current user:', $currentUser);
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
 
-    // Fetch initial data
+    console.log('Loading projects and threads...');
     await Promise.all([
-      // fetchTags(),
       projectStore.loadProjects(),
+      threadsStore.loadThreads(),
+      initializeExpandedGroups(orderedGroupedThreads),
       initializeThreadsAndMessages()
     ]);
 
-    // Setup textarea handlers
     if (textareaElement) {
       const adjustTextareaHeight = () => {
-        textareaElement.style.height = defaultTextareaHeight;
-        textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 200)}px`;
+        console.log('Adjusting textarea height');
+        textareaElement.style.height = 'auto';
+        textareaElement.style.height = `${textareaElement.scrollHeight}px`;
       };
-
-      const resetTextareaHeight = () => {
-        textareaElement.style.height = defaultTextareaHeight;
-      };
-
       textareaElement.addEventListener('input', adjustTextareaHeight);
-      textareaElement.addEventListener('blur', resetTextareaHeight);
-
-      // Return cleanup function
-      return () => {
-        textareaElement?.removeEventListener('input', adjustTextareaHeight);
-        textareaElement?.removeEventListener('blur', resetTextareaHeight);
-      };
     }
-
-    return undefined;
   } catch (error) {
-    console.error("Error in onMount:", error);
-    return undefined;
+    console.error('Error during onMount:', error);
   }
 });
+
   afterUpdate(() => {
     if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
       chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
       lastMessageCount = chatMessages.length;
       scrollToBottom();
-
     }
   });
+
   onDestroy(() => {
-    // Reset current thread
     currentThreadId = null;
     if (hideTimeout) {
       clearTimeout(hideTimeout);
     }
-    // Reset thread selection in store
-    // threadsStore.setCurrentThread(null);
     
-    // Clear messages
     chatMessages = [];
     messages = [];
     
-    // Reset any other state you want to clear
-    // quotedMessage = null;
-    // isLoading = false;
-    // thinkingMessageId = null;
-    // typingMessageId = null;
-    
-    // Clean up URL parameters
     const url = new URL(window.location.href);
     url.searchParams.delete('threadId');
     url.searchParams.delete('messageId');
     url.searchParams.delete('autoTrigger');
     window.history.replaceState({}, '', url);
   });
+
 
 </script>
 
@@ -1843,20 +1707,27 @@ onMount(async () => {
         <div class="thread-catalog" in:fly={{duration: 200}} out:fade={{duration: 200}}>
           <div class="section-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <button 
-              class="new-button"
-              class:active={isProjectListVisible} 
-              on:click={() => {
-                if (!isProjectListVisible && currentProjectId) {
-                  projectStore.setCurrentProject(null);
-                  threadsStore.update(state => ({...state, threads: []})); 
-                }
-                isProjectListVisible = !isProjectListVisible;
-                if (isProjectListVisible) isThreadListVisible = false;
-              }}
-            >
+            class="new-button"
+            class:active={isProjectListVisible} 
+            on:click={() => {
+              if (!isProjectListVisible) {
+                // Reset project selection when going back to project list
+                projectStore.setCurrentProject(null);
+                currentProjectId = null;
+                // Clear project-specific threads
+                threadsStore.update(state => ({...state, threads: []}));
+              }
+              isProjectListVisible = !isProjectListVisible;
+              if (isProjectListVisible) {
+                isThreadListVisible = false;
+                // Reload all projects to ensure fresh data
+                projectStore.loadProjects();
+              }
+            }}
+          >
             <span class="section-icon" class:active={isProjectListVisible}>
               {#if !isProjectListVisible && !currentProjectId}
-                <Box />
+              <ArrowLeft />              
               {:else if !isProjectListVisible && currentProjectId}  
                 <ArrowLeft />
               {:else}
@@ -1880,7 +1751,7 @@ onMount(async () => {
                 <ListTree />
                 {#if isThreadListVisible}
                 <span class="button-text" in:fade>
-                  {currentProjectId ? $projectStore.threads.find(p => p.id === currentProjectId)?.name : 'All Threads'}
+                  {currentProjectId ? get(projectStore).currentProject?.name : 'All Threads'}
                 </span>
               {/if}
               </span>
@@ -2022,7 +1893,7 @@ onMount(async () => {
                   <div class="icon-container" in:fade>
                     <MessageCirclePlus />
                     {#if createHovered}
-                      <span class="tooltip" in:fade>Create New Project</span>
+                      <span class="tooltip" in:fade>Create New Thread</span>
                     {/if}
                   </div> 
                 </span>           
@@ -2063,9 +1934,8 @@ onMount(async () => {
           </div>
           {#if isSearchActive}
           <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-                <!-- Use $tagFilteredThreads to access the store value -->
-                {#each (isSearchActive ? $searchedThreads : $tagFilteredThreads) as thread (thread.id)}
-                    <button 
+                {#each (isSearchActive ? $searchedThreads : threads) as thread (thread.id)}
+                <button 
                         class="thread-button"
                         class:selected={currentThreadId === thread.id}
                         on:click={() => handleLoadThread(thread.id)}

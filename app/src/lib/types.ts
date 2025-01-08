@@ -515,6 +515,25 @@ export interface ChatMessage extends RecordModel {
     };
 }
 
+export interface ThreadStoreState {
+    threads: Threads[];
+    currentThreadId: string | null;
+    messages: Messages[];
+    updateStatus: string;
+    isThreadsLoaded: boolean;
+    showThreadList: boolean;
+    searchQuery: string;
+    namingThreadId: string | null;
+    selectedTagIds: Set<string>;
+    currentThread: Threads | null;
+    filteredThreads: Threads[];
+    isEditingThreadName: boolean;
+    editedThreadName: string;
+    tags: Tag[];
+    project_id?: string;
+
+}
+
 export interface Threads extends RecordModel {
     id: string;
     name: string;
@@ -525,6 +544,8 @@ export interface Threads extends RecordModel {
     last_message?: Messages;
     current_thread: string;
     messageCount?: number;
+    project_id?: string;
+
 
 }
 

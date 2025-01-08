@@ -2,7 +2,9 @@ import { writable, derived, get } from 'svelte/store';
 import type { Messages, Threads, Tag, AIModel } from '$lib/types';
 import { debounce } from 'lodash-es';
 import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/threadsClient';
+import { fetchThreadsForProject } from '$lib/projectClient'
 import { browser } from '$app/environment';
+
 
 
 
@@ -90,7 +92,6 @@ function createThreadsStore() {
         showThreadList: visible
       }));
     },
-    getShowThreadList: derived({ subscribe }, $state => $state.showThreadList),
     loadThreads: async (): Promise<Threads[]> => {
       try {
           console.log('Starting loadThreads, current state:', get(store));
@@ -128,27 +129,38 @@ function createThreadsStore() {
     },
 
 
-  addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
-    try {
-      const newThread = await createThread(threadData);
-      
-      // Reload all threads after adding the new one
-      const updatedThreads = await fetchThreads();
-      store.update(state => ({
-        ...state,
-        threads: updatedThreads,
-        isThreadsLoaded: true,
-        updateStatus: 'Thread added successfully'
-      }));
-      
-      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-      return newThread;
-    } catch (error) {
-      console.error('Error adding thread:', error);
-      store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
-      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-      return null;
-    }
+    addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
+      try {
+          const newThread = await createThread(threadData);
+          
+          // If this is a project thread, fetch only threads for that project
+          if (newThread.project_id) {
+              const projectThreads = await fetchThreadsForProject(newThread.project_id);
+              store.update(state => ({
+                  ...state,
+                  threads: projectThreads,
+                  isThreadsLoaded: true,
+                  updateStatus: 'Thread added successfully'
+              }));
+          } else {
+              // For non-project threads, fetch all threads
+              const updatedThreads = await fetchThreads();
+              store.update(state => ({
+                  ...state,
+                  threads: updatedThreads,
+                  isThreadsLoaded: true,
+                  updateStatus: 'Thread added successfully'
+              }));
+          }
+          
+          setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+          return newThread;
+      } catch (error) {
+          console.error('Error adding thread:', error);
+          store.update(state => ({ ...state, updateStatus: 'Failed to add thread' }));
+          setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+          return null;
+      }
   },
   updateThread: async (id: string, changes: Partial<Threads>) => {
     try {

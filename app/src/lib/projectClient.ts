@@ -32,16 +32,28 @@ export async function fetchProjects(): Promise<Projects[]> {
 
 export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
     try {
+        if (!projectId) {
+            console.error("projectId is not defined.");
+            return []; // Return empty array if projectId is not available
+        }
+
         ensureAuthenticated();
-        const threads = await pb.collection('threads').getFullList<Threads>({
-            filter: `project = "${projectId}"`,
-            expand: 'last_message',
-            sort: '-created'
+        const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
+            filter: `project_id = "${projectId}"`,
+            expand: 'last_message,tags,project_id',
+            sort: '-created',
+            $cancelKey: `project-threads-${projectId}`
         });
-        return threads;
+
+        if (!resultList?.items) {
+            console.warn(`No threads found for project ${projectId}`);
+            return [];
+        }
+
+        return resultList.items;
     } catch (error) {
-        console.error('Error fetching threads for project:', error);
-        throw error;
+        console.error('Error fetching project threads:', error);
+        return [];
     }
 }
 
@@ -57,17 +69,16 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
             name: projectData.name || 'New Project',
             description: projectData.description || '',
             op: userId,
-            threads: [],
+            threads: [], // Initialize empty threads array
             current_project: '',
             collaborators: [userId],
+            created: new Date().toISOString(),
+            updated: new Date().toISOString()
         };
 
         return await pb.collection('projects').create<Projects>(newProject);
     } catch (error) {
         console.error('Error creating project:', error);
-        if (error instanceof ClientResponseError) {
-            console.error('Response details:', error.data);
-        }
         throw error;
     }
 }
@@ -93,6 +104,48 @@ export async function resetProject(projectId: string): Promise<void> {
         });
     } catch (error) {
         console.error('Error resetting project:', error);
+        throw error;
+    }
+}
+
+export async function removeThreadFromProject(threadId: string, projectId: string): Promise<void> {
+    try {
+        ensureAuthenticated();
+        
+        // Update thread to remove project reference
+        await pb.collection('threads').update(threadId, {
+            project_id: null
+        });
+
+        // Update project's threads array
+        const project = await pb.collection('projects').getOne<Projects>(projectId);
+        const updatedThreads = project.threads?.filter(id => id !== threadId) || [];
+        await pb.collection('projects').update(projectId, {
+            threads: updatedThreads
+        });
+    } catch (error) {
+        console.error('Error removing thread from project:', error);
+        throw error;
+    }
+}
+
+export async function addThreadToProject(threadId: string, projectId: string): Promise<void> {
+    try {
+        ensureAuthenticated();
+        
+        // Update thread with project reference
+        await pb.collection('threads').update(threadId, {
+            project_id: projectId
+        });
+
+        // Update project's threads array
+        const project = await pb.collection('projects').getOne<Projects>(projectId);
+        const updatedThreads = [...(project.threads || []), threadId];
+        await pb.collection('projects').update(projectId, {
+            threads: updatedThreads
+        });
+    } catch (error) {
+        console.error('Error adding thread to project:', error);
         throw error;
     }
 }
