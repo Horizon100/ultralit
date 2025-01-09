@@ -15,7 +15,15 @@ export default {
         notification: "Language: English",
         flag: "🇬🇧"
     },
-
+    tooltip: {
+        newProject: "Create project",
+        newThread: "Create discussion",
+        findThread: "Find discussion"
+    },
+    drawer: {
+        project: "Projects",
+        thread: "Discussions",
+    },
     landing: {
         h1: "LEVEL UP YOUR CONVERSATIONS WITH AI",
         h2: "Hello",
@@ -259,7 +267,8 @@ export default {
         lastweek: "Last Week",
         thismonth: "This Month",
         older: "Older",
-        threadHeader: "Discussions"
+        threadHeader: "Discussions",
+        updated: "Updated"
     },
 
     chat: {

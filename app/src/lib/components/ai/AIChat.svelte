@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Tags, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -1074,7 +1074,9 @@ async function handleLoadThread(threadId: string) {
             threadsStore.update(state => ({
                 ...state,
                 threads: projectThreads
+                
             }));
+            
         }
 
         // Update local state
@@ -1695,20 +1697,20 @@ onMount(async () => {
 </script>
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-  <div class="threads-container" 
+  <div class="drawer-container" 
     transition:fly="{{ x: 300, duration: 300 }}" 
-    class:thread-list-visible={$threadsStore.showThreadList}
+    class:drawer-visible={$threadsStore.showThreadList}
   >
 
   {#if $threadsStore.showThreadList}
-    <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
+    <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
       <!-- <h2>
         {$t('threads.threadHeader')}
       </h2> -->
-        <div class="thread-catalog" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          <div class="section-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+        <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+          <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <button 
-            class="new-button"
+            class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
             class:active={isProjectListVisible} 
             on:click={() => {
               if (!isProjectListVisible) {
@@ -1730,19 +1732,19 @@ onMount(async () => {
               }
             }}
           >
-            <span class="section-icon" class:active={isProjectListVisible}>
+            <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
               {#if !isProjectListVisible && !currentProjectId}
               <ArrowLeft />              
               {:else if !isProjectListVisible && currentProjectId}  
                 <ArrowLeft />
               {:else}
                 <Box />
-                <span class="button-text" in:fade>Projects</span>
+                <span in:fade>{$t('drawer.project')}</span>
               {/if}
              </span>
            </button>
            <button 
-           class="new-button"
+           class="drawer-tab"
            class:active={isThreadListVisible} 
            on:click={() => {
              isThreadListVisible = !isThreadListVisible;
@@ -1757,15 +1759,21 @@ onMount(async () => {
            }}
          >
               <span 
-                class="section-icon"
+                class="icon"
                 class:active={isThreadListVisible}
               >
-                <ListTree />
-                {#if isThreadListVisible}
-                <span class="button-text" in:fade>
-                  {currentProjectId ? get(projectStore).currentProject?.name : 'All Threads'}
-                </span>
+              {#if !isThreadListVisible}
+              <MessageCircleMore />
+              {:else if !isThreadListVisible && currentProjectId}  
+                <ArrowLeft />
+              {:else}
+              <MessageCircleMore />
+              <span in:fade>
+                {currentProjectId ? get(projectStore).currentProject?.name : $t('drawer.thread')}
+              </span>
+
               {/if}
+
               </span>
             </button>
           </div>
@@ -1773,17 +1781,42 @@ onMount(async () => {
           {#if isProjectListVisible}
           <div class="project-section" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <!-- Create Project Button -->
-            <div class="section-header">
+            <div class="drawer-header">
               <button 
-                class="new-button"
+                class="add"
                 on:click={() => {
                   console.log('New project button clicked');
                   isCreatingProject = true;
                 }}
                 disabled={isCreatingProject}
+                on:mouseenter={() => createHovered = true}
+                on:mouseleave={() => createHovered = false}
               >
+                <span 
+                  class="icon" 
+                  class:active={isCreatingProject} 
+                  on:click={() => {
+                    isCreatingProject = !isCreatingProject;
+                  }}
+                  on:mouseenter={() => searchHovered = true}
+                  on:mouseleave={() => searchHovered = false}
+                >
+
+                  <span class="icon" class:active={isCreatingProject}>
+                    {#if isCreatingProject}
+                      <ArrowLeft/>
+                      {:else}
+                      <PackagePlus />
+                      {#if searchHovered && !isCreatingProject}
+                        <span class="tooltip" in:fade>
+                          {$t('tooltip.newProject')}
+                        </span>
+                      {/if}
+                    {/if}
+                </span>
                 {#if isCreatingProject}
-                  <div class="input-group" transition:slide>
+
+                  <div class="drawer-input" transition:slide>
                     <input
                       type="text"
                       bind:value={newProjectName}
@@ -1800,7 +1833,6 @@ onMount(async () => {
                         }
                       }}
                       use:focusOnMount
-                      class="project-name-input"
                     />
                     <button 
                       class="create-confirm"
@@ -1814,20 +1846,21 @@ onMount(async () => {
                     </button>
                   </div>
                 {:else}
-                  <PackagePlus />
                 {/if}
               </button>
               
             </div>
         
             <!-- Project List -->
-            <div class="project-list" in:fly={{duration: 200}} out:fade={{duration: 200}}
+            <div class="drawer" in:fly={{duration: 200}} out:fade={{duration: 200}}
             class:empty={!$projectStore?.threads?.length}>
               {#if $projectStore?.threads?.length > 0}
                 {#each $projectStore.threads as project (project.id)}
-                <div class="project-button">
+                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
+                    on:click={() => handleSelectProject(project.id)}
+                  >                  
                   <div 
-                    class="project-card"
+                    class="card"
                     class:active={currentProjectId === project.id}
                     in:fly={{x: 20, duration: 200}}
                   >
@@ -1840,33 +1873,37 @@ onMount(async () => {
                           if (e.key === 'Escape') cancelEditing();
                         }}
                         use:focusOnMount
-                        class="project-name-input"
                       />
                     {:else}
-                      <button 
-                        class="project-title" in:fly={{duration: 200}} out:fade={{duration: 200}}
-                        on:click={() => handleSelectProject(project.id)}
-                      >
-                        {project.name}
-                      </button>
+
+                      <div class="card-static">
+                        <span class="card-title project">{project.name}</span>
+                        <span class="card-time">
+                          {new Date(project.updated).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      </div>
+
                     {/if}
         
-                    <div class="project-actions">
+                    <div class="card-actions">
                       <button 
                         class="action-btn"
-                        on:click={() => startEditingProjectName(project.id)}
-                      >
+                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
+                        >
                         <Pen size={14} />
                       </button>
                       <button 
                         class="action-btn delete"
-                        on:click={(e) => handleDeleteProject(e, project.id)}
-                      >
+                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
+                        >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {/each}
               {:else}
@@ -1878,9 +1915,9 @@ onMount(async () => {
           </div>
         {/if}
         {#if isThreadListVisible}
-          <div class="section-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+          <div class="drawer-header" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
-              class="new-button"
+              class="add"
               on:click={async () => {
                 if (isCreatingThread) return;
                 try {
@@ -1901,32 +1938,34 @@ onMount(async () => {
                   <Bot size={30} class="bot-icon" />
                 </div>
               {:else}
-                <span class="section-icon">
-                  <div class="icon-container" in:fade>
+                  <div class="icon" in:fade>
                     <MessageCirclePlus />
                     {#if createHovered}
-                      <span class="tooltip" in:fade>Create New Thread</span>
+                      <span class="tooltip" in:fade>
+                        {$t('tooltip.newThread')}
+                      </span>
                     {/if}
                   </div> 
-                </span>           
               {/if}
             </button>
             
-            <div class="search-bar">
+            <div class="drawer-input">
+              
               <span 
-                class="section-icon" 
+                class="icon" 
                 class:active={isExpanded} 
                 on:click={() => {
-                  console.log('Search icon clicked, isExpanded:', !isExpanded);
                   isExpanded = !isExpanded;
                 }}
                 on:mouseenter={() => searchHovered = true}
                 on:mouseleave={() => searchHovered = false}
               >
-                <div class="icon-container" in:fade>
+                <div class="icon" in:fade>
                   <Search />
                   {#if searchHovered && !isExpanded}
-                    <span class="tooltip" in:fade>Search Threads</span>
+                    <span class="tooltip" in:fade>
+                      {$t('tooltip.findThread')}
+                    </span>
                   {/if}
                 </div> 
               </span>
@@ -1978,14 +2017,14 @@ onMount(async () => {
                 </button>
           
                 {#if $expandedGroups[group]}
-                  <div class="thread-list" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <div class="drawer" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                     {#each threads as thread (thread.id)}
                       <button 
-                        class="thread-button"
+                        class="card-container"
                         class:selected={currentThreadId === thread.id}
                         on:click={() => handleLoadThread(thread.id)}
                       >
-                        <div class="thread-card" 
+                        <div class="card" 
                             class:active={currentThreadId === thread.id}
                             in:fade
                           >
@@ -1994,16 +2033,16 @@ onMount(async () => {
                               <Bot size={30} class="bot-icon" />
                             </div>
                           {:else}
-                            <div in:fade>
-                              <span class="thread-title">{thread.name}</span>
-                              <span class="thread-time">
+                            <div class="card-static" in:fade>
+                              <span class="card-title">{thread.name}</span>
+                              <span class="card-time">
                                 {new Date(thread.updated).toLocaleTimeString([], { 
                                   hour: '2-digit', 
                                   minute: '2-digit' 
                                 })}
                               </span>
                               <span 
-                                class="delete-thread-button" 
+                                class="delete-card-container" 
                                 on:click={(e) => handleDeleteThread(e, thread.id)}
                               >
                                 <Trash2 size={14} />
@@ -2020,30 +2059,34 @@ onMount(async () => {
               {#each $searchedThreads as thread (thread.id)}
 
                   <button 
-                          class="thread-button"
+                          class="card-container"
                           class:selected={currentThreadId === thread.id}
                           on:click={() => handleLoadThread(thread.id)}
                       >
-                          <div class="thread-card" 
+                          <div class="card" 
                               class:active={currentThreadId === thread.id}
                               in:fade
                           >
-                              <span class="thread-title">{thread.name}</span>
+                          <div class="card-static">
+
+                              <span class="card-title">{thread.name}</span>
                               <!-- <span class="thread-message">
                                   {thread.last_message?.content || 'No messages yet'}
                               </span> -->
-                              <span class="thread-time">
+                              <span class="card-time">
+                                {$t('threads.updated')}
                                   {new Date(thread.updated).toLocaleTimeString([], { 
                                       hour: '2-digit', 
                                       minute: '2-digit' 
                                   })}
                               </span>
                               <span 
-                                  class="delete-thread-button" 
+                                  class="card-actions" 
                                   on:click={(e) => handleDeleteThread(e, thread.id)}
                               >
                                   <X size={14} />
                               </span>
+                          </div>
                           </div>
                       </button>
               {/each}
@@ -2085,7 +2128,7 @@ onMount(async () => {
             {/if}
           {:else}
             <div class="chat-placeholder"
-            class:thread-list-visible={$threadsStore.showThreadList}
+            class:drawer-visible={$threadsStore.showThreadList}
             >              
               <h1>{$t('threads.selectThread')}</h1>
             </div>
@@ -2242,7 +2285,7 @@ onMount(async () => {
             on:click={() => toggleSection('prompts')}
           >
             <div class="section-header-content">
-              <span class="section-icon">
+              <span class="icon">
                 {#if $expandedSections.prompts}
                 <!-- <Command size={30} /> -->
                 {:else}
@@ -2288,7 +2331,7 @@ onMount(async () => {
             on:click={() => toggleSection('models')}
             >
             <div class="section-header-content">
-              <span class="section-icon">
+              <span class="icon">
                 {#if $expandedSections.models}
                 <Brain size={20} />
                 {:else}
@@ -2625,7 +2668,15 @@ onMount(async () => {
     align-items: center;
     color: var(--text-color);
 
-
+    &.icon {
+      transition: all 0.2s ease-in-out;
+      gap: 0.5rem;
+      height: 36px;
+      
+      &.active {
+        color: var(--tertiary-color) !important;
+      }
+    }
     &.counter {
       color: var(--placeholder-color);
       font-size: 16px;
@@ -2655,7 +2706,7 @@ onMount(async () => {
       justify-content: center;
       align-items: center;
     }
-    &.delete-thread-button {
+    &.delete-card-container {
       border: none;
       color: #606060;
       cursor: pointer;
@@ -2693,6 +2744,8 @@ onMount(async () => {
   p {
     
   }
+
+
 
   button {
     display: flex;
@@ -2741,21 +2794,21 @@ onMount(async () => {
 
       }
     }
-    &.section-header {
+    &.drawer-header {
       justify-content: space-between;
       width: 100%;
+      height: 100%;
       gap: 0.5rem;
       &:hover {
         background-color: var(--secondary-color);
       }
     }
-    &.new-button {
+    &.add {
       background-color: transparent;
       font-size: var(--font-size-s);
       font-weight: bold;
       cursor: pointer;
       transition: all ease 0.3s;
-      padding: var(--spacing-md);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -2770,7 +2823,7 @@ onMount(async () => {
 
       // gap: var(--spacing-sm);
 
-      & span.section-icon {
+      & span.icon {
         color: var(--placeholder-color);
         gap: 0.5rem;
 
@@ -2781,12 +2834,8 @@ onMount(async () => {
       &.active {
         color: var(--tertiary-color);
       }
-      
-
       }
-      
-
-
+    
       &:hover {
         color: var(--tertiary-color);
       }
@@ -2950,12 +2999,12 @@ onMount(async () => {
     overflow: visible;
     z-index: 2000;
   }
-  .threads-container {
+  .drawer-container {
     display: flex;
     flex-direction: column;
     height: 100%;
     margin-left: 64px;
-    width: calc(100% - 64px);
+    width: 100%;
     position: relative;
 
   }
@@ -2970,6 +3019,7 @@ onMount(async () => {
     /* left: 20%; */
     width: 100%;
     padding: 1rem;
+    padding-top: 0;
 
   }
   
@@ -3434,8 +3484,9 @@ color: #6fdfc4;
   border-radius: var(--radius-l);
 }
 
-  .section-header {
+  .drawer-header {
     height: auto;
+    // padding: 1rem 0.5rem;
     width: auto;
     // background: var(--bg-gradient-left);
     border: none;
@@ -3447,39 +3498,66 @@ color: #6fdfc4;
     // border-radius: var(--radius-m);
     display: flex;
     gap: 0.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
     flex-direction: row;
-    justify-content: left;
+    justify-content: flex-start;
     border-radius: var(--radius-m);
     transition: all 0.2s ease;
-
   }
 
 
+  .drawer-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 2rem;
+    background: var(--secondary-color) !important;
+    color: var(--placeholder-color);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
 
-.search-bar {
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    &.active {
+      background: var(--primary-color) !important;
+      color: white;
+      width: 80% !important;
+      font-size: var(--font-size-sm);
+    }
+  }
+  .drawer-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+.drawer-input {
   display: flex;
   flex-direction: row;
-  position: relative;
   align-items: center;
-  padding: 0.75rem 0;
+  // padding: 0.75rem 0;
   gap: 0.5rem;
   border-radius: var(--radius-m);
-  height: 40px;
+  height: auto;
   width: fit-content;
   color: var(--bg-color);
-  padding: 0.5rem;
   transition: all 0.3s ease;
 
   &:hover {
     // background-color: var(--secondary-color);
-
     }
 
 
-  button.search-bar {
+
+  & button {
     border-radius: var(--radius-m);
     width: auto;
-    height: 40px;
     border: none;
     display: flex;
     justify-content: center;
@@ -3495,12 +3573,13 @@ color: #6fdfc4;
     }
   }
 
-    input {
+    & input {
       padding: 0.5rem;
       border: none;
+      border-radius: var(--radius-m);
+      padding-left: 1rem;
       outline: none;
       width: 150px;
-      background: transparent;
       color: var(--text-color);
       transition: all 0.3s ease;
       &::placeholder {
@@ -3647,10 +3726,10 @@ color: #6fdfc4;
         overflow-x: hidden;
       }
 
-      .threads-container {
+      .drawer-container {
           /* background-color: red; */
         }
-      .thread-list {
+      .drawer {
           /* width: 25%; */
           height: 100%;
           // border-top-left-radius: 50px;
@@ -3662,7 +3741,7 @@ color: #6fdfc4;
           background-color: transparent;
         }
 
-        .thread-list-visible .chat-container {
+        .drawer-visible .chat-container {
           overflow-y: auto;
           margin-right: 0;
           margin-left: 0;
@@ -3672,17 +3751,17 @@ color: #6fdfc4;
           position: relative;
         }
 
-        .thread-list-visible .chat-messages {
+        .drawer-visible .chat-messages {
           
         }
 
-        .thread-list-visible .chat-placeholder {
+        .drawer-visible .chat-placeholder {
           margin-right: 10rem;
           right: 5rem;
           bottom: 9rem;
         }
 
-        .thread-list-visible .thread-toggle {
+        .drawer-visible .thread-toggle {
           left: 10px;
           
         }
@@ -3932,7 +4011,7 @@ color: #6fdfc4;
   margin-right: 1rem;
 }
 
-.thread-list-visible .chat-placeholder {
+.drawer-visible .chat-placeholder {
   overflow-y: auto;
   margin-left: 0;
   left: 25%;
@@ -4097,49 +4176,70 @@ color: #6fdfc4;
     font-size: 20px;
     margin-bottom: 10px;
   }
-  .thread-card {
+
+  .card-title {
+    font-weight: 300;
+    font-size: var( --font-size-s);
+    margin-bottom: 0.25rem;
+    
+  }
+
+
+  .card-title.project {
+    font-weight: 300;
+    font-size: var(--font-size-sm);
     display: flex;
-    position: relative;
+    width: auto;
+
+  }
+
+  .card-static {
+    display: flex;
     flex-direction: column;
-    align-items: left;    
-    text-align: left;
-    margin-left: 1rem;
-    width: calc(100% - 1rem);
-    padding: var(--spacing-sm) var(--spacing-md);
-    // backdrop-filter: blur(8px);
-    // background: var(--bg-gradient-left);
-    // border-bottom: 5px solid var(--bg-color);
-    // border-top: 1px solid var(--bg-color);
-    // border-left: 5px solid var(--bg-color);
-    // border-right: 1px solid var(--bg-color);
-    background: var(--bg-gradient-right);
-    border-radius: 10px;
-    transition: all 0.3s ease;
+    position: relative;
+    width: 100%;
+  }
+  .card-time {
+    font-size: var(--font-size-xs);
+    display: flex;
+  }
+
+
+
+  button.action-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    width: auto;
+    transition: all 0.1s ease;
 
     &:hover {
-        backdrop-filter: blur(8px);
-        background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
-        transform: translateX(2px);
-        opacity: 1;
-        visibility: visible;
-        box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+      color: var(--tertiary-color);
+
+    &.delete {
+      &:hover {
+        color: red;
       }
-    &.active {
-      background: var(--primary-color);
-      // border-left: 3px solid var(--primary-color);
-      color: var(--text-color);
+    }
     }
   }
-  .thread-title {
-    font-weight: 300;
-    color: var(--text-color);
-    font-size: var( --font-size-s);
+
+
+
+  .project-name-input {
+    width: 200px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
   }
-  .thread-time {
-    font-size: var(--font-size-xs);
-    color: var(--placeholder-color);
-  }
-  .thread-catalog {
+
+
+  
+  .drawer-list {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -4153,7 +4253,7 @@ color: #6fdfc4;
     scrollbar-color: var(--text-color) transparent;
     scroll-behavior: smooth;
   }
-  .thread-list {
+  .drawer {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -4165,8 +4265,8 @@ color: #6fdfc4;
   position: relative;
   top: 0;
   gap: 1px;
-  height: 90%;
-  width: auto;
+  height: auto;
+  width: 300px;
   transition: all 0.3s ease-in-out;
   scrollbar: {
     width: 1px;
@@ -4199,7 +4299,7 @@ color: #6fdfc4;
   }
 
   }
-  .thread-list-visible {
+  .drawer-visible {
   & .chat-container {
     // Empty but preserved for structure
   }
@@ -4228,18 +4328,84 @@ color: #6fdfc4;
     font-size: var(--font-size-xs);
     color: var(--placeholder-color);
   }
-  .thread-button-container {
-      display: flex;
-      align-items: center;
-      width: 100%;
+
+
+  .card-container {
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    width: 100% !important;
+    margin-right: 1rem;
+    padding: 0;
+    cursor: pointer;
+
+
+
+
   }
-  .thread-button {
+  button.card-container {
     display: flex;
     flex-direction: column;
+    position: relative;
     flex-grow: 1;
-    justify-content: space-between;
-    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
     margin-bottom: var(--spacing-xs);
+    // background-color: var(--bg-color);
+    width: auto;
+    &:hover {
+        backdrop-filter: blur(8px);
+        background: var(--secondary-color);
+        // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+        transform: translateX(2px);
+        opacity: 1;
+        visibility: visible;
+        // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
+      }
+      &.selected {
+        background-color: var(--primary-color);
+      }
+
+  }
+
+  .card {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    position: relative;
+
+    // backdrop-filter: blur(8px);
+    // background: var(--bg-gradient-left);
+    // border-bottom: 5px solid var(--bg-color);
+    // border-top: 1px solid var(--bg-color);
+    // border-left: 5px solid var(--bg-color);
+    // border-right: 1px solid var(--bg-color);
+    transition: all 0.3s ease;
+
+    // &.active {
+    //   border-left: 3px solid var(--primary-color);
+    // }
+
+
+    
+  }
+
+  .card-actions {
+    position: absolute;
+    right: 0;
+    height: 100%;
+    display: flex;
+    gap: 0.5rem;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.2s ease;
+    visibility: hidden;
+  }
+
+  .card-container:hover .card-actions {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
   }
   .thread-toggle {
     color: var(--text-color);
@@ -4347,7 +4513,7 @@ color: #6fdfc4;
   }
 
 
-  .delete-thread-button {
+  .delete-card-container {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.2s, visibility 0.2s, transform 0.3s;
@@ -4501,11 +4667,6 @@ color: #6fdfc4;
 
 
 
-  .section-header h3 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-  }
 
   .section-content2 {
     width: 100%;
@@ -4535,7 +4696,7 @@ color: #6fdfc4;
     // border-radius: var(--radius-m);
   }
 
-  .section-icon {
+  .icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4552,9 +4713,6 @@ color: #6fdfc4;
       }
     }
   
-
-
-
   .ai-selector {
     display: flex;
     flex-direction: row;
@@ -4562,16 +4720,11 @@ color: #6fdfc4;
     width: 100%;
   }
 
-  .icon-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
   .tooltip {
     position: absolute;
-    left: 100%;
-    margin-left: 8px;
+    left: 0;
+    margin-left: 18px;
+    margin-top: 50px;
     font-size: 0.7rem;
     white-space: nowrap;
     background-color: var(--secondary-color);
@@ -4582,106 +4735,13 @@ color: #6fdfc4;
     padding: 4px 8px;
     border-radius: var(--radius-s);
     z-index: 2000;
-  }
-
-  .project-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  button.project-button {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: var(--spacing-xs);
-  }
-  
-
-
-  .project-card {
-    display: flex;
-    position: relative;
-    flex-direction: row;
-    align-items: left;    
-    text-align: left;
-    margin-left: 1rem;
-    width: auto;
-    padding: 1rem;
-    // backdrop-filter: blur(8px);
-    // background: var(--bg-gradient-left);
-    // border-bottom: 5px solid var(--bg-color);
-    // border-top: 1px solid var(--bg-color);
-    // border-left: 5px solid var(--bg-color);
-    // border-right: 1px solid var(--bg-color);
-    border-radius: var(--radius-m);
-    background: var(--bg-gradient);
-    // border-radius: 10px;
-    transition: all 0.3s ease;
-
-    &:hover {
-        backdrop-filter: blur(8px);
-        background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
-        transform: translateX(2px);
-        opacity: 1;
-        visibility: visible;
-        box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-      }
-    &.active {
-      background: var(--primary-color);
-      // border-left: 3px solid var(--primary-color);
-      color: var(--text-color);
-    }
-  }
-
-  .project-title {
-    font-weight: 300;
-    color: var(--text-color);
-    font-size: 1.5rem;
-    display: flex;
-    width: auto;
-  }
-
-  .project-actions {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  button.action-btn {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    color: transparent;
-    height: 100%;
-    width: 100%;
-    transition: all 0.1s ease;
-
-    &:hover {
-      color: var(--tertiary-color);
-
-    &.delete {
-      &:hover {
-        color: red;
-      }
-    }
-    }
+    transition: all 0.2s ease ;
   }
 
 
 
-  .project-name-input {
-    width: 200px;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-  }
+
+
 
   .create-confirm {
     margin-left: 0.5rem;
@@ -4730,7 +4790,7 @@ color: #6fdfc4;
 
     }
 
-    .thread-card {
+    .card {
       margin-left: 0;
       width: 100%;
     }
@@ -4746,14 +4806,14 @@ color: #6fdfc4;
         border-radius: var(--radius-l);
       }
 
-    .thread-list {
+    .drawer {
       position: relative;
       top: 0;
-      margin-left: 1rem;
+      margin-left:0;
       margin-right:1rem;
       width: auto !important;
       height: auto;
-      align-items: center;
+      align-items: left;
       justify-content: center;
       // margin-bottom: 4rem;
       transform: translateX(-100%);
@@ -4770,7 +4830,7 @@ color: #6fdfc4;
       background: transparent;
     }
 
-    .thread-title {
+    .card-title {
       font-size: 1.5rem;
       font-style: bold;
     }
@@ -4806,14 +4866,14 @@ color: #6fdfc4;
       margin-left: 0;
     }
 
-    .thread-list-visible .thread-list {
+    .drawer-visible .drawer {
       transform: translateX(0);
     }
 
-    .thread-list-visible .chat-container {
+    .drawer-visible .chat-container {
       display: none;
     }
-    .thread-list-visible .thread-toggle {
+    .drawer-visible .thread-toggle {
       left: 10px;
     }
 
@@ -4829,14 +4889,14 @@ color: #6fdfc4;
       padding: 10px;
       border-radius: 5px;
     }
-  .threads-container {
+  .drawer-container {
       /* background-color: red; */
       width: auto;
       margin-right: 2rem;
       
 
     }
-  .thread-list {
+  .drawer {
       width: 100%;
       padding: 0;
 
@@ -4844,13 +4904,13 @@ color: #6fdfc4;
     
 
 
-    .thread-list-visible .chat-container {
+    .drawer-visible .chat-container {
       margin-left: 0;
       display: none;
       
     }
 
-    .thread-list-visible .thread-toggle {
+    .drawer-visible .thread-toggle {
       left: 10px;
     }
 
@@ -4949,17 +5009,17 @@ color: #6fdfc4;
   }
 
 @media (min-width: 769px) {
-  .threads-container {
+  .drawer-container {
     display: flex;
     margin-right: 1rem;
   }
 
-  .thread-list {
-    width: 300px;
-    transform: translateX(0);
-  }
+  // .drawer {
+  //   width: 250px;
+  //   transform: translateX(0);
+  // }
 
-  .thread-list-visible .chat-container {
+  .drawer-visible .chat-container {
     margin-left: 364px;
 
     position: absolute;
@@ -5022,10 +5082,10 @@ color: #6fdfc4;
     padding-right: 2rem !important;
   }
 
-  .thread-list-visible .chat-messages {
+  .drawer-visible .chat-messages {
   }
 
-  .thread-list-visible .chat-placeholder {
+  .drawer-visible .chat-placeholder {
     justify-content: center;
     align-items: center;
 
@@ -5036,7 +5096,7 @@ color: #6fdfc4;
   }
 
 
-//   button.new-button  {
+//   button.add  {
 //     border-radius: 15px;
 //     padding: 5px 10px;
 //     font-size: 12px;
@@ -5167,7 +5227,7 @@ color: #6fdfc4;
     left: 0;
   }
 
-  .thread-list-visible .chat-container {
+  .drawer-visible .chat-container {
     right: 0;
     margin-right: 0;
     width: auto;
@@ -5192,7 +5252,7 @@ color: #6fdfc4;
     
   }
 
-  .thread-list-visible .chat-messages {
+  .drawer-visible .chat-messages {
     margin-left: 0 !important;
     bottom: 0;
     left: 0;
@@ -5209,7 +5269,7 @@ color: #6fdfc4;
   }
 
   
-  .thread-list-visible .chat-placeholder {
+  .drawer-visible .chat-placeholder {
     right: 0;
     margin-right: 1rem;
     width: auto;
@@ -5351,7 +5411,7 @@ color: #6fdfc4;
 @media (max-width: 450px) {
 
 
-  .threads-container {
+  .drawer-container {
     margin-right: 0 !important;
     margin-left: 0;
     right: 0 !important;
@@ -5382,14 +5442,14 @@ color: #6fdfc4;
     
   }
 
-  .thread-catalog {
+  .drawer-list {
     margin-top: 0 !important;
     top: 0 !important;
     
 
   }
 
-  .thread-list {
+  .drawer {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -5414,7 +5474,7 @@ color: #6fdfc4;
     scroll-behavior: smooth;
   }
 
-  // .thread-list {
+  // .drawer {
   //   display: flex;
   //   flex-direction: column;
   //   justify-content: flex-start;
@@ -5463,7 +5523,7 @@ color: #6fdfc4;
 
   }
 
-  .section-header {
+  .drawer-header {
     width: auto;
     margin-right: 2rem;
     height: 30px;
@@ -5483,7 +5543,7 @@ color: #6fdfc4;
     border-radius: var(--radius-l);
   }
 
-  .section-header:hover {
+  .drawer-header:hover {
     // background-color: var(--hover-color);
   }
 
@@ -5494,7 +5554,7 @@ color: #6fdfc4;
     width: 100%;
   }
 
-  .section-header h3 {
+  .drawer-header h3 {
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
@@ -5509,7 +5569,7 @@ color: #6fdfc4;
     // border-radius: var(--radius-m);
   }
 
-  .section-icon {
+  .icon {
     display: flex;
     align-items: center;
   }
@@ -5529,7 +5589,7 @@ color: #6fdfc4;
 
 
 
-.search-bar {
+.drawer-input {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);

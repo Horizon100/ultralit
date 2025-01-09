@@ -154,7 +154,8 @@ $themes: (
       --tertiary-color: #{map-get($colors, tertiary-color)};
       
       // Typography
-      --font-size-xs:  0.85rem;
+      --font-size-xss: 0.5rem;
+      --font-size-xs:  0.75rem;
       --font-size-s: 1rem;
       --font-size-sm: 1.25rem;
       --font-size-m: 1.5rem;
