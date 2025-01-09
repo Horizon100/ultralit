@@ -1645,12 +1645,12 @@ onMount(async () => {
       username = $currentUser.username || $currentUser.email;
     }
 
-    console.log('Loading projects and threads...');
+    // console.log('Loading projects and threads...');
     await Promise.all([
       projectStore.loadProjects(),
       threadsStore.loadThreads(),
-      initializeExpandedGroups(orderedGroupedThreads),
-      initializeThreadsAndMessages()
+      // initializeExpandedGroups(orderedGroupedThreads),
+      // initializeThreadsAndMessages()
     ]);
 
     if (textareaElement) {
@@ -1675,6 +1675,7 @@ onMount(async () => {
   });
 
   onDestroy(() => {
+    currentProjectId = null;
     currentThreadId = null;
     if (hideTimeout) {
       clearTimeout(hideTimeout);
@@ -1701,9 +1702,9 @@ onMount(async () => {
 
   {#if $threadsStore.showThreadList}
     <div class="thread-list" transition:fly="{{ x: -300, duration: 300 }}">
-      <h2>
+      <!-- <h2>
         {$t('threads.threadHeader')}
-      </h2>
+      </h2> -->
         <div class="thread-catalog" in:fly={{duration: 200}} out:fade={{duration: 200}}>
           <div class="section-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <button 
@@ -1714,6 +1715,9 @@ onMount(async () => {
                 // Reset project selection when going back to project list
                 projectStore.setCurrentProject(null);
                 currentProjectId = null;
+                threadsStore.setCurrentThread(null);
+                currentThreadId = null;
+
                 // Clear project-specific threads
                 threadsStore.update(state => ({...state, threads: []}));
               }
@@ -1722,6 +1726,7 @@ onMount(async () => {
                 isThreadListVisible = false;
                 // Reload all projects to ensure fresh data
                 projectStore.loadProjects();
+                
               }
             }}
           >
@@ -1736,14 +1741,21 @@ onMount(async () => {
               {/if}
              </span>
            </button>
-            <button 
-              class="new-button"
-              class:active={isThreadListVisible} 
-              on:click={() => {
-                isThreadListVisible = !isThreadListVisible;
-                if (isThreadListVisible) isProjectListVisible = false;
-              }}
-            >
+           <button 
+           class="new-button"
+           class:active={isThreadListVisible} 
+           on:click={() => {
+             isThreadListVisible = !isThreadListVisible;
+             if (isThreadListVisible) {
+               isProjectListVisible = false;
+               // Reset project selection
+               projectStore.setCurrentProject(null);
+               currentProjectId = null;
+               // Reload all threads
+               threadsStore.loadThreads();
+             }
+           }}
+         >
               <span 
                 class="section-icon"
                 class:active={isThreadListVisible}
@@ -1904,7 +1916,10 @@ onMount(async () => {
               <span 
                 class="section-icon" 
                 class:active={isExpanded} 
-                on:click={() => isExpanded = !isExpanded}
+                on:click={() => {
+                  console.log('Search icon clicked, isExpanded:', !isExpanded);
+                  isExpanded = !isExpanded;
+                }}
                 on:mouseenter={() => searchHovered = true}
                 on:mouseleave={() => searchHovered = false}
               >
@@ -1921,9 +1936,16 @@ onMount(async () => {
                   type="text"
                   bind:value={searchQuery}
                   placeholder="Search..."
-                  on:input={() => threadsStore.setSearchQuery(searchQuery)}
+                  on:input={() => {
+                    console.log('Search query changed:', searchQuery);
+                    console.log('Before setSearchQuery call');
+                    threadsStore.setSearchQuery(searchQuery);
+                    console.log('After setSearchQuery call');
+                  }}                  
                   on:blur={() => {
+                    console.log('Search input blur, searchQuery:', searchQuery);
                     if (!searchQuery) {
+                      console.log('Clearing search, collapsing input');
                       isExpanded = false;
                     }
                   }}
@@ -1932,103 +1954,104 @@ onMount(async () => {
               {/if}
             </div>
           </div>
-          {#if isSearchActive}
-          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-                {#each (isSearchActive ? $searchedThreads : threads) as thread (thread.id)}
+            <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+              {#each orderedGroupedThreads as { group, threads }}
+              <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                 <button 
+                  class="thread-group-header"
+                  on:click={() => toggleGroup(group)}
+                >
+                  <div class="group-header-content">
+                    <span class="group-icon">
+                      {#if $expandedGroups[group]}
+                        <!-- <ChevronDown size={20} /> -->
+                        <span class="group-title-active">{group}</span>
+                        <span class="thread-count-active">({threads.length})</span>
+                      {:else}
+                        <ChevronRight size={20} />
+                        <span class="group-title">{group}</span>
+                        <span class="thread-count">({threads.length})</span>
+
+                      {/if}
+                    </span>
+                  </div>
+                </button>
+          
+                {#if $expandedGroups[group]}
+                  <div class="thread-list" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                    {#each threads as thread (thread.id)}
+                      <button 
                         class="thread-button"
                         class:selected={currentThreadId === thread.id}
                         on:click={() => handleLoadThread(thread.id)}
-                    >
+                      >
                         <div class="thread-card" 
                             class:active={currentThreadId === thread.id}
                             in:fade
-                        >
-                            <span class="thread-title">{thread.name}</span>
-                            <!-- <span class="thread-message">
-                                {thread.last_message?.content || 'No messages yet'}
-                            </span> -->
-                            <span class="thread-time">
+                          >
+                          {#if namingThreadId === thread.id}
+                            <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                              <Bot size={30} class="bot-icon" />
+                            </div>
+                          {:else}
+                            <div in:fade>
+                              <span class="thread-title">{thread.name}</span>
+                              <span class="thread-time">
                                 {new Date(thread.updated).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
                                 })}
-                            </span>
-                            <span 
+                              </span>
+                              <span 
                                 class="delete-thread-button" 
                                 on:click={(e) => handleDeleteThread(e, thread.id)}
-                            >
-                                <X size={14} />
-                            </span>
+                              >
+                                <Trash2 size={14} />
+                              </span>
+                            </div>
+                          {/if}
                         </div>
-                    </button>
-                {/each}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+              {#each $searchedThreads as thread (thread.id)}
+
+                  <button 
+                          class="thread-button"
+                          class:selected={currentThreadId === thread.id}
+                          on:click={() => handleLoadThread(thread.id)}
+                      >
+                          <div class="thread-card" 
+                              class:active={currentThreadId === thread.id}
+                              in:fade
+                          >
+                              <span class="thread-title">{thread.name}</span>
+                              <!-- <span class="thread-message">
+                                  {thread.last_message?.content || 'No messages yet'}
+                              </span> -->
+                              <span class="thread-time">
+                                  {new Date(thread.updated).toLocaleTimeString([], { 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                  })}
+                              </span>
+                              <span 
+                                  class="delete-thread-button" 
+                                  on:click={(e) => handleDeleteThread(e, thread.id)}
+                              >
+                                  <X size={14} />
+                              </span>
+                          </div>
+                      </button>
+              {/each}
             </div>
               {:else}
-                {#each orderedGroupedThreads as { group, threads }}
-                  <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                    <button 
-                      class="thread-group-header"
-                      on:click={() => toggleGroup(group)}
-                    >
-                      <div class="group-header-content">
-                        <span class="group-icon">
-                          {#if $expandedGroups[group]}
-                            <!-- <ChevronDown size={20} /> -->
-                            <span class="group-title-active">{group}</span>
-                            <span class="thread-count-active">({threads.length})</span>
-                          {:else}
-                            <ChevronRight size={20} />
-                            <span class="group-title">{group}</span>
-                            <span class="thread-count">({threads.length})</span>
-
-                          {/if}
-                        </span>
-                      </div>
-                    </button>
               
-                      {#if $expandedGroups[group]}
-                        <div class="thread-list" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                          {#each threads as thread (thread.id)}
-                            <button 
-                              class="thread-button"
-                              class:selected={currentThreadId === thread.id}
-                              on:click={() => handleLoadThread(thread.id)}
-                            >
-                              <div class="thread-card" 
-                                  class:active={currentThreadId === thread.id}
-                                  in:fade
-                                >
-                                {#if namingThreadId === thread.id}
-                                  <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                                    <Bot size={30} class="bot-icon" />
-                                  </div>
-                                {:else}
-                                  <div in:fade>
-                                    <span class="thread-title">{thread.name}</span>
-                                    <span class="thread-time">
-                                      {new Date(thread.updated).toLocaleTimeString([], { 
-                                        hour: '2-digit', 
-                                        minute: '2-digit' 
-                                      })}
-                                    </span>
-                                    <span 
-                                      class="delete-thread-button" 
-                                      on:click={(e) => handleDeleteThread(e, thread.id)}
-                                    >
-                                      <Trash2 size={14} />
-                                    </span>
-                                  </div>
-                                {/if}
-                              </div>
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                  </div>
-                {/each}
+ 
               {/if}
-          {/if}
         </div>
     </div>
       {/if}
@@ -2071,13 +2094,7 @@ onMount(async () => {
 
 
           <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
-            {#if isLoadingMessages}
-              <div class="loading-overlay">
-                <div class="spinner"></div>
-                <p>{$t('chat.loading')}</p>
-              </div>
-            {/if}
-            <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+
               {#if isLoadingMessages}
                 <div class="loading-overlay">
                   <div class="spinner"></div>
@@ -2189,7 +2206,6 @@ onMount(async () => {
               <button class="scroll-bottom-btn" on:click={scrollToBottom}>
                 <ChevronDown size={24} />
               </button>
-            </div>
             
           </div>
           
@@ -4568,7 +4584,12 @@ color: #6fdfc4;
     z-index: 2000;
   }
 
-  .project-button {
+  .project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  button.project-button {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -4594,8 +4615,9 @@ color: #6fdfc4;
     // border-top: 1px solid var(--bg-color);
     // border-left: 5px solid var(--bg-color);
     // border-right: 1px solid var(--bg-color);
-    background: var(--bg-gradient-right);
-    border-radius: 10px;
+    border-radius: var(--radius-m);
+    background: var(--bg-gradient);
+    // border-radius: 10px;
     transition: all 0.3s ease;
 
     &:hover {
@@ -4624,14 +4646,29 @@ color: #6fdfc4;
   .project-actions {
     display: flex;
     flex-direction: row;
+    justify-content: center;
+    align-items: center;
     gap: 0.5rem;
-    
   }
 
-  .action-btn {
+  button.action-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    height: 100%;
+    width: 100%;
     transition: all 0.1s ease;
+
     &:hover {
       color: var(--tertiary-color);
+
+    &.delete {
+      &:hover {
+        color: red;
+      }
+    }
     }
   }
 

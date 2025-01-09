@@ -1,4 +1,4 @@
-import type { Messages, Threads, AIModel} from '$lib/types';
+import type { Messages, Threads, AIModel, Projects} from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 // import { fetchNamingResponse } from '$lib/aiClient'
@@ -194,62 +194,89 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
             throw new Error('User ID not found');
         }
 
+        // Create base thread data
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
             op: userId,
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
             tags: [],
-            current_thread: '',
-            ...(threadData.project_id && { project_id: threadData.project_id })
+            current_thread: ''
         };
 
-        console.log('Creating thread with data:', newThread);
-        
-        // Add retry logic for create operation
-        let retries = 3;
-        let createdThread = null;
-        
-        while (retries > 0 && !createdThread) {
+        // Only add project_id if it exists and is not undefined/null
+        if (threadData.project_id) {
             try {
-                createdThread = await pb.collection('threads').create<Threads>(newThread);
-                break;
-            } catch (e) {
-                retries--;
-                if (retries === 0) throw e;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await pb.collection('projects').getOne<Projects>(threadData.project_id);
+                newThread.project_id = threadData.project_id;
+            } catch (error) {
+                console.error('Project validation failed:', error);
+                throw new Error(`Invalid project_id or project not found: ${error.message}`);
             }
         }
 
-        if (!createdThread) {
-            throw new Error('Failed to create thread after retries');
+        console.log('Attempting to create thread with data:', newThread);
+        
+        let createdThread: Threads | null = null;
+        
+        try {
+            createdThread = await pb.collection('threads').create<Threads>(newThread);
+            console.log('Successfully created thread:', createdThread);
+        } catch (error) {
+            console.error('Failed to create thread:', error);
+            if (error instanceof ClientResponseError) {
+                console.error('Response details:', {
+                    status: error.status,
+                    message: error.message,
+                    data: error.data,
+                    url: error.url
+                });
+            }
+            throw error;
+        }
+
+        if (!createdThread || !createdThread.id) {
+            throw new Error('Thread creation failed - no thread ID returned');
         }
 
         // If this thread belongs to a project, update the project's threads array
         if (createdThread.project_id) {
             try {
                 const project = await pb.collection('projects').getOne<Projects>(createdThread.project_id);
-                const updatedThreads = [...(project.threads || []), createdThread.id];
+                const updatedThreads = Array.isArray(project.threads) 
+                    ? [...project.threads, createdThread.id]
+                    : [createdThread.id];
+                
                 await pb.collection('projects').update(createdThread.project_id, {
                     threads: updatedThreads
                 });
+                console.log('Successfully updated project with new thread');
             } catch (error) {
-                console.error('Error updating project threads:', error);
+                console.error('Project update failed:', error);
+                // Clean up the created thread
+                try {
+                    await pb.collection('threads').delete(createdThread.id);
+                    console.log('Cleaned up thread after project update failure');
+                } catch (cleanupError) {
+                    console.error('Failed to cleanup thread:', cleanupError);
+                }
+                throw new Error(`Failed to update project with new thread: ${error.message}`);
             }
         }
 
-        // Fetch the final thread state with expanded fields
-        try {
-            const finalThread = await pb.collection('threads').getOne<Threads>(createdThread.id, {
-                expand: 'last_message,project_id'
-            });
-            return finalThread;
-        } catch (error) {
-            console.error('Error fetching final thread state:', error);
-            return createdThread; // Return original thread if expanded fetch fails
-        }
+        // Return the created thread without trying to fetch it again
+        return createdThread;
+
     } catch (error) {
-        console.error('Error creating thread:', error);
+        console.error('Thread creation failed:', error);
+        if (error instanceof ClientResponseError) {
+            console.error('PocketBase error details:', {
+                status: error.status,
+                message: error.message,
+                data: error.data,
+                url: error.url
+            });
+        }
         throw error;
     }
 }
