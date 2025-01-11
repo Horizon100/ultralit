@@ -352,8 +352,7 @@
         /* gap: 20px; */
         /* height: 50px; */
         /* padding: 10px 20px; */
-        background-color: transparent;
-        transition: all 0.3s ease;
+    transition: all 0.3s ease;
 
 
     }

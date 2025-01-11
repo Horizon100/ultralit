@@ -170,34 +170,37 @@
         <LogIn size={24} />
       {/if}
     </button>
-
+    {#if $currentUser}
+    <div class="navigation-buttons" class:hidden={isNarrowScreen}>
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/'} 
+        on:click={() => navigateTo('/')}
+      >
+        <MessageSquare size={24} />
+      </button>
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/launcher'}
+        on:click={() => navigateTo('/launcher')}
+      >
+        <Drill size={24} />
+      </button>
+      <button 
+        class="nav-button" 
+        class:active={currentPath === '/notes'}
+        on:click={() => navigateTo('/notes')}
+      >
+        <NotebookTabs size={24} />
+      </button>
+    </div>
+    <button class="nav-button">
+      <TimeTracker />
+    </button>
+  {/if}
     <!-- Navigation Buttons -->
      
-    {#if $currentUser}
-      <div class="navigation-buttons" class:hidden={isNarrowScreen}>
-        <button 
-          class="nav-button" 
-          class:active={currentPath === '/'} 
-          on:click={() => navigateTo('/')}
-        >
-          <MessageSquare size={24} />
-        </button>
-        <button 
-          class="nav-button" 
-          class:active={currentPath === '/launcher'}
-          on:click={() => navigateTo('/launcher')}
-        >
-          <Drill size={24} />
-        </button>
-        <button 
-          class="nav-button" 
-          class:active={currentPath === '/notes'}
-          on:click={() => navigateTo('/notes')}
-        >
-          <NotebookTabs size={24} />
-        </button>
-      </div>
-    {/if}
+
   </div>
 
   <div class="middle-buttons">
@@ -208,11 +211,8 @@
   
   <div class="bottom-buttons">
     {#if showBottomButtons}
-      {#if $currentUser}
-        <button class="nav-button">
-          <TimeTracker />
-        </button>
-      {/if}
+
+
       <!-- Language Toggle -->
       <button class="nav-button" on:click={handleLanguageChange}>
         <!-- <Languages size={24} /> -->
@@ -329,7 +329,7 @@
   }
 
   .sidenav:hover {
-    backdrop-filter: blur(10px);
+    /* backdrop-filter: blur(10px); */
   }
 
   .navigation-buttons {
@@ -377,14 +377,14 @@
     }
   .profile-overlay {
         position: fixed;
-        top: 4rem;
+        top: 0;
         left: 0;
         width: 100%;
         height: 100%;
         display: flex;
 		flex-grow: 1;
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
-    backdrop-filter: blur(5px);          
+    backdrop-filter: blur(10px);
     justify-content: center;
         align-items: center;
         z-index: 1002;
@@ -396,6 +396,7 @@
 		width: auto;
     height: auto;
 		top: 0;
+    bottom: auto;
     /* right: 0; */
     /* background-color: #2b2a2a; */
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
@@ -638,7 +639,7 @@
       bottom: 5rem;
       padding: 0.5rem;
       background: transparent;
-      backdrop-filter: blur(10px);
+      /* backdrop-filter: blur(10px); */
     }
 
     .navigation-buttons {
