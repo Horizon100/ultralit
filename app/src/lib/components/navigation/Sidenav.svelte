@@ -560,7 +560,7 @@
   }
 
   .nav-button.active {
-    background: var(--accent-color, #4a9eff);
+    background: var(--tertiary-color);
     box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
   }
 

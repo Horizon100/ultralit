@@ -738,7 +738,7 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
   function resetTextareaHeight() {
     if (textareaElement) {
       textareaElement.style.height = defaultTextareaHeight;
-      textareaElement.style.height = ''; 
+      textareaElement.style.height = '60px'; 
     }
   }
   const handleTextareaFocus = () => {
@@ -2152,7 +2152,7 @@ onMount(async () => {
                   <div class="chat-placeholder"
                   class:drawer-visible={$threadsStore.showThreadList}
                   >              
-                    <h3>{$t('threads.selectThread')}</h3>
+                    {$t('threads.selectThread')}
                   </div>
                 {/if}
               </div>
@@ -3178,9 +3178,10 @@ onMount(async () => {
     margin-bottom: 0;
     // background: var(--bg-gradient);
     backdrop-filter: blur(4px);
-    justify-content: top;
+    justify-content: flex-end;
     align-items: center;
     // background: var(--bg-gradient);
+    z-index: 3000;
 
     &::placeholder {
       color: var(--placeholder-color);
@@ -3272,7 +3273,7 @@ onMount(async () => {
   // backdrop-filter: blur(40px);
   & textarea {
     border-top: 1px solid var(--primary-color) !important;
-
+    max-height: 50vh;
   
   :focus {
     background: var(--bg-gradient-left);
@@ -3661,14 +3662,14 @@ color: #6fdfc4;
     height: 3rem;
     padding-left: 3rem;
     position: absolute;
-    background: var(--bg-gradient-r);
-    border-radius: 2rem;
+    background: var(--primary-color);
+    border-top-left-radius: var(--radius-m);
+    border-top-right-radius: var(--radius-m);
     top: 0 !important;
     left: 0;
     right: 1rem;
     width: auto;
     // padding: 1rem 0.5rem;
-    cursor: pointer;
     color: var(--text-color);
     text-align: left;
     align-items: center;
@@ -3820,6 +3821,10 @@ color: #6fdfc4;
     justify-content: flex-start;
     border-radius: var(--radius-m);
     transition: all 0.2s ease;
+
+    & input {
+      width: 100%;
+    };
   }
 
 .drawer-input {
@@ -3827,6 +3832,7 @@ color: #6fdfc4;
   flex-direction: row;
   align-items: center;
   // padding: 0.75rem 0;
+  width: 200px;
   gap: 0.5rem;
   border-radius: var(--radius-m);
   height: auto;
@@ -3864,7 +3870,9 @@ color: #6fdfc4;
       border-radius: var(--radius-m);
       padding-left: 1rem;
       outline: none;
-      width: 150px;
+      margin-left: 0;
+      margin-right: 0;
+      width: auto;
       color: var(--text-color);
       transition: all 0.3s ease;
       &::placeholder {
@@ -4237,14 +4245,20 @@ color: #6fdfc4;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-m);
   top: 0;
+  background: var(--primary-color);
   bottom: 0;
   height: 84vh;
-
+  user-select: none;
   position: absolute;
   width: auto;
   left: 0;
   right: 0;
+
+  & h3 {
+    user-select: none;
+  }
 }
 
 
@@ -4825,7 +4839,7 @@ color: #6fdfc4;
     border-top-right-radius: 50px;
     border-bottom-right-radius: 50px;
     color: white;
-    z-index: 1000;
+    z-index: 4000;
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
     border-radius: var(--radius-l);
@@ -4929,8 +4943,9 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content:space-around;
-    width: 100vw;
+    justify-content:flex-start;
+    padding-left: 3rem;
+    width: 100%;
   }
 
   .tooltip {
