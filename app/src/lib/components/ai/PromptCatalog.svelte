@@ -67,7 +67,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/themes.scss" as *;
+	@use "src/styles/themes.scss" as *;
   * {
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', sans-serif; */
@@ -80,12 +80,13 @@
     display: flex;
     position: relative;
     border-top-left-radius: var(--radius-m);
-    width: 96%;
+    width: 100%;
     justify-content: center;
     align-items: center;
     margin-bottom: 1rem;
-    
-
+    background: var(--bg-gradient-r);
+    // backdrop-filter: blur(100px);
+    border-radius: var(--radius-m);
   }
 
   .prompt-grid-container {
@@ -94,8 +95,8 @@
     gap: var(--spacing-xs);
     width: 100%;
     height: auto;
-    box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(100px);
+    // box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
+    // backdrop-filter: blur(100px);
     margin: 1rem;
     padding: 1rem;
     border-radius: var(--radius-m);

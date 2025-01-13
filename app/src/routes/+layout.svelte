@@ -79,11 +79,8 @@
             unsubscribe();
         };
     });
-
 	async function handleLanguageChange() {
-		showLanguageNotification = false; // Reset notification state
-		await tick(); // Wait for the DOM to update
-		await new Promise(resolve => setTimeout(resolve, 10)); // Small delay to ensure reset
+		showLanguageNotification = true;
 
 		const currentLang = $currentLanguage;
 		const currentIndex = languages.findIndex(lang => lang.code === currentLang);
@@ -93,16 +90,39 @@
 		await setLanguage(nextLanguage.code);
 		selectedLanguageName = nextLanguage.name;
 		
-		await tick(); // Wait for the DOM to update after language change
-		// await new Promise(resolve => setTimeout(resolve, 10)); // Delay before showing notification
+		await tick();
 		
 		setTimeout(() => {
-			showLanguageNotification = true;
+		showLanguageNotification = true;
 		}, 0);
 		setTimeout(() => {
-			showLanguageNotification = false;
+		showLanguageNotification = false;
 		}, 600);
 	}
+
+	// async function handleLanguageChange() {
+	// 	showLanguageNotification = false; // Reset notification state
+	// 	await tick(); // Wait for the DOM to update
+	// 	await new Promise(resolve => setTimeout(resolve, 10)); // Small delay to ensure reset
+
+	// 	const currentLang = $currentLanguage;
+	// 	const currentIndex = languages.findIndex(lang => lang.code === currentLang);
+	// 	const nextIndex = (currentIndex + 1) % languages.length;
+	// 	const nextLanguage = languages[nextIndex];
+
+	// 	await setLanguage(nextLanguage.code);
+	// 	selectedLanguageName = nextLanguage.name;
+		
+	// 	await tick(); // Wait for the DOM to update after language change
+	// 	// await new Promise(resolve => setTimeout(resolve, 10)); // Delay before showing notification
+		
+	// 	setTimeout(() => {
+	// 		showLanguageNotification = true;
+	// 	}, 0);
+	// 	setTimeout(() => {
+	// 		showLanguageNotification = false;
+	// 	}, 600);
+	// }
 
 	onMount(() => {
         return currentTheme.subscribe(theme => {
@@ -168,8 +188,15 @@
 
 <div class="app-container {$currentTheme}">
     <header>
+
 		<nav style="z-index: 1000;">
-			
+			<TimeTracker />
+			<button class="nav-button" on:click={handleLanguageChange}>
+				<!-- <Languages size={24} /> -->
+				<!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
+				<span>{$t('lang.flag')}</span>
+		
+			  </button>
             {#if isNarrowScreen}
                 <!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
@@ -179,6 +206,7 @@
                     {/if}
                 </button> -->
             {:else}
+			
 			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 			{#if $currentUser}
 			{:else}
@@ -284,7 +312,7 @@
 
 
 <style lang="scss">
-	@use "src/themes.scss" as *;
+	@use "src/styles/themes.scss" as *;
 	* {
 	//   font-family: 'Source Code Pro', monospace;
 	font-family: var(--font-family);
@@ -292,6 +320,24 @@
 
 	}
 
+	.nav-button {
+		    color: var(--text-color);
+    background: var(--bg-gradient-right);
+    padding: 4px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 50px;
+    height: 50px;
+    padding: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    overflow: hidden;
+    user-select: none;
+	}
 	main {
         background: var(--bg-gradient-r);
 		color: var(--text-color);
@@ -299,7 +345,7 @@
 		height: 100%;
 		height: auto;
 		left: 0;
-		top: 60px;
+		top: 3rem;
 		bottom: 0;
 		position: fixed;
 		display: flex;
@@ -327,7 +373,7 @@
     }
 	.app-container {
 	  display: flex;
-	  flex-direction: column;
+
 	  /* justify-content: center; */
 	  /* align-items: center; */
 	  overflow: hidden;
@@ -365,7 +411,7 @@
 	  /* height: 80px; */
 	  /* margin-top: 0; */
 	  /* align-items: center; */
-	  height: 60px;
+	  height: auto;
 	  /* padding: 5px 5px; */
         background: var(--bg-gradient);
 	  /* z-index: 100;; */
@@ -962,9 +1008,9 @@
 		height: 100%;
 		height: auto;
 		left: 0;
-		top: 0;
+		top: 3rem;
 		bottom: 0;
-		position: absolute;
+		position: fixed;
 		display: flex;
 		flex-grow: 1;
 

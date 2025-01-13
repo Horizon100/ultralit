@@ -315,7 +315,7 @@ export const expandedSections = writable<ExpandedSections>({
   ];
 
 
-  const isMobileScreen = () => window.innerWidth < 768;
+  const isMobileScreen = () => window.innerWidth < 1000;
 
   
 
@@ -2101,7 +2101,7 @@ onMount(async () => {
         </div>
     </div>
       {/if}
-      <div class="chat-container" on:scroll={handleScroll}>
+      <div class="chat-container" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
 
 
 
@@ -2113,53 +2113,51 @@ onMount(async () => {
                   <p>{$t('chat.loading')}</p>
                 </div>
               {/if}
-
-              <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                <div class="chat-header" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
-                  {#if currentThread}
-                    <div class="drawer-tab" transition:slide={{duration: 300, easing: cubicOut}}>
-        
-                      <!-- <button class="btn-back" on:click={goBack}>
-                        <ArrowLeft />
-                      </button> -->
-                      
-                      {#if isEditingThreadName}
-                        <input 
-                          class="tag-item"
-                          transition:fade={{duration: 300, easing: cubicOut}}
-                          bind:value={editedThreadName}
-                          on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-                          on:blur={submitThreadNameChange}
-                          autofocus
-                        />
-                        <span class="save-button" on:click={submitThreadNameChange}>
-                          <Save />
-                        </span>
-                      {:else}
-                      <!-- <div class="drawer-tab">
-                        <span class="icon">
-                          <h3>
-                            /
-                          </h3>
-                        </span>
-                      </div> -->
-                      <span class="icon" on:click={startEditingThreadName}>
+              <div class="chat-header" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
+                {#if currentThread}
+      
+                    <!-- <button class="btn-back" on:click={goBack}>
+                      <ArrowLeft />
+                    </button> -->
+                    
+                    {#if isEditingThreadName}
+                      <input 
+                        class="tag-item"
+                        transition:fade={{duration: 300, easing: cubicOut}}
+                        bind:value={editedThreadName}
+                        on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
+                        on:blur={submitThreadNameChange}
+                        autofocus
+                      />
+                      <span class="save-button" on:click={submitThreadNameChange}>
+                        <Save />
+                      </span>
+                    {:else}
+                    <!-- <div class="drawer-tab">
+                      <span class="icon">
                         <h3>
-                          {currentThread.name}
+                          /
                         </h3>
                       </span>
-                      {/if}
-                    </div>
-                    {#if !isMinimized}
+                    </div> -->
+                    <span class="icon" on:click={startEditingThreadName}>
+                      <h3>
+                        {currentThread.name}
+                      </h3>
+                    </span>
                     {/if}
-                  {:else}
-                    <div class="chat-placeholder"
-                    class:drawer-visible={$threadsStore.showThreadList}
-                    >              
-                      <h3>{$t('threads.selectThread')}</h3>
-                    </div>
+                  {#if !isMinimized}
                   {/if}
-                </div>
+                {:else}
+                  <div class="chat-placeholder"
+                  class:drawer-visible={$threadsStore.showThreadList}
+                  >              
+                    <h3>{$t('threads.selectThread')}</h3>
+                  </div>
+                {/if}
+              </div>
+              <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+
                 {#each groupMessagesByDate(chatMessages) as { date, messages }}
                   <div class="date-divider">
                     {formatDate(date)}
@@ -2263,142 +2261,147 @@ onMount(async () => {
                   <ChevronDown size={24} />
                 </button>
               </div>
-
+              <div class="input-container"  transition:slide={{duration: 300, easing: cubicOut}}>
+                <!-- Prompts Section -->
+                 <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+        
+        
+                  <textarea 
+                    bind:this={textareaElement}
+                    bind:value={userInput}
+                    on:input={(e) => adjustFontSize(e.target)}
+                    on:keydown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        !isLoading && handleSendMessage();
+                      }
+                    }}      
+                    on:focus={handleTextareaFocus}
+                    on:blur={handleTextareaBlur}
+                    placeholder={$t('chat.placeholder')}
+                    disabled={isLoading}
+                    rows="1"
+                  />
+                  <div>
+                    <div class="submission">
+                      <span class="btn" >
+                        <Paperclip size="30"  />
+                      </span>
+          
+                      {#if isTextareaFocused}
+                      <span 
+                        class="btn send-btn" 
+                        class:visible={isTextareaFocused}
+                        transition:slide
+                        on:click={() => !isLoading && handleSendMessage()} 
+                        disabled={isLoading}
+                      >
+                        <Send />
+                      </span>
+                    {/if}
+                  </div>
+                  </div>
+                </div>
+    
+                  <div class="ai-selector">
+        
+                    <button 
+                    class="btn-ai"
+                    on:click={() => toggleSection('prompts')}
+                  >
+                    <div class="section-header-content">
+                      <span class="icon">
+                        {#if $expandedSections.prompts}
+                        <!-- <Command size={30} /> -->
+                        {:else}
+                        <!-- <Command size={20} /> -->
+                        {/if}
+                      </span>
+                      {#if selectedPromptLabel}
+                        {#if selectedIcon}
+                        <div class="icon-wrapper">
+                          <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                        </div>
+                      {/if}
+                        <!-- <h3>{$t('chat.prompts')}</h3> -->
+                        <p class="selector-lable">{selectedPromptLabel}</p>
+                      {:else}
+                        <!-- <Command size={20} /> -->
+                        <!-- <h3>{$t('chat.prompts')}</h3> -->
+                      {/if}
+                    </div>
+                  </button>
+            
+                    {#if $expandedSections.prompts}
+                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                        <PromptCatalog 
+                        on:select={(event) => {
+                          // Close the prompt catalog by updating the expanded sections store
+                          expandedSections.update(sections => ({
+                            ...sections,
+                            prompts: false
+                          }));
+                          
+                          // Update the selected prompt
+                          showPromptCatalog = false;
+                          console.log('Parent received selection from catalog:', event.detail);
+                        }}
+                      />
+                      </div>
+                    {/if}
+            
+                    <!-- Models Section -->
+                    <button 
+                    class="btn-ai"
+                    on:click={() => toggleSection('models')}
+                    >
+                    <div class="section-header-content">
+                      <span class="icon">
+                        {#if $expandedSections.models}
+                        <Brain size={20} />
+                        {:else}
+                        <Brain size={20} />
+                        {/if}
+                      </span>
+                      {#if selectedModelLabel}
+                        <!-- <h3>{$t('chat.models')}</h3> -->
+                        <p class="selector-lable">{selectedModelLabel} </p>
+                      {:else}
+                        <!-- <p>{$t('chat.models')}</p> -->
+                      {/if}
+                    </div>
+                    </button>
+            
+                
+                    {#if $expandedSections.models}
+                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                        <ModelSelector
+                          on:select={(event) => {
+                            showModelSelector = !showModelSelector;
+                            console.log('Parent received selection from catalog:', event.detail);
+                          }}
+                        />
+                      </div>
+                    {/if}
+            
+                      
+                    </div>
+    
+        
+        
+    
+        
+                  </div>
             
           </div>
+
           
         </div>
       </div>  
 
 
 
-      <div class="input-container">
-        <!-- Prompts Section -->
-         <div class="combo-input">
 
-
-          <textarea
-            bind:this={textareaElement}
-            bind:value={userInput}
-            on:input={(e) => adjustFontSize(e.target)}
-            on:keydown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                !isLoading && handleSendMessage();
-              }
-            }}      
-            on:focus={handleTextareaFocus}
-            on:blur={handleTextareaBlur}
-            placeholder={$t('chat.placeholder')}
-            disabled={isLoading}
-            rows="1"
-          />
-          <div class="ai-selector">
-
-            <button 
-            class="btn-ai"
-            on:click={() => toggleSection('prompts')}
-          >
-            <div class="section-header-content">
-              <span class="icon">
-                {#if $expandedSections.prompts}
-                <!-- <Command size={30} /> -->
-                {:else}
-                <!-- <Command size={20} /> -->
-                {/if}
-              </span>
-              {#if selectedPromptLabel}
-                {#if selectedIcon}
-                <div class="icon-wrapper">
-                  <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                </div>
-              {/if}
-                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                <p class="selector-lable">{selectedPromptLabel}</p>
-              {:else}
-                <!-- <Command size={20} /> -->
-                <!-- <h3>{$t('chat.prompts')}</h3> -->
-              {/if}
-            </div>
-          </button>
-    
-            {#if $expandedSections.prompts}
-              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                <PromptCatalog 
-                on:select={(event) => {
-                  // Close the prompt catalog by updating the expanded sections store
-                  expandedSections.update(sections => ({
-                    ...sections,
-                    prompts: false
-                  }));
-                  
-                  // Update the selected prompt
-                  showPromptCatalog = false;
-                  console.log('Parent received selection from catalog:', event.detail);
-                }}
-              />
-              </div>
-            {/if}
-    
-            <!-- Models Section -->
-            <button 
-            class="btn-ai"
-            on:click={() => toggleSection('models')}
-            >
-            <div class="section-header-content">
-              <span class="icon">
-                {#if $expandedSections.models}
-                <Brain size={20} />
-                {:else}
-                <Brain size={20} />
-                {/if}
-              </span>
-              {#if selectedModelLabel}
-                <!-- <h3>{$t('chat.models')}</h3> -->
-                <p class="selector-lable">{selectedModelLabel} </p>
-              {:else}
-                <!-- <p>{$t('chat.models')}</p> -->
-              {/if}
-            </div>
-            </button>
-    
-        
-            {#if $expandedSections.models}
-              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                <ModelSelector
-                  on:select={(event) => {
-                    showModelSelector = !showModelSelector;
-                    console.log('Parent received selection from catalog:', event.detail);
-                  }}
-                />
-              </div>
-            {/if}
-    
-              
-            </div>
-        </div>
-
-
-          <div class="submission">
-            <span class="btn" >
-              <Paperclip size="30"  />
-            </span>
-
-            {#if isTextareaFocused}
-            <span 
-              class="btn send-btn" 
-              class:visible={isTextareaFocused}
-              transition:slide
-              on:click={() => !isLoading && handleSendMessage()} 
-              disabled={isLoading}
-            >
-              <Send />
-            </span>
-          {/if}
-        </div>
-
-          </div>
-      
         {#if currentStage === 'summary'}
           <button on:click={toggleNetworkVisualization}>
             {showNetworkVisualization ? 'Hide' : 'Show'} Network
@@ -2417,7 +2420,11 @@ onMount(async () => {
 <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
 
 <style lang="scss">
-	@use "src/themes.scss" as *;
+  $breakpoint-sm: 576px;
+  $breakpoint-md: 1000px;
+  $breakpoint-lg: 992px;
+  $breakpoint-xl: 1200px;
+	@use "src/styles/themes.scss" as *;
   * {
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', sans-serif; */
@@ -2426,54 +2433,38 @@ onMount(async () => {
     font-family: var(--font-family);
   }
 
-
-
-	:global(body) {
-
-		color: #ffffff;
-		transition: all 80ms ease-in-out;
-	}
-	div > :global(*) {
-
-	}
-
-  :global(body) {
-    --date-picker-background: var(--bg-gradient);
-		--date-picker-foreground: white;
-		--date-picker-highlight-border: var(--bg-color);
-		--date-picker-highlight-shadow: var(--tertiary-color);
-		--date-picker-selected-color: var(--text-color);
-		--date-picker-selected-background: var(--tertiary-color);
-    
-  }
-
   :root {
   --h3-min-size: 0.875rem;
   --h3-max-size: 1.125rem;
+  --breakpoint-sm: #{$breakpoint-sm};
+  --breakpoint-md: #{$breakpoint-md};
+  --breakpoint-lg: #{$breakpoint-lg};
+  --breakpoint-xl: #{$breakpoint-xl};
 }
 
-  .calendar {
-      // background: var(--bg-gradient);
-      width: auto;
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-m);
 
-      &input {
-        background: red;
-      }
-    }
-  
+  // :global(body) {
+  //   --date-picker-background: var(--bg-gradient);
+	// 	--date-picker-foreground: white;
+	// 	--date-picker-highlight-border: var(--bg-color);
+	// 	--date-picker-highlight-shadow: var(--tertiary-color);
+	// 	--date-picker-selected-color: var(--text-color);
+	// 	--date-picker-selected-background: var(--tertiary-color);
+    
+  // }
+
   :global {
+  // Table styles
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: var(--bg-gradient-left);
+    box-shadow: 0px 1px 40px 1px var(--secondary-color, 0.01);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+  }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      background: var(--bg-gradient-left);
-      box-shadow: 0px 1px 40px 1px var(--secondary-color, 0.01);
-      border-radius: var(--radius-m);
-      overflow: hidden;
-    }
   th {
     background: var(--bg-gradient-r);
     padding: 1rem;
@@ -2501,6 +2492,7 @@ onMount(async () => {
       background: var(--bg-gradient-left);
     }
   }
+
   td {
     padding: 1rem;
     border: {
@@ -2514,6 +2506,7 @@ onMount(async () => {
       }
     }
   }
+
   tr {
     &:last-of-type td {
       border-bottom: none;
@@ -2525,10 +2518,13 @@ onMount(async () => {
       background: var(--bg-gradient-right);
     }
   }
+
+  // List styles
   ul {
     margin-left: 0;
     padding-inline-start: 0;
   }
+
   li {
     margin: 0;
     transform: all;
@@ -2539,6 +2535,7 @@ onMount(async () => {
     letter-spacing: 0.1rem;
     border-radius: var(--radius-m);
     gap: 1rem;
+    
     li {
       margin-inline-start: 1.5rem;
       padding-inline-start: 0;
@@ -2550,38 +2547,52 @@ onMount(async () => {
       background: var(--bg-gradient-right);
     }
   }
+
   ol {
     display: flex;
     flex-direction: column;
-    transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
-    border-radius: var(--radius-l);
-    border: 1px solid transparent;
-    padding: {
-      block-start: 0;
-      block-end: 0;
-    }
-    margin: {
-      block-start: 0;
-      block-end: 0;
-    }
-    row-gap: 1rem;
-    line-height: 1.1;
+    list-style-position: outside;
+    padding-left: 2.5rem;
+    margin: 1rem 0;
+    gap: 2rem;
+
     p {
+
       margin: {
         left: 0;
         bottom: 0;
       }
-      font-size: 1.5rem;
-    }
-    li {
-      font-size: 1.2rem;
-      &:nth-child {
-        &:hover {
-          background-color: rgba(255, 0, 0, 0.583);
-        }
+
+      & ol {
+        display: flex;
+        flex-direction: column;
       }
+
+
+    }
+
+    li {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: 1rem;
+      margin: 0;
+      background: var(--bg-gradient-r);
+      border-radius: var(--radius-m);
+      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+      &::marker {
+        font-weight: 600;
+        color: var(--text-color);
+      }
+
+      p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+        line-height: 1.5;
+      }
+
       li li {
-        padding: 0.5rem 1rem;
         transform: all;
         border: 1px solid transparent;
 
@@ -2593,13 +2604,42 @@ onMount(async () => {
           background-color: var(--bg-color);
         }
       }
+      
     }
+
+    
   }
+  ol, ul {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+      }
+
+      // // Hover effect
+      // &:hover {
+      //   transform: translateX(0.5rem);
+      //   background: var(--bg-gradient-left);
+      //   box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+      // }
+
+      // First level items
+      &:first-child {
+        margin-top: 0;
+      }
+
+      // Spacing between heading and content
+      strong, b {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 1.2rem;
+      }
+    
+  // Code styles
   pre.language-json {
     margin: 0;
     padding: 0;
     background: none;
   }
+
   code.language-json {
     display: block;
     color: #d4d4d4;
@@ -2620,16 +2660,19 @@ onMount(async () => {
     .null { color: #569cd6; }
     .punctuation { color: #d4d4d4; }
     .bracket { color: #ffd700; }
+
     .error {
       background: rgba(255, 0, 0, 0.2);
       border-bottom: 1px wavy #ff0000;
     }
+
     .indent-guide {
       border-left: 1px solid rgba(255, 255, 255, 0.1);
       position: absolute;
       left: calc(var(--depth) * 2ch);
       height: 100%;
     }
+
     > code {
       display: block;
       position: relative;
@@ -2646,12 +2689,15 @@ onMount(async () => {
         user-select: none;
       }
     }
+
     &::selection {
       background: rgba(97, 175, 239, 0.3);
     }
+
     &:hover {
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
     }
+
     &::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -2665,8 +2711,18 @@ onMount(async () => {
       }
     }
   }
-  }
+}
+  .calendar {
+      // background: var(--bg-gradient);
+      width: auto;
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-m);
 
+      &input {
+        background: red;
+      }
+    }
+  
   input {
       flex-grow: 1;
       margin-right: auto;
@@ -2802,7 +2858,7 @@ onMount(async () => {
     &.btn-ai {
       border-radius: var(--radius-m);
       width: auto;
-      height: 40px;
+      height: auto;
       border: none;
       display: flex;
       justify-content: center;
@@ -3040,7 +3096,7 @@ onMount(async () => {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    position: relative;
+    position: fixed;
     transition: all 0.3s ease-in-out;
     overflow-y: auto;
     overflow-x: none;
@@ -3048,8 +3104,25 @@ onMount(async () => {
     width: 100%;
     padding: 0;
     padding-top: 0;
+    height: 86vh;
+    margin-top: 0;
 
   }
+  .chat-content {
+    flex-grow: 1;
+    background: var(--primary-color);
+    display: flex;
+    flex-direction: column;
+    // width: 50%;
+    // margin: 0 1rem;
+    // margin-left: 25%;
+    // padding: 0 10px;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    border-radius: var(--radius-l);
+    transition: all ease 0.3s;
+  }
+
   
   .avatar-container {
     width: 30px;
@@ -3082,48 +3155,85 @@ onMount(async () => {
     }
   }
 
+  .drawer-visible .input-container {
+    left: 400px;
+    & textarea {
+      margin-left: 0;
+    }
+
+  }
 
   .input-container {
     display: flex;
+    flex-direction: column;
     position: fixed;
     width: auto;
-    margin-left: 25%;
+    left: 0;
+    margin-top: 0;
     right: 0;
     bottom: 0;
-    gap: 2rem;
+    margin-left: 0;
+    margin-right: 0;
+    height: auto;
+    margin-bottom: 0;
+    // background: var(--bg-gradient);
+    backdrop-filter: blur(4px);
     justify-content: top;
     align-items: center;
+    // background: var(--bg-gradient);
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+    
     :global(svg) {
       color: var(--primary-color);
       stroke: var(--primary-color);
       fill: var(--tertiary-color);
     }
-    & input {
-      &:focus {
-        border: 2px solid blue;
-        background-color: lightgrey;
-        color: black;
-        font-size: 24px;
-      }
-    }
-    & textarea {
-      border: none;
-      box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-      background: var(--bg-color);
-      color: white;
-      display: flex;
-      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      width: 100%;
 
-      &:focus {
-        border: 1px solid rgb(54, 54, 54);
-        background: var(--secondary-color) !important;
-        color: white;
-        animation: pulse 1.5s infinite alternate;
-        display: flex;
-        transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      }
+    & textarea {
+      font-size: 1.5rem;
+      border: none;
+      box-shadow: none;
+      position: relative; 
+      left: 0;
+      // background-color: transparent;
+      background: var(--bg-gradient-r);
+      margin-right: 2rem !important;
+      margin-left: 4rem;
+      // margin-left: 7rem;
+      margin-top: 0.5rem;
+      transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+      padding-top: 1rem;
+      padding-left: 1rem;
+      // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+      color: var(--text-color);
+      // background: transparent;
+      display: flex;
+      width: 100%;
+      // backdrop-filter: blur(40px);
+      // & :focus {
+      //   border-top: 1px solid red;
+      // color: white;
+      // animation: pulse 10.5s infinite alternate;
+      // box-shadow: none;
+
+      // display: flex;
+      // // background: var(--bg-gradient-left) !important;
+      //     // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+      //     border-top: 1px solid var(--secondary-color) !important;
+
+      // background: black !important; 
+      // padding: 2rem;
+      // margin-left: 2rem;
+      // margin-right: 0;
+      // height: auto;
+      // box-shadow: none !important;
+      
+      // }
     }
+
   }
   .network-container {
     position: absolute;
@@ -3149,11 +3259,27 @@ onMount(async () => {
 
 
 .combo-input {
+  // width: 100vw;;
+  bottom: 0;
+  margin-bottom: 0;
+  // background: var(--bg-gradient);
+  margin-bottom: 0;
   width: 100%;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: flex-end;
+  // backdrop-filter: blur(40px);
+  & textarea {
+    border-top: 1px solid var(--primary-color) !important;
+
+  
+  :focus {
+    background: var(--bg-gradient-left);
+    z-index: 4000;   
+
+  }
+}
 }
 
 .save-button {
@@ -3182,11 +3308,13 @@ color: #6fdfc4;
 .submission {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
+  width: auto;
   justify-content: center;
   align-self: flex-end;
-  margin-bottom: 3.5rem;
-  margin-left: 1rem;
+  margin-right: 1rem;
+  z-index: 1000;
+  gap: 2rem;
 }
 .tags {
   display:flex;
@@ -3213,7 +3341,6 @@ color: #6fdfc4;
     position: relative;
     top: 0;
     width: auto !important;
-    left: 3rem;
     // left: 25%;
     bottom: 8rem;
     flex-direction: column;
@@ -3229,7 +3356,6 @@ color: #6fdfc4;
     border: 2px solid var(--bg-color);
     // background-color: var(--secondary-color);
     // backdrop-filter: blur(10px);
-    background: var(--primary-color) !important;
 
     background: linear-gradient (
       90deg,
@@ -3387,19 +3513,27 @@ color: #6fdfc4;
     }
     &.assistant {
       display: flex;
+      flex-direction: column;
       align-self: flex-start;
       color: white;
       height: auto;
-      background: transparent;
+      // background: var(--bg-gradient-r);
       margin-left: 1rem;
-      width: 90%;
-      border: {
-        left: 1px solid var(--placeholder-color);
-      }
+      right: 2rem !important;
+      margin-right: 200px !important;
+      width: auto;
+
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      & p {
-        display: flex;
-        justify-content: flex-start;
+      p {
+        display: block; // Change from flex to block
+        width: 100%;
+
+        margin-top: 1rem;
+
+        margin-left: 1rem;
+        padding-left: 1rem;
+
+
       }
     }
     &.options {
@@ -3418,7 +3552,7 @@ color: #6fdfc4;
       align-self: flex-start;
       color: var(--text-color);
       height: auto;
-      width: 90% !important;
+      width: auto;
       font-weight: 500;
       // background: var(--bg-color);
       border: {
@@ -3432,14 +3566,24 @@ color: #6fdfc4;
       }
       width: auto;
       margin: {
-        left: 0;
+        left: 1rem;
         right: 1rem;
-        top: 3rem;
+        top: 0rem;
       }
+      
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
       & p {
         display: flex;
         justify-content: flex-start;
+        margin-left: 1rem;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+
+        padding-left: 1rem;
+
+        border: {
+          left: 1px solid var(--placeholder-color);
+        }
       }
     }
     
@@ -3511,14 +3655,19 @@ color: #6fdfc4;
   border-radius: var(--radius-l);
 }
 
-.chat-messages.chat-header {
-    height: 40px;
-    padding-left: 0.5rem;
-    position: relative;
-    width: 100%;
 
+
+.chat-header {
+    height: 3rem;
+    padding-left: 3rem;
+    position: absolute;
+    background: var(--bg-gradient-r);
+    border-radius: 2rem;
+    top: 0 !important;
+    left: 0;
+    right: 1rem;
+    width: auto;
     // padding: 1rem 0.5rem;
-    // background: var(--bg-gradient-left);
     cursor: pointer;
     color: var(--text-color);
     text-align: left;
@@ -3527,12 +3676,57 @@ color: #6fdfc4;
     // border-radius: var(--radius-m);
     display: flex;
     // gap: 2rem;
-    margin-left: 0;
     flex-direction: row;
     justify-content: space-between;
     transition: all 0.2s ease;
     z-index: 2000;
-    max-width: max-content;
+    & h3 {
+      margin: 0;
+      font-weight: 300;
+      font-size: var(--font-size-m);    
+      font-weight: 600;
+    line-height: 1.4;
+    &.active {
+      // background: var(--primary-color) !important;
+      color: var(--tertiary-color);
+      font-size: var(--font-size-m);
+      
+    }
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      
+    }
+  }
+
+  .drawer-tab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: auto !important;
+    padding: 0 1rem;
+    position: relative;
+    // padding: 0.5rem 1rem;
+    height: 100%;
+    border: none;
+    border-radius: 2rem;
+    background: var(--secondary-color);
+    color: var(--placeholder-color);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+
+    }
+
+
+    &.active {
+      background: var(--primary-color) !important;
+      color: var(--tertiary-color);
+      font-size: var(--font-size-s);
+      width: fit-content;
+      flex: 1;
+      justify-content: center;
+    }
+
+
   }
 
 
@@ -3553,7 +3747,6 @@ color: #6fdfc4;
     flex-direction: row;
     justify-content: space-between;
     transition: all 0.2s ease;
-    z-index: 11;
     margin-right: 0;
     margin-left: 0;
     max-width: 400px;
@@ -3571,7 +3764,7 @@ color: #6fdfc4;
     height: 100%;
     border: none;
     border-radius: 2rem;
-    background: var(--secondary-color) !important;
+    background: var(--secondary-color);
     color: var(--placeholder-color);
     cursor: pointer;
     transition: all 0.2s ease-in-out;
@@ -3582,7 +3775,7 @@ color: #6fdfc4;
       font-weight: 600;
     line-height: 1.4;
     &.active {
-      // background: var(--primary-color) !important;
+      background: var(--primary-color) !important;
       color: var(--tertiary-color);
       font-size: var(--font-size-xs);
       
@@ -3595,7 +3788,7 @@ color: #6fdfc4;
 
 
     &.active {
-      // background: var(--primary-color) !important;
+      background: var(--secondary-color) !important;
       color: var(--tertiary-color);
       font-size: var(--font-size-s);
       width: fit-content;
@@ -3809,55 +4002,6 @@ color: #6fdfc4;
     font-weight: 200;
     
   }
-  @media (min-width: 400px) {
-      .chat-container {
-        /* width: 50%; */
-        height: 87vh;
-        /* margin-left: 25%; */
-        /* margin-right: 25%; */
-        overflow-x: hidden;
-      }
-
-      .drawer-container {
-          /* background-color: red; */
-        }
-      .drawer {
-          /* width: 25%; */
-          height: 100%;
-          // border-top-left-radius: 50px;
-          overflow-y: scroll;
-          overflow-x: none;
-          scrollbar-width:1px;
-          scrollbar-color: #c8c8c8 transparent;
-          display: flex;
-          background-color: transparent;
-        }
-
-        .drawer-visible .chat-container {
-          overflow-y: auto;
-          margin-right: 0;
-          margin-left: 0;
-          left: 0;
-          // width: 70%;
-          display: flex;
-          position: relative;
-        }
-
-        .drawer-visible .chat-messages {
-          
-        }
-
-        .drawer-visible .chat-placeholder {
-          margin-right: 10rem;
-          right: 5rem;
-          bottom: 9rem;
-        }
-
-        .drawer-visible .thread-toggle {
-          left: 10px;
-          
-        }
-    }
 
 
 
@@ -3910,12 +4054,6 @@ color: #6fdfc4;
     font-weight: bold;
   }
 
-  .network-overlay {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
 
 
 
@@ -4026,8 +4164,10 @@ color: #6fdfc4;
     display: flex;
     flex-direction: column;
     /* font-family: 'Merriweather', serif; */
-    width: 100%;
+    width: auto;
     min-height: 60px;
+    max-height: 50% !important;
+
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
     // padding: 1rem;
@@ -4054,7 +4194,7 @@ color: #6fdfc4;
     &:focus {
       /* margin-right: 5rem; */
       outline: none;
-      border: 2px solid #000000;
+      // border: 2px solid #000000;
       color: white;
       transform: translateY(0) rotate(0deg); 
       font-size: 30px;
@@ -4086,34 +4226,27 @@ color: #6fdfc4;
 .message-count {
   color: var(--placeholder-color);
 }
-
+.drawer-visible .chat-placeholder {
+    right: 0;
+    width: 100%;
+    left: 0;
+    margin-left: 0;
+    height: 84vh;
+}
 .chat-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: auto !important;
-  height: auto !important;
   top: 0;
-  bottom: 10rem;
-  position: fixed;
-  top: 10rem;
+  bottom: 0;
+  height: 84vh;
+
+  position: absolute;
   width: auto;
-  left: 5rem;
-  right: 2rem;
-  margin-right: 1rem;
+  left: 0;
+  right: 0;
 }
 
-.drawer-visible .chat-placeholder {
-  overflow-y: auto;
-  margin-left: 0;
-  left: 25%;
-  padding-left: 0;
-  right: 25%;
-  margin-right: 0;
-  // width: 70%;
-  width: auto;
-  display: flex;
-}
 
 .chat-placeholder img {
   width: 100%;
@@ -4134,7 +4267,7 @@ color: #6fdfc4;
   color: var(--text-color);
   opacity: 0.5;
   display: inline;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-style: italic;;
   font-weight: normal;
   width: 100%;
@@ -4142,46 +4275,6 @@ color: #6fdfc4;
   // margin-left: 0.5rem;
 }
 
-  .chat-content {
-    flex-grow: 1;
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    // width: 50%;
-    // margin: 0 1rem;
-    // margin-left: 25%;
-    // padding: 0 10px;
-    overflow-y: hidden;
-    overflow-x: hidden;
-    boreder-radius: var(--radius-l);
-    transition: all ease 0.3s;
-      // backdrop-filter: blur(10px);
-
-      background: linear-gradient (
-        90deg,
-        rgba(117, 118, 114, 0.9) 0%,
-        rgba(0, 0, 0, 0.85) 5%,
-        rgba(117, 118, 114, 0.8) 10%,
-        rgba(117, 118, 114, 0.75) 15%,
-        rgba(117, 118, 114, 0.7) 20%,
-        rgba(0, 0, 0, 0.65) 25%,
-        rgba(117, 118, 114, 0.6) 30%,
-        rgba(0, 0, 0, 0.55) 35%,
-        rgba(0, 0, 0, 0.5) 40%,
-        rgba(117, 118, 114, 0.45) 45%,
-        rgba(0, 0, 0, 0.4) 50%,
-        rgba(0, 0, 0, 0.35) 55%,
-        rgba(117, 118, 114, 0.3) 60%,
-        rgba(117, 118, 114, 0.25) 65%,
-        rgba(117, 118, 114, 0.2) 70%,
-        rgba(117, 118, 114, 0.15) 75%,
-        rgba(0, 0, 0, 0.1) 80%,
-        rgba(1, 1, 1, 0.05) 85%,
-        rgba(117, 118, 114, 0) 100%
-      );
-
-      
-  }
 
 
 
@@ -4337,9 +4430,12 @@ color: #6fdfc4;
     flex-direction: column;
     width:100%;
     margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    top: 0;
     padding-left: 0rem;
     height: 100vh;
-    backdrop-filter: blur(20px);
+    // backdrop-filter: blur(20px);
     border-radius: 10px;
     overflow-y: scroll;
     overflow-x: hidden;
@@ -4353,7 +4449,8 @@ color: #6fdfc4;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  z-index: 11;
+  background: var(--bg-gradiet);
+  // z-index: 11;
   overflow: {
     x: hidden;
     y: auto;
@@ -4361,7 +4458,7 @@ color: #6fdfc4;
   position: relative;
   top: 0;
 
-  margin-left: 64px;
+  margin-left: 0;
   gap: 1px;
   height: auto;
   width: 400px;
@@ -4397,14 +4494,17 @@ color: #6fdfc4;
   }
 
   }
+
+
   .drawer-visible {
+    
   & .chat-container {
-    // Empty but preserved for structure
+    right: 0;
+    margin-right: 0;
+    width: auto;
+    left: 400px;
   }
 
-  & .thread-toggle {
-    left: 310px;
-  }
 
   & .thread-info {
     margin-left: 0;
@@ -4437,9 +4537,6 @@ color: #6fdfc4;
     padding: 0;
     cursor: pointer;
     
-
-
-
   }
   button.card-container {
     display: flex;
@@ -4603,8 +4700,8 @@ color: #6fdfc4;
 }
 
   .scroll-bottom-btn {
-    position: absolute;
-    bottom: 1rem;
+    position: fixed;
+    bottom: 220px;
     right: 0;
     background-color: #21201d;
     color: white;
@@ -4797,14 +4894,14 @@ color: #6fdfc4;
     width: 100%;
     display: flex;
     justify-content: right;
-
-    bottom: 6rem;
+      bottom: 3rem;
     margin-right: 0;
-    right: 3rem;
+    right: 2rem;
+    left: 0;
     height: auto;
     position: absolute;
     overflow: hidden;
-    padding: 0.5rem 1rem;
+    // padding: 0.5rem 1rem;
     scrollbar-width:1px;
       scrollbar-color: var(--primary-color) transparent;
       scroll-behavior: smooth;
@@ -4832,8 +4929,8 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
-    width: 100%;
+    justify-content:space-around;
+    width: 100vw;
   }
 
   .tooltip {
@@ -4855,10 +4952,6 @@ color: #6fdfc4;
   }
 
 
-
-
-
-
   .create-confirm {
     margin-left: 0.5rem;
     opacity: 0.6;
@@ -4869,10 +4962,13 @@ color: #6fdfc4;
     opacity: 1;
   }
 
+  
+  @media (max-width: 1000px) {
 
-  @media (max-width: 768px) {
+    .chat-container {
 
-
+      top: 3rem;
+    }
 
     .chat-messages {
       width: auto;
@@ -4923,12 +5019,11 @@ color: #6fdfc4;
       }
 
     .drawer {
-      position: relative;
       top: 0;
-      margin-left:0;
-      margin-right:1rem;
-      width: auto !important;
-      height: auto;
+      margin-left: 0;
+      margin-right: 0;
+      width: 100%;
+      height: 100%;
       align-items: left;
       justify-content: center;
       // margin-bottom: 4rem;
@@ -4989,14 +5084,9 @@ color: #6fdfc4;
     .drawer-visible .chat-container {
       display: none;
     }
-    .drawer-visible .thread-toggle {
-      left: 10px;
-    }
 
-    .chat-placeholder {
-      right: 0;
-      margin-right: 1rem;
-    }
+
+
 
     h1 {
       font-size: 24px;
@@ -5020,18 +5110,12 @@ color: #6fdfc4;
     
 
 
-    .drawer-visible .chat-container {
-      margin-left: 0;
-      display: none;
-      
-    }
-
     .drawer-visible .thread-toggle {
       left: 10px;
     }
 
   .input-container {
-    bottom: 80px !important;
+    bottom: 80px;
     width: auto !important;
     right: 0;
     gap: 0;
@@ -5046,18 +5130,17 @@ color: #6fdfc4;
 
   }
 
-  .input-container textarea {
-    box-shadow: none;
-    border: none !important;
-    // font-size: 2rem !important;
-    padding-bottom: 2rem;
-    margin-left: 0;
-    background: auto !important;
-
-
-
-
-  }
+  // .input-container textarea {
+  //   box-shadow: none;
+  //   border: none !important;
+  //   // font-size: 2rem !important;
+  //   padding-bottom: 0;
+  //   margin-left: 0;
+  //   width: auto;
+  //   margin-right: 0;
+  //   background: auto !important;
+    
+  // }
 
     .input-container textarea:focus {
       border: none;
@@ -5068,7 +5151,7 @@ color: #6fdfc4;
       // background: var(--bg-gradient-left) !important;
           // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
 
-      background: black !important; 
+      // background: black !important; 
       padding: 2rem;
       margin-left: 2rem;
       margin-right: 0;
@@ -5124,37 +5207,7 @@ color: #6fdfc4;
   // }
   }
 
-@media (min-width: 769px) {
-  .drawer-container {
-    display: flex;
-    margin-right: 1rem;
-  }
 
-  // .drawer {
-  //   width: 250px;
-  //   transform: translateX(0);
-  // }
-
-  .drawer-visible .chat-container {
-    margin-left: 400px;
-
-    position: absolute;
-    top: 0;
-  }
-
-  .chat-container {
-    flex-grow: 1;
-    margin-left: 0;
-    transition: margin-left 0.3s ease-in-out;
-    width: 100%;
-  }
-
-  .thread-toggle {
-    /* display: none; */
-  }
-
-  
-}
 
 @media (max-width: 1000px) {
   .btn-col-left {
@@ -5202,15 +5255,6 @@ color: #6fdfc4;
   }
 
 
-  .drawer-visible .chat-placeholder {
-    justify-content: center;
-    align-items: center;
-
-    & h1 {
-      width: 100% !important;
-      margin-right: 0;
-    }
-  }
 
 
 //   button.add  {
@@ -5253,6 +5297,7 @@ color: #6fdfc4;
 
     .message.assistant  {
       display: flex;
+      flex-direction: column;
     /* position: relative; */
     align-self: flex-start;
     /* background-color: #2e3838; */
@@ -5340,15 +5385,13 @@ color: #6fdfc4;
     // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
     border-radius: var(--radius-m);
   }
-  .chat-container {
-    left: 2rem;
-  }
+
 
   .drawer-visible .chat-container {
     right: 0;
     margin-right: 0;
     width: auto;
-    left: 450px;
+    left: 400px;
     margin-left: 1rem;
 
   }
@@ -5379,187 +5422,49 @@ color: #6fdfc4;
   }
 
 
-  .chat-content {
-    width: 100%;
-    // margin-left: 1rem;
-    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
-    border: none;
-    height: 100%;
-  }
+
 
   
   .drawer-visible .chat-placeholder {
     right: 0;
-    margin-right: 1rem;
-    width: auto;
-    margin-left: 1rem;
-    left: 400px;
-}
-
-
-
-.chat-placeholder {
-  // display: flex;
-  // position: relative;
-  // align-items: center;
-  // justify-content: center;
-  // width: 100%;
-  // height:90vh;
-  // bottom: 0 !important;
-  // top: 0;
-  margin-right: 0.5rem;
-  right: 0.5rem;
-  bottom: 9rem;
-  margin-left: 0.5rem;
-  & h1 {
     width: 100%;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
+    left: 0;
+    margin-left: 0;
+    height: 84vh;
 }
+
+
+
 
 .chat-placeholder img {
   width: 150%;
   transform: translateX(2%) translateY(-20%);
   
 }
-  .input-container {
-    left: 0;
-    margin-left: 0;
-    margin-right: 0;
-    width: auto !important;
-    background: var(--bg-gradient);
-    &::placeholder {
-      color: var(--placeholder-color);
-    }
-  }
-
-  
-
-  .input-container textarea {
-    font-size: 1.5rem;
-    border: none;
-    box-shadow: none;
-    position: relative;
-    left: 0;
-    margin-left: 7rem;
-    margin-top: 0.5rem;
-    background-color: transparent !important;
-    width: calc(100% - 5rem);
-    transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
-    padding-top: 1rem;
-    padding-left: 1rem;
-  }
-
-
-    .input-container textarea:focus {
-      border: none;
-      color: white;
-      margin-top: 2rem;
-
-      // font-size: 20px;
-      animation: pulse 10.5s infinite alternate;
-      display: flex;
-      box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-    }
-
-    
-
 
 }
 
-@media (max-width: 1200px) {
 
-.input-container {
-  margin-left: 2rem;
-  left: 2rem;
-}
-}
-@media (min-width: 1900px) {
-
-.chat-content {
-    width: 100%;
-    margin-left: 1rem;
-    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
-    border: none;
-    
-  }
-
-  .chat-messages {
-    width: auto;
-    border: none;
-    margin-left: 0;
-    background: none;
-  }
-
-
-  .chat-placeholder {
-    left: 25%;
-    right: 25%;
-    margin-right: 0;
-  }
-
-
-  .input-container {
-    width: auto;
-    left: 0;
-    right: 25%;
-    bottom: 0;
-    z-index: 4000;
-  }
-
-  .input-container textarea {
-    font-size: 1.5rem;
-    margin-left: 2rem;
-    padding: 1rem;
-  }
-
-    .input-container textarea:focus {
-
-      color: white;
-      font-size: 20px;
-      animation: pulse 10.5s infinite alternate;
-      display: flex;
-      z-index: 1000;
-      box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-  }
-}
 @media (max-width: 450px) {
 
 
   .drawer-container {
-    margin-right: 0 !important;
+    margin-right: 0;
     margin-left: 0;
-    right: 0 !important;
+    right: 0;
+    left: 0;
     width: 100%;
     
   }
-.chat-content {
-    width: 100%;
-    margin-left: 1rem;
-    margin-top: 1rem;
-    // background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
-    border: none;
-    
-  }
+
 
   .chat-container {
     padding: 0;
-
+    top: 3rem;
   }
   
 
-  .chat-messages {
-    width: auto;
-    border: none;
-    margin-left: 2rem !important;
-    right: 0;
-    margin-right: 0;
-    
-  }
+
 
   .drawer-list {
     margin-top: 0 !important;
@@ -5619,8 +5524,7 @@ color: #6fdfc4;
   // }
   .input-container {
     width: auto;
-    left: 0rem !important;
-    margin-left: 3rem !important;
+    left: 0rem;
     right: 0;
     bottom: 0;
   }

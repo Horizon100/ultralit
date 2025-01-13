@@ -1,0 +1,74 @@
+// _mobile.scss
+
+@use '../variables/spacing' as spacing;
+@use '../variables/typography' as type;
+@use '../mixins/responsive' as *;
+
+@mixin mobile-styles {
+  // Layout
+  .container {
+    max-width: 100%;
+    padding: 0 map-get(spacing.$container-padding, 'mobile');
+    overflow-x: hidden;
+  }
+
+  // Typography adjustments
+  body {
+    font-size: map-get(type.$type-scale, 'base', 'size');
+    line-height: map-get(type.$type-scale, 'base', 'line-height');
+  }
+
+  // Navigation
+  .nav {
+    &-container {
+      padding: map-get(spacing.$spacing, 'xs') 0;
+    }
+    
+    &-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-color);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      
+      &.active {
+        transform: translateX(0);
+      }
+    }
+  }
+
+  // Grid adjustments
+  .grid {
+    grid-template-columns: 1fr;
+    gap: map-get(spacing.$gap, 'md');
+  }
+
+  // Card layouts
+  .card-grid {
+    grid-template-columns: 1fr;
+    gap: map-get(spacing.$gap, 'sm');
+  }
+
+  // Form elements
+  input, 
+  select, 
+  textarea {
+    width: 100%;
+    padding: map-get(spacing.$spacing, 'xs');
+  }
+
+  // Modals
+  .modal {
+    width: 90%;
+    margin: map-get(spacing.$spacing, 'sm');
+    padding: map-get(spacing.$spacing, 'md');
+  }
+
+  // Hide desktop elements
+  .desktop-only {
+    display: none !important;
+  }
+}

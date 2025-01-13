@@ -1,3 +1,12 @@
+@use 'variables/typography' as type;
+@use 'variables/spacing' as *;
+@use 'mixins/typography' as type-mixins;
+@use 'mixins/responsive' as *;
+@use 'devices/mobile';
+@use 'devices/tablet';
+@use 'devices/desktop';
+@use 'devices/large-screen';
+
 // Import fonts
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Montserrat:wght@400;700&family=Merriweather:wght@400;700&display=swap');
 
@@ -127,10 +136,10 @@ $themes: (
       color: map-get($colors, text-color);
       font-family: map-get($colors, font-family);
       background-image: map-get($colors, bg-gradient);
-
     }
   }
 }
+
 
 // Apply theme styles to .app-container
 .app-container {
@@ -189,4 +198,18 @@ $themes: (
       --header-height: 100px;
     }
   }
+}
+
+@include mobile.mobile-styles;
+
+@include respond-to('tablet') {
+  @include tablet.tablet-styles;
+}
+
+@include respond-to('desktop') {
+  @include desktop.desktop-styles;
+}
+
+@include respond-to('large') {
+  @include large-screen.large-screen-styles;
 }

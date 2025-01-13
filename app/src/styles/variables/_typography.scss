@@ -1,0 +1,79 @@
+// _typography.scss
+
+// Font families
+$font-families: (
+  'primary': ('Merriweather', serif),
+  'secondary': ('Montserrat', sans-serif),
+  'code': ('Source Code Pro', monospace),
+  'system': (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif)
+);
+
+// Font weights
+$font-weights: (
+  'light': 300,
+  'regular': 400,
+  'medium': 500,
+  'semibold': 600,
+  'bold': 700
+);
+
+// Base sizes
+$base-font-size: 16px;
+$base-line-height: 1.5;
+
+// Type scale with viewport responsive units
+$type-scale: (
+  'xs': (
+    'size': clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem),
+    'line-height': 1.5
+  ),
+  'sm': (
+    'size': clamp(0.875rem, 0.8rem + 0.375vw, 1rem),
+    'line-height': 1.5
+  ),
+  'base': (
+    'size': clamp(1rem, 0.9rem + 0.5vw, 1.125rem),
+    'line-height': 1.5
+  ),
+  'md': (
+    'size': clamp(1.125rem, 1rem + 0.625vw, 1.25rem),
+    'line-height': 1.4
+  ),
+  'lg': (
+    'size': clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem),
+    'line-height': 1.4
+  ),
+  'xl': (
+    'size': clamp(1.5rem, 1.3rem + 1vw, 2rem),
+    'line-height': 1.3
+  ),
+  'xxl': (
+    'size': clamp(2rem, 1.8rem + 1.25vw, 2.5rem),
+    'line-height': 1.2
+  ),
+  'display': (
+    'size': clamp(2.5rem, 2.3rem + 1.5vw, 3.5rem),
+    'line-height': 1.1
+  )
+);
+
+// Letter spacing
+$letter-spacing: (
+  'tight': -0.05em,
+  'normal': 0,
+  'wide': 0.05em,
+  'wider': 0.1em
+);
+
+// Helper mixins
+@mixin text-style($size) {
+  @if map-has-key($type-scale, $size) {
+    font-size: map-get(map-get($type-scale, $size), 'size');
+    line-height: map-get(map-get($type-scale, $size), 'line-height');
+  }
+}
+
+// Responsive text truncation
+@mixin text-truncate {
+  overflow: hidden
+}

@@ -163,7 +163,7 @@ async function handleModelSelection(model: AIModel) {
 {/if}
 
 <style lang="scss">
-  @use "src/themes.scss" as *;
+  @use "src/styles/themes.scss" as *;
 
   * {
     font-family: var(--font-family);
@@ -179,8 +179,9 @@ async function handleModelSelection(model: AIModel) {
     margin-bottom: 3rem;
     margin-right: 1rem;
     border-radius: var(--radius-m);
-    box-shadow: 2px 4px 20px 1px rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(100px);
+    // box-shadow: 2px 4px 20px 1px rgba(255, 255, 255, 0.1);
+    // backdrop-filter: blur(100px);
+    background: var(--bg-gradient-left);
     transition: all 0,3s ease-in;
     padding: 1rem;
   }

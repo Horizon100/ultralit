@@ -63,7 +63,7 @@
 </div>
   
 <style lang="scss">
-	@use "src/themes.scss" as *;
+	@use "src/styles/themes.scss" as *;
   * {
     /* font-family: 'Merriweather', serif; */
     /* font-family: 'Roboto', sans-serif; */

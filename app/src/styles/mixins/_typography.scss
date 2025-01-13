@@ -1,0 +1,57 @@
+// src/styles/mixins/_typography.scss
+
+@use '../variables/typography' as type;
+
+// Font size mixin
+@mixin font-size($size) {
+  @if map-has-key(type.$type-scale, $size) {
+    font-size: map-get(map-get(type.$type-scale, $size), 'size');
+    line-height: map-get(map-get(type.$type-scale, $size), 'line-height');
+  }
+}
+
+// Font family mixin
+@mixin font-family($family) {
+  @if map-has-key(type.$font-families, $family) {
+    font-family: map-get(type.$font-families, $family);
+  }
+}
+
+// Font weight mixin
+@mixin font-weight($weight) {
+  @if map-has-key(type.$font-weights, $weight) {
+    font-weight: map-get(type.$font-weights, $weight);
+  }
+}
+
+// Text truncate
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Line clamp
+@mixin line-clamp($lines: 1) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// Responsive font size
+@mixin responsive-font($min-size, $max-size, $min-width: 320px, $max-width: 1200px) {
+  font-size: clamp(
+    #{$min-size},
+    #{$min-size} + #{strip-unit($max-size - $min-size)} * ((100vw - #{$min-width}) / #{strip-unit($max-width - $min-width)}),
+    #{$max-size}
+  );
+}
+
+// Helper function to strip units
+@function strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return $number / ($number * 0 + 1);
+  }
+  @return $number;
+}

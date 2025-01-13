@@ -7,7 +7,6 @@
   import { currentUser, pb } from '$lib/pocketbase';
   import { currentTheme } from '$lib/stores/themeStore';
   import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
-  import TimeTracker from '$lib/components/features/TimeTracker.svelte';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import PromptSelector from '$lib/components/ai/PromptSelector.svelte';
   import { threadsStore } from '$lib/stores/threadsStore';
@@ -152,56 +151,54 @@
 </script>
 
 <div class="sidenav" transition:slide={{ duration: 300 }}>
-  <div class="top-buttons">
     <!-- Authentication/Profile Button -->
-    <button class="nav-button auth-button" on:click={toggleAuthOrProfile}>
+    <div class="navigation-buttons" class:hidden={isNarrowScreen} in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
       {#if $currentUser}
-      
-      <div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
-        <div class="avatar-container">
-            {#if $currentUser.avatar}
-              <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
-            {:else}
-              <Camera size={24} />
-            {/if}
+
+      <button class="nav-button" on:click={toggleAuthOrProfile}>
+        
+        <div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
+          <div class="avatar-container">
+              {#if $currentUser.avatar}
+                <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
+              {:else}
+                <Camera size={24} />
+              {/if}
+            </div>
           </div>
-        </div>
-      {:else}
-        <LogIn size={24} />
-      {/if}
-    </button>
-    {#if $currentUser}
-    <div class="navigation-buttons" class:hidden={isNarrowScreen}>
+          
+
+      </button>
       <button 
         class="nav-button" 
         class:active={currentPath === '/'} 
         on:click={() => navigateTo('/')}
       >
-        <MessageSquare size={24} />
+        <MessageSquare />
       </button>
       <button 
         class="nav-button" 
         class:active={currentPath === '/launcher'}
         on:click={() => navigateTo('/launcher')}
       >
-        <Drill size={24} />
+        <Drill />
       </button>
       <button 
         class="nav-button" 
         class:active={currentPath === '/notes'}
         on:click={() => navigateTo('/notes')}
       >
-        <NotebookTabs size={24} />
+        <NotebookTabs/>
       </button>
+      {:else}
+      <LogIn />
+    {/if}
     </div>
-    <button class="nav-button">
-      <TimeTracker />
-    </button>
-  {/if}
+
+
     <!-- Navigation Buttons -->
      
 
-  </div>
 
   <div class="middle-buttons">
     
@@ -214,12 +211,12 @@
 
 
       <!-- Language Toggle -->
-      <button class="nav-button" on:click={handleLanguageChange}>
+      <!-- <button class="nav-button" on:click={handleLanguageChange}> -->
         <!-- <Languages size={24} /> -->
         <!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
-        <span>{$t('lang.flag')}</span>
+        <!-- <span>{$t('lang.flag')}</span> -->
 
-      </button>
+      <!-- </button> -->
   
       <!-- Theme Toggle -->
       <!-- <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
@@ -228,7 +225,7 @@
       <!-- <ModelSelector /> -->
       <!-- <PromptSelector on:select={handlePromptSelect} /> -->
       <button 
-        class="thread-toggle" 
+        class="nav-button toggle" 
         on:click={toggleThreadList}
       >
         {#if showThreadList}
@@ -312,19 +309,19 @@
 <style>
   .sidenav {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
     gap: 10px;
     position: fixed;
     left: 0;
     top: 0;
-    height: auto;
+    height: 3rem;
     bottom: 0;
-    width: 3rem;
+    width: auto;
     align-items: left;
     z-index: 10;
     border-radius: 1rem;
-    padding: 0.5rem;
     transition: all 0.3s ease-in;
   }
 
@@ -334,8 +331,11 @@
 
   .navigation-buttons {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    justify-content: left;
+    width: 100%;
+    margin-left: 1rem;
+    gap: 2rem;
   }
 
   .navigation-buttons.hidden {
@@ -383,7 +383,7 @@
         height: 100%;
         display: flex;
 		flex-grow: 1;
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
     backdrop-filter: blur(10px);
     justify-content: center;
         align-items: center;
@@ -399,7 +399,7 @@
     bottom: auto;
     /* right: 0; */
     /* background-color: #2b2a2a; */
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
     backdrop-filter: blur(40px);   
 		border-bottom: 1px solid var(--secondary-color);
     background: var(--bg-gradient-r);
@@ -417,10 +417,7 @@
     .profile-button {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
-        align-items: center;
-		gap: 20px;
-		margin-left: 1rem;
+
 
 	}
 
@@ -473,6 +470,13 @@
         overflow: auto;
     }
 
+    .nav-button.toggle {
+      position: fixed;
+      bottom: 5rem;
+      left: 0.5rem;
+      z-index: 1000;
+    }
+
     .close-button {
       position: fixed;
       top: 10px;
@@ -501,7 +505,6 @@
   .avatar-container {
 
         overflow: hidden;
-        margin-right: 10px;
     }
 
     .avatar {
@@ -523,13 +526,13 @@
 
   .top-buttons {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    position: relative;
   }
 
   .bottom-buttons {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
     margin-bottom: 1rem;
   }
@@ -541,16 +544,16 @@
     color: var(--text-color);
     background: var(--bg-gradient-right);
     padding: 4px;
-    font-size: 16px;
+    font-size: auto;
     border: none;
     cursor: pointer;
-    border-radius: 12px;
+    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 50px;
-    height: 50px;
-    padding: 0.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.25rem;
     transition: all 0.2s ease-in-out;
     overflow: hidden;
     user-select: none;
@@ -632,7 +635,7 @@
   @media (max-width: 768px) {
   .sidenav {
     display: flex;
-    justify-content: space-between;
+    justify-content: left;
     flex-direction: column;
       height: auto;
       width: auto;
@@ -665,6 +668,7 @@
       width: 40px;
       height: 40px;
       padding: 0.3rem;
+      border-radius: 50% !important;
     }
 
     .nav-button:hover,
@@ -678,7 +682,7 @@
       height: 83%;
       top: 3rem;
       /* background-color: #2b2a2a; */
-      box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
+      /* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
       backdrop-filter: blur(40px);  
       border-bottom-left-radius: var(--radius-xl); 
       border-bottom-right-radius: var(--radius-xl); 
@@ -692,16 +696,7 @@
 }
 
 @media (max-width: 450px) {
-  .sidenav {
-    display: flex;
-    justify-content: space-between;
-    flex-direction: column;
-      height: auto;
-      width: auto;
-      bottom: 5rem;
-      padding: 0.5rem;
-      backdrop-filter: blur(10px);
-    }
+
 
     .navigation-buttons {
       flex-direction: column;

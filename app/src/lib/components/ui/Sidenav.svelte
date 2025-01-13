@@ -3,7 +3,7 @@
     import { fade, fly } from 'svelte/transition';
     import { page } from '$app/stores';
     import { currentUser } from '$lib/pocketbase';
-    import TimeTracker from '$lib/components/features/TimeTracker.svelte';
+    // import TimeTracker from '$lib/components/features/TimeTracker.svelte';
   
     export let activeLink: string;
     export let setActiveLink: (path: string) => void;
@@ -13,7 +13,7 @@
   
   <div class="sidenav" transition:fly={{ x: -100, duration: 300 }}>
     <div class="nav-icons">
-      <TimeTracker />
+      <!-- <TimeTracker /> -->
       {#if $currentUser}
         <a
           href="/ask"
@@ -57,13 +57,13 @@
       left: 0;
       top: 0;
       height: 100vh;
-      width: 4rem;
-      background: rgba(0, 0, 0, 0.5);
+      width: 10rem;
+      /* background: rgba(0, 0, 0, 0.5); */
       backdrop-filter: blur(8px);
       border-right: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 100;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -71,7 +71,7 @@
   
     .nav-icons {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 1rem;
       margin-top: 5rem;
       width: 100%;

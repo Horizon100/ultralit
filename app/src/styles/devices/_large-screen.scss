@@ -1,0 +1,65 @@
+@use '../variables/spacing' as spacing;
+@use '../variables/typography' as type;
+@use '../mixins/responsive' as *;
+
+
+@mixin large-screen-styles {
+    // Layout
+    .container {
+      max-width: 1320px;
+      padding: 0 map-get(spacing.$container-padding, 'desktop');
+    }
+  
+    // Grid layouts
+    .grid {
+      grid-template-columns: repeat(16, 1fr);
+      gap: map-get(spacing.$gap, 'xl');
+    }
+  
+    // Wide layouts
+    .wide-layout {
+      margin: 0 calc(50% - 50vw);
+      padding: 0 map-get(spacing.$spacing, 'xxl');
+    }
+  
+    // Multi-column text
+    .text-columns {
+      column-count: 2;
+      column-gap: map-get(spacing.$gap, 'xl');
+    }
+  
+    // Enhanced sidebars
+    .with-sidebar {
+      grid-template-columns: 320px 1fr;
+      gap: map-get(spacing.$gap, 'xxl');
+    }
+  
+    // Card grids
+    .card-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  
+    // Dashboard layouts
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: map-get(spacing.$gap, 'lg');
+    }
+  
+    // Feature sections
+    .feature-section {
+      padding: map-get(spacing.$section-spacing, 'lg') 0;
+    }
+  
+    // Modal dialogs
+    .modal {
+      max-width: 800px;
+      padding: map-get(spacing.$spacing, 'xxl');
+    }
+  
+    // Enhanced typography for large screens
+    .hero-text {
+      font-size: clamp(3rem, 5vw, 5rem);
+      line-height: 1.1;
+    }
+  }
