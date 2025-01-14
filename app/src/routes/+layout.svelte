@@ -1,15 +1,14 @@
 <script lang="ts">
     import { onMount, tick } from 'svelte';
     import { fly, fade, slide } from 'svelte/transition';
-    import { currentUser } from '$lib/pocketbase';
     import horizon100 from '$lib/assets/horizon100.svg';
-    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Languages, Code} from 'lucide-svelte';
+    import { Brain, Menu, LogIn, User, LogOut, MessageCircle, Drill, NotebookTabs, X, Languages, Code, Bone} from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
 	import { navigating } from '$app/stores';
     import { isNavigating } from '$lib/stores/navigationStore';
     import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
     import TimeTracker from '$lib/components/features/TimeTracker.svelte';
-    import { pb } from '$lib/pocketbase';
+    import { pb, currentUser } from '$lib/pocketbase';
     import { Camera } from 'lucide-svelte';
     import { goto } from '$app/navigation';
     import { currentTheme } from '$lib/stores/themeStore';
@@ -18,15 +17,43 @@
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import  '$lib/stores/threadsStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
+	import Auth from '$lib/components/auth/Auth.svelte';
+	import Profile from '$lib/components/ui/Profile.svelte';
+	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+
+
 	export let onStyleClick: (() => void) | undefined = undefined;
+
 
 
     let showLanguageNotification = false;
     let selectedLanguageName = '';
 	let placeholderText = '';
+    let isMenuOpen = true;
+	let isStylesOpen = true;
+    let currentStyle = 'default';
 
-    $: showThreadList = $threadsStore.showThreadList;
+    let showAuth = false;
+    let showProfile = false;
+	let showStyles = false;
 
+    let innerWidth: number;
+    let activeLink = '/';
+	const styles = [
+    { name: 'Daylight Delight', value: 'default', icon: Sun },
+    { name: 'Midnight Madness', value: 'dark', icon: Moon },
+    { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+    { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+    { name: 'Laser Focus', value: 'focus', icon: Focus },
+    { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+    { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+    { name: 'Bone Tone', value: 'bone', icon: Bone }
+  ];
+
+  // Handle style changes
+  function handleStyleClick() {
+    showStyles = !showStyles;
+  }
 	function handlePromptSelect(event: CustomEvent<any>) {
 		console.log('Layout: Received promptSelect:', event.detail);
 	}
@@ -44,21 +71,43 @@
 		const quotes = $t('extras.quotes');
 		return quotes[Math.floor(Math.random() * quotes.length)];
 	}
-	$: placeholderText = getRandomQuote();
-
-    let isMenuOpen = true;
-	let isStylesOpen = true;
-    let currentStyle = 'default';
-
-    let showAuth = false;
-    let showProfile = false;
-	let showStyles = false;
-
-    let innerWidth: number;
-    let activeLink = '/';
 
 
 
+
+	function toggleAuthOrProfile() {
+    if ($currentUser) {
+      showProfile = !showProfile;
+      showAuth = false;
+    } else {
+      showAuth = !showAuth;
+      showProfile = false;
+    }
+  }
+
+  function handleAuthSuccess() {
+    showAuth = false;
+  }
+
+  function handleLogout() {
+    showProfile = false;
+    showAuth = false;
+    goto('/');
+  }
+
+  function handleOverlayClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      showAuth = false;
+      showProfile = false;
+      showStyles = false;
+    }
+  }
+
+  function navigateTo(path: string) {
+    goto(path);
+  }
+  $: placeholderText = getRandomQuote();
+  $: showThreadList = $threadsStore.showThreadList;
     $: isNarrowScreen = innerWidth <= 768;
 
 	onMount(async () => {
@@ -124,33 +173,8 @@
 	// 	}, 600);
 	// }
 
-	onMount(() => {
-        return currentTheme.subscribe(theme => {
-            document.documentElement.className = theme;
-        });
-    });
 
-    function toggleMenu() {
-        isMenuOpen = !isMenuOpen;
-    }
 
-	function toggleStyles() {
-        showStyles = !showStyles;
-    }
-
-	function handleStyleClose() {
-        showStyles = false;
-    }
-
-    function toggleAuthOrProfile() {
-        if ($currentUser) {
-            showProfile = !showProfile;
-            showAuth = false;
-        } else {
-            showAuth = !showAuth;
-            showProfile = false;
-        }
-    }
 
 
 
@@ -179,6 +203,11 @@
 			placeholderText = getRandomQuote();
 		}
 	}
+	onMount(() => {
+        return currentTheme.subscribe(theme => {
+            document.documentElement.className = theme;
+        });
+    });
 
 	
 	
@@ -188,15 +217,20 @@
 
 <div class="app-container {$currentTheme}">
     <header>
-
 		<nav style="z-index: 1000;">
-			<TimeTracker />
-			<button class="nav-button" on:click={handleLanguageChange}>
+			<!-- <TimeTracker /> -->
+			<!-- <button class="nav-button" on:click={handleLanguageChange}> -->
 				<!-- <Languages size={24} /> -->
 				<!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
-				<span>{$t('lang.flag')}</span>
+				<!-- <span>{$t('lang.flag')}</span>
 		
-			  </button>
+			  </button> -->
+			  <div class="logo-container" on:click={handleLogoClick}>
+                <a href="/" class="logo-link">
+                    <img src={horizon100} alt="Horizon100" class="logo" />
+                    <h2>vRAZUM</h2>
+                </a>
+            </div>
             {#if isNarrowScreen}
                 <!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
@@ -224,12 +258,7 @@
 				</a>
 			{/if}
 			</div>
-            <div class="logo-container" on:click={handleLogoClick}>
-                <a href="/" class="logo-link">
-                    <img src={horizon100} alt="Horizon100" class="logo" />
-                    <h2>vRAZUM</h2>
-                </a>
-            </div>
+
             {/if}
         </nav>
     </header>
@@ -253,52 +282,105 @@
 		</div>
 		</div>
 	{/if} -->
-
 	{#if isNarrowScreen && isMenuOpen}
 	<div class="mobile-menu" transition:fly={{ y: 200, duration: 300 }}>
-		<div class="mobile-btns">
+		<div class="mobile-btns" >
 			{#if $currentUser}
-			<a
+				{#if activeLink === '/'}
+				<a
+						href="/"
+						class="nav-link active"
+						on:click|preventDefault={() => setActiveLink('/')}
+					>
+						<MessageCircle size={20} />
+						{$t('nav.ask')}
+					</a>
+					<a
+					href="/notes"
+					class="nav-link"
+					on:click|preventDefault={() => setActiveLink('/notes')}
+				>
+					<NotebookTabs size={20} />
+				</a>
+				{/if}
+				
+				{#if activeLink === '/notes'}
+				<a
 				href="/"
 				class="nav-link"
-				class:active={activeLink === '/'}
 				on:click|preventDefault={() => setActiveLink('/')}
 			>
 				<MessageCircle size={20} />
-				{$t('nav.ask')}
 			</a>
-			<a
-				href="/launcher"
-				class="nav-link"
-				class:active={activeLink === '/launcher'}
-				on:click|preventDefault={() => setActiveLink('/launcher')}
-			>
-				<Drill size={20} />
-				{$t('nav.build')}
-			</a>
-			<a
-				href="/notes"
-				class="nav-link"
-				class:active={activeLink === '/notes'}
-				on:click|preventDefault={() => setActiveLink('/notes')}
-			>
-				<NotebookTabs size={20} />
-				{$t('nav.notes')}
-			</a>
-				{:else}
-					<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
-						{$t('nav.features')}
-					</a>
-					<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
-						{$t('nav.pricing')}
+					<a
+						href="/notes"
+						class="nav-link active"
+						on:click|preventDefault={() => setActiveLink('/notes')}
+					>
+						<NotebookTabs size={20} />
+						{$t('nav.notes')}
 					</a>
 				{/if}
+
+				<button class="nav-button" on:click={toggleAuthOrProfile}>
+					<div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x: 200, duration: 300}}">
+						<div class="avatar-container">
+							{#if $currentUser.avatar}
+								<img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
+							{:else}
+								<Camera size={24} />
+							{/if}
+						</div>
+					</div>
+				</button>
+			{:else}
+				<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
+					{$t('nav.features')}
+				</a>
+				<a href="#pricing" class="nav-link" on:click|preventDefault={() => scrollToSection('pricing')}>
+					{$t('nav.pricing')}
+				</a>
+			{/if}
 		</div>
 	</div>
 {/if}
 	{#if $isNavigating}
 	<LoadingSpinner />
 {/if}
+
+{#if showAuth}
+  <div class="auth-overlay" on:click={handleOverlayClick}                                  
+        transition:fly={{ y: -20, duration: 300}}
+      >
+      <div class="auth-content" transition:fly={{ y: -20, duration: 300}} >
+          <button 
+          on:click={() => showAuth = false}
+          class="close-button" 
+          in:fly="{{ y: 50, duration: 500, delay: 400 }}" out:fly="{{ y: 50, duration: 500, delay: 400 }}"
+        >
+        <X size={24} />
+        </button>
+          <Auth on:success={handleAuthSuccess} on:logout={handleLogout} 
+        />
+      </div>
+    </div>
+    {/if}
+
+    {#if showProfile}
+      <div class="profile-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300 }}>
+        <div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+          <button class="close-button" transition:fly={{ y: -200, duration: 300 }} on:click={() => showProfile = false}>
+            <X size={24} />
+          </button>
+          <Profile 
+            user={$currentUser} 
+            onClose={() => showProfile = false}
+            onStyleClick={handleStyleClick}
+          />
+        </div>
+      </div>
+
+    {/if}
 <main>
 	<slot />
 </main>
@@ -338,6 +420,104 @@
     overflow: hidden;
     user-select: none;
 	}
+
+
+	.auth-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        /* background-color: rgba(0, 0, 0, 0.5); */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+
+
+    .auth-container {
+		background-color: #fff;
+		padding: 2rem;
+		border-radius: 10px;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+	
+	
+    .auth-content {
+        position: fixed;
+		top: 0;
+        /* background-color: #2b2a2a; */
+        /* padding: 2rem; */
+        width: 100%;
+        /* max-width: 500px; */
+        height: auto;
+        overflow-y: auto;
+    }
+  .profile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+		flex-grow: 1;
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+    backdrop-filter: blur(10px);
+    justify-content: center;
+        align-items: center;
+        z-index: 1002;
+		transition: all 0.3s ease;
+    }
+
+	.profile-content {
+    position: absolute;
+		width: auto;
+    height: auto;
+		top: 0;
+    bottom: auto;
+    /* right: 0; */
+    /* background-color: #2b2a2a; */
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+    backdrop-filter: blur(40px);   
+		border-bottom: 1px solid var(--secondary-color);
+    background: var(--bg-gradient-r);
+    border-bottom-left-radius: var(--radius-m);
+    border-bottom-right-radius: var(--radius-m);
+    width: 100%;
+    /* max-width: 500px; */
+    /* max-height: 90vh; */
+    overflow: none;
+		transition: all 0.3s ease;
+
+    }
+
+
+    .profile-button {
+		display: flex;
+		flex-direction: row;
+
+
+	}
+
+	.user-button {
+        background-color: #3c3c3c;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .user-button:hover {
+        background-color: #4a4a4a;
+    }
+
+    
 	main {
         background: var(--bg-gradient-r);
 		color: var(--text-color);
@@ -582,7 +762,6 @@
 		justify-content: center;
 		align-items: center;
 		/* padding: 20px; */
-
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
@@ -609,32 +788,45 @@
 		justify-content: center;
 		align-items: center;
 		/* background-color: red; */
-		border-radius: 10px;
-		padding: 5px 10px;
         text-decoration: none;
-        font-size: 20px;
+        font-size: auto;
         /* padding: 5px 10px; */
         /* border-radius: 20px; */
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		/* border-left: 1px solid rgb(130, 130, 130); */
 		user-select: none;
 		color: var(--text-color);
+    // background: var(--bg-gradient-right);
+    padding: 4px;
+    font-size: auto;
+    border: none;
+    cursor: pointer;
+		border-radius: 50%;
+		width: 60px !important;
+		height: 60px;
 
     }
 
 	.nav-link:hover {
         background-color: rgba(255, 255, 255, 0.1);
-		transform: translateY(-2px);
         color: #6fdfc4;
 
     }
 
 	.nav-link.active {
-    background: var(--bg-gradient-r);
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); 
-    font-weight: bold;
-	color: var(--tertiary-color);
-    transform: translateY(-2px);
+	
+		background: var(--secondary-color) !important;
+      color: var(--tertiary-color);
+      font-size: var(--font-size-s);
+      width: fit-content;
+      flex: 1;
+      justify-content: center;
+      
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      
+    }
   }
   
 	.svg-container {
@@ -642,6 +834,7 @@
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
+		
 		text-align: center;
 		color: white;
 		font-size: 20px;
@@ -650,10 +843,9 @@
 		cursor: pointer;
 		text-decoration: none;
 		transition: all 0.3s ease;
-		width: 100px;
 		/* background-color: #352e2e; */
-		height: 30px;
-		width: 40px;
+		height: auto;
+		width: auto;
 	}
 
 	.svg-container:hover {
@@ -705,10 +897,10 @@
 		background-color: transparent;
 	}
 
-	button.menu-button {
-		/* display: flex; */
-		/* flex-direction: row; */
-	}
+	// button.menu-button {
+	// 	/* display: flex; */
+	// 	/* flex-direction: row; */
+	// }
 
     .user-name {
         max-width: 150px;
@@ -726,8 +918,8 @@
 		align-items: center;
 		position: fixed;
 		bottom: 0;
-		left:0;
-		width: 100%;
+		right:0;
+		width: calc(100% - 3rem - 60px);
 		height: 80px;
 		/* bottom: calc(100% - 280px); */
 		/* width: calc(100% - 60px); */
@@ -736,7 +928,7 @@
 		/* border: 1px solid #000000; */
 		/* background: linear-gradient(to top, #3f4b4b, #333333); */
 		/* background-color: #2b2a2a; */
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 
 		/* border-radius: 20px; */
 		/* background-color: black; */
@@ -748,20 +940,62 @@
 	}
 
 	.mobile-btns {
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;	
-		align-items: center;
-		width: 100%;
-		height: 39px;
-		backdrop-filter: blur(50px);
-		background: var(--bg-gradient-left);
+		width:90%;
+      margin-left: 0;
+		bottom: 0;
+		margin-bottom: 0;
+      margin-right: 4rem;
+      height: 30px;
+      padding: 0.75rem 1rem;
+      border: none;
+      cursor: pointer;
+      color: var(--text-color);
+      text-align: left;
+      align-items: center;
+      justify-content: space-around;
+      transition: background-color 0.2s;
+      // border-radius: var(--radius-m);
+      display: flex;
+      flex-direction: row;
+      background: var(--bg-gradient) !important;
+      margin-bottom: 0.5rem;
+      left: 0;
+      right: 0;
+      border-radius: var(--radius-l);
 	}
 
 	.mobile-btns a {
-		width: 100%;
-		flex-direction: column;
-
+		display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: auto !important;
+    padding: 0 1rem;
+    position: relative;
+    // padding: 0.5rem 1rem;
+    height: 100%;
+    border: none;
+    border-radius: 2rem;
+    // background: var(--secondary-color);
+    color: var(--placeholder-color);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    & h3 {
+      margin: 0;
+      font-weight: 300;
+      font-size: var(--font-size-sm);    
+      font-weight: 600;
+    line-height: 1.4;
+    &.active {
+      background: var(--primary-color) !important;
+      color: var(--tertiary-color);
+      font-size: var(--font-size-xs);
+      
+    }
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      
+    }
+    }
 	}
 
 		/* .auth-button {
@@ -971,7 +1205,7 @@
 		}
 
 		header {
-			justify-content: center;
+			// justify-content: center;
 		}
 
 		.header-logo {

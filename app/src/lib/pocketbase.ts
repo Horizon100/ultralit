@@ -27,6 +27,7 @@ pb.autoCancellation(false);
 
 export const currentUser = writable<User | null>(pb.authStore.model as User | null);
 
+
 pb.authStore.onChange((auth) => {
     console.log('authStore changed', auth);
     currentUser.set(pb.authStore.model as User | null);
@@ -619,16 +620,6 @@ export async function deleteThread(id: string): Promise<boolean> {
     }
 }
 
-export async function deleteTag(id: string): Promise<boolean> {
-    try {
-        await pb.collection('tags').delete(id);
-        return true;
-    } catch (error) {
-        console.error('Error deleting tag:', error);
-        return false;
-    }
-}
-
 // Message functions for threads
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
     try {
@@ -643,38 +634,6 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
         throw error;
     }
 }
-
-
-
-// export async function createMessage(messageData: Partial<Messages>): Promise<Messages> {
-//     try {
-//         const record = await pb.collection('messages').create<Messages>(messageData);
-//         return record;
-//     } catch (error) {
-//         console.error('Error creating message:', error);
-//         throw error;
-//     }
-// }
-
-// export async function updateMessage(id: string, messageData: Partial<Messages>): Promise<Messages> {
-//     try {
-//         const record = await pb.collection('messages').update<Messages>(id, messageData);
-//         return record;
-//     } catch (error) {
-//         console.error('Error updating message:', error);
-//         throw error;
-//     }
-// }
-
-// export async function deleteMessage(id: string): Promise<boolean> {
-//     try {
-//         await pb.collection('messages').delete(id);
-//         return true;
-//     } catch (error) {
-//         console.error('Error deleting message:', error);
-//         return false;
-//     }
-// }
 
 export async function createMessage(messageData: Partial<Message>): Promise<Message> {
     try {

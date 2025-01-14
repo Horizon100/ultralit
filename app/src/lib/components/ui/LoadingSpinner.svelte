@@ -14,7 +14,13 @@
     </div>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/styles/themes.scss" as *;
+	* {
+	//   font-family: 'Source Code Pro', monospace;
+	font-family: var(--font-family);
+	transition: all 0.3s ease;
+    }
 
     .center-container {
         display: flex;

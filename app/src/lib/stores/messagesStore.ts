@@ -1,15 +1,7 @@
-import { writable, get } from 'svelte/store';
-import type { Messages, Threads, Tag } from '$lib/types';
+import { writable } from 'svelte/store';
+import type { Messages } from '$lib/types';
 import { pb } from '$lib/pocketbase';
-import { fetchMessagesForThread, addMessageToThread, fetchMessagesForThreadByDate } from '$lib/threadsClient';
-import { User } from 'lucide-svelte';
-
-// Add this function to your threadsClient.ts file and export it
-async function updateMessage(id: string, data: Partial<Messages>): Promise<Messages> {
-    return await pb.collection('messages').update<Messages>(id, data);
-}
-
-
+import { fetchMessagesForThread, addMessageToThread } from '$lib/threadsClient';
 
 function createMessagesStore() {
     const { subscribe, set, update } = writable<Messages[]>([]);
@@ -60,7 +52,6 @@ function createMessagesStore() {
                     read_by: [userId],
                     thread: threadId,
                     attachments: message.attachments || '',
-                    reactions: message.reactions || {},
                     prompt_type: message.prompt_type || null,
                     model: message.model || 'fail',
 
@@ -74,48 +65,6 @@ function createMessagesStore() {
                 throw error;
             }
         },
-        addReaction: async (messageId: string, reaction: string) => {
-            try {
-                const messages = get(messagesStore);
-                const message = messages.find(m => m.id === messageId);
-                if (!message) {
-                    throw new Error('Message not found');
-                }
-
-                const updatedReactions = { ...message.reactions };
-                updatedReactions[reaction] = (updatedReactions[reaction] || 0) + 1;
-
-                const updatedMessage = await updateMessage(messageId, { reactions: updatedReactions });
-                
-                update(messages => messages.map(m => m.id === messageId ? updatedMessage : m));
-                return updatedMessage;
-            } catch (error) {
-                console.error('Error adding reaction:', error);
-                throw error;
-            }
-        },
-        removeReaction: async (messageId: string, reaction: string) => {
-            try {
-                const messages = get(messagesStore);
-                const message = messages.find(m => m.id === messageId);
-                if (!message) {
-                    throw new Error('Message not found');
-                }
-
-                const updatedReactions = { ...message.reactions };
-                if (updatedReactions[reaction] > 0) {
-                    updatedReactions[reaction]--;
-                }
-
-                const updatedMessage = await updateMessage(messageId, { reactions: updatedReactions });
-                
-                update(messages => messages.map(m => m.id === messageId ? updatedMessage : m));
-                return updatedMessage;
-            } catch (error) {
-                console.error('Error removing reaction:', error);
-                throw error;
-            }
-        }
     };
 }
 

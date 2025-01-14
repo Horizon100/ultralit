@@ -1,9 +1,11 @@
+import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects} from '$lib/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 // import { fetchNamingResponse } from '$lib/aiClient'
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { marked } from 'marked';
+import { threadsStore } from '$lib/stores/threadsStore';
 
 marked.setOptions({
     gfm: true, // GitHub Flavored Markdown
@@ -146,11 +148,10 @@ export async function fetchThreads(): Promise<Threads[]> {
     try {
         ensureAuthenticated();
         
-        // Use getList instead of getFullList for better error handling
         const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
             expand: 'last_message,project_id',
             sort: '-created',
-            $cancelKey: 'threads' // Add cancellation key
+            $cancelKey: 'threads'
         });
 
         if (!resultList?.items) {
@@ -158,9 +159,19 @@ export async function fetchThreads(): Promise<Threads[]> {
             return [];
         }
 
-        // Log successful fetch
-        console.log('Successfully fetched threads:', resultList.items.length);
-        return resultList.items;
+        // Get current thread list visibility state from the store
+        const currentState = get(threadsStore);
+        const showThreadList = currentState?.showThreadList ?? true;
+
+        // Map the threads to preserve visibility state
+        const threadsWithState = resultList.items.map(thread => ({
+            ...thread,
+            showThreadList // Preserve the visibility state for each thread
+        }));
+
+        console.log('Successfully fetched threads:', threadsWithState.length);
+        return threadsWithState;
+
     } catch (error) {
         if (error instanceof ClientResponseError) {
             console.error('PocketBase Response Error:', {
@@ -170,16 +181,13 @@ export async function fetchThreads(): Promise<Threads[]> {
                 url: error.url
             });
             
-            // Check for authentication errors
             if (error.status === 401) {
                 console.error('Authentication error - trying to reauthenticate');
-                // Handle reauthentication if needed
             }
         } else {
             console.error('Unknown error fetching threads:', error);
         }
         
-        // Return empty array instead of throwing
         return [];
     }
 }
@@ -194,83 +202,65 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
             throw new Error('User ID not found');
         }
 
-        // Create base thread data
+        // Create base thread data with explicit empty values
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
             op: userId,
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
-            tags: [],
-            current_thread: ''
+            current_thread: '',
+            // Add any showThreadList state property if it exists in your Threads type
+            ...(threadData.project_id && { project_id: threadData.project_id })
         };
 
-        // Only add project_id if it exists and is not undefined/null
-        if (threadData.project_id) {
-            try {
-                await pb.collection('projects').getOne<Projects>(threadData.project_id);
-                newThread.project_id = threadData.project_id;
-            } catch (error) {
-                console.error('Project validation failed:', error);
-                throw new Error(`Invalid project_id or project not found: ${error.message}`);
-            }
-        }
-
-        console.log('Attempting to create thread with data:', newThread);
+        console.log('Creating thread with data:', newThread);
         
         let createdThread: Threads | null = null;
         
         try {
             createdThread = await pb.collection('threads').create<Threads>(newThread);
-            console.log('Successfully created thread:', createdThread);
-        } catch (error) {
-            console.error('Failed to create thread:', error);
-            if (error instanceof ClientResponseError) {
-                console.error('Response details:', {
-                    status: error.status,
-                    message: error.message,
-                    data: error.data,
-                    url: error.url
-                });
+            console.log('Thread created:', createdThread);
+
+            // If project_id exists, update project
+            if (createdThread.project_id) {
+                try {
+                    const project = await pb.collection('projects').getOne<Projects>(createdThread.project_id);
+                    const updatedThreads = Array.isArray(project.threads) 
+                        ? [...project.threads, createdThread.id]
+                        : [createdThread.id];
+                    
+                    await pb.collection('projects').update(createdThread.project_id, {
+                        threads: updatedThreads
+                    });
+                    console.log('Project updated with new thread');
+                } catch (error) {
+                    console.error('Project update failed:', error);
+                    // Cleanup created thread if project update fails
+                    if (createdThread?.id) {
+                        await pb.collection('threads').delete(createdThread.id);
+                    }
+                    throw error;
+                }
             }
+
+            // Return the thread with explicit visibility state
+            return {
+                ...createdThread,
+                // Keep any existing visibility state from threadData
+                ...(threadData.showThreadList !== undefined && { 
+                    showThreadList: threadData.showThreadList 
+                })
+            };
+
+        } catch (error) {
+            console.error('Thread creation failed:', error);
             throw error;
         }
 
-        if (!createdThread || !createdThread.id) {
-            throw new Error('Thread creation failed - no thread ID returned');
-        }
-
-        // If this thread belongs to a project, update the project's threads array
-        if (createdThread.project_id) {
-            try {
-                const project = await pb.collection('projects').getOne<Projects>(createdThread.project_id);
-                const updatedThreads = Array.isArray(project.threads) 
-                    ? [...project.threads, createdThread.id]
-                    : [createdThread.id];
-                
-                await pb.collection('projects').update(createdThread.project_id, {
-                    threads: updatedThreads
-                });
-                console.log('Successfully updated project with new thread');
-            } catch (error) {
-                console.error('Project update failed:', error);
-                // Clean up the created thread
-                try {
-                    await pb.collection('threads').delete(createdThread.id);
-                    console.log('Cleaned up thread after project update failure');
-                } catch (cleanupError) {
-                    console.error('Failed to cleanup thread:', cleanupError);
-                }
-                throw new Error(`Failed to update project with new thread: ${error.message}`);
-            }
-        }
-
-        // Return the created thread without trying to fetch it again
-        return createdThread;
-
     } catch (error) {
-        console.error('Thread creation failed:', error);
+        console.error('Thread creation process failed:', error);
         if (error instanceof ClientResponseError) {
-            console.error('PocketBase error details:', {
+            console.error('PocketBase details:', {
                 status: error.status,
                 message: error.message,
                 data: error.data,
@@ -306,24 +296,29 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
     try {
         ensureAuthenticated();
 
+        // Get current thread state before update
+        const currentThread = await pb.collection('threads').getOne<Threads>(id);
+        
+        const updatedChanges = {
+            ...changes,
+            // Preserve showThreadList state if it exists
+            ...(currentThread.showThreadList !== undefined && {
+                showThreadList: currentThread.showThreadList
+            })
+        };
 
-        // If tags are being updated, ensure they're in the correct format
-        if (changes.tags) {
-            changes.tags = changes.tags.map(tag => {
-                if (!tag.includes('#')) {
-                    const color = getRandomBrightColor(tag);
-                    return `${tag} #${color.slice(1)}`; // Remove the # from the color
-                }
-                return tag;
-            });
-        }
+        const updatedThread = await pb.collection('threads').update<Threads>(id, updatedChanges);
+        
+        console.log('Thread updated successfully:', updatedThread);
+        return updatedThread;
 
-        return await pb.collection('threads').update<Threads>(id, changes);
     } catch (error) {
-        console.error('Error updating thread:', error);
+        console.error('Thread update failed:', error);
         if (error instanceof ClientResponseError) {
-            console.error('Response data:', error.data);
-            console.error('Status code:', error.status);
+            console.error('Response details:', {
+                status: error.status,
+                data: error.data
+            });
         }
         throw error;
     }
@@ -336,11 +331,11 @@ export async function autoUpdateThreadName(
     userId: string
 ): Promise<Threads | null> {
     try {
-        // First check authentication
-        await ensureAuthenticated();
+        ensureAuthenticated(); // No await needed since it's synchronous
   
         // Then return the result of updateThreadNameIfNeeded
-        return await updateThreadNameIfNeeded(threadId, messages, model, userId);
+        const updatedThread = await updateThreadNameIfNeeded(threadId, messages, model, userId);
+        return updatedThread;
     } catch (error) {
         console.error('Error in autoUpdateThreadName:', error);
         if (error instanceof ClientResponseError) {
@@ -350,7 +345,6 @@ export async function autoUpdateThreadName(
         return null;
     }
 }
-
 export async function addMessageToThread(message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages> {
     try {
         ensureAuthenticated();

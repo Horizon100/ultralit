@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { get } from 'svelte/store';
   import { MessageSquare, X, PanelLeftClose, PanelLeftOpen, Drill, NotebookTabs, 
-           Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge, 
+           Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge, Component, 
            Bone} from 'lucide-svelte';
   import { currentUser, pb } from '$lib/pocketbase';
   import { currentTheme } from '$lib/stores/themeStore';
@@ -64,7 +64,9 @@
     { name: 'Laser Focus', value: 'focus', icon: Focus },
     { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
     { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-    { name: 'Bone Tone', value: 'bone', icon: Bone }
+    { name: 'Bone Tone', value: 'bone', icon: Bone },
+    { name: 'Ivory Tower', value: 'ivory', icon: Component }
+
   ];
 
   // Handle style changes
@@ -96,7 +98,7 @@
   $: showThreadList = $threadsStore.showThreadList; 
 
 
-  function toggleThreadList() {
+  export function toggleThreadList() {
     threadsStore.toggleThreadList();
 }
   function toggleStyles() {
@@ -176,13 +178,13 @@
       >
         <MessageSquare />
       </button>
-      <button 
+      <!-- <button 
         class="nav-button" 
         class:active={currentPath === '/launcher'}
         on:click={() => navigateTo('/launcher')}
       >
         <Drill />
-      </button>
+      </button> -->
       <button 
         class="nav-button" 
         class:active={currentPath === '/notes'}
@@ -306,7 +308,14 @@
 <svelte:window bind:innerWidth />
 
 
-<style>
+<style lang="scss">
+	@use "src/styles/themes.scss" as *;
+	* {
+	//   font-family: 'Source Code Pro', monospace;
+	font-family: var(--font-family);
+	transition: all 0.3s ease;
+
+	}
   .sidenav {
     display: flex;
     flex-direction: row;
@@ -325,9 +334,9 @@
     transition: all 0.3s ease-in;
   }
 
-  .sidenav:hover {
-    /* backdrop-filter: blur(10px); */
-  }
+  // .sidenav:hover {
+  //   /* backdrop-filter: blur(10px); */
+  // }
 
   .navigation-buttons {
     display: flex;
@@ -472,7 +481,7 @@
 
     .nav-button.toggle {
       position: fixed;
-      bottom: 5rem;
+      bottom: 2rem;
       left: 0.5rem;
       z-index: 1000;
     }
@@ -638,10 +647,9 @@
     justify-content: left;
     flex-direction: column;
       height: auto;
-      width: auto;
+      width: 100px;
       bottom: 5rem;
       padding: 0.5rem;
-      background: transparent;
       /* backdrop-filter: blur(10px); */
     }
 
@@ -674,6 +682,16 @@
     .nav-button:hover,
     .thread-toggle:hover {
       transform: scale(1.1);
+    }
+
+    .nav-button.toggle {
+      position: fixed;
+      bottom: 1rem;
+      left: 1.5rem;
+      height: 60px;
+      width: 60px;
+      z-index: 1000;
+      
     }
 
     .profile-content {

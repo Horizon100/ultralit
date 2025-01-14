@@ -57,12 +57,13 @@ export type PromptType =
         showThreadList: boolean;
         searchQuery: string;
         namingThreadId: string | null;
-        selectedTagIds: Set<string>;
         currentThread: Threads | null;
         filteredThreads: Threads[];
         isEditingThreadName: boolean;
         editedThreadName: string;
-        tags: Tag[];
+        isNaming: boolean;
+        project_id?: string;
+
     }
 
 export interface Tag extends RecordModel {
@@ -249,11 +250,8 @@ export interface Message extends RecordModel {
     receiver: string;
     attachments: string;
     reactions: {
-        upvote: number,
-        downvote: number,
-        bookmark: string[], // Array of user IDs who bookmarked
-        highlight: string[], // Array of user IDs who highlighted
-        question: number
+        bookmark: string[],
+        copy: string,
       }; 
     update_status: 'not_updated' | 'updated' | 'deleted';
     prompt_type: string | null;
@@ -480,13 +478,6 @@ export interface Messages extends RecordModel {
     read_by: string[];
     thread: string;
     attachments: string;
-    reactions: {
-        upvote: number,
-        downvote: number,
-        bookmark: string[], // Array of user IDs who bookmarked
-        highlight: string[], // Array of user IDs who highlighted
-        question: number
-      };
     created: string;
     updated: string;
     prompt_type: string | null;
@@ -515,22 +506,6 @@ export interface ChatMessage extends RecordModel {
     };
 }
 
-export interface ThreadStoreState {
-    threads: Threads[];
-    currentThreadId: string | null;
-    messages: Messages[];
-    updateStatus: string;
-    isThreadsLoaded: boolean;
-    showThreadList: boolean;
-    searchQuery: string;
-    namingThreadId: string | null;
-    selectedTagIds: Set<string>;
-    currentThread: Threads | null;
-    filteredThreads: Threads[];
-    isEditingThreadName: boolean;
-    editedThreadName: string;
-    tags: Tag[];
-    project_id?: string;
 
 }
 
