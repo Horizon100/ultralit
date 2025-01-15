@@ -296,5 +296,17 @@ export default {
         terms: "Terms",
         privacy: "Privacy"
     },
+    thinkingPhrases: [
+        "Consulting my digital crystal ball...",
+        "Asking the oracle of ones and zeros...", 
+        "Summoning the spirits of Silicon Valley...",
+        "Decoding the matrix...",
+        "Channeling the ghost in the machine...",
+        "Pondering the meaning of artificial life...",
+        "Calculating the answer to life, the universe, and everything...",
+        "Divining the digital tea leaves...",
+        "Consulting the sacred scrolls of binary...",
+        "Communing with the AI hive mind..."
+    ],
 
 };

@@ -299,7 +299,19 @@ export default {
         clause: "Используя vRazum, вы автоматически соглашаетесь с нашими",
         terms: "Условия",
         privacy: "Конфиденциальность",
-    }
+    },
+    thinkingPhrases: [
+        "Мысль - начало всего...", // "Thought is the beginning of everything..." - Tolstoy
+        "В поисках цифровой истины...", // "Searching for digital truth..." - inspired by Dostoyevsky
+        "Погружаясь в глубины кода...", // "Diving into the depths of code..." - inspired by Pushkin's style
+        "Размышляя над загадками бытия...", // "Pondering the riddles of existence..." - inspired by Gogol
+        "В диалоге с машинным разумом...", // "In dialogue with machine intelligence..." - inspired by Chekhov
+        "Исследуя цифровые горизонты...", // "Exploring digital horizons..." - inspired by Lomonosov
+        "На перекрёстке алгоритмов...", // "At the crossroads of algorithms..." - inspired by Bulgakov
+        "Среди созвездий данных...", // "Among constellations of data..." - inspired by Tsiolkovsky
+        "В поиске электронной мудрости...", // "In search of electronic wisdom..." - inspired by Mendeleev
+        "Открывая новые измерения..." // "Opening new dimensions..." - inspired by Landau
+    ],
 };
 
 

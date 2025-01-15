@@ -208,6 +208,7 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
             op: userId,
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
+            tags: [],
             current_thread: '',
             // Add any showThreadList state property if it exists in your Threads type
             ...(threadData.project_id && { project_id: threadData.project_id })

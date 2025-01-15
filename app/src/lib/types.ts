@@ -600,3 +600,47 @@ export interface Projects extends RecordModel {
     collaborators: string[];
 }
 
+export interface ThreadGroup {
+    group: string;
+    threads: Threads[];
+}
+export interface ExpandedSections {
+    prompts: boolean;
+    models: boolean;
+}
+
+export interface MessageState {
+    messages: Messages[];
+    chatMessages: InternalChatMessage[];
+    userInput: string;
+    messageIdCounter: number;
+    latestMessageId: string | null;
+    thinkingMessageId: string | null;
+    typingMessageId: string | null;
+    quotedMessage: Messages | null;
+}
+
+export interface PromptState {
+    promptType: PromptType;
+    currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
+    scenarios: Scenario[];
+    tasks: Task[];
+    guidance: Guidance | null;
+    selectedScenario: Scenario | null;
+    selectedTask: Task | null;
+    summary: string;
+    networkData: any;
+}
+
+
+
+export interface UIState {
+    isLoading: boolean;
+    isLoadingMessages: boolean;
+    showPromptCatalog: boolean;
+    showModelSelector: boolean;
+    isMinimized: boolean;
+    showNetworkVisualization: boolean;
+    expandedDates: Set<string>;
+    searchQuery: string;
+}

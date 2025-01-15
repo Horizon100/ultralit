@@ -15,7 +15,7 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
+  import type {ExpandedGroups, ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/projectClient';
   import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/threadsClient';
@@ -49,87 +49,16 @@
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
 
-  interface ExpandedGroups {
-  [key: string]: boolean;
-}
-
-
-  interface ThreadGroup {
-    group: string;
-    threads: Threads[];
-  }
-
-  interface MessageState {
-  messages: Messages[];
-  chatMessages: InternalChatMessage[];
-  userInput: string;
-  messageIdCounter: number;
-  latestMessageId: string | null;
-  thinkingMessageId: string | null;
-  typingMessageId: string | null;
-  quotedMessage: Messages | null;
-}
-
-interface PromptState {
-  promptType: PromptType;
-  currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
-  scenarios: Scenario[];
-  tasks: Task[];
-  guidance: Guidance | null;
-  selectedScenario: Scenario | null;
-  selectedTask: Task | null;
-  summary: string;
-  networkData: any;
-}
-
-
-
-interface UIState {
-  isLoading: boolean;
-  isLoadingMessages: boolean;
-  showPromptCatalog: boolean;
-  showModelSelector: boolean;
-  isMinimized: boolean;
-  showNetworkVisualization: boolean;
-  expandedDates: Set<string>;
-  searchQuery: string;
-}
-
   const dispatch = createEventDispatcher();
 
   const expandedGroups = writable<ExpandedGroups>({});
 
-    interface ExpandedSections {
-  prompts: boolean;
-  models: boolean;
-}
-// Store for expanded section states
-export const expandedSections = writable<ExpandedSections>({
-  prompts: false,
-  models: false,
-});
 
-
-
-
-
-  function toggleThreadList() {
-    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
-    threadsStore.toggleThreadList();
-    dispatch('threadListToggle');
-  }
 
 
   
   let deg = 0;
-	onMount(() => {
-		const interval = setInterval(() => {
-			deg += 2;
-			if (deg >= 360) deg = 0;
-			document.body.style.setProperty('--deg', deg);
-		}, 60);
-		return () => clearInterval(interval);
-	});
+
 
 
   // Chat-related state
@@ -256,6 +185,14 @@ export const expandedSections = writable<ExpandedSections>({
 
 });
 
+// Store for expanded section states
+export const expandedSections = writable<ExpandedSections>({
+  prompts: false,
+  models: false,
+});
+
+
+
   const focusOnMount = (node: HTMLElement) => {
       node.focus();
     };
@@ -272,7 +209,6 @@ export const expandedSections = writable<ExpandedSections>({
     created: new Date().toISOString(),
     updated: new Date().toISOString()
   };
-  
   const thinkingPhrases = [
     "Consulting my digital crystal ball...",
     "Asking the oracle of ones and zeros...",
@@ -292,14 +228,16 @@ export const expandedSections = writable<ExpandedSections>({
     $t('threads.thismonth'),
     $t('threads.older')
   ];
-
-
   const isMobileScreen = () => window.innerWidth < 1000;
 
-  
-
-
   // FUNCTIONS
+
+
+  function toggleThreadList() {
+    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
+    threadsStore.toggleThreadList();
+    dispatch('threadListToggle');
+  }
 
   function getPromptText(promptType: PromptType): string {
   switch (promptType) {
@@ -743,7 +681,12 @@ const handleTextareaBlur = () => {
 
   return { nodes, edges };
   }
-  function getRandomThinkingPhrase() {
+  function getRandomThinkingPhrase(): string {
+    // Get the array of thinking phrases from the extras section
+    const thinkingPhrases = $t('extras.thinking');
+    if (!thinkingPhrases?.length) {
+      return 'Thinking...';
+    }
     return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
   }
   function toggleNetworkVisualization() {
@@ -1318,119 +1261,6 @@ async function handleLoadThread(threadId: string) {
     }
   }
   
-// Prompt functions
-  async function handleScenarioSelection(scenario: Scenario) {
-    selectedScenario = scenario;
-    chatMessages = [...chatMessages, addMessage('user', `Selected scenario: ${scenario.description}`)];
-    
-    guidance = await generateGuidance({ type: 'scenario', description: scenario.description }, aiModel, userId);
-    chatMessages = [...chatMessages, addMessage('assistant', guidance.content)];
-
-    isLoading = true;
-    thinkingPhrase = getRandomThinkingPhrase();
-    const thinkingMessage = addMessage('thinking', thinkingPhrase);
-    chatMessages = [...chatMessages, thinkingMessage];
-
-    try {
-      tasks = await generateTasksAPI(scenario, aiModel, userId);
-      chatMessages = chatMessages.filter(msg => msg.role !== 'thinking');
-      chatMessages = [...chatMessages, addMessage('assistant', "Based on the selected scenario, here are some suggested tasks:")];
-      chatMessages = [...chatMessages, addMessage('options', tasks)];
-      currentStage = 'tasks';
-    } catch (error) {
-      if (error instanceof Error) {
-      chatMessages = [...chatMessages, addMessage('assistant', `Sorry, I encountered an error: ${error.message}`)];
-      } else {
-        chatMessages = [...chatMessages, addMessage('assistant', `Sorry, I encountered an error: Unknown error`)];
-      }
-    } finally {
-      isLoading = false;
-    }
-  }
-  async function handleTaskSelection(task: Task) {
-    selectedTask = task;
-    chatMessages = [...chatMessages, addMessage('user', `Selected task: ${task.description}`)];
-    
-    // Provide opportunity for task refinement
-    const refinementGuidance = await generateGuidance({ type: 'task_refinement', description: task.description }, aiModel, userId);
-    chatMessages = [...chatMessages, addMessage('assistant', refinementGuidance.content)];
-    
-    // Automatically proceed to finalization
-    await finalizeProcess();
-  }
-  async function finalizeProcess() {
-    if (selectedScenario && selectedTask) {
-      isLoading = true;
-      chatMessages = [...chatMessages, addMessage('thinking', 'Finalizing process...')];
-
-      try {
-        const rootAgent = await createAIAgent(selectedScenario, [selectedTask], aiModel, userId);
-        
-        const childAgents = await Promise.all(tasks.map(task => 
-          createAIAgent({ id: '', description: task.description } as Scenario, [], aiModel, userId)
-        ));
-
-        // Update root agent with child agents
-        await updateAIAgent(rootAgent.id, {
-          child_agents: childAgents.map(agent => agent.id)
-        });
-
-        networkStore.addAgent(rootAgent);
-        networkStore.addChildAgents(childAgents);
-
-        const summaryMessages = chatMessages.filter(msg => msg.role !== 'thinking' && msg.role !== 'assistant');
-        summary = await generateSummaryAPI(
-          summaryMessages.map(msg => ({ 
-            role: msg.role as 'user' | 'assistant' | 'system', 
-            content: msg.content.toString() 
-          })), 
-          aiModel, 
-          userId
-        );
-        const keywords = extractKeywords(summary);
-        const highlightedSummary = highlightKeywords(summary, keywords);
-        
-
-
-        chatMessages = chatMessages.filter(msg => msg.role !== 'thinking');
-        await typeMessage('Process complete. AI agent created and network structure determined.');
-        await typeMessage('Summary:');
-        chatMessages = [...chatMessages, { ...addMessage('assistant', highlightedSummary), isHighlighted: true }];
-        
-        currentStage = 'summary';
-        dispatch('summary', summary);
-        dispatch('networkData', networkData);
-      } catch (error) {
-        console.error('Error in finalizeProcess:', error);
-        chatMessages = chatMessages.filter(msg => msg.role !== 'thinking');
-        await typeMessage(`An error occurred while finalizing the process: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        isLoading = false;
-      }
-    } else {
-      console.error('Cannot finalize process: scenario or task not selected');
-      await typeMessage('Error: Cannot finalize process. Please select a scenario and a task.');
-    }
-  }
-  async function generateLocalSummary() {
-  summary = await generateSummaryAPI(
-    chatMessages.map(msg => ({ 
-      role: msg.role as 'user' | 'assistant' | 'system', 
-      content: msg.content 
-    })),
-    aiModel, 
-    userId,
-  );
-  dispatch('summary', summary);
-  }
-  async function generateLocalTasks() {
-    if (selectedScenario) {
-      tasks = await generateTasksAPI(selectedScenario, aiModel, userId);
-      dispatch('tasks', tasks);
-    } else {
-      console.error('No scenario selected for task generation');
-    }
-  }
 
   async function startEditingThreadName() {
     isEditingThreadName = true;
@@ -1483,7 +1313,7 @@ async function handleLoadThread(threadId: string) {
     }
 }
 
-$: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
+  $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
   $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
   $: selectedModelName = $modelStore?.selectedModel?.name || '';  
   $: showThreadList = $threadsStore.showThreadList;
@@ -1554,13 +1384,6 @@ $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
 
 
 // Stage-based operations
-$: if (currentStage === 'summary') {
-   generateLocalSummary();
-}
-
-$: if (currentStage === 'tasks' && selectedScenario) {
-   generateLocalTasks();
-}
 
 // UI state updates
 $: console.log("isLoading changed:", isLoading);
@@ -1612,6 +1435,17 @@ $: if (date) {
 
 
 // Lifecycle hooks
+
+onMount(() => {
+		const interval = setInterval(() => {
+			deg += 2;
+			if (deg >= 360) deg = 0;
+			document.body.style.setProperty('--deg', deg);
+		}, 60);
+		return () => clearInterval(interval);
+	});
+
+
 onMount(async () => {
   try {
     console.log('onMount initiated');
