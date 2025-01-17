@@ -1,4 +1,4 @@
-import type { PromptType } from '$lib/types';
+import type { PromptType } from '$lib/types/types';
 import { BookOpen, List, User, Network, Edit3, FileText, Share2, Coffee, Lightbulb, ChartScatter, NotebookText, CodeXml, CalendarRange, SearchSlash, BrickWall } from 'lucide-svelte';
 
 

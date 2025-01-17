@@ -1,20 +1,22 @@
 import { writable } from 'svelte/store';
-import type { Messages } from '$lib/types';
+import type { Messages } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
-import { fetchMessagesForThread, addMessageToThread } from '$lib/threadsClient';
+import { fetchMessagesForThread, addMessageToThread } from '$lib/clients/threadsClient';
 
 function createMessagesStore() {
+    // Initialize with empty array
     const { subscribe, set, update } = writable<Messages[]>([]);
+
     return {
         subscribe,
         setSelectedDate: (date: string | null) => {
             update(state => ({ ...state, selectedDate: date }));
         },
-        setMessages: (messages: Messages[]) => set(messages),
+        setMessages: (messages: Messages[]) => set(messages || []), // Ensure array
         addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>) => {
             try {
                 const newMessage = await addMessageToThread(message);
-                update(messages => [...messages, newMessage]);
+                update(messages => Array.isArray(messages) ? [...messages, newMessage] : [newMessage]);
                 return newMessage;
             } catch (error) {
                 console.error('Error adding message:', error);
@@ -24,10 +26,11 @@ function createMessagesStore() {
         fetchMessages: async (threadId: string) => {
             try {
                 const messages = await fetchMessagesForThread(threadId);
-                set(messages);
+                set(messages || []); // Ensure array
                 return messages;
             } catch (error) {
                 console.error('Error fetching messages:', error);
+                set([]); // Reset to empty array on error
                 throw error;
             }
         },
@@ -54,17 +57,26 @@ function createMessagesStore() {
                     attachments: message.attachments || '',
                     prompt_type: message.prompt_type || null,
                     model: message.model || 'fail',
-
                 };
 
                 const savedMessage = await addMessageToThread(newMessage);
-                update(messages => [...messages, savedMessage]);
+                
+                // Safely update messages array
+                update(currentMessages => {
+                    if (!Array.isArray(currentMessages)) {
+                        return [savedMessage];
+                    }
+                    return [...currentMessages, savedMessage];
+                });
+                
                 return savedMessage;
             } catch (error) {
                 console.error('Error saving message:', error);
                 throw error;
             }
         },
+        // Add a method to clear messages
+        clear: () => set([]),
     };
 }
 

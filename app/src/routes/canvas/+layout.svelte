@@ -6,13 +6,13 @@
     import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
     import FileContainer from '$lib/components/canvas/FileContainer.svelte';
     import ImportDocs from '$lib/components/features/importDocs.svelte';
-    import * as fileHandlers from '$lib/fileHandlers';
+    import * as fileHandlers from '$lib/utils/fileHandlers';
     import LeftSideMenu from '$lib/components/ui/LeftSideMenu.svelte';
     import RightSideMenu from '$lib/components/ui/RightSideMenu.svelte';
     import { writable } from 'svelte/store';
     import Assets from '$lib/components/canvas/Assets.svelte';
-    import type { Shape, AIAgent } from '$lib/types'; // Import Shape from your types file
-    import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/agentClient';
+    import type { Shape, AIAgent } from '$lib/types/types'; // Import Shape from your types file
+    import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/clients/agentClient';
     import { agentStore } from '$lib/stores/agentStore';
     import Connector from '$lib/components/canvas/Connector.svelte';
     

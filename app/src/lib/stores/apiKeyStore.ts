@@ -3,7 +3,7 @@ import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import { pb } from '$lib/pocketbase';
 import { currentUser } from '$lib/pocketbase';
-import { CryptoService } from '$lib/crypto';
+import { CryptoService } from '$lib/utils/crypto';
 
 export interface ApiKeys {
   openai?: string;

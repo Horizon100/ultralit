@@ -1,6 +1,6 @@
 <script lang="ts">
     import { spring } from 'svelte/motion';
-    import type { AIAgent } from '$lib/types';
+    import type { AIAgent } from '$lib/types/types';
   
     export let agents: AIAgent[];
     export let onAgentClick: (agent: AIAgent) => void;

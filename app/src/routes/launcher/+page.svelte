@@ -20,8 +20,8 @@
   import { workshopStore } from '$lib/stores/workshopStore';
   import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
   import GenericOverlay from '$lib/components/overlays/GenericOverlay.svelte';
-  import type { Workspaces, Workshops } from '$lib/types';
-  import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/workshopClient';
+  import type { Workspaces, Workshops } from '$lib/types/types';
+  import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/clients/workshopClient';
   import { pb } from '$lib/pocketbase';
 
   import Builder from '$lib/components/ui/Builder.svelte';
@@ -29,11 +29,11 @@
 
   import Space from '$lib/assets/icons/launcher/space.svg';
   import Add from '$lib/assets/icons/launcher/add.svg';
-  import { createWorkspace, getWorkspaces, deleteWorkspace, updateWorkspace } from '$lib/workspaceClient';
+  import { createWorkspace, getWorkspaces, deleteWorkspace, updateWorkspace } from '$lib/clients/workSpaceClient';
   import { currentUser } from '$lib/pocketbase';
   import Chatlinks from '$lib/assets/icons/ai/chatlinks.svg';
   import { Chat } from 'openai/resources/index.mjs';
-  import { quotes } from '$lib/quotes';
+  import { quotes } from '$lib/translations/quotes';
   import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
   import itImage from '$lib/assets/illustrations/italian.jpeg';
   import greekImage from '$lib/assets/illustrations/greek.png';

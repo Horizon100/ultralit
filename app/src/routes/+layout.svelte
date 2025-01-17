@@ -108,7 +108,7 @@
   }
   $: placeholderText = getRandomQuote();
   $: showThreadList = $threadsStore.showThreadList;
-    $: isNarrowScreen = innerWidth <= 768;
+    $: isNarrowScreen = innerWidth <= 1000;
 
 	onMount(async () => {
         currentTheme.initialize();

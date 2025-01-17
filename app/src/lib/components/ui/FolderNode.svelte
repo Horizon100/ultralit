@@ -1,7 +1,7 @@
 <script lang="ts">
     import { slide } from 'svelte/transition';
     import { ChevronRight, ChevronDown, MoreVertical } from 'lucide-svelte';
-    import type { Folders, Notes } from '$lib/types';
+    import type { Folders, Notes } from '$lib/types/types';
     import { notesStore } from '$lib/stores/notesStore';
 
     export let folder: Folders;

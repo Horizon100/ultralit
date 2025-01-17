@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { NodeConfig, AIAgent, Network, Scenario, Task } from '../types';
+import type { NodeConfig, AIAgent, Network, Scenario, Task } from '../types/types';
 
 export interface Node {
   id: string;

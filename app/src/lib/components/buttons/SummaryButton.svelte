@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { ChatMessage } from '$lib/types';
+    import type { ChatMessage } from '$lib/types/types';
   
     export let messages: ChatMessage[];
   

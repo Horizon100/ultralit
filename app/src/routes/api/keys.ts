@@ -1,5 +1,5 @@
 import { pb } from '$lib/pocketbase'; // Import your PocketBase setup
-import { CryptoService } from '$lib/crypto'; // Import your CryptoService to decrypt keys
+import { CryptoService } from '$lib/utils/crypto'; // Import your CryptoService to decrypt keys
 import { json } from '@sveltejs/kit';
 
 // Function to fetch and decrypt user API keys

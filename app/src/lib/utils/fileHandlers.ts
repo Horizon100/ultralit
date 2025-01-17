@@ -1,9 +1,9 @@
 // src/lib/fileHandlers.ts
 
-import type { TextFile } from '$lib/types';
+import type { TextFile } from '$lib/types/types';
 
 
-import { uploadedFiles } from './stores/fileStore';
+import { uploadedFiles } from '../stores/fileStore';
 
 export async function handleFileUpload(files: File[], x: number, y: number) {
   try {

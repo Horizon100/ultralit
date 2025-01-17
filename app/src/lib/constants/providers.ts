@@ -1,4 +1,4 @@
-import type { AIModel } from '$lib/types';
+import type { AIModel } from '$lib/types/types';
 import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';

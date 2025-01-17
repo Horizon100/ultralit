@@ -1,12 +1,12 @@
 <script lang="ts">
     import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-    import type { AIAgent, Transform } from '$lib/types';
+    import type { AIAgent, Transform } from '$lib/types/types';
     import { Network, ClipboardList, MessageSquare, Settings, User, Save } from 'lucide-svelte';
     import Kanban from '../features/Kanban.svelte';
     import CircleMap from '../network/CircleMap.svelte';
     import NodeChat from '../node/NodeChat.svelte';
     import { fade } from 'svelte/transition';
-    import { updateAgent, deleteAgent, updateAgentDebounced,  } from '$lib/agentClient';
+    import { updateAgent, deleteAgent, updateAgentDebounced,  } from '$lib/clients/agentClient';
     import AIChat from '$lib/components/ai/AIChat.svelte';
     import { agentStore } from '../../stores/agentStore';
 

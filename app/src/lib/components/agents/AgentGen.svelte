@@ -1,9 +1,9 @@
 <script lang="ts">
     import { onMount, createEventDispatcher } from 'svelte';
     import { fade } from 'svelte/transition';
-    import type { AIAgent, AIModel } from '$lib/types';
+    import type { AIAgent, AIModel } from '$lib/types/types';
     import { ArrowRight, Plus, Trash2, Edit2, Check } from 'lucide-svelte';
-    import { createAgent, updateAgent, deleteAgent } from '$lib/agentClient';
+    import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
     import { ClientResponseError } from 'pocketbase';
     import { erpAgentTemplates } from '$lib/constants/erp';
     import { agentStore } from '$lib/stores/agentStore';

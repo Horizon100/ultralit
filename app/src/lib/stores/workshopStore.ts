@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Workshops } from '$lib/types';
+import type { Workshops } from '$lib/types/types';
 
 function createWorkshopStore() {
     const { subscribe, set, update } = writable<Workshops[]>([]);

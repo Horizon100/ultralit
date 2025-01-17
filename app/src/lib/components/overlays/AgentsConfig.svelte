@@ -2,12 +2,12 @@
     import { onMount, onDestroy } from 'svelte';
     import { Plus, Trash2, Bot, Settings, CopyPlus, Search, ArrowUpDown, Upload, Filter, Activity, Compass, ServerCog, OctagonPause, AlertCircle, RefreshCcw, Cpu, HeadphonesIcon, ShieldCheck, ArrowLeft  } from 'lucide-svelte';
     import { fade, fly } from 'svelte/transition';
-    import type { AIAgent, AIModel, Actions } from '$lib/types';
+    import type { AIAgent, AIModel, Actions } from '$lib/types/types';
     import { agentStore } from '$lib/stores/agentStore';
     import { modelStore } from '$lib/stores/modelStore';
     import { actionStore } from '$lib/stores/actionStore';
     import { currentUser, pb} from '$lib/pocketbase';
-    import { createAgent, updateAgent, deleteAgent } from '$lib/agentClient';
+    import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
     import { ClientResponseError } from 'pocketbase';
     import { goto } from '$app/navigation';
 

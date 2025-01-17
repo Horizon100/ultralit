@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { CursorPosition } from '$lib/types';
+import type { CursorPosition } from '$lib/types/types';
 import { subscribeToCursorChanges, publishCursorPosition, unsubscribeFromChanges } from '../pocketbase';
 import debounce from 'lodash/debounce';
 

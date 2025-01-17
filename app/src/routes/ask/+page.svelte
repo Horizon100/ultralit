@@ -6,7 +6,7 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { Bot } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
-  import type { AIModel, User } from '$lib/types';
+  import type { AIModel, User } from '$lib/types/types';
   import { currentUser } from '$lib/pocketbase';
 
 

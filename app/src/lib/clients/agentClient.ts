@@ -1,7 +1,7 @@
 import { debounce } from 'lodash-es';
 import { ClientResponseError } from 'pocketbase';
-import { pb } from './pocketbase';
-import type { AIAgent } from './types';
+import { pb } from '../pocketbase';
+import type { AIAgent } from '../types/types';
 
 export async function createAgent(agentData: Partial<AIAgent> | FormData): Promise<AIAgent> {
   try {

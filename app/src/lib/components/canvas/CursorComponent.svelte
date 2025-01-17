@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { CursorPosition } from '$lib/types';
+    import type { CursorPosition } from '$lib/types/types';
     import { pb, currentUser } from '$lib/pocketbase';
 
     export let cursor: CursorPosition;

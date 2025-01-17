@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
-import type { Folders, Notes } from '$lib/types';
-import { notesClient } from '$lib/notesClient';
+import type { Folders, Notes } from '$lib/types/types';
+import { notesClient } from '$lib/clients/notesClient';
 
 function createNotesStore() {
     const { subscribe, update } = writable<{

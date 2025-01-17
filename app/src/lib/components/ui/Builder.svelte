@@ -4,12 +4,12 @@
   import { get } from 'svelte/store';
 
   import { workspaceStore } from '$lib/stores/workspaceStore';
-  import { createWorkspace, updateWorkspace } from '$lib/workspaceClient';
-  import { createAgent, updateAgent } from '$lib/agentClient';
+  import { createWorkspace, updateWorkspace } from '$lib/clients/workSpaceClient';
+  import { createAgent, updateAgent } from '$lib/clients/agentClient';
 
   import { erpAgentTemplates } from '$lib/constants/erp';
   import { currentUser } from '$lib/pocketbase';
-  import type { Workspaces, User, AIAgent, PartialAIAgent } from '$lib/types';
+  import type { Workspaces, User, AIAgent, PartialAIAgent } from '$lib/types/types';
 
   import { Settings, Check, X, Paperclip, File, Hammer, Container, ChevronDown } from 'lucide-svelte';
   import { fade, slide } from 'svelte/transition';

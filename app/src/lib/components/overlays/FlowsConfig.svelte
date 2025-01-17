@@ -2,7 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { Plus, Trash2 } from 'lucide-svelte';
     import { fade, fly } from 'svelte/transition';
-    import type { Workflows } from '$lib/types';
+    import type { Workflows } from '$lib/types/types';
     import { flowStore } from '$lib/stores/flowStore';
     import { currentUser } from '$lib/pocketbase';
     import { createFlow, updateFlow, deleteFlow } from '$lib/flowClient';

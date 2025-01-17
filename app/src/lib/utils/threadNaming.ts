@@ -1,7 +1,7 @@
 // src/lib/services/threadNaming.ts
 
-import type { Messages, AIModel } from '$lib/types';
-import { fetchAIResponse } from '$lib/aiClient';
+import type { Messages, AIModel } from '$lib/types/types';
+import { fetchAIResponse } from '$lib/clients/aiClient';
 import { pb } from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
 

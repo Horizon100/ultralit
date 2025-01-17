@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NetworkData, AIModel } from '$lib/types';
+  import type { NetworkData, AIModel } from '$lib/types/types';
 
-  import { generateNetwork } from '$lib/aiClient';
+  import { generateNetwork } from '$lib/clients/aiClient';
   import NetworkVisualization from './NetworkVisualization.svelte';
 
   export let summary: string;

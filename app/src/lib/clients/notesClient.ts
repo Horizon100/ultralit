@@ -1,5 +1,5 @@
-import { pb } from './pocketbase';
-import type { Folders, Notes, Attachment } from '$lib/types';
+import { pb } from '../pocketbase';
+import type { Folders, Notes, Attachment } from '$lib/types/types';
 
 export const notesClient = {
     async getFolders(): Promise<Folders[]> {

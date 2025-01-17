@@ -1,7 +1,7 @@
 // messageCountsStore.ts
 import { writable, derived } from 'svelte/store';
 import { pb } from '$lib/pocketbase';
-import type { Threads } from '$lib/types';
+import type { Threads } from '$lib/types/types';
 
 interface MessageCounts {
   [threadId: string]: number;

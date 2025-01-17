@@ -8,7 +8,7 @@
 
   import { networkStore } from '$lib/stores/networkStore';
   import { threadsStore } from '$lib/stores/threadsStore';
-  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types';
+  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types/types';
   import { ArrowRight, Paperclip, CheckCircle, Bot, Clock, MessageSquare, Tag, User } from 'lucide-svelte';
   import { createAgentWithSummary, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { goto } from '$app/navigation';
@@ -19,7 +19,7 @@
   import greekImage from '$lib/assets/illustrations/greek.png';
   import { navigating } from '$app/stores';
   import { isNavigating } from '$lib/stores/navigationStore';
-  import { fetchThreads, fetchMessagesForThread, addMessageToThread, updateThread, updateMessage, createThread } from '$lib/threadsClient';
+  import { fetchThreads, fetchMessagesForThread, addMessageToThread, updateThread, updateMessage, createThread } from '$lib/clients/threadsClient';
   import { t } from '$lib/stores/translationStore';
   import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 

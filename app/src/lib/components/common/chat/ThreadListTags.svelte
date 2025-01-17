@@ -3,7 +3,7 @@
   import { fly, slide } from 'svelte/transition';
   import { Plus, Check, Trash, Pen } from 'lucide-svelte';
   import { pb } from '$lib/pocketbase';
-  import type { Tag } from '$lib/types';
+  import type { Tag } from '$lib/types/types';
   import { t } from '$lib/stores/translationStore';
   import { threadsStore } from '$lib/stores/threadsStore'; 
 

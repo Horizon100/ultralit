@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { AIModel } from '$lib/types';
+import type { AIModel } from '$lib/types/types';
 import type { ProviderType } from '$lib/constants/providers';
 import { pb, checkPocketBaseConnection } from '$lib/pocketbase';
 import { defaultModel } from '$lib/constants/models';

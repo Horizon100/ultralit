@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
-import type { AIAgent } from '$lib/types';
+import type { AIAgent } from '$lib/types/types';
 import { debounce } from 'lodash-es';
-import { updateAgent as updateAgentAPI } from '$lib/agentClient';
+import { updateAgent as updateAgentAPI } from '$lib/clients/agentClient';
 import { pb } from '$lib/pocketbase';
 import { browser } from '$app/environment';
 

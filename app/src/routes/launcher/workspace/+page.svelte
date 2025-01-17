@@ -3,8 +3,8 @@
     import { page } from '$app/stores';
     import { workspaceStore } from '$lib/stores/workspaceStore';
     import { workshopStore } from '$lib/stores/workshopStore';
-    import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/workshopClient';
-    import type { Workspaces, Workshops } from '$lib/types';
+    import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/clients/workshopClient';
+    import type { Workspaces, Workshops } from '$lib/types/types';
     import { wormhole } from '$lib/transitions/wormhole';
     import { Hammer, Edit2, Trash2 } from 'lucide-svelte';
     import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';

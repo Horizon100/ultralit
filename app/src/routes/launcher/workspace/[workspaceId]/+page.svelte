@@ -1,7 +1,7 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { workspaceStore } from '$lib/stores/workspaceStore';
-    import type { Workspaces } from '$lib/types';
+    import type { Workspaces } from '$lib/types/types';
 
     let currentWorkspace: Workspaces | undefined;
 

@@ -1,5 +1,5 @@
-import { pb } from './pocketbase';
-import type { Actions } from '$lib/types';
+import { pb } from '$lib/pocketbase';
+import type { Actions } from '$lib/types/types';
 
 export async function createAction(actionData: Partial<Actions>): Promise<Actions> {
   try {

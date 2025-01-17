@@ -16,7 +16,7 @@
     import Headmaster from '$lib/assets/illustrations/headmaster2.png';
     import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
     import Dialog from '$lib/components/ai/Dialog.svelte';
-    import type { User, Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types';
+    import type { User, Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment, Threads, Messages} from '$lib/types/types';
     import { threadsStore } from '$lib/stores/threadsStore';
     import { pb } from '$lib/pocketbase';
     import { navigating } from '$app/stores';

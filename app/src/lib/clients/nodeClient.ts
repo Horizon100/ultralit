@@ -1,5 +1,5 @@
-import { pb } from './pocketbase';
-import type { Node, AIAgent } from './types';
+import { pb } from '../pocketbase';
+import type { Node, AIAgent } from '../types/types';
 
 export async function saveNode(node: Node): Promise<AIAgent> {
   try {

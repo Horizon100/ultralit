@@ -1,8 +1,8 @@
 <script lang="ts">
     import { writable } from 'svelte/store';
     import { workshopStore } from '$lib/stores/workshopStore';
-    import { updateWorkshop, deleteWorkshop } from '$lib/workshopClient';
-    import type { Workshops } from '$lib/types';
+    import { updateWorkshop, deleteWorkshop } from '$lib/clients/workshopClient';
+    import type { Workshops } from '$lib/types/types';
 
     function getRandomBrightColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {

@@ -2,7 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { Plus, Trash2 } from 'lucide-svelte';
     import { fade, fly } from 'svelte/transition';
-    import type { Actions } from '$lib/types';
+    import type { Actions } from '$lib/types/types';
     import { actionStore } from '$lib/stores/actionStore';
     import { currentUser } from '$lib/pocketbase';
     import { createAction, updateAction, deleteAction } from '$lib/actionClient';

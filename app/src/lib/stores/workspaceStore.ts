@@ -1,8 +1,8 @@
 // workspaceStore.ts
 import { writable } from 'svelte/store';
-import type { Workspaces } from '$lib/types';
+import type { Workspaces } from '$lib/types/types';
 import { debounce } from 'lodash-es';
-import { updateWorkspace as updateWorkspaceAPI, getWorkspaces } from '$lib/workspaceClient';
+import { updateWorkspace as updateWorkspaceAPI, getWorkspaces } from '$lib/clients/workspaceClient';
 import { browser } from '$app/environment';
 
 function createWorkspaceStore() {

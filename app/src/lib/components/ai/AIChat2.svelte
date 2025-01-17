@@ -1,152 +1,115 @@
 <script lang="ts">
   import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+
   import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
   import { get, writable, derived } from 'svelte/store';
+  import { tweened } from 'svelte/motion';
+  import { fade, fly, scale, slide } from 'svelte/transition';
+  import { elasticOut, cubicOut } from 'svelte/easing';
+
   import { page } from '$app/stores';
   import { replaceState } from '$app/navigation';
-  import { fade, fly, scale, slide } from 'svelte/transition';
-  import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
-  import { elasticOut, cubicOut } from 'svelte/easing';
+
   import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
-  import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
-  import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type {ExpandedGroups, ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
+  import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
-  import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
-  import { messageCountsStore, messageCounts } from '$lib/stores/messageCountStore';
-  import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
-  import { tweened } from 'svelte/motion';
   import { availablePrompts, getPrompt} from '$lib/constants/prompts';
-  import { availableModels } from '$lib/constants/models';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
-  import greekImage from '$lib/assets/illustrations/greek.png';
-  import { processMarkdown } from '$lib/scripts/markdownProcessor';
+  // import greekImage from '$lib/assets/illustrations/greek.png';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
-  import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
+  import { adjustFontSize, resetTextareaHeight, defaultTextareaHeight } from '$lib/utils/textHandlers';
   import { formatDate, formatContent } from '$lib/utils/formatters';
+  import { projectVisibilityStore, projectStateStore, cancelEditing, handleCreateNewProject, handleSelectProject, handleDeleteProject, startEditingProjectName, submitProjectNameChange, projectState} from '$lib/chat/projectHandlers';
 
-  export let seedPrompt: string = '';
-  export let additionalPrompt: string = '';
-  export let aiModel: AIModel;
+  import { chatMessages, thinkingMessageId, typingMessageId, attachment, isLoading, messages, cleanup, getRandomThinkingPhrase, initializeExpandedDates, typeMessage, addMessage, mapMessageToInternal, getLastMessage, getTotalMessages, handleSendMessage, groupMessagesByDate,toggleGroup, handleError, messageIdCounter, lastMessageCount, latestMessageI } from '$lib/chat/messageHandlers';
+  import { namingThread, namingThreadId, currentThreadId, threads, threadId, getThreadDateGroup, groupThreadsByDate, handleThreadNameUpdate, toggleThreadList, toggleDateExpansion, goBack, threadVisibilityStore, searchedThreads, isThreadListVisible, isLoadingMessages, isThreadsLoaded, handleCreateNewThread, isCreatingThread, editedThreadName, submitThreadNameChange, startEditingThreadName, isEditingThreadName} from '$lib/chat/threadHandlers';
+  import { isTextareaFocused, hideTimeout, isDragging, startY, scrollTopStart, expandedSections, handleTextareaFocus, handleTextareaBlur, toggleSection, drag, stopDrag, searchQuery } from '$lib/ui/interactions';
+  import { isMinimized, showScrollButton, scrollToBottom, lastScrollTop, handleScroll, handleScrolling } from '$lib/ui/navigation';
+  import { aiModel, seedPrompt, additionalPrompt, promptType, currentPromptType, hasSentSeedPrompt, scenarios, tasks, currentStage, guidance,showPromptCatalog} from '$lib/chat/promptHandlers';
+  export let chatMessagesDiv: HTMLDivElement;
+
+  export let userInput: string = '';
+
+
   export let userId: string;
-  export let attachment: File | null = null;
-  export let promptType: PromptType = 'TUTOR';
-  export let threadId: string | null = null;
   export let initialMessageId: string | null = null;
-  // export let showThreadList = true;
-  export let namingThread = true;
 
   type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
+  
+  // projectVisibilityStore.subscribe(value => isProjectListVisible = value);
+  function handleProjectVisibility() {
+  projectVisibilityStore.update(current => {
+    const newValue = !current;
+    
+    if (!newValue) {
+      // Reset project selection when going back to project list
+      projectStore.setCurrentProject(null);
+      threadsStore.setCurrentThread(null);
+
+      
+      // Clear project-specific threads
+      threadsStore.update(state => ({...state, threads: []}));
+    }
+    
+    if (newValue) {
+      // Reload all projects to ensure fresh data
+      projectStore.loadProjects();
+    }
+    
+    return newValue;
+  });
+}
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
   let deg = 0;
   // Chat-related state
-  let messages: Messages[] = [];
-  let chatMessages: InternalChatMessage[] = [];
-  let userInput: string = '';
   //Auth state
   let isAuthenticated = false;
   let username: string = 'You';
   let avatarUrl: string | null = null;
   let showAuth = false;
   // Thread-related state
-  let threads: Threads[];
-  let currentThread: Threads | null = null;
-  let currentThreadId: string | null = null;  
-  let namingThreadId: string | null = null;
-  let filteredThreads: Threads[] = [];
-  let isEditingThreadName = false;
-  let editedThreadName = '';
-  let isCreatingThread = false;
-  let updateStatus: string = ''; 
-  let showThreadList = $threadsStore.showThreadList;
-  let isThreadsLoaded: boolean;
-  let isThreadListVisible = false;
-  let isProjectListVisible = true;
+
+
+
   // UI state
-  let isLoading = false;
   let isExpanded = false;
-  // let isLoading: boolean = false;
-  let isTextareaFocused = false;
   let isFocused = false;
-  let hideTimeout: ReturnType<typeof setTimeout>;
-  let showPromptCatalog = false;
   let showModelSelector = false;
-  let thinkingPhrase: string = '';
-  let thinkingMessageId: string | null = null;
-  let typingMessageId: string | null = null;
-  let isLoadingMessages = false;
   let initialLoadComplete = false;
-  let showScrollButton = false;
   let textareaElement: HTMLTextAreaElement;
-  let defaultTextareaHeight = '60px'; 
   let selected: Date = date || new Date(); 
   let showNetworkVisualization: boolean = false;
-  let isDragging = false;
-  let startY: number;
-  let scrollTopStart: number;
-  let currentPage = 1;
-  let searchQuery = '';
+
   let quotedMessage: Messages | null = null;
-  let expandedDates = new Set<string>();
-  let isMinimized = false;
-  let lastScrollTop = 0;
-  // let expandedGroups: Set<string> = new Set();
   let isCleaningUp = false;
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
   let createHovered = false;
   let searchHovered = false;
     // Message state
-  let chatMessagesDiv: HTMLDivElement;
-  let messageIdCounter: number = 0;
-  let lastMessageCount = 0;
-  let latestMessageId: string | null = null;
+
   //Prompt state
-  let currentPromptType: PromptType;
-  let hasSentSeedPrompt: boolean = false;
-  let scenarios: Scenario[] = [];
-  let tasks: Task[] = [];
-  let attachments: Attachment[] = [];
-  let currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary' = 'initial';
-  let guidance: Guidance | null = null;
+
     // Project state
-  let projects: Projects[] = [];
-  let currentProject: Projects | null = null;
-  let currentProjectId: string | null = null;
-  let isEditingProjectName = false;
-  let newProjectName = '';
-  let editingProjectId: string | null = null;
-  let editedProjectName = '';
-  let isCreatingProject = false;
+
   let filteredProjects: Projects[] = [];
 
-export const expandedSections = writable<ExpandedSections>({
-  prompts: false,
-  models: false,
-});
+
 const dispatch = createEventDispatcher();
-const expandedGroups = writable<ExpandedGroups>({});
-const groupOrder = [
-  $t('threads.today'),
-  $t('threads.yesterday'), 
-  $t('threads.lastweek'),
-  $t('threads.thismonth'),
-  $t('threads.older')
-];
+
 const isMobileScreen = () => window.innerWidth < 1000;
 const focusOnMount = (node: HTMLElement) => {
     node.focus();
@@ -163,312 +126,20 @@ const defaultAIModel: AIModel = {
   created: new Date().toISOString(),
   updated: new Date().toISOString()
 };
-const handleTextareaFocus = () => {
-  clearTimeout(hideTimeout); // Clear any existing timeout
-  isTextareaFocused = true;
-};
-const handleTextareaBlur = () => {
-  // Set a timeout before hiding the button
-  hideTimeout = setTimeout(() => {
-    isTextareaFocused = false;
-  }, 300); // 1000ms = 1 second delay
-};
-const searchedThreads = derived(threadsStore, ($store) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return $store.threads;
-    
-    return $store.threads.filter(thread => 
-        thread.name?.toLowerCase().includes(query) || 
-        thread.last_message?.content?.toLowerCase().includes(query)
-    );
-});
+
+
 // FUNCTIONS
-  function toggleThreadList() {
-    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
-    threadsStore.toggleThreadList();
-    dispatch('threadListToggle');
-  }
+
 
 // Message handling functions
-  function cancelEditing() {
-    editingProjectId = null;
-    editedProjectName = '';
-  }
-  function startEditingProjectName(projectId: string) {
-    const project = $projectStore.threads.find(p => p.id === projectId);
-    if (project) {
-      editingProjectId = projectId;
-      editedProjectName = project.name;
-    }
-  }
-  function addMessage(
-    role: RoleType,
-    content: string | Scenario[] | Task[], 
-    parentMsgId: string | null = null,
-    model: string = 'default',
-    
-  ): InternalChatMessage {
-    messageIdCounter++;
 
-    let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
-    
-    // Add prompt context to assistant messages
-    if (role === 'assistant' && promptType) {
-      messageContent = `[Prompt: ${promptType}]\n${messageContent}`;
-    }
-    
-    const newMessageId = `msg-${messageIdCounter}`;
-    latestMessageId = newMessageId;
-    const createdDate = new Date().toISOString();
 
-    return { 
-      id: newMessageId,
-      role,
-      content: messageContent,
-      text: messageContent,
-      user: userId,
-      isTyping: role === 'assistant',
-      collectionId: '',     
-      collectionName: '',   
-      created: createdDate,
-      updated: createdDate,
-      parent_msg: parentMsgId,
-      prompt_type: promptType,
-      model: model,
-      reactions: {
-        upvote: 0,
-        downvote: 0,
-        bookmark: [],
-        highlight: [],
-        question: 0
-      }
-    };
-  }
-  function getLastMessage(): Messages | null {
-    if (messages && messages.length > 0) {
-      return messages[messages.length - 1]; // Returns the last message in the array
-    }
-    return null;
-  }
 
-  function getTotalMessages(): number {
-    return messages.length;
-  }
-  function mapMessageToInternal(message: Messages): InternalChatMessage {
-  const content = formatContent(
-    message.text,
-    message.prompt_type as PromptType || 'TUTOR',
-    message.type === 'human' ? 'user' : 'assistant'
-  );
 
-  return {
-    id: message.id,
-    content,
-    text: message.text,
-    role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
-    collectionId: message.collectionId,
-    collectionName: message.collectionName,
-    parent_msg: message.parent_msg,
-    reactions: message.reactions,
-    prompt_type: message.prompt_type as PromptType || 'TUTOR',
-    model: message.model,
-    thread: message.thread,
-    isTyping: false,
-    isHighlighted: false,
-    user: message.user,
-    created: message.created,
-    updated: message.updated
-  };
-}
-  function groupMessagesByDate(messages: InternalChatMessage[]) {
-  const groups: { [key: string]: { messages: InternalChatMessage[]; displayDate: string } } = {};
-  const today = new Date().setHours(0, 0, 0, 0);
-  const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
 
-  messages.forEach(message => {
-    const messageDate = new Date(message.created).setHours(0, 0, 0, 0);
-    let dateKey = new Date(messageDate).toISOString().split('T')[0];
-    let displayDate: string;
 
-    if (messageDate === today) {
-      displayDate = $t('threads.today');
-    } else if (messageDate === yesterday) {
-      displayDate = $t('threads.yesterday');
-    } else {
-      const date = new Date(messageDate);
-      displayDate = date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      });
-    }
 
-    if (!groups[dateKey]) {
-      groups[dateKey] = { messages: [], displayDate };
-    }
-    groups[dateKey].messages.push(message);
-  });
 
-  return Object.entries(groups)
-    .map(([date, { messages, displayDate }]) => ({
-      date,
-      displayDate,
-      messages: messages.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()), // Sort messages within group
-      isRecent: false
-    }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort groups chronologically
-}
-  function initializeExpandedDates() {
-    if (groupedMessages.length > 0) {
-      const latestGroup = groupedMessages[0];
-      expandedDates.add(latestGroup.date);
-      expandedDates = expandedDates;
-    }
-  }
-  function toggleDateExpansion(date: string, event?: Event) {
-    // Prevent any scroll behavior
-    event?.preventDefault();
-    event?.stopPropagation();
-
-    const newExpandedDates = new Set(expandedDates);
-    
-    if (newExpandedDates.has(date)) {
-      if (date !== groupedMessages[0]?.date) {  // If it's not the most recent group
-        newExpandedDates.delete(date);
-      }
-    } else {
-      newExpandedDates.add(date);
-    }
-    
-    expandedDates = newExpandedDates;
-  }
-
-  // function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
-  //   const messageGroups: Messages[][] = [];
-  //   const messageMap = new Map<string, Messages>();
-
-  //   messages.forEach(message => {
-  //     if (!message.parent_msg) {
-  //       messageGroups.push([message]);
-  //       messageMap.set(message.id, message);
-  //     } else {
-  //       const parentGroup = messageGroups.find(group => group[0].id === message.parent_msg);
-  //       if (parentGroup) {
-  //         parentGroup.push(message);
-  //       } else {
-  //         const parent = messageMap.get(message.parent_msg);
-  //         if (parent) {
-  //           const newGroup = [parent, message];
-  //           messageGroups.push(newGroup);
-  //         } else {
-  //           messageGroups.push([message]);
-  //         }
-  //       }
-  //     }
-  //   });
-
-  //   return messageGroups;
-  // }
-// Thread management functions
-function initializeExpandedGroups(groups: ThreadGroup[]) {
-  const initialState: ExpandedGroups = {};
-  groups.forEach((group, index) => {
-    initialState[group.group] = index === 0; // Only expand first group
-  });
-  expandedGroups.set(initialState);
-}
-// Toggle group expansion
-function toggleGroup(group: string) {
-  expandedGroups.update(state => ({
-    ...state,
-    [group]: !state[group]
-  }));
-}
-function getThreadDateGroup(thread: Threads): string {
-  const now = new Date();
-  const threadDate = new Date(thread.updated);
-  const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
-
-  if (diffDays === 0) return $t('threads.today');
-  if (diffDays === 1) return $t('threads.yesterday');
-  
-  // Format other dates as "Sat, 14. Dec 2024"
-  return threadDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-}
-function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
-  // Create groups object to store threads by date
-  const groups: { [key: string]: Threads[] } = {};
-
-  // Sort threads by updated date in descending order
-  const sortedThreads = [...threads].sort((a, b) => 
-    new Date(b.updated).getTime() - new Date(a.updated).getTime()
-  );
-
-  // Group threads by their date group
-  sortedThreads.forEach(thread => {
-    const group = getThreadDateGroup(thread);
-    if (!groups[group]) {
-      groups[group] = [];
-    }
-    groups[group].push(thread);
-  });
-
-  // Convert groups object to array and sort by date priority
-  const groupPriority = (group: string): number => {
-    if (group === $t('threads.today')) return 0;
-    if (group === $t('threads.yesterday')) return 1;
-    return 2;
-  };
-
-  return Object.entries(groups)
-    .map(([group, threads]) => ({ group, threads }))
-    .sort((a, b) => {
-      const priorityDiff = groupPriority(a.group) - groupPriority(b.group);
-      if (priorityDiff !== 0) return priorityDiff;
-      
-      // If neither is today/yesterday, sort by date
-      if (groupPriority(a.group) === 2 && groupPriority(b.group) === 2) {
-        return new Date(b.threads[0].updated).getTime() - 
-               new Date(a.threads[0].updated).getTime();
-      }
-      return 0;
-    });
-}
-// UI helper functions
-  function handleScroll(event: { target: HTMLElement }) {
-    const currentScrollTop = event.target.scrollTop;
-      if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
-        isMinimized = true;
-      } else if (currentScrollTop < lastScrollTop || currentScrollTop <= 50) {
-        isMinimized = false;
-      }
-      lastScrollTop = currentScrollTop;
-  }
-
-  function getRandomThinkingPhrase(): string {
-    const thinkingPhrases = $t('extras.thinking');
-    if (!thinkingPhrases?.length) {
-      return 'Thinking...';
-    }
-    return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
-  }
-  // function drag(event: MouseEvent) {
-  //   if (isDragging) {
-  //     const deltaY = startY - event.clientY;
-  //     chatMessagesDiv.scrollTop = scrollTopStart + deltaY;
-  //   }
-  // }
-  // function stopDrag() {
-  //   isDragging = false;
-  //   document.removeEventListener('mousemove', drag);
-  //   document.removeEventListener('mouseup', stopDrag);
-  // }
   function updateAvatarUrl() {
       if ($currentUser && $currentUser.avatar) {
           avatarUrl = pb.getFileUrl($currentUser, $currentUser.avatar);
@@ -478,675 +149,45 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
   promptStore.set(newPromptType);
   promptType = newPromptType;
 }
-function handleScrolling() {
-  setTimeout(() => {
-    if (chatMessagesDiv) {
-      const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-      if (scrollHeight - scrollTop - clientHeight < 200) {
-        scrollToBottom();
-      }
-    }
-  }, 0);
-}
-function cleanup() {
-  isLoading = false;
-  thinkingMessageId = null;
-  typingMessageId = null;
-  attachment = null;
-}
-function handleError(error: unknown) {
-  console.error('Message handling error:', error);
-  chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-  const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-  chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
-}
-  export function toggleSection(section: keyof ExpandedSections): void {
-  expandedSections.update(sections => {
-    // Create a new object with all sections closed
-    const newSections: ExpandedSections = {
-      tags: false,
-      prompts: false,
-      models: false
-    };
-    
-    // If the clicked section was not already open, open it
-    // If it was open, it remains closed (all sections false)
-    if (!sections[section]) {
-      newSections[section] = true;
-    }
-    
-    return newSections;
-  });
-}
+
+
   // ASYNC
   // Message handling functions
-  async function submitProjectNameChange(projectId: string) {
-    if (editedProjectName.trim()) {
-      await projectStore.updateProject(projectId, { name: editedProjectName.trim() });
-    }
-    cancelEditing();
-  }
-  async function handleThreadNameUpdate(threadId: string) {
-  try {
-    const currentMessages = await messagesStore.fetchMessages(threadId);
-    if (currentMessages?.length > 0) {
-      const robotMessages = currentMessages.filter(m => m.type === 'robot');
-      if (robotMessages.length === 1) {
-        // Set naming state before update
-        threadsStore.update(state => ({
-          ...state,
-          namingThreadId: threadId,
-          isNaming: true
-        }));
+  
 
-        await updateThreadNameIfNeeded(threadId, currentMessages, aiModel, userId);
-        
-        // Refresh threads after update
-        await threadsStore.loadThreads();
-        
-        // Clear naming state
-        threadsStore.update(state => ({
-          ...state,
-          namingThreadId: null,
-          isNaming: false
-        }));
-      }
-    }
-  } catch (error) {
-    console.error('Thread name update failed:', error);
-    // Clear naming state on error
-    threadsStore.update(state => ({
-      ...state,
-      namingThreadId: null,
-      isNaming: false
-    }));
-  }
-}
-async function handleSendMessage(message: string = userInput) {
-  if (!message.trim() && chatMessages.length === 0 && !attachment) return;
-
-  try {
-    userInput = '';
-    resetTextareaHeight();
-    
-    if (!currentThreadId) {
-      const newThread = await threadsStore.addThread({
-        op: userId,
-        name: `Thread ${threads?.length ? threads.length + 1 : 1}`
-      });
-
-      if (!newThread?.id) {
-        console.error('Thread creation failed');
-        return;
-      }
-
-      threads = [...(threads || []), newThread];
-      currentThreadId = newThread.id;
-      await handleLoadThread(newThread.id);
-    }
-
-    const currentMessage = message.trim();
-    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
-    chatMessages = [...chatMessages, userMessageUI];
-
-    // Scroll the new message into view at the top
-    setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
-      if (messageElement) {
-        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-
-    const userMessage = await messagesStore.saveMessage({
-      text: currentMessage,
-      type: 'human',
-      thread: currentThreadId,
-      parent_msg: quotedMessage?.id ?? null,
-      prompt_type: promptType
-    }, currentThreadId);
-
-    quotedMessage = null;
-
-    const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-    thinkingMessageId = thinkingMessage.id;
-    chatMessages = [...chatMessages, thinkingMessage];
-
-    const messagesToSend = chatMessages
-      .filter(({ role, content }) => role && content)
-      .map(({ role, content }) => ({
-        role,
-        content: role === 'user' && promptType 
-          ? `[Using ${promptType} prompt]\n${content.toString()}`
-          : content.toString()
-      }));
-
-    if (!messagesToSend.length) {
-      throw new Error('No valid messages to send');
-    }
-
-    if (promptType) {
-      messagesToSend.unshift({
-        role: 'system',
-        content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`
-      });
-    }
-
-    const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-    chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-    const assistantMessage = await messagesStore.saveMessage({
-      text: aiResponse,
-      type: 'robot',
-      thread: currentThreadId,
-      parent_msg: userMessage.id,
-      prompt_type: promptType,
-      mode: aiModel,
-    }, currentThreadId);
-
-    const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-    chatMessages = [...chatMessages, newAssistantMessage];
-    typingMessageId = newAssistantMessage.id;
-
-    await typeMessage(aiResponse);
-
-    chatMessages = chatMessages.map(msg =>
-      msg.id === String(typingMessageId)
-        ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-        : msg
-    );
-
-    await handleThreadNameUpdate(currentThreadId);
-    handleScrolling();
-
-  } catch (error) {
-    handleError(error);
-  } finally {
-    cleanup();
-  }
-}
-async function handleCreateNewProject(name: string) {
-    if (!name.trim()) return;
-    
-    try {
-      isCreatingProject = true;
-      
-      const newProject = await projectStore.addProject({
-        name: name.trim(),
-        description: ''
-      });
-      
-      if (newProject) {
-        newProjectName = '';
-        showPromptCatalog = false;
-      }
-    } catch (error) {
-      console.error('Error in handleCreateNewProject:', error);
-    } finally {
-      isCreatingProject = false;
-    }
-  }
-  async function handleSelectProject(projectId: string) {
-    try {
-        // Set the current project in the store
-        await projectStore.setCurrentProject(projectId);
-
-        // Fetch the threads associated with the selected project
-        const threads = await fetchThreadsForProject(projectId);
-
-        // Update the threads store with the fetched threads
-        threadsStore.update(state => ({ ...state, threads }));
-
-        // Update visibility flags
-        isProjectListVisible = false; // Hide project list
-        isThreadListVisible = true;  // Show thread list
-    } catch (error) {
-        console.error("Error handling project selection:", error);
-    }
-}
-  async function handleDeleteProject(e: Event, projectId: string) {
-    e.stopPropagation();
-    // Add delete confirmation logic
-  }
-  async function typeMessage(message: string) {
-      const typingSpeed = 10; // milliseconds per character
-      let typedMessage = '';
-      
-      for (let i = 0; i <= message.length; i++) {
-        typedMessage = message.slice(0, i);
-        chatMessages = chatMessages.map(msg => 
-          msg.id === String(typingMessageId) 
-            ? { ...msg, content: typedMessage, text: typedMessage, isTyping: true }
-            : msg
-        );
-        await new Promise(resolve => setTimeout(resolve, typingSpeed));
-      }
-
-      // Set isTyping to false when typing is complete
-      chatMessages = chatMessages.map(msg => 
-        msg.id === String(typingMessageId) 
-          ? { ...msg, isTyping: false }
-          : msg
-      );
-      
-      // Scroll to the bottom after typing is complete
-      if (chatMessagesDiv) {
-        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-      }
-  }
 // Thread management functions
-async function handleCreateNewThread() {
-    if (isCreatingThread) return null;
-    
-    try {
-        isCreatingThread = true;
-        const currentProjectId = get(projectStore).currentProjectId;
-        
-        // Get current threadlist visibility state
-        const currentVisibility = get(threadsStore).showThreadList;
-        
-        const threadData: Partial<Threads> = {
-            op: userId,
-            name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
-            created: new Date().toISOString(),
-            updated: new Date().toISOString(),
-            current_thread: '',
-            ...(currentProjectId && { project_id: currentProjectId })
-        };
 
-        const newThread = await createThread(threadData);
-
-        if (newThread?.id) {
-            // Preserve thread list visibility state
-            threadsStore.update(state => ({
-                ...state,
-                showThreadList: currentVisibility
-            }));
-
-            if (currentProjectId) {
-                const currentProject = get(projectStore).currentProject;
-                if (currentProject) {
-                    await projectStore.updateProject(currentProjectId, {
-                        threads: [...(currentProject.threads || []), newThread.id]
-                    });
-                }
-
-                const projectThreads = await fetchThreadsForProject(currentProjectId);
-                threadsStore.update(state => ({
-                    ...state,
-                    threads: projectThreads,
-                    currentThreadId: newThread.id,
-                    // showThreadList: currentVisibility  // Preserve visibility
-                }));
-            } else {
-                const allThreads = await fetchThreads();
-                threadsStore.update(state => ({
-                    ...state,
-                    threads: allThreads,
-                    currentThreadId: newThread.id,
-                    // showThreadList: currentVisibility  // Preserve visibility
-                }));
-            }
-
-            currentThreadId = newThread.id;
-            showPromptCatalog = false;
-            await handleLoadThread(newThread.id);
-            return newThread;
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error in handleCreateNewThread:', error);
-        return null;
-    } finally {
-        isCreatingThread = false;
-    }
-}
-async function handleLoadThread(threadId: string) {
-    try {
-        isLoadingMessages = true;
-        showThreadList = false;
-
-        const thread = await pb.collection('threads').getOne(threadId, {
-            expand: 'project_id',
-            $autoCancel: false
-        });
-
-        if (!thread) {
-            throw new Error('Thread not found');
-        }
-
-        // Update stores
-        await threadsStore.setCurrentThread(threadId);
-        
-        // Handle project context
-        if (thread.project_id) {
-            await projectStore.setCurrentProject(thread.project_id);
-            const projectThreads = await fetchThreadsForProject(thread.project_id);
-            threadsStore.update(state => ({
-                ...state,
-                threads: projectThreads
-                
-            }));
-            
-        }
-
-        // Update local state
-        currentThreadId = thread.id;
-        currentThread = thread;
-
-        // Fetch messages
-        await messagesStore.fetchMessages(threadId);
-        
-        // Map messages
-        chatMessages = messages.map(msg => ({
-            role: msg.type === 'human' ? 'user' : 'assistant',
-            content: msg.text,
-            id: msg.id,
-            isTyping: false,
-            text: msg.text,
-            user: msg.user,
-            created: msg.created,
-            updated: msg.updated,
-            parent_msg: msg.parent_msg,
-            prompt_type: msg.prompt_type,
-            model: msg.model
-        }));
-
-        showPromptCatalog = false;
-
-        return thread;
-    } catch (error) {
-        console.error(`Error loading thread ${threadId}:`, error);
-        return null;
-    } finally {
-        isLoadingMessages = false;
-    }
-}
-
-  async function loadThreadCounts(threads: Threads[]) {
-    // isLoading = true;
-    try {
-      const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
-      if (totalThreads > currentPage * 20) {
-        currentPage++;
-      }
-    } finally {
-      // isLoading = false;
-    }
-  }
-
-  async function handleDeleteThread(event: MouseEvent, threadId: string) {
-    event.stopPropagation();
-    if (confirm('Are you sure you want to delete this thread?')) {
-      const success = await deleteThread(threadId);
-      if (success) {
-        threads = threads.filter(t => t.id !== threadId);
-        if (currentThreadId === threadId) {
-          currentThreadId = null;
-          chatMessages = [];
-        }
-      }
-    }
-  }
-  
-  async function submitThreadNameChange() {
-    if (currentThreadId && editedThreadName.trim() !== '') {
-      try {
-        await updateThread(currentThreadId, { name: editedThreadName.trim() });
-        if (currentThread) {
-          currentThread.name = editedThreadName.trim();
-        }
-        // Update the thread in the threads array
-        threads = threads.map(thread => 
-          thread.id === currentThreadId 
-            ? { ...thread, name: editedThreadName.trim() } 
-            : thread
-        );
-        // Trigger reactivity for orderedGroupedThreads
-        orderedGroupedThreads = groupOrder
-          .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
-          .map(group => ({ 
-            group, 
-            threads: groupedThreads[group].map(thread => 
-              thread.id === currentThreadId 
-                ? { ...thread, name: editedThreadName.trim() } 
-                : thread
-            ) 
-          }));
-      } catch (error) {
-        console.error("Error updating thread name:", error);
-      } finally {
-        isEditingThreadName = false;
-      }
-    }
-  }
-  // UI helper functions
-  async function scrollToBottom() {
-    console.log('Scroll button clicked');
-    const chatMessages = chatMessagesDiv.querySelector('.chat-messages');
-    if (chatMessages) {
-      // console.log('Before scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-      // console.log('After scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
-      showScrollButton = false;
-      // console.log('showScrollButton set to false');
-    } else {
-      console.log('chat-messages div not found');
-    }
-  }
-  async function goBack() {
-  console.log('Back button clicked');
-  console.log('Initial state:', {
-    currentThreadId,
-    threads: threads?.length,
-  });
-  
-  try {
-    if (currentThreadId) {
-      isLoading = true;
-      console.log('Starting thread reset...');
-      
-      // First update any pending changes
-      await resetThread(currentThreadId);
-      console.log('Thread reset complete');
-
-      // Keep a copy of current threads before clearing state
-      const currentThreads = [...threads];
-      
-      // Clear local state
-      
-      currentThread = null;
-      currentThreadId = null;
-      chatMessages = [];
-      messages = [];
-      expandedDates = new Set();
-      quotedMessage = null;
-      thinkingMessageId = null;
-      typingMessageId = null;
-      
-      console.log('Local state cleared');
-      
-      // Reset store current thread but maintain threads list
-      threadsStore.clearCurrentThread();
-      console.log('Store thread cleared');
-
-      // Update URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('threadId');
-      url.searchParams.delete('messageId');
-      url.searchParams.delete('autoTrigger');
-      history.replaceState({}, '', url.toString());
-      console.log('URL updated');
-      
-      // Show thread list and restore threads
-      threads = currentThreads;
-      
-      console.log('Final threads length:', threads?.length);
-    }
-  } catch (error) {
-    console.error('Error going back:', error);
-  } finally {
-    isLoading = false;
-    
-    console.log('Final state:', {
-      currentThreadId,
-      threads: threads?.length,
-      showThreadList
-    });
-  }
-  }
-  async function handleAutoTriggerResponse(targetMessage) {
-    try {
-      isLoading = true;
-      
-      // Start thinking animation
-      thinkingPhrase = getRandomThinkingPhrase();
-      const thinkingMessage = addMessage('thinking', thinkingPhrase);
-      thinkingMessageId = thinkingMessage.id;
-      chatMessages = [...chatMessages, thinkingMessage];
-
-      // Fetch AI response
-      const aiResponse = await fetchAIResponse(
-        chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
-        aiModel,
-        userId,
-        attachment
-      );
-
-      // Remove thinking message
-      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-      // Save AI response
-      const assistantMessage = await messagesStore.saveMessage({
-        text: aiResponse,
-        type: 'robot',
-        thread: currentThreadId,
-        parent_msg: targetMessage.id,
-        prompt_type: prompt
-      }, currentThreadId);
-
-      // Add AI response to UI
-      const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
-      chatMessages = [...chatMessages, newAssistantMessage];
-      typingMessageId = newAssistantMessage.id;
-
-      // Use typewriting effect
-      await typeMessage(aiResponse);
-
-      // Update the message with the full response
-      chatMessages = chatMessages.map(msg => 
-        msg.id === String(typingMessageId) 
-          ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-          : msg
-      );
-
-      // Update thread name after first AI response
-      const robotMessages = messages.filter(m => m.type === 'robot');
-      if (robotMessages.length === 1) {
-        await threadsStore.autoUpdateThreadName(currentThreadId);
-      }
-
-      await messagesStore.fetchMessages(currentThreadId);
-    } catch (error) {
-      console.error('Error processing AI response:', error);
-      chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
-    } finally {
-      isLoading = false;
-      thinkingMessageId = null;
-      typingMessageId = null;
-    }
-  }
-  async function startEditingThreadName() {
-    isEditingThreadName = true;
-    editedThreadName = currentThread?.name || '';
-  }
-  async function initializeThreadsAndMessages(): Promise<void> {
-    try {
-        // Get current store state first
-        const currentState = get(threadsStore);
-        
-        // Only load threads if we don't have them already
-        if (!currentState.threads || currentState.threads.length === 0) {
-            threads = await threadsStore.loadThreads();
-        } else {
-            threads = currentState.threads;
-        }
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const threadIdFromUrl = urlParams.get('threadId');
-
-        if (threadIdFromUrl) {
-            await handleLoadThread(threadIdFromUrl);
-        } else if (!currentThreadId && (!threads || threads.length === 0)) {
-            // Ensure we preserve showThreadList state
-            const currentVisibility = currentState.showThreadList;
-            
-            const newThread = await threadsStore.addThread({ 
-                name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
-                op: userId 
-            });
-            
-            if (newThread?.id) {
-                currentThreadId = newThread.id;
-                // Update store with preserved visibility
-                threadsStore.update(state => ({
-                    ...state,
-                    currentThreadId: newThread.id,
-                    showThreadList: currentVisibility
-                }));
-                await handleLoadThread(newThread.id);
-            }
-        }
-
-        filteredThreads = threads;
-        initialLoadComplete = true;
-        
-    } catch (error) {
-        console.error('Error initializing:', error);
-    }
-}
 
 messagesStore.subscribe(value => messages = value);
-  projectStore.subscribe((state) => {
-    projects = state.threads;
-    currentProjectId = state.currentProjectId;
-    currentProject = state.currentProject;
-    filteredProjects = state.filteredProject;
-    isEditingProjectName = state.isEditingProjectName;
-    editedProjectName = state.editedProjectdName;
-  });
-  threadsStore.subscribe((state: ThreadStoreState) => {
-    threads = state.threads;
+threadsStore.subscribe((state: ThreadStoreState) => {
+    threads.state.threads;
     currentThreadId = state.currentThreadId;
-    messages = state.messages;
     updateStatus = state.updateStatus;
-    showThreadList = state.showThreadList;
-    currentThread = state.currentThread;
     filteredThreads = state.filteredThreads;
     isEditingThreadName = state.isEditingThreadName;
     editedThreadName = state.editedThreadName;
     namingThreadId = state.namingThreadId; 
 });
 
+
+
   $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
   $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
   $: selectedModelName = $modelStore?.selectedModel?.name || '';  
   $: showThreadList = $threadsStore.showThreadList;
   $: promptType = $promptStore;
-$: {
-  if ($expandedSections.models) {
-    showModelSelector = true;
-    showPromptCatalog = false;
-  } else if ($expandedSections.prompts) {
-    showPromptCatalog = true;
-    showModelSelector = false;
-  } else {
-    showModelSelector = false;
-    showPromptCatalog = false;
-  }
-}
+// $: {
+//   if ($expandedSections.models) {
+//     showModelSelector = true;
+//     showPromptCatalog = set(false);
+//   } else if ($expandedSections.prompts) {
+//     showPromptCatalog = true;
+//     showModelSelector = false;
+//   } else {
+//     showModelSelector = false;
+//     showPromptCatalog = false;
+//   }
+// }
 // Handle seed prompt
 $: if (seedPrompt && !hasSentSeedPrompt) {
    console.log("Processing seed prompt:", seedPrompt);
@@ -1208,15 +249,15 @@ $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
    return acc;
 }, {} as Record<string, Threads[]>);
 // Maintain thread visibility
-// $: {
-//    if (currentThreadId && threads?.length > 0 && !showThreadList) {
-//        showThreadList = true;
-//        threadsStore.update(state => ({
-//            ...state,
-//            showThreadList: true
-//        }));
-//    }
-// }
+$: {
+   if (currentThreadId && threads?.length > 0 && !showThreadList) {
+       showThreadList = true;
+       threadsStore.update(state => ({
+           ...state,
+           showThreadList: true
+       }));
+   }
+}
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
@@ -1281,7 +322,7 @@ afterUpdate(() => {
 });
 onDestroy(() => {
   currentProjectId = null;
-  currentThreadId = null;
+  // currentThreadId = null;
   if (hideTimeout) {
     clearTimeout(hideTimeout);
   }
@@ -1312,72 +353,84 @@ onDestroy(() => {
       </h2> -->
       <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
         <button 
-        class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
-        class:active={isProjectListVisible} 
-        on:click={() => {
-          if (!isProjectListVisible) {
-            // Reset project selection when going back to project list
-            projectStore.setCurrentProject(null);
-            currentProjectId = null;
-            threadsStore.setCurrentThread(null);
-            currentThreadId = null;
-    
-            // Clear project-specific threads
-            threadsStore.update(state => ({...state, threads: []}));
-          }
-          isProjectListVisible = !isProjectListVisible;
-          if (isProjectListVisible) {
-            isThreadListVisible = false;
-            // Reload all projects to ensure fresh data
-            projectStore.loadProjects();
-            
-          }
-        }}
-      >
-        <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          {#if !isProjectListVisible && !currentProjectId}
-          <Box />              
-          {:else if !isProjectListVisible && currentProjectId}  
-            <ArrowLeft />
-          {:else}
-            <Box />
-            <span in:fade>{$t('drawer.project')}</span>
-          {/if}
-         </span>
-       </button>
-       <button 
-       class="drawer-tab"
-       class:active={isThreadListVisible} 
-       on:click={() => {
-         isThreadListVisible = !isThreadListVisible;
-         if (isThreadListVisible) {
-           isProjectListVisible = false;
-           // Reset project selection
-           projectStore.setCurrentProject(null);
-           currentProjectId = null;
-           // Reload all threads
-           threadsStore.loadThreads();
-         }
-       }}
-     >
-     <span 
-     class="icon"
-     class:active={isThreadListVisible}
-    >
-     {#if isThreadListVisible && currentProjectId}
-       <Box />
-       <span in:fade>
-         {get(projectStore).currentProject?.name || ''}
-       </span>
-     {:else if !isThreadListVisible}
-       <MessageCircleMore />
-     {:else}
-       <MessageCircleMore />
-       <span in:fade>
-         {$t('drawer.thread')}
-       </span>
-     {/if}
-    </span>
+          class="drawer-tab" 
+          in:fly={{duration: 200}} 
+          out:fly={{duration: 200}}
+          class:active={$projectVisibilityStore} 
+          on:click={() => {
+            projectVisibilityStore.update(current => {
+              if (!current) {
+                // Reset project selection when going back to project list
+                projectStore.setCurrentProject(null);
+                // currentProjectId = null;
+                threadsStore.setCurrentThread(null);
+                // currentThreadId = null;
+                
+                // Clear project-specific threads
+                threadsStore.update(state => ({...state, threads: []}));
+              }
+              
+              const newValue = !current;
+              if (newValue) {
+                threadVisibilityStore.update(state => ({ ...state, isThreadListVisible: false }));
+                // Reload all projects to ensure fresh data
+                projectStore.loadProjects();
+              }
+              
+              return newValue;
+            });
+          }}
+        >
+          <span class="icon" 
+            class:active={$projectVisibilityStore} 
+            in:fly={{duration: 200}} 
+            out:fade={{duration: 200}}
+          >
+            {#if !$projectVisibilityStore && !currentProjectId}
+              <Box />              
+            {:else if !$projectVisibilityStore && currentProjectId}  
+              <ArrowLeft />
+            {:else}
+              <Box />
+              <span in:fade>{$t('drawer.project')}</span>
+            {/if}
+          </span>
+        </button>
+      
+        <button 
+          class="drawer-tab"
+          class:active={$threadVisibilityStore.isThreadListVisible} 
+          on:click={() => {
+            threadVisibilityStore.update(state => {
+              const newThreadVisible = !state.isThreadListVisible;
+              if (newThreadVisible) {
+                projectVisibilityStore.set(false);
+                projectStore.setCurrentProject(null);
+                currentProjectId = null;
+                threadsStore.loadThreads();
+              }
+              return { ...state, isThreadListVisible: newThreadVisible };
+            });
+          }}
+        >
+          <span 
+            class="icon"
+            class:active={$threadVisibilityStore.isThreadListVisible}
+          >
+            {#if $threadVisibilityStore.isThreadListVisible && currentProjectId}
+              <Box />
+              <span in:fade>
+                {get(projectStore).currentProject?.name || ''}
+              </span>
+            {:else if !$threadVisibilityStore.isThreadListVisible}
+              <MessageCircleMore />
+            {:else}
+              <MessageCircleMore />
+              <span in:fade>
+                {$t('drawer.thread')}
+              </span>
+            {/if}
+          </span>
         </button>
       </div>
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
@@ -1388,71 +441,75 @@ onDestroy(() => {
             <!-- Create Project Button -->
             <div class="drawer-toolbar">
               <button 
-                class="add"
+              class="add"
+              on:click={() => {
+                console.log('New project button clicked');
+                projectStateStore.update(state => ({ ...state, isCreatingProject: true }));
+              }}
+              disabled={$projectStateStore.isCreatingProject}
+              on:mouseenter={() => createHovered = true}
+              on:mouseleave={() => createHovered = false}
+            >
+              <span 
+                class="icon" 
+                class:active={$projectStateStore.isCreatingProject} 
                 on:click={() => {
-                  console.log('New project button clicked');
-                  isCreatingProject = true;
+                  projectStateStore.update(state => ({
+                    ...state,
+                    isCreatingProject: !state.isCreatingProject
+                  }));
                 }}
-                disabled={isCreatingProject}
-                on:mouseenter={() => createHovered = true}
-                on:mouseleave={() => createHovered = false}
+                on:mouseenter={() => searchHovered = true}
+                on:mouseleave={() => searchHovered = false}
               >
-                <span 
-                  class="icon" 
-                  class:active={isCreatingProject} 
-                  on:click={() => {
-                    isCreatingProject = !isCreatingProject;
-                  }}
-                  on:mouseenter={() => searchHovered = true}
-                  on:mouseleave={() => searchHovered = false}
-                >
-
-                  <span class="icon" class:active={isCreatingProject}>
-                    {#if isCreatingProject}
-                      <ArrowLeft/>
-                      {:else}
-                      <PackagePlus />
-                      {#if searchHovered && !isCreatingProject}
-                        <span class="tooltip" in:fade>
-                          {$t('tooltip.newProject')}
-                        </span>
-                      {/if}
+                <span class="icon" class:active={$projectStateStore.isCreatingProject}>
+                  {#if $projectStateStore.isCreatingProject}
+                    <ArrowLeft/>
+                  {:else}
+                    <PackagePlus />
+                    {#if searchHovered && !$projectStateStore.isCreatingProject}
+                      <span class="tooltip" in:fade>
+                        {$t('tooltip.newProject')}
+                      </span>
                     {/if}
+                  {/if}
                 </span>
-                {#if isCreatingProject}
-
+                {#if $projectStateStore.isCreatingProject}
                   <div class="drawer-input" transition:slide>
                     <input
                       type="text"
-                      bind:value={newProjectName}
+                      bind:value={$projectStateStore.newProjectName}
                       placeholder="Project name..."
                       on:keydown={(e) => {
                         console.log('Keydown event:', e.key);
-                        if (e.key === 'Enter' && newProjectName.trim()) {
-                          console.log('Enter pressed with name:', newProjectName);
-                          handleCreateNewProject(newProjectName);
+                        if (e.key === 'Enter' && $projectStateStore.newProjectName.trim()) {
+                          console.log('Enter pressed with name:', $projectStateStore.newProjectName);
+                          handleCreateNewProject($projectStateStore.newProjectName);
                         } else if (e.key === 'Escape') {
                           console.log('Escape pressed, canceling');
-                          isCreatingProject = false;
-                          newProjectName = '';
+                          projectStateStore.update(state => ({
+                            ...state,
+                            isCreatingProject: false,
+                            newProjectName: ''
+                          }));
                         }
                       }}
                       use:focusOnMount
                     />
                     <button 
                       class="create-confirm"
-                      disabled={!newProjectName.trim()}
+                      disabled={!$projectStateStore.newProjectName.trim()}
                       on:click={() => {
-                        console.log('Confirm button clicked with name:', newProjectName);
-                        handleCreateNewProject(newProjectName);
+                        console.log('Confirm button clicked with name:', $projectStateStore.newProjectName);
+                        handleCreateNewProject($projectStateStore.newProjectName);
                       }}
                     >
                       <Check size={16} />
                     </button>
                   </div>
-                {:else}
                 {/if}
-              </button>
+              </span>
+            </button>
               
             </div>
         
@@ -1469,29 +526,27 @@ onDestroy(() => {
                     class:active={currentProjectId === project.id}
                     in:fly={{x: 20, duration: 200}}
                   >
-                    {#if project.id === editingProjectId}
-                      <input
-                        type="text"
-                        bind:value={editedProjectName}
-                        on:keydown={(e) => {
-                          if (e.key === 'Enter') submitProjectNameChange(project.id);
-                          if (e.key === 'Escape') cancelEditing();
-                        }}
-                        use:focusOnMount
-                      />
-                    {:else}
-
-                      <div class="card-static">
-                        <span class="card-title project">{project.name}</span>
-                        <span class="card-time">
-                          {new Date(project.updated).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      </div>
-
-                    {/if}
+                  {#if project.id === $projectStateStore.editingProjectId}
+                  <input
+                    type="text"
+                    bind:value={$projectStateStore.editedProjectName}
+                    on:keydown={(e) => {
+                      if (e.key === 'Enter') submitProjectNameChange(project.id);
+                      if (e.key === 'Escape') cancelEditing();
+                    }}
+                    use:focusOnMount
+                  />
+                {:else}
+                  <div class="card-static">
+                    <span class="card-title project">{project.name}</span>
+                    <span class="card-time">
+                      {new Date(project.updated).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+                {/if}
         
                     <div class="card-actions">
                       <button 
@@ -1528,7 +583,6 @@ onDestroy(() => {
                 try {
                   const newThread = await handleCreateNewThread();
                   if (newThread?.id) {
-                    showPromptCatalog = false;
                   }
                 } catch (error) {
                   console.error('Error creating new thread:', error);
@@ -1575,26 +629,26 @@ onDestroy(() => {
                 </div> 
               </span>
               {#if isExpanded}
-                <input
-                  transition:slide={{ duration: 300 }}
-                  type="text"
-                  bind:value={searchQuery}
-                  placeholder="Search..."
-                  on:input={() => {
-                    console.log('Search query changed:', searchQuery);
-                    console.log('Before setSearchQuery call');
-                    threadsStore.setSearchQuery(searchQuery);
-                    console.log('After setSearchQuery call');
-                  }}                  
-                  on:blur={() => {
-                    console.log('Search input blur, searchQuery:', searchQuery);
-                    if (!searchQuery) {
-                      console.log('Clearing search, collapsing input');
-                      isExpanded = false;
-                    }
-                  }}
-                  use:focusOnMount
-                />
+              <input
+              transition:slide={{ duration: 300 }}
+              type="text"
+              bind:value={$searchQuery}
+              placeholder="Search..."
+              on:input={() => {
+                console.log('Search query changed:', $searchQuery);
+                console.log('Before setSearchQuery call');
+                threadsStore.setSearchQuery($searchQuery);
+                console.log('After setSearchQuery call');
+              }}                  
+              on:blur={() => {
+                console.log('Search input blur, searchQuery:', $searchQuery);
+                if (!$searchQuery) {
+                  console.log('Clearing search, collapsing input');
+                  isExpanded = false;
+                }
+              }}
+              use:focusOnMount
+            />
               {/if}
             </div>
           </div>
@@ -1675,9 +729,9 @@ onDestroy(() => {
                           <div class="card-static">
 
                               <span class="card-title">{thread.name}</span>
-                              <span class="thread-message">
+                              <!-- <span class="thread-message">
                                   {thread.last_message?.content || 'No messages yet'}
-                              </span>
+                              </span> -->
                               <span class="card-time">
                                 {$t('threads.updated')}
                                   {new Date(thread.updated).toLocaleTimeString([], { 
@@ -1707,7 +761,7 @@ onDestroy(() => {
 
 
 
-          <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+          <div class="chat-content" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
 
               {#if isLoadingMessages}
                 <div class="loading-overlay">
@@ -1726,7 +780,9 @@ onDestroy(() => {
                       <input 
                         
                         transition:fade={{duration: 300, easing: cubicOut}}
-                        bind:value={editedThreadName}
+
+
+
                         on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
                         on:blur={submitThreadNameChange}
                         autofocus
@@ -1844,11 +900,11 @@ onDestroy(() => {
                             on:update={async (event) => {
                               const { messageId, reactions } = event.detail;
                               await messagesStore.updateMessage(messageId, { reactions });
-                              chatMessages = chatMessages.map(msg => 
-                                msg.id === messageId 
-                                  ? { ...msg, reactions }
-                                  : msg
-                              );
+                              // chatMessages = chatMessages.map(msg => 
+                              //   msg.id === messageId 
+                              //     ? { ...msg, reactions }
+                              //     : msg
+                              // );
                             }}
                             on:notification={(event) => {
                               console.log(event.detail);
@@ -1863,7 +919,7 @@ onDestroy(() => {
                   <ChevronDown size={24} />
                 </button>
               </div>
-              <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+              <div class="input-container"  transition:slide={{duration: 300, easing: cubicOut}}>
                 <!-- Prompts Section -->
                  <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
         
@@ -1885,7 +941,7 @@ onDestroy(() => {
                     rows="1"
                   />
                   <div>
-                    <div class="submission" class:visible={isTextareaFocused}                    >
+                    <div class="submission">
                       <span class="btn" >
                         <Paperclip  />
                       </span>
@@ -1963,7 +1019,6 @@ onDestroy(() => {
                           }));
                           
                           // Update the selected prompt
-                          showPromptCatalog = false;
                           console.log('Parent received selection from catalog:', event.detail);
                         }}
                       />
@@ -2673,8 +1728,8 @@ onDestroy(() => {
     position: fixed;
     transition: all 0.3s ease-in-out;
     overflow-y: auto;
-    overflow-x: hidden;
-    // /* left: 20%; */
+    overflow-x: none;
+    /* left: 20%; */
     width: 100%;
     padding: 0;
     padding-top: 0;
@@ -2684,13 +1739,9 @@ onDestroy(() => {
   }
   .chat-content {
     flex-grow: 1;
+    background: var(--primary-color);
     display: flex;
     flex-direction: column;
-    background: var(--primary-color);
-    margin-left: 25vw;
-    width: 50vw;
-    margin-top: 0;
-    height: auto;
     // width: 50%;
     // margin: 0 1rem;
     // margin-left: 25%;
@@ -2733,55 +1784,29 @@ onDestroy(() => {
     }
   }
 
- .drawer-visible {
-    &.input-container {
-      left: 0;
-      margin-left: 400px;
-    margin-right: 0;
-    width: auto; 
-      & textarea {
-        margin-left: 0;
-      }
-    } 
-    & .chat-placeholder {
-        right: 0;
-        width: 100%;
-        left: 0;
-        margin-left: 0;
-    }
-
-    & .chat-content {
-      margin-left: auto;
-      width: 100%;
-      
-    }
-    & .chat-container {
-      right: 0;
-      margin-right: 0;
-      width: auto;
-      left: 400px;
-    }
-    & .thread-info {
+  .drawer-visible .input-container {
+    left: 400px;
+    & textarea {
       margin-left: 0;
-      margin-right: 0;
     }
-  }
 
+  }
 
   .input-container {
     display: flex;
     flex-direction: column;
     position: fixed;
-    margin-left: 25vw;
-    margin-right: 25vw;
-    width: 50vw;    
+    width: auto;
+    left: 0;
     margin-top: 0;
     right: 0;
-    left: 0;
     bottom: 0;
+    margin-left: 0;
+    margin-right: 0;
     height: auto;
     margin-bottom: 0;
-    // backdrop-filter: blur(4px);
+    // background: var(--bg-gradient);
+    backdrop-filter: blur(4px);
     justify-content: flex-end;
     align-items: center;
     // background: var(--bg-gradient);
@@ -2803,8 +1828,6 @@ onDestroy(() => {
       box-shadow: none;
       position: relative; 
       left: 0;
-      border-radius: var(--radius-m);
-
       // background-color: transparent;
       background: var(--bg-gradient-r);
       margin-right: 2rem !important;
@@ -2842,7 +1865,20 @@ onDestroy(() => {
     }
 
   }
-
+  .network-container {
+    position: absolute;
+    margin-left: auto;
+    margin-right: auto;
+    top: 30%;
+    width: 80%;
+    height: 50%;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    padding: 20px;
+    display: flex;
+    align-items: stretch;
+  }
   .auth-container {
     background-color: #fff;
     padding: 2rem;
@@ -2857,6 +1893,7 @@ onDestroy(() => {
   bottom: 0;
   margin-bottom: 0;
   // background: var(--bg-gradient);
+  margin-bottom: 0;
   width: 100%;
   display: flex;
   flex-direction: row;
@@ -2866,8 +1903,6 @@ onDestroy(() => {
   & textarea {
     border-top: 1px solid var(--primary-color) !important;
     max-height: 50vh;
-    margin-left: 0;
-    margin-top: 0;
   
   :focus {
     background: var(--bg-gradient-left);
@@ -2907,38 +1942,25 @@ color: #6fdfc4;
   width: auto;
   justify-content: center;
   align-self: flex-end;
-  width: fit-content;
+  margin-right: 1rem;
   z-index: 1000;
   gap: 2rem;
-  padding: 0.5rem;
-  transition: height 0.3s ease;
-  border-radius: var(--radius-m);
-
 }
-
-.visible.submission {
-  // backdrop-filter: blur(4px);
-  background: var(--bg-gradient-left);
-}
-
-
   .chat-messages {
     flex-grow: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    background: var(--primary-color);
     /* padding: 10px; */
     display: flex;
-    padding: 1rem;
+    padding: 1rem !important;
     position: relative;
-    margin-top: 1rem;
-    width: auto;
+    top: 1rem;
+    width: auto !important;
     // left: 25%;
-    bottom: auto;
+    bottom: 4rem;
     flex-direction: column;
-    overflow-x: hidden;
     align-items: stretch;
-    scrollbar-width:2px;
+    scrollbar-width:1px;
     scrollbar-color: var(--secondary-color) transparent;
     scroll-behavior: smooth;
     // margin-bottom: 100px;
@@ -3247,15 +2269,15 @@ color: #6fdfc4;
 
 .chat-header {
     height: 3rem;
-    padding-left: 1rem;
-    position: relative;
-    // background: var(--primary-color);
-    // border-top-left-radius: var(--radius-m);
-    // border-top-right-radius: var(--radius-m);
+    padding-left: 3rem;
+    position: absolute;
+    background: var(--primary-color);
+    border-top-left-radius: var(--radius-m);
+    border-top-right-radius: var(--radius-m);
     top: 0 !important;
     left: 0;
-    right: 0;
-    width: 100%;
+    right: 1rem;
+    width: auto;
     // padding: 1rem 0.5rem;
     color: var(--text-color);
     text-align: left;
@@ -3763,8 +2785,9 @@ color: #6fdfc4;
     flex-direction: column;
     /* font-family: 'Merriweather', serif; */
     width: auto;
-    min-height: 80px;
+    min-height: 60px;
     max-height: 50% !important;
+
     /* min-height: 60px; Set a minimum height */
     /* max-height: 1200px; Set a maximum height */
     // padding: 1rem;
@@ -3774,7 +2797,7 @@ color: #6fdfc4;
     font-size: 24px;
     letter-spacing: 1.4px;
     border: 1px solid rgba(53, 63, 63, 0.5);   
-    // border-radius: 20px;
+    border-radius: 20px;
     /* background-color: #2e3838; */
     // background-color: #020101;
     color: #818380;
@@ -3822,7 +2845,13 @@ color: #6fdfc4;
 .message-count {
   color: var(--placeholder-color);
 }
-
+.drawer-visible .chat-placeholder {
+    right: 0;
+    width: 100%;
+    left: 0;
+    margin-left: 0;
+    height: 84vh;
+}
 .chat-placeholder {
   display: flex;
   align-items: center;
@@ -3831,7 +2860,7 @@ color: #6fdfc4;
   top: 0;
   background: var(--primary-color);
   bottom: 0;
-  height: 88vh;
+  height: 84vh;
   user-select: none;
   position: absolute;
   width: auto;
@@ -4092,6 +3121,23 @@ color: #6fdfc4;
   }
 
 
+  .drawer-visible {
+    
+  & .chat-container {
+    right: 0;
+    margin-right: 0;
+    width: auto;
+    left: 400px;
+  }
+
+
+  & .thread-info {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+
+  }
   .thread-count {
       color: var(--text-secondary);
       font-size: 0.9em;
@@ -4277,15 +3323,15 @@ color: #6fdfc4;
   }
 
   &.send-btn {
-    background-color: var(--tertiary-color);
+    background-color: var(--secondary-color);
   }
 
 }
 
   .scroll-bottom-btn {
-    position: fixed;
-    bottom: 12rem !important;
-    right: 2rem;
+    position: absolute;
+    bottom: 0 !important;
+    right: 0;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -4550,12 +3596,8 @@ color: #6fdfc4;
   @media (max-width: 1000px) {
 
     .chat-container {
-      top: 3rem;
-    }
 
-    .chat-content {
-      width: 100%;
-      margin-left: 0;
+      top: 3rem;
     }
 
     .chat-messages {
@@ -4708,27 +3750,18 @@ color: #6fdfc4;
     }
 
   .input-container {
-    bottom: 5rem;
+    bottom: 3rem;
     width: auto !important;
-    margin-left: 200px;
     right: 0;
     gap: 0;
     // left:1rem !important;
     margin-left: 0 !important;
     margin-right: 0;
     padding: 0 0 0 0 !important;
+    border-top-left-radius: var(--radius-m) !important;
     // box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
     box-shadow: none;
     z-index: 4000 !important;
-    &     textarea {
-      font-size: 1.5rem;
-      border: none;
-      box-shadow: none;
-      position: relative; 
-      left: 0;
-      border-top-left-radius: 0;
-
-    }
 
   }
 
@@ -4755,7 +3788,7 @@ color: #6fdfc4;
 
       // background: black !important; 
       padding: 2rem;
-      margin-left: 0;
+      margin-left: 2rem;
       margin-right: 0;
       height: auto;
       box-shadow: none !important;
@@ -4901,16 +3934,11 @@ color: #6fdfc4;
 
 
 }
-
-.input-container {
-  width: auto;
-  margin-left: 4rem;
-  margin-right: 1rem;
-}
   
 
-.drawer-visible {
-  .chat-container {
+
+
+  .drawer-visible .chat-container {
     right: 0;
     margin-right: 0;
     width: auto;
@@ -4918,21 +3946,8 @@ color: #6fdfc4;
     margin-left: 1rem;
 
   }
-    &.input-container {
-      left: 1rem;
-      margin-left: 400px;
-    margin-right: 0;
-    width: auto; 
-      & textarea {
-        margin-left: 0;
-      }
-    } 
-  }
 
-  .chat-content {
-      width: 100%;
-      margin-left: 0;
-    }
+
 
   .chat-messages {
     border: none;

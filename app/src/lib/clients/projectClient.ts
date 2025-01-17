@@ -1,4 +1,4 @@
-import type { Messages, Projects, Threads} from '$lib/types';
+import type { Messages, Projects, Threads} from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { marked } from 'marked';

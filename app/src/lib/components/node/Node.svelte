@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { Node, Transform } from '$lib/types';
+    import type { Node, Transform } from '$lib/types/types';
     import { Network, ClipboardList, MessageSquare, Settings } from 'lucide-svelte';
     import AIChat from '$lib/components/ai/AIChat.svelte';
     import Kanban from '../features/Kanban.svelte';

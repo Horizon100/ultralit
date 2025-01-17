@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Shape } from '$lib/types';
+    import type { Shape } from '$lib/types/types';
   
     export let selectedShape: Shape;
   

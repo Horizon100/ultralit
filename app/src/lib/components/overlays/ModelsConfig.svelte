@@ -2,7 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { Plus, Trash2 } from 'lucide-svelte';
     import { fade, fly } from 'svelte/transition';
-    import type { AIModel, User } from '$lib/types';
+    import type { AIModel, User } from '$lib/types/types';
     import { modelStore } from '$lib/stores/modelStore';
     import { currentUser } from '$lib/pocketbase';
     import { createModel, updateModel, deleteModel } from '$lib/modelClient';

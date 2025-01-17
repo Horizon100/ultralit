@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { Scenario } from '$lib/types';
+    import type { Scenario } from '$lib/types/types';
     import { networkStore } from '$lib/stores/networkStore';
   
     export let scenarios: Scenario[];

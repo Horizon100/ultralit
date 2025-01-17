@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase';
 import type { AuthModel } from 'pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { writable } from 'svelte/store'
-import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Threads, Messages } from '$lib/types';
+import type { AIAgent, Network, Task, AIPreferences, Message, NetworkData, CursorPosition, User, AIModel, Actions, Workflows, Workspaces, Threads, Messages } from '$lib/types/types';
 // import { role } from './components/common/chat/MessageHeader.svelte';
 // import type { ClientResponseError } from 'pocketbase'; // Unused
 // import type { RecordModel } from 'pocketbase'; // Unused

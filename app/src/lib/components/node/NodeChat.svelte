@@ -1,6 +1,6 @@
 <script lang="ts">
     import AIChat from '$lib/components/ai/AIChat.svelte';
-    import type { AIModel, ChatMessage, AIMessage } from '$lib/types';
+    import type { AIModel, ChatMessage, AIMessage } from '$lib/types/types';
     
     const defaultModel: AIModel = {
         id: 'default',

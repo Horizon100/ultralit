@@ -4,8 +4,8 @@
     import { goto } from '$app/navigation';
     import { workspaceStore } from '$lib/stores/workspaceStore';
     import { workshopStore } from '$lib/stores/workshopStore';
-    import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/workshopClient';
-    import type { Workspaces, Workshops } from '$lib/types';
+    import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/clients/workshopClient';
+    import type { Workspaces, Workshops } from '$lib/types/types';
     import { wormhole } from '$lib/transitions/wormhole';
     import { fade, slide, fly } from 'svelte/transition';
     import { quintOut } from 'svelte/easing';

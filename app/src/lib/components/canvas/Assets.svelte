@@ -6,7 +6,7 @@
     import Controls from '$lib/assets/icons/ai/controls.svg';
     import Compass from '$lib/assets/icons/map/compass.svg';
 
-    import type { Shape } from '$lib/types'; // Import Shape from your types file
+    import type { Shape } from '$lib/types/types'; // Import Shape from your types file
     export let startPoint: string;
     export let endPoint: string;
     

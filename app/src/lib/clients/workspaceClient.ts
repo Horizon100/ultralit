@@ -1,5 +1,5 @@
-import { pb } from './pocketbase';
-import type { Workspaces } from '$lib/types';
+import { pb } from '../pocketbase';
+import type { Workspaces } from '$lib/types/types';
 import { ClientResponseError } from 'pocketbase';
 
 export async function createWorkspace(workspaceData: Partial<Workspaces>): Promise<Workspaces> {

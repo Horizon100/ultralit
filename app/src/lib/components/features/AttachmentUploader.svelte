@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { Attachment } from '$lib/types';
+    import type { Attachment } from '$lib/types/types';
   
     const dispatch = createEventDispatcher<{
       upload: Attachment[];

@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Node } from '../types';
+import type { Node } from '../types/types';
 
 function createNodeStore() {
   const { subscribe, set, update } = writable<Node[]>([]);

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { AIModel } from '$lib/types';
+    import type { AIModel } from '$lib/types/types';
     import { Bot } from 'lucide-svelte';
     import { fly } from 'svelte/transition';
     import { availableModels, defaultModel } from '$lib/constants/models';

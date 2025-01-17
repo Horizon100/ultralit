@@ -2,13 +2,13 @@
   import { onMount, afterUpdate, createEventDispatcher } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import { Send, Paperclip } from 'lucide-svelte';
-  import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/aiClient';
+  import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, determineNetworkStructure, generateSummary as generateSummaryAPI, generateGuidance, generateNetwork } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { Spinner } from 'flowbite-svelte';
   import { updateAIAgent, ensureAuthenticated } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
-  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network} from '$lib/types';
+  import type { AIModel, ChatMessage, InternalChatMessage, Scenario, Task, Attachment, Guidance, PromptType, NetworkData, AIAgent, Network} from '$lib/types/types';
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { pb, currentUser } from '$lib/pocketbase';
-  import type { Messages } from '$lib/types';
+  import type { Messages } from '$lib/types/types';
   import { Bookmark, Copy } from 'lucide-svelte';
   import type { SvelteComponent } from 'svelte';
 

@@ -1,9 +1,10 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Messages, Threads, AIModel } from '$lib/types';
+import type { Messages, Threads, AIModel } from '$lib/types/types';
 import { debounce } from 'lodash-es';
-import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/threadsClient';
-import { fetchThreadsForProject } from '$lib/projectClient'
+import { fetchThreads, fetchMessagesForThread, createThread, updateThread, addMessageToThread, autoUpdateThreadName } from '$lib/clients/threadsClient';
+import { fetchThreadsForProject } from '$lib/clients/projectClient'
 import { browser } from '$app/environment';
+import { replaceState } from '$app/navigation';
 
 
 

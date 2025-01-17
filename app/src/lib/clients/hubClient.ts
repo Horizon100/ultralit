@@ -1,6 +1,6 @@
 // hubClient.ts
 
-import type { AIModel, Role, Agent, ChatMessage } from '$lib/types';
+import type { AIModel, Role, Agent, ChatMessage } from '$lib/types/types';
 
 export async function fetchAIResponse(messages: ChatMessage[], aiModel: AIModel, userId: string): Promise<string> {
   // Implement API call to fetch AI response

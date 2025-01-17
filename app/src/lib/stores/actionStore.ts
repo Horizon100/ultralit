@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Actions } from '$lib/types';
+import type { Actions } from '$lib/types/types';
 import { fetchUserActions } from '$lib/pocketbase';
 
 function createActionStore() {

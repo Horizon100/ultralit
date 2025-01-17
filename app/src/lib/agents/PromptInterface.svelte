@@ -2,7 +2,7 @@
     import { onMount, afterUpdate, createEventDispatcher } from 'svelte';
     import { fade, fly } from 'svelte/transition';
     import { Send, Paperclip } from 'lucide-svelte';
-    import type { AIModel, ChatMessage, InternalChatMessage, Role, Agent } from '$lib/types';
+    import type { AIModel, ChatMessage, InternalChatMessage, Role, Agent } from '$lib/types/types';
     import { Spinner } from 'flowbite-svelte';
     import PromptSelector from './PromptSelector.svelte';
     import { HubAgent } from './HubAgent';

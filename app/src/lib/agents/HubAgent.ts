@@ -1,6 +1,6 @@
 // HubAgent.ts
 
-import type { AIModel, Role, Agent, ChatMessage, InternalChatMessage } from '$lib/types';
+import type { AIModel, Role, Agent, ChatMessage, InternalChatMessage } from '$lib/types/types';
 import { createAgent, updateAIAgent } from '$lib/pocketbase';
 import { fetchAIResponse, generateRoles } from './hubClient';
 

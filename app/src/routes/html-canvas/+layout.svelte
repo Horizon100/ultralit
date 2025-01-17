@@ -6,7 +6,7 @@
   import Node from '../../lib/components/node/Node.svelte';
   import CanvasControls from '../../lib/components/canvas/CanvasControls.svelte';
   import NodeCreationModal from '../../lib/components/node/NodeCreationModal.svelte';
-  import type { AIModel, NetworkData, Node as NodeType, Transform, TextFile} from '$lib/types';
+  import type { AIModel, NetworkData, Node as NodeType, Transform, TextFile} from '$lib/types/types';
   import NetworkGenerator from '../../lib/components/network/NetworkGenerator.svelte';
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import Icicle from '../../lib/components/network/Icicle.svelte';
@@ -19,8 +19,8 @@
   import FileContainer from '../../lib/components/canvas/FileContainer.svelte';
   import ImportDocs from '../../lib/components/features/ImportDocs.svelte';
   import Agent from '$lib/components/ai/Agent.svelte';
-  import type { AIAgent } from '$lib/types';
-  import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/agentClient';
+  import type { AIAgent } from '$lib/types/types';
+  import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/clients/agentClient';
   import { agentStore } from '../../lib/stores/agentStore';
 
 

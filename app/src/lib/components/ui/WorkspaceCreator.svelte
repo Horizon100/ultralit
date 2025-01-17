@@ -4,8 +4,8 @@
   import Auth from '$lib/components/auth/Auth.svelte';
   import { workspaceStore } from '$lib/stores/workspaceStore';
   import { workshopStore } from '$lib/stores/workshopStore';
-  import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/workshopClient';
-  import type { Workspaces, Workshops } from '$lib/types';
+  import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/clients/workshopClient';
+  import type { Workspaces, Workshops } from '$lib/types/types';
   import { onMount, createEventDispatcher } from 'svelte';
   import { goto } from '$app/navigation';
 

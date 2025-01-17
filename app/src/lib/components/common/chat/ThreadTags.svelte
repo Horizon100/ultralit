@@ -2,7 +2,7 @@
     import { createEventDispatcher } from 'svelte';
     import { fly, slide } from 'svelte/transition';
     import { Tag, Tags } from 'lucide-svelte';
-    import type { Tag } from '$lib/types';
+    import type { Tag } from '$lib/types/types';
   
     export let availableTags: Tag[] = [];
     export let currentThreadId: string | null = null;

@@ -1,4 +1,4 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib/types';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib/types/types';
 // import { availableModels } from '$lib/constants/models';
 // import { modelStore } from '$lib/stores/modelStore';
 import type { ModelState } from '$lib/stores/modelStore';
@@ -215,7 +215,7 @@ export async function createAIAgent(scenario: Scenario, tasks: Task[], model: AI
 
     const response = await fetchAIResponse(messages, model.api_type, userId);
     [{
-        "resource": "/Users/jr/Repositories/ultralit/app/src/lib/aiClient.ts",
+        "resource": "/Users/jr/Repositories/ultralit/app/src/lib/clients/aiClient.ts",
         "owner": "typescript",
         "code": "2322",
         "severity": 8,

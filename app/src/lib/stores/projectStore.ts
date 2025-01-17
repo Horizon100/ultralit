@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Projects } from '$lib/types';
+import type { Projects, ProjectStoreState} from '$lib/types/types';
 import { debounce } from 'lodash-es';
-import { fetchProjects, createProject, updateProject, resetProject } from '$lib/projectClient';
+import { fetchProjects, createProject, updateProject, resetProject } from '$lib/clients/projectClient';
 
 function createProjectStore() {
   const store = writable<ProjectStoreState>({
@@ -15,7 +15,8 @@ function createProjectStore() {
     currentProject: null,
     filteredProject: [],
     isEditingProjectName: false,
-    editedProjectdName: ''
+    editedProjectdName: '',
+    collaborators: []
   });
 
   const { subscribe, update } = store;

@@ -3,7 +3,7 @@ import { currentLanguage } from './languageStore';
 import en from '../translations/en';
 import ru from '../translations/ru';
 
-const translations = {
+export const translations = {
     en,
     ru
 };

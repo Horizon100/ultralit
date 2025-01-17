@@ -47,6 +47,11 @@ export type PromptType =
     'ANALYZER' | 
     'BRAINSTORM' | 
     'TUTOR' ;
+
+    export interface ThreadGroup {
+        group: string;
+        threads: Threads[];
+    }
     
     export interface ThreadStoreState {
         threads: Threads[];
@@ -66,6 +71,20 @@ export type PromptType =
 
     }
 
+    export interface Threads extends RecordModel {
+        id: string;
+        name: string;
+        op: string;
+        created: string;
+        updated: string;
+        tags: string[]; 
+        last_message?: Messages;
+        current_thread: string;
+        messageCount?: number;
+        project_id?: string;
+    
+    
+    }
 export interface Tag extends RecordModel {
     id: string;
     name: string;
@@ -507,22 +526,8 @@ export interface ChatMessage extends RecordModel {
 }
 
 
-}
-
-export interface Threads extends RecordModel {
-    id: string;
-    name: string;
-    op: string;
-    created: string;
-    updated: string;
-    tags: string[]; 
-    last_message?: Messages;
-    current_thread: string;
-    messageCount?: number;
-    project_id?: string;
 
 
-}
 
 export interface Tag {
     id: string;
@@ -600,10 +605,7 @@ export interface Projects extends RecordModel {
     collaborators: string[];
 }
 
-export interface ThreadGroup {
-    group: string;
-    threads: Threads[];
-}
+
 export interface ExpandedSections {
     prompts: boolean;
     models: boolean;
@@ -629,7 +631,7 @@ export interface PromptState {
     selectedScenario: Scenario | null;
     selectedTask: Task | null;
     summary: string;
-    networkData: any;
+    networkData: string;
 }
 
 

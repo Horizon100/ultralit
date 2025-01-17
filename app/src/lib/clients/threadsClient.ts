@@ -1,45 +1,17 @@
 import { get } from 'svelte/store';
-import type { Messages, Threads, AIModel, Projects} from '$lib/types';
+import type { Messages, Threads, AIModel, Projects} from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
-// import { fetchNamingResponse } from '$lib/aiClient'
+// import { fetchNamingResponse } from '$lib/clients/aiClient'
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
-import { marked } from 'marked';
 import { threadsStore } from '$lib/stores/threadsStore';
+import { processMarkdown } from '$lib/scripts/markdownProcessor';
 
-marked.setOptions({
-    gfm: true, // GitHub Flavored Markdown
-    breaks: true, // Convert \n to <br>
-    headerIds: false,
-    mangle: false
-  });
 
-  function processMarkdown(content: string): string {
-    try {
-      // Process content with marked
-      const processed = marked(content);
-      
-      // Additional formatting rules
-      return processed
-        // Ensure proper spacing around headers
-        .replace(/(<h[1-6]>)/g, '\n$1')
-        .replace(/(<\/h[1-6]>)/g, '$1\n')
-        // Proper list formatting
-        .replace(/(<[uo]l>)/g, '\n$1')
-        .replace(/(<\/[uo]l>)/g, '$1\n')
-        // Proper code block formatting
-        .replace(/(<pre>)/g, '\n$1')
-        .replace(/(<\/pre>)/g, '$1\n')
-        // Clean up excessive newlines
-        .replace(/\n{3,}/g, '\n\n');
-    } catch (error) {
-      console.error('Error processing markdown:', error);
-      return content;
-    }
-  }
+
 
 /** Utility to ensure user is authenticated */
-function ensureAuthenticated(): void {
+export function ensureAuthenticated(): void {
     if (!pb.authStore.isValid) {
         throw new Error('User is not authenticated');
     }
@@ -55,7 +27,7 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
         const messages = await pb.collection('messages').getFullList<Messages>({
             filter: `thread = "${threadId}"`,
             sort: '-created',
-            expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
+            // expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
         });
 
         // Process markdown for each message
@@ -96,7 +68,7 @@ export async function fetchMessagesForThreadByDate(threadId: string, date?: Date
         const messages = await pb.collection('messages').getFullList<Messages>({
             filter: filter,
             sort: '-created',
-            expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
+            // expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
         });
 
         // Process markdown for each message
@@ -149,7 +121,7 @@ export async function fetchThreads(): Promise<Threads[]> {
         ensureAuthenticated();
         
         const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
-            expand: 'last_message,project_id',
+            // expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
             sort: '-created',
             $cancelKey: 'threads'
         });
@@ -332,9 +304,10 @@ export async function autoUpdateThreadName(
     userId: string
 ): Promise<Threads | null> {
     try {
-        ensureAuthenticated(); // No await needed since it's synchronous
+        // Just call ensureAuthenticated, don't try to return its result
+        ensureAuthenticated();
   
-        // Then return the result of updateThreadNameIfNeeded
+        // Return the result of updateThreadNameIfNeeded
         const updatedThread = await updateThreadNameIfNeeded(threadId, messages, model, userId);
         return updatedThread;
     } catch (error) {

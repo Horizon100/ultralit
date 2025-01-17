@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NetworkData, VisNode } from '$lib/types';
+  import type { NetworkData, VisNode } from '$lib/types/types';
   import * as d3 from 'd3';
   export let networkData: NetworkData;
 

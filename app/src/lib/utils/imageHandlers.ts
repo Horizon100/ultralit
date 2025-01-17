@@ -1,4 +1,4 @@
-import type { Notes } from '$lib/types';
+import type { Notes } from '$lib/types/types';
 import { notesStore } from '$lib/stores/notesStore';
 
 export function handleImageUpload(fileInput: HTMLInputElement) {

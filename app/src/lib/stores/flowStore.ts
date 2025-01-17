@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Workflows } from '$lib/types';
+import type { Workflows } from '$lib/types/types';
 import { fetchUserFlows } from '$lib/pocketbase';
 
 function createFlowStore() {

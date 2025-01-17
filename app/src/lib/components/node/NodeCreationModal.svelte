@@ -2,9 +2,9 @@
   import { onMount, createEventDispatcher } from 'svelte';
   import AIChat from '$lib/components/ai/AIChat.svelte';
   import { networkStore } from '$lib/stores/networkStore';
-  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment } from '$lib/types';
+  import type { Node, NodeConfig, AIModel, NetworkData, Task, PromptType, Attachment } from '$lib/types/types';
   import { ArrowRight, Check, X, Paperclip, File } from 'lucide-svelte';
-  import { generateNetwork } from '$lib/aiClient';
+  import { generateNetwork } from '$lib/clients/aiClient';
   import { createAgentWithSummary, saveNetworkLayout, saveTasksForAgent, ensureAuthenticated, updateAIAgent } from '$lib/pocketbase';
   import { ClientResponseError } from 'pocketbase';
   import { goto } from '$app/navigation';

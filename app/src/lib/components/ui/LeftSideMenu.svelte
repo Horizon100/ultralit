@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { AIAgent, PartialAIAgent } from '$lib/types';
+  import type { AIAgent, PartialAIAgent } from '$lib/types/types';
   import { agentStore } from '$lib/stores/agentStore';
 
   export let selectedShape: AIAgent | null;

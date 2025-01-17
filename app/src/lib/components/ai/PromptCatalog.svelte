@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PromptType } from '$lib/types';
+  import type { PromptType } from '$lib/types/types';
   import { createEventDispatcher } from 'svelte';
   import { availablePrompts } from '$lib/constants/prompts';
   import { promptStore } from '$lib/stores/promptStore';

@@ -1,7 +1,7 @@
 // src/lib/workshopClient.ts
 
-import { pb } from './pocketbase';
-import type { Workshops } from '$lib/types';
+import { pb } from '../pocketbase';
+import type { Workshops } from '$lib/types/types';
 
 export async function createWorkshop(workshopData: Partial<Workshops>): Promise<Workshops> {
   try {

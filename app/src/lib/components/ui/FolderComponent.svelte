@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { Folders, Notes } from '$lib/types';
+    import type { Folders, Notes } from '$lib/types/types';
     import { ChevronRight, ChevronDown, MoreVertical } from 'lucide-svelte';
     import { slide } from 'svelte/transition';
 

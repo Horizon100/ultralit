@@ -1,7 +1,7 @@
 // hubStore.ts
 
 import { writable } from 'svelte/store';
-import type { InternalChatMessage, Role, Agent } from '$lib/types';
+import type { InternalChatMessage, Role, Agent } from '$lib/types/types';
 
 interface HubState {
   chatMessages: InternalChatMessage[];

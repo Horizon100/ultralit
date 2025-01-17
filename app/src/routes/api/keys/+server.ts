@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/pocketbase'; // Assuming pb is configured with your PocketBase instance
 import { currentUser } from '$lib/pocketbase'; // To access current user
-import { CryptoService } from '$lib/crypto'; // Import your CryptoService to decrypt keys
+import { CryptoService } from '$lib/utils/crypto'; // Import your CryptoService to decrypt keys
 
 export async function GET({ request }) {
   try {

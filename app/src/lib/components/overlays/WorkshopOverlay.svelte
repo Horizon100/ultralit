@@ -1,7 +1,7 @@
 <script lang="ts">
     import { fade, fly, slide } from 'svelte/transition';
     import { X, ChevronDown, ChevronUp, Send, Camera, MessagesSquare, CassetteTape  } from 'lucide-svelte';
-    import type { Workshops, User } from '$lib/types';
+    import type { Workshops, User } from '$lib/types/types';
     import { onMount } from 'svelte';
     import { pb } from '$lib/pocketbase';
 

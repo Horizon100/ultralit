@@ -3,13 +3,13 @@
   import { currentUser } from '$lib/pocketbase';
   import { elasticOut, elasticIn } from 'svelte/easing';
     import { fly, slide, fade } from 'svelte/transition';
-    import type { Notes, Attachment, AIModel } from '$lib/types';
+    import type { Notes, Attachment, AIModel } from '$lib/types/types';
     import { notesStore } from '$lib/stores/notesStore';
-    import { fetchAIResponse } from '$lib/aiClient';
+    import { fetchAIResponse } from '$lib/clients/aiClient';
     import { X, Plus, FileIcon } from 'lucide-svelte';
     import Headmaster from '$lib/assets/illustrations/headmaster2.png';
     import { handleImageUpload, onFileSelected, handleImageResize, handleImageAlign } from '$lib/utils/imageHandlers';
-    import { notesClient } from '$lib/notesClient';
+    import { notesClient } from '$lib/clients/notesClient';
     import { page } from '$app/stores';
 
     $: currentNote = $notesStore.currentNote;

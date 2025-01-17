@@ -1,5 +1,5 @@
-import { pb } from './pocketbase';
-import type { AIModel } from '$lib/types';
+import { pb } from '../pocketbase';
+import type { AIModel } from '$lib/types/types';
 import { providers, type ProviderType } from '$lib/constants/providers';
 
 export async function createModel(modelData: Partial<AIModel>): Promise<AIModel> {

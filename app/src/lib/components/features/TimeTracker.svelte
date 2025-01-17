@@ -2,7 +2,7 @@
     import { onDestroy } from 'svelte';
     import { Timer, TimerOff } from 'lucide-svelte';
     import { pb, currentUser } from '$lib/pocketbase';
-    import type { User } from '$lib/types';
+    import type { User } from '$lib/types/types';
 
     let isTracking = false;
     let seconds = 0;

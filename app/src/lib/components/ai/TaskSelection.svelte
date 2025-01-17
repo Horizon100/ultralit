@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { Task } from '$lib/types';
+    import type { Task } from '$lib/types/types';
     import { networkStore } from '$lib/stores/networkStore';
   
     export let tasks: Task[];

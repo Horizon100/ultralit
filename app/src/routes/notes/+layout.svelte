@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { slide } from 'svelte/transition';
     import { ensureAuthenticated } from '$lib/pocketbase';
-    import type { Folders, Notes } from '$lib/types';
+    import type { Folders, Notes } from '$lib/types/types';
     import { notesStore, currentFolderNotes } from '$lib/stores/notesStore';
     import { Folder, Search, Bookmark, FolderPlus, ListFilter, ChevronRight, ChevronDown, Plus, MoreVertical } from 'lucide-svelte';
 
