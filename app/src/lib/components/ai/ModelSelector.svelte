@@ -172,18 +172,18 @@ async function handleModelSelection(model: AIModel) {
 
   .selector-container {
     display: flex;
-    flex-direction: column;
+    position: relative;
+    border-top-left-radius: var(--radius-m);
+    width: 100%;
+    margin-left: 0;
+    margin-right: 6rem;
+    margin-bottom: 0;
+
+    justify-content: center;
     align-items: center;
-    height: 100%;
-    width: auto;
-    margin-bottom: 3rem;
-    margin-right: 1rem;
-    border-radius: var(--radius-m);
-    // box-shadow: 2px 4px 20px 1px rgba(255, 255, 255, 0.1);
+    background: var(--bg-gradient-r);
     // backdrop-filter: blur(100px);
-    background: var(--bg-gradient-left);
-    transition: all 0,3s ease-in;
-    padding: 1rem;
+    border-radius: var(--radius-m);
   }
 
   
@@ -193,6 +193,7 @@ async function handleModelSelection(model: AIModel) {
     flex-direction: column;
     gap: var(--spacing-sm);
     height: 100%;
+    width: 100%;
     position: relative;
 
   }
@@ -235,6 +236,7 @@ async function handleModelSelection(model: AIModel) {
       background-color: var(--tertiary-color);
       color: white;
       width: 100% !important;
+      height: 100%;
       // width: 400px !important;
     }
   }

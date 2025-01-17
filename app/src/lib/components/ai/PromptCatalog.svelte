@@ -48,7 +48,7 @@
           {description}
         </p>
           {#if youtubeUrl}
-            <div class="video-container" transition:fly={{ y: -20, duration: 300 }}>
+            <!-- <div class="video-container" transition:fly={{ y: -20, duration: 300 }}>
               <iframe 
                 width="560" 
                 height="315" 
@@ -58,7 +58,7 @@
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                 allowfullscreen
               ></iframe>
-            </div>
+            </div> -->
           {/if}
         {/if}
       </div>
@@ -81,9 +81,12 @@
     position: relative;
     border-top-left-radius: var(--radius-m);
     width: 100%;
+    margin-left: 0;
+    margin-right: 6rem;
+    margin-bottom: 5rem;
+
     justify-content: center;
     align-items: center;
-    margin-bottom: 1rem;
     background: var(--bg-gradient-r);
     // backdrop-filter: blur(100px);
     border-radius: var(--radius-m);
@@ -197,6 +200,8 @@
       left: 5%;
       width: 90%;
       height: 50%;
+
+
       border-radius: 1rem;
       border: 1px solid rgba(255, 255, 255, 0.2);
     }

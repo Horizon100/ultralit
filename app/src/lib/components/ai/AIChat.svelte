@@ -441,6 +441,18 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
     });
 }
 // UI helper functions
+
+function handleClickOutside() {
+  window.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.btn-ai')) {
+      expandedSections.set({
+        prompts: false,
+        models: false
+      });
+    }
+  });
+}
   function handleScroll(event: { target: HTMLElement }) {
     const currentScrollTop = event.target.scrollTop;
       if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
@@ -500,19 +512,28 @@ function handleError(error: unknown) {
   const errorMessage = error instanceof Error ? error.message : 'An error occurred';
   chatMessages = [...chatMessages, addMessage('assistant', errorMessage)];
 }
-  export function toggleSection(section: keyof ExpandedSections): void {
+export function toggleSection(section: keyof ExpandedSections): void {
   expandedSections.update(sections => {
-    // Create a new object with all sections closed
     const newSections: ExpandedSections = {
-      tags: false,
       prompts: false,
       models: false
     };
     
-    // If the clicked section was not already open, open it
-    // If it was open, it remains closed (all sections false)
     if (!sections[section]) {
       newSections[section] = true;
+      
+      // Add click listener after a small delay
+      setTimeout(() => {
+        window.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('.btn-ai') && !target.closest('.section-content')) {
+            expandedSections.set({
+              prompts: false,
+              models: false
+            });
+          }
+        }, { once: true });
+      }, 0);
     }
     
     return newSections;
@@ -3319,7 +3340,7 @@ color: #6fdfc4;
 
 
 .drawer-header {
-    width:90%;
+    width:350px;
       margin-left: 4rem;
 
       margin-right: 4rem;
@@ -4477,7 +4498,7 @@ color: #6fdfc4;
     width: 100%;
     display: flex;
     justify-content: right;
-      bottom: 3rem;
+      bottom: 10rem;
     margin-right: 0;
     right: 2rem;
     left: 0;
