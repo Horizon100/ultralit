@@ -1916,7 +1916,7 @@ onDestroy(() => {
                             <div class="avatar-container">
                               <Bot color="white" />
                             </div>
-                            <span class="role">{promptType}</span>
+                            <span class="role">{message.prompt_type}</span>
                           </div>
                         {/if}
                       </div>
@@ -4257,6 +4257,13 @@ color: #6fdfc4;
 
   .cards {
     margin-top: 4rem;
+    background: var(--primary-color);
+    border-top-right-radius: var(--radius-l);
+    border-bottom-right-radius: var(--radius-l);
+
+
+    // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
   }
 
 
