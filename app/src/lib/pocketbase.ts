@@ -682,3 +682,17 @@ export async function deleteMessage(id: string): Promise<boolean> {
         return false;
     }
 }
+
+export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
+    try {
+        const records = await pb.collection('threads').getFullList<Threads>({
+            sort: '+created',
+            filter: `project = "${projectId}"`,
+        });
+        console.log('Fetched threads:', records);
+        return records;
+    } catch (error) {
+        console.error('Error fetching threads for project:', error);
+        throw error;
+    }
+}

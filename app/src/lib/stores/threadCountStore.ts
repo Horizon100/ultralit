@@ -3,17 +3,17 @@ import { writable, derived } from 'svelte/store';
 import { pb } from '$lib/pocketbase';
 import type { Threads } from '$lib/types/types';
 
-interface MessageCounts {
+interface ThreadCounts {
   [threadId: string]: number;
 }
 
 interface BatchResult {
-  counts: MessageCounts;
+  counts: ThreadCounts;
   totalThreads: number;
 }
 
-function createMessageCountsStore() {
-  const { subscribe, set, update } = writable<MessageCounts>({});
+function createThreadCountsStore() {
+  const { subscribe, set, update } = writable<ThreadCounts>({});
   
   let batchSize = 50; // Default batch size for pagination
   let isFetching = false;
@@ -26,7 +26,7 @@ function createMessageCountsStore() {
       if (isFetching) return { counts: {}, totalThreads: 0 };
       
       isFetching = true;
-      const counts: MessageCounts = {};
+      const counts: ThreadCounts = {};
       
       try {
         const start = (page - 1) * batchSize;
@@ -35,7 +35,7 @@ function createMessageCountsStore() {
         const results = await Promise.all(
           batchThreads.map(async (thread) => {
             try {
-              const result = await pb.collection('messages').getList(1, 1, {
+              const result = await pb.collection('project_id').getList(1, 1, {
                 filter: `thread = "${thread.id}"`,
                 $autoCancel: false
               });
@@ -65,7 +65,7 @@ function createMessageCountsStore() {
     // Update count for a single thread
     async updateCount(threadId: string): Promise<number> {
       try {
-        const result = await pb.collection('messages').getList(1, 1, {
+        const result = await pb.collection('project_id').getList(1, 1, {
           filter: `thread = "${threadId}"`,
           $autoCancel: false
         });
@@ -111,26 +111,9 @@ function createMessageCountsStore() {
   };
 }
 
-export const messageCountsStore = createMessageCountsStore();
-
-export function getCountColor(count: number): string {
-  // Define min and max counts for scaling
-  const minCount = 2;
-  const maxCount = 50; // Adjust based on your expected maximum
-  
-  // Normalize the count between 0 and 1
-  const normalized = Math.min(Math.max(count - minCount, 0), maxCount - minCount) / (maxCount - minCount);
-  
-  // Generate color using HSL
-  // Hue: 120 is green, 0 is red
-  // We reverse the normalized value since we want green for lower numbers
-  const hue = 120 * (1 - normalized);
-  
-  return `hsl(${hue}, 70%, 45%)`; // Adjusted saturation and lightness for better visibility
-}
-// Optional: Create a derived store for easy access to counts
-export const messageCounts = derived(
-  messageCountsStore,
+export const threadCountsStore = createThreadCountsStore();
+export const threadCounts = derived(
+  threadCountsStore,
   $counts => {
     const maxCount = Math.max(...Object.values($counts), 50); // Default to 50 if no counts
     return {

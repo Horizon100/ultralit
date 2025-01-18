@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -24,7 +24,7 @@
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
-  import { messageCountsStore, messageCounts } from '$lib/stores/messageCountStore';
+  import { messageCountsStore, messageCounts, getCountColor} from '$lib/stores/messageCountStore';
   import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
   import { tweened } from 'svelte/motion';
   import { availablePrompts, getPrompt} from '$lib/constants/prompts';
@@ -35,7 +35,7 @@
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
   import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
-  import { formatDate, formatContent } from '$lib/utils/formatters';
+  import { formatDate, formatContent, getRelativeTime } from '$lib/utils/formatters';
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
@@ -221,6 +221,9 @@ const searchedThreads = derived(threadsStore, ($store) => {
     latestMessageId = newMessageId;
     const createdDate = new Date().toISOString();
 
+    if (currentThreadId) {
+        messageCountsStore.increment(currentThreadId);
+    }
     return { 
       id: newMessageId,
       role,
@@ -553,24 +556,39 @@ export function toggleSection(section: keyof ExpandedSections): void {
     if (currentMessages?.length > 0) {
       const robotMessages = currentMessages.filter(m => m.type === 'robot');
       if (robotMessages.length === 1) {
-        // Set naming state before update
+        // Store current thread state
+        const currentState = get(threadsStore);
+        
+        // Set naming state
         threadsStore.update(state => ({
           ...state,
           namingThreadId: threadId,
           isNaming: true
         }));
 
-        await updateThreadNameIfNeeded(threadId, currentMessages, aiModel, userId);
-        
-        // Refresh threads after update
-        await threadsStore.loadThreads();
-        
-        // Clear naming state
-        threadsStore.update(state => ({
-          ...state,
-          namingThreadId: null,
-          isNaming: false
-        }));
+        try {
+          await updateThreadNameIfNeeded(threadId, currentMessages, aiModel, userId);
+          
+          // Try to refresh threads but don't fail if it errors
+          try {
+            await threadsStore.loadThreads();
+          } catch (refreshError) {
+            console.error('Failed to refresh threads, keeping current state:', refreshError);
+            // Restore previous thread state
+            threadsStore.update(state => ({
+              ...state,
+              threads: currentState.threads,
+              showThreadList: currentState.showThreadList
+            }));
+          }
+        } finally {
+          // Always clear naming state
+          threadsStore.update(state => ({
+            ...state,
+            namingThreadId: null,
+            isNaming: false
+          }));
+        }
       }
     }
   } catch (error) {
@@ -767,7 +785,8 @@ async function handleCreateNewThread() {
         
         const threadData: Partial<Threads> = {
             op: userId,
-            name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
+            name: `(untitled)`,
+            // name: `(untitled) ${threads?.length ? threads.length + 1 : 1}`,
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
             current_thread: '',
@@ -884,18 +903,6 @@ async function handleLoadThread(threadId: string) {
     }
 }
 
-  async function loadThreadCounts(threads: Threads[]) {
-    // isLoading = true;
-    try {
-      const { totalThreads } = await messageCountsStore.fetchBatch(threads, currentPage);
-      if (totalThreads > currentPage * 20) {
-        currentPage++;
-      }
-    } finally {
-      // isLoading = false;
-    }
-  }
-
   async function handleDeleteThread(event: MouseEvent, threadId: string) {
     event.stopPropagation();
     if (confirm('Are you sure you want to delete this thread?')) {
@@ -912,35 +919,51 @@ async function handleLoadThread(threadId: string) {
   
   async function submitThreadNameChange() {
     if (currentThreadId && editedThreadName.trim() !== '') {
-      try {
-        await updateThread(currentThreadId, { name: editedThreadName.trim() });
-        if (currentThread) {
-          currentThread.name = editedThreadName.trim();
+        try {
+            // Store current states
+            const currentThreadState = currentThread;
+            const currentVisibility = $threadsStore.showThreadList;
+
+            // Update thread in PocketBase
+            const updatedThread = await updateThread(currentThreadId, { 
+                name: editedThreadName.trim() 
+            });
+
+            // Update store with preserved state
+            threadsStore.update(state => ({
+                ...state,
+                threads: state.threads.map(thread => 
+                    thread.id === currentThreadId 
+                        ? { 
+                            ...thread, 
+                            name: editedThreadName.trim(),
+                            // Preserve important states
+                            showThreadList: currentVisibility
+                        } 
+                        : thread
+                ),
+                currentThread: {
+                    ...currentThreadState,
+                    name: editedThreadName.trim()
+                }
+            }));
+
+            // Update derived states
+            orderedGroupedThreads = groupThreadsByDate(
+                $threadsStore.threads.filter(thread => 
+                    thread.id === currentThreadId 
+                        ? { ...thread, name: editedThreadName.trim() }
+                        : thread
+                )
+            );
+
+        } catch (error) {
+            console.error("Error updating thread name:", error);
+        } finally {
+            isEditingThreadName = false;
         }
-        // Update the thread in the threads array
-        threads = threads.map(thread => 
-          thread.id === currentThreadId 
-            ? { ...thread, name: editedThreadName.trim() } 
-            : thread
-        );
-        // Trigger reactivity for orderedGroupedThreads
-        orderedGroupedThreads = groupOrder
-          .filter(group => groupedThreads[group] && groupedThreads[group].length > 0)
-          .map(group => ({ 
-            group, 
-            threads: groupedThreads[group].map(thread => 
-              thread.id === currentThreadId 
-                ? { ...thread, name: editedThreadName.trim() } 
-                : thread
-            ) 
-          }));
-      } catch (error) {
-        console.error("Error updating thread name:", error);
-      } finally {
-        isEditingThreadName = false;
-      }
     }
-  }
+}
   // UI helper functions
   async function scrollToBottom() {
     console.log('Scroll button clicked');
@@ -1018,67 +1041,131 @@ async function handleLoadThread(threadId: string) {
   }
   async function handleAutoTriggerResponse(targetMessage) {
     try {
-      isLoading = true;
-      
-      // Start thinking animation
-      thinkingPhrase = getRandomThinkingPhrase();
-      const thinkingMessage = addMessage('thinking', thinkingPhrase);
-      thinkingMessageId = thinkingMessage.id;
-      chatMessages = [...chatMessages, thinkingMessage];
+        isLoading = true;
 
-      // Fetch AI response
-      const aiResponse = await fetchAIResponse(
-        chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
-        aiModel,
-        userId,
-        attachment
-      );
+        // Store current thread state before any operations
+        const currentThreadState = currentThread;
+        const currentChatMessages = chatMessages;
+        
+        // Start thinking animation
+        thinkingPhrase = getRandomThinkingPhrase();
+        const thinkingMessage = addMessage('thinking', thinkingPhrase);
+        thinkingMessageId = thinkingMessage.id;
+        chatMessages = [...currentChatMessages, thinkingMessage];
 
-      // Remove thinking message
-      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+        // Set naming state while preserving current state
+        if (currentThreadId) {
+            threadsStore.update(state => ({
+                ...state,
+                namingThreadId: currentThreadId,
+                currentThread: currentThreadState
+            }));
+        }
 
-      // Save AI response
-      const assistantMessage = await messagesStore.saveMessage({
-        text: aiResponse,
-        type: 'robot',
-        thread: currentThreadId,
-        parent_msg: targetMessage.id,
-        prompt_type: prompt
-      }, currentThreadId);
+        // Fetch AI response
+        const aiResponse = await fetchAIResponse(
+            chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
+            aiModel,
+            userId,
+            attachment
+        );
 
-      // Add AI response to UI
-      const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
-      chatMessages = [...chatMessages, newAssistantMessage];
-      typingMessageId = newAssistantMessage.id;
+        // Remove thinking message while preserving state
+        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
-      // Use typewriting effect
-      await typeMessage(aiResponse);
+        // Save AI response to store
+        const assistantMessage = await messagesStore.saveMessage({
+            text: aiResponse,
+            type: 'robot',
+            thread: currentThreadId,
+            parent_msg: targetMessage.id,
+            prompt_type: promptType // Fixed: use promptType instead of prompt
+        }, currentThreadId);
 
-      // Update the message with the full response
-      chatMessages = chatMessages.map(msg => 
-        msg.id === String(typingMessageId) 
-          ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-          : msg
-      );
+        // Add AI response to UI while maintaining state
+        const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
+        chatMessages = [...chatMessages, newAssistantMessage];
+        typingMessageId = newAssistantMessage.id;
 
-      // Update thread name after first AI response
-      const robotMessages = messages.filter(m => m.type === 'robot');
-      if (robotMessages.length === 1) {
-        await threadsStore.autoUpdateThreadName(currentThreadId);
-      }
+        // Use typewriting effect
+        await typeMessage(aiResponse);
 
-      await messagesStore.fetchMessages(currentThreadId);
+        // Update the message with full response while preserving state
+        chatMessages = chatMessages.map(msg => 
+            msg.id === String(typingMessageId) 
+                ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+                : msg
+        );
+
+        // Handle thread naming for first AI response
+        const robotMessages = messages.filter(m => m.type === 'robot');
+        if (robotMessages.length === 1) {
+            try {
+                // Update thread name while preserving state
+                await threadsStore.update(state => ({
+                    ...state,
+                    namingThreadId: currentThreadId,
+                    currentThread: currentThreadState,
+                    messages: chatMessages
+                }));
+
+                // Update thread name
+                await threadsStore.autoUpdateThreadName(currentThreadId, {
+                    preserveState: true,
+                    currentThread: currentThreadState,
+                    currentMessages: chatMessages
+                });
+
+                // Refresh threads without clearing current state
+                await threadsStore.loadThreads({
+                    preserveCurrent: true,
+                    currentThreadId,
+                    currentThread: currentThreadState
+                });
+            } catch (error) {
+                console.error('Error updating thread name:', error);
+                // Restore original state on error
+                threadsStore.update(state => ({
+                    ...state,
+                    currentThread: currentThreadState,
+                    messages: chatMessages
+                }));
+            } finally {
+                // Clear naming state while preserving thread state
+                threadsStore.update(state => ({
+                    ...state,
+                    namingThreadId: null,
+                    currentThread: currentThreadState,
+                    messages: chatMessages
+                }));
+            }
+        }
+
+        // Refresh messages while maintaining state
+        await messagesStore.fetchMessages(currentThreadId);
+
     } catch (error) {
-      console.error('Error processing AI response:', error);
-      chatMessages = chatMessages.filter(msg => msg.id !== thinkingMessageId);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      chatMessages = [...chatMessages, addMessage('assistant', `Error: ${errorMessage}`)];
+        console.error('Error processing AI response:', error);
+        // Error handling with state preservation
+        chatMessages = [
+            ...chatMessages.filter(msg => msg.id !== thinkingMessageId),
+            addMessage('assistant', `Error: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`)
+        ];
     } finally {
-      isLoading = false;
-      thinkingMessageId = null;
-      typingMessageId = null;
+        isLoading = false;
+        thinkingMessageId = null;
+        typingMessageId = null;
+        // Final cleanup while preserving thread state
+        if (currentThreadId) {
+            threadsStore.update(state => ({
+                ...state,
+                namingThreadId: null,
+                currentThread: state.currentThread,
+                messages: chatMessages
+            }));
+        }
     }
-  }
+}
   async function startEditingThreadName() {
     isEditingThreadName = true;
     editedThreadName = currentThread?.name || '';
@@ -1151,10 +1238,28 @@ messagesStore.subscribe(value => messages = value);
     namingThreadId = state.namingThreadId; 
 });
 
+// Reactive statements for naming
+$: {
+  if (namingThreadId) {
+    // Force refresh of current thread when naming starts
+    currentThread = threads?.find(t => t.id === namingThreadId) || null;
+  }
+}
+$: {
+  if (currentThread && namingThreadId === currentThread.id) {
+    // Update UI when naming is complete
+    threadsStore.update(state => ({
+      ...state,
+      isEditingThreadName: false,
+      namingThreadId: null
+    }));
+  }
+}
+
   $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
   $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
   $: selectedModelName = $modelStore?.selectedModel?.name || '';  
-  $: showThreadList = $threadsStore.showThreadList;
+  // $: showThreadList = $threadsStore.showThreadList;
   $: promptType = $promptStore;
 $: {
   if ($expandedSections.models) {
@@ -1208,19 +1313,29 @@ $: if ($currentUser?.avatar) {
    updateAvatarUrl();
 }
 // Store synchronization with visibility protection
-$: {
-   const storeState = $threadsStore;
-   if (storeState) {
-       threads = storeState.threads;
-       currentThreadId = storeState.currentThreadId;
-       messages = storeState.messages;
-       updateStatus = storeState.updateStatus;
+// $: {
+//    const storeState = $threadsStore;
+//    if (storeState) {
+//        threads = storeState.threads;
+//        currentThreadId = storeState.currentThreadId;
+//        messages = storeState.messages;
+//        updateStatus = storeState.updateStatus;
        
-       // Only update showThreadList if threads exist and list should be visible
-       if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
-           showThreadList = true;
-       }
-   }
+//        // Only update showThreadList if threads exist and list should be visible
+//        if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
+//            showThreadList = true;
+//        }
+//    }
+// }
+$: {
+    const storeState = $threadsStore;
+    if (storeState) {
+        threads = storeState.threads;
+        currentThreadId = storeState.currentThreadId;
+        messages = storeState.messages;
+        updateStatus = storeState.updateStatus;
+        showThreadList = storeState.showThreadList;
+    }
 }
 $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
    const group = getThreadDateGroup(thread);
@@ -1241,7 +1356,26 @@ $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
+//     $: if (threads?.length) {
+//   messageCountsStore.fetchBatch(threads, currentPage);
+// }
+$: {
+    if ($threadsStore.currentThread) {
+        currentThread = $threadsStore.currentThread;
+    }
+}
 
+$: {
+    if (currentThread?.name) {
+        orderedGroupedThreads = groupThreadsByDate(
+            $threadsStore.threads.map(thread => 
+                thread.id === currentThread?.id 
+                    ? { ...thread, name: currentThread.name }
+                    : thread
+            )
+        );
+    }
+}
 // Lifecycle hooks
 onMount(() => {
 		const interval = setInterval(() => {
@@ -1273,7 +1407,9 @@ onMount(async () => {
     // Load data sequentially to avoid race conditions
     await projectStore.loadProjects();
     await threadsStore.loadThreads();
-
+// $: if (threads?.length) {
+//   messageCountsStore.fetchBatch(threads, currentPage);
+// }
     // Initialize textarea after data is loaded
     if (textareaElement) {
       const adjustTextareaHeight = () => {
@@ -1478,7 +1614,7 @@ onDestroy(() => {
             </div>
         
             <!-- Project List -->
-            <div in:fly={{duration: 200}} out:fade={{duration: 200}}
+            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
             class:empty={!$projectStore?.threads?.length}>
               {#if $projectStore?.threads?.length > 0}
                 {#each $projectStore.threads as project (project.id)}
@@ -1505,10 +1641,11 @@ onDestroy(() => {
                       <div class="card-static">
                         <span class="card-title project">{project.name}</span>
                         <span class="card-time">
-                          {new Date(project.updated).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
+                            {getRelativeTime(new Date(project.updated))}
+                          {:else}
+                            No date available
+                          {/if}
                         </span>
                       </div>
 
@@ -1619,104 +1756,64 @@ onDestroy(() => {
               {/if}
             </div>
           </div>
-            <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-              {#each orderedGroupedThreads as { group, threads }}
-              <div class="thread-group" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                <button 
-                  class="thread-group-header"
-                  on:click={() => toggleGroup(group)}
+          {#if isThreadListVisible || namingThreadId}
+          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+            {#each $searchedThreads as thread (thread.id)}
+              <button 
+                class="card-container"
+                class:selected={currentThreadId === thread.id}
+                on:click={() => handleLoadThread(thread.id)}
+                on:mouseenter={async () => {
+                  if (!$messageCounts.hasCount(thread.id)) {
+                    await messageCountsStore.updateCount(thread.id);
+                  }
+                }}
+              >
+                <div class="card" 
+                  class:active={currentThreadId === thread.id}
+                  in:fade
                 >
-                  <div class="group-header-content">
-                    <span class="group-icon">
-                      {#if $expandedGroups[group]}
-                        <!-- <ChevronDown size={20} /> -->
-                        <span class="group-title-active">{group}</span>
-                        <span class="thread-count-active">({threads.length})</span>
-                      {:else}
-                        <ChevronRight size={20} />
-                        <span class="group-title">{group}</span>
-                        <span class="thread-count">({threads.length})</span>
-
+                  <div class="card-static">
+                    <!-- When thread is being named, show spinner -->
+                    {#if namingThreadId === thread.id}
+                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                        <Bot size={30} class="bot-icon" />
+                      </div>
+                    {:else}
+                      <span class="card-title">{thread.name}</span>
+                      <span class="card-time">
+                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
+                          {getRelativeTime(new Date(thread.updated))}
+                        {:else}
+                          No date available
+                        {/if}
+                      </span>
+                    {/if}
+        
+                    <!-- Actions always visible for uniformity -->
+                    <div class="card-actions" transition:fade={{duration: 300}}>
+                      {#if $messageCounts.hasCount(thread.id)}
+                        <button 
+                          class="action-btn badge"
+                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
+                        >
+                          <MessageSquareText size={14}/>
+                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
+                        </button>
                       {/if}
-                    </span>
-                  </div>
-                </button>
-          
-                {#if $expandedGroups[group]}
-                  <div class="drawer" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                    {#each threads as thread (thread.id)}
                       <button 
-                        class="card-container"
-                        class:selected={currentThreadId === thread.id}
-                        on:click={() => handleLoadThread(thread.id)}
+                        class="action-btn delete"
+                        on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
                       >
-                        <div class="card" 
-                            class:active={currentThreadId === thread.id}
-                            in:fade
-                          >
-                          {#if namingThreadId === thread.id}
-                            <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                              <Bot class="bot-icon" />
-                            </div>
-                          {:else}
-                            <div class="card-static" in:fade>
-                              <span class="card-title">{thread.name}</span>
-                              <span class="card-time">
-                                {new Date(thread.updated).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                              <span 
-                                class="delete-card-container" 
-                                on:click={(e) => handleDeleteThread(e, thread.id)}
-                              >
-                                <Trash2 size={14} />
-                              </span>
-                            </div>
-                          {/if}
-                        </div>
+                        <Trash2 size={14} />
                       </button>
-                    {/each}
+                    </div>
                   </div>
-                {/if}
-              </div>
+                </div>
+              </button>
             {/each}
-              {#each $searchedThreads as thread (thread.id)}
-
-                  <button 
-                          class="card-container"
-                          class:selected={currentThreadId === thread.id}
-                          on:click={() => handleLoadThread(thread.id)}
-                      >
-                          <div class="card" 
-                              class:active={currentThreadId === thread.id}
-                              in:fade
-                          >
-                          <div class="card-static">
-
-                              <span class="card-title">{thread.name}</span>
-                              <span class="thread-message">
-                                  {thread.last_message?.content || 'No messages yet'}
-                              </span>
-                              <span class="card-time">
-                                {$t('threads.updated')}
-                                  {new Date(thread.updated).toLocaleTimeString([], { 
-                                      hour: '2-digit', 
-                                      minute: '2-digit' 
-                                  })}
-                              </span>
-                              <span 
-                                  class="card-actions" 
-                                  on:click={(e) => handleDeleteThread(e, thread.id)}
-                              >
-                                  <X size={14} />
-                              </span>
-                          </div>
-                          </div>
-                      </button>
-              {/each}
-            </div>
+          </div>
+        {/if}
               {:else}
               
  
@@ -2367,6 +2464,8 @@ onDestroy(() => {
       transition: all 0.2s ease-in-out;
       gap: 0.5rem;
       height: 36px;
+
+      & 
       
       &.active {
         color: var(--tertiary-color) !important;
@@ -2703,6 +2802,8 @@ onDestroy(() => {
     margin-top: 0;
 
   }
+
+
   .chat-content {
     flex-grow: 1;
     display: flex;
@@ -2711,6 +2812,7 @@ onDestroy(() => {
     margin-left: 25vw;
     width: 50vw;
     margin-top: 0;
+    margin-right: 0;
     height: auto;
     // width: 50%;
     // margin: 0 1rem;
@@ -2950,12 +3052,13 @@ color: #6fdfc4;
     background: var(--primary-color);
     /* padding: 10px; */
     display: flex;
-    padding: 1rem;
     position: relative;
-    margin-top: 1rem;
-    width: auto;
+    margin-right: 0;
+    // margin-top: 1rem;
     // left: 25%;
     bottom: auto;
+    padding: 1rem;
+
     flex-direction: column;
     overflow-x: hidden;
     align-items: stretch;
@@ -2967,7 +3070,7 @@ color: #6fdfc4;
     width: auto;
     border-radius: var(--radius-l);
     // padding-bottom: 40px;
-    border: 2px solid var(--bg-color);
+    // border: 2px solid var(--bg-color);
     // background-color: var(--secondary-color);
     // backdrop-filter: blur(10px);
 
@@ -3070,6 +3173,9 @@ color: #6fdfc4;
     }
 
   }
+
+
+  
   .message {
     display: flex;
     flex-direction: column;
@@ -3268,16 +3374,16 @@ color: #6fdfc4;
 
 .chat-header {
     height: 3rem;
-    padding-left: 1rem;
+    margin-left: 3rem;
     position: relative;
     // background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
     top: 0 !important;
-    left: 0;
+    left: 1rem;
     right: 0;
     width: 100%;
-    // padding: 1rem 0.5rem;
+    padding: 1rem 0.5rem;
     color: var(--text-color);
     text-align: left;
     align-items: center;
@@ -3311,6 +3417,7 @@ color: #6fdfc4;
     display: flex;
     align-items: center;
     justify-content: space-between;
+  
     width: auto !important;
     padding: 0 1rem;
     position: relative;
@@ -3341,8 +3448,7 @@ color: #6fdfc4;
 
 .drawer-header {
     width:350px;
-      margin-left: 4rem;
-
+      margin-left: 1rem;
       margin-right: 4rem;
       height: 30px;
       padding: 0.75rem 1rem;
@@ -3356,8 +3462,9 @@ color: #6fdfc4;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
-      background: var(--bg-gradient-r);
-      margin-bottom: 0.5rem;
+      // background: var(--bg-gradient-r);
+      backdrop-filter: blur(10px);
+      margin-bottom: 0;
       left: 0;
       right: 0;
       border-radius: var(--radius-l);
@@ -3409,17 +3516,23 @@ color: #6fdfc4;
 
 
   }
-
+  .thread-filtered-results {
+    margin-top: 5rem;
+    position: relative;
+  }
   .drawer-toolbar {
-    width:90%;
+    width:auto;
       margin-left: 0;
-
-      margin-right: 4rem;
+      position: absolute;
+      margin-right: 1rem;
+      margin-top: 0;
       height: 30px;
       padding: 0.75rem 1rem;
-      border: none;
+      // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
       color: var(--text-color);
+      backdrop-filter: blur(10px);
+      z-index: 1;
       text-align: left;
       align-items: center;
       justify-content: left;
@@ -3431,7 +3544,6 @@ color: #6fdfc4;
       margin-bottom: 0.5rem;
       left: 0;
       right: 0;
-      border-radius: var(--radius-l);
 
     & input {
       width: 100%;
@@ -4000,7 +4112,11 @@ color: #6fdfc4;
     display: flex;
     flex-direction: column;
     position: relative;
+    align-items: flex-start;
+    justify-content: flex-start;
     width: 100%;
+    line-height: 1.2;
+    margin-left: 2rem;
   }
   .card-time {
     font-size: var(--font-size-xs);
@@ -4017,7 +4133,19 @@ color: #6fdfc4;
     color: transparent;
     width: auto;
     transition: all 0.1s ease;
+    &.badge {
+      padding: 0.5rem;
+      gap: 0.5rem;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      border-radius: var(--radius-s);
+      background: var(--bg-gradient-r);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      user-select: none;
+      transition: all 0.2s ease;
 
+    }
     &:hover {
       color: var(--tertiary-color);
 
@@ -4066,7 +4194,7 @@ color: #6fdfc4;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  background: var(--bg-gradiet);
+  background: var(--bg-gradient-right);
   // z-index: 11;
   overflow: {
     x: hidden;
@@ -4127,16 +4255,24 @@ color: #6fdfc4;
     color: var(--placeholder-color);
   }
 
+  .cards {
+    margin-top: 4rem;
+  }
+
 
   .card-container {
     display: flex;
     flex-direction: row;
     position: relative;
     width: 100% !important;
+    border-top-right-radius: var(--radius-m);
+    border-bottom-right-radius: var(--radius-m);
+
     margin-right: 1rem;
     padding: 0;
     cursor: pointer;
-    
+    background: var(--bg-gradient-left);
+
   }
   button.card-container {
     display: flex;
@@ -4147,17 +4283,20 @@ color: #6fdfc4;
     margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
     width: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.1s ease-in-out;
     &:hover {
-        backdrop-filter: blur(8px);
-        background: var(--secondary-color);
+      box-shadow: none;
+      background: var(--secondary-color) !important;
+
         // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
-        transform: translateX(2px);
+        transform: translateX(-1rem);
         opacity: 1;
         visibility: visible;
         // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
       }
       &.selected {
-        background-color: var(--primary-color);
+        background: var(--primary-color) !important;
       }
 
   }
@@ -4165,10 +4304,11 @@ color: #6fdfc4;
   .card {
     display: flex;
     flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-end;
     width: 100%;
     height: 100%;
     position: relative;
-
     // backdrop-filter: blur(8px);
     // background: var(--bg-gradient-left);
     // border-bottom: 5px solid var(--bg-color);
@@ -4189,6 +4329,7 @@ color: #6fdfc4;
     transform: translateX(0);
     opacity: 1;
     visibility: visible;
+    backdrop-filter: blur(10px);
   }
 
   span.icon .card-actions {
@@ -4203,12 +4344,15 @@ color: #6fdfc4;
 
   .card-actions {
     position: absolute;
+    display: flex;
+    flex-direction: row;
     right: 0;
+    gap: 1rem;
     height: 100%;
     display: flex;
     gap: 0.5rem;
     transform: translateX(100%);
-    
+    width: auto;
     opacity: 0;
     transition: all 0.2s ease;
     visibility: hidden;
@@ -4458,7 +4602,10 @@ color: #6fdfc4;
         /* background-color: yellow; */
         animation: nonlinearSpin 4.2s infinite;
         animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
-
+        &.naming {
+    background: var(--bg-gradient);
+    border-radius: var(--radius-m);
+  }
     }
 
     .bot-icon {
@@ -4975,6 +5122,7 @@ color: #6fdfc4;
     margin-left: 0 !important;
     bottom: 0;
     left: 0;
+    right:0;
     top: 2rem;
     width: auto;
   }

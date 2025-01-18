@@ -53,21 +53,21 @@ function createThreadsStore() {
 
   
 
-  const debouncedUpdateThread = debounce(async (id: string, changes: Partial<Threads>) => {
-    try {
-      const updatedThread = await updateThread(id, changes);
-      store.update(state => ({
-        ...state,
-        threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
-        updateStatus: 'Thread updated successfully'
-      }));
-      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    } catch (error) {
-      console.error('Failed to update thread in backend:', error);
-      store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
-      setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-    }
-  }, 300);
+  // const debouncedUpdateThread = debounce(async (id: string, changes: Partial<Threads>) => {
+  //   try {
+  //     const updatedThread = await updateThread(id, changes);
+  //     store.update(state => ({
+  //       ...state,
+  //       threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
+  //       updateStatus: 'Thread updated successfully'
+  //     }));
+  //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+  //   } catch (error) {
+  //     console.error('Failed to update thread in backend:', error);
+  //     store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
+  //     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
+  //   }
+  // }, 300);
 
   
   
@@ -100,7 +100,7 @@ function createThreadsStore() {
           console.log('Fetched threads, about to update store');
           
           // Get current state before update
-          // const currentState = get(store);
+          const currentState = get(store);
           
           store.update(state => {
               console.log('Updating store with threads, preserving showThreadList:', state.showThreadList);
@@ -110,7 +110,7 @@ function createThreadsStore() {
                   isThreadsLoaded: true,
                   updateStatus: 'Threads loaded successfully',
                   // Preserve the current showThreadList value
-                  // showThreadList: currentState.showThreadList
+                  showThreadList: currentState.showThreadList
               };
           });
           
@@ -196,35 +196,35 @@ function createThreadsStore() {
     }));
   },
 
-  setSelectedTags: (tagIds: string[]) => {
-    store.update(state => ({
-      ...state,
-      selectedTagIds: new Set(tagIds)
-    }));
-  },
-  toggleTagSelection: (tagId: string) => {
-    store.update(state => {
-      const currentTags = state.selectedTagIds;
-      const newSelectedTags = new Set(currentTags);
+  // setSelectedTags: (tagIds: string[]) => {
+  //   store.update(state => ({
+  //     ...state,
+  //     selectedTagIds: new Set(tagIds)
+  //   }));
+  // },
+  // toggleTagSelection: (tagId: string) => {
+  //   store.update(state => {
+  //     const currentTags = state.selectedTagIds;
+  //     const newSelectedTags = new Set(currentTags);
       
-      console.log('Toggle tag:', tagId);
-      console.log('Before toggle:', Array.from(newSelectedTags));
+  //     console.log('Toggle tag:', tagId);
+  //     console.log('Before toggle:', Array.from(newSelectedTags));
       
-      if (newSelectedTags.has(tagId)) {
-        newSelectedTags.delete(tagId);
-      } else {
-        newSelectedTags.add(tagId);
-      }
+  //     if (newSelectedTags.has(tagId)) {
+  //       newSelectedTags.delete(tagId);
+  //     } else {
+  //       newSelectedTags.add(tagId);
+  //     }
       
-      console.log('After toggle:', Array.from(newSelectedTags));
+  //     console.log('After toggle:', Array.from(newSelectedTags));
       
-      // Create a new state object to ensure reactivity
-      return {
-        ...state,
-        selectedTagIds: newSelectedTags
-      };
-    });
-  },
+  //     // Create a new state object to ensure reactivity
+  //     return {
+  //       ...state,
+  //       selectedTagIds: newSelectedTags
+  //     };
+  //   });
+  // },
 
   autoUpdateThreadName: async (threadId: string, messages: Messages[], model: AIModel, userId: string) => {
     try {
@@ -263,13 +263,13 @@ function createThreadsStore() {
   },
     
     // Add a new function to get the current thread
-    getCurrentThread: derived(store, $store => 
-      $store.threads.find(t => t.id === $store.currentThreadId) || null
-    ),
+    // getCurrentThread: derived(store, $store => 
+    //   $store.threads.find(t => t.id === $store.currentThreadId) || null
+    // ),
     getShowThreadList: derived({ subscribe }, $state => $state.showThreadList),
-    // getCurrentThread: derived(store, $store => {
-    //   return $store.threads.find(t => t.id === $store.currentThreadId) || null;
-    // }),
+    getCurrentThread: derived(store, $store => {
+      return $store.threads.find(t => t.id === $store.currentThreadId) || null;
+    }),
     addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>): Promise<Messages | null> => {
       try {
         const newMessage = await addMessageToThread(message);

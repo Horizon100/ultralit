@@ -468,6 +468,7 @@
         z-index: 1002;
     }
 
+
     .style-content {
         background-color: #b11f1feb;
         padding: 1rem;
@@ -483,7 +484,7 @@
       position: fixed;
       bottom: 2rem;
       left: 0.5rem;
-      z-index: 1000;
+      z-index: 5000;
     }
 
     .close-button {
@@ -647,7 +648,7 @@
     justify-content: left;
     flex-direction: column;
       height: auto;
-      width: 100px;
+      width: 0;
       bottom: 5rem;
       padding: 0.5rem;
       /* backdrop-filter: blur(10px); */
@@ -677,6 +678,7 @@
       height: 40px;
       padding: 0.3rem;
       border-radius: 50% !important;
+      
     }
 
     .nav-button:hover,
@@ -690,7 +692,7 @@
       left: 1.5rem;
       height: 60px;
       width: 60px;
-      z-index: 1000;
+      z-index: 5000;
       
     }
 
@@ -739,6 +741,7 @@
       width: 40px;
       height: 40px;
       padding: 0.3rem;
+
     }
 
     .nav-button:hover,

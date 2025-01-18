@@ -1,6 +1,6 @@
 // src/lib/services/threadNaming.ts
 
-import type { Messages, AIModel } from '$lib/types/types';
+import type { Messages, AIModel, User } from '$lib/types/types';
 import { fetchAIResponse } from '$lib/clients/aiClient';
 import { pb } from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
@@ -63,6 +63,12 @@ export async function updateThreadNameIfNeeded(
   console.log('Starting thread name update check for thread:', threadId);
   
   try {
+    // Add auth check
+    if (!pb.authStore.isValid) {
+      console.log('Auth not valid, skipping thread name update');
+      return;
+    }
+
     if (!threadId || !messages?.length) {
       console.log('Missing threadId or messages, skipping update');
       return;
@@ -102,8 +108,8 @@ export async function updateThreadNameIfNeeded(
     await threadsStore.updateThread(threadId, { name: newName });
     console.log('Thread name updated successfully');
 
-    await threadsStore.loadThreads();
-    console.log('Thread list reloaded');
+    // await threadsStore.loadThreads();
+    // console.log('Thread list reloaded');
   } catch (error) {
     console.error('Error in updateThreadNameIfNeeded:', error);
   } finally {

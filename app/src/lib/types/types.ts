@@ -77,7 +77,7 @@ export type PromptType =
         op: string;
         created: string;
         updated: string;
-        tags: string[]; 
+        // tags: string[]; 
         last_message?: Messages;
         current_thread: string;
         messageCount?: number;

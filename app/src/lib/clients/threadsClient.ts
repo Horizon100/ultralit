@@ -120,29 +120,30 @@ export async function fetchThreads(): Promise<Threads[]> {
     try {
         ensureAuthenticated();
         
+        // Get current state BEFORE making API call
+        const currentState = get(threadsStore);
+        const showThreadList = currentState?.showThreadList ?? true;
+        
         const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
-            // expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
             sort: '-created',
-            $cancelKey: 'threads'
+            $cancelKey: 'threads',
+            // Remove expand if not needed to reduce request complexity
         });
 
         if (!resultList?.items) {
             console.warn('No threads found or invalid response');
+            // Return empty array but preserve visibility state
             return [];
         }
 
-        // Get current thread list visibility state from the store
-        const currentState = get(threadsStore);
-        const showThreadList = currentState?.showThreadList ?? true;
-
-        // Map the threads to preserve visibility state
-        const threadsWithState = resultList.items.map(thread => ({
+        // Map threads and explicitly preserve showThreadList state
+        return resultList.items.map(thread => ({
             ...thread,
-            showThreadList // Preserve the visibility state for each thread
+            showThreadList,
+            // Ensure other critical properties exist
+            tags: thread.tags || [],
+            current_thread: thread.current_thread || ''
         }));
-
-        console.log('Successfully fetched threads:', threadsWithState.length);
-        return threadsWithState;
 
     } catch (error) {
         if (error instanceof ClientResponseError) {
@@ -153,14 +154,16 @@ export async function fetchThreads(): Promise<Threads[]> {
                 url: error.url
             });
             
+            // On auth error, preserve current state instead of returning empty array
             if (error.status === 401) {
-                console.error('Authentication error - trying to reauthenticate');
+                const currentState = get(threadsStore);
+                return currentState.threads || [];
             }
-        } else {
-            console.error('Unknown error fetching threads:', error);
         }
         
-        return [];
+        // For other errors, preserve existing threads
+        const currentState = get(threadsStore);
+        return currentState.threads || [];
     }
 }
 
@@ -304,11 +307,13 @@ export async function autoUpdateThreadName(
     userId: string
 ): Promise<Threads | null> {
     try {
-        // Just call ensureAuthenticated, don't try to return its result
         ensureAuthenticated();
-  
-        // Return the result of updateThreadNameIfNeeded
-        const updatedThread = await updateThreadNameIfNeeded(threadId, messages, model, userId);
+        
+        // Call updateThreadNameIfNeeded but don't use its return value
+        await updateThreadNameIfNeeded(threadId, messages, model, userId);
+        
+        // Fetch and return the updated thread directly
+        const updatedThread = await pb.collection('threads').getOne<Threads>(threadId);
         return updatedThread;
     } catch (error) {
         console.error('Error in autoUpdateThreadName:', error);
