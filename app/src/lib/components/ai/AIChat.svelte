@@ -703,6 +703,8 @@ async function handleSendMessage(message: string = userInput) {
     cleanup();
   }
 }
+
+//// Add setscurrent handler
 async function handleCreateNewProject(name: string) {
     if (!name.trim()) return;
     
@@ -3374,13 +3376,13 @@ color: #6fdfc4;
 
 .chat-header {
     height: 3rem;
-    margin-left: 3rem;
+    margin-left: 0;
     position: relative;
     // background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
     top: 0 !important;
-    left: 1rem;
+    left: 0;
     right: 0;
     width: 100%;
     padding: 1rem 0.5rem;
@@ -3962,7 +3964,8 @@ color: #6fdfc4;
   justify-content: center;
   border-radius: var(--radius-m);
   top: 0;
-  background: var(--primary-color);
+  backdrop-filter: blur(10px);
+  // background: var(--primary-color);
   bottom: 0;
   height: 88vh;
   user-select: none;
