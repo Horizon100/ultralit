@@ -1469,82 +1469,77 @@ onDestroy(() => {
       <!-- <h2>
         {$t('threads.threadHeader')}
       </h2> -->
-      <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-        <button 
-        class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
-        class:active={isProjectListVisible} 
-        on:click={() => {
-          if (!isProjectListVisible) {
-            // Reset project selection when going back to project list
-            projectStore.setCurrentProject(null);
-            currentProjectId = null;
-            threadsStore.setCurrentThread(null);
-            currentThreadId = null;
-    
-            // Clear project-specific threads
-            threadsStore.update(state => ({...state, threads: []}));
-          }
-          isProjectListVisible = !isProjectListVisible;
-          if (isProjectListVisible) {
-            isThreadListVisible = false;
-            // Reload all projects to ensure fresh data
-            projectStore.loadProjects();
-            
-          }
-        }}
-      >
-        <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          {#if !isProjectListVisible && !currentProjectId}
-          <Box />              
-          {:else if !isProjectListVisible && currentProjectId}  
-            <ArrowLeft />
-          {:else}
-            <Box />
-            <span in:fade>{$t('drawer.project')}</span>
-          {/if}
-         </span>
-       </button>
-       <button 
-       class="drawer-tab"
-       class:active={isThreadListVisible} 
-       on:click={() => {
-         isThreadListVisible = !isThreadListVisible;
-         if (isThreadListVisible) {
-           isProjectListVisible = false;
-           // Reset project selection
-           projectStore.setCurrentProject(null);
-           currentProjectId = null;
-           // Reload all threads
-           threadsStore.loadThreads();
-         }
-       }}
-     >
-     <span 
-     class="icon"
-     class:active={isThreadListVisible}
-    >
-     {#if isThreadListVisible && currentProjectId}
-       <Box />
-       <span in:fade>
-         {get(projectStore).currentProject?.name || ''}
-       </span>
-     {:else if !isThreadListVisible}
-       <MessageCircleMore />
-     {:else}
-       <MessageCircleMore />
-       <span in:fade>
-         {$t('drawer.thread')}
-       </span>
-     {/if}
-    </span>
-        </button>
-      </div>
+
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          
+
 
           {#if isProjectListVisible}
           <div class="project-section" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <!-- Create Project Button -->
+
+        
+            <!-- Project List -->
+            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
+            class:empty={!$projectStore?.threads?.length}>
+              {#if $projectStore?.threads?.length > 0}
+                {#each $projectStore.threads as project (project.id)}
+                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
+                    on:click={() => handleSelectProject(project.id)}
+                  >                  
+                  <div 
+                    class="card"
+                    class:active={currentProjectId === project.id}
+                    in:fly={{x: 20, duration: 200}}
+                  >
+                    {#if project.id === editingProjectId}
+                      <input
+                        type="text"
+                        bind:value={editedProjectName}
+                        on:keydown={(e) => {
+                          if (e.key === 'Enter') submitProjectNameChange(project.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        use:focusOnMount
+                      />
+                    {:else}
+
+                      <div class="card-static">
+                        <span class="card-title project">{project.name}</span>
+                        <span class="card-time">
+                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
+                            {getRelativeTime(new Date(project.updated))}
+                          {:else}
+                            No date available
+                          {/if}
+                        </span>
+                      </div>
+
+                    {/if}
+        
+                    <div class="card-actions">
+                      <button 
+                        class="action-btn"
+                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
+                        >
+                        <Pen size={14} />
+                      </button>
+                      <button 
+                        class="action-btn delete"
+                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
+                        >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </button>
+
+                {/each}
+              {:else}
+                <div class="no-projects">
+                  <span>No projects yet</span>
+                </div>
+              {/if}
+            </div>
             <div class="drawer-toolbar">
               <button 
                 class="add"
@@ -1614,72 +1609,67 @@ onDestroy(() => {
               </button>
               
             </div>
-        
-            <!-- Project List -->
-            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
-            class:empty={!$projectStore?.threads?.length}>
-              {#if $projectStore?.threads?.length > 0}
-                {#each $projectStore.threads as project (project.id)}
-                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
-                    on:click={() => handleSelectProject(project.id)}
-                  >                  
-                  <div 
-                    class="card"
-                    class:active={currentProjectId === project.id}
-                    in:fly={{x: 20, duration: 200}}
-                  >
-                    {#if project.id === editingProjectId}
-                      <input
-                        type="text"
-                        bind:value={editedProjectName}
-                        on:keydown={(e) => {
-                          if (e.key === 'Enter') submitProjectNameChange(project.id);
-                          if (e.key === 'Escape') cancelEditing();
-                        }}
-                        use:focusOnMount
-                      />
-                    {:else}
+          </div>
+        {/if}
+        {#if isThreadListVisible}
 
-                      <div class="card-static">
-                        <span class="card-title project">{project.name}</span>
-                        <span class="card-time">
-                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
-                            {getRelativeTime(new Date(project.updated))}
-                          {:else}
-                            No date available
-                          {/if}
-                        </span>
+          {#if isThreadListVisible || namingThreadId}
+          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+            {#each $searchedThreads as thread (thread.id)}
+              <button 
+                class="card-container"
+                class:selected={currentThreadId === thread.id}
+                on:click={() => handleLoadThread(thread.id)}
+                on:mouseenter={async () => {
+                  if (!$messageCounts.hasCount(thread.id)) {
+                    await messageCountsStore.updateCount(thread.id);
+                  }
+                }}
+              >
+                <div class="card" 
+                  class:active={currentThreadId === thread.id}
+                  in:fade
+                >
+                  <div class="card-static">
+                    <!-- When thread is being named, show spinner -->
+                    {#if namingThreadId === thread.id}
+                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                        <Bot size={30} class="bot-icon" />
                       </div>
-
+                    {:else}
+                      <span class="card-title">{thread.name}</span>
+                      <span class="card-time">
+                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
+                          {getRelativeTime(new Date(thread.updated))}
+                        {:else}
+                          No date available
+                        {/if}
+                      </span>
                     {/if}
         
-                    <div class="card-actions">
-                      <button 
-                        class="action-btn"
-                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
+                    <!-- Actions always visible for uniformity -->
+                    <div class="card-actions" transition:fade={{duration: 300}}>
+                      {#if $messageCounts.hasCount(thread.id)}
+                        <button 
+                          class="action-btn badge"
+                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
                         >
-                        <Pen size={14} />
-                      </button>
+                          <MessageSquareText size={14}/>
+                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
+                        </button>
+                      {/if}
                       <button 
                         class="action-btn delete"
-                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
-                        >
+                        on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
-                </button>
-
-                {/each}
-              {:else}
-                <div class="no-projects">
-                  <span>No projects yet</span>
                 </div>
-              {/if}
-            </div>
+              </button>
+            {/each}
           </div>
-        {/if}
-        {#if isThreadListVisible}
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
               class="add"
@@ -1758,68 +1748,81 @@ onDestroy(() => {
               {/if}
             </div>
           </div>
-          {#if isThreadListVisible || namingThreadId}
-          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-            {#each $searchedThreads as thread (thread.id)}
-              <button 
-                class="card-container"
-                class:selected={currentThreadId === thread.id}
-                on:click={() => handleLoadThread(thread.id)}
-                on:mouseenter={async () => {
-                  if (!$messageCounts.hasCount(thread.id)) {
-                    await messageCountsStore.updateCount(thread.id);
-                  }
-                }}
-              >
-                <div class="card" 
-                  class:active={currentThreadId === thread.id}
-                  in:fade
-                >
-                  <div class="card-static">
-                    <!-- When thread is being named, show spinner -->
-                    {#if namingThreadId === thread.id}
-                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                        <Bot size={30} class="bot-icon" />
-                      </div>
-                    {:else}
-                      <span class="card-title">{thread.name}</span>
-                      <span class="card-time">
-                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
-                          {getRelativeTime(new Date(thread.updated))}
-                        {:else}
-                          No date available
-                        {/if}
-                      </span>
-                    {/if}
-        
-                    <!-- Actions always visible for uniformity -->
-                    <div class="card-actions" transition:fade={{duration: 300}}>
-                      {#if $messageCounts.hasCount(thread.id)}
-                        <button 
-                          class="action-btn badge"
-                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
-                        >
-                          <MessageSquareText size={14}/>
-                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
-                        </button>
-                      {/if}
-                      <button 
-                        class="action-btn delete"
-                        on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            {/each}
-          </div>
         {/if}
+
               {:else}
               
  
               {/if}
+        </div>
+        <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+          <button class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
+          class:active={isProjectListVisible} 
+          on:click={() => {
+            if (!isProjectListVisible) {
+              // Reset project selection when going back to project list
+              projectStore.setCurrentProject(null);
+              currentProjectId = null;
+              threadsStore.setCurrentThread(null);
+              currentThreadId = null;
+      
+              // Clear project-specific threads
+              threadsStore.update(state => ({...state, threads: []}));
+            }
+            isProjectListVisible = !isProjectListVisible;
+            if (isProjectListVisible) {
+              isThreadListVisible = false;
+              // Reload all projects to ensure fresh data
+              projectStore.loadProjects();
+              
+            }
+          }}
+        >
+          <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
+            {#if !isProjectListVisible && !currentProjectId}
+            <Box />              
+            {:else if !isProjectListVisible && currentProjectId}  
+              <ArrowLeft />
+            {:else}
+              <Box />
+              <span in:fade>{$t('drawer.project')}</span>
+            {/if}
+           </span>
+         </button>
+         <button 
+         class="drawer-tab"
+         class:active={isThreadListVisible} 
+         on:click={() => {
+           isThreadListVisible = !isThreadListVisible;
+           if (isThreadListVisible) {
+             isProjectListVisible = false;
+             // Reset project selection
+             projectStore.setCurrentProject(null);
+             currentProjectId = null;
+             // Reload all threads
+             threadsStore.loadThreads();
+           }
+         }}
+       >
+       <span 
+       class="icon"
+       class:active={isThreadListVisible}
+      >
+       {#if isThreadListVisible && currentProjectId}
+         <Box />
+         <span in:fade>
+           {get(projectStore).currentProject?.name || ''}
+         </span>
+       {:else if !isThreadListVisible}
+         <MessageCircleMore />
+       {:else}
+         <MessageCircleMore />
+         <span in:fade>
+           {$t('drawer.thread')}
+         </span>
+       {/if}
+      </span>
+          </button>
         </div>
     </div>
       {/if}
@@ -2723,6 +2726,8 @@ onDestroy(() => {
     }
   }
 }
+
+.project-section {}
 .calendar {
     position: relative;
     display: flex;
@@ -2778,14 +2783,19 @@ onDestroy(() => {
   .drawer-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+
     margin-left: 64px;
     width: 400px;
     padding-left: 1rem;
     padding-right: 1rem;
     position: fixed;
-    top: 0;
     padding-top: 1rem;    
+    margin-right: 0;
+    margin-left: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+  
 
   }
   .chat-container {
@@ -2800,7 +2810,7 @@ onDestroy(() => {
     width: 100%;
     padding: 0;
     padding-top: 0;
-    height: 88vh;
+    height: 100vh;
     margin-top: 0;
 
   }
@@ -2813,6 +2823,7 @@ onDestroy(() => {
     background: var(--primary-color);
     margin-left: 25vw;
     width: 50vw;
+    height: auto;
     margin-top: 0;
     margin-right: 0;
     height: auto;
@@ -2835,7 +2846,7 @@ onDestroy(() => {
     align-items: center;
     overflow: hidden;
     position: relative;
-    background: red;
+    background: var(--primary-color);
     display: flex;
     object-fit: cover;
 
@@ -3060,7 +3071,6 @@ color: #6fdfc4;
     // left: 25%;
     bottom: auto;
     padding: 1rem;
-
     flex-direction: column;
     overflow-x: hidden;
     align-items: stretch;
@@ -3385,7 +3395,7 @@ color: #6fdfc4;
     left: 0;
     right: 0;
     width: 100%;
-    padding: 1rem 0.5rem;
+    padding: 0.5rem;
     color: var(--text-color);
     text-align: left;
     align-items: center;
@@ -3397,10 +3407,11 @@ color: #6fdfc4;
     justify-content: space-between;
     transition: all 0.2s ease;
     z-index: 2000;
+    backdrop-filter: blur(10px);
     & h3 {
       margin: 0;
       font-weight: 300;
-      font-size: var(--font-size-m);    
+      font-size: var(--font-size-sm);    
       font-weight: 600;
     line-height: 1.4;
     &.active {
@@ -3449,11 +3460,11 @@ color: #6fdfc4;
 
 
 .drawer-header {
-    width:350px;
+    width:300px;
       margin-left: 1rem;
       margin-right: 4rem;
       height: 30px;
-      padding: 0.75rem 1rem;
+      // padding: 0.5rem 0.5rem;
       border: none;
       cursor: pointer;
       color: var(--text-color);
@@ -3464,12 +3475,14 @@ color: #6fdfc4;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
+      position: absolute;
       // background: var(--bg-gradient-r);
       backdrop-filter: blur(10px);
       margin-bottom: 0;
-      left: 0;
+      left: 2rem;
       right: 0;
-      border-radius: var(--radius-l);
+      bottom: 3rem;
+      // border-radius: var(--radius-l);
   }
 
 
@@ -3519,15 +3532,15 @@ color: #6fdfc4;
 
   }
   .thread-filtered-results {
-    margin-top: 5rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
     position: relative;
   }
   .drawer-toolbar {
     width:auto;
       margin-left: 0;
       position: absolute;
-      margin-right: 1rem;
-      margin-top: 0;
+      margin-bottom: 0;
       height: 30px;
       padding: 0.75rem 1rem;
       // border-bottom: 2px solid var(--secondary-color);
@@ -3543,9 +3556,9 @@ color: #6fdfc4;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
-      margin-bottom: 0.5rem;
       left: 0;
       right: 0;
+      bottom: 6rem;
 
     & input {
       width: 100%;
@@ -4180,9 +4193,9 @@ color: #6fdfc4;
     margin-left: 0;
     margin-right: 0;
     margin-top: 0;
+    margin-bottom: 8rem;
     top: 0;
-    padding-left: 0rem;
-    height: 100vh;
+    height: auto;
     // backdrop-filter: blur(20px);
     border-radius: 10px;
     overflow-y: scroll;
@@ -4205,10 +4218,10 @@ color: #6fdfc4;
   }
   position: relative;
   top: 0;
-
+  bottom: 0;
   margin-left: 0;
   gap: 1px;
-  height: auto;
+  height: 100%;
   width: 400px;
   transition: all 0.3s ease-in-out;
   scrollbar: {
@@ -4259,11 +4272,11 @@ color: #6fdfc4;
   }
 
   .cards {
-    margin-top: 4rem;
+    margin-bottom: 4rem;
     background: var(--primary-color);
     border-top-right-radius: var(--radius-l);
     border-bottom-right-radius: var(--radius-l);
-
+    
 
     // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
@@ -4730,7 +4743,10 @@ color: #6fdfc4;
     .chat-container {
       top: 3rem;
     }
-
+    
+    .thread-filtered-results {
+      margin-bottom: 5rem;
+    }
     .chat-content {
       width: 100%;
       margin-left: 0;
@@ -4744,11 +4760,15 @@ color: #6fdfc4;
     }
 
     .drawer-header {
-      width:94% !important;
-      margin-left:3rem;
-      padding-left: 4rem;
+      width:auto;
+
+      margin-bottom: 4rem;
+      left: 0;
+      right: 0;
+      margin-right: 0;
+      margin-left: 0;
       display: flex;
-      position: relative;
+      position: absolute;
       height: 30px;
       padding: 0.75rem 1rem;
       border: none;
@@ -4761,19 +4781,40 @@ color: #6fdfc4;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
-      background: var(--bg-gradient-r);
-      margin-bottom: 0.5rem;
-      left: 1rem;
+      // background: var(--bg-gradient-r);
       z-index: 3000;
+
+      // border-radius: var(--radius-l);
+    }
+    .drawer-toolbar {
+      width:auto;
+
+      margin-bottom: 4rem;
+      left: 0;
       right: 0;
-      border-radius: var(--radius-l);
+      margin-right: 0;
+      margin-left: 0;     
+      display: flex;
+      position: absolute;
+      height: 30px;
+      padding: 0.75rem 1rem;
+      border: none;
+      cursor: pointer;
+      color: var(--text-color);
+      text-align: left;
+      display: flex;
+      align-items: center;
+      transition: background-color 0.2s;
+      // border-radius: var(--radius-m);
+      display: flex;
+      flex-direction: row;
+      // background: var(--bg-gradient-r);
+      z-index: 3000;
     }
     .card {
       margin-left: 0;
       width: 100%;
     }
-
-
       .thread-info input  {
         background-color: var(--secondary-color);
         border-bottom: 1px solid rgb(134, 134, 134);
@@ -4811,6 +4852,7 @@ color: #6fdfc4;
       font-size: 1.5rem;
       font-style: bold;
     }
+
 
     .thread-group-header {
       font-size: 1rem;
@@ -4886,7 +4928,7 @@ color: #6fdfc4;
     }
 
   .input-container {
-    bottom: 5rem;
+    bottom: 2rem;
     width: auto !important;
     margin-left: 200px;
     right: 0;
@@ -4960,8 +5002,12 @@ color: #6fdfc4;
     border-radius: 1rem;
     padding: 0.5rem;
     transition: all 0.3s ease-in;
+
 }
 
+.drawer-list {
+  height: 100%;
+}
 
   
 
@@ -5120,7 +5166,7 @@ color: #6fdfc4;
     left: 0rem;
     right: 0;
     top: 1rem;
-    bottom: 0;
+    bottom: 6rem;
     margin-top: 0 !important;
     margin-right: 1rem;
     margin-left: 0 !important;
@@ -5203,7 +5249,7 @@ color: #6fdfc4;
     top: 0;
     gap: 1px;
     // left: 64px;
-    height: 90%;
+    height: 100%;
     width: auto;
     // height: 86%;
     // background: var(bg-gradient-r);
@@ -5262,25 +5308,6 @@ color: #6fdfc4;
 
   }
 
-  .drawer-header {
-    width: auto;
-    margin-right: 2rem;
-    height: 30px;
-    padding: 0.75rem 1rem;
-    border: none;
-    cursor: pointer;
-    color: var(--text-color);
-    text-align: left;
-    display: flex;
-    align-items: center;
-    transition: background-color 0.2s;
-    // border-radius: var(--radius-m);
-    display: flex;
-    flex-direction: row;
-    background: var(--bg-gradient-left);
-    margin-bottom: 0.5rem;
-    border-radius: var(--radius-l);
-  }
 
   // .drawer-header:hover {
   //   // background-color: var(--hover-color);

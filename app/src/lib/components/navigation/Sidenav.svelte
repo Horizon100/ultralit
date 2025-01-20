@@ -482,7 +482,7 @@
 
     .nav-button.toggle {
       position: fixed;
-      bottom: 2rem;
+      bottom: 0rem;
       left: 0.5rem;
       z-index: 5000;
     }
@@ -688,7 +688,7 @@
 
     .nav-button.toggle {
       position: fixed;
-      bottom: 1rem;
+      bottom: 0.5rem;
       left: 1.5rem;
       height: 60px;
       width: 60px;

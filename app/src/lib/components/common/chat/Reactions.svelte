@@ -3,7 +3,8 @@
   import { pb, currentUser } from '$lib/pocketbase';
   import type { Messages } from '$lib/types/types';
   import { Bookmark, Copy } from 'lucide-svelte';
-  import type { SvelteComponent } from 'svelte';
+  import type { SvelteComponentTyped } from 'svelte';
+  import type { User } from '$lib/types/types';
 
   export let message: Messages;
   export let userId: string;
@@ -12,10 +13,18 @@
   let showCopiedTooltip = false;
   let showBookmarkTooltip = false;
   let bookmarkTooltipText = '';
-  let isBookmarkedState = $currentUser?.bookmarks?.includes(message.id) || false;  // Track state locally
+  let isBookmarkedState = false;
+
+  // Define type for Lucide icons
+  type IconComponent = SvelteComponentTyped<{
+    size?: number | string;
+    color?: string;
+    strokeWidth?: number | string;
+    class?: string;
+  }>;
 
   type Reaction = {
-    symbol: typeof SvelteComponent;
+    symbol: typeof Bookmark | typeof Copy;  // Use direct component types
     action: string;
     label: string;
     isIcon: boolean;
@@ -46,28 +55,27 @@
           let updatedBookmarks: string[];
           
           if (isBookmarkedState) {
-            updatedBookmarks = user.bookmarks.filter(id => id !== message.id);
+            updatedBookmarks = (user.bookmarks || []).filter(id => id !== message.id);
             bookmarkTooltipText = 'Removed from bookmarks';
           } else {
             updatedBookmarks = [...(user.bookmarks || []), message.id];
             bookmarkTooltipText = 'Added to bookmarks';
           }
 
-          // Update PocketBase
-          await pb.collection('users').update(user.id, {
+          // Type assertion for the update
+          const updateData = {
             bookmarks: updatedBookmarks
-          });
+          } as Partial<User>;
 
-          // Update local state first
+          await pb.collection('users').update(user.id, updateData);
+
           isBookmarkedState = !isBookmarkedState;
 
-          // Update store
           currentUser.update(u => ({
             ...u,
             bookmarks: updatedBookmarks
           }));
 
-          // Show tooltip
           showBookmarkTooltip = true;
           setTimeout(() => {
             showBookmarkTooltip = false;
@@ -94,8 +102,10 @@
 
   // Update local state when store changes
   $: {
-    if ($currentUser) {
-      isBookmarkedState = $currentUser.bookmarks?.includes(message.id) || false;
+    if ($currentUser && Array.isArray($currentUser.bookmarks)) {
+      isBookmarkedState = $currentUser.bookmarks.includes(message.id);
+    } else {
+      isBookmarkedState = false;
     }
   }
 </script>
@@ -111,7 +121,7 @@
       >
         <div class="reaction-content">
           <svelte:component 
-            this={reaction.symbol} 
+            this={reaction.symbol}
             size={16} 
             class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
           />
