@@ -1882,18 +1882,88 @@ onDestroy(() => {
                   <div class="chat-placeholder"
                   class:drawer-visible={$threadsStore.showThreadList}
                   >     
-                    <h3>
-                      {$t('threads.selectThread')} {username}
-  
-                    </h3>
 
-                  <p >
-                    {getRandomQuote()}
-                  </p>
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <!-- Prompts Section -->
+                    <span class="hero">
+                      <h3>
+                        {$t('threads.selectThread')} {username}  
+                      </h3>
+                    <p >
+                      {getRandomQuote()}
+                    </p>
+                    </span>
                      <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-            
+                      <div class="submission" class:visible={isTextareaFocused}                    >
+
+              
+                        {#if isTextareaFocused}
+                        <div class="btn-row"
+                          transition:slide
+                        >
+                          <span class="btn" >
+                            <Paperclip  />
+                          </span>
+                          <span 
+                          class="btn"
+                          transition:slide
+
+                          class:visible={isTextareaFocused}
+
+                          on:click={() => toggleSection('prompts')}
+                        >
+                            <span class="icon">
+                              {#if $expandedSections.prompts}
+                              <!-- <Command size={30} /> -->
+                              {:else}
+                              <!-- <Command size={20} /> -->
+                              {/if}
+                            </span>
+                            {#if selectedPromptLabel}
+                              {#if selectedIcon}
+                              <div class="icon-wrapper">
+                                <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                              </div>
+                            {/if}
+                              <!-- <h3>{$t('chat.prompts')}</h3> -->
+                              <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                            {:else}
+                              <!-- <Command size={20} /> -->
+                              <!-- <h3>{$t('chat.prompts')}</h3> -->
+                            {/if}
+                        </span>
+                        <span 
+                        class="btn"
+                        transition:fade
+                        on:click={() => toggleSection('models')}
+                        >
+                          <span class="icon">
+                            {#if $expandedSections.models}
+                            <Brain />
+                            {:else}
+                            <Brain/>
+                            {/if}
+                          </span>
+                          {#if selectedModelLabel}
+                            <!-- <h3>{$t('chat.models')}</h3> -->
+                            <p class="selector-lable">{selectedModelLabel} </p>
+                          {:else}
+                            <!-- <p>{$t('chat.models')}</p> -->
+                          {/if}
+                        </span>
+                        <span 
+                        class="btn send-btn" 
+                        class:visible={isTextareaFocused}
+                        transition:slide
+                        on:click={() => !isLoading && handleSendMessage()} 
+                        disabled={isLoading}
+                      >
+                        <Send />
+                      </span>
+                    </div>
+
+                      {/if}
+                    </div>
             
                       <textarea 
                         bind:this={textareaElement}
@@ -1911,78 +1981,16 @@ onDestroy(() => {
                         disabled={isLoading}
                         rows="1"
                       />
-                        <div class="submission" class:visible={isTextareaFocused}                    >
 
-              
-                          {#if isTextareaFocused}
-                          <div class="btn-row"
-                            transition:slide
-                          >
-                            <span class="btn" >
-                              <Paperclip  />
-                            </span>
-                            <span 
-                            class="btn"
-                            transition:slide
-
-                            class:visible={isTextareaFocused}
-
-                            on:click={() => toggleSection('prompts')}
-                          >
-                              <span class="icon">
-                                {#if $expandedSections.prompts}
-                                <!-- <Command size={30} /> -->
-                                {:else}
-                                <!-- <Command size={20} /> -->
-                                {/if}
-                              </span>
-                              {#if selectedPromptLabel}
-                                {#if selectedIcon}
-                                <div class="icon-wrapper">
-                                  <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                                </div>
-                              {/if}
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                                <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                              {:else}
-                                <!-- <Command size={20} /> -->
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                              {/if}
-                          </span>
-                          <span 
-                          class="btn"
-                          transition:fade
-                          on:click={() => toggleSection('models')}
-                          >
-                            <span class="icon">
-                              {#if $expandedSections.models}
-                              <Brain />
-                              {:else}
-                              <Brain/>
-                              {/if}
-                            </span>
-                            {#if selectedModelLabel}
-                              <!-- <h3>{$t('chat.models')}</h3> -->
-                              <p class="selector-lable">{selectedModelLabel} </p>
-                            {:else}
-                              <!-- <p>{$t('chat.models')}</p> -->
-                            {/if}
-                          </span>
-                          <span 
-                          class="btn send-btn" 
-                          class:visible={isTextareaFocused}
-                          transition:slide
-                          on:click={() => !isLoading && handleSendMessage()} 
-                          disabled={isLoading}
-                        >
-                          <Send />
-                        </span>
-                      </div>
-
-                        {/if}
-                      </div>
                     </div>
         
+
+        
+            
+            
+        
+            
+                      </div>         
                       <div class="ai-selector">
             
     
@@ -2021,13 +2029,6 @@ onDestroy(() => {
                 
                           
                         </div>
-        
-            
-            
-        
-            
-                      </div>         
-
                   </div>
                 {/if}
               </div>
@@ -2885,7 +2886,7 @@ onDestroy(() => {
   }
 }
 
-.project-section {}
+// .project-section {}
 .calendar {
     position: relative;
     display: flex;
@@ -2998,8 +2999,9 @@ onDestroy(() => {
   .btn-row {
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
-    align-items: flex-end;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
     gap: 1rem;
   }
   
@@ -3045,23 +3047,25 @@ onDestroy(() => {
         height: auto;
       }
     } 
-    &.input-container-start {
-      left: 0;
-      right: 2rem;
-      margin-left: 2rem;
+   & .input-container-start {
+      position: fixed;
+      // left: 50%;
+      top: 0;
+      // transform: translate(-50%, -50%); 
+      // // width: clamp(300px, 50%, 800px); 
+      // height: auto; 
+      // // min-height: 60%;
+      // // max-height: 80vh; 
+      // display: flex;
+      // flex-direction: column;
+      // justify-content: center;
+      // align-items: center;
+      // padding: 2rem;
+      // margin: 0 auto;
+      // overflow-y: auto;
+      // overflow-x: hidden;
 
-    margin-right: 2rem;
-    width: 50%; 
-    height: 60%;
-      & textarea {
-        margin-left: 0;
-      }
-
-      
-
-
-
-    } 
+    }
     & .chat-placeholder {
       & p {
 
@@ -3167,58 +3171,54 @@ onDestroy(() => {
   .input-container-start {
     display: flex;
     flex-direction: column;
-    position: relative;
-    bottom: 4rem;
+    position: fixed;
     margin-left: 2rem;
+    padding-right: 2rem;
     margin-top: 0;
-    width: 80%;    
-    right: 2rem;
+    width: auto;    
+    right: 0;
     left: 0;
-    top: 0;
-    height:auto;
-    margin-bottom: 100px;
-    // backdrop-filter: blur(4px);
+    top: 50%;
+    margin-bottom: 2rem;
+    height: auto;
+    max-height: 50vh; 
     justify-content: flex-start;
     align-items: center;
-    // background: var(--bg-gradient);
-    z-index: 3000;
-   & .combo-input {
-  // width: 100vw;;
-  bottom: 4rem;
-  margin-bottom: 0;
-  // background: var(--bg-gradient);
-  width: 100%;
-  
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
-  // backdrop-filter: blur(40px);
-  & textarea {
-    border-top: 1px solid var(--primary-color) !important;
-    // max-height: 50vh;
-    margin-left: 0;
-    margin-top: 0;
-  
-  :focus {
-    background: var(--bg-gradient-left);
-    z-index: 7000;   
+    overflow: hidden; 
 
-  }
-}
-}
+    & .combo-input {
+        position: relative; 
+        bottom: 4rem;
+        margin-bottom: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+
+        & textarea {
+            border-top: 1px solid var(--primary-color) !important;
+            margin-left: 0;
+            margin-top: 0;
+            overflow-y: auto; 
+            resize: none; 
+            &:focus {
+                // background: var(--bg-gradient-left);
+            }
+        }
+    }
+
 
     & .submission {
   display: flex;
   flex-direction: row;
   height: auto;
-  width: auto;
   justify-content: center;
-  align-self: flex-end;
-  width: fit-content;
+  align-self: center;
+  width: 100%;
   z-index: 6000;
   gap: 2rem;
-  padding: 0.5rem;
+  padding-top: 2rem;
   transition: height 0.3s ease;
   border-radius: var(--radius-m);
     }
@@ -3237,24 +3237,25 @@ onDestroy(() => {
       font-size: 1.5rem;
       border: none;
       box-shadow: none;
-      position: relative; 
-      left: 0;
+      left: 2rem;
+      margin-top: 2rem;
       border-radius: var(--radius-m);
-
       // background-color: transparent;
       background: var(--bg-gradient-r);
-      margin-right: 2rem !important;
-      margin-left: 4rem;
+      left: 0;
+      padding: 1rem;
       // margin-left: 7rem;
       margin-top: 0.5rem;
       transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
       padding-top: 1rem;
-      padding-left: 1rem;
+      // padding-left: 1rem;
+      padding: 2rem;
       // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
       color: var(--text-color);
       // background: transparent;
       display: flex;
       width: 100%;
+      height: 20vh !important;
       // backdrop-filter: blur(40px);
       // & :focus {
       //   border-top: 1px solid red;
@@ -3342,8 +3343,8 @@ color: #6fdfc4;
   flex-direction: row;
 
   width: auto;
-  justify-content: flex-end;
-  align-self: flex-start;
+  justify-content: center;
+  align-self: center;
   width: fit-content;
   z-index: 6000;
   gap: 2rem;
@@ -3373,7 +3374,6 @@ color: #6fdfc4;
     margin-right: 0;
     // margin-top: 1rem;
     // left: 25%;
-    bottom: 200px;
     padding: 1rem;
     z-index: 4000;
     flex-direction: column;
@@ -3687,7 +3687,29 @@ color: #6fdfc4;
   border-radius: var(--radius-l);
 }
 
+span.hero {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  padding: 1rem;
 
+  justify-content: center;
+  align-items: right;
+  width: auto;
+  margin-right: 0;
+  margin-left: 2rem;
+
+
+  & h3 {
+    text-align: right;
+  }
+
+  & p {
+    text-align: right;
+    font-style: italic; 
+
+  }
+}
 
 .chat-header {
     height: 50px;
@@ -3767,9 +3789,9 @@ color: #6fdfc4;
 
 .drawer-header {
     width:300px;
-      margin-left: 1rem;
+      margin-left: 0;
       margin-right: 4rem;
-      height: 30px;
+      height: 40px;
       // padding: 0.5rem 0.5rem;
       border: none;
       cursor: pointer;
@@ -3783,11 +3805,11 @@ color: #6fdfc4;
       flex-direction: row;
       position: absolute;
       // background: var(--bg-gradient-r);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(100px);
       margin-bottom: 0;
-      left: 2rem;
+      left: 0;
       right: 0;
-      bottom: 3rem;
+      bottom: 5.5rem;
       // border-radius: var(--radius-l);
   }
 
@@ -3843,25 +3865,24 @@ color: #6fdfc4;
     position: relative;
   }
   .drawer-toolbar {
-    width:auto;
-      margin-left: 0;
+      margin-left: 1rem;
       position: absolute;
-      margin-bottom: 0;
-      height: 30px;
-      padding: 0.75rem 1rem;
+      margin-bottom: 2.5rem;
+      height: auto;
+      width: 50px;
+      // padding: 0.75rem 1rem;
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
       color: var(--text-color);
-      backdrop-filter: blur(10px);
       z-index: 1;
       text-align: left;
-      align-items: center;
-      justify-content: left;
-      gap: 3rem;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 1rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       left: 0;
       right: 0;
       bottom: 6rem;
@@ -4281,7 +4302,7 @@ color: #6fdfc4;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content:center;
+  justify-content:flex-start;
   border-radius: var(--radius-m);
   top: 0;
   backdrop-filter: blur(10px);
@@ -4292,7 +4313,9 @@ color: #6fdfc4;
   position: absolute;
   width: auto;
   left: 0;
-  right: 4rem;
+  right: 0;
+  margin-right: 1rem;
+
 
   & h3 {
         font-size: 50px;
@@ -4508,8 +4531,9 @@ color: #6fdfc4;
     margin-left: 0;
     margin-right: 0;
     margin-top: 0;
-    margin-bottom: 8rem;
+    margin-bottom: 2rem;
     top: 0;
+    bottom: 0;
     height: auto;
     // backdrop-filter: blur(20px);
     border-radius: 10px;
@@ -4536,7 +4560,7 @@ color: #6fdfc4;
   bottom: 0;
   margin-left: 0;
   gap: 1px;
-  height: 100%;
+  height: 100vh;
   width: 400px;
   transition: all 0.3s ease-in-out;
   scrollbar: {
@@ -4983,14 +5007,16 @@ color: #6fdfc4;
   .section-content {
     width: 100%;
     display: flex;
-    justify-content: right;
-      bottom: 10rem;
-      backdrop-filter: blur(400px);
-    margin-right: 0;
-    right: 2rem;
+    justify-content: center;
+    align-items: center;
+      bottom: 0;
+
+    // margin-right: 0;
+
     left: 0;
+    right: 0;
     height: auto;
-    position: absolute;
+    position: relative;
     overflow: hidden;
     // padding: 0.5rem 1rem;
     scrollbar-width:1px;
@@ -5021,8 +5047,9 @@ color: #6fdfc4;
     display: flex;
     flex-direction: row;
     justify-content:flex-start;
-    padding-left: 3rem;
+    // padding-left: 3rem;
     width: 100%;
+    margin-left: 0;
   }
 
   .tooltip {
@@ -5446,7 +5473,7 @@ color: #6fdfc4;
 .input-container {
   width: auto;
   margin-left: 4rem;
-  margin-right: 1rem;
+  margin-right: 2rem;
 }
   
 
@@ -5459,6 +5486,8 @@ color: #6fdfc4;
     margin-left: 1rem;
 
   }
+
+
     &.input-container {
       left: 1rem;
       margin-left: 400px;
@@ -5467,7 +5496,18 @@ color: #6fdfc4;
       & textarea {
         margin-left: 0;
       }
-    } 
+    }
+    // &.input-container-start {
+    //   margin-left: 3rem;
+    // margin-right: 0;
+    // width: auto; 
+    //   & textarea {
+    //     border-top: 1px solid var(--primary-color) !important;
+    // // max-height: 50vh;
+    // margin-left: 0;
+    // margin-top: 0;
+    //   }
+    // } 
   }
 
   .chat-content {
@@ -5507,13 +5547,6 @@ color: #6fdfc4;
 
 
   
-  .drawer-visible .chat-placeholder {
-    right: 0;
-    width: 100%;
-    left: 0;
-    margin-left: 0;
-    height: 84vh;
-}
 
 
 
@@ -5567,6 +5600,7 @@ color: #6fdfc4;
     // border-top-left-radius: 50px;
     // background-color: var(--bg-color);
     top: 0;
+    bottom: 2rem;
     gap: 1px;
     // left: 64px;
     height: 100%;

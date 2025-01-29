@@ -312,6 +312,8 @@
 					on:click|preventDefault={() => setActiveLink('/notes')}
 				>
 					<NotebookTabs />
+					{$t('nav.notes')}
+
 				</a>
 				{/if}
 				
@@ -322,13 +324,15 @@
 				on:click|preventDefault={() => setActiveLink('/')}
 			>
 				<MessageCircle />
+				{$t('nav.ask')}
+
 			</a>
 					<a
 						href="/notes"
 						class="nav-link active"
 						on:click|preventDefault={() => setActiveLink('/notes')}
 					>
-						<NotebookTabs size={20} />
+						<NotebookTabs />
 						{$t('nav.notes')}
 					</a>
 				{/if}
@@ -917,8 +921,8 @@
 		display: flex;
 		align-items: center;
 		position: fixed;
-		bottom: 0;
-		left:3rem;
+		bottom: -1rem;
+		left:5rem;
 
 
 		/* bottom: calc(100% - 280px); */

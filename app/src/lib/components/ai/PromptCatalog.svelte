@@ -13,6 +13,8 @@
     select: PromptType;
   }>();
 
+  let hoveredPrompt: PromptType | null = null;
+
   function handlePromptSelection(promptType: PromptType) {
     selectedPrompt = promptType;
     const selectedOption = availablePrompts.find(option => option.value === promptType);
@@ -21,6 +23,14 @@
     }
     promptStore.set(promptType);
     dispatch('select', promptType);
+  }
+
+  function handleMouseEnter(value: PromptType) {
+    hoveredPrompt = value;
+  }
+
+  function handleMouseLeave() {
+    hoveredPrompt = null;
   }
 
   $: selectedPromptLabel = availablePrompts.find(option => option.value === selectedPrompt)?.label || '';
@@ -33,6 +43,8 @@
         class="prompt-grid-item"
         class:active={selectedPrompt === value}
         on:click|stopPropagation={() => handlePromptSelection(value)}
+        on:mouseenter={() => handleMouseEnter(value)}
+        on:mouseleave={handleMouseLeave}
       >
         <div class="icon-wrapper">
           <Icon size={20} color="var(--text-color)" />
@@ -43,13 +55,16 @@
         <div class="content-header">
         </div>
         
-        {#if selectedPrompt === value}
-        <p class="description" transition:fly={{ y: 20, duration: 300 }}>
+        {#if selectedPrompt === value || hoveredPrompt === value}
+        <!-- <p class="description" 
+           class:hovered={hoveredPrompt === value}
+           transition:fly={{ y: 20, duration: 300 }}>
           {description}
-        </p>
+        </p> -->
           {#if youtubeUrl}
-            <!-- <div class="video-container" transition:fly={{ y: -20, duration: 300 }}>
+            <div class="video-container" transition:slide>
               <iframe 
+              transition:fly={{ y: 20, duration: 300 }}
                 width="560" 
                 height="315" 
                 src={youtubeUrl}
@@ -58,7 +73,7 @@
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                 allowfullscreen
               ></iframe>
-            </div> -->
+            </div>
           {/if}
         {/if}
       </div>
@@ -82,9 +97,8 @@
     border-top-left-radius: var(--radius-m);
     width: 100%;
     margin-left: 0;
-    margin-right: 6rem;
-    margin-bottom: 5rem;
-
+    margin-right: 0;
+    backdrop-filter: blur(10px);
     justify-content: center;
     align-items: center;
     background: var(--bg-gradient-r);
@@ -140,6 +154,7 @@
       }
     }
   }
+
 
   .content-wrapper {
     display: flex;

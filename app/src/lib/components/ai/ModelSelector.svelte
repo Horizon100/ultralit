@@ -176,7 +176,7 @@ async function handleModelSelection(model: AIModel) {
     border-top-left-radius: var(--radius-m);
     width: 100%;
     margin-left: 0;
-    margin-right: 6rem;
+    margin-right: 0;
     margin-bottom: 0;
 
     justify-content: center;
