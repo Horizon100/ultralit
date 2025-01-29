@@ -1911,69 +1911,75 @@ onDestroy(() => {
                         disabled={isLoading}
                         rows="1"
                       />
-                      <div>
                         <div class="submission" class:visible={isTextareaFocused}                    >
 
               
                           {#if isTextareaFocused}
-                          <span class="btn" >
-                            <Paperclip  />
+                          <div class="btn-row"
+                            transition:slide
+                          >
+                            <span class="btn" >
+                              <Paperclip  />
+                            </span>
+                            <span 
+                            class="btn"
+                            transition:slide
+
+                            class:visible={isTextareaFocused}
+
+                            on:click={() => toggleSection('prompts')}
+                          >
+                              <span class="icon">
+                                {#if $expandedSections.prompts}
+                                <!-- <Command size={30} /> -->
+                                {:else}
+                                <!-- <Command size={20} /> -->
+                                {/if}
+                              </span>
+                              {#if selectedPromptLabel}
+                                {#if selectedIcon}
+                                <div class="icon-wrapper">
+                                  <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                                </div>
+                              {/if}
+                                <!-- <h3>{$t('chat.prompts')}</h3> -->
+                                <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                              {:else}
+                                <!-- <Command size={20} /> -->
+                                <!-- <h3>{$t('chat.prompts')}</h3> -->
+                              {/if}
                           </span>
                           <span 
                           class="btn"
-                          class:visible={isTextareaFocused}
-
-                          on:click={() => toggleSection('prompts')}
-                        >
+                          transition:fade
+                          on:click={() => toggleSection('models')}
+                          >
                             <span class="icon">
-                              {#if $expandedSections.prompts}
-                              <!-- <Command size={30} /> -->
+                              {#if $expandedSections.models}
+                              <Brain />
                               {:else}
-                              <!-- <Command size={20} /> -->
+                              <Brain/>
                               {/if}
                             </span>
-                            {#if selectedPromptLabel}
-                              {#if selectedIcon}
-                              <div class="icon-wrapper">
-                                <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                              </div>
-                            {/if}
-                              <!-- <h3>{$t('chat.prompts')}</h3> -->
-                              <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                            {#if selectedModelLabel}
+                              <!-- <h3>{$t('chat.models')}</h3> -->
+                              <p class="selector-lable">{selectedModelLabel} </p>
                             {:else}
-                              <!-- <Command size={20} /> -->
-                              <!-- <h3>{$t('chat.prompts')}</h3> -->
-                            {/if}
-                        </span>
-                        <span 
-                        class="btn"
-                        on:click={() => toggleSection('models')}
-                        >
-                          <span class="icon">
-                            {#if $expandedSections.models}
-                            <Brain />
-                            {:else}
-                            <Brain/>
+                              <!-- <p>{$t('chat.models')}</p> -->
                             {/if}
                           </span>
-                          {#if selectedModelLabel}
-                            <!-- <h3>{$t('chat.models')}</h3> -->
-                            <p class="selector-lable">{selectedModelLabel} </p>
-                          {:else}
-                            <!-- <p>{$t('chat.models')}</p> -->
-                          {/if}
+                          <span 
+                          class="btn send-btn" 
+                          class:visible={isTextareaFocused}
+                          transition:slide
+                          on:click={() => !isLoading && handleSendMessage()} 
+                          disabled={isLoading}
+                        >
+                          <Send />
                         </span>
-                        <span 
-                        class="btn send-btn" 
-                        class:visible={isTextareaFocused}
-                        transition:slide
-                        on:click={() => !isLoading && handleSendMessage()} 
-                        disabled={isLoading}
-                      >
-                        <Send />
-                      </span>
-                        {/if}
                       </div>
+
+                        {/if}
                       </div>
                     </div>
         
@@ -2153,16 +2159,19 @@ onDestroy(() => {
                     disabled={isLoading}
                     rows="1"
                   />
-                  <div>
+                  <div class="btn-row">
                     <div class="submission" class:visible={isTextareaFocused}                    >
-                      <span class="btn" >
-                        <Paperclip  />
-                      </span>
+
           
                       {#if isTextareaFocused}
-
+                      <span class="btn" 
+                        transition:slide
+                      >
+                        <Paperclip  />
+                      </span>
                       <span 
                       class="btn"
+                      transition:slide
                       on:click={() => toggleSection('prompts')}
                     >
                         <span class="icon">
@@ -2187,6 +2196,7 @@ onDestroy(() => {
                     </span>
                     <span 
                     class="btn"
+                    transition:slide
                     on:click={() => toggleSection('models')}
                     >
                       <span class="icon">
@@ -2985,6 +2995,13 @@ onDestroy(() => {
     transition: all ease 0.3s;
   }
 
+  .btn-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 1rem;
+  }
   
   .avatar-container {
     width: 30px;
@@ -3030,9 +3047,12 @@ onDestroy(() => {
     } 
     &.input-container-start {
       left: 0;
+      right: 2rem;
       margin-left: 2rem;
+
     margin-right: 2rem;
-    width: 80%; 
+    width: 50%; 
+    height: 60%;
       & textarea {
         margin-left: 0;
       }
@@ -3045,15 +3065,14 @@ onDestroy(() => {
     & .chat-placeholder {
       & p {
 
-        margin-left: 4rem;
-        margin-right: 4rem;
-        margin-bottom: 2rem;
       }
 
     }
 
     & .chat-content {
       margin-left: auto;
+      top: 0;
+      margin-top: 0;
       width: 100%;
       
     }
@@ -3159,7 +3178,7 @@ onDestroy(() => {
     height:auto;
     margin-bottom: 100px;
     // backdrop-filter: blur(4px);
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     // background: var(--bg-gradient);
     z-index: 3000;
@@ -3171,7 +3190,7 @@ onDestroy(() => {
   width: 100%;
   
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: flex-start;
   align-items: flex-start;
   // backdrop-filter: blur(40px);
@@ -3191,11 +3210,11 @@ onDestroy(() => {
 
     & .submission {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: auto;
   width: auto;
   justify-content: center;
-  align-self: flex-start;
+  align-self: flex-end;
   width: fit-content;
   z-index: 6000;
   gap: 2rem;
@@ -3274,12 +3293,13 @@ onDestroy(() => {
   bottom: 0;
   margin-bottom: 0;
   // background: var(--bg-gradient);
-  width: 100%;
+  width: 90%;
   height: auto;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: flex-end;
   align-items: flex-end;
+  gap: 2rem;
   // backdrop-filter: blur(40px);
   & textarea {
     border-top: 1px solid var(--primary-color) !important;
@@ -3319,25 +3339,26 @@ color: #6fdfc4;
 
 .submission {
   display: flex;
-  flex-direction: column;
-  height: auto;
+  flex-direction: row;
+
   width: auto;
-  justify-content: center;
-  align-self: flex-end;
+  justify-content: flex-end;
+  align-self: flex-start;
   width: fit-content;
   z-index: 6000;
   gap: 2rem;
-  padding: 0.5rem;
+  // padding: 0.5rem;
   transition: height 0.3s ease;
-  border-radius: var(--radius-m);
+    border-radius: var(--radius-m);
 
 }
 
 .visible.submission {
   // backdrop-filter: blur(4px);
-  background: var(--bg-gradient-left);
+  // background: var(--bg-gradient-left);
   z-index: 7000;
-  
+  height: 100%;
+
 }
 
 
@@ -3669,9 +3690,9 @@ color: #6fdfc4;
 
 
 .chat-header {
-    height: 3rem;
+    height: 50px;
     margin-left: 0;
-    margin-bottom: 160px;
+    // margin-bottom: 160px;
     position: relative;
     background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
@@ -4259,8 +4280,8 @@ color: #6fdfc4;
 .chat-placeholder {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content:center;
   border-radius: var(--radius-m);
   top: 0;
   backdrop-filter: blur(10px);
@@ -4271,16 +4292,17 @@ color: #6fdfc4;
   position: absolute;
   width: auto;
   left: 0;
-  right: 0;
+  right: 4rem;
 
   & h3 {
         font-size: 50px;
 
       }
   & p {
-    margin-left: 4rem;
-    margin-right: 4rem;
-    margin-bottom: 2rem;
+
+
+
+    padding: 0.5rem;
     }
   
 }
@@ -4749,7 +4771,7 @@ color: #6fdfc4;
   justify-content: center;
   align-items: center;
   border-radius: var(--radius-l);
-  box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
+  // box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
   border: none;
   &:hover {
@@ -4890,7 +4912,7 @@ color: #6fdfc4;
     border-top-right-radius: 50px;
     border-bottom-right-radius: 50px;
     color: white;
-    z-index: 4000;
+    z-index: 80000;
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
     border-radius: var(--radius-l);
@@ -5591,7 +5613,9 @@ color: #6fdfc4;
 
   .input-container textarea {
     font-size: 1.5rem;
-    padding: 1rem;
+    // padding: 1rem;
+    margin-left: 2rem;
+    height: 40px;
   }
 
     .input-container textarea:focus {

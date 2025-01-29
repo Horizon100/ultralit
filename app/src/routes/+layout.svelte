@@ -286,13 +286,24 @@
 	<div class="mobile-menu" transition:fly={{ y: 200, duration: 300 }}>
 		<div class="mobile-btns" >
 			{#if $currentUser}
+			<button class="nav-button" on:click={toggleAuthOrProfile}>
+				<div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x: 200, duration: 300}}">
+					<div class="avatar-container">
+						{#if $currentUser.avatar}
+							<img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
+						{:else}
+							<Camera size={24} />
+						{/if}
+					</div>
+				</div>
+			</button>
 				{#if activeLink === '/'}
 				<a
 						href="/"
 						class="nav-link active"
 						on:click|preventDefault={() => setActiveLink('/')}
 					>
-						<MessageCircle size={20} />
+						<MessageCircle />
 						{$t('nav.ask')}
 					</a>
 					<a
@@ -300,7 +311,7 @@
 					class="nav-link"
 					on:click|preventDefault={() => setActiveLink('/notes')}
 				>
-					<NotebookTabs size={20} />
+					<NotebookTabs />
 				</a>
 				{/if}
 				
@@ -310,7 +321,7 @@
 				class="nav-link"
 				on:click|preventDefault={() => setActiveLink('/')}
 			>
-				<MessageCircle size={20} />
+				<MessageCircle />
 			</a>
 					<a
 						href="/notes"
@@ -322,17 +333,7 @@
 					</a>
 				{/if}
 
-				<button class="nav-button" on:click={toggleAuthOrProfile}>
-					<div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x: 200, duration: 300}}">
-						<div class="avatar-container">
-							{#if $currentUser.avatar}
-								<img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
-							{:else}
-								<Camera size={24} />
-							{/if}
-						</div>
-					</div>
-				</button>
+
 			{:else}
 				<a href="#features" class="nav-link" on:click|preventDefault={() => scrollToSection('features')}>
 					{$t('nav.features')}
@@ -914,13 +915,12 @@
 
 	.mobile-menu {
 		display: flex;
-
 		align-items: center;
 		position: fixed;
 		bottom: 0;
-		right:0;
-		width: calc(100% - 3rem - 60px);
-		height: 80px;
+		left:3rem;
+
+
 		/* bottom: calc(100% - 280px); */
 		/* width: calc(100% - 60px); */
 		/* padding: 20px; */
@@ -940,24 +940,25 @@
 	}
 
 	.mobile-btns {
-		width:90%;
       margin-left: 0;
 		bottom: 0;
 		margin-bottom: 0;
       margin-right: 4rem;
-      height: 30px;
+      height: 100%;
+	  width: 100%;
+	  gap: 2rem;
       padding: 0.75rem 1rem;
       border: none;
       cursor: pointer;
       color: var(--text-color);
       text-align: left;
       align-items: center;
-      justify-content: space-around;
+      justify-content: space-between;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
-      background: var(--bg-gradient) !important;
+    //   background: var(--bg-gradient) !important;
       margin-bottom: 0.5rem;
       left: 0;
       right: 0;
@@ -966,15 +967,16 @@
 
 	.mobile-btns a {
 		display: flex;
+		flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    width: auto !important;
-    padding: 0 1rem;
+    width: 60px;
+    // padding: 0 1rem;
     position: relative;
     // padding: 0.5rem 1rem;
-    height: 100%;
+    height: 60px;
     border: none;
-    border-radius: 2rem;
+    border-radius: 50%;
     // background: var(--secondary-color);
     color: var(--placeholder-color);
     cursor: pointer;
