@@ -260,7 +260,7 @@ export default {
     },
 
     threads: {
-        selectThread: "Выберите тему или создайте новую",
+        selectThread: "Привет,",
         newThread: "Новое обсуждение",
         tagsHeader: "Теги",
         newTag: "Добавить тег",

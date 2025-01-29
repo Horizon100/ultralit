@@ -445,6 +445,11 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
 }
 // UI helper functions
 
+function getRandomQuote() {
+		const quotes = $t('extras.quotes');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
+
 function handleClickOutside() {
   window.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
@@ -1876,11 +1881,152 @@ onDestroy(() => {
                 {:else}
                   <div class="chat-placeholder"
                   class:drawer-visible={$threadsStore.showThreadList}
-                  >              
-                    {$t('threads.selectThread')}
+                  >     
+                    <h3>
+                      {$t('threads.selectThread')} {username}
+  
+                    </h3>
+
+                  <p >
+                    {getRandomQuote()}
+                  </p>
+                  <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                    <!-- Prompts Section -->
+                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+            
+            
+                      <textarea 
+                        bind:this={textareaElement}
+                        bind:value={userInput}
+                        on:input={(e) => adjustFontSize(e.target)}
+                        on:keydown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            !isLoading && handleSendMessage();
+                          }
+                        }}      
+                        on:focus={handleTextareaFocus}
+                        on:blur={handleTextareaBlur}
+                        placeholder={$t('chat.placeholder')}
+                        disabled={isLoading}
+                        rows="1"
+                      />
+                      <div>
+                        <div class="submission" class:visible={isTextareaFocused}                    >
+
+              
+                          {#if isTextareaFocused}
+                          <span class="btn" >
+                            <Paperclip  />
+                          </span>
+                          <span 
+                          class="btn"
+                          class:visible={isTextareaFocused}
+
+                          on:click={() => toggleSection('prompts')}
+                        >
+                            <span class="icon">
+                              {#if $expandedSections.prompts}
+                              <!-- <Command size={30} /> -->
+                              {:else}
+                              <!-- <Command size={20} /> -->
+                              {/if}
+                            </span>
+                            {#if selectedPromptLabel}
+                              {#if selectedIcon}
+                              <div class="icon-wrapper">
+                                <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                              </div>
+                            {/if}
+                              <!-- <h3>{$t('chat.prompts')}</h3> -->
+                              <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                            {:else}
+                              <!-- <Command size={20} /> -->
+                              <!-- <h3>{$t('chat.prompts')}</h3> -->
+                            {/if}
+                        </span>
+                        <span 
+                        class="btn"
+                        on:click={() => toggleSection('models')}
+                        >
+                          <span class="icon">
+                            {#if $expandedSections.models}
+                            <Brain />
+                            {:else}
+                            <Brain/>
+                            {/if}
+                          </span>
+                          {#if selectedModelLabel}
+                            <!-- <h3>{$t('chat.models')}</h3> -->
+                            <p class="selector-lable">{selectedModelLabel} </p>
+                          {:else}
+                            <!-- <p>{$t('chat.models')}</p> -->
+                          {/if}
+                        </span>
+                        <span 
+                        class="btn send-btn" 
+                        class:visible={isTextareaFocused}
+                        transition:slide
+                        on:click={() => !isLoading && handleSendMessage()} 
+                        disabled={isLoading}
+                      >
+                        <Send />
+                      </span>
+                        {/if}
+                      </div>
+                      </div>
+                    </div>
+        
+                      <div class="ai-selector">
+            
+    
+                
+                        {#if $expandedSections.prompts}
+                          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                            <PromptCatalog 
+                            on:select={(event) => {
+                              // Close the prompt catalog by updating the expanded sections store
+                              expandedSections.update(sections => ({
+                                ...sections,
+                                prompts: false
+                              }));
+                              
+                              // Update the selected prompt
+                              showPromptCatalog = false;
+                              console.log('Parent received selection from catalog:', event.detail);
+                            }}
+                          />
+                          </div>
+                        {/if}
+                
+    
+                
+                    
+                        {#if $expandedSections.models}
+                          <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                            <ModelSelector
+                              on:select={(event) => {
+                                showModelSelector = !showModelSelector;
+                                console.log('Parent received selection from catalog:', event.detail);
+                              }}
+                            />
+                          </div>
+                        {/if}
+                
+                          
+                        </div>
+        
+            
+            
+        
+            
+                      </div>         
+
                   </div>
                 {/if}
               </div>
+              {#if currentThread}
+
               <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
 
                 {#each groupMessagesByDate(chatMessages) as { date, messages }}
@@ -2115,7 +2261,9 @@ onDestroy(() => {
     
         
                   </div>
-            
+                  {/if}
+                  
+
           </div>
 
           
@@ -2877,13 +3025,31 @@ onDestroy(() => {
     width: auto; 
       & textarea {
         margin-left: 0;
+        height: auto;
       }
     } 
-    & .chat-placeholder {
-        right: 0;
-        width: 100%;
-        left: 0;
+    &.input-container-start {
+      left: 0;
+      margin-left: 2rem;
+    margin-right: 2rem;
+    width: 80%; 
+      & textarea {
         margin-left: 0;
+      }
+
+      
+
+
+
+    } 
+    & .chat-placeholder {
+      & p {
+
+        margin-left: 4rem;
+        margin-right: 4rem;
+        margin-bottom: 2rem;
+      }
+
     }
 
     & .chat-content {
@@ -2915,13 +3081,128 @@ onDestroy(() => {
     right: 0;
     left: 0;
     bottom: 0;
-    height: auto;
+    height: 100%;
     margin-bottom: 0;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
     align-items: center;
     // background: var(--bg-gradient);
+
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+    
+    :global(svg) {
+      color: var(--primary-color);
+      stroke: var(--primary-color);
+      fill: var(--tertiary-color);
+    }
+
+    & textarea {
+      font-size: 1.5rem;
+      border: none;
+      box-shadow: none;
+      position: relative; 
+      left: 0;
+      border-radius: var(--radius-m);
+
+      // background-color: transparent;
+      background: var(--bg-gradient-r);
+      margin-right: 2rem !important;
+      margin-left: 4rem;
+      // margin-left: 7rem;
+      margin-top: 0.5rem;
+      transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+      padding-top: 1rem;
+      padding-left: 1rem;
+      // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+      color: var(--text-color);
+      // background: transparent;
+      display: flex;
+      width: 100%;
+      // backdrop-filter: blur(40px);
+      // & :focus {
+      //   border-top: 1px solid red;
+      // color: white;
+      // animation: pulse 10.5s infinite alternate;
+      // box-shadow: none;
+
+      // display: flex;
+      // // background: var(--bg-gradient-left) !important;
+      //     // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+      //     border-top: 1px solid var(--secondary-color) !important;
+
+      // background: black !important; 
+      // padding: 2rem;
+      // margin-left: 2rem;
+      // margin-right: 0;
+      // height: auto;
+      // box-shadow: none !important;
+      
+      // }
+    }
+
+  }
+
+  .input-container-start {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    bottom: 4rem;
+    margin-left: 2rem;
+    margin-top: 0;
+    width: 80%;    
+    right: 2rem;
+    left: 0;
+    top: 0;
+    height:auto;
+    margin-bottom: 100px;
+    // backdrop-filter: blur(4px);
+    justify-content: flex-end;
+    align-items: center;
+    // background: var(--bg-gradient);
     z-index: 3000;
+   & .combo-input {
+  // width: 100vw;;
+  bottom: 4rem;
+  margin-bottom: 0;
+  // background: var(--bg-gradient);
+  width: 100%;
+  
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-start;
+  // backdrop-filter: blur(40px);
+  & textarea {
+    border-top: 1px solid var(--primary-color) !important;
+    // max-height: 50vh;
+    margin-left: 0;
+    margin-top: 0;
+  
+  :focus {
+    background: var(--bg-gradient-left);
+    z-index: 7000;   
+
+  }
+}
+}
+
+    & .submission {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  width: auto;
+  justify-content: center;
+  align-self: flex-start;
+  width: fit-content;
+  z-index: 6000;
+  gap: 2rem;
+  padding: 0.5rem;
+  transition: height 0.3s ease;
+  border-radius: var(--radius-m);
+    }
 
     &::placeholder {
       color: var(--placeholder-color);
@@ -2994,6 +3275,7 @@ onDestroy(() => {
   margin-bottom: 0;
   // background: var(--bg-gradient);
   width: 100%;
+  height: auto;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
@@ -3001,13 +3283,12 @@ onDestroy(() => {
   // backdrop-filter: blur(40px);
   & textarea {
     border-top: 1px solid var(--primary-color) !important;
-    max-height: 50vh;
+    // max-height: 50vh;
     margin-left: 0;
     margin-top: 0;
   
   :focus {
     background: var(--bg-gradient-left);
-    z-index: 4000;   
 
   }
 }
@@ -3044,7 +3325,7 @@ color: #6fdfc4;
   justify-content: center;
   align-self: flex-end;
   width: fit-content;
-  z-index: 1000;
+  z-index: 6000;
   gap: 2rem;
   padding: 0.5rem;
   transition: height 0.3s ease;
@@ -3055,6 +3336,8 @@ color: #6fdfc4;
 .visible.submission {
   // backdrop-filter: blur(4px);
   background: var(--bg-gradient-left);
+  z-index: 7000;
+  
 }
 
 
@@ -3062,15 +3345,16 @@ color: #6fdfc4;
     flex-grow: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    background: var(--primary-color);
+    // background: var(--primary-color);
     /* padding: 10px; */
     display: flex;
     position: relative;
     margin-right: 0;
     // margin-top: 1rem;
     // left: 25%;
-    bottom: auto;
+    bottom: 200px;
     padding: 1rem;
+    z-index: 4000;
     flex-direction: column;
     overflow-x: hidden;
     align-items: stretch;
@@ -3387,8 +3671,9 @@ color: #6fdfc4;
 .chat-header {
     height: 3rem;
     margin-left: 0;
+    margin-bottom: 160px;
     position: relative;
-    // background: var(--primary-color);
+    background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
     top: 0 !important;
@@ -3406,7 +3691,7 @@ color: #6fdfc4;
     flex-direction: row;
     justify-content: space-between;
     transition: all 0.2s ease;
-    z-index: 2000;
+    z-index: 6000;
     backdrop-filter: blur(10px);
     & h3 {
       margin: 0;
@@ -3973,6 +4258,7 @@ color: #6fdfc4;
 
 .chat-placeholder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-m);
@@ -3988,8 +4274,15 @@ color: #6fdfc4;
   right: 0;
 
   & h3 {
-    user-select: none;
-  }
+        font-size: 50px;
+
+      }
+  & p {
+    margin-left: 4rem;
+    margin-right: 4rem;
+    margin-bottom: 2rem;
+    }
+  
 }
 
 
@@ -4273,7 +4566,8 @@ color: #6fdfc4;
 
   .cards {
     margin-bottom: 4rem;
-    background: var(--primary-color);
+    backdrop-filter: blur(10px);
+    // background: var(--primary-color);
     border-top-right-radius: var(--radius-l);
     border-bottom-right-radius: var(--radius-l);
     
@@ -4472,8 +4766,8 @@ color: #6fdfc4;
 
   .scroll-bottom-btn {
     position: fixed;
-    bottom: 12rem !important;
-    right: 2rem;
+    bottom: 8rem !important;
+    right: 5rem;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -4485,7 +4779,7 @@ color: #6fdfc4;
     justify-content: center;
     cursor: pointer;
     transition: background-color 0.3s;
-    z-index: 100;
+    z-index: -1 !important;
     align-self: flex-end;
     margin-right: 0;
     margin-bottom: 0;
@@ -4669,6 +4963,7 @@ color: #6fdfc4;
     display: flex;
     justify-content: right;
       bottom: 10rem;
+      backdrop-filter: blur(400px);
     margin-right: 0;
     right: 2rem;
     left: 0;
@@ -4939,7 +5234,7 @@ color: #6fdfc4;
     padding: 0 0 0 0 !important;
     // box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
     box-shadow: none;
-    z-index: 4000 !important;
+    // z-index: 4000 !important;
     &     textarea {
       font-size: 1.5rem;
       border: none;
@@ -5166,17 +5461,20 @@ color: #6fdfc4;
     left: 0rem;
     right: 0;
     top: 1rem;
-    bottom: 6rem;
+    bottom: 200px;
+    
+    z-index: inherit;
     margin-top: 0 !important;
     margin-right: 1rem;
     margin-left: 0 !important;
-    margin-bottom: 0;
+    margin-bottom: 4rem;
     
   }
 
   .drawer-visible .chat-messages {
     margin-left: 0 !important;
     bottom: 0;
+    margin-bottom: 200px;
     left: 0;
     right:0;
     top: 2rem;
