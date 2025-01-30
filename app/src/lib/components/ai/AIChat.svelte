@@ -2789,6 +2789,45 @@ onDestroy(() => {
 
   /// KEYFRAMES
   @at-root {
+
+    @keyframes shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-2px);
+      }
+      20%, 40%, 60%, 80% {
+        transform: translateX(2px);
+      }
+      100% {
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes scaleEffect {
+      0% {
+          transform: scale(1);
+      }
+      50% {
+          transform: scale(1.5);
+      }
+      100% {
+          transform: scale(1);
+      }
+  }
+
+  @keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.5);
+    }
+    100% {
+        transform: scale(1);
+    }
+  }
   @keyframes swipe {
     0% {
       transform: translateX(-100%) translateY(-100%) rotate(45deg);
@@ -3178,7 +3217,7 @@ onDestroy(() => {
     width: auto;    
     right: 0;
     left: 0;
-    top: 50%;
+    top: 2rem;
     margin-bottom: 2rem;
     height: auto;
     max-height: 50vh; 
@@ -4302,7 +4341,7 @@ span.hero {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content:flex-start;
+  justify-content:center;
   border-radius: var(--radius-m);
   top: 0;
   backdrop-filter: blur(10px);
@@ -4318,14 +4357,31 @@ span.hero {
 
 
   & h3 {
-        font-size: 50px;
+      font-size: 50px;
+      user-select: none;
+      &:hover {
+      // transform: scale(1.1);
+      // animation: scaleEffect 1.3s ease-in-out;
+      background: none;
 
       }
+      &:active {
+        color: var(--bg-gradient-left); 
+        transition: all 0.3s ease-in-out;
+        transform: scale(1.3) skewX(30px);
+        animation: shake 0.8s ease;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); 
+        filter: blur(2px);
+        filter: hue-rotate(1deg) drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+    }
+  }
   & p {
-
-
-
     padding: 0.5rem;
+    white-space: pre-wrap;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      hyphens: auto;
+      text-align: right;
     }
   
 }
