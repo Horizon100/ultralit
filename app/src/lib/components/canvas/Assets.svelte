@@ -1,32 +1,43 @@
 <script lang="ts">
-    import { createEventDispatcher } from 'svelte';
-    import { fade, slide } from 'svelte/transition';
-    import { Square, Circle, Triangle, Star, Hexagon, Pencil, CheckSquare, Database, Mic, Calculator, Box } from 'lucide-svelte';
-    import AgentThumbnail from '$lib/assets/agent-thumbnail.svg';
-    import Controls from '$lib/assets/icons/ai/controls.svg';
-    import Compass from '$lib/assets/icons/map/compass.svg';
+	import { createEventDispatcher } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
+	import {
+		Square,
+		Circle,
+		Triangle,
+		Star,
+		Hexagon,
+		Pencil,
+		CheckSquare,
+		Database,
+		Mic,
+		Calculator,
+		Box
+	} from 'lucide-svelte';
+	import AgentThumbnail from '$lib/assets/agent-thumbnail.svg';
+	import Controls from '$lib/assets/icons/ai/controls.svg';
+	import Compass from '$lib/assets/icons/map/compass.svg';
 
-    import type { Shape } from '$lib/types/types'; // Import Shape from your types file
-    export let startPoint: string;
-    export let endPoint: string;
-    
-    const dispatch = createEventDispatcher<{
-        addShape: { shape: Shape; x: number; y: number };
-    }>();
+	import type { Shape } from '$lib/types/types'; // Import Shape from your types file
+	export let startPoint: string;
+	export let endPoint: string;
 
-    interface Category {
-        name: string;
-        shapes: Shape[];
-    }
+	const dispatch = createEventDispatcher<{
+		addShape: { shape: Shape; x: number; y: number };
+	}>();
 
-    
-    const categories: Category[] = [
-        {
-            name: "Agents",
-            shapes: [
-                {
-                    id: 'Agent',
-                    svg: `
+	interface Category {
+		name: string;
+		shapes: Shape[];
+	}
+
+	const categories: Category[] = [
+		{
+			name: 'Agents',
+			shapes: [
+				{
+					id: 'Agent',
+					svg: `
                         <svg width="120" height="150" viewBox="0 0 100 100">
 
                             <rect width="120" height="120" fill="transparent" rx="5" ry="5" />
@@ -34,14 +45,14 @@
                             <text x="30" y="10" font-family="Arial" font-size="20" fill="black" text-anchor="middle">Agent</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle agent">
                                 <img src="${Controls}" alt="Agent controls" />
                                 <span>Agent</span>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.agent {
                                 width: 120px;
                                 height: 120px;
@@ -74,11 +85,11 @@
 
                             }
                         `
-                    }
-                },
-                {
-                    id: 'Test',
-                    svg: `
+					}
+				},
+				{
+					id: 'Test',
+					svg: `
                         <svg width="120" height="150" viewBox="0 0 100 100">
 
                             <rect width="120" height="120" fill="transparent" rx="5" ry="5" />
@@ -86,14 +97,14 @@
                             <text x="30" y="10" font-family="Arial" font-size="20" fill="black" text-anchor="middle">Agent</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle agent">
                                 <img src="${Compass}" alt="Agent controls" />
                                 <span>Agent</span>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.agent {
                                 width: 120px;
                                 height: 120px;
@@ -120,17 +131,17 @@
                                 font-size: 18px;
                             }
                         `
-                    }
-                }
-            ]
-        },
-        {
-            name: "Tools",
-            shapes: [
-                // Sticker
-                {
-                    id: 'Sticker',
-                    svg: `
+					}
+				}
+			]
+		},
+		{
+			name: 'Tools',
+			shapes: [
+				// Sticker
+				{
+					id: 'Sticker',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#FFD700" rx="5" ry="5" />
                             <foreignObject width="120" height="130" x="10" y="10">
@@ -141,13 +152,13 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="black" text-anchor="middle">Sticker</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle sticker">
                                 <textarea placeholder="Write your note here..."></textarea>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.sticker {
                                 width: 150px;
                                 height: 150px;
@@ -165,12 +176,12 @@
                                 font-size: 14px;
                             }
                         `
-                    }
-                },
-                // TaskTracker
-                {
-                    id: 'TaskTracker',
-                    svg: `
+					}
+				},
+				// TaskTracker
+				{
+					id: 'TaskTracker',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#3498db" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -183,8 +194,8 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Task Tracker</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle task-tracker">
                                 <ul>
                                     <li><input type="checkbox"> Task 1</li>
@@ -193,7 +204,7 @@
                                 </ul>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.task-tracker {
                                 width: 150px;
                                 height: 150px;
@@ -210,12 +221,12 @@
                                 margin-bottom: 5px;
                             }
                         `
-                    }
-                },
-                // Calculator
-                {
-                    id: 'Calculator',
-                    svg: `
+					}
+				},
+				// Calculator
+				{
+					id: 'Calculator',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#34495e" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -226,13 +237,13 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Calculator</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle calculator">
                                 <Calculator size={64} />
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.calculator {
                                 width: 150px;
                                 height: 150px;
@@ -244,17 +255,17 @@
                                 color: white;
                             }
                         `
-                    }
-                }
-            ]
-        },
-        {
-            name: "Infrastructure",
-            shapes: [
-                // ResourceManager
-                {
-                    id: 'ResourceManager',
-                    svg: `
+					}
+				}
+			]
+		},
+		{
+			name: 'Infrastructure',
+			shapes: [
+				// ResourceManager
+				{
+					id: 'ResourceManager',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#e74c3c" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -267,15 +278,15 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Resource Manager</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle resource-manager">
                                 <div>CPU: 50%</div>
                                 <div>RAM: 4GB</div>
                                 <div>Disk: 100GB</div>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.resource-manager {
                                 width: 150px;
                                 height: 150px;
@@ -288,12 +299,12 @@
                                 justify-content: space-around;
                             }
                         `
-                    }
-                },
-                // Database
-                {
-                    id: 'Database',
-                    svg: `
+					}
+				},
+				// Database
+				{
+					id: 'Database',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#9b59b6" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -306,15 +317,15 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Database</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle database">
                                 <div>Table 1</div>
                                 <div>Table 2</div>
                                 <div>Table 3</div>
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.database {
                                 width: 150px;
                                 height: 150px;
@@ -327,17 +338,17 @@
                                 justify-content: space-around;
                             }
                         `
-                    }
-                }
-            ]
-        },
-        {
-            name: "Rooms",
-            shapes: [
-                // VoiceRoom
-                {
-                    id: 'VoiceRoom',
-                    svg: `
+					}
+				}
+			]
+		},
+		{
+			name: 'Rooms',
+			shapes: [
+				// VoiceRoom
+				{
+					id: 'VoiceRoom',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#f39c12" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -348,13 +359,13 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Voice Room</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle voice-room">
                                 <Mic size={64} />
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.voice-room {
                                 width: 150px;
                                 height: 150px;
@@ -366,12 +377,12 @@
                                 color: white;
                             }
                         `
-                    }
-                },
-                // Room
-                {
-                    id: 'Room',
-                    svg: `
+					}
+				},
+				// Room
+				{
+					id: 'Room',
+					svg: `
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#1abc9c" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
@@ -382,13 +393,13 @@
                             <text x="75" y="135" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Room</text>
                         </svg>
                     `,
-                    component: {
-                        template: `
+					component: {
+						template: `
                             <div class="shape rectangle room">
                                 <Box size={64} />
                             </div>
                         `,
-                        style: `
+						style: `
                             .shape.rectangle.room {
                                 width: 150
                                 height: 150px;
@@ -400,145 +411,141 @@
                 color: white;
             }
         `
-    }
-}
-            ]
-        }
-    ];
+					}
+				}
+			]
+		}
+	];
 
-    let expandedCategories: { [key: string]: boolean } = {};
-    categories.forEach(category => {
-        expandedCategories[category.name] = category.name === "Agents"; // Open Agents by default
-    });
+	let expandedCategories: { [key: string]: boolean } = {};
+	categories.forEach((category) => {
+		expandedCategories[category.name] = category.name === 'Agents'; // Open Agents by default
+	});
 
-    function toggleCategory(categoryName: string) {
-        expandedCategories[categoryName] = !expandedCategories[categoryName];
-    }
+	function toggleCategory(categoryName: string) {
+		expandedCategories[categoryName] = !expandedCategories[categoryName];
+	}
 
-    function handleDragStart(event: DragEvent, shape: Shape) {
-        if (event.dataTransfer) {
-            const shapeData = JSON.stringify(shape);
-            event.dataTransfer.setData('application/json', shapeData);
-            event.dataTransfer.effectAllowed = 'copy';
-            console.log('Drag started with shape data:', shapeData);
-        }
-    }
+	function handleDragStart(event: DragEvent, shape: Shape) {
+		if (event.dataTransfer) {
+			const shapeData = JSON.stringify(shape);
+			event.dataTransfer.setData('application/json', shapeData);
+			event.dataTransfer.effectAllowed = 'copy';
+			console.log('Drag started with shape data:', shapeData);
+		}
+	}
 
-    function handleClick(shape: Shape) {
-        const x = 100;
-        const y = 100;
-        dispatch('addShape', { shape, x, y });
-    }
+	function handleClick(shape: Shape) {
+		const x = 100;
+		const y = 100;
+		dispatch('addShape', { shape, x, y });
+	}
 </script>
 
 <div class="assets-container">
-    <h2>Shapes</h2>
-    <div class="accordion">
-        {#each categories as category}
-            <div class="category">
-                <button class="category-header" on:click={() => toggleCategory(category.name)}>
-                    {category.name}
-                    <span class="expand-icon">{expandedCategories[category.name] ? '▼' : '▶'}</span>
-                </button>
-                {#if expandedCategories[category.name]}
-                    <div class="shapes-grid" transition:slide={{ duration: 300 }}>
-                        {#each category.shapes as shape (shape.id)}
-                            <div 
-                                class="shape-item" 
-                                draggable="true" 
-                                on:dragstart={(e) => handleDragStart(e, shape)}
-                                on:click={() => handleClick(shape)}
-                            >
-                                {@html shape.svg}
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
-            </div>
-        {/each}
-    </div>
+	<h2>Shapes</h2>
+	<div class="accordion">
+		{#each categories as category}
+			<div class="category">
+				<button class="category-header" on:click={() => toggleCategory(category.name)}>
+					{category.name}
+					<span class="expand-icon">{expandedCategories[category.name] ? '▼' : '▶'}</span>
+				</button>
+				{#if expandedCategories[category.name]}
+					<div class="shapes-grid" transition:slide={{ duration: 300 }}>
+						{#each category.shapes as shape (shape.id)}
+							<div
+								class="shape-item"
+								draggable="true"
+								on:dragstart={(e) => handleDragStart(e, shape)}
+								on:click={() => handleClick(shape)}
+							>
+								{@html shape.svg}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
-    .assets-container {
-        padding: 1rem;
-        user-select: none;
-        
-    }
+	.assets-container {
+		padding: 1rem;
+		user-select: none;
+	}
 
-    h2 {
-        color: white;
-        margin-bottom: 1rem;
-    }
+	h2 {
+		color: white;
+		margin-bottom: 1rem;
+	}
 
-    .accordion {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
+	.accordion {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
 
-    image {
-        width: 100%;
-        height: 100%;
-    }
+	image {
+		width: 100%;
+		height: 100%;
+	}
 
-    .category-header {
-        width: 100%;
-        text-align: left;
-        padding: 0.5rem;
-        background-color: rgba(255, 255, 255, 0.1);
-        border: none;
-        color: white;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: background-color 0.3s ease;
-    }
+	.category-header {
+		width: 100%;
+		text-align: left;
+		padding: 0.5rem;
+		background-color: rgba(255, 255, 255, 0.1);
+		border: none;
+		color: white;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		transition: background-color 0.3s ease;
+	}
 
-    .category-header:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-    }
+	.category-header:hover {
+		background-color: rgba(255, 255, 255, 0.2);
+	}
 
-    .expand-icon {
-        font-size: 0.8em;
-    }
+	.expand-icon {
+		font-size: 0.8em;
+	}
 
-    .shapes-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 1rem;
-        padding: 1rem;
-        background-color: rgba(255, 255, 255, 0.05);
+	.shapes-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 1rem;
+		padding: 1rem;
+		background-color: rgba(255, 255, 255, 0.05);
+	}
 
-    }
+	.shape-item {
+		cursor: move;
+		transition: transform 0.3s ease;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		padding: 10px;
+		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+	}
 
-    .shape-item {
-        cursor: move;
-        transition: transform 0.3s ease;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 10px;
-        transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    }
+	.shape-item:hover {
+		transform: scale(1.05);
+		background-color: rgba(255, 255, 255, 0.2);
+	}
 
-    .shape-item:hover {
-        transform: scale(1.05);
-        background-color: rgba(255, 255, 255, 0.2);
-    }
+	svg {
+		width: 100%;
+		height: 100%;
+		transition: transform 0.3s ease;
+	}
 
-    svg {
-        width: 100%;
-        height: 100%;
-        transition: transform 0.3s ease;
-    }
-
-
-
-    .shape-item:hover svg {
-        transform: scale(1.05);
-    }
+	.shape-item:hover svg {
+		transform: scale(1.05);
+	}
 </style>

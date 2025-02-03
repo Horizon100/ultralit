@@ -8,6 +8,10 @@
 /build
 /.vercel
 /.output
+/coverage
+/dist
+/package-lock.json
+*.d.ts
 
 # Environment variables
 .env
@@ -28,25 +32,65 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
+*.bak
+*.tmp
+*~
 
 # Editor directories and files
 .idea
 .vscode
+.history/
+.vscode-test
+*.code-workspace
+.settings/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Temporary files
-*.log
-*.bak
-*.tmp
-*~
-
 # Cache
 .cache
 .parcel-cache
+
+# Security and keys
+**/pb_data/
+**/pb_migrations/
+pb_config.json
+*_auth.json
+*_key.json
+*.key
+*.cert
+*.crt
+*.local.crt
+*.local.key
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# PocketBase
+/pb_data/
+/pb_migrations/
+*.db
+*.sqlite
+*.sqlite3
+
+# Test and documentation
+/coverage
+/docs/_site/
+/docs/.jekyll-cache/
+**/test/credentials/
+**/cypress.env.json
+**/test-results/
+**/playwright-report/
+
+# Backup files
+**/*.backup
+**/*.swp
+**/*.old
 
 # Misc
 *.pem

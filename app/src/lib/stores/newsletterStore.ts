@@ -4,44 +4,45 @@ import { pb } from '$lib/pocketbase';
 import type { NewsletterSubscription, NewsletterPreferences } from '$lib/types/types.subscriptions';
 
 function createNewsletterStore() {
-    const { subscribe: storeSubscribe, update } = writable<NewsletterSubscription[]>([]);
+	const { subscribe: storeSubscribe, update } = writable<NewsletterSubscription[]>([]);
 
-    const store = {
-        subscribe: storeSubscribe,
-        subscribeToNewsletter: async (email: string, preferences: NewsletterPreferences) => {
-            try {
-                const subscription = await pb.collection('subscriptions').create<NewsletterSubscription>({
-                    email,
-                    newsletter: preferences.newsletter,
-                    events: preferences.events,
-                    verified: false
-                });
+	const store = {
+		subscribe: storeSubscribe,
+		subscribeToNewsletter: async (email: string, preferences: NewsletterPreferences) => {
+			try {
+				const subscription = await pb.collection('subscriptions').create<NewsletterSubscription>({
+					email,
+					newsletter: preferences.newsletter,
+					events: preferences.events,
+					verified: false
+				});
 
-                update(subs => [...subs, subscription]);
-                return subscription;
-            } catch (err) {
-                console.error('Newsletter subscription failed:', err);
-                throw new Error('Failed to subscribe to newsletter');
-            }
-        },
-        unsubscribe: async (email: string) => {
-            try {
-                const subscription = await pb.collection('subscriptions')
-                    .getFirstListItem<NewsletterSubscription>(`email="${email}"`);
-                
-                if (subscription) {
-                    await pb.collection('subscriptions').delete(subscription.id);
-                    update(subs => subs.filter(sub => sub.id !== subscription.id));
-                }
-                return true;
-            } catch (err) {
-                console.error('Newsletter unsubscribe failed:', err);
-                throw new Error('Failed to unsubscribe from newsletter');
-            }
-        }
-    };
+				update((subs) => [...subs, subscription]);
+				return subscription;
+			} catch (err) {
+				console.error('Newsletter subscription failed:', err);
+				throw new Error('Failed to subscribe to newsletter');
+			}
+		},
+		unsubscribe: async (email: string) => {
+			try {
+				const subscription = await pb
+					.collection('subscriptions')
+					.getFirstListItem<NewsletterSubscription>(`email="${email}"`);
 
-    return store;
+				if (subscription) {
+					await pb.collection('subscriptions').delete(subscription.id);
+					update((subs) => subs.filter((sub) => sub.id !== subscription.id));
+				}
+				return true;
+			} catch (err) {
+				console.error('Newsletter unsubscribe failed:', err);
+				throw new Error('Failed to unsubscribe from newsletter');
+			}
+		}
+	};
+
+	return store;
 }
 
 export const newsletterStore = createNewsletterStore();

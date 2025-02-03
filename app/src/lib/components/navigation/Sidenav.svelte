@@ -1,624 +1,788 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { get } from 'svelte/store';
-  import { MessageSquare, X, PanelLeftClose, PanelLeftOpen, Drill, NotebookTabs, 
-           Sun, Moon, Languages, Camera, Plus, LogIn, LogOut, User, Sunrise, Sunset, Focus, Bold, Gauge, Component, 
-           Bone} from 'lucide-svelte';
-  import { currentUser, pb } from '$lib/pocketbase';
-  import { currentTheme } from '$lib/stores/themeStore';
-  import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
-  import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
-  import PromptSelector from '$lib/components/ai/PromptSelector.svelte';
-  import { threadsStore } from '$lib/stores/threadsStore';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { fly, fade, slide } from 'svelte/transition';
-  import { t } from '$lib/stores/translationStore';
-  import { tick } from 'svelte';
-  import Profile from '$lib/components/ui/Profile.svelte';
-  import Auth from '$lib/components/auth/Auth.svelte';
-  import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
-  import type { SlideParams } from 'svelte/transition';
+	import { createEventDispatcher } from 'svelte';
+	import {onMount} from 'svelte'
+	import { get } from 'svelte/store';
+	import Kanban from '$lib/components/lean/Kanban.svelte';
+	import {
+		MessageSquare,
+		X,
+		PanelLeftClose,
+		PanelLeftOpen,
+		Drill,
+		NotebookTabs,
+		Sun,
+		Moon,
+		Languages,
+		Camera,
+		Plus,
+		LogIn,
+		LogOut,
+		User,
+		Sunrise,
+		Sunset,
+		Focus,
+		Bold,
+		Gauge,
+		Component,
+		Bone,
 
+		SquareKanban,
 
-  let showLanguageNotification = false;
-  let selectedLanguageName = '';
-  let isStylesOpen = false;
-  let showThreadList: boolean;
-  let placeholderText = '';
+		MapPin,
 
+		Combine,
 
-  let innerWidth: number;
+		MessageCircleDashed,
 
-  let showAuth = false;
-  let showProfile = false;
-  let showStyles = false;
-  let currentStyle = 'default';
-
-  function getRandomQuote() {
-    const quotes = $t('extras.quotes');
-    return quotes[Math.floor(Math.random() * quotes.length)];
-  }
-  
+		MessageCircle
 
 
 
-  $: placeholderText = getRandomQuote();
-  $: showThreadList = $threadsStore.showThreadList;
-  $: currentPath = $page.url.pathname;
-  $: showBottomButtons = currentPath === '/';
-  $: isNarrowScreen = innerWidth <= 768;
 
 
-  const dispatch = createEventDispatcher<{
-    promptSelect: any;
-    promptAuxclick: any;
-    threadListToggle: void;
-  }>();
+	} from 'lucide-svelte';
+	import { currentUser, pb } from '$lib/pocketbase';
+	import { currentTheme } from '$lib/stores/themeStore';
+	import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
+	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
+	import PromptSelector from '$lib/components/ai/PromptSelector.svelte';
+	import { threadsStore } from '$lib/stores/threadsStore';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { fly, fade, slide } from 'svelte/transition';
+	import { t } from '$lib/stores/translationStore';
+	import { tick } from 'svelte';
+	import Profile from '$lib/components/ui/Profile.svelte';
+	import Auth from '$lib/components/auth/Auth.svelte';
+	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+	import type { SlideParams } from 'svelte/transition';
 
-  const styles = [
-    { name: 'Daylight Delight', value: 'default', icon: Sun },
-    { name: 'Midnight Madness', value: 'dark', icon: Moon },
-    { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-    { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-    { name: 'Laser Focus', value: 'focus', icon: Focus },
-    { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-    { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-    { name: 'Bone Tone', value: 'bone', icon: Bone },
-    { name: 'Ivory Tower', value: 'ivory', icon: Component }
+	let showLanguageNotification = false;
+	let selectedLanguageName = '';
+	let isStylesOpen = false;
+	let showThreadList: boolean;
+	let placeholderText = '';
+	let username: string = 'You';
+	let isMenuOpen = true;
 
-  ];
+	let innerWidth: number;
+	let isNavExpanded = false;
 
-  // Handle style changes
-  function handleStyleClick() {
-    showStyles = !showStyles;
-  }
+	let showAuth = false;
+	let showProfile = false;
+	let showStyles = false;
+	let currentStyle = 'default';
 
-  async function handleLanguageChange() {
-    showLanguageNotification = true;
+	function getRandomQuote() {
+		const quotes = $t('extras.quotes');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
 
-    const currentLang = $currentLanguage;
-    const currentIndex = languages.findIndex(lang => lang.code === currentLang);
-    const nextIndex = (currentIndex + 1) % languages.length;
-    const nextLanguage = languages[nextIndex];
+	$: placeholderText = getRandomQuote();
+	$: showThreadList = $threadsStore.showThreadList;
+	$: currentPath = $page.url.pathname;
+	$: showBottomButtons = currentPath === '/';
+	$: isNarrowScreen = innerWidth <= 1000;
 
-    await setLanguage(nextLanguage.code);
-    selectedLanguageName = nextLanguage.name;
-    
-    await tick();
-    
-    setTimeout(() => {
-      showLanguageNotification = true;
-    }, 0);
-    setTimeout(() => {
-      showLanguageNotification = false;
-    }, 600);
-  }
+	const dispatch = createEventDispatcher<{
+		promptSelect: any;
+		promptAuxclick: any;
+		threadListToggle: void;
+	}>();
 
-  $: showThreadList = $threadsStore.showThreadList; 
+	const styles = [
+		{ name: 'Daylight Delight', value: 'default', icon: Sun },
+		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
+		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+		{ name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+		{ name: 'Laser Focus', value: 'focus', icon: Focus },
+		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+		{ name: 'Bone Tone', value: 'bone', icon: Bone },
+		{ name: 'Ivory Tower', value: 'ivory', icon: Component }
+	];
+
+	// Handle style changes
+	function handleStyleClick() {
+		showStyles = !showStyles;
+	}
+
+	async function handleLanguageChange() {
+		showLanguageNotification = true;
+
+		const currentLang = $currentLanguage;
+		const currentIndex = languages.findIndex((lang) => lang.code === currentLang);
+		const nextIndex = (currentIndex + 1) % languages.length;
+		const nextLanguage = languages[nextIndex];
+
+		await setLanguage(nextLanguage.code);
+		selectedLanguageName = nextLanguage.name;
+
+		await tick();
+
+		setTimeout(() => {
+			showLanguageNotification = true;
+		}, 0);
+		setTimeout(() => {
+			showLanguageNotification = false;
+		}, 600);
+	}
+
+	$: showThreadList = $threadsStore.showThreadList;
+
+	export function toggleThreadList() {
+		threadsStore.toggleThreadList();
+	}
+	function toggleStyles() {
+		showStyles = !showStyles;
+	}
+
+	function handleStyleClose() {
+		showStyles = false;
+	}
+
+	async function handleStyleChange(event: CustomEvent) {
+		const { style } = event.detail;
+		await currentTheme.set(style);
+		showStyles = false;
+	}
+
+	export function toggleNav() {
+		isNavExpanded = !isNavExpanded;
+	}
+
+	function setActiveLink(path: string) {
+		goto(path);
+		activeLink = path;
+	}
+
+	function handleLogoClick(event: MouseEvent) {
+		event.preventDefault();
+		setActiveLink('/');
+	}
+	function toggleAuthOrProfile() {
+		if ($currentUser) {
+			showProfile = !showProfile;
+			showAuth = false;
+		} else {
+			showAuth = !showAuth;
+			showProfile = false;
+		}
+	}
+
+	function handleAuthSuccess() {
+		showAuth = false;
+	}
+
+	function handleLogout() {
+		showProfile = false;
+		showAuth = false;
+		goto('/');
+	}
+
+	function handleOverlayClick(event: MouseEvent) {
+		if (event.target === event.currentTarget) {
+			showAuth = false;
+			showProfile = false;
+			showStyles = false;
+		}
+	}
+
+	function navigateTo(path: string) {
+		goto(path);
+	}
+
+	function handlePromptSelect(event: CustomEvent) {
+		dispatch('promptSelect', event.detail);
+	}
+	onMount(async () => {
+  try {
+    console.log('onMount initiated');
 
 
-  export function toggleThreadList() {
-    threadsStore.toggleThreadList();
-}
-  function toggleStyles() {
-    showStyles = !showStyles;
-  }
-
-  function handleStyleClose() {
-    showStyles = false;
-  }
-
-  async function handleStyleChange(event: CustomEvent) {
-    const { style } = event.detail;
-    await currentTheme.set(style);
-    showStyles = false;
-  }
-
-  function toggleAuthOrProfile() {
-    if ($currentUser) {
-      showProfile = !showProfile;
-      showAuth = false;
-    } else {
-      showAuth = !showAuth;
-      showProfile = false;
+    // Set up user info
+    if ($currentUser && $currentUser.id) {
+      console.log('Current user:', $currentUser);
+      username = $currentUser.username || $currentUser.email;
     }
+  } catch (error) {
+    console.error('Error during onMount:', error);
   }
+});
 
-  function handleAuthSuccess() {
-    showAuth = false;
-  }
-
-  function handleLogout() {
-    showProfile = false;
-    showAuth = false;
-    goto('/');
-  }
-
-  function handleOverlayClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      showAuth = false;
-      showProfile = false;
-      showStyles = false;
-    }
-  }
-
-  function navigateTo(path: string) {
-    goto(path);
-  }
-
-  function handlePromptSelect(event: CustomEvent) {
-    dispatch('promptSelect', event.detail);
-  }
 </script>
 
-<div class="sidenav" transition:slide={{ duration: 300 }}>
-    <!-- Authentication/Profile Button -->
-    <div class="navigation-buttons" class:hidden={isNarrowScreen} in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
-      {#if $currentUser}
+<div class="sidenav" 
+	class:expanded={isNavExpanded} 
+	transition:slide={{ duration: 300 }}
+	>
+	<div
+		class="navigation-buttons"
+		class:hidden={isNarrowScreen}
+		in:fly={{ x: -200, duration: 300 }}
+		out:fly={{ x: 200, duration: 300 }}
+	>
+		{#if $currentUser}
+		<button
+			class="nav-button"
+			class:expanded={isNavExpanded}
+			class:active={currentPath === '/'}
+			on:click={(event) => {
+			if (currentPath === '/') {
+				event.preventDefault();
+				toggleThreadList();
+				isNavExpanded = false;
+			} else {
+				navigateTo('/');
+			}
+			}}
+		>
+			{#if currentPath === '/' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/'}
+			<MessageCircleDashed />
+			{:else}
+			<MessageCircle />
+			{/if}
+			
+			{#if isNavExpanded}
+			<span class="nav-text">Chat</span>
+			{/if}
+		</button>
+			<button 
+				class="nav-button" 
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/launcher'}
+				on:click={() => navigateTo('/launcher')}
+			>
+				<Drill />
+				{#if isNavExpanded}
+					<span class="nav-text">Launcher</span>
+				{/if}
+			</button>
+			<button
+				class="nav-button" 
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/canvas'}
+				on:click={() => navigateTo('/canvas')}
+			>
+				<Combine />
+				{#if isNavExpanded}
+				<span class="nav-text">Canvas</span>
+			  {/if}
+			</button>
+			<button 
+				class="nav-button" 
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/map'}
+				on:click={() => navigateTo('/map')}
+			>
+				<MapPin />
+				{#if isNavExpanded}
+				  <span class="nav-text">Map</span>
+				{/if}
+			</button>
+			<button
+				class="nav-button"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/notes'}
+				on:click={() => navigateTo('/notes')}
+			>
+				<NotebookTabs />
+				{#if isNavExpanded}
+				  <span class="nav-text">Notes</span>
+				{/if}
+			</button>
+			<button
+				class="nav-button"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/lean'}
+				on:click={() => navigateTo('/lean')}
+			>
+				<SquareKanban />
+				{#if isNavExpanded}
+					<span class="nav-text">Lean</span>
+				{/if}
+			</button>
+			<button 
+				class="nav-button" 
+				class:expanded={isNavExpanded}
+				on:click={toggleAuthOrProfile}
+			>
+						{#if $currentUser.avatar}
+							<img
+								src={pb.getFileUrl($currentUser, $currentUser.avatar)}
+								alt="User avatar"
+								class="avatar"
+							/>
+						{:else}
+							<User />
+						{/if}
+				{#if isNavExpanded}
+				<span class="nav-text">{username} </span>
+			{/if}
+			</button>
+			<button class="nav-button toggle" on:click={toggleNav}>
+				{#if isNavExpanded}
+				<PanelLeftClose size={24} />
+				{:else}
+				<PanelLeftOpen size={24} />
+				{/if}
+			</button>
+		{:else}
+			<LogIn />
+		{/if}
+	</div>
 
-      <button class="nav-button" on:click={toggleAuthOrProfile}>
-        
-        <div class="profile-button" in:fly="{{ x: -200, duration: 300}}" out:fly="{{ x:  200, duration: 300}}">
-          <div class="avatar-container">
-              {#if $currentUser.avatar}
-                <img src={pb.getFileUrl($currentUser, $currentUser.avatar)} alt="User avatar" class="avatar" />
-              {:else}
-                <Camera size={24} />
-              {/if}
-            </div>
-          </div>
-          
+	<!-- Navigation Buttons -->
 
-      </button>
-      <button 
-        class="nav-button" 
-        class:active={currentPath === '/'} 
-        on:click={() => navigateTo('/')}
-      >
-        <MessageSquare />
-      </button>
-      <!-- <button 
-        class="nav-button" 
-        class:active={currentPath === '/launcher'}
-        on:click={() => navigateTo('/launcher')}
-      >
-        <Drill />
-      </button> -->
-      <button 
-        class="nav-button" 
-        class:active={currentPath === '/notes'}
-        on:click={() => navigateTo('/notes')}
-      >
-        <NotebookTabs/>
-      </button>
-      {:else}
-      <LogIn />
-    {/if}
-    </div>
+	<div class="middle-buttons"></div>
 
+	<div class="bottom-buttons">
+		{#if showBottomButtons}
+			<!-- Language Toggle -->
+			<!-- <button class="nav-button" on:click={handleLanguageChange}> -->
+			<!-- <Languages size={24} /> -->
+			<!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
+			<!-- <span>{$t('lang.flag')}</span> -->
 
-    <!-- Navigation Buttons -->
-     
+			<!-- </button> -->
 
-
-  <div class="middle-buttons">
-    
-  </div>
-
-  
-  
-  <div class="bottom-buttons">
-    {#if showBottomButtons}
-
-
-      <!-- Language Toggle -->
-      <!-- <button class="nav-button" on:click={handleLanguageChange}> -->
-        <!-- <Languages size={24} /> -->
-        <!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
-        <!-- <span>{$t('lang.flag')}</span> -->
-
-      <!-- </button> -->
-  
-      <!-- Theme Toggle -->
-      <!-- <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
+			<!-- Theme Toggle -->
+			<!-- <button class="nav-button" on:click={toggleStyles} transition:fly={{ y: -200, duration: 300}}>
         <svelte:component this={styles.find(s => s.value === currentStyle)?.icon || Sun} size={24} />
     </button> -->
-      <!-- <ModelSelector /> -->
-      <!-- <PromptSelector on:select={handlePromptSelect} /> -->
-      <button 
-        class="nav-button toggle" 
-        on:click={toggleThreadList}
-      >
-        {#if showThreadList}
-          <PanelLeftClose size={24} />
-        {:else}
-          <PanelLeftOpen size={24} />
-        {/if}
-    </button>
-{/if}
-  </div>
+			<!-- <ModelSelector /> -->
+			<!-- <PromptSelector on:select={handlePromptSelect} /> -->
+
+		{/if}
+	</div>
 </div>
 
+
+
 {#if showLanguageNotification}
-  <div class="language-notification" transition:fade={{ duration: 300 }}>
-    {$t('lang.notification')}
-  </div>
+	<div class="language-notification" transition:fade={{ duration: 300 }}>
+		{$t('lang.notification')}
+	</div>
 {/if}
 
 {#if showAuth}
-  <div class="auth-overlay" on:click={handleOverlayClick}                                  
-        transition:fly={{ y: -20, duration: 300}}
-      >
-      <div class="auth-content" transition:fly={{ y: -20, duration: 300}} >
-          <button 
-          on:click={() => showAuth = false}
-          class="close-button" 
-          in:fly="{{ y: 50, duration: 500, delay: 400 }}" out:fly="{{ y: 50, duration: 500, delay: 400 }}"
-        >
-        <X size={24} />
-        </button>
-          <Auth on:success={handleAuthSuccess} on:logout={handleLogout} 
-        />
-      </div>
-    </div>
-    {/if}
+	<div
+		class="auth-overlay"
+		on:click={handleOverlayClick}
+		transition:fly={{ y: -20, duration: 300 }}
+	>
+		<div class="auth-content" transition:fly={{ y: -20, duration: 300 }}>
+			<button
+				on:click={() => (showAuth = false)}
+				class="close-button"
+				in:fly={{ y: 50, duration: 500, delay: 400 }}
+				out:fly={{ y: 50, duration: 500, delay: 400 }}
+			>
+				<X size={24} />
+			</button>
+			<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+		</div>
+	</div>
+{/if}
 
-    {#if showProfile}
-      <div class="profile-overlay" on:click={handleOverlayClick} transition:fly={{ y: -200, duration: 300 }}>
-        <div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-          <button class="close-button" transition:fly={{ y: -200, duration: 300 }} on:click={() => showProfile = false}>
-            <X size={24} />
-          </button>
-          <Profile 
-            user={$currentUser} 
-            onClose={() => showProfile = false}
-            onStyleClick={handleStyleClick}
-          />
-        </div>
-      </div>
-
-    {/if}
-    {#if showLanguageNotification}
-    <div class="language-overlay" transition:fade={{ duration: 300 }}>
-        <div class="language-notification" transition:fade={{ duration: 300 }}>
-            {$t('lang.notification')}
-            <div class="quote">
-                {placeholderText}
-            </div>
-        </div>
-    </div>
+{#if showProfile}
+	<div
+		class="profile-overlay"
+		on:click={handleOverlayClick}
+		transition:fly={{ y: -200, duration: 300 }}
+	>
+		<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+			<button
+				class="close-button"
+				transition:fly={{ y: -200, duration: 300 }}
+				on:click={() => (showProfile = false)}
+			>
+				<X size={24} />
+			</button>
+			<Profile
+				user={$currentUser}
+				onClose={() => (showProfile = false)}
+				onStyleClick={handleStyleClick}
+			/>
+		</div>
+	</div>
+{/if}
+{#if showLanguageNotification}
+	<div class="language-overlay" transition:fade={{ duration: 300 }}>
+		<div class="language-notification" transition:fade={{ duration: 300 }}>
+			{$t('lang.notification')}
+			<div class="quote">
+				{placeholderText}
+			</div>
+		</div>
+	</div>
 {/if}
 
 {#if showStyles}
-<div class="style-overlay" on:click={handleOverlayClick} transition:fly={{ x: -200, duration: 300}}>
-    <!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
+	<div
+		class="style-overlay"
+		on:click={handleOverlayClick}
+		transition:fly={{ x: -200, duration: 300 }}
+	>
+		<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
         <X size={24} />
     </button> -->
-    <div class="style-content"  on:click={handleOverlayClick} transition:fly={{ x: -20, duration: 300}}>
-
-        <StyleSwitcher 
-            on:close={handleStyleClose}
-            on:styleChange={handleStyleChange} 
-        />
-        </div>
-    </div>
+		<div
+			class="style-content"
+			on:click={handleOverlayClick}
+			transition:fly={{ x: -20, duration: 300 }}
+		>
+			<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+		</div>
+	</div>
 {/if}
 
 <svelte:window bind:innerWidth />
 
-
 <style lang="scss">
-	@use "src/styles/themes.scss" as *;
+	@use 'src/styles/themes.scss' as *;
 	* {
-	//   font-family: 'Source Code Pro', monospace;
-	font-family: var(--font-family);
-	transition: all 0.3s ease;
-
+		//   font-family: 'Source Code Pro', monospace;
+		font-family: var(--font-family);
+		transition: all 0.3s ease;
 	}
-  .sidenav {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 3rem;
-    bottom: 0;
-    width: auto;
-    align-items: left;
-    z-index: 10;
-    border-radius: 1rem;
-    transition: all 0.3s ease-in;
-  }
+	.sidenav {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: flex-start;
+		gap: 10px;
+		position: fixed;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		padding: 1rem;
+		z-index: 10;
+		border-radius: 0 1rem 1rem 0;
+		transition: all 0.3s ease-in;
+		border: 0px solid transparent;
+		border-right: 1px solid transparent;
+		&.expanded {
+			width: 380px;
+			backdrop-filter: blur(30px);
+			border-right: 1px solid var(--bg-color);
+		}
+	}
 
-  // .sidenav:hover {
-  //   /* backdrop-filter: blur(10px); */
-  // }
 
-  .navigation-buttons {
+	// .sidenav:hover {
+	//   /* backdrop-filter: blur(10px); */
+	// }
+
+	.navigation-buttons {
     display: flex;
-    flex-direction: row;
-    justify-content: left;
+    flex-direction: column;
+    gap: 1rem;
     width: 100%;
-    margin-left: 1rem;
-    gap: 2rem;
+	justify-content: space-between;
+
+	& .hidden {
+		display: none;
+	}
   }
 
-  .navigation-buttons.hidden {
-    display: none;
-  }
+  .nav-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: var(--bg-gradient-right);
+    color: var(--text-color);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    width: auto;
 
-	.auth-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        /* background-color: rgba(0, 0, 0, 0.5); */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
+    &.active {
+      background: var(--tertiary-color);
+      box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
     }
 
+    &:hover {
+      background: var(--secondary-color);
+    }
+
+	&.expanded {
+      width: 380px;
+      justify-content: flex-start;
+      padding: 0.5rem 1rem;
+	  border-radius: var(--radius-m);
+    }
+
+    &.toggle {
+      margin-top: auto;
+    }
+
+    &.profile {
+      margin-top: auto;
+    }
+  }
+
+  .nav-text {
+    font-size: 1rem;
+    white-space: nowrap;
+  }
 
 
-    .auth-container {
+
+	.auth-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		/* background-color: rgba(0, 0, 0, 0.5); */
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+	}
+
+	.auth-container {
 		background-color: #fff;
 		padding: 2rem;
 		border-radius: 10px;
 		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 	}
-	
-	
-    .auth-content {
-        position: fixed;
+
+	.auth-content {
+		position: fixed;
 		top: 0;
-        /* background-color: #2b2a2a; */
-        /* padding: 2rem; */
-        width: 100%;
-        /* max-width: 500px; */
-        height: auto;
-        overflow-y: auto;
-    }
-  .profile-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
+		/* background-color: #2b2a2a; */
+		/* padding: 2rem; */
+		width: 100%;
+		/* max-width: 500px; */
+		height: auto;
+		overflow-y: auto;
+	}
+	.profile-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		display: flex;
 		flex-grow: 1;
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-    backdrop-filter: blur(10px);
-    justify-content: center;
-        align-items: center;
-        z-index: 1002;
+		backdrop-filter: blur(10px);
+		justify-content: center;
+		align-items: center;
+		z-index: 1002;
 		transition: all 0.3s ease;
-    }
-
-	.profile-content {
-    position: absolute;
-		width: auto;
-    height: auto;
-		top: 0;
-    bottom: auto;
-    /* right: 0; */
-    /* background-color: #2b2a2a; */
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-    backdrop-filter: blur(40px);   
-		border-bottom: 1px solid var(--secondary-color);
-    background: var(--bg-gradient-r);
-    border-bottom-left-radius: var(--radius-m);
-    border-bottom-right-radius: var(--radius-m);
-    width: 100%;
-    /* max-width: 500px; */
-    /* max-height: 90vh; */
-    overflow: none;
-		transition: all 0.3s ease;
-
-    }
-
-
-    .profile-button {
-		display: flex;
-		flex-direction: row;
-
-
 	}
 
+	.profile-content {
+		position: absolute;
+		width: auto;
+		height: auto;
+		top: 0;
+		bottom: auto;
+		/* right: 0; */
+		/* background-color: #2b2a2a; */
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+		backdrop-filter: blur(40px);
+		border-bottom: 1px solid var(--secondary-color);
+		background: var(--bg-gradient-r);
+		border-bottom-left-radius: var(--radius-m);
+		border-bottom-right-radius: var(--radius-m);
+		width: 100%;
+		/* max-width: 500px; */
+		/* max-height: 90vh; */
+		overflow: none;
+		transition: all 0.3s ease;
+	}
+
+
 	.user-button {
-        background-color: #3c3c3c;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 14px;
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
+		background-color: #3c3c3c;
+		color: white;
+		padding: 5px 10px;
+		border-radius: 4px;
+		font-size: 14px;
+		max-width: 150px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 
-    .user-button:hover {
-        background-color: #4a4a4a;
-    }
+	.user-button:hover {
+		background-color: #4a4a4a;
+	}
 
-    
+	.style-switcher-container {
+		display: flex;
+		align-items: center;
+		margin-right: 16px;
+		z-index: 1001;
+	}
 
-    .style-switcher-container {
-        display: flex;
-        align-items: center;
-        margin-right: 16px;
-        z-index: 1001;
-    }
+	.style-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1002;
+	}
 
-    .style-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1002;
-    }
-
-
-    .style-content {
-        background-color: #b11f1feb;
-        padding: 1rem;
+	.style-content {
+		background-color: #b11f1feb;
+		padding: 1rem;
 		border: 1px solid rgb(69, 69, 69);
-        border-radius: 20px;
-        position: relative;
-        max-width: 90%;
-        max-height: 90%;
-        overflow: auto;
-    }
+		border-radius: 20px;
+		position: relative;
+		max-width: 90%;
+		max-height: 90%;
+		overflow: auto;
+	}
 
-    .nav-button.toggle {
-      position: fixed;
-      bottom: 0rem;
-      left: 0.5rem;
-      z-index: 5000;
-    }
+	// .nav-button.toggle {
+	// 	position: fixed;
+	// 	bottom: 0rem;
+	// 	left: 1rem;
+	// 	z-index: 5000;
+	// }
 
-    .close-button {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      width: 30px;
-      height: 30px;
-      border: none;
-      color: white;
-      cursor: pointer;
-      background: var(--secondary-color) !important;
-      display: flex;
-      justify-content: center;
-      text-align: center;
-      font-size: 1rem;
-      border-radius: 8px;
-      transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
-
-    }
-
-    .close-button:hover {
-	  opacity: 0.8;
-	  background-color: rgb(62, 137, 194);
-    }
-    
-
-  .avatar-container {
-
-        overflow: hidden;
-    }
-
-    .avatar {
-        border-radius: 50%;
-        width: 90%;
-        height: 90%;
-        object-fit: cover;
-    }
-
-    .avatar-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #444;
-        color: #fff;
-    }
-
-  .top-buttons {
-    display: flex;
-    flex-direction: row;
-    position: relative;
-  }
-
-  .bottom-buttons {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    margin-bottom: 1rem;
-  }
-
-  .nav-button,
-  .thread-toggle,
-  .close-button,
-  .avatar-container {
-    color: var(--text-color);
-    background: var(--bg-gradient-right);
-    padding: 4px;
-    font-size: auto;
-    border: none;
-    cursor: pointer;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0.25rem;
-    transition: all 0.2s ease-in-out;
-    overflow: hidden;
-    user-select: none;
-  }
-
-  .nav-button.active {
-    background: var(--tertiary-color);
-    box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
-  }
-
-  .thread-list-visible .thread-toggle {
-    left: 310px;
-  }
-  
-
-  .nav-button:hover,
-  .thread-toggle:hover {
-    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-    transform: scale(1.2);
-  }
-
-  :global(.sidenav .nav-button svg),
-  :global(.sidenav .thread-toggle svg) {
-    transition: transform 0.1s ease;
-  }
-
-  :global(.sidenav .nav-button:hover svg),
-  :global(.sidenav .thread-toggle:hover svg) {
-    transform: scale(1.1);
-  }
-
-  .language-overlay {
+	.close-button {
 		position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
-        backdrop-filter: blur(40px);         
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1002;
+		top: 10px;
+		left: 10px;
+		width: 30px;
+		height: 30px;
+		border: none;
+		color: white;
+		cursor: pointer;
+		background: var(--secondary-color) !important;
+		display: flex;
+		justify-content: center;
+		text-align: center;
+		font-size: 1rem;
+		border-radius: 8px;
+		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
+	}
+
+	.close-button:hover {
+		opacity: 0.8;
+		background-color: rgb(62, 137, 194);
+	}
+
+	.avatar-container {
+		overflow: hidden;
+	}
+
+	.avatar {
+		border-radius: 50%;
+		width: 90%;
+		height: 90%;
+		object-fit: cover;
+	}
+
+	.avatar-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: #444;
+		color: #fff;
+	}
+
+	.top-buttons {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+	}
+
+	.bottom-buttons {
+		display: flex;
+		flex-direction: row;
+		gap: 10px;
+		margin-bottom: 1rem;
+	}
+
+	.nav-button,
+	.thread-toggle,
+	.close-button
+	 {
+		color: var(--text-color);
+		background: var(--bg-gradient-right);
+		padding: 4px;
+		font-size: auto;
+		border: none;
+		cursor: pointer;
+		border-radius: 50%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		padding: 0.25rem;
+		transition: all 0.2s ease-in-out;
+		overflow: hidden;
+		user-select: none;
+	}
+	
+
+	.nav-button.active {
+		background: var(--tertiary-color);
+		box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+	}
+
+	.thread-list-visible .thread-toggle {
+		left: 310px;
+	}
+
+	.nav-button:hover,
+	.thread-toggle:hover {
+		box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+	}
+
+	:global(.sidenav .nav-button svg),
+	:global(.sidenav .thread-toggle svg) {
+		transition: transform 0.1s ease;
+	}
+
+	:global(.sidenav .nav-button:hover svg),
+	:global(.sidenav .thread-toggle:hover svg) {
+		transform: scale(1.1);
+	}
+
+	.language-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
+		backdrop-filter: blur(40px);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1002;
 	}
 
 	.language-notification {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    /* background-color: var(--primary-color); */
-    color: var(--text-color);
-    padding: 20px;
-    border-radius: var(--radius-m);
-    z-index: 1000;
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		/* background-color: var(--primary-color); */
+		color: var(--text-color);
+		padding: 20px;
+		border-radius: var(--radius-m);
+		z-index: 1000;
 		/* border: 1px solid var(--tertiary-color); */
 		display: flex;
 		flex-direction: column;
@@ -627,11 +791,11 @@
 		align-items: center;
 		gap: 2rem;
 		font-size: 2rem;
-    }
+	}
 
-    .language-notification p {
-        margin: 0;
-    }
+	.language-notification p {
+		margin: 0;
+	}
 
 	.quote {
 		font-size: 16px;
@@ -639,134 +803,213 @@
 		line-height: 1.5;
 	}
 
+	.mobile-menu {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: blue;
+		position: fixed;
+		bottom: 0;
+		width: 100%;
+		/* bottom: calc(100% - 280px); */
+		/* width: calc(100% - 60px); */
+		/* padding: 20px; */
+		z-index: 99;
+		/* border: 1px solid #000000; */
+		/* background: linear-gradient(to top, #3f4b4b, #333333); */
+		/* background-color: #2b2a2a; */
+		// background: var(--bg-gradient-r);
+
+		/* border-radius: 20px; */
+		/* background-color: black; */
+		/* height: 80px; */
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+		// border-top-left-radius: 20px;
+		// border-top-right-radius: 20px;
+	}
+
+	.mobile-btns {
+		margin-left: 0;
+		bottom: 0;
+		margin-bottom: 0;
+		margin-right: 0;
+		height: 100%;
+		width: 100%;
+		gap: 2rem;
+		padding: 0.75rem 1rem;
+		border: none;
+		cursor: pointer;
+		color: var(--text-color);
+		text-align: left;
+		align-items: center;
+		justify-content: space-between;
+		transition: background-color 0.2s;
+		// border-radius: var(--radius-m);
+		display: flex;
+		flex-direction: row;
+		//   background: var(--bg-gradient) !important;
+		margin-bottom: 0.5rem;
+		left: 0;
+		right: 0;
+		border-radius: var(--radius-l);
+	}
+
+	.mobile-btns a {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: space-between;
+		width: 60px;
+		// padding: 0 1rem;
+		position: relative;
+		// padding: 0.5rem 1rem;
+		height: 60px;
+		border: none;
+		border-radius: 50%;
+		// background: var(--secondary-color);
+		color: var(--placeholder-color);
+		cursor: pointer;
+		transition: all 0.2s ease-in-out;
+		& h3 {
+			margin: 0;
+			font-weight: 300;
+			font-size: var(--font-size-sm);
+			font-weight: 600;
+			line-height: 1.4;
+			&.active {
+				background: var(--primary-color) !important;
+				color: var(--tertiary-color);
+				font-size: var(--font-size-xs);
+			}
+			&:hover {
+				background: rgba(255, 255, 255, 0.1);
+			}
+		}
+	}
 
 
+	@media (max-width: 768px) {
+		.sidenav {
+			display: flex;
+			justify-content: center;
+			backdrop-filter: blur(30px);
+			background: var(--bg-gradient);
+			height: 50px !important;
+			flex-direction: row;
+			height: auto;
+			width: 100%;
+			bottom: 0;
+			margin-left: 0;
+			padding: 0.5rem;
+			/* backdrop-filter: blur(10px); */
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			left: 0;
+			top: auto;
+			bottom: 0;
+			padding: 1rem;
+			z-index: 10;
+			border-radius: 0 1rem 1rem 0;
+			transition: all 0.3s ease-in;
+		}
 
-  @media (max-width: 768px) {
-  .sidenav {
-    display: flex;
-    justify-content: left;
-    flex-direction: column;
-      height: auto;
-      width: 0;
-      bottom: 5rem;
-      padding: 0.5rem;
-      /* backdrop-filter: blur(10px); */
-    }
+		.navigation-buttons {
+			flex-direction: row;
+		}
 
-    .navigation-buttons {
-      flex-direction: column;
-    }
-    
+		.bottom-buttons {
+			flex-direction: column;
+			margin: 0;
+			gap: 8px;
+		}
 
-    .bottom-buttons {
-      flex-direction: column;
-      margin: 0;
-      gap: 8px;
-    }
+		.top-buttons {
+			flex-direction: row;
+			margin: 0;
+			gap: 8px;
+		}
 
-  .top-buttons {
-      flex-direction: row;
-      margin: 0;
-      gap: 8px;
-    }
+		.nav-button,
+		.thread-toggle,
+		.avatar-container {
+			width: 40px;
+			height: 40px;
+			padding: 0.3rem;
+			border-radius: 50% !important;
+		}
 
-    .nav-button,
-    .thread-toggle,
-    .avatar-container {
-      width: 40px;
-      height: 40px;
-      padding: 0.3rem;
-      border-radius: 50% !important;
-      
-    }
+		.nav-button:hover,
+		.thread-toggle:hover {
+			transform: scale(1.1);
+		}
 
-    .nav-button:hover,
-    .thread-toggle:hover {
-      transform: scale(1.1);
-    }
+		.nav-button.toggle {
+			display: none;
+		}
 
-    .nav-button.toggle {
-      position: fixed;
-      bottom: 0.5rem;
-      left: 1.5rem;
-      height: 60px;
-      width: 60px;
-      z-index: 5000;
-      
-    }
+		.profile-content {
+			position: absolute;
+			width: auto;
+			height: 83%;
+			top: 3rem;
+			/* background-color: #2b2a2a; */
+			/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+			backdrop-filter: blur(40px);
+			border-bottom-left-radius: var(--radius-xl);
+			border-bottom-right-radius: var(--radius-xl);
+			/* width: 90%; */
+			/* max-width: 500px; */
+			/* max-height: 90vh; */
+			overflow: none;
+			transition: all 0.3s ease;
+		}
+	}
 
-    .profile-content {
-      position: absolute;
-      width: auto;
-      height: 83%;
-      top: 3rem;
-      /* background-color: #2b2a2a; */
-      /* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-      backdrop-filter: blur(40px);  
-      border-bottom-left-radius: var(--radius-xl); 
-      border-bottom-right-radius: var(--radius-xl); 
-      /* width: 90%; */
-      /* max-width: 500px; */
-      /* max-height: 90vh; */
-      overflow: none;
-      transition: all 0.3s ease;
-    }
+	@media (max-width: 450px) {
 
-}
+		.bottom-buttons {
+			flex-direction: column;
+			margin: 0;
+			gap: 8px;
+		}
 
-@media (max-width: 450px) {
+		.top-buttons {
+			flex-direction: row;
+			margin: 0;
+			gap: 8px;
+		}
 
+		.nav-button,
+		.thread-toggle,
+		.avatar-container {
+			width: 40px;
+			height: 40px;
+			padding: 0.3rem;
+		}
 
-    .navigation-buttons {
-      flex-direction: column;
-    }
-    
+		.nav-button:hover,
+		.thread-toggle:hover {
+			transform: scale(1.1);
+		}
 
-    .bottom-buttons {
-      flex-direction: column;
-      margin: 0;
-      gap: 8px;
-    }
-
-  .top-buttons {
-      flex-direction: row;
-      margin: 0;
-      gap: 8px;
-    }
-
-    .nav-button,
-    .thread-toggle,
-    .avatar-container {
-      width: 40px;
-      height: 40px;
-      padding: 0.3rem;
-
-    }
-
-    .nav-button:hover,
-    .thread-toggle:hover {
-      transform: scale(1.1);
-    }
-
-    .profile-content {
-      position: absolute;
-      width: auto;
-      height: 83%;
-      top: 3rem;
-      /* background-color: #2b2a2a; */
-      box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1); 
-      backdrop-filter: blur(40px);  
-      border-bottom-left-radius: var(--radius-xl); 
-      border-bottom-right-radius: var(--radius-xl); 
-      /* width: 90%; */
-      /* max-width: 500px; */
-      /* max-height: 90vh; */
-      overflow: none;
-      transition: all 0.3s ease;
-    }
-
-}
-
+		.profile-content {
+			position: absolute;
+			width: auto;
+			height: 83%;
+			top: 3rem;
+			/* background-color: #2b2a2a; */
+			box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
+			backdrop-filter: blur(40px);
+			border-bottom-left-radius: var(--radius-xl);
+			border-bottom-right-radius: var(--radius-xl);
+			/* width: 90%; */
+			/* max-width: 500px; */
+			/* max-height: 90vh; */
+			overflow: none;
+			transition: all 0.3s ease;
+		}
+	}
 </style>
-

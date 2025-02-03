@@ -4,17 +4,17 @@ import { writable } from 'svelte/store';
 import type { InternalChatMessage, Role, Agent } from '$lib/types/types';
 
 interface HubState {
-  chatMessages: InternalChatMessage[];
-  isLoading: boolean;
-  currentStage: string;
-  roles: Role[];
-  agents: Agent[];
+	chatMessages: InternalChatMessage[];
+	isLoading: boolean;
+	currentStage: string;
+	roles: Role[];
+	agents: Agent[];
 }
 
 export const hubStore = writable<HubState>({
-  chatMessages: [],
-  isLoading: false,
-  currentStage: 'initial',
-  roles: [],
-  agents: [],
+	chatMessages: [],
+	isLoading: false,
+	currentStage: 'initial',
+	roles: [],
+	agents: []
 });

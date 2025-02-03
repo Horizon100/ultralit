@@ -1,698 +1,726 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
-  import { get } from 'svelte/store';
-  import { elasticOut, elasticIn } from 'svelte/easing';
-  import { showLoading, hideLoading } from '$lib/stores/loadingStore';
-  import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-  import { fade, slide, fly } from 'svelte/transition';
-  import { quintOut } from 'svelte/easing';
-  import { X, Bot, Wrench, Workflow, Target, Settings2, ArrowLeft, Plus, Menu, SquareMenu, List, Box, Trash2, Check, LayoutGrid } from 'lucide-svelte';
-  import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';
-  import AgentsConfig from '$lib/components/overlays/AgentsConfig.svelte';
-  import ModelsConfig from '$lib/components/overlays/ModelsConfig.svelte';
-  import ActionsConfig from '$lib/components/overlays/ActionsConfig.svelte';
-  import FlowsConfig from '$lib/components/overlays/FlowsConfig.svelte';
-  import ObjectivesConfig from '$lib/components/overlays/ObjectivesConfig.svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { workspaceStore } from '$lib/stores/workspaceStore';
-  import { agentStore } from '$lib/stores/agentStore';
-  import { workshopStore } from '$lib/stores/workshopStore';
-  import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
-  import GenericOverlay from '$lib/components/overlays/GenericOverlay.svelte';
-  import type { Workspaces, Workshops } from '$lib/types/types';
-  import { getWorkshops, createWorkshop, deleteWorkshop, updateWorkshop } from '$lib/clients/workshopClient';
-  import { pb } from '$lib/pocketbase';
+	import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
+	import { get } from 'svelte/store';
+	import { elasticOut, elasticIn } from 'svelte/easing';
+	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
+	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import { fade, slide, fly } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
+	import {
+		X,
+		Bot,
+		Wrench,
+		Workflow,
+		Target,
+		Settings2,
+		ArrowLeft,
+		Plus,
+		Menu,
+		SquareMenu,
+		List,
+		Box,
+		Trash2,
+		Check,
+		LayoutGrid
+	} from 'lucide-svelte';
+	import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';
+	import AgentsConfig from '$lib/components/overlays/AgentsConfig.svelte';
+	import ModelsConfig from '$lib/components/overlays/ModelsConfig.svelte';
+	import ActionsConfig from '$lib/components/overlays/ActionsConfig.svelte';
+	import FlowsConfig from '$lib/components/overlays/FlowsConfig.svelte';
+	import ObjectivesConfig from '$lib/components/overlays/ObjectivesConfig.svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { workspaceStore } from '$lib/stores/workspaceStore';
+	import { agentStore } from '$lib/stores/agentStore';
+	import { workshopStore } from '$lib/stores/workshopStore';
+	import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
+	import GenericOverlay from '$lib/components/overlays/GenericOverlay.svelte';
+	import type { Workspaces, Workshops } from '$lib/types/types';
+	import {
+		getWorkshops,
+		createWorkshop,
+		deleteWorkshop,
+		updateWorkshop
+	} from '$lib/clients/workshopClient';
+	import { pb } from '$lib/pocketbase';
 
-  import Builder from '$lib/components/ui/Builder.svelte';
-  import DefaultAvatar from '$lib/components/ui//DefaultAvatar.svelte';
+	import Builder from '$lib/components/ui/Builder.svelte';
+	import DefaultAvatar from '$lib/components/ui//DefaultAvatar.svelte';
 
-  import Space from '$lib/assets/icons/launcher/space.svg';
-  import Add from '$lib/assets/icons/launcher/add.svg';
-  import { createWorkspace, getWorkspaces, deleteWorkspace, updateWorkspace } from '$lib/clients/workSpaceClient';
-  import { currentUser } from '$lib/pocketbase';
-  import Chatlinks from '$lib/assets/icons/ai/chatlinks.svg';
-  import { Chat } from 'openai/resources/index.mjs';
-  import { quotes } from '$lib/translations/quotes';
-  import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
-  import itImage from '$lib/assets/illustrations/italian.jpeg';
-  import greekImage from '$lib/assets/illustrations/greek.png';
+	import Space from '$lib/assets/icons/launcher/space.svg';
+	import Add from '$lib/assets/icons/launcher/add.svg';
+	import {
+		createWorkspace,
+		getWorkspaces,
+		deleteWorkspace,
+		updateWorkspace
+	} from '$lib/clients/workSpaceClient';
+	import { currentUser } from '$lib/pocketbase';
+	import Chatlinks from '$lib/assets/icons/ai/chatlinks.svg';
+	import { Chat } from 'openai/resources/index.mjs';
+	import { quotes } from '$lib/translations/quotes';
+	import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
+	import itImage from '$lib/assets/illustrations/italian.jpeg';
+	import greekImage from '$lib/assets/illustrations/greek.png';
 
-  let showOverlay = false;
-  let overlayContent = '';
-  let touchStartY = 0;
-  let currentWorkspace: Workspaces | null = null;
-  let currentWorkspaceId: string | null = null;
-  let workshopCount = 0;
-  let isNavExpanded = false;
-  let innerWidth: number;
-  let showGenericOverlay = false;
-  let genericOverlayContent = '';
-  let workspaces: Workspaces[] = [];
-  let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
-  let isScrolling = false;
-  let startX: number;
-  let scrollLeft: number;
-  let showWorkspaceList = false;
-  let editingWorkspace: string | null = null;
-  let editedName: string = '';
-  let confirmationMessage: string | null = null;
-  let textareaElement: HTMLTextAreaElement | null = null;
-  let showBuilder = false;
-  let isLoading = false;
-  let showFade = false;
-  let showH2 = false;
+	let showOverlay = false;
+	let overlayContent = '';
+	let touchStartY = 0;
+	let currentWorkspace: Workspaces | null = null;
+	let currentWorkspaceId: string | null = null;
+	let workshopCount = 0;
+	let isNavExpanded = false;
+	let innerWidth: number;
+	let showGenericOverlay = false;
+	let genericOverlayContent = '';
+	let workspaces: Workspaces[] = [];
+	let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+	let isScrolling = false;
+	let startX: number;
+	let scrollLeft: number;
+	let showWorkspaceList = false;
+	let editingWorkspace: string | null = null;
+	let editedName: string = '';
+	let confirmationMessage: string | null = null;
+	let textareaElement: HTMLTextAreaElement | null = null;
+	let showBuilder = false;
+	let isLoading = false;
+	let showFade = false;
+	let showH2 = false;
 
-  $: user = $currentUser;
+	$: user = $currentUser;
 
-  $: isNarrowScreen = innerWidth <= 700;
+	$: isNarrowScreen = innerWidth <= 700;
 
-  $: {
-    const workspaceId = $page.params.workspaceId;
-    workspaceStore.subscribe(state => {
-      currentWorkspace = state.workspaces.find((w: Workspaces) => w.id === workspaceId) || null;
-    });
+	$: {
+		const workspaceId = $page.params.workspaceId;
+		workspaceStore.subscribe((state) => {
+			currentWorkspace = state.workspaces.find((w: Workspaces) => w.id === workspaceId) || null;
+		});
 
-    workshopStore.subscribe(workshops => {
-      workshopCount = workshops.filter(w => w.workspace === workspaceId).length;
-    });
-  }
+		workshopStore.subscribe((workshops) => {
+			workshopCount = workshops.filter((w) => w.workspace === workspaceId).length;
+		});
+	}
 
-  $: if ($page.params.workspaceId !== currentWorkspaceId) {
-    currentWorkspaceId = $page.params.workspaceId;
-    if (currentWorkspaceId && $currentUser && $currentUser.id) {
-      agentStore.loadAgents(currentWorkspaceId);
-    }
-  }
+	$: if ($page.params.workspaceId !== currentWorkspaceId) {
+		currentWorkspaceId = $page.params.workspaceId;
+		if (currentWorkspaceId && $currentUser && $currentUser.id) {
+			agentStore.loadAgents(currentWorkspaceId);
+		}
+	}
 
-  onMount(() => {
-    user = $currentUser;
-    setTimeout(() => showFade = true, 50);
-    setTimeout(() => showH2 = true, 50);
-  });
+	onMount(() => {
+		user = $currentUser;
+		setTimeout(() => (showFade = true), 50);
+		setTimeout(() => (showH2 = true), 50);
+	});
 
-  onMount(async () => {
-    if ($currentUser && $currentUser.id) {
-      try {
-        const workspaceId = $page.params.workspaceId;
-        
-        workspaceStore.subscribe(state => {
-          workspaces = state.workspaces;
-          currentWorkspace = workspaces.find(w => w.id === workspaceId) || null;
-        });
-        
-        await workspaceStore.loadWorkspaces($currentUser.id);
-        if (workspaceId) {
-          await agentStore.loadAgents(workspaceId);
-        }
-      } catch (error) {
-        console.error('Error fetching workspaces:', error);
-      }
-    }
+	onMount(async () => {
+		if ($currentUser && $currentUser.id) {
+			try {
+				const workspaceId = $page.params.workspaceId;
 
-    if (textareaElement) {
-      const adjustTextareaHeight = () => {
-        if (textareaElement) {
-          textareaElement.style.height = 'auto';
-          textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
-        }
-      };
+				workspaceStore.subscribe((state) => {
+					workspaces = state.workspaces;
+					currentWorkspace = workspaces.find((w) => w.id === workspaceId) || null;
+				});
 
-      textareaElement.addEventListener('input', adjustTextareaHeight);
-      adjustTextareaHeight();
-    }
-  });
+				await workspaceStore.loadWorkspaces($currentUser.id);
+				if (workspaceId) {
+					await agentStore.loadAgents(workspaceId);
+				}
+			} catch (error) {
+				console.error('Error fetching workspaces:', error);
+			}
+		}
 
-  afterUpdate(() => {
-    if ($page.params.workspaceId) {
-      workspaceStore.setCurrentWorkspace($page.params.workspaceId);
-    }
-  });
+		if (textareaElement) {
+			const adjustTextareaHeight = () => {
+				if (textareaElement) {
+					textareaElement.style.height = 'auto';
+					textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
+				}
+			};
 
-  async function selectWorkspace(workspaceId: string) {
-    isLoading = true;
-    try {
-      await goto(`/launcher/workspace/${workspaceId}`);
-      workspaceStore.setCurrentWorkspace(workspaceId);
-      if ($currentUser && $currentUser.id) {
-        await agentStore.loadAgents(workspaceId);
-      }
-    } catch (error) {
-      console.error('Error selecting workspace:', error);
-    } finally {
-      isLoading = false;
-    }
-  }
+			textareaElement.addEventListener('input', adjustTextareaHeight);
+			adjustTextareaHeight();
+		}
+	});
 
-  function toggleBuilder() {
-    showBuilder = !showBuilder;
-  }
+	afterUpdate(() => {
+		if ($page.params.workspaceId) {
+			workspaceStore.setCurrentWorkspace($page.params.workspaceId);
+		}
+	});
 
-  async function addNewWorkspace() {
-    if ($currentUser && $currentUser.id) {
-      const newWorkspace: Partial<Workspaces> = {
-        name: `New Workspace ${workspaces.length + 1}`,
-        description: 'A new workspace',
-        created_by: $currentUser.id,
-        collaborators: [$currentUser.id],
-      };
+	async function selectWorkspace(workspaceId: string) {
+		isLoading = true;
+		try {
+			await goto(`/launcher/workspace/${workspaceId}`);
+			workspaceStore.setCurrentWorkspace(workspaceId);
+			if ($currentUser && $currentUser.id) {
+				await agentStore.loadAgents(workspaceId);
+			}
+		} catch (error) {
+			console.error('Error selecting workspace:', error);
+		} finally {
+			isLoading = false;
+		}
+	}
 
-      try {
-        const createdWorkspace = await createWorkspace(newWorkspace);
-        workspaceStore.addWorkspace(createdWorkspace);
-        showConfirmation('New workspace created successfully');
-      } catch (error) {
-        console.error('Error creating new workspace:', error);
-        showConfirmation('Error creating new workspace', true);
-      }
-    }
-  }
+	function toggleBuilder() {
+		showBuilder = !showBuilder;
+	}
 
-  function handleMouseDown(e: MouseEvent) {
-    isScrolling = true;
-    startX = e.pageX - (e.currentTarget as HTMLElement).offsetLeft;
-    scrollLeft = (e.currentTarget as HTMLElement).scrollLeft;
-    (e.currentTarget as HTMLElement).style.cursor = 'grabbing';
-  }
+	async function addNewWorkspace() {
+		if ($currentUser && $currentUser.id) {
+			const newWorkspace: Partial<Workspaces> = {
+				name: `New Workspace ${workspaces.length + 1}`,
+				description: 'A new workspace',
+				created_by: $currentUser.id,
+				collaborators: [$currentUser.id]
+			};
 
-  function handleMouseLeave(e: MouseEvent) {
-    isScrolling = false;
-    (e.currentTarget as HTMLElement).style.cursor = 'grab';
-  }
+			try {
+				const createdWorkspace = await createWorkspace(newWorkspace);
+				workspaceStore.addWorkspace(createdWorkspace);
+				showConfirmation('New workspace created successfully');
+			} catch (error) {
+				console.error('Error creating new workspace:', error);
+				showConfirmation('Error creating new workspace', true);
+			}
+		}
+	}
 
-  function handleMouseUp(e: MouseEvent) {
-    isScrolling = false;
-    (e.currentTarget as HTMLElement).style.cursor = 'grab';
-  }
+	function handleMouseDown(e: MouseEvent) {
+		isScrolling = true;
+		startX = e.pageX - (e.currentTarget as HTMLElement).offsetLeft;
+		scrollLeft = (e.currentTarget as HTMLElement).scrollLeft;
+		(e.currentTarget as HTMLElement).style.cursor = 'grabbing';
+	}
 
-  function handleMouseMove(e: MouseEvent) {
-    if (!isScrolling) return;
-    e.preventDefault();
-    const x = e.pageX - (e.currentTarget as HTMLElement).offsetLeft;
-    const walk = (x - startX) * 2;
-    (e.currentTarget as HTMLElement).scrollLeft = scrollLeft - walk;
-  }
+	function handleMouseLeave(e: MouseEvent) {
+		isScrolling = false;
+		(e.currentTarget as HTMLElement).style.cursor = 'grab';
+	}
 
-  function toggleWorkspaceList() {
-    showWorkspaceList = !showWorkspaceList;
-  }
+	function handleMouseUp(e: MouseEvent) {
+		isScrolling = false;
+		(e.currentTarget as HTMLElement).style.cursor = 'grab';
+	}
 
-  function closeWorkspaceList(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      showWorkspaceList = false;
-    }
-  }
+	function handleMouseMove(e: MouseEvent) {
+		if (!isScrolling) return;
+		e.preventDefault();
+		const x = e.pageX - (e.currentTarget as HTMLElement).offsetLeft;
+		const walk = (x - startX) * 2;
+		(e.currentTarget as HTMLElement).scrollLeft = scrollLeft - walk;
+	}
 
-  async function handleDeleteWorkspace(workspaceId: string) {
-    if (confirm('Are you sure you want to delete this workspace?')) {
-      try {
-        await deleteWorkspace(workspaceId);
-        workspaceStore.removeWorkspace(workspaceId);
-        showConfirmation('Workspace deleted successfully');
-      } catch (error) {
-        console.error('Error deleting workspace:', error);
-        showConfirmation('Error deleting workspace', true);
-      }
-    }
-  }
+	function toggleWorkspaceList() {
+		showWorkspaceList = !showWorkspaceList;
+	}
 
-  function startEditingWorkspace(workspace: Workspaces) {
-    editingWorkspace = workspace.id;
-    editedName = workspace.name;
-  }
+	function closeWorkspaceList(event: MouseEvent) {
+		if (event.target === event.currentTarget) {
+			showWorkspaceList = false;
+		}
+	}
 
-  async function saveEditedWorkspace(workspace: Workspaces) {
-    if (editedName.trim() !== '' && editedName !== workspace.name) {
-      try {
-        const updatedWorkspace = await updateWorkspace(workspace.id, { name: editedName });
-        workspaceStore.updateWorkspace(updatedWorkspace);
-        showConfirmation('Workspace name updated successfully');
-      } catch (error) {
-        console.error('Error updating workspace name:', error);
-        showConfirmation('Error updating workspace name', true);
-      }
-    }
-    editingWorkspace = null;
-  }
+	async function handleDeleteWorkspace(workspaceId: string) {
+		if (confirm('Are you sure you want to delete this workspace?')) {
+			try {
+				await deleteWorkspace(workspaceId);
+				workspaceStore.removeWorkspace(workspaceId);
+				showConfirmation('Workspace deleted successfully');
+			} catch (error) {
+				console.error('Error deleting workspace:', error);
+				showConfirmation('Error deleting workspace', true);
+			}
+		}
+	}
 
-  function showConfirmation(message: string, isError: boolean = false) {
-    confirmationMessage = message;
-    setTimeout(() => {
-      confirmationMessage = null;
-    }, 3000);
-  }
+	function startEditingWorkspace(workspace: Workspaces) {
+		editingWorkspace = workspace.id;
+		editedName = workspace.name;
+	}
 
-  function toggleOverlay(content: string) {
-    if (overlayContent === content && showOverlay) {
-      closeOverlay();
-    } else {
-      overlayContent = content;
-      showOverlay = true;
-    }
-  }
+	async function saveEditedWorkspace(workspace: Workspaces) {
+		if (editedName.trim() !== '' && editedName !== workspace.name) {
+			try {
+				const updatedWorkspace = await updateWorkspace(workspace.id, { name: editedName });
+				workspaceStore.updateWorkspace(updatedWorkspace);
+				showConfirmation('Workspace name updated successfully');
+			} catch (error) {
+				console.error('Error updating workspace name:', error);
+				showConfirmation('Error updating workspace name', true);
+			}
+		}
+		editingWorkspace = null;
+	}
 
-  function closeOverlay() {
-    showOverlay = false;
-    overlayContent = '';
-  }
+	function showConfirmation(message: string, isError: boolean = false) {
+		confirmationMessage = message;
+		setTimeout(() => {
+			confirmationMessage = null;
+		}, 3000);
+	}
 
-  function handleTouchStart(event: TouchEvent) {
-    touchStartY = event.touches[0].clientY;
-  }
+	function toggleOverlay(content: string) {
+		if (overlayContent === content && showOverlay) {
+			closeOverlay();
+		} else {
+			overlayContent = content;
+			showOverlay = true;
+		}
+	}
 
-  function handleTouchMove(event: TouchEvent) {
-    const touchEndY = event.touches[0].clientY;
-    const deltaY = touchEndY - touchStartY;
-    if (deltaY > 50) {
-      closeOverlay();
-    }
-  }
+	function closeOverlay() {
+		showOverlay = false;
+		overlayContent = '';
+	}
 
-  function goBack() {
-    // goto('/launcher/');
-  }
+	function handleTouchStart(event: TouchEvent) {
+		touchStartY = event.touches[0].clientY;
+	}
 
-  async function createNewWorkshop() {
-    if (currentWorkspace) {
-      try {
-        const newWorkshop: Partial<Workshops> = {
-          name: `New Workshop ${workshopCount + 1}`,
-          description: 'A new workshop',
-          workspace: currentWorkspace.id,
-          workflow: '',
-          prompt: '',
-          replies: [],
-        };
-        const createdWorkshop = await createWorkshop(newWorkshop);
-        workshopStore.addWorkshop(createdWorkshop);
-      } catch (error) {
-        console.error('Error creating new workshop:', error);
-      }
-    }
-  }
+	function handleTouchMove(event: TouchEvent) {
+		const touchEndY = event.touches[0].clientY;
+		const deltaY = touchEndY - touchStartY;
+		if (deltaY > 50) {
+			closeOverlay();
+		}
+	}
 
-  function toggleNav() {
-    isNavExpanded = !isNavExpanded;
-  }
+	function goBack() {
+		// goto('/launcher/');
+	}
 
-  function closeGenericOverlay() {
-    showGenericOverlay = false;
-    genericOverlayContent = '';
-  }
+	async function createNewWorkshop() {
+		if (currentWorkspace) {
+			try {
+				const newWorkshop: Partial<Workshops> = {
+					name: `New Workshop ${workshopCount + 1}`,
+					description: 'A new workshop',
+					workspace: currentWorkspace.id,
+					workflow: '',
+					prompt: '',
+					replies: []
+				};
+				const createdWorkshop = await createWorkshop(newWorkshop);
+				workshopStore.addWorkshop(createdWorkshop);
+			} catch (error) {
+				console.error('Error creating new workshop:', error);
+			}
+		}
+	}
 
-  function getAvatarUrl(workspace: Workspaces): string | null {
-    if (workspace.avatar) {
-      return pb.getFileUrl(workspace, workspace.avatar);
-    }
-    return null;
-  }
+	function toggleNav() {
+		isNavExpanded = !isNavExpanded;
+	}
+
+	function closeGenericOverlay() {
+		showGenericOverlay = false;
+		genericOverlayContent = '';
+	}
+
+	function getAvatarUrl(workspace: Workspaces): string | null {
+		if (workspace.avatar) {
+			return pb.getFileUrl(workspace, workspace.avatar);
+		}
+		return null;
+	}
 </script>
 
 <svelte:window bind:innerWidth />
 
 {#if showH2}
-  <div class="layout" in:fly="{{ y: -400, duration: 400 }}" out:fade="{{ duration: 300 }}">
-    <img src={itImage} alt="Italian illustration" class="illustration" />
+	<div class="layout" in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
+		<!-- <img src={itImage} alt="Italian illustration" class="illustration" /> -->
 
-    {#if isLoading}
-      <div class="loading-overlay">
-        <LoadingSpinner />
-      </div>
-    {/if}
+		{#if isLoading}
+			<div class="loading-overlay">
+				<LoadingSpinner />
+			</div>
+		{/if}
 
-    <div class="workspace-container">
-      <div class="workspace-selector"
-        on:mousedown={handleMouseDown}
-        on:mouseleave={handleMouseLeave}
-        on:mouseup={handleMouseUp}
-        on:mousemove={handleMouseMove}
-        style="cursor: grab;">        
-        {#each workspaces as workspace (workspace.id)}
-          <button class="workspace-button" on:click={() => selectWorkspace(workspace.id)}>
-            {#if getAvatarUrl(workspace)}
-              <img src={getAvatarUrl(workspace)} alt={workspace.name} class="workspace-avatar" />
-            {:else}
-              <DefaultAvatar name={workspace.name} size={40} />
-            {/if}
-            <span>{workspace.name}</span>
-          </button>
-        {/each}
-      </div>
-      {#if currentWorkspace}
-        <div class="workspace-name">{currentWorkspace.name}</div>
-      {/if}
-    </div>
+		<div class="workspace-container">
+			<div
+				class="workspace-selector"
+				on:mousedown={handleMouseDown}
+				on:mouseleave={handleMouseLeave}
+				on:mouseup={handleMouseUp}
+				on:mousemove={handleMouseMove}
+				style="cursor: grab;"
+			>
+				{#each workspaces as workspace (workspace.id)}
+					<button class="workspace-button" on:click={() => selectWorkspace(workspace.id)}>
+						{#if getAvatarUrl(workspace)}
+							<img src={getAvatarUrl(workspace)} alt={workspace.name} class="workspace-avatar" />
+						{:else}
+							<DefaultAvatar name={workspace.name} size={40} />
+						{/if}
+						<span>{workspace.name}</span>
+					</button>
+				{/each}
+			</div>
+			{#if currentWorkspace}
+				<div class="workspace-name">{currentWorkspace.name}</div>
+			{/if}
+		</div>
 
-    <nav class="config-selector" class:collapsed={!isNavExpanded && isNarrowScreen}>
-      {#if isNarrowScreen}
-        <button class="toggle-nav" on:click={toggleNav}>
-          <SquareMenu size={24} class="nav-icon" />
-        </button>
-      {/if}
+		<nav class="config-selector" class:collapsed={!isNavExpanded && isNarrowScreen}>
+			{#if isNarrowScreen}
+				<button class="toggle-nav" on:click={toggleNav}>
+					<SquareMenu size={24} class="nav-icon" />
+				</button>
+			{/if}
 
-      <button 
-        class={overlayContent === 'Agents' ? 'active' : ''}
-        on:click={() => toggleOverlay('Agents')}
-      >
-        <Bot size={24} class="nav-icon" />
-      </button>
-      <button 
-        class={overlayContent === 'Models' ? 'active' : ''}
-        on:click={() => toggleOverlay('Models')}
-      >      
-        <Settings2 size={24} class="nav-icon" />
-      </button>
-      <button 
-        class={overlayContent === 'Actions' ? 'active' : ''}
-        on:click={() => toggleOverlay('Actions')}
-      >
-        <Wrench size={24} class="nav-icon" />
-      </button>
-      <button 
-        class={overlayContent === 'Flows' ? 'active' : ''}
-        on:click={() => toggleOverlay('Flows')}
-      >
-        <Workflow size={24} class="nav-icon" />
-      </button>
-      <button 
-        class={overlayContent === 'Objectives' ? 'active' : ''}
-        on:click={() => toggleOverlay('Objectives')}
-      >
-        <Target size={24} class="nav-icon" />
-      </button>
-    </nav>
+			<button
+				class={overlayContent === 'Agents' ? 'active' : ''}
+				on:click={() => toggleOverlay('Agents')}
+			>
+				<Bot size={24} class="nav-icon" />
+			</button>
+			<button
+				class={overlayContent === 'Models' ? 'active' : ''}
+				on:click={() => toggleOverlay('Models')}
+			>
+				<Settings2 size={24} class="nav-icon" />
+			</button>
+			<button
+				class={overlayContent === 'Actions' ? 'active' : ''}
+				on:click={() => toggleOverlay('Actions')}
+			>
+				<Wrench size={24} class="nav-icon" />
+			</button>
+			<button
+				class={overlayContent === 'Flows' ? 'active' : ''}
+				on:click={() => toggleOverlay('Flows')}
+			>
+				<Workflow size={24} class="nav-icon" />
+			</button>
+			<button
+				class={overlayContent === 'Objectives' ? 'active' : ''}
+				on:click={() => toggleOverlay('Objectives')}
+			>
+				<Target size={24} class="nav-icon" />
+			</button>
+		</nav>
 
-    <CursorEffect />
+		<CursorEffect />
 
-    <main>
-      <slot />
-    </main>
+		<main>
+			<slot />
+		</main>
 
-    {#if showOverlay}
-      <div
-        class="overlay"
-        on:click={closeOverlay}
-        on:touchstart={handleTouchStart}
-        on:touchmove={handleTouchMove}
-        transition:fade={{ duration: 200 }}
-      >
-        <div 
-          class="overlay-content" 
-          on:click|stopPropagation
-          transition:slide={{ duration: 200 }}
-        >
-          <button class="close-button" on:click={closeOverlay} transition:fade={{ duration: 300 }}>
-            <X size={30} />
-          </button>
-          
-          {#key overlayContent}
-            <div in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
-              {#if overlayContent === 'Agents'}
-                <AgentsConfig />
-              {:else if overlayContent === 'Models'}
-                <ModelsConfig />
-              {:else if overlayContent === 'Actions'}
-                <ActionsConfig />
-              {:else if overlayContent === 'Flows'}
-                <FlowsConfig />
-              {:else if overlayContent === 'Objectives'}
-                <ObjectivesConfig />
-              {/if}
-            </div>
-          {/key}
-        </div>
-      </div>
-    {/if} 
+		{#if showOverlay}
+			<div
+				class="overlay"
+				on:click={closeOverlay}
+				on:touchstart={handleTouchStart}
+				on:touchmove={handleTouchMove}
+				transition:fade={{ duration: 200 }}
+			>
+				<div class="overlay-content" on:click|stopPropagation transition:slide={{ duration: 200 }}>
+					<button class="close-button" on:click={closeOverlay} transition:fade={{ duration: 300 }}>
+						<X size={30} />
+					</button>
 
-    {#if showWorkspaceList}
-      <div class="overlay" on:click={closeWorkspaceList} transition:slide="{{ duration: 300, easing: quintOut }}">
-        <div class="overlay-handle">
-          <h1>Workspaces</h1>
-          <button class="menu-button" on:click={closeWorkspaceList}>
-            <X size={40} />
-          </button>
-        </div>
-        <div class="lists-container">
-          <div class="workspace-list">
-            {#each workspaces as workspace (workspace.id)}
-              <div class="workspace-list-item">
-                {#if editingWorkspace === workspace.id}
-                  <input
-                    type="text"
-                    bind:value={editedName}
-                    on:keydown={(e) => e.key === 'Enter' && saveEditedWorkspace(workspace)}
-                    on:blur={() => saveEditedWorkspace(workspace)}
-                  />
-                  <button class="check-button" on:click={() => saveEditedWorkspace(workspace)}>
-                    <Check size={30} />
-                  </button>
-                {:else}
-                  <Box size={30} /> 
-                  <p on:click={() => startEditingWorkspace(workspace)}>
-                    {workspace.name}
-                  </p>
-                  <div class="spacer">
-                    <button class="icon-button" on:click={() => handleDeleteWorkspace(workspace.id)}>
-                      <Trash2 size={30} />
-                    </button>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-          <div class="workspace-list">
-            <button class="workspace-list-item" on:click={addNewWorkspace}>
-              <Plus size={30} /> 
-              <p>
-                Add New Workspace Group
-              </p>
-            </button>
-          </div>
-        </div>
-      </div>
-    {/if}
-  </div>
+					{#key overlayContent}
+						<div in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
+							{#if overlayContent === 'Agents'}
+								<AgentsConfig />
+							{:else if overlayContent === 'Models'}
+								<ModelsConfig />
+							{:else if overlayContent === 'Actions'}
+								<ActionsConfig />
+							{:else if overlayContent === 'Flows'}
+								<FlowsConfig />
+							{:else if overlayContent === 'Objectives'}
+								<ObjectivesConfig />
+							{/if}
+						</div>
+					{/key}
+				</div>
+			</div>
+		{/if}
+
+		{#if showWorkspaceList}
+			<div
+				class="overlay"
+				on:click={closeWorkspaceList}
+				transition:slide={{ duration: 300, easing: quintOut }}
+			>
+				<div class="overlay-handle">
+					<h1>Workspaces</h1>
+					<button class="menu-button" on:click={closeWorkspaceList}>
+						<X size={40} />
+					</button>
+				</div>
+				<div class="lists-container">
+					<div class="workspace-list">
+						{#each workspaces as workspace (workspace.id)}
+							<div class="workspace-list-item">
+								{#if editingWorkspace === workspace.id}
+									<input
+										type="text"
+										bind:value={editedName}
+										on:keydown={(e) => e.key === 'Enter' && saveEditedWorkspace(workspace)}
+										on:blur={() => saveEditedWorkspace(workspace)}
+									/>
+									<button class="check-button" on:click={() => saveEditedWorkspace(workspace)}>
+										<Check size={30} />
+									</button>
+								{:else}
+									<Box size={30} />
+									<p on:click={() => startEditingWorkspace(workspace)}>
+										{workspace.name}
+									</p>
+									<div class="spacer">
+										<button
+											class="icon-button"
+											on:click={() => handleDeleteWorkspace(workspace.id)}
+										>
+											<Trash2 size={30} />
+										</button>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+					<div class="workspace-list">
+						<button class="workspace-list-item" on:click={addNewWorkspace}>
+							<Plus size={30} />
+							<p>Add New Workspace Group</p>
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
 {/if}
 
 {#if showGenericOverlay}
-  <GenericOverlay 
-    on:close={closeGenericOverlay}
-    title={genericOverlayContent}
-  >
-    <Builder/>
-    <p>This is the content for {genericOverlayContent}</p>
-  </GenericOverlay>
+	<GenericOverlay on:close={closeGenericOverlay} title={genericOverlayContent}>
+		<Builder />
+		<p>This is the content for {genericOverlayContent}</p>
+	</GenericOverlay>
 {/if}
 
 <style>
-  .layout {
-    position: absolute;
-    justify-content: center;
-    align-items: center;
-    margin-left: auto;
-    margin-right: auto;
-    width: 96%;
-    right: 2%;
-    height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background-color:#010e0e;
-    border-radius: 40px;
-  }
- 
-  main {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 20px;
-  }
+	.layout {
+		position: absolute;
+		justify-content: center;
+		align-items: center;
+		margin-left: auto;
+		margin-right: auto;
+		width: auto;
+		left: 4rem;
+		right: 0.5rem;
+		height: 97vh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		background-color: #010e0e;
+		border-radius: 40px;
+	}
 
-  .workspace-container {
-    display: flex;
-    align-items: center;
-    width: 100%;
-  }
+	main {
+		flex-grow: 1;
+		overflow-y: auto;
+		padding: 20px;
+	}
 
-  .workspace-selector:hover + .workspace-name {
-    opacity: 0;
-  }
+	.workspace-container {
+		display: flex;
+		align-items: center;
+		width: 100%;
+	}
 
-  .config-selector {
-    display: flex;
-    flex-direction: row;
-    position: absolute;
-    left:20px;
-    top: 80px;
-    padding: 20px 10px;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 1002;
-    width: 400px;
-    border-radius: 20px;
-    background-color: #262929;
-    transition: all 0.3s ease;
-  }
+	.workspace-selector:hover + .workspace-name {
+		opacity: 0;
+	}
 
-  .config-selector.expanded {
-    width: 80%;
-  }
+	.config-selector {
+		display: flex;
+		flex-direction: row;
+		position: absolute;
+		left: calc(50%-200px);
+		top: 0.5rem;
+		padding: 20px 10px;
+		justify-content: space-between;
+		align-items: center;
+		z-index: 1002;
+		width: 400px;
+		border-radius: 20px;
+		/* background-color: #262929; */
+		transition: all 0.3s ease;
+	}
 
-  .config-selector button {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-size: 20px;
-    border: none;
-    background-color: transparent;
-    color: rgb(133, 133, 133);
-    cursor: pointer;
-    transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-  }
+	.config-selector.expanded {
+		width: 80%;
+	}
 
-  .config-selector button.active {
-    color: white;
-    transform: scale(1.5);
-  }
+	.config-selector button {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		font-size: 20px;
+		border: none;
+		background-color: transparent;
+		color: rgb(133, 133, 133);
+		cursor: pointer;
+		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+	}
 
-  .toggle-nav {
-    display: none;
-  }
+	.config-selector button.active {
+		color: white;
+		transform: scale(1.5);
+	}
 
-  .overlay {
-    position: fixed;
-    backdrop-filter: blur(10px);
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    overflow: hidden;
-    width: 98%;
-    left: 1%;
-    border-radius: 20px;
-  }
+	.toggle-nav {
+		display: none;
+	}
 
-  .overlay-content {
-    backdrop-filter: blur(10px);
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
-    height:80%;
-    width: 96%;
-    overflow: hidden;
-    position: absolute;
-    left: 70px;
-    top: 300px;
-  }
+	.overlay {
+		position: fixed;
+		backdrop-filter: blur(10px);
+		display: flex;
+		justify-content: flex-end;
+		align-items: flex-start;
+		overflow: hidden;
+		width: 98%;
+		border-radius: 20px;
+	}
 
-  .close-button {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: white;
-  }
+	.overlay-content {
+		backdrop-filter: blur(10px);
+		border-top-right-radius: 10px;
+		border-bottom-right-radius: 10px;
+		height: 100%;
+		margin-top: 0;
+		width: 100%;
 
-  .workspace-selector {
-    display: flex;
-    flex-direction: row;
-    position: relative;
-    align-items: center;
-    justify-content: flex-start;
-    left: 20px;
-    top: 20px;
-    overflow-x: scroll; 
-    height: 60px;
-    width: 600px;
-    user-select: none;
-    scroll-behavior: smooth;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-    transition: all 0.3s ease;
-  }
+		overflow: hidden;
+		position: relative;
+		left: auto;
 
-  .workspace-selector:hover {
-    width: 90%;
-    overflow-x: scroll;
-    overflow-y: hidden;
-    z-index: 10000;
-  }
+	}
 
-  .workspace-button {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: transparent;
-    color: white;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    font-size: 10px;
-    transition: all 0.3s ease;
-    scroll-snap-align: start;
-  }
+	.close-button {
+		position: absolute;
+		top: 1rem;
+		right: 0;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: white;
+	}
 
-  .workspace-selector:hover .workspace-button {
-    width: 90%;
-    border-radius: 50px;
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 10px;
-    text-align: left;
-  }
+	.workspace-selector {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+		align-items: center;
+		justify-content: flex-start;
+		left: 20px;
+		top: 20px;
+		overflow-x: scroll;
+		height: 60px;
+		width: 600px;
+		user-select: none;
+		scroll-behavior: smooth;
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+		white-space: nowrap;
+		-webkit-overflow-scrolling: touch;
+		transition: all 0.3s ease;
+	}
 
-  .workspace-avatar,
-  :global(.default-avatar) {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    object-fit: cover;
-    transition: all 0.3s ease;
-  }
+	.workspace-selector:hover {
+		width: 90%;
+		overflow-x: scroll;
+		overflow-y: hidden;
+		z-index: 10000;
+	}
 
-  .workspace-selector:hover .workspace-avatar,
-  .workspace-selector:hover :global(.default-avatar) {
-    width: 40px;
-    height: 40px;
-    margin-left: 10px;
-  }
+	.workspace-button {
+		width: 60px;
+		height: 60px;
+		border-radius: 50%;
+		background-color: transparent;
+		color: white;
+		border: none;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		font-size: 10px;
+		transition: all 0.3s ease;
+		scroll-snap-align: start;
+	}
 
-  .workspace-button span {
-    display: none;
-    font-size: 8px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transition: all 0.3s ease;
-    font-family: 'Lora', serif;
-  }
+	.workspace-selector:hover .workspace-button {
+		width: 90%;
+		border-radius: 50px;
+		flex-direction: row;
+		justify-content: flex-start;
+		gap: 10px;
+		text-align: left;
+	}
 
-  .workspace-selector:hover .workspace-button span {
-    display: inline;
-    font-size: 18px;
-  }
+	.workspace-avatar,
+	:global(.default-avatar) {
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		object-fit: cover;
+		transition: all 0.3s ease;
+	}
 
-  .workspace-name {
-    margin-left: 20px;
-    font-size: 18px;
-    opacity: 1;
-    transition: opacity 0.3s ease;
-  }
+	.workspace-selector:hover .workspace-avatar,
+	.workspace-selector:hover :global(.default-avatar) {
+		width: 40px;
+		height: 40px;
+		margin-left: 10px;
+	}
 
-  .overlay {
-    position: fixed;
-    bottom: 80px;
-    left: 0;
-    right: 0;
-    height: 100vh;
-    /* background: linear-gradient(
+	.workspace-button span {
+		display: none;
+		font-size: 8px;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		transition: all 0.3s ease;
+		font-family: 'Lora', serif;
+	}
+
+	.workspace-selector:hover .workspace-button span {
+		display: inline;
+		font-size: 18px;
+	}
+
+	.workspace-name {
+		margin-left: 20px;
+		font-size: 18px;
+		opacity: 1;
+		transition: opacity 0.3s ease;
+	}
+
+	.overlay {
+		position: relative;
+		bottom: 1rem;
+		left: 0;
+		right: 0;
+		height: 100vh;
+		/* background: linear-gradient(
       90deg,
       rgba(117, 118, 114, 0.9) 0%,
       rgba(0, 0, 0, 0.85) 5%,
@@ -714,430 +742,439 @@
       rgba(1, 1, 1, 0.05) 85%,
       rgba(117, 118, 114, 0) 100%
     ); */
-    backdrop-filter: blur(10px);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-  }
+		backdrop-filter: blur(10px);
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+	}
 
-  .overlay-handle {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    height: 80px;
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-  }
+	.overlay-handle {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px;
+		height: 80px;
+		border-top-left-radius: 20px;
+		border-top-right-radius: 20px;
+	}
 
-  .lists-container {
-    display: flex;
-    flex-direction: column;
-    background-color: #1c1b1d;
-    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 90%);
-    width: 100%;
-    border-bottom-left-radius: 20px;
-    border-bottom-right-radius: 20px;
-  }
+	.lists-container {
+		display: flex;
+		flex-direction: column;
+		background-color: #1c1b1d;
+		background: radial-gradient(
+			circle at center,
+			rgba(255, 255, 255, 0.2) 0%,
+			rgba(255, 255, 255, 0) 90%
+		);
+		width: 100%;
+		border-bottom-left-radius: 20px;
+		border-bottom-right-radius: 20px;
+	}
 
-  .workspace-list {
-    background-color: #1c1b1d;
-    max-height: calc(80vh - 40px);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    border-radius: 20px;
-    gap: 4px;
-    margin-bottom: 20px;
-    overflow: hidden;
-  }
+	.workspace-list {
+		background-color: #1c1b1d;
+		max-height: calc(80vh - 40px);
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		border-radius: 20px;
+		gap: 4px;
+		margin-bottom: 20px;
+		overflow: hidden;
+	}
 
-  .workspace-list-item {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    padding: 10px;
-    background: linear-gradient(to top, #1a1a1a, #212121);
-    align-items: center;
-    gap: 10px;
-    color: white;
-    border: none;
-    text-align: left;
-    font-size: 20px;
-    cursor: pointer;
-    transition: background 0.3s;
-    user-select: none;
-  }
+	.workspace-list-item {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		padding: 10px;
+		background: linear-gradient(to top, #1a1a1a, #212121);
+		align-items: center;
+		gap: 10px;
+		color: white;
+		border: none;
+		text-align: left;
+		font-size: 20px;
+		cursor: pointer;
+		transition: background 0.3s;
+		user-select: none;
+	}
 
-  .workspace-list-item:hover {
-    background: #5a5a58;
-  }
+	.workspace-list-item:hover {
+		background: #5a5a58;
+	}
 
-  .loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-  }
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 9999;
+	}
 
-  .illustration {
-    position: absolute;
-    width: 95%;
-    height: auto;
-    left: 5%;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0.025;
-    z-index: 1;
-    pointer-events: none;
-  }
+	.illustration {
+		position: absolute;
+		width: 95%;
+		height: auto;
+		left: 5%;
+		top: 50%;
+		transform: translateY(-50%);
+		opacity: 0.025;
+		z-index: 1;
+		pointer-events: none;
+	}
 
-  @media (max-width: 700px) {
-    .config-selector {
-      width: auto;
-      left: 0;
-    }
+	@media (max-width: 700px) {
+		.config-selector {
+			width: auto;
+			left: 0;
+		}
 
-    .config-selector.expanded {
-      width: 80%;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-    }
+		.config-selector.expanded {
+			width: 80%;
+			flex-wrap: wrap;
+			justify-content: flex-start;
+		}
 
-    .config-selector:not(.expanded) {
-      width: 60px;
-      height: 60px;
-    }
+		.config-selector:not(.expanded) {
+			width: 60px;
+			height: 60px;
+		}
 
-    .config-selector.collapsed {
-      width: 380px;
-      height: 60px;
-      display: flex;
-      position: fixed;
-      gap: 10px;
-      bottom: 0;
-      left: 0;
-      align-items: center;
-      justify-content: center;
-    }
+		.config-selector.collapsed {
+			width: 100%;
+			height: 30px;
+			display: flex;
+			background-color: black;
+			gap: 10px;
+			bottom: 0;
+			left: 0;
+			align-items: center;
+			justify-content: center;
+		}
 
-    .config-selector:not(.expanded) button:not(.toggle-nav) {
-      display: none;
-    }
+		.config-selector:not(.expanded) button:not(.toggle-nav) {
+			display: none;
+		}
 
-    .config-selector.expanded button {
-      display: flex;
-    }
+		.config-selector.expanded button {
+			display: flex;
+		}
 
-    .toggle-nav {
-      display: flex;
-      position: absolute;
-      left: 1rem;      
-      bottom: 1rem;
-    }
+		.toggle-nav {
+			display: flex;
+			position: absolute;
+			left: 1rem;
+			bottom: 1rem;
+		}
 
-    .config-selector button:not(.toggle-nav) {
-      display: none;
-    }
+		.config-selector button:not(.toggle-nav) {
+			display: none;
+		}
 
-    .config-selector.collapsed button:not(.toggle-nav) {
-      display: flex;
-    }
+		.config-selector.collapsed button:not(.toggle-nav) {
+			display: flex;
+		}
 
-    .nav-icon {
-      width: 20px;
-      height: 20px;
-    }
+		.nav-icon {
+			width: 20px;
+			height: 20px;
+		}
 
-    .workspace-selector:hover .workspace-avatar,
-    .workspace-selector:hover :global(.default-avatar) {
-      width: 30px;
-      height: 30px;
-    }
+		.workspace-selector:hover .workspace-avatar,
+		.workspace-selector:hover :global(.default-avatar) {
+			width: 30px;
+			height: 30px;
+		}
 
-    .workspace-handle,
-    .workspace-selector:hover ~ .workspace-handle {
-      left: 80px;
-    }
+		.workspace-handle,
+		.workspace-selector:hover ~ .workspace-handle {
+			left: 80px;
+		}
 
-    .workspace-avatar,
-    :global(.default-avatar) {
-      width: 30px;
-      height: 30px;
-    }
+		.workspace-avatar,
+		:global(.default-avatar) {
+			width: 30px;
+			height: 30px;
+		}
 
-    .workspace-button span {
-      display: none;
-      font-size: 8px;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+		.workspace-button span {
+			display: none;
+			font-size: 8px;
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
 
-.menu-button {
-  transform: scale(0.7);
-}
+		.menu-button {
+			transform: scale(0.7);
+		}
 
-.menu-button .nav-icon {
-  width: 20px;
-  height: 20px;
-}
+		.menu-button .nav-icon {
+			width: 20px;
+			height: 20px;
+		}
 
-.workshop-count {
-  width: 30px;
-  height: 30px;
-  font-size: 16px;
-}
-}
+		.workshop-count {
+			width: 30px;
+			height: 30px;
+			font-size: 16px;
+		}
+	}
 
-h1 {
-font-size: 30px;
-margin: 0;
-color: white;
-width: 100%;
-text-align: center;
-}
+	h1 {
+		font-size: 30px;
+		margin: 0;
+		color: white;
+		width: 100%;
+		text-align: center;
+	}
 
-p {
-padding: 10px;
-transition: color 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
-user-select: none;
-}
+	p {
+		padding: 10px;
+		transition: color 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
+		user-select: none;
+	}
 
-p:hover {
-color: red;
-}
+	p:hover {
+		color: red;
+	}
 
-.spacer {
-flex-grow: 1;
-position: absolute;
-right: 1rem;
-margin-right: 10px;
-}
+	.spacer {
+		flex-grow: 1;
+		position: absolute;
+		right: 1rem;
+		margin-right: 10px;
+	}
 
-.spacer:hover {
-color: red;
-}
+	.spacer:hover {
+		color: red;
+	}
 
-.icon-button, .check-button {
-background: none;
-border: none;
-cursor: pointer;
-color: white;
-padding: 5px;
-transition: color 0.3s;
-margin-right: 30px;
-}
+	.icon-button,
+	.check-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: white;
+		padding: 5px;
+		transition: color 0.3s;
+		margin-right: 30px;
+	}
 
-.icon-button:hover {
-color: #ff4136;
-}
+	.icon-button:hover {
+		color: #ff4136;
+	}
 
-.check-button:hover {
-color: #4CAF50;
-}
+	.check-button:hover {
+		color: #4caf50;
+	}
 
-.confirmation-message {
-position: fixed;
-top: 20px;
-right: 20px;
-background-color: #4CAF50;
-color: white;
-padding: 10px 20px;
-border-radius: 5px;
-z-index: 1001;
-}
+	.confirmation-message {
+		position: fixed;
+		top: 20px;
+		right: 20px;
+		background-color: #4caf50;
+		color: white;
+		padding: 10px 20px;
+		border-radius: 5px;
+		z-index: 1001;
+	}
 
-.confirmation-message.error {
-background-color: #f44336;
-}
+	.confirmation-message.error {
+		background-color: #f44336;
+	}
 
-input {
-display: flex;
-width: 100%;
-padding: 30px;
-background: linear-gradient(to top, #1a1a1a, #212121);
-align-items: center;
-gap: 10px;
-color: white;
-border: none;
-text-align: left;
-font-size: 20px;
-cursor: pointer;
-border-radius: 14px;
-transition: background 0.3s;
-}
+	input {
+		display: flex;
+		width: 100%;
+		padding: 30px;
+		background: linear-gradient(to top, #1a1a1a, #212121);
+		align-items: center;
+		gap: 10px;
+		color: white;
+		border: none;
+		text-align: left;
+		font-size: 20px;
+		cursor: pointer;
+		border-radius: 14px;
+		transition: background 0.3s;
+	}
 
-input:focus {
-outline: none;
-border-bottom-color: #45a049;
-}
+	input:focus {
+		outline: none;
+		border-bottom-color: #45a049;
+	}
 
-textarea {
-width: 98%;
-padding: 20px;
-text-justify: center;
-justify-content: center;
-resize: none;
-font-size: 16px;
-letter-spacing: 1.4px;
-border: none;
-border-radius: 20px;
-background-color: #21201d;
-color: #818380;
-line-height: 1.4;
-height: auto;
-text-justify: center;
-box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-overflow: scroll;
-scrollbar-width: none;
-scrollbar-color: #21201d transparent;
-vertical-align: middle;
-}
+	textarea {
+		width: 98%;
+		padding: 20px;
+		text-justify: center;
+		justify-content: center;
+		resize: none;
+		font-size: 16px;
+		letter-spacing: 1.4px;
+		border: none;
+		border-radius: 20px;
+		background-color: #21201d;
+		color: #818380;
+		line-height: 1.4;
+		height: auto;
+		text-justify: center;
+		box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
+		overflow: scroll;
+		scrollbar-width: none;
+		scrollbar-color: #21201d transparent;
+		vertical-align: middle;
+	}
 
-textarea:focus {
-outline: none;
-border: 2px solid #000000;
-color: white;
-}
+	textarea:focus {
+		outline: none;
+		border: 2px solid #000000;
+		color: white;
+	}
 
-.cta-button {
-display: flex;
-flex-direction: row;
-width: 100%;
-height: 50px;
-padding: 20px;
-font-size: 26px;
-font-weight: bolder;
-text-align: center;
-align-items: center;
-justify-content: center;
-border-radius: 14px;
-}
+	.cta-button {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		height: 50px;
+		padding: 20px;
+		font-size: 26px;
+		font-weight: bolder;
+		text-align: center;
+		align-items: center;
+		justify-content: center;
+		border-radius: 14px;
+	}
 
-.hero-container {
-justify-content: center;
-align-items: center;
-margin-left: 35%;
-margin-top: 10%;
-width: 30%;
-height: 50%;
-display: flex;
-flex-direction: column;
-}
+	.hero-container {
+		justify-content: center;
+		align-items: center;
+		margin-left: 35%;
+		margin-top: 10%;
+		width: 30%;
+		height: 50%;
+		display: flex;
+		flex-direction: column;
+	}
 
-.toggle-button {
-position: absolute;
-top: 20px;
-right: 20px;
-padding: 10px 20px;
-background-color: #4CAF50;
-color: white;
-border: none;
-border-radius: 5px;
-cursor: pointer;
-font-size: 16px;
-transition: background-color 0.3s;
-}
+	.toggle-button {
+		position: absolute;
+		top: 20px;
+		right: 20px;
+		padding: 10px 20px;
+		background-color: #4caf50;
+		color: white;
+		border: none;
+		border-radius: 5px;
+		cursor: pointer;
+		font-size: 16px;
+		transition: background-color 0.3s;
+	}
 
-.toggle-button:hover {
-background-color: #45a049;
-}
+	.toggle-button:hover {
+		background-color: #45a049;
+	}
 
-@media (min-width: 1200px) and (max-width: 1599px) {
-.hero-container {
-  width: 50%;
-  margin-left: 25%;
-  margin-right: 25%;
-}
+	@media (min-width: 1200px) and (max-width: 1599px) {
+		.hero-container {
+			width: 50%;
+			margin-left: 25%;
+			margin-right: 25%;
+		}
 
-h2 {
-  display: none;
-  font-size: 40px;
-  color: #fff;
-  justify-content: center;
-  align-items: center;
-}
-}
+		h2 {
+			display: none;
+			font-size: 40px;
+			color: #fff;
+			justify-content: center;
+			align-items: center;
+		}
+	}
 
-@media (min-width: 992px) and (max-width: 1199px) {
-.hero-container {
-  width: 50%;
-  margin-left: 25%;
-  margin-right: 25%;
-}
+	@media (min-width: 992px) and (max-width: 1199px) {
+		.hero-container {
+			width: 50%;
+			margin-left: 25%;
+			margin-right: 25%;
+		}
 
-h2 {
-  font-size: 40px;
-}
-}
+		h2 {
+			font-size: 40px;
+		}
+	}
 
-@media (min-width: 768px) and (max-width: 991px) {
-.hero-container {
-  width: 70%;
-  margin-left: 15%;
-  margin-right: 15%;
-}
+	@media (min-width: 768px) and (max-width: 991px) {
+		.hero-container {
+			width: 70%;
+			margin-left: 15%;
+			margin-right: 15%;
+		}
 
-h2 {
-  font-size: 34px;
-}
-}
+		h2 {
+			font-size: 34px;
+		}
+	}
 
-@media (max-width: 767px) {
-.hero-container {
-  width: 90%;
-  margin-left: 5%;
-}
+	@media (max-width: 767px) {
+		.hero-container {
+			width: 90%;
+			margin-left: 5%;
+		}
 
-.workspace-selector {
-  width: 100%;
-  margin-left: 0;
-  padding: 5px;
-}
+		.layout {
+			height: 93vh;
+			left: 1rem;
+		}
+		.workspace-selector {
+			width: 100%;
+			margin-left: 0;
+			padding: 5px;
+		}
 
-.workspace-button {
-  width: 150px;
-  height: 50px;
-  font-size: 14px;
-  padding: 5px;
-}
+		.workspace-button {
+			width: 150px;
+			height: 50px;
+			font-size: 14px;
+			padding: 5px;
+		}
 
-.menu-button {
-  scale: 0.5;
-  padding: 0 5px;
-  height: 40px;
-  width: 40px;
-}
+		.menu-button {
+			scale: 0.5;
+			padding: 0 5px;
+			height: 40px;
+			width: 40px;
+		}
 
-.menu-button svg {
-  width: 20px;
-  height: 20px;
-}
+		.menu-button svg {
+			width: 20px;
+			height: 20px;
+		}
 
-.workspace-menu {
-  height: 40px;
-  margin-bottom: 5px;
-}
+		.workspace-menu {
+			height: 40px;
+			margin-bottom: 5px;
+		}
 
-.footer {
-  bottom: 0;
-}
+		.footer {
+			bottom: 0;
+		}
 
-h2 {
-  font-size: 24px;
-}
+		h2 {
+			font-size: 24px;
+		}
 
-p {
-  font-size: 10px;
-}
-}
+		p {
+			font-size: 10px;
+		}
+	}
 </style>

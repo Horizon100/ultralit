@@ -2,17 +2,17 @@
 
 // Breakpoint map
 $breakpoints: (
-  'mobile': 320px,
-  'tablet': 768px,
-  'desktop': 992px,
-  'large': 1440px
+	'mobile': 320px,
+	'tablet': 768px,
+	'desktop': 992px,
+	'large': 1440px
 );
 
 // Responsive mixin
 @mixin respond-to($breakpoint) {
-  @if map-has-key($breakpoints, $breakpoint) {
-    @media (min-width: map-get($breakpoints, $breakpoint)) {
-      @content;
-    }
-  }
+	@if map-has-key($breakpoints, $breakpoint) {
+		@media (min-width: map-get($breakpoints, $breakpoint)) {
+			@content;
+		}
+	}
 }

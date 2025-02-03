@@ -5,66 +5,66 @@
 @use '../mixins/responsive' as *;
 
 @mixin tablet-styles {
-  // Layout
-  .container {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 0 map-get(spacing.$container-padding, 'tablet');
-  }
+	// Layout
+	.container {
+		max-width: 720px;
+		margin: 0 auto;
+		padding: 0 map-get(spacing.$container-padding, 'tablet');
+	}
 
-  // Grid layouts
-  .grid {
-    grid-template-columns: repeat(8, 1fr);
-    gap: map-get(spacing.$gap, 'md');
-  }
+	// Grid layouts
+	.grid {
+		grid-template-columns: repeat(8, 1fr);
+		gap: map-get(spacing.$gap, 'md');
+	}
 
-  // Navigation
-  .nav {
-    &-container {
-      padding: map-get(spacing.$spacing, 'sm') 0;
-    }
-    
-    &-menu {
-      display: flex;
-      gap: map-get(spacing.$gap, 'sm');
-    }
-  }
+	// Navigation
+	.nav {
+		&-container {
+			padding: map-get(spacing.$spacing, 'sm') 0;
+		}
 
-  // Card grids
-  .card-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: map-get(spacing.$gap, 'md');
-  }
+		&-menu {
+			display: flex;
+			gap: map-get(spacing.$gap, 'sm');
+		}
+	}
 
-  // Sidebar layouts
-  .with-sidebar {
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: map-get(spacing.$gap, 'lg');
-  }
+	// Card grids
+	.card-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: map-get(spacing.$gap, 'md');
+	}
 
-  // Forms
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: map-get(spacing.$gap, 'md');
-  }
+	// Sidebar layouts
+	.with-sidebar {
+		display: grid;
+		grid-template-columns: 220px 1fr;
+		gap: map-get(spacing.$gap, 'lg');
+	}
 
-  // Modal dialogs
-  .modal {
-    max-width: 500px;
-    padding: map-get(spacing.$spacing, 'lg');
-  }
+	// Forms
+	.form-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: map-get(spacing.$gap, 'md');
+	}
 
-  // Lists
-  .list-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: map-get(spacing.$gap, 'md');
-  }
+	// Modal dialogs
+	.modal {
+		max-width: 500px;
+		padding: map-get(spacing.$spacing, 'lg');
+	}
 
-  // Hide mobile elements
-  .mobile-only {
-    display: none !important;
-  }
+	// Lists
+	.list-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: map-get(spacing.$gap, 'md');
+	}
+
+	// Hide mobile elements
+	.mobile-only {
+		display: none !important;
+	}
 }

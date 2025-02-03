@@ -5,37 +5,53 @@ $base-spacing-unit: 0.25rem; // 4px if base font-size is 16px
 
 // Core spacing units
 $spacing: (
-  'none': 0,
-  'xxxs': $base-spacing-unit * 1,     // 4px
-  'xxs':  $base-spacing-unit * 2,     // 8px
-  'xs':   $base-spacing-unit * 3,     // 12px
-  'sm':   $base-spacing-unit * 4,     // 16px
-  'md':   $base-spacing-unit * 6,     // 24px
-  'lg':   $base-spacing-unit * 8,     // 32px
-  'xl':   $base-spacing-unit * 12,    // 48px
-  'xxl':  $base-spacing-unit * 16,    // 64px
-  'xxxl': $base-spacing-unit * 24     // 96px
+	'none': 0,
+	'xxxs': $base-spacing-unit * 1,
+	// 4px
+	'xxs': $base-spacing-unit * 2,
+	// 8px
+	'xs': $base-spacing-unit * 3,
+	// 12px
+	'sm': $base-spacing-unit * 4,
+	// 16px
+	'md': $base-spacing-unit * 6,
+	// 24px
+	'lg': $base-spacing-unit * 8,
+	// 32px
+	'xl': $base-spacing-unit * 12,
+	// 48px
+	'xxl': $base-spacing-unit * 16,
+	// 64px
+	'xxxl': $base-spacing-unit * 24 // 96px
 );
 
 // Gap units (for grid/flex)
 $gap: (
-  'xs': $base-spacing-unit * 2,    // 8px
-  'sm': $base-spacing-unit * 4,    // 16px
-  'md': $base-spacing-unit * 6,    // 24px
-  'lg': $base-spacing-unit * 8,    // 32px
-  'xl': $base-spacing-unit * 12    // 48px
+	'xs': $base-spacing-unit * 2,
+	// 8px
+	'sm': $base-spacing-unit * 4,
+	// 16px
+	'md': $base-spacing-unit * 6,
+	// 24px
+	'lg': $base-spacing-unit * 8,
+	// 32px
+	'xl': $base-spacing-unit * 12 // 48px
 );
 
 // Section spacing
 $section-spacing: (
-  'sm': $base-spacing-unit * 16,   // 64px
-  'md': $base-spacing-unit * 24,   // 96px
-  'lg': $base-spacing-unit * 32    // 128px
+	'sm': $base-spacing-unit * 16,
+	// 64px
+	'md': $base-spacing-unit * 24,
+	// 96px
+	'lg': $base-spacing-unit * 32 // 128px
 );
 
 // Container padding
 $container-padding: (
-  'mobile':  $base-spacing-unit * 4,    // 16px
-  'tablet':  $base-spacing-unit * 6,    // 24px
-  'desktop': $base-spacing-unit * 8     // 32px
+	'mobile': $base-spacing-unit * 4,
+	// 16px
+	'tablet': $base-spacing-unit * 6,
+	// 24px
+	'desktop': $base-spacing-unit * 8 // 32px
 );

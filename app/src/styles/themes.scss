@@ -12,217 +12,209 @@
 
 // Theme variables
 $themes: (
-  default: (
-    bg-color: #353f3f,
-    bg-gradient: linear-gradient(to bottom, #2b2a2a, #353f3f),
-    bg-gradient-r: linear-gradient(to top, #2b2a2a, #353f3f),
-    bg-gradient-left: linear-gradient(to left, #2b2a2a, #353f3f),
-    bg-gradient-right: linear-gradient(to right, #2b2a2a, #353f3f),
-    text-color: #ffffff,
-    placeholder-color: rgb(255, 255, 255, 0.5),
-    font-family: 'Merriweather',
-    primary-color: #2b2a2a,
-    secondary-color: #474747,
-    tertiary-color: #50e3c2,
-    text-color-rgb: '51, 51, 51',
-
-
-
-  ),
-  dark: (
-    bg-color: #000000,
-    bg-gradient: linear-gradient(to bottom, #1a1a1a, #000000),
-    bg-gradient-r: linear-gradient(to top, #1a1a1a, #000000),
-    bg-gradient-left: linear-gradient(to left, #1a1a1a, #000000),
-    bg-gradient-right: linear-gradient(to right, #1a1a1a, #000000),
-    text-color: #f0f0f0,
-    placeholder-color: rgb(240, 240, 240, 0.5),
-    font-family: 'Montserrat',
-        primary-color: #0e0e0e,
-    secondary-color: #1c1f21,
-    // primary-color: #2c3e50,
-    // secondary-color: #34495e,
-    tertiary-color: #7f8c8d,
-
-    
-  ),
-  light: (
-    bg-color: #ffe5b4,
-    bg-gradient: linear-gradient(to bottom, #fff1d6, #ffe5b4),
-    bg-gradient-r: linear-gradient(to top, #fff1d6, #ffe5b4),
-    bg-gradient-left: linear-gradient(to left, #fff1d6, #ffe5b4),
-    bg-gradient-right: linear-gradient(to right, #fff1d6, #ffe5b4),
-    text-color: #4a4a4a,
-    placeholder-color: rgb(74, 74, 74, 0.5),
-    font-family: 'Courier New',
-    primary-color: #ecf0f1,
-    secondary-color: #bdc3c7,
-    tertiary-color: #95a5a6,
-
-  ),
-  sunset: (
-    bg-color: #745803,
-    bg-gradient: linear-gradient(to bottom, #ff9966, #745803),
-    bg-gradient-r: linear-gradient(to top, #ff9966, #745803),
-    bg-gradient-left: linear-gradient(to left, #ff9966, #745803),
-    bg-gradient-right: linear-gradient(to right, #ff9966, #745803),
-    text-color: #4a0e0e,
-    placeholder-color: rgb(74, 14, 14, 0.5),
-    font-family: 'Arial',
-    primary-color: #684504,
-    secondary-color: #543707,
-    tertiary-color: #e67e22,
-
-  ),
-  focus: (
-    bg-color: #ffffff,
-    bg-gradient: linear-gradient(to bottom, #dadada, #ffffff),
-    bg-gradient-r: linear-gradient(to top, #d3efdf, #ffffff),
-    bg-gradient-left: linear-gradient(to left, #2ecc71, #16a085),
-    bg-gradient-right: linear-gradient(to right, #27ae60, #ffffff),
-    text-color: #2c4e39,
-    placeholder-color: rgb(255, 255, 255, 0.5),
-    font-family: 'Source Code Pro',
-    primary-color: #ffffff,
-    secondary-color: #27ae60,
-    tertiary-color: #16a085,
-  ),
-  bold: (
-    bg-color: #151720,
-    bg-gradient: linear-gradient(to bottom, #000000, #151720),
-    bg-gradient-r: linear-gradient(to top, #000000, #151720),
-    bg-gradient-left: linear-gradient(to left, #000000, #151720),
-    bg-gradient-right: linear-gradient(to right, #000000, #151720),
-    text-color: #ffffff,
-    placeholder-color: rgb(255, 255, 255, 0.5),
-    font-family: 'Helvetica Neue',
-    primary-color: #3a2c3f,
-    secondary-color: #4a3951,
-    tertiary-color: #e90000,
-  ),
-  turbo: (
-    bg-color: #92dcdc,
-    bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
-    bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
-    bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
-    bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
-    text-color: #000000,
-    placeholder-color: rgb(0, 0, 0, 0.5),
-    font-family: 'Times New Roman',
-    primary-color: #f1c40f,
-    secondary-color: #f39c12,
-    tertiary-color: #d35400,
-  ),
-  bone: (
-    bg-color: #f1f3f5,
-    bg-gradient: linear-gradient(to bottom, #699999, #f1f3f5),
-    bg-gradient-r: linear-gradient(to top, #699999, #f1f3f5),
-    bg-gradient-left: linear-gradient(to left, #699999, #f1f3f5),
-    bg-gradient-right: linear-gradient(to right, #699999, #f1f3f5),
-    text-color: #000000,
-    placeholder-color: rgb(0, 0, 0, 0.5),
-    font-family: 'Century Gothic, sans-serif',
-    primary-color: #ffffff,
-    secondary-color: #e4e4e4,
-    tertiary-color: #8ea0a2,
-  ),
-  ivory: (
-    bg-color: #92dcdc,
-    bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
-    bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
-    bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
-    bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
-    text-color: #000000,
-    placeholder-color: rgb(0, 0, 0, 0.5),
-    font-family: 'Century Gothic, sans-serif',
-    primary-color: #f1c40f,
-    secondary-color: #f39c12,
-    tertiary-color: #d35400,
-  )
+	default: (
+		bg-color: #353f3f,
+		bg-gradient: linear-gradient(to bottom, #2b2a2a, #353f3f),
+		bg-gradient-r: linear-gradient(to top, #2b2a2a, #353f3f),
+		bg-gradient-left: linear-gradient(to left, #2b2a2a, #353f3f),
+		bg-gradient-right: linear-gradient(to right, #2b2a2a, #353f3f),
+		text-color: #ffffff,
+		placeholder-color: rgb(255, 255, 255, 0.5),
+		font-family: 'Merriweather',
+		primary-color: #2b2a2a,
+		secondary-color: #474747,
+		tertiary-color: #50e3c2,
+		text-color-rgb: '51, 51, 51'
+	),
+	dark: (
+		bg-color: #000000,
+		bg-gradient: linear-gradient(to bottom, #1a1a1a, #000000),
+		bg-gradient-r: linear-gradient(to top, #1a1a1a, #000000),
+		bg-gradient-left: linear-gradient(to left, #1a1a1a, #000000),
+		bg-gradient-right: linear-gradient(to right, #1a1a1a, #000000),
+		text-color: #f0f0f0,
+		placeholder-color: rgb(240, 240, 240, 0.5),
+		font-family: 'Montserrat',
+		primary-color: #0e0e0e,
+		secondary-color: #1c1f21,
+		// primary-color: #2c3e50,
+		// secondary-color: #34495e,
+		tertiary-color: #7f8c8d
+	),
+	light: (
+		bg-color: #ffe5b4,
+		bg-gradient: linear-gradient(to bottom, #fff1d6, #ffe5b4),
+		bg-gradient-r: linear-gradient(to top, #fff1d6, #ffe5b4),
+		bg-gradient-left: linear-gradient(to left, #fff1d6, #ffe5b4),
+		bg-gradient-right: linear-gradient(to right, #fff1d6, #ffe5b4),
+		text-color: #4a4a4a,
+		placeholder-color: rgb(74, 74, 74, 0.5),
+		font-family: 'Courier New',
+		primary-color: #ecf0f1,
+		secondary-color: #bdc3c7,
+		tertiary-color: #95a5a6
+	),
+	sunset: (
+		bg-color: #745803,
+		bg-gradient: linear-gradient(to bottom, #ff9966, #745803),
+		bg-gradient-r: linear-gradient(to top, #ff9966, #745803),
+		bg-gradient-left: linear-gradient(to left, #ff9966, #745803),
+		bg-gradient-right: linear-gradient(to right, #ff9966, #745803),
+		text-color: #4a0e0e,
+		placeholder-color: rgb(74, 14, 14, 0.5),
+		font-family: 'Arial',
+		primary-color: #684504,
+		secondary-color: #543707,
+		tertiary-color: #e67e22
+	),
+	focus: (
+		bg-color: #ffffff,
+		bg-gradient: linear-gradient(to bottom, #dadada, #ffffff),
+		bg-gradient-r: linear-gradient(to top, #d3efdf, #ffffff),
+		bg-gradient-left: linear-gradient(to left, #2ecc71, #16a085),
+		bg-gradient-right: linear-gradient(to right, #27ae60, #ffffff),
+		text-color: #2c4e39,
+		placeholder-color: rgb(255, 255, 255, 0.5),
+		font-family: 'Source Code Pro',
+		primary-color: #ffffff,
+		secondary-color: #27ae60,
+		tertiary-color: #16a085
+	),
+	bold: (
+		bg-color: #151720,
+		bg-gradient: linear-gradient(to bottom, #000000, #151720),
+		bg-gradient-r: linear-gradient(to top, #000000, #151720),
+		bg-gradient-left: linear-gradient(to left, #000000, #151720),
+		bg-gradient-right: linear-gradient(to right, #000000, #151720),
+		text-color: #ffffff,
+		placeholder-color: rgb(255, 255, 255, 0.5),
+		font-family: 'Helvetica Neue',
+		primary-color: #3a2c3f,
+		secondary-color: #4a3951,
+		tertiary-color: #e90000
+	),
+	turbo: (
+		bg-color: #92dcdc,
+		bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
+		bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
+		bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
+		bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
+		text-color: #000000,
+		placeholder-color: rgb(0, 0, 0, 0.5),
+		font-family: 'Times New Roman',
+		primary-color: #f1c40f,
+		secondary-color: #f39c12,
+		tertiary-color: #d35400
+	),
+	bone: (
+		bg-color: #f1f3f5,
+		bg-gradient: linear-gradient(to bottom, #699999, #f1f3f5),
+		bg-gradient-r: linear-gradient(to top, #699999, #f1f3f5),
+		bg-gradient-left: linear-gradient(to left, #699999, #f1f3f5),
+		bg-gradient-right: linear-gradient(to right, #699999, #f1f3f5),
+		text-color: #000000,
+		placeholder-color: rgb(0, 0, 0, 0.5),
+		font-family: 'Century Gothic, sans-serif',
+		primary-color: #ffffff,
+		secondary-color: #e4e4e4,
+		tertiary-color: #8ea0a2
+	),
+	ivory: (
+		bg-color: #92dcdc,
+		bg-gradient: linear-gradient(to bottom, #699999, #92dcdc),
+		bg-gradient-r: linear-gradient(to top, #699999, #92dcdc),
+		bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
+		bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
+		text-color: #000000,
+		placeholder-color: rgb(0, 0, 0, 0.5),
+		font-family: 'Century Gothic, sans-serif',
+		primary-color: #f1c40f,
+		secondary-color: #f39c12,
+		tertiary-color: #d35400
+	)
 );
 
 // Mixin for theme styles
 @mixin theme-styles {
-  @each $theme, $colors in $themes {
-    &.#{$theme} {
-      background: map-get($colors, bg-gradient);
-      color: map-get($colors, text-color);
-      font-family: map-get($colors, font-family);
-      background-image: map-get($colors, bg-gradient);
-    }
-  }
+	@each $theme, $colors in $themes {
+		&.#{$theme} {
+			background: map-get($colors, bg-gradient);
+			color: map-get($colors, text-color);
+			font-family: map-get($colors, font-family);
+			background-image: map-get($colors, bg-gradient);
+		}
+	}
 }
-
 
 // Apply theme styles to .app-container
 .app-container {
-  @include theme-styles;
+	@include theme-styles;
 }
 
 // CSS Custom Properties for easy access in components
 :root {
-  @each $theme, $colors in $themes {
-    &.#{$theme} {
-      --bg-color: #{map-get($colors, bg-color)};
-      --bg-gradient: #{map-get($colors, bg-gradient)};
-      --bg-gradient-r: #{map-get($colors, bg-gradient-r)};
-      --bg-gradient-left: #{map-get($colors, bg-gradient-left)};
-      --bg-gradient-right: #{map-get($colors, bg-gradient-right)};
-      --text-color: #{map-get($colors, text-color)};
-      --placeholder-color: #{map-get($colors, placeholder-color)};
-      --font-family: #{map-get($colors, font-family)};
-      --primary-color: #{map-get($colors, primary-color)};
-      --secondary-color: #{map-get($colors, secondary-color)};
-      --tertiary-color: #{map-get($colors, tertiary-color)};
-      
-      // Typography
-      --font-size-xss: 0.5rem;
-      --font-size-xs:  0.75rem;
-      --font-size-s: 1rem;
-      --font-size-sm: 1.25rem;
-      --font-size-m: 1.5rem;
-      --font-size-l: 1.75rem;
-      --font-size-xl: 2.25rem;
-      --font-size-xxl: 3rem;
-      --line-height-base: 1.5;
-      
-      // Spacing
-      --spacing-xs: 0.25rem;
-      --spacing-sm: 0.5rem;
-      --spacing-md: 1rem;
-      --spacing-lg: 1.5rem;
-      --spacing-xl: 2rem;
+	@each $theme, $colors in $themes {
+		&.#{$theme} {
+			--bg-color: #{map-get($colors, bg-color)};
+			--bg-gradient: #{map-get($colors, bg-gradient)};
+			--bg-gradient-r: #{map-get($colors, bg-gradient-r)};
+			--bg-gradient-left: #{map-get($colors, bg-gradient-left)};
+			--bg-gradient-right: #{map-get($colors, bg-gradient-right)};
+			--text-color: #{map-get($colors, text-color)};
+			--placeholder-color: #{map-get($colors, placeholder-color)};
+			--font-family: #{map-get($colors, font-family)};
+			--primary-color: #{map-get($colors, primary-color)};
+			--secondary-color: #{map-get($colors, secondary-color)};
+			--tertiary-color: #{map-get($colors, tertiary-color)};
 
-      // Radius
-      --radius-xs: 4px;
-      --radius-s: 8px;
-      --radius-m: 16px;
-      --radius-l: 32px;
-      --radius-xl: 64px;
-      
-      // Breakpoints
-      --breakpoint-sm: 576px;
-      --breakpoint-md: 768px;
-      --breakpoint-lg: 992px;
-      --breakpoint-xl: 1200px;
-      
-      // Component Specific
-      --transition-speed: 0.3s;
-      --header-height: 100px;
-    }
-  }
+			// Typography
+			--font-size-xss: 0.5rem;
+			--font-size-xs: 0.75rem;
+			--font-size-s: 1rem;
+			--font-size-sm: 1.25rem;
+			--font-size-m: 1.5rem;
+			--font-size-l: 1.75rem;
+			--font-size-xl: 2.25rem;
+			--font-size-xxl: 3rem;
+			--line-height-base: 1.5;
+
+			// Spacing
+			--spacing-xs: 0.25rem;
+			--spacing-sm: 0.5rem;
+			--spacing-md: 1rem;
+			--spacing-lg: 1.5rem;
+			--spacing-xl: 2rem;
+
+			// Radius
+			--radius-xs: 4px;
+			--radius-s: 8px;
+			--radius-m: 16px;
+			--radius-l: 32px;
+			--radius-xl: 64px;
+
+			// Breakpoints
+			--breakpoint-sm: 576px;
+			--breakpoint-md: 768px;
+			--breakpoint-lg: 992px;
+			--breakpoint-xl: 1200px;
+
+			// Component Specific
+			--transition-speed: 0.3s;
+			--header-height: 100px;
+		}
+	}
 }
 
 @include mobile.mobile-styles;
 
 @include respond-to('tablet') {
-  @include tablet.tablet-styles;
+	@include tablet.tablet-styles;
 }
 
 @include respond-to('desktop') {
-  @include desktop.desktop-styles;
+	@include desktop.desktop-styles;
 }
 
 @include respond-to('large') {
-  @include large-screen.large-screen-styles;
+	@include large-screen.large-screen-styles;
 }

@@ -5,51 +5,50 @@
 @use '../mixins/responsive' as *;
 
 @mixin desktop-styles {
-  // Layout
-  .container {
-    max-width: 960px;
-    padding: 0 map-get(spacing.$container-padding, 'desktop');
-  
-  }
+	// Layout
+	.container {
+		max-width: 960px;
+		padding: 0 map-get(spacing.$container-padding, 'desktop');
+	}
 
-  // Grid layouts
-  .grid {
-    grid-template-columns: repeat(12, 1fr);
-    gap: map-get(spacing.$gap, 'lg');
-  }
+	// Grid layouts
+	.grid {
+		grid-template-columns: repeat(12, 1fr);
+		gap: map-get(spacing.$gap, 'lg');
+	}
 
-  // Typography adjustments
-  h1 {
-    @include type.text-style('display');
-  }
+	// Typography adjustments
+	h1 {
+		@include type.text-style('display');
+	}
 
-  // Navigation
-  .nav {
-    &-container {
-      padding: map-get(spacing.$spacing, 'md') 0;
-    }
-    
-    &-menu {
-      display: flex;
-      gap: map-get(spacing.$gap, 'md');
-    }
-  }
+	// Navigation
+	.nav {
+		&-container {
+			padding: map-get(spacing.$spacing, 'md') 0;
+		}
 
-  // Sidebar layouts
-  .with-sidebar {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: map-get(spacing.$gap, 'xl');
-  }
+		&-menu {
+			display: flex;
+			gap: map-get(spacing.$gap, 'md');
+		}
+	}
 
-  // Card grids
-  .card-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+	// Sidebar layouts
+	.with-sidebar {
+		display: grid;
+		grid-template-columns: 280px 1fr;
+		gap: map-get(spacing.$gap, 'xl');
+	}
 
-  // Modal dialogs
-  .modal {
-    max-width: 600px;
-    padding: map-get(spacing.$spacing, 'xl');
-  }
+	// Card grids
+	.card-grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	// Modal dialogs
+	.modal {
+		max-width: 600px;
+		padding: map-get(spacing.$spacing, 'xl');
+	}
 }

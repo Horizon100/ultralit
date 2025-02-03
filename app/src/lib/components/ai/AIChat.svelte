@@ -57,7 +57,7 @@
   let messages: Messages[] = [];
   let chatMessages: InternalChatMessage[] = [];
   let userInput: string = '';
-  //Auth state
+  // Auth state
   let isAuthenticated = false;
   let username: string = 'You';
   let avatarUrl: string | null = null;
@@ -115,7 +115,7 @@
   let messageIdCounter: number = 0;
   let lastMessageCount = 0;
   let latestMessageId: string | null = null;
-  //Prompt state
+  // Prompt state
   let currentPromptType: PromptType;
   let hasSentSeedPrompt: boolean = false;
   let scenarios: Scenario[] = [];
@@ -164,14 +164,13 @@ const defaultAIModel: AIModel = {
   updated: new Date().toISOString()
 };
 const handleTextareaFocus = () => {
-  clearTimeout(hideTimeout); // Clear any existing timeout
+  clearTimeout(hideTimeout);
   isTextareaFocused = true;
 };
 const handleTextareaBlur = () => {
-  // Set a timeout before hiding the button
   hideTimeout = setTimeout(() => {
     isTextareaFocused = false;
-  }, 300); // 1000ms = 1 second delay
+  }, 300); 
 };
 const searchedThreads = derived(threadsStore, ($store) => {
     const query = searchQuery.toLowerCase().trim();
@@ -187,6 +186,11 @@ const searchedThreads = derived(threadsStore, ($store) => {
     console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
     threadsStore.toggleThreadList();
     dispatch('threadListToggle');
+  }
+  function toggleNav() {
+    console.log('Sidenav. Current state:', showNav);
+    toggleNav();
+    dispatch('toggleNav');
   }
 
 // Message handling functions
@@ -337,7 +341,7 @@ const searchedThreads = derived(threadsStore, ($store) => {
     const newExpandedDates = new Set(expandedDates);
     
     if (newExpandedDates.has(date)) {
-      if (date !== groupedMessages[0]?.date) {  // If it's not the most recent group
+      if (date !== groupedMessages[0]?.date) { // If it's not the most recent group
         newExpandedDates.delete(date);
       }
     } else {
@@ -347,33 +351,39 @@ const searchedThreads = derived(threadsStore, ($store) => {
     expandedDates = newExpandedDates;
   }
 
-  // function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
-  //   const messageGroups: Messages[][] = [];
-  //   const messageMap = new Map<string, Messages>();
+  /*
+   * function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
+   *   const messageGroups: Messages[][] = [];
+   *   const messageMap = new Map<string, Messages>();
+   */
 
-  //   messages.forEach(message => {
-  //     if (!message.parent_msg) {
-  //       messageGroups.push([message]);
-  //       messageMap.set(message.id, message);
-  //     } else {
-  //       const parentGroup = messageGroups.find(group => group[0].id === message.parent_msg);
-  //       if (parentGroup) {
-  //         parentGroup.push(message);
-  //       } else {
-  //         const parent = messageMap.get(message.parent_msg);
-  //         if (parent) {
-  //           const newGroup = [parent, message];
-  //           messageGroups.push(newGroup);
-  //         } else {
-  //           messageGroups.push([message]);
-  //         }
-  //       }
-  //     }
-  //   });
+  /*
+   *   messages.forEach(message => {
+   *     if (!message.parent_msg) {
+   *       messageGroups.push([message]);
+   *       messageMap.set(message.id, message);
+   *     } else {
+   *       const parentGroup = messageGroups.find(group => group[0].id === message.parent_msg);
+   *       if (parentGroup) {
+   *         parentGroup.push(message);
+   *       } else {
+   *         const parent = messageMap.get(message.parent_msg);
+   *         if (parent) {
+   *           const newGroup = [parent, message];
+   *           messageGroups.push(newGroup);
+   *         } else {
+   *           messageGroups.push([message]);
+   *         }
+   *       }
+   *     }
+   *   });
+   */
 
-  //   return messageGroups;
-  // }
-// Thread management functions
+  /*
+   *   return messageGroups;
+   * }
+   * Thread management functions
+   */
 function initializeExpandedGroups(groups: ThreadGroup[]) {
   const initialState: ExpandedGroups = {};
   groups.forEach((group, index) => {
@@ -478,17 +488,19 @@ function handleClickOutside() {
     }
     return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
   }
-  // function drag(event: MouseEvent) {
-  //   if (isDragging) {
-  //     const deltaY = startY - event.clientY;
-  //     chatMessagesDiv.scrollTop = scrollTopStart + deltaY;
-  //   }
-  // }
-  // function stopDrag() {
-  //   isDragging = false;
-  //   document.removeEventListener('mousemove', drag);
-  //   document.removeEventListener('mouseup', stopDrag);
-  // }
+  /*
+   * function drag(event: MouseEvent) {
+   *   if (isDragging) {
+   *     const deltaY = startY - event.clientY;
+   *     chatMessagesDiv.scrollTop = scrollTopStart + deltaY;
+   *   }
+   * }
+   * function stopDrag() {
+   *   isDragging = false;
+   *   document.removeEventListener('mousemove', drag);
+   *   document.removeEventListener('mouseup', stopDrag);
+   * }
+   */
   function updateAvatarUrl() {
       if ($currentUser && $currentUser.avatar) {
           avatarUrl = pb.getFileUrl($currentUser, $currentUser.avatar);
@@ -547,8 +559,10 @@ export function toggleSection(section: keyof ExpandedSections): void {
     return newSections;
   });
 }
-  // ASYNC
-  // Message handling functions
+  /*
+   * ASYNC
+   * Message handling functions
+   */
   async function submitProjectNameChange(projectId: string) {
     if (editedProjectName.trim()) {
       await projectStore.updateProject(projectId, { name: editedProjectName.trim() });
@@ -709,7 +723,7 @@ async function handleSendMessage(message: string = userInput) {
   }
 }
 
-//// Add setscurrent handler
+// // Add setscurrent handler
 async function handleCreateNewProject(name: string) {
     if (!name.trim()) return;
     
@@ -744,7 +758,7 @@ async function handleCreateNewProject(name: string) {
 
         // Update visibility flags
         isProjectListVisible = false; // Hide project list
-        isThreadListVisible = true;  // Show thread list
+        isThreadListVisible = true; // Show thread list
     } catch (error) {
         console.error("Error handling project selection:", error);
     }
@@ -1313,27 +1327,33 @@ $: {
 }
 $: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
 $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
-// Stage-based operations
-// UI state updates
+/*
+ * Stage-based operations
+ * UI state updates
+ */
 $: console.log("isLoading changed:", isLoading);
 $: if ($currentUser?.avatar) {
    updateAvatarUrl();
 }
-// Store synchronization with visibility protection
-// $: {
-//    const storeState = $threadsStore;
-//    if (storeState) {
-//        threads = storeState.threads;
-//        currentThreadId = storeState.currentThreadId;
-//        messages = storeState.messages;
-//        updateStatus = storeState.updateStatus;
+/*
+ * Store synchronization with visibility protection
+ * $: {
+ *    const storeState = $threadsStore;
+ *    if (storeState) {
+ *        threads = storeState.threads;
+ *        currentThreadId = storeState.currentThreadId;
+ *        messages = storeState.messages;
+ *        updateStatus = storeState.updateStatus;
+ */
        
-//        // Only update showThreadList if threads exist and list should be visible
-//        if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
-//            showThreadList = true;
-//        }
-//    }
-// }
+/*
+ *        // Only update showThreadList if threads exist and list should be visible
+ *        if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
+ *            showThreadList = true;
+ *        }
+ *    }
+ * }
+ */
 $: {
     const storeState = $threadsStore;
     if (storeState) {
@@ -1350,22 +1370,26 @@ $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
    acc[group].push(thread);
    return acc;
 }, {} as Record<string, Threads[]>);
-// Maintain thread visibility
-// $: {
-//    if (currentThreadId && threads?.length > 0 && !showThreadList) {
-//        showThreadList = true;
-//        threadsStore.update(state => ({
-//            ...state,
-//            showThreadList: true
-//        }));
-//    }
-// }
+/*
+ * Maintain thread visibility
+ * $: {
+ *    if (currentThreadId && threads?.length > 0 && !showThreadList) {
+ *        showThreadList = true;
+ *        threadsStore.update(state => ({
+ *            ...state,
+ *            showThreadList: true
+ *        }));
+ *    }
+ * }
+ */
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
-//     $: if (threads?.length) {
-//   messageCountsStore.fetchBatch(threads, currentPage);
-// }
+/*
+ *     $: if (threads?.length) {
+ *   messageCountsStore.fetchBatch(threads, currentPage);
+ * }
+ */
 $: {
     if ($threadsStore.currentThread) {
         currentThread = $threadsStore.currentThread;
@@ -1414,10 +1438,12 @@ onMount(async () => {
     // Load data sequentially to avoid race conditions
     await projectStore.loadProjects();
     await threadsStore.loadThreads();
-// $: if (threads?.length) {
-//   messageCountsStore.fetchBatch(threads, currentPage);
-// }
-    // Initialize textarea after data is loaded
+/*
+ * $: if (threads?.length) {
+ *   messageCountsStore.fetchBatch(threads, currentPage);
+ * }
+ * Initialize textarea after data is loaded
+ */
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -1476,75 +1502,79 @@ onDestroy(() => {
       </h2> -->
 
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-
+          <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+            <button class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
+            class:active={isProjectListVisible} 
+            on:click={() => {
+              if (!isProjectListVisible) {
+                // Reset project selection when going back to project list
+                projectStore.setCurrentProject(null);
+                currentProjectId = null;
+                threadsStore.setCurrentThread(null);
+                currentThreadId = null;
+        
+                // Clear project-specific threads
+                threadsStore.update(state => ({...state, threads: []}));
+              }
+              isProjectListVisible = !isProjectListVisible;
+              if (isProjectListVisible) {
+                isThreadListVisible = false;
+                // Reload all projects to ensure fresh data
+                projectStore.loadProjects();
+                
+              }
+            }}
+          >
+            <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
+              {#if !isProjectListVisible && !currentProjectId}
+              <Box />              
+              {:else if !isProjectListVisible && currentProjectId}  
+                <ArrowLeft />
+              {:else}
+                <Box />
+                <span in:fade>{$t('drawer.project')}</span>
+              {/if}
+             </span>
+           </button>
+           <button 
+           class="drawer-tab"
+           class:active={isThreadListVisible} 
+           on:click={() => {
+             isThreadListVisible = !isThreadListVisible;
+             if (isThreadListVisible) {
+               isProjectListVisible = false;
+               // Reset project selection
+               projectStore.setCurrentProject(null);
+               currentProjectId = null;
+               // Reload all threads
+               threadsStore.loadThreads();
+             }
+           }}
+         >
+         <span 
+         class="icon"
+         class:active={isThreadListVisible}
+        >
+         {#if isThreadListVisible && currentProjectId}
+           <Box />
+           <span in:fade>
+             {get(projectStore).currentProject?.name || ''}
+           </span>
+         {:else if !isThreadListVisible}
+           <MessageCircleMore />
+         {:else}
+           <MessageCircleMore />
+           <span in:fade>
+             {$t('drawer.thread')}
+           </span>
+         {/if}
+        </span>
+            </button>
+          </div>
 
           {#if isProjectListVisible}
           <div class="project-section" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <!-- Create Project Button -->
-
-        
-            <!-- Project List -->
-            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
-            class:empty={!$projectStore?.threads?.length}>
-              {#if $projectStore?.threads?.length > 0}
-                {#each $projectStore.threads as project (project.id)}
-                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
-                    on:click={() => handleSelectProject(project.id)}
-                  >                  
-                  <div 
-                    class="card"
-                    class:active={currentProjectId === project.id}
-                    in:fly={{x: 20, duration: 200}}
-                  >
-                    {#if project.id === editingProjectId}
-                      <input
-                        type="text"
-                        bind:value={editedProjectName}
-                        on:keydown={(e) => {
-                          if (e.key === 'Enter') submitProjectNameChange(project.id);
-                          if (e.key === 'Escape') cancelEditing();
-                        }}
-                        use:focusOnMount
-                      />
-                    {:else}
-
-                      <div class="card-static">
-                        <span class="card-title project">{project.name}</span>
-                        <span class="card-time">
-                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
-                            {getRelativeTime(new Date(project.updated))}
-                          {:else}
-                            No date available
-                          {/if}
-                        </span>
-                      </div>
-
-                    {/if}
-        
-                    <div class="card-actions">
-                      <button 
-                        class="action-btn"
-                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
-                        >
-                        <Pen size={14} />
-                      </button>
-                      <button 
-                        class="action-btn delete"
-                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
-                        >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </button>
-
-                {/each}
-              {:else}
-                <div class="no-projects">
-                  <span>No projects yet</span>
-                </div>
-              {/if}
-            </div>
             <div class="drawer-toolbar">
               <button 
                 class="add"
@@ -1614,67 +1644,75 @@ onDestroy(() => {
               </button>
               
             </div>
+        
+            <!-- Project List -->
+            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
+            class:empty={!$projectStore?.threads?.length}>
+              {#if $projectStore?.threads?.length > 0}
+                {#each $projectStore.threads as project (project.id)}
+                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
+                    on:click={() => handleSelectProject(project.id)}
+                  >                  
+                  <div 
+                    class="card"
+                    class:active={currentProjectId === project.id}
+                    in:fly={{x: 20, duration: 200}}
+                  >
+                    {#if project.id === editingProjectId}
+                      <input
+                        type="text"
+                        bind:value={editedProjectName}
+                        on:keydown={(e) => {
+                          if (e.key === 'Enter') submitProjectNameChange(project.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        use:focusOnMount
+                      />
+                    {:else}
+
+                      <div class="card-static">
+                        <span class="card-title project">{project.name}</span>
+                        <span class="card-time">
+                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
+                            {getRelativeTime(new Date(project.updated))}
+                          {:else}
+                            No date available
+                          {/if}
+                        </span>
+                      </div>
+
+                    {/if}
+        
+                    <div class="card-actions">
+                      <button 
+                        class="action-btn"
+                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
+                        >
+                        <Pen size={14} />
+                      </button>
+                      <button 
+                        class="action-btn delete"
+                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
+                        >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </button>
+
+                {/each}
+              {:else}
+                <div class="no-projects">
+                  <span>No projects yet</span>
+                </div>
+              {/if}
+            </div>
+
           </div>
         {/if}
         {#if isThreadListVisible}
 
           {#if isThreadListVisible || namingThreadId}
-          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-            {#each $searchedThreads as thread (thread.id)}
-              <button 
-                class="card-container"
-                class:selected={currentThreadId === thread.id}
-                on:click={() => handleLoadThread(thread.id)}
-                on:mouseenter={async () => {
-                  if (!$messageCounts.hasCount(thread.id)) {
-                    await messageCountsStore.updateCount(thread.id);
-                  }
-                }}
-              >
-                <div class="card" 
-                  class:active={currentThreadId === thread.id}
-                  in:fade
-                >
-                  <div class="card-static">
-                    <!-- When thread is being named, show spinner -->
-                    {#if namingThreadId === thread.id}
-                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                        <Bot size={30} class="bot-icon" />
-                      </div>
-                    {:else}
-                      <span class="card-title">{thread.name}</span>
-                      <span class="card-time">
-                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
-                          {getRelativeTime(new Date(thread.updated))}
-                        {:else}
-                          No date available
-                        {/if}
-                      </span>
-                    {/if}
-        
-                    <!-- Actions always visible for uniformity -->
-                    <div class="card-actions" transition:fade={{duration: 300}}>
-                      {#if $messageCounts.hasCount(thread.id)}
-                        <button 
-                          class="action-btn badge"
-                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
-                        >
-                          <MessageSquareText size={14}/>
-                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
-                        </button>
-                      {/if}
-                      <button 
-                        class="action-btn delete"
-                        on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            {/each}
-          </div>
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
               class="add"
@@ -1753,6 +1791,63 @@ onDestroy(() => {
               {/if}
             </div>
           </div>
+          <div class="thread-filtered-results" transition:slide={{duration: 200}}>
+            {#each $searchedThreads as thread (thread.id)}
+              <button 
+                class="card-container"
+                class:selected={currentThreadId === thread.id}
+                on:click={() => handleLoadThread(thread.id)}
+                on:mouseenter={async () => {
+                  if (!$messageCounts.hasCount(thread.id)) {
+                    await messageCountsStore.updateCount(thread.id);
+                  }
+                }}
+              >
+                <div class="card" 
+                  class:active={currentThreadId === thread.id}
+                  in:fade
+                >
+                  <div class="card-static">
+                    <!-- When thread is being named, show spinner -->
+                    {#if namingThreadId === thread.id}
+                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
+                        <Bot size={30} class="bot-icon" />
+                      </div>
+                    {:else}
+                      <span class="card-title">{thread.name}</span>
+                      <span class="card-time">
+                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
+                          {getRelativeTime(new Date(thread.updated))}
+                        {:else}
+                          No date available
+                        {/if}
+                      </span>
+                    {/if}
+        
+                    <!-- Actions always visible for uniformity -->
+                    <div class="card-actions" transition:fade={{duration: 300}}>
+                      {#if $messageCounts.hasCount(thread.id)}
+                        <button 
+                          class="action-btn badge"
+                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
+                        >
+                          <MessageSquareText size={14}/>
+                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
+                        </button>
+                      {/if}
+                      <button 
+                        class="action-btn delete"
+                        on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            {/each}
+          </div>
+
         {/if}
 
               {:else}
@@ -1760,75 +1855,7 @@ onDestroy(() => {
  
               {/if}
         </div>
-        <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          <button class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
-          class:active={isProjectListVisible} 
-          on:click={() => {
-            if (!isProjectListVisible) {
-              // Reset project selection when going back to project list
-              projectStore.setCurrentProject(null);
-              currentProjectId = null;
-              threadsStore.setCurrentThread(null);
-              currentThreadId = null;
-      
-              // Clear project-specific threads
-              threadsStore.update(state => ({...state, threads: []}));
-            }
-            isProjectListVisible = !isProjectListVisible;
-            if (isProjectListVisible) {
-              isThreadListVisible = false;
-              // Reload all projects to ensure fresh data
-              projectStore.loadProjects();
-              
-            }
-          }}
-        >
-          <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
-            {#if !isProjectListVisible && !currentProjectId}
-            <Box />              
-            {:else if !isProjectListVisible && currentProjectId}  
-              <ArrowLeft />
-            {:else}
-              <Box />
-              <span in:fade>{$t('drawer.project')}</span>
-            {/if}
-           </span>
-         </button>
-         <button 
-         class="drawer-tab"
-         class:active={isThreadListVisible} 
-         on:click={() => {
-           isThreadListVisible = !isThreadListVisible;
-           if (isThreadListVisible) {
-             isProjectListVisible = false;
-             // Reset project selection
-             projectStore.setCurrentProject(null);
-             currentProjectId = null;
-             // Reload all threads
-             threadsStore.loadThreads();
-           }
-         }}
-       >
-       <span 
-       class="icon"
-       class:active={isThreadListVisible}
-      >
-       {#if isThreadListVisible && currentProjectId}
-         <Box />
-         <span in:fade>
-           {get(projectStore).currentProject?.name || ''}
-         </span>
-       {:else if !isThreadListVisible}
-         <MessageCircleMore />
-       {:else}
-         <MessageCircleMore />
-         <span in:fade>
-           {$t('drawer.thread')}
-         </span>
-       {/if}
-      </span>
-          </button>
-        </div>
+
     </div>
       {/if}
       <div class="chat-container" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
@@ -1894,7 +1921,7 @@ onDestroy(() => {
                     </p>
                     </span>
                      <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                      <div class="submission" class:visible={isTextareaFocused}                    >
+                      <div class="submission" class:visible={isTextareaFocused} >
 
               
                         {#if isTextareaFocused}
@@ -1902,7 +1929,7 @@ onDestroy(() => {
                           transition:slide
                         >
                           <span class="btn" >
-                            <Paperclip  />
+                            <Paperclip />
                           </span>
                           <span 
                           class="btn"
@@ -2161,14 +2188,14 @@ onDestroy(() => {
                     rows="1"
                   />
                   <div class="btn-row">
-                    <div class="submission" class:visible={isTextareaFocused}                    >
+                    <div class="submission" class:visible={isTextareaFocused} >
 
           
                       {#if isTextareaFocused}
                       <span class="btn" 
                         transition:slide
                       >
-                        <Paperclip  />
+                        <Paperclip />
                       </span>
                       <span 
                       class="btn"
@@ -3149,6 +3176,7 @@ onDestroy(() => {
     justify-content: flex-end;
     align-items: center;
     // background: var(--bg-gradient);
+    z-index: 7000;
 
 
     &::placeholder {
@@ -3827,9 +3855,10 @@ span.hero {
 
 
 .drawer-header {
-    width:300px;
-      margin-left: 0;
-      margin-right: 4rem;
+  left: 2rem;
+  width:300px;
+      margin-left: 2rem;
+      margin-right: 0;
       height: 40px;
       // padding: 0.5rem 0.5rem;
       border: none;
@@ -3846,9 +3875,8 @@ span.hero {
       // background: var(--bg-gradient-r);
       backdrop-filter: blur(100px);
       margin-bottom: 0;
-      left: 0;
       right: 0;
-      bottom: 5.5rem;
+      top: 0;
       // border-radius: var(--radius-l);
   }
 
@@ -3875,7 +3903,7 @@ span.hero {
       font-weight: 600;
     line-height: 1.4;
     &.active {
-      background: var(--primary-color) !important;
+      background: var(--primary-color);
       color: var(--tertiary-color);
       font-size: var(--font-size-xs);
       
@@ -3888,7 +3916,6 @@ span.hero {
 
 
     &.active {
-      background: var(--secondary-color) !important;
       color: var(--tertiary-color);
       font-size: var(--font-size-s);
       width: fit-content;
@@ -3904,27 +3931,25 @@ span.hero {
     position: relative;
   }
   .drawer-toolbar {
-      margin-left: 1rem;
-      position: absolute;
-      margin-bottom: 2.5rem;
+      margin-left: 6rem;
+      position: relative;
       height: auto;
-      width: 50px;
+      width: 100%;
       // padding: 0.75rem 1rem;
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
       color: var(--text-color);
       z-index: 1;
       text-align: left;
-      align-items: flex-start;
-      justify-content: center;
+      align-items: center;
+      justify-content: left;
       gap: 1rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       left: 0;
       right: 0;
-      bottom: 6rem;
 
     & input {
       width: 100%;
@@ -3936,7 +3961,7 @@ span.hero {
   flex-direction: row;
   align-items: center;
   // padding: 0.75rem 0;
-  width: 200px;
+  width: fit-content;
   gap: 0.5rem;
   border-radius: var(--radius-m);
   height: auto;
@@ -4528,10 +4553,7 @@ span.hero {
     line-height: 1.2;
     margin-left: 2rem;
   }
-  .card-time {
-    font-size: var(--font-size-xs);
-    display: flex;
-  }
+
 
 
 
@@ -4583,14 +4605,16 @@ span.hero {
   .drawer-list {
     display: flex;
     flex-direction: column;
-    width:100%;
+    width:auto;
     margin-left: 0;
     margin-right: 0;
-    margin-top: 0;
+    margin-top: 5rem;
+    top: 5rem;
     margin-bottom: 2rem;
-    top: 0;
     bottom: 0;
-    height: auto;
+    left: 0;
+    width: fit-content;
+    height: 76%;
     // backdrop-filter: blur(20px);
     border-radius: 10px;
     overflow-y: scroll;
@@ -4667,7 +4691,7 @@ span.hero {
   }
 
   .cards {
-    margin-bottom: 4rem;
+    width: fit-content;
     backdrop-filter: blur(10px);
     // background: var(--primary-color);
     border-top-right-radius: var(--radius-l);
@@ -4683,15 +4707,13 @@ span.hero {
     display: flex;
     flex-direction: row;
     position: relative;
-    width: 100% !important;
+    width: 100%;
+    margin-left: 4rem;
     border-top-right-radius: var(--radius-m);
     border-bottom-right-radius: var(--radius-m);
-
-    margin-right: 1rem;
+    margin-right: 0;
     padding: 0;
     cursor: pointer;
-    background: var(--bg-gradient-left);
-
   }
   button.card-container {
     display: flex;
@@ -4701,7 +4723,7 @@ span.hero {
     padding: var(--spacing-sm) var(--spacing-md);
     margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
-    width: auto;
+    width: 300px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: all 0.1s ease-in-out;
     &:hover {
@@ -4709,7 +4731,6 @@ span.hero {
       background: var(--secondary-color) !important;
 
         // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
-        transform: translateX(-1rem);
         opacity: 1;
         visibility: visible;
         // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
@@ -4782,6 +4803,20 @@ span.hero {
     opacity: 1;
     visibility: visible;
   }
+  .card-container:hover .card-time {
+    transform: translateY(-0);
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+  }
+  .card-time {
+    font-size: var(--font-size-xs);
+    display: flex;
+    transform: translateY(-100%);
+    opacity: 0;
+    height: 0;
+  }
+  
   .thread-toggle {
     color: var(--text-color);
     background: var(--bg-gradient-right);
@@ -5161,7 +5196,6 @@ span.hero {
 
     .drawer-header {
       width:auto;
-
       margin-bottom: 4rem;
       left: 0;
       right: 0;
