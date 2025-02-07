@@ -243,12 +243,6 @@
 			<!-- <span>{$t('lang.flag')}</span>
 		
 			  </button> -->
-			<div class="logo-container" on:click={handleLogoClick}>
-				<a href="/" class="logo-link">
-					<img src={horizon100} alt="Horizon100" class="logo" />
-					<h2>vRAZUM</h2>
-				</a>
-			</div>
 			{#if isNarrowScreen}
 				<!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
@@ -275,22 +269,20 @@
 							{$t('nav.pricing')}
 						</a>
 						<a
-							href="#blog"
+							href="#docs"
 							class="nav-link"
-							on:click|preventDefault={() => scrollToSection('blog')}
 						>
-							{$t('nav.blog')}
-						</a>
-						<a
-							href="#blog"
-							class="nav-link"
-							on:click|preventDefault={() => scrollToSection('blog')}
-						>
-							{$t('nav.help')}
+							{$t('nav.docs')}
 						</a>
 					{/if}
 				</div>
 			{/if}
+			<div class="logo-container" on:click={handleLogoClick}>
+				<a href="/" class="logo-link">
+					<img src={horizon100} alt="Horizon100" class="logo" />
+					<h2>vRAZUM</h2>
+				</a>
+			</div>
 		</nav>
 	</header>
 	<Sidenav
@@ -611,6 +603,7 @@
 		justify-content: center;
 		align-items: center;
 		height: 60px;
+		margin-right: 0;
 		user-select: none;
 	}
 
@@ -712,7 +705,7 @@
 
 	.nav-links {
 		display: flex;
-		gap: 1rem;
+		gap: 2rem;
 		align-items: center;
 		justify-content: center;
 		/* padding: 10px; */
@@ -1121,6 +1114,10 @@
 		.nav-links,
 		h1 {
 			display: none;
+		}
+
+		.logo-container {
+			margin-left: 0;
 		}
 
 		header {

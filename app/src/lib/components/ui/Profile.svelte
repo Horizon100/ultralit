@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
 	import { pb } from '$lib/pocketbase';
-	import { Camera, LogOutIcon, Languages, Palette, X, Bone } from 'lucide-svelte';
+	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon } from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
@@ -22,6 +22,7 @@
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
 
+	let showSaveConfirmation = false;
 	let showKeyInput = false;
 	let isEditing = false;
 	let editedUser = user ? { ...user } : {};
@@ -76,6 +77,11 @@
 				await pb.collection('users').update(user.id, editedUser);
 				user = { ...editedUser };
 				isEditing = false;
+				showSaveConfirmation = true;
+				// Hide the confirmation after 2 seconds
+				setTimeout(() => {
+					showSaveConfirmation = false;
+				}, 2000);
 			}
 		} catch (error) {
 			console.error('Error updating user:', error);
@@ -208,31 +214,31 @@
 				</div>
 				<div class="info-row">
 					<span class="label">
-						<span>{$t('profile.email')}</span>
+						<span class="data">{$t('profile.email')}</span>
 					</span>
 					<span>{user.email}</span>
 				</div>
 				<div class="info-row">
 					<span class="label">
-						<span>{$t('profile.role')}</span>
+						<span class="data">{$t('profile.role')}</span>
 					</span>
 					<span>{user.role}</span>
 				</div>
 				<div class="info-row">
 					<span class="label">
-						<span>{$t('profile.created')}</span>
+						<span class="data">{$t('profile.created')}</span>
 					</span>
 					<span>{new Date(user.created).toLocaleString()}</span>
 				</div>
 				<div class="info-row">
 					<span class="label">
-						<span>{$t('profile.updated')}</span>
+						<span class="data">{$t('profile.updated')}</span>
 					</span>
 					<span>{new Date(user.updated).toLocaleString()}</span>
 				</div>
 				<div class="info-row">
 					<span class="label">
-						<span>{$t('profile.verified')}</span>
+						<span class="data">{$t('profile.verified')}</span>
 					</span>
 					<span>{user.verified ? 'Yes' : 'No'}</span>
 				</div>
@@ -242,13 +248,15 @@
 			<div class="actions">
 				{#if isEditing}
 					<button on:click={saveChanges}>
-						<span>{$t('profile.save')}</span>
-					</button>
-					<button on:click={toggleEdit}>
-						<span>{$t('profile.edit')}</span>
+						<span>
+							<Save/>
+							{$t('profile.save')}
+						</span>
 					</button>
 				{:else}
 					<button on:click={toggleEdit}>
+						<TextCursorIcon/>
+
 						<span>{$t('profile.edit')}</span>
 					</button>
 				{/if}
@@ -261,6 +269,13 @@
 				<p>No user information available.</p>
 			</div>
 		{/if}
+		{#if showSaveConfirmation}
+    <div class="save-confirmation" 
+         in:fly={{ y: 20, duration: 300 }} 
+         out:fade={{ duration: 200 }}>
+        Saved!
+    </div>
+{/if}
 	</div>
 	<div class="swipe-indicator">
 		<div class="indicator-bar"></div>
@@ -336,6 +351,7 @@
 		/* height: 50px; */
 		/* padding: 10px 20px; */
 		transition: all 0.3s ease;
+		background: var(--bg-gradient-r);
 	}
 
 	.modal-content {
@@ -442,17 +458,17 @@
 	}
 
 	.close-button {
-		opacity: 0.9;
-		background: var(--bg-gradient-r);
-		transition: background-image 0.3s ease;
-		height: 50px;
-		width: 50px;
-		border-radius: 50%;
-		display: flex;
-		justify-content: flex-start;
-		align-items: center;
-		position: relative;
-		margin-top: 0;
+		// opacity: 0.9;
+		// background: var(--bg-gradient-r);
+		// transition: background-image 0.3s ease;
+		// height: 50px;
+		// width: 50px;
+		// border-radius: 50%;
+		// display: flex;
+		// justify-content: flex-start;
+		// align-items: center;
+		// position: relative;
+		// margin-top: 0;
 	}
 
 	.close-button:hover {
@@ -468,39 +484,72 @@
 	.profile-info {
 		margin-bottom: 1rem;
 		color: white;
+		gap: 0;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.info-row {
 		display: flex;
-		margin-bottom: 0.5rem;
+		padding: 0.5rem;
+		& input {
+			background: var(--bg-gradient-left);
+			border-radius: var(--radius-m);
+			padding: 1rem;
+			font-size: 1.5rem;
+		}
 	}
 
 	.label {
 		font-weight: bold;
 		width: 100px;
+		user-select: none;
 	}
 
 	.actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: 0.5rem;
+		align-items: center;
+		position: relative;
+		gap: 1rem;
+		right: 2rem;
 		padding: 2rem;
-	}
-
-	button {
+		width: 100%;
+	& button {
 		padding: 0.5rem 1rem;
 		border: none;
-		border-radius: 4px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: var(--radius-m);
 		cursor: pointer;
 		font-size: 1rem;
 		background: var(--secondary-color);
 		transition: all ease 0.3s;
-		width: 100%;
+		width: 100px;
+		user-select: none;
+
+		&:hover {
+			opacity: 0.8;
+			background: var(--tertiary-color);
+
+		}
+	}
 	}
 
-	button:hover {
-		opacity: 0.8;
-	}
+	.save-confirmation {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--tertiary-color);
+    color: var(--text-color);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-m);
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+}
 
 	.logout-button {
 		display: flex;

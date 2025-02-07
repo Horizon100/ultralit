@@ -36,7 +36,7 @@
 	import { page } from '$app/stores';
 	import AIChat from '$lib/components/ai/AIChat.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
-	import { Mail, Bot, Send, Github, X, ChevronDown } from 'lucide-svelte';
+	import { Mail, Bot, Send, Github, X, ChevronDown, LogIn } from 'lucide-svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
 	import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
@@ -327,7 +327,13 @@
 	$: userId = $currentUser?.id;
 	$: aiModel = defaultAIModel;
 </script>
-
+<button class="fastlogin"
+	on:click={toggleAuth}
+	in:fly={{ y: 0, duration: 500, delay: 400 }}
+	out:fly={{ y: 50, duration: 500, delay: 400 }}
+	>
+	<LogIn/>
+</button>
 {#if pageReady}
 	{#if user}
 		{#if isLoading}
@@ -475,9 +481,9 @@
 	<div
 		class="auth-overlay"
 		on:click={handleOverlayClick}
-		transition:fly={{ y: -200, duration: 300 }}
+		transition:fly={{ y: 0, duration: 300, easing: quintOut }}
 	>
-		<div class="auth-content" transition:fly={{ y: -200, duration: 300 }}>
+		<div class="auth-content" transition:fly={{ y: 50, duration: 700 }}>
 			<button
 				class="close-button"
 				on:click={() => {
@@ -772,6 +778,17 @@
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		background: var(--secondary-color);
 		filter: drop-shadow(0 0 4px var(--tertiary-color));
+
+		&.fastlogin {
+			width: 40px;
+			height: 40px;
+			font-size: 10px;
+			padding: 0;
+			position: fixed;
+			top: 0;
+			left: 1rem;
+			background: none;
+		}
 	}
 
 	button:hover {
@@ -903,7 +920,7 @@
 
 	.arrow-overlay {
 		position: fixed;
-		top: 100px;
+		top: 120px;
 		left: 0;
 		width: 100%;
 		height: 100%;
@@ -911,7 +928,7 @@
 		justify-content: center;
 		align-items: flex-start;
 		pointer-events: none;
-		z-index: 1001; /* Ensure it's above other elements */
+		z-index: 1; /* Ensure it's above other elements */
 	}
 
 	.arrow {

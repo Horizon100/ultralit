@@ -3066,7 +3066,7 @@ onDestroy(() => {
     display: flex;
     flex-direction: row;
     width: 100%;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
     gap: 1rem;
   }
@@ -3855,9 +3855,8 @@ span.hero {
 
 
 .drawer-header {
-  left: 2rem;
   width:300px;
-      margin-left: 2rem;
+      margin-left: 4rem;
       margin-right: 0;
       height: 40px;
       // padding: 0.5rem 0.5rem;
@@ -3881,7 +3880,7 @@ span.hero {
   }
 
 
-  .drawer-tab {
+  button.drawer-tab {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3930,11 +3929,19 @@ span.hero {
     margin-bottom: 1rem;
     position: relative;
   }
+
+  .project-section {
+    position: absolute;
+    top: 3rem;
+    left:0;
+    right: 0;
+  }
+
   .drawer-toolbar {
       margin-left: 6rem;
       position: relative;
       height: auto;
-      width: 100%;
+      width: auto;
       // padding: 0.75rem 1rem;
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
@@ -3950,6 +3957,7 @@ span.hero {
       flex-direction: row;
       left: 0;
       right: 0;
+      margin-bottom: 1rem;
 
     & input {
       width: 100%;
@@ -4608,8 +4616,8 @@ span.hero {
     width:auto;
     margin-left: 0;
     margin-right: 0;
-    margin-top: 5rem;
-    top: 5rem;
+    margin-top: 3rem;
+    top: 3rem;
     margin-bottom: 2rem;
     bottom: 0;
     left: 0;
@@ -4629,7 +4637,7 @@ span.hero {
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  background: var(--bg-gradient-right);
+  // background: var(--bg-gradient-right);
   // z-index: 11;
   overflow: {
     x: hidden;
@@ -4720,7 +4728,7 @@ span.hero {
     flex-direction: column;
     position: relative;
     flex-grow: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 1rem;
     margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
     width: 300px;
@@ -4769,7 +4777,6 @@ span.hero {
     transform: translateX(0);
     opacity: 1;
     visibility: visible;
-    backdrop-filter: blur(10px);
   }
 
   span.icon .card-actions {
@@ -4792,7 +4799,10 @@ span.hero {
     display: flex;
     gap: 0.5rem;
     transform: translateX(100%);
+    backdrop-filter: blur(100px);
+    background: var(--primary-color);
     width: auto;
+    border-radius: var(--radius-m);
     opacity: 0;
     transition: all 0.2s ease;
     visibility: hidden;
@@ -4904,7 +4914,7 @@ span.hero {
   .scroll-bottom-btn {
     position: fixed;
     bottom: 8rem !important;
-    right: 5rem;
+    right: 2rem;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -5197,8 +5207,8 @@ span.hero {
     .drawer-header {
       width:auto;
       margin-bottom: 4rem;
-      left: 0;
-      right: 0;
+      left: 4rem;
+      right: 4rem;
       margin-right: 0;
       margin-left: 0;
       display: flex;
@@ -5223,13 +5233,14 @@ span.hero {
     .drawer-toolbar {
       width:auto;
 
-      margin-bottom: 4rem;
-      left: 0;
+      margin-bottom: 1rem;
+      left: 5rem;
       right: 0;
+      margin-top: 1rem;
       margin-right: 0;
       margin-left: 0;     
       display: flex;
-      position: absolute;
+      position: relative;
       height: 30px;
       padding: 0.75rem 1rem;
       border: none;
@@ -5245,20 +5256,26 @@ span.hero {
       // background: var(--bg-gradient-r);
       z-index: 3000;
     }
+
     .card {
       margin-left: 0;
       width: 100%;
     }
-      .thread-info input  {
-        background-color: var(--secondary-color);
-        border-bottom: 1px solid rgb(134, 134, 134);
-        width: auto;
-        margin-left: 1rem;
-        padding: 1rem;
-        font-size: 24px;
-        border-radius: var(--radius-l);
-      }
+    .thread-info input  {
+      background-color: var(--secondary-color);
+      border-bottom: 1px solid rgb(134, 134, 134);
+      width: auto;
+      margin-left: 1rem;
+      padding: 1rem;
+      font-size: 24px;
+      border-radius: var(--radius-l);
+    }
 
+    button.card-container {
+      width: 90vw;
+      gap: 1rem;
+      padding: 1rem;
+    }
     .drawer {
       top: 0;
       margin-left: 0;
@@ -5362,14 +5379,12 @@ span.hero {
     }
 
   .input-container {
-    bottom: 2rem;
+    bottom: 5rem;
     width: auto !important;
-    margin-left: 200px;
+   left: 1rem;
     right: 0;
     gap: 0;
     // left:1rem !important;
-    margin-left: 0 !important;
-    margin-right: 0;
     padding: 0 0 0 0 !important;
     // box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
     box-shadow: none;
@@ -5401,12 +5416,11 @@ span.hero {
     .input-container textarea:focus {
       border: none;
       color: white;
-      animation: pulse 10.5s infinite alternate;
       box-shadow: none;
       display: flex;
       // background: var(--bg-gradient-left) !important;
           // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-
+      
       // background: black !important; 
       padding: 2rem;
       margin-left: 0;
@@ -5579,7 +5593,7 @@ span.hero {
 
 
     &.input-container {
-      left: 1rem;
+      left: 5rem;
       margin-left: 400px;
     margin-right: 0;
     width: auto; 

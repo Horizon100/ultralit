@@ -153,7 +153,7 @@
 
 	function setActiveLink(path: string) {
 		goto(path);
-		activeLink = path;
+		setactiveLink = path;
 	}
 
 	function handleLogoClick(event: MouseEvent) {
@@ -223,6 +223,24 @@
 		out:fly={{ x: 200, duration: 300 }}
 	>
 		{#if $currentUser}
+		<button 
+			class="nav-button" 
+			class:expanded={isNavExpanded}
+			on:click={toggleAuthOrProfile}
+		>
+					{#if $currentUser.avatar}
+						<img
+							src={pb.getFileUrl($currentUser, $currentUser.avatar)}
+							alt="User avatar"
+							class="avatar"
+						/>
+					{:else}
+						<User />
+					{/if}
+			{#if isNavExpanded}
+			<span class="nav-text">{username} </span>
+		{/if}
+		</button>
 		<button
 			class="nav-button"
 			class:expanded={isNavExpanded}
@@ -304,24 +322,6 @@
 					<span class="nav-text">Lean</span>
 				{/if}
 			</button>
-			<button 
-				class="nav-button" 
-				class:expanded={isNavExpanded}
-				on:click={toggleAuthOrProfile}
-			>
-						{#if $currentUser.avatar}
-							<img
-								src={pb.getFileUrl($currentUser, $currentUser.avatar)}
-								alt="User avatar"
-								class="avatar"
-							/>
-						{:else}
-							<User />
-						{/if}
-				{#if isNavExpanded}
-				<span class="nav-text">{username} </span>
-			{/if}
-			</button>
 			<button class="nav-button toggle" on:click={toggleNav}>
 				{#if isNavExpanded}
 				<PanelLeftClose size={24} />
@@ -330,7 +330,7 @@
 				{/if}
 			</button>
 		{:else}
-			<LogIn />
+			<!-- <LogIn /> -->
 		{/if}
 	</div>
 
@@ -648,12 +648,12 @@
 		overflow: auto;
 	}
 
-	// .nav-button.toggle {
-	// 	position: fixed;
-	// 	bottom: 0rem;
-	// 	left: 1rem;
-	// 	z-index: 5000;
-	// }
+	.nav-button.toggle {
+		position: fixed;
+		bottom: 0rem;
+		left: 1rem;
+		z-index: 5000;
+	}
 
 	.close-button {
 		position: fixed;

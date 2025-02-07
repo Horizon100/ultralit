@@ -8,7 +8,8 @@ export default {
 		features: 'Features',
 		pricing: 'Pricing',
 		blog: 'Blog',
-		help: 'Help'
+		help: 'Help',
+		docs: 'Docs'
 	},
 
 	lang: {
@@ -277,13 +278,15 @@ export default {
 		verified: 'Verified:',
 		edit: 'Edit',
 		save: 'Save',
-		close: 'Close',
+		close: 'Cancel',
 		logout: 'Log Out',
 		login: 'Log In',
 		signup: 'Sign Up',
 		clause: 'By using vRazum you automatically agree to our',
 		terms: 'Terms',
-		privacy: 'Privacy'
+		privacy: 'Privacy',
+		waitlist: 'Join the Waitlist',
+		join: 'Subscribe'
 	},
 	thinkingPhrases: [
 		'Consulting my digital crystal ball...',

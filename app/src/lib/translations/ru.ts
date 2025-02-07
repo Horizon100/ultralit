@@ -8,7 +8,8 @@ export default {
 		features: 'Функции',
 		pricing: 'Цены',
 		blog: 'Блог',
-		help: 'Помощь'
+		help: 'Помощь',
+		docs: 'Документы'
 	},
 	lang: {
 		notification: 'Язык: русский',
@@ -289,7 +290,9 @@ export default {
 		signup: 'Зарегистрироваться',
 		clause: 'Используя vRazum, вы автоматически соглашаетесь с нашими',
 		terms: 'Условия',
-		privacy: 'Конфиденциальность'
+		privacy: 'Конфиденциальность',
+		waitlist: 'Присоединяйтесь к списку ожидания',
+		join: 'Подписаться'
 	},
 	thinkingPhrases: [
 		'Мысль - начало всего...', // "Thought is the beginning of everything..." - Tolstoy

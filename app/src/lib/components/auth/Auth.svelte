@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, slide, fly } from 'svelte/transition';
 	import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOutIcon } from 'lucide-svelte';
+	import { Camera, LogIn, UserPlus, LogOutIcon, Send } from 'lucide-svelte';
 	import Profile from '../ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
@@ -16,6 +16,7 @@
 	let showProfileModal = false;
 	let showTermsOverlay = false;
 	let showPrivacyOverlay = false;
+	let isWaitlistMode = false;
 
 	let startY: number = 0;
 	let currentY: number = 0;
@@ -83,9 +84,17 @@
 		showPrivacyOverlay = true;
 	}
 
+	function openJoinWaitlistOverlay() {
+    isWaitlistMode = !isWaitlistMode;
+    // Clear fields when switching modes
+    email = '';
+    password = '';
+}
+
 	function closeOverlay() {
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
+		isWaitlistMode = false;
 	}
 
 	function handleAuthSuccess() {
@@ -178,38 +187,64 @@
 			</p>
 		</div>
 	{:else}
-		<div class="login-container">
-			<!-- Swipe indicator -->
-			<div class="credentials">
-				<form on:submit|preventDefault class="auth-form">
-					<input class="input" type="email" bind:value={email} placeholder="Email" required />
+	<div class="login-container">
+		<div class="credentials">
+			<form on:submit|preventDefault class="auth-form">
+				<button 
+					class="button button-subtle" 
+					on:click={openJoinWaitlistOverlay}
+				>
+					{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
+				</button>
+				<input 
+					type="email" 
+					bind:value={email} 
+					placeholder="Email" 
+					required 
+				/>
+				
+				{#if !isWaitlistMode}
 					<input
-						class="input"
 						type="password"
 						bind:value={password}
 						placeholder="Password"
 						required
+						transition:fly={{ duration: 300 }}
 					/>
-					<div class="button-group">
-						<button class="button button-signup" on:click={signUp}>
-							<UserPlus size={16} />
-							<span>{$t('profile.signup')}</span>
-						</button>
-						<button class="button button-login" on:click={login}>
-							<LogIn size={16} />
-							<span>{$t('profile.login')}</span>
-						</button>
-					</div>
-				</form>
-			</div>
+				{/if}
+				
+				<div class="button-group">
+					<button 
+						class="button button-login" 
+						on:click={isWaitlistMode ? () => {
+							// Handle waitlist subscription
+							console.log('Subscribe clicked', email);
+						} : login}
+					>
+						{#if !isWaitlistMode}
+							<span>							
+								<LogIn />
+								{$t('profile.login')}</span>
+						{:else}
+							<span>
+								<Send />
+								{$t('profile.join')}
+							</span>
+						{/if}
+					</button>
+					
 
-			<div class="terms-privacy">
-				<span>{$t('profile.clause')}</span>
-				<button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
-				<span>&</span>
-				<button on:click={openPrivacyOverlay}>{$t('profile.privacy')}</button>
-			</div>
+				</div>
+			</form>
 		</div>
+	
+		<div class="terms-privacy">
+			<span>{$t('profile.clause')}</span>
+			<button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
+			<span>&</span>
+			<button on:click={openPrivacyOverlay}>{$t('profile.privacy')}</button>
+		</div>
+	</div>
 	{/if}
 
 	{#if errorMessage}
@@ -233,6 +268,8 @@
 	<PrivacyPolicy on:close={closeOverlay} />
 {/if}
 
+
+
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 	* {
@@ -241,8 +278,7 @@
 
 	.auth-container {
 		display: flex;
-		background-color: #131313;
-		color: #ffffff;
+		background: var(--bg-gradient-left);
 		border: 1px solid rgb(53, 53, 53);
 		/* border-radius: 20px; */
 		/* border-bottom-left-radius: 100%; */
@@ -307,6 +343,11 @@
 		overflow: hidden;
 	}
 
+	.waitlist {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.avatar,
 	.avatar-placeholder {
 		width: 100%;
@@ -334,31 +375,30 @@
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
+		
 		/* height: 100px; */
-		gap: 3px;
+		gap: 2rem;
 	}
 
 	.auth-form input {
-		background-color: #8cff3f; /* Blue background color */
-		color: #ffffff; /* White text color */
-		/* height: 20px; Consistent height */
-		padding: 10px; /* Padding for text */
-		border-radius: 5px; /* Rounded corners */
-		border: 1px solid #34495e; /* Subtle border */
-		font-size: 16px; /* Readable font size */
-		/* width: 90%; Full width of container */
-		/* margin-left: 5%; */
+		color: var(--text-color); 
+		padding: 1.5rem;
+		border-radius: var(--radius-m);
+		border: 1px solid var(--tertiary-color);
+		font-size: 1.5rem;
+		outline: none; 
+
 		transition:
 			border-color 0.3s,
-			box-shadow 0.3s; /* Smooth transition for focus effect */
+			box-shadow 0.3s;
+		& ::focus {
+			outline: none; 
+			border-color: var(--tertiary-color);
+			background-color: red;
+		}
 	}
 
-	.auth-form input:focus {
-		outline: none; /* Remove default focus outline */
-		border-color: #3498db; /* Highlight border color on focus */
-		box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25); /* Subtle glow effect */
-		background-color: #34495e; /* Slightly lighter background on focus */
-	}
+
 
 	.auth-form input::placeholder {
 		color: #95a5a6; /* Lighter color for placeholder text */
@@ -366,18 +406,22 @@
 
 	.auth-form input[type='email'],
 	.auth-form input[type='password'] {
-		background-color: #08090a;
-		/* ... other styles ... */
+		background: var(--bg-gradient-r);
+		width: 50%;
+		& :focus {
+			outline: none; 
+			border-color: var(--tertiary-color);
+			background-color: red;
+		}
 	}
 
 	.button {
 		display: flex;
 		align-items: center;
 		width: 100%;
-		gap: 5px;
 		padding: 10px;
 		border: none;
-		border-radius: 5px;
+		border-radius: var(--radius-m);
 		cursor: pointer;
 		transition: background-color 0.3s;
 	}
@@ -390,10 +434,51 @@
 	}
 
 	.button-login {
-		background-color: var(--bg-gradient-r);
-		width: 100%;
+		width: auto;
+		height: auto;
+		background: none;
+		color: var(--placeholder-color);
 		display: flex;
-		opacity: 0.8;
+		justify-content: center;
+		align-items: center;
+		flex-direction: column;
+		border-radius: var(--radius-m) !important;
+		border: 1px solid transparent;
+		font-size: 1.5rem;
+		transition: all 0.3s ease-in;
+		&:hover {
+			color: var(--text-color);
+			background: var(--bg-gradient-left);
+			border: 1px solid var(--tertiary-color);
+		}
+		& span {
+			width: 100%;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 1rem;
+
+		}
+	}
+
+	.button-subtle {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		color: var(--placeholder-color);
+		background: transparent;
+		font-style: italic;
+		font-size: 1.2rem;
+		width: 200px;
+		height: 80px;
+		user-select: none;
+		transition: all 0.3s ease-in-out;
+		&:hover {
+			background: transparent;
+			transform: scale(1.2);
+			color: var(--text-color);
+		}
 	}
 
 	.logout-button {
@@ -428,24 +513,13 @@
 		justify-content: space-between;
 		align-items: center;
 		width: 250px;
-		gap: 2px;
+		gap: 1rem;
 		/* margin-left: 5%; */
 		/* margin-top: 10px; */
 		/* width: 100%; */
 	}
 
-	.button-group .button {
-		/* background-color: #007bff; Button background color */
-		color: white; /* Button text color */
-		border: none; /* Remove default border */
-		border-radius: 4px; /* Rounded corners */
-		cursor: pointer; /* Pointer cursor on hover */
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 16px;
-		transition: all 0.3s ease;
-	}
+
 
 	/* Hover effects for buttons */
 	.button-group .button:hover {
@@ -502,7 +576,7 @@
 			justify-content: center;
 			align-items: center;
 			/* height: 100px; */
-			gap: 3px;
+			gap: 1rem;
 			width: 100%;
 		}
 
@@ -510,25 +584,11 @@
 			width: 100%;
 		}
 
-		.auth-form input {
-			background-color: #3f9fff; /* Blue background color */
-			color: #ffffff; /* White text color */
-			/* height: 20px; Consistent height */
-			padding: 10px; /* Padding for text */
-			border-radius: 5px; /* Rounded corners */
-			border: 1px solid #34495e; /* Subtle border */
-			font-size: 1.5rem; /* Readable font size */
-			width: 100%;
-			/* margin-left: 5%; */
-			transition:
-				border-color 0.3s,
-				box-shadow 0.3s; /* Smooth transition for focus effect */
-		}
 
 		.button-group {
 			display: flex;
 			flex-direction: row;
-			justify-content: space-between;
+			justify-content: center;
 			align-items: center;
 			width: 100%;
 			gap: 2px;
