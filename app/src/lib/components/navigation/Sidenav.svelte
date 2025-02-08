@@ -267,17 +267,6 @@
 			<span class="nav-text">Chat</span>
 			{/if}
 		</button>
-			<button 
-				class="nav-button" 
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/launcher'}
-				on:click={() => navigateTo('/launcher')}
-			>
-				<Drill />
-				{#if isNavExpanded}
-					<span class="nav-text">Launcher</span>
-				{/if}
-			</button>
 			<button
 				class="nav-button" 
 				class:expanded={isNavExpanded}
@@ -288,17 +277,6 @@
 				{#if isNavExpanded}
 				<span class="nav-text">Canvas</span>
 			  {/if}
-			</button>
-			<button 
-				class="nav-button" 
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/map'}
-				on:click={() => navigateTo('/map')}
-			>
-				<MapPin />
-				{#if isNavExpanded}
-				  <span class="nav-text">Map</span>
-				{/if}
 			</button>
 			<button
 				class="nav-button"
@@ -650,7 +628,7 @@
 
 	.nav-button.toggle {
 		position: fixed;
-		bottom: 0rem;
+		bottom: 0;
 		left: 1rem;
 		z-index: 5000;
 	}

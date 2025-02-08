@@ -1046,6 +1046,10 @@
 	}
 
 	@media (max-width: 767px) {
+
+		.fastlogin {
+			display: none;
+		}
 		.arrow-overlay {
 			top: 200px;
 		}

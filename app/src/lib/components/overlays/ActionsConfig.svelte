@@ -185,21 +185,12 @@
 <style>
 	.actions-config {
 		display: flex;
-		gap: 20px;
-		/* height: 100%; */
+		gap: 0;
 		overflow: hidden;
-		/* width: 97%; */
-		height: auto;
-		/* border-radius: 30px; */
-		/* border-bottom-left-radius: 20px;  */
-		/* border-bottom-right-radius: 20px; */
-		border-top: 5px solid #262929;
-		border-bottom: 20px solid #262929;
-		border-left: 5px solid #262929;
-		border-right: 20px solid #262929;
-		background: linear-gradient(145deg, #363f3f, #1a1a1a);
-		justify-content: center;
-		align-items: center;
+		height: 92vh;
+		z-index: 1000;
+		width: 100%;
+		backdrop-filter: blur(20px);
 	}
 
 	.column {
@@ -334,6 +325,8 @@
 		flex-direction: row;
 		justify-content: space-between;
 		align-items: center;
+		margin-right: 5rem;
+
 	}
 
 	.item {

@@ -105,7 +105,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		background-color: #010e0e;
+		background: var(--primary-color);
 		border-radius: 40px;
 	}
   

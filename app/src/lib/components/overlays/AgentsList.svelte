@@ -1094,6 +1094,8 @@
 		justify-content: space-between;
 		/* margin-right: 50px; */
 		align-items: flex-start;
+		margin-right: 5rem;
+
 	}
 
 	.item {

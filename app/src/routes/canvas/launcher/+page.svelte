@@ -524,7 +524,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		background-color: #010e0e;
+		/* background-color: #010e0e; */
 		border-radius: 40px;
 	}
 

@@ -43,16 +43,17 @@ $themes: (
 	),
 	light: (
 		bg-color: #ffe5b4,
-		bg-gradient: linear-gradient(to bottom, #fff1d6, #ffe5b4),
-		bg-gradient-r: linear-gradient(to top, #fff1d6, #ffe5b4),
-		bg-gradient-left: linear-gradient(to left, #fff1d6, #ffe5b4),
-		bg-gradient-right: linear-gradient(to right, #fff1d6, #ffe5b4),
-		text-color: #4a4a4a,
+		bg-gradient: linear-gradient(to bottom, #2c3e50, #4ca1af),
+		bg-gradient-r: linear-gradient(to top, #2c3e50, #4ca1af),
+		bg-gradient-left: linear-gradient(to left, #2c3e50, #4ca1af),
+		bg-gradient-right: linear-gradient(to right, #2c3e50, #4ca1af),
+		text-color: #ffffff,
 		placeholder-color: rgb(74, 74, 74, 0.5),
 		font-family: 'Courier New',
-		primary-color: #ecf0f1,
-		secondary-color: #bdc3c7,
-		tertiary-color: #95a5a6
+		primary-color: #4a5b5d,
+		secondary-color: #2a626b,
+		tertiary-color: #76afb3
+
 	),
 	sunset: (
 		bg-color: #745803,

@@ -519,9 +519,6 @@
 </script>
 
 <div class="container" on:click={hideContextMenu}>
-	<div class="side-column">
-		<span>🏠</span>
-	</div>
 
 	<div class="explorer">
 		<div class="explorer-header">
@@ -638,11 +635,122 @@
 		</div>
 	</div>
 
-	<div class="editor">
-		<slot></slot>
-	</div>
-</div>
 
+</div>
+{#if showH2}
+<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+	<div class="tab-row">
+		<button class="new-tab" on:click={createNewNote}>
+			<Plus size={24} />
+		</button>
+		{#each openTabs as tab (tab.id)}
+			<div
+				class="tab"
+				class:active={currentNote && currentNote.id === tab.id}
+				transition:fly={{ x: 100, duration: 200 }}
+			>
+				<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
+				<button class="close-tab" on:click={() => closeTab(tab)}>
+					<X size={24} />
+				</button>
+			</div>
+		{/each}
+	</div>
+
+	<input
+		type="file"
+		accept="image/*"
+		style="display: none"
+		on:change={(e) => onFileSelected(e, updateNoteContent)}
+		bind:this={fileInput}
+	/>
+
+	{#if currentNote}
+		<input
+			type="text"
+			bind:value={currentNote.title}
+			on:input={handleNoteTitleChange}
+			placeholder="Note title"
+			class="note-title"
+		/>
+		<div
+			contenteditable="true"
+			on:input={handleNoteContentChange}
+			on:contextmenu={handleContextMenu}
+			on:click={showTooltip}
+			on:dragenter={handleDragEnter}
+			on:dragleave={handleDragLeave}
+			on:dragover={handleDragOver}
+			on:drop={handleDrop}
+			class="note-content"
+			class:dragging={isDragging}
+			bind:innerHTML={currentNote.content}
+		></div>
+		<input
+			type="file"
+			accept="image/*"
+			style="display: none"
+			on:change={(e) => onFileSelected(e, updateNoteContent)}
+			bind:this={fileInput}
+		/>
+		<div class="attachments-toggle" on:click={toggleAttachments}>
+			Attachments ({currentNote.attachments?.length || 0})
+		</div>
+		{#if attachmentsVisible}
+			<div class="attachments-container" transition:slide>
+				{#each currentNote.attachments || [] as attachment}
+					<div class="attachment">
+						<FileIcon />
+						<span>{attachment.name}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	{:else}
+		<!-- <div class="no-document">
+			<h1>No documents</h1>
+			<button on:click={createNewNote}>
+				<Plus size={16} />
+				Create new note
+			</button>
+		</div> -->
+	{/if}
+
+	{#if contextMenuVisible}
+		<div
+			class="context-menu"
+			style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
+			on:mouseleave={hideContextMenu}
+		>
+			<button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
+			<button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
+			{#if selectedText}
+				<button on:click={() => handleContextMenuOption('summarize')}
+					>Summarize selected text</button
+				>
+				<button on:click={() => handleContextMenuOption('criticize')}
+					>Criticize selected text</button
+				>
+			{/if}
+			<button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
+			<button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
+			<button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
+			<button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
+		</div>
+	{/if}
+
+	{#if attachmentsVisible && currentNote?.attachments}
+		<div class="attachments-container" transition:slide>
+			{#each currentNote.attachments as attachment (attachment.id)}
+				<div class="attachment">
+					<FileIcon />
+					<span>{attachment.fileName}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
+</div>
+{/if}
 {#if (contextMenuFolder || contextMenuNote) && contextMenuPosition}
 	<div class="context-menu" style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px">
 		{#if contextMenuFolder}
@@ -661,132 +769,24 @@
 		<img src={Headmaster} alt="Notes illustration" class="illustration" />
 	</div>
 {/if}
-{#if showH2}
-	<div in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-		<div class="tab-row">
-			<button class="new-tab" on:click={createNewNote}>
-				<Plus size={24} />
-			</button>
-			{#each openTabs as tab (tab.id)}
-				<div
-					class="tab"
-					class:active={currentNote && currentNote.id === tab.id}
-					transition:fly={{ x: 100, duration: 200 }}
-				>
-					<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
-					<button class="close-tab" on:click={() => closeTab(tab)}>
-						<X size={24} />
-					</button>
-				</div>
-			{/each}
-		</div>
 
-		<input
-			type="file"
-			accept="image/*"
-			style="display: none"
-			on:change={(e) => onFileSelected(e, updateNoteContent)}
-			bind:this={fileInput}
-		/>
 
-		{#if currentNote}
-			<input
-				type="text"
-				bind:value={currentNote.title}
-				on:input={handleNoteTitleChange}
-				placeholder="Note title"
-				class="note-title"
-			/>
-			<div
-				contenteditable="true"
-				on:input={handleNoteContentChange}
-				on:contextmenu={handleContextMenu}
-				on:click={showTooltip}
-				on:dragenter={handleDragEnter}
-				on:dragleave={handleDragLeave}
-				on:dragover={handleDragOver}
-				on:drop={handleDrop}
-				class="note-content"
-				class:dragging={isDragging}
-				bind:innerHTML={currentNote.content}
-			></div>
-			<input
-				type="file"
-				accept="image/*"
-				style="display: none"
-				on:change={(e) => onFileSelected(e, updateNoteContent)}
-				bind:this={fileInput}
-			/>
-			<div class="attachments-toggle" on:click={toggleAttachments}>
-				Attachments ({currentNote.attachments?.length || 0})
-			</div>
-			{#if attachmentsVisible}
-				<div class="attachments-container" transition:slide>
-					{#each currentNote.attachments || [] as attachment}
-						<div class="attachment">
-							<FileIcon />
-							<span>{attachment.name}</span>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{:else}
-			<div class="no-document">
-				<h1>No documents</h1>
-				<button on:click={createNewNote}>
-					<Plus size={16} />
-					Create new note
-				</button>
-			</div>
-		{/if}
+<style lang="scss">
+	@use 'src/styles/themes.scss' as *;
+	* {
+		font-family: var(--font-family);
+		transition: all 0.3s ease;
+	}	
 
-		{#if contextMenuVisible}
-			<div
-				class="context-menu"
-				style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
-				on:mouseleave={hideContextMenu}
-			>
-				<button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
-				<button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
-				{#if selectedText}
-					<button on:click={() => handleContextMenuOption('summarize')}
-						>Summarize selected text</button
-					>
-					<button on:click={() => handleContextMenuOption('criticize')}
-						>Criticize selected text</button
-					>
-				{/if}
-				<button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
-				<button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
-				<button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
-				<button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
-			</div>
-		{/if}
-
-		{#if attachmentsVisible && currentNote?.attachments}
-			<div class="attachments-container" transition:slide>
-				{#each currentNote.attachments as attachment (attachment.id)}
-					<div class="attachment">
-						<FileIcon />
-						<span>{attachment.fileName}</span>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
-{/if}
-
-<style>
 
 .container {
 		display: flex;
 		flex-direction: row;
 		position: absolute;
-		width: 98%;
-		right: 1%;
+		left: 3rem;
 		height: 90vh;
 		text-align: center;
-		justify-content: right;
+		justify-content: center;
 		align-items: right;
 		/* padding: 1em; */
 		/* height: 94vh; */
@@ -795,37 +795,35 @@
 		/* margin-top: 25%; */
 		/* max-width: 240px; */
 		/* margin: 0 auto; */
-		color: #ffd700;
 		border-radius: 50px;
 		transition: all ease 0.3s;
-		background: #000000;
+
 		animation: pulsate 1.5s infinite alternate;
 	}
 
-	.side-column {
-		width: 60px;
-		background-color: #151515;
-		display: flex;
-		justify-content: center;
-		align-items: top;
-		border-right: 1px solid #2a2a2a;
-		border-top: 1px solid #181818;
-		user-select: none;
-		padding: 10px;
-		border-radius: 50px;
-	}
+
 
 	.explorer {
 		width: 400px;
 		/* height: 99%; */
 		display: flex;
 		flex-direction: column;
+		position: relative;
 		/* justify-content: space-between; */
-		border-right: 1px solid #181818;
-		background-color: #151515;
-		border-radius: 50px;
+		background-color: var(--primary-color);
+
 
 		padding: 10px;
+	}
+	.content {
+		display: flex;
+		flex-direction: column;
+		position: relative;
+		width: 50%;
+		margin-left: 400px;
+		height: 90vh;
+		margin-right: 1rem;
+		background: var(--bg-gradient-r);
 	}
 
 	.explorer-header,
@@ -909,14 +907,16 @@
 		width: 100%;
 		text-align: left;
 
+
 		/* background-color: #1e1e1e; */
 	}
 
 	.tab-row {
-		background-color: #353f3f;
+		background: var(--bg-gradient);
 		display: flex;
 		user-select: none;
 		align-items: center;
+		width: 100vw;
 	}
 
 	.tab {
@@ -929,7 +929,7 @@
 	}
 
 	.tab.active {
-		background-color: #1e1e1e;
+		background-color: var(--primary-color) !important;
 		color: white;
 		border-top-left-radius: 10px;
 		border-top-right-radius: 10px;
@@ -1201,7 +1201,6 @@
 		align-items: center;
 		padding-top: 10px;
 		gap: 4px;
-		border-radius: 50px;
 	}
 
 	.tab {
@@ -1250,32 +1249,23 @@
 	.note-title {
 		display: flex;
 		flex-direction: row;
-		width: 96%;
-		padding: 30px;
-		font-size: 40px;
+		width: 77vw;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+		margin-left: 1rem;
+		font-size: 30px;
 		font-weight: bold;
 		background-color: transparent;
 		color: white;
 		border: none;
 		border-bottom: 1px solid #4a4a4a;
-		background-color: #1e1e1e;
+		background-color: var(--primary-color) !important;
+
 
 		outline: none;
 	}
 
-	.note-content {
-		height: auto;
-		width: auto;
-		left: 370px;
-		top: 0;
-		/* padding: 1rem; */
-		color: white;
-		background-color: #1e1e1e;
-		border: none;
-		outline: none;
-		overflow-y: auto;
-		position: absolute;
-	}
+
 
 	.no-document {
 		display: flex;
@@ -1293,7 +1283,7 @@
 	.no-document button {
 		display: flex;
 		align-items: center;
-		background-color: #4a4a4a;
+		background-color: var(--primary-color);
 		color: white;
 		border: none;
 		padding: 10px 15px;
@@ -1303,7 +1293,7 @@
 	}
 
 	.no-document button:hover {
-		background-color: #5a5a5a;
+		background-color: var(--tertiary-color);
 	}
 
 	.no-document button :global(svg) {
@@ -1324,7 +1314,7 @@
 
 	.editor-toolbar {
 		display: flex;
-		background-color: #2a2a2a;
+		background-color: var(--secondary-color);
 		padding: 5px;
 	}
 
@@ -1351,15 +1341,24 @@
 		margin-top: 20px;
 		margin-bottom: 10px;
 	}
+
+
 	.note-content {
 		height: calc(100% - 120px);
-		width: 94%;
+		width: 78vw;
+
 		color: white;
-		background-color: #1e1e1e;
 		border: none;
+		text-align: left;
+		margin-left: 1rem;
 		outline: none;
-		overflow-y: auto;
+		overflow: auto;
 		font-family: 'Courier New', Courier, monospace;
+		scroll-behavior: smooth;
+		scrollbar-color: var(--primary-color) transparent;
+		white-space: nowrap;
+		-webkit-overflow-scrolling: touch;
+		background-color: var(--primary-color);
 	}
 
 	.note-content h1,

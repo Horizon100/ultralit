@@ -18,7 +18,13 @@
 
 		Combine,
 
-		KanbanSquare
+		KanbanSquare,
+
+		Box,
+
+		ChevronDown
+
+
 
 
 	} from 'lucide-svelte';
@@ -129,7 +135,8 @@
 	$: placeholderText = getRandomQuote();
 	$: showThreadList = $threadsStore.showThreadList;
 	$: isNarrowScreen = innerWidth <= 1000;
-
+	$: user = $currentUser;
+	
 	onMount(async () => {
 		currentTheme.initialize();
 		await initializeLanguage();
@@ -243,6 +250,15 @@
 			<!-- <span>{$t('lang.flag')}</span>
 		
 			  </button> -->
+			  {#if $currentUser}
+			  <div class="project-dropdown" on:click={handleLogoClick}>
+					<span>
+						<ChevronDown/>
+						Projects
+					</span>
+			</div>
+			  {/if}
+
 			{#if isNarrowScreen}
 				<!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
@@ -277,6 +293,7 @@
 					{/if}
 				</div>
 			{/if}
+
 			<div class="logo-container" on:click={handleLogoClick}>
 				<a href="/" class="logo-link">
 					<img src={horizon100} alt="Horizon100" class="logo" />
@@ -632,7 +649,22 @@
 		padding: 0;
 		margin-right: 16px;
 	}
-
+	.project-dropdown {
+		display: flex;
+		flex-direction: row;
+		position: absolute;
+		left: 5rem;
+		justify-content: center;
+		align-items: center;
+		width: auto;
+		height: 40px;
+		& span {
+			display: flex;
+			justify-content: center;
+			gap: 0.5rem;
+			padding: 1rem;
+		}
+	}
 	.style-overlay {
 		position: fixed;
 		top: 0;

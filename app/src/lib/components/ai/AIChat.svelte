@@ -3255,7 +3255,7 @@ onDestroy(() => {
 
     & .combo-input {
         position: relative; 
-        bottom: 4rem;
+        bottom: 0;
         margin-bottom: 0;
         width: 100%;
         display: flex;
@@ -4719,6 +4719,8 @@ span.hero {
     margin-left: 4rem;
     border-top-right-radius: var(--radius-m);
     border-bottom-right-radius: var(--radius-m);
+    border-bottom-left-radius: var(--radius-m);
+
     margin-right: 0;
     padding: 0;
     cursor: pointer;
@@ -4732,7 +4734,7 @@ span.hero {
     margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
     width: 300px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: all 0.1s ease-in-out;
     &:hover {
       box-shadow: none;
@@ -5270,9 +5272,22 @@ span.hero {
       font-size: 24px;
       border-radius: var(--radius-l);
     }
+    .card-container {
+      display: flex;
+      flex-direction: row;
+      position: relative;
+      width: 100%;
+      margin-left: 0;
+      border-top-right-radius: var(--radius-m);
+      border-bottom-right-radius: var(--radius-m);
+      border-bottom-left-radius: var(--radius-m);
 
+      margin-right: 0;
+      padding: 0;
+      cursor: pointer;
+    }
     button.card-container {
-      width: 90vw;
+      width: 100vw;
       gap: 1rem;
       padding: 1rem;
     }
@@ -5746,24 +5761,28 @@ span.hero {
     width: auto;
     left: 0rem;
     right: 0;
-    bottom: 1rem;
+    bottom: 3rem;
   }
 
   .input-container textarea {
-    font-size: 1.5rem;
-    // padding: 1rem;
+    font-size: 1rem;
+    padding: 1rem;
     margin-left: 2rem;
+    bottom: 2rem;
     height: 40px;
+    background: transparent;
+    padding: 0;
   }
 
     .input-container textarea:focus {
-
+      padding: 1rem;
       background: transparent !important;
       color: white;
       font-size: 20px;
-      animation: pulse 10.5s infinite alternate;
       display: flex;
       z-index: 1000;
+      bottom: 4rem;
+
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
 
   }
@@ -5779,6 +5798,8 @@ span.hero {
     gap: 0.5rem;
     width: 100%;
   }
+
+
 
   .drawer-header h3 {
     margin: 0;

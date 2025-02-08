@@ -2,8 +2,10 @@
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
+	import {fly, fade} from 'svelte/transition'
 	import { currentUser } from '$lib/pocketbase';
 	import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
+	import ConfigWrapper from '$lib/components/agents/ConfigWrapper.svelte';
 	import FileContainer from '$lib/components/canvas/FileContainer.svelte';
 	import ImportDocs from '$lib/components/features/importDocs.svelte';
 	import * as fileHandlers from '$lib/utils/fileHandlers';
@@ -15,6 +17,7 @@
 	import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
 	import Connector from '$lib/components/canvas/Connector.svelte';
+	import { BrainCog, ChevronRight, Maximize, X } from 'lucide-svelte';
 
 	let svgElement: SVGSVGElement;
 	let viewBox = '0 0 2000 857';
@@ -118,6 +121,14 @@
 			leftSideMenuWidth.set(0);
 		}
 	}
+
+	function openLeftSideMenu(shape: Shape) {
+		showLeftSideMenu = true;
+		leftSideMenuWidth.set(400);
+		leftMenuOpenedByToggle.set(true);
+		selectedShape = shape;
+	}
+
 
 	function handleRightSideMenuLeave() {
 		if (showRightSideMenu && !$rightMenuOpenedByToggle) {
@@ -251,30 +262,6 @@
 		}));
 	}
 
-	onMount(() => {
-		updateDimensions();
-		window.addEventListener('resize', updateDimensions);
-
-		if (!svgElement) {
-			console.error('SVG element is not defined after mounting');
-		} else {
-			console.log('SVG element is properly defined');
-		}
-		const unsubscribe = agentStore.subscribe(
-			(value: { agents: AIAgent[]; updateStatus: string }) => {
-				agents = Array.isArray(value.agents) ? value.agents : [];
-			}
-		);
-
-		return () => {
-			unsubscribe();
-		};
-	});
-	onDestroy(() => {
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('resize', updateDimensions);
-		}
-	});
 
 	// Shape handling
 	async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
@@ -453,12 +440,6 @@
 		}
 	}
 
-	function openLeftSideMenu(shape: Shape) {
-		showLeftSideMenu = true;
-		leftSideMenuWidth.set(400);
-		leftMenuOpenedByToggle.set(true);
-		selectedShape = shape;
-	}
 
 	async function createAgentInDatabase(x: number, y: number) {
 		try {
@@ -578,9 +559,35 @@
 	function handleImportCancel() {
 		showImportDocs = false;
 	}
-</script>
 
-<div
+
+	onMount(() => {
+		updateDimensions();
+		window.addEventListener('resize', updateDimensions);
+
+		if (!svgElement) {
+			console.error('SVG element is not defined after mounting');
+		} else {
+			console.log('SVG element is properly defined');
+		}
+		const unsubscribe = agentStore.subscribe(
+			(value: { agents: AIAgent[]; updateStatus: string }) => {
+				agents = Array.isArray(value.agents) ? value.agents : [];
+			}
+		);
+
+		return () => {
+			unsubscribe();
+		};
+	});
+	onDestroy(() => {
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('resize', updateDimensions);
+		}
+	});
+</script>
+<ConfigWrapper/>
+<div 
 	bind:this={containerDiv}
 	class="layout-container"
 	on:click={handleCanvasClick}
@@ -594,11 +601,13 @@
 	<div class="left-edge" on:mouseenter={handleLeftEdgeHover} role="button" tabindex="0"></div>
 	<div class="right-edge" on:mouseenter={handleRightEdgeHover}></div>
 
-	<LeftSideMenu
+	<!-- <LeftSideMenu
 		width={$leftSideMenuWidth}
 		on:mouseleave={handleLeftSideMenuLeave}
 		{selectedShape}
-	/>
+		on:click={toggleLeftSideMenu}
+
+	/> -->
 	<div class="layout-container">
 		<div class="svg-wrapper" style="flex: 1; display: flex;">
 			<svg
@@ -693,17 +702,31 @@
 		on:mouseleave={handleRightSideMenuLeave}
 		{handleAddShape}
 		userId={$currentUser?.id}
+		on:click={toggleRightSideMenu}
 	/>
 
 	<div class="footer">
-		<button on:click={toggleLeftSideMenu}>Toggle Left Menu</button>
-		<div class="zoom-controls">
+		<!-- <button on:click={toggleLeftSideMenu}>Toggle Left Menu</button> -->
+		<span class="zoom-controls">
 			<button on:click={zoomOut}>-</button>
 			<span>{$zoomLevel.toFixed(0)}%</span>
 			<button on:click={zoomIn}>+</button>
-			<button on:click={resetZoom}>Reset</button>
-		</div>
-		<button on:click={toggleRightSideMenu}>Toggle Right Menu</button>
+			<button on:click={resetZoom}>
+				<Maximize/>
+			</button>
+		</span>
+		<button on:click={toggleRightSideMenu}>
+			<span class="open-button">
+				{#if showRightSideMenu}
+				<BrainCog />
+
+					Agents
+					<X />
+				{:else}
+				  <BrainCog />
+				{/if}
+			  </span>
+		</button>
 	</div>
 
 	{#each uploadedFiles as { file, x, y } (file.name)}
@@ -726,7 +749,12 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use 'src/styles/themes.scss' as *;
+	* {
+		font-family: var(--font-family);
+		transition: all 0.3s ease;
+	}	
 	.layout-container {
 		display: flex;
 		/* flex-direction: column; */
@@ -734,7 +762,7 @@
 		width: 100vw;
 
 		/* position: relative; */
-		background: linear-gradient(to top, #3f4b4b, #333333);
+		/* background: linear-gradient(to top, #3f4b4b, #333333); */
 	}
 	.svg-wrapper {
 		flex: 1;
@@ -748,6 +776,7 @@
 		width: 100%;
 		height: 100%; /* Fill the height of the wrapper */
 	}
+	
 
 	.map {
 		/* width: 100%; */
@@ -815,15 +844,16 @@
 
 	.footer {
 		position: absolute;
-		bottom: 40px;
+		bottom: 0;
 		left: 0;
 		right: 0;
 		display: flex;
-		justify-content: space-between;
-		padding: 1rem;
-		backdrop-filter: blur(2px);
+		align-items: center;
+		justify-content:flex-end;
+		z-index: 1;
 		border-top-left-radius: 20px;
 		border-top-right-radius: 20px;
+		gap: 1rem;
 	}
 	/* 
     .reset-zoom {
@@ -857,39 +887,54 @@
 	}
 
 	button {
-		padding: 5px 10px;
-		background-color: #2a3130;
+		background-color: transparent;
 		color: lightgray;
 		border: none;
-		border-radius: 4px;
 		cursor: pointer;
 		transition: background-color 0.3s;
+
+		&:hover {
+			background-color: #2c3e50;
+			transform: scale(1.05);
+			border-radius: var(--radius-m);
+		}
+		&:active {
+			transform: scale(0.95);
+		}
+
+		& span {
+			height: 50px;
+			width: 100%;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 0.5rem;
+
+
+		}
+
 	}
 
-	button:hover {
-		background-color: #2c3e50;
-		transform: scale(1.05);
-	}
 
-	button:active {
-		transform: scale(0.95);
-	}
-
-	.zoom-controls {
+	span.zoom-controls {
 		bottom: 1rem;
 		left: 50%;
 		/* transform: translateX(-50%); */
 		display: flex;
-		gap: 10px;
+		gap: 0.5rem;
+		background: var(--primary-color);
+		z-index: 3;
 		align-items: center;
 		user-select: none;
-		background-color: rgba(255, 255, 255, 0.1);
 		border-radius: 20px;
 		transition:
 			background-color 0.3s,
 			transform 0.1s;
 		font-weight: bold;
 		padding: 8px 15px;
+
+		
 	}
 
 	span {
@@ -897,6 +942,7 @@
 		min-width: 50px;
 		text-align: center;
 		color: white;
+
 	}
 
 	/* 

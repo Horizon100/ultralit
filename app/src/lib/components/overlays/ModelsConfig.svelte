@@ -243,22 +243,12 @@
 
 	.models-config {
 		display: flex;
-		gap: 20px;
-		/* height: 100%; */
+		gap: 0;
 		overflow: hidden;
-		/* width: 97%; */
-		height: auto;
-		/* border-radius: 30px; */
-		/* border-bottom-left-radius: 20px;  */
-		/* border-bottom-right-radius: 20px; */
-		border-top: 5px solid #262929;
-		border-bottom: 20px solid #262929;
-		border-left: 5px solid #262929;
-		border-right: 20px solid #262929;
-		background: var(--bg-gradient);
-		justify-content: center;
-		align-items: center;
-		padding: 20px;
+		height: 92vh;
+		z-index: 1000;
+		width: 100%;
+		backdrop-filter: blur(20px);
 	}
 
 	.column {
@@ -273,8 +263,10 @@
 		overflow-y: auto;
 		justify-content: flex-start;
 		display: flex;
-		padding: 10px;
-		height: 86vh;
+		padding: var(--radius-m);
+		background-color: blue;
+		height: 100vh;
+		display: flex;
 		/* width: 50%; */
 		overflow-x: hidden;
 		scrollbar-width: thin;
@@ -392,6 +384,7 @@
 		flex-direction: row;
 		justify-content: space-between;
 		align-items: center;
+		margin-right: 5rem;
 	}
 
 	.item {
