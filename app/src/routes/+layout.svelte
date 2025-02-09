@@ -50,6 +50,7 @@
 	import Auth from '$lib/components/auth/Auth.svelte';
 	import Profile from '$lib/components/ui/Profile.svelte';
 	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
 
 	export let onStyleClick: (() => void) | undefined = undefined;
 
@@ -239,7 +240,11 @@
 </script>
 
 <svelte:window bind:innerWidth />
-
+	{#if $currentUser}
+		<div class="project">
+			<ProjectDropdown/>
+		</div>
+	{/if}
 <div class="app-container {$currentTheme}">
 	<header>
 		<nav style="z-index: 1000;">
@@ -250,14 +255,7 @@
 			<!-- <span>{$t('lang.flag')}</span>
 		
 			  </button> -->
-			  {#if $currentUser}
-			  <div class="project-dropdown" on:click={handleLogoClick}>
-					<span>
-						<ChevronDown/>
-						Projects
-					</span>
-			</div>
-			  {/if}
+
 
 			{#if isNarrowScreen}
 				<!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
@@ -445,6 +443,15 @@
 		align-items: center;
 		z-index: 1002;
 		transition: all 0.3s ease;
+	}
+
+	.project {
+		position: relative;
+		margin-left: 4rem;
+		z-index: 1200;
+		display: flex;
+		align-items: center;
+		overflow: visible; 
 	}
 
 	.profile-content {

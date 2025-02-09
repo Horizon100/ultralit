@@ -148,7 +148,7 @@ const groupOrder = [
   $t('threads.older')
 ];
 const isMobileScreen = () => window.innerWidth < 1000;
-const focusOnMount = (node: HTMLElement) => {
+export const focusOnMount = (node: HTMLElement) => {
     node.focus();
   };
 const defaultAIModel: AIModel = {
@@ -1236,7 +1236,19 @@ async function handleLoadThread(threadId: string) {
         console.error('Error initializing:', error);
     }
 }
-
+projectStore.subscribe((state) => {
+  currentProjectId = state.currentProjectId;
+  currentProject = state.currentProject;
+  if (currentProjectId) {
+    // Fetch threads for the selected project
+    fetchThreadsForProject(currentProjectId).then(projectThreads => {
+      threadsStore.update(state => ({
+        ...state,
+        threads: projectThreads
+      }));
+    });
+  }
+});
 messagesStore.subscribe(value => messages = value);
   projectStore.subscribe((state) => {
     projects = state.threads;
