@@ -447,7 +447,7 @@
 
 	.project {
 		position: relative;
-		margin-left: 4rem;
+		margin-left: 3rem;
 		z-index: 1200;
 		display: flex;
 		align-items: center;
@@ -1186,7 +1186,19 @@
 			width: 100%;
 			padding: 1rem 0;
 		}
+
+		.project {
+		margin-left: 3rem;
 	}
+
+	}
+
+	@media (max-width: 767px) {
+		.project {
+		margin-left: 0;
+	}
+	}
+
 	@media (max-width: 450px) {
 		main {
 			background: var(--bg-gradient-r);

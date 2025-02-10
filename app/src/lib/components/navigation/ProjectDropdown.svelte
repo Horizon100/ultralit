@@ -3,10 +3,11 @@
     import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
     import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-    import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2 } from 'lucide-svelte';
+    import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
     import type { Projects } from '$lib/types/types';
     import { onMount } from 'svelte';
-  
+    import { threadsStore } from '$lib/stores/threadsStore';
+
     let isExpanded = false;
     let isCreatingProject = false;
     let newProjectName = '';
@@ -24,9 +25,11 @@ $: console.log('Filtered projects:', filteredProjects);
 $: console.log('Is expanded:', isExpanded);
 $: console.log('Current project:', $projectStore.currentProject);
 
-async function handleCreateNewProject(name: string) {
-  console.log('Creating new project with name:', name);
-  if (!name.trim()) {
+async function handleCreateNewProject(nameOrEvent?: string | Event) {
+  const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
+  
+  console.log('Creating new project with name:', projectName);
+  if (!projectName.trim()) {
     console.log('Name is empty, returning');
     return;
   }
@@ -35,13 +38,19 @@ async function handleCreateNewProject(name: string) {
     isCreatingProject = true;
     console.log('Starting project creation...');
     const newProject = await projectStore.addProject({
-      name: name.trim(),
+      name: projectName.trim(),
       description: ''
     });
     console.log('New project created:', newProject);
     
     if (newProject) {
       newProjectName = '';
+      isCreatingProject = false;
+      isExpanded = false;
+      
+      // Select the newly created project
+      await handleSelectProject(newProject.id);
+      console.log('New project selected:', newProject.id);
     }
   } catch (error) {
     console.error('Error in handleCreateNewProject:', error);
@@ -51,19 +60,29 @@ async function handleCreateNewProject(name: string) {
   }
 }
 
+
 async function handleSelectProject(projectId: string) {
   console.log('Selecting project:', projectId);
   try {
     await projectStore.setCurrentProject(projectId);
     console.log('Project selected, new store state:', $projectStore);
+    
     // Close dropdown
     isExpanded = false;
+    
     // Set the projectId in the store
     projectStore.update(state => ({
       ...state,
       currentProjectId: projectId,
       currentProject: state.threads.find(p => p.id === projectId) || null
     }));
+
+    // Show thread list when project is selected
+    threadsStore.update(state => ({
+      ...state,
+      showThreadList: true
+    }));
+
   } catch (error) {
     console.error("Error handling project selection:", error);
   }
@@ -126,7 +145,7 @@ async function handleSelectProject(projectId: string) {
             class="create-btn"
             on:click={() => isCreatingProject = !isCreatingProject}
           >
-            <PackagePlus size={16} />
+            <Plus size={16} />
           </button>
         </div>
   
@@ -145,8 +164,8 @@ async function handleSelectProject(projectId: string) {
             <button 
               class="confirm-btn"
               disabled={!newProjectName.trim()}
-              on:click={handleCreateNewProject}
-            >
+              on:click={() => handleCreateNewProject(newProjectName)}
+              >
               <Check size={16} />
             </button>
           </div>
@@ -179,7 +198,7 @@ async function handleSelectProject(projectId: string) {
     .dropdown-container {
       position: relative;
       display: inline-block;
-      min-width: 200px;
+      min-width: 150px;
       z-index: 2000;
       
     }

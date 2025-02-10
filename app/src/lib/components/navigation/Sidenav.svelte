@@ -436,8 +436,8 @@
 		left: 0;
 		top: 0;
 		bottom: 0;
-		padding: 1rem;
-		z-index: 10;
+		padding: 0.5rem 1rem;
+		z-index: 2001;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;

@@ -74,8 +74,8 @@
   let updateStatus: string = ''; 
   let showThreadList = $threadsStore.showThreadList;
   let isThreadsLoaded: boolean;
-  let isThreadListVisible = false;
-  let isProjectListVisible = true;
+  let isThreadListVisible = true;
+  let isProjectListVisible = false;
   // UI state
   let isLoading = false;
   let isExpanded = false;
@@ -865,7 +865,12 @@ async function handleCreateNewThread() {
 async function handleLoadThread(threadId: string) {
     try {
         isLoadingMessages = true;
-        showThreadList = false;
+        
+        // Update the threadsStore to hide thread list
+        threadsStore.update(state => ({
+            ...state,
+            showThreadList: false
+        }));
 
         const thread = await pb.collection('threads').getOne(threadId, {
             expand: 'project_id',
@@ -886,9 +891,7 @@ async function handleLoadThread(threadId: string) {
             threadsStore.update(state => ({
                 ...state,
                 threads: projectThreads
-                
             }));
-            
         }
 
         // Update local state
@@ -1347,6 +1350,8 @@ $: console.log("isLoading changed:", isLoading);
 $: if ($currentUser?.avatar) {
    updateAvatarUrl();
 }
+
+
 /*
  * Store synchronization with visibility protection
  * $: {
@@ -1419,6 +1424,22 @@ $: {
         );
     }
 }
+
+$: if ($projectStore.currentProjectId) {
+  console.log('Current project changed:', $projectStore.currentProjectId);
+  const loadProjectThreads = async () => {
+    try {
+      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId!);
+      threadsStore.update(state => ({
+        ...state,
+        threads: projectThreads
+      }));
+    } catch (error) {
+      console.error('Error loading project threads:', error);
+    }
+  };
+  loadProjectThreads();
+}
 // Lifecycle hooks
 onMount(() => {
 		const interval = setInterval(() => {
@@ -1428,34 +1449,38 @@ onMount(() => {
 		}, 60);
 		return () => clearInterval(interval);
 	});
-onMount(async () => {
+
+  onMount(async () => {
   try {
     console.log('onMount initiated');
-
-    // Check authentication first
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
       showAuth = true;
-      return;
+      return undefined;
     }
 
-    // Set up user info
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
 
-    // Load data sequentially to avoid race conditions
+    // First load projects
     await projectStore.loadProjects();
-    await threadsStore.loadThreads();
-/*
- * $: if (threads?.length) {
- *   messageCountsStore.fetchBatch(threads, currentPage);
- * }
- * Initialize textarea after data is loaded
- */
+
+    // If there's a current project, load its threads
+    if ($projectStore.currentProjectId) {
+      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
+      threadsStore.update(state => ({
+        ...state,
+        threads: projectThreads
+      }));
+    } else {
+      // If no project is selected, load all threads
+      await threadsStore.loadThreads();
+    }
+
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -1464,14 +1489,8 @@ onMount(async () => {
       };
       textareaElement.addEventListener('input', adjustTextareaHeight);
     }
-
-    // Initialize messages last
-    await initializeThreadsAndMessages();
-    initialLoadComplete = true;
-
   } catch (error) {
     console.error('Error during onMount:', error);
-    isLoading = false;
   }
 });
 afterUpdate(() => {
@@ -1514,7 +1533,7 @@ onDestroy(() => {
       </h2> -->
 
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
+          <!-- <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
             <button class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
             class:active={isProjectListVisible} 
             on:click={() => {
@@ -1582,149 +1601,9 @@ onDestroy(() => {
          {/if}
         </span>
             </button>
-          </div>
+          </div> -->
 
-          {#if isProjectListVisible}
-          <div class="project-section" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-            <!-- Create Project Button -->
-            <div class="drawer-toolbar">
-              <button 
-                class="add"
-                on:click={() => {
-                  console.log('New project button clicked');
-                  isCreatingProject = true;
-                }}
-                disabled={isCreatingProject}
-                on:mouseenter={() => createHovered = true}
-                on:mouseleave={() => createHovered = false}
-              >
-                <span 
-                  class="icon" 
-                  class:active={isCreatingProject} 
-                  on:click={() => {
-                    isCreatingProject = !isCreatingProject;
-                  }}
-                  on:mouseenter={() => searchHovered = true}
-                  on:mouseleave={() => searchHovered = false}
-                >
 
-                  <span class="icon" class:active={isCreatingProject}>
-                    {#if isCreatingProject}
-                      <ArrowLeft/>
-                      {:else}
-                      <PackagePlus />
-                      {#if searchHovered && !isCreatingProject}
-                        <span class="tooltip" in:fade>
-                          {$t('tooltip.newProject')}
-                        </span>
-                      {/if}
-                    {/if}
-                </span>
-                {#if isCreatingProject}
-
-                  <div class="drawer-input" transition:slide>
-                    <input
-                      type="text"
-                      bind:value={newProjectName}
-                      placeholder="Project name..."
-                      on:keydown={(e) => {
-                        console.log('Keydown event:', e.key);
-                        if (e.key === 'Enter' && newProjectName.trim()) {
-                          console.log('Enter pressed with name:', newProjectName);
-                          handleCreateNewProject(newProjectName);
-                        } else if (e.key === 'Escape') {
-                          console.log('Escape pressed, canceling');
-                          isCreatingProject = false;
-                          newProjectName = '';
-                        }
-                      }}
-                      use:focusOnMount
-                    />
-                    <button 
-                      class="create-confirm"
-                      disabled={!newProjectName.trim()}
-                      on:click={() => {
-                        console.log('Confirm button clicked with name:', newProjectName);
-                        handleCreateNewProject(newProjectName);
-                      }}
-                    >
-                      <Check size={16} />
-                    </button>
-                  </div>
-                {:else}
-                {/if}
-              </button>
-              
-            </div>
-        
-            <!-- Project List -->
-            <div class="cards" in:fly={{duration: 200}} out:fade={{duration: 200}}
-            class:empty={!$projectStore?.threads?.length}>
-              {#if $projectStore?.threads?.length > 0}
-                {#each $projectStore.threads as project (project.id)}
-                <button class="card-container" in:fly={{duration: 200}} out:fade={{duration: 200}}
-                    on:click={() => handleSelectProject(project.id)}
-                  >                  
-                  <div 
-                    class="card"
-                    class:active={currentProjectId === project.id}
-                    in:fly={{x: 20, duration: 200}}
-                  >
-                    {#if project.id === editingProjectId}
-                      <input
-                        type="text"
-                        bind:value={editedProjectName}
-                        on:keydown={(e) => {
-                          if (e.key === 'Enter') submitProjectNameChange(project.id);
-                          if (e.key === 'Escape') cancelEditing();
-                        }}
-                        use:focusOnMount
-                      />
-                    {:else}
-
-                      <div class="card-static">
-                        <span class="card-title project">{project.name}</span>
-                        <span class="card-time">
-                          {#if project.updated && !isNaN(new Date(project.updated).getTime())}
-                            {getRelativeTime(new Date(project.updated))}
-                          {:else}
-                            No date available
-                          {/if}
-                        </span>
-                      </div>
-
-                    {/if}
-        
-                    <div class="card-actions">
-                      <button 
-                        class="action-btn"
-                        on:click|stopPropagation={() => startEditingProjectName(project.id)}
-                        >
-                        <Pen size={14} />
-                      </button>
-                      <button 
-                        class="action-btn delete"
-                        on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
-                        >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </button>
-
-                {/each}
-              {:else}
-                <div class="no-projects">
-                  <span>No projects yet</span>
-                </div>
-              {/if}
-            </div>
-
-          </div>
-        {/if}
-        {#if isThreadListVisible}
-
-          {#if isThreadListVisible || namingThreadId}
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
               class="add"
@@ -1860,17 +1739,13 @@ onDestroy(() => {
             {/each}
           </div>
 
-        {/if}
-
-              {:else}
               
  
-              {/if}
         </div>
 
     </div>
       {/if}
-      <div class="chat-container" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
+      <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
 
 
 
@@ -2022,13 +1897,6 @@ onDestroy(() => {
                       />
 
                     </div>
-        
-
-        
-            
-            
-        
-            
                       </div>         
                       <div class="ai-selector">
             
@@ -3049,6 +2917,7 @@ onDestroy(() => {
     padding-top: 0;
     height: 100vh;
     margin-top: 0;
+    margin-left: 2rem;
 
   }
 
@@ -3081,6 +2950,7 @@ onDestroy(() => {
     justify-content: flex-end;
     align-items: center;
     gap: 1rem;
+    margin-right: 2rem;
   }
   
   .avatar-container {
@@ -3116,10 +2986,10 @@ onDestroy(() => {
 
  .drawer-visible {
     &.input-container {
-      left: 0;
-      margin-left: 400px;
+      margin-left: 0;
     margin-right: 0;
-    width: auto; 
+    left: 0;
+    width: 98%; 
       & textarea {
         margin-left: 0;
         height: auto;
@@ -3174,21 +3044,21 @@ onDestroy(() => {
   .input-container {
     display: flex;
     flex-direction: column;
-    position: fixed;
-    margin-left: 25vw;
-    margin-right: 25vw;
-    width: 50vw;    
+    position: relative;
+    flex-grow: 1;
+    width: auto;    
     margin-top: 0;
-    right: 0;
     left: 0;
-    bottom: 0;
-    height: 100%;
+    margin-right: 2rem;
+    right: auto;
+    bottom:3rem;
+    height: auto;
     margin-bottom: 0;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
     align-items: center;
     // background: var(--bg-gradient);
-    z-index: 7000;
+    z-index: 1;
 
 
     &::placeholder {
@@ -3206,18 +3076,12 @@ onDestroy(() => {
       border: none;
       box-shadow: none;
       position: relative; 
-      left: 0;
       border-radius: var(--radius-m);
 
       // background-color: transparent;
       background: var(--bg-gradient-r);
-      margin-right: 2rem !important;
-      margin-left: 4rem;
       // margin-left: 7rem;
-      margin-top: 0.5rem;
       transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
-      padding-top: 1rem;
-      padding-left: 1rem;
       // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
       color: var(--text-color);
       // background: transparent;
@@ -3316,7 +3180,6 @@ onDestroy(() => {
       font-size: 1.5rem;
       border: none;
       box-shadow: none;
-      left: 2rem;
       margin-top: 2rem;
       border-radius: var(--radius-m);
       // background-color: transparent;
@@ -3372,14 +3235,15 @@ onDestroy(() => {
   // width: 100vw;;
   bottom: 0;
   margin-bottom: 0;
+  margin-right: 0;
+  right: 0;
   // background: var(--bg-gradient);
-  width: 90%;
+  width: 100%;
   height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: flex-end;
-  gap: 2rem;
+
+  gap: 1rem;
   // backdrop-filter: blur(40px);
   & textarea {
     border-top: 1px solid var(--primary-color) !important;
@@ -3450,11 +3314,13 @@ color: #6fdfc4;
     /* padding: 10px; */
     display: flex;
     position: relative;
-    margin-right: 0;
+    left: 1rem;
+    right: 3rem;
+    margin-bottom: 12rem;
     // margin-top: 1rem;
     // left: 25%;
     padding: 1rem;
-    z-index: 4000;
+    z-index: 5;
     flex-direction: column;
     overflow-x: hidden;
     align-items: stretch;
@@ -3580,10 +3446,11 @@ color: #6fdfc4;
     padding: 1rem 1rem;
     gap: 1rem;
     margin-bottom: 1rem;
-    width: 100%;
+    width: 98;
     letter-spacing: 1px;
     line-height: 1;
     transition: all 0.3s ease-in-out;
+    z-index: 5;
 
     & p {
       // font-size: calc(10px + 1vmin);
@@ -3620,7 +3487,6 @@ color: #6fdfc4;
     //   bottom: 0;
     //   background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
     //   opacity: 0.5;
-    //   z-index: -1;
     //   transition: opacity 0.3s ease;
     // }
     &.thinking {
@@ -3659,7 +3525,7 @@ color: #6fdfc4;
       color: var(--text-color);
       height: auto;
       // background: var(--bg-gradient-r);
-      margin-left: 1rem;
+      margin-left: 0;
       width: fit-content;
 
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -3683,6 +3549,7 @@ color: #6fdfc4;
       background-color: var(--secondary-color);
       border-radius: var(--radius-m);
       height: auto;
+      margin-right: 0.5rem;
       max-width: 600px;
       min-width: 200px;
       font-weight: 500;
@@ -3813,7 +3680,6 @@ span.hero {
     flex-direction: row;
     justify-content: space-between;
     transition: all 0.2s ease;
-    z-index: 6000;
     backdrop-filter: blur(10px);
     & h3 {
       margin: 0;
@@ -3950,10 +3816,10 @@ span.hero {
   }
 
   .drawer-toolbar {
-      margin-left: 6rem;
+      margin-left: 0;
       position: relative;
       height: auto;
-      width: auto;
+      width: 100%;
       // padding: 0.75rem 1rem;
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
@@ -3961,7 +3827,7 @@ span.hero {
       z-index: 1;
       text-align: left;
       align-items: center;
-      justify-content: left;
+      justify-content: flex-start;
       gap: 1rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
@@ -3969,10 +3835,10 @@ span.hero {
       flex-direction: row;
       left: 0;
       right: 0;
-      margin-bottom: 1rem;
+      padding: 1rem;
 
     & input {
-      width: 100%;
+      width: 200px;
     };
   }
 
@@ -3981,17 +3847,12 @@ span.hero {
   flex-direction: row;
   align-items: center;
   // padding: 0.75rem 0;
-  width: fit-content;
   gap: 0.5rem;
   border-radius: var(--radius-m);
   height: auto;
-  width: fit-content;
+  width: 60px;
   color: var(--bg-color);
   transition: all 0.3s ease;
-
-  &:hover {
-    background-color: var(--secondary-color);
-    }
 
 
 
@@ -4021,7 +3882,7 @@ span.hero {
       outline: none;
       margin-left: 0;
       margin-right: 0;
-      width: auto;
+      width: 150px;
       color: var(--text-color);
       transition: all 0.3s ease;
       &::placeholder {
@@ -4353,7 +4214,6 @@ span.hero {
       // border: 2px solid #000000;
       transform: translateY(0) rotate(0deg); 
       font-size: 30px;
-      padding: 2rem;
       /* height: 400px; */
       display: flex;
       /* min-height: 200px; */
@@ -4625,16 +4485,17 @@ span.hero {
   .drawer-list {
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     width:auto;
     margin-left: 0;
     margin-right: 0;
-    margin-top: 3rem;
-    top: 3rem;
+    margin-top: 0;
+    top: 0;
     margin-bottom: 2rem;
     bottom: 0;
     left: 0;
-    width: fit-content;
-    height: 76%;
+    width: 100%;
+    height: fit-content;
     // backdrop-filter: blur(20px);
     border-radius: 10px;
     overflow-y: scroll;
@@ -4658,10 +4519,10 @@ span.hero {
   position: relative;
   top: 0;
   bottom: 0;
+  left: 2rem;
   margin-left: 0;
-  gap: 1px;
   height: 100vh;
-  width: 400px;
+  width: calc(400px - 4rem);
   transition: all 0.3s ease-in-out;
   scrollbar: {
     width: 1px;
@@ -4728,7 +4589,7 @@ span.hero {
     flex-direction: row;
     position: relative;
     width: 100%;
-    margin-left: 4rem;
+    margin-left: 0;
     border-top-right-radius: var(--radius-m);
     border-bottom-right-radius: var(--radius-m);
     border-bottom-left-radius: var(--radius-m);
@@ -4745,7 +4606,7 @@ span.hero {
     padding: 1rem;
     margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
-    width: 300px;
+    width: 100%;
     // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: all 0.1s ease-in-out;
     &:hover {
@@ -4927,7 +4788,7 @@ span.hero {
 
   .scroll-bottom-btn {
     position: fixed;
-    bottom: 8rem !important;
+    bottom: 10rem !important;
     right: 2rem;
     background-color: #21201d;
     color: white;
@@ -5051,7 +4912,7 @@ span.hero {
     border-top-right-radius: 50px;
     border-bottom-right-radius: 50px;
     color: white;
-    z-index: 80000;
+    z-index: 10000;
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
     border-radius: var(--radius-l);
@@ -5201,6 +5062,10 @@ span.hero {
 
     .chat-container {
       top: 3rem;
+      left: 0;
+      margin-left: 1rem;
+      width: auto;
+      right: 1rem;
     }
     
     .thread-filtered-results {
@@ -5299,13 +5164,13 @@ span.hero {
       cursor: pointer;
     }
     button.card-container {
-      width: 100vw;
+      width: 96%;
       gap: 1rem;
-      padding: 1rem;
+      padding: 1rem;      
+      margin-left: 1rem;
     }
     .drawer {
       top: 0;
-      margin-left: 0;
       margin-right: 0;
       width: 100%;
       height: 100%;
@@ -5336,10 +5201,7 @@ span.hero {
       font-size: 1rem;
     }
 
-    .combo-input {
-      width: 100% !important;
 
-    }
 
     .ai-selector {
       width: 100%;
@@ -5379,6 +5241,7 @@ span.hero {
 
 
 
+
     h1 {
       font-size: 24px;
       font-weight: bold;
@@ -5405,28 +5268,16 @@ span.hero {
       left: 10px;
     }
 
-  .input-container {
-    bottom: 5rem;
-    width: auto !important;
-   left: 1rem;
-    right: 0;
-    gap: 0;
-    // left:1rem !important;
-    padding: 0 0 0 0 !important;
-    // box-shadow: -0 -1px 100px 4px rgba(255, 255, 255, 0.2);
-    box-shadow: none;
-    // z-index: 4000 !important;
-    &     textarea {
-      font-size: 1.5rem;
-      border: none;
-      box-shadow: none;
-      position: relative; 
-      left: 0;
-      border-top-left-radius: 0;
-
+    .input-container {
+      width: 97%;
+      bottom: 5rem;
     }
 
-  }
+    .chat-messages {
+      right: 0rem !important;
+    }
+
+}
 
   // .input-container textarea {
   //   box-shadow: none;
@@ -5440,24 +5291,6 @@ span.hero {
     
   // }
 
-    .input-container textarea:focus {
-      border: none;
-      color: white;
-      box-shadow: none;
-      display: flex;
-      // background: var(--bg-gradient-left) !important;
-          // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-      
-      // background: black !important; 
-      padding: 2rem;
-      margin-left: 0;
-      margin-right: 0;
-      height: auto;
-      box-shadow: none !important;
-      
-  }
-
-  }
 
 
 
@@ -5550,9 +5383,12 @@ span.hero {
     width: 100%;    /* border: 1px solid black; */
 
     }
+    
 }
 @media (max-width: 1900px) {
-
+  .input-container {
+    margin-right: 5rem;
+  }
   .thread-info {
   display: flex;
   flex-direction: column;
@@ -5601,29 +5437,24 @@ span.hero {
 
 }
 
-.input-container {
-  width: auto;
-  margin-left: 4rem;
-  margin-right: 2rem;
-}
+
   
 
 .drawer-visible {
   .chat-container {
     right: 0;
     margin-right: 0;
-    width: auto;
-    left: 400px;
-    margin-left: 1rem;
+    width: 100%;
+    margin-left: 0;
 
   }
 
 
     &.input-container {
-      left: 5rem;
-      margin-left: 400px;
-    margin-right: 0;
-    width: auto; 
+      left: 0;
+      width: calc(70% - 8rem);
+
+
       & textarea {
         margin-left: 0;
       }
@@ -5652,7 +5483,7 @@ span.hero {
     width: auto !important;
     position: absolute;
     left: 0rem;
-    right: 0;
+    right: 1rem;
     top: 1rem;
     bottom: 200px;
     
@@ -5690,6 +5521,13 @@ span.hero {
 
 }
 
+@media (max-width: 767px) {
+  .input-container {
+    bottom: 9rem;
+  }
+}
+
+
 
 @media (max-width: 450px) {
 
@@ -5707,6 +5545,7 @@ span.hero {
   .chat-container {
     padding: 0;
     top: 3rem;
+    left: 0;
   }
   
 
@@ -5769,27 +5608,19 @@ span.hero {
   //   scrollbar-color: #c8c8c8 transparent;
   //   scroll-behavior: smooth;
   // }
-  .input-container {
-    width: auto;
-    left: 0rem;
-    right: 0;
-    bottom: 3rem;
-  }
+
 
   .input-container textarea {
     font-size: 1rem;
-    padding: 1rem;
-    margin-left: 2rem;
+    margin-left: 0;
+    left: 0;
     bottom: 2rem;
     height: 40px;
     background: transparent;
-    padding: 0;
   }
 
     .input-container textarea:focus {
-      padding: 1rem;
       background: transparent !important;
-      color: white;
       font-size: 20px;
       display: flex;
       z-index: 1000;
