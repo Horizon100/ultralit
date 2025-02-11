@@ -602,6 +602,7 @@ export interface Projects extends RecordModel {
 export interface ExpandedSections {
 	prompts: boolean;
 	models: boolean;
+	bookmarks: boolean;
 }
 
 export interface MessageState {

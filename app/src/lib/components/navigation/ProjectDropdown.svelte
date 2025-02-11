@@ -195,11 +195,17 @@ async function handleSelectProject(projectId: string) {
   </div>
   
   <style lang="scss">
+
+    * {
+      font-family: var(--font-family);
+
+    }
     .dropdown-container {
       position: relative;
       display: inline-block;
       min-width: 150px;
-      z-index: 2000;
+      z-index: 1;
+      user-select: none;
       
     }
   

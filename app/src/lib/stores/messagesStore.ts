@@ -1,10 +1,10 @@
 import { writable } from 'svelte/store';
 import type { Messages } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
-import { fetchMessagesForThread, addMessageToThread } from '$lib/clients/threadsClient';
+import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark } from '$lib/clients/threadsClient';
 
 function createMessagesStore() {
-	// Initialize with empty array
+	
 	const { subscribe, set, update } = writable<Messages[]>([]);
 
 	return {
@@ -12,7 +12,7 @@ function createMessagesStore() {
 		setSelectedDate: (date: string | null) => {
 			update((state) => ({ ...state, selectedDate: date }));
 		},
-		setMessages: (messages: Messages[]) => set(messages || []), // Ensure array
+		setMessages: (messages: Messages[]) => set(messages || []), 
 		addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>) => {
 			try {
 				const newMessage = await addMessageToThread(message);
@@ -26,11 +26,11 @@ function createMessagesStore() {
 		fetchMessages: async (threadId: string) => {
 			try {
 				const messages = await fetchMessagesForThread(threadId);
-				set(messages || []); // Ensure array
+				set(messages || []); 
 				return messages;
 			} catch (error) {
 				console.error('Error fetching messages:', error);
-				set([]); // Reset to empty array on error
+				set([]); 
 				throw error;
 			}
 		},
@@ -60,8 +60,6 @@ function createMessagesStore() {
 				};
 
 				const savedMessage = await addMessageToThread(newMessage);
-
-				// Safely update messages array
 				update((currentMessages) => {
 					if (!Array.isArray(currentMessages)) {
 						return [savedMessage];
@@ -75,7 +73,17 @@ function createMessagesStore() {
 				throw error;
 			}
 		},
-		// Add a method to clear messages
+		fetchBookmarkedMessages: async (messageId: string) => {
+			try {
+				const messages = await fetchMessagesForBookmark(messageId);
+				set(messages || []); 
+				return messages;
+			} catch (error) {
+				console.error('Error fetching messages:', error);
+				set([]); 
+				throw error;
+			}
+		},
 		clear: () => set([])
 	};
 }

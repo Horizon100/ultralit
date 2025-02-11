@@ -448,7 +448,7 @@
 	.project {
 		position: relative;
 		margin-left: 3rem;
-		z-index: 1200;
+		z-index: 999;
 		display: flex;
 		align-items: center;
 		overflow: visible; 

@@ -156,30 +156,35 @@
 >
 	<div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 300 }}>
 		<div class="settings-row">
-			<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-				<LogOutIcon size={24} />
-				<span>{$t('profile.logout')}</span>
-			</button>
-			<button class="settings-button" on:click={handleLanguageChange}>
-				<Languages size={24} />
-				<!-- <span>{$currentLanguage.toUpperCase()}</span> -->
-				<span>{$t('lang.flag')}</span>
-			</button>
-			<button
-				class="settings-button"
-				on:click={toggleStyles}
-				transition:fly={{ y: -200, duration: 300 }}
-			>
-				<svelte:component
-					this={styles.find((s) => s.value === currentStyle)?.icon || Sun}
-					size={24}
-				/>
-			</button>
-
+			
+<!-- 
 			<KeyStatusButton bind:showKeyInput />
 			{#if showKeyInput}
 				<APIKeyInput />
-			{/if}
+			{/if} -->
+			<div class="btn-row">
+				<button class="settings-button" on:click={handleLanguageChange}>
+					<Languages size={24} />
+					<!-- <span>{$currentLanguage.toUpperCase()}</span> -->
+					<span>{$t('lang.flag')}</span>
+				</button>
+				<button
+					class="settings-button"
+					on:click={toggleStyles}
+					transition:fly={{ y: -200, duration: 300 }}
+				>
+					<svelte:component
+						this={styles.find((s) => s.value === currentStyle)?.icon || Sun}
+						size={24}
+					/>
+				</button>
+				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+					<LogOutIcon size={24} />
+					<span>{$t('profile.logout')}</span>
+				</button>
+			</div>
+
+
 		</div>
 
 		{#if user}
@@ -337,10 +342,10 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		z-index: 1000;
 		/* width: 100%; */
 		display: flex;
 		padding: 2rem;
+		width: 400px;
 		/* background-color: #131313;
         color: #ffffff;
         /* border: 1px solid rgb(53, 53, 53); */
@@ -352,6 +357,12 @@
 		/* padding: 10px 20px; */
 		transition: all 0.3s ease;
 		background: var(--bg-gradient-r);
+	}
+
+	.btn-row {
+		display: flex;
+		flex-direction: row;
+		gap: 1rem;
 	}
 
 	.modal-content {
@@ -579,6 +590,7 @@
 
 	.settings-row {
 		display: flex;
+		flex-direction: column;
 		justify-content: flex-end;
 		gap: 1rem;
 		padding: 1rem;
@@ -611,8 +623,8 @@
 
 	.style-overlay {
 		position: absolute;
-		top: 0;
-		left: 0;
+		top: 3rem;
+		left: 4rem;
 		width: 100%;
 		height: auto;
 		display: flex;
@@ -682,10 +694,12 @@
 	}
 
 	@media (max-width: 1000px) {
+		
 		.style-overlay {
-			position: relative;
-			margin-top: 2rem;
-			height: 100%;
+			margin-top: 0rem;
+			margin-left: 0;
+			left: 0;
+			height: fit-content;
 		}
 
 		.style-content {

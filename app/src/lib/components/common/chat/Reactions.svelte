@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { pb, currentUser } from '$lib/pocketbase';
-	import type { Messages } from '$lib/types/types';
+	import type { InternalChatMessage, Messages } from '$lib/types/types';
 	import { Bookmark, Copy } from 'lucide-svelte';
 	import type { SvelteComponentTyped } from 'svelte';
 	import type { User } from '$lib/types/types';
 
-	export let message: Messages;
+	export let message: InternalChatMessage;
 	export let userId: string;
 
 	const dispatch = createEventDispatcher();

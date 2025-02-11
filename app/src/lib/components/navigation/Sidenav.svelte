@@ -34,7 +34,10 @@
 
 		MessageCircleDashed,
 
-		MessageCircle
+		MessageCircle,
+
+		ChevronLeft
+
 
 
 
@@ -377,7 +380,7 @@
 				transition:fly={{ y: -200, duration: 300 }}
 				on:click={() => (showProfile = false)}
 			>
-				<X size={24} />
+				<ChevronLeft size={24} />
 			</button>
 			<Profile
 				user={$currentUser}
@@ -437,7 +440,7 @@
 		top: 0;
 		bottom: 0;
 		padding: 0.5rem 1rem;
-		z-index: 2001;
+		z-index:1000;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -544,7 +547,7 @@
 	.profile-overlay {
 		position: fixed;
 		top: 0;
-		left: 0;
+		left: 4rem;
 		width: 100%;
 		height: 100%;
 		display: flex;
@@ -562,6 +565,7 @@
 		width: auto;
 		height: auto;
 		top: 0;
+		left: 0;
 		bottom: auto;
 		/* right: 0; */
 		/* background-color: #2b2a2a; */
@@ -571,7 +575,7 @@
 		background: var(--bg-gradient-r);
 		border-bottom-left-radius: var(--radius-m);
 		border-bottom-right-radius: var(--radius-m);
-		width: 100%;
+		width:400px;
 		/* max-width: 500px; */
 		/* max-height: 90vh; */
 		overflow: none;
@@ -868,6 +872,17 @@
 
 
 	@media (max-width: 768px) {
+		
+		.profile-content {
+			width: 100%;
+			margin-left: 0;
+		}
+
+		.profile-overlay {
+			margin-left: 0;
+			left: 0;
+		}
+		
 		.sidenav {
 			display: flex;
 			justify-content: center;
@@ -928,22 +943,7 @@
 			display: none;
 		}
 
-		.profile-content {
-			position: absolute;
-			width: auto;
-			height: 83%;
-			top: 3rem;
-			/* background-color: #2b2a2a; */
-			/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-			backdrop-filter: blur(40px);
-			border-bottom-left-radius: var(--radius-xl);
-			border-bottom-right-radius: var(--radius-xl);
-			/* width: 90%; */
-			/* max-width: 500px; */
-			/* max-height: 90vh; */
-			overflow: none;
-			transition: all 0.3s ease;
-		}
+
 	}
 
 	@media (max-width: 450px) {
@@ -973,21 +973,6 @@
 			transform: scale(1.1);
 		}
 
-		.profile-content {
-			position: absolute;
-			width: auto;
-			height: 83%;
-			top: 3rem;
-			/* background-color: #2b2a2a; */
-			box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
-			backdrop-filter: blur(40px);
-			border-bottom-left-radius: var(--radius-xl);
-			border-bottom-right-radius: var(--radius-xl);
-			/* width: 90%; */
-			/* max-width: 500px; */
-			/* max-height: 90vh; */
-			overflow: none;
-			transition: all 0.3s ease;
-		}
+
 	}
 </style>

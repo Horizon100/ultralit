@@ -7,10 +7,11 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
+
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
@@ -18,7 +19,7 @@
   import type {ExpandedGroups, ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { fetchThreads, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
+  import { fetchThreads, fetchMessagesForBookmark, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
@@ -79,12 +80,14 @@
   // UI state
   let isLoading = false;
   let isExpanded = false;
+  let bookmarkId = '';
   // let isLoading: boolean = false;
   let isTextareaFocused = false;
   let isFocused = false;
   let hideTimeout: ReturnType<typeof setTimeout>;
   let showPromptCatalog = false;
   let showModelSelector = false;
+  let showBookmarks = false;
   let thinkingPhrase: string = '';
   let thinkingMessageId: string | null = null;
   let typingMessageId: string | null = null;
@@ -108,6 +111,7 @@
   let isCleaningUp = false;
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
+
   let createHovered = false;
   let searchHovered = false;
     // Message state
@@ -137,6 +141,7 @@
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
   models: false,
+  bookmarks: false
 });
 const dispatch = createEventDispatcher();
 const expandedGroups = writable<ExpandedGroups>({});
@@ -536,7 +541,8 @@ export function toggleSection(section: keyof ExpandedSections): void {
   expandedSections.update(sections => {
     const newSections: ExpandedSections = {
       prompts: false,
-      models: false
+      models: false,
+      bookmarks: false,
     };
     
     if (!sections[section]) {
@@ -549,7 +555,9 @@ export function toggleSection(section: keyof ExpandedSections): void {
           if (!target.closest('.btn-ai') && !target.closest('.section-content')) {
             expandedSections.set({
               prompts: false,
-              models: false
+              models: false,
+              bookmarks: false,
+
             });
           }
         }, { once: true });
@@ -1340,6 +1348,14 @@ $: {
     }
   }
 }
+
+$: bookmarkedMessages = derived([currentUser, messagesStore], ([$currentUser, $messages]) => {
+    if ($currentUser && $currentUser.bookmarks && $messages) {
+        return $messages.filter(message => $currentUser.bookmarks.includes(message.id));
+    } else {
+        return [];
+    }
+});
 $: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
 $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
 /*
@@ -1381,12 +1397,12 @@ $: {
         showThreadList = storeState.showThreadList;
     }
 }
-$: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
-   const group = getThreadDateGroup(thread);
-   if (!acc[group]) acc[group] = [];
-   acc[group].push(thread);
-   return acc;
-}, {} as Record<string, Threads[]>);
+// $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
+//    const group = getThreadDateGroup(thread);
+//    if (!acc[group]) acc[group] = [];
+//    acc[group].push(thread);
+//    return acc;
+// }, {} as Record<string, Threads[]>);
 /*
  * Maintain thread visibility
  * $: {
@@ -2072,6 +2088,25 @@ onDestroy(() => {
 
           
                       {#if isTextareaFocused}
+                      <span 
+                      class="btn"
+                      transition:slide
+                      on:click={() => toggleSection('bookmarks')}
+                      >
+                        <span class="icon">
+                          {#if $expandedSections.models}
+                          <BookmarkCheckIcon/>
+                          {:else}
+                          <Bookmark />
+                          {/if}
+                        </span>
+                        {#if selectedModelLabel}
+                          <!-- <h3>{$t('chat.models')}</h3> -->
+                          <p class="selector-lable">{selectedModelLabel} </p>
+                        {:else}
+                          <!-- <p>{$t('chat.models')}</p> -->
+                        {/if}
+                      </span>
                       <span class="btn" 
                         transition:slide
                       >
@@ -2156,10 +2191,6 @@ onDestroy(() => {
                       />
                       </div>
                     {/if}
-            
-
-            
-                
                     {#if $expandedSections.models}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                         <ModelSelector
@@ -2170,6 +2201,13 @@ onDestroy(() => {
                         />
                       </div>
                     {/if}
+                    {#if $expandedSections.bookmarks}
+                    <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                      <p>
+                        test
+                      </p>
+                    </div>
+                  {/if}
             
                       
                     </div>
@@ -3450,7 +3488,6 @@ color: #6fdfc4;
     letter-spacing: 1px;
     line-height: 1;
     transition: all 0.3s ease-in-out;
-    z-index: 5;
 
     & p {
       // font-size: calc(10px + 1vmin);
@@ -4754,7 +4791,7 @@ span.hero {
     margin-left: 5px;
   }
 
-  .typing::after {
+  .message.typing::after {
     content: '▋';
     display: inline-block;
     vertical-align: bottom;
@@ -4969,7 +5006,14 @@ span.hero {
   }
 
 
-
+  .section-content-bookmark {
+    width: 100%;
+    height: 50vh;
+    overflow: hidden;
+    padding: 0.5rem 1rem;
+    // background: var(--bg-gradient-left);
+    // border-radius: var(--radius-m);
+  }
 
   .section-content2 {
     width: 100%;

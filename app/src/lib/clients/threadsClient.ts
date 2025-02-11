@@ -345,6 +345,34 @@ export async function addMessageToThread(
 	}
 }
 
+export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Messages[]> {
+	try {
+		ensureAuthenticated();
+		console.log(`Attempting to fetch bookmarked messages: ${bookmarkId}`);
+
+		const messages = await pb.collection('messages').getFullList<Messages>({
+			filter: `id = "${bookmarkId}"`,
+			sort: '-created'
+			// expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
+		});
+
+		const processedMessages = messages.map((message) => ({
+			...message,
+			text: processMarkdown(message.text)
+		}));
+
+		console.log(`Fetched ${processedMessages.length} messages for bookmark ${bookmarkId}`);
+		return processedMessages;
+	} catch (error) {
+		console.error('Error fetching messages for thread:', error);
+		if (error instanceof ClientResponseError) {
+			console.error('Response data:', error.data);
+			console.error('Status code:', error.status);
+		}
+		throw error;
+	}
+}
+
 export async function resetThread(threadId: string): Promise<void> {
 	try {
 		ensureAuthenticated();

@@ -113,7 +113,6 @@ export async function updateThreadNameIfNeeded(
 	} catch (error) {
 		console.error('Error in updateThreadNameIfNeeded:', error);
 	} finally {
-		// Clear naming state using the store
 		threadsStore.setNamingThreadId(null);
 		console.log('Cleared naming state');
 	}
