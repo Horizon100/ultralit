@@ -11,6 +11,8 @@
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
+	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
+	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
 
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
@@ -111,6 +113,12 @@
   let isCleaningUp = false;
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
+
+  let threadCount = 0;
+  let messageCount = 0;
+  let tagCount = 0;
+  let timerCount: number = 0;
+  let lastActive: Date | null = null;
 
   let createHovered = false;
   let searchHovered = false;
@@ -1812,6 +1820,10 @@ onDestroy(() => {
                   <div class="chat-placeholder"
                   class:drawer-visible={$threadsStore.showThreadList}
                   >     
+                  <div class="dashboard-items">
+                    <ProjectCard/> 
+                    <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+                  </div>
 
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <!-- Prompts Section -->
@@ -1913,7 +1925,8 @@ onDestroy(() => {
                       />
 
                     </div>
-                      </div>         
+                      </div>     
+                          
                       <div class="ai-selector">
             
     
@@ -1953,6 +1966,7 @@ onDestroy(() => {
                           
                         </div>
                   </div>
+                  
                 {/if}
               </div>
               {#if currentThread}
@@ -3219,7 +3233,7 @@ onDestroy(() => {
       border: none;
       box-shadow: none;
       margin-top: 2rem;
-      border-radius: var(--radius-m);
+      border-radius: var(--radius-l);
       // background-color: transparent;
       background: var(--bg-gradient-r);
       left: 0;
@@ -3275,7 +3289,6 @@ onDestroy(() => {
   margin-bottom: 0;
   margin-right: 0;
   right: 0;
-  // background: var(--bg-gradient);
   width: 100%;
   height: auto;
   display: flex;
@@ -3284,13 +3297,16 @@ onDestroy(() => {
   gap: 1rem;
   // backdrop-filter: blur(40px);
   & textarea {
-    border-top: 1px solid var(--primary-color) !important;
+    border-top: 1px solid var(--primary-color);
     // max-height: 50vh;
     margin-left: 0;
     margin-top: 0;
   
-  :focus {
-    background: var(--bg-gradient-left);
+  &:focus {
+    background: var(--bg-gradient);
+      box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
+    border-bottom: 1px solid var(--placeholder-color);
+    border-top-left-radius: 0;
 
   }
 }
@@ -3329,6 +3345,7 @@ color: #6fdfc4;
   width: fit-content;
   z-index: 6000;
   gap: 2rem;
+  margin-right: 2rem;
   // padding: 0.5rem;
   transition: height 0.3s ease;
     border-radius: var(--radius-m);
@@ -4282,20 +4299,20 @@ span.hero {
 .chat-placeholder {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  justify-content:center;
+  align-items: flex-start;
+  justify-content: flex-start;
   border-radius: var(--radius-m);
   top: 0;
   backdrop-filter: blur(10px);
   // background: var(--primary-color);
   bottom: 0;
-  height: 88vh;
+  height: 100vh;
   user-select: none;
   position: absolute;
   width: auto;
+  gap: 1rem;
   left: 0;
   right: 0;
-  margin-right: 1rem;
 
 
   & h3 {
@@ -4334,7 +4351,16 @@ span.hero {
   transform: translateX(25%) translateY(-20%);
 }
 
-
+.dashboard-items {
+  display: flex;
+  flex-direction: row;
+  height: auto;
+  margin-top: auto;
+  padding: 0;
+  width: 90%;
+  margin-left: 2rem;
+  margin-right: 2rem;
+}
 .message-time {
   font-size: 0.8em;
   color: #888;

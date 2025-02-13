@@ -148,15 +148,26 @@
 </div>
 
 <style lang="scss">
+	
+	* {
+      font-family: var(--font-family);
+
+    }
 	.stats-container {
-		background: var(--bg-gradient);
+		// background: var(--bg-gradient);
 		backdrop-filter: blur(10px);
 		border-radius: 20px;
 		padding: 2rem;
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		width: auto;
+		width: 100%;
+		max-width: 400px;
+		left: 2rem;
+		height: auto;
+		margin-top: 0;
+		margin-left: 0;
+
 		position: relative;
 		overflow: hidden;
 		box-shadow:
