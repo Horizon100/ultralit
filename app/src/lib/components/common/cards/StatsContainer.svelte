@@ -120,7 +120,9 @@
 </script>
 
 <div class="stats-container">
-	<h2>{$t('dashboard.title')}</h2>
+	<div class="title">
+		<h2>{$t('dashboard.title')}</h2>
+	</div>
 	<div class="stat-item" style="--progress: {calculatePercentage(threadCount, 1000)}%">
 		<span>{threadCount} {$t('dashboard.nameThreads')}</span>
 		<span class="target">1000 ✰</span>
@@ -161,18 +163,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		width: 100%;
-		max-width: 400px;
-		left: 2rem;
+		max-width: 350px;
 		height: auto;
 		margin-top: 0;
 		margin-left: 0;
 
 		position: relative;
 		overflow: hidden;
-		box-shadow:
-			8px 8px 16px rgba(0, 0, 0, 0.3),
-			-8px -8px 16px rgba(255, 255, 255, 0.1);
+		
 	}
 
 	.stats-container::before {
@@ -194,6 +192,9 @@
 		pointer-events: none;
 	}
 
+	.title {
+		display: flex;
+	}
 	.stats-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
 		opacity: 1;
@@ -219,10 +220,9 @@
 		align-items: center;
 		position: relative;
 		padding: 1rem;
-		margin-bottom: 8px;
 		justify-content: space-between;
 		color: #cccccc;
-		font-size: 20px;
+		font-size: 1rem;
 		overflow: hidden;
 		transition: all 0.5s ease;
 		border-radius: 0.5rem;

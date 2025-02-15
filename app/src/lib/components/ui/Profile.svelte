@@ -249,7 +249,7 @@
 				</div>
 			</div>
 
-			<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+			<!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
 			<div class="actions">
 				{#if isEditing}
 					<button on:click={saveChanges}>

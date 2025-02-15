@@ -193,8 +193,8 @@ async function handleSelectProject(projectId: string) {
 		display: flex;
 		flex-direction: column;
     align-items: flex-start;
-		width: 100%;
-		max-width: 400px;
+
+		max-width: 350px;
       padding: 2rem;
 
 		margin-top: 0;
@@ -202,9 +202,9 @@ async function handleSelectProject(projectId: string) {
 
 		position: relative;
 		overflow: hidden;
-		box-shadow:
-			8px 8px 16px rgba(0, 0, 0, 0.3),
-			-8px -8px 16px rgba(255, 255, 255, 0.1);
+		// box-shadow:
+		// 	8px 8px 16px rgba(0, 0, 0, 0.3),
+		// 	-8px -8px 16px rgba(255, 255, 255, 0.1);
 	}
 
   .project-container::before {

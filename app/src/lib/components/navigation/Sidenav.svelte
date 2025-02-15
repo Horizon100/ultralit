@@ -36,7 +36,19 @@
 
 		MessageCircle,
 
-		ChevronLeft
+		ChevronLeft,
+
+		HelpCircle,
+
+		InfoIcon,
+
+		Settings2,
+
+		Settings
+
+
+
+
 
 
 
@@ -303,6 +315,31 @@
 					<span class="nav-text">Lean</span>
 				{/if}
 			</button>
+			<div class="bottom-buttons">
+				<button
+					class="nav-button config"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/lean'}
+					on:click={() => navigateTo('/lean')}
+				>
+					<InfoIcon />
+					{#if isNavExpanded}
+						<span class="nav-text">Guides</span>
+					{/if}
+				</button>
+				<button
+					class="nav-button config"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/lean'}
+					on:click={() => navigateTo('/lean')}
+				>
+					<Settings />
+					{#if isNavExpanded}
+						<span class="nav-text">Settings</span>
+					{/if}
+				</button>
+			</div>
+
 			<button class="nav-button toggle" on:click={toggleNav}>
 				{#if isNavExpanded}
 				<PanelLeftClose size={24} />
@@ -474,7 +511,6 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: 8px;
     background: var(--bg-gradient-right);
     color: var(--text-color);
     border: none;
@@ -495,7 +531,7 @@
       width: 380px;
       justify-content: flex-start;
       padding: 0.5rem 1rem;
-	  border-radius: var(--radius-m);
+	  border-radius: var(--radius-s);
     }
 
     &.toggle {
@@ -637,6 +673,14 @@
 		z-index: 5000;
 	}
 
+	.nav-button.config {
+
+		bottom: 3rem;
+		left: 1rem;
+		right: 1rem ;
+		z-index: 5000;
+	}
+
 	.close-button {
 		position: fixed;
 		top: 10px;
@@ -689,8 +733,10 @@
 
 	.bottom-buttons {
 		display: flex;
-		flex-direction: row;
-		gap: 10px;
+		flex-direction: column;
+		position: absolute;
+		bottom: 3rem;
+		gap: 1rem;
 		margin-bottom: 1rem;
 	}
 
