@@ -75,11 +75,15 @@ export interface Threads extends RecordModel {
 	op: string;
 	created: string;
 	updated: string;
-	// tags: string[];
 	last_message?: Messages;
 	current_thread: string;
 	messageCount?: number;
-	project_id?: string;
+	project_id: string;
+	currentThread: Threads | null;
+	filteredThreads: Threads[];
+	isEditingThreadName: boolean;
+	editedThreadName: string;
+	isNaming: boolean; 
 }
 export interface Tag extends RecordModel {
 	id: string;
@@ -89,18 +93,17 @@ export interface Tag extends RecordModel {
 	user: string;
 }
 
-// Adjusted PartialAIAgent interface
 export interface PartialAIAgent {
 	id?: string;
 	user_id?: string;
 	name?: string;
 	description?: string;
-	max_attempts?: number; // Required in AIAgent
+	max_attempts?: number;
 	user_input?: 'end' | 'never' | 'always';
 	prompt?: string;
-	model?: string[]; // Required in AIAgent
-	actions?: string[]; // Required in AIAgent
-	owner?: string; // Required in AIAgent
+	model?: string[]; 
+	actions?: string[];
+	owner?: string;
 	editors?: string[];
 	viewers?: string[];
 	avatar?: string;
@@ -124,7 +127,7 @@ export interface PartialAIAgent {
 	weight_surrogate?: number;
 	weight_selfdev?: number;
 	label?: string;
-	position: string | { x: number; y: number }; // Required in AIAgent
+	position: string | { x: number; y: number };
 	expanded?: boolean;
 	type?: 'host' | 'sub' | 'peer';
 	created?: string;
@@ -133,19 +136,17 @@ export interface PartialAIAgent {
 	collectionId: string;
 	collectionName: string;
 }
-
-// Adjusted AIAgent interface
 export interface AIAgent extends RecordModel {
 	id: string;
 	user_id: string;
 	name: string;
 	description: string;
-	max_attempts: number; // Required
+	max_attempts: number;
 	user_input: 'end' | 'never' | 'always';
 	prompt: string;
-	model: string[]; // Required
-	actions: string[]; // Required
-	owner: string; // Required
+	model: string[];
+	actions: string[]; 
+	owner: string; 
 	editors: string[];
 	viewers: string[];
 	avatar: string;
@@ -159,38 +160,33 @@ export interface AIAgent extends RecordModel {
 	version: string;
 	last_activity: Date;
 	parent_agent?: string;
-	child_agents: string[]; // Required
-	base_priority: number; // Required
-	adaptive_priority: number; // Required
-	weight_altruism: number; // Required
-	weight_survival: number; // Required
-	weight_exploration: number; // Required
-	weight_aspiration: number; // Required
-	weight_surrogate: number; // Required
-	weight_selfdev: number; // Required
+	child_agents: string[];
+	base_priority: number;
+	adaptive_priority: number;
+	weight_altruism: number;
+	weight_survival: number;
+	weight_exploration: number;
+	weight_aspiration: number;
+	weight_surrogate: number;
+	weight_selfdev: number;
 	label?: string;
-	position: string | { x: number; y: number }; // Required
-	expanded: boolean; // Required
-	created: string; // Required
-	updated: string; // Required
+	position: string | { x: number; y: number };
+	expanded: boolean;
+	created: string;
+	updated: string;
 }
-
 export interface AIMessage {
 	role: RoleType;
 	content: string;
 	model: string;
 	prompt_type?: PromptType;
 }
-
-// export type AIModel = 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
-
 export interface AIModel extends RecordModel {
 	id: string;
 	name: string;
 	api_key: string;
 	base_url: string;
-	api_type: string; // This will be the model identifier (e.g., 'gpt-4', 'claude-3-opus')
-	// api_type: 'gpt-3.5-turbo' | 'gpt-4' | 'claude-v1' | 'other-model';
+	api_type: string;
 	api_version: string;
 	description: string;
 	user: string[];
@@ -200,7 +196,6 @@ export interface AIModel extends RecordModel {
 	collectionId: string;
 	collectionName: string;
 }
-
 export interface UserModelPreferences {
 	id: string;
 	user: string;
@@ -209,11 +204,9 @@ export interface UserModelPreferences {
 	created: string;
 	updated: string;
 }
-
 export interface AIResponse {
 	response: string;
 }
-
 export interface NodeConfig {
 	maxTokens: number;
 	temperature: number;
@@ -237,7 +230,6 @@ export interface AIPreferences extends RecordModel {
 	privacy_level: string;
 	learning_rate: number;
 }
-
 export interface Task extends RecordModel {
 	id: string;
 	title: string;
@@ -259,7 +251,7 @@ export interface Task extends RecordModel {
 	parent_agent: string;
 	dependencies: {
 		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
-		task_id: string; // Reference to other tasks or resources
+		task_id: string; 
 	}[];
 	messages: string[];
 	attachments: string;
@@ -268,7 +260,6 @@ export interface Task extends RecordModel {
 	created: string;
 	updated: string;
 }
-
 export interface Message extends RecordModel {
 	text: string;
 	user: string;
@@ -311,29 +302,24 @@ export interface Node extends RecordModel {
 	label: string;
 	networkLayoutId?: string;
 }
-
 export interface NodeConfig {
 	maxTokens: number;
 	temperature: number;
 }
-
 export interface Scenario extends RecordModel {
 	id: string;
 	description: string;
 }
-
 export interface Task extends RecordModel {
 	id: string;
 	description: string;
 }
-
 export interface Attachment {
 	id: string;
 	name: string;
 	url: string;
 	file?: File;
 }
-
 export interface Network extends RecordModel {
 	id: string;
 	name: string;
@@ -342,7 +328,6 @@ export interface Network extends RecordModel {
 	root_agent: string;
 	agents: string[];
 }
-
 /*
  * export interface NetworkStructure extends RecordModel {
  *     type: string;
@@ -365,7 +350,6 @@ export interface Network extends RecordModel {
  *     target: string;
  * }
  */
-
 export interface VisNode {
 	id: string;
 	label: string;

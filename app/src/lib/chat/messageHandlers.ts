@@ -40,15 +40,13 @@ export const groupOrder = [
 interface ExpandedGroups {
 	[key: string]: boolean;
 }
-// Thread management functions
 export function initializeExpandedGroups(groups: ThreadGroup[]) {
 	const initialState: ExpandedGroups = {};
 	groups.forEach((group, index) => {
-		initialState[group.group] = index === 0; // Only expand first group
+		initialState[group.group] = index === 0;
 	});
 	expandedGroups.set(initialState);
 }
-// Toggle group expansion
 export function toggleGroup(state: ExpandedGroups, groupName: string): ExpandedGroups {
 	return {
 		...state,
@@ -112,22 +110,15 @@ export async function handleAutoTriggerResponse(targetMessage) {
 		 *   currentThreadId);
 		 */
 
-		// Add AI response to UI
 		const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
 		chatMessages = [...chatMessages, newAssistantMessage];
 		typingMessageId = newAssistantMessage.id;
-
-		// Use typewriting effect
 		await typeMessage(aiResponse);
-
-		// Update the message with the full response
 		chatMessages = chatMessages.map((msg) =>
 			msg.id === String(typingMessageId)
 				? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
 				: msg
 		);
-
-		// Update thread name after first AI response
 		const robotMessages = messages.filter((m) => m.type === 'robot');
 		if (robotMessages.length === 1) {
 			await threadsStore.autoUpdateThreadName(currentThreadId);
@@ -147,7 +138,7 @@ export async function handleAutoTriggerResponse(targetMessage) {
 }
 
 export async function typeMessage(message: string) {
-	const typingSpeed = 10; // milliseconds per character
+	const typingSpeed = 1;
 	let typedMessage = '';
 
 	for (let i = 0; i <= message.length; i++) {

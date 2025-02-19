@@ -2,7 +2,6 @@ import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
-// import { fetchNamingResponse } from '$lib/clients/aiClient'
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { threadsStore } from '$lib/stores/threadsStore';
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
@@ -22,10 +21,8 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
 		const messages = await pb.collection('messages').getFullList<Messages>({
 			filter: `thread = "${threadId}"`,
 			sort: '-created'
-			// expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
 		});
 
-		// Process markdown for each message
 		const processedMessages = messages.map((message) => ({
 			...message,
 			text: processMarkdown(message.text)
@@ -53,7 +50,6 @@ export async function fetchMessagesForThreadByDate(
 		let filter = `thread = "${threadId}"`;
 
 		if (date) {
-			// Create date range for the selected date (start of day to end of day)
 			const startDate = new Date(date);
 			startDate.setHours(0, 0, 0, 0);
 
@@ -66,10 +62,8 @@ export async function fetchMessagesForThreadByDate(
 		const messages = await pb.collection('messages').getFullList<Messages>({
 			filter: filter,
 			sort: '-created'
-			// expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
 		});
 
-		// Process markdown for each message
 		const processedMessages = messages.map((message) => ({
 			...message,
 			text: processMarkdown(message.text)
@@ -88,7 +82,7 @@ export async function fetchLastMessageForThread(threadId: string): Promise<Messa
 
 		const messages = await pb.collection('messages').getFullList<Messages>({
 			filter: `thread = "${threadId}"`,
-			sort: '-created', // Sort messages by creation date, descending
+			sort: '-created',
 			limit: 1
 		});
 
@@ -114,27 +108,22 @@ export async function fetchThreads(): Promise<Threads[]> {
 	try {
 		ensureAuthenticated();
 
-		// Get current state BEFORE making API call
 		const currentState = get(threadsStore);
 		const showThreadList = currentState?.showThreadList ?? true;
 
 		const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
 			sort: '-created',
 			$cancelKey: 'threads'
-			// Remove expand if not needed to reduce request complexity
 		});
 
 		if (!resultList?.items) {
 			console.warn('No threads found or invalid response');
-			// Return empty array but preserve visibility state
 			return [];
 		}
 
-		// Map threads and explicitly preserve showThreadList state
 		return resultList.items.map((thread) => ({
 			...thread,
 			showThreadList,
-			// Ensure other critical properties exist
 			tags: thread.tags || [],
 			current_thread: thread.current_thread || ''
 		}));
@@ -147,14 +136,12 @@ export async function fetchThreads(): Promise<Threads[]> {
 				url: error.url
 			});
 
-			// On auth error, preserve current state instead of returning empty array
 			if (error.status === 401) {
 				const currentState = get(threadsStore);
 				return currentState.threads || [];
 			}
 		}
 
-		// For other errors, preserve existing threads
 		const currentState = get(threadsStore);
 		return currentState.threads || [];
 	}
@@ -167,8 +154,8 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 		if (!userId) {
 			throw new Error('User ID not found');
 		}
-
-		// Create base thread data with explicit empty values
+		console.log('Received threadData:', threadData);
+		console.log('threadData.project_id:', threadData.project_id);
 		const newThread: Partial<Threads> = {
 			name: threadData.name || 'New Thread',
 			op: userId,
@@ -176,8 +163,7 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 			updated: new Date().toISOString(),
 			tags: [],
 			current_thread: '',
-			// Add any showThreadList state property if it exists in your Threads type
-			...(threadData.project_id && { project_id: threadData.project_id })
+			project_id: threadData.project_id
 		};
 
 		console.log('Creating thread with data:', newThread);
@@ -188,7 +174,6 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 			createdThread = await pb.collection('threads').create<Threads>(newThread);
 			console.log('Thread created:', createdThread);
 
-			// If project_id exists, update project
 			if (createdThread.project_id) {
 				try {
 					const project = await pb
@@ -204,7 +189,6 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 					console.log('Project updated with new thread');
 				} catch (error) {
 					console.error('Project update failed:', error);
-					// Cleanup created thread if project update fails
 					if (createdThread?.id) {
 						await pb.collection('threads').delete(createdThread.id);
 					}
@@ -212,10 +196,8 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 				}
 			}
 
-			// Return the thread with explicit visibility state
 			return {
 				...createdThread,
-				// Keep any existing visibility state from threadData
 				...(threadData.showThreadList !== undefined && {
 					showThreadList: threadData.showThreadList
 				})
@@ -242,7 +224,6 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
 	try {
 		ensureAuthenticated();
 
-		// Process markdown if text is being updated
 		const processedData = data.text
 			? {
 					...data,
@@ -265,12 +246,10 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
 	try {
 		ensureAuthenticated();
 
-		// Get current thread state before update
 		const currentThread = await pb.collection('threads').getOne<Threads>(id);
 
 		const updatedChanges = {
 			...changes,
-			// Preserve showThreadList state if it exists
 			...(currentThread.showThreadList !== undefined && {
 				showThreadList: currentThread.showThreadList
 			})
@@ -301,10 +280,8 @@ export async function autoUpdateThreadName(
 	try {
 		ensureAuthenticated();
 
-		// Call updateThreadNameIfNeeded but don't use its return value
 		await updateThreadNameIfNeeded(threadId, messages, model, userId);
 
-		// Fetch and return the updated thread directly
 		const updatedThread = await pb.collection('threads').getOne<Threads>(threadId);
 		return updatedThread;
 	} catch (error) {
@@ -325,7 +302,6 @@ export async function addMessageToThread(
 		console.log('Attempting to add message:', JSON.stringify(message, null, 2));
 		console.log('User ID:', pb.authStore.model?.id);
 
-		// Process markdown before saving
 		const processedMessage = {
 			...message,
 			text: processMarkdown(message.text)
@@ -353,7 +329,6 @@ export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Mess
 		const messages = await pb.collection('messages').getFullList<Messages>({
 			filter: `id = "${bookmarkId}"`,
 			sort: '-created'
-			// expand: 'user,parent_msg,task_relation,agent_relation,prompt_type,model'
 		});
 
 		const processedMessages = messages.map((message) => ({
@@ -380,11 +355,8 @@ export async function resetThread(threadId: string): Promise<void> {
 		if (!threadId) {
 			throw new Error('Thread ID is required');
 		}
-
-		// Update the thread in the database if needed
 		await pb.collection('threads').update(threadId, {
 			selected: false
-			// Add any other reset properties you need
 		});
 
 		console.log('Thread reset successfully');

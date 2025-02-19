@@ -41,9 +41,7 @@ function createThreadsStore() {
 		selectedTagIds: new Set(),
 		date: ''
 	});
-
 	const { subscribe, update } = store;
-
 	/*
 	 * if (browser) {
 	 *   store.subscribe(state => {
@@ -51,7 +49,6 @@ function createThreadsStore() {
 	 *   });
 	 * }
 	 */
-
 	/*
 	 * const debouncedUpdateThread = debounce(async (id: string, changes: Partial<Threads>) => {
 	 *   try {
@@ -97,10 +94,7 @@ function createThreadsStore() {
 				console.log('Starting loadThreads, current state:', get(store));
 				const threads = await fetchThreads();
 				console.log('Fetched threads, about to update store');
-
-				// Get current state before update
 				const currentState = get(store);
-
 				store.update((state) => {
 					console.log(
 						'Updating store with threads, preserving showThreadList:',
@@ -111,7 +105,6 @@ function createThreadsStore() {
 						threads,
 						isThreadsLoaded: true,
 						updateStatus: 'Threads loaded successfully',
-						// Preserve the current showThreadList value
 						showThreadList: currentState.showThreadList
 					};
 				});
@@ -135,12 +128,11 @@ function createThreadsStore() {
 				return [];
 			}
 		},
-
 		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
 			try {
+				console.log('Adding thread with data:', threadData); 
 				const newThread = await createThread(threadData);
-				const currentState = get(store); // Get current state
-
+				const currentState = get(store);
 				if (newThread.project_id) {
 					const projectThreads = await fetchThreadsForProject(newThread.project_id);
 					store.update((state) => ({
@@ -148,7 +140,7 @@ function createThreadsStore() {
 						threads: projectThreads,
 						isThreadsLoaded: true,
 						updateStatus: 'Thread added successfully',
-						showThreadList: currentState.showThreadList // Preserve state
+						showThreadList: currentState.showThreadList
 					}));
 				} else {
 					const updatedThreads = await fetchThreads();
@@ -157,7 +149,7 @@ function createThreadsStore() {
 						threads: updatedThreads,
 						isThreadsLoaded: true,
 						updateStatus: 'Thread added successfully',
-						showThreadList: currentState.showThreadList // Preserve state
+						showThreadList: currentState.showThreadList
 					}));
 				}
 
@@ -222,9 +214,6 @@ function createThreadsStore() {
 		 *       newSelectedTags.add(tagId);
 		 *     }
 		 */
-
-		//     console.log('After toggle:', Array.from(newSelectedTags));
-
 		/*
 		 *     // Create a new state object to ensure reactivity
 		 *     return {
@@ -261,7 +250,6 @@ function createThreadsStore() {
 						})),
 					3000
 				);
-
 				return updatedThread;
 			} catch (error) {
 				console.error('Error in autoUpdateThreadName:', error);
@@ -281,7 +269,6 @@ function createThreadsStore() {
 				return null;
 			}
 		},
-
 		/*
 		 * Add a new function to get the current thread
 		 * getCurrentThread: derived(store, $store =>
@@ -311,10 +298,8 @@ function createThreadsStore() {
 				return null;
 			}
 		},
-
 		setCurrentThread: async (id: string | null) => {
 			if (id) {
-				// Load messages for the new thread
 				try {
 					const messages = await fetchMessagesForThread(id);
 					store.update((state) => ({
@@ -332,7 +317,6 @@ function createThreadsStore() {
 					}));
 				}
 			} else {
-				// Only clear messages when explicitly setting to null
 				store.update((state) => ({
 					...state,
 					currentThreadId: null,
@@ -355,8 +339,6 @@ function createThreadsStore() {
 				updateStatus: '',
 				isThreadsLoaded: false
 			}));
-
-			// Also clear URL parameters
 			if (browser) {
 				const url = new URL(window.location.href);
 				url.searchParams.delete('threadId');
@@ -365,7 +347,6 @@ function createThreadsStore() {
 				window.history.replaceState({}, '', url);
 			}
 		},
-
 		clearCurrentThread: () => {
 			store.update((state) => ({
 				...state,
@@ -374,7 +355,6 @@ function createThreadsStore() {
 				updateStatus: 'Thread selection cleared'
 			}));
 		},
-
 		/*
 		 * addTag: (tagName: string) => {
 		 *   store.update(state => {
@@ -444,7 +424,6 @@ function createThreadsStore() {
 			derived(store, ($store) => {
 				return $store.threads.find((t) => t.id === id) || null;
 			}),
-
 		getMessagesByDate: derived(store, ($store) => {
 			const groups: { [key: string]: Messages[] } = {};
 			$store.messages.forEach((message) => {
@@ -456,8 +435,6 @@ function createThreadsStore() {
 			});
 			return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
 		}),
-
-		// Modify the derived store for searched threads
 		getSearchedThreads: derived(store, ($store) => {
 			const query = $store.searchQuery.toLowerCase().trim();
 			if (!query) return $store.threads;
@@ -468,34 +445,17 @@ function createThreadsStore() {
 					thread.last_message?.content?.toLowerCase().includes(query)
 			);
 		}),
-
-		// Add a new derived store to check if search is active
 		isSearchActive: derived(store, ($store) => $store.searchQuery.trim().length > 0),
-
 		getUniqueTags: derived(store, ($store) => {
 			const allTags = $store.threads.flatMap((thread) => thread.tags || []);
 			return [...new Set(allTags)];
 		}),
 
-		getFilteredThreads: derived(store, ($store) => {
-			const selectedTags = $store.selectedTagIds;
-
-			// If no tags selected, return all threads
-			if (selectedTags.size === 0) {
-				return $store.threads;
-			}
-
-			// Filter threads that have any of the selected tags
-			return $store.threads.filter((thread) => thread.tags?.some((tag) => selectedTags.has(tag)));
-		}),
-
 		isThreadsLoaded: derived(store, ($store) => $store.isThreadsLoaded)
 	};
 }
-
 export const threadsStore = createThreadsStore();
 
-// Utility function to use the store outside of Svelte components
 export function getThreadsStore() {
 	return get(threadsStore);
 }

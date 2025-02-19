@@ -18,7 +18,7 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
   import PromptCatalog from './PromptCatalog.svelte';
-  import type {ExpandedGroups, ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
+  import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
   import { fetchThreads, fetchMessagesForBookmark, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
@@ -146,20 +146,18 @@
   let isCreatingProject = false;
   let filteredProjects: Projects[] = [];
 
+  projectStore.subscribe((state) => {
+    currentProjectId = state.currentProjectId;
+  });
+
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
   models: false,
   bookmarks: false
 });
 const dispatch = createEventDispatcher();
-const expandedGroups = writable<ExpandedGroups>({});
-const groupOrder = [
-  $t('threads.today'),
-  $t('threads.yesterday'), 
-  $t('threads.lastweek'),
-  $t('threads.thismonth'),
-  $t('threads.older')
-];
+// const expandedGroups = writable<ExpandedGroups>({});
+
 const isMobileScreen = () => window.innerWidth < 1000;
 export const focusOnMount = (node: HTMLElement) => {
     node.focus();
@@ -174,8 +172,12 @@ const defaultAIModel: AIModel = {
   description: 'Default AI Model',
   user: [],
   created: new Date().toISOString(),
-  updated: new Date().toISOString()
+  updated: new Date().toISOString(),
+  provider: 'openai',
+	collectionId: '',
+	collectionName: '',
 };
+
 const handleTextareaFocus = () => {
   clearTimeout(hideTimeout);
   isTextareaFocused = true;
@@ -194,30 +196,13 @@ const searchedThreads = derived(threadsStore, ($store) => {
         thread.last_message?.content?.toLowerCase().includes(query)
     );
 });
-// FUNCTIONS
-  function toggleThreadList() {
-    console.log('Sidenav - Toggle thread list clicked. Current state:', showThreadList);
-    threadsStore.toggleThreadList();
-    dispatch('threadListToggle');
-  }
-  function toggleNav() {
-    console.log('Sidenav. Current state:', showNav);
-    toggleNav();
-    dispatch('toggleNav');
-  }
 
 // Message handling functions
   function cancelEditing() {
     editingProjectId = null;
     editedProjectName = '';
   }
-  function startEditingProjectName(projectId: string) {
-    const project = $projectStore.threads.find(p => p.id === projectId);
-    if (project) {
-      editingProjectId = projectId;
-      editedProjectName = project.name;
-    }
-  }
+
   function addMessage(
     role: RoleType,
     content: string | Scenario[] | Task[], 
@@ -397,20 +382,8 @@ const searchedThreads = derived(threadsStore, ($store) => {
    * }
    * Thread management functions
    */
-function initializeExpandedGroups(groups: ThreadGroup[]) {
-  const initialState: ExpandedGroups = {};
-  groups.forEach((group, index) => {
-    initialState[group.group] = index === 0; // Only expand first group
-  });
-  expandedGroups.set(initialState);
-}
-// Toggle group expansion
-function toggleGroup(group: string) {
-  expandedGroups.update(state => ({
-    ...state,
-    [group]: !state[group]
-  }));
-}
+
+
 function getThreadDateGroup(thread: Threads): string {
   const now = new Date();
   const threadDate = new Date(thread.updated);
@@ -479,7 +452,8 @@ function handleClickOutside() {
     if (!target.closest('.btn-ai')) {
       expandedSections.set({
         prompts: false,
-        models: false
+        models: false,
+        bookmarks: false,
       });
     }
   });
@@ -646,7 +620,9 @@ async function handleSendMessage(message: string = userInput) {
     if (!currentThreadId) {
       const newThread = await threadsStore.addThread({
         op: userId,
-        name: `Thread ${threads?.length ? threads.length + 1 : 1}`
+        name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
+        ...(currentProjectId && { project_id: currentProjectId })
+
       });
 
       if (!newThread?.id) {
@@ -691,7 +667,8 @@ async function handleSendMessage(message: string = userInput) {
         role,
         content: role === 'user' && promptType 
           ? `[Using ${promptType} prompt]\n${content.toString()}`
-          : content.toString()
+          : content.toString(),
+          model: aiModel.api_type,
       }));
 
     if (!messagesToSend.length) {
@@ -701,11 +678,12 @@ async function handleSendMessage(message: string = userInput) {
     if (promptType) {
       messagesToSend.unshift({
         role: 'system',
-        content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`
+        content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+        model: aiModel.api_type,
       });
     }
 
-    const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+    const aiResponse = await fetchAIResponse(messagesToSend, aiModel.api_type, userId, attachment);
     chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
     const assistantMessage = await messagesStore.saveMessage({
@@ -714,7 +692,7 @@ async function handleSendMessage(message: string = userInput) {
       thread: currentThreadId,
       parent_msg: userMessage.id,
       prompt_type: promptType,
-      mode: aiModel,
+      model: aiModel.api_type,
     }, currentThreadId);
 
     const newAssistantMessage = addMessage('assistant', '', userMessage.id);
@@ -730,7 +708,7 @@ async function handleSendMessage(message: string = userInput) {
     );
 
     await handleThreadNameUpdate(currentThreadId);
-    handleScrolling();
+    // handleScrolling();
 
   } catch (error) {
     handleError(error);
@@ -761,30 +739,8 @@ async function handleCreateNewProject(name: string) {
       isCreatingProject = false;
     }
   }
-  async function handleSelectProject(projectId: string) {
-    try {
-        // Set the current project in the store
-        await projectStore.setCurrentProject(projectId);
-
-        // Fetch the threads associated with the selected project
-        const threads = await fetchThreadsForProject(projectId);
-
-        // Update the threads store with the fetched threads
-        threadsStore.update(state => ({ ...state, threads }));
-
-        // Update visibility flags
-        isProjectListVisible = false; // Hide project list
-        isThreadListVisible = true; // Show thread list
-    } catch (error) {
-        console.error("Error handling project selection:", error);
-    }
-}
-  async function handleDeleteProject(e: Event, projectId: string) {
-    e.stopPropagation();
-    // Add delete confirmation logic
-  }
   async function typeMessage(message: string) {
-      const typingSpeed = 10; // milliseconds per character
+      const typingSpeed = 1;
       let typedMessage = '';
       
       for (let i = 0; i <= message.length; i++) {
@@ -796,8 +752,6 @@ async function handleCreateNewProject(name: string) {
         );
         await new Promise(resolve => setTimeout(resolve, typingSpeed));
       }
-
-      // Set isTyping to false when typing is complete
       chatMessages = chatMessages.map(msg => 
         msg.id === String(typingMessageId) 
           ? { ...msg, isTyping: false }
@@ -878,6 +832,7 @@ async function handleCreateNewThread() {
         isCreatingThread = false;
     }
 }
+
 async function handleLoadThread(threadId: string) {
     try {
         isLoadingMessages = true;
@@ -912,7 +867,7 @@ async function handleLoadThread(threadId: string) {
 
         // Update local state
         currentThreadId = thread.id;
-        currentThread = thread;
+        currentThread = thread as Threads;
 
         // Fetch messages
         await messagesStore.fetchMessages(threadId);
@@ -928,8 +883,10 @@ async function handleLoadThread(threadId: string) {
             created: msg.created,
             updated: msg.updated,
             parent_msg: msg.parent_msg,
-            prompt_type: msg.prompt_type,
-            model: msg.model
+            prompt_type: msg.prompt_type as PromptType,
+            model: msg.model,
+            collectionId: msg.collectionId || 'defaultCollectionId',
+            collectionName: msg.collectionName || 'defaultCollectionName',
         }));
 
         showPromptCatalog = false;
@@ -1079,133 +1036,7 @@ async function handleLoadThread(threadId: string) {
     });
   }
   }
-  async function handleAutoTriggerResponse(targetMessage) {
-    try {
-        isLoading = true;
 
-        // Store current thread state before any operations
-        const currentThreadState = currentThread;
-        const currentChatMessages = chatMessages;
-        
-        // Start thinking animation
-        thinkingPhrase = getRandomThinkingPhrase();
-        const thinkingMessage = addMessage('thinking', thinkingPhrase);
-        thinkingMessageId = thinkingMessage.id;
-        chatMessages = [...currentChatMessages, thinkingMessage];
-
-        // Set naming state while preserving current state
-        if (currentThreadId) {
-            threadsStore.update(state => ({
-                ...state,
-                namingThreadId: currentThreadId,
-                currentThread: currentThreadState
-            }));
-        }
-
-        // Fetch AI response
-        const aiResponse = await fetchAIResponse(
-            chatMessages.map(({ role, content }) => ({ role, content: content.toString() })),
-            aiModel,
-            userId,
-            attachment
-        );
-
-        // Remove thinking message while preserving state
-        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-        // Save AI response to store
-        const assistantMessage = await messagesStore.saveMessage({
-            text: aiResponse,
-            type: 'robot',
-            thread: currentThreadId,
-            parent_msg: targetMessage.id,
-            prompt_type: promptType // Fixed: use promptType instead of prompt
-        }, currentThreadId);
-
-        // Add AI response to UI while maintaining state
-        const newAssistantMessage = addMessage('assistant', '', targetMessage.id);
-        chatMessages = [...chatMessages, newAssistantMessage];
-        typingMessageId = newAssistantMessage.id;
-
-        // Use typewriting effect
-        await typeMessage(aiResponse);
-
-        // Update the message with full response while preserving state
-        chatMessages = chatMessages.map(msg => 
-            msg.id === String(typingMessageId) 
-                ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-                : msg
-        );
-
-        // Handle thread naming for first AI response
-        const robotMessages = messages.filter(m => m.type === 'robot');
-        if (robotMessages.length === 1) {
-            try {
-                // Update thread name while preserving state
-                await threadsStore.update(state => ({
-                    ...state,
-                    namingThreadId: currentThreadId,
-                    currentThread: currentThreadState,
-                    messages: chatMessages
-                }));
-
-                // Update thread name
-                await threadsStore.autoUpdateThreadName(currentThreadId, {
-                    preserveState: true,
-                    currentThread: currentThreadState,
-                    currentMessages: chatMessages
-                });
-
-                // Refresh threads without clearing current state
-                await threadsStore.loadThreads({
-                    preserveCurrent: true,
-                    currentThreadId,
-                    currentThread: currentThreadState
-                });
-            } catch (error) {
-                console.error('Error updating thread name:', error);
-                // Restore original state on error
-                threadsStore.update(state => ({
-                    ...state,
-                    currentThread: currentThreadState,
-                    messages: chatMessages
-                }));
-            } finally {
-                // Clear naming state while preserving thread state
-                threadsStore.update(state => ({
-                    ...state,
-                    namingThreadId: null,
-                    currentThread: currentThreadState,
-                    messages: chatMessages
-                }));
-            }
-        }
-
-        // Refresh messages while maintaining state
-        await messagesStore.fetchMessages(currentThreadId);
-
-    } catch (error) {
-        console.error('Error processing AI response:', error);
-        // Error handling with state preservation
-        chatMessages = [
-            ...chatMessages.filter(msg => msg.id !== thinkingMessageId),
-            addMessage('assistant', `Error: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`)
-        ];
-    } finally {
-        isLoading = false;
-        thinkingMessageId = null;
-        typingMessageId = null;
-        // Final cleanup while preserving thread state
-        if (currentThreadId) {
-            threadsStore.update(state => ({
-                ...state,
-                namingThreadId: null,
-                currentThread: state.currentThread,
-                messages: chatMessages
-            }));
-        }
-    }
-}
   async function startEditingThreadName() {
     isEditingThreadName = true;
     editedThreadName = currentThread?.name || '';
@@ -1256,8 +1087,12 @@ async function handleLoadThread(threadId: string) {
     }
 }
 projectStore.subscribe((state) => {
+  // projects = state.threads;
   currentProjectId = state.currentProjectId;
-  currentProject = state.currentProject;
+  // currentProject = state.currentProject;
+  // filteredProjects = state.filteredProject;
+  isEditingProjectName = state.isEditingProjectName;
+  editedProjectName = state.editedProjectdName;
   if (currentProjectId) {
     // Fetch threads for the selected project
     fetchThreadsForProject(currentProjectId).then(projectThreads => {
@@ -1268,33 +1103,35 @@ projectStore.subscribe((state) => {
     });
   }
 });
-messagesStore.subscribe(value => messages = value);
-  projectStore.subscribe((state) => {
-    projects = state.threads;
-    currentProjectId = state.currentProjectId;
-    currentProject = state.currentProject;
-    filteredProjects = state.filteredProject;
-    isEditingProjectName = state.isEditingProjectName;
-    editedProjectName = state.editedProjectdName;
-  });
-  threadsStore.subscribe((state: ThreadStoreState) => {
-    threads = state.threads;
-    currentThreadId = state.currentThreadId;
-    messages = state.messages;
-    updateStatus = state.updateStatus;
-    showThreadList = state.showThreadList;
-    currentThread = state.currentThread;
-    filteredThreads = state.filteredThreads;
-    isEditingThreadName = state.isEditingThreadName;
-    editedThreadName = state.editedThreadName;
-    namingThreadId = state.namingThreadId; 
+
+// messagesStore.subscribe(value => messages = value);
+
+threadsStore.subscribe((state: ThreadStoreState) => {
+  threads = state.threads;
+  currentThreadId = state.currentThreadId;
+  messages = state.messages;
+  updateStatus = state.updateStatus;
+  // showThreadList = state.showThreadList;
+  // currentThread = state.currentThread;
+  filteredThreads = state.filteredThreads;
+  isEditingThreadName = state.isEditingThreadName;
+  editedThreadName = state.editedThreadName;
+  namingThreadId = state.namingThreadId; 
 });
 
 // Reactive statements for naming
+// $: {
+//   if (namingThreadId) {
+//     // Force refresh of current thread when naming starts
+//     currentThread = threads?.find(t => t.id === namingThreadId) || null;
+//   }
+// }
 $: {
   if (namingThreadId) {
-    // Force refresh of current thread when naming starts
-    currentThread = threads?.find(t => t.id === namingThreadId) || null;
+    // Force a refresh of the current thread if it's being named
+    if (currentThreadId === namingThreadId) {
+      currentThread = threads?.find(t => t.id === currentThreadId) || null;
+    }
   }
 }
 $: {
@@ -1348,14 +1185,7 @@ $: isProjectActive = currentProjectId !== null;
 $: {
   threadsStore.setSearchQuery(searchQuery);
 }
-$: {
-  if (namingThreadId) {
-    // Force a refresh of the current thread if it's being named
-    if (currentThreadId === namingThreadId) {
-      currentThread = threads?.find(t => t.id === currentThreadId) || null;
-    }
-  }
-}
+
 
 $: bookmarkedMessages = derived([currentUser, messagesStore], ([$currentUser, $messages]) => {
     if ($currentUser && $currentUser.bookmarks && $messages) {
@@ -1431,11 +1261,11 @@ $: if (date) {
  *   messageCountsStore.fetchBatch(threads, currentPage);
  * }
  */
-$: {
-    if ($threadsStore.currentThread) {
-        currentThread = $threadsStore.currentThread;
-    }
-}
+// $: {
+//     if ($threadsStore.currentThread) {
+//         currentThread = $threadsStore.currentThread;
+//     }
+// }
 
 $: {
     if (currentThread?.name) {
@@ -1449,21 +1279,12 @@ $: {
     }
 }
 
-$: if ($projectStore.currentProjectId) {
-  console.log('Current project changed:', $projectStore.currentProjectId);
-  const loadProjectThreads = async () => {
-    try {
-      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId!);
-      threadsStore.update(state => ({
-        ...state,
-        threads: projectThreads
-      }));
-    } catch (error) {
-      console.error('Error loading project threads:', error);
-    }
-  };
-  loadProjectThreads();
-}
+// $: {
+//   if ($projectStore.currentProjectId) {
+//     console.log('Current project changed:', $projectStore.currentProjectId);
+//     loadProjectThreads($projectStore.currentProjectId);
+//   }
+// }
 // Lifecycle hooks
 onMount(() => {
 		const interval = setInterval(() => {
@@ -1492,18 +1313,19 @@ onMount(() => {
 
     // First load projects
     await projectStore.loadProjects();
+    await threadsStore.loadThreads();
 
     // If there's a current project, load its threads
-    if ($projectStore.currentProjectId) {
-      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
-      threadsStore.update(state => ({
-        ...state,
-        threads: projectThreads
-      }));
-    } else {
-      // If no project is selected, load all threads
-      await threadsStore.loadThreads();
-    }
+    // if ($projectStore.currentProjectId) {
+    //   const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
+    //   threadsStore.update(state => ({
+    //     ...state,
+    //     threads: projectThreads
+    //   }));
+    // } else {
+    //   // If no project is selected, load all threads
+    //   await threadsStore.loadThreads();
+    // }
 
     if (textareaElement) {
       const adjustTextareaHeight = () => {
@@ -1548,86 +1370,9 @@ onDestroy(() => {
     transition:fly="{{ x: 300, duration: 300 }}" 
     class:drawer-visible={$threadsStore.showThreadList}
   >
-
-  {#if $threadsStore.showThreadList}
-
-    <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
-      <!-- <h2>
-        {$t('threads.threadHeader')}
-      </h2> -->
-
+    {#if $threadsStore.showThreadList}
+      <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-          <!-- <div class="drawer-header" in:fly={{duration: 200}} out:fade={{duration: 200}}>
-            <button class="drawer-tab" in:fly={{duration: 200}} out:fly={{duration: 200}}
-            class:active={isProjectListVisible} 
-            on:click={() => {
-              if (!isProjectListVisible) {
-                // Reset project selection when going back to project list
-                projectStore.setCurrentProject(null);
-                currentProjectId = null;
-                threadsStore.setCurrentThread(null);
-                currentThreadId = null;
-        
-                // Clear project-specific threads
-                threadsStore.update(state => ({...state, threads: []}));
-              }
-              isProjectListVisible = !isProjectListVisible;
-              if (isProjectListVisible) {
-                isThreadListVisible = false;
-                // Reload all projects to ensure fresh data
-                projectStore.loadProjects();
-                
-              }
-            }}
-          >
-            <span class="icon" class:active={isProjectListVisible} in:fly={{duration: 200}} out:fade={{duration: 200}}>
-              {#if !isProjectListVisible && !currentProjectId}
-              <Box />              
-              {:else if !isProjectListVisible && currentProjectId}  
-                <ArrowLeft />
-              {:else}
-                <Box />
-                <span in:fade>{$t('drawer.project')}</span>
-              {/if}
-             </span>
-           </button>
-           <button 
-           class="drawer-tab"
-           class:active={isThreadListVisible} 
-           on:click={() => {
-             isThreadListVisible = !isThreadListVisible;
-             if (isThreadListVisible) {
-               isProjectListVisible = false;
-               // Reset project selection
-               projectStore.setCurrentProject(null);
-               currentProjectId = null;
-               // Reload all threads
-               threadsStore.loadThreads();
-             }
-           }}
-         >
-         <span 
-         class="icon"
-         class:active={isThreadListVisible}
-        >
-         {#if isThreadListVisible && currentProjectId}
-           <Box />
-           <span in:fade>
-             {get(projectStore).currentProject?.name || ''}
-           </span>
-         {:else if !isThreadListVisible}
-           <MessageCircleMore />
-         {:else}
-           <MessageCircleMore />
-           <span in:fade>
-             {$t('drawer.thread')}
-           </span>
-         {/if}
-        </span>
-            </button>
-          </div> -->
-
-
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
             <button 
               class="add"
@@ -1661,9 +1406,7 @@ onDestroy(() => {
                   </div> 
               {/if}
             </button>
-            
             <div class="drawer-input">
-              
               <span 
                 class="icon" 
                 class:active={isExpanded} 
@@ -1762,365 +1505,330 @@ onDestroy(() => {
               </button>
             {/each}
           </div>
-
-              
- 
         </div>
-
-    </div>
-      {/if}
-      <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
-
-
-
-          <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
-
-              {#if isLoadingMessages}
-                <div class="loading-overlay">
-                  <div class="spinner"></div>
-                  <p>{$t('chat.loading')}</p>
-                </div>
-              {/if}
-              <div class="chat-header" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
-                {#if currentThread}
-      
-                    <!-- <button class="btn-back" on:click={goBack}>
-                      <ArrowLeft />
-                    </button> -->
-                    
-                    {#if isEditingThreadName}
-                      <input 
-                        
-                        transition:fade={{duration: 300, easing: cubicOut}}
-                        bind:value={editedThreadName}
-                        on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-                        on:blur={submitThreadNameChange}
-                        autofocus
-                      />
-                      <span class="save-button" on:click={submitThreadNameChange}>
-                        <Save />
-                      </span>
-                    {:else}
-                    <!-- <div class="drawer-tab">
-                      <span class="icon">
-                        <h3>
-                          /
-                        </h3>
-                      </span>
-                    </div> -->
-                    <span class="icon" on:click={startEditingThreadName}>
-                      <h3>
-                        {currentThread.name}
-                      </h3>
-                    </span>
-                    {/if}
-                  {#if !isMinimized}
-                  {/if}
-                {:else}
-                  <div class="chat-placeholder"
-                  class:drawer-visible={$threadsStore.showThreadList}
-                  >     
-
-
-                  <div class="container-row">
-                    <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
-                      <!-- Prompts Section -->
-                      <span class="hero">
-                        <h3>
-                          {$t('threads.selectThread')} {username}  
-                        </h3>
-                      <p >
-                        {getRandomQuote()}
-                      </p>
-                      </span>
-                       <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-
-                        <textarea 
-                          bind:this={textareaElement}
-                          bind:value={userInput}
-                          on:input={(e) => adjustFontSize(e.target)}
-                          on:keydown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              !isLoading && handleSendMessage();
-                            }
-                          }}      
-                          on:focus={handleTextareaFocus}
-                          on:blur={handleTextareaBlur}
-                          placeholder={$t('chat.placeholder')}
-                          disabled={isLoading}
-                          rows="1"
-                        />
-                        <div class="submission" class:visible={isTextareaFocused} >
-  
-                
-                          {#if isTextareaFocused}
-                          <div class="btn-row"
-                            transition:slide
-                          >
-                            <span class="btn" >
-                              <Paperclip />
-                            </span>
-                            <span 
-                            class="btn"
-                            transition:slide
-  
-                            class:visible={isTextareaFocused}
-  
-                            on:click={() => toggleSection('prompts')}
-                          >
-                              <span class="icon">
-                                {#if $expandedSections.prompts}
-                                <!-- <Command size={30} /> -->
-                                {:else}
-                                <!-- <Command size={20} /> -->
-                                {/if}
-                              </span>
-                              {#if selectedPromptLabel}
-                                {#if selectedIcon}
-                                <div class="icon-wrapper">
-                                  <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                                </div>
-                              {/if}
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                                <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                              {:else}
-                                <!-- <Command size={20} /> -->
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                              {/if}
-                          </span>
-                          <span 
-                          class="btn"
-                          transition:fade
-                          on:click={() => toggleSection('models')}
-                          >
-                            <span class="icon">
-                              {#if $expandedSections.models}
-                              <Brain />
-                              {:else}
-                              <Brain/>
-                              {/if}
-                            </span>
-                            {#if selectedModelLabel}
-                              <!-- <h3>{$t('chat.models')}</h3> -->
-                              <p class="selector-lable">{selectedModelLabel} </p>
-                            {:else}
-                              <!-- <p>{$t('chat.models')}</p> -->
-                            {/if}
-                          </span>
-                          <span 
-                          class="btn send-btn" 
-                          class:visible={isTextareaFocused}
-                          transition:slide
-                          on:click={() => !isLoading && handleSendMessage()} 
-                          disabled={isLoading}
-                        >
-                          <Send />
-                        </span>
-                      </div>
-  
-                        {/if}
-                      </div>
-  
-                      </div>
-                        </div>     
-                        <div class="dashboard-items">
-                          <ProjectCard/> 
-                          <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
-                        </div>
-                    </div>
-                  </div>
-
-                  
-                {/if}
-              </div>
-              {#if currentThread}
-
-              <div class="chat-messages" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-
-                {#each groupMessagesByDate(chatMessages) as { date, messages }}
-                  <div class="date-divider">
-                    {formatDate(date)}
-                  </div>
-                  
-                  
-                  {#each messages as message (message.id)}
-                    <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                      <div class="message-header">
-                        {#if message.role === 'user'}
-                          <div class="user-header">
-                            <div class="avatar-container">
-                              {#if avatarUrl}
-                                <img src={avatarUrl} alt="User avatar" class="avatar" />
-                              {:else}
-                                <!-- <div class="avatar-placeholder">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                </div> -->
-                              {/if}
-                            </div>
-                            <span class="role">{username}</span>
-                          </div>
-                          <!-- <div class="message-time">
-                            {#if message.created}
-                              {new Date(message.created).toLocaleTimeString()}
-                            {:else}
-                              Time not available
-                            {/if}
-                          </div> -->
-                        {:else if message.role === 'thinking'}
-                          <!-- <span class="role">
-                            <Bot size="50" color="white" />
-                          </span> -->
-                        {:else if message.role === 'assistant'}
-                          <div class="user-header">
-                            <div class="avatar-container">
-                              <Bot color="white" />
-                            </div>
-                            <span class="role">{message.prompt_type}</span>
-                          </div>
-                        {/if}
-                      </div>
-                
-                      {#if message.role === 'options'}
-                        <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
-                          {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
-                            <button 
-                              on:click={() => currentStage === 'scenarios'
-                                ? handleScenarioSelection(option) 
-                                : handleTaskSelection(option)}
-                            >
-                              <span class="option-description">{option.description}</span>
-                              <span class="option-id">{option.id}</span>
-                            </button>
-                          {/each}
-                        </div>
-                      {:else if message.isHighlighted}
-                        <!-- <p>{@html message.content}</p> -->
-                      {:else}
-                        <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
-                      {/if}
-                      
-                      {#if message.role === 'thinking'}
-                        <div class="thinking-animation">
-                          <span>
-                            <Bot color="white" />
-                          </span>
-                          <span>
-                            <Bot color="gray" />
-                          </span>
-                          <span>
-                            <Bot color="white" />
-                          </span>
-                        </div>
-                      {/if}
-                
-                      {#if message.role === 'assistant'}
-                        <div class="message-footer">
-                          <Reactions 
-                            {message}
-                            userId={$currentUser.id}
-                            on:update={async (event) => {
-                              const { messageId, reactions } = event.detail;
-                              await messagesStore.updateMessage(messageId, { reactions });
-                              chatMessages = chatMessages.map(msg => 
-                                msg.id === messageId 
-                                  ? { ...msg, reactions }
-                                  : msg
-                              );
-                            }}
-                            on:notification={(event) => {
-                              console.log(event.detail);
-                            }}
-                          />
-                        </div>
-                      {/if}
-                    </div>
-                  {/each}
-                {/each}
-                <button class="scroll-bottom-btn" on:click={scrollToBottom}>
-                  <ChevronDown size={24} />
-                </button>
-              </div>
-              <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
-                <!-- Prompts Section -->
-                 <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-        
-        
-                  <textarea 
-                    bind:this={textareaElement}
-                    bind:value={userInput}
-                    on:input={(e) => adjustFontSize(e.target)}
-                    on:keydown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        !isLoading && handleSendMessage();
-                      }
-                    }}      
-                    on:focus={handleTextareaFocus}
-                    on:blur={handleTextareaBlur}
-                    placeholder={$t('chat.placeholder')}
-                    disabled={isLoading}
-                    rows="1"
-                  />
-                  <div class="btn-row">
+      </div>
+    {/if}
+    <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
+      <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+        {#if isLoadingMessages}
+          <div class="loading-overlay">
+            <div class="spinner"></div>
+            <p>{$t('chat.loading')}</p>
+          </div>
+        {/if}
+        <div class="chat-header" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
+          {#if currentThread}
+            <!-- <button class="btn-back" on:click={goBack}>
+              <ArrowLeft />
+            </button> -->
+            {#if isEditingThreadName}
+              <input 
+                transition:fade={{duration: 300, easing: cubicOut}}
+                bind:value={editedThreadName}
+                on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
+                on:blur={submitThreadNameChange}
+                autofocus
+              />
+              <span class="save-button" on:click={submitThreadNameChange}>
+                <Save />
+              </span>
+            {:else}
+            <!-- <div class="drawer-tab">
+              <span class="icon">
+                <h3>
+                  /
+                </h3>
+              </span>
+            </div> -->
+            <span class="icon" on:click={startEditingThreadName}>
+              <h3>
+                {currentThread.name}
+              </h3>
+            </span>
+            {/if}
+            {#if !isMinimized}
+            {/if}
+          {:else}
+            <div class="chat-placeholder"
+              class:drawer-visible={$threadsStore.showThreadList}
+            >     
+              <div class="container-row">
+                <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                  <span class="hero">
+                    <h3>
+                      {$t('threads.selectThread')} {username}  
+                    </h3>
+                    <p >
+                      {getRandomQuote()}
+                    </p>
+                  </span>
+                  <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                    <textarea 
+                      bind:this={textareaElement}
+                      bind:value={userInput}
+                      on:input={(e) => adjustFontSize(e.target)}
+                      on:keydown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          !isLoading && handleSendMessage();
+                        }
+                      }}      
+                      on:focus={handleTextareaFocus}
+                      on:blur={handleTextareaBlur}
+                      placeholder={$t('chat.placeholder')}
+                      disabled={isLoading}
+                      rows="1"
+                    />
                     <div class="submission" class:visible={isTextareaFocused} >
-
-          
                       {#if isTextareaFocused}
+                      <div class="btn-row"
+                        transition:slide
+                      >
+                        <span class="btn" >
+                          <Paperclip />
+                        </span>
+                        <span 
+                          class="btn"
+                          transition:slide
+                          class:visible={isTextareaFocused}
+                          on:click={() => toggleSection('prompts')}
+                        >
+                          <span class="icon">
+                            {#if $expandedSections.prompts}
+                            <!-- <Command size={30} /> -->
+                            {:else}
+                            <!-- <Command size={20} /> -->
+                            {/if}
+                          </span>
+                          {#if selectedPromptLabel}
+                            {#if selectedIcon}
+                            <div class="icon-wrapper">
+                              <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                            </div>
+                          {/if}
+                            <!-- <h3>{$t('chat.prompts')}</h3> -->
+                            <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                          {:else}
+                            <!-- <Command size={20} /> -->
+                            <!-- <h3>{$t('chat.prompts')}</h3> -->
+                          {/if}
+                      </span>
                       <span 
+                        class="btn"
+                        transition:fade
+                        on:click={() => toggleSection('models')}
+                        >
+                          <span class="icon">
+                            {#if $expandedSections.models}
+                            <Brain />
+                            {:else}
+                            <Brain/>
+                            {/if}
+                          </span>
+                          {#if selectedModelLabel}
+                            <!-- <h3>{$t('chat.models')}</h3> -->
+                            <p class="selector-lable">{selectedModelLabel} </p>
+                          {:else}
+                            <!-- <p>{$t('chat.models')}</p> -->
+                          {/if}
+                      </span>
+                      <span 
+                        class="btn send-btn" 
+                        class:visible={isTextareaFocused}
+                        transition:slide
+                        on:click={() => !isLoading && handleSendMessage()} 
+                        disabled={isLoading}
+                      >
+                        <Send />
+                      </span>
+                    </div>
+                    {/if}
+                  </div>
+                  </div>
+                </div>     
+                <div class="dashboard-items">
+                  <ProjectCard/> 
+                  <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+        {#if currentThread}
+          <div class="chat-messages" bind:this={chatMessagesDiv} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+            {#each groupMessagesByDate(chatMessages) as { date, messages }}
+              <div class="date-divider">
+                {formatDate(date)}
+              </div>
+              {#each messages as message (message.id)}
+                <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                  <div class="message-header">
+                    {#if message.role === 'user'}
+                      <div class="user-header">
+                        <div class="avatar-container">
+                          {#if avatarUrl}
+                            <img src={avatarUrl} alt="User avatar" class="avatar" />
+                          {:else}
+                            <!-- <div class="avatar-placeholder">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </div> -->
+                          {/if}
+                        </div>
+                        <span class="role">{username}</span>
+                      </div>
+                      <!-- <div class="message-time">
+                        {#if message.created}
+                          {new Date(message.created).toLocaleTimeString()}
+                        {:else}
+                          Time not available
+                        {/if}
+                      </div> -->
+                    {:else if message.role === 'thinking'}
+                      <!-- <span class="role">
+                        <Bot size="50" color="white" />
+                      </span> -->
+                    {:else if message.role === 'assistant'}
+                      <div class="user-header">
+                        <div class="avatar-container">
+                          <Bot color="white" />
+                        </div>
+                        <span class="role">{message.prompt_type}</span>
+                      </div>
+                    {/if}
+                  </div>
+                  {#if message.role === 'options'}
+                    <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
+                      {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
+                        <button 
+                          on:click={() => currentStage === 'scenarios'
+                            ? handleScenarioSelection(option) 
+                            : handleTaskSelection(option)}
+                        >
+                          <span class="option-description">{option.description}</span>
+                          <span class="option-id">{option.id}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {:else if message.isHighlighted}
+                    <!-- <p>{@html message.content}</p> -->
+                  {:else}
+                    <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
+                  {/if}
+                  {#if message.role === 'thinking'}
+                    <div class="thinking-animation">
+                      <span>
+                        <Bot color="white" />
+                      </span>
+                      <span>
+                        <Bot color="gray" />
+                      </span>
+                      <span>
+                        <Bot color="white" />
+                      </span>
+                    </div>
+                  {/if}
+                  {#if message.role === 'assistant'}
+                    <div class="message-footer">
+                      <Reactions 
+                        {message}
+                        userId={$currentUser.id}
+                        on:update={async (event) => {
+                          const { messageId, reactions } = event.detail;
+                          await messagesStore.updateMessage(messageId, { reactions });
+                          chatMessages = chatMessages.map(msg => 
+                            msg.id === messageId 
+                              ? { ...msg, reactions }
+                              : msg
+                          );
+                        }}
+                        on:notification={(event) => {
+                          console.log(event.detail);
+                        }}
+                      />
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            {/each}
+            <button class="scroll-bottom-btn" on:click={scrollToBottom}>
+              <ChevronDown size={24} />
+            </button>
+          </div>
+          <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+            <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+              <textarea 
+                bind:this={textareaElement}
+                bind:value={userInput}
+                on:input={(e) => adjustFontSize(e.target)}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    !isLoading && handleSendMessage();
+                  }
+                }}      
+                on:focus={handleTextareaFocus}
+                on:blur={handleTextareaBlur}
+                placeholder={$t('chat.placeholder')}
+                disabled={isLoading}
+                rows="1"
+              />
+              <div class="btn-row">
+                <div class="submission" class:visible={isTextareaFocused} >
+                  {#if isTextareaFocused}
+                    <span 
                       class="btn"
                       transition:slide
                       on:click={() => toggleSection('bookmarks')}
                       >
-                        <span class="icon">
-                          {#if $expandedSections.models}
-                          <BookmarkCheckIcon/>
-                          {:else}
-                          <Bookmark />
-                          {/if}
-                        </span>
-                        {#if selectedModelLabel}
-                          <!-- <h3>{$t('chat.models')}</h3> -->
-                          <p class="selector-lable">{selectedModelLabel} </p>
+                      <span class="icon">
+                        {#if $expandedSections.models}
+                        <BookmarkCheckIcon/>
                         {:else}
-                          <!-- <p>{$t('chat.models')}</p> -->
+                        <Bookmark />
                         {/if}
                       </span>
-                      <span class="btn" 
-                        transition:slide
-                      >
-                        <Paperclip />
-                      </span>
-                      <span 
+                      {#if selectedModelLabel}
+                        <!-- <h3>{$t('chat.models')}</h3> -->
+                        <p class="selector-lable">{selectedModelLabel} </p>
+                      {:else}
+                        <!-- <p>{$t('chat.models')}</p> -->
+                      {/if}
+                    </span>
+                    <span class="btn" 
+                      transition:slide
+                    >
+                      <Paperclip />
+                    </span>
+                    <span 
                       class="btn"
                       transition:slide
                       on:click={() => toggleSection('prompts')}
                     >
-                        <span class="icon">
-                          {#if $expandedSections.prompts}
-                          <!-- <Command size={30} /> -->
-                          {:else}
-                          <!-- <Command size={20} /> -->
-                          {/if}
-                        </span>
-                        {#if selectedPromptLabel}
-                          {#if selectedIcon}
+                      <span class="icon">
+                        {#if $expandedSections.prompts}
+                        <!-- <Command size={30} /> -->
+                        {:else}
+                        <!-- <Command size={20} /> -->
+                        {/if}
+                      </span>
+                      {#if selectedPromptLabel}
+                        {#if selectedIcon}
                           <div class="icon-wrapper">
                             <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
                           </div>
                         {/if}
-                          <!-- <h3>{$t('chat.prompts')}</h3> -->
-                          <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                        {:else}
-                          <!-- <Command size={20} /> -->
-                          <!-- <h3>{$t('chat.prompts')}</h3> -->
-                        {/if}
+                        <!-- <h3>{$t('chat.prompts')}</h3> -->
+                        <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                      {:else}
+                        <!-- <Command size={20} /> -->
+                        <!-- <h3>{$t('chat.prompts')}</h3> -->
+                      {/if}
                     </span>
                     <span 
-                    class="btn"
-                    transition:slide
-                    on:click={() => toggleSection('models')}
-                    >
+                      class="btn"
+                      transition:slide
+                      on:click={() => toggleSection('models')}
+                      >
                       <span class="icon">
                         {#if $expandedSections.models}
                         <Brain />
@@ -2136,90 +1844,57 @@ onDestroy(() => {
                       {/if}
                     </span>
                     <span 
-                    class="btn send-btn" 
-                    class:visible={isTextareaFocused}
-                    transition:slide
-                    on:click={() => !isLoading && handleSendMessage()} 
-                    disabled={isLoading}
-                  >
-                    <Send />
-                  </span>
-                    {/if}
-                  </div>
-                  </div>
+                      class="btn send-btn" 
+                      class:visible={isTextareaFocused}
+                      transition:slide
+                      on:click={() => !isLoading && handleSendMessage()} 
+                      disabled={isLoading}
+                    >
+                      <Send />
+                    </span>
+                  {/if}
                 </div>
-    
-                  <div class="ai-selector">
-        
-
-            
-                    {#if $expandedSections.prompts}
-                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        <PromptCatalog 
-                        on:select={(event) => {
-                          // Close the prompt catalog by updating the expanded sections store
-                          expandedSections.update(sections => ({
-                            ...sections,
-                            prompts: false
-                          }));
-                          
-                          // Update the selected prompt
-                          showPromptCatalog = false;
-                          console.log('Parent received selection from catalog:', event.detail);
-                        }}
-                      />
-                      </div>
-                    {/if}
-                    {#if $expandedSections.models}
-                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        <ModelSelector
-                          on:select={(event) => {
-                            showModelSelector = !showModelSelector;
-                            console.log('Parent received selection from catalog:', event.detail);
-                          }}
-                        />
-                      </div>
-                    {/if}
-                    {#if $expandedSections.bookmarks}
-                    <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                      <p>
-                        test
-                      </p>
-                    </div>
-                  {/if}
-            
-                      
-                    </div>
-    
-        
-        
-    
-        
-                  </div>
-                  {/if}
-                  
-
+              </div>
+            </div>
+            <div class="ai-selector">
+              {#if $expandedSections.prompts}
+                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <PromptCatalog 
+                    on:select={(event) => {
+                      expandedSections.update(sections => ({
+                        ...sections,
+                        prompts: false
+                      }));
+                      showPromptCatalog = false;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+                </div>
+              {/if}
+              {#if $expandedSections.models}
+                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <ModelSelector
+                    on:select={(event) => {
+                      showModelSelector = !showModelSelector;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+                </div>
+              {/if}
+              {#if $expandedSections.bookmarks}
+                <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <p>
+                    test
+                  </p>
+                </div>
+              {/if}
+            </div>
           </div>
-
-          
-        </div>
-      </div>  
-
-
-
-
-        {#if currentStage === 'summary'}
-
         {/if}
       </div>
-
-  {#if showNetworkVisualization && networkData}
-  <div class="network-overlay">
-    <div class="network-container">
-      <NetworkVisualization networkData={networkData} />
     </div>
-  </div>
-  {/if}
+  </div>  
+</div>
 
 <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
 
@@ -3013,36 +2688,11 @@ onDestroy(() => {
         height: auto;
       }
     } 
-   & .input-container-start {
-      // left: 50%;
-      // transform: translate(-50%, -50%); 
-      // // width: clamp(300px, 50%, 800px); 
-      // height: auto; 
-      // // min-height: 60%;
-      // // max-height: 80vh; 
-      // display: flex;
-      // flex-direction: column;
-      // justify-content: center;
-      // align-items: center;
-      // padding: 2rem;
-      // margin: 0 auto;
-      // overflow-y: auto;
-      // overflow-x: hidden;
-
-    }
-    & .chat-placeholder {
-      & p {
-
-      }
-
-    }
-
     & .chat-content {
       margin-left: auto;
       top: 0;
       margin-top: 0;
       width: 100%;
-      
     }
     & .chat-container {
       right: 0;
