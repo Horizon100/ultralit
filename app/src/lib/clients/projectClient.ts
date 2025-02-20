@@ -1,20 +1,17 @@
-import type { Messages, Projects, Threads } from '$lib/types/types';
+import type { Projects, Threads } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
-import { ClientResponseError } from 'pocketbase';
 import { marked } from 'marked';
+import { ensureAuthenticated } from '$lib/clients/threadsClient';
+
 
 marked.setOptions({
 	gfm: true,
 	breaks: true,
-	headerIds: false,
-	mangle: false
+	// headerIds: false,
+	// mangle: false
 });
 
-function ensureAuthenticated(): void {
-	if (!pb.authStore.isValid) {
-		throw new Error('User is not authenticated');
-	}
-}
+
 
 export async function fetchProjects(): Promise<Projects[]> {
 	try {
@@ -31,12 +28,11 @@ export async function fetchProjects(): Promise<Projects[]> {
 
 export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
 	try {
+		ensureAuthenticated();
 		if (!projectId) {
 			console.error('projectId is not defined.');
-			return []; // Return empty array if projectId is not available
+			return []; 
 		}
-
-		ensureAuthenticated();
 		const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
 			filter: `project_id = "${projectId}"`,
 			expand: 'last_message,tags,project_id',
@@ -68,7 +64,7 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 			name: projectData.name || 'New Project',
 			description: projectData.description || '',
 			op: userId,
-			threads: [], // Initialize empty threads array
+			threads: [],
 			current_project: '',
 			collaborators: [userId],
 			created: new Date().toISOString(),
@@ -110,13 +106,9 @@ export async function resetProject(projectId: string): Promise<void> {
 export async function removeThreadFromProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-
-		// Update thread to remove project reference
 		await pb.collection('threads').update(threadId, {
 			project_id: null
 		});
-
-		// Update project's threads array
 		const project = await pb.collection('projects').getOne<Projects>(projectId);
 		const updatedThreads = project.threads?.filter((id) => id !== threadId) || [];
 		await pb.collection('projects').update(projectId, {
@@ -131,13 +123,9 @@ export async function removeThreadFromProject(threadId: string, projectId: strin
 export async function addThreadToProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-
-		// Update thread with project reference
 		await pb.collection('threads').update(threadId, {
 			project_id: projectId
 		});
-
-		// Update project's threads array
 		const project = await pb.collection('projects').getOne<Projects>(projectId);
 		const updatedThreads = [...(project.threads || []), threadId];
 		await pb.collection('projects').update(projectId, {

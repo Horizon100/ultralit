@@ -21,9 +21,9 @@
     let filteredProjects: Projects[] = [];
 
     $: console.log('Store state:', $projectStore);
-$: console.log('Filtered projects:', filteredProjects);
-$: console.log('Is expanded:', isExpanded);
-$: console.log('Current project:', $projectStore.currentProject);
+    $: console.log('Filtered projects:', filteredProjects);
+    $: console.log('Is expanded:', isExpanded);
+    $: console.log('Current project:', $projectStore.currentProject);
 
 async function handleCreateNewProject(nameOrEvent?: string | Event) {
   const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
@@ -64,25 +64,27 @@ async function handleCreateNewProject(nameOrEvent?: string | Event) {
 async function handleSelectProject(projectId: string) {
   console.log('Selecting project:', projectId);
   try {
+    threadsStore.update(state => ({
+      ...state,
+      showThreadList: true,
+      currentThreadId: null,
+      currentMessage: null 
+    }));
     await projectStore.setCurrentProject(projectId);
     console.log('Project selected, new store state:', $projectStore);
     
-    // Close dropdown
     isExpanded = false;
     
-    // Set the projectId in the store
     projectStore.update(state => ({
       ...state,
       currentProjectId: projectId,
       currentProject: state.threads.find(p => p.id === projectId) || null
     }));
 
-    // Show thread list when project is selected
     threadsStore.update(state => ({
-      ...state,
-      showThreadList: true
+        ...state,
+        showThreadList: true
     }));
-
   } catch (error) {
     console.error("Error handling project selection:", error);
   }
@@ -342,6 +344,7 @@ async function handleSelectProject(projectId: string) {
     .projects-list {
       max-height: 300px;
       overflow-y: auto;
+      scrollbar-color: var(--primary-color) transparent;
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--secondary-color);
       border-right: 1px solid var(--secondary-color);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+  import { pb, currentUser, checkPocketBaseConnection, updateUser, fetchThreads } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
   import { get, writable, derived } from 'svelte/store';
   import { page } from '$app/stores';
@@ -21,7 +21,7 @@
   import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { fetchThreads, fetchMessagesForBookmark, fetchMessagesForThread, resetThread, fetchLastMessageForThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
+  import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
@@ -55,7 +55,7 @@
 
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
-  let deg = 0;
+  // let deg = 0;
   // Chat-related state
   let messages: Messages[] = [];
   let chatMessages: InternalChatMessage[] = [];
@@ -324,65 +324,6 @@ const searchedThreads = derived(threadsStore, ($store) => {
     }))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort groups chronologically
 }
-  function initializeExpandedDates() {
-    if (groupedMessages.length > 0) {
-      const latestGroup = groupedMessages[0];
-      expandedDates.add(latestGroup.date);
-      expandedDates = expandedDates;
-    }
-  }
-  function toggleDateExpansion(date: string, event?: Event) {
-    // Prevent any scroll behavior
-    event?.preventDefault();
-    event?.stopPropagation();
-
-    const newExpandedDates = new Set(expandedDates);
-    
-    if (newExpandedDates.has(date)) {
-      if (date !== groupedMessages[0]?.date) { // If it's not the most recent group
-        newExpandedDates.delete(date);
-      }
-    } else {
-      newExpandedDates.add(date);
-    }
-    
-    expandedDates = newExpandedDates;
-  }
-
-  /*
-   * function groupMessagesWithReplies(messages: Messages[]): Messages[][] {
-   *   const messageGroups: Messages[][] = [];
-   *   const messageMap = new Map<string, Messages>();
-   */
-
-  /*
-   *   messages.forEach(message => {
-   *     if (!message.parent_msg) {
-   *       messageGroups.push([message]);
-   *       messageMap.set(message.id, message);
-   *     } else {
-   *       const parentGroup = messageGroups.find(group => group[0].id === message.parent_msg);
-   *       if (parentGroup) {
-   *         parentGroup.push(message);
-   *       } else {
-   *         const parent = messageMap.get(message.parent_msg);
-   *         if (parent) {
-   *           const newGroup = [parent, message];
-   *           messageGroups.push(newGroup);
-   *         } else {
-   *           messageGroups.push([message]);
-   *         }
-   *       }
-   *     }
-   *   });
-   */
-
-  /*
-   *   return messageGroups;
-   * }
-   * Thread management functions
-   */
-
 
 function getThreadDateGroup(thread: Threads): string {
   const now = new Date();
@@ -610,31 +551,18 @@ export function toggleSection(section: keyof ExpandedSections): void {
     }));
   }
 }
+
 async function handleSendMessage(message: string = userInput) {
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
+  ensureAuthenticated();
 
   try {
     userInput = '';
     resetTextareaHeight();
-    
     if (!currentThreadId) {
-      const newThread = await threadsStore.addThread({
-        op: userId,
-        name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
-        ...(currentProjectId && { project_id: currentProjectId })
-
-      });
-
-      if (!newThread?.id) {
-        console.error('Thread creation failed');
+        console.error('No current thread ID');
         return;
-      }
-
-      threads = [...(threads || []), newThread];
-      currentThreadId = newThread.id;
-      await handleLoadThread(newThread.id);
     }
-
     const currentMessage = message.trim();
     const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
     chatMessages = [...chatMessages, userMessageUI];
@@ -764,9 +692,9 @@ async function handleCreateNewProject(name: string) {
       }
   }
 // Thread management functions
-async function handleCreateNewThread() {
-    if (isCreatingThread) return null;
-    
+async function handleCreateNewThread(message = '') {
+  if (isCreatingThread) return null;
+    ensureAuthenticated();
     try {
         isCreatingThread = true;
         const currentProjectId = get(projectStore).currentProjectId;
@@ -806,7 +734,6 @@ async function handleCreateNewThread() {
                     ...state,
                     threads: projectThreads,
                     currentThreadId: newThread.id,
-                    // showThreadList: currentVisibility  // Preserve visibility
                 }));
             } else {
                 const allThreads = await fetchThreads();
@@ -814,13 +741,15 @@ async function handleCreateNewThread() {
                     ...state,
                     threads: allThreads,
                     currentThreadId: newThread.id,
-                    // showThreadList: currentVisibility  // Preserve visibility
                 }));
             }
 
             currentThreadId = newThread.id;
             showPromptCatalog = false;
             await handleLoadThread(newThread.id);
+            if (message) {
+                await handleSendMessage(message);
+            }
             return newThread;
         }
         
@@ -1168,20 +1097,8 @@ $: if (seedPrompt && !hasSentSeedPrompt) {
    hasSentSeedPrompt = true;
    handleSendMessage(seedPrompt);
 }
-// Core thread and message handling
 $: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
-$: safeAIModel = aiModel || defaultAIModel;
-$: groupedMessages = groupMessagesByDate(messages.map(m => mapMessageToInternal(m)));
-// Handle expanded dates
-$: {
-   if (groupedMessages?.length > 0 && expandedDates.size === 0) {
-       expandedDates = new Set([groupedMessages[groupedMessages.length - 1].date]);
-   }
-}
-// Thread grouping and visibility management
-$: isSearchActive = searchQuery.trim().length > 0;
-$: isProjectActive = currentProjectId !== null;
-// Update store when search changes
+
 $: {
   threadsStore.setSearchQuery(searchQuery);
 }
@@ -1195,7 +1112,7 @@ $: bookmarkedMessages = derived([currentUser, messagesStore], ([$currentUser, $m
     }
 });
 $: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
-$: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
+// $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
 /*
  * Stage-based operations
  * UI state updates
@@ -1286,14 +1203,14 @@ $: {
 //   }
 // }
 // Lifecycle hooks
-onMount(() => {
-		const interval = setInterval(() => {
-			deg += 2;
-			if (deg >= 360) deg = 0;
-			document.body.style.setProperty('--deg', deg);
-		}, 60);
-		return () => clearInterval(interval);
-	});
+// onMount(() => {
+// 		const interval = setInterval(() => {
+// 			deg += 2;
+// 			if (deg >= 360) deg = 0;
+// 			document.body.style.setProperty('--deg', deg);
+// 		}, 60);
+// 		return () => clearInterval(interval);
+// 	});
 
   onMount(async () => {
   try {
@@ -1312,20 +1229,19 @@ onMount(() => {
     }
 
     // First load projects
-    await projectStore.loadProjects();
-    await threadsStore.loadThreads();
+    // await projectStore.loadProjects();
 
     // If there's a current project, load its threads
-    // if ($projectStore.currentProjectId) {
-    //   const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
-    //   threadsStore.update(state => ({
-    //     ...state,
-    //     threads: projectThreads
-    //   }));
-    // } else {
-    //   // If no project is selected, load all threads
-    //   await threadsStore.loadThreads();
-    // }
+    if ($projectStore.currentProjectId) {
+      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
+      threadsStore.update(state => ({
+        ...state,
+        threads: projectThreads
+      }));
+    } else {
+      // If no project is selected, load all threads
+      await threadsStore.loadThreads();
+    }
 
     if (textareaElement) {
       const adjustTextareaHeight = () => {
@@ -1508,7 +1424,7 @@ onDestroy(() => {
         </div>
       </div>
     {/if}
-    <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}" on:scroll={handleScroll}>
+    <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}">
       <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
         {#if isLoadingMessages}
           <div class="loading-overlay">
@@ -1567,12 +1483,18 @@ onDestroy(() => {
                       bind:this={textareaElement}
                       bind:value={userInput}
                       on:input={(e) => adjustFontSize(e.target)}
-                      on:keydown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          !isLoading && handleSendMessage();
-                        }
-                      }}      
+                      on:keydown={async (e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (!isLoading) {
+                                  if (!currentThreadId) {
+                                      await handleCreateNewThread(userInput);
+                                  } else {
+                                      await handleSendMessage();
+                                  }
+                              }
+                          }
+                      }}
                       on:focus={handleTextareaFocus}
                       on:blur={handleTextareaBlur}
                       placeholder={$t('chat.placeholder')}
@@ -1632,15 +1554,24 @@ onDestroy(() => {
                             <!-- <p>{$t('chat.models')}</p> -->
                           {/if}
                       </span>
-                      <span 
+                      <button 
                         class="btn send-btn" 
                         class:visible={isTextareaFocused}
                         transition:slide
-                        on:click={() => !isLoading && handleSendMessage()} 
+                        on:click={async (e) => {
+                          e.preventDefault(); 
+                          if (!isLoading) {
+                            if (!currentThreadId) {
+                              await handleCreateNewThread(userInput);
+                            } else {
+                              await handleSendMessage();
+                            }
+                          }
+                        }}
                         disabled={isLoading}
                       >
                         <Send />
-                      </span>
+                      </button>
                     </div>
                     {/if}
                   </div>
@@ -1696,24 +1627,7 @@ onDestroy(() => {
                       </div>
                     {/if}
                   </div>
-                  {#if message.role === 'options'}
-                    <div class="options" in:fly="{{ y: 20, duration: 300, delay: 300 }}" out:fade="{{ duration: 200 }}">
-                      {#each JSON.parse(message.content) as option, index (`${message.id}-option-${index}`)}
-                        <button 
-                          on:click={() => currentStage === 'scenarios'
-                            ? handleScenarioSelection(option) 
-                            : handleTaskSelection(option)}
-                        >
-                          <span class="option-description">{option.description}</span>
-                          <span class="option-id">{option.id}</span>
-                        </button>
-                      {/each}
-                    </div>
-                  {:else if message.isHighlighted}
-                    <!-- <p>{@html message.content}</p> -->
-                  {:else}
-                    <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
-                  {/if}
+                  <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
                   {#if message.role === 'thinking'}
                     <div class="thinking-animation">
                       <span>
@@ -1843,7 +1757,7 @@ onDestroy(() => {
                         <!-- <p>{$t('chat.models')}</p> -->
                       {/if}
                     </span>
-                    <span 
+                    <button 
                       class="btn send-btn" 
                       class:visible={isTextareaFocused}
                       transition:slide
@@ -1851,7 +1765,7 @@ onDestroy(() => {
                       disabled={isLoading}
                     >
                       <Send />
-                    </span>
+                    </button>
                   {/if}
                 </div>
               </div>

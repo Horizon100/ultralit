@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fade, fly, slide } from 'svelte/transition';
-    import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+    import { pb, currentUser, checkPocketBaseConnection, updateUser, ensureAuthenticated } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
     import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
     import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
@@ -22,9 +22,9 @@
     let filteredProjects: Projects[] = [];
 
     $: console.log('Store state:', $projectStore);
-$: console.log('Filtered projects:', filteredProjects);
-$: console.log('Is expanded:', isExpanded);
-$: console.log('Current project:', $projectStore.currentProject);
+    $: console.log('Filtered projects:', filteredProjects);
+    $: console.log('Is expanded:', isExpanded);
+    $: console.log('Current project:', $projectStore.currentProject);
 
 async function handleCreateNewProject(nameOrEvent?: string | Event) {
   const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
@@ -65,6 +65,7 @@ async function handleCreateNewProject(nameOrEvent?: string | Event) {
 async function handleSelectProject(projectId: string) {
   console.log('Selecting project:', projectId);
   try {
+		ensureAuthenticated();
     await projectStore.setCurrentProject(projectId);
     console.log('Project selected, new store state:', $projectStore);
     

@@ -16,14 +16,9 @@ import type {
 	Workflows,
 	Workspaces,
 	Threads,
-	Messages
+	Messages,
+	Projects
 } from '$lib/types/types';
-/*
- * import { role } from './components/common/chat/MessageHeader.svelte';
- * import type { ClientResponseError } from 'pocketbase'; // Unused
- */
-import type { RecordModel } from 'pocketbase'; // Unused
-
 interface CursorChangeEvent {
 	action: string;
 	record: CursorPosition;
@@ -126,10 +121,6 @@ export async function getUserById(id: string): Promise<User | null> {
 		return null;
 	}
 }
-
-// //////////////////////////////////////////////////////////////
-
-// AI Agent functions
 
 export async function createAgentWithSummary(summary: string, userId: string): Promise<AIAgent> {
 	const agent: Partial<AIAgent> & Pick<AIAgent, 'tasks' | 'messages' | 'child_agents'> = {
@@ -568,12 +559,39 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
 
 export async function fetchThreads(): Promise<Threads[]> {
 	try {
+		ensureAuthenticated();
 		const records = await pb.collection('threads').getFullList<Threads>({
 			sort: '-created'
 		});
 		return records;
 	} catch (error) {
 		console.error('Error fetching threads:', error);
+		throw error;
+	}
+}
+
+export async function fetchProjects(): Promise<Projects[]> {
+	try {
+		ensureAuthenticated();
+		const projects = await pb.collection('projects').getFullList<Projects>({
+			expand: 'last_message'
+		});
+		return projects;
+	} catch (error) {
+		console.error('Error fetching projects:', error);
+		throw error;
+	}
+}
+export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
+	try {
+		const records = await pb.collection('threads').getFullList<Threads>({
+			sort: '-created',
+			filter: `project = "${projectId}"`
+		});
+		console.log('Fetched threads:', records);
+		return records;
+	} catch (error) {
+		console.error('Error fetching threads for project:', error);
 		throw error;
 	}
 }
@@ -666,19 +684,5 @@ export async function deleteMessage(id: string): Promise<boolean> {
 	} catch (error) {
 		console.error('Error deleting message:', error);
 		return false;
-	}
-}
-
-export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
-	try {
-		const records = await pb.collection('threads').getFullList<Threads>({
-			sort: '+created',
-			filter: `project = "${projectId}"`
-		});
-		console.log('Fetched threads:', records);
-		return records;
-	} catch (error) {
-		console.error('Error fetching threads for project:', error);
-		throw error;
 	}
 }

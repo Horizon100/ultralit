@@ -578,7 +578,7 @@ export interface Projects extends RecordModel {
 	created: string;
 	updated: string;
 	current_project: string;
-	threads?: string[];
+	threads: string[];
 	op: string;
 	collaborators: string[];
 }

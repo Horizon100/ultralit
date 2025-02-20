@@ -623,8 +623,9 @@
 
 	.style-overlay {
 		position: absolute;
-		top: 3rem;
-		left: 4rem;
+		top: 0;
+		left: 0;
+		padding: 2rem;
 		width: 100%;
 		height: auto;
 		display: flex;

@@ -1,15 +1,17 @@
 import { writable, derived, get } from 'svelte/store';
+import { pb, fetchThreads } from '$lib/pocketbase';
 import type { Messages, Threads, AIModel } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import {
-	fetchThreads,
 	fetchMessagesForThread,
 	createThread,
-	updateThread,
+	updateThread as clientUpdateThread,
 	addMessageToThread,
 	autoUpdateThreadName
 } from '$lib/clients/threadsClient';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
+import { ensureAuthenticated } from '$lib/clients/threadsClient';
+
 import { browser } from '$app/environment';
 import { replaceState } from '$app/navigation';
 
@@ -91,6 +93,11 @@ function createThreadsStore() {
 		},
 		loadThreads: async (): Promise<Threads[]> => {
 			try {
+				// ensureAuthenticated();
+				// const userId = pb.authStore.model?.id;
+				// if (!userId) {
+				// 	throw new Error('User ID not found');
+				// }
 				console.log('Starting loadThreads, current state:', get(store));
 				const threads = await fetchThreads();
 				console.log('Fetched threads, about to update store');
@@ -130,6 +137,7 @@ function createThreadsStore() {
 		},
 		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
 			try {
+				ensureAuthenticated();
 				console.log('Adding thread with data:', threadData); 
 				const newThread = await createThread(threadData);
 				const currentState = get(store);
@@ -165,19 +173,19 @@ function createThreadsStore() {
 		updateThread: async (id: string, changes: Partial<Threads>) => {
 			try {
 				console.log('Attempting to update thread:', id, 'with changes:', changes);
-				const updatedThread = await updateThread(id, changes);
+				const updatedThread = await clientUpdateThread(id, changes);
 				console.log('Thread updated successfully:', updatedThread);
-
+		
 				store.update((state) => ({
 					...state,
 					threads: state.threads.map((t) => (t.id === id ? { ...t, ...updatedThread } : t)),
 					updateStatus: 'Thread updated successfully'
 				}));
-
+		
 				console.log('Store updated with new thread data');
 				return updatedThread;
 			} catch (error) {
-				console.error('Failed to update thread in backend:', error);
+				console.error('Failed to update thread:', error);
 				store.update((state) => ({ ...state, updateStatus: 'Failed to update thread' }));
 				throw error;
 			}

@@ -2,6 +2,7 @@ import type { Messages, AIModel, RoleType } from '$lib/types/types';
 import { fetchAIResponse } from '$lib/clients/aiClient';
 import { pb } from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
+import { ensureAuthenticated } from '$lib/clients/threadsClient';
 
 export async function generateThreadName(
 	userMessage: string,
@@ -9,7 +10,8 @@ export async function generateThreadName(
 	model: AIModel,
 	userId: string
 	): Promise<string> {
-	console.log('Generating thread name for:', {
+		ensureAuthenticated(); 
+		console.log('Generating thread name for:', {
 		userMessage,
 		aiResponse,
 		modelId: model?.id
@@ -23,6 +25,7 @@ export async function generateThreadName(
 		model: model.id
 	};
 	try {
+		ensureAuthenticated();
 		console.log('Sending prompt for thread name generation:', prompt);
 		const response = await fetchAIResponse([prompt], model.id, userId);
 		console.log('Received thread name suggestion:', response);
@@ -39,6 +42,7 @@ export async function generateThreadName(
 }
 
 export async function shouldUpdateThreadName(messages: Messages[]): Promise<boolean> {
+	ensureAuthenticated();
 	console.log('Checking if thread name should be updated. Messages count:', messages?.length);
 	if (!messages?.length) {
 		console.log('No messages found, skipping thread name update');
@@ -55,6 +59,7 @@ export async function updateThreadNameIfNeeded(
 	model: AIModel,
 	userId: string
 ): Promise<void> {
+	ensureAuthenticated();
 	console.log('Starting thread name update check for thread:', threadId);
 	try {
 		if (!pb.authStore.isValid) {
@@ -84,11 +89,11 @@ export async function updateThreadNameIfNeeded(
 		console.log('Generated new thread name:', newName);
 		console.log('Updating thread with new name...');
 		await threadsStore.updateThread(threadId, { name: newName });
-		console.log('Thread name updated successfully');
-		/*
-		 * await threadsStore.loadThreads();
-		 * console.log('Thread list reloaded');
-		 */
+		console.log("Thread updated. Now loading threads...");
+		await new Promise(resolve => setTimeout(resolve, 500));
+		 await threadsStore.loadThreads();
+		 console.log('Thread list reloaded');
+		 
 	} catch (error) {
 		console.error('Error in updateThreadNameIfNeeded:', error);
 	} finally {

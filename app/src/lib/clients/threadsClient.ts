@@ -6,108 +6,18 @@ import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { threadsStore } from '$lib/stores/threadsStore';
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
 
-/** Utility to ensure user is authenticated */
 export function ensureAuthenticated(): void {
 	if (!pb.authStore.isValid) {
 		throw new Error('User is not authenticated');
 	}
 }
-
-export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
-	try {
-		ensureAuthenticated();
-		console.log(`Attempting to fetch messages for thread: ${threadId}`);
-
-		const messages = await pb.collection('messages').getFullList<Messages>({
-			filter: `thread = "${threadId}"`,
-			sort: '-created'
-		});
-
-		const processedMessages = messages.map((message) => ({
-			...message,
-			text: processMarkdown(message.text)
-		}));
-
-		console.log(`Fetched ${processedMessages.length} messages for thread ${threadId}`);
-		return processedMessages;
-	} catch (error) {
-		console.error('Error fetching messages for thread:', error);
-		if (error instanceof ClientResponseError) {
-			console.error('Response data:', error.data);
-			console.error('Status code:', error.status);
-		}
-		throw error;
-	}
-}
-
-export async function fetchMessagesForThreadByDate(
-	threadId: string,
-	date?: Date
-): Promise<Messages[]> {
-	try {
-		ensureAuthenticated();
-
-		let filter = `thread = "${threadId}"`;
-
-		if (date) {
-			const startDate = new Date(date);
-			startDate.setHours(0, 0, 0, 0);
-
-			const endDate = new Date(date);
-			endDate.setHours(23, 59, 59, 999);
-
-			filter += ` && created >= "${startDate.toISOString()}" && created <= "${endDate.toISOString()}"`;
-		}
-
-		const messages = await pb.collection('messages').getFullList<Messages>({
-			filter: filter,
-			sort: '-created'
-		});
-
-		const processedMessages = messages.map((message) => ({
-			...message,
-			text: processMarkdown(message.text)
-		}));
-
-		return processedMessages;
-	} catch (error) {
-		console.error('Error fetching messages for thread:', error);
-		throw error;
-	}
-}
-
-export async function fetchLastMessageForThread(threadId: string): Promise<Messages | null> {
-	try {
-		ensureAuthenticated();
-
-		const messages = await pb.collection('messages').getFullList<Messages>({
-			filter: `thread = "${threadId}"`,
-			sort: '-created',
-			limit: 1
-		});
-
-		if (messages.length > 0) {
-			const lastMessage = messages[0];
-			return {
-				...lastMessage,
-				text: processMarkdown(lastMessage.text)
-			};
-		}
-		return null;
-	} catch (error) {
-		console.error('Error fetching last message for thread:', error);
-		if (error instanceof ClientResponseError) {
-			console.error('Response data:', error.data);
-			console.error('Status code:', error.status);
-		}
-		throw error;
-	}
-}
-
 export async function fetchThreads(): Promise<Threads[]> {
 	try {
 		ensureAuthenticated();
-
+		const userId = pb.authStore.model?.id;
+		if (!userId) {
+			throw new Error('User ID not found');
+		}
 		const currentState = get(threadsStore);
 		const showThreadList = currentState?.showThreadList ?? true;
 
@@ -146,16 +56,42 @@ export async function fetchThreads(): Promise<Threads[]> {
 		return currentState.threads || [];
 	}
 }
-
-export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
+export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
 	try {
 		ensureAuthenticated();
+		console.log(`Attempting to fetch messages for thread: ${threadId}`);
+
+		const messages = await pb.collection('messages').getFullList<Messages>({
+			filter: `thread = "${threadId}"`,
+			sort: '-created'
+		});
+
+		const processedMessages = messages.map((message) => ({
+			...message,
+			text: processMarkdown(message.text)
+		}));
+
+		console.log(`Fetched ${processedMessages.length} messages for thread ${threadId}`);
+		return processedMessages;
+	} catch (error) {
+		console.error('Error fetching messages for thread:', error);
+		if (error instanceof ClientResponseError) {
+			console.error('Response data:', error.data);
+			console.error('Status code:', error.status);
+		}
+		throw error;
+	}
+}
+export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
+	try {
 		const userId = pb.authStore.model?.id;
 		if (!userId) {
 			throw new Error('User ID not found');
 		}
+
 		console.log('Received threadData:', threadData);
 		console.log('threadData.project_id:', threadData.project_id);
+
 		const newThread: Partial<Threads> = {
 			name: threadData.name || 'New Thread',
 			op: userId,
@@ -171,14 +107,15 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 		let createdThread: Threads | null = null;
 
 		try {
+			ensureAuthenticated();
 			createdThread = await pb.collection('threads').create<Threads>(newThread);
 			console.log('Thread created:', createdThread);
-
 			if (createdThread.project_id) {
 				try {
 					const project = await pb
 						.collection('projects')
 						.getOne<Projects>(createdThread.project_id);
+
 					const updatedThreads = Array.isArray(project.threads)
 						? [...project.threads, createdThread.id]
 						: [createdThread.id];
@@ -189,9 +126,11 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 					console.log('Project updated with new thread');
 				} catch (error) {
 					console.error('Project update failed:', error);
+
 					if (createdThread?.id) {
 						await pb.collection('threads').delete(createdThread.id);
 					}
+					
 					throw error;
 				}
 			}
@@ -208,14 +147,16 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 		}
 	} catch (error) {
 		console.error('Thread creation process failed:', error);
+
 		if (error instanceof ClientResponseError) {
-			console.error('PocketBase details:', {
+			console.error('PocketBase error details:', {
 				status: error.status,
 				message: error.message,
 				data: error.data,
 				url: error.url
 			});
 		}
+
 		throw error;
 	}
 }
@@ -243,32 +184,36 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
 }
 
 export async function updateThread(id: string, changes: Partial<Threads>): Promise<Threads> {
-	try {
-		ensureAuthenticated();
+    try {
+        ensureAuthenticated();
 
-		const currentThread = await pb.collection('threads').getOne<Threads>(id);
+        const currentThread = await pb.collection('threads').getOne<Threads>(id);
 
-		const updatedChanges = {
-			...changes,
-			...(currentThread.showThreadList !== undefined && {
-				showThreadList: currentThread.showThreadList
-			})
-		};
+        const updatedChanges = {
+            ...changes,
+            ...(currentThread.showThreadList !== undefined && {
+                showThreadList: currentThread.showThreadList
+            })
+        };
 
-		const updatedThread = await pb.collection('threads').update<Threads>(id, updatedChanges);
+        const updatedThread = await pb.collection('threads').update<Threads>(id, updatedChanges);
 
-		console.log('Thread updated successfully:', updatedThread);
-		return updatedThread;
-	} catch (error) {
-		console.error('Thread update failed:', error);
-		if (error instanceof ClientResponseError) {
-			console.error('Response details:', {
-				status: error.status,
-				data: error.data
-			});
-		}
-		throw error;
-	}
+        console.log('Thread updated successfully:', updatedThread);
+        return updatedThread;
+    } catch (error) {
+        console.error('Thread update failed:', error);
+        if (error instanceof ClientResponseError) { 
+            console.error('Response details:', {
+                status: error.status,
+                data: error.data
+            });
+            throw new Error(`Thread update failed: ${error.status} - ${error.data?.message || 'Unknown error'}`); 
+        } else if (error instanceof Error) { 
+            throw new Error(`Thread update failed: ${error.message}`); 
+        } else {
+            throw new Error('An unknown error occurred during thread update.');
+        }
+    }
 }
 
 export async function autoUpdateThreadName(
