@@ -1,142 +1,145 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-	import { pb, currentUser } from '$lib/pocketbase';
-	import type { InternalChatMessage, Messages } from '$lib/types/types';
-	import { Bookmark, Copy } from 'lucide-svelte';
-	import type { SvelteComponentTyped } from 'svelte';
-	import type { User } from '$lib/types/types';
+    import { createEventDispatcher } from 'svelte';
+    import { pb, currentUser } from '$lib/pocketbase';
+    import type { InternalChatMessage, Messages, User } from '$lib/types/types';
+    import { Bookmark, Copy } from 'lucide-svelte';
+    import type { SvelteComponentTyped } from 'svelte';
 
-	export let message: InternalChatMessage;
-	export let userId: string;
+    export let message: InternalChatMessage;
+    export let userId: string;
 
-	const dispatch = createEventDispatcher();
-	let showCopiedTooltip = false;
-	let showBookmarkTooltip = false;
-	let bookmarkTooltipText = '';
-	let isBookmarkedState = false;
+    const dispatch = createEventDispatcher();
+    let showCopiedTooltip = false;
+    let showBookmarkTooltip = false;
+    let bookmarkTooltipText = '';
+    let isBookmarkedState = false;
 
-	// Define type for Lucide icons
-	type IconComponent = SvelteComponentTyped<{
-		size?: number | string;
-		color?: string;
-		strokeWidth?: number | string;
-		class?: string;
-	}>;
+    // Define type for Lucide icons
+    type IconComponent = SvelteComponentTyped<{
+        size?: number | string;
+        color?: string;
+        strokeWidth?: number | string;
+        class?: string;
+    }>;
 
-	type Reaction = {
-		symbol: typeof Bookmark | typeof Copy; // Use direct component types
-		action: string;
-		label: string;
-		isIcon: boolean;
-	};
+    type Reaction = {
+        symbol: typeof Bookmark | typeof Copy;
+        action: string;
+        label: string;
+        isIcon: boolean;
+    };
 
-	const reactions: Reaction[] = [
-		{
-			symbol: Bookmark,
-			action: 'bookmark',
-			label: 'Bookmark',
-			isIcon: true
-		},
-		{
-			symbol: Copy,
-			action: 'copy',
-			label: 'Copy to Clipboard',
-			isIcon: true
-		}
-	];
+    const reactions: Reaction[] = [
+        {
+            symbol: Bookmark,
+            action: 'bookmark',
+            label: 'Bookmark',
+            isIcon: true
+        },
+        {
+            symbol: Copy,
+            action: 'copy',
+            label: 'Copy to Clipboard',
+            isIcon: true
+        }
+    ];
 
-	async function handleReaction(action: string) {
-		try {
-			switch (action) {
-				case 'bookmark':
-					const user = $currentUser;
-					if (!user) return;
+    // Initialize bookmark state
+    function updateBookmarkState(user: User | null) {
+        if (user && Array.isArray(user.bookmarks) && message) {
+            isBookmarkedState = user.bookmarks.includes(message.id);
+        } else {
+            isBookmarkedState = false;
+        }
+    }
 
-					let updatedBookmarks: string[];
+    // Initialize on component mount
+    $: updateBookmarkState($currentUser);
 
-					if (isBookmarkedState) {
-						updatedBookmarks = (user.bookmarks || []).filter((id) => id !== message.id);
-						bookmarkTooltipText = 'Removed from bookmarks';
-					} else {
-						updatedBookmarks = [...(user.bookmarks || []), message.id];
-						bookmarkTooltipText = 'Added to bookmarks';
-					}
+    async function handleReaction(action: string) {
+        try {
+            switch (action) {
+                case 'bookmark':
+                    const user = $currentUser;
+                    if (!user) return;
 
-					// Type assertion for the update
-					const updateData = {
-						bookmarks: updatedBookmarks
-					} as Partial<User>;
+                    const currentBookmarks = user.bookmarks || [];
+                    let updatedBookmarks: string[];
 
-					await pb.collection('users').update(user.id, updateData);
+                    if (currentBookmarks.includes(message.id)) {
+                        updatedBookmarks = currentBookmarks.filter((id) => id !== message.id);
+                        bookmarkTooltipText = 'Removed from bookmarks';
+                    } else {
+                        updatedBookmarks = [...currentBookmarks, message.id];
+                        bookmarkTooltipText = 'Added to bookmarks';
+                    }
 
-					isBookmarkedState = !isBookmarkedState;
+                    // Update PocketBase
+                    await pb.collection('users').update(user.id, {
+                        bookmarks: updatedBookmarks
+                    });
 
-					currentUser.update((u) => ({
-						...u,
-						bookmarks: updatedBookmarks
-					}));
+                    // Update store
+                    currentUser.update((currentUser) => {
+                        if (!currentUser) return currentUser;
+                        return {
+                            ...currentUser,
+                            bookmarks: updatedBookmarks
+                        };
+                    });
 
-					showBookmarkTooltip = true;
-					setTimeout(() => {
-						showBookmarkTooltip = false;
-					}, 1000);
-					break;
+                    showBookmarkTooltip = true;
+                    setTimeout(() => {
+                        showBookmarkTooltip = false;
+                    }, 1000);
+                    break;
 
-				case 'copy':
-					await navigator.clipboard.writeText(message.text);
-					showCopiedTooltip = true;
-					setTimeout(() => {
-						showCopiedTooltip = false;
-					}, 1000);
-					break;
-			}
-		} catch (error) {
-			console.error('Error handling reaction:', error);
-			bookmarkTooltipText = 'Failed to update bookmark';
-			showBookmarkTooltip = true;
-			setTimeout(() => {
-				showBookmarkTooltip = false;
-			}, 1000);
-		}
-	}
-
-	// Update local state when store changes
-	$: {
-		if ($currentUser && Array.isArray($currentUser.bookmarks)) {
-			isBookmarkedState = $currentUser.bookmarks.includes(message.id);
-		} else {
-			isBookmarkedState = false;
-		}
-	}
+                case 'copy':
+                    await navigator.clipboard.writeText(message.text);
+                    showCopiedTooltip = true;
+                    setTimeout(() => {
+                        showCopiedTooltip = false;
+                    }, 1000);
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling reaction:', error);
+            bookmarkTooltipText = 'Failed to update bookmark';
+            showBookmarkTooltip = true;
+            setTimeout(() => {
+                showBookmarkTooltip = false;
+            }, 1000);
+        }
+    }
 </script>
 
 <div class="message-reactions">
-	<div class="reaction-buttons">
-		{#each reactions as reaction}
-			<button
-				class="reaction-btn"
-				class:bookmarked={reaction.action === 'bookmark' && isBookmarkedState}
-				on:click={() => handleReaction(reaction.action)}
-				title={reaction.label}
-			>
-				<div class="reaction-content">
-					<svelte:component
-						this={reaction.symbol}
-						size={16}
-						class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
-					/>
-				</div>
-			</button>
-		{/each}
-	</div>
+    <div class="reaction-buttons">
+        {#each reactions as reaction}
+            <button
+                class="reaction-btn"
+                class:bookmarked={reaction.action === 'bookmark' && isBookmarkedState}
+                on:click={() => handleReaction(reaction.action)}
+                title={reaction.label}
+            >
+                <div class="reaction-content">
+                    <svelte:component
+                        this={reaction.symbol}
+                        size={16}
+                        class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
+                    />
+                </div>
+            </button>
+        {/each}
+    </div>
 
-	{#if showBookmarkTooltip}
-		<div class="bookmark-tooltip">{bookmarkTooltipText}</div>
-	{/if}
+    {#if showBookmarkTooltip}
+        <div class="bookmark-tooltip">{bookmarkTooltipText}</div>
+    {/if}
 
-	{#if showCopiedTooltip}
-		<div class="copied-tooltip">Copied!</div>
-	{/if}
+    {#if showCopiedTooltip}
+        <div class="copied-tooltip">Copied!</div>
+    {/if}
 </div>
 
 <style lang="scss">

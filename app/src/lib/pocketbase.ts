@@ -35,6 +35,7 @@ export const currentUser = writable<User | null>(pb.authStore.model as User | nu
 
 pb.authStore.onChange((auth) => {
 	console.log('authStore changed', auth);
+	console.log('New currentUser:', pb.authStore.model);
 	currentUser.set(pb.authStore.model as User | null);
 });
 

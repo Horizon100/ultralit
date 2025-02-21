@@ -8,6 +8,7 @@
     import { onMount } from 'svelte';
     import { threadsStore } from '$lib/stores/threadsStore';
 
+    let dropdownContainer: HTMLElement;
     let isExpanded = false;
     let isCreatingProject = false;
     let newProjectName = '';
@@ -93,6 +94,13 @@ async function handleSelectProject(projectId: string) {
     e.stopPropagation();
   }
 
+  function handleClickOutside(event: MouseEvent) {
+        if (dropdownContainer && !dropdownContainer.contains(event.target as Node)) {
+            isExpanded = false;
+            isCreatingProject = false;
+        }
+    }
+
   $: filteredProjects = searchQuery 
   ? $projectStore.threads.filter(project => 
       project.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -101,18 +109,30 @@ async function handleSelectProject(projectId: string) {
 
   onMount(async () => {
   console.log('Component mounting...');
+  
   try {
     await projectStore.loadProjects();
     console.log('Projects loaded:', $projectStore.threads);
   } catch (error) {
     console.error('Error in onMount:', error);
   }
+  
 });
+
+onMount(() => {
+        document.addEventListener('click', handleClickOutside);
+        
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    });
 
 
   </script>
   
-  <div class="dropdown-container">
+  <div class="dropdown-container"
+    bind:this={dropdownContainer}
+  >
     <button 
     class="dropdown-trigger"
     on:click={() => {
@@ -136,7 +156,7 @@ async function handleSelectProject(projectId: string) {
       >
         <div class="dropdown-header">
           <div class="search-bar">
-            <Search size={16} />
+            <Search />
             <input
               type="text"
               bind:value={searchQuery}
@@ -147,7 +167,7 @@ async function handleSelectProject(projectId: string) {
             class="create-btn"
             on:click={() => isCreatingProject = !isCreatingProject}
           >
-            <Plus size={16} />
+            <Plus />
           </button>
         </div>
   
@@ -260,9 +280,9 @@ async function handleSelectProject(projectId: string) {
     .dropdown-header {
       display: flex;
       height: 2rem;
-      gap: 0.5rem;
+      gap: 0;
       border-bottom: 1px solid var(--secondary-color);
-      
+      background: var(--secondary-color);
     }
   
     .search-bar {
@@ -272,7 +292,6 @@ async function handleSelectProject(projectId: string) {
       flex: 1;
       color: var(--text-color);
       padding: 0.25rem 0.5rem;
-      background: var(--secondary-color);
 
 
       input {
@@ -297,7 +316,7 @@ async function handleSelectProject(projectId: string) {
       border-radius: var(--radius-s);
   
       &:hover {
-        background: var(--secondary-color);
+        background: var(--primary-color);
         color: var(--tertiary-color);
       }
     }
@@ -344,7 +363,7 @@ async function handleSelectProject(projectId: string) {
     .projects-list {
       max-height: 300px;
       overflow-y: auto;
-      scrollbar-color: var(--primary-color) transparent;
+      scrollbar-color: var(--secondary-color) transparent;
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--secondary-color);
       border-right: 1px solid var(--secondary-color);

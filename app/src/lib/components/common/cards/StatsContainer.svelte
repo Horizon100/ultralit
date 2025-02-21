@@ -163,7 +163,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		max-width: 350px;
+		width: 100%;
 		height: auto;
 		margin-top: 0;
 		margin-left: 0;

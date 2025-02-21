@@ -1,16 +1,14 @@
 import { writable, derived, get } from 'svelte/store';
-import { pb, fetchThreads } from '$lib/pocketbase';
+import { pb, ensureAuthenticated, fetchThreads, updateThread as clientUpdateThread } from '$lib/pocketbase';
 import type { Messages, Threads, AIModel } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import {
 	fetchMessagesForThread,
 	createThread,
-	updateThread as clientUpdateThread,
 	addMessageToThread,
 	autoUpdateThreadName
 } from '$lib/clients/threadsClient';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
-import { ensureAuthenticated } from '$lib/clients/threadsClient';
 
 import { browser } from '$app/environment';
 import { replaceState } from '$app/navigation';
@@ -137,7 +135,7 @@ function createThreadsStore() {
 		},
 		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
 			try {
-				ensureAuthenticated();
+				// ensureAuthenticated();
 				console.log('Adding thread with data:', threadData); 
 				const newThread = await createThread(threadData);
 				const currentState = get(store);

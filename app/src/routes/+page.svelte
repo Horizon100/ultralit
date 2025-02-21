@@ -273,7 +273,7 @@
 			 */
 
 			// Initialize necessary data
-			await initializeLanguage();
+			// await initializeLanguage();
 			await fetchUserCount();
 
 			// Landing page animations (only if not logged in)

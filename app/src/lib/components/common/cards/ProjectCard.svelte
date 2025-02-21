@@ -13,6 +13,7 @@
     let isCreatingProject = false;
     let newProjectName = '';
     let searchQuery = '';
+    let createHovered = false;
     let projects: Projects[] = [];
     let currentProject: Projects | null = null;
     let currentProjectId: string | null = null;
@@ -122,7 +123,7 @@ async function handleSelectProject(projectId: string) {
 
         <div class="project-header">
           <div class="search-bar">
-            <Search size={16} />
+            <Search  />
             <input
               type="text"
               bind:value={searchQuery}
@@ -132,8 +133,18 @@ async function handleSelectProject(projectId: string) {
           <button 
             class="create-btn"
             on:click={() => isCreatingProject = !isCreatingProject}
+            on:mouseenter={() => createHovered = true}
+            on:mouseleave={() => createHovered = false}
           >
-            <Plus size={16} />
+          <div class="icon" in:fade>
+
+            <Plus />
+            {#if createHovered}
+            <span class="tooltip" in:fade>
+              {$t('tooltip.newProject')}
+            </span>
+          {/if}
+          </div>
           </button>
         </div>
   
@@ -194,8 +205,7 @@ async function handleSelectProject(projectId: string) {
 		display: flex;
 		flex-direction: column;
     align-items: flex-start;
-
-		max-width: 350px;
+		width: 100%;
       padding: 2rem;
 
 		margin-top: 0;
@@ -241,6 +251,22 @@ async function handleSelectProject(projectId: string) {
 		opacity: 1;
 	}
 
+  .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: color 0.2s ease;
+    color: var(--placeholder-color);
+      
+      &.active {
+        color: var(--tertiary-color);
+      }
+
+      &:hover {
+        color: var(--tertiary-color);
+      }
+    }
   
 
   
@@ -266,7 +292,7 @@ async function handleSelectProject(projectId: string) {
 		flex-direction: column;
 		gap: 20px;
 		width: 100%;
-		max-width: 400px;
+		max-width: 100%;
       top: 0;
     bottom: 2rem;
 		height: auto;
@@ -282,7 +308,6 @@ async function handleSelectProject(projectId: string) {
       display: flex;
       height: auto;
       gap: 0.5rem;
-      border-bottom: 1px solid var(--secondary-color);
       
     }
   
@@ -294,6 +319,7 @@ async function handleSelectProject(projectId: string) {
       color: var(--text-color);
       padding: 0.25rem 0.5rem;
       background: var(--secondary-color);
+      border-radius: var(--radius-m);
 
 
       input {
@@ -302,7 +328,8 @@ async function handleSelectProject(projectId: string) {
         color: var(--text-color);
         width: 100%;
         outline: none;
-  
+        font-size: 1rem;
+
         &::placeholder {
           color: var(--placeholder-color);
         }
@@ -310,16 +337,16 @@ async function handleSelectProject(projectId: string) {
     }
   
     .create-btn {
-      background: transparent;
+      background: var(--secondary-color);
       border: none;
       color: var(--text-color);
       cursor: pointer;
-      padding: 0.25rem;
-      border-radius: var(--radius-s);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
   
       &:hover {
-        background: var(--secondary-color);
-        color: var(--tertiary-color);
+        background: var(--tertiary-color);
       }
     }
   
@@ -362,7 +389,22 @@ async function handleSelectProject(projectId: string) {
         align-items: center;
     }
   
-
+    .tooltip {
+    position: absolute;
+    margin-right: 50px;
+    margin-top: 100px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    background-color: var(--secondary-color);
+    backdrop-filter: blur(80px);
+    border: 1px solid var(--secondary-color);
+      font-weight: 100;
+      animation: glowy 0.5s 0.5s initial;    
+    padding: 4px 8px;
+    border-radius: var(--radius-s);
+    z-index: 2000;
+    transition: all 0.2s ease ;
+  }
     .project-item {
       display: flex;
 		align-items: center;

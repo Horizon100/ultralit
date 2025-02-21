@@ -1,7 +1,6 @@
 import type { Projects, Threads } from '$lib/types/types';
-import { pb } from '$lib/pocketbase';
+import { pb, ensureAuthenticated } from '$lib/pocketbase';
 import { marked } from 'marked';
-import { ensureAuthenticated } from '$lib/clients/threadsClient';
 
 
 marked.setOptions({

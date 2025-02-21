@@ -1280,6 +1280,7 @@ onDestroy(() => {
 });
 
 </script>
+{#if $currentUser}
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
   <div class="chat-container" 
@@ -1367,15 +1368,21 @@ onDestroy(() => {
           </div>
           <div class="thread-filtered-results" transition:slide={{duration: 200}}>
             {#each $searchedThreads as thread (thread.id)}
+            <!-- <button 
+              class="card-container"
+              class:selected={currentThreadId === thread.id}
+              on:click={() => handleLoadThread(thread.id)}
+              on:mouseenter={async () => {
+                if (!$messageCounts.hasCount(thread.id)) {
+                  await messageCountsStore.updateCount(thread.id);
+                }
+              }}
+            > -->
               <button 
                 class="card-container"
                 class:selected={currentThreadId === thread.id}
                 on:click={() => handleLoadThread(thread.id)}
-                on:mouseenter={async () => {
-                  if (!$messageCounts.hasCount(thread.id)) {
-                    await messageCountsStore.updateCount(thread.id);
-                  }
-                }}
+
               >
                 <div class="card" 
                   class:active={currentThreadId === thread.id}
@@ -1400,7 +1407,7 @@ onDestroy(() => {
         
                     <!-- Actions always visible for uniformity -->
                     <div class="card-actions" transition:fade={{duration: 300}}>
-                      {#if $messageCounts.hasCount(thread.id)}
+                      <!-- {#if $messageCounts.hasCount(thread.id)}
                         <button 
                           class="action-btn badge"
                           style="color: {getCountColor($messageCounts.getCount(thread.id))}"
@@ -1408,12 +1415,12 @@ onDestroy(() => {
                           <MessageSquareText size={14}/>
                           <span class="count">{$messageCounts.getCount(thread.id)}</span>
                         </button>
-                      {/if}
+                      {/if} -->
                       <button 
                         class="action-btn delete"
                         on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 />
                       </button>
                     </div>
                   </div>
@@ -1456,8 +1463,8 @@ onDestroy(() => {
                 </h3>
               </span>
             </div> -->
-            <span class="icon" on:click={startEditingThreadName}>
-              <h3>
+            <span on:click={startEditingThreadName}>
+              <h3 >
                 {currentThread.name}
               </h3>
             </span>
@@ -1478,6 +1485,10 @@ onDestroy(() => {
                       {getRandomQuote()}
                     </p>
                   </span>
+                  <div class="dashboard-items">
+                    <ProjectCard/> 
+                    <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+                  </div>
                   <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                     <textarea 
                       bind:this={textareaElement}
@@ -1577,16 +1588,13 @@ onDestroy(() => {
                   </div>
                   </div>
                 </div>     
-                <div class="dashboard-items">
-                  <ProjectCard/> 
-                  <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
-                </div>
+
               </div>
             </div>
           {/if}
         </div>
         {#if currentThread}
-          <div class="chat-messages" bind:this={chatMessagesDiv} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+          <div class="chat-messages" bind:this={chatMessagesDiv} transition:fly="{{ x: -300, duration: 300 }}">
             {#each groupMessagesByDate(chatMessages) as { date, messages }}
               <div class="date-divider">
                 {formatDate(date)}
@@ -1809,7 +1817,9 @@ onDestroy(() => {
     </div>
   </div>  
 </div>
-
+{:else}
+  <p>User is not authenticated</p>
+{/if}
 <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
 
 <style lang="scss">
@@ -2693,7 +2703,7 @@ onDestroy(() => {
     display: flex;
     flex-direction: row;
     width: 100%;
-    height: auto;
+    height: 100%;
     position: relative;
     justify-content: flex-start;
   }
@@ -2706,7 +2716,7 @@ onDestroy(() => {
 
     margin-bottom:2rem;
     overflow: hidden; 
-    justify-content: flex-end;
+    justify-content: space-between;
 
 
 
@@ -2756,7 +2766,6 @@ onDestroy(() => {
       font-size: 2rem;
 
       & :focus {
-        border-top: 1px solid rgb(20, 11, 11);
       color: white;
       animation: pulse 10.5s infinite alternate;
       box-shadow: none;
@@ -2765,7 +2774,7 @@ onDestroy(() => {
       display: flex;
       // background: var(--bg-gradient-left) !important;
           // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-          border-top: 1px solid var(--secondary-color) !important;
+          border-top: 4px solid var(--secondary-color) !important;
 
       box-shadow: none !important;
       
@@ -2792,7 +2801,7 @@ onDestroy(() => {
 
 
   width: 100%;
-  height: auto;
+  max-height: 400px;
   display: flex;
   flex-direction: column;
   background: var(--bg-gradient);
@@ -3187,10 +3196,11 @@ span.hero {
   flex-direction: column;
   padding: 1rem;
   position: absolute;
-  top: 0;
+  top: 2rem;
   justify-content: center;
   align-items: center;
   width: 100%;
+  gap: 0;
 
 
 
@@ -3201,7 +3211,7 @@ span.hero {
   & p {
     text-align: center;
     font-style: italic; 
-
+    margin: 0;
   }
 }
 
@@ -3213,7 +3223,7 @@ span.hero {
     background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
-    top: 0 !important;
+    top: 1rem;
     left: 0;
     right: 0;
     width: 100%;
@@ -3226,13 +3236,13 @@ span.hero {
     display: flex;
     // gap: 2rem;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
     transition: all 0.2s ease;
     backdrop-filter: blur(10px);
     & h3 {
       margin: 0;
       font-weight: 300;
-      font-size: var(--font-size-sm);    
+      font-size: var(--font-size-m);    
       font-weight: 600;
     line-height: 1.4;
     &.active {
@@ -3847,19 +3857,14 @@ span.hero {
 
 .dashboard-items {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  height: 95vh;
+  flex-direction: row;
+  justify-content: center;
   position: relative;
-
-  border-left: 1px solid var(--bg-color);
-  padding: 0;
-  width: 500px;
-  top: 0;
-  margin-left: 1rem;
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-  margin-right: 2rem;
+  border-top: 1px solid var(--secondary-color);
+  right: 2rem;
+  left: 0;
+  width: auto;
+  margin-top: 200px;
 }
 .message-time {
   font-size: 0.8em;
@@ -4006,7 +4011,8 @@ span.hero {
     align-items: center;
     justify-content: center;
     color: transparent;
-    width: auto;
+    width: 40px;
+    height: 40px;
     transition: all 0.1s ease;
     &.badge {
       padding: 0.5rem;
@@ -4233,12 +4239,11 @@ span.hero {
     flex-direction: row;
     right: 0;
     gap: 1rem;
-    height: 100%;
+    height: 40px;
     display: flex;
-    gap: 0.5rem;
     transform: translateX(100%);
     backdrop-filter: blur(100px);
-    background: var(--primary-color);
+    background: var(--bg-color);
     width: auto;
     border-radius: var(--radius-m);
     opacity: 0;
@@ -4630,13 +4635,7 @@ span.hero {
   
   @media (max-width: 1000px) {
 
-    .chat-container {
-      top: 3rem;
-      left: 0;
-      margin-left: 1rem;
-      width: auto;
-      right: 1rem;
-    }
+
     
     .thread-filtered-results {
       margin-bottom: 5rem;
@@ -4681,7 +4680,7 @@ span.hero {
     }
 
     .input-container-start {
-      height: 70vh;
+      height: 100%;
     }
     .drawer-toolbar {
       width:auto;
@@ -4720,11 +4719,10 @@ span.hero {
     }
 
     .dashboard-items {
-      flex-direction: row;
-      width: 100%;
-      border-left: none;
-      border-top: 1px solid var(--bg-color);
-      margin-right: 1rem;
+      flex-direction: column;
+      align-items: center;
+      width: 90%;
+      margin-left: 5%;
     }
     .thread-info input  {
       background-color: var(--secondary-color);
@@ -5032,9 +5030,14 @@ span.hero {
   .chat-container {
     right: 0;
     margin-right: 0;
-    width: 100%;
+    width: auto;
     margin-left: 0;
 
+  }
+
+  .chat-messages {
+    margin-right: 0;
+    right: 0;
   }
 
 
@@ -5061,37 +5064,14 @@ span.hero {
   }
 
   .chat-content {
-      width: 100%;
+      width: auto;
+      margin-right: 4rem;
       margin-left: 0;
     }
 
-  .chat-messages {
-    border: none;
-    background: none;
-    width: auto !important;
-    position: absolute;
-    left: 0rem;
-    right: 1rem;
-    top: 1rem;
-    bottom: 200px;
-    
-    z-index: inherit;
-    margin-top: 0 !important;
-    margin-right: 1rem;
-    margin-left: 0 !important;
-    margin-bottom: 4rem;
-    
-  }
 
-  .drawer-visible .chat-messages {
-    margin-left: 0 !important;
-    bottom: 0;
-    margin-bottom: 200px;
-    left: 0;
-    right:0;
-    top: 2rem;
-    width: auto;
-  }
+
+
 
 
 
@@ -5112,6 +5092,28 @@ span.hero {
 @media (max-width: 767px) {
   .input-container {
     bottom: 9rem;
+  }
+  .chat-container {
+    margin-left: 0;
+    margin-right: 0;
+    right: 0;
+    width: 100%;
+  }
+  .chat-content {
+    margin-right: 0;
+  }
+
+  .chat-header {
+    margin-top: 1rem;
+    padding: 1rem;
+    width: 90%;
+  }
+
+  .drawer-visible {
+    &.chat-container {
+      margin-left: 0;
+      left: 0;
+    }
   }
 }
 
