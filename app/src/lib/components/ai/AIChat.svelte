@@ -13,6 +13,7 @@
   import { messagesStore} from '$lib/stores/messagesStore';
 	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
+	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
@@ -1700,9 +1701,7 @@ onDestroy(() => {
               {/if}
               {#if $expandedSections.bookmarks}
                 <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                  <p>
-                    test
-                  </p>
+                  <MsgBookmarks/>
                 </div>
               {/if}
             </div>
@@ -4454,7 +4453,7 @@ span.hero {
 
   .section-content-bookmark {
     width: 100%;
-    height: 50vh;
+    height: 70vh;
     overflow: hidden;
     padding: 0.5rem 1rem;
     // background: var(--bg-gradient-left);
