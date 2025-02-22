@@ -447,7 +447,7 @@
 
 	.project {
 		position: relative;
-		margin-left: 3rem;
+		margin-left: 4rem;
 		z-index: 999;
 		display: flex;
 		align-items: center;
@@ -625,8 +625,9 @@
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
-		align-items: center;
+		align-items: flex-end;
 		height: 60px;
+		position: relative;
 		margin-right: 0;
 		user-select: none;
 	}
@@ -1155,8 +1156,11 @@
 			display: none;
 		}
 
-		.logo-container {
-			margin-left: 0;
+		.logo-container   {
+			width: 50%;
+			margin-left: 50%;
+			align-items: flex-end;
+			justify-content: flex-end;
 		}
 
 		header {
@@ -1188,7 +1192,7 @@
 		}
 
 		.project {
-		margin-left: 3rem;
+		margin-left: 0;
 	}
 
 	}
@@ -1197,6 +1201,9 @@
 		.project {
 		margin-left: 0;
 	}
+	.logo-container a {
+			display: none;
+		}
 	}
 
 	@media (max-width: 450px) {
@@ -1213,5 +1220,6 @@
 			display: flex;
 			flex-grow: 1;
 		}
+
 	}
 </style>

@@ -327,13 +327,7 @@
 	$: userId = $currentUser?.id;
 	$: aiModel = defaultAIModel;
 </script>
-<button class="fastlogin"
-	on:click={toggleAuth}
-	in:fly={{ y: 0, duration: 500, delay: 400 }}
-	out:fly={{ y: 50, duration: 500, delay: 400 }}
-	>
-	<LogIn/>
-</button>
+
 {#if pageReady}
 	{#if user}
 		{#if isLoading}
@@ -350,6 +344,13 @@
 			</div>
 		{/if}
 	{:else}
+		<button class="fastlogin"
+			on:click={toggleAuth}
+			in:fly={{ y: 0, duration: 500, delay: 400 }}
+			out:fly={{ y: 50, duration: 500, delay: 400 }}
+			>
+			<LogIn/>
+		</button>
 		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
 				<img

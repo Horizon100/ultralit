@@ -1,19 +1,20 @@
 import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
-import { pb } from '$lib/pocketbase';
+import { pb , ensureAuthenticated} from '$lib/pocketbase';
 import { ClientResponseError } from 'pocketbase';
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { threadsStore } from '$lib/stores/threadsStore';
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
 
-export function ensureAuthenticated(): void {
-	if (!pb.authStore.isValid) {
-		throw new Error('User is not authenticated');
-	}
-}
+const messageCache = new Map<string, {
+    messages: Messages[],
+    timestamp: number
+}>();
+const CACHE_DURATION = 1000
+
 export async function fetchThreads(): Promise<Threads[]> {
 	try {
-		ensureAuthenticated();
+        await ensureAuthenticated();
 		const userId = pb.authStore.model?.id;
 		if (!userId) {
 			throw new Error('User ID not found');
@@ -58,9 +59,11 @@ export async function fetchThreads(): Promise<Threads[]> {
 }
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
 	try {
-		ensureAuthenticated();
-		console.log(`Attempting to fetch messages for thread: ${threadId}`);
-
+        await ensureAuthenticated();
+		const cached = messageCache.get(threadId);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            return cached.messages;
+        }
 		const messages = await pb.collection('messages').getFullList<Messages>({
 			filter: `thread = "${threadId}"`,
 			sort: '-created'
@@ -70,7 +73,10 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
 			...message,
 			text: processMarkdown(message.text)
 		}));
-
+        messageCache.set(threadId, {
+            messages: processedMessages,
+            timestamp: Date.now()
+        });
 		console.log(`Fetched ${processedMessages.length} messages for thread ${threadId}`);
 		return processedMessages;
 	} catch (error) {

@@ -8,6 +8,7 @@
     import { onMount } from 'svelte';
     import { threadsStore } from '$lib/stores/threadsStore';
     import { t } from '$lib/stores/translationStore';
+    import { resetThread } from '$lib/clients/threadsClient';
 
     let isExpanded = false;
     let isCreatingProject = false;
@@ -21,6 +22,7 @@
     let editingProjectId: string | null = null;
     let editedProjectName = '';
     let filteredProjects: Projects[] = [];
+    let currentThreadId: string | null = null;  
 
     $: console.log('Store state:', $projectStore);
     $: console.log('Filtered projects:', filteredProjects);
@@ -65,8 +67,12 @@ async function handleCreateNewProject(nameOrEvent?: string | Event) {
 
 async function handleSelectProject(projectId: string) {
   console.log('Selecting project:', projectId);
+  if (currentThreadId) {
+      await resetThread(currentThreadId);
+      console.log('Thread reset complete');
+    }
   try {
-		ensureAuthenticated();
+		await ensureAuthenticated();
     await projectStore.setCurrentProject(projectId);
     console.log('Project selected, new store state:', $projectStore);
     
@@ -183,7 +189,7 @@ async function handleSelectProject(projectId: string) {
                   class="action-btn delete"
                   on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
                 >
-                  <Trash2 size={14} />
+                  <Trash2 />
                 </button>
               </div>
             </div>
@@ -433,6 +439,10 @@ async function handleSelectProject(projectId: string) {
       &.active {
         background: var(--tertiary-color);
         color: var(--text-color);
+        font-size: 100px; 
+        transform: translateX(1rem);
+        margin-right: 1rem;
+
       }
     }
 
@@ -460,7 +470,7 @@ async function handleSelectProject(projectId: string) {
 	}
   
     .project-name {
-      font-size: var(--font-size-s);
+      font-size: var(--font-size-sm);
     }
   
     .project-actions {
@@ -470,14 +480,16 @@ async function handleSelectProject(projectId: string) {
       transition: opacity 0.2s ease;
     }
   
-    .action-btn {
+    button.action-btn {
       background: transparent;
       border: none;
       color: var(--text-color);
       cursor: pointer;
       padding: 0.25rem;
       border-radius: var(--radius-s);
-  
+      &.delete {
+          color: red;
+        }
       &:hover {
         background: var(--secondary-color);
         

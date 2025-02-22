@@ -26,7 +26,8 @@ interface CursorChangeEvent {
 
 let publishTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPublishedPosition: { userId: string; x: number; y: number; name: string } | null = null;
-
+let lastAuthCheck = 0;
+const AUTH_CHECK_COOLDOWN = 5000;
 
 export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
 pb.autoCancellation(false);
@@ -58,9 +59,13 @@ console.log('PocketBase URL:', pb.baseUrl);
 
 export async function ensureAuthenticated(): Promise<boolean> {
 	console.log('Checking authentication...');
+	const now = Date.now();
+	if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && pb.authStore.isValid) {
+        return true;
+    }
+	lastAuthCheck = now;    
 	console.log('Current auth model:', pb.authStore.model);
 	console.log('Is auth valid?', pb.authStore.isValid);
-
 	if (!pb.authStore.isValid) {
 		console.log('Auth token is invalid. Attempting to refresh...');
 

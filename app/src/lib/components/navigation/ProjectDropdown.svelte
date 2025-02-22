@@ -7,6 +7,7 @@
     import type { Projects } from '$lib/types/types';
     import { onMount } from 'svelte';
     import { threadsStore } from '$lib/stores/threadsStore';
+    import { resetThread } from '$lib/clients/threadsClient';
 
     let dropdownContainer: HTMLElement;
     let isExpanded = false;
@@ -20,6 +21,7 @@
     let editingProjectId: string | null = null;
     let editedProjectName = '';
     let filteredProjects: Projects[] = [];
+    let currentThreadId: string | null = null;  
 
     $: console.log('Store state:', $projectStore);
     $: console.log('Filtered projects:', filteredProjects);
@@ -65,6 +67,10 @@ async function handleCreateNewProject(nameOrEvent?: string | Event) {
 async function handleSelectProject(projectId: string) {
   console.log('Selecting project:', projectId);
   try {
+    if (currentThreadId) {
+      await resetThread(currentThreadId);
+      console.log('Thread reset complete');
+    }
     threadsStore.update(state => ({
       ...state,
       showThreadList: true,

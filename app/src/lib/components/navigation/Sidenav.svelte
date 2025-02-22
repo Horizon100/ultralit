@@ -648,7 +648,6 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background-color: rgba(0, 0, 0, 0.5);
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -661,8 +660,6 @@
 		border: 1px solid rgb(69, 69, 69);
 		border-radius: 20px;
 		position: relative;
-		max-width: 90%;
-		max-height: 90%;
 		overflow: auto;
 	}
 
@@ -917,7 +914,7 @@
 	}
 
 
-	@media (max-width: 768px) {
+	@media (max-width: 1000px) {
 		
 		.profile-content {
 			width: 100%;
@@ -933,7 +930,7 @@
 			display: flex;
 			justify-content: center;
 			backdrop-filter: blur(30px);
-			background: var(--bg-gradient);
+			background: var(--bg-gradient-r);
 			height: 50px !important;
 			flex-direction: row;
 			height: auto;
@@ -957,12 +954,16 @@
 
 		.navigation-buttons {
 			flex-direction: row;
+			justify-content: space-around;
 		}
 
 		.bottom-buttons {
-			flex-direction: column;
+			flex-direction: row;
 			margin: 0;
-			gap: 8px;
+			bottom: 60%;
+			left: auto;
+			gap: 2rem;
+			height: 97vh;
 		}
 
 		.top-buttons {
@@ -994,11 +995,7 @@
 
 	@media (max-width: 450px) {
 
-		.bottom-buttons {
-			flex-direction: column;
-			margin: 0;
-			gap: 8px;
-		}
+
 
 		.top-buttons {
 			flex-direction: row;

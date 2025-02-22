@@ -9,7 +9,8 @@ export default {
 		pricing: 'Цены',
 		blog: 'Блог',
 		help: 'Помощь',
-		docs: 'Документы'
+		docs: 'Документы',
+		themes: 'Сменить тему'
 	},
 	lang: {
 		notification: 'Язык: русский',

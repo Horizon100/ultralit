@@ -1,8 +1,8 @@
-import type { Messages, AIModel, RoleType } from '$lib/types/types';
+
 import { fetchAIResponse } from '$lib/clients/aiClient';
-import { pb } from '$lib/pocketbase';
+import { pb, ensureAuthenticated} from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
-import { ensureAuthenticated } from '$lib/clients/threadsClient';
+import type { AIModel, RoleType, Messages } from '$lib/types/types';
 
 export async function generateThreadName(
 	userMessage: string,
@@ -25,7 +25,7 @@ export async function generateThreadName(
 		model: model.id
 	};
 	try {
-		ensureAuthenticated();
+		await ensureAuthenticated();
 		console.log('Sending prompt for thread name generation:', prompt);
 		const response = await fetchAIResponse([prompt], model.id, userId);
 		console.log('Received thread name suggestion:', response);
@@ -90,7 +90,7 @@ export async function updateThreadNameIfNeeded(
 		console.log('Updating thread with new name...');
 		await threadsStore.updateThread(threadId, { name: newName });
 		console.log("Thread updated. Now loading threads...");
-		await new Promise(resolve => setTimeout(resolve, 500));
+		await new Promise(resolve => setTimeout(resolve, 1000));
 		 await threadsStore.loadThreads();
 		 console.log('Thread list reloaded');
 		 

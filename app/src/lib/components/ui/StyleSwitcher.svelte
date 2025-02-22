@@ -132,7 +132,7 @@
       </span> -->
 	<!-- </div> -->
 	<!-- <svelte:component this={displayedStyle.icon} size={24} /> -->
-	<h1>Switch theme</h1>
+	<h2>{$t('nav.themes')}</h2>
 
 	<div class="style-list">
 		{#each $t('ui.styles') as style}
@@ -161,8 +161,8 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: auto;
-		padding: 1rem;
+		gap: 2rem;
+		padding: 2rem;
 		border-radius: 8px;
 		color: var(--text-color);
 		height: 100%;
@@ -198,7 +198,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		width: 50%;
+		width: 100%;
 		height: 100%;
 	}
 

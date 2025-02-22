@@ -9,7 +9,8 @@ export default {
 		pricing: 'Pricing',
 		blog: 'Blog',
 		help: 'Help',
-		docs: 'Docs'
+		docs: 'Docs',
+		themes: 'Switch themes'
 	},
 
 	lang: {

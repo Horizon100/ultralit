@@ -521,7 +521,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
           
           // Try to refresh threads but don't fail if it errors
           try {
-            await threadsStore.loadThreads();
+            // await threadsStore.loadThreads();
           } catch (refreshError) {
             console.error('Failed to refresh threads, keeping current state:', refreshError);
             // Restore previous thread state
@@ -1015,15 +1015,12 @@ async function handleLoadThread(threadId: string) {
         console.error('Error initializing:', error);
     }
 }
+
 projectStore.subscribe((state) => {
-  // projects = state.threads;
   currentProjectId = state.currentProjectId;
-  // currentProject = state.currentProject;
-  // filteredProjects = state.filteredProject;
   isEditingProjectName = state.isEditingProjectName;
   editedProjectName = state.editedProjectdName;
   if (currentProjectId) {
-    // Fetch threads for the selected project
     fetchThreadsForProject(currentProjectId).then(projectThreads => {
       threadsStore.update(state => ({
         ...state,
@@ -1032,53 +1029,38 @@ projectStore.subscribe((state) => {
     });
   }
 });
-
-// messagesStore.subscribe(value => messages = value);
-
-threadsStore.subscribe((state: ThreadStoreState) => {
-  threads = state.threads;
-  currentThreadId = state.currentThreadId;
-  messages = state.messages;
-  updateStatus = state.updateStatus;
-  // showThreadList = state.showThreadList;
-  // currentThread = state.currentThread;
-  filteredThreads = state.filteredThreads;
-  isEditingThreadName = state.isEditingThreadName;
-  editedThreadName = state.editedThreadName;
-  namingThreadId = state.namingThreadId; 
-});
-
-// Reactive statements for naming
-// $: {
-//   if (namingThreadId) {
-//     // Force refresh of current thread when naming starts
-//     currentThread = threads?.find(t => t.id === namingThreadId) || null;
-//   }
-// }
+$: {
+    const storeState = $threadsStore;
+    if (storeState) {
+        threads = storeState.threads;
+        currentThreadId = storeState.currentThreadId;
+        messages = storeState.messages;
+        updateStatus = storeState.updateStatus;
+        showThreadList = storeState.showThreadList;
+        isEditingThreadName = storeState.isEditingThreadName;
+        editedThreadName = storeState.editedThreadName;
+        namingThreadId = storeState.namingThreadId;
+    }
+}
 $: {
   if (namingThreadId) {
-    // Force a refresh of the current thread if it's being named
     if (currentThreadId === namingThreadId) {
       currentThread = threads?.find(t => t.id === currentThreadId) || null;
+      if (currentThread) {
+        threadsStore.update(state => ({
+          ...state,
+          isEditingThreadName: false,
+          namingThreadId: null
+        }));
+      }
     }
   }
 }
-$: {
-  if (currentThread && namingThreadId === currentThread.id) {
-    // Update UI when naming is complete
-    threadsStore.update(state => ({
-      ...state,
-      isEditingThreadName: false,
-      namingThreadId: null
-    }));
-  }
-}
-
-  $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
-  $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
-  $: selectedModelName = $modelStore?.selectedModel?.name || '';  
-  // $: showThreadList = $threadsStore.showThreadList;
-  $: promptType = $promptStore;
+$: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
+$: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
+$: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
+$: selectedModelName = $modelStore?.selectedModel?.name || '';  
+$: promptType = $promptStore;
 $: {
   if ($expandedSections.models) {
     showModelSelector = true;
@@ -1091,99 +1073,29 @@ $: {
     showPromptCatalog = false;
   }
 }
-// Handle seed prompt
 $: if (seedPrompt && !hasSentSeedPrompt) {
    console.log("Processing seed prompt:", seedPrompt);
    hasSentSeedPrompt = true;
    handleSendMessage(seedPrompt);
 }
-$: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
-
 $: {
   threadsStore.setSearchQuery(searchQuery);
 }
-
-
 $: bookmarkedMessages = derived([currentUser, messagesStore], ([$currentUser, $messages]) => {
     if ($currentUser && $currentUser.bookmarks && $messages) {
         return $messages.filter(message => $currentUser.bookmarks.includes(message.id));
     } else {
         return [];
     }
-});
+});      
 $: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
-// $: visibleThreads = orderedGroupedThreads.flatMap(group => group.threads);
-/*
- * Stage-based operations
- * UI state updates
- */
 $: console.log("isLoading changed:", isLoading);
 $: if ($currentUser?.avatar) {
    updateAvatarUrl();
 }
-
-
-/*
- * Store synchronization with visibility protection
- * $: {
- *    const storeState = $threadsStore;
- *    if (storeState) {
- *        threads = storeState.threads;
- *        currentThreadId = storeState.currentThreadId;
- *        messages = storeState.messages;
- *        updateStatus = storeState.updateStatus;
- */
-       
-/*
- *        // Only update showThreadList if threads exist and list should be visible
- *        if (storeState.threads?.length > 0 && (!showThreadList || storeState.showThreadList)) {
- *            showThreadList = true;
- *        }
- *    }
- * }
- */
-$: {
-    const storeState = $threadsStore;
-    if (storeState) {
-        threads = storeState.threads;
-        currentThreadId = storeState.currentThreadId;
-        messages = storeState.messages;
-        updateStatus = storeState.updateStatus;
-        showThreadList = storeState.showThreadList;
-    }
-}
-// $: groupedThreads = (filteredThreads || []).reduce((acc, thread) => {
-//    const group = getThreadDateGroup(thread);
-//    if (!acc[group]) acc[group] = [];
-//    acc[group].push(thread);
-//    return acc;
-// }, {} as Record<string, Threads[]>);
-/*
- * Maintain thread visibility
- * $: {
- *    if (currentThreadId && threads?.length > 0 && !showThreadList) {
- *        showThreadList = true;
- *        threadsStore.update(state => ({
- *            ...state,
- *            showThreadList: true
- *        }));
- *    }
- * }
- */
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
-/*
- *     $: if (threads?.length) {
- *   messageCountsStore.fetchBatch(threads, currentPage);
- * }
- */
-// $: {
-//     if ($threadsStore.currentThread) {
-//         currentThread = $threadsStore.currentThread;
-//     }
-// }
-
 $: {
     if (currentThread?.name) {
         orderedGroupedThreads = groupThreadsByDate(
@@ -1195,24 +1107,7 @@ $: {
         );
     }
 }
-
-// $: {
-//   if ($projectStore.currentProjectId) {
-//     console.log('Current project changed:', $projectStore.currentProjectId);
-//     loadProjectThreads($projectStore.currentProjectId);
-//   }
-// }
-// Lifecycle hooks
-// onMount(() => {
-// 		const interval = setInterval(() => {
-// 			deg += 2;
-// 			if (deg >= 360) deg = 0;
-// 			document.body.style.setProperty('--deg', deg);
-// 		}, 60);
-// 		return () => clearInterval(interval);
-// 	});
-
-  onMount(async () => {
+onMount(async () => {
   try {
     console.log('onMount initiated');
     isAuthenticated = await ensureAuthenticated();
@@ -1221,17 +1116,11 @@ $: {
       showAuth = true;
       return undefined;
     }
-
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
-
-    // First load projects
-    // await projectStore.loadProjects();
-
-    // If there's a current project, load its threads
     if ($projectStore.currentProjectId) {
       const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
       threadsStore.update(state => ({
@@ -1239,10 +1128,8 @@ $: {
         threads: projectThreads
       }));
     } else {
-      // If no project is selected, load all threads
       await threadsStore.loadThreads();
     }
-
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -1268,18 +1155,26 @@ onDestroy(() => {
   if (hideTimeout) {
     clearTimeout(hideTimeout);
   }
-  
   chatMessages = [];
   messages = [];
-  
   const url = new URL(window.location.href);
   url.searchParams.delete('threadId');
   url.searchParams.delete('messageId');
   url.searchParams.delete('autoTrigger');
   window.history.replaceState({}, '', url);
 });
+// Lifecycle hooks
+// onMount(() => {
+// 		const interval = setInterval(() => {
+// 			deg += 2;
+// 			if (deg >= 360) deg = 0;
+// 			document.body.style.setProperty('--deg', deg);
+// 		}, 60);
+// 		return () => clearInterval(interval);
+// 	});
 
 </script>
+
 {#if $currentUser}
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
@@ -2533,7 +2428,7 @@ onDestroy(() => {
     padding-top: 0;
     height: 100vh;
     margin-top: 0;
-    margin-left: 2rem;
+    margin-left: auto;
 
   }
 
@@ -2542,7 +2437,7 @@ onDestroy(() => {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background: var(--primary-color);
+    background: var(--bg-gradient);
     margin-left: 25vw;
     width: 50vw;
     height: auto;
@@ -2605,8 +2500,8 @@ onDestroy(() => {
     &.input-container {
       margin-left: 0;
     margin-right: 0;
-    left: 0;
-    width: 98%; 
+    left: 1rem;
+    width: 100%; 
       & textarea {
         margin-left: 0;
         height: auto;
@@ -2638,9 +2533,9 @@ onDestroy(() => {
     flex-grow: 1;
     width: auto;    
     margin-top: 0;
-    left: 0;
-    margin-right: 2rem;
-    right: auto;
+    left: 0.5rem;
+    margin-right: 0.5rem;
+    right: 0;
     bottom:3rem;
     height: auto;
     margin-bottom: 0;
@@ -2649,7 +2544,8 @@ onDestroy(() => {
     align-items: center;
     // background: var(--bg-gradient);
     z-index: 1;
-
+    border-radius: var(--radius-m);
+    border-top-right-radius: 0;
 
     &::placeholder {
       color: var(--placeholder-color);
@@ -2666,7 +2562,9 @@ onDestroy(() => {
       border: none;
       box-shadow: none;
       position: relative; 
-      border-radius: var(--radius-m);
+      // border-radius: var(--radius-m);
+      border-top-left-radius: var(--radius-m);
+      border-bottom-left-radius: var(--radius-m);
       // background-color: transparent;
       // margin-left: 7rem;
       transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
@@ -2674,8 +2572,8 @@ onDestroy(() => {
       color: var(--text-color);
       // background: transparent;
       display: flex;
-      width: 100%;
-      // backdrop-filter: blur(40px);
+      max-height: 400px;
+      // backdrop-filter: blur(40 px);
       // & :focus {
       //   border-top: 1px solid red;
       // color: white;
@@ -2712,25 +2610,29 @@ onDestroy(() => {
     flex-direction: column;
     position: relative;
     border-radius: var(--radius-l);
-    width: 100%;    
-
-    margin-bottom:2rem;
+    flex-grow: 1;
+    width: auto;       
+    margin-top: 0;
+    left: 0.5rem;
+    margin-right: 1.5rem;
+    right: 0;
+    bottom: 2rem;
     overflow: hidden; 
-    justify-content: space-between;
-
-
+    justify-content: flex-end;
+    align-items: center;
+    transition: height 0.3s ease;
 
 
     & .submission {
   display: flex;
   flex-direction: row;
-  height: 60px;
+  height: 80px;
   justify-content: center;
   align-self: center;
   width: 100%;
   z-index: 6000;
   gap: 2rem;
-  transition: height 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--radius-m);
   margin-bottom: 2rem;
   background: transparent;
@@ -2749,27 +2651,25 @@ onDestroy(() => {
     & textarea {
       border: none;
       box-shadow: none;
-      border-top-left-radius: var(--radius-m);
-      border-top-right-radius: var(--radius-m);
+      border-radius: var(--radius-l);
+      transition: all 0.3s ease;
+
       background: transparent;
-      left: 0;
       // margin-left: 7rem;
-      transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
       // padding-left: 1rem;
-      padding: 2rem;
       // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
       color: var(--text-color);
       // background: transparent;
       display: flex;
-      width: auto;
       // backdrop-filter: blur(40px);
-      font-size: 2rem;
-
+      font-size: 1.5rem;
+      max-height: 400px;
       & :focus {
       color: white;
       animation: pulse 10.5s infinite alternate;
       box-shadow: none;
       overflow-y: auto !important;
+      transition: all 0.3s ease;
 
       display: flex;
       // background: var(--bg-gradient-left) !important;
@@ -2798,23 +2698,31 @@ onDestroy(() => {
 
   border-radius: var(--radius-m);
   margin-bottom: 0;
-
-
+  height: auto;
   width: 100%;
-  max-height: 400px;
+  margin-left: 1rem;
   display: flex;
   flex-direction: column;
-  background: var(--bg-gradient);
-
+  // background: var(--bg-gradient);
+  
   // backdrop-filter: blur(40px);
   & textarea {
     // max-height: 50vh;
-    margin-left: 1rem;
-  
+    margin-left: 0;
+    transition:all 0.3s ease;
+    z-index: 1000;
+    cursor: pointer;
+    background: var(--primary-color);
+
   &:focus {
       box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
       // border-bottom: 1px solid var(--placeholder-color);
     // border-top-left-radius: 0;
+    height: 400px;
+    border-top: 1px solid var(--secondary-color);
+    border-left: 1px solid var(--secondary-color);
+    border-bottom: 1px solid var(--secondary-color);
+    background: var(--primary-color);
 
   }
 }
@@ -2846,7 +2754,8 @@ color: #6fdfc4;
 .submission {
   display: flex;
   flex-direction: row;
-
+  margin-right: 1rem;
+  margin-bottom: 1rem;
   width: auto;
   justify-content: center;
   align-self: center;
@@ -2874,7 +2783,7 @@ color: #6fdfc4;
     position: relative;
     left: 1rem;
     right: 3rem;
-    margin-bottom: 12rem;
+    margin-bottom: 3rem;
     // margin-top: 1rem;
     // left: 25%;
     padding: 1rem;
@@ -3004,7 +2913,7 @@ color: #6fdfc4;
     padding: 1rem 1rem;
     gap: 1rem;
     margin-bottom: 1rem;
-    width: 98;
+    width: auto;
     letter-spacing: 1px;
     line-height: 1;
     transition: all 0.3s ease-in-out;
@@ -3197,7 +3106,7 @@ span.hero {
   padding: 1rem;
   position: absolute;
   top: 2rem;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
   width: 100%;
   gap: 0;
@@ -3209,9 +3118,10 @@ span.hero {
   }
 
   & p {
-    text-align: center;
+    text-align: right;
+    margin-left: 1rem;
     font-style: italic; 
-    margin: 0;
+    
   }
 }
 
@@ -3239,11 +3149,16 @@ span.hero {
     justify-content: center;
     transition: all 0.2s ease;
     backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--secondary-color);
+
     & h3 {
       margin: 0;
+      padding-bottom: 1rem;
       font-weight: 300;
       font-size: var(--font-size-m);    
+      text-align: center;
       font-weight: 600;
+      width: 90vw !important;
     line-height: 1.4;
     &.active {
       // background: var(--primary-color) !important;
@@ -3863,7 +3778,7 @@ span.hero {
   border-top: 1px solid var(--secondary-color);
   right: 2rem;
   left: 0;
-  width: auto;
+  width: 100%;
   margin-top: 200px;
 }
 .message-time {
@@ -4088,7 +4003,7 @@ span.hero {
   position: relative;
   top: 0;
   bottom: 0;
-  left: 2rem;
+  left: 4rem;
   margin-left: 0;
   height: 100vh;
   width: calc(400px - 4rem);
@@ -4356,8 +4271,8 @@ span.hero {
 
   .scroll-bottom-btn {
     position: fixed;
-    bottom: 10rem !important;
-    right: 2rem;
+    bottom: 50% !important;
+    right: 1rem;
     background-color: #21201d;
     color: white;
     border: 1px solid rgba(53, 63, 63, 0.5);
@@ -4369,7 +4284,7 @@ span.hero {
     justify-content: center;
     cursor: pointer;
     transition: background-color 0.3s;
-    z-index: -1 !important;
+    z-index: 6;
     align-self: flex-end;
     margin-right: 0;
     margin-bottom: 0;
@@ -4482,7 +4397,7 @@ span.hero {
     color: white;
     z-index: 10000;
     margin-bottom: 2rem;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(200px);
     border-radius: var(--radius-l);
   }
 
@@ -4635,21 +4550,31 @@ span.hero {
   
   @media (max-width: 1000px) {
 
+span.hero {
+  margin-top: 3rem;
+  top: 3rem;
+  align-items: flex-end;
+  margin-right: 2rem;
+  & h3 {
+    font-size: 2rem;
+  }
+}
 
     
     .thread-filtered-results {
       margin-bottom: 5rem;
     }
     .chat-content {
-      width: 100%;
-      margin-left: 0;
+      margin-left: 0 !important;
+      
     }
 
     .chat-messages {
       width: auto;
       margin-right: 0;
       right: 0;
-      
+      top: 2rem;
+      z-index: 0;
     }
 
     .drawer-header {
@@ -4681,12 +4606,13 @@ span.hero {
 
     .input-container-start {
       height: 100%;
+      margin-bottom: 7rem;
     }
     .drawer-toolbar {
       width:auto;
 
       margin-bottom: 1rem;
-      left: 5rem;
+      left: 1rem;
       right: 0;
       margin-top: 1rem;
       margin-right: 0;
@@ -4700,6 +4626,7 @@ span.hero {
       color: var(--text-color);
       text-align: left;
       display: flex;
+      gap: 2rem;
       align-items: center;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
@@ -4721,8 +4648,11 @@ span.hero {
     .dashboard-items {
       flex-direction: column;
       align-items: center;
+      justify-content: flex-start;
       width: 90%;
+      margin-top: 0;
       margin-left: 5%;
+      top: 100px;
     }
     .thread-info input  {
       background-color: var(--secondary-color);
@@ -4819,7 +4749,16 @@ span.hero {
     }
 
     .drawer-visible .chat-container {
+      display: flex;
+      z-index: -1;
+      left: 0 !important;
+      width: 100% !important;
+
+    }
+
+    .drawer-visible .scroll-bottom-btn {
       display: none;
+
     }
 
 
@@ -4834,16 +4773,23 @@ span.hero {
       border-radius: 5px;
     }
   .drawer-container {
-      /* background-color: red; */
-      width: auto;
+    width: auto;
       margin-right: 2rem;
-      
 
     }
   .drawer {
-      width: 100%;
+      width: auto;
+      margin-right:0;
+      margin-bottom: 100px;
+      backdrop-filter: blur(100px);
+      border-top: 1px solid var(--primary-color);
+      border-right: 1px solid var(--primary-color);
       padding: 0;
-
+      left: 0;
+      z-index: 1;
+      box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+      border-top-right-radius: var(--radius-l);
+      border-bottom-right-radius: var(--radius-l);
     }
     
 
@@ -4853,11 +4799,9 @@ span.hero {
     }
 
     .input-container {
-      width: 97%;
-      bottom: 5rem;
+      margin-right: 0;
+      margin-bottom: 100px;
     }
-
-
 
     .chat-messages {
       right: 0rem !important;
@@ -4904,7 +4848,9 @@ span.hero {
 }
 
   
-
+.chat-header {
+  top: 2rem;
+}
 
 .btn-col-left:hover {
   width: 96%;
@@ -4967,14 +4913,30 @@ span.hero {
 
     .message.assistant  {
     width: 100%;    /* border: 1px solid black; */
+      
+    }
 
+    .message.user {
+      display: flex;
+      flex-direction: column;
+      align-self: center;
+      color: var(--text-color);
+      background-color: var(--secondary-color);
+      border-radius: var(--radius-m);
+      height: auto;
+      margin-right: 0;
+      width: 100%;
+      font-weight: 500;
+      // background: var(--bg-color);
+      border: {
+        // top: 1px solid var(--primary-color);
+        // left: 1px solid red;
+      }
     }
     
 }
 @media (max-width: 1900px) {
-  .input-container {
-    margin-right: 5rem;
-  }
+
   .thread-info {
   display: flex;
   flex-direction: column;
@@ -5042,8 +5004,7 @@ span.hero {
 
 
     &.input-container {
-      left: 0;
-      width: calc(70% - 3rem);
+      width: 100%;
 
 
       & textarea {
@@ -5065,8 +5026,8 @@ span.hero {
 
   .chat-content {
       width: auto;
-      margin-right: 4rem;
-      margin-left: 0;
+      margin-right: 0;
+      margin-left: 4rem;
     }
 
 
@@ -5091,7 +5052,14 @@ span.hero {
 
 @media (max-width: 767px) {
   .input-container {
-    bottom: 9rem;
+    bottom: 1rem;
+  }
+  .input-container-start {
+    margin-bottom: 0;
+    left: 0.5rem;
+    margin-right: 1.5rem;
+    right: 0;
+    width: 100%;
   }
   .chat-container {
     margin-left: 0;
@@ -5103,10 +5071,16 @@ span.hero {
     margin-right: 0;
   }
 
-  .chat-header {
-    margin-top: 1rem;
-    padding: 1rem;
-    width: 90%;
+  // .chat-header {
+  //   margin-top: 1rem;
+  //   padding: 1rem;
+  //   width: 90%;
+  // }
+
+  .chat-messages {
+    margin-right: 2rem;
+    margin-left: 0rem;
+
   }
 
   .drawer-visible {
