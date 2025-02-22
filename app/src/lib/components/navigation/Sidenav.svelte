@@ -239,7 +239,7 @@
 	>
 		{#if $currentUser}
 		<button 
-			class="nav-button" 
+			class="nav-button user" 
 			class:expanded={isNavExpanded}
 			on:click={toggleAuthOrProfile}
 		>
@@ -832,7 +832,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: blue;
 		position: fixed;
 		bottom: 0;
 		width: 100%;
@@ -960,10 +959,10 @@
 		.bottom-buttons {
 			flex-direction: row;
 			margin: 0;
-			bottom: 60%;
-			left: auto;
+
+			right: 2rem;
 			gap: 2rem;
-			height: 97vh;
+			height: 96vh;
 		}
 
 		.top-buttons {

@@ -446,8 +446,10 @@
 	}
 
 	.project {
-		position: relative;
-		margin-left: 4rem;
+		position: absolute;
+		width: 60%;
+		left: 4rem;
+		top: 0.5rem;
 		z-index: 999;
 		display: flex;
 		align-items: center;
@@ -1154,6 +1156,14 @@
 		.nav-links,
 		h1 {
 			display: none;
+		}
+
+		.project {
+			position: absolute;
+			width: 60%;
+			left: 1rem;
+			top: 0.5rem;
+
 		}
 
 		.logo-container   {

@@ -234,6 +234,8 @@ onMount(() => {
       min-width: 150px;
       z-index: 1;
       user-select: none;
+      width: 100%;
+
       
     }
   
@@ -245,7 +247,8 @@ onMount(() => {
       padding: 0.5rem 1rem;
       width: 100%;
       display: flex;
-      align-items: center;
+      align-items: left;
+      justify-content: left;
       border-radius: var(--radius-m);
       transition: all 0.2s ease;
   
@@ -259,7 +262,7 @@ onMount(() => {
       align-items: center;
       gap: 0.5rem;
       
-      font-size: var(--font-size-s);
+      font-size: var(--font-size-m);
       
       .icon {
         transition: transform 0.2s ease;
@@ -273,9 +276,10 @@ onMount(() => {
     .dropdown-content {
       position: absolute;
       top: 0;
-      left: 2.5rem;
+      right: 0;
       min-width: 200px;
       height: 2rem;
+      width: 90%;
       border: 1px solid var(--secondary-color);
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
