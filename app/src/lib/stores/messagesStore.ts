@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { Messages } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
-import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark } from '$lib/clients/threadsClient';
+import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark, updateMessage} from '$lib/clients/threadsClient';
 
 function createMessagesStore() {
 	
@@ -20,6 +20,18 @@ function createMessagesStore() {
 				return newMessage;
 			} catch (error) {
 				console.error('Error adding message:', error);
+				throw error;
+			}
+		},
+		updateMessage: async (id: string, data: Partial<Messages>) => {
+			try {
+				const updatedMessage = await updateMessage(id, data);
+				update((messages) => 
+					messages.map(msg => msg.id === id ? { ...msg, ...data } : msg)
+				);
+				return updatedMessage;
+			} catch (error) {
+				console.error('Error updating message:', error);
 				throw error;
 			}
 		},

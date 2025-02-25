@@ -447,13 +447,13 @@
 
 	.project {
 		position: absolute;
-		width: 60%;
+		width: auto;
 		left: 4rem;
-		top: 0.5rem;
-		z-index: 999;
+		top: 0;
+		// z-index: 999;
 		display: flex;
 		align-items: center;
-		overflow: visible; 
+		// overflow: visible; 
 	}
 
 	.profile-content {
@@ -1160,10 +1160,8 @@
 
 		.project {
 			position: absolute;
-			width: 60%;
-			left: 1rem;
-			top: 0.5rem;
-
+			left: 0;
+			top: 0;
 		}
 
 		.logo-container   {

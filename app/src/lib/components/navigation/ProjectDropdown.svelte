@@ -8,6 +8,7 @@
     import { onMount } from 'svelte';
     import { threadsStore } from '$lib/stores/threadsStore';
     import { resetThread } from '$lib/clients/threadsClient';
+    import { t } from '$lib/stores/translationStore';
 
     let dropdownContainer: HTMLElement;
     let isExpanded = false;
@@ -162,11 +163,13 @@ onMount(() => {
       >
         <div class="dropdown-header">
           <div class="search-bar">
-            <Search />
+            <span>
+              <Search />
+            </span>
             <input
               type="text"
               bind:value={searchQuery}
-              placeholder="Search projects..."
+              placeholder={$t('nav.searchProjects')}
             />
           </div>
           <button 
@@ -231,11 +234,9 @@ onMount(() => {
     .dropdown-container {
       position: relative;
       display: inline-block;
-      min-width: 150px;
+      width: auto;
       z-index: 1;
       user-select: none;
-      width: 100%;
-
       
     }
   
@@ -244,14 +245,14 @@ onMount(() => {
       border: none;
       color: var(--text-color);
       cursor: pointer;
-      padding: 0.5rem 1rem;
-      width: 100%;
+      // padding: 0.5rem 1rem;
       display: flex;
       align-items: left;
-      justify-content: left;
+      justify-content: center;
       border-radius: var(--radius-m);
       transition: all 0.2s ease;
-  
+      height: 3rem;
+
       &:hover {
         background: var(--secondary-color);
       }
@@ -260,8 +261,8 @@ onMount(() => {
     .trigger-text {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      
+      gap: 1.5rem;
+      padding-right: 1rem;
       font-size: var(--font-size-m);
       
       .icon {
@@ -276,41 +277,53 @@ onMount(() => {
     .dropdown-content {
       position: absolute;
       top: 0;
-      right: 0;
-      min-width: 200px;
+      left: 0;
+      width: 370px;
       height: 2rem;
-      width: 90%;
-      border: 1px solid var(--secondary-color);
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
-      border-top-left-radius: var(--radius-s);
-      border-top-right-radius: var(--radius-s);
     }
   
     .dropdown-header {
       display: flex;
-      height: 2rem;
+      height:4rem;
       gap: 0;
-      border-bottom: 1px solid var(--secondary-color);
-      background: var(--secondary-color);
+      background: red;
+      background-color: var(--primary-color);
+      border-top-left-radius: var(--radius-m);
+      border-top-right-radius: var(--radius-m);
+      border: 1px solid var(--secondary-color);
+      border-bottom: none;
+      // border-bottom: 1px solid var(--secondary-color);
+      // border-radius: 2rem;
+
     }
   
     .search-bar {
       display: flex;
-      align-items: center;
       gap: 0.5rem;
+      margin-left: 0.5rem;
+      margin-right: 0.5rem;
+      margin-top: 0.5rem;
+      border-radius: var(--radius-l);
       flex: 1;
       color: var(--text-color);
       padding: 0.25rem 0.5rem;
-
+      background: var(--secondary-color);
 
       input {
-        background: transparent;
         border: none;
+        border-radius: var(--radius-m);
         color: var(--text-color);
-        width: 100%;
+        background: var(--secondary-color);
         outline: none;
-  
+        line-height: 1.5;
+        justify-content: center;
+        text-align: left;
+        font-size: var(--font-size-sm);
+        transition: all 0.3s ease;
+        &:focus {
+        }
         &::placeholder {
           color: var(--placeholder-color);
         }
@@ -322,11 +335,15 @@ onMount(() => {
       border: none;
       color: var(--text-color);
       cursor: pointer;
-      padding: 0.25rem;
-      border-radius: var(--radius-s);
+      padding: 0.25rem 0.5rem;
+      border-radius:50%;
+      width: 3.5rem;
+      height: 3.5rem;
+      margin-right: 0.5rem;
+      margin-top: 0.5rem;
   
       &:hover {
-        background: var(--primary-color);
+        background: var(--secondary-color);
         color: var(--tertiary-color);
       }
     }
@@ -371,13 +388,18 @@ onMount(() => {
     }
   
     .projects-list {
-      max-height: 300px;
+      max-height: 400px;
+      width: auto;
+      border: 1px solid var(--secondary-color);
+      border-top: none;
+      margin-right: 0;
+      margin-left: 0;
+      border-bottom-left-radius: var(--radius-m);
+      border-bottom-right-radius: var(--radius-m);
       overflow-y: auto;
       scrollbar-color: var(--secondary-color) transparent;
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--secondary-color);
-      border-right: 1px solid var(--secondary-color);
-      border-left: 1px solid var(--secondary-color);
+      background: var(--bg-gradient);
+      box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
 
     }
   
@@ -405,7 +427,7 @@ onMount(() => {
     }
   
     .project-name {
-      font-size: var(--font-size-s);
+      font-size: var(--font-size-sm);
     }
   
     .project-actions {
@@ -429,6 +451,64 @@ onMount(() => {
         &.delete {
           color: red;
         }
+      }
+    }
+
+    @media (max-width: 1000px) {
+
+    .dropdown-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      z-index: 1;
+      user-select: none;
+      left:0;
+      margin-left: 0;
+    }
+
+    .dropdown-header {
+      display: flex;
+      height: 4rem;
+      top: 0;
+      gap: 0;
+      border-bottom: 1px solid var(--secondary-color);
+      background: var(--secondary-color);
+      border-radius: 0;
+    }
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      color: var(--text-color);
+      input {
+        background: transparent;
+        border: none;
+        color: var(--text-color);
+        width: 90%;
+        outline: none;
+        font-size: var(--font-size-sm);
+
+        &::placeholder {
+          color: var(--placeholder-color);
+        }
+      }
+    }
+  
+      .dropdown-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .projects-list {
+        max-height: 400px;
+        margin-right: 0;
+        margin-left: 0;
+        box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
+
       }
     }
   </style>

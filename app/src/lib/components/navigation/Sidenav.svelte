@@ -166,15 +166,15 @@
 		isNavExpanded = !isNavExpanded;
 	}
 
-	function setActiveLink(path: string) {
-		goto(path);
-		setactiveLink = path;
-	}
+	// function setActiveLink(path: string) {
+	// 	goto(path);
+	// 	setactiveLink = path;
+	// }
 
-	function handleLogoClick(event: MouseEvent) {
-		event.preventDefault();
-		setActiveLink('/');
-	}
+	// function handleLogoClick(event: MouseEvent) {
+	// 	event.preventDefault();
+	// 	setActiveLink('/');
+	// }
 	function toggleAuthOrProfile() {
 		if ($currentUser) {
 			showProfile = !showProfile;
@@ -315,7 +315,7 @@
 					<span class="nav-text">Lean</span>
 				{/if}
 			</button>
-			<div class="bottom-buttons">
+			<!-- <div class="bottom-buttons">
 				<button
 					class="nav-button config"
 					class:expanded={isNavExpanded}
@@ -338,7 +338,7 @@
 						<span class="nav-text">Settings</span>
 					{/if}
 				</button>
-			</div>
+			</div> -->
 
 			<button class="nav-button toggle" on:click={toggleNav}>
 				{#if isNavExpanded}
@@ -915,14 +915,12 @@
 
 	@media (max-width: 1000px) {
 		
-		.profile-content {
-			width: 100%;
-			margin-left: 0;
-		}
+
 
 		.profile-overlay {
 			margin-left: 0;
 			left: 0;
+			height: 100%;
 		}
 		
 		.sidenav {
@@ -959,10 +957,10 @@
 		.bottom-buttons {
 			flex-direction: row;
 			margin: 0;
-
-			right: 2rem;
+			left: auto;
+			width: 7rem;
 			gap: 2rem;
-			height: 96vh;
+			height: 97vh;
 		}
 
 		.top-buttons {

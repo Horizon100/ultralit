@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
 	import { pb } from '$lib/pocketbase';
-	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon } from 'lucide-svelte';
+	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon, Pen } from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
@@ -260,8 +260,8 @@
 					</button>
 				{:else}
 					<button on:click={toggleEdit}>
-						<TextCursorIcon/>
-
+						<!-- <TextCursorIcon/> -->
+						 <Pen/>
 						<span>{$t('profile.edit')}</span>
 					</button>
 				{/if}
@@ -350,8 +350,6 @@
         color: #ffffff;
         /* border: 1px solid rgb(53, 53, 53); */
 		border-radius: 20px;
-		justify-content: center;
-		align-items: center;
 		/* gap: 20px; */
 		/* height: 50px; */
 		/* padding: 10px 20px; */
@@ -363,8 +361,15 @@
 		display: flex;
 		flex-direction: row;
 		gap: 1rem;
+		user-select: none;
 	}
 
+	.modal-content {
+		height: auto;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+	}
 	.modal-content {
 		/* background: linear-gradient(
             to top, 
@@ -623,10 +628,10 @@
 
 	.style-overlay {
 		position: absolute;
-		top: 0;
+		top: auto;
 		left: 0;
-		padding: 2rem;
-		width: 100%;
+		margin-top: 1rem;
+		width: 450px;
 		height: auto;
 		display: flex;
 		justify-content: right;
@@ -641,8 +646,8 @@
 		border: 1px solid rgb(69, 69, 69);
 		border-radius: 50px;
 		position: relative;
-		width: 100%;
 		height: 100%;
+		width: 100%;
 		overflow: auto;
 	}
 
@@ -695,11 +700,17 @@
 	}
 
 	@media (max-width: 1000px) {
+
+		.modal-overlay {
+			width:93vw;
+			justify-content: flex-start;
+			height: 100%;
+		}
 		
 		.style-overlay {
-			margin-top: 0rem;
-			margin-left: 0;
-			left: 0;
+			top: auto;
+			left: auto;
+			width: 100vw;
 			height: fit-content;
 		}
 

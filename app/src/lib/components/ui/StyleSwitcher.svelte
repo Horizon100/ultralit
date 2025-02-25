@@ -169,6 +169,10 @@
 		width: 100%;
 	}
 
+	h2 {
+		margin-top: 1rem;
+		user-select: none;
+	}
 	.current-style {
 		display: flex;
 		flex-direction: column;

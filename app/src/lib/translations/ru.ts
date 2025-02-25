@@ -10,7 +10,9 @@ export default {
 		blog: 'Блог',
 		help: 'Помощь',
 		docs: 'Документы',
-		themes: 'Сменить тему'
+		themes: 'Сменить тему',
+		searchProjects: 'Поиск проектов...'
+
 	},
 	lang: {
 		notification: 'Язык: русский',

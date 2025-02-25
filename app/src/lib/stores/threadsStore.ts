@@ -25,6 +25,8 @@ function createThreadsStore() {
 		updateStatus: string;
 		isThreadsLoaded: boolean;
 		showThreadList: boolean;
+		isEditingThreadName: boolean;
+		editedThreadName: string; 
 		searchQuery: string;
 		namingThreadId: string | null;
 		selectedTagIds: Set<string>;

@@ -10,7 +10,8 @@ export default {
 		blog: 'Blog',
 		help: 'Help',
 		docs: 'Docs',
-		themes: 'Switch themes'
+		themes: 'Switch themes',
+		searchProjects: 'Search projects...'
 	},
 
 	lang: {

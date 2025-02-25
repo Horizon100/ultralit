@@ -123,7 +123,6 @@ function createProjectStore() {
 			}));
 		},
 
-		// Derived stores
 		getCurrentProject: derived(
 			store,
 			($store) => $store.threads.find((p) => p.id === $store.currentProjectId) || null

@@ -158,16 +158,15 @@
 	.stats-container {
 		// background: var(--bg-gradient);
 		backdrop-filter: blur(10px);
-		border-radius: 20px;
-		padding: 2rem;
+		// padding: 2rem;
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
 		width: 100%;
+		max-width: 600px;
 		height: auto;
 		margin-top: 0;
 		margin-left: 0;
-
 		position: relative;
 		overflow: hidden;
 		
