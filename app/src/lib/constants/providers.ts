@@ -3,6 +3,7 @@ import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
 import grokIcon from '$lib/assets/icons/providers/x.svg';
+import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg'; 
 
 export interface ProviderConfig {
 	name: string;
@@ -11,7 +12,7 @@ export interface ProviderConfig {
 	validateApiKey: (apiKey: string) => Promise<boolean>;
 }
 
-export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok';
+export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek';
 
 const handleFetchError = (provider: string) => (error: any) => {
 	if (error.response?.status === 401) {
@@ -173,9 +174,52 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
 			return [];
 		}
+	},
+	deepseek: {
+		name: 'Deepseek',
+		icon: deepseekIcon,
+		validateApiKey: async (apiKey: string): Promise<boolean> => {
+			try {
+				const response = await fetch('https://api.deepseek.com/v1/models', {
+					headers: { Authorization: `Bearer ${apiKey}` }
+				});
+				return response.status === 200;
+			} catch {
+				return false;
+			}
+		},
+		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
+			try {
+				const response = await fetch('https://api.deepseek.com/v1/models', {
+					headers: { Authorization: `Bearer ${apiKey}` }
+				});
+
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const data = await response.json();
+				return data.data.map((model: any) => ({
+					id: `deepseek-${model.id}`,
+					name: model.id,
+					provider: 'deepseek' as ProviderType,
+					api_key: apiKey,
+					base_url: 'https://api.deepseek.com/v1',
+					api_type: model.id,
+					api_version: '',
+					description: `Deepseek ${model.id} model`,
+					user: [],
+					created: new Date().toISOString(),
+					updated: new Date().toISOString(),
+					collectionId: 'models',
+					collectionName: 'models'
+				}));
+			} catch (error) {
+				throw handleFetchError('Deepseek')(error);
+			}
+		}
 	}
 };
-
 export const fetchAllProviderModels = async (
 	selectedProviders: ProviderType[],
 	apiKeys: Record<ProviderType, string>

@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import { messagesStore} from '$lib/stores/messagesStore';
@@ -184,6 +184,9 @@ const defaultAIModel: AIModel = {
 const handleTextareaFocus = () => {
   clearTimeout(hideTimeout);
   isTextareaFocused = true;
+  showPromptCatalog = false;
+  showModelSelector = false;
+
 };
 const handleTextareaBlur = () => {
   hideTimeout = setTimeout(() => {
@@ -727,6 +730,7 @@ async function handleCreateNewThread(message = '') {
 
             currentThreadId = newThread.id;
             showPromptCatalog = false;
+            showModelSelector = false;
             await handleLoadThread(newThread.id);
             if (message) {
                 await handleSendMessage(message);
@@ -1341,6 +1345,9 @@ onDestroy(() => {
                 </span>
               </div> -->
               <span on:click={startEditingThreadName}>
+                <div class="icon" in:fade>
+                <Quote/>
+                </div>
                 <h3 >
                   {currentThread.name}
                 </h3>
@@ -1430,6 +1437,8 @@ onDestroy(() => {
                         <span 
                           class="btn"
                           transition:fade
+                          class:visible={isTextareaFocused}
+
                           on:click={() => toggleSection('models')}
                           >
                             <span class="icon">
@@ -1486,10 +1495,11 @@ onDestroy(() => {
                     {#if $expandedSections.models}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                         <ModelSelector
-                          on:select={(event) => {
-                            showModelSelector = !showModelSelector;
-                            console.log('Parent received selection from catalog:', event.detail);
-                          }}
+                        on:select={(event) => {
+                            
+                          showModelSelector = !showModelSelector;
+                          console.log('Parent received selection from catalog:', event.detail);
+                        }}
                         />
                       </div>
                     {/if}
@@ -2528,9 +2538,11 @@ onDestroy(() => {
     justify-content: flex-end;
     align-items: center;
     gap: 1rem;
-    z-index: 8000;
+    height: auto;
+    // z-index: 8000;
     margin-right: 2rem;
     margin-top: 1rem;
+    background: var(--bg-gradient-r);
   }
   
   .avatar-container {
@@ -2753,8 +2765,10 @@ onDestroy(() => {
   height: auto;
   width: 100%;
   margin-left: 0;
+  bottom: 0;
   left: 0;
   display: flex;
+  position: absolute;
   flex-direction: column;
   // background: var(--bg-gradient);
   // backdrop-filter: blur(40px);
@@ -2964,13 +2978,12 @@ color: #6fdfc4;
     gap: 1rem;
     margin-bottom: 1rem;
     width: auto;
-    letter-spacing: 1px;
+		letter-spacing: 0.2rem;
     line-height: 1;
     transition: all 0.3s ease-in-out;
 
     & p {
-      // font-size: calc(10px + 1vmin);
-      font-size: var(--font-size-sm);
+      font-size: calc(1rem + 1vmin);
       margin: 0;
       padding-left: 0.5rem;
       display: flex;
@@ -3204,6 +3217,23 @@ color: #6fdfc4;
     display: flex;
     align-items: center;
     justify-content: center;
+    letter-spacing: 0.2rem;
+
+    & .icon {
+      color: var(--placeholder-color);
+      margin-bottom: 1rem;
+
+    }
+
+    & span {
+      gap: 0.5rem;
+    }
+    h3 {
+    font-style: italic;
+      font-size: calc(1rem + 1vmin);
+      font-weight: 500;
+
+    }
   }
   .drawer-tab {
     display: flex;
@@ -4513,7 +4543,7 @@ color: #6fdfc4;
     display: flex;
     justify-content: center;
     align-items: center;
-      bottom: 0;
+      bottom: 9rem;
 
     // margin-right: 0;
 

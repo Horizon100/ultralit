@@ -4,6 +4,7 @@ import type { AIModel, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib
  * import { modelStore } from '$lib/stores/modelStore';
  */
 import type { ModelState } from '$lib/stores/modelStore';
+import { defaultModel } from '$lib/constants/models';
 
 import { getPrompt } from '$lib/constants/prompts';
 // import { createTask, updateAIAgent, createNetwork } from '$lib/pocketbase';
@@ -24,7 +25,7 @@ import { pb } from '$lib/pocketbase';
 
 export async function fetchAIResponse(
 	messages: AIMessage[],
-	model: ModelState['selectedModel'],
+	model: AIModel,
 	userId: string,
 	attachment: File | null = null
 ): Promise<string> {
@@ -39,13 +40,16 @@ export async function fetchAIResponse(
 				model: msg.model
 			}));
 
-		const userSelectedModel = await pb
+			const userSelectedModel: AIModel = await pb
 			.collection('users')
 			.getOne(userId, { fields: 'model' })
-			.then((user) => user.model)
-			.catch(() => model);
+			.then((user) => user.model as AIModel)
+			.catch(() => {
+				console.log('Using fallback model:', defaultModel); 
+				return defaultModel;
+			});
 
-		const body = attachment
+			const body = attachment
 			? new FormData()
 			: {
 					messages: supportedMessages,
@@ -55,16 +59,28 @@ export async function fetchAIResponse(
 
 		if (attachment) {
 			(body as FormData).append('messages', JSON.stringify(supportedMessages));
-			(body as FormData).append('model', userSelectedModel || model);
+			(body as FormData).append('model', JSON.stringify(userSelectedModel || model));
 			(body as FormData).append('userId', userId);
 			(body as FormData).append('attachment', attachment);
 		}
+		console.log('Request Payload:', body); 
+		const provider = userSelectedModel?.provider || defaultModel.provider;
+		console.log('Provider:', provider);
+		const apiKey =
+			provider === 'openai'
+				? import.meta.env.VITE_OPENAI_API_KEY
+				: provider === 'deepseek'
+				? import.meta.env.VITE_DEEPSEEK_API_KEY
+				: '';
 
+		if (!apiKey) {
+			throw new Error(`No API key found for provider: ${provider}`);
+		}
 		const response = await fetch('/api/ai', {
 			method: 'POST',
 			headers: {
 				...(!attachment && { 'Content-Type': 'application/json' }),
-				Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+				Authorization: `Bearer ${apiKey}`
 			},
 			body: attachment ? body : JSON.stringify(body)
 		});
@@ -89,7 +105,7 @@ export async function fetchNamingResponse(
 				role: 'assistant',
 				content:
 					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
-				model: model.api_type // Add model property
+				model: model.api_type
 			},
 			{
 				role: 'user',

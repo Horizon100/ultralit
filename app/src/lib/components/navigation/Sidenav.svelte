@@ -114,7 +114,7 @@
 		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
 		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
 		{ name: 'Bone Tone', value: 'bone', icon: Bone },
-		{ name: 'Ivory Tower', value: 'ivory', icon: Component }
+		{ name: 'Ivory Tower', value: 'ivoryx', icon: Component }
 	];
 
 	// Handle style changes

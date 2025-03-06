@@ -32,7 +32,22 @@ export const availableModels: AIModel[] = [
 		updated: new Date().toISOString(),
 		collectionId: 'models',
 		collectionName: 'models'
+	},
+	{
+		id: 'deepseek-deepseek-chat',
+		name: 'Deepseek Chat',
+		provider: 'deepseek' as ProviderType,
+		api_key: '',
+		base_url: 'https://api.deepseek.com/v1',
+		api_type: 'deepseek-chat',
+		api_version: 'v1',
+		description: 'Deepseek Chat Model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
 	}
 ];
 
-export const defaultModel: AIModel = availableModels[0];
+export const defaultModel: AIModel = availableModels.find((model) => model.provider === 'deepseek') || availableModels[0];

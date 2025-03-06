@@ -7,7 +7,7 @@ import { defaultModel } from '$lib/constants/models';
 
 export interface ModelState {
 	models: AIModel[];
-	selectedModel: AIModel['api_type'];
+	selectedModel: AIModel | null; 
 	selectedProvider: ProviderType | null;
 	updateStatus: string;
 	isOffline: boolean;
@@ -40,7 +40,7 @@ export interface ModelState {
 const createModelStore = () => {
 	const initialState: ModelState = {
 		models: [],
-		selectedModel: '',
+		selectedModel: null,
 		selectedProvider: null,
 		updateStatus: '',
 		isOffline: false
@@ -123,27 +123,22 @@ const createModelStore = () => {
 		async setSelectedModel(userId: string, model: AIModel) {
 			console.log('setSelectedModel called with:', { userId, model });
 			try {
-				// Get or create the model in PocketBase
 				let savedModel = model;
 				const currentState = get({ subscribe });
 
 				console.log('Current state of models:', currentState.models);
-				// Use the correct API endpoint for updating users
 				await pb.collection('users').update(
 					userId,
 					{
 						model: savedModel.id
 					},
 					{
-						// Add these options to handle potential CORS issues
 						headers: {
 							'Access-Control-Allow-Origin': '*',
 							'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
 						}
 					}
 				);
-
-				// Only save to PocketBase if it's not already in our models list
 				const existingModel = currentState.models.find(
 					(m) => m.api_type === model.api_type && m.provider === model.provider
 				);

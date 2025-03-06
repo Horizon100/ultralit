@@ -2308,6 +2308,11 @@ deepmerge@^4.2.2, deepmerge@^4.3.1:
   resolved "https://registry.npmjs.org/deepmerge/-/deepmerge-4.3.1.tgz"
   integrity sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==
 
+deepseek@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/deepseek/-/deepseek-0.0.2.tgz#f504c8bca0867c714450ddb30238d6688b221c56"
+  integrity sha512-NBLowRxXm9baloPOEzu7dokwoMSwQNBbQj9LqL0QzAS6az8A26jxB37XBjGF7oubsiU7HvrYGjUdnAWCnfEiAg==
+
 delaunator@5:
   version "5.0.1"
   resolved "https://registry.npmjs.org/delaunator/-/delaunator-5.0.1.tgz"

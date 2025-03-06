@@ -4,6 +4,7 @@
 	import { availablePrompts } from '$lib/constants/prompts';
 	import { promptStore } from '$lib/stores/promptStore';
 	import { fly } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	// Use the store value
 	$: selectedPrompt = $promptStore;
@@ -48,21 +49,27 @@
 				on:mouseleave={handleMouseLeave}
 			>
 				<div class="icon-wrapper">
-					<Icon size={20} color="var(--text-color)" />
+					<Icon color="var(--text-color)" />
 				</div>
 				<h3>{label}</h3>
 			</div>
-			<div class="content-wrapper">
+			<div class="content-wrapper" class:hovered={hoveredPrompt === value}>
 				<div class="content-header"></div>
 
 				{#if selectedPrompt === value || hoveredPrompt === value}
-					<!-- <p class="description" 
+				<div class="icon-wrapper-big">
+					<Icon color="var(--text-color)" />
+				</div>
+					<p class="description" 
            class:hovered={hoveredPrompt === value}
            transition:fly={{ y: 20, duration: 300 }}>
           {description}
-        </p> -->
+        </p>
+
+
 					{#if youtubeUrl}
-						<div class="video-container" transition:slide>
+						<div class="video-container" class:hovered={hoveredPrompt === value}
+						transition:slide>
 							<iframe
 								transition:fly={{ y: 20, duration: 300 }}
 								width="560"
@@ -100,9 +107,10 @@
 		backdrop-filter: blur(10px);
 		justify-content: center;
 		align-items: center;
-		background: var(--bg-gradient-r);
 		// backdrop-filter: blur(100px);
 		border-radius: var(--radius-m);
+		background: var(--bg-gradient);
+
 	}
 
 	.prompt-grid-container {
@@ -121,24 +129,24 @@
 	.prompt-grid-item {
 		display: flex;
 		width: 50%;
-		margin-right: 50% !important;
+		margin-right: 50%;
 		padding: 1.2rem 0;
 		border-radius: var(--radius-m);
 		background: var(--bg-color);
-		border-bottom: 1px solid var(--secondary-color);
 		cursor: pointer;
 		gap: 1rem;
 		padding-left: 1rem;
 		transition: all 0.3s ease;
 		&.active {
-			opacity: 1;
-			backdrop-filter: blur(20px);
+			// backdrop-filter: blur(20px);
 			height: auto;
+			background: var(--secondary-color);
 		}
 
 		&:hover {
-			opacity: 0.75;
-			box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+			// box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+			background: var(--primary-color);
+			transform: translateX(1rem);
 		}
 
 		.icon-wrapper {
@@ -146,23 +154,48 @@
 			align-items: center;
 			color: var(--text-color);
 
-			:global(svg) {
+			svg {
 				color: var(--primary-color);
 				stroke: var(--primary-color);
 				fill: var(--tertiary-color);
 			}
 		}
+
+	}
+	.icon-wrapper-big {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-color);
+		width: 50%;
+		height: auto;
+		padding: 0;
 	}
 
+	.icon-wrapper-big svg {
+		color: var(--primary-color);
+		stroke: var(--primary-color);
+		fill: var(--primary-color);
+		width: 4rem; 
+		height: 4rem;
+	}
 	.content-wrapper {
 		display: flex;
 		flex-direction: column;
 		position: absolute;
 		right: 0;
 		margin-right: 0;
-		margin-left: 50%;
+		margin-left:calc(50% + 1rem);
 		left: 0;
 		width: 100%;
+
+		&.hovered {
+			background: var(--primary-color);
+			z-index: 2000;
+			color: var(--tertiary-color);
+			font-size: 1.1rem;
+		}
+
 	}
 
 	.content-header {
@@ -174,24 +207,31 @@
 	h3 {
 		margin: 0;
 		color: var(--text-color);
-		font-size: 0.9rem;
+		font-size: calc(0.5rem + 1vmin);
 	}
 
 	.description {
 		font-size: 1rem;
 		line-height: 1.5;
-
+		width: calc(50vw - 6rem);
 		display: flex;
-		width: 44%;
-		color: var(--text-color);
 		position: relative;
 		bottom: 0;
 		height: auto;
+		line-height: 1.9rem;
 		justify-content: center;
 		align-items: center;
 		margin-left: 2rem;
 		text-align: justify;
 		height: auto;
+		color: text-color;
+		letter-spacing: 0.1rem;
+
+
+
+
+
+	
 	}
 
 	.video-container {
