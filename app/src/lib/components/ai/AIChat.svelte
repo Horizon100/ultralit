@@ -15,7 +15,7 @@
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
 	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
-
+  import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
@@ -1374,147 +1374,147 @@ onDestroy(() => {
                     {getRandomQuote()}
                   </p>
                 </span>
-
-                <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
-
-                  <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                    <textarea 
-                      bind:this={textareaElement}
-                      bind:value={userInput}
-                      on:input={(e) => adjustFontSize(e.target)}
-                      on:keydown={async (e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              if (!isLoading) {
-                                  if (!currentThreadId) {
-                                      await handleCreateNewThread(userInput);
-                                  } else {
-                                      await handleSendMessage();
-                                  }
-                              }
-                          }
-                      }}
-                      on:focus={handleTextareaFocus}
-                      on:blur={handleTextareaBlur}
-                      placeholder={$t('chat.placeholder')}
-                      disabled={isLoading}
-                      rows="1"
-                    />
-                    <div class="btn-row"
-                      transition:slide
-                    >
-                      <div class="submission" class:visible={isTextareaFocused} >
-                        {#if isTextareaFocused}
-                          <span class="btn" >
-                            <Paperclip />
-                          </span>
-                          <span 
-                            class="btn"
-                            transition:slide
-                            class:visible={isTextareaFocused}
-                            on:click={() => toggleSection('prompts')}
-                          >
-                            <span class="icon">
-                              {#if $expandedSections.prompts}
-                              <!-- <Command size={30} /> -->
-                              {:else}
-                              <!-- <Command size={20} /> -->
-                              {/if}
-                            </span>
-                            {#if selectedPromptLabel}
-                              {#if selectedIcon}
-                              <div class="icon-wrapper">
-                                <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                              </div>
-                            {/if}
-                              <!-- <h3>{$t('chat.prompts')}</h3> -->
-                              <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                            {:else}
-                              <!-- <Command size={20} /> -->
-                              <!-- <h3>{$t('chat.prompts')}</h3> -->
-                            {/if}
-                        </span>
-                        <span 
-                          class="btn"
-                          transition:fade
-                          class:visible={isTextareaFocused}
-
-                          on:click={() => toggleSection('models')}
-                          >
-                            <span class="icon">
-                              {#if $expandedSections.models}
-                              <Brain />
-                              {:else}
-                              <Brain/>
-                              {/if}
-                            </span>
-                            {#if selectedModelLabel}
-                              <!-- <h3>{$t('chat.models')}</h3> -->
-                              <p class="selector-lable">{selectedModelLabel} </p>
-                            {:else}
-                              <!-- <p>{$t('chat.models')}</p> -->
-                            {/if}
-                        </span>
-                        <button 
-                          class="btn send-btn" 
-                          class:visible={isTextareaFocused}
-                          transition:slide
-                          on:click={async (e) => {
-                            e.preventDefault(); 
-                            if (!isLoading) {
-                              if (!currentThreadId) {
-                                await handleCreateNewThread(userInput);
-                              } else {
-                                await handleSendMessage();
-                              }
-                            }
-                          }}
-                          disabled={isLoading}
-                        >
-                          <Send />
-                        </button>
-                    {/if}
-                  </div>
-
-                  </div>
-                  <div class="ai-selector">
-                    {#if $expandedSections.prompts}
-                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        <PromptCatalog 
-                          on:select={(event) => {
-                            expandedSections.update(sections => ({
-                              ...sections,
-                              prompts: false
-                            }));
-                            showPromptCatalog = false;
-                            console.log('Parent received selection from catalog:', event.detail);
-                          }}
-                        />
-                      </div>
-                    {/if}
-                    {#if $expandedSections.models}
-                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        <ModelSelector
-                        on:select={(event) => {
-                            
-                          showModelSelector = !showModelSelector;
-                          console.log('Parent received selection from catalog:', event.detail);
-                        }}
-                        />
-                      </div>
-                    {/if}
-                    {#if $expandedSections.bookmarks}
-                      <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        <MsgBookmarks/>
-                      </div>
-                    {/if}
-                  </div>
-                  </div>
                   <div class="dashboard-items">
                     <!-- <ProjectCard/>  -->
+                    <ProjectCollaborators/>
                     <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
                   </div>
-                </div>     
+                  <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                    <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                      <textarea 
+                        bind:this={textareaElement}
+                        bind:value={userInput}
+                        on:input={(e) => adjustFontSize(e.target)}
+                        on:keydown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            !isLoading && handleSendMessage();
+                          }
+                        }}      
+                        on:focus={handleTextareaFocus}
+                        on:blur={handleTextareaBlur}
+                        placeholder={$t('chat.placeholder')}
+                        disabled={isLoading}
+                        rows="1"
+                      />
+                      <div class="btn-row"
+                        transition:slide
+                      >
+                        <div class="submission" class:visible={isTextareaFocused} >
+                          {#if isTextareaFocused}
+                            <span 
+                              class="btn"
+                              transition:slide
+                              on:click={() => toggleSection('bookmarks')}
+                              >
+                              <span class="icon">
+                                {#if $expandedSections.models}
+                                <BookmarkCheckIcon/>
+                                {:else}
+                                <Bookmark />
+                                {/if}
+                              </span>
+                              {#if selectedModelLabel}
+                                <!-- <h3>{$t('chat.models')}</h3> -->
+                                <p class="selector-lable">{selectedModelLabel} </p>
+                              {:else}
+                                <!-- <p>{$t('chat.models')}</p> -->
+                              {/if}
+                            </span>
+                            <span class="btn" 
+                              transition:slide
+                            >
+                              <Paperclip />
+                            </span>
+                            <span 
+                              class="btn"
+                              transition:slide
+                              on:click={() => toggleSection('prompts')}
+                            >
+                              <span class="icon">
+                                {#if $expandedSections.prompts}
+                                <!-- <Command size={30} /> -->
+                                {:else}
+                                <!-- <Command size={20} /> -->
+                                {/if}
+                              </span>
+                              {#if selectedPromptLabel}
+                                {#if selectedIcon}
+                                  <div class="icon-wrapper">
+                                    <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
+                                  </div>
+                                {/if}
+                                <!-- <h3>{$t('chat.prompts')}</h3> -->
+                                <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
+                              {:else}
+                                <!-- <Command size={20} /> -->
+                                <!-- <h3>{$t('chat.prompts')}</h3> -->
+                              {/if}
+                            </span>
+                            <span 
+                              class="btn"
+                              transition:slide
+                              on:click={() => toggleSection('models')}
+                              >
+                              <span class="icon">
+                                {#if $expandedSections.models}
+                                <Brain />
+                                {:else}
+                                <Brain/>
+                                {/if}
+                              </span>
+                              {#if selectedModelLabel}
+                                <!-- <h3>{$t('chat.models')}</h3> -->
+                                <p class="selector-lable">{selectedModelLabel} </p>
+                              {:else}
+                                <!-- <p>{$t('chat.models')}</p> -->
+                              {/if}
+                            </span>
+                            <button 
+                              class="btn send-btn" 
+                              class:visible={isTextareaFocused}
+                              transition:slide
+                              on:click={() => !isLoading && handleSendMessage()} 
+                              disabled={isLoading}
+                            >
+                              <Send />
+                            </button>
+                          {/if}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ai-selector">
+                      {#if $expandedSections.prompts}
+                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <PromptCatalog 
+                            on:select={(event) => {
+                              expandedSections.update(sections => ({
+                                ...sections,
+                                prompts: false
+                              }));
+                              showPromptCatalog = false;
+                              console.log('Parent received selection from catalog:', event.detail);
+                            }}
+                          />
+                        </div>
+                      {/if}
+                      {#if $expandedSections.models}
+                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <ModelSelector
+                            on:select={(event) => {
+                              showModelSelector = !showModelSelector;
+                              console.log('Parent received selection from catalog:', event.detail);
+                            }}
+                          />
+                        </div>
+                      {/if}
+                      {#if $expandedSections.bookmarks}
+                        <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <MsgBookmarks/>
+                        </div>
+                      {/if}
+                    </div>
+                  </div>   
 
               </div>
             </div>
@@ -2682,21 +2682,11 @@ onDestroy(() => {
     flex-direction: column;
     position: relative;
     border-radius: var(--radius-l);
-    flex-grow: 1;
-    top: 0;
-    left: 0;
-    right: 0;
-    margin-right: 0;
-    margin-bottom: 3rem;
-    height: auto;
-    width: auto;
-    gap: 1rem;
-    align-items: center;
+    bottom: 4rem;
     transition: height 0.3s ease;
     z-index: 1;
 
     & .combo-input {
-      max-width: 1000px;
 
     }
 
@@ -3982,7 +3972,7 @@ color: #6fdfc4;
     justify-content: flex-start;
     width: 100%;
     line-height: 1.2;
-    margin-left: 2rem;
+    margin-left: 0;
   }
 
 
@@ -4142,10 +4132,10 @@ color: #6fdfc4;
     position: relative;
     width: 100%;
     margin-left: 0;
+    height: 5rem;
     border-top-right-radius: var(--radius-m);
     border-bottom-right-radius: var(--radius-m);
     border-bottom-left-radius: var(--radius-m);
-
     margin-right: 0;
     padding: 0;
     cursor: pointer;
@@ -4240,7 +4230,7 @@ color: #6fdfc4;
     visibility: visible;
   }
   .card-container:hover .card-time {
-    transform: translateY(-0);
+    transform: translateY(0);
     opacity: 1;
     visibility: visible;
     height: auto;
@@ -4249,8 +4239,10 @@ color: #6fdfc4;
     font-size: var(--font-size-xs);
     display: flex;
     transform: translateY(-100%);
+    margin-top: 1rem;
+    width: auto;
     opacity: 0;
-    height: 0;
+    height: 100%;
   }
   
   .thread-toggle {
@@ -4580,7 +4572,7 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content:flex-start;
+    justify-content:flex-end;
     // padding-left: 3rem;
     width: 100%;
     margin-left: 0;
@@ -4863,7 +4855,7 @@ color: #6fdfc4;
 
     .input-container {
       margin-right: 0;
-      margin-bottom: 100px;
+      margin-bottom: 200px;
     }
 
     .chat-messages {

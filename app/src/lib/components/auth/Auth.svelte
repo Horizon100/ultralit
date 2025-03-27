@@ -28,6 +28,8 @@
 		damping: 0.7
 	});
 
+	
+
 	const dispatch = createEventDispatcher();
 
 	function handleTouchStart(event: TouchEvent) {
@@ -201,6 +203,7 @@
 					bind:value={email} 
 					placeholder="Email" 
 					required 
+					autofocus
 				/>
 				
 				{#if !isWaitlistMode}
@@ -499,7 +502,6 @@
 		cursor: pointer;
 		transition: background-color 0.3s;
 		font-size: 16px;
-		z-index: 1000;
 	}
 
 	.error {
@@ -540,7 +542,7 @@
 			justify-content: center;
 			align-items: center;
 			gap: 20px;
-			height: 90vh;
+			height: 100%;
 			width: auto;
 			margin-top: 4rem;
 			margin-left: 1rem;

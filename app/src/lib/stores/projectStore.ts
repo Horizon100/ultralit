@@ -5,7 +5,9 @@ import {
 	fetchProjects,
 	createProject,
 	updateProject,
-	resetProject
+	addCollaboratorToProject,
+	removeCollaboratorFromProject,
+	fetchProjectCollaborators
 } from '$lib/clients/projectClient';
 
 function createProjectStore() {
@@ -122,7 +124,67 @@ function createProjectStore() {
 				isProjectLoaded: false
 			}));
 		},
+		loadCollaborators: async (projectId: string) => {
+			try {
+				if (!projectId) return [];
+				
+				const collaborators = await fetchProjectCollaborators(projectId);
+				store.update((state) => ({
+					...state,
+					collaborators,
+					updateStatus: 'Collaborators loaded successfully'
+				}));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return collaborators;
+			} catch (error) {
+				console.error('Error loading collaborators:', error);
+				store.update((state) => ({ ...state, updateStatus: 'Failed to load collaborators' }));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return [];
+			}
+		},
+		addCollaborator: async (projectId: string, userId: string) => {
+			try {
+				const updatedProject = await addCollaboratorToProject(projectId, userId);
+				// Reload the collaborators
+				const collaborators = await fetchProjectCollaborators(projectId);
+				
+				store.update((state) => ({
+					...state,
+					collaborators,
+					threads: state.threads.map((t) => (t.id === projectId ? { ...t, ...updatedProject } : t)),
+					updateStatus: 'Collaborator added successfully'
+				}));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return updatedProject;
+			} catch (error) {
+				console.error('Error adding collaborator:', error);
+				store.update((state) => ({ ...state, updateStatus: 'Failed to add collaborator' }));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				throw error;
+			}
+		},
 
+		removeCollaborator: async (projectId: string, userId: string) => {
+			try {
+				const updatedProject = await removeCollaboratorFromProject(projectId, userId);
+				const collaborators = await fetchProjectCollaborators(projectId);
+				
+				store.update((state) => ({
+					...state,
+					collaborators,
+					threads: state.threads.map((t) => (t.id === projectId ? { ...t, ...updatedProject } : t)),
+					updateStatus: 'Collaborator removed successfully'
+				}));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return updatedProject;
+			} catch (error) {
+				console.error('Error removing collaborator:', error);
+				store.update((state) => ({ ...state, updateStatus: 'Failed to remove collaborator' }));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				throw error;
+			}
+		},
 		getCurrentProject: derived(
 			store,
 			($store) => $store.threads.find((p) => p.id === $store.currentProjectId) || null

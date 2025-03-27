@@ -1,4 +1,4 @@
-import type { Projects, Threads } from '$lib/types/types';
+import type { Projects, Threads, User } from '$lib/types/types';
 import { pb, ensureAuthenticated } from '$lib/pocketbase';
 import { marked } from 'marked';
 
@@ -135,3 +135,79 @@ export async function addThreadToProject(threadId: string, projectId: string): P
 		throw error;
 	}
 }
+export async function addCollaboratorToProject(projectId: string, userId: string): Promise<Projects> {
+	try {
+		ensureAuthenticated();
+		const project = await pb.collection('projects').getOne<Projects>(projectId);
+		const collaborators = project.collaborators || [];
+		if (collaborators.includes(userId)) {
+		console.log('User is already a collaborator on this project');
+		return project;
+		}
+		const updatedCollaborators = [...collaborators, userId];
+		return await pb.collection('projects').update<Projects>(projectId, {
+		collaborators: updatedCollaborators
+		});
+	} catch (error) {
+		console.error('Error adding collaborator to project:', error);
+		throw error;
+	}
+}
+export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
+	try {
+	  ensureAuthenticated();
+	const project = await pb.collection('projects').getOne<Projects>(projectId);
+	  if (project.op === userId) {
+		throw new Error('Cannot remove the project owner from collaborators');
+	  }
+		const collaborators = project.collaborators || [];
+	  const updatedCollaborators = collaborators.filter(id => id !== userId);
+	  return await pb.collection('projects').update<Projects>(projectId, {
+		collaborators: updatedCollaborators
+	  });
+	} catch (error) {
+	  console.error('Error removing collaborator from project:', error);
+	  throw error;
+	}
+  }
+  export async function fetchProjectCollaborators(projectId: string): Promise<User[]> {
+	try {
+	  ensureAuthenticated();
+  
+	  console.log('Fetching project:', projectId);
+	  const project = await pb.collection('projects').getOne<Projects>(projectId);
+	  console.log('Project data:', project);
+  
+	  const collaboratorIds = project.collaborators || [];
+	  console.log('Collaborator IDs:', collaboratorIds);
+  
+	  if (collaboratorIds.length === 0) {
+		console.log('No collaborators found for this project.');
+		return [];
+	  }
+  
+	  const filter = collaboratorIds.map(id => `id="${id}"`).join(' || ');
+	  console.log('Filter for users:', filter);
+  
+	  const userRecords = await pb.collection('users').getFullList<User>({
+		filter: filter,
+	  });
+	  console.log('Users found:', userRecords);
+  
+	  return userRecords;
+	} catch (error) {
+	  console.error('Error fetching project collaborators:', error);
+	  throw error;
+	}
+  }
+  export async function isUserCollaborator(projectId: string, userId: string): Promise<boolean> {
+	try {
+	  ensureAuthenticated();
+	  const project = await pb.collection('projects').getOne<Projects>(projectId);
+	  const collaborators = project.collaborators || [];
+	  return collaborators.includes(userId);
+	} catch (error) {
+	  console.error('Error checking if user is a collaborator:', error);
+	  return false;
+	}
+  }

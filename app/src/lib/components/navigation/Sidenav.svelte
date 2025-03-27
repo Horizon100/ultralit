@@ -950,7 +950,11 @@
 		}
 
 		.navigation-buttons {
-			flex-direction: row;
+			flex-direction: column;
+			margin-bottom: 40rem;
+			right: 0;
+			margin-right: 2rem;
+			align-items: flex-end;
 			justify-content: space-around;
 		}
 
