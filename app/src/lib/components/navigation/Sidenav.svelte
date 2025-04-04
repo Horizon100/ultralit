@@ -761,7 +761,8 @@
 	
 
 	.nav-button.active {
-		background: var(--tertiary-color);
+		border: 1px solid var(--tertiary-color);
+		background: var(--bg-color);
 		box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
 	}
 
@@ -926,19 +927,12 @@
 		.sidenav {
 			display: flex;
 			justify-content: center;
-			backdrop-filter: blur(30px);
-			background: var(--bg-gradient-r);
+			// backdrop-filter: blur(30px);
 			height: 50px !important;
 			flex-direction: row;
 			height: auto;
 			width: 100%;
 			bottom: 0;
-			margin-left: 0;
-			padding: 0.5rem;
-			/* backdrop-filter: blur(10px); */
-			display: flex;
-			align-items: center;
-			justify-content: center;
 			gap: 10px;
 			left: 0;
 			top: auto;
@@ -950,10 +944,10 @@
 		}
 
 		.navigation-buttons {
-			flex-direction: column;
-			margin-bottom: 40rem;
+			flex-direction: row;
+			margin-bottom: 0;
 			right: 0;
-			margin-right: 2rem;
+			left: 0;
 			align-items: flex-end;
 			justify-content: space-around;
 		}

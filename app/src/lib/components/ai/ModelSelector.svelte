@@ -11,19 +11,40 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
+	export let provider: string;
+
+	const dispatch = createEventDispatcher<{
+		submit: string;
+		close: void;
+		select: AIModel;
+	}>();
+
+	let key = '';
+
+	function handleSubmit(e: Event) {
+		e.preventDefault();
+		if (key.trim()) {
+			dispatch('submit', key.trim());
+			key = '';
+		}
+	}
+
+	function handleClickOutside(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (e.currentTarget === e.target) {
+			expandedModelList = null;
+		}
+	}
 	let isOffline = false;
 
 	let expandedModelList: ProviderType | null = null;
+    let isLoadingModels = false;
 
 	modelStore.subscribe((state) => {
 		isOffline = state.isOffline;
 	});
 
 	export let selectedModel: AIModel = defaultModel;
-
-	const dispatch = createEventDispatcher<{
-		select: AIModel;
-	}>();
 
 	let currentProvider: ProviderType | null = null;
 	let showAPIKeyInput = false;
@@ -36,39 +57,48 @@
 	};
 
 	async function handleProviderClick(key: string) {
-		const provider = key as ProviderType;
-		const currentKey = get(apiKey)[provider];
+        const provider = key as ProviderType;
+        const currentKey = get(apiKey)[provider];
 
-		if (currentProvider === provider) {
-			currentProvider = null;
-			expandedModelList = null; 
-			return;
-		}
+        if (currentProvider === provider) {
+            currentProvider = null;
+            expandedModelList = null; 
+            return;
+        }
 
-		currentProvider = provider;
-		expandedModelList = provider;
+        currentProvider = provider;
+        expandedModelList = provider;
 
-		if (!currentKey) {
-			showAPIKeyInput = true;
-		} else {
-			if ($currentUser) {
-				try {
-					await modelStore.setSelectedProvider($currentUser.id, provider);
-					await loadProviderModels(provider);
-					showAPIKeyInput = false;
-				} catch (error) {
-					console.warn('Error setting provider:', error);
-				}
-			}
-		}
-	}
+        if (!currentKey) {
+            showAPIKeyInput = true;
+        } else {
+            if ($currentUser) {
+                try {
+                    isLoadingModels = true;
+                    await modelStore.setSelectedProvider($currentUser.id, provider);
+                    await loadProviderModels(provider);
+                    showAPIKeyInput = false;
+                } catch (error) {
+                    console.warn('Error setting provider:', error);
+                } finally {
+                    isLoadingModels = false;
+                }
+            }
+        }
+    }
 
 	async function handleModelSelection(model: AIModel) {
+		// Ensure model has provider information
+		const enrichedModel: AIModel = {
+			...model,
+			provider: currentProvider || model.provider || 'deepseek' // Default to deepseek if no provider
+		};
+		
 		if ($currentUser) {
 			try {
-				const success = await modelStore.setSelectedModel($currentUser.id, model);
+				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
 				if (success) {
-					selectedModel = model;
+					selectedModel = enrichedModel;
 				}
 			} catch (error) {
 				console.warn('Error selecting model:', error);
@@ -76,23 +106,32 @@
 		}
 		expandedModelList = null;
 		currentProvider = null; 
-		dispatch('select', model);
+		dispatch('select', enrichedModel);
 	}
 
 	async function loadProviderModels(provider: ProviderType) {
-		const currentKey = get(apiKey)[provider];
-		if (currentKey) {
-			try {
-				const providerModelList = await providers[provider].fetchModels(currentKey);
-				availableProviderModels[provider] = providerModelList || [];
-			} catch (error) {
-				console.error(`Error fetching models for ${provider}:`, error);
-				availableProviderModels[provider] = [];
-			}
-		} else {
-		availableProviderModels[provider] = [];
-	}
-}
+        isLoadingModels = true;
+        try {
+            const currentKey = get(apiKey)[provider];
+            if (currentKey) {
+                const providerModelList = await providers[provider].fetchModels(currentKey);
+                // Ensure provider information is set for each model
+                availableProviderModels[provider] = providerModelList.map(model => ({
+                    ...model,
+                    provider
+                })) || [];
+                console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
+            } else {
+                availableProviderModels[provider] = [];
+            }
+        } catch (error) {
+            console.error(`Error fetching models for ${provider}:`, error);
+            availableProviderModels[provider] = [];
+        } finally {
+            isLoadingModels = false;
+        }
+    }
+	
 	async function handleAPIKeySubmit(event: CustomEvent<string>) {
 		if (currentProvider) {
 			await apiKey.setKey(currentProvider, event.detail);
@@ -105,8 +144,7 @@
 <div class="selector-container">
 	<div class="providers-list">
 		{#each Object.entries(providers) as [key, provider]}
-			<div class="provider-item"
-			>
+			<div class="provider-item">
 				<button
 					class="provider-button"
 					class:provider-selected={currentProvider === key}
@@ -114,54 +152,22 @@
 				>
 					<div class="provider-info">
 						<img src={provider.icon} alt={provider.name} class="provider-icon" />
-						<span class="provider-name">{provider.name}</span>
+						<span class="provider-name" class:visible={currentProvider === key}>
+							{provider.name}
+						</span>
 					</div>
 					<div class="provider-status">
 						{#if $apiKey[key]}
 							<div class="icon-wrapper success">
-								<CheckCircle2  />
+								<CheckCircle2 />
 							</div>
 						{:else}
 							<div class="icon-wrapper error">
-								<XCircle  />
+								<XCircle size={35} />
 							</div>
 						{/if}
 					</div>
 				</button>
-
-				{#if currentProvider === key}
-					{#if showAPIKeyInput}
-						<div
-							class="api-key-wrapper"
-							in:fly={{ y: 10, duration: 200 }}
-							out:fly={{ y: -10, duration: 200 }}
-						>
-							<APIKeyInput
-								provider={currentProvider}
-								on:submit={handleAPIKeySubmit}
-								on:close={() => (showAPIKeyInput = false)}
-							/>
-						</div>
-					{/if}
-
-					{#if availableProviderModels[key].length > 0 && expandedModelList === key}
-						<div
-							class="model-list"
-							in:fly={{ y: 10, duration: 200 }}
-							out:fly={{ y: -10, duration: 200 }}
-						>
-							{#each availableProviderModels[key] as model}
-								<button
-									class="model-button"
-									class:model-selected={selectedModel.id === model.id}
-									on:click={() => handleModelSelection(model)}
-								>
-									{model.name}
-								</button>
-							{/each}
-						</div>
-					{/if}
-				{/if}
 			</div>
 		{/each}
 	</div>
@@ -174,6 +180,62 @@
 	</div>
 {/if}
 
+{#if expandedModelList}
+    <div class="model-overlay"
+	on:click={handleClickOutside}
+	transition:fly={{ y: -20, duration: 200 }}
+	>
+        <div class="model-list-container">
+            <div class="model-header">
+                <h3>{providers[expandedModelList].name} Models {isLoadingModels ? '' : `(${availableProviderModels[expandedModelList]?.length || 0})`}</h3>
+                <button class="close-btn" on:click={() => (expandedModelList = null)}>
+					<XCircle size={35} />
+                </button>
+            </div>
+            
+            {#if isLoadingModels}
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                    <p>Loading models...</p>
+                </div>
+            {:else if availableProviderModels[expandedModelList]?.length > 0}
+                <div class="model-list">
+                    {#each availableProviderModels[expandedModelList] as model}
+                        <button
+                            class="model-button"
+                            class:model-selected={selectedModel.id === model.id}
+                            on:click={() => handleModelSelection(model)}
+                        >
+                            {model.name}
+                        </button>
+                    {/each}
+                </div>
+            {:else}
+                <div class="no-models">
+                    <p>No models available for this provider</p>
+                </div>
+				<form
+					on:submit={handleSubmit}
+					transition:fly={{ y: 20, duration: 200 }}
+				>
+						<div class="input-wrapper">
+							<input
+								type="password"
+								bind:value={key}
+								class="w-full px-4 py-2 rounded-lg bg-secondary"
+								placeholder="Enter your API key"
+								autofocus
+							/>
+						</div>
+
+						<button type="submit" class="submit-button"> Save Key </button>
+				</form>
+            {/if}
+        </div>
+    </div>
+{/if}
+
+
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 
@@ -184,37 +246,37 @@
 	.selector-container {
 		display: flex;
 		position: relative;
+		flex-wrap: wrap;
 		border-top-left-radius: var(--radius-xl);
 		border-top-right-radius: var(--radius-xl);
-
+		z-index: 1;
 		width: 100%;
 		margin-left: 0;
 		margin-right: 0;
 		margin-bottom: 0;
 		justify-content: center;
 		align-items: center;
-		background: var(--bg-gradient);
-
-		// backdrop-filter: blur(100px);
+		overflow-x: auto;
 	}
 
 	.providers-list {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		gap: var(--spacing-sm);
-		height: 100%;
-		width: calc(100% - 2rem);
+		width: 100%;
+		height: calc(100% - 2rem);
 		position: relative;
 		margin-top: 1rem;
 	}
 
 	button {
-		// width: 150px !important;
+		width: auto;
+		border: 2px solid var(--primary-color) !important;
 	}
 
 	.provider-item {
-		width: 100%;
-		height: 20% !important;
+		width: auto;
+		height: auto;
 		position: relative;
 		background: var(--primary-color);
 		border-radius: var(--radius-xl);
@@ -224,7 +286,7 @@
 	}
 
 	.provider-button {
-		width: 100%;
+		width: auto;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -236,11 +298,22 @@
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		letter-spacing: 0.4rem;
+		z-index: 3000;
 
 		&:hover {
 			background: var(--primary-color);
-			cursor:pointer;
+			cursor: pointer;
 			transform: translateX(1rem);
+
+			.provider-name {
+				opacity: 1;
+				width: auto;
+				max-width: 200px;
+				margin-left: 1rem;
+				font-weight: 700;
+				letter-spacing: 0.5rem;
+
+			}
 		}
 
 		&.provider-selected {
@@ -248,72 +321,133 @@
 			color: white;
 			width: 100% !important;
 			height: 100%;
-			// width: 400px !important;
+            
+            .provider-name {
+                opacity: 1;
+                width: auto;
+                max-width: 200px;
+                margin-left: 1rem;
+            }
 		}
 	}
 
 	.provider-info {
 		display: flex;
 		align-items: center;
+		justify-content: left;
 		gap: var(--spacing-sm);
 	}
 
 	.provider-icon {
-		width: 3rem;
-		height: 3rem;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
 	}
 
 	.provider-name {
-		font-size: 1.5rem;
-		margin-left: 1rem;
+		font-size: 1.2rem;
+		opacity: 0;
+		width: 0;
+		max-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		transition: all 0.3s ease;
 		user-select: none;
+		
+		&.visible {
+			opacity: 1;
+			width: auto;
+			max-width: 200px;
+			margin-left: 1rem;
+		}
+	}
+
+	.model-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 9999;
+		backdrop-filter: blur(3px);
+	}
+
+	.model-list-container {
+		background: var(--bg-color);
+		border-radius: var(--radius-xl);
+		border: 2px solid var(--primary-color);
+		width: 90%;
+		max-width: 600px;
+		max-height: 80vh;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.model-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 2rem;
+		border-bottom: 1px solid var(--primary-color);
+		
+		h3 {
+			margin: 0;
+			font-size: 1.5rem;
+			color: var(--text-color);
+		}
+		
+		.close-btn {
+			width: 4rem;
+			height: 4rem;
+			&:hover {
+				background: var(--primary-color);
+				transform: none;
+			}
+		}
 	}
 
 	.model-list {
-		position: relative;
-		border-left: 0.5rem solid var(--primary-color);
-		border-right: 1rem solid var(--primary-color);
-		border-bottom: 1rem solid var(--primary-color);
-		margin-left: 0 !important;
-		width: auto !important;
-		margin-top: 0;
-		padding: 2rem;
 		display: flex;
 		flex-direction: column;
+		align-items: left;
 		gap: var(--spacing-sm);
-		background: var(--bg-gradient);
-		border-bottom-left-radius: var(--radius-xl);
-		border-bottom-right-radius: var(--radius-xl);
-		max-height: 300px;
+		max-height: 60vh;
 		overflow-y: auto;
-		backdrop-filter: blur(10px);
+		padding: 1rem 2rem;
 	}
 
 	.model-button {
-		padding: var(--spacing-sm);
+		padding: 2rem;
 		background: var(--bg-gradient-left);
-		border: none;
+		border: none !important;
 		border-radius: var(--radius-xl);
 		color: var(--placeholder-color);
-		font-size: 1.5rem;
+		font-size: 1.25rem;
 		transition: all 0.2s ease;
-		z-index: 1000;
+		z-index: 1;
 		opacity: 0.5;
 		font-weight: 200;
 		width: 100% !important;
 		letter-spacing: 0.2rem;
+		text-align: left;
+		text-justify: left;
+		
 		&:hover {
 			background: var(--primary-color);
 			color: white;
 			transform: translateX(1rem);
 			opacity: 1;
-			cursor:pointer;
+			cursor: pointer;
 
 		}
 
 		&.model-selected {
 			background: var(--primary-color);
-			font-size: 2rem;
 			color: white;
 			opacity: 1;
 		}
@@ -329,36 +463,171 @@
 		font-size: 0.75rem;
 		color: orange;
 	}
+
 	.provider-status {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		position: absolute;
+		right: -0.5rem;
+		top: 0;
 
 		.icon-wrapper {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			height: 1.5rem;
-			width: 2rem;
+			height: 1.7rem;
+			width: 1.7rem;
 			&.success :global(svg) {
 				color: rgb(0, 200, 0);
-				stroke: rgb(0, 200, 0);
+				stroke: var(--bg-color);
+				background-color:rgb(0, 200, 0);
+				border-radius: 50%;
 				fill: none;
-				height: 1.5rem;
-				width: 2rem;
-
-
+				height: 1.7rem;
+				width: 1.7rem;
 			}
 
 			&.error :global(svg) {
 				color: rgb(255, 0, 0);
-				stroke: rgb(255, 0, 0);
+				stroke: var(--bg-color);
+				border-radius: 50%;
+				background-color:rgb(255, 0, 0);
+
 				fill: none;
-				height: 1.5rem;
-				width: 1.5rem;
+				height: 1.7rem;
+				width: 1.7rem;
 			}
 		}
 	}
+
+	.spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1rem;
+    
+    p {
+        color: var(--text-color);
+        margin: 0;
+    }
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: var(--tertiary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+.no-models {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    color: var(--placeholder-color);
+}
+
+input {
+		width: 100%;
+		padding: 1.5rem;
+		padding-right: 3rem;
+		border: 1px solid var(--border-color);
+		border-radius: 0.5rem;
+		font-size: 1rem;
+		background: transparent;
+		color: var(--text-color);
+
+		/* Make the password reveal icon white */
+		&::-ms-reveal {
+			filter: invert(100%) brightness(200%) contrast(100%);
+			margin-right: 2rem; /* Move the icon left */
+			position: relative;
+			right: 2rem;
+		}
+
+		&::-webkit-credentials-auto-fill-button {
+			filter: invert(100%) brightness(200%) contrast(100%);
+			margin-right: 2rem; /* Move the icon left */
+			position: relative;
+			right: 2rem;
+		}
+	}
+
+	/* Global styles for password reveal icon across browsers */
+	:global(input[type='password']::-ms-reveal),
+	:global(input[type='password']::-webkit-credentials-auto-fill-button) {
+		filter: invert(100%) brightness(200%) contrast(100%);
+		margin-right: 12px;
+	}
+
+	input::placeholder {
+		font-size: 1.2rem;
+		color: var(--placeholder-color);
+		width: 90%;
+		font-style: italic;
+	}
+
+	input:focus {
+		outline: none;
+		border-color: var(--primary-color);
+		box-shadow: 0 0 0 2px var(--primary-color-transparent);
+		z-index: 1000;
+		color: var(--text-color);
+	}
+
+	form {
+		border: 1px solid var(--border-color);
+		width: 100%;
+		background: var(--bg-color);
+	}
+	button {
+		display: flex;
+		align-items: center;
+
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: 20px;
+		width: 100%;
+		height: 60px;
+		background: var(--bg-gradient);
+		border: 1px solid var(--border-color);
+		color: var(--text-color);
+		transition: all 0.2s ease;
+		font-size: 1.2rem;
+
+		&:hover {
+			transform: translateY(-4px);
+			background: var(--bg-gradient-r);
+		}
+
+		span {
+			font-size: 0.9rem;
+		}
+	}
+
+	/* Additional style to ensure password reveal icon is properly positioned */
+	:global(input[type='password']::-ms-reveal) {
+		filter: invert(1);
+		margin-right: 8px;
+	}
+
+	:global(input[type='password']::-webkit-credentials-auto-fill-button) {
+		filter: invert(1);
+		margin-right: 8px;
+	}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
 
 	@media (max-width: 768px) {
 		.selector-container {
@@ -373,7 +642,6 @@
 			display: flex;
 			flex-direction: column;
 			position: relative;
-
 			height: 100;
 			width: 100%;
 			gap: var(--spacing-sm);
@@ -381,21 +649,6 @@
 
 		.provider-item {
 			height: auto;
-		}
-
-		.model-list {
-			position: relative;
-			z-index: 1000;
-			margin-top: var(--spacing-xs);
-			padding: var(--spacing-sm);
-			display: flex;
-			flex-direction: column;
-			gap: var(--spacing-sm);
-			background: var(--bg-gradient-right);
-			border-radius: var(--radius-xl);
-			max-height: 300px;
-			overflow-y: auto;
-			backdrop-filter: blur(10px);
 		}
 	}
 
@@ -416,44 +669,9 @@
 			height: auto;
 		}
 
-		.model-list {
-			position: relative;
-
-			z-index: 1000;
-			margin-top: var(--spacing-xs);
-			padding: var(--spacing-sm);
-			display: flex;
-			flex-direction: column;
-			gap: var(--spacing-sm);
-			background: var(--bg-gradient-right);
-			border-bottom-left-radius: var(--radius-xl);
-			border-bottom-right-radius: var(--radius-xl);
-
-			height: 100%;
-
-			overflow-y: auto;
-			backdrop-filter: blur(10px);
-		}
-
-		.model-button {
-			padding: var(--spacing-sm);
-			background: var(--bg-alt);
-			border: none;
-			color: var(--text-color);
-			font-size: 14px;
-			transition: all 0.2s ease;
-			z-index: 1000;
-			width: 100%;
-
-			&:hover {
-				background: var(--bg-hover);
-				color: white;
-			}
-
-			&.model-selected {
-				background-color: #1dff1d;
-				color: white;
-			}
+		.model-list-container {
+			width: 95%;
+			max-height: 80vh;
 		}
 	}
 </style>

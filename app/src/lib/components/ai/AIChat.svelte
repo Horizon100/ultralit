@@ -10,6 +10,8 @@
   import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
+  import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+
   import { messagesStore} from '$lib/stores/messagesStore';
 	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
@@ -28,6 +30,7 @@
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
+  import { defaultModel } from '$lib/constants/models';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
   import { messageCountsStore, messageCounts, getCountColor} from '$lib/stores/messageCountStore';
   import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
@@ -44,7 +47,7 @@
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
-  export let aiModel: AIModel;
+  export let aiModel: AIModel = defaultModel;
   export let userId: string;
   export let attachment: File | null = null;
   export let promptType: PromptType = 'TUTOR';
@@ -108,6 +111,7 @@
   let scrollTopStart: number;
   let currentPage = 1;
   let searchQuery = '';
+  let currentPlaceholder = $t('chat.placeholder');
   let quotedMessage: Messages | null = null;
   let expandedDates = new Set<string>();
   let isMinimized = false;
@@ -116,6 +120,7 @@
   let isCleaningUp = false;
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
+  let scrollPercentage = 0;
 
   let threadCount = 0;
   let messageCount = 0;
@@ -153,6 +158,16 @@
     currentProjectId = state.currentProjectId;
   });
 
+  modelStore.subscribe(state => {
+  if (state.selectedModel) {
+    aiModel = state.selectedModel;
+    selectedModelLabel = aiModel.name || '';
+    console.log('Model updated:', aiModel);
+  }
+});
+
+
+
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
   models: false,
@@ -186,11 +201,13 @@ const handleTextareaFocus = () => {
   isTextareaFocused = true;
   showPromptCatalog = false;
   showModelSelector = false;
+  currentPlaceholder = getRandomQuote();
 
 };
 const handleTextareaBlur = () => {
   hideTimeout = setTimeout(() => {
     isTextareaFocused = false;
+    currentPlaceholder = $t('chat.placeholder');
   }, 500); 
 };
 const searchedThreads = derived(threadsStore, ($store) => {
@@ -202,7 +219,24 @@ const searchedThreads = derived(threadsStore, ($store) => {
         thread.last_message?.content?.toLowerCase().includes(query)
     );
 });
-
+function handleModelSelection(event: CustomEvent<AIModel>) {
+  const selectedModel = event.detail;
+  console.log('Model selected:', selectedModel);
+  
+  // Update the aiModel with complete provider information
+  aiModel = {
+    ...selectedModel,
+    provider: selectedModel.provider || 'deepseek'
+  };
+  
+  selectedModelLabel = aiModel.name || '';
+  
+  // Close model selector
+  expandedSections.update(sections => ({
+    ...sections,
+    models: false
+  }));
+}
 // Message handling functions
   function cancelEditing() {
     editingProjectId = null;
@@ -405,15 +439,23 @@ function handleClickOutside() {
     }
   });
 }
-  function handleScroll(event: { target: HTMLElement }) {
-    const currentScrollTop = event.target.scrollTop;
-      if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
-        isMinimized = true;
-      } else if (currentScrollTop < lastScrollTop || currentScrollTop <= 50) {
-        isMinimized = false;
-      }
-      lastScrollTop = currentScrollTop;
+
+function handleScroll(event: { target: HTMLElement }) {
+  const currentScrollTop = event.target.scrollTop;
+  const scrollHeight = event.target.scrollHeight;
+  const clientHeight = event.target.clientHeight;
+  
+  scrollPercentage = (currentScrollTop / (scrollHeight - clientHeight)) * 100;
+  showScrollButton = scrollHeight - currentScrollTop - clientHeight > 20;
+  
+  if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
+    isMinimized = true;
+  } else if (currentScrollTop < lastScrollTop || currentScrollTop <= 50) {
+    isMinimized = false;
   }
+  
+  lastScrollTop = currentScrollTop;
+}
 
   function getRandomThinkingPhrase(): string {
     const thinkingPhrases = $t('extras.thinking');
@@ -1163,10 +1205,13 @@ onDestroy(() => {
 {#if $currentUser}
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+
   <div class="chat-container" 
     transition:fly="{{ x: 300, duration: 300 }}" 
     class:drawer-visible={$threadsStore.showThreadList}
   >
+  <img src={Headmaster} alt="Notes illustration" class="illustration" />
+
     {#if $threadsStore.showThreadList}
       <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
@@ -1311,8 +1356,11 @@ onDestroy(() => {
         </div>
       </div>
     {/if}
+
     <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}">
+
       <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+        
         {#if isLoadingMessages}
           <div class="loading-overlay">
             <div class="spinner"></div>
@@ -1346,7 +1394,7 @@ onDestroy(() => {
               </div> -->
               <span on:click={startEditingThreadName}>
                 <div class="icon" in:fade>
-                <Quote/>
+                <!-- <Quote/> -->
                 </div>
                 <h3 >
                   {currentThread.name}
@@ -1361,6 +1409,7 @@ onDestroy(() => {
             <div class="chat-placeholder"
               class:drawer-visible={$threadsStore.showThreadList}
             >     
+            
               <div class="container-row">
                 <div class="logo-container" >
                     <img src={horizon100} alt="Horizon100" class="logo" />
@@ -1376,14 +1425,15 @@ onDestroy(() => {
                 </span>
                   <div class="dashboard-items">
                     <!-- <ProjectCard/>  -->
-                    <ProjectCollaborators/>
                     <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+                    <ProjectCollaborators/>
                   </div>
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                       <textarea 
                         bind:this={textareaElement}
                         bind:value={userInput}
+                        class:quote-placeholder={isTextareaFocused}
                         on:input={(e) => adjustFontSize(e.target)}
                         on:keydown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
@@ -1393,7 +1443,7 @@ onDestroy(() => {
                         }}      
                         on:focus={handleTextareaFocus}
                         on:blur={handleTextareaBlur}
-                        placeholder={$t('chat.placeholder')}
+                        placeholder={currentPlaceholder}
                         disabled={isLoading}
                         rows="1"
                       />
@@ -1414,12 +1464,7 @@ onDestroy(() => {
                                 <Bookmark />
                                 {/if}
                               </span>
-                              {#if selectedModelLabel}
-                                <!-- <h3>{$t('chat.models')}</h3> -->
-                                <p class="selector-lable">{selectedModelLabel} </p>
-                              {:else}
-                                <!-- <p>{$t('chat.models')}</p> -->
-                              {/if}
+
                             </span>
                             <span class="btn" 
                               transition:slide
@@ -1462,13 +1507,14 @@ onDestroy(() => {
                                 {:else}
                                 <Brain/>
                                 {/if}
-                              </span>
-                              {#if selectedModelLabel}
+                                {#if selectedModelLabel}
                                 <!-- <h3>{$t('chat.models')}</h3> -->
                                 <p class="selector-lable">{selectedModelLabel} </p>
                               {:else}
                                 <!-- <p>{$t('chat.models')}</p> -->
                               {/if}
+                              </span>
+
                             </span>
                             <button 
                               class="btn send-btn" 
@@ -1502,6 +1548,7 @@ onDestroy(() => {
                         <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                           <ModelSelector
                             on:select={(event) => {
+                              {handleModelSelection}
                               showModelSelector = !showModelSelector;
                               console.log('Parent received selection from catalog:', event.detail);
                             }}
@@ -1510,7 +1557,7 @@ onDestroy(() => {
                       {/if}
                       {#if $expandedSections.bookmarks}
                         <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                          <MsgBookmarks/>
+                          <MsgBookmarks on:loadThread={(event) => handleLoadThread(event.detail.threadId)} />
                         </div>
                       {/if}
                     </div>
@@ -1521,7 +1568,9 @@ onDestroy(() => {
           {/if}
         </div>
         {#if currentThread}
-          <div class="chat-messages" bind:this={chatMessagesDiv} transition:fly="{{ x: -300, duration: 300 }}">
+          <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
+          transition:fly="{{ x: -300, duration: 300 }}">
+            
             {#each groupMessagesByDate(chatMessages) as { date, messages }}
               <div class="date-divider">
                 {formatDate(date)}
@@ -1599,9 +1648,16 @@ onDestroy(() => {
                 </div>
               {/each}
             {/each}
-            <button class="scroll-bottom-btn" on:click={scrollToBottom}>
-              <ChevronDown size={24} />
+
+            {#if showScrollButton}
+            <button 
+              class="scroll-bottom-btn" 
+              on:click={scrollToBottom}
+              style="transform: translateY({scrollPercentage * 0.5}%);"
+            >
+              <ChevronDown />
             </button>
+          {/if}
           </div>
           <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
             <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
@@ -1638,12 +1694,7 @@ onDestroy(() => {
                         <Bookmark />
                         {/if}
                       </span>
-                      {#if selectedModelLabel}
-                        <!-- <h3>{$t('chat.models')}</h3> -->
-                        <p class="selector-lable">{selectedModelLabel} </p>
-                      {:else}
-                        <!-- <p>{$t('chat.models')}</p> -->
-                      {/if}
+
                     </span>
                     <span class="btn" 
                       transition:slide
@@ -2079,6 +2130,14 @@ onDestroy(() => {
     align-items: center;
     color: var(--text-color);
 
+    &.btn {
+      display: flex;
+      width: auto;
+      min-width: 4rem;
+      gap: 0.5rem;
+      padding: 0 1rem;
+    }
+
     &.icon {
       transition: all 0.2s ease-in-out;
       gap: 0.5rem;
@@ -2491,22 +2550,25 @@ onDestroy(() => {
 		height: 60px;
 		padding: 0;
 	}
+
+
   .chat-container {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     position: fixed;
     transition: all 0.3s ease-in-out;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     // /* left: 20%; */
     width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+
     padding: 0;
     padding-top: 0;
     height: 100vh;
     margin-top: 0;
     margin-left: auto;
-
   }
 
 
@@ -2514,7 +2576,7 @@ onDestroy(() => {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background: var(--bg-gradient);
+    // background: var(--bg-gradient);
     margin-left: 25vw;
     width: 50vw;
     height: auto;
@@ -2527,7 +2589,8 @@ onDestroy(() => {
     // padding: 0 10px;
     overflow-y: hidden;
     overflow-x: hidden;
-    border-radius: var(--radius-l);
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 60%);
+
     transition: all ease 0.3s;
   }
 
@@ -2542,7 +2605,7 @@ onDestroy(() => {
     // z-index: 8000;
     margin-right: 2rem;
     margin-top: 1rem;
-    background: var(--bg-gradient-r);
+    // background: var(--bg-gradient-r);
   }
   
   .avatar-container {
@@ -2582,6 +2645,7 @@ onDestroy(() => {
       margin-left: auto;
       top: 0;
       margin-top: 0;
+      
       width: 100%;
     }
     & .chat-container {
@@ -2589,6 +2653,7 @@ onDestroy(() => {
       margin-right: 0;
       width: auto;
       left: 400px;
+      
     }
     & .thread-info {
       margin-left: 0;
@@ -2596,7 +2661,17 @@ onDestroy(() => {
     }
   }
 
-
+	.illustration {
+		position: absolute;
+		width: 95%;
+		height: auto;
+		left: 5%;
+		top: 50%;
+		transform: translateY(-50%);
+		opacity: 0.015;
+		z-index: 0;
+		pointer-events: none;
+	}
   .input-container {
     display: flex;
     flex-direction: column;
@@ -2604,17 +2679,16 @@ onDestroy(() => {
     flex-grow: 1;
     width: 100%;    
     margin-top: 0;
-    right: 0;
-    bottom:3rem;
     height: auto;
+    right: 0;
+    bottom:0;
     margin-bottom: 0;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
-    align-items: center;
+
     // background: var(--bg-gradient);
     z-index: 1;
-    border-radius: var(--radius-m);
-    border-top-right-radius: 0;
+
 
     &::placeholder {
       color: var(--placeholder-color);
@@ -2638,12 +2712,12 @@ onDestroy(() => {
       // border-bottom-left-radius: var(--radius-m);
       // background-color: transparent;
       // margin-left: 7rem;
-      transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
+      // transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);  
       // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
       color: var(--text-color);
       // background: transparent;
       display: flex;
-      max-height: 400px;
+      // max-height: 400px;
       // backdrop-filter: blur(40 px);
       // & :focus {
       //   border-top: 1px solid red;
@@ -2680,10 +2754,18 @@ onDestroy(() => {
   .input-container-start {
     display: flex;
     flex-direction: column;
-    position: relative;
-    border-radius: var(--radius-l);
-    bottom: 4rem;
-    transition: height 0.3s ease;
+    position: absolute;
+    flex-grow: 1;
+    width: 100%;    
+    margin-top: 0;
+    height: auto;
+    right: 0;
+    bottom:0;
+    margin-bottom: 0;
+    // backdrop-filter: blur(4px);
+    justify-content: flex-end;
+    align-items: center;
+    // background: var(--bg-gradient);
     z-index: 1;
 
     & .combo-input {
@@ -2715,7 +2797,7 @@ onDestroy(() => {
       display: flex;
       // backdrop-filter: blur(40px);
       font-size: 1.5rem;
-      max-height: 400px;
+      // max-height: 400px;
       margin-left: 2rem !important;
       margin-right: 2rem !important;
 
@@ -2749,24 +2831,27 @@ onDestroy(() => {
 
 .combo-input {
   // width: 100vw;;
-  bottom: 0;
   border-radius: var(--radius-m);
-  margin-bottom: 0;
+  margin-bottom: 3rem;
   height: auto;
   width: 100%;
   margin-left: 0;
-  bottom: 0;
+  bottom: auto;
   left: 0;
   display: flex;
-  position: absolute;
+  position: relative;
+  // background: var(--bg-color);
   flex-direction: column;
   // background: var(--bg-gradient);
   // backdrop-filter: blur(40px);
+  transition:all 0.3s ease;
+
   & textarea {
     // max-height: 50vh;
-    margin-left: 0.5rem;
-    margin-right: 0.5rem;
-    transition:all 0.3s ease;
+    height: 100px !important;
+    margin: 1rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
     z-index: 1000;
     // background: var(--bg-gradient-left);
 
@@ -2774,11 +2859,14 @@ onDestroy(() => {
       // box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
       // border-bottom: 1px solid var(--placeholder-color);
     // border-top-left-radius: 0;
-    height: 400px;
-    background: var(--primary-color);
-    box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-
-
+    min-height: 400px !important;
+    // background: var(--primary-color);
+    // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        margin: 2.5rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        background: var(--primary-color);
   }
 }
 }
@@ -2837,20 +2925,21 @@ color: #6fdfc4;
     position: relative;
     left: 1rem;
     right: 3rem;
-    margin-bottom: 3rem;
+    margin-bottom: 0;
     margin-top: 1rem;
     // left: 25%;
     padding: 1rem;
-    z-index: 5;
+    // backdrop-filter: blur(10px);
     flex-direction: column;
-    overflow-x: hidden;
     align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: scroll;
     scrollbar-width:2px;
     scrollbar-color: var(--secondary-color) transparent;
     scroll-behavior: smooth;
     // margin-bottom: 100px;
     // height: 100%;
-    width: auto;
+    width: calc(100% - 4rem);
     border-radius: var(--radius-l);
     // padding-bottom: 40px;
     // border: 2px solid var(--bg-color);
@@ -2973,7 +3062,7 @@ color: #6fdfc4;
     transition: all 0.3s ease-in-out;
 
     & p {
-      font-size: calc(1rem + 1vmin);
+      font-size: calc(0.5rem + 1vmin);
       margin: 0;
       padding-left: 0.5rem;
       display: flex;
@@ -3159,13 +3248,12 @@ color: #6fdfc4;
     margin-left: 0;
     // margin-bottom: 160px;
     position: relative;
-    background: var(--primary-color);
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
     top: 1rem;
     left: 0;
     right: 0;
-    width: 100%;
+    width: 98%;
     // padding: 0.5rem;
     color: var(--text-color);
     text-align: left;
@@ -3219,9 +3307,10 @@ color: #6fdfc4;
       gap: 0.5rem;
     }
     h3 {
-    font-style: italic;
-      font-size: calc(1rem + 1vmin);
-      font-weight: 500;
+    // font-style: italic;
+    letter-spacing: 0.25rem;
+      font-size: calc(0.5rem + 1vmin);
+      font-weight: 200;
 
     }
   }
@@ -3704,6 +3793,23 @@ color: #6fdfc4;
     border: 1px solid rgba(53, 63, 63, 0.5);   
   }
 
+  textarea::placeholder {
+    color: var(--placeholder-color);
+    transition: all 0.3s ease;
+    font-style: italic;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center !important;
+    text-justify: center !important;
+
+  }
+
+  textarea.quote-placeholder::placeholder {
+    font-style: italic;
+    color: var(--placeholder-color);
+    opacity: 0.8;
+  }
   textarea {
     display: flex;
     flex-direction: column;
@@ -3733,7 +3839,9 @@ color: #6fdfc4;
     scrollbar-color: #21201d transparent;
     vertical-align: middle; /* Align text vertically */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-    
+    margin-left: 1rem;
+    margin-right: 1rem;
+    margin-top: 1rem;
     &:focus {
       /* margin-right: 5rem; */
       outline: none;
@@ -3828,15 +3936,17 @@ color: #6fdfc4;
 
 .dashboard-items {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-start;
   position: relative;
   border-top: 1px solid var(--secondary-color);
   left: 0;
   right: 0;
   padding: 2rem;
+  gap: 2rem;
   width: 90%;
+  margin-bottom: auto;
   margin-top: 0;
 }
 .message-time {
@@ -4132,7 +4242,7 @@ color: #6fdfc4;
     position: relative;
     width: 100%;
     margin-left: 0;
-    height: 5rem;
+    min-height: 5rem;
     border-top-right-radius: var(--radius-m);
     border-bottom-right-radius: var(--radius-m);
     border-bottom-left-radius: var(--radius-m);
@@ -4329,31 +4439,30 @@ color: #6fdfc4;
 
 }
 
-  .scroll-bottom-btn {
-    position: fixed;
-    bottom: 50% !important;
-    right: 1rem;
-    background-color: #21201d;
-    color: white;
-    border: 1px solid rgba(53, 63, 63, 0.5);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    z-index: 6;
-    align-self: flex-end;
-    margin-right: 0;
-    margin-bottom: 0;
+.scroll-bottom-btn {
+  position: fixed;
+  bottom: 50% !important;
+  right: 4rem;
+  background-color: #21201d;
+  color: white;
+  border: 1px solid rgba(53, 63, 63, 0.5);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  z-index: 6;
+  align-self: flex-end;
+  margin-right: 0;
+  margin-bottom: 0;
 
-    &:hover {
-      background-color: #000000;
-
-    }
+  &:hover {
+    background-color: #000000;
   }
+}
 
 
   .delete-card-container {
@@ -4431,7 +4540,7 @@ color: #6fdfc4;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 90%;
+    width:100%;
     height: auto;
     left: 0%;
     top: 60%;
@@ -4452,8 +4561,7 @@ color: #6fdfc4;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    border-top-right-radius: 50px;
-    border-bottom-right-radius: 50px;
+
     color: white;
     z-index: 10000;
     margin-bottom: 2rem;
@@ -4514,7 +4622,7 @@ color: #6fdfc4;
 
   .section-content-bookmark {
     width: 100%;
-    height: 70vh;
+    height: 50vh;
     overflow: hidden;
     padding: 0.5rem 1rem;
     // background: var(--bg-gradient-left);
@@ -4535,7 +4643,7 @@ color: #6fdfc4;
     display: flex;
     justify-content: center;
     align-items: center;
-      bottom: 9rem;
+      bottom:5rem;
 
     // margin-right: 0;
 
@@ -4572,7 +4680,7 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content:flex-end;
+    justify-content:flex-start;
     // padding-left: 3rem;
     width: 100%;
     margin-left: 0;
@@ -4855,7 +4963,8 @@ color: #6fdfc4;
 
     .input-container {
       margin-right: 0;
-      margin-bottom: 200px;
+      margin-bottom: 5rem;
+      background: transparent;
     }
 
     .chat-messages {

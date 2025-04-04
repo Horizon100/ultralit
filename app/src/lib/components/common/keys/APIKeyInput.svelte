@@ -28,17 +28,14 @@
 	}
 </script>
 
-<div
-	class="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+<div class="overlay"
 	on:click={handleClickOutside}
 	transition:fly={{ y: -20, duration: 200 }}
 >
 	<form
 		on:submit={handleSubmit}
-		class="bg-primary rounded-lg p-6 w-full max-w-md"
 		transition:fly={{ y: 20, duration: 200 }}
 	>
-		<div class="space-y-4">
 			<div class="input-wrapper">
 				<input
 					type="password"
@@ -50,14 +47,22 @@
 			</div>
 
 			<button type="submit" class="submit-button"> Save Key </button>
-		</div>
 	</form>
 </div>
 
 <style lang="scss">
+
+	.overlay {
+		background-color: blue;
+		bottom: 200px;
+		z-index: 3000;
+		width: 400px;
+	}
 	.input-wrapper {
 		position: relative;
-		width: 100%;
+
+		width: auto;
+		background-color: red;
 	}
 
 	input {

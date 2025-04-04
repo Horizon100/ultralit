@@ -57,16 +57,14 @@
 				<div class="content-header"></div>
 
 				{#if selectedPrompt === value || hoveredPrompt === value}
-				<div class="icon-wrapper-big">
-					<Icon color="var(--text-color)" />
-				</div>
+				<!-- <div class="icon-wrapper-big">
+					<Icon color="var(--text-color)" size={100} />
+				</div> -->
 					<p class="description" 
-           class:hovered={hoveredPrompt === value}
-           transition:fly={{ y: 20, duration: 300 }}>
-          {description}
-        </p>
-
-
+						class:hovered={hoveredPrompt === value}
+						transition:fly={{ y: 20, duration: 300 }}>
+						{description}
+					</p>
 					{#if youtubeUrl}
 						<div class="video-container" class:hovered={hoveredPrompt === value}
 						transition:slide>
@@ -102,8 +100,8 @@
 		position: relative;
 		border-top-left-radius: var(--radius-m);
 		width: 100%;
-		margin-left: 0;
-		margin-right: 0;
+		margin-left: 2rem;
+		margin-right: 2rem;
 		backdrop-filter: blur(10px);
 		justify-content: center;
 		align-items: center;
@@ -128,11 +126,11 @@
 
 	.prompt-grid-item {
 		display: flex;
-		width: 50%;
-		margin-right: 50%;
+		max-width: 200px;
+
 		padding: 1.2rem 0;
 		border-radius: var(--radius-m);
-		background: var(--bg-color);
+		background: var(--primary-color);
 		cursor: pointer;
 		gap: 1rem;
 		padding-left: 1rem;
@@ -140,13 +138,22 @@
 		&.active {
 			// backdrop-filter: blur(20px);
 			height: auto;
-			background: var(--secondary-color);
+			margin-left: 0;
+			background: transparent;
+			h3 {
+				font-size: 1.4rem !important;
+
+			}
+
+			
 		}
 
 		&:hover {
 			// box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
 			background: var(--primary-color);
-			transform: translateX(1rem);
+			transform: translateX(0.5rem);
+			letter-spacing: 0.3rem;
+			z-index: 2001;
 		}
 
 		.icon-wrapper {
@@ -184,16 +191,19 @@
 		flex-direction: column;
 		position: absolute;
 		right: 0;
-		margin-right: 0;
-		margin-left:calc(50% + 1rem);
-		left: 0;
+		top: 0;
+		left:calc(200px + 2rem);
 		width: 100%;
 
 		&.hovered {
-			background: var(--primary-color);
+			background: var(--bg-gradient);
 			z-index: 2000;
 			color: var(--tertiary-color);
 			font-size: 1.1rem;
+			margin-left: 0;
+			margin-top: 0;
+			margin-right: 4rem;
+
 		}
 
 	}
@@ -211,9 +221,9 @@
 	}
 
 	.description {
-		font-size: 1rem;
+		font-size: 1.2rem;
 		line-height: 1.5;
-		width: calc(50vw - 6rem);
+		width: 74%;
 		display: flex;
 		position: relative;
 		bottom: 0;
@@ -221,7 +231,7 @@
 		line-height: 1.9rem;
 		justify-content: center;
 		align-items: center;
-		margin-left: 2rem;
+		margin-left: 3rem;
 		text-align: justify;
 		height: auto;
 		color: text-color;
@@ -235,11 +245,12 @@
 	}
 
 	.video-container {
-		width: 50%;
+		width: calc(100% - 200px);
 		right: 0;
-		top: 0;
+		top: 1rem;
+		bottom: 2rem;
 		position: relative;
-		padding-top: 56.25%; /* 16:9 Aspect Ratio */
+		padding-top: 64%; /* 16:9 Aspect Ratio */
 		overflow: hidden;
 		margin: 1rem 0;
 		pointer-events: auto;
@@ -250,7 +261,6 @@
 			left: 5%;
 			width: 90%;
 			height: 50%;
-
 			border-radius: 1rem;
 			border: 1px solid rgba(255, 255, 255, 0.2);
 		}

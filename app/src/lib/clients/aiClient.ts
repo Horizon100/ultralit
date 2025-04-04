@@ -26,9 +26,14 @@ export async function fetchAIResponse(
 		console.log('Original model:', model);
 		
 		// Use default model if the provided model is invalid
-		if (!model || !model.provider || !model.api_type) {
+		if (!model || (!model.provider && !model.api_type)) {
 			console.log('Using default model due to invalid model data');
 			model = defaultModel;
+		}
+		
+		// Ensure provider is set
+		if (!model.provider) {
+			model.provider = 'deepseek'; // Default to deepseek if provider is missing
 		}
 		
 		console.log('Using model:', model);
@@ -41,7 +46,7 @@ export async function fetchAIResponse(
 					model: {
 						id: model.id || 'default-model',
 						provider: model.provider,
-						api_type: model.api_type,
+						api_type: model.api_type || model.name,
 						name: model.name || 'Default Model'
 					},
 					userId
@@ -52,7 +57,7 @@ export async function fetchAIResponse(
 			(body as FormData).append('model', JSON.stringify({
 				id: model.id || 'default-model',
 				provider: model.provider,
-				api_type: model.api_type,
+				api_type: model.api_type || model.name,
 				name: model.name || 'Default Model'
 			}));
 			(body as FormData).append('userId', userId);
