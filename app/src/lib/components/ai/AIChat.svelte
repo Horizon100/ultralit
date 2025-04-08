@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
@@ -26,7 +26,7 @@
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
   import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
-  import { threadsStore } from '$lib/stores/threadsStore';
+  import { threadsStore, ThreadSortOption } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
@@ -44,6 +44,9 @@
 	import { hy } from 'date-fns/locale'
   import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
   import { formatDate, formatContent, getRelativeTime } from '$lib/utils/formatters';
+  import { providers, type ProviderType } from '$lib/constants/providers';
+  
+  export let message: InternalChatMessage;
 
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
@@ -153,6 +156,8 @@
   let editedProjectName = '';
   let isCreatingProject = false;
   let filteredProjects: Projects[] = [];
+  let showSortOptions = false;
+  let showUserFilter = false;
 
   projectStore.subscribe((state) => {
     currentProjectId = state.currentProjectId;
@@ -167,6 +172,11 @@
 });
 
 
+$: sortOptionInfo = threadsStore.sortOptionInfo;
+$: allSortOptions = threadsStore.allSortOptions;
+$: searchedThreads = threadsStore.searchedThreads;
+$: selectedUserIds = threadsStore.selectedUserIds;
+$: availableUsers = threadsStore.availableUsers;
 
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
@@ -196,6 +206,8 @@ const defaultAIModel: AIModel = {
 	collectionName: '',
 };
 
+
+
 const handleTextareaFocus = () => {
   clearTimeout(hideTimeout);
   isTextareaFocused = true;
@@ -210,15 +222,15 @@ const handleTextareaBlur = () => {
     currentPlaceholder = $t('chat.placeholder');
   }, 500); 
 };
-const searchedThreads = derived(threadsStore, ($store) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return $store.threads;
+// const searchedThreads = derived(threadsStore, ($store) => {
+//     const query = searchQuery.toLowerCase().trim();
+//     if (!query) return $store.threads;
     
-    return $store.threads.filter(thread => 
-        thread.name?.toLowerCase().includes(query) || 
-        thread.last_message?.content?.toLowerCase().includes(query)
-    );
-});
+//     return $store.threads.filter(thread => 
+//         thread.name?.toLowerCase().includes(query) || 
+//         thread.last_message?.content?.toLowerCase().includes(query)
+//     );
+// });
 function handleModelSelection(event: CustomEvent<AIModel>) {
   const selectedModel = event.detail;
   console.log('Model selected:', selectedModel);
@@ -237,6 +249,8 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
     models: false
   }));
 }
+
+
 // Message handling functions
   function cancelEditing() {
     editingProjectId = null;
@@ -325,6 +339,23 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
     updated: message.updated
   };
 }
+
+function getProviderDetails(modelString: string): { icon: string, name: string } {
+    if (modelString === 'default') {
+      return { icon: '', name: 'Default' };
+    }
+    
+    const providerName = modelString.split('-')[0] as ProviderType;
+    if (providers[providerName]) {
+      return {
+        icon: providers[providerName].icon,
+        name: modelString.split('-').slice(1).join('-')
+      };
+    }
+    
+    return { icon: '', name: modelString };
+  }
+  
   function groupMessagesByDate(messages: InternalChatMessage[]) {
   const groups: { [key: string]: { messages: InternalChatMessage[]; displayDate: string } } = {};
   const today = new Date().setHours(0, 0, 0, 0);
@@ -438,6 +469,8 @@ function handleClickOutside() {
       });
     }
   });
+  showSortOptions = false;
+  showUserFilter = false;
 }
 
 function handleScroll(event: { target: HTMLElement }) {
@@ -456,7 +489,25 @@ function handleScroll(event: { target: HTMLElement }) {
   
   lastScrollTop = currentScrollTop;
 }
-
+function toggleSortOption() {
+    threadsStore.toggleSortOption();
+  }
+  
+  // Set specific sort option
+  function setSortOption(option: ThreadSortOption) {
+    threadsStore.setSortOption(option);
+    showSortOptions = false;
+  }
+  
+  // Toggle user selection for filtering
+  function toggleUserSelection(userId: string) {
+    threadsStore.toggleUserSelection(userId);
+  }
+  
+  // Clear all selected users
+  function clearSelectedUsers() {
+    threadsStore.clearSelectedUsers();
+  }
   function getRandomThinkingPhrase(): string {
     const thinkingPhrases = $t('extras.thinking');
     if (!thinkingPhrases?.length) {
@@ -1134,6 +1185,7 @@ $: {
         );
     }
 }
+
 onMount(async () => {
   try {
     console.log('onMount initiated');
@@ -1156,6 +1208,8 @@ onMount(async () => {
       }));
     } else {
       await threadsStore.loadThreads();
+      threadsStore.loadAvailableUsers();
+
     }
     if (textareaElement) {
       const adjustTextareaHeight = () => {
@@ -1248,6 +1302,28 @@ onDestroy(() => {
                   </div> 
               {/if}
             </button>
+            <button 
+              class="toolbar-button sort-button"
+              class:active={showSortOptions}
+              on:click={() => showSortOptions = !showSortOptions}
+              aria-label="Sort threads"
+              title={$sortOptionInfo.label}
+            >
+              <svelte:component this={$sortOptionInfo.icon} size={18} />
+              <span class="button-label">{$sortOptionInfo.label}</span>
+            </button>
+            <button 
+              class="toolbar-button filter-button"
+              class:active={showUserFilter || $selectedUserIds.size > 0}
+              on:click={() => showUserFilter = !showUserFilter}
+              aria-label="Filter by users"
+              title="Filter by users"
+            >
+              <Filter size={18} />
+              {#if $selectedUserIds.size > 0}
+                <span class="filter-badge">{$selectedUserIds.size}</span>
+              {/if}
+            </button>
             <div class="drawer-input">
               <span 
                 class="icon" 
@@ -1291,6 +1367,62 @@ onDestroy(() => {
               {/if}
             </div>
           </div>
+          {#if showSortOptions}
+            <div 
+              class="dropdown sort-dropdown"
+              transition:fade={{ duration: 150 }}
+            >
+              {#each $allSortOptions as option}
+                <button 
+                  class="dropdown-item"
+                  class:selected={$sortOptionInfo.value === option.value}
+                  on:click={() => setSortOption(option.value)}
+                >
+                  <svelte:component this={option.icon} />
+                  <span>{option.label}</span>
+                  {#if $sortOptionInfo.value === option.value}
+                    <Check  class="check-icon" />
+                    
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
+          {#if showUserFilter}
+            <div 
+              class="dropdown user-dropdown"
+              transition:fade={{ duration: 150 }}
+            >
+              <div class="dropdown-header">
+                <h3>Filter by Users</h3>
+                {#if $selectedUserIds.size > 0}
+                  <button 
+                    class="clear-button"
+                    on:click={clearSelectedUsers}
+                  >
+                    Clear all
+                  </button>
+                {/if}
+              </div>
+              
+              {#if $availableUsers.length === 0}
+                <div class="no-users">No users found</div>
+              {:else}
+                {#each $availableUsers as user}
+                  <button 
+                    class="dropdown-item"
+                    class:selected={$selectedUserIds.has(user.id)}
+                    on:click={() => toggleUserSelection(user.id)}
+                  >
+                    <span>{user.name}</span>
+                    {#if $selectedUserIds.has(user.id)}
+                      <Check size={16} class="check-icon" />
+                    {/if}
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
           <div class="thread-filtered-results" transition:slide={{duration: 200}}>
             {#each $searchedThreads as thread (thread.id)}
             <!-- <button 
@@ -1609,6 +1741,8 @@ onDestroy(() => {
                           <Bot color="white" />
                         </div>
                         <span class="role">{message.prompt_type}</span>
+                        <span class="model">{message.model}</span>
+
                       </div>
                     {/if}
                   </div>
@@ -2169,6 +2303,15 @@ onDestroy(() => {
       display: flex;
       justify-content: center;
       align-items: center;
+    }
+    &.model {
+      display: flex;
+      background-color: var(--secondary-color);
+      box-shadow:rgba(128, 128, 128, 0.8);
+      justify-content: center;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 1rem;
     }
     &.delete-card-container {
       border: none;
@@ -3443,21 +3586,132 @@ color: #6fdfc4;
       z-index: 1;
       text-align: left;
       align-items: center;
-      justify-content: flex-start;
-      gap: 1rem;
+      justify-content: space-between;
+      gap: 0.5rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
       left: 0;
       right: 0;
-      padding: 1rem;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--secondary-color);
+
 
     & input {
       width: 200px;
     };
   }
 
+  .toolbar-section {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .toolbar-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    background: transparent;
+    border: 1px solid var(--border-color, #e2e8f0);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .toolbar-button:hover {
+    background-color: var(--secondary-color);
+  }
+  
+  .toolbar-button.active {
+    background-color: var(--tertiary-color);
+  }
+  
+  .button-label {
+    display: none;
+  }
+  @media (min-width: 640px) {
+    .button-label {
+      display: inline;
+    }
+  }
+
+  .filter-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--primary-color, #2563eb);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    font-weight: bold;
+  }
+  
+  .dropdown {
+
+  }
+  
+  .user-dropdown {
+    right: 0.5rem;
+    left: auto;
+  }
+  
+  .dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+  }
+  
+  .dropdown-header h3 {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  
+  .clear-button {
+    background: transparent;
+    border: none;
+    color: var(--primary-color, #2563eb);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    gap: 0.5rem;
+  }
+  
+  .dropdown-item:hover {
+    background-color: var(--secondary-color);
+  }
+  
+  .dropdown-item.selected {
+    background-color: var(--tertiary-color);
+  }
+  
+  .check-icon {
+    margin-left: auto;
+    color: var(--primary-color, #2563eb);
+  }
+  
+  .no-users {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-secondary, #64748b);
+    font-size: 0.875rem;
+  }
 .drawer-input {
   display: flex;
   flex-direction: row;

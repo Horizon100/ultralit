@@ -25,8 +25,21 @@ export default {
 	},
 	drawer: {
 		project: 'Projects',
-		thread: 'Discussions'
+		thread: 'Discussions',
+		sort: [
+			{
+			newest: 'Newest',
+			oldest: 'Oldest',
+			alpha_asc: 'Sort A to Z',
+			alpha_desc: 'Sort Z to A',
+			count_high: 'Most Messages',
+			count_low: 'Least Messages',
+			users_asc: 'Most Members',
+			users_desc: 'Least Members'
+			}
+		],
 	},
+
 	landing: {
 		h1: 'LEVEL UP YOUR CONVERSATIONS WITH AI',
 		h2: 'Hello',

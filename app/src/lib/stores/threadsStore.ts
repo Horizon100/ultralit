@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { pb, ensureAuthenticated, fetchThreads, updateThread as clientUpdateThread } from '$lib/pocketbase';
-import type { Messages, Threads, AIModel } from '$lib/types/types';
+import type { Messages, Threads, AIModel, ThreadStoreState } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import {
 	fetchMessagesForThread,
@@ -9,69 +9,154 @@ import {
 	autoUpdateThreadName
 } from '$lib/clients/threadsClient';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
+import { t } from '$lib/stores/translationStore';
 
 import { browser } from '$app/environment';
 import { replaceState } from '$app/navigation';
+import { ArrowDown, ArrowUp, CalendarDays, MessageSquare, SortAsc, SortDesc, User, UserCircle } from 'lucide-svelte';
+
+export enum ThreadSortOption {
+	NewestFirst = 'newest',
+	OldestFirst = 'oldest',
+	AlphabeticalAsc = 'alpha_asc',
+	AlphabeticalDesc = 'alpha_desc',
+	MessageCountHigh = 'count_high',
+	MessageCountLow = 'count_low',
+	UserCountAsc = 'users_asc',
+	UserCountDesc = 'users_desc'
+  }
+  
+  // Define the sorting option display info
+  export interface SortOptionInfo {
+	value: ThreadSortOption;
+	label: string;
+	icon: typeof import('lucide-svelte').LucideIcon;
+  }
+  
 
 function createThreadsStore() {
 	const initialShowThreadList = browser
 		? localStorage.getItem('threadListVisible') !== 'false'
 		: true;
 
-	const store = writable<{
-		threads: Threads[];
-		currentThreadId: string | null;
-		messages: Messages[];
-		updateStatus: string;
-		isThreadsLoaded: boolean;
-		showThreadList: boolean;
-		isEditingThreadName: boolean;
-		editedThreadName: string; 
-		searchQuery: string;
-		namingThreadId: string | null;
-		selectedTagIds: Set<string>;
-		date: string;
-	}>({
-		threads: [],
-		currentThreadId: null,
-		messages: [],
-		updateStatus: '',
-		isThreadsLoaded: false,
-		showThreadList: initialShowThreadList,
-		searchQuery: '',
-		namingThreadId: null,
-		selectedTagIds: new Set(),
-		date: ''
-	});
+		const store = writable<ThreadStoreState>({
+			threads: [],
+			currentThreadId: null,
+			messages: [],
+			updateStatus: '',
+			isThreadsLoaded: false,
+			showThreadList: initialShowThreadList,
+			isEditingThreadName: false,
+			editedThreadName: '',
+			searchQuery: '',
+			namingThreadId: null,
+			selectedTagIds: new Set(),
+			date: new Date().toISOString(),
+			sortOption: ThreadSortOption.NewestFirst,
+			selectedUserIds: new Set(),
+			availableUsers: []
+		  });
 	const { subscribe, update } = store;
-	/*
-	 * if (browser) {
-	 *   store.subscribe(state => {
-	 *     localStorage.setItem('userTags', JSON.stringify(state.tags));
-	 *   });
-	 * }
-	 */
-	/*
-	 * const debouncedUpdateThread = debounce(async (id: string, changes: Partial<Threads>) => {
-	 *   try {
-	 *     const updatedThread = await updateThread(id, changes);
-	 *     store.update(state => ({
-	 *       ...state,
-	 *       threads: state.threads.map(t => t.id === id ? { ...t, ...updatedThread } : t),
-	 *       updateStatus: 'Thread updated successfully'
-	 *     }));
-	 *     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-	 *   } catch (error) {
-	 *     console.error('Failed to update thread in backend:', error);
-	 *     store.update(state => ({ ...state, updateStatus: 'Failed to update thread' }));
-	 *     setTimeout(() => store.update(state => ({ ...state, updateStatus: '' })), 3000);
-	 *   }
-	 * }, 300);
-	 */
-
+	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
+	const allSortOptions = derived(store, () => Object.values(ThreadSortOption).map(option => getSortOptionInfo(option)));
+	const searchedThreads = derived(store, ($store) => {
+	  // Use the existing getSortedAndFilteredThreads logic but directly apply it to the store value
+	  // First apply search filter
+	  let filteredThreads = $store.searchQuery.trim().length > 0
+		? $store.threads.filter(
+			thread => 
+			  thread.name?.toLowerCase().includes($store.searchQuery.toLowerCase().trim()) ||
+			  thread.last_message?.content?.toLowerCase().includes($store.searchQuery.toLowerCase().trim())
+		  )
+		: [...$store.threads];
+	  
+	  // Apply user filter if any users are selected
+	  if ($store.selectedUserIds.size > 0) {
+		filteredThreads = filteredThreads.filter(thread => {
+		  // Check if thread creator is selected
+		  if (thread.user && $store.selectedUserIds.has(thread.user)) {
+			return true;
+		  }
+		  
+		  // Check if any participant is selected
+		  if (thread.participants && Array.isArray(thread.participants)) {
+			return thread.participants.some(participant => {
+			  const participantId = typeof participant === 'string' 
+				? participant 
+				: (participant && participant.id ? participant.id : null);
+			  
+			  return participantId && $store.selectedUserIds.has(participantId);
+			});
+		  }
+		  
+		  return false;
+		});
+	  }
+	  
+	  // Apply tag filter if any tags are selected
+	  if ($store.selectedTagIds.size > 0) {
+		filteredThreads = filteredThreads.filter(thread => {
+		  if (!thread.tags || thread.tags.length === 0) return false;
+		  
+		  return thread.tags.some(tag => $store.selectedTagIds.has(tag));
+		});
+	  }
+	  
+	  // Apply sorting
+	  return filteredThreads.sort((a, b) => {
+		switch ($store.sortOption) {
+		  case ThreadSortOption.NewestFirst:
+			return new Date(b.updated || b.created || 0).getTime() - 
+				   new Date(a.updated || a.created || 0).getTime();
+		  
+		  case ThreadSortOption.OldestFirst:
+			return new Date(a.updated || a.created || 0).getTime() - 
+				   new Date(b.updated || b.created || 0).getTime();
+		  
+		  case ThreadSortOption.AlphabeticalAsc:
+			return (a.name || '').localeCompare(b.name || '');
+		  
+		  case ThreadSortOption.AlphabeticalDesc:
+			return (b.name || '').localeCompare(a.name || '');
+		  
+		  case ThreadSortOption.MessageCountHigh:
+			const aCount = a.message_count || 0;
+			const bCount = b.message_count || 0;
+			return bCount - aCount;
+		  
+		  case ThreadSortOption.MessageCountLow:
+			const aCountLow = a.message_count || 0;
+			const bCountLow = b.message_count || 0;
+			return aCountLow - bCountLow;
+		  
+		  case ThreadSortOption.UserCountAsc:
+			const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
+			const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
+			return aUsers - bUsers;
+		  
+		  case ThreadSortOption.UserCountDesc:
+			const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
+			const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
+			return bUsersDesc - aUsersDesc;
+		  
+		  default:
+			return 0;
+		}
+	  });
+	});
+	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
+	const availableUsers = derived(store, ($store) => $store.availableUsers);
+	
+	// Then, add these derived stores to your return object
 	return {
-		subscribe,
-		update,
+	  subscribe,
+	  update,
+	  // Add the reactive stores here
+	  sortOptionInfo,
+	  allSortOptions,
+	  searchedThreads,
+	  selectedUserIds,
+	  availableUsers,
 		toggleThreadList: () => {
 			update((state) => {
 				const newShowThreadList = !state.showThreadList;
@@ -444,14 +529,25 @@ function createThreadsStore() {
 			return Object.entries(groups).map(([date, messages]) => ({ date, messages }));
 		}),
 		getSearchedThreads: derived(store, ($store) => {
-			const query = $store.searchQuery.toLowerCase().trim();
-			if (!query) return $store.threads;
+			// const query = $store.searchQuery.toLowerCase().trim();
+			// if (!query) return $store.threads;
 
-			return $store.threads.filter(
-				(thread) =>
-					thread.name?.toLowerCase().includes(query) ||
-					thread.last_message?.content?.toLowerCase().includes(query)
-			);
+			// return $store.threads.filter(
+			// 	(thread) =>
+			// 		thread.name?.toLowerCase().includes(query) ||
+			// 		thread.last_message?.content?.toLowerCase().includes(query)
+			// );
+			return this.getSortedAndFilteredThreads;
+
+		}),
+		// Get the current sort option info
+		getCurrentSortOptionInfo: derived(store, ($store) => {
+			return getSortOptionInfo($store.sortOption);
+			}),
+			
+		// Get all available sort options
+		getAllSortOptions: derived(store, () => {
+		return Object.values(ThreadSortOption).map(option => getSortOptionInfo(option));
 		}),
 		isSearchActive: derived(store, ($store) => $store.searchQuery.trim().length > 0),
 		getUniqueTags: derived(store, ($store) => {
@@ -459,11 +555,245 @@ function createThreadsStore() {
 			return [...new Set(allTags)];
 		}),
 
-		isThreadsLoaded: derived(store, ($store) => $store.isThreadsLoaded)
+		isThreadsLoaded: derived(store, ($store) => $store.isThreadsLoaded),
+    setSortOption: (option: ThreadSortOption) => {
+      update(state => ({
+        ...state,
+        sortOption: option
+      }));
+    },
+    
+    // Toggle through sorting options
+    toggleSortOption: () => {
+      update(state => {
+        const options = Object.values(ThreadSortOption);
+        const currentIndex = options.indexOf(state.sortOption);
+        const nextIndex = (currentIndex + 1) % options.length;
+        
+        return {
+          ...state,
+          sortOption: options[nextIndex]
+        };
+      });
+    },
+    
+    // Load available users from threads
+    loadAvailableUsers: () => {
+      update(state => {
+        const userMap = new Map<string, string>();
+        
+        state.threads.forEach(thread => {
+          if (thread.user) {
+            // For single user field
+            userMap.set(thread.user, thread.user_name || thread.user);
+          }
+          
+          // For participants array if it exists
+          if (thread.participants && Array.isArray(thread.participants)) {
+            thread.participants.forEach(participant => {
+              if (typeof participant === 'string') {
+                userMap.set(participant, participant);
+              } else if (participant && participant.id) {
+                userMap.set(participant.id, participant.name || participant.id);
+              }
+            });
+          }
+        });
+        
+        const availableUsers = Array.from(userMap.entries()).map(([id, name]) => ({ id, name }));
+        
+        return {
+          ...state,
+          availableUsers
+        };
+      });
+    },
+    
+    // Toggle user selection for filtering
+    toggleUserSelection: (userId: string) => {
+      update(state => {
+        const newSelection = new Set(state.selectedUserIds);
+        
+        if (newSelection.has(userId)) {
+          newSelection.delete(userId);
+        } else {
+          newSelection.add(userId);
+        }
+        
+        return {
+          ...state,
+          selectedUserIds: newSelection
+        };
+      });
+    },
+    
+    // Clear all selected users
+    clearSelectedUsers: () => {
+      update(state => ({
+        ...state,
+        selectedUserIds: new Set()
+      }));
+    },
+    
+    // Add a method to refresh relative times
+    refreshThreadTimes: () => {
+      update(state => ({
+        ...state,
+        date: new Date().toISOString() // Update date to trigger reactivity
+      }));
+    },
+	getSortedAndFilteredThreads: derived(store, ($store) => {
+		// First apply search filter
+		let filteredThreads = $store.searchQuery.trim().length > 0
+		  ? $store.threads.filter(
+			  thread => 
+				thread.name?.toLowerCase().includes($store.searchQuery.toLowerCase().trim()) ||
+				thread.last_message?.content?.toLowerCase().includes($store.searchQuery.toLowerCase().trim())
+			)
+		  : [...$store.threads];
+		
+		// Apply user filter if any users are selected
+		if ($store.selectedUserIds.size > 0) {
+		  filteredThreads = filteredThreads.filter(thread => {
+			// Check if thread creator is selected
+			if (thread.user && $store.selectedUserIds.has(thread.user)) {
+			  return true;
+			}
+			
+			// Check if any participant is selected
+			if (thread.participants && Array.isArray(thread.participants)) {
+			  return thread.participants.some(participant => {
+				const participantId = typeof participant === 'string' 
+				  ? participant 
+				  : (participant && participant.id ? participant.id : null);
+				
+				return participantId && $store.selectedUserIds.has(participantId);
+			  });
+			}
+			
+			return false;
+		  });
+		}
+		
+		// Apply tag filter if any tags are selected
+		if ($store.selectedTagIds.size > 0) {
+		  filteredThreads = filteredThreads.filter(thread => {
+			if (!thread.tags || thread.tags.length === 0) return false;
+			
+			return thread.tags.some(tag => $store.selectedTagIds.has(tag));
+		  });
+		}
+		
+		// Apply sorting
+		return filteredThreads.sort((a, b) => {
+		  switch ($store.sortOption) {
+			case ThreadSortOption.NewestFirst:
+			  return new Date(b.updated || b.created || 0).getTime() - 
+					 new Date(a.updated || a.created || 0).getTime();
+			
+			case ThreadSortOption.OldestFirst:
+			  return new Date(a.updated || a.created || 0).getTime() - 
+					 new Date(b.updated || b.created || 0).getTime();
+			
+			case ThreadSortOption.AlphabeticalAsc:
+			  return (a.name || '').localeCompare(b.name || '');
+			
+			case ThreadSortOption.AlphabeticalDesc:
+			  return (b.name || '').localeCompare(a.name || '');
+			
+			case ThreadSortOption.MessageCountHigh:
+			  const aCount = a.message_count || 0;
+			  const bCount = b.message_count || 0;
+			  return bCount - aCount;
+			
+			case ThreadSortOption.MessageCountLow:
+			  const aCountLow = a.message_count || 0;
+			  const bCountLow = b.message_count || 0;
+			  return aCountLow - bCountLow;
+			
+			case ThreadSortOption.UserCountAsc:
+			  const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
+			  const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
+			  return aUsers - bUsers;
+			
+			case ThreadSortOption.UserCountDesc:
+			  const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
+			  const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
+			  return bUsersDesc - aUsersDesc;
+			
+			default:
+			  return 0;
+		  }
+		});
+	  }),
 	};
 }
+
+function getSortOptionInfo(option: ThreadSortOption): SortOptionInfo {
+	switch (option) {
+	  case ThreadSortOption.NewestFirst:
+		return { 
+		  value: option, 
+		  label: '↑', 
+		  icon: CalendarDays,
+		};
+	  case ThreadSortOption.OldestFirst:
+		return { 
+		  value: option, 
+		  label: '↓', 
+		  icon: CalendarDays
+		};
+	  case ThreadSortOption.AlphabeticalAsc:
+		return { 
+		  value: option, 
+		  label: 'A-Z', 
+		  icon: SortAsc
+		};
+	  case ThreadSortOption.AlphabeticalDesc:
+		return { 
+		  value: option, 
+		  label: 'Z-A', 
+		  icon: SortDesc
+		};
+	  case ThreadSortOption.MessageCountHigh:
+		return { 
+		  value: option, 
+		  label: '↑#', 
+		  icon: MessageSquare 
+		};
+	  case ThreadSortOption.MessageCountLow:
+		return { 
+		  value: option, 
+		  label: '↓#', 
+		  icon: MessageSquare
+		};
+	  case ThreadSortOption.UserCountAsc:
+		return { 
+		  value: option, 
+		  label: '↑#', 
+		  icon: UserCircle
+		};
+	  case ThreadSortOption.UserCountDesc:
+		return { 
+		  value: option, 
+		  label: '↓#', 
+		  icon: User
+		};
+	  default:
+		return { 
+		  value: ThreadSortOption.NewestFirst, 
+		  label: 'Newest First', 
+		  icon: ArrowDown
+		};
+	}
+  }
 export const threadsStore = createThreadsStore();
 
 export function getThreadsStore() {
 	return get(threadsStore);
+}
+if (browser) {
+setInterval(() => {
+	threadsStore.refreshThreadTimes();
+}, 60000); // Refresh every minute
 }

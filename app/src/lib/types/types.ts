@@ -1,6 +1,6 @@
 import type { RecordModel } from 'pocketbase';
 import { type ProviderType } from '$lib/constants/providers';
-
+import type { ThreadSortOption } from '$lib/stores/threadsStore';
 export interface User extends RecordModel {
 	username: string;
 	email: string;
@@ -67,12 +67,16 @@ export interface ThreadStoreState {
 	editedThreadName: string;
 	isNaming: boolean;
 	project_id?: string;
+	sortOption: ThreadSortOption;
+	selectedUserIds: Set<string>;
+	availableUsers: { id: string; name: string }[];
 }
 
 export interface Threads extends RecordModel {
 	id: string;
 	name: string;
 	op: string;
+	members: string;
 	created: string;
 	updated: string;
 	last_message?: Messages;
