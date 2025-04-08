@@ -3,6 +3,8 @@ import type { ModelState } from '$lib/stores/modelStore';
 import { defaultModel } from '$lib/constants/models';
 import { getPrompt } from '$lib/constants/prompts';
 import { pb } from '$lib/pocketbase';
+import { get } from 'svelte/store';
+import { apiKey } from '$lib/stores/apiKeyStore';
 
 export async function fetchAIResponse(
 	messages: AIMessage[],
@@ -11,7 +13,6 @@ export async function fetchAIResponse(
 	attachment: File | null = null
 ): Promise<string> {
 	try {
-		// Filter and format messages
 		const supportedMessages = messages
 			.filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
 			.map((msg) => ({
@@ -22,20 +23,16 @@ export async function fetchAIResponse(
 				model: msg.model
 			}));
 
-		// Ensure we have a valid model object
 		console.log('Original model:', model);
 		
-		// Use default model if the provided model is invalid
-		if (!model || (!model.provider && !model.api_type)) {
+		if (!model || (typeof model === 'string')) {
 			console.log('Using default model due to invalid model data');
 			model = defaultModel;
 		}
 		
-		// Ensure provider is set
 		if (!model.provider) {
-			model.provider = 'deepseek'; // Default to deepseek if provider is missing
+			model.provider = 'deepseek';
 		}
-		
 		console.log('Using model:', model);
 
 		// Prepare request body
@@ -68,16 +65,18 @@ export async function fetchAIResponse(
 		const provider = model.provider || 'deepseek';
 		console.log('Provider:', provider);
 		
-		const apiKey =
-			provider === 'openai'
-				? import.meta.env.VITE_OPENAI_API_KEY
-				: provider === 'deepseek'
-				? import.meta.env.VITE_DEEPSEEK_API_KEY
-				: provider === 'anthropic'
-				? import.meta.env.VITE_ANTHROPIC_API_KEY
-				: '';
+		// const apiKey =
+		// 	provider === 'openai'
+		// 		? import.meta.env.VITE_OPENAI_API_KEY
+		// 		: provider === 'deepseek'
+		// 		? import.meta.env.VITE_DEEPSEEK_API_KEY
+		// 		: provider === 'anthropic'
+		// 		? import.meta.env.VITE_ANTHROPIC_API_KEY
+		// 		: '';
+		const userApiKey = get(apiKey)[provider] || '';
 
-		if (!apiKey) {
+
+		if (!userApiKey) {
 			throw new Error(`No API key found for provider: ${provider}`);
 		}
 
@@ -86,7 +85,7 @@ export async function fetchAIResponse(
 			method: 'POST',
 			headers: {
 				...(!attachment && { 'Content-Type': 'application/json' }),
-				Authorization: `Bearer ${apiKey}`
+				Authorization: `Bearer ${userApiKey}`
 			},
 			body: attachment ? body : JSON.stringify(body)
 		});
@@ -119,16 +118,14 @@ export async function fetchNamingResponse(
 				role: 'assistant',
 				content:
 					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
-				model: model.api_type
-			},
+				model: typeof model === 'string' ? model : model.api_type
+				},
 			{
 				role: 'user',
 				content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
-				model: model.api_type
+				model: typeof model === 'string' ? model : model.api_type
 			}
 		];
-
-		// Pass the full model object, not just model.api_type
 		const response = await fetchAIResponse(messages, model, userId);
 
 		const threadName = response

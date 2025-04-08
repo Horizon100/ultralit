@@ -11,7 +11,7 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: string;
+	export let provider: string = 'deepseek'; // Default to deepseek if not provided
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
@@ -56,9 +56,13 @@
 		deepseek: []
 	};
 
+
+
 	async function handleProviderClick(key: string) {
         const provider = key as ProviderType;
         const currentKey = get(apiKey)[provider];
+        
+        console.log(`Clicked provider: ${provider}, has key: ${Boolean(currentKey)}`);
 
         if (currentProvider === provider) {
             currentProvider = null;
@@ -70,6 +74,7 @@
         expandedModelList = provider;
 
         if (!currentKey) {
+            console.log(`No API key found for ${provider}, showing input form`);
             showAPIKeyInput = true;
         } else {
             if ($currentUser) {
@@ -94,11 +99,14 @@
 			provider: currentProvider || model.provider || 'deepseek' // Default to deepseek if no provider
 		};
 		
+		console.log('Selected model with provider:', enrichedModel.provider);
+		
 		if ($currentUser) {
 			try {
 				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
 				if (success) {
 					selectedModel = enrichedModel;
+					console.log('Saved model selection to model store');
 				}
 			} catch (error) {
 				console.warn('Error selecting model:', error);
@@ -113,6 +121,8 @@
         isLoadingModels = true;
         try {
             const currentKey = get(apiKey)[provider];
+            console.log(`Loading models for ${provider}, has key: ${Boolean(currentKey)}`);
+            
             if (currentKey) {
                 const providerModelList = await providers[provider].fetchModels(currentKey);
                 // Ensure provider information is set for each model
@@ -123,6 +133,7 @@
                 console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
             } else {
                 availableProviderModels[provider] = [];
+                console.warn(`No API key available for ${provider}`);
             }
         } catch (error) {
             console.error(`Error fetching models for ${provider}:`, error);
@@ -134,11 +145,44 @@
 	
 	async function handleAPIKeySubmit(event: CustomEvent<string>) {
 		if (currentProvider) {
+			console.log(`Saving new API key for ${currentProvider}`);
 			await apiKey.setKey(currentProvider, event.detail);
 			showAPIKeyInput = false;
 			await loadProviderModels(currentProvider);
 		}
 	}
+
+	onMount(async () => {
+		// Make an explicit call to load API keys
+		if ($currentUser) {
+			console.log("Loading API keys on component mount...");
+			await apiKey.loadKeys();
+			
+			// Log available keys to help debug
+			const availableKeys = get(apiKey);
+			console.log("Available API keys for providers:", Object.keys(availableKeys));
+			
+			// Set initial provider based on existing keys, selected model, or default
+			const initialProvider = selectedModel?.provider || provider || 'deepseek';
+			currentProvider = initialProvider as ProviderType;
+			
+			// If we have a key for this provider, try to load its models
+			if (availableKeys[initialProvider]) {
+				console.log(`Found key for ${initialProvider}, loading models...`);
+				try {
+					isLoadingModels = true;
+					await modelStore.setSelectedProvider($currentUser.id, initialProvider as ProviderType);
+					await loadProviderModels(initialProvider as ProviderType);
+				} catch (error) {
+					console.error(`Error loading models for ${initialProvider}:`, error);
+				} finally {
+					isLoadingModels = false;
+				}
+			} else {
+				console.log(`No API key found for ${initialProvider}`);
+			}
+		}
+	});
 </script>
 
 <div class="selector-container">
@@ -157,7 +201,7 @@
 						</span>
 					</div>
 					<div class="provider-status">
-						{#if $apiKey[key]}
+						{#if get(apiKey)[key]}
 							<div class="icon-wrapper success">
 								<CheckCircle2 />
 							</div>
@@ -198,6 +242,11 @@
                     <div class="spinner"></div>
                     <p>Loading models...</p>
                 </div>
+            {:else if showAPIKeyInput}
+                <div class="api-key-container">
+                    <h4>Enter {providers[expandedModelList].name} API Key</h4>
+                    <APIKeyInput on:submit={handleAPIKeySubmit} />
+                </div>
             {:else if availableProviderModels[expandedModelList]?.length > 0}
                 <div class="model-list">
                     {#each availableProviderModels[expandedModelList] as model}
@@ -218,23 +267,21 @@
 					on:submit={handleSubmit}
 					transition:fly={{ y: 20, duration: 200 }}
 				>
-						<div class="input-wrapper">
-							<input
-								type="password"
-								bind:value={key}
-								class="w-full px-4 py-2 rounded-lg bg-secondary"
-								placeholder="Enter your API key"
-								autofocus
-							/>
-						</div>
-
-						<button type="submit" class="submit-button"> Save Key </button>
+					<div class="input-wrapper">
+						<input
+							type="password"
+							bind:value={key}
+							class="w-full px-4 py-2 rounded-lg bg-secondary"
+							placeholder="Enter your API key"
+							autofocus
+						/>
+					</div>
+					<button type="submit" class="submit-button"> Save Key </button>
 				</form>
             {/if}
         </div>
     </div>
 {/if}
-
 
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
@@ -262,11 +309,14 @@
 	.providers-list {
 		display: flex;
 		flex-direction: row;
+		align-items: flex-end;
+		justify-content: flex-end;
 		gap: var(--spacing-sm);
 		width: 100%;
 		height: calc(100% - 2rem);
 		position: relative;
 		margin-top: 1rem;
+		margin-right: 2rem;
 	}
 
 	button {

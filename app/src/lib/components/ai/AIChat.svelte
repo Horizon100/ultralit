@@ -226,7 +226,7 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
   // Update the aiModel with complete provider information
   aiModel = {
     ...selectedModel,
-    provider: selectedModel.provider || 'deepseek'
+    provider: selectedModel.provider || 'openai'
   };
   
   selectedModelLabel = aiModel.name || '';
@@ -659,7 +659,7 @@ async function handleSendMessage(message: string = userInput) {
       });
     }
 
-    const aiResponse = await fetchAIResponse(messagesToSend, aiModel.api_type, userId, attachment);
+    const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
     chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
     const assistantMessage = await messagesStore.saveMessage({
@@ -1547,12 +1547,13 @@ onDestroy(() => {
                       {#if $expandedSections.models}
                         <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                           <ModelSelector
-                            on:select={(event) => {
-                              {handleModelSelection}
-                              showModelSelector = !showModelSelector;
-                              console.log('Parent received selection from catalog:', event.detail);
-                            }}
-                          />
+                          provider="yourDefaultProvider"
+                          on:select={(event) => {
+                            handleModelSelection(event);
+                            showModelSelector = !showModelSelector;
+                            console.log('Parent received selection from catalog:', event.detail);
+                          }}
+                        />
                         </div>
                       {/if}
                       {#if $expandedSections.bookmarks}
@@ -4059,7 +4060,9 @@ color: #6fdfc4;
 
   .card-title {
     font-weight: 300;
-    font-size: var( --font-size-s);
+    font-size: calc(0.5rem + 1vmin);
+
+    // font-size: var( --font-size-s);
     margin-bottom: 0.25rem;
     text-align: left;
     
@@ -4171,7 +4174,7 @@ color: #6fdfc4;
   position: relative;
   top: 0;
   bottom: 0;
-  left: 4rem;
+  left: 5rem;
   margin-left: 0;
   height: 100vh;
   width: calc(400px - 4rem);

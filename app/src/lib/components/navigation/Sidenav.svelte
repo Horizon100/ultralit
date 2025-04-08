@@ -500,6 +500,7 @@
     gap: 1rem;
     width: 100%;
 	justify-content: space-between;
+	align-items: center;
 
 	& .hidden {
 		display: none;
@@ -763,6 +764,8 @@
 	.nav-button.active {
 		border: 1px solid var(--tertiary-color);
 		background: var(--bg-color);
+		width: 4rem;
+		height: 4rem;
 		box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
 	}
 
@@ -773,7 +776,26 @@
 	.nav-button:hover,
 	.thread-toggle:hover {
 		box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+		transform: scale(1.3);
+		animation: nonlinearSpin 5.3s ease;
 	}
+	@keyframes nonlinearSpin {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(1080deg);
+    }
+    50% {
+      transform: rotate(0deg);
+    }
+    75% {
+      transform: rotate(1080deg);
+    }
+    100% {
+      transform: rotate(2160deg);
+    }
+  }
 
 	:global(.sidenav .nav-button svg),
 	:global(.sidenav .thread-toggle svg) {
