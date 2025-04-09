@@ -237,22 +237,24 @@
 		in:fly={{ x: -200, duration: 300 }}
 		out:fly={{ x: 200, duration: 300 }}
 	>
-		{#if $currentUser}
-		<button 
-			class="nav-button user" 
-			class:expanded={isNavExpanded}
-			on:click={toggleAuthOrProfile}
-		>
-					{#if $currentUser.avatar}
-						<img
-							src={pb.getFileUrl($currentUser, $currentUser.avatar)}
-							alt="User avatar"
-							class="avatar"
-						/>
-					{:else}
-						<User />
-					{/if}
-			{#if isNavExpanded}
+	{#if $currentUser}
+    <button 
+        class="nav-button user" 
+        class:expanded={isNavExpanded}
+        on:click={toggleAuthOrProfile}
+    >
+    {#if $currentUser?.avatar}
+        <img 
+            src={`${pb.baseUrl}/api/files/${$currentUser.collectionId}/${$currentUser.id}/${$currentUser.avatar}`}
+            alt="User avatar" 
+            class="user-avatar" 
+        />
+    {:else}
+        <div class="default-avatar">
+            {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+        </div>
+    {/if}
+		{#if isNavExpanded}
 			<span class="nav-text">{username} </span>
 		{/if}
 		</button>
@@ -522,6 +524,15 @@
     &.active {
       background: var(--tertiary-color);
       box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+	  &.expanded {
+		width: 380px;
+		justify-content: flex-start;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-s);
+		background: var(--primary-color);
+		opacity: 1 !important;
+
+		}
     }
 
     &:hover {
@@ -533,6 +544,10 @@
       justify-content: flex-start;
       padding: 0.5rem 1rem;
 	  border-radius: var(--radius-s);
+	  opacity: 0.5;
+	  animation: none !important;
+	  border-radius: 2rem !important;
+
     }
 
     &.toggle {
@@ -584,7 +599,7 @@
 	.profile-overlay {
 		position: fixed;
 		top: 0;
-		left: 4rem;
+		left: 5rem;
 		width: 100%;
 		height: 100%;
 		display: flex;
@@ -776,8 +791,8 @@
 	.nav-button:hover,
 	.thread-toggle:hover {
 		box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-		transform: scale(1.3);
-		animation: nonlinearSpin 5.3s ease;
+		transform: scale(1.1);
+		animation: nonlinearSpin 3.3s ease;
 	}
 	@keyframes nonlinearSpin {
     0% {

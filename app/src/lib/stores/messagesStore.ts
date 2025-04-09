@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import type { Messages } from '$lib/types/types';
 import { pb } from '$lib/pocketbase';
 import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark, updateMessage} from '$lib/clients/threadsClient';
-
+import { threadsStore } from './threadsStore';
 function createMessagesStore() {
 	
 	const { subscribe, set, update } = writable<Messages[]>([]);
@@ -17,6 +17,9 @@ function createMessagesStore() {
 			try {
 				const newMessage = await addMessageToThread(message);
 				update((messages) => (Array.isArray(messages) ? [...messages, newMessage] : [newMessage]));
+				if (message.thread) {
+					threadsStore.loadThreads();
+				}
 				return newMessage;
 			} catch (error) {
 				console.error('Error adding message:', error);
@@ -78,6 +81,7 @@ function createMessagesStore() {
 					}
 					return [...currentMessages, savedMessage];
 				});
+				threadsStore.loadThreads();
 
 				return savedMessage;
 			} catch (error) {

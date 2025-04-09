@@ -18,6 +18,8 @@
 	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
   import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
+  import ThreadCollaborators from '$lib/components/containers/ThreadCollaborators.svelte'
+
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
@@ -293,7 +295,7 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
       updated: createdDate,
       parent_msg: parentMsgId,
       prompt_type: promptType,
-      model: model,
+      model: selectedModelLabel,
       reactions: {
         upvote: 0,
         downvote: 0,
@@ -1303,7 +1305,7 @@ onDestroy(() => {
               {/if}
             </button>
             <button 
-              class="toolbar-button sort-button"
+              class="toolbar-button"
               class:active={showSortOptions}
               on:click={() => showSortOptions = !showSortOptions}
               aria-label="Sort threads"
@@ -1313,7 +1315,7 @@ onDestroy(() => {
               <span class="button-label">{$sortOptionInfo.label}</span>
             </button>
             <button 
-              class="toolbar-button filter-button"
+              class="toolbar-button"
               class:active={showUserFilter || $selectedUserIds.size > 0}
               on:click={() => showUserFilter = !showUserFilter}
               aria-label="Filter by users"
@@ -1532,6 +1534,9 @@ onDestroy(() => {
                   {currentThread.name}
                 </h3>
               </span>
+              {#if $threadsStore.currentThreadId}
+                <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+              {/if}
               {/if}
               {#if !isMinimized}
               {/if}
@@ -1558,7 +1563,9 @@ onDestroy(() => {
                   <div class="dashboard-items">
                     <!-- <ProjectCard/>  -->
                     <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
-                    <ProjectCollaborators/>
+                    {#if $projectStore.currentProjectId}
+                      <ProjectCollaborators projectId={$projectStore.currentProjectId} />
+                    {/if}
                   </div>
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
@@ -3395,9 +3402,10 @@ color: #6fdfc4;
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
     top: 1rem;
-    left: 0;
+    left: 1rem;
     right: 0;
     width: 98%;
+    z-index: 2000;
     // padding: 0.5rem;
     color: var(--text-color);
     text-align: left;
@@ -3440,7 +3448,6 @@ color: #6fdfc4;
     align-items: center;
     justify-content: center;
     letter-spacing: 0.2rem;
-
     & .icon {
       color: var(--placeholder-color);
       margin-bottom: 1rem;
@@ -3611,10 +3618,12 @@ color: #6fdfc4;
   .toolbar-button {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.5rem;
-    border-radius: 0.25rem;
-    background: transparent;
+    width: auto !important;
+    border-radius: 1rem;
+    background: var(--bg-color) !important;
     border: 1px solid var(--border-color, #e2e8f0);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -3629,7 +3638,7 @@ color: #6fdfc4;
   }
   
   .button-label {
-    display: none;
+    display: flex;
   }
   @media (min-width: 640px) {
     .button-label {
@@ -3755,13 +3764,18 @@ color: #6fdfc4;
       width: 150px;
       color: var(--text-color);
       transition: all 0.3s ease;
+      font-size: 1.5rem;
       &::placeholder {
         color: var(--placeholder-color);
       }
       
       &:focus {
         background-color: var(--secondary-color);
-
+        position: absolute;
+        width: auto;
+        right: 2rem;
+        left: 4rem;
+        z-index: 1;
         &::placeholder {
           color: var(--placeholder-color);
           
@@ -4417,7 +4431,7 @@ color: #6fdfc4;
   .drawer {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: auto;
   align-items: center;
   // background: var(--bg-gradient-right);
   // z-index: 11;
@@ -4985,7 +4999,21 @@ color: #6fdfc4;
     }
   }
 
-
+  .dashboard-items {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    position: relative;
+    border-top: 1px solid var(--secondary-color);
+    left: 0;
+    right: 0;
+    padding: 0;
+    gap: 2rem;
+    width: calc(100% - 4rem);
+    margin-bottom: auto;
+    margin-top: 0;
+  }
 
 
       
@@ -5038,7 +5066,6 @@ color: #6fdfc4;
     }
     .drawer-toolbar {
       width:auto;
-
       margin-bottom: 1rem;
       left: 1rem;
       right: 0;
@@ -5459,6 +5486,7 @@ color: #6fdfc4;
 }
 
 @media (max-width: 767px) {
+  
   .input-container {
     bottom: 1rem;
   }

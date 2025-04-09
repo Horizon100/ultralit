@@ -219,3 +219,22 @@ $themes: (
 @include respond-to('large') {
 	@include large-screen.large-screen-styles;
 }
+
+.user-avatar {
+	width: 3rem !important;
+	height: 3rem !important;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.default-avatar {
+	width: 3rem !important;
+	height: 3rem !important;
+	border-radius: 50%;
+	background-color: var(--primary-color, #6366f1);
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: bold;
+}

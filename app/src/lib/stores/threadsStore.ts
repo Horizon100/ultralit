@@ -275,6 +275,132 @@ function createThreadsStore() {
 				throw error;
 			}
 		},
+		getThreadCollaborators: async (threadId: string): Promise<User[]> => {
+  try {
+    const thread = get(store).threads.find(t => t.id === threadId);
+    if (!thread || !thread.members || !Array.isArray(thread.members) || thread.members.length === 0) {
+      return [];
+    }
+
+    // Get member IDs
+    const memberIds = thread.members.filter(id => typeof id === 'string');
+    
+    if (memberIds.length === 0) {
+      return [];
+    }
+
+    // Fetch user details for these IDs
+    const users = await pb.collection('users').getFullList<User>({
+      filter: memberIds.map(id => `id="${id}"`).join(' || ')
+    });
+    
+    return users;
+  } catch (error) {
+    console.error('Error getting thread collaborators:', error);
+    return [];
+  }
+},
+
+// Add collaborator to thread
+addThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
+  try {
+    const thread = get(store).threads.find(t => t.id === threadId);
+    if (!thread) {
+      throw new Error('Thread not found');
+    }
+
+    // Get current members
+    const currentMembers = thread.members || [];
+    
+    // Check if user is already a member
+    if (currentMembers.includes(userId)) {
+      return thread;
+    }
+
+    // Add the user
+    const updatedMembers = [...currentMembers, userId];
+    
+    // Update the thread
+    const updatedThread = await clientUpdateThread(threadId, {
+      members: updatedMembers
+    });
+
+    // Update the store
+    store.update((state) => ({
+      ...state,
+      threads: state.threads.map((t) => (t.id === threadId ? { ...t, ...updatedThread } : t)),
+      updateStatus: 'Thread collaborator added successfully'
+    }));
+
+    setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return updatedThread;
+  } catch (error) {
+    console.error('Error adding thread collaborator:', error);
+    store.update((state) => ({ ...state, updateStatus: 'Failed to add thread collaborator' }));
+    setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return null;
+  }
+},
+
+// Remove collaborator from thread
+removeThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
+  try {
+    const thread = get(store).threads.find(t => t.id === threadId);
+    if (!thread) {
+      throw new Error('Thread not found');
+    }
+
+    // Get current members
+    const currentMembers = thread.members || [];
+    
+    // Remove the user
+    const updatedMembers = currentMembers.filter(id => id !== userId);
+    
+    // Update the thread
+    const updatedThread = await clientUpdateThread(threadId, {
+      members: updatedMembers
+    });
+
+    // Update the store
+    store.update((state) => ({
+      ...state,
+      threads: state.threads.map((t) => (t.id === threadId ? { ...t, ...updatedThread } : t)),
+      updateStatus: 'Thread collaborator removed successfully'
+    }));
+
+    setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return updatedThread;
+  } catch (error) {
+    console.error('Error removing thread collaborator:', error);
+    store.update((state) => ({ ...state, updateStatus: 'Failed to remove thread collaborator' }));
+    setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return null;
+  }
+},
+
+toggleThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
+  try {
+    const thread = get(store).threads.find(t => t.id === threadId);
+    if (!thread) {
+      throw new Error('Thread not found');
+    }
+
+    const currentMembers = thread.members || [];
+    
+    const isAlreadyMember = currentMembers.includes(userId);
+    
+    if (isAlreadyMember) {
+      return await threadsStore.removeThreadCollaborator(threadId, userId);
+    } else {
+      return await threadsStore.addThreadCollaborator(threadId, userId);
+    }
+  } catch (error) {
+    console.error('Error toggling thread collaborator:', error);
+    store.update((state) => ({ ...state, updateStatus: 'Failed to update thread collaborator' }));
+    setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return null;
+  }
+},
 		setSearchQuery: (query: string) => {
 			store.update((state) => ({
 				...state,

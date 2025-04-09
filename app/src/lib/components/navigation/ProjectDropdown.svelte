@@ -150,7 +150,7 @@ onMount(() => {
   >
     <span class="trigger-text">
         <span class="icon" class:rotated={isExpanded}>
-            <ChevronDown size={16} />
+            <ChevronDown />
           </span>
       {$projectStore.currentProject?.name || 'Select Project'}
     </span>
@@ -233,25 +233,31 @@ onMount(() => {
     }
     .dropdown-container {
       position: relative;
-      display: inline-block;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       width: auto;
+      margin-left: 1rem;
       z-index: 1;
       user-select: none;
       
     }
   
     .dropdown-trigger {
-      background: transparent;
+      background: var(--bg-gradient-r);
       border: none;
+      margin-top: 0;
       color: var(--text-color);
       cursor: pointer;
       // padding: 0.5rem 1rem;
       display: flex;
-      align-items: left;
-      justify-content: center;
+      align-items: center;
+      padding: 1rem 0.5rem;
+      justify-content: left;
       border-radius: var(--radius-m);
       transition: all 0.2s ease;
-      height: 3rem;
+      height: auto;
+      width: auto;
 
       &:hover {
         background: var(--secondary-color);
@@ -261,10 +267,12 @@ onMount(() => {
     .trigger-text {
       display: flex;
       align-items: center;
-      gap: 1.5rem;
+      gap: 0.5rem;
       padding-right: 1rem;
-      font-size: var(--font-size-m);
-      
+      font-size: 1.25rem;
+      color: var(--placeholder-color);
+      font-style: italic;
+      letter-spacing: 0.2rem;
       .icon {
         transition: transform 0.2s ease;
         
@@ -278,7 +286,7 @@ onMount(() => {
       position: absolute;
       top: 0;
       left: 0;
-      width: 370px;
+      width: 80vw;
       height: 2rem;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
@@ -293,7 +301,7 @@ onMount(() => {
       border-top-left-radius: var(--radius-m);
       border-top-right-radius: var(--radius-m);
       border: 1px solid var(--secondary-color);
-      border-bottom: none;
+      border-bottom: 1px solid var(--secondary-color);
       // border-bottom: 1px solid var(--secondary-color);
       // border-radius: 2rem;
 
@@ -302,25 +310,27 @@ onMount(() => {
     .search-bar {
       display: flex;
       gap: 0.5rem;
-      margin-left: 0.5rem;
+      margin-left: 0;
       margin-right: 0.5rem;
-      margin-top: 0.5rem;
-      border-radius: var(--radius-l);
+      // border-radius: var(--radius-l);
+      height: auto;
       flex: 1;
       color: var(--text-color);
       padding: 0.25rem 0.5rem;
       background: var(--secondary-color);
-
+      
       input {
         border: none;
         border-radius: var(--radius-m);
         color: var(--text-color);
         background: var(--secondary-color);
         outline: none;
-        line-height: 1.5;
+        line-height: 1;
+        height: auto;
+        padding: 0;
         justify-content: center;
         text-align: left;
-        font-size: var(--font-size-sm);
+        font-size: 1.25rem;
         transition: all 0.3s ease;
         &:focus {
         }
@@ -508,6 +518,16 @@ onMount(() => {
         margin-right: 0;
         margin-left: 0;
         box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
+
+      }
+    }
+
+    @media (max-width: 767px) {
+      .dropdown-trigger {
+        width: 100vw;
+        justify-content: center;
+        margin-top: 0.25rem;
+        padding:0.5rem 0;
 
       }
     }

@@ -260,6 +260,17 @@ export async function addMessageToThread(
 
 		const createdMessage = await pb.collection('messages').create<Messages>(processedMessage);
 		console.log('Created message:', createdMessage);
+		if (message.thread) {
+			try {
+				await updateThread(message.thread, {
+					updated: new Date().toISOString()
+				});
+				console.log(`Updated 'updated' field for thread ${message.thread}`);
+			} catch (updateError) {
+				console.error('Error updating thread timestamp:', updateError);
+			}
+		}
+
 		return createdMessage;
 	} catch (error) {
 		console.error('Error adding message to thread:', error);

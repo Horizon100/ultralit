@@ -340,12 +340,13 @@
         height: 100%;
         /* background-color: rgba(0, 0, 0, 0.5); */
 		display: flex;
-		justify-content: center;
-		align-items: center;
+		justify-content: flex-start;
+		align-items: flex-start;
 		/* width: 100%; */
 		display: flex;
 		padding: 2rem;
-		width: 400px;
+		width: 50vw;
+		height: 90vh;
 		/* background-color: #131313;
         color: #ffffff;
         /* border: 1px solid rgb(53, 53, 53); */

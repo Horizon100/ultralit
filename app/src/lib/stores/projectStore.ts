@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Projects, ProjectStoreState } from '$lib/types/types';
+import type { Projects, ProjectStoreState, User } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import {
 	fetchProjects,
@@ -23,6 +23,7 @@ function createProjectStore() {
 		filteredProject: [],
 		isEditingProjectName: false,
 		editedProjectdName: '',
+		owner: null,
 		collaborators: []
 	});
 
@@ -126,27 +127,45 @@ function createProjectStore() {
 		},
 		loadCollaborators: async (projectId: string) => {
 			try {
-				if (!projectId) return [];
-				
-				const collaborators = await fetchProjectCollaborators(projectId);
-				store.update((state) => ({
-					...state,
-					collaborators,
-					updateStatus: 'Collaborators loaded successfully'
-				}));
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return collaborators;
+			if (!projectId) return [];
+			
+			store.update(state => ({
+				...state,
+				updateStatus: 'Loading collaborators...'
+			}));
+			
+			let collaborators = await fetchProjectCollaborators(projectId);
+			
+			console.log('Loaded collaborators:', collaborators);
+			
+			if (!Array.isArray(collaborators)) {
+				console.error('Expected array of collaborators but got:', collaborators);
+				collaborators = [];
+			}
+			
+			store.update((state) => ({
+				...state,
+				collaborators,
+				updateStatus: collaborators.length > 0 
+				? 'Collaborators loaded successfully' 
+				: 'No collaborators found'
+			}));
+			setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+			return collaborators;
 			} catch (error) {
-				console.error('Error loading collaborators:', error);
-				store.update((state) => ({ ...state, updateStatus: 'Failed to load collaborators' }));
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return [];
+			console.error('Error loading collaborators:', error);
+			store.update((state) => ({ 
+				...state, 
+				collaborators: [],
+				updateStatus: 'Failed to load collaborators: ' + (error instanceof Error ? error.message : String(error))
+			}));
+			setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+			return [];
 			}
 		},
 		addCollaborator: async (projectId: string, userId: string) => {
 			try {
 				const updatedProject = await addCollaboratorToProject(projectId, userId);
-				// Reload the collaborators
 				const collaborators = await fetchProjectCollaborators(projectId);
 				
 				store.update((state) => ({

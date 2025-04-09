@@ -62,7 +62,7 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 		const newProject: Partial<Projects> = {
 			name: projectData.name || 'New Project',
 			description: projectData.description || '',
-			op: userId,
+			owner: userId,
 			threads: [],
 			current_project: '',
 			collaborators: [userId],
@@ -153,51 +153,57 @@ export async function addCollaboratorToProject(projectId: string, userId: string
 		throw error;
 	}
 }
-export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
+
+export async function fetchProjectCollaborators(projectId: string): Promise<User[]> {
 	try {
 	  ensureAuthenticated();
-	const project = await pb.collection('projects').getOne<Projects>(projectId);
-	  if (project.op === userId) {
-		throw new Error('Cannot remove the project owner from collaborators');
-	  }
-		const collaborators = project.collaborators || [];
-	  const updatedCollaborators = collaborators.filter(id => id !== userId);
-	  return await pb.collection('projects').update<Projects>(projectId, {
-		collaborators: updatedCollaborators
-	  });
-	} catch (error) {
-	  console.error('Error removing collaborator from project:', error);
-	  throw error;
-	}
-  }
-  export async function fetchProjectCollaborators(projectId: string): Promise<User[]> {
-	try {
-	  ensureAuthenticated();
-  
-	  console.log('Fetching project:', projectId);
+	  
+	  console.log('Fetching project with ID:', projectId);
 	  const project = await pb.collection('projects').getOne<Projects>(projectId);
-	  console.log('Project data:', project);
-  
-	  const collaboratorIds = project.collaborators || [];
-	  console.log('Collaborator IDs:', collaboratorIds);
-  
+	  console.log('Project data retrieved:', project);
+	  
+	  const collaboratorIdsSet = new Set<string>();
+	  
+	  if (project.owner) {
+		collaboratorIdsSet.add(project.owner);
+		console.log('Added owner ID to collaborators:', project.owner);
+	  }
+	  
+	  if (Array.isArray(project.collaborators)) {
+		project.collaborators.forEach(id => {
+		  if (id) collaboratorIdsSet.add(id);
+		});
+	  }
+	  
+	  // Convert set to array
+	  const collaboratorIds = Array.from(collaboratorIdsSet);
+	  console.log('Final collaborator IDs (including owner):', collaboratorIds);
+	  
 	  if (collaboratorIds.length === 0) {
-		console.log('No collaborators found for this project.');
+		console.log('No collaborators found for this project (not even owner).');
 		return [];
 	  }
-  
-	  const filter = collaboratorIds.map(id => `id="${id}"`).join(' || ');
-	  console.log('Filter for users:', filter);
-  
-	  const userRecords = await pb.collection('users').getFullList<User>({
-		filter: filter,
-	  });
-	  console.log('Users found:', userRecords);
-  
+	  
+	  // Fetch users directly one by one
+	  const userRecords: User[] = [];
+	  
+	  // Process collaborators in sequence to avoid overwhelming the server
+	  for (const id of collaboratorIds) {
+		try {
+		  console.log('Fetching user with ID:', id);
+		  const user = await pb.collection('users').getOne<User>(id);
+		  console.log('User found:', user);
+		  userRecords.push(user);
+		} catch (err) {
+		  console.error(`Error fetching user with ID ${id}:`, err);
+		}
+	  }
+	  
+	  console.log('Total users found:', userRecords.length);
 	  return userRecords;
 	} catch (error) {
-	  console.error('Error fetching project collaborators:', error);
-	  throw error;
+	  console.error('Error in fetchProjectCollaborators:', error);
+	  return []; 
 	}
   }
   export async function isUserCollaborator(projectId: string, userId: string): Promise<boolean> {
@@ -209,5 +215,25 @@ export async function removeCollaboratorFromProject(projectId: string, userId: s
 	} catch (error) {
 	  console.error('Error checking if user is a collaborator:', error);
 	  return false;
+	}
+  }
+  export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
+	try {
+	  ensureAuthenticated();
+	  const project = await pb.collection('projects').getOne<Projects>(projectId);
+	  
+	  if (project.owner === userId) {
+		throw new Error('Cannot remove the project owner from collaborators');
+	  }
+	  
+	  const collaborators = Array.isArray(project.collaborators) ? [...project.collaborators] : [];
+	  const updatedCollaborators = collaborators.filter(id => id !== userId);
+	  
+	  return await pb.collection('projects').update<Projects>(projectId, {
+		collaborators: updatedCollaborators
+	  });
+	} catch (error) {
+	  console.error('Error removing collaborator from project:', error);
+	  throw error;
 	}
   }

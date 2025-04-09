@@ -572,6 +572,7 @@ export interface ProjectStoreState {
 	filteredProject: Threads[];
 	isEditingProjectName: boolean;
 	editedProjectdName: string;
+	owner: User | null;
 	collaborators: User[];
 }
 
@@ -583,7 +584,7 @@ export interface Projects extends RecordModel {
 	updated: string;
 	current_project: string;
 	threads: string[];
-	op: string;
+	owner: string;
 	collaborators: string[];
 }
 
