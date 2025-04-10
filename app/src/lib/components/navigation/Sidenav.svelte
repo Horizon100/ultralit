@@ -613,9 +613,10 @@
 	}
 
 	.profile-content {
-		position: absolute;
-		width: auto;
+		position: relative;
+		width: calc(100% - 4rem);
 		height: auto;
+		margin: 0;
 		top: 0;
 		left: 0;
 		bottom: auto;
@@ -624,10 +625,10 @@
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
 		backdrop-filter: blur(40px);
 		border-bottom: 1px solid var(--secondary-color);
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 		border-bottom-left-radius: var(--radius-m);
 		border-bottom-right-radius: var(--radius-m);
-		width:400px;
+
 		/* max-width: 500px; */
 		/* max-height: 90vh; */
 		overflow: none;

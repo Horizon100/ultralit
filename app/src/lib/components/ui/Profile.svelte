@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
 	import { pb } from '$lib/pocketbase';
-	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon, Pen } from 'lucide-svelte';
+	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon, Pen, User2, UserCircle, MailCheck, Mail, KeyIcon, Cake, History, Shield, Layers, MessageCirclePlus, Group, ChevronLeft } from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
@@ -163,21 +163,44 @@
 				<APIKeyInput />
 			{/if} -->
 			<div class="btn-row">
-				<button class="settings-button" on:click={handleLanguageChange}>
-					<Languages size={24} />
-					<!-- <span>{$currentLanguage.toUpperCase()}</span> -->
-					<span>{$t('lang.flag')}</span>
-				</button>
-				<button
-					class="settings-button"
-					on:click={toggleStyles}
-					transition:fly={{ y: -200, duration: 300 }}
-				>
-					<svelte:component
-						this={styles.find((s) => s.value === currentStyle)?.icon || Sun}
-						size={24}
-					/>
-				</button>
+				<div class="btn-row" >
+					<button class="settings-button" on:click={onClose}>
+						<!-- <span>{$t('profile.close')}</span> -->
+						<ChevronLeft/>
+					</button>
+					{#if isEditing}
+						<button class="settings-button" on:click={saveChanges}>
+							<span>
+								<Save/>
+								{$t('profile.save')}
+							</span>
+						</button>
+					{:else}
+						<button class="settings-button" on:click={toggleEdit}>
+							<!-- <TextCursorIcon/> -->
+							<Pen/>
+							<span>{$t('profile.edit')}</span>
+						</button>
+					{/if}
+	
+					<button class="settings-button" on:click={handleLanguageChange}>
+						<Languages size={24} />
+						<!-- <span>{$currentLanguage.toUpperCase()}</span> -->
+						<span>{$t('lang.flag')}</span>
+					</button>
+					<button
+						class="settings-button"
+						on:click={toggleStyles}
+						transition:fly={{ y: -200, duration: 300 }}
+					>
+						<svelte:component
+							this={styles.find((s) => s.value === currentStyle)?.icon || Sun}
+							size={24}
+						/>
+					</button>
+				</div>
+				
+
 				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 					<LogOutIcon size={24} />
 					<span>{$t('profile.logout')}</span>
@@ -186,89 +209,165 @@
 
 
 		</div>
-
-		{#if user}
-			<div class="profile-header">
-				<div class="avatar-container">
-					{#if user.avatar}
-						<img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
-					{:else}
-						<div class="avatar-placeholder">
-							<Camera size={48} />
-						</div>
-					{/if}
-				</div>
-				<div class="info-row">
-					{#if isEditing}
-						<input bind:value={editedUser.username} />
-					{:else}
-						<span>{user.username || 'Not set'}</span>
-					{/if}
-				</div>
+		{#if showStyles}
+		<div
+			class="style-overlay"
+			on:click={handleOverlayClick}
+			transition:fly={{ x: -200, duration: 300 }}
+		>
+			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
+			<X size={24} />
+		</button> -->
+			<div
+				class="style-content"
+				on:click={handleOverlayClick}
+				transition:fly={{ x: -20, duration: 300 }}
+			>
+				<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
 			</div>
+		</div>
+		{/if}
+		{#if user}
+		
+			<div class="profile-header">
+
+					<div class="info-column">
+						<div class="header-wrapper">
+							<div class="avatar-container">
+								{#if user.avatar}
+									<img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
+								{:else}
+									<div class="avatar-placeholder">
+										<Camera size={48} />
+									</div>
+								{/if}
+							</div>
+							<div class="info-row">
+								<!-- <span class="label">
+									<span>{$t('profile.name')}</span>
+								</span> -->
+								{#if isEditing}
+									<input bind:value={editedUser.name} />
+								{:else}
+									<span class="name">{user.name || 'Not set'}</span>
+								{/if}
+							</div>
+							<div class="info-row">
+
+								{#if isEditing}
+									<input bind:value={editedUser.username} />
+								{:else}
+								<span class="username">{user.username || 'Not set'}</span>
+								{/if}
+							</div>
+						</div>
+					</div>
+					<div class="info-stats">
+							<div class="info-column">
+								<span class="stat">{$t('profile.projects')}</span>
+									343
+							</div>
+							<div class="info-column">
+								<span class="stat">{$t('profile.posts')}</span>
+									343
+							</div>							
+							<div class="info-column">
+								<span class="stat">{$t('profile.connections')}</span>
+									343
+							</div>						
+
+					</div>
+					<div class="button-column-wrapper">
+						<button class="small-button">
+							<MessageCirclePlus/>
+							Message
+						</button>
+						<button class="small-button">
+							<Group/>
+							Connect
+						</button>
+					</div>
+				</div>
+
 			<div class="profile-info">
-				<div class="info-row">
-					<span class="label">
-						<span>{$t('profile.name')}</span>
-					</span>
+
+				<div class="info-row-profile">
 					{#if isEditing}
-						<input bind:value={editedUser.name} />
+						<textarea class="textarea-description" bind:value={editedUser.description}></textarea>
 					{:else}
-						<span>{user.name || 'Not set'}</span>
+						<span class="description">{user.description || 'Not set'}</span>
 					{/if}
 				</div>
-				<div class="info-row">
-					<span class="label">
-						<span class="data">{$t('profile.email')}</span>
-					</span>
-					<span>{user.email}</span>
+				<div class="selector-row">
+					<button class="selector-button">
+						<MessageCirclePlus/>
+						Message
+					</button>
+					<button class="selector-button">
+						<Group/>
+						Connect
+					</button>
+					<button class="selector-button">
+						x
+					</button>
+					<button class="selector-button">
+						x
+					</button>
 				</div>
-				<div class="info-row">
-					<span class="label">
-						<span class="data">{$t('profile.role')}</span>
+
+				<div class="info-column">
+					<div class="info-row">
+						<span class="label">
+							<span class="data">{$t('profile.email')}</span>
+						</span>
+						<span>{user.email}</span>
+					</div>
+					<span class="info-avatar">
+						@
 					</span>
-					<span>{user.role}</span>
-				</div>
-				<div class="info-row">
-					<span class="label">
-						<span class="data">{$t('profile.created')}</span>
-					</span>
-					<span>{new Date(user.created).toLocaleString()}</span>
-				</div>
-				<div class="info-row">
-					<span class="label">
-						<span class="data">{$t('profile.updated')}</span>
-					</span>
-					<span>{new Date(user.updated).toLocaleString()}</span>
-				</div>
-				<div class="info-row">
-					<span class="label">
-						<span class="data">{$t('profile.verified')}</span>
-					</span>
-					<span>{user.verified ? 'Yes' : 'No'}</span>
-				</div>
+				</div>			
+				<div class="info-column">	
+					<div class="info-row">
+						<span class="label">
+							<span class="data">{$t('profile.role')}</span>
+						</span>
+						<span>{user.role}</span>
+					</div>
+					<KeyIcon size="50"/>
+				</div>	
+				<div class="info-column">	
+					<div class="info-row">
+						<span class="label">
+							<span class="data">{$t('profile.created')}</span>
+						</span>
+						<span>{new Date(user.created).toLocaleString()}</span>
+					</div>
+					<Cake size="50"/>
+				</div>	
+				<div class="info-column">	
+					<div class="info-row">
+						<span class="label">
+							<span class="data">{$t('profile.updated')}</span>
+						</span>
+						<span>{new Date(user.updated).toLocaleString()}</span>
+					</div>
+					<History size="50"/>
+				</div>	
+				<div class="info-column">	
+					<div class="info-row">
+						<span class="label">
+							<span class="data">{$t('profile.verified')}</span>
+						</span>
+						<span>{user.verified ? 'Yes' : 'No'}</span>
+					</div>
+					<Shield size="50"/>
+				</div>	
 			</div>
 
 			<!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
-			<div class="actions">
-				{#if isEditing}
-					<button on:click={saveChanges}>
-						<span>
-							<Save/>
-							{$t('profile.save')}
-						</span>
-					</button>
-				{:else}
-					<button on:click={toggleEdit}>
-						<!-- <TextCursorIcon/> -->
-						 <Pen/>
-						<span>{$t('profile.edit')}</span>
-					</button>
-				{/if}
-				<button on:click={onClose}>
-					<span>{$t('profile.close')}</span>
-				</button>
-			</div>
+			<!-- <div class="actions">
+
+			</div> -->
 		{:else}
 			<div class="no-user-message">
 				<p>No user information available.</p>
@@ -287,24 +386,7 @@
 	</div>
 </div>
 
-{#if showStyles}
-	<div
-		class="style-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ x: -200, duration: 300 }}
-	>
-		<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
-        <X size={24} />
-    </button> -->
-		<div
-			class="style-content"
-			on:click={handleOverlayClick}
-			transition:fly={{ x: -20, duration: 300 }}
-		>
-			<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
-		</div>
-	</div>
-{/if}
+
 
 {#if showLanguageNotification}
 	<div class="language-overlay" transition:fade={{ duration: 300 }}>
@@ -345,7 +427,7 @@
 		/* width: 100%; */
 		display: flex;
 		padding: 2rem;
-		width: 50vw;
+		width: calc(100% - 6rem);
 		height: 90vh;
 		/* background-color: #131313;
         color: #ffffff;
@@ -355,12 +437,14 @@
 		/* height: 50px; */
 		/* padding: 10px 20px; */
 		transition: all 0.3s ease;
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 	}
 
 	.btn-row {
 		display: flex;
 		flex-direction: row;
+		justify-content: flex-start;
+		width: 100%;
 		gap: 1rem;
 		user-select: none;
 	}
@@ -369,7 +453,9 @@
 		height: auto;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
 	}
 	.modal-content {
 		/* background: linear-gradient(
@@ -408,7 +494,7 @@
         position: absolute;
         width: 96vw;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
-		width: 100%;
+		// width: 100%;
 		/* max-width: 500px; */
 		/* height: 100vh; */
 	}
@@ -428,9 +514,106 @@
 
 	.profile-header {
 		display: flex;
-		align-items: center;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: flex-start;
+		width: 100%;
+		max-width: 800px;
+		height: auto;
 		margin-bottom: 1rem;
 		color: white;
+
+		&.info-column {
+			display: flex;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			height: 100%;
+			width: 100%;
+			padding: 1rem;
+			border-radius: 1rem;
+			
+
+		}
+		.info-row {
+			display: flex;
+			height: auto;
+			padding: 0.5rem;
+			font-size: 2.5rem;
+			letter-spacing: 0.1rem;
+			font-weight: 800;
+			max-width: 800px;
+			width: 100%;
+
+
+			input {
+				background: var(--primary-color);
+				border-radius: var(--radius-m);
+				padding: 1rem;
+				font-size: 1.5rem;
+				resize: vertical;
+				width: auto;;
+				display: flex;
+				height: auto;
+			}
+		}
+		.info-stats {
+			display: flex;
+			flex-direction: row;
+
+			align-items: center;
+			height: auto;
+			padding: 0.5rem;
+			font-size: 2rem;
+			letter-spacing: 0.1rem;
+			font-weight: 800;
+			max-width: 800px;
+			width: auto;
+			&.activity {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+			}
+		}
+	}
+
+	.header-wrapper {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: left;
+		min-width: 300px;
+	}
+
+	
+
+	button.small-button {
+		width: auto;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		font-size: 1.5rem;
+		color: var(--text-color);
+		background: var(--primary-color);
+		outline: transparent;
+		border: 1px solid var(--bg-color);
+		border-radius: 1rem;
+		line-height: 2;
+		transition: all 0.3s ease;
+		&:hover {
+			transform: translateX(-1rem);
+			background: var(--bg-color);
+		};
+	}
+
+	.button-column-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 
 	.swipe-indicator {
@@ -451,11 +634,10 @@
 	}
 
 	.avatar-container {
-		width: 80px;
-		height: 80px;
+		width: 150px;
+		height: 150px;
 		border-radius: 50%;
 		overflow: hidden;
-		margin-right: 1rem;
 	}
 
 	.avatar {
@@ -501,24 +683,113 @@
 	.profile-info {
 		margin-bottom: 1rem;
 		color: white;
-		gap: 0;
+		margin: 0;
+		width: 100%;
+		height: 100%;
+		max-width: 800px;
+		height: auto;
+		gap: 0.5rem;
 		display: flex;
 		flex-direction: column;
+		.info-column {
+			display: flex;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			height: 100%;
+			width: 100%;
+			padding: 1rem;
+			background: var(--primary-color);
+			border-radius: 1rem;
+
+		}
+		.info-row {
+			font-size: 1.2rem;
+			line-height: 1.5;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			border-radius: 0.5rem;
+			height: auto;
+			gap: 1rem;
+		}
+		.info-row-proflie{
+			font-size: 1.2rem;
+			line-height: 1.5;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			border-radius: 0.5rem;
+			gap: 1rem;
+		}
+		.textarea-description {
+			font-size: 1rem;
+			width: 100%;
+			line-height: 1.5;
+			padding: 1.5rem;
+			min-height: 200px;
+			scroll-behavior: smooth;
+			scrollbar-color: var(--secondary-color) transparent;
+			overflow-y: auto;
+			border-radius: 2rem;
+			background: var(--primary-color);
+			resize: none;
+			// resize: vertical; /* allows user to resize vertically if needed */
+			white-space: pre-wrap; /* ensures text wraps */
+			word-wrap: break-word; /* breaks long words if needed */
+		}
 	}
 
+
+
+	span.info-avatar {
+		font-size: 3rem;
+	}
+
+	span.stat {
+		font-size: 0.8rem;
+	}
+	span.name {
+		font-size: 2rem;
+	}
+
+	span.username {
+		font-size: 1.2rem;
+		color: var(--placeholder-color);
+
+	}
+	span.description {
+		font-size: 1rem;
+		line-height: 1.5;
+		letter-spacing: 0.2rem;
+	}
 	.info-row {
 		display: flex;
+		height: auto;
 		padding: 0.5rem;
+		font-size: 2.5rem;
+		letter-spacing: 0.1rem;
+		font-weight: 800;
+		max-width: 800px;
+		width: 100%;
+
 		& input {
-			background: var(--bg-gradient-left);
+			background: var(--primary-color);
 			border-radius: var(--radius-m);
 			padding: 1rem;
 			font-size: 1.5rem;
+			resize: vertical;
+			display: flex;
+			height: auto;
+			min-width: 300px;
+
 		}
 	}
 
 	.label {
-		font-weight: bold;
+		font-weight:300;
+		font-size: 1.1rem;
+		letter-spacing: 0.1rem;
 		width: 100px;
 		user-select: none;
 	}
@@ -574,6 +845,7 @@
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
 		border-radius: 20px;
+		min-width: 120px;
 		width: auto;
 		height: 60px;
 		background: var(--secondary-color);
@@ -597,7 +869,8 @@
 	.settings-row {
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-end;
+		width: 100%;
+		max-width: 800px;
 		gap: 1rem;
 		padding: 1rem;
 		margin-bottom: 1rem;
@@ -627,12 +900,35 @@
 		}
 	}
 
+	.selector-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		margin: 0;
+		padding: 1rem;
+		gap: 0.5rem;
+		height: 8rem;
+		max-width: 800px;
+
+	}
+
+	button.selector-button {
+		width: 100%;
+		height: 100%;
+		border-radius: 2rem;
+		font-size: 2rem;
+		background: var(--bg-gradient-r);
+	}
+
 	.style-overlay {
-		position: absolute;
+		position: relative;
 		top: auto;
 		left: 0;
-		margin-top: 1rem;
-		width: 450px;
+		margin-top: 0;
+		margin-bottom: 2rem;
+		width: 600px;
 		height: auto;
 		display: flex;
 		justify-content: right;
@@ -643,14 +939,13 @@
 	.style-content {
 		display: flex;
 		justify-content: right;
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 		border: 1px solid rgb(69, 69, 69);
 		border-radius: 50px;
 		position: relative;
 		height: 100%;
 		width: 100%;
-		overflow: auto;
-	}
+			}
 
 	.style-switcher-button {
 		background-color: transparent;
@@ -703,11 +998,45 @@
 	@media (max-width: 1000px) {
 
 		.modal-overlay {
-			width:93vw;
-			justify-content: flex-start;
-			height: 100%;
+			width:auto;
+			margin: 0;
+			margin-top: 2rem;
+			justify-content: flex-start !important;
+			height: 100vh;
 		}
-		
+
+
+
+
+		.header-wrapper {
+			width: auto;
+			min-width: 100px !important;
+		}
+
+		.info-column {
+			flex-direction: column;
+
+		}
+		.info-stats {
+				display: flex;
+				flex-direction: column !important;
+				align-items: flex-start !important;
+				justify-content: flex-end !important;
+				height: auto;
+				padding: 0.5rem;
+				font-size: 1.5rem !important;
+				letter-spacing: 0.1rem;
+				gap: 2rem;
+				font-weight: 800;
+				max-width: 800px;
+				width: 100% !important;
+				width: auto;
+				&.activity {
+
+					background-color: red;
+				}
+
+			}
 		.style-overlay {
 			top: auto;
 			left: auto;

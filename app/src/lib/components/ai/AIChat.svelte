@@ -7,7 +7,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
@@ -61,7 +61,16 @@
   // export let showThreadList = true;
   export let namingThread = true;
 
+  interface UserProfile {
+    id: string;
+    name: string;
+    avatarUrl: string;
+  }
+
   type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
+  let userProfileCache: Map<string, UserProfile | null> = new Map();
+
+  let messageSubscription: any = null;
 
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
@@ -117,6 +126,8 @@
   let currentPage = 1;
   let searchQuery = '';
   let currentPlaceholder = $t('chat.placeholder');
+  let currentManualPlaceholder = $t('chat.manualPlaceholder');
+
   let quotedMessage: Messages | null = null;
   let expandedDates = new Set<string>();
   let isMinimized = false;
@@ -208,6 +219,8 @@ const defaultAIModel: AIModel = {
 	collectionName: '',
 };
 
+const isAiActive = writable(true);
+
 
 
 const handleTextareaFocus = () => {
@@ -222,6 +235,8 @@ const handleTextareaBlur = () => {
   hideTimeout = setTimeout(() => {
     isTextareaFocused = false;
     currentPlaceholder = $t('chat.placeholder');
+    currentManualPlaceholder = $t('chat.placeholder');
+
   }, 500); 
 };
 // const searchedThreads = derived(threadsStore, ($store) => {
@@ -252,7 +267,9 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
   }));
 }
 
-
+function toggleAiActive() {
+  isAiActive.update(value => !value);
+}
 // Message handling functions
   function cancelEditing() {
     editingProjectId = null;
@@ -340,6 +357,84 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
     created: message.created,
     updated: message.updated
   };
+}
+async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  // Check if already in cache
+  if (userProfileCache.has(userId)) {
+    return userProfileCache.get(userId) || null;
+  }
+  
+  try {
+    // First try to get user data from PocketBase
+    const userData = await pb.collection('users').getOne(userId, {
+      expand: 'profile'
+    });
+    
+    if (!userData) {
+      userProfileCache.set(userId, null);
+      return null;
+    }
+    
+    // Create profile object from user data
+    const profile: UserProfile = {
+      id: userData.id,
+      name: userData.name || userData.username || 'User',
+      avatarUrl: userData.avatar ? pb.files.getUrl(userData, userData.avatar) : null
+    };
+    
+    // Store in cache
+    userProfileCache.set(userId, profile);
+    return profile;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    userProfileCache.set(userId, null);
+    return null;
+  }
+}
+
+async function preloadUserProfiles() {
+  const userIds = new Set<string>();
+  
+  chatMessages.forEach(message => {
+    if (message.type === 'human' && message.user) {
+      userIds.add(message.user);
+    }
+  });
+  
+  const fetchPromises = Array.from(userIds).map(userId => getUserProfile(userId));
+  await Promise.all(fetchPromises);
+}
+
+function handleRealTimeMessage(newMessage) {
+  const existingIndex = chatMessages.findIndex(msg => msg.id === newMessage.id);
+  
+  if (existingIndex >= 0) {
+    const updatedMessages = [...chatMessages];
+    updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...newMessage };
+    chatMessages = updatedMessages; 
+  } else {
+    chatMessages = [...chatMessages, newMessage];
+  }
+}
+
+function dedupeChatMessages() {
+  const uniqueMessages = new Map();
+  
+  chatMessages.forEach(msg => {
+    uniqueMessages.set(msg.id, msg);
+  });
+  
+  chatMessages = Array.from(uniqueMessages.values());
+}
+
+function handleMessageUpdate(data) {
+  if (data && data.record) {
+    // Add the new message
+    chatMessages = [...chatMessages, data.record];
+    
+    // Then deduplicate
+    dedupeChatMessages();
+  }
 }
 
 function getProviderDetails(modelString: string): { icon: string, name: string } {
@@ -686,64 +781,66 @@ async function handleSendMessage(message: string = userInput) {
 
     quotedMessage = null;
 
-    const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-    thinkingMessageId = thinkingMessage.id;
-    chatMessages = [...chatMessages, thinkingMessage];
+    if ($isAiActive) {
+        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+        thinkingMessageId = thinkingMessage.id;
+        chatMessages = [...chatMessages, thinkingMessage];
 
-    const messagesToSend = chatMessages
-      .filter(({ role, content }) => role && content)
-      .map(({ role, content }) => ({
-        role,
-        content: role === 'user' && promptType 
-          ? `[Using ${promptType} prompt]\n${content.toString()}`
-          : content.toString(),
+        const messagesToSend = chatMessages
+          .filter(({ role, content }) => role && content)
+          .map(({ role, content }) => ({
+            role,
+            content: role === 'user' && promptType 
+              ? `[Using ${promptType} prompt]\n${content.toString()}`
+              : content.toString(),
+              model: aiModel.api_type,
+          }));
+
+        if (!messagesToSend.length) {
+          throw new Error('No valid messages to send');
+        }
+
+        if (promptType) {
+          messagesToSend.unshift({
+            role: 'system',
+            content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+            model: aiModel.api_type,
+          });
+        }
+
+        const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+        const assistantMessage = await messagesStore.saveMessage({
+          text: aiResponse,
+          type: 'robot',
+          thread: currentThreadId,
+          parent_msg: userMessage.id,
+          prompt_type: promptType,
           model: aiModel.api_type,
-      }));
+        }, currentThreadId);
 
-    if (!messagesToSend.length) {
-      throw new Error('No valid messages to send');
+        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+        chatMessages = [...chatMessages, newAssistantMessage];
+        typingMessageId = newAssistantMessage.id;
+
+        await typeMessage(aiResponse);
+
+        chatMessages = chatMessages.map(msg =>
+          msg.id === String(typingMessageId)
+            ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+            : msg
+        );
+      }
+
+      await handleThreadNameUpdate(currentThreadId);
+
+    } catch (error) {
+      handleError(error);
+    } finally {
+      cleanup();
     }
 
-    if (promptType) {
-      messagesToSend.unshift({
-        role: 'system',
-        content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-        model: aiModel.api_type,
-      });
-    }
-
-    const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-    chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-    const assistantMessage = await messagesStore.saveMessage({
-      text: aiResponse,
-      type: 'robot',
-      thread: currentThreadId,
-      parent_msg: userMessage.id,
-      prompt_type: promptType,
-      model: aiModel.api_type,
-    }, currentThreadId);
-
-    const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-    chatMessages = [...chatMessages, newAssistantMessage];
-    typingMessageId = newAssistantMessage.id;
-
-    await typeMessage(aiResponse);
-
-    chatMessages = chatMessages.map(msg =>
-      msg.id === String(typingMessageId)
-        ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-        : msg
-    );
-
-    await handleThreadNameUpdate(currentThreadId);
-    // handleScrolling();
-
-  } catch (error) {
-    handleError(error);
-  } finally {
-    cleanup();
-  }
 }
 
   async function typeMessage(message: string) {
@@ -852,63 +949,181 @@ async function handleLoadThread(threadId: string) {
             showThreadList: false
         }));
 
+        // Ensure user is authenticated
+        await ensureAuthenticated();
+        const currentUserId = pb.authStore.model?.id;
+        if (!currentUserId) {
+            throw new Error('User not authenticated');
+        }
+
+        // Fetch thread with expanded op and members
         const thread = await pb.collection('threads').getOne(threadId, {
-            expand: 'project_id',
+            expand: 'project,project.owner,project.collaborators,op,members',
             $autoCancel: false
         });
 
-        if (!thread) {
-            throw new Error('Thread not found');
+        console.log('Thread loaded:', thread);
+
+        // Get project access
+        let hasProjectAccess = false;
+        if (thread.project) {
+            const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
+            const expandedProject = thread.expand?.project;
+            
+            if (expandedProject) {
+                const isProjectOwner = expandedProject.owner === currentUserId;
+                const isProjectCollaborator = expandedProject.collaborators && 
+                    (Array.isArray(expandedProject.collaborators) ? 
+                        expandedProject.collaborators.includes(currentUserId) : 
+                        expandedProject.collaborators.split(',').includes(currentUserId));
+                
+                hasProjectAccess = isProjectOwner || isProjectCollaborator;
+                console.log('Project access check:', { isProjectOwner, isProjectCollaborator, hasProjectAccess });
+            } else {
+                // Fetch project directly if not expanded
+                try {
+                    const project = await pb.collection('projects').getOne(projectId);
+                    hasProjectAccess = project.owner === currentUserId || 
+                        (project.collaborators && 
+                            (Array.isArray(project.collaborators) ? 
+                                project.collaborators.includes(currentUserId) : 
+                                project.collaborators.split(',').includes(currentUserId)));
+                } catch (err) {
+                    console.error('Error fetching project:', err);
+                }
+            }
+        }
+
+        // Verify thread ownership/access
+        const isCreator = thread.user === currentUserId;
+        const isOp = thread.op === currentUserId || 
+                    (thread.expand?.op && thread.expand.op.id === currentUserId);
+        
+        // Check if user is a member
+        const isMember = thread.members && (
+            // Check direct string membership
+            (typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
+            // Check array membership
+            (Array.isArray(thread.members) && thread.members.some(m => 
+                typeof m === 'string' ? m === currentUserId : m.id === currentUserId
+            )) ||
+            // Check expanded members
+            (thread.expand?.members && Array.isArray(thread.expand.members) && 
+                thread.expand.members.some(m => m.id === currentUserId))
+        );
+
+        console.log('Access check:', { 
+            isCreator, 
+            isOp, 
+            isMember, 
+            hasProjectAccess,
+            members: thread.members,
+            expandedMembers: thread.expand?.members
+        });
+
+        // Allow access if user is creator, op, member, or has project access
+        if (!isCreator && !isOp && !isMember && !hasProjectAccess) {
+            console.error('Access denied to thread:', { 
+                threadId, 
+                currentUserId, 
+                thread 
+            });
+            throw new Error('Unauthorized thread access');
         }
 
         // Update stores
         await threadsStore.setCurrentThread(threadId);
         
         // Handle project context
-        if (thread.project_id) {
-            await projectStore.setCurrentProject(thread.project_id);
-            const projectThreads = await fetchThreadsForProject(thread.project_id);
-            threadsStore.update(state => ({
-                ...state,
-                threads: projectThreads
-            }));
+        if (thread.project) {
+            const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
+            await projectStore.setCurrentProject(projectId);
+            
+            try {
+                // Use a simpler filter for project threads to avoid 400 errors
+                const projectThreads = await pb.collection('threads').getFullList<Threads>({
+                    sort: '-created',
+                    filter: `project = "${projectId}"`,
+                    expand: 'project,op,members'
+                });
+                
+                threadsStore.update(state => ({
+                    ...state,
+                    threads: projectThreads
+                }));
+            } catch (err) {
+                console.error('Error fetching project threads:', err);
+                // Continue even if this fails
+            }
         }
 
         // Update local state
         currentThreadId = thread.id;
         currentThread = thread as Threads;
 
-        // Fetch messages
-        await messagesStore.fetchMessages(threadId);
-        
-        // Map messages
-        chatMessages = messages.map(msg => ({
-            role: msg.type === 'human' ? 'user' : 'assistant',
-            content: msg.text,
-            id: msg.id,
-            isTyping: false,
-            text: msg.text,
-            user: msg.user,
-            created: msg.created,
-            updated: msg.updated,
-            parent_msg: msg.parent_msg,
-            prompt_type: msg.prompt_type as PromptType,
-            model: msg.model,
-            collectionId: msg.collectionId || 'defaultCollectionId',
-            collectionName: msg.collectionName || 'defaultCollectionName',
-        }));
+        // Fetch messages with real-time updates
+        try {
+            const messages = await messagesStore.fetchMessages(threadId);
+            
+            // Map messages - we'll set up a subscription to the store updates too
+            chatMessages = messages.map(msg => ({
+                role: msg.type === 'human' ? 'user' : 'assistant',
+                content: msg.text,
+                id: msg.id,
+                isTyping: false,
+                text: msg.text,
+                user: msg.user,
+                created: msg.created,
+                updated: msg.updated,
+                parent_msg: msg.parent_msg,
+                prompt_type: msg.prompt_type as PromptType,
+                model: msg.model,
+                collectionId: msg.collectionId || 'defaultCollectionId',
+                collectionName: msg.collectionName || 'defaultCollectionName',
+            }));
+            
+            // Set up a subscription to message store changes to keep UI in sync
+            messagesStore.subscribe(state => {
+                // Only update if we're still on this thread
+                if (currentThreadId === threadId) {
+                    chatMessages = state.messages.map(msg => ({
+                        role: msg.type === 'human' ? 'user' : 'assistant',
+                        content: msg.text,
+                        id: msg.id,
+                        isTyping: false,
+                        text: msg.text,
+                        user: msg.user,
+                        created: msg.created,
+                        updated: msg.updated,
+                        parent_msg: msg.parent_msg,
+                        prompt_type: msg.prompt_type as PromptType || null,
+                        model: msg.model,
+                        collectionId: msg.collectionId || 'defaultCollectionId',
+                        collectionName: msg.collectionName || 'defaultCollectionName',
+                    }));
+                }
+            });
+        } catch (err) {
+            console.error('Error loading messages:', err);
+            // Continue even if message loading fails
+        }
 
         showPromptCatalog = false;
-
         return thread;
     } catch (error) {
         console.error(`Error loading thread ${threadId}:`, error);
+        // Clear the thread if unauthorized
+        if (error.message && error.message.includes('Unauthorized')) {
+            await threadsStore.setCurrentThread(null);
+            chatMessages = [];
+            currentThreadId = null;
+            currentThread = null;
+        }
         return null;
     } finally {
         isLoadingMessages = false;
     }
 }
-
   async function handleDeleteThread(event: MouseEvent, threadId: string) {
     event.stopPropagation();
     if (confirm('Are you sure you want to delete this thread?')) {
@@ -1187,7 +1402,10 @@ $: {
         );
     }
 }
-
+$: if (chatMessages && chatMessages.length > 0) {
+  dedupeChatMessages();
+  preloadUserProfiles();
+}
 onMount(async () => {
   try {
     console.log('onMount initiated');
@@ -1197,11 +1415,13 @@ onMount(async () => {
       showAuth = true;
       return undefined;
     }
+    
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
+    
     if ($projectStore.currentProjectId) {
       const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
       threadsStore.update(state => ({
@@ -1211,8 +1431,33 @@ onMount(async () => {
     } else {
       await threadsStore.loadThreads();
       threadsStore.loadAvailableUsers();
-
     }
+    
+    // Initialize real-time updates for the current thread if it exists
+    if (currentThreadId) {
+      await preloadUserProfiles();
+      
+      // Set up a custom message handler that prevents duplicates
+      const messageHandler = (data) => {
+        if (data && data.record && data.record.thread === currentThreadId) {
+          handleRealTimeMessage(data.record);
+        }
+      };
+      
+      // Store the unsubscribe function
+      const unsubscribe = pb.collection('messages').subscribe('*', messageHandler);
+      
+      // Clean up in onDestroy
+      onDestroy(() => {
+        if (unsubscribe && typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      
+      // Fetch initial messages
+      await messagesStore.fetchMessages(currentThreadId);
+    }
+    
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -1225,6 +1470,8 @@ onMount(async () => {
     console.error('Error during onMount:', error);
   }
 });
+
+// Update the afterUpdate lifecycle function to handle real-time updates
 afterUpdate(() => {
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
@@ -1233,19 +1480,25 @@ afterUpdate(() => {
   }
 });
 onDestroy(() => {
+  messagesStore.cleanup();
+  
   currentProjectId = null;
   currentThreadId = null;
+  
   if (hideTimeout) {
     clearTimeout(hideTimeout);
   }
+  
   chatMessages = [];
   messages = [];
+  
   const url = new URL(window.location.href);
   url.searchParams.delete('threadId');
   url.searchParams.delete('messageId');
   url.searchParams.delete('autoTrigger');
   window.history.replaceState({}, '', url);
 });
+
 // Lifecycle hooks
 // onMount(() => {
 // 		const interval = setInterval(() => {
@@ -1534,9 +1787,36 @@ onDestroy(() => {
                   {currentThread.name}
                 </h3>
               </span>
+  
               {#if $threadsStore.currentThreadId}
+              <span class="header-btns">
+                <button 
+                  class="toggle-btn" 
+                  on:mouseenter={() => createHovered = true}
+                  on:mouseleave={() => createHovered = false}
+                  on:click={toggleAiActive}
+                >
+                  {#if $isAiActive}
+                    <PlugZap/>
+                    {#if createHovered}
+                      <span class="tooltip-header" in:fade>
+                        {$t('tooltip.pauseAi')}
+                      </span>
+                    {/if}
+                  {:else}
+                    <ZapOff/>
+                    {#if createHovered}
+                      <span class="tooltip-header" in:fade>
+                        {$t('tooltip.playAi')}
+                      </span>
+                    {/if}
+                  {/if}
+                </button>
                 <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+
+              </span>
               {/if}
+
               {/if}
               {#if !isMinimized}
               {/if}
@@ -1708,90 +1988,98 @@ onDestroy(() => {
           {/if}
         </div>
         {#if currentThread}
-          <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
-          transition:fly="{{ x: -300, duration: 300 }}">
-            
-            {#each groupMessagesByDate(chatMessages) as { date, messages }}
-              <div class="date-divider">
-                {formatDate(date)}
-              </div>
-              {#each messages as message (message.id)}
-                <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                  <div class="message-header">
-                    {#if message.role === 'user'}
-                      <div class="user-header">
-                        <div class="avatar-container">
-                          {#if avatarUrl}
-                            <img src={avatarUrl} alt="User avatar" class="avatar" />
-                          {:else}
-                            <!-- <div class="avatar-placeholder">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            </div> -->
-                          {/if}
-                        </div>
-                        <span class="role">{username}</span>
-                      </div>
-                      <!-- <div class="message-time">
-                        {#if message.created}
-                          {new Date(message.created).toLocaleTimeString()}
+        <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
+        transition:fly="{{ x: -300, duration: 300 }}">
+          
+          {#each groupMessagesByDate(chatMessages) as { date, messages }}
+            <div class="date-divider">
+              {formatDate(date)}
+            </div>
+            {#each messages as message (message.id)}
+              <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                <div class="message-header">
+                  {#if message.role === 'user'}
+                    <div class="user-header">
+                      <div class="avatar-container">
+                        {#if message.type === 'human' && message.user}
+                          {#await getUserProfile(message.user) then userProfile}
+                            {#if userProfile && userProfile.avatarUrl}
+                              <img src={userProfile.avatarUrl} alt="User avatar" class="avatar" />
+                            {:else}
+                              <div class="avatar-placeholder">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                              </div>
+                            {/if}
+                          {/await}
                         {:else}
-                          Time not available
+                          <div class="avatar-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                          </div>
                         {/if}
-                      </div> -->
-                    {:else if message.role === 'thinking'}
-                      <!-- <span class="role">
-                        <Bot size="50" color="white" />
-                      </span> -->
-                    {:else if message.role === 'assistant'}
-                      <div class="user-header">
-                        <div class="avatar-container">
-                          <Bot color="white" />
-                        </div>
-                        <span class="role">{message.prompt_type}</span>
-                        <span class="model">{message.model}</span>
-
                       </div>
-                    {/if}
-                  </div>
-                  <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
-                  {#if message.role === 'thinking'}
-                    <div class="thinking-animation">
-                      <span>
-                        <Bot color="white" />
-                      </span>
-                      <span>
-                        <Bot color="gray" />
-                      </span>
-                      <span>
-                        <Bot color="white" />
+                      <span class="role">
+                        {#if message.type === 'human' && message.user}
+                          {#await getUserProfile(message.user) then userProfile}
+                            {userProfile ? userProfile.name : username}
+                          {/await}
+                        {:else}
+                          {username}
+                        {/if}
                       </span>
                     </div>
-                  {/if}
-                  {#if message.role === 'assistant'}
-                    <div class="message-footer">
-                      <Reactions 
-                        {message}
-                        userId={$currentUser.id}
-                        on:update={async (event) => {
-                          const { messageId, reactions } = event.detail;
-                          await messagesStore.updateMessage(messageId, { reactions });
-                          chatMessages = chatMessages.map(msg => 
-                            msg.id === messageId 
-                              ? { ...msg, reactions }
-                              : msg
-                          );
-                        }}
-                        on:notification={(event) => {
-                          console.log(event.detail);
-                        }}
-                      />
+                  {:else if message.role === 'thinking'}
+                    <!-- <span class="role">
+                      <Bot size="50" color="white" />
+                    </span> -->
+                  {:else if message.role === 'assistant'}
+                    <div class="user-header">
+                      <div class="avatar-container">
+                        <Bot color="white" />
+                      </div>
+                      <span class="role">{message.prompt_type}</span>
+                      <span class="model">{message.model}</span>
                     </div>
                   {/if}
                 </div>
-              {/each}
+                <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
+                {#if message.role === 'thinking'}
+                  <div class="thinking-animation">
+                    <span>
+                      <Bot color="white" />
+                    </span>
+                    <span>
+                      <Bot color="gray" />
+                    </span>
+                    <span>
+                      <Bot color="white" />
+                    </span>
+                  </div>
+                {/if}
+                {#if message.role === 'assistant'}
+                  <div class="message-footer">
+                    <Reactions 
+                      {message}
+                      {userId}
+                      on:update={async (event) => {
+                        const { messageId, reactions } = event.detail;
+                        await messagesStore.updateMessage(messageId, { reactions });
+                        chatMessages = chatMessages.map(msg => 
+                          msg.id === messageId 
+                            ? { ...msg, reactions }
+                            : msg
+                        );
+                      }}
+                      on:notification={(event) => {
+                        console.log(event.detail);
+                      }}
+                    />
+                  </div>
+                {/if}
+              </div>
             {/each}
-
-            {#if showScrollButton}
+          {/each}
+      
+          {#if showScrollButton}
             <button 
               class="scroll-bottom-btn" 
               on:click={scrollToBottom}
@@ -1802,10 +2090,12 @@ onDestroy(() => {
           {/if}
           </div>
           <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
-            <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
+            {#if $isAiActive}
+            <div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
               <textarea 
                 bind:this={textareaElement}
                 bind:value={userInput}
+                class:quote-placeholder={isTextareaFocused}
                 on:input={(e) => adjustFontSize(e.target)}
                 on:keydown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -1815,7 +2105,7 @@ onDestroy(() => {
                 }}      
                 on:focus={handleTextareaFocus}
                 on:blur={handleTextareaBlur}
-                placeholder={$t('chat.placeholder')}
+                placeholder={currentPlaceholder}
                 disabled={isLoading}
                 rows="1"
               />
@@ -1836,7 +2126,6 @@ onDestroy(() => {
                         <Bookmark />
                         {/if}
                       </span>
-
                     </span>
                     <span class="btn" 
                       transition:slide
@@ -1861,11 +2150,6 @@ onDestroy(() => {
                             <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
                           </div>
                         {/if}
-                        <!-- <h3>{$t('chat.prompts')}</h3> -->
-                        <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                      {:else}
-                        <!-- <Command size={20} /> -->
-                        <!-- <h3>{$t('chat.prompts')}</h3> -->
                       {/if}
                     </span>
                     <span 
@@ -1879,13 +2163,10 @@ onDestroy(() => {
                         {:else}
                         <Brain/>
                         {/if}
-                      </span>
-                      {#if selectedModelLabel}
-                        <!-- <h3>{$t('chat.models')}</h3> -->
-                        <p class="selector-lable">{selectedModelLabel} </p>
-                      {:else}
-                        <!-- <p>{$t('chat.models')}</p> -->
+                        {#if selectedModelLabel}
+                        <p class="selector-lable">{selectedModelLabel}</p>
                       {/if}
+                      </span>
                     </span>
                     <button 
                       class="btn send-btn" 
@@ -1900,6 +2181,64 @@ onDestroy(() => {
                 </div>
               </div>
             </div>
+          {/if}
+          {#if !$isAiActive}
+          <div class="combo-input-human" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
+            <textarea 
+              bind:this={textareaElement}
+              bind:value={userInput}
+              class:quote-placeholder={isTextareaFocused}
+              on:input={(e) => adjustFontSize(e.target)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  !isLoading && handleSendMessage();
+                }
+              }}      
+              on:focus={handleTextareaFocus}
+              on:blur={handleTextareaBlur}
+              placeholder={currentManualPlaceholder}
+              disabled={isLoading}
+              rows="1"
+            />
+            <div class="btn-row"
+              transition:slide
+            >
+              <div class="submission" class:visible={isTextareaFocused} >
+                {#if isTextareaFocused}
+                  <span 
+                    class="btn"
+                    transition:slide
+                    on:click={() => toggleSection('bookmarks')}
+                    >
+                    <!-- <span class="icon">
+                      {#if $expandedSections.models}
+                      <BookmarkCheckIcon/>
+                      {:else}
+                      <Bookmark />
+                      {/if}
+                    </span> -->
+                  </span>
+                  <span class="btn" 
+                    transition:slide
+                  >
+                    <Paperclip />
+                  </span>
+                  <button 
+                    class="btn send-btn" 
+                    class:visible={isTextareaFocused}
+                    transition:slide
+                    on:click={() => !isLoading && handleSendMessage()} 
+                    disabled={isLoading}
+                  >
+                    <Send />
+                  </button>
+                {/if}
+              </div>
+            </div>
+          </div>
+          {/if}
+
             <div class="ai-selector">
               {#if $expandedSections.prompts}
                 <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
@@ -2265,7 +2604,14 @@ onDestroy(() => {
 
       
     }
-
+  span.header-btns {
+      display: flex;
+      position: absolute;
+      right: 0;
+      gap: rem;
+      width: auto;
+      margin-right: 0;
+    }
   span {
     display: flex;
     justify-content: left;
@@ -2382,6 +2728,20 @@ onDestroy(() => {
   button {
     display: flex;
     user-select: none;
+    .toggle-btn {
+    &.header {
+      background-color: red !important;
+      width: 500px
+    }
+  }
+    &.play {
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 3rem;
+      height: 3rem;
+    }
     &.btn-back {
       background-color: var(--placeholder-color);
       position: relative;
@@ -2823,6 +3183,16 @@ onDestroy(() => {
 		z-index: 0;
 		pointer-events: none;
 	}
+
+  .casual-input {
+    background: var(--bg-color);
+    width: 100%;
+    display: flex;
+    position: relative;
+    bottom: auto;
+    top: 0;
+    height: 200px;
+  }
   .input-container {
     display: flex;
     flex-direction: column;
@@ -3021,7 +3391,50 @@ onDestroy(() => {
   }
 }
 }
+.combo-input-human {
+  // width: 100vw;;
+  border-radius: var(--radius-m);
+  margin-bottom: 3rem;
+  height: auto;
+  width: 100%;
+  margin-left: 0;
+  bottom: auto;
+  left: 0;
+  display: flex;
+  position: relative;
+  background: transparent;
+  flex-direction: column;
+  // background: var(--bg-gradient);
+  // backdrop-filter: blur(40px);
+  transition:all 0.3s ease;
 
+  & textarea {
+    // max-height: 50vh;
+    height: 100px !important;
+    border-radius: 4rem;
+    margin: 1rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+    font-style: normal;
+    z-index: 1000;
+    background: var(--bg-color);
+
+  &:focus {
+      // box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
+      // border-bottom: 1px solid var(--placeholder-color);
+    // border-top-left-radius: 0;
+    min-height: 400px !important;
+    // background: var(--primary-color);
+    // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        margin: 2.5rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        background: var(--primary-color);
+  }
+}
+}
 .save-button {
 position: absolute;
 right: 2rem;

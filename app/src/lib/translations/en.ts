@@ -21,7 +21,9 @@ export default {
 	tooltip: {
 		newProject: 'Create project',
 		newThread: 'Create discussion',
-		findThread: 'Find discussion'
+		findThread: 'Find discussion',
+		pauseAi: "AI responses off",
+		playAi: "AI responses on"
 	},
 	drawer: {
 		project: 'Projects',
@@ -273,11 +275,13 @@ export default {
 		thismonth: 'This Month',
 		older: 'Older',
 		threadHeader: 'Discussions',
-		updated: 'Updated'
+		updated: 'Updated',
+		shared: 'People',
 	},
 
 	chat: {
 		placeholder: 'Message Vrazum',
+		manualPlaceholder: 'Send message...',
 		loading: 'Loading messages...',
 		messagecount: 'messages',
 		prompts: 'Prompts',
@@ -285,15 +289,16 @@ export default {
 	},
 
 	profile: {
-		name: 'Name:',
-		email: 'Email:',
-		role: 'Role:',
-		created: 'Created:',
-		updated: 'Updated:',
-		verified: 'Verified:',
+		name: 'Name',
+		username: 'Username',
+		email: 'Email',
+		role: 'Role',
+		created: 'Created',
+		updated: 'Updated',
+		verified: 'Verified',
 		edit: 'Edit',
 		save: 'Save',
-		close: 'Cancel',
+		close: 'Done',
 		logout: 'Log Out',
 		login: 'Log In',
 		signup: 'Sign Up',
@@ -301,7 +306,10 @@ export default {
 		terms: 'Terms',
 		privacy: 'Privacy',
 		waitlist: 'Join the Waitlist',
-		join: 'Subscribe'
+		join: 'Subscribe',
+		projects: 'Projects',
+		posts: "Posts",
+		connections: "Connections"
 	},
 	thinkingPhrases: [
 		'Consulting my digital crystal ball...',

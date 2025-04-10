@@ -27,7 +27,7 @@ export async function generateThreadName(
 	try {
 		await ensureAuthenticated();
 		console.log('Sending prompt for thread name generation:', prompt);
-		const response = await fetchAIResponse([prompt], model.id, userId);
+		const response = await fetchAIResponse([prompt], model, userId);
 		console.log('Received thread name suggestion:', response);
 		const cleanName = response
 			.replace(/^["']|["']$/g, '')

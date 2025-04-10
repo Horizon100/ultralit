@@ -21,7 +21,9 @@ export default {
 	tooltip: {
 		newProject: 'Создать проект',
 		newThread: 'Создать обсуждение',
-		findThread: 'Найти обсуждение'
+		findThread: 'Найти обсуждение',
+		pauseAi: "ИИ выключен",
+		playAi: "ИИ включен"
 	},
 	drawer: {
 		project: 'Проекты',
@@ -279,11 +281,13 @@ export default {
 		thismonth: 'В этом месяце',
 		older: 'Старше',
 		threadHeader: 'Дискуссии',
-		updated: 'Обновлено'
+		updated: 'Обновлено',
+		shared: 'Люди'
 	},
 
 	chat: {
 		placeholder: 'Расследовать Вразум',
+		manualPlaceholder: 'Отправить сообщение...',
 		loading: 'Загрузка сообщений...',
 		messagecount: 'сообщений',
 		prompts: 'Ассистенты',
@@ -291,12 +295,13 @@ export default {
 	},
 
 	profile: {
-		name: 'Имя:',
-		email: 'Почта:',
-		role: 'Роль:',
-		created: 'Создано:',
-		updated: 'Обновлено:',
-		verified: 'Проверено:',
+		name: 'Имя',
+		email: 'Почта',
+		username: 'Имя пользователя',
+		role: 'Роль',
+		created: 'Создано',
+		updated: 'Обновлено',
+		verified: 'Проверено',
 		edit: 'Изменить',
 		save: 'Сохранять',
 		close: 'Закрыть',
@@ -307,7 +312,10 @@ export default {
 		terms: 'Условия',
 		privacy: 'Конфиденциальность',
 		waitlist: 'Присоединяйтесь к списку ожидания',
-		join: 'Подписаться'
+		join: 'Подписаться',
+		projects: 'Проекты',
+		posts: 'Публикации',
+		connections: 'Связи'
 	},
 	thinkingPhrases: [
 		'Мысль - начало всего...', // "Thought is the beginning of everything..." - Tolstoy

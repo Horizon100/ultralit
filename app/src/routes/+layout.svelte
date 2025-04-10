@@ -49,7 +49,6 @@
 	import { threadsStore } from '$lib/stores/threadsStore';
 	import Auth from '$lib/components/auth/Auth.svelte';
 	import Profile from '$lib/components/ui/Profile.svelte';
-	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
 	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
 
 	export let onStyleClick: (() => void) | undefined = undefined;

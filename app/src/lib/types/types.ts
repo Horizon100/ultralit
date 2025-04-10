@@ -3,6 +3,7 @@ import { type ProviderType } from '$lib/constants/providers';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
 export interface User extends RecordModel {
 	username: string;
+	description: string;
 	email: string;
 	emailVisibility: boolean;
 	verified: boolean;
@@ -83,11 +84,11 @@ export interface Threads extends RecordModel {
 	current_thread: string;
 	messageCount?: number;
 	project_id: string;
-	currentThread: Threads | null;
-	filteredThreads: Threads[];
-	isEditingThreadName: boolean;
-	editedThreadName: string;
-	isNaming: boolean; 
+	// currentThread: Threads | null;
+	// filteredThreads: Threads[];
+	// isEditingThreadName: boolean;
+	// editedThreadName: string;
+	// isNaming: boolean; 
 }
 export interface Tag extends RecordModel {
 	id: string;

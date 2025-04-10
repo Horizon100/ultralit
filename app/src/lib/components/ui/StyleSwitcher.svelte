@@ -157,21 +157,37 @@
 	}
 
 	.style-switcher {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		gap: 2rem;
-		padding: 2rem;
-		border-radius: 8px;
-		color: var(--text-color);
-		height: 100%;
-		width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+		position: relative;
+        margin: 0;
+		max-width: 600px;
+        text-align: left;
+		left: 0;
+		gap: 0;
+        justify-content: flex-start;
+        align-items: flex-start;
+        font-size: var(--font-size-m);
+        color: var(--placeholder-color);
+		background: var(--bg-gradient-r);
+		border-radius: 2rem;
+        line-height: 1.5;
+		padding: 1rem;
+        animation: blink 3s ease infinite;
 	}
 
 	h2 {
-		margin-top: 1rem;
+
+		margin-left: 2rem;
+		width: 100%;
+		padding: 1rem 0;
+		font-size: 1.5rem;
+		text-align: left;
+		border-top-left-radius: 2rem;
+		border-top-right-radius: 2rem;
+
 		user-select: none;
+		
 	}
 	.current-style {
 		display: flex;
@@ -199,11 +215,18 @@
 	}
 
 	.style-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		width: 100%;
-		height: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0;
+		gap: 0;
+        width: 100%;
+        text-align: center;
+        justify-content: flex-start;
+        align-items: flex-start;
+        font-size: var(--font-size-m);
+        color: var(--placeholder-color);
+        line-height: 1.5;
+        animation: blink 3s ease infinite;
 	}
 
 	.style-button {
@@ -213,12 +236,12 @@
 		gap: 0.5rem;
 		border: none;
 		padding: 0.5rem;
-		border-radius: 4px;
+		border-radius: 2rem;
 		cursor: pointer;
 		transition: all ease 0.3s;
-		width: 100%;
+		width:auto;
+		min-width: 100px;
 		height: 50px;
-		margin-bottom: 1rem;
 
 		&.default {
 			background-color: var(--primary-color);
@@ -276,13 +299,13 @@
 		.style-switcher {
 			flex-direction: column;
 			padding: 0;
-			width: 100%;
+			width: auto;
 		}
 
 		.style-list {
 			margin-left: 1%;
 			margin-bottom: 1rem;
-			width: 98%;
+			width: auto;
 		}
 	}
 </style>

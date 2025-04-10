@@ -2,7 +2,7 @@
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOutIcon, Send } from 'lucide-svelte';
+	import { Camera, LogIn, UserPlus, LogOutIcon, Send, SignalHighIcon } from 'lucide-svelte';
 	import Profile from '../ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
@@ -235,7 +235,24 @@
 							</span>
 						{/if}
 					</button>
-					
+					<button 
+						class="button button-login" 
+						on:click={isWaitlistMode ? () => {
+							// Handle waitlist subscription
+							console.log('Subscribe clicked', email);
+						} : signUp}
+					>
+						{#if !isWaitlistMode}
+							<span>							
+								<SignalHighIcon />
+								{$t('profile.signup')}</span>
+						{:else}
+							<span>
+								<Send />
+								{$t('profile.join')}
+							</span>
+						{/if}
+					</button>
 
 				</div>
 			</form>

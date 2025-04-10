@@ -3,8 +3,11 @@
     import { projectStore } from '$lib/stores/projectStore';
     import { threadsStore } from '$lib/stores/threadsStore';
     import { pb, currentUser } from '$lib/pocketbase';
+    import { fade, fly, scale, slide } from 'svelte/transition';
     import type { User, Projects, Threads } from '$lib/types/types';
-    
+    import { t } from '$lib/stores/translationStore';
+	import { Group, Users } from 'lucide-svelte';
+
     export let threadId: string;
   
     let projectCollaborators: User[] = [];
@@ -19,7 +22,8 @@
     let isLoading: boolean = false;
     let showCollaboratorsList: boolean = false;
     let projectId: string | null = null;
-  
+    let createHovered = false;
+
     // Subscribe to threadsStore to get updates for thread data
     const unsubThreads = threadsStore.subscribe((state) => {
       thread = state.threads.find(t => t.id === threadId) || null;
@@ -473,10 +477,24 @@
         });
     });
   </script>
-  
+
   <div class="collaborators-container">
-    <button class="toggle-collaborators-btn" on:click={toggleCollaboratorsList}>
-      Shared ({threadCollaborators.length})
+    
+    <button class="toggle-btn"                     
+      on:mouseenter={() => createHovered = true}
+      on:mouseleave={() => createHovered = false}
+      on:click={toggleCollaboratorsList}>
+      {#if createHovered}
+        <span class="tooltip" in:fade>
+          {$t('threads.shared')}
+        </span>
+      {/if}
+      {#if !createHovered}
+      <span class="tooltip" in:fade>
+        <Users/>
+      </span>
+    {/if}
+      ({threadCollaborators.length})
     </button>
     
     {#if showCollaboratorsList}
@@ -620,28 +638,14 @@
     }
   
     .collaborators-container {
-      position: absolute;
+      position: relative;
       right: 0;
       display: flex;
+      height: 100%;
       flex-direction: column;
       align-items: flex-end;
     }
-  
-    .toggle-collaborators-btn {
-      background: var(--bg-color);
-      color: var(--text-color);
-      border: 1px solid var(--border-color);
-      border-radius: 2rem;
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      
-      &:hover {
-        background: var(--secondary-color);
-      }
-    }
-  
+
     .collaborators-panel {
       position: absolute;
       top: 100%;
@@ -658,7 +662,7 @@
       
       h3 {
         margin-top: 0;
-        margin-bottom: 1rem;
+        margin-bottom: 2rem;
         font-size: 1.2rem;
         font-weight: 600;
       }
@@ -666,13 +670,14 @@
       h4 {
         margin-top: 1rem;
         margin-bottom: 0.5rem;
-        font-size: 1rem;
+        font-size: 0.9rem;
         font-weight: 500;
       }
     }
   
     .collaborators-section {
-      margin-bottom: 1rem;
+      margin-bottom: 2rem;
+      margin-top: 1rem;
     }
   
     .collaborators-list {
@@ -680,6 +685,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      margin-top: 2rem;
       gap: 0.5rem;
     }
   
@@ -703,6 +709,8 @@
         border-color: var(--primary-color);
       }
     }
+
+
   
     .collaborator-left {
       display: flex;

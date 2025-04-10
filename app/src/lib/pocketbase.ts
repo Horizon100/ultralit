@@ -114,19 +114,52 @@ export function signOut() {
 }
 
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
+	const currentUserId = pb.authStore.model?.id;
+	
+	// Check if user is trying to update their own profile
+	if (!currentUserId || id !== currentUserId) {
+	  throw new Error('Unauthorized: You can only update your own profile');
+	}
+	
+	// Proceed with the update
 	const record = await pb.collection('users').update(id, userData);
 	return record as User;
-}
-
-export async function getUserById(id: string): Promise<User | null> {
+  }
+  
+  export async function getUserById(id: string): Promise<User | null> {
 	try {
-		const record = await pb.collection('users').getOne(id);
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  // Basic authentication check
+	  if (!currentUserId) {
+		throw new Error('Unauthorized: You must be logged in');
+	  }
+	  
+	  // Get the user record
+	  const record = await pb.collection('users').getOne(id);
+	  
+	  // If requesting user is the same as the requested profile, return full profile
+	  if (id === currentUserId) {
 		return record as User;
+	  }
+	  
+	  // Otherwise return only public fields
+	  const publicUser = {
+		id: record.id,
+		username: record.username,
+		name: record.name,
+		avatar: record.avatar,
+		created: record.created,
+		updated: record.updated
+		// Add other fields that should be public here
+	  };
+	  
+	  return publicUser as User;
 	} catch (error) {
-		console.error('Error fetching user:', error);
-		return null;
+	  console.error('Error fetching user:', error);
+	  return null;
 	}
-}
+  }
 
 export async function createAgentWithSummary(summary: string, userId: string): Promise<AIAgent> {
 	const agent: Partial<AIAgent> & Pick<AIAgent, 'tasks' | 'messages' | 'child_agents'> = {
@@ -198,23 +231,60 @@ export async function saveAIPreferences(preferences: AIPreferences): Promise<AIP
 	return record as AIPreferences;
 }
 
-export async function updateAIPreferences(
-	id: string,
-	preferences: Partial<AIPreferences>
-): Promise<AIPreferences> {
-	const record = await pb.collection('ai_preferences').update(id, preferences);
-	return record as AIPreferences;
-}
+
 
 export async function getAIPreferencesByUserId(userId: string): Promise<AIPreferences | null> {
 	try {
-		const record = await pb.collection('ai_preferences').getFirstListItem(`user_id="${userId}"`);
-		return record as AIPreferences;
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  if (!currentUserId || userId !== currentUserId) {
+		throw new Error('Unauthorized: You can only access your own AI preferences');
+	  }
+	  
+	  const record = await pb.collection('ai_preferences').getFirstListItem(`user_id="${userId}"`);
+	  return record as AIPreferences;
 	} catch (error) {
-		console.error('Error fetching AI preferences:', error);
-		return null;
+	  console.error('Error fetching AI preferences:', error);
+	  return null;
 	}
-}
+  }
+
+  export async function updateAIPreferences(
+	id: string,
+	preferences: Partial<AIPreferences>
+  ): Promise<AIPreferences> {
+	const currentUserId = pb.authStore.model?.id;
+	
+	try {
+	  const existingPreference = await pb.collection('ai_preferences').getOne(id);
+	  
+	  if (!currentUserId || existingPreference.user_id !== currentUserId) {
+		throw new Error('Unauthorized: You can only update your own AI preferences');
+	  }
+	  
+	  const record = await pb.collection('ai_preferences').update(id, preferences);
+	  return record as AIPreferences;
+	} catch (error) {
+	  console.error('Error updating AI preferences:', error);
+	  throw error;
+	}
+  }
+
+  export async function getPublicUserData(userId: string): Promise<Partial<User> | null> {
+	try {
+	  const record = await pb.collection('users').getOne(userId);
+	  
+	  return {
+		id: record.id,
+		username: record.username,
+		name: record.name,
+		avatar: record.avatar
+	  };
+	} catch (error) {
+	  console.error('Error fetching public user data:', error);
+	  return null;
+	}
+  }
 
 export async function saveNetworkLayout(networkData: NetworkData): Promise<NetworkData | null> {
 	try {
@@ -565,52 +635,155 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
 
 export async function fetchThreads(): Promise<Threads[]> {
 	try {
-		ensureAuthenticated();
-		const records = await pb.collection('threads').getFullList<Threads>({
-			sort: '-created'
-		});
-		return records;
+	  await ensureAuthenticated();
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  if (!currentUserId) {
+		throw new Error('User not authenticated');
+	  }
+	  
+	  // Simplify the filter to avoid encoding issues
+	  // Use three separate queries and combine the results
+	  const userThreads = await pb.collection('threads').getFullList<Threads>({
+		sort: '-created',
+		filter: `user = "${currentUserId}"`,
+		expand: 'project,op,members',
+		$autoCancel: false
+	  });
+	  
+	  const opThreads = await pb.collection('threads').getFullList<Threads>({
+		sort: '-created',
+		filter: `op = "${currentUserId}"`,
+		expand: 'project,op,members',
+		$autoCancel: false
+	  });
+	  
+	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
+		sort: '-created',
+		filter: `members ~ "${currentUserId}"`,
+		expand: 'project,op,members',
+		$autoCancel: false
+	  });
+	  
+	  // Combine the results, removing duplicates by ID
+	  const combinedThreads = [...userThreads];
+	  
+	  // Add op threads if not already included
+	  opThreads.forEach(thread => {
+		if (!combinedThreads.some(t => t.id === thread.id)) {
+		  combinedThreads.push(thread);
+		}
+	  });
+	  
+	  // Add member threads if not already included
+	  memberThreads.forEach(thread => {
+		if (!combinedThreads.some(t => t.id === thread.id)) {
+		  combinedThreads.push(thread);
+		}
+	  });
+	  
+	  // Sort by created date (newest first)
+	  combinedThreads.sort((a, b) => 
+		new Date(b.created).getTime() - new Date(a.created).getTime()
+	  );
+	  
+	  return combinedThreads;
 	} catch (error) {
-		console.error('Error fetching threads:', error);
-		throw error;
+	  console.error('Error fetching threads:', error);
+	  throw error;
 	}
-}
+  }
 
-export async function fetchProjects(): Promise<Projects[]> {
+  export async function fetchProjects(): Promise<Projects[]> {
 	try {
-		ensureAuthenticated();
-		const projects = await pb.collection('projects').getFullList<Projects>({
-			expand: 'last_message'
-		});
-		return projects;
+	  await ensureAuthenticated();
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  if (!currentUserId) {
+		throw new Error('User not authenticated');
+	  }
+	  
+	  const projects = await pb.collection('projects').getFullList<Projects>({
+		expand: 'last_message,owner,collaborators',
+		filter: `owner = "${currentUserId}" || collaborators ?~ "${currentUserId}"`,
+		sort: '-created',
+		$autoCancel: false
+	  });
+	  
+	  console.log('Fetched projects:', projects);
+	  return projects;
 	} catch (error) {
-		console.error('Error fetching projects:', error);
-		throw error;
+	  console.error('Error fetching projects:', error);
+	  throw error;
 	}
-}
-export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
-	try {
-		const records = await pb.collection('threads').getFullList<Threads>({
-			sort: '-created',
-			filter: `project = "${projectId}"`
-		});
-		console.log('Fetched threads:', records);
-		return records;
-	} catch (error) {
-		console.error('Error fetching threads for project:', error);
-		throw error;
-	}
-}
+  }
 
-export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
+  export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
 	try {
-		const record = await pb.collection('threads').create<Threads>(threadData);
-		return record;
+	  await ensureAuthenticated();
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  if (!currentUserId) {
+		throw new Error('User not authenticated');
+	  }
+	  
+	  const records = await pb.collection('threads').getFullList<Threads>({
+		sort: '-created',
+		// Use 'project' instead of 'project_id' to match your existing data structure
+		filter: `project = "${projectId}" && (user = "${currentUserId}" || op = "${currentUserId}" || members ?~ "${currentUserId}")`,
+		expand: 'project,op,members',
+		$autoCancel: false
+	  });
+	  
+	  console.log('Fetched threads for project:', records);
+	  return records;
 	} catch (error) {
-		console.error('Error creating thread:', error);
-		throw error;
+	  console.error('Error fetching threads for project:', error);
+	  throw error;
 	}
-}
+  }
+
+  export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
+	try {
+	  await ensureAuthenticated();
+	  const currentUserId = pb.authStore.model?.id;
+	  
+	  if (!currentUserId) {
+		throw new Error('User not authenticated');
+	  }
+	  
+	  // Ensure the current user has appropriate permissions
+	  if (threadData.project) {
+		// Check if user has access to this project
+		const project = await pb.collection('projects').getOne(threadData.project, {
+		  $autoCancel: false
+		});
+		
+		if (project.owner !== currentUserId && 
+			!(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId))) {
+		  throw new Error('Unauthorized to create threads in this project');
+		}
+	  }
+	  
+	  // Set default values if not provided
+	  const defaultedThreadData = {
+		...threadData,
+		user: threadData.user || currentUserId,
+		members: threadData.members || [currentUserId],
+		created: threadData.created || new Date().toISOString(),
+		updated: threadData.updated || new Date().toISOString()
+	  };
+	  
+	  console.log('Creating thread with data:', defaultedThreadData);
+	  const record = await pb.collection('threads').create<Threads>(defaultedThreadData);
+	  console.log('Thread created successfully:', record);
+	  
+	  return record;
+	} catch (error) {
+	  console.error('Error creating thread:', error);
+	  throw error;
+	}
+  }
 
 export async function updateThread(id: string, threadData: Partial<Threads>): Promise<Threads> {
 	try {
