@@ -59,16 +59,20 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 			throw new Error('User ID not found');
 		}
 
+		// Make sure owner is explicitly set to the current user ID
 		const newProject: Partial<Projects> = {
 			name: projectData.name || 'New Project',
 			description: projectData.description || '',
-			owner: userId,
+			owner: userId, // Always force owner to be current user
 			threads: [],
 			current_project: '',
-			collaborators: [userId],
+			collaborators: [userId], // Include current user as collaborator
 			created: new Date().toISOString(),
 			updated: new Date().toISOString()
 		};
+
+		// Log what we're about to create for debugging
+		console.log('Creating new project with data:', newProject);
 
 		return await pb.collection('projects').create<Projects>(newProject);
 	} catch (error) {
@@ -83,6 +87,21 @@ export async function updateProject(id: string, changes: Partial<Projects>): Pro
 		return await pb.collection('projects').update<Projects>(id, changes);
 	} catch (error) {
 		console.error('Error updating project:', error);
+		throw error;
+	}
+}
+
+/**
+ * Deletes a project by ID after ensuring the user is authenticated
+ * @param id - Project ID to delete
+ * @returns Promise resolving when deletion is complete
+ */
+export async function deleteProject(id: string): Promise<void> {
+	try {
+		ensureAuthenticated();
+		await pb.collection('projects').delete(id);
+	} catch (error) {
+		console.error('Error deleting project:', error);
 		throw error;
 	}
 }

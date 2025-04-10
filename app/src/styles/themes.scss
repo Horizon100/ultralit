@@ -227,6 +227,8 @@ $themes: (
 	object-fit: cover;
 }
 
+
+
 .default-avatar {
 	width: 3rem !important;
 	height: 3rem !important;
@@ -239,7 +241,26 @@ $themes: (
 	font-weight: bold;
 }
 
-  
+.user-avatar-project {
+	width: 5rem !important;
+	height: 5rem !important;
+	border-radius: 50%;
+	object-fit: cover;
+
+}
+
+.default-avatar-project {
+	width: 5rem !important;
+	height: 5rem !important;
+	background-color: var(--primary-color, #6366f1);
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: bold;
+	border-radius: 50%;
+
+}
 .toggle-btn {
 	background: var(--bg-color);
 	color: var(--text-color);
@@ -260,6 +281,38 @@ $themes: (
 	  width: auto;
 	}
   }
+  .owner-badge, .member-badge {
+	font-size: 0.75rem;
+	padding: 0.1rem 0.5rem;
+	border-radius: 1rem;
+	position: relative;
+	right: 0;
+	font-weight: 600;
+  }
 
+  span {
+  	&.owner-badge {
+	background-color: var(--primary-color);
+	color: var(--tertiary-color);
+	position: relative;
+	display: flex;
+	justify-content: flex-end;
+	align-items: flex-end;
+	width: auto;
+  }
+	&.member-badge {
+		color: transparent;
+		position: relative;
+		display: flex;
+		justify-content: flex-end;
+		align-items: flex-end;
+		width: auto;
+
+		&:hover {
+			background-color: red;
+			color: white !important;
+		}
+	}
+}
 
 

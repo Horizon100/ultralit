@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { AIMessage, AIModel } from '$lib/types/types';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
@@ -12,6 +13,11 @@ const deepseek = new OpenAI({
 	apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY,
 	baseURL: 'https://api.deepseek.com/v1'
 });
+
+const anthropicApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+const anthropic = anthropicApiKey 
+	? new Anthropic({ apiKey: anthropicApiKey })
+	: null;
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -81,16 +87,16 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 		}
 
-		const aiMessages = messages.map((msg) => ({
-			role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
-			content: msg.content
-		}));
-
 		console.log('Processing with provider:', model.provider);
 		let response;
 		
 		if (model.provider === 'openai') {
 			console.log('Sending request to OpenAI API');
+			const aiMessages = messages.map((msg) => ({
+				role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
+				content: msg.content
+			}));
+			
 			const completion = await openai.chat.completions.create({
 				model: model.api_type || 'gpt-3.5-turbo',
 				messages: aiMessages as ChatCompletionMessageParam[],
@@ -105,6 +111,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		} else if (model.provider === 'deepseek') {
 			console.log('Sending request to Deepseek API');
 			try {
+				const aiMessages = messages.map((msg) => ({
+					role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
+					content: msg.content
+				}));
+				
 				const completion = await deepseek.chat.completions.create({
 					model: model.api_type || 'deepseek-chat',
 					messages: aiMessages as ChatCompletionMessageParam[],
@@ -119,6 +130,50 @@ export const POST: RequestHandler = async ({ request }) => {
 			} catch (deepseekError) {
 				console.error('Deepseek API error:', deepseekError);
 				throw new Error(`Deepseek API error: ${deepseekError instanceof Error ? deepseekError.message : 'Unknown error'}`);
+			}
+		} else if (model.provider === 'anthropic') {
+			console.log('Sending request to Anthropic API');
+			
+			// Check if Anthropic client is initialized
+			if (!anthropic) {
+				throw new Error('Anthropic API key is not configured');
+			}
+			
+			try {
+				// Extract system message content if available
+				const systemMsg = messages.find(msg => msg.role === 'system');
+				const systemContent = systemMsg ? systemMsg.content : '';
+				
+				// Filter messages to only include user and assistant messages
+				const anthropicMessages = messages
+					.filter(msg => msg.role === 'user' || msg.role === 'assistant')
+					.map(msg => ({
+						role: msg.role,
+						content: msg.content
+					}));
+				
+				// Create request payload with system message if it exists
+				const requestPayload: any = {
+					model: model.api_type || 'claude-3-sonnet-20240229',
+					messages: anthropicMessages,
+					max_tokens: 1500,
+					temperature: 0.7
+				};
+				
+				// Only add system parameter if there's system content
+				if (systemContent) {
+					requestPayload.system = systemContent;
+				}
+				
+				const completion = await anthropic.messages.create(requestPayload);
+				
+				if (!completion.content || completion.content.length === 0 || !completion.content[0].text) {
+					throw new Error('Invalid response format from Anthropic');
+				}
+				response = completion.content[0].text;
+			} catch (anthropicError) {
+				console.error('Anthropic API error:', anthropicError);
+				throw new Error(`Anthropic API error: ${anthropicError instanceof Error ? anthropicError.message : 'Unknown error'}`);
 			}
 		} else {
 			throw new Error(`Unsupported AI provider: ${model.provider}`);

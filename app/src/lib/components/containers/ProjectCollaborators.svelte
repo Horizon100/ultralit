@@ -3,6 +3,7 @@
   import { projectStore, getProjectStore } from '$lib/stores/projectStore';
   import { pb, currentUser } from '$lib/pocketbase';
   import type { User, Projects } from '$lib/types/types';
+	import { Trash2 } from 'lucide-svelte';
   
   export let projectId: string;
 
@@ -368,15 +369,23 @@ onMount(() => {
     <div class="collaborators-list">
       {#each collaborators as collaborator}
       <div class="collaborator-item">
-        <div class="collaborator-left">
+        <div class="collaborator-wrapper">
+            {#if collaborator.id === project?.owner}
+            <span class="owner-badge">Owner</span>
+        {:else if $currentUser && isOwner}
+            <!-- If current user is the owner, they can remove any collaborator -->
+            <span class="member-badge" on:click={() => removeCollaborator(collaborator.id)}>
+                Remove
+            </span>
+        {/if}
             {#if collaborator.avatar}
                 <img 
                     src={`${pb.baseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
                     alt="Avatar" 
-                    class="user-avatar" 
+                    class="user-avatar-project" 
                 />
             {:else}
-                <div class="default-avatar">
+                <div class="default-avatar-project">
                     {(collaborator.name || collaborator.username || collaborator.email || '?')[0]?.toUpperCase()}
                 </div>
             {/if}
@@ -392,18 +401,9 @@ onMount(() => {
                     User ID: {collaborator.id}
                 {/if}
             </span>
+            
         </div>
         
-        <div class="collaborator-right">
-            {#if collaborator.id === project?.owner}
-                <span class="owner-badge">Owner</span>
-            {:else if $currentUser && isOwner}
-                <!-- If current user is the owner, they can remove any collaborator -->
-                <button class="remove-btn" on:click={() => removeCollaborator(collaborator.id)}>
-                    Remove
-                </button>
-            {/if}
-        </div>
     </div>
         {/each}
   </div>
@@ -475,22 +475,6 @@ onMount(() => {
     padding: 0;
 }
 
-.collaborator-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: auto;
-    min-width: 150px;
-    height: 2rem;
-    background: var(--bg-color) !important;
-    border-radius: 2rem !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    cursor: pointer;
-
-    &:hover {
-      background: var(--secondary-color) !important;
-    }
-}
 
 /* For smaller screens */
 @media (max-width: 768px) {
@@ -501,15 +485,6 @@ onMount(() => {
     .collaborator-email {
         font-weight: 500;
         color: var(--text-color);
-    }
-
-    .owner-badge {
-        background-color: var(--primary-color, #6366f1);
-        color: red;
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.8rem;
-        font-weight: 600;
     }
 
     .add-collaborator-form {
@@ -587,16 +562,7 @@ onMount(() => {
           }
         }
         
-        &.remove-btn {
-            background-color: var(--danger-color, #ef4444);
-            color: white;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.85rem;
-            
-            &:hover {
-                background-color: var(--danger-hover-color, #dc2626);
-            }
-        }
+
     }
 
     .error-message {
@@ -616,28 +582,49 @@ onMount(() => {
         font-style: italic;
     }
 
-    .collaborator-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px;
-        margin-bottom: 10px;
-        background-color: white;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+.collaborator-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: auto;
+
+    height: auto;
+    border-radius: 2rem !important;
+    cursor: pointer;
+    &:hover {
+      background: var(--secondary-color) !important;
     }
-    
-    .collaborator-left {
+}
+
+
+    .collaborator-wrapper {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 10px;
+        width: 100%;
+        height: 100%;
+        padding: 0.5rem;
+        gap: 0;
+        border-radius: 5rem;
+
+        &:hover {
+
+            span.member-badge {
+            color: var(--placeholder-color);
+        }
+
+        }
+
+
     }
-    
 
     
     .collaborator-info {
-        font-weight: 500;
+
+        letter-spacing: 0.3rem;
         color: var(--text-color);
+        margin-top: 0.5rem;
     }
     
     .collaborator-right {

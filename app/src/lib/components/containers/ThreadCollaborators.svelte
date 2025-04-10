@@ -748,22 +748,7 @@
       align-items: center;
     }
   
-    .owner-badge, .member-badge {
-      font-size: 0.75rem;
-      padding: 0.1rem 0.5rem;
-      border-radius: 1rem;
-      font-weight: 600;
-    }
-  
-    .owner-badge {
-      background-color: var(--primary-color);
-      color: white;
-    }
-  
-    .member-badge {
-      background-color: var(--success-color);
-      color: white;
-    }
+
   
     .add-btn, .remove-btn {
       font-size: 0.75rem;

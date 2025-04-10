@@ -9,6 +9,8 @@
   import { threadsStore } from '$lib/stores/threadsStore';
   import { resetThread } from '$lib/clients/threadsClient';
   import { t } from '$lib/stores/translationStore';
+  import { goto } from '$app/navigation';
+  import { get } from 'svelte/store';
 
   let dropdownContainer: HTMLElement;
   let isExpanded = false;
@@ -100,8 +102,60 @@ try {
 }
 }
 
-async function handleDeleteProject(e: Event, projectId: string) {
-e.stopPropagation();
+export async function handleDeleteProject(e: Event, projectId: string) {
+    e.stopPropagation();
+    
+    if (!projectId) {
+        console.error('No project ID provided');
+        return;
+    }
+    
+    try {
+        // Get current user ID
+        const currentUserId = pb.authStore.model?.id;
+        if (!currentUserId) {
+            throw new Error('User not authenticated');
+        }
+        
+        // Get the project from the store state
+        const storeState = get(projectStore);
+        const project = storeState.threads.find(p => p.id === projectId);
+        
+        console.log('Delete attempt:', {
+            projectId,
+            currentUserId,
+            projectOwner: project?.owner,
+            isOwner: currentUserId === project?.owner
+        });
+        
+        // Pre-check if user is owner
+        if (!project) {
+            alert('Project not found');
+            return;
+        }
+        
+        if (project.owner !== currentUserId) {
+            alert('Only the project owner can delete this project.');
+            return;
+        }
+        
+        // Confirmation
+        const confirmed = confirm('Are you sure you want to delete this project? This action cannot be undone.');
+        if (!confirmed) return;
+        
+        // Delete the project
+        const success = await projectStore.deleteProject(projectId);
+        
+        if (success) {
+            // Optionally navigate away
+            // await goto('/projects');
+            console.log('Project deleted successfully');
+        }
+        
+    } catch (error) {
+        console.error('Error in handleDeleteProject:', error);
+        alert('Failed to delete project: ' + (error instanceof Error ? error.message : String(error)));
+    }
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -179,6 +233,7 @@ return () => {
     </div>
 
     {#if isCreatingProject}
+    
       <div class="create-form" transition:slide>
         <input
           type="text"
@@ -191,7 +246,7 @@ return () => {
           }}
         />
         <button 
-          class="confirm-btn"
+          class="create-btn"
           disabled={!newProjectName.trim()}
           on:click={() => handleCreateNewProject(newProjectName)}
         >
@@ -328,7 +383,7 @@ return () => {
         padding: 0;
         justify-content: center;
         text-align: left;
-        font-size: 1.25rem;
+        font-size: 1.5rem;
         transition: all 0.3s ease;
         &:focus {
         }
@@ -359,9 +414,12 @@ return () => {
     .create-form {
         display: flex;
       gap: 0.5rem;
+      width: 100%;
   
       input {
         flex: 1;
+        font-size: 2rem;
+        width: auto;
         // padding: 0.5rem 1rem;
         border: none;
         border-radius: var(--radius-s);
