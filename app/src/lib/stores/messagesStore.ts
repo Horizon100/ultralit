@@ -5,7 +5,6 @@ import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark, u
 import { threadsStore } from './threadsStore';
 
 function createMessagesStore() {
-  // Define the store with a more complete type
   const store = writable<{
     messages: Messages[];
     currentThreadId: string | null;
@@ -16,61 +15,52 @@ function createMessagesStore() {
     selectedDate: null
   });
   
-  // Track subscriptions outside the store to avoid serialization issues
   let activeSubscriptions: Record<string, () => void> = {};
   
   const { subscribe, set, update } = store;
 
-  // Helper function to create a subscription for a thread
-  const subscribeToThread = (threadId: string) => {
-	// Clean up existing subscription if it exists
-	if (activeSubscriptions[threadId]) {
-	  try {
-		// Check if it's actually a function before calling it
-		if (typeof activeSubscriptions[threadId] === 'function') {
-		  activeSubscriptions[threadId]();
-		}
-		delete activeSubscriptions[threadId];
-	  } catch (err) {
-		console.error('Error unsubscribing from thread:', err);
-	  }
-	}
-	
-	console.log(`Subscribing to real-time updates for thread ${threadId}`);
-	
-	try {
-	  // Create a new subscription
-	  const unsubscribe = pb.collection('messages').subscribe('*', async function(data) {
-		if (!data || !data.record) return;
-		
-		// Only process if it's related to this thread
-		if (data.record.thread === threadId) {
-		  console.log('Message update received:', data);
-		  
-		  // Refresh messages to ensure we have the latest data
-		  try {
-			const messages = await fetchMessagesForThread(threadId);
-			update(state => ({ ...state, messages }));
-		  } catch (err) {
-			console.error('Error refreshing messages after update:', err);
-		  }
-		}
-	  });
-	  
-	  // Make sure the unsubscribe is actually a function
-	  if (typeof unsubscribe === 'function') {
-		// Store the unsubscribe function
-		activeSubscriptions[threadId] = unsubscribe;
-		return unsubscribe;
-	  } else {
-		console.error('PocketBase subscribe did not return a function:', unsubscribe);
-		return () => {}; // Return empty function in case of error
-	  }
-	} catch (error) {
-	  console.error('Error setting up real-time subscription:', error);
-	  return () => {}; // Return empty function in case of error
-	}
-  };
+const subscribeToThread = async (threadId: string) => {
+  if (activeSubscriptions[threadId]) {
+    try {
+      if (typeof activeSubscriptions[threadId] === 'function') {
+        activeSubscriptions[threadId]();
+      }
+      delete activeSubscriptions[threadId];
+    } catch (err) {
+      console.error('Error unsubscribing from thread:', err);
+    }
+  }
+  
+  console.log(`Subscribing to real-time updates for thread ${threadId}`);
+  
+  try {
+    const unsubscribe = await pb.collection('messages').subscribe('*', async function(data) {
+      if (!data || !data.record) return;
+      
+      if (data.record.thread === threadId) {
+        console.log('Message update received:', data);
+        
+        try {
+          const messages = await fetchMessagesForThread(threadId);
+          update(state => ({ ...state, messages }));
+        } catch (err) {
+          console.error('Error refreshing messages after update:', err);
+        }
+      }
+    });
+    
+    if (typeof unsubscribe === 'function') {
+      activeSubscriptions[threadId] = unsubscribe;
+      return unsubscribe;
+    } else {
+      console.error('PocketBase subscribe did not return a function:', unsubscribe);
+      return () => {}; 
+    }
+  } catch (error) {
+    console.error('Error setting up real-time subscription:', error);
+    return () => {};
+  }
+};
 
   return {
     subscribe,

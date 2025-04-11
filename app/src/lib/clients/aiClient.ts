@@ -8,7 +8,7 @@ import { apiKey } from '$lib/stores/apiKeyStore';
 
 export async function fetchAIResponse(
 	messages: AIMessage[],
-	model: AIModel,
+	model: AIModel | null,
 	userId: string,
 	attachment: File | null = null
 ): Promise<string> {
@@ -25,14 +25,24 @@ export async function fetchAIResponse(
 
 		console.log('Original model:', model);
 		
+		// Ensure we always have a valid model
 		if (!model || (typeof model === 'string')) {
 			console.log('Using default model due to invalid model data');
-			model = defaultModel;
+			model = { ...defaultModel };
 		}
 		
+		// Make sure provider is set
 		if (!model.provider) {
+			console.log('Setting default provider for model');
 			model.provider = 'deepseek';
 		}
+		
+		// Make sure api_type is set
+		if (!model.api_type) {
+			console.log('Setting default api_type for model');
+			model.api_type = 'deepseek-chat'; // Set a valid model name for deepseek
+		}
+		
 		console.log('Using model:', model);
 
 		// Prepare request body
@@ -62,22 +72,54 @@ export async function fetchAIResponse(
 		}
 
 		// Determine provider and get API key
-		const provider = model.provider || 'deepseek';
+		const provider = model.provider || 'openai';
 		console.log('Provider:', provider);
 		
-		// const apiKey =
-		// 	provider === 'openai'
-		// 		? import.meta.env.VITE_OPENAI_API_KEY
-		// 		: provider === 'deepseek'
-		// 		? import.meta.env.VITE_DEEPSEEK_API_KEY
-		// 		: provider === 'anthropic'
-		// 		? import.meta.env.VITE_ANTHROPIC_API_KEY
-		// 		: '';
 		const userApiKey = get(apiKey)[provider] || '';
 
-
+		// If no user API key is found, check for additional fallback mechanisms
 		if (!userApiKey) {
-			throw new Error(`No API key found for provider: ${provider}`);
+			console.log(`No API key found for provider: ${provider}, checking alternatives...`);
+			
+			// Try loading keys again (in case they weren't loaded properly)
+			await apiKey.loadKeys();
+			const refreshedKeys = get(apiKey);
+			
+			// Check if we have the key after refreshing
+			if (refreshedKeys[provider]) {
+				console.log(`Found key for ${provider} after refresh`);
+			} else {
+				// If still no key for the requested provider, check if we have keys for any provider
+				const availableProviders = Object.entries(refreshedKeys)
+					.filter(([_, key]) => !!key)
+					.map(([provider]) => provider);
+				
+				if (availableProviders.length > 0) {
+					// Use the first available provider as fallback
+					const fallbackProvider = availableProviders[0];
+					console.log(`Falling back to provider: ${fallbackProvider}`);
+					
+					// Update the model to use the available provider
+					model.provider = fallbackProvider;
+					
+					// Update the model.api_type based on the fallback provider
+					if (fallbackProvider === 'openai') {
+						model.api_type = 'gpt-3.5-turbo';
+					} else if (fallbackProvider === 'anthropic') {
+						model.api_type = 'claude-3-sonnet-20240229';
+					} else if (fallbackProvider === 'deepseek') {
+						model.api_type = 'deepseek-chat';
+					}
+				} else {
+					throw new Error(`No API keys available for any provider`);
+				}
+			}
+		}
+
+		// Get the API key again after potential provider change
+		const finalApiKey = get(apiKey)[model.provider] || '';
+		if (!finalApiKey) {
+			throw new Error(`No API key found for provider: ${model.provider}`);
 		}
 
 		// Make API request
@@ -85,7 +127,7 @@ export async function fetchAIResponse(
 			method: 'POST',
 			headers: {
 				...(!attachment && { 'Content-Type': 'application/json' }),
-				Authorization: `Bearer ${userApiKey}`
+				Authorization: `Bearer ${finalApiKey}`
 			},
 			body: attachment ? body : JSON.stringify(body)
 		});

@@ -11,9 +11,12 @@
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import { networkStore } from '$lib/stores/networkStore';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+  import { apiKey } from '$lib/stores/apiKeyStore';
 
   import { messagesStore} from '$lib/stores/messagesStore';
 	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
+  import ProjectStatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
+
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
 	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
@@ -32,13 +35,12 @@
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
-  import { defaultModel } from '$lib/constants/models';
+  import { defaultModel, availableModels } from '$lib/constants/models';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
   import { messageCountsStore, messageCounts, getCountColor} from '$lib/stores/messageCountStore';
   import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
   import { tweened } from 'svelte/motion';
   import { availablePrompts, getPrompt} from '$lib/constants/prompts';
-  import { availableModels } from '$lib/constants/models';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
   import { processMarkdown } from '$lib/scripts/markdownProcessor';
@@ -60,6 +62,7 @@
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
   export let namingThread = true;
+  let modelInitialized = false;
 
   interface UserProfile {
     id: string;
@@ -180,10 +183,13 @@
   if (state.selectedModel) {
     aiModel = state.selectedModel;
     selectedModelLabel = aiModel.name || '';
-    console.log('Model updated:', aiModel);
+    console.log('Model updated from store:', aiModel);
+  } else if (!aiModel && $currentUser && modelInitialized) {
+    console.log('No model in store despite initialization, using default');
+    aiModel = defaultModel;
+    selectedModelLabel = aiModel.name || '';
   }
 });
-
 
 $: sortOptionInfo = threadsStore.sortOptionInfo;
 $: allSortOptions = threadsStore.allSortOptions;
@@ -755,10 +761,64 @@ async function handleSendMessage(message: string = userInput) {
   try {
     userInput = '';
     resetTextareaHeight();
+    // isTextareaFocused = false;
+
+    // Create a new thread if one doesn't exist
     if (!currentThreadId) {
-        console.error('No current thread ID');
+      console.log('No current thread ID - creating a new thread');
+      const newThread = await handleCreateNewThread();
+      if (!newThread || !newThread.id) {
+        console.error('Failed to create a new thread');
         return;
+      }
+      // currentThreadId should now be set by handleCreateNewThread
     }
+
+    // Double-check we have a thread ID at this point
+    if (!currentThreadId) {
+      console.error('Still no current thread ID after attempt to create one');
+      return;
+    }
+
+    // Ensure we have a valid model with fallback
+    if (!aiModel || !aiModel.api_type) {
+      console.log('No valid model selected, using fallback');
+      
+      // Get model from store if available
+      const modelState = get(modelStore);
+      if (modelState.selectedModel) {
+        aiModel = modelState.selectedModel;
+        console.log('Using model from store:', aiModel);
+      } else {
+        // Get available keys
+        const availableKeys = get(apiKey);
+        const providersWithKeys = Object.keys(availableKeys)
+          .filter(p => !!availableKeys[p]);
+        
+        // Use first provider with a key, or deepseek as fallback
+        const validProvider = 
+          providersWithKeys.length > 0 ? 
+          providersWithKeys[0] as ProviderType : 
+          'deepseek';
+        
+        // Use default model from your constants
+        aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
+        console.log(`Using default model for ${validProvider}:`, aiModel);
+        
+        // Also update the modelStore in the background
+        if ($currentUser) {
+          modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
+            console.warn('Could not save fallback model:', err);
+          });
+        }
+      }
+    }
+    
+    // Ensure model has all required fields
+    if (!aiModel.provider) {
+      aiModel.provider = 'deepseek';
+    }
+
     const currentMessage = message.trim();
     const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
     chatMessages = [...chatMessages, userMessageUI];
@@ -782,65 +842,64 @@ async function handleSendMessage(message: string = userInput) {
     quotedMessage = null;
 
     if ($isAiActive) {
-        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-        thinkingMessageId = thinkingMessage.id;
-        chatMessages = [...chatMessages, thinkingMessage];
+      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+      thinkingMessageId = thinkingMessage.id;
+      chatMessages = [...chatMessages, thinkingMessage];
 
-        const messagesToSend = chatMessages
-          .filter(({ role, content }) => role && content)
-          .map(({ role, content }) => ({
-            role,
-            content: role === 'user' && promptType 
-              ? `[Using ${promptType} prompt]\n${content.toString()}`
-              : content.toString(),
-              model: aiModel.api_type,
-          }));
-
-        if (!messagesToSend.length) {
-          throw new Error('No valid messages to send');
-        }
-
-        if (promptType) {
-          messagesToSend.unshift({
-            role: 'system',
-            content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-            model: aiModel.api_type,
-          });
-        }
-
-        const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-        const assistantMessage = await messagesStore.saveMessage({
-          text: aiResponse,
-          type: 'robot',
-          thread: currentThreadId,
-          parent_msg: userMessage.id,
-          prompt_type: promptType,
+      const messagesToSend = chatMessages
+        .filter(({ role, content }) => role && content)
+        .map(({ role, content }) => ({
+          role,
+          content: role === 'user' && promptType 
+            ? `[Using ${promptType} prompt]\n${content.toString()}`
+            : content.toString(),
           model: aiModel.api_type,
-        }, currentThreadId);
+        }));
 
-        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-        chatMessages = [...chatMessages, newAssistantMessage];
-        typingMessageId = newAssistantMessage.id;
-
-        await typeMessage(aiResponse);
-
-        chatMessages = chatMessages.map(msg =>
-          msg.id === String(typingMessageId)
-            ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-            : msg
-        );
+      if (!messagesToSend.length) {
+        throw new Error('No valid messages to send');
       }
 
-      await handleThreadNameUpdate(currentThreadId);
+      if (promptType) {
+        messagesToSend.unshift({
+          role: 'system',
+          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+          model: aiModel.api_type,
+        });
+      }
 
-    } catch (error) {
-      handleError(error);
-    } finally {
-      cleanup();
+      const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+      const assistantMessage = await messagesStore.saveMessage({
+        text: aiResponse,
+        type: 'robot',
+        thread: currentThreadId,
+        parent_msg: userMessage.id,
+        prompt_type: promptType,
+        model: aiModel.api_type,
+      }, currentThreadId);
+
+      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      chatMessages = [...chatMessages, newAssistantMessage];
+      typingMessageId = newAssistantMessage.id;
+
+      await typeMessage(aiResponse);
+
+      chatMessages = chatMessages.map(msg =>
+        msg.id === String(typingMessageId)
+          ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+          : msg
+      );
     }
 
+    await handleThreadNameUpdate(currentThreadId);
+
+  } catch (error) {
+    handleError(error);
+  } finally {
+    cleanup();
+  }
 }
 
   async function typeMessage(message: string) {
@@ -1421,7 +1480,35 @@ onMount(async () => {
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
-    
+    if ($currentUser && $currentUser.id && !modelInitialized) {
+      console.log('Initializing models for user:', $currentUser.id);
+      
+      try {
+        await modelStore.initialize($currentUser.id);
+        modelInitialized = true;
+      } catch (error) {
+        console.error('Error initializing models:', error);
+        
+        // If initialization fails, still try to set a default model
+        if (!aiModel || !aiModel.api_type) {
+          // Get available keys
+          await apiKey.loadKeys();
+          const availableKeys = get(apiKey);
+          const providersWithKeys = Object.keys(availableKeys)
+            .filter(p => !!availableKeys[p]);
+          
+          // Use first provider with a key, or deepseek as fallback
+          const validProvider = 
+            providersWithKeys.length > 0 ? 
+            providersWithKeys[0] as ProviderType : 
+            'deepseek';
+          
+          // Use your existing availableModels and defaultModel
+          aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
+          console.log('Using fallback model after initialization error:', aiModel);
+        }
+      }
+    }
     if ($projectStore.currentProjectId) {
       const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
       threadsStore.update(state => ({
@@ -1841,12 +1928,19 @@ onDestroy(() => {
                   </p>
                 </span>
                   <div class="dashboard-items">
-                    <!-- <ProjectCard/>  -->
-                    <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+                    <div class="dashboard-scroll">
+
+                      <ProjectCard projectId={$projectStore.currentProjectId} />
+
+                      <ProjectStatsContainer projectId={$projectStore.currentProjectId}/>
+                    <!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
+                    </div>
                     {#if $projectStore.currentProjectId}
                       <ProjectCollaborators projectId={$projectStore.currentProjectId} />
                     {/if}
+
                   </div>
+
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                       <textarea 
@@ -2694,13 +2788,16 @@ onDestroy(() => {
     height: auto;
     width: auto;
     flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
     position: relative;
     top: 0;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     gap: 0;
     & h3 {
       text-align: center;
       margin: 0;
+      font-size: 2rem;
 
     }
     & p {
@@ -4619,17 +4716,22 @@ color: #6fdfc4;
 .dashboard-items {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: flex-start;
   position: relative;
   border-top: 1px solid var(--secondary-color);
   left: 0;
   right: 0;
-  padding: 2rem;
-  gap: 2rem;
-  width: 90%;
+  gap: 0.5rem;
+  width: calc(100% - 2rem);
+
   margin-bottom: auto;
   margin-top: 0;
+}
+
+.dashboard-scroll {
+  display: flex;
+  flex-direction: column;
 }
 .message-time {
   font-size: 0.8em;
@@ -5403,7 +5505,7 @@ color: #6fdfc4;
   @media (max-width: 1000px) {
 
   span.hero {
-    margin-top: auto;
+    margin-top: 0;
     top: auto;
     align-items: flex-end;
     margin-right: 2rem;
@@ -5415,6 +5517,8 @@ color: #6fdfc4;
   .dashboard-items {
     display: flex;
     flex-direction: column;
+    overflow-y: scroll;
+    height: 50vh;
     justify-content: flex-start;
     align-items: flex-start;
     position: relative;
@@ -5423,7 +5527,7 @@ color: #6fdfc4;
     right: 0;
     padding: 0;
     gap: 2rem;
-    width: calc(100% - 4rem);
+    width: 100%;
     margin-bottom: auto;
     margin-top: 0;
   }
@@ -5904,9 +6008,9 @@ color: #6fdfc4;
     bottom: 1rem;
   }
 
-  .logo-container {
-    display: flex;
-  }
+  // .logo-container {
+  //   display: flex;
+  // }
   .chat-container {
     margin-left: 0;
     margin-right: 0;

@@ -2,8 +2,8 @@ import { writable, get } from 'svelte/store';
 import type { AIModel } from '$lib/types/types';
 import type { ProviderType } from '$lib/constants/providers';
 import { pb, checkPocketBaseConnection } from '$lib/pocketbase';
-import { defaultModel } from '$lib/constants/models';
-// import { browser } from '$app/environment';
+import { defaultModel, availableModels } from '$lib/constants/models';
+import { apiKey } from '$lib/stores/apiKeyStore';
 
 export interface ModelState {
 	models: AIModel[];
@@ -12,30 +12,6 @@ export interface ModelState {
 	updateStatus: string;
 	isOffline: boolean;
 }
-
-/*
- * const getFromStorage = <T>(key: string, defaultValue: T): T => {
- *     if (!browser) return defaultValue;
- *     const stored = localStorage.getItem(key);
- *     if (!stored) return defaultValue;
- *     try {
- *         return JSON.parse(stored);
- *     } catch {
- *         return defaultValue;
- *     }
- * };
- */
-
-/*
- * const setInStorage = (key: string, value: any): void => {
- *     if (!browser) return;
- *     try {
- *         localStorage.setItem(key, JSON.stringify(value));
- *     } catch (error) {
- *         console.warn('Error saving to localStorage:', error);
- *     }
- * };
- */
 
 const createModelStore = () => {
 	const initialState: ModelState = {
@@ -92,124 +68,242 @@ const createModelStore = () => {
 		}
 	};
 
+	// Define the functions that were used in the return object
+	async function loadModels(userId: string) {
+		try {
+			const isConnected = await checkPocketBaseConnection();
+			if (!isConnected) throw new Error('PocketBase not available');
+
+			const records = await pb.collection('models').getFullList({
+				filter: `user ~ "${userId}"`,
+				sort: '-created'
+			});
+
+			update((state) => ({
+				...state,
+				models: records as AIModel[],
+				isOffline: false,
+				updateStatus: ''
+			}));
+
+			return true;
+		} catch (error) {
+			console.warn('Failed to load models:', error);
+			update((state) => ({ ...state, isOffline: true }));
+			return false;
+		}
+	}
+
+	async function setSelectedModel(userId: string, model: AIModel) {
+		console.log('setSelectedModel called with:', { userId, model });
+		try {
+			let savedModel = model;
+			const currentState = get({ subscribe });
+
+			console.log('Current state of models:', currentState.models);
+			await pb.collection('users').update(
+				userId,
+				{
+					model: model.id
+				},
+				{
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
+					}
+				}
+			);
+			const existingModel = currentState.models.find(
+				(m) => m.api_type === model.api_type && m.provider === model.provider
+			);
+
+			if (!existingModel) {
+				console.log('Model not found in local state. Attempting to save to PocketBase...');
+				const newModel = await saveModelToPocketBase(model, userId);
+				if (newModel) {
+					console.log('New model saved to PocketBase:', newModel);
+					savedModel = newModel;
+				} else {
+					console.warn('Failed to save new model to PocketBase.');
+				}
+			} else {
+				console.log('Model already exists in local state:', existingModel);
+				savedModel = existingModel;
+			}
+
+			console.log("Updating user's selected model in PocketBase...");
+			await pb.collection('users').update(userId, {
+				model: savedModel.id
+			});
+			console.log("User's selected model updated successfully.");
+
+			// Update store state
+			update((state) => {
+				const updatedModels = state.models.some((m) => m.id === savedModel.id)
+					? state.models
+					: [...state.models, savedModel];
+
+				return {
+					...state,
+					selectedModel: savedModel,
+					models: updatedModels,
+					isOffline: false,
+					updateStatus: 'Model selected successfully'
+				};
+			});
+			console.log('Store state updated with selected model:', savedModel);
+
+			return true;
+		} catch (error) {
+			console.error('Error setting selected model:', error, 'Model:', model, 'UserId:', userId);
+			update((state) => ({ ...state, isOffline: true }));
+			return false;
+		}
+	}
+
+	async function setSelectedProvider(userId: string, provider: ProviderType) {
+		try {
+			await pb.collection('users').update(userId, {
+				selected_provider: provider
+			});
+
+			update((state) => ({
+				...state,
+				selectedProvider: provider,
+				isOffline: false,
+				updateStatus: ''
+			}));
+
+			return true;
+		} catch (error) {
+			console.error('Error setting selected provider:', error);
+			update((state) => ({ ...state, isOffline: true }));
+			return false;
+		}
+	}
+
+	function reset() {
+		set(initialState);
+	}
+
 	return {
 		subscribe,
-
-		async loadModels(userId: string) {
-			try {
-				const isConnected = await checkPocketBaseConnection();
-				if (!isConnected) throw new Error('PocketBase not available');
-
-				const records = await pb.collection('models').getFullList({
-					filter: `user ~ "${userId}"`,
-					sort: '-created'
-				});
-
-				update((state) => ({
-					...state,
-					models: records as AIModel[],
-					isOffline: false,
-					updateStatus: ''
-				}));
-
-				return true;
-			} catch (error) {
-				console.warn('Failed to load models:', error);
-				update((state) => ({ ...state, isOffline: true }));
-				return false;
+		loadModels,
+		setSelectedModel,
+		setSelectedProvider,
+		reset,
+		
+		// Add the initialize method
+		async initialize(userId: string) {
+		  console.log('Initializing model selection...');
+		  
+		  if (!userId) {
+			console.error('No user ID provided for model initialization');
+			return null;
+		  }
+		  
+		  try {
+			// 1. Ensure API keys are loaded
+			await apiKey.loadKeys();
+			const availableKeys = get(apiKey);
+			
+			console.log('Available provider keys:', Object.keys(availableKeys).filter(k => !!availableKeys[k]));
+			
+			// 2. Get user preferences from PocketBase
+			const userData = await pb.collection('users').getOne(userId);
+			
+			// 3. Extract provider and model preferences
+			const selectedProvider = userData.selected_provider as ProviderType || 'deepseek';
+			const selectedModelId = userData.model;
+			
+			console.log('User preferences:', { selectedProvider, selectedModelId });
+			
+			// Load models first to populate the state
+			await loadModels(userId);
+			
+			// 4. Find a valid provider with API key
+			let validProvider = selectedProvider;
+			if (!availableKeys[selectedProvider]) {
+			  // Fall back to any provider with a key
+			  const providerWithKey = Object.keys(availableKeys).find(
+				k => !!availableKeys[k]
+			  ) as ProviderType | undefined;
+			  
+			  if (providerWithKey) {
+				console.log(`Falling back to provider with key: ${providerWithKey}`);
+				validProvider = providerWithKey;
+			  } else {
+				console.warn('No API keys found for any provider, using deepseek as fallback');
+				validProvider = 'deepseek';
+			  }
 			}
-		},
-
-		async setSelectedModel(userId: string, model: AIModel) {
-			console.log('setSelectedModel called with:', { userId, model });
-			try {
-				let savedModel = model;
-				const currentState = get({ subscribe });
-
-				console.log('Current state of models:', currentState.models);
-				await pb.collection('users').update(
-					userId,
-					{
-						model: savedModel.id
-					},
-					{
-						headers: {
-							'Access-Control-Allow-Origin': '*',
-							'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
-						}
-					}
-				);
-				const existingModel = currentState.models.find(
-					(m) => m.api_type === model.api_type && m.provider === model.provider
-				);
-
-				if (!existingModel) {
-					console.log('Model not found in local state. Attempting to save to PocketBase...');
-					const newModel = await saveModelToPocketBase(model, userId);
-					if (newModel) {
-						console.log('New model saved to PocketBase:', newModel);
-						savedModel = newModel;
-					} else {
-						console.warn('Failed to save new model to PocketBase.');
-					}
+			
+			// Update the provider in store and DB
+			await setSelectedProvider(userId, validProvider);
+			
+			// 5. Find and initialize a valid model
+			let validModel: AIModel | null = null;
+			const currentState = get({ subscribe });
+			
+			// If we have a model ID, try to fetch it
+			if (selectedModelId) {
+			  try {
+				const modelRecord = await pb.collection('models').getOne(selectedModelId);
+				
+				// Ensure the model belongs to the selected provider
+				if (modelRecord.provider === validProvider) {
+				  console.log('Using existing model:', modelRecord);
+				  validModel = modelRecord as AIModel;
 				} else {
-					console.log('Model already exists in local state:', existingModel);
-					savedModel = existingModel;
+				  console.log('Stored model is for different provider than selected');
 				}
-
-				console.log("Updating user's selected model in PocketBase...");
-				await pb.collection('users').update(userId, {
-					model: savedModel.id
-				});
-				console.log("User's selected model updated successfully.");
-
-				// Update store state
-				update((state) => {
-					const updatedModels = state.models.some((m) => m.id === savedModel.id)
-						? state.models
-						: [...state.models, savedModel];
-
-					return {
-						...state,
-						selectedModel: savedModel,
-						models: updatedModels,
-						isOffline: false,
-						updateStatus: 'Model selected successfully'
-					};
-				});
-				console.log('Store state updated with selected model:', savedModel);
-
-				return true;
-			} catch (error) {
-				console.error('Error setting selected model:', error, 'Model:', model, 'UserId:', userId);
-				update((state) => ({ ...state, isOffline: true }));
-				return false;
+			  } catch (error) {
+				console.warn('Could not fetch model with ID:', selectedModelId, error);
+			  }
 			}
-		},
-
-		async setSelectedProvider(userId: string, provider: ProviderType) {
-			try {
-				await pb.collection('users').update(userId, {
-					selected_provider: provider
-				});
-
-				update((state) => ({
-					...state,
-					selectedProvider: provider,
-					isOffline: false,
-					updateStatus: ''
-				}));
-
-				return true;
-			} catch (error) {
-				console.error('Error setting selected provider:', error);
-				update((state) => ({ ...state, isOffline: true }));
-				return false;
+			
+			if (!validModel) {
+			  // Check models already loaded in the store
+			  const modelInStore = currentState.models.find(
+				m => m.provider === validProvider
+			  );
+			  
+			  if (modelInStore) {
+				console.log('Using model from store:', modelInStore);
+				validModel = modelInStore;
+			  } else {
+				// Try to fetch from database one more time
+				try {
+				  const existingModels = await pb.collection('models').getFullList<AIModel>({
+					filter: `provider = "${validProvider}" && user ~ "${userId}"`,
+					sort: '-created'
+				  });
+				  
+				  if (existingModels.length > 0) {
+					console.log('Using existing provider model from DB:', existingModels[0]);
+					validModel = existingModels[0];
+				  }
+				} catch (error) {
+				  console.warn('Error finding models for provider:', error);
+				}
+			  }
+			  
+			  // If still no model found, use default from availableModels
+			  if (!validModel) {
+				validModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
+				console.log('Using default model for provider:', validModel);
+			  }
 			}
-		},
-
-		reset() {
-			set(initialState);
+			
+			// 6. Set the model in store and DB
+			await setSelectedModel(userId, validModel);
+			
+			console.log('Model selection initialized with:', validModel);
+			return validModel;
+		  } catch (error) {
+			console.error('Error initializing model selection:', error);
+			return null;
+		  }
 		}
 	};
 };

@@ -1,204 +1,300 @@
 <script lang="ts">
-    import { fade, fly, slide } from 'svelte/transition';
-    import { pb, currentUser, checkPocketBaseConnection, updateUser, ensureAuthenticated } from '$lib/pocketbase';
-    import { projectStore } from '$lib/stores/projectStore';
-    import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-    import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
-    import type { Projects } from '$lib/types/types';
-    import { onMount } from 'svelte';
-    import { threadsStore } from '$lib/stores/threadsStore';
-    import { t } from '$lib/stores/translationStore';
-    import { resetThread } from '$lib/clients/threadsClient';
+  import { fade, fly, slide } from 'svelte/transition';
+  import { pb, currentUser } from '$lib/pocketbase';
+  import { projectStore, getProjectStore } from '$lib/stores/projectStore';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
+  import type { Projects } from '$lib/types/types';
+  import { onMount } from 'svelte';
+  import { t } from '$lib/stores/translationStore';
 
-    let isExpanded = false;
-    let isCreatingProject = false;
-    let newProjectName = '';
-    let searchQuery = '';
-    let createHovered = false;
-    let projects: Projects[] = [];
-    let currentProject: Projects | null = null;
-    let currentProjectId: string | null = null;
-    let isEditingProjectName = false;
-    let editingProjectId: string | null = null;
-    let editedProjectName = '';
-    let filteredProjects: Projects[] = [];
-    let currentThreadId: string | null = null;  
+  export let projectId: string | undefined = undefined;
+  let isExpanded = false;
+  let isCreatingProject = false;
+  let newProjectName = '';
+  let searchQuery = '';
+  let createHovered = false;
+  let isEditingProjectName = false;
+  let editingProjectId: string | null = null;
+  let isEditingProjectDescription = false;
+let editedProjectDescription = '';
+  let editedProjectName = '';
+  let project: Projects | null = null;
+  let isOwner: boolean = false;
+  let errorMessage: string = '';
 
-    $: console.log('Store state:', $projectStore);
-    $: console.log('Filtered projects:', filteredProjects);
-    $: console.log('Is expanded:', isExpanded);
-    $: console.log('Current project:', $projectStore.currentProject);
+  console.log('*** ProjectCard Initialization ***');
+  console.log('Initial projectId received:', projectId);
 
-async function handleCreateNewProject(nameOrEvent?: string | Event) {
-  const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
+  // Subscribe to the project store
+  projectStore.subscribe((state) => {
+  console.log('Store state:', state);
   
-  console.log('Creating new project with name:', projectName);
-  if (!projectName.trim()) {
-    console.log('Name is empty, returning');
+  // If we have a projectId, try to find that specific project
+  if (projectId && state.currentProjectId === projectId) {
+    project = state.threads.find(p => p.id === projectId) || null;
+  } 
+  // If we don't have a projectId but there is a currentProjectId in the store
+  else if (!projectId && state.currentProjectId) {
+    projectId = state.currentProjectId;
+    project = state.threads.find(p => p.id === state.currentProjectId) || null;
+  }
+  
+  // Update owner status
+  if (project && $currentUser) {
+    isOwner = project.owner === $currentUser.id;
+  }
+});
+$: if ($projectStore.currentProjectId && !projectId) {
+  projectId = $projectStore.currentProjectId;
+  loadProjectData();
+}
+  // Format date nicely
+  function formatDate(dateString: string | undefined): string {
+    if (!dateString) return 'Unknown';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return 'Invalid date';
+    }
+  }
+  
+  // Reactive declarations for project details
+  $: {
+    console.log('*** Reactive Update ***');
+    console.log('Current project value:', project);
+    console.log('Current projectId:', projectId);
+  }
+  
+  $: projectName = project?.name || 'No Project Selected';
+  $: projectDescription = project?.description || '';
+  $: projectThreadsCount = project?.threads?.length || 0;
+  $: projectCollaboratorsCount = project?.collaborators?.length || 0;
+
+  $: projectOwner = project?.owner || '';
+  $: createdDate = formatDate(project?.created);
+  $: updatedDate = formatDate(project?.updated);
+  
+  function toggleExpanded() {
+    isExpanded = !isExpanded;
+  }
+
+  async function loadProjectData() {
+    console.log('*** loadProjectData called ***');
+    console.log('Loading data for projectId:', projectId);
+    
+    try {
+      // First check the store for the project data
+      const storeState = getProjectStore();
+      console.log('Store state threads count:', storeState.threads.length);
+      console.log('Store state currentProjectId:', storeState.currentProjectId);
+      
+      const projectFromStore = storeState.threads.find(p => p.id === projectId);
+      console.log('Project found in store?', !!projectFromStore);
+      
+      if (projectFromStore) {
+        console.log('Using project from store:', projectFromStore.name);
+        project = projectFromStore;
+      } else {
+        console.log('Project not found in store, fetching from PocketBase...');
+        // If not in store, fetch directly from PocketBase
+        try {
+          project = await pb.collection('projects').getOne<Projects>(projectId);
+          console.log('Project fetched from PocketBase:', project?.name);
+        } catch (pbError) {
+          console.error('PocketBase fetch error:', pbError);
+        }
+      }
+      
+      if (project && $currentUser) {
+        isOwner = project.owner === $currentUser.id;
+        console.log('Current user is owner:', isOwner);
+        console.log('Project owner:', project.owner);
+        console.log('Current user ID:', $currentUser.id);
+      } else {
+        console.log('Cannot determine ownership - project or currentUser missing');
+        console.log('project:', project);
+        console.log('currentUser:', $currentUser);
+      }
+    } catch (error) {
+      console.error('Error loading project data:', error);
+      errorMessage = 'Failed to load project data.';
+    }
+  }
+  
+  function handleEditProject(type: 'name' | 'description') {
+  if (!project) return;
+  
+  if (type === 'name') {
+    isEditingProjectName = true;
+    editingProjectId = project.id;
+    editedProjectName = project.name || '';
+  } else if (type === 'description') {
+    isEditingProjectDescription = true;
+    editingProjectId = project.id;
+    editedProjectDescription = project.description || '';
+  }
+}
+async function saveProjectEdit(type: 'name' | 'description') {
+  if (!editingProjectId) {
+    isEditingProjectName = false;
+    isEditingProjectDescription = false;
     return;
   }
   
   try {
-    isCreatingProject = true;
-    console.log('Starting project creation...');
-    const newProject = await projectStore.addProject({
-      name: projectName.trim(),
-      description: ''
-    });
-    console.log('New project created:', newProject);
-    
-    if (newProject) {
-      newProjectName = '';
-      isCreatingProject = false;
-      isExpanded = false;
-      
-      // Select the newly created project
-      await handleSelectProject(newProject.id);
-      console.log('New project selected:', newProject.id);
+    if (type === 'name' && editedProjectName.trim()) {
+      await projectStore.updateProject(editingProjectId, {
+        name: editedProjectName.trim()
+      });
+      isEditingProjectName = false;
+    } else if (type === 'description') {
+      await projectStore.updateProject(editingProjectId, {
+        description: editedProjectDescription.trim()
+      });
+      isEditingProjectDescription = false;
     }
+    
+    editingProjectId = null;
   } catch (error) {
-    console.error('Error in handleCreateNewProject:', error);
-  } finally {
-    console.log('Project creation completed');
-    isCreatingProject = false;
+    console.error(`Error updating project ${type}:`, error);
   }
 }
-
-
-async function handleSelectProject(projectId: string) {
-  console.log('Selecting project:', projectId);
-  if (currentThreadId) {
-      await resetThread(currentThreadId);
-      console.log('Thread reset complete');
-    }
-  try {
-		await ensureAuthenticated();
-    await projectStore.setCurrentProject(projectId);
-    console.log('Project selected, new store state:', $projectStore);
-    
-    isExpanded = false;
-    
-    // Set the projectId in the store
-    projectStore.update(state => ({
-      ...state,
-      currentProjectId: projectId,
-      currentProject: state.threads.find(p => p.id === projectId) || null
-    }));
-
-    // Show thread list when project is selected
-    threadsStore.update(state => ({
-      ...state,
-      showThreadList: true
-    }));
-
-  } catch (error) {
-    console.error("Error handling project selection:", error);
-  }
-}
-  async function handleDeleteProject(e: Event, projectId: string) {
-    e.stopPropagation();
-  }
-
-  $: filteredProjects = searchQuery 
-  ? $projectStore.threads.filter(project => 
-      project.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  : $projectStore.threads;
-
+  
   onMount(async () => {
-  console.log('Component mounting...');
-  try {
-    await projectStore.loadProjects();
-    console.log('Projects loaded:', $projectStore.threads);
-  } catch (error) {
-    console.error('Error in onMount:', error);
-  }
-});
+    console.log('*** Component mounting... ***');
+    console.log('ProjectId at mount time:', projectId);
+    
+    try {
+      // Check if projectId is valid
+      if (!projectId) {
+        console.error('ProjectId is empty or invalid at mount time');
+        return;
+      }
+      
+      // Log current user status
+      console.log('Current user at mount time:', $currentUser?.id);
+      
+      await loadProjectData();
+      console.log('After loadProjectData - project:', project?.name);
+    } catch (error) {
+      console.error('Error in onMount:', error);
+    }
+  });
+</script>
 
+<div class="project-container">
+  <div class="project-content" transition:slide={{ duration: 200 }}>
+    <div class="project-header">
+      <!-- <h2>{$t('drawer.project')}</h2> -->
 
-  </script>
-  
-  <div class="project-container">
+    </div>
+    
+    {#if project}
+      <div class="current-project" on:click={toggleExpanded}>
 
-  
-      <div 
-        class="project-content"
-        transition:slide={{ duration: 200 }}
-      >
-      <h2>{$t('drawer.project')}</h2>
-
-        <div class="project-header">
-          <div class="search-bar">
-            <Search  />
+        {#if isEditingProjectName && editingProjectId === project.id}
+          <div class="edit-name-container">
             <input
-              type="text"
-              bind:value={searchQuery}
-              placeholder="Search projects..."
+              bind:value={editedProjectName}
+              on:keydown={(e) => e.key === 'Enter' && saveProjectEdit('name')}
+              autofocus
             />
-          </div>
-          <button 
-            class="create-btn"
-            on:click={() => isCreatingProject = !isCreatingProject}
-            on:mouseenter={() => createHovered = true}
-            on:mouseleave={() => createHovered = false}
-          >
-          <div class="icon" in:fade>
-
-            <Plus />
-            {#if createHovered}
-            <span class="tooltip" in:fade>
-              {$t('tooltip.newProject')}
-            </span>
-          {/if}
-          </div>
-          </button>
-        </div>
-  
-        {#if isCreatingProject}
-          <div class="create-form" transition:slide>
-            <input
-              type="text"
-              bind:value={newProjectName}
-              placeholder="Project name..."
-              on:keydown={(e) => {
-                if (e.key === 'Enter' && newProjectName.trim()) {
-                  handleCreateNewProject();
-                }
-              }}
-            />
-            <button 
-              class="confirm-btn"
-              disabled={!newProjectName.trim()}
-              on:click={() => handleCreateNewProject(newProjectName)}
-              >
+            <button class="save-button" on:click={() => saveProjectEdit('name')}>
               <Check size={16} />
             </button>
           </div>
+        {:else}
+          <div class="project-name-container">
+            <h3 class="project-name">{projectName}</h3>
+            {#if isOwner}
+            <button class="edit-button" on:click={() => handleEditProject('name')}>
+              <Pen size={14} />
+              </button>
+            {/if}
+          </div>
         {/if}
-  
-        <div class="projects-list">
-          {#each filteredProjects as project (project.id)}
-            <div 
-              class="project-item"
-              class:active={$projectStore.currentProjectId === project.id}
-              on:click={() => handleSelectProject(project.id)}
-            >
-              <span class="project-name">{project.name}</span>
-              <div class="project-actions">
-                <button 
-                  class="action-btn delete"
-                  on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
-                >
-                  <Trash2 />
-                </button>
-              </div>
-            </div>
-          {/each}
+
+        {#if isEditingProjectDescription && editingProjectId === project.id}
+        <div class="edit-description-container">
+          <textarea
+            bind:value={editedProjectDescription}
+            class="edit-description-input"
+            rows="3"
+            autofocus
+          ></textarea>
+          <button class="save-button" on:click={() => saveProjectEdit('description')}>
+            <Check size={16} />
+          </button>
         </div>
+      {:else if projectDescription}
+        <div class="project-description-container">
+          <p class="project-description">{projectDescription}</p>
+          {#if isOwner}
+            <button class="edit-button" on:click={() => handleEditProject('description')}>
+              <Pen size={14} />
+            </button>
+          {/if}
+        </div>
+      {:else if isOwner}
+        <div class="add-description-container">
+          <button class="toggle-btn" on:click={() => handleEditProject('description')}>
+            <Plus size={14} /> Add description
+          </button>
+        </div>
+      {/if}
+        
+        {#if isExpanded}
+          <div class="project-details" transition:slide={{ duration: 150 }}>
+            <div class="detail-row">
+              <span class="detail-label">Collaborators:</span>
+              <span class="detail-value">{projectCollaboratorsCount}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Threads:</span>
+              <span class="detail-value">{projectThreadsCount}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Created:</span>
+              <span class="detail-value">{createdDate}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Updated:</span>
+              <span class="detail-value">{updatedDate}</span>
+            </div>
+
+            
+            <!-- {#if $projectStore.collaborators && $projectStore.collaborators.length > 0}
+              <div class="collaborators">
+                <h4>Collaborators</h4>
+                <ul class="collaborator-list">
+                  {#each $projectStore.collaborators as collaborator}
+                    <li class="collaborator-item">
+                      {collaborator.name || collaborator.username || collaborator.email || 'Unknown user'}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if} -->
+          </div>
+        {/if}
       </div>
+    {:else}
+      <div class="no-project">
+        <h2>Create new project to see the dashboard items.</h2>
+      </div>
+    {/if}
+    {#if projectId}
+
+  {/if}
   </div>
-  
+</div>
   <style lang="scss">
+	@use "src/styles/themes.scss" as *;
 
     * {
       font-family: var(--font-family);
@@ -206,17 +302,16 @@ async function handleSelectProject(projectId: string) {
     }
     .project-container {
       // background: var(--bg-gradient);
-		backdrop-filter: blur(10px);
+		// backdrop-filter: blur(10px);
 		border-radius: 20px;
 		display: flex;
 		flex-direction: column;
-    align-items: flex-start;
-		width: 100%;
-      padding: 2rem;
-
+    align-items: center;
+    justify-content: center;
+    max-width: 800px;
 		margin-top: 0;
 		margin-left: 0;
-
+      transition: all 0.3s ease;
 		position: relative;
 		overflow: hidden;
 		// box-shadow:
@@ -296,11 +391,11 @@ async function handleSelectProject(projectId: string) {
 		backdrop-filter: blur(10px);
 		display: flex;
 		flex-direction: column;
-		gap: 20px;
+    height: auto;
 		width: 100%;
-		max-width: 100%;
+    min-width: 600px;
+    flex: 1;
       top: 0;
-    bottom: 2rem;
 		height: auto;
 		margin-top: 0;
 		margin-left: 0;
@@ -310,12 +405,12 @@ async function handleSelectProject(projectId: string) {
 
 	}
   
-    .project-header {
-      display: flex;
-      height: auto;
-      gap: 0.5rem;
-      
-    }
+  .project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
   
     .search-bar {
       display: flex;
@@ -394,6 +489,32 @@ async function handleSelectProject(projectId: string) {
         justify-content: center;
         align-items: center;
     }
+
+    .edit-description-container {
+      display: flex;
+    }
+    textarea {
+      background: var(--primary-color) !important;
+      outline: none;
+      border: 1px solid var(--secondary-color);
+      padding: 1rem;
+      font-size: 1rem;
+
+      resize: none;
+      width: 100%;
+      border-radius: 1rem;
+      color: var(--text-color);
+    }
+  
+    input {
+      background: var(--primary-color) !important;
+      outline: none;
+      border: 1px solid var(--secondary-color);
+      padding: 1rem;
+      font-size: 1rem;
+      border-radius: 1rem;
+      color: var(--text-color);
+    }
   
     .tooltip {
     position: absolute;
@@ -408,7 +529,6 @@ async function handleSelectProject(projectId: string) {
       animation: glowy 0.5s 0.5s initial;    
     padding: 4px 8px;
     border-radius: var(--radius-s);
-    z-index: 2000;
     transition: all 0.2s ease ;
   }
     .project-item {
@@ -469,8 +589,8 @@ async function handleSelectProject(projectId: string) {
 		z-index: -1;
 	}
   
-    .project-name {
-      font-size: var(--font-size-sm);
+    h3.project-name {
+      font-size: 2rem;
     }
   
     .project-actions {
@@ -498,4 +618,209 @@ async function handleSelectProject(projectId: string) {
         }
       }
     }
+
+    .icon-wrapper {
+    transition: transform 0.2s ease;
+  }
+  
+  .rotated {
+    transform: rotate(180deg);
+  }
+
+
+  
+  .current-project {
+    padding: 1rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+
+    // background-color: var(--secondary-color);
+
+    &:hover {
+      cursor: pointer;
+      // background: var(--primary-color);
+
+    }
+  }
+  
+  .project-name-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    
+    &:hover {
+      button.edit-button {
+        display: flex;
+
+
+      }
+    }
+  }
+  
+  .project-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: var(--accent-color);
+  }
+  .project-description-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: top;
+    align-items: top;
+    gap: 2rem;
+
+    &:hover {
+      button.edit-button {
+        display: flex;
+      }
+    }
+  }
+  .project-description {
+    font-size: 1.1rem;
+    text-justify: justify;
+    text-align: justify;
+    line-height: 2;
+    height: auto;
+    width: auto;
+    display: flex;
+    padding: 1rem;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+
+  }
+  
+  .project-details {
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    // border-bottom-left-radius: 2rem;
+    gap: 1rem;
+    // border-left: 5px solid var(--tertiary-color);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    // border-bottom: 1px solid var(--tertiary-color);
+
+  }
+  
+  .detail-row {
+    display: flex;
+    letter-spacing: 0.2rem;
+    margin-left: 2rem;
+    border-bottom: 1px solid var(--secondary-color);
+    justify-content: space-between;
+    align-items: center;
+
+    font-size: 1.2rem;
+    height: 4rem;
+    line-height: 1.5;
+  }
+  
+  .detail-label {
+    color: var(--text-secondary-color);
+  }
+  
+  .detail-value {
+    font-weight: 500;
+  }
+  
+  .toggle-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-color);
+    padding: 4px;
+    border-radius: 4px;
+  }
+  
+  .toggle-button:hover {
+    background-color: var(--hover-color);
+  }
+  
+  .edit-name-container {
+    display: flex;
+    margin-bottom: 8px;
+  }
+  
+  .edit-name-input {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+  }
+
+
+  
+  .save-button {
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-left: 4px;
+    cursor: pointer;
+    color: white;
+  }
+  
+  button.edit-button {
+    background: transparent;
+    position: absolute;
+    right:0;
+    background: var(--secondary-color);
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    width: auto;
+    height: 3rem;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-color);
+    border-radius: 1rem;
+    opacity: 0.5;
+    z-index: 1000;
+
+    &:hover {
+    background-color: var(--bg-color);
+    transform: scale(1.1);
+    opacity: 1;
+
+  }
+  }
+  
+
+  
+  .no-project {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-secondary-color);
+    margin-bottom: 2rem;
+  }
+  
+  .collaborators {
+    margin-top: 12px;
+  }
+  
+  .collaborators h4 {
+    font-size: 0.9rem;
+    margin: 0 0 4px 0;
+    color: var(--text-secondary-color);
+  }
+  
+  .collaborator-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .collaborator-item {
+    font-size: 0.85rem;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .collaborator-item:last-child {
+    border-bottom: none;
+  }
   </style>

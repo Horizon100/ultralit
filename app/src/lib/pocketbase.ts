@@ -642,8 +642,6 @@ export async function fetchThreads(): Promise<Threads[]> {
 		throw new Error('User not authenticated');
 	  }
 	  
-	  // Simplify the filter to avoid encoding issues
-	  // Use three separate queries and combine the results
 	  const userThreads = await pb.collection('threads').getFullList<Threads>({
 		sort: '-created',
 		filter: `user = "${currentUserId}"`,

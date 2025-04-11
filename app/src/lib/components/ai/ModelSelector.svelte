@@ -153,36 +153,61 @@
 	}
 
 	onMount(async () => {
-		// Make an explicit call to load API keys
-		if ($currentUser) {
-			console.log("Loading API keys on component mount...");
-			await apiKey.loadKeys();
-			
-			// Log available keys to help debug
-			const availableKeys = get(apiKey);
-			console.log("Available API keys for providers:", Object.keys(availableKeys));
-			
-			// Set initial provider based on existing keys, selected model, or default
-			const initialProvider = selectedModel?.provider || provider || 'deepseek';
-			currentProvider = initialProvider as ProviderType;
-			
-			// If we have a key for this provider, try to load its models
-			if (availableKeys[initialProvider]) {
-				console.log(`Found key for ${initialProvider}, loading models...`);
-				try {
-					isLoadingModels = true;
-					await modelStore.setSelectedProvider($currentUser.id, initialProvider as ProviderType);
-					await loadProviderModels(initialProvider as ProviderType);
-				} catch (error) {
-					console.error(`Error loading models for ${initialProvider}:`, error);
-				} finally {
-					isLoadingModels = false;
-				}
-			} else {
-				console.log(`No API key found for ${initialProvider}`);
-			}
-		}
-	});
+    // Make an explicit call to load API keys
+    if ($currentUser) {
+        console.log("Loading API keys on component mount...");
+        await apiKey.loadKeys();
+        
+        // Log available keys to help debug
+        const availableKeys = get(apiKey);
+        console.log("Available API keys for providers:", Object.keys(availableKeys));
+        
+        // Find available providers with keys
+        const availableProviders = Object.entries(availableKeys)
+            .filter(([_, key]) => !!key)
+            .map(([provider]) => provider);
+        
+        if (availableProviders.length === 0) {
+            console.warn("No API keys found for any provider");
+            return;
+        }
+        
+        // Set initial provider based on existing keys, selected model, or default
+        // If the selected model's provider has a key, use that provider
+        let initialProvider = selectedModel?.provider || provider || 'deepseek';
+        
+        // If the initial provider doesn't have a key, use the first available provider
+        if (!availableKeys[initialProvider] && availableProviders.length > 0) {
+            initialProvider = availableProviders[0];
+            console.log(`Selected provider has no key, falling back to: ${initialProvider}`);
+        }
+        
+        currentProvider = initialProvider as ProviderType;
+        
+        // If we have a key for this provider, try to load its models
+        if (availableKeys[initialProvider]) {
+            console.log(`Found key for ${initialProvider}, loading models...`);
+            try {
+                isLoadingModels = true;
+                await modelStore.setSelectedProvider($currentUser.id, initialProvider as ProviderType);
+                await loadProviderModels(initialProvider as ProviderType);
+                
+                // If no model is selected yet, select the first model from this provider
+                if (!selectedModel?.id && availableProviderModels[initialProvider as ProviderType]?.length > 0) {
+                    const firstModel = availableProviderModels[initialProvider as ProviderType][0];
+                    console.log("Auto-selecting first available model:", firstModel.name);
+                    await handleModelSelection(firstModel);
+                }
+            } catch (error) {
+                console.error(`Error loading models for ${initialProvider}:`, error);
+            } finally {
+                isLoadingModels = false;
+            }
+        } else {
+            console.log(`No API key found for ${initialProvider}`);
+        }
+    }
+});
 </script>
 
 <div class="selector-container">

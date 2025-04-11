@@ -34,6 +34,9 @@
 	let showStyles = false;
 	let currentStyle = 'default';
 
+	// Tab management
+	let activeTab = 'profile'; // 'profile' or 'stats'
+
 	let threadCount = 0;
 	let messageCount = 0;
 	let threadMessageCounts: Record<string, number> = {};
@@ -69,6 +72,10 @@
 
 	function handleStyleClose() {
 		showStyles = false;
+	}
+
+	function switchTab(tab: string) {
+		activeTab = tab;
 	}
 
 	async function saveChanges() {
@@ -156,16 +163,9 @@
 >
 	<div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 300 }}>
 		<div class="settings-row">
-			
-<!-- 
-			<KeyStatusButton bind:showKeyInput />
-			{#if showKeyInput}
-				<APIKeyInput />
-			{/if} -->
 			<div class="btn-row">
 				<div class="btn-row" >
 					<button class="settings-button" on:click={onClose}>
-						<!-- <span>{$t('profile.close')}</span> -->
 						<ChevronLeft/>
 					</button>
 					{#if isEditing}
@@ -177,7 +177,6 @@
 						</button>
 					{:else}
 						<button class="settings-button" on:click={toggleEdit}>
-							<!-- <TextCursorIcon/> -->
 							<Pen/>
 							<span>{$t('profile.edit')}</span>
 						</button>
@@ -185,7 +184,6 @@
 	
 					<button class="settings-button" on:click={handleLanguageChange}>
 						<Languages size={24} />
-						<!-- <span>{$currentLanguage.toUpperCase()}</span> -->
 						<span>{$t('lang.flag')}</span>
 					</button>
 					<button
@@ -200,24 +198,19 @@
 					</button>
 				</div>
 				
-
 				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 					<LogOutIcon size={24} />
 					<span>{$t('profile.logout')}</span>
 				</button>
 			</div>
-
-
 		</div>
+
 		{#if showStyles}
 		<div
 			class="style-overlay"
 			on:click={handleOverlayClick}
 			transition:fly={{ x: -200, duration: 300 }}
 		>
-			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
-			<X size={24} />
-		</button> -->
 			<div
 				class="style-content"
 				on:click={handleOverlayClick}
@@ -227,166 +220,182 @@
 			</div>
 		</div>
 		{/if}
+
 		{#if user}
-		
 			<div class="profile-header">
-
-					<div class="info-column">
-						<div class="header-wrapper">
-							<div class="avatar-container">
-								{#if user.avatar}
-									<img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
-								{:else}
-									<div class="avatar-placeholder">
-										<Camera size={48} />
-									</div>
-								{/if}
-							</div>
-							<div class="info-row">
-								<!-- <span class="label">
-									<span>{$t('profile.name')}</span>
-								</span> -->
-								{#if isEditing}
-									<input bind:value={editedUser.name} />
-								{:else}
-									<span class="name">{user.name || 'Not set'}</span>
-								{/if}
-							</div>
-							<div class="info-row">
-
-								{#if isEditing}
-									<input bind:value={editedUser.username} />
-								{:else}
+				<div class="info-column">
+					<div class="header-wrapper">
+						<div class="avatar-container">
+							{#if user.avatar}
+								<img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
+							{:else}
+								<div class="avatar-placeholder">
+									<Camera size={48} />
+								</div>
+							{/if}
+						</div>
+						<div class="info-row">
+							{#if isEditing}
+								<input bind:value={editedUser.name} />
+							{:else}
+								<span class="name">{user.name || 'Not set'}</span>
+							{/if}
+						</div>
+						<div class="info-row">
+							{#if isEditing}
+								<input bind:value={editedUser.username} />
+							{:else}
 								<span class="username">{user.username || 'Not set'}</span>
-								{/if}
-							</div>
+							{/if}
 						</div>
 					</div>
-					<div class="info-stats">
-							<div class="info-column">
-								<span class="stat">{$t('profile.projects')}</span>
-									343
-							</div>
-							<div class="info-column">
-								<span class="stat">{$t('profile.posts')}</span>
-									343
-							</div>							
-							<div class="info-column">
-								<span class="stat">{$t('profile.connections')}</span>
-									343
-							</div>						
-
-					</div>
-					<div class="button-column-wrapper">
-						<button class="small-button">
-							<MessageCirclePlus/>
-							Message
-						</button>
-						<button class="small-button">
-							<Group/>
-							Connect
-						</button>
-					</div>
 				</div>
-
-			<div class="profile-info">
-
-				<div class="info-row-profile">
-					{#if isEditing}
-						<textarea class="textarea-description" bind:value={editedUser.description}></textarea>
-					{:else}
-						<span class="description">{user.description || 'Not set'}</span>
-					{/if}
+				<div class="info-stats">
+					<div class="info-column">
+						<span class="stat">{$t('profile.projects')}</span>
+						343
+					</div>
+					<div class="info-column">
+						<span class="stat">{$t('profile.posts')}</span>
+						343
+					</div>							
+					<div class="info-column">
+						<span class="stat">{$t('profile.connections')}</span>
+						343
+					</div>						
 				</div>
-				<div class="selector-row">
-					<button class="selector-button">
+				<div class="button-column-wrapper">
+					<button class="small-button">
 						<MessageCirclePlus/>
 						Message
 					</button>
-					<button class="selector-button">
+					<button class="small-button">
 						<Group/>
 						Connect
 					</button>
-					<button class="selector-button">
-						x
+				</div>
+			</div>
+
+			<!-- Tab Navigation -->
+			<div class="tabs-container">
+				<div class="tabs-navigation">
+					<button 
+						class="tab-button {activeTab === 'profile' ? 'active' : ''}" 
+						on:click={() => switchTab('profile')}
+					>
+						<User2 size={20} />
+						<span>Profile</span>
 					</button>
-					<button class="selector-button">
-						x
+					<button 
+						class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
+						on:click={() => switchTab('stats')}
+					>
+						<Layers size={20} />
+						<span>Stats</span>
 					</button>
 				</div>
 
-				<div class="info-column">
-					<div class="info-row">
-						<span class="label">
-							<span class="data">{$t('profile.email')}</span>
-						</span>
-						<span>{user.email}</span>
-					</div>
-					<span class="info-avatar">
-						@
-					</span>
-				</div>			
-				<div class="info-column">	
-					<div class="info-row">
-						<span class="label">
-							<span class="data">{$t('profile.role')}</span>
-						</span>
-						<span>{user.role}</span>
-					</div>
-					<KeyIcon size="50"/>
-				</div>	
-				<div class="info-column">	
-					<div class="info-row">
-						<span class="label">
-							<span class="data">{$t('profile.created')}</span>
-						</span>
-						<span>{new Date(user.created).toLocaleString()}</span>
-					</div>
-					<Cake size="50"/>
-				</div>	
-				<div class="info-column">	
-					<div class="info-row">
-						<span class="label">
-							<span class="data">{$t('profile.updated')}</span>
-						</span>
-						<span>{new Date(user.updated).toLocaleString()}</span>
-					</div>
-					<History size="50"/>
-				</div>	
-				<div class="info-column">	
-					<div class="info-row">
-						<span class="label">
-							<span class="data">{$t('profile.verified')}</span>
-						</span>
-						<span>{user.verified ? 'Yes' : 'No'}</span>
-					</div>
-					<Shield size="50"/>
-				</div>	
+				<!-- Tab Content -->
+				<div class="tab-content">
+					{#if activeTab === 'profile'}
+						<div class="profile-info" transition:fade={{ duration: 200 }}>
+							<div class="info-row-profile">
+								{#if isEditing}
+									<textarea class="textarea-description" bind:value={editedUser.description}></textarea>
+								{:else}
+									<span class="description">{user.description || 'Not set'}</span>
+								{/if}
+							</div>
+							<div class="selector-row">
+								<button class="selector-button">
+									<MessageCirclePlus/>
+									Message
+								</button>
+								<button class="selector-button">
+									<Group/>
+									Connect
+								</button>
+								<button class="selector-button">
+									x
+								</button>
+								<button class="selector-button">
+									x
+								</button>
+							</div>
+
+							<div class="info-column">
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.email')}</span>
+									</span>
+									<span>{user.email}</span>
+								</div>
+								<span class="info-avatar">
+									@
+								</span>
+							</div>			
+							<div class="info-column">	
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.role')}</span>
+									</span>
+									<span>{user.role}</span>
+								</div>
+								<KeyIcon size="50"/>
+							</div>	
+							<div class="info-column">	
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.created')}</span>
+									</span>
+									<span>{new Date(user.created).toLocaleString()}</span>
+								</div>
+								<Cake size="50"/>
+							</div>	
+							<div class="info-column">	
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.updated')}</span>
+									</span>
+									<span>{new Date(user.updated).toLocaleString()}</span>
+								</div>
+								<History size="50"/>
+							</div>	
+							<div class="info-column">	
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.verified')}</span>
+									</span>
+									<span>{user.verified ? 'Yes' : 'No'}</span>
+								</div>
+								<Shield size="50"/>
+							</div>	
+						</div>
+					{:else if activeTab === 'stats'}
+						<div class="stats-tab" transition:fade={{ duration: 200 }}>
+							<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+						</div>
+					{/if}
+				</div>
 			</div>
-
-			<!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
-			<!-- <div class="actions">
-
-			</div> -->
 		{:else}
 			<div class="no-user-message">
 				<p>No user information available.</p>
 			</div>
 		{/if}
+		
 		{#if showSaveConfirmation}
-    <div class="save-confirmation" 
-         in:fly={{ y: 20, duration: 300 }} 
-         out:fade={{ duration: 200 }}>
-        Saved!
-    </div>
-{/if}
+			<div class="save-confirmation" 
+				in:fly={{ y: 20, duration: 300 }} 
+				out:fade={{ duration: 200 }}>
+				Saved!
+			</div>
+		{/if}
 	</div>
 	<div class="swipe-indicator">
 		<div class="indicator-bar"></div>
 	</div>
 </div>
-
-
 
 {#if showLanguageNotification}
 	<div class="language-overlay" transition:fade={{ duration: 300 }}>
@@ -408,36 +417,19 @@
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 	* {
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: 'Roboto', sans-serif; */
-		/* font-family: 'Montserrat'; */
 		font-family: var(--font-family);
 		color: var(--text-color);
 	}
 	.modal-overlay {
-		/* position: fixed;
-        top: 60px;
-        left: 0;
-        max-width: 100%;
-        height: 100%;
-        /* background-color: rgba(0, 0, 0, 0.5); */
 		display: flex;
 		justify-content: flex-start;
 		align-items: flex-start;
-		/* width: 100%; */
-		display: flex;
 		padding: 2rem;
 		width: calc(100% - 6rem);
 		height: 90vh;
-		/* background-color: #131313;
-        color: #ffffff;
-        /* border: 1px solid rgb(53, 53, 53); */
 		border-radius: 20px;
-		/* gap: 20px; */
-		/* height: 50px; */
-		/* padding: 10px 20px; */
+		overflow-y: scroll;
 		transition: all 0.3s ease;
-		// background: var(--bg-gradient-r);
 	}
 
 	.btn-row {
@@ -457,46 +449,52 @@
 		align-items: center;
 		width: 100%;
 	}
-	.modal-content {
-		/* background: linear-gradient(
-            to top, 
-            rgba(70, 118, 114, 0.9) 0%,
-            rgba(70, 118, 114, 0.85) 5%,
-            rgba(70, 118, 114, 0.8) 10%,
-            rgba(70, 118, 114, 0.75) 15%,
-            rgba(70, 118, 114, 0.7) 20%,
-            rgba(70, 118, 114, 0.65) 25%,
-            rgba(70, 118, 114, 0.6) 30%,
-            rgba(70, 118, 114, 0.55) 35%,
-            rgba(70, 118, 114, 0.5) 40%,
-            rgba(70, 118, 114, 0.45) 45%,
-            rgba(70, 118, 114, 0.4) 50%,
-            rgba(70, 118, 114, 0.35) 55%,
-            rgba(70, 118, 114, 0.3) 60%,
-            rgba(70, 118, 114, 0.25) 65%,
-            rgba(70, 118, 114, 0.2) 70%,
-            rgba(70, 118, 114, 0.15) 75%,
-            rgba(70, 118, 114, 0.1) 80%,
-            rgba(70, 118, 114, 0.05) 85%,
-            rgba(70, 118, 114, 0) 100%
-            ); */
 
-		/* border-top-left-radius: 0px;
-        border-top-right-radius: 0px;
-        border-bottom-left-radius: 8px;
-        border-bottom-right-radius: 8px; */
-		/* max-width: 100%; */
-		/* backdrop-filter: blur(40px);        
-        padding: 2rem;
-        border-radius: 20px;
-        border: 1px solid rgb(53, 53, 53);
-        top: 0;
-        position: absolute;
-        width: 96vw;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
-		// width: 100%;
-		/* max-width: 500px; */
-		/* height: 100vh; */
+	/* Tab Styles */
+	.tabs-container {
+		width: 100%;
+		max-width: 800px;
+		margin-bottom: 1rem;
+	}
+
+	.tabs-navigation {
+		display: flex;
+		border-bottom: 1px solid var(--border-color);
+		margin-bottom: 1rem;
+	}
+
+	.tab-button {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1.5rem;
+		font-size: 1.5rem;
+		background: transparent;
+		border: none;
+		border-bottom: 3px solid transparent;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		color: var(--text-color);
+		opacity: 0.7;
+	}
+
+	.tab-button.active {
+		border-bottom: 3px solid var(--accent-color, #6b7280);
+		opacity: 1;
+		font-weight: 600;
+	}
+
+	.tab-button:hover {
+		background: var(--primary-color);
+		border-radius: 0.5rem 0.5rem 0 0;
+	}
+
+	.tab-content {
+		min-height: 300px;
+	}
+
+	.stats-tab {
+		padding: 1rem 0;
 	}
 
 	.key-overlay {
@@ -532,8 +530,6 @@
 			width: 100%;
 			padding: 1rem;
 			border-radius: 1rem;
-			
-
 		}
 		.info-row {
 			display: flex;
@@ -544,7 +540,6 @@
 			font-weight: 800;
 			max-width: 800px;
 			width: 100%;
-
 
 			input {
 				background: var(--primary-color);
@@ -585,8 +580,6 @@
 		align-items: left;
 		min-width: 300px;
 	}
-
-	
 
 	button.small-button {
 		width: auto;
@@ -656,28 +649,28 @@
 		color: #757575;
 	}
 
-	.close-button {
-		// opacity: 0.9;
-		// background: var(--bg-gradient-r);
-		// transition: background-image 0.3s ease;
-		// height: 50px;
-		// width: 50px;
-		// border-radius: 50%;
-		// display: flex;
-		// justify-content: flex-start;
-		// align-items: center;
-		// position: relative;
-		// margin-top: 0;
+	.style-overlay {
+		position: relative;
+		top: auto;
+		left: 0;
+		margin-top: 0;
+		margin-bottom: 2rem;
+		width: 600px;
+		height: auto;
+		display: flex;
+		justify-content: right;
+		align-items: top;
+		z-index: 1444;
 	}
 
-	.close-button:hover {
-		background: var(--tertiary-color);
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 1.5rem;
-		color: white;
+	.style-content {
+		display: flex;
+		justify-content: right;
+		border: 1px solid rgb(69, 69, 69);
+		border-radius: 50px;
+		position: relative;
+		height: 100%;
+		width: 100%;
 	}
 
 	.profile-info {
@@ -691,6 +684,7 @@
 		gap: 0.5rem;
 		display: flex;
 		flex-direction: column;
+		
 		.info-column {
 			display: flex;
 			flex-direction: row;
@@ -701,8 +695,8 @@
 			padding: 1rem;
 			background: var(--primary-color);
 			border-radius: 1rem;
-
 		}
+		
 		.info-row {
 			font-size: 1.2rem;
 			line-height: 1.5;
@@ -713,7 +707,8 @@
 			height: auto;
 			gap: 1rem;
 		}
-		.info-row-proflie{
+		
+		.info-row-profile {
 			font-size: 1.2rem;
 			line-height: 1.5;
 			padding: 0;
@@ -722,6 +717,7 @@
 			border-radius: 0.5rem;
 			gap: 1rem;
 		}
+		
 		.textarea-description {
 			font-size: 1rem;
 			width: 100%;
@@ -734,13 +730,10 @@
 			border-radius: 2rem;
 			background: var(--primary-color);
 			resize: none;
-			// resize: vertical; /* allows user to resize vertically if needed */
-			white-space: pre-wrap; /* ensures text wraps */
-			word-wrap: break-word; /* breaks long words if needed */
+			white-space: pre-wrap;
+			word-wrap: break-word;
 		}
 	}
-
-
 
 	span.info-avatar {
 		font-size: 3rem;
@@ -756,13 +749,14 @@
 	span.username {
 		font-size: 1.2rem;
 		color: var(--placeholder-color);
-
 	}
+	
 	span.description {
 		font-size: 1rem;
 		line-height: 1.5;
 		letter-spacing: 0.2rem;
 	}
+	
 	.info-row {
 		display: flex;
 		height: auto;
@@ -782,7 +776,6 @@
 			display: flex;
 			height: auto;
 			min-width: 300px;
-
 		}
 	}
 
@@ -794,50 +787,19 @@
 		user-select: none;
 	}
 
-	.actions {
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
-		position: relative;
-		gap: 1rem;
-		right: 2rem;
-		padding: 2rem;
-		width: 100%;
-	& button {
-		padding: 0.5rem 1rem;
-		border: none;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		border-radius: var(--radius-m);
-		cursor: pointer;
-		font-size: 1rem;
-		background: var(--secondary-color);
-		transition: all ease 0.3s;
-		width: 100px;
-		user-select: none;
-
-		&:hover {
-			opacity: 0.8;
-			background: var(--tertiary-color);
-
-		}
-	}
-	}
-
 	.save-confirmation {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--tertiary-color);
-    color: var(--text-color);
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-m);
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 2000;
-}
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: var(--tertiary-color);
+		color: var(--text-color);
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-m);
+		font-weight: 500;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+		z-index: 2000;
+	}
 
 	.logout-button {
 		display: flex;
@@ -891,7 +853,6 @@
 
 		&:hover {
 			transform: translateY(-4px);
-			// background: var(--bg-gradient);
 			box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2);
 		}
 
@@ -911,7 +872,6 @@
 		gap: 0.5rem;
 		height: 8rem;
 		max-width: 800px;
-
 	}
 
 	button.selector-button {
@@ -920,38 +880,6 @@
 		border-radius: 2rem;
 		font-size: 2rem;
 		background: var(--bg-gradient-r);
-	}
-
-	.style-overlay {
-		position: relative;
-		top: auto;
-		left: 0;
-		margin-top: 0;
-		margin-bottom: 2rem;
-		width: 600px;
-		height: auto;
-		display: flex;
-		justify-content: right;
-		align-items: top;
-		z-index: 1444;
-	}
-
-	.style-content {
-		display: flex;
-		justify-content: right;
-		// background: var(--bg-gradient-r);
-		border: 1px solid rgb(69, 69, 69);
-		border-radius: 50px;
-		position: relative;
-		height: 100%;
-		width: 100%;
-			}
-
-	.style-switcher-button {
-		background-color: transparent;
-		border: none;
-		padding: 0;
-		margin-right: 16px;
 	}
 
 	.language-overlay {
@@ -985,10 +913,6 @@
 		font-size: 2rem;
 	}
 
-	.language-notification p {
-		margin: 0;
-	}
-
 	.quote {
 		font-size: 16px;
 		font-style: italic;
@@ -996,17 +920,13 @@
 	}
 
 	@media (max-width: 1000px) {
-
 		.modal-overlay {
-			width:auto;
+			width: auto;
 			margin: 0;
 			margin-top: 2rem;
 			justify-content: flex-start !important;
 			height: 100vh;
 		}
-
-
-
 
 		.header-wrapper {
 			width: auto;
@@ -1015,28 +935,23 @@
 
 		.info-column {
 			flex-direction: column;
-
 		}
+		
 		.info-stats {
-				display: flex;
-				flex-direction: column !important;
-				align-items: flex-start !important;
-				justify-content: flex-end !important;
-				height: auto;
-				padding: 0.5rem;
-				font-size: 1.5rem !important;
-				letter-spacing: 0.1rem;
-				gap: 2rem;
-				font-weight: 800;
-				max-width: 800px;
-				width: 100% !important;
-				width: auto;
-				&.activity {
-
-					background-color: red;
-				}
-
-			}
+			display: flex;
+			flex-direction: column !important;
+			align-items: flex-start !important;
+			justify-content: flex-end !important;
+			height: auto;
+			padding: 0.5rem;
+			font-size: 1.5rem !important;
+			letter-spacing: 0.1rem;
+			gap: 2rem;
+			font-weight: 800;
+			max-width: 800px;
+			width: 100% !important;
+		}
+		
 		.style-overlay {
 			top: auto;
 			left: auto;
@@ -1055,12 +970,13 @@
 			height: 100%;
 			overflow: auto;
 		}
+		
+		.tabs-navigation {
+			justify-content: center;
+		}
 	}
 
 	@media (max-width: 768px) {
-		.modal-content {
-		}
-
 		.settings-row {
 			display: flex;
 			flex-direction: row;

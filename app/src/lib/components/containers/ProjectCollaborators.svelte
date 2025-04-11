@@ -3,7 +3,7 @@
   import { projectStore, getProjectStore } from '$lib/stores/projectStore';
   import { pb, currentUser } from '$lib/pocketbase';
   import type { User, Projects } from '$lib/types/types';
-	import { Trash2 } from 'lucide-svelte';
+	import { PlusSquareIcon, Trash2, Users } from 'lucide-svelte';
   
   export let projectId: string;
 
@@ -16,16 +16,12 @@
   let isLoading: boolean = false;
   let currentProjectId: string | null = null;
 
-  // Subscribe to projectStore to get updates
   projectStore.subscribe((state) => {
       currentProjectId = state.currentProjectId;
       
-      // If we have a currentProject in the store and it matches our projectId
       if (state.currentProjectId === projectId) {
-          // Find the project in the threads array
           project = state.threads.find(p => p.id === projectId) || null;
           
-          // Update owner status
           if (project && $currentUser) {
               isOwner = project.owner === $currentUser.id;
           }
@@ -34,16 +30,14 @@
 
 
  
-  async function loadProjectData() {
+  export async function loadProjectData() {
       try {
-          // First check the store for the project data
           const storeState = getProjectStore();
           const projectFromStore = storeState.threads.find(p => p.id === projectId);
           
           if (projectFromStore) {
               project = projectFromStore;
           } else {
-              // If not in store, fetch directly from PocketBase
               project = await pb.collection('projects').getOne<Projects>(projectId);
           }
           
@@ -98,15 +92,12 @@ async function fetchUserByEmail(email: string): Promise<User | null> {
         // Sanitize email input
         const sanitizedEmail = email.trim();
         
-        // Get all users from the database
         const allUsers = await pb.collection('users').getFullList<User>();
         console.log('Total users fetched for manual check:', allUsers.length);
         console.log('All users:', allUsers.map(u => ({ id: u.id, email: u.email, name: u.name })));
         
-        // First try exact case match
         let foundUser = allUsers.find(user => user.email === sanitizedEmail);
         
-        // If not found, try case-insensitive match
         if (!foundUser) {
             foundUser = allUsers.find(user => {
                 if (!user || !user.email) return false;
@@ -114,7 +105,6 @@ async function fetchUserByEmail(email: string): Promise<User | null> {
             });
         }
         
-        // If still not found, try partial match (contains)
         if (!foundUser) {
             foundUser = allUsers.find(user => {
                 if (!user || !user.email) return false;
@@ -130,7 +120,6 @@ async function fetchUserByEmail(email: string): Promise<User | null> {
     }
 }
 
-// New function to fetch user by name
 async function fetchUserByName(name: string): Promise<User | null> {
     if (!$currentUser) {
         console.error('User is not authenticated.');
@@ -139,18 +128,14 @@ async function fetchUserByName(name: string): Promise<User | null> {
 
     try {
         console.log('Searching for user with name:', name);
-        // Sanitize input
         const sanitizedName = name.trim();
         
-        // Get all users from the database
         const allUsers = await pb.collection('users').getFullList<User>();
         console.log('Total users fetched for name search:', allUsers.length);
         console.log('All users:', allUsers.map(u => ({ id: u.id, name: u.name })));
         
-        // First try exact case match
         let foundUser = allUsers.find(user => user.name === sanitizedName);
         
-        // If not found, try case-insensitive match
         if (!foundUser) {
             foundUser = allUsers.find(user => {
                 if (!user || !user.name) return false;
@@ -158,7 +143,6 @@ async function fetchUserByName(name: string): Promise<User | null> {
             });
         }
         
-        // If still not found, try partial match (contains)
         if (!foundUser) {
             foundUser = allUsers.find(user => {
                 if (!user || !user.name) return false;
@@ -174,9 +158,7 @@ async function fetchUserByName(name: string): Promise<User | null> {
     }
 }
 
-// Update the variable name
 let newCollaboratorName: string = '';
-// Enhanced function to find users by any identifier
 async function findUserByIdentifier(identifier: string): Promise<User | null> {
     if (!$currentUser) {
         console.error('User is not authenticated.');
@@ -187,11 +169,9 @@ async function findUserByIdentifier(identifier: string): Promise<User | null> {
         console.log('Searching for user with identifier:', identifier);
         const sanitizedIdentifier = identifier.trim().toLowerCase();
         
-        // Get all users from the database
         const allUsers = await pb.collection('users').getFullList<User>();
         console.log('Total users fetched for search:', allUsers.length);
         
-        // Log all user properties for debugging
         console.log('All users with their properties:', allUsers.map(u => ({
             id: u.id,
             name: u.name,
@@ -199,9 +179,7 @@ async function findUserByIdentifier(identifier: string): Promise<User | null> {
             email: u.email
         })));
         
-        // Check for a match across multiple fields
         for (const user of allUsers) {
-            // Check each property that could identify a user
             if (
                 // If name exists and matches
                 (user.name && user.name.toLowerCase() === sanitizedIdentifier) ||
@@ -217,7 +195,6 @@ async function findUserByIdentifier(identifier: string): Promise<User | null> {
             }
         }
         
-        // No exact match found, try partial matches
         for (const user of allUsers) {
             if (
                 // Partial matches in name
@@ -256,7 +233,6 @@ async function addCollaborator() {
         successMessage = '';
         isLoading = true;
         
-        // Use the new function for searching
         const user = await findUserByIdentifier(newCollaboratorName);
         if (user) {
             // Check if user is already a collaborator
@@ -269,10 +245,9 @@ async function addCollaborator() {
             
             console.log('Found user to add:', user);
             await projectStore.addCollaborator(projectId, user.id);
-            await loadCollaborators(); // Reload the collaborators list
+            await loadCollaborators(); 
             newCollaboratorName = '';
             
-            // Get the best display name for the user
             const displayName = user.name || user.username || user.email || user.id;
             successMessage = `${displayName} added as collaborator successfully.`;
             
@@ -296,19 +271,16 @@ async function addCollaborator() {
           successMessage = '';
           isLoading = true;
           
-          // Ensure we have the latest project data
           if (!project) {
               await loadProjectData();
           }
           
-          // Check if trying to remove the owner
           if (project && project.owner === userId) {
               errorMessage = 'Cannot remove the project owner.';
               isLoading = false;
               return;
           }
           
-          // Store the email before removal for confirmation message
           const removedUser = collaborators.find(c => c.id === userId);
           
           await projectStore.removeCollaborator(projectId, userId);
@@ -334,14 +306,11 @@ async function addCollaborator() {
       }
   }
 
-// Change the onMount to use a proper promise chain instead of async/await
 onMount(() => {
   isLoading = true;
   
-  // First load project data
   loadProjectData()
     .then(() => {
-      // After project data is loaded, load collaborators
       return loadCollaborators();
     })
     .catch(error => {
@@ -352,17 +321,40 @@ onMount(() => {
       isLoading = false;
     });
     
-  // Return cleanup function if needed
   return () => {
-    // Any cleanup code here
   };
 });
 </script>
 
   
 <div class="collaborators-container">
-  <h2>Project Collaborators</h2>
-  
+  <div class="add-collaborator-form">
+    <Users/>
+
+    <div class="input-group">
+        <span class="input-span">
+            <input class="toggle"
+            type="text" 
+            bind:value={newCollaboratorName} 
+            placeholder="Enter username, email, or user ID" 
+            on:keydown={handleKeyDown}
+            disabled={isLoading}
+        />
+        <button class="add" on:click={addCollaborator} disabled={isLoading}>
+            {isLoading ? 'Adding...' : '+'}
+        </button>
+        </span>
+
+    </div>
+    
+    {#if errorMessage}
+        <div class="error-message">{errorMessage}</div>
+    {/if}
+    
+    {#if successMessage}
+        <div class="success-message">{successMessage}</div>
+    {/if}
+</div>
   {#if isLoading}
       <div class="loading">Loading...</div>
   {:else if collaborators.length > 0}
@@ -373,7 +365,6 @@ onMount(() => {
             {#if collaborator.id === project?.owner}
             <span class="owner-badge">Owner</span>
         {:else if $currentUser && isOwner}
-            <!-- If current user is the owner, they can remove any collaborator -->
             <span class="member-badge" on:click={() => removeCollaborator(collaborator.id)}>
                 Remove
             </span>
@@ -411,28 +402,7 @@ onMount(() => {
     <div class="loading">Loading collaborator data...</div>
   {/if}
   
-  <div class="add-collaborator-form">
-    <div class="input-group">
-        <input 
-            type="text" 
-            bind:value={newCollaboratorName} 
-            placeholder="Enter username, email, or user ID" 
-            on:keydown={handleKeyDown}
-            disabled={isLoading}
-        />
-        <button class="add" on:click={addCollaborator} disabled={isLoading}>
-            {isLoading ? 'Adding...' : '+'}
-        </button>
-    </div>
-    
-    {#if errorMessage}
-        <div class="error-message">{errorMessage}</div>
-    {/if}
-    
-    {#if successMessage}
-        <div class="success-message">{successMessage}</div>
-    {/if}
-</div>
+
 </div>
   
 <style lang="scss">
@@ -444,17 +414,16 @@ onMount(() => {
 
   
   .collaborators-container {
-    padding: 2rem;
     // background: var(--bg-gradient-right);
     border-radius: 2rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
+    align-items: flex-end;
+    justify-content: flex-end;
     gap: 0.5rem;
-    width: 100%;
-
+    width: auto;
     h2 {
+        font-size: 1.25rem;
         margin: 0;
         padding: 0;
         letter-spacing: 0.1rem;
@@ -465,15 +434,82 @@ onMount(() => {
     width: 100%;
     overflow-y: auto;
     display: flex;
-    flex-direction: row; 
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    align-items: flex-start;
+    flex-direction: column; 
+
+    justify-content:flex-end;
+    align-items: flex-end;
     gap: 0.5rem;
     margin: 0;
-    margin-top: 2rem;
+    margin-top: 0;
     padding: 0;
 }
+
+.add-collaborator-form {
+
+display: flex;
+flex-direction: row;
+justify-content: flex-end;
+align-items: center;
+height: auto;
+width: auto;
+gap: 0.75rem;
+margin-top: 1rem;
+transition: all 0.3s ease;
+button.add {
+    display: none;
+}
+&:hover {
+    h2 {
+        display: none;
+    }
+    input.toggle {
+                display: flex;
+                transition: all 0.3s ease;
+                padding: 1rem;
+            }
+            button.add {
+                width: 5rem;
+                height: 5rem;
+                border-radius: 50%;
+                display: flex;
+
+
+            }
+}
+
+
+}
+.input-group {
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        height: auto;
+        width: auto !important;
+        background: var(--secondary-color);
+        position: relative;
+        background: transparent;
+        gap: 0.75rem;
+        transition: all 0.3s ease;
+
+        button.add {
+            color: var(--text-color);
+            background: transparent;
+            height: auto;
+            width: auto;
+            display: flex;
+            
+            border-radius: 4rem;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+        }
+        &:hover {
+                background: tertiary-color ;
+            }
+
+        @media (min-width: 640px) {
+        }
+    }
 
 
 /* For smaller screens */
@@ -487,41 +523,47 @@ onMount(() => {
         color: var(--text-color);
     }
 
-    .add-collaborator-form {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        height: auto;
-        gap: 0.75rem;
-        margin-top: 1rem;
-    }
 
-    .input-group {
+
+
+    span.input-span {
         display: flex;
         flex-direction: row;
-        gap: 0.75rem;
-        @media (min-width: 640px) {
-        }
-    }
+        justify-content: center;
+        align-items: center;
+        width: auto;
+        height: 2rem;
+        padding: 0 1rem;
+        transition: all 0.3s ease;
 
-    input {
-        padding: 1rem 0.5rem ;
+    }
+    input.toggle {
         border-radius: 1rem;
         border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
         background-color: var(--secondary-color);
         color: var(--text-color);
-        flex: 1;
+        // flex: 1;
+        min-width: calc(100% - 10rem);
+        margin: 0;
+        padding: 1rem;
+        display: none;
         font-size: 1rem;
         letter-spacing: 0.2rem;
+        transition: all 0.3s ease;
+        
+
         &:focus {
+            // padding: 1rem 0.5rem ;
             outline: none;
+            display: flex;
+            background: var(--primary-color);
             border-color: var(--primary-color, #6366f1);
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+            // box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
         }
+
     }
 
     button {
-      padding: 1rem;
       border-radius: 1rem;
         border: none;
         cursor: pointer;
@@ -633,11 +675,23 @@ onMount(() => {
     }
 
     @media (max-width: 1000px) {
+
+        .collaborators-container {
+            padding: 0;
+            margin: 0;
+            justify-content: flex-end;
+            width: 100%;
+            gap: 0;
+            h2 {
+                font-size: 1.5rem;
+            }
+        }
         .collaborators-list {
             width: 100%;
             position: relative;
-            margin-left: 2rem;
             align-items: center;
+            flex-wrap: wrap;
+            flex-direction: row;
             justify-content: flex-end;
         }
         h2 {
