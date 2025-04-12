@@ -15,9 +15,9 @@ export function adjustFontSize(element: HTMLTextAreaElement) {
 		element.style.fontSize = `${fontSize}px`;
 	}
 }
-export function resetTextareaHeight() {
-	if (textareaElement) {
-		textareaElement.style.height = defaultTextareaHeight;
-		textareaElement.style.height = '60px';
+
+export function resetTextareaHeight(element?: HTMLTextAreaElement | null) {
+	if (element) {
+	  element.style.height = defaultTextareaHeight;
 	}
-}
+  }

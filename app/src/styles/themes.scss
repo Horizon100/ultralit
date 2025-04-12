@@ -318,3 +318,170 @@ $themes: (
 }
 
 
+.spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1rem;
+    
+    p {
+        color: var(--text-color);
+        margin: 0;
+    }
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: var(--tertiary-color);
+    animation: spin 1s ease-in-out infinite;
+	background: transparent;
+
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+
+pre.code-block {
+	position: relative;
+	color: var(--code-color, #d4d4d4);
+	padding: 1rem;
+	margin: 1rem 0;
+	overflow-x: auto;
+	font-family: 'Fira Code', monospace;
+	font-size: 0.9rem;
+	line-height: 1.5;
+	tab-size: 2;
+  }
+  
+  /* Inline code styling */
+  code.inline-code {
+	background-color: var(--inline-code-bg, rgba(110, 118, 129, 0.1));
+	color: var(--inline-code-color, #e83e8c);
+	border-radius: var(--radius-s, 0.25rem);
+	padding: 0.1rem 0.3rem;
+	font-family: 'Fira Code', monospace;
+	font-size: 0.9em;
+	padding-inline-start: 2rem !important;
+	
+  }
+  
+  /* Copy button styling */
+  .copy-code-button {
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+	padding: 0.35rem;
+	background-color: var(--button-bg, rgba(255, 255, 255, 0.1));
+	border: none;
+	border-radius: var(--radius-s, 0.25rem);
+	color: var(--button-color, rgba(255, 255, 255, 0.6));
+	cursor: pointer;
+	opacity: 0;
+	transition: all 0.2s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+  }
+  
+  pre.code-block:hover .copy-code-button {
+	opacity: 1;
+	background-color: red;
+  }
+  
+  .copy-code-button:hover {
+	background-color: var(--button-hover-bg, rgba(255, 255, 255, 0.2));
+	color: var(--button-hover-color, rgba(255, 255, 255, 0.8));
+  }
+  
+  /* JSON syntax highlighting */
+  .json-key {
+	color: var(--json-key-color, #9cdcfe);
+  }
+  
+  .json-string {
+	color: var(--json-string-color, #ce9178);
+  }
+  
+  .json-number {
+	color: var(--json-number-color, #b5cea8);
+  }
+  
+  .json-boolean {
+	color: var(--json-boolean-color, #569cd6);
+  }
+  
+  .json-null {
+	color: var(--json-null-color, #569cd6);
+  }
+  
+  .json-punctuation {
+	color: var(--json-punctuation-color, #d4d4d4);
+  }
+  
+  /* Visual feedback for copy operation */
+  .copy-feedback {
+	position: absolute;
+	top: 3rem;
+	right: 1rem;
+	background-color: var(--feedback-bg, rgba(0, 0, 0, 0.7));
+	color: var(--feedback-color, white);
+	padding: 0.3rem 0.6rem;
+	border-radius: var(--radius-s, 0.25rem);
+	font-size: 0.8rem;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateY(-10px);
+	transition: all 0.2s ease;
+  }
+  
+  .copy-feedback.visible {
+	opacity: 1;
+	transform: translateY(0);
+  }
+
+
+  .reaction-btn {
+	position: relative; // Added for tooltip positioning
+	font-family: var(--font-family);
+	font-size: 1rem;
+	font-weight: bold;
+	color: var(--placeholder-color);
+	background-color: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 1rem;
+	margin: 0 2px;
+	opacity: 0.5;
+	transition: all 0.1s ease-in-out;
+
+	&.bookmarked {
+		color: var(--tertiary-color);
+		// background-color: var(--secondary-color);
+		border-radius: var(--radius-m);
+		opacity: 1;
+
+		:global(svg) {
+			fill: var(--tertiary-color) !important;
+			stroke: var(--tertiary-color) !important;
+		}
+	}
+
+	&:hover {
+		color: var(--tertiary-color);
+
+		:global(svg) {
+			stroke: var(--tertiary-color);
+		}
+	}
+}
+

@@ -4,6 +4,7 @@
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
     import { Bookmark, Copy } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
+    import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
     export let message: InternalChatMessage;
     export let userId: string;
@@ -95,7 +96,8 @@
                     break;
 
                 case 'copy':
-                    await navigator.clipboard.writeText(message.text);
+                    // Use the new utility to copy as plain text instead
+                    await MarkupFormatter.copyAsPlainText(message.text);
                     showCopiedTooltip = true;
                     setTimeout(() => {
                         showCopiedTooltip = false;
@@ -125,7 +127,7 @@
                 <div class="reaction-content">
                     <svelte:component
                         this={reaction.symbol}
-                        size={16}
+                        size={24}
                         class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
                     />
                 </div>
@@ -141,8 +143,8 @@
         <div class="copied-tooltip">Copied!</div>
     {/if}
 </div>
-
 <style lang="scss">
+	@use "src/styles/themes.scss" as *;
 	.message-reactions {
 		position: relative; // Keep this
 		display: flex; // Changed from inline-block
@@ -169,40 +171,6 @@
 		position: relative; // Added for tooltip positioning
 	}
 
-	.reaction-btn {
-		position: relative; // Added for tooltip positioning
-		font-family: var(--font-family);
-		font-size: 1rem;
-		font-weight: bold;
-		color: var(--placeholder-color);
-		background-color: transparent;
-		border: none;
-		cursor: pointer;
-		padding: 1rem;
-		margin: 0 2px;
-		opacity: 0.5;
-		transition: all 0.1s ease-in-out;
-
-		&.bookmarked {
-			color: var(--tertiary-color);
-			// background-color: var(--secondary-color);
-			border-radius: var(--radius-m);
-			opacity: 1;
-
-			:global(svg) {
-				fill: var(--tertiary-color) !important;
-				stroke: var(--tertiary-color) !important;
-			}
-		}
-
-		&:hover {
-			transform: scale(1.2);
-
-			:global(svg) {
-				stroke: var(--tertiary-color);
-			}
-		}
-	}
 
 	.copied-tooltip,
 	.bookmark-tooltip {

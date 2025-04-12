@@ -329,7 +329,6 @@ onMount(() => {
   
 <div class="collaborators-container">
   <div class="add-collaborator-form">
-    <Users/>
 
     <div class="input-group">
         <span class="input-span">
@@ -341,9 +340,15 @@ onMount(() => {
             disabled={isLoading}
         />
         <button class="add" on:click={addCollaborator} disabled={isLoading}>
-            {isLoading ? 'Adding...' : '+'}
+            {#if isLoading}
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                </div>
+            {:else}
+            <Users/>
+            +
+            {/if}
         </button>
-        </span>
 
     </div>
     
@@ -356,7 +361,7 @@ onMount(() => {
     {/if}
 </div>
   {#if isLoading}
-      <div class="loading">Loading...</div>
+      <!-- <div class="loading">Loading...</div> -->
   {:else if collaborators.length > 0}
     <div class="collaborators-list">
       {#each collaborators as collaborator}
@@ -449,21 +454,31 @@ onMount(() => {
 display: flex;
 flex-direction: row;
 justify-content: flex-end;
-align-items: center;
+align-items: flex-end;
 height: auto;
-width: auto;
+width: 5rem;
 gap: 0.75rem;
 margin-top: 1rem;
 transition: all 0.3s ease;
 button.add {
     display: none;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-end;
+    background: var(--bg-color) !important;
+    width: 3rem !important;
+    height: 3rem !important;
+
 }
+
 &:hover {
     h2 {
         display: none;
     }
     input.toggle {
                 display: flex;
+                right: 5rem;
+                position: absolute;
                 transition: all 0.3s ease;
                 padding: 1rem;
             }
@@ -472,6 +487,17 @@ button.add {
                 height: 5rem;
                 border-radius: 50%;
                 display: flex;
+                &.spinner-container {
+                    background: transparent !important;
+                }
+                &.spinner {
+                    background: transparent !important;
+                }
+                &:hover {
+                    scale: 1.1;
+                    background: var(--tertiary-color) !important;
+
+                }
 
 
             }
@@ -673,6 +699,7 @@ button.add {
         display: flex;
         align-items: center;
     }
+
 
     @media (max-width: 1000px) {
 

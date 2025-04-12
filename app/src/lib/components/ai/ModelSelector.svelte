@@ -576,28 +576,7 @@
 		}
 	}
 
-	.spinner-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    gap: 1rem;
-    
-    p {
-        color: var(--text-color);
-        margin: 0;
-    }
-}
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    border-top-color: var(--tertiary-color);
-    animation: spin 1s ease-in-out infinite;
-}
 
 .no-models {
     display: flex;
@@ -696,11 +675,6 @@ input {
 		margin-right: 8px;
 	}
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
 
 
 

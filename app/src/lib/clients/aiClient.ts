@@ -1,8 +1,6 @@
 import type { AIModel, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib/types/types';
-import type { ModelState } from '$lib/stores/modelStore';
 import { defaultModel } from '$lib/constants/models';
 import { getPrompt } from '$lib/constants/prompts';
-import { pb } from '$lib/pocketbase';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
@@ -25,84 +23,71 @@ export async function fetchAIResponse(
 
 		console.log('Original model:', model);
 		
-		// Ensure we always have a valid model
 		if (!model || (typeof model === 'string')) {
 			console.log('Using default model due to invalid model data');
 			model = { ...defaultModel };
 		}
 		
-		// Make sure provider is set
 		if (!model.provider) {
 			console.log('Setting default provider for model');
 			model.provider = 'deepseek';
 		}
 		
-		// Make sure api_type is set
 		if (!model.api_type) {
 			console.log('Setting default api_type for model');
-			model.api_type = 'deepseek-chat'; // Set a valid model name for deepseek
+			model.api_type = 'deepseek-chat'; 
 		}
 		
 		console.log('Using model:', model);
 
-		// Prepare request body
-		const body = attachment
-			? new FormData()
-			: {
-					messages: supportedMessages,
-					model: {
-						id: model.id || 'default-model',
-						provider: model.provider,
-						api_type: model.api_type || model.name,
-						name: model.name || 'Default Model'
-					},
-					userId
-				};
-
+		let requestBody: FormData | string;
+		
+		const modelData = {
+			id: model.id || 'default-model',
+			provider: model.provider,
+			api_type: model.api_type || model.name,
+			name: model.name || 'Default Model'
+		};
+		
 		if (attachment) {
-			(body as FormData).append('messages', JSON.stringify(supportedMessages));
-			(body as FormData).append('model', JSON.stringify({
-				id: model.id || 'default-model',
-				provider: model.provider,
-				api_type: model.api_type || model.name,
-				name: model.name || 'Default Model'
-			}));
-			(body as FormData).append('userId', userId);
-			(body as FormData).append('attachment', attachment);
+			const formData = new FormData();
+			formData.append('messages', JSON.stringify(supportedMessages));
+			formData.append('model', JSON.stringify(modelData));
+			formData.append('userId', userId);
+			formData.append('attachment', attachment);
+			requestBody = formData;
+		} else {
+			requestBody = JSON.stringify({
+				messages: supportedMessages,
+				model: modelData,
+				userId
+			});
 		}
 
-		// Determine provider and get API key
 		const provider = model.provider || 'openai';
 		console.log('Provider:', provider);
 		
 		const userApiKey = get(apiKey)[provider] || '';
 
-		// If no user API key is found, check for additional fallback mechanisms
 		if (!userApiKey) {
 			console.log(`No API key found for provider: ${provider}, checking alternatives...`);
 			
-			// Try loading keys again (in case they weren't loaded properly)
 			await apiKey.loadKeys();
 			const refreshedKeys = get(apiKey);
 			
-			// Check if we have the key after refreshing
 			if (refreshedKeys[provider]) {
 				console.log(`Found key for ${provider} after refresh`);
 			} else {
-				// If still no key for the requested provider, check if we have keys for any provider
 				const availableProviders = Object.entries(refreshedKeys)
-					.filter(([_, key]) => !!key)
-					.map(([provider]) => provider);
+					.filter(([_, keyValue]) => !!keyValue)
+					.map(([providerName]) => providerName);
 				
 				if (availableProviders.length > 0) {
-					// Use the first available provider as fallback
 					const fallbackProvider = availableProviders[0];
 					console.log(`Falling back to provider: ${fallbackProvider}`);
 					
-					// Update the model to use the available provider
 					model.provider = fallbackProvider;
 					
-					// Update the model.api_type based on the fallback provider
 					if (fallbackProvider === 'openai') {
 						model.api_type = 'gpt-3.5-turbo';
 					} else if (fallbackProvider === 'anthropic') {
@@ -116,30 +101,26 @@ export async function fetchAIResponse(
 			}
 		}
 
-		// Get the API key again after potential provider change
 		const finalApiKey = get(apiKey)[model.provider] || '';
 		if (!finalApiKey) {
 			throw new Error(`No API key found for provider: ${model.provider}`);
 		}
 
-		// Make API request
 		const response = await fetch('/api/ai', {
 			method: 'POST',
 			headers: {
-				...(!attachment && { 'Content-Type': 'application/json' }),
+				...(attachment ? {} : { 'Content-Type': 'application/json' }),
 				Authorization: `Bearer ${finalApiKey}`
 			},
-			body: attachment ? body : JSON.stringify(body)
+			body: requestBody
 		});
 
-		// Handle errors
 		if (!response.ok) {
 			const errorText = await response.text();
 			console.error('API error:', response.status, errorText);
 			throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
 		}
 
-		// Return response
 		const responseData = await response.json();
 		return responseData.response;
 	} catch (error) {
@@ -200,7 +181,6 @@ export async function generateGuidance(
 		}
 	];
 
-	// Pass the full model object, not just model.api_type
 	const response = await fetchAIResponse(messages, model, userId);
 
 	return {
@@ -227,10 +207,8 @@ export async function generateScenarios(
 		}
 	];
 
-	// Pass the full model object, not just model.api_type
 	const response = await fetchAIResponse(messages, model, userId);
 
-	// Parse the response into three scenarios
 	const scenarios: Scenario[] = response
 		.split('\n')
 		.filter(Boolean)
@@ -326,7 +304,7 @@ export async function createAIAgent(
 		name: `Agent for ${scenario.description.slice(0, 20)}...`,
 		description: response,
 		role: 'assistant', 
-		model: model.api_type,
+		model: [model.api_type],
 		user: userId,
 		child_agents: [],
 		position: { x: 0, y: 0 },

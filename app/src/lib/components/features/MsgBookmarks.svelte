@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { Loader2, MessageSquare } from 'lucide-svelte';
+  import { Loader2, MessageSquare, Copy } from 'lucide-svelte';
   import type { Messages, User, Threads } from '$lib/types/types';
   import { pb, currentUser, ensureAuthenticated } from '$lib/pocketbase';
+  import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
   let bookmarkedMessages: (Messages & { threadName?: string })[] = [];
   let isLoading = true;
   let threadLoading: Record<string, boolean> = {};
+  let copyTooltips: Record<string, boolean> = {};
 
   const dispatch = createEventDispatcher();
 
@@ -103,6 +105,22 @@
       threadLoading = { ...threadLoading, [message.id]: false };
     }
   }
+  
+  async function copyMessage(message: Messages) {
+    try {
+      await MarkupFormatter.copyAsPlainText(message.text);
+      
+      // Show the tooltip for this message
+      copyTooltips = { ...copyTooltips, [message.id]: true };
+      
+      // Hide the tooltip after 1 second
+      setTimeout(() => {
+        copyTooltips = { ...copyTooltips, [message.id]: false };
+      }, 1000);
+    } catch (error) {
+      console.error('Error copying message:', error);
+    }
+  }
 
   onMount(() => {
     fetchBookmarkedMessages();
@@ -142,23 +160,36 @@
             {new Date(message.created).toLocaleDateString()}
           </p>
         </div>
-        {#if message.thread}
+        <div class="message-actions">
           <button 
-            class="thread-button" 
-            on:click={() => openThread(message)}
-            disabled={threadLoading[message.id]}
+            class="action-button copy-button" 
+            on:click={() => copyMessage(message)}
+            title="Copy to clipboard"
           >
-            {#if threadLoading[message.id]}
-              <Loader2 class="loading-spinner-small" />
-            {:else}
-              <MessageSquare size={16} />
-              <span>Open Thread</span>
+            <Copy size={16} />
+            {#if copyTooltips[message.id]}
+              <span class="tooltip">Copied!</span>
             {/if}
           </button>
-        {/if}
+          
+          {#if message.thread}
+            <button 
+              class="action-button thread-button" 
+              on:click={() => openThread(message)}
+              disabled={threadLoading[message.id]}
+            >
+              {#if threadLoading[message.id]}
+                <Loader2 class="loading-spinner-small" />
+              {:else}
+                <MessageSquare size={16} />
+                <span>Open Thread</span>
+              {/if}
+            </button>
+          {/if}
+        </div>
       </div>
       <div class="message-content">
-        <p>{message.text}</p>
+        <p>{@html message.text}</p>
       </div>
       {#if message.attachments}
         <div class="message-attachments">
@@ -169,6 +200,7 @@
   {/each}
 </div>
 {/if}
+
 <style>
 .loading-container {
   display: flex;
@@ -344,4 +376,33 @@
   color: var(--tertiary-color);
   margin: 0;
 }
+
+.message-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+.action-button {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background-color: var(--bg-color-tertiary);
+    border: none;
+    border-radius: var(--radius-s);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text-color);
+    transition: all 0.2s ease;
+    position: relative;
+    
+    &:hover {
+      background-color: var(--bg-color-quaternary);
+    }
+    
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
 </style>

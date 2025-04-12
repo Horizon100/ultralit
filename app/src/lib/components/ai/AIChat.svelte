@@ -12,6 +12,7 @@
   import { networkStore } from '$lib/stores/networkStore';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
+  import { addCopyCodeButtons } from '$lib/utils/copyCodeAction';
 
   import { messagesStore} from '$lib/stores/messagesStore';
 	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
@@ -43,7 +44,7 @@
   import { availablePrompts, getPrompt} from '$lib/constants/prompts';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
   import greekImage from '$lib/assets/illustrations/greek.png';
-  import { processMarkdown } from '$lib/scripts/markdownProcessor';
+  import { processMarkdown, enhanceCodeBlocks } from '$lib/scripts/markdownProcessor';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
   import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
@@ -760,10 +761,8 @@ async function handleSendMessage(message: string = userInput) {
 
   try {
     userInput = '';
-    resetTextareaHeight();
-    // isTextareaFocused = false;
+    resetTextareaHeight(textareaElement);
 
-    // Create a new thread if one doesn't exist
     if (!currentThreadId) {
       console.log('No current thread ID - creating a new thread');
       const newThread = await handleCreateNewThread();
@@ -774,7 +773,6 @@ async function handleSendMessage(message: string = userInput) {
       // currentThreadId should now be set by handleCreateNewThread
     }
 
-    // Double-check we have a thread ID at this point
     if (!currentThreadId) {
       console.error('Still no current thread ID after attempt to create one');
       return;
@@ -1525,6 +1523,10 @@ onMount(async () => {
       await preloadUserProfiles();
       
       // Set up a custom message handler that prevents duplicates
+      if (chatMessagesDiv) {
+      enhanceCodeBlocks(chatMessagesDiv);
+    }
+      
       const messageHandler = (data) => {
         if (data && data.record && data.record.thread === currentThreadId) {
           handleRealTimeMessage(data.record);
@@ -2420,19 +2422,37 @@ onDestroy(() => {
     // border-radius: var(--radius-m);
     // overflow: hidden;
   }
+  .language-undefined {
+  }
+
+  table {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  background: var(--primary-color);
+  border-radius: 2rem;
+  overflow: hidden; /* Better than `auto` for rounded corners */
+  border-collapse: separate; /* Needed for `border-radius` on tables */
+  border-spacing: 0; /* Removes default cell spacing */
+  width: 100%; /* Ensures table respects padding */
+}
+
+
 
   th {
-    background: var(--bg-gradient-r);
-    padding: 1rem;
+    // background: var(--bg-gradient-r);
+    background: var(--primary-color) !important;
     text-align: left;
-    font-weight: 400;
+    font-weight: 800;
+    font-size: 1.8rem;
     color: var(--text-color);
+    padding-inline-start: 1rem !important;
+
     border: {
       bottom: 1px solid var(--bg-color);
       right: 1px solid var(--bg-color);
     }
-    font-style: italic;
-
+    // font-style: italic;
+    padding: 2rem;
     &:last-child {
       border: {
         right: none;
@@ -2445,15 +2465,23 @@ onDestroy(() => {
       font-style: normal;
     }
     &:nth-child(even) {
-      background: var(--bg-gradient-left);
+      // background: var(--bg-gradient-left);
     }
   }
 
   td {
     padding: 1rem;
+    padding-inline-start: 1rem !important;
+
     border: {
       bottom: 1px solid var(--secondary-color);
       right: 1px solid var(--secondary-color);
+    }
+    &:first-child {
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-style: normal;
     }
     &:last-child {
       border: {
@@ -2464,11 +2492,14 @@ onDestroy(() => {
   }
 
   tr {
+    line-height: 2;
+    td {
+    }
     &:last-of-type td {
       border-bottom: none;
     }
     &:nth-child(even) {
-      background: var(--primary-color);
+      background: var(--primary-color) !important;
     }
     &:hover {
       background: var(--bg-gradient-right);
@@ -2478,7 +2509,24 @@ onDestroy(() => {
   // List styles
   ul {
     margin-left: 0;
-    padding-inline-start: 0;
+    padding-inline-start: 2rem;
+    margin-top: 0;
+  list-style-type:lower-alpha ;
+    li {
+      background: var(--secondary-color);
+      padding: 1rem;
+      margin-top: 0;
+      margin-bottom: 0;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: var(--primary-color);
+        transform: translateX(1rem);
+        cursor: pointer;
+      }
+
+    }
+
   }
 
   li {
@@ -2507,12 +2555,20 @@ onDestroy(() => {
   ol {
     display: flex;
     flex-direction: column;
-    list-style-position: outside;
-    padding-left: 2.5rem;
+    // list-style-position: outside;
+    padding: 1rem;
+    padding-inline-start: 1rem;
     margin: 1rem 0;
-    gap: 2rem;
+    // border: 1px solid var(--secondary-color);
+    border-radius: 2rem;
+    gap: 1rem;
+    transition: all 0.3s ease;
+
+
 
     p {
+      list-style-type:lower-alpha !important;
+
       font-size: 1.1rem;
       line-height: 1.5;
       margin: {
@@ -2534,12 +2590,40 @@ onDestroy(() => {
       display: flex;
       flex-direction: column;
       position: relative;
-      padding: 1rem;
+      // padding: 1rem;
       margin: 0;
-      background: var(--bg-gradient-r);
-      border-radius: var(--radius-m);
-      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      padding: 2rem;
+      padding-inline-start: 1rem;
+      font-size: 1.4rem;
+      letter-spacing: 0.2rem;
+      line-height: 2;
+      // border-top: 1px solid var(--placeholder-color);
+      // border-bottom: 1px solid var(--placeholder-color);
 
+      // border-left: 1px solid var(--placeholder-color);
+      // background: var(--bg-gradient-r);
+      border-radius: 0;
+      border-top-left-radius: 2rem;
+      border-bottom-left-radius: 2rem;
+
+      transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      border-left: 10px solid var(--bg-color);
+      border-bottom: 3px solid var(--bg-color);
+      // border-bottom: 1px solid var(--placeholder-color);
+      &:hover {
+      transform: translateX(1rem);
+      background: var(--bg-color)
+    }
+      &:first-child {
+        
+      }
+      &:nth-child(even) {
+        
+    }
+      &:last-child {
+        border-bottom: none;
+
+      }
       &::marker {
         font-weight: 600;
         color: var(--text-color);
@@ -2562,7 +2646,7 @@ onDestroy(() => {
     
   }
   ol, ul {
-        margin-top: 1rem;
+        // margin-top: 1rem;
         margin-bottom: 0.5rem;
       }
 
@@ -2582,11 +2666,56 @@ onDestroy(() => {
       // Spacing between heading and content
       strong, b {
         display: block;
+        margin-top: 0;
         margin-bottom: 0.5rem;
-        font-size: 1.2rem;
+        font-weight: 800;
+        font-size: 1.8rem;
+        line-height: 2;
+        border-bottom: 1px solid var(--placeholder-color);
       }
-    
+
+      .message.assistant div div {
+  // Code block styling
+  margin: 0;
+  padding: 0;
+  padding-inline-start: 1rem !important;
+  // border-top: 1px solid var(--secondary-color);
+  // border-bottom: 1px solid var(--secondary-color);
+      border: none !important;
+  border-radius: 1rem !important;
+  overflow-x: auto;
+  display: flex;
+
+  &:hover {
+    background: var(--bg-color);
+  }
+}
+
+p div {
+  display: flex !important;
+  width: auto;
+  flex-direction: column;
+}
+
   // Code styles
+  .message.assistant div div pre {
+  // Code block styling
+  margin: 0;
+  padding: 1rem;
+  border-radius: 1rem !important;
+  padding-inline-start: 1rem !important;
+  background-color: var(--primary-color) !important;
+  overflow-x: auto;
+  margin-top: 1rem !important;
+
+}
+  pre {
+    background: var(--bg-color) !important;
+    border-radius: 1rem !important;
+    margin-left: 1rem !important;
+    margin-top: 1rem !important;
+    
+  }
   pre.language-json {
     margin: 0;
     padding: 0;
@@ -2595,6 +2724,9 @@ onDestroy(() => {
   pre code {
     padding: 1rem !important;
     margin-top: 1rem;
+    color: var(--text-color);
+    max-width: 800px !important;
+    display: flex;
   }
   code.language-json {
     display: block;
@@ -3734,6 +3866,7 @@ color: #6fdfc4;
       hyphens: auto;
       text-align: left;
       height: fit-content;
+      line-height: 2;
       // margin-left: 1rem;
       // margin-right: 1rem;
       // padding-left: 1rem;
@@ -3835,6 +3968,20 @@ color: #6fdfc4;
     }
     
   }
+  .message-header + p + div > div {
+  // Styles for the grid container divs
+  // This targets the div that contains your code examples
+}
+
+// Target code blocks inside these nested divs
+.message.assistant div div pre {
+  // Code block styling
+  margin: 0;
+  padding: 10px;
+  background-color: #f5f5f5 !important;
+  border-radius: 4px;
+  overflow-x: auto;
+}
   .selector-row {
     display: flex;
     flex-direction: row;
@@ -4716,7 +4863,7 @@ color: #6fdfc4;
 .dashboard-items {
   display: flex;
   flex-direction: row;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: flex-start;
   position: relative;
   border-top: 1px solid var(--secondary-color);
@@ -4732,6 +4879,7 @@ color: #6fdfc4;
 .dashboard-scroll {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 .message-time {
   font-size: 0.8em;
@@ -6214,6 +6362,98 @@ color: #6fdfc4;
 
 }
 
+
+pre.code-block {
+	position: relative;
+	color: var(--code-color, #d4d4d4);
+	border-radius: var(--radius-m, 0.375rem);
+	padding: 1rem;
+	margin: 1rem 0;
+	overflow-x: auto;
+  
+	font-family: 'Fira Code', monospace;
+	font-size: 0.9rem;
+	line-height: 1.5;
+	tab-size: 2;
+
+  }
+  
+  /* Inline code styling */
+
+  /* Copy button styling */
+  .copy-code-button {
+	position: absolute;
+  background: red !important;
+	top: 0.5rem;
+	right: 0.5rem;
+	padding: 0.35rem;
+	background-color: var(--button-bg, rgba(255, 255, 255, 0.1));
+	border: none;
+	border-radius: var(--radius-s, 0.25rem);
+	color: var(--button-color, rgba(255, 255, 255, 0.6));
+	cursor: pointer;
+	opacity: 0;
+	transition: all 0.2s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+  }
+  
+  pre.code-block:hover .copy-code-button {
+	opacity: 1;
+	background-color: red;
+  }
+  
+  .copy-code-button:hover {
+	background-color: var(--button-hover-bg, rgba(255, 255, 255, 0.2));
+	color: var(--button-hover-color, rgba(255, 255, 255, 0.8));
+  }
+  
+  /* JSON syntax highlighting */
+  .json-key {
+	color: var(--json-key-color, #9cdcfe);
+  }
+  
+  .json-string {
+	color: var(--json-string-color, #ce9178);
+  }
+  
+  .json-number {
+	color: var(--json-number-color, #b5cea8);
+  }
+  
+  .json-boolean {
+	color: var(--json-boolean-color, #569cd6);
+  }
+  
+  .json-null {
+	color: var(--json-null-color, #569cd6);
+  }
+  
+  .json-punctuation {
+	color: var(--json-punctuation-color, #d4d4d4);
+  }
+  
+  /* Visual feedback for copy operation */
+  .copy-feedback {
+	position: absolute;
+	top: 3rem;
+	right: 1rem;
+	background-color: var(--feedback-bg, rgba(0, 0, 0, 0.7));
+	color: var(--feedback-color, white);
+	padding: 0.3rem 0.6rem;
+	border-radius: var(--radius-s, 0.25rem);
+	font-size: 0.8rem;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateY(-10px);
+	transition: all 0.2s ease;
+  }
+  
+  .copy-feedback.visible {
+	opacity: 1;
+	transform: translateY(0);
+  }
 
 
 
