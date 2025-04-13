@@ -27,7 +27,9 @@
   import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   import PromptSelector from './PromptSelector.svelte';
-  import PromptCatalog from './PromptCatalog.svelte';
+  // import PromptCatalog from './PromptCatalog.svelte';
+    import PromptCatalog from './PromptInput.svelte';
+
   import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
@@ -1934,16 +1936,49 @@ onDestroy(() => {
 
                       <ProjectCard projectId={$projectStore.currentProjectId} />
 
-                      <ProjectStatsContainer projectId={$projectStore.currentProjectId}/>
+                      <!-- <ProjectStatsContainer projectId={$projectStore.currentProjectId}/> -->
                     <!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
                     </div>
+
                     {#if $projectStore.currentProjectId}
-                      <ProjectCollaborators projectId={$projectStore.currentProjectId} />
                     {/if}
 
                   </div>
 
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                    <div class="ai-selector">
+                      {#if $expandedSections.prompts}
+                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <PromptCatalog 
+                            on:select={(event) => {
+                              expandedSections.update(sections => ({
+                                ...sections,
+                                prompts: false
+                              }));
+                              showPromptCatalog = false;
+                              console.log('Parent received selection from catalog:', event.detail);
+                            }}
+                          />
+                        </div>
+                      {/if}
+                      {#if $expandedSections.models}
+                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <ModelSelector
+                          provider="yourDefaultProvider"
+                          on:select={(event) => {
+                            handleModelSelection(event);
+                            showModelSelector = !showModelSelector;
+                            console.log('Parent received selection from catalog:', event.detail);
+                          }}
+                        />
+                        </div>
+                      {/if}
+                      {#if $expandedSections.bookmarks}
+                        <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                          <MsgBookmarks on:loadThread={(event) => handleLoadThread(event.detail.threadId)} />
+                        </div>
+                      {/if}
+                    </div>
                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                       <textarea 
                         bind:this={textareaElement}
@@ -2044,39 +2079,7 @@ onDestroy(() => {
                         </div>
                       </div>
                     </div>
-                    <div class="ai-selector">
-                      {#if $expandedSections.prompts}
-                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                          <PromptCatalog 
-                            on:select={(event) => {
-                              expandedSections.update(sections => ({
-                                ...sections,
-                                prompts: false
-                              }));
-                              showPromptCatalog = false;
-                              console.log('Parent received selection from catalog:', event.detail);
-                            }}
-                          />
-                        </div>
-                      {/if}
-                      {#if $expandedSections.models}
-                        <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                          <ModelSelector
-                          provider="yourDefaultProvider"
-                          on:select={(event) => {
-                            handleModelSelection(event);
-                            showModelSelector = !showModelSelector;
-                            console.log('Parent received selection from catalog:', event.detail);
-                          }}
-                        />
-                        </div>
-                      {/if}
-                      {#if $expandedSections.bookmarks}
-                        <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                          <MsgBookmarks on:loadThread={(event) => handleLoadThread(event.detail.threadId)} />
-                        </div>
-                      {/if}
-                    </div>
+
                   </div>   
 
               </div>
@@ -2187,6 +2190,37 @@ onDestroy(() => {
           </div>
           <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
             {#if $isAiActive}
+            <div class="ai-selector">
+              {#if $expandedSections.prompts}
+                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <PromptCatalog 
+                    on:select={(event) => {
+                      expandedSections.update(sections => ({
+                        ...sections,
+                        prompts: false
+                      }));
+                      showPromptCatalog = false;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+                </div>
+              {/if}
+              {#if $expandedSections.models}
+                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <ModelSelector
+                    on:select={(event) => {
+                      showModelSelector = !showModelSelector;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+                </div>
+              {/if}
+              {#if $expandedSections.bookmarks}
+                <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <MsgBookmarks/>
+                </div>
+              {/if}
+            </div>
             <div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
               <textarea 
                 bind:this={textareaElement}
@@ -2335,37 +2369,7 @@ onDestroy(() => {
           </div>
           {/if}
 
-            <div class="ai-selector">
-              {#if $expandedSections.prompts}
-                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                  <PromptCatalog 
-                    on:select={(event) => {
-                      expandedSections.update(sections => ({
-                        ...sections,
-                        prompts: false
-                      }));
-                      showPromptCatalog = false;
-                      console.log('Parent received selection from catalog:', event.detail);
-                    }}
-                  />
-                </div>
-              {/if}
-              {#if $expandedSections.models}
-                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                  <ModelSelector
-                    on:select={(event) => {
-                      showModelSelector = !showModelSelector;
-                      console.log('Parent received selection from catalog:', event.detail);
-                    }}
-                  />
-                </div>
-              {/if}
-              {#if $expandedSections.bookmarks}
-                <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                  <MsgBookmarks/>
-                </div>
-              {/if}
-            </div>
+
           </div>
         {/if}
       </div>
@@ -2714,6 +2718,9 @@ p div {
     border-radius: 1rem !important;
     margin-left: 1rem !important;
     margin-top: 1rem !important;
+          white-space: pre-wrap;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     
   }
   pre.language-json {
@@ -3499,7 +3506,9 @@ p div {
     width: 100%;
     height: 100%;
     position: relative;
-    justify-content:space-between;
+    justify-content: center;
+    align-items: center;
+    // justify-content:space-between;
   }
   .input-container-start {
     display: flex;
@@ -3512,6 +3521,7 @@ p div {
     right: 0;
     bottom:0;
     margin-bottom: 0;
+    overflow-y: none;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
     align-items: center;
@@ -4863,15 +4873,16 @@ color: #6fdfc4;
 .dashboard-items {
   display: flex;
   flex-direction: row;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: flex-start;
+
   position: relative;
   border-top: 1px solid var(--secondary-color);
   left: 0;
   right: 0;
   gap: 0.5rem;
   width: calc(100% - 2rem);
-
+  overflow: none;
   margin-bottom: auto;
   margin-top: 0;
 }
@@ -4879,7 +4890,12 @@ color: #6fdfc4;
 .dashboard-scroll {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
   width: 100%;
+  // overflow-y: scroll !important;
+  overflow: hidden !important;
+
 }
 .message-time {
   font-size: 0.8em;
@@ -5576,8 +5592,9 @@ color: #6fdfc4;
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: center;
-      bottom:5rem;
+    align-items: flex-start;
+      bottom:0;
+      max-height: 500px;
 
     // margin-right: 0;
 
@@ -5614,7 +5631,7 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content:flex-start;
+    justify-content:flex-end;
     // padding-left: 3rem;
     width: 100%;
     margin-left: 0;
@@ -5658,23 +5675,27 @@ color: #6fdfc4;
     align-items: flex-end;
     margin-right: 2rem;
     & h3 {
-      font-size: 2rem;
+      display: none;
+    }
+    & p {
+      display: none;
     }
   }
 
   .dashboard-items {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     overflow-y: scroll;
-    height: 50vh;
-    justify-content: flex-start;
+    height: auto;
+    justify-content: center;
     align-items: flex-start;
     position: relative;
     border-top: 1px solid var(--secondary-color);
+    padding-inline-start: 2rem;
     left: 0;
     right: 0;
     padding: 0;
-    gap: 2rem;
+    gap: 1rem;
     width: 100%;
     margin-bottom: auto;
     margin-top: 0;
@@ -6180,6 +6201,8 @@ color: #6fdfc4;
     margin-left: 0rem;
 
   }
+
+  
 
   .drawer-visible {
     &.chat-container {

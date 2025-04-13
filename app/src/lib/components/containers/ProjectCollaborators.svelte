@@ -305,29 +305,48 @@ async function addCollaborator() {
           addCollaborator();
       }
   }
-
-onMount(() => {
-  isLoading = true;
+  $: if ($projectStore.currentProjectId && !projectId) {
+    projectId = $projectStore.currentProjectId;
+    loadCollaborators();
+  }
   
-  loadProjectData()
-    .then(() => {
-      return loadCollaborators();
-    })
-    .catch(error => {
-      console.error("Error during component initialization:", error);
-      errorMessage = "Failed to initialize component.";
-    })
-    .finally(() => {
-      isLoading = false;
-    });
+  onMount(async () => {
+    isLoading = true;
+    console.log('*** Component mounting... ***');
+    console.log('ProjectId at mount time:', projectId);
     
-  return () => {
-  };
-});
-</script>
+    try {
+      // Check if projectId is valid
+      if (projectId) {
+        console.log('Component mounted, projectId:', projectId);
+        await loadCollaborators();
 
+      }
+      
+      // Log current user status
+      console.log('Current user at mount time:', $currentUser?.id);
+      
+      console.log('After loadProjectData - project:', project?.name);
+      isLoading = false;
+
+      // Load threads data if we have a projectId
+
+    } catch (error) {
+      console.error('Error in onMount:', error);
+    }
+  });
+</script>
+{#if isLoading}
+<div class="spinner-container">
+    <div class="spinner"></div>
+</div>
+{:else}
   
 <div class="collaborators-container">
+
+  {#if isLoading}
+      <!-- <div class="loading">Loading...</div> -->
+  {:else if collaborators.length > 0}
   <div class="add-collaborator-form">
 
     <div class="input-group">
@@ -360,9 +379,6 @@ onMount(() => {
         <div class="success-message">{successMessage}</div>
     {/if}
 </div>
-  {#if isLoading}
-      <!-- <div class="loading">Loading...</div> -->
-  {:else if collaborators.length > 0}
     <div class="collaborators-list">
       {#each collaborators as collaborator}
       <div class="collaborator-item">
@@ -409,7 +425,8 @@ onMount(() => {
   
 
 </div>
-  
+{/if}
+
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 	* {
@@ -420,13 +437,16 @@ onMount(() => {
   
   .collaborators-container {
     // background: var(--bg-gradient-right);
-    border-radius: 2rem;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    justify-content: flex-end;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    height: auto;
+    flex: 1;
+    padding-left: 1rem;
     gap: 0.5rem;
-    width: auto;
+    width: 100%;
     h2 {
         font-size: 1.25rem;
         margin: 0;
@@ -435,13 +455,16 @@ onMount(() => {
     }
 }
 
+
+
 .collaborators-list {
     width: 100%;
     overflow-y: auto;
     display: flex;
-    flex-direction: column; 
-
-    justify-content:flex-end;
+    flex-direction: row; 
+    position: static;
+    top: 0;
+    justify-content:flex-start;
     align-items: flex-end;
     gap: 0.5rem;
     margin: 0;
@@ -452,16 +475,18 @@ onMount(() => {
 .add-collaborator-form {
 
 display: flex;
-flex-direction: row;
+flex-direction: column;
 justify-content: flex-end;
 align-items: flex-end;
 height: auto;
-width: 5rem;
+width: auto;
 gap: 0.75rem;
 margin-top: 1rem;
+margin-bottom: 1rem;
 transition: all 0.3s ease;
 button.add {
     display: none;
+    margin-left: 1rem;
     flex-direction: row;
     justify-content: flex-end;
     align-items: flex-end;
@@ -475,13 +500,7 @@ button.add {
     h2 {
         display: none;
     }
-    input.toggle {
-                display: flex;
-                right: 5rem;
-                position: absolute;
-                transition: all 0.3s ease;
-                padding: 1rem;
-            }
+
             button.add {
                 width: 5rem;
                 height: 5rem;
@@ -569,10 +588,9 @@ button.add {
         background-color: var(--secondary-color);
         color: var(--text-color);
         // flex: 1;
-        min-width: calc(100% - 10rem);
         margin: 0;
         padding: 1rem;
-        display: none;
+        display: flex;
         font-size: 1rem;
         letter-spacing: 0.2rem;
         transition: all 0.3s ease;
@@ -702,32 +720,49 @@ button.add {
 
 
     @media (max-width: 1000px) {
+        .user-avatar-project {
+            width: 3rem !important;
+            height: 3rem !important;
+            border-radius: 50%;
+            object-fit: cover;
 
-        .collaborators-container {
-            padding: 0;
-            margin: 0;
-            justify-content: flex-end;
-            width: 100%;
-            gap: 0;
-            h2 {
-                font-size: 1.5rem;
-            }
         }
-        .collaborators-list {
-            width: 100%;
-            position: relative;
+
+        .default-avatar-project {
+            width: 3rem !important;
+            height: 3rem !important;
+            background-color: var(--primary-color, #6366f1);
+            color: white;
+            display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            flex-direction: row;
-            justify-content: flex-end;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 50%;
+
         }
+        // .collaborators-container {
+        //     padding-left: 1rem;
+        //     padding-bottom: 1rem;
+        //     margin: 0;
+        //     justify-content: center;
+        //     align-items: center;
+        //     width:5rem;
+        //     gap: 0.5rem;
+        //     h2 {
+        //         font-size: 1.5rem;
+        //     }
+        // }
+        // .collaborators-list {
+        //     position: relative;
+        //     align-items: center;
+        //     flex-wrap: wrap;
+        //     flex-direction: column;
+        //     justify-content: flex-end;
+        // }
         h2 {
-          width: 50%;
           font-size: 0.8rem;
           padding:0;
-
           font-size: 2rem;
-          width: 100%;
           text-align: right;
         }
     }

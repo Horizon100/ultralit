@@ -261,7 +261,10 @@ export default {
 		nameMessages: 'total messages',
 		nameTags: 'tags',
 		nameTimer: 'time spent',
-		nameActive: 'Last Active:'
+		nameActive: 'Last Active:',
+		projectDetails: 'Info',
+		projectStats: 'Stats',
+		projectMembers: 'Members'
 	},
 
 	threads: {

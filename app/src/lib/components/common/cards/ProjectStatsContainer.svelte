@@ -10,17 +10,9 @@
 	let documentCount = 0;
 	let completionPercentage = 0;
 	let lastActive: Date | null = null;
-	let isLoading = false;
+	let isLoading: boolean = false;
 
-	// Track when store values change
-	$: projectId = $projectStore.currentProjectId;
-	$: project = $projectStore.currentProject;
-	
-	// When projectId changes, fetch new stats
-	$: if (projectId) {
-		console.log('ProjectStatsContainer: projectId changed to', projectId);
-		fetchProjectStats(projectId);
-	}
+
 
 	function formatDate(date: string): string {
 		if (date === 'Today' || date === 'Yesterday') return date;
@@ -54,7 +46,7 @@
 		}
 	}
 
-	async function fetchProjectStats(id: string) {
+	export async function fetchProjectStats(id: string) {
 		if (!pb.authStore.isValid || !id) {
 			console.error('User is not authenticated or no project selected');
 			return;
@@ -110,7 +102,15 @@
 			isLoading = false;
 		}
 	}
-
+	// Track when store values change
+	$: projectId = $projectStore.currentProjectId;
+	$: project = $projectStore.currentProject;
+	
+	// When projectId changes, fetch new stats
+	$: if (projectId) {
+		console.log('ProjectStatsContainer: projectId changed to', projectId);
+		fetchProjectStats(projectId);
+	}
 	onMount(() => {
 		if (projectId) {
 			console.log('Component mounted, projectId:', projectId);
@@ -120,14 +120,14 @@
 </script>
 
 {#if isLoading}
-<div class="stats-container loading">
-	<p>{$t('dashboard.loadingStats')}</p>
+<div class="spinner-container">
+	<div class="spinner"></div>
 </div>
 {:else if project}
 <div class="stats-container">
-	<div class="title">
+	<!-- <div class="title">
 		<h2>{project?.name || $t('dashboard.projectStats')}</h2>
-	</div>
+	</div> -->
 	<div class="stat-item" style="--progress: {calculatePercentage(messageCount, 100)}%">
 		<span>{messageCount} {$t('dashboard.nameMessages')}</span>
 		<span class="target">100 ✰</span>
@@ -170,7 +170,7 @@
 		flex-direction: column;
 		gap: 20px;
 		width: 100%;
-		max-width: 600px;
+		margin-right: 6rem;
 		height: auto;
 		margin-top: 0;
 		margin-left: 0;

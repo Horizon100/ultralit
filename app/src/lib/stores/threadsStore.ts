@@ -26,7 +26,6 @@ export enum ThreadSortOption {
 	UserCountDesc = 'users_desc'
   }
   
-  // Define the sorting option display info
   export interface SortOptionInfo {
 	value: ThreadSortOption;
 	label: string;
@@ -34,7 +33,7 @@ export enum ThreadSortOption {
   }
   
 
-function createThreadsStore() {
+export function createThreadsStore() {
 	const initialShowThreadList = browser
 		? localStorage.getItem('threadListVisible') !== 'false'
 		: true;
@@ -60,8 +59,6 @@ function createThreadsStore() {
 	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
 	const allSortOptions = derived(store, () => Object.values(ThreadSortOption).map(option => getSortOptionInfo(option)));
 	const searchedThreads = derived(store, ($store) => {
-	  // Use the existing getSortedAndFilteredThreads logic but directly apply it to the store value
-	  // First apply search filter
 	  let filteredThreads = $store.searchQuery.trim().length > 0
 		? $store.threads.filter(
 			thread => 
@@ -70,15 +67,12 @@ function createThreadsStore() {
 		  )
 		: [...$store.threads];
 	  
-	  // Apply user filter if any users are selected
 	  if ($store.selectedUserIds.size > 0) {
 		filteredThreads = filteredThreads.filter(thread => {
-		  // Check if thread creator is selected
 		  if (thread.user && $store.selectedUserIds.has(thread.user)) {
 			return true;
 		  }
 		  
-		  // Check if any participant is selected
 		  if (thread.participants && Array.isArray(thread.participants)) {
 			return thread.participants.some(participant => {
 			  const participantId = typeof participant === 'string' 
@@ -93,7 +87,6 @@ function createThreadsStore() {
 		});
 	  }
 	  
-	  // Apply tag filter if any tags are selected
 	  if ($store.selectedTagIds.size > 0) {
 		filteredThreads = filteredThreads.filter(thread => {
 		  if (!thread.tags || thread.tags.length === 0) return false;
@@ -102,7 +95,6 @@ function createThreadsStore() {
 		});
 	  }
 	  
-	  // Apply sorting
 	  return filteredThreads.sort((a, b) => {
 		switch ($store.sortOption) {
 		  case ThreadSortOption.NewestFirst:
@@ -147,11 +139,9 @@ function createThreadsStore() {
 	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
 	const availableUsers = derived(store, ($store) => $store.availableUsers);
 	
-	// Then, add these derived stores to your return object
 	return {
 	  subscribe,
 	  update,
-	  // Add the reactive stores here
 	  sortOptionInfo,
 	  allSortOptions,
 	  searchedThreads,

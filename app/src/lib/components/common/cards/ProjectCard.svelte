@@ -1,14 +1,19 @@
 <script lang="ts">
   import { fade, fly, slide } from 'svelte/transition';
   import { pb, currentUser } from '$lib/pocketbase';
+  import { getThreadsStore, createThreadsStore } from '$lib/stores/threadsStore';
+
   import { projectStore, getProjectStore } from '$lib/stores/projectStore';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
-  import type { Projects } from '$lib/types/types';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, InfoIcon, ChartBarBig, Users } from 'lucide-svelte';
+  import type { Projects, Thread } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { t } from '$lib/stores/translationStore';
+  import ProjectStatsContainer from '$lib/components/common/cards/ProjectStatsContainer.svelte';
+  import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
 
   export let projectId: string | undefined = undefined;
   let isExpanded = false;
+  let activeTab: 'details' | 'stats' | 'members' = 'details';
   let isCreatingProject = false;
   let newProjectName = '';
   let searchQuery = '';
@@ -16,38 +21,41 @@
   let isEditingProjectName = false;
   let editingProjectId: string | null = null;
   let isEditingProjectDescription = false;
-let editedProjectDescription = '';
+  let editedProjectDescription = '';
   let editedProjectName = '';
   let project: Projects | null = null;
   let isOwner: boolean = false;
   let errorMessage: string = '';
+  let isLoading: boolean = false;
 
   console.log('*** ProjectCard Initialization ***');
   console.log('Initial projectId received:', projectId);
 
   // Subscribe to the project store
   projectStore.subscribe((state) => {
-  console.log('Store state:', state);
+    console.log('Store state:', state);
+    
+    // If we have a projectId, try to find that specific project
+    if (projectId && state.currentProjectId === projectId) {
+      project = state.threads.find(p => p.id === projectId) || null;
+    } 
+    // If we don't have a projectId but there is a currentProjectId in the store
+    else if (!projectId && state.currentProjectId) {
+      projectId = state.currentProjectId;
+      project = state.threads.find(p => p.id === state.currentProjectId) || null;
+    }
+    
+    // Update owner status
+    if (project && $currentUser) {
+      isOwner = project.owner === $currentUser.id;
+    }
+  });
   
-  // If we have a projectId, try to find that specific project
-  if (projectId && state.currentProjectId === projectId) {
-    project = state.threads.find(p => p.id === projectId) || null;
-  } 
-  // If we don't have a projectId but there is a currentProjectId in the store
-  else if (!projectId && state.currentProjectId) {
-    projectId = state.currentProjectId;
-    project = state.threads.find(p => p.id === state.currentProjectId) || null;
+  $: if ($projectStore.currentProjectId && !projectId) {
+    projectId = $projectStore.currentProjectId;
+    loadProjectData();
   }
   
-  // Update owner status
-  if (project && $currentUser) {
-    isOwner = project.owner === $currentUser.id;
-  }
-});
-$: if ($projectStore.currentProjectId && !projectId) {
-  projectId = $projectStore.currentProjectId;
-  loadProjectData();
-}
   // Format date nicely
   function formatDate(dateString: string | undefined): string {
     if (!dateString) return 'Unknown';
@@ -73,6 +81,7 @@ $: if ($projectStore.currentProjectId && !projectId) {
   $: projectName = project?.name || 'No Project Selected';
   $: projectDescription = project?.description || '';
   $: projectThreadsCount = project?.threads?.length || 0;
+  $: projectMessagesCount = project?.threads?.length || 0;
   $: projectCollaboratorsCount = project?.collaborators?.length || 0;
 
   $: projectOwner = project?.owner || '';
@@ -81,11 +90,27 @@ $: if ($projectStore.currentProjectId && !projectId) {
   
   function toggleExpanded() {
     isExpanded = !isExpanded;
+    if (isExpanded && projectId) {
+      loadProjectThreadsData();
+    }
+  }
+  $: if (projectId) {
+  activeTab = 'details';
+}
+  function setActiveTab(tab: 'details' | 'stats' | 'members') {
+    activeTab = tab;
+    if (!isExpanded) {
+      isExpanded = true;
+      if (projectId) {
+        loadProjectThreadsData();
+      }
+    }
   }
 
   async function loadProjectData() {
     console.log('*** loadProjectData called ***');
     console.log('Loading data for projectId:', projectId);
+    activeTab = 'details';
     
     try {
       // First check the store for the project data
@@ -126,54 +151,78 @@ $: if ($projectStore.currentProjectId && !projectId) {
     }
   }
   
-  function handleEditProject(type: 'name' | 'description') {
-  if (!project) return;
-  
-  if (type === 'name') {
-    isEditingProjectName = true;
-    editingProjectId = project.id;
-    editedProjectName = project.name || '';
-  } else if (type === 'description') {
-    isEditingProjectDescription = true;
-    editingProjectId = project.id;
-    editedProjectDescription = project.description || '';
-  }
-}
-async function saveProjectEdit(type: 'name' | 'description') {
-  if (!editingProjectId) {
-    isEditingProjectName = false;
-    isEditingProjectDescription = false;
-    return;
-  }
-  
-  try {
-    if (type === 'name' && editedProjectName.trim()) {
-      await projectStore.updateProject(editingProjectId, {
-        name: editedProjectName.trim()
-      });
-      isEditingProjectName = false;
-    } else if (type === 'description') {
-      await projectStore.updateProject(editingProjectId, {
-        description: editedProjectDescription.trim()
-      });
-      isEditingProjectDescription = false;
+  async function loadProjectThreadsData() {
+    console.log('*** loadProjectThreadsData called ***');
+    
+    if (!projectId) {
+      console.error('No projectId available for loading threads');
+      return;
     }
     
-    editingProjectId = null;
-  } catch (error) {
-    console.error(`Error updating project ${type}:`, error);
+    try {
+      // Create or get the threads store for this project
+      const threadsStore = getThreadsStore(projectId) || await createThreadsStore(projectId);
+      console.log('Threads store initialized for project:', projectId);
+      
+      // Fetch threads data if needed
+      if (threadsStore && typeof threadsStore.loadThreads === 'function') {
+        await threadsStore.loadThreads();
+        console.log('Threads loaded for project:', projectId);
+      }
+    } catch (error) {
+      console.error('Error loading project threads:', error);
+    }
   }
-}
+  
+  function handleEditProject(type: 'name' | 'description') {
+    if (!project) return;
+    
+    if (type === 'name') {
+      isEditingProjectName = true;
+      editingProjectId = project.id;
+      editedProjectName = project.name || '';
+    } else if (type === 'description') {
+      isEditingProjectDescription = true;
+      editingProjectId = project.id;
+      editedProjectDescription = project.description || '';
+    }
+  }
+  
+  async function saveProjectEdit(type: 'name' | 'description') {
+    if (!editingProjectId) {
+      isEditingProjectName = false;
+      isEditingProjectDescription = false;
+      return;
+    }
+    
+    try {
+      if (type === 'name' && editedProjectName.trim()) {
+        await projectStore.updateProject(editingProjectId, {
+          name: editedProjectName.trim()
+        });
+        isEditingProjectName = false;
+      } else if (type === 'description') {
+        await projectStore.updateProject(editingProjectId, {
+          description: editedProjectDescription.trim()
+        });
+        isEditingProjectDescription = false;
+      }
+      
+      editingProjectId = null;
+    } catch (error) {
+      console.error(`Error updating project ${type}:`, error);
+    }
+  }
   
   onMount(async () => {
+    isLoading = true;
     console.log('*** Component mounting... ***');
     console.log('ProjectId at mount time:', projectId);
     
     try {
       // Check if projectId is valid
-      if (!projectId) {
-        console.error('ProjectId is empty or invalid at mount time');
-        return;
+      if (projectId) {
+        console.log('Component mounted, projectId:', projectId);
       }
       
       // Log current user status
@@ -181,6 +230,14 @@ async function saveProjectEdit(type: 'name' | 'description') {
       
       await loadProjectData();
       console.log('After loadProjectData - project:', project?.name);
+
+      // Load threads data if we have a projectId
+      if (projectId) {
+        await loadProjectThreadsData();
+        // await loadCollaborators();
+
+        isLoading = false;
+      }
     } catch (error) {
       console.error('Error in onMount:', error);
     }
@@ -191,12 +248,10 @@ async function saveProjectEdit(type: 'name' | 'description') {
   <div class="project-content" transition:slide={{ duration: 200 }}>
     <div class="project-header">
       <!-- <h2>{$t('drawer.project')}</h2> -->
-
     </div>
     
     {#if project}
-      <div class="current-project" on:click={toggleExpanded}>
-
+      <div class="current-project">
         {#if isEditingProjectName && editingProjectId === project.id}
           <div class="edit-name-container">
             <input
@@ -212,85 +267,112 @@ async function saveProjectEdit(type: 'name' | 'description') {
           <div class="project-name-container">
             <h3 class="project-name">{projectName}</h3>
             {#if isOwner}
-            <button class="edit-button" on:click={() => handleEditProject('name')}>
-              <Pen size={14} />
+              <button class="edit-button" on:click={() => handleEditProject('name')}>
+                <Pen size={14} />
               </button>
             {/if}
           </div>
         {/if}
 
         {#if isEditingProjectDescription && editingProjectId === project.id}
-        <div class="edit-description-container">
-          <textarea
-            bind:value={editedProjectDescription}
-            class="edit-description-input"
-            rows="3"
-            autofocus
-          ></textarea>
-          <button class="save-button" on:click={() => saveProjectEdit('description')}>
-            <Check size={16} />
-          </button>
-        </div>
-      {:else if projectDescription}
-        <div class="project-description-container">
-          <p class="project-description">{projectDescription}</p>
-          {#if isOwner}
-            <button class="edit-button" on:click={() => handleEditProject('description')}>
-              <Pen size={14} />
+          <div class="edit-description-container">
+            <textarea
+              bind:value={editedProjectDescription}
+              class="edit-description-input"
+              rows="3"
+              autofocus
+            ></textarea>
+            <button class="save-button" on:click={() => saveProjectEdit('description')}>
+              <Check size={16} />
             </button>
-          {/if}
-        </div>
-      {:else if isOwner}
-        <div class="add-description-container">
-          <button class="toggle-btn" on:click={() => handleEditProject('description')}>
-            <Plus size={14} /> Add description
-          </button>
-        </div>
-      {/if}
+          </div>
+        {:else if projectDescription}
+          <div class="project-description-container">
+            <p class="project-description">{projectDescription}</p>
+            {#if isOwner}
+              <button class="edit-button" on:click={() => handleEditProject('description')}>
+                <Pen size={14} />
+              </button>
+            {/if}
+          </div>
+        {:else if isOwner}
+          <div class="add-description-container">
+            <button class="toggle-btn" on:click={() => handleEditProject('description')}>
+              <Plus size={14} /> Add description
+            </button>
+          </div>
+        {/if}
         
-        {#if isExpanded}
-          <div class="project-details" transition:slide={{ duration: 150 }}>
-            <div class="detail-row">
-              <span class="detail-label">Collaborators:</span>
-              <span class="detail-value">{projectCollaboratorsCount}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Threads:</span>
-              <span class="detail-value">{projectThreadsCount}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Created:</span>
-              <span class="detail-value">{createdDate}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Updated:</span>
-              <span class="detail-value">{updatedDate}</span>
-            </div>
+        <!-- New Tab Navigation -->
+        <div class="tabs-navigation">
+          <button 
+            class="tab-button {activeTab === 'details' ? 'active' : ''}" 
+            on:click={() => setActiveTab('details')}
+          >
+          <InfoIcon/>
+            {$t('dashboard.projectDetails')}
+          </button>
+          <button 
+            class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
+            on:click={() => setActiveTab('stats')}
+          >
+          <ChartBarBig/>
+            {$t('dashboard.projectStats')}
+          </button>
+          <button 
+            class="tab-button {activeTab === 'members' ? 'active' : ''}" 
+            on:click={() => setActiveTab('members')}
+          >
+          <Users/>
+            {$t('dashboard.projectMembers')}
+          </button>
+          <!-- <button class="toggle-button" on:click={toggleExpanded}>
+            <ChevronDown class="icon-wrapper {isExpanded ? 'rotated' : ''}" size={16} />
+          </button> -->
+        </div>
 
-            
-            <!-- {#if $projectStore.collaborators && $projectStore.collaborators.length > 0}
-              <div class="collaborators">
-                <h4>Collaborators</h4>
-                <ul class="collaborator-list">
-                  {#each $projectStore.collaborators as collaborator}
-                    <li class="collaborator-item">
-                      {collaborator.name || collaborator.username || collaborator.email || 'Unknown user'}
-                    </li>
-                  {/each}
-                </ul>
+        {#if isExpanded}
+          <div class="project-tabs-content" transition:slide={{ duration: 150 }}>
+            {#if activeTab === 'details'}
+              <div class="project-details">
+                <div class="detail-row">
+                  <span class="detail-label">Collaborators:</span>
+                  <span class="detail-value">{projectCollaboratorsCount}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Threads:</span>
+                  <span class="detail-value">{projectThreadsCount}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Messages:</span>
+                  <span class="detail-value">{projectMessagesCount}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Created:</span>
+                  <span class="detail-value">{createdDate}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Updated:</span>
+                  <span class="detail-value">{updatedDate}</span>
+                </div>
               </div>
-            {/if} -->
+            {:else if activeTab === 'stats'}
+              <div class="project-stats">
+                <ProjectStatsContainer projectId={$projectStore.currentProjectId}/>
+              </div>
+            {:else if activeTab === 'members'}
+            <div class="project-stats">
+              <ProjectCollaborators projectId={$projectStore.currentProjectId}/>
+            </div>
+          {/if}
           </div>
         {/if}
       </div>
     {:else}
       <div class="no-project">
-        <h2>Create new project to see the dashboard items.</h2>
+        <h2>Create or project to see the dashboard items.</h2>
       </div>
     {/if}
-    {#if projectId}
-
-  {/if}
   </div>
 </div>
   <style lang="scss">
@@ -308,12 +390,12 @@ async function saveProjectEdit(type: 'name' | 'description') {
 		flex-direction: column;
     align-items: center;
     justify-content: center;
-    max-width: 800px;
+    width: 100%;
+    height: auto;
 		margin-top: 0;
 		margin-left: 0;
       transition: all 0.3s ease;
 		position: relative;
-		overflow: hidden;
 		// box-shadow:
 		// 	8px 8px 16px rgba(0, 0, 0, 0.3),
 		// 	-8px -8px 16px rgba(255, 255, 255, 0.1);
@@ -351,7 +433,12 @@ async function saveProjectEdit(type: 'name' | 'description') {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
 		opacity: 1;
 	}
-
+  .project-tabs-content {
+    overflow-y: auto;
+    width: auto;
+    gap: 2rem;
+    display: flex;
+  }
   .icon {
     display: flex;
     align-items: center;
@@ -391,9 +478,9 @@ async function saveProjectEdit(type: 'name' | 'description') {
 		backdrop-filter: blur(10px);
 		display: flex;
 		flex-direction: column;
+    align-items: left;
     height: auto;
 		width: 100%;
-    min-width: 600px;
     flex: 1;
       top: 0;
 		height: auto;
@@ -632,10 +719,12 @@ async function saveProjectEdit(type: 'name' | 'description') {
   .current-project {
     padding: 1rem;
     border-radius: 6px;
+    margin-left: 2rem !important;
     transition: all 0.3s ease;
-
+    display: flex;
+    flex-direction: column;
     // background-color: var(--secondary-color);
-
+    width: 100%;
     &:hover {
       cursor: pointer;
       // background: var(--primary-color);
@@ -669,6 +758,7 @@ async function saveProjectEdit(type: 'name' | 'description') {
     justify-content: top;
     align-items: top;
     gap: 2rem;
+    position: static;
 
     &:hover {
       button.edit-button {
@@ -687,6 +777,7 @@ async function saveProjectEdit(type: 'name' | 'description') {
     padding: 1rem;
     color: var(--text-color);
     transition: all 0.3s ease;
+    width: 100%;
 
   }
   
@@ -700,17 +791,18 @@ async function saveProjectEdit(type: 'name' | 'description') {
     margin-top: 1rem;
     padding-top: 1rem;
     // border-bottom: 1px solid var(--tertiary-color);
+    width: 100%;
 
   }
   
   .detail-row {
     display: flex;
     letter-spacing: 0.2rem;
-    margin-left: 2rem;
+    margin-right: 2rem;
     border-bottom: 1px solid var(--secondary-color);
     justify-content: space-between;
-    align-items: center;
-
+      align-items: center;
+    width: auto;
     font-size: 1.2rem;
     height: 4rem;
     line-height: 1.5;
@@ -823,4 +915,62 @@ async function saveProjectEdit(type: 'name' | 'description') {
   .collaborator-item:last-child {
     border-bottom: none;
   }
+  @media (max-width: 1000px) {
+    .current-project {
+      display: flex;
+      width: 100%;
+      margin: 0 !important;
+      align-items: flex-start;
+      justify-content: center !important;
+
+    }
+    .project-tabs-content {
+    overflow-y: auto;
+    width: calc(100% - 2rem) !important;
+    gap: 2rem;
+    display: flex;
+  }
+    .project-content {
+		backdrop-filter: blur(10px);
+		display: flex;
+		flex-direction: column;
+    height: auto;
+		width: 100%;
+    min-width: auto;
+    flex: 1;
+      top: 0;
+		height: auto;
+		margin-top: 0;
+		margin-left: 0;
+      left: 0;
+		position: relative;
+		overflow: hidden;
+
+	}
+  .project-details {
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    // border-bottom-left-radius: 2rem;
+    gap: 1rem;
+    // border-left: 5px solid var(--tertiary-color);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    // border-bottom: 1px solid var(--tertiary-color);
+    width: 100% !important;
+
+  }
+  .detail-row {
+    display: flex;
+    letter-spacing: 0.2rem;
+    border-bottom: 1px solid var(--secondary-color);
+    justify-content: space-between;
+      align-items: center;
+    width: 100% !important;
+    font-size: 1.2rem;
+    height: 4rem;
+    line-height: 1.5;
+  }
+  }
+
   </style>

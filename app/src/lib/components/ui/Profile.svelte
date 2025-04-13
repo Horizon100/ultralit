@@ -307,6 +307,7 @@
 								{/if}
 							</div>
 							<div class="selector-row">
+								
 								<button class="selector-button">
 									<MessageCirclePlus/>
 									Message
@@ -450,52 +451,6 @@
 		width: 100%;
 	}
 
-	/* Tab Styles */
-	.tabs-container {
-		width: 100%;
-		max-width: 800px;
-		margin-bottom: 1rem;
-	}
-
-	.tabs-navigation {
-		display: flex;
-		border-bottom: 1px solid var(--border-color);
-		margin-bottom: 1rem;
-	}
-
-	.tab-button {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1.5rem;
-		font-size: 1.5rem;
-		background: transparent;
-		border: none;
-		border-bottom: 3px solid transparent;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		color: var(--text-color);
-		opacity: 0.7;
-	}
-
-	.tab-button.active {
-		border-bottom: 3px solid var(--accent-color, #6b7280);
-		opacity: 1;
-		font-weight: 600;
-	}
-
-	.tab-button:hover {
-		background: var(--primary-color);
-		border-radius: 0.5rem 0.5rem 0 0;
-	}
-
-	.tab-content {
-		min-height: 300px;
-	}
-
-	.stats-tab {
-		padding: 1rem 0;
-	}
 
 	.key-overlay {
 		position: fixed;
@@ -509,6 +464,8 @@
 		justify-content: center;
 		z-index: 1000;
 	}
+
+
 
 	.profile-header {
 		display: flex;

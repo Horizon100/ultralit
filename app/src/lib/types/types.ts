@@ -37,6 +37,15 @@ export interface Prompt {
 	description: string;
 	youtubeUrl: string;
 }
+
+export interface PromptInput {
+	id: string;
+	createdBy: string;
+	prompt: string;
+	created: string;
+	updated: string;
+}
+
 export type PromptType =
 	| 'FLOW'
 	| 'PLANNER'

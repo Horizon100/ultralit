@@ -245,6 +245,7 @@
   position: absolute;
   bottom: 4rem;
   gap: 1rem;
+  width: calc(100% - 4rem);
   padding: 1rem;
   max-height: 50vh;
   backdrop-filter: blur(50px);

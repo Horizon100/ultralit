@@ -267,7 +267,10 @@ export default {
 		nameMessages: 'всего сообщений',
 		nameTags: 'теги',
 		nameTimer: 'потраченное время',
-		nameActive: 'Последняя активность:'
+		nameActive: 'Последняя активность:',
+		projectDetails: 'Инфо',
+		projectStats: 'Статистика',
+		projectMembers: 'Люди'
 	},
 
 	threads: {
