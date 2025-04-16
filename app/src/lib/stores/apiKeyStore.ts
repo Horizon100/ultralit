@@ -1,86 +1,104 @@
-// apiKeyStore.ts
-import { writable, derived, get } from 'svelte/store';
+// lib/stores/apiKeyStore.ts
+import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import { pb } from '$lib/pocketbase';
-import { currentUser } from '$lib/pocketbase';
-import { CryptoService } from '$lib/utils/crypto';
+import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
 
 export interface ApiKeys {
-	openai?: string;
-	anthropic?: string;
-	google?: string;
-	grok?: string;
-	[key: string]: string | undefined;
-}
-
-interface EncryptedKeys {
-	api_keys: string;
-	updated: string;
+    openai?: string;
+    anthropic?: string;
+    google?: string;
+    grok?: string;
+    [key: string]: string | undefined;
 }
 
 function createApiKeyStore() {
-	const { subscribe, set, update } = writable<ApiKeys>({});
+    const { subscribe, set, update } = writable<Record<string, string>>({});
+    let initialized = false;
+    let loading = false;
 
-	return {
-		subscribe,
+    async function loadKeys() {
+        if (!browser || initialized || loading) return;
+        loading = true;
 
-		// Load keys when the store is created
-		async loadKeys() {
-			if (!browser) return;
+        try {
+            const isAuthenticated = await ensureAuthenticated();
+            if (!isAuthenticated) {
+                set({});
+                return;
+            }
 
-			try {
-				const user = await pb.authStore.model;
-				if (!user) return;
+            const response = await fetch('/api/keys', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const keys = await response.json();
+                set(keys);
+                initialized = true;
+            }
+        } catch (error) {
+            console.error('Error loading API keys:', error);
+        } finally {
+            loading = false;
+        }
+    }
 
-				const userData = await pb.collection('users').getOne<EncryptedKeys>(user.id);
-				if (!userData.api_keys) return;
+    // Initialize when store is created
+    loadKeys();
 
-				const decrypted = await CryptoService.decrypt(userData.api_keys, user.id);
+    // Only subscribe to user changes if not initialized
+    if (!initialized) {
+        currentUser.subscribe((user) => {
+            if (user) loadKeys();
+        });
+    }
 
-				const keys = JSON.parse(decrypted);
-				set(keys); // Update the store with decrypted keys
-				console.log('Loaded keys:', keys); // Log the keys after loading
-			} catch (error) {
-				console.error('Error loading API keys:', error);
-				set({});
-			}
-		},
-
-		async setKey(service: keyof ApiKeys, key: string) {
-			if (!browser) return;
-
-			try {
-				const user = await pb.authStore.model;
-				if (!user) throw new Error('User not authenticated');
-
-				const currentKeys = get(this);
-				const updatedKeys = { ...currentKeys, [service]: key };
-				const encryptedData = await CryptoService.encrypt(JSON.stringify(updatedKeys), user.id);
-
-				await pb.collection('users').update(user.id, {
-					api_keys: encryptedData,
-					keys_updated: new Date().toISOString()
-				});
-				set(updatedKeys); // Update the store with the new key
-			} catch (error) {
-				console.error('Error saving API key:', error);
-				throw error;
-			}
-		},
-
-		clear() {
-			set({});
-		}
-	};
+    return {
+        subscribe,
+        loadKeys,
+        setKey: async (service: string, key: string) => {
+            isLoading = true;
+            try {
+                const response = await fetch('/api/keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ service, key })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                update(keys => ({ ...keys, [service]: key }));
+            } catch (error) {
+                console.error('Error saving API key:', error);
+                throw error;
+            } finally {
+                isLoading = false;
+            }
+        },
+        deleteKey: async (service: string) => {
+            isLoading = true;
+            try {
+                const response = await fetch(`/api/keys/${service}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                update(keys => {
+                    const newKeys = { ...keys };
+                    delete newKeys[service];
+                    return newKeys;
+                });
+            } catch (error) {
+                console.error('Error deleting API key:', error);
+                throw error;
+            } finally {
+                isLoading = false;
+            }
+        }
+    };
 }
 
 export const apiKey = createApiKeyStore();
-
-// Auto-load keys when user changes
-currentUser.subscribe(async (user) => {
-	if (user) {
-		await apiKey.loadKeys();
-	} else {
-		apiKey.clear();
-	}
-});

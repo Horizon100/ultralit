@@ -1,5 +1,6 @@
+// src/lib/utils/threadNaming.ts
 import { fetchAIResponse } from '$lib/clients/aiClient';
-import { pb, ensureAuthenticated } from '$lib/pocketbase';
+import { ensureAuthenticated } from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
 import type { AIModel, RoleType, Messages } from '$lib/types/types';
 
@@ -63,56 +64,48 @@ export async function updateThreadNameIfNeeded(
 	messages: Messages[],
 	model: AIModel,
 	userId: string
-): Promise<void> {
-	ensureAuthenticated();
-	console.log('Starting thread name update check for thread:', threadId);
-	
+  ): Promise<void> {
 	try {
-		if (!pb.authStore.isValid) {
-			console.log('Auth not valid, skipping thread name update');
-			return;
-		}
-		
-		if (!threadId || !messages?.length) {
-			console.log('Missing threadId or messages, skipping update');
-			return;
-		}
-		
-		threadsStore.setNamingThreadId(threadId);
-		console.log('Set naming state for thread:', threadId);
-		
-		const shouldUpdate = await shouldUpdateThreadName(messages);
-		console.log('Should update thread name?', shouldUpdate);
-		
-		if (!shouldUpdate) {
-			console.log('Thread name update not needed');
-			threadsStore.setNamingThreadId(null);
-			return;
-		}
-		
-		const lastUserMessage = messages.find((m) => m.type === 'human')?.text || '';
-		const lastAIMessage = messages.find((m) => m.type === 'robot')?.text || '';
-		
-		console.log('Found messages for naming:', {
-			userMessage: lastUserMessage,
-			aiMessage: lastAIMessage
-		});
-		
-		const newName = await generateThreadName(lastUserMessage, lastAIMessage, model, userId);
-		console.log('Generated new thread name:', newName);
-		console.log('Updating thread with new name...');
-		
-		await threadsStore.updateThread(threadId, { name: newName });
-		console.log("Thread updated. Now loading threads...");
-		
-		// Allow state to settle before reloading threads
-		await new Promise(resolve => setTimeout(resolve, 1000));
-		await threadsStore.loadThreads();
-		console.log('Thread list reloaded');
+	  ensureAuthenticated();
+	  console.log('Starting thread name update check for thread:', threadId);
+	  
+	  // Check if thread was manually named recently
+	  const manuallyNamed = typeof window !== 'undefined' && 
+		window.localStorage.getItem(`thread_${threadId}_manual_name`) === 'true';
+	  
+	  const timestamp = typeof window !== 'undefined' && 
+		window.localStorage.getItem(`thread_${threadId}_name_timestamp`);
+	  
+	  const isRecent = timestamp && (Date.now() - parseInt(timestamp)) < 10000; // 10 seconds
+	  
+	  if (manuallyNamed && isRecent) {
+		console.log("Skipping auto-naming because thread was manually named recently");
+		return;
+	  }
+	  
+	  const lastUserMessage = messages.find((m) => m.type === 'human')?.text || '';
+	  const lastAIMessage = messages.find((m) => m.type === 'robot')?.text || '';
+	  
+	  console.log('Found messages for naming:', {
+		userMessage: lastUserMessage,
+		aiMessage: lastAIMessage
+	  });
+	  
+	  const newName = await generateThreadName(lastUserMessage, lastAIMessage, model, userId);
+	  console.log('Generated new thread name:', newName);
+	  console.log('Updating thread with new name...');
+	  
+	  await threadsStore.updateThread(threadId, { name: newName });
+	  console.log("Thread updated. Now loading threads...");
+	  
+	  // Allow state to settle before reloading threads
+	  await new Promise(resolve => setTimeout(resolve, 1000));
+	  await threadsStore.loadThreads();
+	  console.log('Thread list reloaded');
 	} catch (error) {
-		console.error('Error in updateThreadNameIfNeeded:', error);
+	  console.error('Error in updateThreadNameIfNeeded:', error);
 	} finally {
-		threadsStore.setNamingThreadId(null);
-		console.log('Cleared naming state');
+	  threadsStore.setNamingThreadId(null);
+	  console.log('Cleared naming state');
 	}
-}
+  }

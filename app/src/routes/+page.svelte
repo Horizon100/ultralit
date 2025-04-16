@@ -7,6 +7,7 @@
 	import { currentUser } from '$lib/pocketbase';
 	import { elasticOut, elasticIn } from 'svelte/easing';
 	import Auth from '$lib/components/auth/Auth.svelte';
+	import { pocketbaseUrl } from '$lib/pocketbase';
 
 	import Paper from '$lib/components/network/Paper.svelte';
 	import { agentStore } from '$lib/stores/agentStore';
@@ -30,7 +31,7 @@
 		Messages
 	} from '$lib/types/types';
 	import { threadsStore } from '$lib/stores/threadsStore';
-	import { pb } from '$lib/pocketbase';
+	import {  } from '$lib/pocketbase';
 	import { navigating } from '$app/stores';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { page } from '$app/stores';
@@ -195,17 +196,41 @@
 	}
 
 	let userCount = 0;
-
-	async function fetchUserCount() {
-		try {
-			const resultList = await pb.collection('users').getList(1, 1, {
-				sort: '-created'
-			});
-			userCount = resultList.totalItems;
-		} catch (error) {
-			console.error('Error fetching user count:', error);
-		}
-	}
+	// async function fetchUserCount() {
+	// 	try {
+	// 		console.log('Fetching user count...');
+			
+	// 		// For debugging, directly use the PocketBase client from server if available in development
+	// 		if (typeof pb !== 'undefined') {
+	// 		try {
+	// 			const resultList = await pb.collection('users').getList(1, 1, {
+	// 			sort: '-created'
+	// 			});
+	// 			userCount = resultList.totalItems;
+	// 			console.log('User count fetched directly:', userCount);
+	// 			return;
+	// 		} catch (error) {
+	// 			console.error('Error fetching user count directly:', error);
+	// 		}
+	// 		}
+			
+	// 		// Fall back to API if direct access fails or isn't available
+	// 		const response = await fetch('/api/verify/users/count');
+	// 		console.log('User count API response status:', response.status);
+			
+	// 		if (!response.ok) {
+	// 		throw new Error(`Server returned ${response.status}`);
+	// 		}
+			
+	// 		const data = await response.json();
+	// 		console.log('User count API response data:', data);
+			
+	// 		userCount = data.success ? data.count : 0;
+	// 	} catch (error) {
+	// 		console.error('Error fetching user count:', error);
+	// 		userCount = 0; // Default value if fetch fails
+	// 	}
+	// 	}
 
 	let showTermsOverlay = false;
 	let showPrivacyOverlay = false;
@@ -235,80 +260,6 @@
 			showArrowOverlay = false;
 		}
 	}
-
-	onMount(async () => {
-		try {
-			// Initialize loading state
-			isLoading = true;
-			updatePageContent();
-
-			// Check auth and set initial states
-			if (!pb.authStore.isValid) {
-				showContent = true;
-			}
-
-			user = $currentUser;
-			currentTip = getRandomTip();
-
-			// Handle navigation subscription
-			const unsubscribe = navigating.subscribe((navigationData) => {
-				if (navigationData) {
-					isNavigating.set(true);
-				} else {
-					setTimeout(() => {
-						isNavigating.set(false);
-					}, 300);
-				}
-			});
-
-			// Get URL parameters if they exist
-			threadId = $page.url.searchParams.get('threadId');
-			messageId = $page.url.searchParams.get('messageId');
-
-			/*
-			 * Set current thread if threadId exists
-			 * if (threadId) {
-			 *     await threadsStore.setCurrentThread(threadId);
-			 * }
-			 */
-
-			// Initialize necessary data
-			// await initializeLanguage();
-			await fetchUserCount();
-
-			// Landing page animations (only if not logged in)
-			if (!user) {
-				setTimeout(() => (showFade = true), 200);
-				setTimeout(() => {
-					showLogo = true;
-					setTimeout(() => {
-						logoSize.set(0);
-						logoMargin.set(0);
-					}, 300);
-				}, 150);
-
-				setTimeout(() => (showH1 = true), 600);
-				setTimeout(() => (showH2 = true), 700);
-				setTimeout(() => (showH3 = true), 800);
-				setTimeout(() => (showTypeWriter = true), 900);
-				setTimeout(() => (showButton = true), 1000);
-			}
-
-			return () => {
-				unsubscribe();
-			};
-		} catch (e) {
-			error = 'Failed to load thread. Please try again.';
-			console.error(e);
-		} finally {
-			// Ensure minimum loading time
-			const minimumLoadingTime = 800;
-			setTimeout(() => {
-				isLoading = false;
-			}, minimumLoadingTime);
-		}
-	});
-
 	function toggleAuth() {
 		showAuth = !showAuth;
 		showArrowOverlay = !showArrowOverlay;
@@ -326,6 +277,82 @@
 
 	$: userId = $currentUser?.id;
 	$: aiModel = defaultAIModel;
+
+	onMount(async () => {
+	try {
+		// Initialize loading state
+		isLoading = true;
+		updatePageContent();
+
+		// Check auth using the currentUser store instead of pb directly
+		if (!$currentUser) {
+		showContent = true;
+		}
+
+		user = $currentUser;
+		currentTip = getRandomTip();
+
+		// Handle navigation subscription
+		const unsubscribe = navigating.subscribe((navigationData) => {
+		if (navigationData) {
+			isNavigating.set(true);
+		} else {
+			setTimeout(() => {
+			isNavigating.set(false);
+			}, 300);
+		}
+		});
+
+		// Get URL parameters if they exist
+		threadId = $page.url.searchParams.get('threadId');
+		messageId = $page.url.searchParams.get('messageId');
+
+		/*
+		* Set current thread if threadId exists
+		* if (threadId) {
+		*     await threadsStore.setCurrentThread(threadId);
+		* }
+		*/
+
+		// Initialize necessary data
+		// await initializeLanguage();
+		// await fetchUserCount();
+
+		// Landing page animations (only if not logged in)
+		if (!user) {
+		setTimeout(() => (showFade = true), 200);
+		setTimeout(() => {
+			showLogo = true;
+			setTimeout(() => {
+			logoSize.set(0);
+			logoMargin.set(0);
+			}, 300);
+		}, 150);
+
+		setTimeout(() => (showH1 = true), 600);
+		setTimeout(() => (showH2 = true), 700);
+		setTimeout(() => (showH3 = true), 800);
+		setTimeout(() => (showTypeWriter = true), 900);
+		setTimeout(() => (showButton = true), 1000);
+		}
+
+		return () => {
+		unsubscribe();
+		};
+	} catch (e) {
+		error = 'Failed to load thread. Please try again.';
+		console.error(e);
+	} finally {
+		// Ensure minimum loading time
+		const minimumLoadingTime = 800;
+		setTimeout(() => {
+		isLoading = false;
+		}, minimumLoadingTime);
+	}
+	});
+
+
+
 </script>
 
 {#if pageReady}

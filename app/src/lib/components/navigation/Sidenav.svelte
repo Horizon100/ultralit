@@ -56,7 +56,7 @@
 
 
 	} from 'lucide-svelte';
-	import { currentUser, pb } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
 	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';

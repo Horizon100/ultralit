@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
-	import { pb } from '$lib/pocketbase';
-	import { Camera, LogOutIcon, Languages, Palette, X, Bone, Save, TextCursorIcon, Pen, User2, UserCircle, MailCheck, Mail, KeyIcon, Cake, History, Shield, Layers, MessageCirclePlus, Group, ChevronLeft } from 'lucide-svelte';
-	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
+	import { 
+		Camera, LogOutIcon, Languages, Palette, X, Bone, Save, 
+		TextCursorIcon, Pen, User2, UserCircle, MailCheck, 
+		Mail, KeyIcon, Cake, History, Shield, Layers, 
+		MessageCirclePlus, Group, ChevronLeft 
+	} from 'lucide-svelte';
+	import { 
+		Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key 
+	} from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
-	import { currentUser } from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';
@@ -18,9 +24,29 @@
 
 	$: hasApiKey = $apiKey !== '';
 
+	interface UserData {
+    id: string;
+    avatarUrl?: string;
+    email?: string;
+	name?: string;
+	username?: string;
+    description?: string;
+    role?: string;
+    created?: string;
+    updated?: string;
+    verified?: boolean;
+    // Add other fields you expect from the API
+  }
+  
 	export let user: any;
+
+	
+
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
+	let isLoading = false;
+
+	let completeUserData: UserData | null = null;
 
 	let showSaveConfirmation = false;
 	let showKeyInput = false;
@@ -44,7 +70,14 @@
 	let timerCount: number = 0;
 	let lastActive: Date | null = null;
 
-	const styles = [
+	interface StyleOption {
+		name: string;
+		value: string;
+		icon: any;
+	}
+	$: console.log('User data:', user);
+
+	const styles: StyleOption[] = [
 		{ name: 'Daylight Delight', value: 'default', icon: Sun },
 		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
 		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
@@ -57,61 +90,71 @@
 
 	const dispatch = createEventDispatcher();
 
-	function getRandomQuote() {
-		const quotes = $t('extras.quotes');
+	function getRandomQuote(): string {
+		const quotes = $t('extras.quotes') as string[];
 		return quotes[Math.floor(Math.random() * quotes.length)];
 	}
 
-	function toggleEdit() {
+	function toggleEdit(): void {
 		isEditing = !isEditing;
 	}
 
-	function toggleStyles() {
+	function toggleStyles(): void {
 		showStyles = !showStyles;
 	}
 
-	function handleStyleClose() {
+	function handleStyleClose(): void {
 		showStyles = false;
 	}
 
-	function switchTab(tab: string) {
+	function switchTab(tab: string): void {
 		activeTab = tab;
 	}
 
-	async function saveChanges() {
-		try {
-			if (user && user.id) {
-				await pb.collection('users').update(user.id, editedUser);
-				user = { ...editedUser };
-				isEditing = false;
-				showSaveConfirmation = true;
-				// Hide the confirmation after 2 seconds
-				setTimeout(() => {
-					showSaveConfirmation = false;
-				}, 2000);
-			}
-		} catch (error) {
-			console.error('Error updating user:', error);
-		}
-	}
+	async function saveChanges(): Promise<void> {
+  try {
+    if (user?.id) {
+      const updatedUser = await updateUser(user.id, {
+        name: editedUser.name,
+        username: editedUser.username,
+        description: editedUser.description
+      });
+      
+      // Update both user and completeUserData
+      user = { ...user, ...updatedUser };
+      completeUserData = { 
+        ...completeUserData, 
+        ...updatedUser,
+        name: updatedUser.name || completeUserData?.name || '',
+        username: updatedUser.username || completeUserData?.username || '',
+        description: updatedUser.description || completeUserData?.description || ''
+      };
+      
+      isEditing = false;
+      showSaveConfirmation = true;
+      setTimeout(() => showSaveConfirmation = false, 2000);
+    }
+  } catch (error) {
+    console.error('Error updating user:', error);
+  }
+}
 
-	function handleOutsideClick(event: MouseEvent) {
+	function handleOutsideClick(event: MouseEvent): void {
 		if (event.target === event.currentTarget) {
 			onClose();
 			showStyles = false;
 		}
 	}
 
-	function handleOverlayClick(event: MouseEvent) {
+	function handleOverlayClick(event: MouseEvent): void {
 		if (event.target === event.currentTarget) {
 			showStyles = false;
 		}
 	}
 
-	async function logout() {
+	async function logout(): Promise<void> {
 		try {
-			await pb.authStore.clear();
-			currentUser.set(null);
+			await signOut();
 			dispatch('logout');
 			onClose();
 		} catch (err) {
@@ -119,7 +162,7 @@
 		}
 	}
 
-	async function handleLanguageChange() {
+	async function handleLanguageChange(): Promise<void> {
 		showLanguageNotification = true;
 
 		const currentLang = $currentLanguage;
@@ -140,7 +183,7 @@
 		}, 600);
 	}
 
-	async function handleStyleChange(event: CustomEvent) {
+	async function handleStyleChange(event: CustomEvent): Promise<void> {
 		const { style } = event.detail;
 		await currentTheme.set(style);
 		showStyles = false;
@@ -148,12 +191,150 @@
 
 	$: placeholderText = getRandomQuote();
 
-	onMount(() => {
-		currentTheme.initialize(); // Initialize theme when profile mounts
-		return currentTheme.subscribe((theme) => {
-			document.documentElement.className = theme;
-		});
-	});
+	// Function to get avatar URL safely
+	function getAvatarUrl(user: any): string {
+		if (!user) return '';
+		
+		// If avatarUrl is already provided (e.g., from social login)
+		if (user.avatarUrl) return user.avatarUrl;
+		
+		// For PocketBase avatars
+		if (user.avatar) {
+		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+		}
+		
+		// Fallback - no avatar
+		return '';
+	}
+
+	
+		async function loadUserStats(): Promise<void> {
+		try {
+			if (user && user.id) {
+			// Refresh user data to ensure we have the latest
+			const refreshedUser = await getUserById(user.id);
+			if (refreshedUser) {
+				// Preserve the avatar URL if it already exists
+				const existingAvatarUrl = user.avatarUrl;
+				
+				// Update user data
+				user = refreshedUser;
+				editedUser = { ...refreshedUser };
+				
+				// Restore or set avatar URL
+				if (existingAvatarUrl) {
+				user.avatarUrl = existingAvatarUrl;
+				} else if (user.avatar) {
+				user.avatarUrl = getAvatarUrl(user);
+				}
+				
+				// Set some mock stats for now
+				threadCount = 5;
+				messageCount = 42;
+				tagCount = 12;
+				timerCount = 3;
+				lastActive = user.updated ? new Date(user.updated) : new Date();
+			}
+			}
+		} catch (error) {
+			console.error("Error loading user data:", error);
+		}
+}
+
+async function fetchCompleteUserData(userId: string): Promise<UserData> {
+  try {
+    isLoading = true;
+    const response = await fetch(`/api/verify/users/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch user data');
+    const data = await response.json();
+    
+    // Merge with basic user data
+    const completeUser = await getUserById(userId);
+    
+    return {
+      ...completeUser,
+      ...data.user,
+      // Ensure critical fields are always set
+      name: data.user?.name || completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
+      username: data.user?.username || completeUser?.username || completeUser?.email?.split('@')[0] || '',
+      description: data.user?.description || completeUser?.description || ''
+    };
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    return {
+      id: userId,
+      name: '',
+      username: '',
+      description: ''
+    };
+  } finally {
+    isLoading = false;
+  }
+}
+
+$: if (user?.id) {
+  isLoading = true;
+  fetchCompleteUserData(user.id).then(data => {
+    completeUserData = data;
+    editedUser = {
+      name: data.name,
+      username: data.username,
+      description: data.description
+    };
+    isLoading = false;
+  });
+}
+
+$: displayUser = completeUserData || user;
+  
+  // Helper function to safely format dates
+  function formatDate(dateString?: string): string {
+    if (!dateString) return 'Not available';
+    
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
+    }
+  }
+  onMount(async () => {
+  if (user?.id) {
+    try {
+      isLoading = true;
+      
+      // Fetch complete user data in parallel
+      const [completeUser, verifiedData] = await Promise.all([
+        getUserById(user.id),
+        fetchCompleteUserData(user.id)
+      ]);
+
+      // Merge all data sources
+      user = {
+        ...user,
+        ...completeUser,
+        ...verifiedData?.user || {},
+        name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
+        username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
+        description: completeUser?.description || ''
+      };
+
+      // Initialize editedUser
+      editedUser = {
+        name: user.name,
+        username: user.username,
+        description: user.description
+      };
+
+      currentTheme.initialize();
+      await loadUserStats();
+    } catch (err) {
+      console.error("Failed to load user data:", err);
+    } finally {
+      isLoading = false;
+    }
+  }
+});
 </script>
 
 <div
@@ -178,13 +359,15 @@
 					{:else}
 						<button class="settings-button" on:click={toggleEdit}>
 							<Pen/>
-							<span>{$t('profile.edit')}</span>
+							<span class="hover">{$t('profile.edit')}</span>
 						</button>
 					{/if}
 	
 					<button class="settings-button" on:click={handleLanguageChange}>
 						<Languages size={24} />
 						<span>{$t('lang.flag')}</span>
+						<span class="hover">{$t('profile.language')}</span>
+
 					</button>
 					<button
 						class="settings-button"
@@ -192,15 +375,17 @@
 						transition:fly={{ y: -200, duration: 300 }}
 					>
 						<svelte:component
-							this={styles.find((s) => s.value === currentStyle)?.icon || Sun}
+							this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
 							size={24}
 						/>
+						<span class="hover">{$t('profile.theme')}</span>
+
 					</button>
 				</div>
 				
 				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 					<LogOutIcon size={24} />
-					<span>{$t('profile.logout')}</span>
+					<span class="hover">{$t('profile.logout')}</span>
 				</button>
 			</div>
 		</div>
@@ -213,7 +398,7 @@
 		>
 			<div
 				class="style-content"
-				on:click={handleOverlayClick}
+				on:click|stopPropagation
 				transition:fly={{ x: -20, duration: 300 }}
 			>
 				<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
@@ -226,28 +411,38 @@
 				<div class="info-column">
 					<div class="header-wrapper">
 						<div class="avatar-container">
-							{#if user.avatar}
-								<img src={pb.getFileUrl(user, user.avatar)} alt="User avatar" class="avatar" />
+							{#if getAvatarUrl($currentUser)}
+							<img 
+								src={getAvatarUrl($currentUser)}
+								alt="User avatar" 
+								class="avatar" 
+							/>
 							{:else}
-								<div class="avatar-placeholder">
-									<Camera size={48} />
+								<div class="default-avatar">
+									{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
 								</div>
 							{/if}
 						</div>
 						<div class="info-row">
 							{#if isEditing}
-								<input bind:value={editedUser.name} />
+							  <input 
+								value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
+								on:input={(e) => editedUser.name = e.target.value}
+							  />
 							{:else}
-								<span class="name">{user.name || 'Not set'}</span>
+							  <span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
 							{/if}
-						</div>
-						<div class="info-row">
+						  </div>
+						  <div class="info-row">
 							{#if isEditing}
-								<input bind:value={editedUser.username} />
+							  <input 
+								value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
+								on:input={(e) => editedUser.username = e.target.value}
+							  />
 							{:else}
-								<span class="username">{user.username || 'Not set'}</span>
+							  <span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
 							{/if}
-						</div>
+						  </div>
 					</div>
 				</div>
 				<div class="info-stats">
@@ -298,80 +493,117 @@
 				<!-- Tab Content -->
 				<div class="tab-content">
 					{#if activeTab === 'profile'}
-						<div class="profile-info" transition:fade={{ duration: 200 }}>
-							<div class="info-row-profile">
-								{#if isEditing}
-									<textarea class="textarea-description" bind:value={editedUser.description}></textarea>
-								{:else}
-									<span class="description">{user.description || 'Not set'}</span>
+					<div class="profile-info" transition:fade={{ duration: 200 }}>
+						{#if isLoading}
+						  <div class="spinner-container">
+							<div class="spinner"></div>
+						  </div>
+						{:else}
+						  <div class="info-row-profile">
+							{#if isEditing}
+							  <textarea 
+								class="textarea-description" 
+								bind:value={editedUser.description}
+								placeholder="Enter your description"
+							  ></textarea>
+							{:else}
+							  <span class="description">
+								{displayUser?.description || $t('profile.not_set')}
+							  </span>
+							{/if}
+						  </div>
+					  
+						  <!-- <div class="selector-row">
+							<button class="selector-button">
+							  <MessageCirclePlus/>
+							  {$t('profile.message')}
+							</button>
+							<button class="selector-button">
+							  <Group/>
+							  {$t('profile.connect')}
+							</button>
+							<button class="selector-button" disabled>
+							  <UserCircle/>
+							</button>
+							<button class="selector-button" disabled>
+							  <Mail/>
+							</button>
+						  </div> -->
+					  
+						  <!-- Email -->
+						  <div class="info-column">
+							<div class="info-row">
+							  <span class="label">
+								<span class="data">{$t('profile.email')}</span>
+							  </span>
+							  <span class="meta">
+								{displayUser?.email || $t('profile.not_available')}
+								{#if displayUser?.verified}
+								  <!-- <MailCheck size={16} class="verified-icon" /> -->
 								{/if}
+							  </span>
 							</div>
-							<div class="selector-row">
-								
-								<button class="selector-button">
-									<MessageCirclePlus/>
-									Message
-								</button>
-								<button class="selector-button">
-									<Group/>
-									Connect
-								</button>
-								<button class="selector-button">
-									x
-								</button>
-								<button class="selector-button">
-									x
-								</button>
+							<span class="info-avatar">
+							  <Mail size={50}/>
+							</span>
+						  </div>
+					  
+						  <!-- Role -->
+						  <div class="info-column">  
+							<div class="info-row">
+							  <span class="label">
+								<span class="data">{$t('profile.role')}</span>
+							  </span>
+							  <span class="meta">
+								{displayUser?.role || $t('profile.not_available')}
+							</span>
 							</div>
+							<KeyIcon size={50}/>
+						  </div>
+					  
+						  <!-- Created Date -->
+						  <div class="info-column">  
+							<div class="info-row">
+							  <span class="label">
+								<span class="data">{$t('profile.created')}</span>
+							  </span>
+							  <span class="meta">
+								{displayUser?.created ? formatDate(displayUser.created) : $t('profile.not_available')}
+							  </span>
+							</div>
+							<Cake size={50}/>
+						  </div>
+					  
+						  <!-- Updated Date -->
+						  <div class="info-column">  
+							<div class="info-row">
+							  <span class="label">
+								<span class="data">{$t('profile.updated')}</span>
+							  </span>
+							  <span class="meta">
+								{user?.updated ? formatDate(user.updated) : $t('profile.not_available')}
+							  </span>
+							</div>
+							<History size={50}/>
+						  </div>
+					  
+						  <!-- Verified Status -->
+						  <div class="info-column">  
+							<div class="info-row">
+							  <span class="label">
+								<span class="data">{$t('profile.verified')}</span>
+							  </span>
+							  <span class="meta">
+								<span class={displayUser?.verified ? 'verified' : 'not-verified'}>
+									{displayUser?.verified ? $t('profile.yes') : $t('profile.no')}
+								  </span>
+							  </span>
 
-							<div class="info-column">
-								<div class="info-row">
-									<span class="label">
-										<span class="data">{$t('profile.email')}</span>
-									</span>
-									<span>{user.email}</span>
-								</div>
-								<span class="info-avatar">
-									@
-								</span>
-							</div>			
-							<div class="info-column">	
-								<div class="info-row">
-									<span class="label">
-										<span class="data">{$t('profile.role')}</span>
-									</span>
-									<span>{user.role}</span>
-								</div>
-								<KeyIcon size="50"/>
-							</div>	
-							<div class="info-column">	
-								<div class="info-row">
-									<span class="label">
-										<span class="data">{$t('profile.created')}</span>
-									</span>
-									<span>{new Date(user.created).toLocaleString()}</span>
-								</div>
-								<Cake size="50"/>
-							</div>	
-							<div class="info-column">	
-								<div class="info-row">
-									<span class="label">
-										<span class="data">{$t('profile.updated')}</span>
-									</span>
-									<span>{new Date(user.updated).toLocaleString()}</span>
-								</div>
-								<History size="50"/>
-							</div>	
-							<div class="info-column">	
-								<div class="info-row">
-									<span class="label">
-										<span class="data">{$t('profile.verified')}</span>
-									</span>
-									<span>{user.verified ? 'Yes' : 'No'}</span>
-								</div>
-								<Shield size="50"/>
-							</div>	
-						</div>
+							</div>
+							<Shield size={50}/>
+						  </div>
+						{/if}
+					  </div>
 					{:else if activeTab === 'stats'}
 						<div class="stats-tab" transition:fade={{ duration: 200 }}>
 							<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
@@ -423,13 +655,16 @@
 	}
 	.modal-overlay {
 		display: flex;
-		justify-content: flex-start;
+		justify-content: flex-end;
 		align-items: flex-start;
 		padding: 2rem;
-		width: calc(100% - 6rem);
-		height: 90vh;
+		width: auto;
+		height: 80vh;
 		border-radius: 20px;
 		overflow-y: scroll;
+		overflow-x: hidden;
+		scroll-behavior: smooth;
+		scrollbar-color: var(--bg-color) transparent;
 		transition: all 0.3s ease;
 	}
 
@@ -449,6 +684,7 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
+
 	}
 
 
@@ -466,7 +702,35 @@
 	}
 
 
+	textarea {
+		width: auto !important;
+		background: var(--secondary-color) !important;
+		border: 1px solid transparent;
+		outline: none !important;
+		&:focus {
+			background: var(--primary-color) !important;
+			border: 1px solid var(--secondary-color);
+		}
+	}
+	input {
+		background: var(--secondary-color) !important;
+		border-radius: var(--radius-m);
+		padding: 1rem;
+		font-size: 1.5rem;
+		resize: vertical;
+		width: auto;;
+		display: flex;
+		height: auto;
+		outline: none !important;
+		border: 1px solid transparent;
+		transition: all 0.3s ease;
 
+		&:focus {
+			background: var(--primary-color) !important;
+			border: 1px solid var(--secondary-color);
+
+		}
+	}
 	.profile-header {
 		display: flex;
 		flex-direction: row;
@@ -498,16 +762,9 @@
 			max-width: 800px;
 			width: 100%;
 
-			input {
-				background: var(--primary-color);
-				border-radius: var(--radius-m);
-				padding: 1rem;
-				font-size: 1.5rem;
-				resize: vertical;
-				width: auto;;
-				display: flex;
-				height: auto;
-			}
+
+
+			
 		}
 		.info-stats {
 			display: flex;
@@ -648,7 +905,7 @@
 			justify-content: space-between;
 			align-items: center;
 			height: 100%;
-			width: 100%;
+			width: calc(100% - 2rem);
 			padding: 1rem;
 			background: var(--primary-color);
 			border-radius: 1rem;
@@ -692,6 +949,8 @@
 		}
 	}
 
+
+
 	span.info-avatar {
 		font-size: 3rem;
 	}
@@ -712,6 +971,7 @@
 		font-size: 1rem;
 		line-height: 1.5;
 		letter-spacing: 0.2rem;
+		text-align: justify;
 	}
 	
 	.info-row {
@@ -735,14 +995,23 @@
 			min-width: 300px;
 		}
 	}
-
+	span.meta {
+		padding-inline-start: 1rem;
+	}
 	.label {
 		font-weight:300;
-		font-size: 1.1rem;
-		letter-spacing: 0.1rem;
-		width: 100px;
+		font-size: 1rem;
+		letter-spacing: 0.3rem;
+		width: auto;
 		user-select: none;
+
+
+
+		& span.data {
+			color: var(--placeholder-color);
+		}
 	}
+
 
 	.save-confirmation {
 		position: fixed;
@@ -764,20 +1033,29 @@
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
 		border-radius: 20px;
-		min-width: 120px;
 		width: auto;
 		height: 60px;
 		background: var(--secondary-color);
 		opacity: 0.5;
 		border: 1px solid var(--border-color);
 		color: var(--text-color);
-		transition: all 0.2s ease;
+		transition: all 0.3s ease;
+
+		span.hover {
+			display: none;
+			
+		}
 
 		&:hover {
 			transform: translateY(-4px);
 			background: red;
 			box-shadow: 0 4px 6px rgba(255, 0, 0, 0.5);
 			font-weight: bold;
+			opacity: 1;
+			min-width: 8rem;
+			span.hover {
+				display: flex;
+			}
 		}
 
 		span {
@@ -807,14 +1085,41 @@
 		border: 1px solid var(--border-color);
 		color: var(--text-color);
 		transition: all 0.2s ease;
+		opacity: 0.5;
 
+		& span.hover {
+			display: none;
+		}
+		
 		&:hover {
 			transform: translateY(-4px);
 			box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2);
+			opacity: 1;
+			& span.hover {
+				display: flex;
+			}
+			& span {
+				font-size: 0.9rem;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: 0.5rem;
+				margin: 0;
+				color: var(--tertiary-color);
+				padding: 0;
+
+			}
 		}
 
 		span {
 			font-size: 0.9rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: 0.5rem;
+			margin: 0;
+			padding: 0;
+
 		}
 	}
 

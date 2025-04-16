@@ -1,5 +1,5 @@
 // Svelte component where you add a new message
-import { pb } from '$lib/pocketbase'; // assuming pb is set up as your PocketBase instance
+import {  } from '$lib/pocketbase'; // assuming pb is set up as your PocketBase instance
 
 async function addMessageToThread(message: Omit<Messages, 'id' | 'created' | 'updated'>) {
 	try {

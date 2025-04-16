@@ -4,7 +4,7 @@
 	import { currentLanguage } from '$lib/stores/languageStore';
 	import AIChat from '$lib/components/ai/AIChat.svelte';
 	import { quintOut } from 'svelte/easing';
-	import { pb, currentUser } from '$lib/pocketbase';
+	import {  currentUser } from '$lib/pocketbase';
 
 	import { networkStore } from '$lib/stores/networkStore';
 	import { threadsStore } from '$lib/stores/threadsStore';

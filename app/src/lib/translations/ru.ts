@@ -318,7 +318,11 @@ export default {
 		join: 'Подписаться',
 		projects: 'Проекты',
 		posts: 'Публикации',
-		connections: 'Связи'
+		connections: 'Связи',
+		yes: "Дв",
+		no: "Нет",
+		language: "Языки",
+		theme: "Темы"
 	},
 	thinkingPhrases: [
 		'Мысль - начало всего...', // "Thought is the beginning of everything..." - Tolstoy

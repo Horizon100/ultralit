@@ -1,7 +1,7 @@
 import type { Scenario, Task, RoleType, PromptType, NetworkData, AIAgent } from '$lib/types/types';
 import { t } from '$lib/stores/translationStore';
 import { get } from 'svelte/store';
-import { getPromptText } from '$lib/chat/promptHandlers';
+import { getPromptText } from '$lib/utils/promptHandlers';
 
 type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 

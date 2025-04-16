@@ -1,43 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { promptInputStore } from '$lib/stores/promptInputStore';
-	import { createPrompt, deletePrompt, fetchUserPrompts } from '$lib/clients/promptInputClient';
+	import { createPrompt, deletePrompt, updatePrompt } from '$lib/clients/promptInputClient';
 	import { slide } from 'svelte/transition';
 	import type { PromptInput as PromptInputType } from '$lib/types/types';
+	import Calendar from '../ui/Calendar.svelte';
+	import { CalendarCheck, Pen, RefreshCcw, Trash2 } from 'lucide-svelte';
 	
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
 	let error = '';
 	let showInputForm = false;
+	let editingPromptId: string | null = null;
 	let promptText = '';
 	let isSubmitting = false;
-	
-	// Initialize store if needed
-	if (!promptInputStore) {
-		function createPromptInputStore() {
-			const { subscribe, update, set } = writable<PromptInputType[]>([]);
-			
-			return {
-				subscribe,
-				setPrompts: (prompts: PromptInputType[]) => set(prompts),
-				addPrompt: (prompt: PromptInputType) => update(prompts => [...prompts, prompt]),
-				removePrompt: (id: string) => update(prompts => prompts.filter(p => p.id !== id)),
-				updatePrompt: (id: string, updatedPrompt: Partial<PromptInputType>) => update(prompts => 
-					prompts.map(p => p.id === id ? { ...p, ...updatedPrompt } : p)
-				),
-				loadPrompts: async () => {
-					try {
-						const userPrompts = await fetchUserPrompts();
-						set(userPrompts);
-						return userPrompts;
-					} catch (error) {
-						console.error('Failed to load prompts:', error);
-						return [];
-					}
-				}
-			};
-		}
-	}
 	
 	// Subscribe to the store
 	const unsubscribe = promptInputStore.subscribe(value => {
@@ -47,6 +23,69 @@
 		}
 	});
 	
+
+	
+	async function handleSubmit() {
+		if (!promptText.trim()) {
+			error = 'Prompt cannot be empty';
+			return;
+		}
+		
+		isSubmitting = true;
+		error = '';
+		
+		try {
+			if (editingPromptId) {
+				// Update existing prompt
+				const updatedPrompt = await updatePrompt(editingPromptId, promptText);
+				promptInputStore.updatePrompt(editingPromptId, updatedPrompt);
+				editingPromptId = null;
+			} else {
+				// Create new prompt
+				const newPrompt = await createPrompt(promptText);
+				promptInputStore.addPrompt(newPrompt);
+			}
+			
+			promptText = '';
+			showInputForm = false;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save prompt';
+		} finally {
+			isSubmitting = false;
+		}
+	}
+	
+	function handleEdit(prompt: PromptInputType) {
+		editingPromptId = prompt.id;
+		promptText = prompt.prompt;
+		showInputForm = true;
+		error = '';
+	}
+	
+	async function handleDelete(id: string) {
+		if (confirm('Are you sure you want to delete this prompt?')) {
+			try {
+				// Add debug information
+				console.log(`Deleting prompt with ID: ${id}`);
+				
+				const success = await deletePrompt(id);
+				
+				if (success) {
+					promptInputStore.removePrompt(id);
+					console.log(`Successfully deleted prompt with ID: ${id}`);
+				} else {
+					throw new Error('Server returned unsuccessful status');
+				}
+			} catch (err) {
+				error = err instanceof Error ? err.message : 'Failed to delete prompt';
+				console.error(`Error in handleDelete: ${error}`);
+			}
+		}
+	}
+	
+	function clearError() {
+		error = '';
+	}
 	onMount(async () => {
 		try {
 			await promptInputStore.loadPrompts();
@@ -60,52 +99,12 @@
 			unsubscribe();
 		};
 	});
-	
-	async function handleSubmit() {
-		if (!promptText.trim()) {
-			error = 'Prompt cannot be empty';
-			return;
-		}
-		
-		isSubmitting = true;
-		error = '';
-		
-		try {
-			const newPrompt = await createPrompt(promptText);
-			promptInputStore.addPrompt(newPrompt);
-			promptText = '';
-			showInputForm = false;
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to create prompt';
-		} finally {
-			isSubmitting = false;
-		}
-	}
-	
-	async function handleDelete(id: string) {
-		if (confirm('Are you sure you want to delete this prompt?')) {
-			try {
-				const success = await deletePrompt(id);
-				if (success) {
-					promptInputStore.removePrompt(id);
-				}
-			} catch (err) {
-				error = err instanceof Error ? err.message : 'Failed to delete prompt';
-			}
-		}
-	}
 </script>
 
 <div class="prompt-container">
-	<div class="header-row">
-		<h2>Your Prompts</h2>
-		{#if !showInputForm}
-			<button class="add-button" on:click={() => showInputForm = true}>
-				Add New Prompt
-			</button>
-		{/if}
-	</div>
-	
+
+
+
 	{#if showInputForm}
 		<div class="input-form" transition:slide={{ duration: 300 }}>
 			<textarea
@@ -137,35 +136,60 @@
 					on:click={handleSubmit} 
 					disabled={isSubmitting || !promptText.trim()}
 				>
-					{isSubmitting ? 'Adding...' : 'Add Prompt'}
+					{#if isSubmitting}
+						{editingPromptId ? 'Updating...' : 'Adding...'}
+					{:else}
+						{editingPromptId ? 'Update Prompt' : 'Add Prompt'}
+					{/if}
 				</button>
 			</div>
 		</div>
 	{/if}
 	
 	{#if isLoading}
-		<div class="loading">Loading prompts...</div>
+		<div class="spinner-container">
+			<div class="spinner"></div>
+		</div>
 	{:else if prompts.length === 0}
 		<div class="empty-state">You haven't created any prompts yet.</div>
 	{:else}
+	<div class="header-row">
+		<h2>{editingPromptId ? 'Edit Prompt' : 'Your Prompts'}</h2>
+		<button  class="add-button" on:click={() => {
+			if (showInputForm && editingPromptId) {
+				// Cancel editing
+				editingPromptId = null;
+				promptText = '';
+			}
+			showInputForm = !showInputForm;
+		}}>
+			{showInputForm ? 'X' : 'Add New Prompt'}
+		</button>
+	</div>
 		<ul class="prompt-list">
 			{#each prompts as prompt (prompt.id)}
 				<li class="prompt-item" transition:slide={{ duration: 300 }}>
 					<div class="prompt-content">
 						<p class="prompt-text">{prompt.prompt}</p>
+						
 						<div class="prompt-meta">
 							<span class="prompt-date">
-								Created: {new Date(prompt.created).toLocaleDateString()} 
+								<CalendarCheck size={16} class="icon" />
+								{new Date(prompt.created).toLocaleDateString()} 
 							</span>
 							{#if prompt.updated !== prompt.created}
 								<span class="prompt-date">
-									Updated: {new Date(prompt.updated).toLocaleDateString()}
+									<RefreshCcw size={16} class="icon" />
+									{new Date(prompt.updated).toLocaleDateString()}
 								</span>
 							{/if}
 						</div>
 					</div>
+					<button class="edit-button" on:click={() => handleEdit(prompt)}>
+						<Pen size="16"/>
+					</button>
 					<button class="delete-button" on:click={() => handleDelete(prompt.id)}>
-						Delete
+						<Trash2 size="16"/>
 					</button>
 				</li>
 			{/each}
@@ -174,11 +198,12 @@
 </div>
 
 <style lang="scss">
+		@use "src/styles/themes.scss" as *;
+
 	.prompt-container {
 		width: 100%;
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: 1rem;
 	}
 	
 	.header-row {
@@ -213,15 +238,21 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		margin-bottom: 1.5rem;
-		padding: 1rem;
-		border-radius: var(--radius-m);
-		background: var(--bg-gradient);
+		// padding: 1rem;
+		width: calc(100%);
+		margin-top: 1rem;
+		background: var(--primary-color);
 		border: 1px solid var(--primary-color);
+		border-top-left-radius: 2rem;
+		border-top-right-radius: 2rem;
+
+		& textarea {
+			background: var(--bg-color);
+		}
 	}
 	
 	.prompt-textarea {
-		width: calc(100% - 2rem);
+		width: auto;
 
 		border-radius: var(--radius-m);
 		border: 1px solid transparent;
@@ -323,7 +354,10 @@
 		overflow-x: hidden;
 		height: 400px;
 		width: 100%;
+		border-radius: 1rem;
 		gap: 0;
+		background-color: rgba(255, 255, 255, 0.1);
+		backdrop-filter: blur(10px);
 	}
 	
 	.prompt-item {
@@ -332,8 +366,18 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		border: 1px solid var(--primary-color);
+		border-bottom: 1px solid var(--primary-color);
+		background: transparent;
 		border-radius: 0;
+
+		&:hover {
+			background: var(--primary-color);
+			transform: none;
+
+			& .prompt-meta {
+				display: flex;
+			}
+		}
 	}
 	
 	.prompt-content {
@@ -351,27 +395,12 @@
 		font-size: 0.8rem;
 		color: var(--text-color);
 		opacity: 0.7;
-		display: flex;
+		display: none;
+		justify-content: flex-end;
 		gap: 1rem;
 	}
 	
-	.delete-button {
-		background: transparent;
-		color: #e74c3c;
-		border: 1px solid #e74c3c;
-		border-radius: var(--radius-m);
-		padding: 0.25rem 0.5rem;
-		cursor: pointer;
-		font-size: 0.8rem;
-		margin-left: 1rem;
-		transition: all 0.3s ease;
-		align-self: flex-start;
-		
-		&:hover {
-			background: #e74c3c;
-			color: white;
-		}
-	}
+
 	
 	@media (max-width: 768px) {
 		.header-row {

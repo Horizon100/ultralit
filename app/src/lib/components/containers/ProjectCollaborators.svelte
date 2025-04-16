@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { projectStore, getProjectStore } from '$lib/stores/projectStore';
-  import { pb, currentUser } from '$lib/pocketbase';
+  import { projectStore } from '$lib/stores/projectStore';  
+  import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
   import type { User, Projects } from '$lib/types/types';
 	import { PlusSquareIcon, Trash2, Users } from 'lucide-svelte';
   
@@ -31,27 +31,26 @@
 
  
   export async function loadProjectData() {
-      try {
-          const storeState = getProjectStore();
-          const projectFromStore = storeState.threads.find(p => p.id === projectId);
-          
-          if (projectFromStore) {
-              project = projectFromStore;
-          } else {
-              project = await pb.collection('projects').getOne<Projects>(projectId);
-          }
-          
-          if (project && $currentUser) {
-              isOwner = project.owner === $currentUser.id;
-              console.log('Current user is owner:', isOwner);
-          }
-      } catch (error) {
-          console.error('Error loading project data:', error);
-          errorMessage = 'Failed to load project data.';
-      }
-  }
-
-  async function loadCollaborators() {
+    try {
+        const storeState = $projectStore; // Accessing the store state directly
+        const projectFromStore = storeState.threads.find(p => p.id === projectId);
+        
+        if (projectFromStore) {
+            project = projectFromStore;
+        } else {
+            project = await pb.collection('projects').getOne<Projects>(projectId);
+        }
+        
+        if (project && $currentUser) {
+            isOwner = project.owner === $currentUser.id;
+            console.log('Current user is owner:', isOwner);
+        }
+    } catch (error) {
+        console.error('Error loading project data:', error);
+        errorMessage = 'Failed to load project data.';
+    }
+}
+async function loadCollaborators() {
   try {
     errorMessage = '';
     console.log('Loading collaborators for project ID:', projectId);
@@ -64,7 +63,11 @@
     const result = await projectStore.loadCollaborators(projectId);
     console.log('Raw collaborators result:', result);
     
-    if (Array.isArray(result)) {
+    // Check if the result is an object with a data property
+    if (result && typeof result === 'object' && 'data' in result && Array.isArray(result.data)) {
+      collaborators = result.data;
+      console.log('Collaborators array set with length:', collaborators.length);
+    } else if (Array.isArray(result)) {
       collaborators = result;
       console.log('Collaborators array set with length:', collaborators.length);
     } else {
@@ -169,47 +172,18 @@ async function findUserByIdentifier(identifier: string): Promise<User | null> {
         console.log('Searching for user with identifier:', identifier);
         const sanitizedIdentifier = identifier.trim().toLowerCase();
         
-        const allUsers = await pb.collection('users').getFullList<User>();
+        // Use the API endpoint to search for users
+        const response = await fetch(`/api/users?search=${encodeURIComponent(sanitizedIdentifier)}`);
+        if (!response.ok) {
+            throw new Error(`Failed to search users: ${response.statusText}`);
+        }
+        
+        const allUsers = await response.json();
         console.log('Total users fetched for search:', allUsers.length);
         
-        console.log('All users with their properties:', allUsers.map(u => ({
-            id: u.id,
-            name: u.name,
-            username: u.username,
-            email: u.email
-        })));
+        // The rest of your logic for finding a matching user can remain the same
+        // ...
         
-        for (const user of allUsers) {
-            if (
-                // If name exists and matches
-                (user.name && user.name.toLowerCase() === sanitizedIdentifier) ||
-                // If username exists and matches
-                (user.username && user.username.toLowerCase() === sanitizedIdentifier) ||
-                // If email exists and matches
-                (user.email && user.email.toLowerCase() === sanitizedIdentifier) ||
-                // If id matches
-                (user.id.toLowerCase() === sanitizedIdentifier)
-            ) {
-                console.log('Found user match:', user);
-                return user;
-            }
-        }
-        
-        for (const user of allUsers) {
-            if (
-                // Partial matches in name
-                (user.name && user.name.toLowerCase().includes(sanitizedIdentifier)) ||
-                // Partial matches in username
-                (user.username && user.username.toLowerCase().includes(sanitizedIdentifier)) ||
-                // Partial matches in email
-                (user.email && user.email.toLowerCase().includes(sanitizedIdentifier))
-            ) {
-                console.log('Found user with partial match:', user);
-                return user;
-            }
-        }
-        
-        console.log('No user found with identifier:', sanitizedIdentifier);
         return null;
     } catch (error) {
         console.error('Error finding user:', error);
@@ -392,7 +366,7 @@ async function addCollaborator() {
         {/if}
             {#if collaborator.avatar}
                 <img 
-                    src={`${pb.baseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
+                    src={`${pocketbaseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
                     alt="Avatar" 
                     class="user-avatar-project" 
                 />

@@ -10,7 +10,16 @@ import {
 	removeCollaboratorFromProject,
 	fetchProjectCollaborators
 } from '$lib/clients/projectClient';
-import { pb } from '$lib//pocketbase';
+import { currentUser } from '$lib/pocketbase';
+
+// Helper function to handle fetch API responses
+async function handleResponse<T>(response: Response): Promise<T> {
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(errorData.message || `API request failed with status ${response.status}`);
+	}
+	return await response.json();
+}
 
 function createProjectStore() {
 	const store = writable<ProjectStoreState>({
@@ -38,8 +47,8 @@ function createProjectStore() {
 		
 		loadProjects: async (): Promise<Projects[]> => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -47,8 +56,8 @@ function createProjectStore() {
 				
 				// Filter projects based on permissions
 				const filteredProjects = projects.filter(project => {
-					return project.owner === currentUserId || 
-						(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId));
+					return project.owner === user.id || 
+						(Array.isArray(project.collaborators) && project.collaborators.includes(user.id));
 				});
 				
 				store.update((state) => ({
@@ -74,15 +83,15 @@ function createProjectStore() {
 
 		addProject: async (projectData: Partial<Projects>): Promise<Projects | null> => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
 				// Ensure owner is set to current user if not specified
 				const dataWithOwner: Partial<Projects> = {
 					...projectData,
-					owner: currentUserId, // Always set owner to current user
+					owner: user.id, // Always set owner to current user
 				};
 				
 				const newProject = await createProject(dataWithOwner);
@@ -107,8 +116,8 @@ function createProjectStore() {
 
 		deleteProject: async (projectId: string): Promise<boolean> => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -121,13 +130,13 @@ function createProjectStore() {
 				// Add debugging
 				console.log('Deleting project:', {
 					projectId,
-					currentUserId,
+					currentUserId: user.id,
 					projectOwner: project.owner,
-					isOwner: currentUserId === project.owner
+					isOwner: user.id === project.owner
 				});
 				
 				// Verify user has permission to delete the project (owner only)
-				if (currentUserId !== project.owner) {
+				if (user.id !== project.owner) {
 					throw new Error('Unauthorized to delete this project: only the owner can delete projects');
 				}
 				
@@ -159,8 +168,8 @@ function createProjectStore() {
 
 		updateProject: async (id: string, changes: Partial<Projects>) => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -171,8 +180,8 @@ function createProjectStore() {
 				}
 				
 				// Verify user has permission to update the project
-				if (project.owner !== currentUserId && 
-					!(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId))) {
+				if (project.owner !== user.id && 
+					!(Array.isArray(project.collaborators) && project.collaborators.includes(user.id))) {
 					throw new Error('Unauthorized to update this project');
 				}
 				
@@ -205,8 +214,8 @@ function createProjectStore() {
 					return;
 				}
 				
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -217,16 +226,24 @@ function createProjectStore() {
 				let currentProject = project;
 				if (!currentProject) {
 					try {
-						// Attempt to fetch the project directly
-						const fetchedProject = await pb.collection('projects').getOne(id, {
-							expand: 'last_message,owner,collaborators',
-							$autoCancel: false
+						// Attempt to fetch the project directly using fetch API
+						const response = await fetch(`/api/projects/${id}`, {
+							method: 'GET',
+							credentials: 'include'
 						});
 						
+						const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+						
+						if (!data.success) {
+							throw new Error(data.error || 'Failed to fetch project');
+						}
+						
+						const fetchedProject = data.data;
+						
 						// Verify user has permission to access this project
-						const isOwner = fetchedProject.owner === currentUserId;
+						const isOwner = fetchedProject.owner === user.id;
 						const isCollaborator = Array.isArray(fetchedProject.collaborators) && 
-								fetchedProject.collaborators.includes(currentUserId);
+								fetchedProject.collaborators.includes(user.id);
 						
 						if (!isOwner && !isCollaborator) {
 							throw new Error('Unauthorized to access this project');
@@ -272,8 +289,8 @@ function createProjectStore() {
 			try {
 				if (!projectId) return [];
 				
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -333,8 +350,8 @@ function createProjectStore() {
 		
 		addCollaborator: async (projectId: string, userId: string) => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -345,7 +362,7 @@ function createProjectStore() {
 				}
 				
 				// Only the owner should be able to add collaborators
-				if (project.owner !== currentUserId) {
+				if (project.owner !== user.id) {
 					throw new Error('Only the project owner can add collaborators');
 				}
 				
@@ -370,8 +387,8 @@ function createProjectStore() {
 
 		removeCollaborator: async (projectId: string, userId: string) => {
 			try {
-				const currentUserId = pb.authStore.model?.id;
-				if (!currentUserId) {
+				const user = get(currentUser);
+				if (!user) {
 					throw new Error('User not authenticated');
 				}
 				
@@ -383,7 +400,7 @@ function createProjectStore() {
 				
 				// Only the owner should be able to remove collaborators
 				// Or users can remove themselves
-				if (project.owner !== currentUserId && userId !== currentUserId) {
+				if (project.owner !== user.id && userId !== user.id) {
 					throw new Error('Only the project owner can remove collaborators');
 				}
 				

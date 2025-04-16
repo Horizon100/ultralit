@@ -1,32 +1,22 @@
 <script lang="ts">
-  import { pb, currentUser, checkPocketBaseConnection, updateUser, fetchThreads } from '$lib/pocketbase';
+  import {  currentUser, checkPocketBaseConnection, updateUser, fetchThreads } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
   import { get, writable, derived } from 'svelte/store';
-  import { page } from '$app/stores';
-  import { replaceState } from '$app/navigation';
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
-  import { elasticOut, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff} from 'lucide-svelte';
+  import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink} from 'lucide-svelte';
   import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
-  import { networkStore } from '$lib/stores/networkStore';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
-  import { addCopyCodeButtons } from '$lib/utils/copyCodeAction';
-
+  import { pocketbaseUrl } from '$lib/pocketbase';
   import { messagesStore} from '$lib/stores/messagesStore';
-	import StatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
-  import ProjectStatsContainer from '$lib/components/common/cards/StatsContainer.svelte';
 
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
 	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
-  import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
   import ThreadCollaborators from '$lib/components/containers/ThreadCollaborators.svelte'
-
-  import NetworkVisualization from '$lib/components/network/NetworkVisualization.svelte';
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
-  import PromptSelector from './PromptSelector.svelte';
   // import PromptCatalog from './PromptCatalog.svelte';
     import PromptCatalog from './PromptInput.svelte';
 
@@ -41,20 +31,26 @@
   import { defaultModel, availableModels } from '$lib/constants/models';
   import Reactions from '$lib/components/common/chat/Reactions.svelte';
   import { messageCountsStore, messageCounts, getCountColor} from '$lib/stores/messageCountStore';
-  import { saveMessageAndUpdateThread, ensureValidThread } from '$lib/utils/threadManagement';
-  import { tweened } from 'svelte/motion';
   import { availablePrompts, getPrompt} from '$lib/constants/prompts';
   import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
-  import greekImage from '$lib/assets/illustrations/greek.png';
   import { processMarkdown, enhanceCodeBlocks } from '$lib/scripts/markdownProcessor';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
   import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
   import { formatDate, formatContent, getRelativeTime } from '$lib/utils/formatters';
   import { providers, type ProviderType } from '$lib/constants/providers';
-  
-  export let message: InternalChatMessage;
+	import ReferenceSelector from '$lib/components/features/ReferenceSelector.svelte';
+  import { currentCite, availableCites, type Cite } from '$lib/stores/citeStore';
+  import MessageProcessor from '$lib/contents/MessageProcessor.svelte';
 
+  interface UserProfile {
+    id: string;
+    name: string;
+    avatarUrl: string;
+  }
+  type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
+
+  export let message: InternalChatMessage;
   export let seedPrompt: string = '';
   export let additionalPrompt: string = '';
   export let aiModel: AIModel = defaultModel;
@@ -65,23 +61,24 @@
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
   export let namingThread = true;
+  let projectSubscriptionInitialized = false;
+  let activeSelection = '';
+  let messageProcessor;
+  let isTypingInProgress = false;
+
+  let isUpdatingThreadName = false;
+
+  let lastLoadedProjectId: string | null = null;
+  let isLoadingThreads = false;
   let modelInitialized = false;
-
-  interface UserProfile {
-    id: string;
-    name: string;
-    avatarUrl: string;
-  }
-
-  type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
   let userProfileCache: Map<string, UserProfile | null> = new Map();
-
   let messageSubscription: any = null;
-
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
   // let deg = 0;
   // Chat-related state
+  let isUpdatingModel = false;
+
   let messages: Messages[] = [];
   let chatMessages: InternalChatMessage[] = [];
   let userInput: string = '';
@@ -116,6 +113,7 @@
   let showPromptCatalog = false;
   let showModelSelector = false;
   let showBookmarks = false;
+  let showCites = false;
   let thinkingPhrase: string = '';
   let thinkingMessageId: string | null = null;
   let typingMessageId: string | null = null;
@@ -133,7 +131,6 @@
   let searchQuery = '';
   let currentPlaceholder = $t('chat.placeholder');
   let currentManualPlaceholder = $t('chat.manualPlaceholder');
-
   let quotedMessage: Messages | null = null;
   let expandedDates = new Set<string>();
   let isMinimized = false;
@@ -143,13 +140,11 @@
   let selectedPromptLabel = '';
   let selectedModelLabel = '';
   let scrollPercentage = 0;
-
   let threadCount = 0;
   let messageCount = 0;
   let tagCount = 0;
   let timerCount: number = 0;
   let lastActive: Date | null = null;
-
   let createHovered = false;
   let searchHovered = false;
     // Message state
@@ -169,6 +164,8 @@
   let projects: Projects[] = [];
   let currentProject: Projects | null = null;
   let currentProjectId: string | null = null;
+  let previousProjectId: string | null = null; 
+
   let isEditingProjectName = false;
   let newProjectName = '';
   let editingProjectId: string | null = null;
@@ -178,32 +175,35 @@
   let showSortOptions = false;
   let showUserFilter = false;
 
-  projectStore.subscribe((state) => {
-    currentProjectId = state.currentProjectId;
-  });
-
-  modelStore.subscribe(state => {
-  if (state.selectedModel) {
-    aiModel = state.selectedModel;
-    selectedModelLabel = aiModel.name || '';
-    console.log('Model updated from store:', aiModel);
-  } else if (!aiModel && $currentUser && modelInitialized) {
-    console.log('No model in store despite initialization, using default');
-    aiModel = defaultModel;
-    selectedModelLabel = aiModel.name || '';
+  const unsubscribeFromModel = modelStore.subscribe(state => {
+  // Skip if we're already in the middle of an update
+  if (isUpdatingModel) return;
+  
+  isUpdatingModel = true;
+  try {
+    if (state.selectedModel) {
+      // Only update if the model has actually changed
+      if (!aiModel || aiModel.id !== state.selectedModel.id) {
+        aiModel = state.selectedModel;
+        selectedModelLabel = aiModel.name || '';
+        console.log('Model updated from store:', aiModel);
+      }
+    } else if (!aiModel && $currentUser && modelInitialized) {
+      console.log('No model in store despite initialization, using default');
+      aiModel = defaultModel;
+      selectedModelLabel = aiModel.name || '';
+    }
+  } finally {
+    isUpdatingModel = false;
   }
 });
 
-$: sortOptionInfo = threadsStore.sortOptionInfo;
-$: allSortOptions = threadsStore.allSortOptions;
-$: searchedThreads = threadsStore.searchedThreads;
-$: selectedUserIds = threadsStore.selectedUserIds;
-$: availableUsers = threadsStore.availableUsers;
 
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
   models: false,
-  bookmarks: false
+  bookmarks: false,
+  cites: false,
 });
 const dispatch = createEventDispatcher();
 // const expandedGroups = writable<ExpandedGroups>({});
@@ -228,15 +228,23 @@ const defaultAIModel: AIModel = {
 	collectionName: '',
 };
 
+const sourceUrls: Record<Cite, string> = {
+    wiki: 'https://en.wikipedia.org/wiki/',
+    quora: 'https://www.quora.com/search?q=',
+    x: 'https://twitter.com/search?q=',
+    google: 'https://www.google.com/search?q=',
+    reddit: 'https://www.reddit.com/search/?q=',
+  };
+
 const isAiActive = writable(true);
-
-
 
 const handleTextareaFocus = () => {
   clearTimeout(hideTimeout);
   isTextareaFocused = true;
   showPromptCatalog = false;
   showModelSelector = false;
+  showBookmarks = false;
+  showCites = false;
   currentPlaceholder = getRandomQuote();
 
 };
@@ -275,7 +283,23 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
     models: false
   }));
 }
-
+function handleTextSelection() {
+    const selection = window.getSelection();
+    activeSelection = selection?.toString().trim() || '';
+  }
+  function handleSearchChange(event?: Event) {
+    // If called with an event, get the value from the event target
+    if (event) {
+        const target = event.target as HTMLInputElement;
+        searchQuery = target.value;
+    }
+    // Otherwise, use the current searchQuery value
+    
+    console.log('Search query changed:', searchQuery);
+    
+    // Update the threads store with the new search query
+    threadsStore.setSearchQuery(searchQuery);
+}
 function toggleAiActive() {
   isAiActive.update(value => !value);
 }
@@ -367,6 +391,85 @@ function toggleAiActive() {
     updated: message.updated
   };
 }
+
+
+async function loadProjectThreads(projectId: string): Promise<void> {
+    if (!projectId) {
+        console.warn('No project ID provided to loadProjectThreads');
+        return;
+    }
+
+    // Prevent duplicate loading of the same project in quick succession
+    if (isLoadingThreads) {
+        console.log(`Already loading threads, skipping request for project ${projectId}`);
+        return;
+    }
+
+    if (projectId === lastLoadedProjectId && $threadsStore.currentProjectId === projectId) {
+        console.log(`Project ${projectId} threads were recently loaded, skipping duplicate request`);
+        return;
+    }
+
+    isLoadingThreads = true;
+    lastLoadedProjectId = projectId;
+    
+    console.log(`Loading threads for project ${projectId}`);
+
+    // Reset thread loading state
+    threadsStore.update(state => ({
+        ...state,
+        threads: [], // Clear existing threads
+        isThreadsLoaded: false,
+        loadingError: null
+    }));
+
+    try {
+        const fetchedThreads = await fetchThreadsForProject(projectId) ?? [];
+
+        if (!Array.isArray(fetchedThreads)) {
+            throw new Error('Unexpected threads response format');
+        }
+
+        // Ensure each thread has the project_id set
+        const validatedThreads = fetchedThreads.map(thread => ({
+            ...thread,
+            project_id: thread.project_id || projectId
+        }));
+
+        threadsStore.update(state => {
+            // Apply the current search query if it exists
+            let filteredThreads = validatedThreads;
+            if (state.searchQuery) {
+                filteredThreads = validatedThreads.filter(thread => 
+                    thread.name.toLowerCase().includes(state.searchQuery.toLowerCase())
+                );
+            }
+            
+            return {
+                ...state,
+                threads: validatedThreads, // Store all threads
+                searchedThreads: filteredThreads, // Store filtered threads
+                isThreadsLoaded: true,
+                showThreadList: true,
+                currentProjectId: projectId
+            };
+        });
+
+        console.log(`Updated threadsStore with ${validatedThreads.length} threads for project ${projectId}`);
+    } catch (error) {
+        console.error(`Error loading project threads:`, error);
+        threadsStore.update(state => ({
+            ...state,
+            loadingError: error instanceof Error ? error.message : 'Failed to load threads',
+            isThreadsLoaded: true // Prevent infinite loading
+        }));
+    } finally {
+        // Reset loading state after a delay to prevent immediate reloading
+        setTimeout(() => {
+            isLoadingThreads = false;
+        }, 500); // 500ms cooldown before allowing another load
+    }
+}
 async function getUserProfile(userId: string): Promise<UserProfile | null> {
   // Check if already in cache
   if (userProfileCache.has(userId)) {
@@ -374,21 +477,31 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
   }
   
   try {
-    // First try to get user data from PocketBase
-    const userData = await pb.collection('users').getOne(userId, {
-      expand: 'profile'
+    // Use your API endpoint instead of direct PocketBase access
+    const response = await fetch(`/api/verify/users/${userId}/public`, {
+      method: 'GET',
+      credentials: 'include'
     });
     
-    if (!userData) {
+    if (!response.ok) {
       userProfileCache.set(userId, null);
       return null;
     }
+    
+    const data = await response.json();
+    
+    if (!data.success || !data.user) {
+      userProfileCache.set(userId, null);
+      return null;
+    }
+    
+    const userData = data.user;
     
     // Create profile object from user data
     const profile: UserProfile = {
       id: userData.id,
       name: userData.name || userData.username || 'User',
-      avatarUrl: userData.avatar ? pb.files.getUrl(userData, userData.avatar) : null
+      avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : null
     };
     
     // Store in cache
@@ -572,6 +685,7 @@ function handleClickOutside() {
         prompts: false,
         models: false,
         bookmarks: false,
+        cites: false,
       });
     }
   });
@@ -579,33 +693,18 @@ function handleClickOutside() {
   showUserFilter = false;
 }
 
-function handleScroll(event: { target: HTMLElement }) {
-  const currentScrollTop = event.target.scrollTop;
-  const scrollHeight = event.target.scrollHeight;
-  const clientHeight = event.target.clientHeight;
-  
-  scrollPercentage = (currentScrollTop / (scrollHeight - clientHeight)) * 100;
-  showScrollButton = scrollHeight - currentScrollTop - clientHeight > 20;
-  
-  if (currentScrollTop > lastScrollTop && currentScrollTop > 50) {
-    isMinimized = true;
-  } else if (currentScrollTop < lastScrollTop || currentScrollTop <= 50) {
-    isMinimized = false;
-  }
-  
-  lastScrollTop = currentScrollTop;
-}
 function toggleSortOption() {
     threadsStore.toggleSortOption();
   }
   
   // Set specific sort option
-  function setSortOption(option: ThreadSortOption) {
-    threadsStore.setSortOption(option);
+  function setSortOption(sortOption: ThreadSortOption) {
+    threadsStore.setSortOption(sortOption);
     showSortOptions = false;
-  }
   
-  // Toggle user selection for filtering
+}
+$: threads = $threadsStore.searchedThreads;
+
   function toggleUserSelection(userId: string) {
     threadsStore.toggleUserSelection(userId);
   }
@@ -634,11 +733,11 @@ function toggleSortOption() {
    *   document.removeEventListener('mouseup', stopDrag);
    * }
    */
-  function updateAvatarUrl() {
-      if ($currentUser && $currentUser.avatar) {
-          avatarUrl = pb.getFileUrl($currentUser, $currentUser.avatar);
-      }
+   function updateAvatarUrl() {
+  if ($currentUser && $currentUser.avatar) {
+    avatarUrl = `${pocketbaseUrl}/api/files/users/${$currentUser.id}/${$currentUser.avatar}`;
   }
+}
   function handlePromptSelection(newPromptType: PromptType) {
   promptStore.set(newPromptType);
   promptType = newPromptType;
@@ -671,6 +770,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
       prompts: false,
       models: false,
       bookmarks: false,
+      cites: false,
     };
     
     if (!sections[section]) {
@@ -685,7 +785,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
               prompts: false,
               models: false,
               bookmarks: false,
-
+              cites: false,
             });
           }
         }, { once: true });
@@ -699,12 +799,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
    * ASYNC
    * Message handling functions
    */
-  async function submitProjectNameChange(projectId: string) {
-    if (editedProjectName.trim()) {
-      await projectStore.updateProject(projectId, { name: editedProjectName.trim() });
-    }
-    cancelEditing();
-  }
+
   async function handleThreadNameUpdate(threadId: string) {
   try {
     const currentMessages = await messagesStore.fetchMessages(threadId);
@@ -902,30 +997,32 @@ async function handleSendMessage(message: string = userInput) {
   }
 }
 
-  async function typeMessage(message: string) {
-      const typingSpeed = 1;
-      let typedMessage = '';
-      
-      for (let i = 0; i <= message.length; i++) {
-        typedMessage = message.slice(0, i);
-        chatMessages = chatMessages.map(msg => 
-          msg.id === String(typingMessageId) 
-            ? { ...msg, content: typedMessage, text: typedMessage, isTyping: true }
-            : msg
-        );
-        await new Promise(resolve => setTimeout(resolve, typingSpeed));
-      }
-      chatMessages = chatMessages.map(msg => 
-        msg.id === String(typingMessageId) 
-          ? { ...msg, isTyping: false }
-          : msg
-      );
-      
-      // Scroll to the bottom after typing is complete
-      if (chatMessagesDiv) {
-        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-      }
+async function typeMessage(message: string) {
+  const typingSpeed = 1;
+  
+  // Get the DOM element directly
+  const messageElement = document.querySelector(`[data-message-id="${typingMessageId}"] p`);
+  if (!messageElement) return;
+  
+  // Bypass Svelte's reactivity by directly manipulating the DOM
+  for (let i = 0; i <= message.length; i++) {
+    const typedMessage = message.slice(0, i);
+    messageElement.innerHTML = typedMessage;
+    await new Promise(resolve => setTimeout(resolve, typingSpeed));
   }
+  
+  // Only update Svelte state once at the end
+  chatMessages = chatMessages.map(msg => 
+    msg.id === String(typingMessageId) 
+      ? { ...msg, content: message, text: message, isTyping: false }
+      : msg
+  );
+  
+  // Scroll to the bottom after typing is complete
+  if (chatMessagesDiv) {
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+}
 // Thread management functions
 async function handleCreateNewThread(message = '') {
   if (isCreatingThread) return null;
@@ -953,7 +1050,8 @@ async function handleCreateNewThread(message = '') {
             // Preserve thread list visibility state
             threadsStore.update(state => ({
                 ...state,
-                showThreadList: currentVisibility
+                // showThreadList: currentVisibility
+                showThreadList: false,
             }));
 
             if (currentProjectId) {
@@ -982,6 +1080,10 @@ async function handleCreateNewThread(message = '') {
             currentThreadId = newThread.id;
             showPromptCatalog = false;
             showModelSelector = false;
+            showBookmarks = false;
+            showCites = false;
+            showThreadList = false;
+
             await handleLoadThread(newThread.id);
             if (message) {
                 await handleSendMessage(message);
@@ -999,189 +1101,181 @@ async function handleCreateNewThread(message = '') {
 }
 
 async function handleLoadThread(threadId: string) {
-    try {
-        isLoadingMessages = true;
-        
-        // Update the threadsStore to hide thread list
-        threadsStore.update(state => ({
-            ...state,
-            showThreadList: false
-        }));
+  try {
+    isLoadingMessages = true;
+    
+    // Update the threadsStore to hide thread list
+    threadsStore.update(state => ({
+      ...state,
+      showThreadList: false
+    }));
 
-        // Ensure user is authenticated
-        await ensureAuthenticated();
-        const currentUserId = pb.authStore.model?.id;
-        if (!currentUserId) {
-            throw new Error('User not authenticated');
-        }
-
-        // Fetch thread with expanded op and members
-        const thread = await pb.collection('threads').getOne(threadId, {
-            expand: 'project,project.owner,project.collaborators,op,members',
-            $autoCancel: false
-        });
-
-        console.log('Thread loaded:', thread);
-
-        // Get project access
-        let hasProjectAccess = false;
-        if (thread.project) {
-            const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
-            const expandedProject = thread.expand?.project;
-            
-            if (expandedProject) {
-                const isProjectOwner = expandedProject.owner === currentUserId;
-                const isProjectCollaborator = expandedProject.collaborators && 
-                    (Array.isArray(expandedProject.collaborators) ? 
-                        expandedProject.collaborators.includes(currentUserId) : 
-                        expandedProject.collaborators.split(',').includes(currentUserId));
-                
-                hasProjectAccess = isProjectOwner || isProjectCollaborator;
-                console.log('Project access check:', { isProjectOwner, isProjectCollaborator, hasProjectAccess });
-            } else {
-                // Fetch project directly if not expanded
-                try {
-                    const project = await pb.collection('projects').getOne(projectId);
-                    hasProjectAccess = project.owner === currentUserId || 
-                        (project.collaborators && 
-                            (Array.isArray(project.collaborators) ? 
-                                project.collaborators.includes(currentUserId) : 
-                                project.collaborators.split(',').includes(currentUserId)));
-                } catch (err) {
-                    console.error('Error fetching project:', err);
-                }
-            }
-        }
-
-        // Verify thread ownership/access
-        const isCreator = thread.user === currentUserId;
-        const isOp = thread.op === currentUserId || 
-                    (thread.expand?.op && thread.expand.op.id === currentUserId);
-        
-        // Check if user is a member
-        const isMember = thread.members && (
-            // Check direct string membership
-            (typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
-            // Check array membership
-            (Array.isArray(thread.members) && thread.members.some(m => 
-                typeof m === 'string' ? m === currentUserId : m.id === currentUserId
-            )) ||
-            // Check expanded members
-            (thread.expand?.members && Array.isArray(thread.expand.members) && 
-                thread.expand.members.some(m => m.id === currentUserId))
-        );
-
-        console.log('Access check:', { 
-            isCreator, 
-            isOp, 
-            isMember, 
-            hasProjectAccess,
-            members: thread.members,
-            expandedMembers: thread.expand?.members
-        });
-
-        // Allow access if user is creator, op, member, or has project access
-        if (!isCreator && !isOp && !isMember && !hasProjectAccess) {
-            console.error('Access denied to thread:', { 
-                threadId, 
-                currentUserId, 
-                thread 
-            });
-            throw new Error('Unauthorized thread access');
-        }
-
-        // Update stores
-        await threadsStore.setCurrentThread(threadId);
-        
-        // Handle project context
-        if (thread.project) {
-            const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
-            await projectStore.setCurrentProject(projectId);
-            
-            try {
-                // Use a simpler filter for project threads to avoid 400 errors
-                const projectThreads = await pb.collection('threads').getFullList<Threads>({
-                    sort: '-created',
-                    filter: `project = "${projectId}"`,
-                    expand: 'project,op,members'
-                });
-                
-                threadsStore.update(state => ({
-                    ...state,
-                    threads: projectThreads
-                }));
-            } catch (err) {
-                console.error('Error fetching project threads:', err);
-                // Continue even if this fails
-            }
-        }
-
-        // Update local state
-        currentThreadId = thread.id;
-        currentThread = thread as Threads;
-
-        // Fetch messages with real-time updates
-        try {
-            const messages = await messagesStore.fetchMessages(threadId);
-            
-            // Map messages - we'll set up a subscription to the store updates too
-            chatMessages = messages.map(msg => ({
-                role: msg.type === 'human' ? 'user' : 'assistant',
-                content: msg.text,
-                id: msg.id,
-                isTyping: false,
-                text: msg.text,
-                user: msg.user,
-                created: msg.created,
-                updated: msg.updated,
-                parent_msg: msg.parent_msg,
-                prompt_type: msg.prompt_type as PromptType,
-                model: msg.model,
-                collectionId: msg.collectionId || 'defaultCollectionId',
-                collectionName: msg.collectionName || 'defaultCollectionName',
-            }));
-            
-            // Set up a subscription to message store changes to keep UI in sync
-            messagesStore.subscribe(state => {
-                // Only update if we're still on this thread
-                if (currentThreadId === threadId) {
-                    chatMessages = state.messages.map(msg => ({
-                        role: msg.type === 'human' ? 'user' : 'assistant',
-                        content: msg.text,
-                        id: msg.id,
-                        isTyping: false,
-                        text: msg.text,
-                        user: msg.user,
-                        created: msg.created,
-                        updated: msg.updated,
-                        parent_msg: msg.parent_msg,
-                        prompt_type: msg.prompt_type as PromptType || null,
-                        model: msg.model,
-                        collectionId: msg.collectionId || 'defaultCollectionId',
-                        collectionName: msg.collectionName || 'defaultCollectionName',
-                    }));
-                }
-            });
-        } catch (err) {
-            console.error('Error loading messages:', err);
-            // Continue even if message loading fails
-        }
-
-        showPromptCatalog = false;
-        return thread;
-    } catch (error) {
-        console.error(`Error loading thread ${threadId}:`, error);
-        // Clear the thread if unauthorized
-        if (error.message && error.message.includes('Unauthorized')) {
-            await threadsStore.setCurrentThread(null);
-            chatMessages = [];
-            currentThreadId = null;
-            currentThread = null;
-        }
-        return null;
-    } finally {
-        isLoadingMessages = false;
+    // Ensure user is authenticated
+    await ensureAuthenticated();
+    const currentUserId = $currentUser?.id;
+    if (!currentUserId) {
+      throw new Error('User not authenticated');
     }
+
+    // Fetch thread through API endpoint
+    const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    if (!threadResponse.ok) {
+      throw new Error('Failed to fetch thread');
+    }
+
+    const threadData = await threadResponse.json();
+    if (!threadData.success) {
+      throw new Error(threadData.error || 'Failed to fetch thread');
+    }
+
+    const thread = threadData.thread;
+    console.log('Thread loaded:', thread);
+
+    // Get project access
+    let hasProjectAccess = false;
+    if (thread.project) {
+      const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
+      
+      try {
+        const projectResponse = await fetch(`/api/projects/${projectId}/threads`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (projectResponse.ok) {
+          const projectData = await projectResponse.json();
+          if (projectData.success) {
+            const project = projectData.data;
+            hasProjectAccess = project.owner === currentUserId || 
+              (project.collaborators && 
+                (Array.isArray(project.collaborators) ? 
+                  project.collaborators.includes(currentUserId) : 
+                  project.collaborators.split(',').includes(currentUserId)));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching project:', err);
+      }
+    }
+
+    // Verify thread ownership/access
+    const isCreator = thread.user === currentUserId;
+    const isOp = thread.op === currentUserId || 
+                (thread.expand?.op && thread.expand.op.id === currentUserId);
+    
+    // Check if user is a member
+    const isMember = thread.members && (
+      (typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
+      (Array.isArray(thread.members) && thread.members.some(m => 
+        typeof m === 'string' ? m === currentUserId : m.id === currentUserId
+      ))
+    );
+
+    // Allow access if user is creator, op, member, or has project access
+    if (!isCreator && !isOp && !isMember && !hasProjectAccess) {
+      console.error('Access denied to thread');
+      throw new Error('Unauthorized thread access');
+    }
+
+    // Update stores
+    await threadsStore.setCurrentThread(threadId);
+    
+    // Handle project context
+    if (thread.project) {
+      const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
+      await projectStore.setCurrentProject(projectId);
+      
+      try {
+        const projectThreadsResponse = await fetch(`/api/projects/${projectId}/threads`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (projectThreadsResponse.ok) {
+          const projectThreadsData = await projectThreadsResponse.json();
+          if (projectThreadsData.success) {
+            threadsStore.update(state => ({
+              ...state,
+              threads: projectThreadsData.threads
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching project threads:', err);
+      }
+    }
+
+    // Update local state
+    currentThreadId = thread.id;
+    currentThread = thread as Threads;
+
+    // Fetch messages with real-time updates
+    try {
+      const messages = await messagesStore.fetchMessages(threadId);
+      
+      // Map messages
+      chatMessages = messages.map(msg => ({
+        role: msg.type === 'human' ? 'user' : 'assistant',
+        content: msg.text,
+        id: msg.id,
+        isTyping: false,
+        text: msg.text,
+        user: msg.user,
+        created: msg.created,
+        updated: msg.updated,
+        parent_msg: msg.parent_msg,
+        prompt_type: msg.prompt_type as PromptType,
+        model: msg.model,
+        collectionId: msg.collectionId || 'defaultCollectionId',
+        collectionName: msg.collectionName || 'defaultCollectionName',
+      }));
+      
+      // Set up a subscription to message store changes
+      messagesStore.subscribe(state => {
+        if (currentThreadId === threadId) {
+          chatMessages = state.messages.map(msg => ({
+            role: msg.type === 'human' ? 'user' : 'assistant',
+            content: msg.text,
+            id: msg.id,
+            isTyping: false,
+            text: msg.text,
+            user: msg.user,
+            created: msg.created,
+            updated: msg.updated,
+            parent_msg: msg.parent_msg,
+            prompt_type: msg.prompt_type as PromptType || null,
+            model: msg.model,
+            collectionId: msg.collectionId || 'defaultCollectionId',
+            collectionName: msg.collectionName || 'defaultCollectionName',
+          }));
+        }
+      });
+    } catch (err) {
+      console.error('Error loading messages:', err);
+    }
+
+    showPromptCatalog = false;
+    showModelSelector = false;
+    showBookmarks = false;
+    showCites = false;
+    showThreadList = false;
+    return thread;
+  } catch (error) {
+    console.error(`Error loading thread ${threadId}:`, error);
+    if (error.message && error.message.includes('Unauthorized')) {
+      await threadsStore.setCurrentThread(null);
+      chatMessages = [];
+      currentThreadId = null;
+      currentThread = null;
+    }
+    return null;
+  } finally {
+    isLoadingMessages = false;
+  }
 }
   async function handleDeleteThread(event: MouseEvent, threadId: string) {
     event.stopPropagation();
@@ -1198,66 +1292,50 @@ async function handleLoadThread(threadId: string) {
   }
   
   async function submitThreadNameChange() {
-    if (currentThreadId && editedThreadName.trim() !== '') {
-        try {
-            // Store current states
-            const currentThreadState = currentThread;
-            const currentVisibility = $threadsStore.showThreadList;
-
-            // Update thread in PocketBase
-            const updatedThread = await updateThread(currentThreadId, { 
-                name: editedThreadName.trim() 
-            });
-
-            // Update store with preserved state
-            threadsStore.update(state => ({
-                ...state,
-                threads: state.threads.map(thread => 
-                    thread.id === currentThreadId 
-                        ? { 
-                            ...thread, 
-                            name: editedThreadName.trim(),
-                            // Preserve important states
-                            showThreadList: currentVisibility
-                        } 
-                        : thread
-                ),
-                currentThread: {
-                    ...currentThreadState,
-                    name: editedThreadName.trim()
-                }
-            }));
-
-            // Update derived states
-            orderedGroupedThreads = groupThreadsByDate(
-                $threadsStore.threads.filter(thread => 
-                    thread.id === currentThreadId 
-                        ? { ...thread, name: editedThreadName.trim() }
-                        : thread
-                )
-            );
-
-        } catch (error) {
-            console.error("Error updating thread name:", error);
-        } finally {
-            isEditingThreadName = false;
-        }
+  if (currentThreadId && editedThreadName.trim() !== '') {
+    try {
+      isUpdatingThreadName = true;
+      isEditingThreadName = false;
+      
+      console.log("Starting thread name update. Current name:", currentThread?.name, "New name:", editedThreadName.trim());
+      
+      // Update thread in PocketBase
+      const updatedThread = await threadsStore.updateThread(currentThreadId, { 
+        name: editedThreadName.trim() 
+      });
+      
+      // Force a refresh of the threads array from the store
+      threads = [...$threadsStore.threads];
+      
+      // currentThread will now be updated via the reactive statement that derives it from threads
+      
+      // Prevent auto-naming for this thread
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(`thread_${currentThreadId}_manual_name`, 'true');
+        window.localStorage.setItem(`thread_${currentThreadId}_name_timestamp`, Date.now().toString());
+      }
+      
+    } catch (error) {
+      console.error("Error updating thread name:", error);
+    } finally {
+      isUpdatingThreadName = false;
     }
+  } else {
+    isEditingThreadName = false;
+  }
 }
   // UI helper functions
-  async function scrollToBottom() {
-    console.log('Scroll button clicked');
-    const chatMessages = chatMessagesDiv.querySelector('.chat-messages');
-    if (chatMessages) {
-      // console.log('Before scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-      // console.log('After scroll - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
-      showScrollButton = false;
-      // console.log('showScrollButton set to false');
-    } else {
-      console.log('chat-messages div not found');
-    }
+  const scrollToBottom = (): void => {
+  console.log('Scroll button clicked');
+  if (chatMessagesDiv) {
+    // Direct use of chatMessagesDiv, not looking for a nested element
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+    showScrollButton = false;
+  } else {
+    console.log('chat-messages div not found');
   }
+};
+
   async function goBack() {
   console.log('Back button clicked');
   console.log('Initial state:', {
@@ -1320,10 +1398,24 @@ async function handleLoadThread(threadId: string) {
   }
   }
 
-  async function startEditingThreadName() {
-    isEditingThreadName = true;
-    editedThreadName = currentThread?.name || '';
+  function startEditingThreadName() {
+  // Check if current user is the owner before allowing edits
+  const isOwner = currentThread?.user === userId || currentThread?.op === userId;
+  
+  if (!isOwner) {
+    console.log("Only the thread owner can edit the thread name");
+    return; // Don't allow editing
   }
+  
+  isEditingThreadName = true;
+  editedThreadName = currentThread?.name || '';
+  
+  threadsStore.update(state => ({
+    ...state,
+    isEditingThreadName: true,
+    editedThreadName: currentThread?.name || ''
+  }));
+}
   async function initializeThreadsAndMessages(): Promise<void> {
     try {
         // Get current store state first
@@ -1370,44 +1462,211 @@ async function handleLoadThread(threadId: string) {
     }
 }
 
-projectStore.subscribe((state) => {
-  currentProjectId = state.currentProjectId;
-  isEditingProjectName = state.isEditingProjectName;
-  editedProjectName = state.editedProjectdName;
-  if (currentProjectId) {
-    fetchThreadsForProject(currentProjectId).then(projectThreads => {
-      threadsStore.update(state => ({
-        ...state,
-        threads: projectThreads
-      }));
+function enhanceWithCitations() {
+    const messageElements = document.querySelectorAll('.chat-messages .message p');
+    
+    messageElements.forEach(element => {
+      const html = element.innerHTML;
+      
+      // Process content to identify important terms (simple approach)
+      // For a real implementation, you might want to use NLP or more sophisticated methods
+      const processed = html.replace(
+        /(<strong>.*?<\/strong>)|(\b[A-Z][a-z]{2,}\b)/g, 
+        (match, strongTag, word) => {
+          // If already in a strong tag, leave it alone
+          if (strongTag) return strongTag;
+          // Otherwise wrap the term in a strong tag
+          return `<strong>${word}</strong>`;
+        }
+      );
+      
+      // Only update if changes were made
+      if (processed !== html) {
+        element.innerHTML = processed;
+      }
+    });
+    
+    // Add event listeners to strong elements
+    const strongElements = document.querySelectorAll('.chat-messages .message p strong');
+    
+    strongElements.forEach(el => {
+      const strongEl = el as HTMLElement;
+      
+      // Remove any existing event listeners
+      const clone = strongEl.cloneNode(true);
+      if (strongEl.parentNode) {
+        strongEl.parentNode.replaceChild(clone, strongEl);
+      }
+      
+      const newEl = clone as HTMLElement;
+      
+      // Add hover effect
+      newEl.addEventListener('mouseenter', () => {
+        newEl.style.cursor = 'pointer';
+        newEl.style.textDecoration = 'underline';
+        const text = newEl.textContent || '';
+        newEl.title = `Search for "${text}" on ${$currentCite}`;
+      });
+      
+      newEl.addEventListener('mouseleave', () => {
+        newEl.style.textDecoration = 'none';
+      });
+      
+      // Add click handler to open citation
+      newEl.addEventListener('click', () => {
+        const text = newEl.textContent || '';
+        if (text) {
+          const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
+          window.open(url, '_blank');
+        }
+      });
     });
   }
-});
+
+  const unsubscribe = currentCite.subscribe(() => {
+    // When citation source changes, update all links
+    setTimeout(enhanceWithCitations, 0);
+  });
+
+// projectStore.subscribe((state) => {
+//   currentProjectId = state.currentProjectId;
+//   isEditingProjectName = state.isEditingProjectName;
+//   editedProjectName = state.editedProjectdName;
+  
+//   // Call your loadProjectThreads function only when the project ID changes
+//   if (currentProjectId && currentProjectId !== previousProjectId) {
+//     previousProjectId = currentProjectId;
+//     loadProjectThreads(currentProjectId);
+//   }
+// });
 $: {
-    const storeState = $threadsStore;
-    if (storeState) {
-        threads = storeState.threads;
-        currentThreadId = storeState.currentThreadId;
-        messages = storeState.messages;
-        updateStatus = storeState.updateStatus;
-        showThreadList = storeState.showThreadList;
-        isEditingThreadName = storeState.isEditingThreadName;
-        editedThreadName = storeState.editedThreadName;
-        namingThreadId = storeState.namingThreadId;
+  const storeState = $threadsStore;
+  if (storeState) {
+    threads = storeState.threads;
+    currentThreadId = storeState.currentThreadId;
+    
+    // Update currentThread when the store changes
+    if (currentThreadId && storeState.threads) {
+      const threadFromStore = storeState.threads.find(t => t.id === currentThreadId);
+      if (threadFromStore && !isEditingThreadName) {
+        currentThread = threadFromStore;
+      }
     }
+    
+    messages = storeState.messages;
+    updateStatus = storeState.updateStatus;
+    showThreadList = storeState.showThreadList;
+    
+    // Only update these if not actively editing
+    if (!isEditingThreadName) {
+      isEditingThreadName = storeState.isEditingThreadName;
+      editedThreadName = storeState.editedThreadName;
+    }
+    
+    namingThreadId = storeState.namingThreadId;
+  }
 }
+// $: {
+//   if (namingThreadId) {
+//     if (currentThreadId === namingThreadId) {
+//       currentThread = threads?.find(t => t.id === currentThreadId) || null;
+//       if (currentThread) {
+//         threadsStore.update(state => ({
+//           ...state,
+//           isEditingThreadName: false,
+//           namingThreadId: null
+//         }));
+//       }
+//     }
+//   }
+// }
 $: {
   if (namingThreadId) {
     if (currentThreadId === namingThreadId) {
-      currentThread = threads?.find(t => t.id === currentThreadId) || null;
-      if (currentThread) {
+      // Check if manual naming was recently done
+      const manuallyNamed = typeof window !== 'undefined' && 
+        window.localStorage.getItem(`thread_${currentThreadId}_manual_name`) === 'true';
+      
+      const timestamp = typeof window !== 'undefined' && 
+        window.localStorage.getItem(`thread_${currentThreadId}_name_timestamp`);
+      
+      const isRecent = timestamp && (Date.now() - parseInt(timestamp)) < 10000; // 10 seconds
+      
+      // Skip auto-naming if manually named recently
+      if (manuallyNamed && isRecent) {
+        console.log("Skipping auto-naming because thread was manually named recently");
         threadsStore.update(state => ({
           ...state,
-          isEditingThreadName: false,
           namingThreadId: null
         }));
+      } else {
+        // Only do this if not manually named
+        currentThread = threads?.find(t => t.id === currentThreadId) || null;
+        if (currentThread) {
+          threadsStore.update(state => ({
+            ...state,
+            namingThreadId: null
+          }));
+        }
       }
     }
+  }
+}
+$: {
+    if ($threadsStore.searchedThreads !== undefined) {
+        threads = $threadsStore.searchedThreads;
+    } else if ($threadsStore.threads) {
+        threads = $threadsStore.threads.filter(thread =>
+            thread.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }
+}
+
+// Reactive statement to update search query in store
+$: {
+    if (searchQuery !== undefined) {
+        threadsStore.setSearchQuery(searchQuery);
+    }
+}
+
+$: sortOptionInfo = threadsStore.sortOptionInfo;
+$: allSortOptions = threadsStore.allSortOptions;
+$: searchedThreads = threadsStore.searchedThreads;
+$: selectedUserIds = threadsStore.selectedUserIds;
+$: availableUsers = threadsStore.availableUsers;
+projectStore.subscribe((state) => {
+  if (!projectSubscriptionInitialized) {
+    projectSubscriptionInitialized = true;
+    currentProjectId = state.currentProjectId;
+    isEditingProjectName = state.isEditingProjectName;
+    editedProjectName = state.editedProjectdName;
+    return;
+  }
+  
+  const newProjectId = state.currentProjectId;
+  
+  // Only load threads if project ID actually changed and isn't null
+  if (newProjectId && newProjectId !== previousProjectId) {
+    previousProjectId = newProjectId;
+    currentProjectId = newProjectId;
+    loadProjectThreads(newProjectId);
+  } else {
+    currentProjectId = newProjectId;
+  }
+  
+  isEditingProjectName = state.isEditingProjectName;
+  editedProjectName = state.editedProjectdName;
+});
+$: {
+  if ($threadsStore.threads) {
+    // Update local threads array whenever store changes
+    threads = $threadsStore.threads.filter(thread => {
+      // Apply any filters you need here
+      if (searchQuery) {
+        return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      return true;
+    });
   }
 }
 $: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
@@ -1419,12 +1678,28 @@ $: {
   if ($expandedSections.models) {
     showModelSelector = true;
     showPromptCatalog = false;
+    showBookmarks = false;
+    showCites = false;
   } else if ($expandedSections.prompts) {
     showPromptCatalog = true;
     showModelSelector = false;
+    showBookmarks = false;
+    showCites = false;
+  } else if ($expandedSections.cites) {
+    showPromptCatalog = false;
+    showModelSelector = false;
+    showBookmarks = false;
+    showCites = true;
+  } else if ($expandedSections.bookmarks) {
+    showPromptCatalog = false;
+    showModelSelector = false;
+    showBookmarks = true;
+    showCites = false;
   } else {
     showModelSelector = false;
     showPromptCatalog = false;
+    showBookmarks = false;
+    showCites = false;
   }
 }
 $: if (seedPrompt && !hasSentSeedPrompt) {
@@ -1450,17 +1725,17 @@ $: if ($currentUser?.avatar) {
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
-$: {
-    if (currentThread?.name) {
-        orderedGroupedThreads = groupThreadsByDate(
-            $threadsStore.threads.map(thread => 
-                thread.id === currentThread?.id 
-                    ? { ...thread, name: currentThread.name }
-                    : thread
-            )
-        );
-    }
-}
+// $: {
+//     if (currentThread?.name) {
+//         orderedGroupedThreads = groupThreadsByDate(
+//             $threadsStore.threads.map(thread => 
+//                 thread.id === currentThread?.id 
+//                     ? { ...thread, name: currentThread.name }
+//                     : thread
+//             )
+//         );
+//     }
+// }
 $: if (chatMessages && chatMessages.length > 0) {
   dedupeChatMessages();
   preloadUserProfiles();
@@ -1468,6 +1743,8 @@ $: if (chatMessages && chatMessages.length > 0) {
 onMount(async () => {
   try {
     console.log('onMount initiated');
+    enhanceWithCitations();
+
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
@@ -1480,6 +1757,7 @@ onMount(async () => {
       updateAvatarUrl();
       username = $currentUser.username || $currentUser.email;
     }
+    
     if ($currentUser && $currentUser.id && !modelInitialized) {
       console.log('Initializing models for user:', $currentUser.id);
       
@@ -1489,64 +1767,39 @@ onMount(async () => {
       } catch (error) {
         console.error('Error initializing models:', error);
         
-        // If initialization fails, still try to set a default model
         if (!aiModel || !aiModel.api_type) {
-          // Get available keys
           await apiKey.loadKeys();
           const availableKeys = get(apiKey);
           const providersWithKeys = Object.keys(availableKeys)
             .filter(p => !!availableKeys[p]);
           
-          // Use first provider with a key, or deepseek as fallback
           const validProvider = 
             providersWithKeys.length > 0 ? 
             providersWithKeys[0] as ProviderType : 
             'deepseek';
           
-          // Use your existing availableModels and defaultModel
           aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
           console.log('Using fallback model after initialization error:', aiModel);
         }
       }
     }
-    if ($projectStore.currentProjectId) {
-      const projectThreads = await fetchThreadsForProject($projectStore.currentProjectId);
-      threadsStore.update(state => ({
-        ...state,
-        threads: projectThreads
-      }));
-    } else {
-      await threadsStore.loadThreads();
-      threadsStore.loadAvailableUsers();
-    }
     
-    // Initialize real-time updates for the current thread if it exists
+    // if ($projectStore.currentProjectId) {
+    //   await loadProjectThreads($projectStore.currentProjectId);
+    // } else {
+    //   // If no project selected, load all threads
+    //   await threadsStore.loadThreads();
+    // }
+    // Initialize real-time updates
     if (currentThreadId) {
       await preloadUserProfiles();
       
-      // Set up a custom message handler that prevents duplicates
       if (chatMessagesDiv) {
-      enhanceCodeBlocks(chatMessagesDiv);
-    }
+        enhanceCodeBlocks(chatMessagesDiv);
+      }
       
-      const messageHandler = (data) => {
-        if (data && data.record && data.record.thread === currentThreadId) {
-          handleRealTimeMessage(data.record);
-        }
-      };
-      
-      // Store the unsubscribe function
-      const unsubscribe = pb.collection('messages').subscribe('*', messageHandler);
-      
-      // Clean up in onDestroy
-      onDestroy(() => {
-        if (unsubscribe && typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-      
-      // Fetch initial messages
-      await messagesStore.fetchMessages(currentThreadId);
+      // Note: For real-time updates, you'll need to implement a WebSocket solution
+      // or use server-sent events since you can't use pb.subscribe directly anymore
     }
     
     if (textareaElement) {
@@ -1560,19 +1813,33 @@ onMount(async () => {
   } catch (error) {
     console.error('Error during onMount:', error);
   }
+  return () => {
+      unsubscribe();
+    };
 });
 
 // Update the afterUpdate lifecycle function to handle real-time updates
 afterUpdate(() => {
+  enhanceWithCitations();
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     lastMessageCount = chatMessages.length;
-    scrollToBottom();
   }
 });
+const handleScroll = (): void => {
+  if (!chatMessagesDiv) return;
+  
+  const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+  const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 20;
+  showScrollButton = !scrolledToBottom && scrollHeight > clientHeight;
+  
+  // Calculate scroll percentage for animation
+  scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
+};
 onDestroy(() => {
   messagesStore.cleanup();
-  
+  unsubscribeFromModel();
+
   currentProjectId = null;
   currentThreadId = null;
   
@@ -1624,6 +1891,10 @@ onDestroy(() => {
                   const newThread = await handleCreateNewThread();
                   if (newThread?.id) {
                     showPromptCatalog = false;
+                    showModelSelector = false;
+                    showBookmarks = false;
+                    showCites = false;
+                    showThreadList = false;
                   }
                 } catch (error) {
                   console.error('Error creating new thread:', error);
@@ -1690,26 +1961,19 @@ onDestroy(() => {
                 </div> 
               </span>
               {#if isExpanded}
-                <input
-                  transition:slide={{ duration: 300 }}
-                  type="text"
-                  bind:value={searchQuery}
-                  placeholder="Search..."
-                  on:input={() => {
-                    console.log('Search query changed:', searchQuery);
-                    console.log('Before setSearchQuery call');
-                    threadsStore.setSearchQuery(searchQuery);
-                    console.log('After setSearchQuery call');
-                  }}                  
-                  on:blur={() => {
-                    console.log('Search input blur, searchQuery:', searchQuery);
-                    if (!searchQuery) {
-                      console.log('Clearing search, collapsing input');
-                      isExpanded = false;
-                    }
-                  }}
-                  use:focusOnMount
-                />
+              <input
+                transition:slide={{ duration: 300 }}
+                type="text"
+                bind:value={searchQuery}
+                placeholder="Search..."
+                on:input={handleSearchChange}
+                on:blur={() => {
+                  if (!searchQuery) {
+                    isExpanded = false;
+                  }
+                }}
+                use:focusOnMount
+              />
               {/if}
             </div>
           </div>
@@ -1770,55 +2034,45 @@ onDestroy(() => {
             </div>
           {/if}
           <div class="thread-filtered-results" transition:slide={{duration: 200}}>
-            {#each $searchedThreads as thread (thread.id)}
-            <!-- <button 
-              class="card-container"
-              class:selected={currentThreadId === thread.id}
-              on:click={() => handleLoadThread(thread.id)}
-              on:mouseenter={async () => {
-                if (!$messageCounts.hasCount(thread.id)) {
-                  await messageCountsStore.updateCount(thread.id);
-                }
-              }}
-            > -->
+            <!-- <div class="debug-info" style="font-size: 10px; color: gray; padding: 4px;">
+              <p>Total threads: {$threadsStore.threads?.length || 0}</p>
+              <p>Filtered threads: {threads.length || 0}</p>
+              <p>Search query: "{searchQuery || 'None'}"</p>
+            </div>
+             -->
+
+
+              {#if threads.length === 0}
+              <div class="empty-state">
+                No threads. Select or create project first.
+              </div>
+              {:else}
+              {#each threads as thread (thread.id)}
               <button 
                 class="card-container"
                 class:selected={currentThreadId === thread.id}
                 on:click={() => handleLoadThread(thread.id)}
-
               >
                 <div class="card" 
                   class:active={currentThreadId === thread.id}
                   in:fade
                 >
                   <div class="card-static">
-                    <!-- When thread is being named, show spinner -->
-                    {#if namingThreadId === thread.id}
-                      <div class="spinner2" in:fade={{duration: 200}} out:fade={{duration: 200}}>
-                        <Bot size={30} class="bot-icon" />
-                      </div>
-                    {:else}
-                      <span class="card-title">{thread.name}</span>
-                      <span class="card-time">
-                        {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
-                          {getRelativeTime(new Date(thread.updated))}
-                        {:else}
-                          No date available
-                        {/if}
-                      </span>
-                    {/if}
-        
-                    <!-- Actions always visible for uniformity -->
+                    <span class="card-title">
+                      <!-- Get the most up-to-date thread name -->
+                      {thread.id === currentThreadId && currentThread ? 
+                        currentThread.name || 'Unnamed Thread' : 
+                        thread.name || 'Unnamed Thread'}
+                    </span>
+                    <span class="card-time">
+                      {#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
+                        {getRelativeTime(new Date(thread.updated))}
+                      {:else}
+                        {thread.created ? getRelativeTime(new Date(thread.created)) : 'No date available'}
+                      {/if}
+                    </span>
+                    
                     <div class="card-actions" transition:fade={{duration: 300}}>
-                      <!-- {#if $messageCounts.hasCount(thread.id)}
-                        <button 
-                          class="action-btn badge"
-                          style="color: {getCountColor($messageCounts.getCount(thread.id))}"
-                        >
-                          <MessageSquareText size={14}/>
-                          <span class="count">{$messageCounts.getCount(thread.id)}</span>
-                        </button>
-                      {/if} -->
                       <button 
                         class="action-btn delete"
                         on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
@@ -1830,6 +2084,8 @@ onDestroy(() => {
                 </div>
               </button>
             {/each}
+              {/if}
+
           </div>
         </div>
       </div>
@@ -1852,32 +2108,72 @@ onDestroy(() => {
                 <ArrowLeft />
               </button> -->
               {#if isEditingThreadName}
-                <input class="thread-name"
-                  transition:fade={{duration: 300, easing: cubicOut}}
-                  bind:value={editedThreadName}
-                  on:keydown={(e) => e.key === 'Enter' && submitThreadNameChange()}
-                  on:blur={submitThreadNameChange}
-                  autofocus
-                />
+              <input class="thread-name"
+                transition:fade={{duration: 300, easing: cubicOut}}
+                bind:value={editedThreadName}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitThreadNameChange();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    isEditingThreadName = false;
+                    threadsStore.update(state => ({
+                      ...state,
+                      isEditingThreadName: false
+                    }));
+                  }
+                }}
+                on:blur={() => {
+                  // Only submit changes if there's actual content
+                  if (editedThreadName.trim() !== '') {
+                    submitThreadNameChange();
+                  } else {
+                    isEditingThreadName = false;
+                    threadsStore.update(state => ({
+                      ...state,
+                      isEditingThreadName: false
+                    }));
+                  }
+                }}
+                autofocus
+              />
                 <span class="save-button" on:click={submitThreadNameChange}>
                   <Save />
                 </span>
               {:else}
+              <!-- <span class="icon">
+                  /
+              </span> -->
               <!-- <div class="drawer-tab">
+
                 <span class="icon">
                   <h3>
                     /
                   </h3>
                 </span>
               </div> -->
-              <span on:click={startEditingThreadName}>
-                <div class="icon" in:fade>
-                <!-- <Quote/> -->
+              {#if currentThread && (currentThread.user === userId || currentThread.op === userId)}
+              {#if isUpdatingThreadName}
+                <div class="spinner-container">
+                  <div class="spinner"></div>
                 </div>
-                <h3 >
-                  {currentThread.name}
-                </h3>
-              </span>
+              {:else}
+                <span on:click={startEditingThreadName}>
+                  <div class="icon" in:fade>
+                  <!-- <Quote/> -->
+                  </div>
+                  <h3>
+                    {currentThread?.name || '(untitled)'}
+                  </h3>
+                </span>
+              {/if}
+            {:else}
+              <!-- Read-only thread name for non-owners -->
+              <h3>
+                {currentThread?.name || '(untitled)'}
+              </h3>
+            {/if}
   
               {#if $threadsStore.currentThreadId}
               <span class="header-btns">
@@ -1927,9 +2223,9 @@ onDestroy(() => {
                   <h3>
                     {$t('threads.selectThread')} {username}  
                   </h3>
-                  <p >
+                  <!-- <p >
                     {getRandomQuote()}
-                  </p>
+                  </p> -->
                 </span>
                   <div class="dashboard-items">
                     <div class="dashboard-scroll">
@@ -1947,6 +2243,17 @@ onDestroy(() => {
 
                   <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="ai-selector">
+                      {#if $expandedSections.cites}
+                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                        <ReferenceSelector 
+                          selectedText={activeSelection}
+                          on:select={(e) => {
+                            // Handle the cite selection if needed
+                            console.log('Cite selected:', e.detail);
+                          }}
+                        />
+                      </div>
+                    {/if}
                       {#if $expandedSections.prompts}
                         <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                           <PromptCatalog 
@@ -1955,7 +2262,7 @@ onDestroy(() => {
                                 ...sections,
                                 prompts: false
                               }));
-                              showPromptCatalog = false;
+                              showPromptCatalog = !showPromptCatalog;
                               console.log('Parent received selection from catalog:', event.detail);
                             }}
                           />
@@ -1977,7 +2284,7 @@ onDestroy(() => {
                         <div class="section-content-bookmark" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                           <MsgBookmarks on:loadThread={(event) => handleLoadThread(event.detail.threadId)} />
                         </div>
-                      {/if}
+                    {/if}
                     </div>
                     <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
                       <textarea 
@@ -2002,13 +2309,26 @@ onDestroy(() => {
                       >
                         <div class="submission" class:visible={isTextareaFocused} >
                           {#if isTextareaFocused}
+                          <span 
+                            class="btn"
+                            transition:slide
+                            on:click={() => toggleSection('cites')}
+                            >
+                            <span class="icon">
+                              {#if $expandedSections.cites}
+                              <Unlink/>
+                              {:else}
+                              <Link />
+                              {/if}
+                            </span>
+                          </span>
                             <span 
                               class="btn"
                               transition:slide
                               on:click={() => toggleSection('bookmarks')}
                               >
                               <span class="icon">
-                                {#if $expandedSections.models}
+                                {#if $expandedSections.bookmarks}
                                 <BookmarkCheckIcon/>
                                 {:else}
                                 <Bookmark />
@@ -2087,6 +2407,9 @@ onDestroy(() => {
           {/if}
         </div>
         {#if currentThread}
+        {#if !isTypingInProgress}
+        <MessageProcessor messages={chatMessages} />
+      {/if}
         <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
         transition:fly="{{ x: -300, duration: 300 }}">
           
@@ -2191,6 +2514,17 @@ onDestroy(() => {
           <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
             {#if $isAiActive}
             <div class="ai-selector">
+              {#if $expandedSections.cites}
+              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                <ReferenceSelector 
+                  selectedText={activeSelection}
+                  on:select={(event) => {
+                    showCites = false;
+                    console.log('Parent received selection from catalog:', event.detail);
+                  }}
+                />
+              </div>
+              {/if}
               {#if $expandedSections.prompts}
                 <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                   <PromptCatalog 
@@ -2244,6 +2578,19 @@ onDestroy(() => {
               >
                 <div class="submission" class:visible={isTextareaFocused} >
                   {#if isTextareaFocused}
+                  <span 
+                    class="btn"
+                    transition:slide
+                    on:click={() => toggleSection('cites')}
+                    >
+                    <span class="icon">
+                      {#if $expandedSections.cites}
+                      <Unlink/>
+                      {:else}
+                      <Link />
+                      {/if}
+                    </span>
+                  </span>
                     <span 
                       class="btn"
                       transition:slide
@@ -2669,13 +3016,22 @@ onDestroy(() => {
 
       // Spacing between heading and content
       strong, b {
-        display: block;
-        margin-top: 0;
-        margin-bottom: 0.5rem;
         font-weight: 800;
-        font-size: 1.8rem;
-        line-height: 2;
-        border-bottom: 1px solid var(--placeholder-color);
+        background: var(--bg-color);
+        color: var(--tertiary-color);
+        transition: all 0.3s ease;
+        border-radius: 1rem;
+
+
+        &:hover {
+          background: var(--tertiary-color);
+          color: var(--text-color);
+          padding: 1rem;
+          font-size: 1.5rem;
+          border-radius: 2rem;
+          
+        }
+
       }
 
       .message.assistant div div {
@@ -2806,6 +3162,8 @@ p div {
     }
   }
 }
+
+
   .calendar {
       // background: var(--bg-gradient);
       width: auto;
@@ -2837,6 +3195,8 @@ p div {
 
       
     }
+
+
   span.header-btns {
       display: flex;
       position: absolute;
@@ -2930,7 +3290,8 @@ p div {
     justify-content: center;
     align-items: flex-end;
     position: relative;
-    top: 0;
+    width: 100%;
+    top: 0rem;
     margin-bottom: 1rem;
     gap: 0;
     & h3 {
@@ -3309,13 +3670,15 @@ p div {
     overflow-x: hidden;
     // /* left: 20%; */
     width: 100%;
-    background: rgba(0, 0, 0, 0.2);
-
+    // background: rgba(0, 0, 0, 0.2);
+    top: 0;
+    left: 0;
+    right: 1rem;
     padding: 0;
     padding-top: 0;
     height: 100vh;
     margin-top: 0;
-    margin-left: auto;
+    margin-left: 0;
   }
 
 
@@ -3324,8 +3687,10 @@ p div {
     display: flex;
     flex-direction: column;
     // background: var(--bg-gradient);
-    margin-left: 25vw;
+    justify-content: flex-start;
+    // align-items: center;
     width: 50vw;
+    margin-left: 25vw;
     height: auto;
     margin-top: 0;
     margin-right: 0;
@@ -3337,7 +3702,6 @@ p div {
     overflow-y: hidden;
     overflow-x: hidden;
     background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 60%);
-
     transition: all ease 0.3s;
   }
 
@@ -3401,6 +3765,18 @@ p div {
       width: auto;
       left: 400px;
       
+    }
+    & .chat-header {
+      right: 0;
+      margin-right: 0;
+      width: auto;
+      left: auto;
+      margin-left:0;
+    }
+    & .chat-header-thread {
+      margin-left: 0;
+      left: 0;
+      justify-content: left !important;
     }
     & .thread-info {
       margin-left: 0;
@@ -3505,6 +3881,7 @@ p div {
     flex-direction: column;
     width: 100%;
     height: 100%;
+    margin-top: 1rem;
     position: relative;
     justify-content: center;
     align-items: center;
@@ -3592,7 +3969,7 @@ p div {
 .combo-input {
   // width: 100vw;;
   border-radius: var(--radius-m);
-  margin-bottom: 3rem;
+  margin-bottom: 0;
   height: auto;
   width: 100%;
   margin-left: 0;
@@ -4062,45 +4439,42 @@ color: #6fdfc4;
 
 
 .chat-header {
-    height: auto;
+    height: 4rem;
     margin-left: 0;
     // margin-bottom: 160px;
     position: relative;
     // border-top-left-radius: var(--radius-m);
     // border-top-right-radius: var(--radius-m);
-    top: 1rem;
-    left: 1rem;
+    top: 0rem;
+    left: 0rem;
     right: 0;
-    width: 98%;
+    width: auto;
+
     z-index: 2000;
     // padding: 0.5rem;
     color: var(--text-color);
     text-align: left;
-    align-items: center;
     transition: background-color 0.2s;
     // border-radius: var(--radius-m);
     display: flex;
     // gap: 2rem;
     flex-direction: row;
-    justify-content: center;
     transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
-    // border-bottom: 1px solid var(--secondary-color);
+    border-bottom: 1px solid var(--placeholder-color);
 
     & h3 {
       margin: 0;
-      padding-bottom: 1rem;
       font-weight: 300;
       font-size: var(--font-size-m);    
       text-align: center;
       font-weight: 600;
-    line-height: 1.4;
     &.active {
       // background: var(--primary-color) !important;
       color: var(--tertiary-color);
       font-size: var(--font-size-m);
       
     }
+    
     &:hover {
       background: rgba(255, 255, 255, 0.1);
       
@@ -4109,15 +4483,20 @@ color: #6fdfc4;
 
   .chat-header-thread {
     width: 100%;
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--secondary-color);
+    height: 4rem;
+    font-size: 1.5rem;
+    // border-bottom: 1px solid var(--placeholder-color);
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-left: auto;
     letter-spacing: 0.2rem;
     & .icon {
       color: var(--placeholder-color);
-      margin-bottom: 1rem;
+      margin-right: 0.5rem;
+      display: flex;
+      height: auto;
+      width: auto;
 
     }
 
@@ -4239,6 +4618,12 @@ color: #6fdfc4;
     margin-top: 0;
     margin-bottom: 1rem;
     position: relative;
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+    overflow: {
+    x: hidden;
+    y: auto;
+  }
   }
 
   .project-section {
@@ -4252,24 +4637,26 @@ color: #6fdfc4;
       margin-left: 0;
       position: relative;
       height: auto;
-      width: 100%;
+      width: calc(100% - 2rem);
       // padding: 0.75rem 1rem;
+      border-top: 1px solid var(--placeholder-color);
+
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
+      // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
       color: var(--text-color);
       z-index: 1;
       text-align: left;
       align-items: center;
-      justify-content: space-between;
+      justify-content: space-around;
       gap: 0.5rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
       left: 0;
-      right: 0;
+      margin-right: 2rem;
       padding: 0.5rem;
-      border-bottom: 1px solid var(--secondary-color);
 
 
     & input {
@@ -5100,10 +5487,10 @@ color: #6fdfc4;
     height: fit-content;
     // backdrop-filter: blur(20px);
     border-radius: 10px;
-    overflow-y: scroll;
+    overflow-y: hidden;
     overflow-x: hidden;
-    scrollbar-width:1px;
-    scrollbar-color: var(--text-color) transparent;
+    scrollbar-width:thin;
+    scrollbar-color: var(--bg-color) transparent;
     scroll-behavior: smooth;
 
   }
@@ -5119,7 +5506,7 @@ color: #6fdfc4;
     y: auto;
   }
   position: relative;
-  top: 0;
+  top: 4rem;
   bottom: 0;
   left: 5rem;
   margin-left: 0;
@@ -5128,7 +5515,7 @@ color: #6fdfc4;
   transition: all 0.3s ease-in-out;
   scrollbar: {
     width: 1px;
-    color: #c8c8c8 transparent;
+    color: var(--bg-color) transparent;
   }
   scroll-behavior: smooth;
 
@@ -5192,9 +5579,10 @@ color: #6fdfc4;
     position: relative;
     width: 100%;
     margin-left: 0;
+    box-shadow: 0 1px 1px var(--secondary-color);
     min-height: 5rem;
     border-top-right-radius: var(--radius-m);
-    border-bottom-right-radius: var(--radius-m);
+    border-bottom-right-radius: 0 !important;
     border-bottom-left-radius: var(--radius-m);
     margin-right: 0;
     padding: 0;
@@ -5221,7 +5609,9 @@ color: #6fdfc4;
         // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
       }
       &.selected {
-        background: var(--primary-color) !important;
+        backdrop-filter: blur(30px);
+        background: var(--bg-gradient-r);
+        border-radius: 2rem;
       }
 
   }
@@ -5391,7 +5781,7 @@ color: #6fdfc4;
 
 .scroll-bottom-btn {
   position: fixed;
-  bottom: 50% !important;
+  bottom: 15rem !important;
   right: 4rem;
   background-color: #21201d;
   color: white;
@@ -5514,7 +5904,7 @@ color: #6fdfc4;
 
     color: white;
     z-index: 10000;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     backdrop-filter: blur(200px);
     border-radius: var(--radius-l);
   }
@@ -5666,9 +6056,123 @@ color: #6fdfc4;
     opacity: 1;
   }
 
-  
   @media (max-width: 1000px) {
+  .btn-col-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 90%;
+    width: auto;
+    align-items: left;
+    justify-content: flex-end;
+    z-index: 10;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    transition: all 0.3s ease-in;
 
+}
+
+.chat-header-thread {
+  width: 100%;
+  margin-left: 0;
+  left: 0;
+  h3 {
+  }
+}
+
+.chat-header {
+  margin-left: 5.2rem;
+}
+
+.drawer-list {
+  height: 100%;
+}
+
+.btn-col-left:hover {
+  width: 96%;
+}
+  .scroll-bottom-btn {
+    bottom: 200px;
+  }
+
+  .thread-toggle {
+    bottom: 120px;
+  }
+
+  // .chat-messages {
+  // }
+
+  // .drawer-visible .chat-messages {
+    
+  // }
+
+
+
+
+//   button.add  {
+//     border-radius: 15px;
+//     padding: 5px 10px;
+//     font-size: 12px;
+//     cursor: pointer;
+//     transition: all ease 0.3s;
+//     width: 94%;
+//     height: 40px;
+//     display: flex;
+//     justify-content: center;
+//     align-items: center;
+//     margin-left: 3.5rem;
+//     background-color: var(--tertiary-color);
+
+// }
+
+  // .input-container {
+  //   margin-bottom: 0;
+  //   width: 98%;
+  //   padding: 0 0 1rem 3rem;
+  // }
+
+  //   .input-container textarea:focus {
+  //     border: 1px solid rgb(54, 54, 54);
+  //     background-color: rgb(0, 0, 0);
+  //     color: white;
+  //     font-size: 20px;
+  //     animation: pulse 10.5s infinite alternate;
+  //     display: flex;
+  //     z-index: 1000;
+  // }
+
+ 
+  
+    .date-divider {
+      margin-right: 2rem;
+    }
+
+    .message.assistant  {
+    width: 100%;    /* border: 1px solid black; */
+      
+    }
+
+    .message.user {
+      display: flex;
+      flex-direction: column;
+      align-self: center;
+      color: var(--text-color);
+      background-color: var(--secondary-color);
+      border-radius: var(--radius-m);
+      height: auto;
+      margin-right: 0;
+      width: 100%;
+      font-weight: 500;
+      // background: var(--bg-color);
+      border: {
+        // top: 1px solid var(--primary-color);
+        // left: 1px solid red;
+      }
+    }
+    
   span.hero {
     margin-top: 0;
     top: auto;
@@ -5765,6 +6269,7 @@ color: #6fdfc4;
       border: none;
       cursor: pointer;
       color: var(--text-color);
+      
       text-align: left;
       display: flex;
       gap: 2rem;
@@ -5816,18 +6321,7 @@ color: #6fdfc4;
       padding: 1rem;      
       margin-left: 1rem;
     }
-    .drawer {
-      top: 0;
-      margin-right: 0;
-      width: 100%;
-      height: 100%;
-      align-items: left;
-      justify-content: center;
-      // margin-bottom: 4rem;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease-in-out;
-      /* z-index: 1000; */
-    }
+
 
     .section-content {
       width: 94%;
@@ -5877,23 +6371,6 @@ color: #6fdfc4;
       margin-left: 0;
     }
 
-    .drawer-visible .drawer {
-      transform: translateX(0);
-    }
-
-    .drawer-visible .chat-container {
-      display: flex;
-      z-index: -1;
-      left: 0 !important;
-      width: 100% !important;
-
-    }
-
-    .drawer-visible .scroll-bottom-btn {
-      display: none;
-
-    }
-
 
 
 
@@ -5913,19 +6390,51 @@ color: #6fdfc4;
   .drawer {
       width: auto;
       margin-right:0;
-      margin-bottom: 100px;
+      margin-left: 0;
       backdrop-filter: blur(100px);
       border-top: 1px solid var(--primary-color);
       border-right: 1px solid var(--primary-color);
       padding: 0;
-      left: 0;
       z-index: 1;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
       border-top-right-radius: var(--radius-l);
       border-bottom-right-radius: var(--radius-l);
+      // background-color: red !important;
+      top: 0;
+      margin-right: 0;
+      left: 0.5rem;
+    
+      width: calc(100%);
+      height: 100%;
+      margin-bottom: 20rem;
+
+      align-items: center;
+      justify-content: center;
+      // margin-bottom: 4rem;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease-in-out;
+      /* z-index: 1000; */
+    }
+
+
+    .drawer-visible .drawer {
+      margin-left: -1rem;
+      transform: translateX(0);
+    }
+
+    .drawer-visible .chat-container {
+      display: flex;
+      z-index: -1;
+      left: 0 !important;
+      width: 100% !important;
+
+    }
+
+    .drawer-visible .scroll-bottom-btn {
+      display: none;
+
     }
     
-
 
     .drawer-visible .thread-toggle {
       left: 10px;
@@ -5958,114 +6467,13 @@ color: #6fdfc4;
 
 
 
-@media (max-width: 1000px) {
-  .btn-col-left {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 90%;
-    width: auto;
-    align-items: left;
-    justify-content: flex-end;
-    z-index: 10;
-    border-radius: 1rem;
-    padding: 0.5rem;
-    transition: all 0.3s ease-in;
+  @media (min-width: 1900px) {
+  .chat-header {
 
-}
-
-.drawer-list {
-  height: 100%;
-}
-
-.btn-col-left:hover {
-  width: 96%;
-}
-  .scroll-bottom-btn {
-    bottom: 200px;
   }
-
-  .thread-toggle {
-    bottom: 120px;
-  }
-
-  // .chat-messages {
-  // }
-
-  // .drawer-visible .chat-messages {
-    
-  // }
-
-
-
-
-//   button.add  {
-//     border-radius: 15px;
-//     padding: 5px 10px;
-//     font-size: 12px;
-//     cursor: pointer;
-//     transition: all ease 0.3s;
-//     width: 94%;
-//     height: 40px;
-//     display: flex;
-//     justify-content: center;
-//     align-items: center;
-//     margin-left: 3.5rem;
-//     background-color: var(--tertiary-color);
-
-// }
-
-  // .input-container {
-  //   margin-bottom: 0;
-  //   width: 98%;
-  //   padding: 0 0 1rem 3rem;
-  // }
-
-  //   .input-container textarea:focus {
-  //     border: 1px solid rgb(54, 54, 54);
-  //     background-color: rgb(0, 0, 0);
-  //     color: white;
-  //     font-size: 20px;
-  //     animation: pulse 10.5s infinite alternate;
-  //     display: flex;
-  //     z-index: 1000;
-  // }
-
- 
-  
-    .date-divider {
-      margin-right: 2rem;
-    }
-
-    .message.assistant  {
-    width: 100%;    /* border: 1px solid black; */
-      
-    }
-
-    .message.user {
-      display: flex;
-      flex-direction: column;
-      align-self: center;
-      color: var(--text-color);
-      background-color: var(--secondary-color);
-      border-radius: var(--radius-m);
-      height: auto;
-      margin-right: 0;
-      width: 100%;
-      font-weight: 500;
-      // background: var(--bg-color);
-      border: {
-        // top: 1px solid var(--primary-color);
-        // left: 1px solid red;
-      }
-    }
-    
 }
 @media (max-width: 1900px) {
-
+  
   .thread-info {
   display: flex;
   flex-direction: column;

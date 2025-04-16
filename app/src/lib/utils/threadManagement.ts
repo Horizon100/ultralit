@@ -1,5 +1,5 @@
 import type { Messages, Threads, AIModel } from '$lib/types/types';
-import { pb } from '$lib/pocketbase';
+import {  } from '$lib/pocketbase';
 import { fetchAIResponse } from '$lib/clients/aiClient';
 import { get } from 'svelte/store';
 import { threadsStore } from '$lib/stores/threadsStore';

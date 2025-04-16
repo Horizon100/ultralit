@@ -312,7 +312,12 @@ export default {
 		join: 'Subscribe',
 		projects: 'Projects',
 		posts: "Posts",
-		connections: "Connections"
+		connections: "Connections",
+		yes: "Yes",
+		no: "No",
+		language: "Languages",
+		theme: "Themes"
+
 	},
 	thinkingPhrases: [
 		'Consulting my digital crystal ball...',

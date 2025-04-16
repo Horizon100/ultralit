@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade, fly, slide } from 'svelte/transition';
-  import { pb, currentUser } from '$lib/pocketbase';
+  import { currentUser } from '$lib/pocketbase';
   import { getThreadsStore, createThreadsStore } from '$lib/stores/threadsStore';
 
   import { projectStore, getProjectStore } from '$lib/stores/projectStore';
@@ -33,19 +33,12 @@
 
   // Subscribe to the project store
   projectStore.subscribe((state) => {
-    console.log('Store state:', state);
+    // Only proceed if we have a valid projectId or currentProjectId
+    const targetId = projectId || state.currentProjectId;
+    if (!targetId) return;
     
-    // If we have a projectId, try to find that specific project
-    if (projectId && state.currentProjectId === projectId) {
-      project = state.threads.find(p => p.id === projectId) || null;
-    } 
-    // If we don't have a projectId but there is a currentProjectId in the store
-    else if (!projectId && state.currentProjectId) {
-      projectId = state.currentProjectId;
-      project = state.threads.find(p => p.id === state.currentProjectId) || null;
-    }
+    project = state.threads.find(p => p.id === targetId) || null;
     
-    // Update owner status
     if (project && $currentUser) {
       isOwner = project.owner === $currentUser.id;
     }
@@ -70,7 +63,10 @@
       return 'Invalid date';
     }
   }
-  
+  function getRandomQuote() {
+		const quotes = $t('extras.quotes');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
   // Reactive declarations for project details
   $: {
     console.log('*** Reactive Update ***');
@@ -108,48 +104,42 @@
   }
 
   async function loadProjectData() {
-    console.log('*** loadProjectData called ***');
+    if (!projectId) {
+      console.log('No projectId provided, skipping load');
+      return;
+    }
+
     console.log('Loading data for projectId:', projectId);
     activeTab = 'details';
+    isLoading = true;
     
     try {
-      // First check the store for the project data
-      const storeState = getProjectStore();
-      console.log('Store state threads count:', storeState.threads.length);
-      console.log('Store state currentProjectId:', storeState.currentProjectId);
-      
-      const projectFromStore = storeState.threads.find(p => p.id === projectId);
-      console.log('Project found in store?', !!projectFromStore);
-      
-      if (projectFromStore) {
-        console.log('Using project from store:', projectFromStore.name);
-        project = projectFromStore;
-      } else {
-        console.log('Project not found in store, fetching from PocketBase...');
-        // If not in store, fetch directly from PocketBase
-        try {
-          project = await pb.collection('projects').getOne<Projects>(projectId);
-          console.log('Project fetched from PocketBase:', project?.name);
-        } catch (pbError) {
-          console.error('PocketBase fetch error:', pbError);
-        }
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
       }
-      
-      if (project && $currentUser) {
-        isOwner = project.owner === $currentUser.id;
-        console.log('Current user is owner:', isOwner);
-        console.log('Project owner:', project.owner);
-        console.log('Current user ID:', $currentUser.id);
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        project = data.data;
+        if ($currentUser) {
+          isOwner = project.owner === $currentUser.id;
+        }
       } else {
-        console.log('Cannot determine ownership - project or currentUser missing');
-        console.log('project:', project);
-        console.log('currentUser:', $currentUser);
+        throw new Error(data.error || 'Failed to fetch project');
       }
     } catch (error) {
       console.error('Error loading project data:', error);
       errorMessage = 'Failed to load project data.';
+    } finally {
+      isLoading = false;
     }
   }
+
   
   async function loadProjectThreadsData() {
     console.log('*** loadProjectThreadsData called ***');
@@ -213,34 +203,46 @@
       console.error(`Error updating project ${type}:`, error);
     }
   }
-  
-  onMount(async () => {
+
+  async function initializeComponent() {
+    console.log('Initializing with projectId:', projectId);
     isLoading = true;
-    console.log('*** Component mounting... ***');
-    console.log('ProjectId at mount time:', projectId);
     
     try {
-      // Check if projectId is valid
-      if (projectId) {
-        console.log('Component mounted, projectId:', projectId);
+      // If no projectId but we have a current project in the store
+      if (!projectId && $projectStore.currentProjectId) {
+        projectId = $projectStore.currentProjectId;
       }
-      
-      // Log current user status
-      console.log('Current user at mount time:', $currentUser?.id);
-      
-      await loadProjectData();
-      console.log('After loadProjectData - project:', project?.name);
 
-      // Load threads data if we have a projectId
       if (projectId) {
+        await loadProjectData();
         await loadProjectThreadsData();
         // await loadCollaborators();
-
-        isLoading = false;
       }
     } catch (error) {
-      console.error('Error in onMount:', error);
+      console.error('Error initializing component:', error);
+    } finally {
+      isLoading = false;
     }
+  }
+  
+  onMount(async () => {
+    console.log('Component mounting...');
+    
+    if (!$currentUser) {
+      isLoading = true; 
+      const unsubscribe = currentUser.subscribe((user) => {
+        if (user) {
+          unsubscribe();
+          initializeComponent();
+        } else {
+          isLoading = false; 
+        }
+      });
+      return;
+    }
+    
+    await initializeComponent();
   });
 </script>
 
@@ -370,7 +372,10 @@
       </div>
     {:else}
       <div class="no-project">
-        <h2>Create or project to see the dashboard items.</h2>
+        <h2>Create or select project to see the dashboard items.</h2>
+        <p >
+          {getRandomQuote()}
+        </p>
       </div>
     {/if}
   </div>
@@ -381,6 +386,21 @@
     * {
       font-family: var(--font-family);
 
+    }
+
+    .no-project {
+
+      height: 75vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+
+      & p {
+        font-style: italic;
+        color: var(--placeholder-color);
+        max-width: 600px;
+      }
     }
     .project-container {
       // background: var(--bg-gradient);

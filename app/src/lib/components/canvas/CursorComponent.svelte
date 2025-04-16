@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { CursorPosition } from '$lib/types/types';
-	import { pb, currentUser } from '$lib/pocketbase';
+	import {  currentUser } from '$lib/pocketbase';
 
 	export let cursor: CursorPosition;
 	export let transform: { scale: number; offsetX: number; offsetY: number };

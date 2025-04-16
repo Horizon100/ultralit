@@ -1,9 +1,9 @@
 <script lang="ts">
   import { fade, fly, slide } from 'svelte/transition';
-  import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+  import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { threadsStore } from '$lib/stores/threadsStore';
@@ -25,82 +25,84 @@
   let editedProjectName = '';
   let filteredProjects: Projects[] = [];
   let currentThreadId: string | null = null;  
+  let isLoading: boolean = false;
+
 
   $: console.log('Store state:', $projectStore);
   $: console.log('Filtered projects:', filteredProjects);
   $: console.log('Is expanded:', isExpanded);
   $: console.log('Current project:', $projectStore.currentProject);
 
-async function handleCreateNewProject(nameOrEvent?: string | Event) {
-const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
-
-console.log('Creating new project with name:', projectName);
-if (!projectName.trim()) {
-  console.log('Name is empty, returning');
-  return;
-}
-
-try {
-  isCreatingProject = true;
-  console.log('Starting project creation...');
-  const newProject = await projectStore.addProject({
-    name: projectName.trim(),
-    description: ''
-  });
-  console.log('New project created:', newProject);
+  async function handleSelectProject(projectId: string) {
+  console.log('Selecting project:', projectId);
   
-  if (newProject) {
-    newProjectName = '';
-    isCreatingProject = false;
+  try {
     isExpanded = false;
+    isLoading = true;
+
+    if (currentThreadId) {
+      console.log('Resetting current thread:', currentThreadId);
+      // await resetThread(currentThreadId);
+    }
     
-    // Select the newly created project
-    await handleSelectProject(newProject.id);
-    console.log('New project selected:', newProject.id);
+    console.log('Updating project store with project:', projectId);
+    await projectStore.setCurrentProject(projectId);
+    
+    // Reset threads store state
+    console.log('Resetting threads store');
+    threadsStore.update(state => ({
+      ...state,
+      showThreadList: true,
+      currentThreadId: null,
+      currentMessage: null
+    }));
+    
+    console.log('Project selection completed successfully');
+  } catch (error) {
+    console.error("Error handling project selection:", error);
+    alert('Failed to select project. Please try again.');
+    isExpanded = true;
+  } finally {
+    isLoading = false;
   }
-} catch (error) {
-  console.error('Error in handleCreateNewProject:', error);
-} finally {
-  console.log('Project creation completed');
-  isCreatingProject = false;
-}
 }
 
-async function handleSelectProject(projectId: string) {
-console.log('Selecting project:', projectId);
-try {
-  // First, set the dropdown to close as soon as selection starts
-  isExpanded = false;
-  
-  if (currentThreadId) {
-    await resetThread(currentThreadId);
-    console.log('Thread reset complete');
-  }
-  
-  threadsStore.update(state => ({
-    ...state,
-    showThreadList: true,
-    currentThreadId: null,
-    currentMessage: null 
-  }));
-  
-  await projectStore.setCurrentProject(projectId);
-  console.log('Project selected, new store state:', $projectStore);
-  
-  projectStore.update(state => ({
-    ...state,
-    currentProjectId: projectId,
-    currentProject: state.threads.find(p => p.id === projectId) || null
-  }));
+async function handleCreateNewProject(nameOrEvent?: string | Event) {
+  const projectName = typeof nameOrEvent === 'string' ? nameOrEvent : newProjectName;
 
-  threadsStore.update(state => ({
-    ...state,
-    showThreadList: true
-  }));
-} catch (error) {
-  console.error("Error handling project selection:", error);
+  console.log('Creating new project with name:', projectName);
+  if (!projectName.trim()) {
+    console.log('Name is empty, returning');
+    return;
+  }
+
+  try {
+    isCreatingProject = true;
+    console.log('Starting project creation...');
+    const newProject = await projectStore.addProject({
+      name: projectName.trim(),
+      description: ''
+    });
+    console.log('New project created:', newProject);
+    
+    if (newProject) {
+      newProjectName = '';
+      isCreatingProject = false;
+      isExpanded = false;
+      
+      // Select the newly created project
+      await handleSelectProject(newProject.id);
+      console.log('New project selected:', newProject.id);
+    }
+  } catch (error) {
+    console.error('Error in handleCreateNewProject:', error);
+  } finally {
+    console.log('Project creation completed');
+    isCreatingProject = false;
+  }
 }
-}
+
+
 
 export async function handleDeleteProject(e: Event, projectId: string) {
     e.stopPropagation();
@@ -111,9 +113,9 @@ export async function handleDeleteProject(e: Event, projectId: string) {
     }
     
     try {
-        // Get current user ID
-        const currentUserId = pb.authStore.model?.id;
-        if (!currentUserId) {
+        // Get current user
+        const user = get(currentUser);
+        if (!user) {
             throw new Error('User not authenticated');
         }
         
@@ -123,9 +125,9 @@ export async function handleDeleteProject(e: Event, projectId: string) {
         
         console.log('Delete attempt:', {
             projectId,
-            currentUserId,
+            currentUserId: user.id,
             projectOwner: project?.owner,
-            isOwner: currentUserId === project?.owner
+            isOwner: user.id === project?.owner
         });
         
         // Pre-check if user is owner
@@ -134,7 +136,7 @@ export async function handleDeleteProject(e: Event, projectId: string) {
             return;
         }
         
-        if (project.owner !== currentUserId) {
+        if (project.owner !== user.id) {
             alert('Only the project owner can delete this project.');
             return;
         }
@@ -159,126 +161,144 @@ export async function handleDeleteProject(e: Event, projectId: string) {
 }
 
 function handleClickOutside(event: MouseEvent) {
-if (dropdownContainer && !dropdownContainer.contains(event.target as Node)) {
-  isExpanded = false;
-  isCreatingProject = false;
-}
+  if (dropdownContainer && !dropdownContainer.contains(event.target as Node)) {
+    isExpanded = false;
+    isCreatingProject = false;
+  }
 }
 
 $: filteredProjects = searchQuery 
-? $projectStore.threads.filter(project => 
-    project.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-: $projectStore.threads;
+  ? $projectStore.threads.filter(project => 
+      project.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  : $projectStore.threads;
 
 onMount(async () => {
-console.log('Component mounting...');
+  console.log('Component mounting...');
 
-try {
-  await projectStore.loadProjects();
-  console.log('Projects loaded:', $projectStore.threads);
-} catch (error) {
-  console.error('Error in onMount:', error);
-}
+  try {
+    await projectStore.loadProjects();
+    console.log('Projects loaded:', $projectStore.threads);
+  } catch (error) {
+    console.error('Error in onMount:', error);
+  }
 });
 
 onMount(() => {
-document.addEventListener('click', handleClickOutside);
+  document.addEventListener('click', handleClickOutside);
 
-return () => {
-  document.removeEventListener('click', handleClickOutside);
-};
+  return () => {
+    document.removeEventListener('click', handleClickOutside);
+  };
 });
 </script>
 
 <div class="dropdown-container" bind:this={dropdownContainer}>
-<button 
-  class="dropdown-trigger"
-  on:click={() => {
-    console.log('Dropdown trigger clicked');
-    isExpanded = !isExpanded;
-    console.log('isExpanded set to:', isExpanded);
-  }}
->
-  <span class="trigger-text">
-    <span class="icon" class:rotated={isExpanded}>
-      <ChevronDown />
-    </span>
-    {$projectStore.currentProject?.name || 'Select Project'}
-  </span>
-</button>
-
-{#if isExpanded}
-  <div 
-    class="dropdown-content"
-    transition:slide={{ duration: 200 }}
+  <button 
+    class="dropdown-trigger"
+    on:click={() => {
+      console.log('Dropdown trigger clicked');
+      isExpanded = !isExpanded;
+      console.log('isExpanded set to:', isExpanded);
+    }}
   >
-    <div class="dropdown-header">
-      <div class="search-bar">
-        <span>
-          <Search />
-        </span>
-        <input
-          type="text"
-          bind:value={searchQuery}
-          placeholder={$t('nav.searchProjects')}
-        />
-      </div>
-      <button 
-        class="create-btn"
-        on:click={() => isCreatingProject = !isCreatingProject}
-      >
-        <Plus />
-      </button>
-    </div>
+    <span class="trigger-text">
+      <span class="icon" class:rotated={isExpanded}>
 
-    {#if isCreatingProject}
+      <Book/>
+    </span>
+
+    <span class="trigger-display">
+      {$projectStore.currentProject?.name || $t('drawer.project')}
+
+    </span>
+      <span class="icon" class:rotated={isExpanded}>
+        /
+       </span>
+    </span>
     
-      <div class="create-form" transition:slide>
-        <input
-          type="text"
-          bind:value={newProjectName}
-          placeholder="Project name..."
-          on:keydown={(e) => {
-            if (e.key === 'Enter' && newProjectName.trim()) {
-              handleCreateNewProject();
-            }
-          }}
-        />
+  </button>
+
+  {#if isExpanded}
+    <div 
+      class="dropdown-content"
+      transition:slide={{ duration: 200 }}
+    >
+      <div class="dropdown-header">
+        <div class="search-bar">
+          <span>
+            <Search />
+          </span>
+          <input
+            type="text"
+            bind:value={searchQuery}
+            placeholder={$t('nav.searchProjects')}
+          />
+        </div>
         <button 
           class="create-btn"
-          disabled={!newProjectName.trim()}
-          on:click={() => handleCreateNewProject(newProjectName)}
+          on:click={() => isCreatingProject = !isCreatingProject}
         >
-          <Check size={16} />
+          <Plus />
         </button>
       </div>
-    {/if}
 
-    <div class="projects-list">
-      {#each filteredProjects as project (project.id)}
-        <div 
-          class="project-item"
-          class:active={$projectStore.currentProjectId === project.id}
-          on:click={() => handleSelectProject(project.id)}
-        >
-          <span class="project-name">{project.name}</span>
-          <div class="project-actions">
-            <button 
-              class="action-btn delete"
-              on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+      {#if isCreatingProject}
+      
+        <div class="create-form" transition:slide>
+          <input
+            type="text"
+            bind:value={newProjectName}
+            placeholder="Project name..."
+            on:keydown={(e) => {
+              if (e.key === 'Enter' && newProjectName.trim()) {
+                handleCreateNewProject();
+              }
+            }}
+          />
+          <button 
+            class="create-btn"
+            disabled={!newProjectName.trim()}
+            on:click={() => handleCreateNewProject(newProjectName)}
+          >
+            <Check size={16} />
+          </button>
         </div>
-      {/each}
+      {/if}
+
+      <div class="projects-list">
+        {#if isLoading}
+        <div class="spinner-container">
+          <div class="spinner"></div>
+      </div>
+        {:else}
+          {#each filteredProjects as project (project.id)}
+            <div 
+              class="project-item"
+              class:active={$projectStore.currentProjectId === project.id}
+              class:disabled={isLoading}
+              on:click|preventDefault={() => !isLoading && handleSelectProject(project.id)}
+            >
+              <span class="project-name">{project.name}</span>
+              <div class="project-actions">
+                <button 
+                  class="action-btn delete"
+                  disabled={isLoading}
+                  on:click|stopPropagation={(e) => !isLoading && handleDeleteProject(e, project.id)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
     </div>
-  </div>
-{/if}
+  {/if}
 </div>
   
   <style lang="scss">
+	@use 'src/styles/themes.scss' as *;
 
     * {
       font-family: var(--font-family);
@@ -289,7 +309,7 @@ return () => {
       display: flex;
       justify-content: center;
       align-items: center;
-      width: auto;
+      width: 100%;
       margin-left: 1rem;
       z-index: 1;
       user-select: none;
@@ -298,19 +318,20 @@ return () => {
   
     .dropdown-trigger {
       background: transparent;
-      border: none;
+      border: 1px solid transparent;
+      // border-bottom: 1px solid var(--placeholder-color);
       margin-top: 0;
       color: var(--text-color);
+      justify-content: left;
       cursor: pointer;
       // padding: 0.5rem 1rem;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       padding: 1rem 0.5rem;
-      justify-content: left;
-      border-radius: var(--radius-m);
       transition: all 0.2s ease;
-      height: auto;
-      width: auto;
+      height: 4rem;
+      width: 100%;
+
 
       &:hover {
         background: var(--secondary-color);
@@ -319,13 +340,13 @@ return () => {
   
     .trigger-text {
       display: flex;
-      align-items: center;
+      align-items: space-between;
+      justify-content: space-between;
       gap: 0.5rem;
-      padding-right: 1rem;
-      font-size: 1.25rem;
+
+      font-size: 1.5rem;
       color: var(--placeholder-color);
-      font-style: italic;
-      letter-spacing: 0.2rem;
+      letter-spacing: 0.5rem;
       .icon {
         transition: transform 0.2s ease;
         
@@ -333,6 +354,10 @@ return () => {
           transform: rotate(180deg);
         }
       }
+    }
+
+    span.trigger-display {
+      height: auto;
     }
   
     .dropdown-content {
@@ -347,9 +372,8 @@ return () => {
   
     .dropdown-header {
       display: flex;
-      height:4rem;
+      height: 4rem;
       gap: 0;
-      background: red;
       background-color: var(--primary-color);
       border-top-left-radius: var(--radius-m);
       border-top-right-radius: var(--radius-m);
@@ -524,9 +548,10 @@ return () => {
 
     .dropdown-container {
       position: relative;
-      display: inline-block;
-      width: 100%;
+      display: flex;
+      width: auto;
       z-index: 1;
+
       user-select: none;
       left:0;
       margin-left: 0;
@@ -576,15 +601,18 @@ return () => {
         box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
 
       }
+      .dropdown-trigger {
+        margin: 0;
+        padding: 1rem;
+
+      }
+
+      span.trigger-display {
+        display: none;
+      }
     }
 
     @media (max-width: 767px) {
-      .dropdown-trigger {
-        width: 100vw;
-        justify-content: center;
-        margin-top: 0.25rem;
-        padding:0.5rem 0;
 
-      }
     }
   </style>

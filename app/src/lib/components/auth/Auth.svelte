@@ -1,23 +1,30 @@
 <script lang="ts">
-	import { onMount, createEventDispatcher } from 'svelte';
+	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOutIcon, Send, SignalHighIcon } from 'lucide-svelte';
-	import Profile from '../ui/Profile.svelte';
+	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl } from '$lib/pocketbase';
+	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh } from 'lucide-svelte';
+	import Profile from '$lib/components/ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { spring } from 'svelte/motion';
+	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { get } from 'svelte/store';
 
+	// Form state
 	let email: string = '';
 	let password: string = '';
 	let errorMessage: string = '';
 	let avatarUrl: string | null = null;
-	let showProfileModal = false;
-	let showTermsOverlay = false;
-	let showPrivacyOverlay = false;
-	let isWaitlistMode = false;
+	let showProfileModal: boolean = false;
+	let showTermsOverlay: boolean = false;
+	let showPrivacyOverlay: boolean = false;
+	let isWaitlistMode: boolean = false;
+	let isLoading: boolean = false;
+	let connectionChecked: boolean = false;
 
+	// Touch interaction state
 	let startY: number = 0;
 	let currentY: number = 0;
 	let isDragging: boolean = false;
@@ -28,11 +35,11 @@
 		damping: 0.7
 	});
 
-	
-
 	const dispatch = createEventDispatcher();
 
-	function handleTouchStart(event: TouchEvent) {
+	function handleTouchStart(event: TouchEvent): void {
+		if (!browser) return;
+		
 		// Only initiate drag if touch starts in the top portion of the container
 		const touch = event.touches[0];
 		const element = event.currentTarget as HTMLElement;
@@ -46,8 +53,9 @@
 			currentY = 0;
 		}
 	}
-	function handleTouchMove(event: TouchEvent) {
-		if (!isDragging) return;
+
+	function handleTouchMove(event: TouchEvent): void {
+		if (!browser || !isDragging) return;
 
 		const deltaY = event.touches[0].clientY - startY;
 		if (deltaY > 0) {
@@ -57,14 +65,15 @@
 
 			// Add opacity based on drag distance
 			const opacity = Math.max(0, 1 - deltaY / window.innerHeight);
-			event.currentTarget.style.opacity = opacity.toString();
+			const target = event.currentTarget as HTMLElement;
+			target.style.opacity = opacity.toString();
 		}
 
 		event.preventDefault();
 	}
 
-	function handleTouchEnd() {
-		if (!isDragging) return;
+	function handleTouchEnd(event: TouchEvent): void {
+		if (!browser || !isDragging) return;
 
 		isDragging = false;
 		if (currentY > SWIPE_THRESHOLD) {
@@ -75,93 +84,189 @@
 		} else {
 			// Spring back if not dragged far enough
 			yPosition.set(0);
-			event.currentTarget.style.opacity = '1';
+			const target = event.currentTarget as HTMLElement;
+			target.style.opacity = '1';
 		}
 	}
-	function openTermsOverlay() {
+
+	function openTermsOverlay(): void {
 		showTermsOverlay = true;
 	}
 
-	function openPrivacyOverlay() {
+	function openPrivacyOverlay(): void {
 		showPrivacyOverlay = true;
 	}
 
-	function openJoinWaitlistOverlay() {
-    isWaitlistMode = !isWaitlistMode;
-    // Clear fields when switching modes
-    email = '';
-    password = '';
-}
+	function openJoinWaitlistOverlay(): void {
+		isWaitlistMode = !isWaitlistMode;
+		// Clear fields when switching modes
+		email = '';
+		password = '';
+		errorMessage = '';
+	}
 
-	function closeOverlay() {
+	function closeOverlay(): void {
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
-		isWaitlistMode = false;
 	}
 
-	function handleAuthSuccess() {
-		dispatch('success');
-	}
-
-	async function login() {
+	async function login(): Promise<void> {
+		if (!browser) return;
+		
+		errorMessage = '';
+		isLoading = true;
+		
 		try {
-			const authData = await pb.collection('users').authWithPassword(email, password);
-			currentUser.set(authData.record);
-			errorMessage = '';
-			dispatch('success');
+			if (!email || !password) {
+				errorMessage = 'Email and password are required';
+				isLoading = false;
+				return;
+			}
+			
+			const authData = await signIn(email, password);
+			if (authData) {
+				errorMessage = '';
+				// Wait for UI to update before dispatching the success event
+				await tick();
+				dispatch('success');
+			} else {
+				errorMessage = 'Login failed. Please check your credentials.';
+			}
 		} catch (err) {
 			console.error('Login error:', err);
-			errorMessage = err.message || 'An error occurred during login';
+			errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
+		} finally {
+			isLoading = false;
 		}
 	}
 
-	async function signUp() {
+	async function signUp(): Promise<void> {
+		if (!browser) return;
+		
+		errorMessage = '';
+		isLoading = true;
+		
 		try {
-			const data = {
-				email,
-				password,
-				passwordConfirm: password,
-				name: 'Hey'
-			};
-			const createdUser = await pb.collection('users').create(data);
-			await login();
+			if (!email || !password) {
+				errorMessage = 'Email and password are required';
+				isLoading = false;
+				return;
+			}
+			
+			const createdUser = await registerUser(email, password);
+			if (createdUser) {
+				// Login with the newly created credentials
+				await login();
+			} else {
+				errorMessage = 'Signup failed. Please try again.';
+			}
 		} catch (err) {
 			console.error('Signup error:', err);
-			errorMessage = err.message || 'An error occurred during signup';
+			errorMessage = err instanceof Error ? err.message : 'An error occurred during signup';
+		} finally {
+			isLoading = false;
 		}
 	}
 
-	async function logout() {
+	async function handleWaitlistSubmission(): Promise<void> {
+		if (!browser) return;
+		
+		errorMessage = '';
+		isLoading = true;
+		
 		try {
-			await pb.authStore.clear();
-			currentUser.set(null);
+			if (!email) {
+				errorMessage = 'Email is required';
+				isLoading = false;
+				return;
+			}
+			
+			// Implementation for waitlist submission
+			const response = await fetch('/api/verify/waitlist', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ email })
+			});
+			
+			if (response.ok) {
+				dispatch('waitlist-success', { email });
+				isWaitlistMode = false;
+			} else {
+				let errorText = 'Failed to join waitlist. Please try again.';
+				try {
+					const data = await response.json();
+					errorText = data.message || data.error || errorText;
+				} catch (e) {
+					// Use default error message if JSON parsing fails
+				}
+				errorMessage = errorText;
+			}
+		} catch (err) {
+			console.error('Waitlist submission error:', err);
+			errorMessage = err instanceof Error ? err.message : 'An error occurred while joining the waitlist';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function logout(): Promise<void> {
+		if (!browser) return;
+		
+		try {
+			await signOut();
+			showProfileModal = false;
 			dispatch('logout');
 		} catch (err) {
 			console.error('Logout error:', err);
+			errorMessage = err instanceof Error ? err.message : 'An error occurred during logout';
 		}
 	}
 
-	function toggleProfileModal() {
+	function toggleProfileModal(): void {
 		showProfileModal = !showProfileModal;
 	}
 
-	function updateAvatarUrl() {
-		if ($currentUser && $currentUser.avatar) {
-			avatarUrl = pb.getFileUrl($currentUser, $currentUser.avatar);
+	function updateAvatarUrl(): void {
+		const user = get(currentUser);
+		if (user && user.avatar) {
+			// Use pocketbaseUrl to construct the avatar URL
+			avatarUrl = `${pocketbaseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
+		} else {
+			avatarUrl = null;
 		}
 	}
 
-	$: if ($currentUser && $currentUser.avatar) {
-		updateAvatarUrl();
-	}
+	// Watch currentUser for changes
+	currentUser.subscribe((user) => {
+		if (user) {
+			updateAvatarUrl();
+		} else {
+			avatarUrl = null;
+		}
+	});
 
 	onMount(async () => {
-		const isConnected = await checkPocketBaseConnection();
-		if (!isConnected) {
-			errorMessage = 'Unable to connect to the server. Please try again later.';
-		}
-		if ($currentUser && $currentUser.id) {
-			updateAvatarUrl();
+		if (!browser) return;
+		
+		try {
+			const isConnected = await checkPocketBaseConnection();
+			connectionChecked = true;
+			
+			if (!isConnected) {
+				errorMessage = 'Unable to connect to the server. Please try again later.';
+				return;
+			}
+			
+			const user = get(currentUser);
+			if (user && user.id) {
+				updateAvatarUrl();
+			}
+		} catch (error) {
+			connectionChecked = true;
+			console.error('Connection check error:', error);
+			errorMessage = 'Unable to verify server connection. Please try again later.';
 		}
 	});
 </script>
@@ -189,82 +294,94 @@
 			</p>
 		</div>
 	{:else}
-	<div class="login-container">
-		<div class="credentials">
-			<form on:submit|preventDefault class="auth-form">
-				<button 
-					class="button button-subtle" 
-					on:click={openJoinWaitlistOverlay}
+		<div class="login-container">
+			<div class="credentials">
+				<form 
+					on:submit|preventDefault={(e) => {
+						e.preventDefault();
+						if (!isWaitlistMode) {
+							login();
+						} else {
+							handleWaitlistSubmission();
+						}
+					}} 
+					class="auth-form"
 				>
-					{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
-				</button>
-				<input 
-					type="email" 
-					bind:value={email} 
-					placeholder="Email" 
-					required 
-					autofocus
-				/>
-				
-				{#if !isWaitlistMode}
-					<input
-						type="password"
-						bind:value={password}
-						placeholder="Password"
-						required
-						transition:fly={{ duration: 300 }}
+					<button 
+						class="button button-subtle" 
+						on:click|preventDefault={openJoinWaitlistOverlay}
+						type="button"
+						disabled={isLoading}
+					>
+						{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
+					</button>
+					<input 
+						type="email" 
+						bind:value={email} 
+						placeholder="Email" 
+						required 
+						disabled={isLoading}
 					/>
-				{/if}
-				
-				<div class="button-group">
-					<button 
-						class="button button-login" 
-						on:click={isWaitlistMode ? () => {
-							// Handle waitlist subscription
-							console.log('Subscribe clicked', email);
-						} : login}
-					>
+					
+					{#if !isWaitlistMode}
+						<input
+							type="password"
+							bind:value={password}
+							placeholder="Password"
+							required
+							disabled={isLoading}
+							transition:fly={{ duration: 300 }}
+						/>
+					{/if}
+					
+					<div class="button-group">
 						{#if !isWaitlistMode}
-							<span>							
-								<LogIn />
-								{$t('profile.login')}</span>
+							<button 
+								class="button button-login" 
+								on:click|preventDefault={login}
+								type="button"
+								disabled={isLoading}
+							>
+								<span>							
+									<LogIn />
+									{isLoading ? 'Logging in...' : $t('profile.login')}
+								</span>
+							</button>
+							<button 
+								class="button button-signup" 
+								on:click|preventDefault={signUp}
+								type="button"
+								disabled={isLoading}
+							>
+								<span>							
+									<UserPlus />
+									{isLoading ? 'Signing up...' : $t('profile.signup')}
+								</span>
+							</button>
 						{:else}
-							<span>
-								<Send />
-								{$t('profile.join')}
-							</span>
+							<button 
+								class="button button-waitlist" 
+								on:click|preventDefault={handleWaitlistSubmission}
+								type="button"
+								disabled={isLoading}
+							>
+								<span>
+									<Send />
+									{isLoading ? 'Joining...' : $t('profile.join')}
+								</span>
+							</button>
 						{/if}
-					</button>
-					<button 
-						class="button button-login" 
-						on:click={isWaitlistMode ? () => {
-							// Handle waitlist subscription
-							console.log('Subscribe clicked', email);
-						} : signUp}
-					>
-						{#if !isWaitlistMode}
-							<span>							
-								<SignalHighIcon />
-								{$t('profile.signup')}</span>
-						{:else}
-							<span>
-								<Send />
-								{$t('profile.join')}
-							</span>
-						{/if}
-					</button>
-
-				</div>
-			</form>
+					</div>
+				</form>
+			</div>
+		
+			<div class="terms-privacy">
+				<span>{$t('profile.clause')}</span>
+				<button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
+				<span>&</span>
+				<button on:click={openPrivacyOverlay}>{$t('profile.privacy')}</button>
+			</div>
 		</div>
-	
-		<div class="terms-privacy">
-			<span>{$t('profile.clause')}</span>
-			<button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
-			<span>&</span>
-			<button on:click={openPrivacyOverlay}>{$t('profile.privacy')}</button>
-		</div>
-	</div>
 	{/if}
 
 	{#if errorMessage}
@@ -275,7 +392,7 @@
 {#if showProfileModal}
 	<Profile user={$currentUser} onClose={toggleProfileModal} />
 	<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-		<LogOutIcon size={24} />
+		<LogOut size={24} />
 		<span>Logout</span>
 	</button>
 {/if}
@@ -287,8 +404,6 @@
 {#if showPrivacyOverlay}
 	<PrivacyPolicy on:close={closeOverlay} />
 {/if}
-
-
 
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;

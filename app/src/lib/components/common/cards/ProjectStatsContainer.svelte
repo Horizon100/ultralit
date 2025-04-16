@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb } from '$lib/pocketbase';
+	// import {  } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { projectStore } from '$lib/stores/projectStore';
 

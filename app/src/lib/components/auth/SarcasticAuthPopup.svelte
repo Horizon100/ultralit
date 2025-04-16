@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { pb, currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+	import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
 	import { Camera, LogIn, UserPlus, LogOutIcon } from 'lucide-svelte';
 	import Profile from '../ui/Profile.svelte';
 

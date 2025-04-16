@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import { pb, currentUser } from '$lib/pocketbase';
+    import {  currentUser } from '$lib/pocketbase';
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
     import { Bookmark, Copy } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
@@ -223,6 +223,7 @@
 
 	/* Hover effect */
 	.message-reactions:hover {
+        background: transparent !important;
 		.reaction-btn {
 			opacity: 1;
 		}

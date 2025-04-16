@@ -1,4 +1,4 @@
-import { pb } from '../pocketbase';
+import {  } from '../pocketbase';
 import type { AIModel } from '$lib/types/types';
 import { providers, type ProviderType } from '$lib/constants/providers';
 

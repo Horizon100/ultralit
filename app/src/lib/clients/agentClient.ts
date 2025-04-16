@@ -1,70 +1,132 @@
 import { debounce } from 'lodash-es';
-import { ClientResponseError } from 'pocketbase';
-import { pb } from '../pocketbase';
+import { currentUser } from '../pocketbase';
+import { get } from 'svelte/store';
 import type { AIAgent } from '../types/types';
+
+// Helper function to handle fetch API responses
+async function handleResponse<T>(response: Response): Promise<T> {
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(errorData.message || `API request failed with status ${response.status}`);
+	}
+	return await response.json();
+}
 
 export async function createAgent(agentData: Partial<AIAgent> | FormData): Promise<AIAgent> {
 	try {
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
+		const user = get(currentUser);
+		if (!user) {
 			throw new Error('User not logged in');
 		}
 
 		let finalAgentData: Record<string, unknown>;
 
 		if (agentData instanceof FormData) {
-			finalAgentData = Object.fromEntries(agentData.entries());
-			// Parse JSON strings back into objects/arrays
-			for (const key in finalAgentData) {
-				try {
-					finalAgentData[key] = JSON.parse(finalAgentData[key] as string);
-				} catch {
-					// If parsing fails, keep the original value
-				}
+			// Use FormData directly for file uploads
+			const formData = agentData;
+			// Add the user data
+			formData.append('user_id', user.id);
+			formData.append('owner', user.id);
+			
+			if (!formData.has('editors')) {
+				formData.append('editors', JSON.stringify([user.id]));
 			}
+			
+			if (!formData.has('viewers')) {
+				formData.append('viewers', JSON.stringify([user.id]));
+			}
+			
+			if (!formData.has('position')) {
+				formData.append('position', JSON.stringify({ x: 0, y: 0 }));
+			}
+			
+			if (!formData.has('status')) {
+				formData.append('status', 'inactive');
+			}
+			
+			// Ensure role and user_input are lowercase
+			if (formData.has('role')) {
+				const role = formData.get('role') as string;
+				formData.set('role', role.toLowerCase());
+			}
+			
+			if (formData.has('user_input')) {
+				const userInput = formData.get('user_input') as string;
+				formData.set('user_input', userInput.toLowerCase());
+			}
+			
+			console.log('Sending FormData to server');
+			
+			const response = await fetch('/api/agents', {
+				method: 'POST',
+				body: formData,
+				credentials: 'include'
+			});
+			
+			const data = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(response);
+			
+			if (!data.success) {
+				throw new Error(data.error || 'Failed to create agent');
+			}
+			
+			console.log('Created agent:', data.data);
+			
+			return {
+				...data.data,
+				position: typeof data.data.position === 'string' ? JSON.parse(data.data.position) : data.data.position
+			};
 		} else {
 			finalAgentData = { ...agentData };
+			
+			// Set owner and other common fields
+			finalAgentData.user_id = user.id;
+			finalAgentData.owner = user.id;
+			finalAgentData.editors = finalAgentData.editors || [user.id];
+			finalAgentData.viewers = finalAgentData.viewers || [user.id];
+			finalAgentData.position = finalAgentData.position || { x: 0, y: 0 };
+			finalAgentData.status = finalAgentData.status || 'inactive';
+			
+			// Handle actions
+			if (Array.isArray(finalAgentData.actions)) {
+				finalAgentData.actions = finalAgentData.actions.map((action) =>
+					typeof action === 'string' ? action : action.id
+				);
+			}
+			
+			// Ensure role and user_input are lowercase
+			if (finalAgentData.role) {
+				finalAgentData.role = (finalAgentData.role as string).toLowerCase();
+			}
+			if (finalAgentData.user_input) {
+				finalAgentData.user_input = (finalAgentData.user_input as string).toLowerCase();
+			}
+			
+			console.log('Sending data to server:', finalAgentData);
+			
+			const response = await fetch('/api/agents', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify(finalAgentData)
+			});
+			
+			const data = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(response);
+			
+			if (!data.success) {
+				throw new Error(data.error || 'Failed to create agent');
+			}
+			
+			console.log('Created agent:', data.data);
+			
+			return {
+				...data.data,
+				position: typeof data.data.position === 'string' ? JSON.parse(data.data.position) : data.data.position
+			};
 		}
-
-		// Set owner and other common fields
-		finalAgentData.user_id = userId;
-		finalAgentData.owner = userId;
-		finalAgentData.editors = finalAgentData.editors || [userId];
-		finalAgentData.viewers = finalAgentData.viewers || [userId];
-		finalAgentData.position = JSON.stringify(finalAgentData.position || { x: 0, y: 0 });
-		finalAgentData.status = finalAgentData.status || 'inactive';
-
-		// Handle actions
-		if (Array.isArray(finalAgentData.actions)) {
-			finalAgentData.actions = finalAgentData.actions.map((action) =>
-				typeof action === 'string' ? action : action.id
-			);
-		}
-
-		// Ensure role and user_input are lowercase
-		if (finalAgentData.role) {
-			finalAgentData.role = (finalAgentData.role as string).toLowerCase();
-		}
-		if (finalAgentData.user_input) {
-			finalAgentData.user_input = (finalAgentData.user_input as string).toLowerCase();
-		}
-
-		console.log('Sending data to server:', finalAgentData);
-
-		const agent = await pb.collection('ai_agents').create<AIAgent>(finalAgentData);
-
-		console.log('Created agent:', agent);
-
-		return {
-			...agent,
-			position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
-		};
 	} catch (error) {
 		console.error('Error creating agent:', error);
-		if (error instanceof ClientResponseError) {
-			console.error('Response data:', error.data);
-			console.error('Status code:', error.status);
-		}
 		throw error;
 	}
 }
@@ -72,46 +134,68 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
 export const updateAgentDebounced = debounce(
 	async (id: string, agentData: Partial<AIAgent> | FormData): Promise<AIAgent> => {
 		try {
-			let finalAgentData: Record<string, unknown>;
-
 			if (agentData instanceof FormData) {
-				finalAgentData = Object.fromEntries(agentData.entries());
-				// Parse JSON strings back into objects/arrays
-				for (const key in finalAgentData) {
-					if (typeof finalAgentData[key] === 'string') {
-						try {
-							finalAgentData[key] = JSON.parse(finalAgentData[key] as string);
-						} catch {
-							// If parsing fails, keep the original value
-						}
-					}
+				// Use FormData directly for file uploads
+				const formData = agentData;
+				
+				console.log('Sending FormData to server for update');
+				
+				const response = await fetch(`/api/agents/${id}`, {
+					method: 'PATCH',
+					body: formData,
+					credentials: 'include'
+				});
+				
+				const data = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(response);
+				
+				if (!data.success) {
+					throw new Error(data.error || 'Failed to update agent');
 				}
+				
+				console.log('Updated agent:', data.data);
+				
+				if (!data.data) {
+					throw new Error('Failed to update agent: No agent returned');
+				}
+				
+				return {
+					...data.data,
+					position: typeof data.data.position === 'string' ? JSON.parse(data.data.position) : data.data.position
+				};
 			} else {
-				finalAgentData = { ...agentData };
+				// Handle JSON data
+				const finalAgentData = { ...agentData };
+				
+				console.log('Sending data to server for update:', finalAgentData);
+				
+				const response = await fetch(`/api/agents/${id}`, {
+					method: 'PATCH',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					credentials: 'include',
+					body: JSON.stringify(finalAgentData)
+				});
+				
+				const data = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(response);
+				
+				if (!data.success) {
+					throw new Error(data.error || 'Failed to update agent');
+				}
+				
+				console.log('Updated agent:', data.data);
+				
+				if (!data.data) {
+					throw new Error('Failed to update agent: No agent returned');
+				}
+				
+				return {
+					...data.data,
+					position: typeof data.data.position === 'string' ? JSON.parse(data.data.position) : data.data.position
+				};
 			}
-
-			// Handle actions, role, user_input, and position as before...
-
-			console.log('Sending data to server for update:', finalAgentData);
-
-			const agent = await pb.collection('ai_agents').update<AIAgent>(id, finalAgentData);
-
-			console.log('Updated agent:', agent);
-
-			if (!agent) {
-				throw new Error('Failed to update agent: No agent returned');
-			}
-
-			return {
-				...agent,
-				position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
-			};
 		} catch (error) {
 			console.error('Error updating agent:', error);
-			if (error instanceof ClientResponseError) {
-				console.error('Response data:', error.data);
-				console.error('Status code:', error.status);
-			}
 			throw error;
 		}
 	},
@@ -129,11 +213,22 @@ export async function updateAgent(
 
 export async function getAgentById(id: string): Promise<AIAgent> {
 	try {
-		const agent = await pb.collection('ai_agents').getOne<AIAgent>(id);
-		console.log('Fetched agent:', agent);
+		const response = await fetch(`/api/agents/${id}`, {
+			method: 'GET',
+			credentials: 'include'
+		});
+		
+		const data = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to fetch agent');
+		}
+		
+		console.log('Fetched agent:', data.data);
+		
 		return {
-			...agent,
-			position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
+			...data.data,
+			position: typeof data.data.position === 'string' ? JSON.parse(data.data.position) : data.data.position
 		};
 	} catch (error) {
 		console.error('Error fetching agent:', error);
@@ -143,15 +238,21 @@ export async function getAgentById(id: string): Promise<AIAgent> {
 
 export async function deleteAgent(id: string): Promise<boolean> {
 	try {
-		await pb.collection('ai_agents').delete(id);
+		const response = await fetch(`/api/agents/${id}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
+		
+		const data = await handleResponse<{ success: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to delete agent');
+		}
+		
 		console.log('Agent deleted successfully');
 		return true;
 	} catch (error) {
 		console.error('Error deleting agent:', error);
-		if (error instanceof ClientResponseError) {
-			console.error('Response data:', error.data);
-			console.error('Status code:', error.status);
-		}
 		throw error;
 	}
 }

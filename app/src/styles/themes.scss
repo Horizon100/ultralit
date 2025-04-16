@@ -534,3 +534,66 @@ pre.code-block {
 	.stats-tab {
 		padding: 1rem 0;
 	}
+	.delete-button {
+		background: transparent;
+		border: 1px solid transparent;
+		color: white;
+		border-radius: var(--radius-m);
+		padding: 0.25rem 0.5rem;
+		cursor: pointer;
+		font-size: 0.8rem;
+		margin-left: 1rem;
+		transition: all 0.3s ease;
+		align-self: flex-start;
+		opacity: 0.5;
+		width: 2rem;
+		height: 2rem;
+		background: transparent;
+
+		:global(svg) {
+			fill:transparent !important;
+			stroke: var(--placeholder-color) !important;
+		}
+		
+		&:hover {
+			background: #e74c3c;
+			color: white;
+			opacity: 1;
+			transform: scale(1.4);
+		}
+	}
+	.edit-button {
+		background: transparent;
+		border: 1px solid transparent;
+		color: white;
+		border-radius: var(--radius-m);
+		padding: 0.25rem 0.5rem;
+		cursor: pointer;
+		font-size: 0.8rem;
+		margin-left: 1rem;
+		transition: all 0.3s ease;
+		align-self: flex-start;
+		opacity: 0.5;
+		width: 2rem;
+		height: 2rem;
+		background: transparent;
+
+		:global(svg) {
+			fill:transparent !important;
+			stroke: var(--placeholder-color) !important;
+		}
+		
+		&:hover {
+			background: var(--secondary-color);
+			color: white;
+			opacity: 1;
+			transform: scale(1.4);
+		}
+	}
+
+	.empty-state {
+		color: var(--placeholder-color);
+		width: auto;
+		padding: 1rem;
+		font-style: italic;
+	}

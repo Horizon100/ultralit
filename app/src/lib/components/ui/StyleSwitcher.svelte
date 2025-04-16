@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Bone } from 'lucide-svelte';
-	import { currentUser, pb } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import { t } from '$lib/stores/translationStore';
+	import { get } from 'svelte/store';
 
 	interface Style {
 		name: string;
@@ -69,7 +70,7 @@
 		{
 			name: 'Bone',
 			value: 'bone',
-			icon: Gauge,
+			icon: Bone,
 			description: 'Contrasts brights up.',
 			dummyContent: 'Shake it, make it.'
 		}
@@ -80,33 +81,17 @@
 	}
 
 	async function changeStyle(style: string) {
+		// Use the theme store's set method which already handles everything
 		await currentTheme.set(style);
-
-		currentTheme.set(style);
-		applyTheme(style);
-		if ($currentUser) {
-			try {
-				await pb.collection('users').update($currentUser.id, { theme_preference: style });
-			} catch (error) {
-				console.error('Failed to save theme preference:', error);
-			}
-		}
+		
+		// Dispatch events
 		dispatch('styleChange', { style });
 		dispatch('close');
 	}
 
 	onMount(async () => {
-		if ($currentUser) {
-			try {
-				const user = await pb.collection('users').getOne($currentUser.id);
-				if (user.theme_preference) {
-					currentTheme.set(user.theme_preference);
-					applyTheme(user.theme_preference);
-				}
-			} catch (error) {
-				console.error('Failed to fetch user theme preference:', error);
-			}
-		}
+		// Initialize theme on component mount
+		await currentTheme.initialize();
 	});
 
 	$: selectedStyle = styles.find((style) => style.value === $currentTheme) || styles[0];
@@ -124,18 +109,10 @@
 </script>
 
 <div class="style-switcher">
-	<!-- <div class="current-style"> -->
-	<!-- <svelte:component this={displayedStyle.icon} size={24} /> -->
-	<!-- <p>{displayedStyle.description}</p> -->
-	<!-- <span class="dummy" style="background-color: var(--primary-color); color: var(--text-color);">
-          {displayedStyle.dummyContent}
-      </span> -->
-	<!-- </div> -->
-	<!-- <svelte:component this={displayedStyle.icon} size={24} /> -->
 	<h2>{$t('nav.themes')}</h2>
 
 	<div class="style-list">
-		{#each $t('ui.styles') as style}
+		{#each styles as style}
 			<button
 				class="style-button {style.value}"
 				class:active={$currentTheme === style.value}
@@ -149,7 +126,6 @@
 		{/each}
 	</div>
 </div>
-
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 

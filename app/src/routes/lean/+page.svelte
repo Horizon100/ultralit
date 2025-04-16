@@ -5,7 +5,7 @@
     import { writable } from 'svelte/store';
     import {slide, fly, fade } from 'svelte/transition'
 	import { quintOut } from 'svelte/easing';
-    import { pb } from '$lib/pocketbase';
+    import {  } from '$lib/pocketbase';
 	import { currentUser } from '$lib/pocketbase';
     
 	let showFade = false;

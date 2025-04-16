@@ -602,6 +602,7 @@ export interface ExpandedSections {
 	prompts: boolean;
 	models: boolean;
 	bookmarks: boolean;
+	cites: boolean;
 }
 
 export interface MessageState {

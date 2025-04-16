@@ -3,7 +3,8 @@
   import { slide } from 'svelte/transition';
   import { Loader2, MessageSquare, Copy } from 'lucide-svelte';
   import type { Messages, User, Threads } from '$lib/types/types';
-  import { pb, currentUser, ensureAuthenticated } from '$lib/pocketbase';
+  
+  import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
   import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
   let bookmarkedMessages: (Messages & { threadName?: string })[] = [];
@@ -15,75 +16,18 @@
 
   async function fetchBookmarkedMessages() {
     try {
-      const isAuthed = await ensureAuthenticated();
-      if (!isAuthed) {
-        console.error('Not authenticated');
-        return;
-      }
-
-      const user = $currentUser;
-      if (!user?.bookmarks?.length) {
-        bookmarkedMessages = [];
-        isLoading = false;
-        return;
-      }
-
-      // Using individual OR conditions for each ID
-      const filterConditions = user.bookmarks.map(id => `id = '${id}'`).join(' || ');
-
-      const records = await pb.collection('messages').getList<Messages>(1, 50, {
-        filter: filterConditions,
-        sort: '-created',
-        expand: 'user'
-      });
-
-      const messagesWithThreadNames = await Promise.all(
-        records.items.map(async (message) => {
-          if (message.thread) {
-            try {
-              const thread = await pb.collection('threads').getOne<Threads>(message.thread);
-              return { ...message, threadName: thread.name };
-            } catch (e) {
-              console.log(`Failed to fetch thread for message ${message.id}:`, e);
-              return { ...message, threadName: 'Unknown Thread' };
-            }
-          }
-          return { ...message, threadName: 'No Thread' };
-        })
-      );
-
-      bookmarkedMessages = messagesWithThreadNames;
+      isLoading = true;
+      const response = await fetch('/api/bookmarks');
+      if (!response.ok) throw new Error('Failed to fetch bookmarks');
+      bookmarkedMessages = await response.json();
     } catch (error) {
-      console.error('Error fetching bookmarked messages:', error);
-      // Fallback
-      try {
-        const messages = await Promise.all(
-          $currentUser?.bookmarks.map(async (id) => {
-            try {
-              const message = await pb.collection('messages').getOne<Messages>(id);
-              if (message.thread) {
-                try {
-                  const thread = await pb.collection('threads').getOne<Threads>(message.thread);
-                  return { ...message, threadName: thread.name };
-                } catch (e) {
-                  return { ...message, threadName: 'Unknown Thread' };
-                }
-              }
-              return { ...message, threadName: 'No Thread' };
-            } catch (e) {
-              console.log(`Failed to fetch message ${id}:`, e);
-              return null;
-            }
-          }) ?? []
-        );
-        bookmarkedMessages = messages.filter((msg): msg is Messages & { threadName?: string } => msg !== null);
-      } catch (fallbackError) {
-        console.error('Fallback fetch failed:', fallbackError);
-      }
+      console.error('Error fetching bookmarks:', error);
+      bookmarkedMessages = [];
     } finally {
       isLoading = false;
     }
   }
+
 
   async function openThread(message: Messages) {
     try {
@@ -132,8 +76,8 @@
 </script>
 
 {#if isLoading}
-<div class="loading-container">
-  <Loader2 class="loading-spinner" />
+<div class="spinner-container">
+  <div class="spinner"></div>
 </div>
 {:else if !bookmarkedMessages.length}
 <div class="empty-state">
@@ -201,7 +145,10 @@
 </div>
 {/if}
 
-<style>
+<style lang="scss">
+
+@use "src/styles/themes.scss" as *;
+
 .loading-container {
   display: flex;
   align-items: center;
@@ -239,19 +186,25 @@
   color: var(--secondary-color);
 }
 
+
+
 .bookmark-container {
   display: flex;
-  flex-direction: column;
-  position: absolute;
-  bottom: 4rem;
-  gap: 1rem;
-  width: calc(100% - 4rem);
-  padding: 1rem;
-  max-height: 50vh;
-  backdrop-filter: blur(50px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--secondary-color) var(--primary-color);
+		flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: flex-end;
+		width: 100%;
+    margin-left: 0;
+    margin-right:auto;
+    margin-bottom: auto;
+    overflow-y: auto;
+    background-color: red;
+
+		// padding: var(--spacing-sm);
+    height: 50vh;
+    overflow-y: auto;
+		background-color: transparent;
+		border-radius: 1rem;
 }
 
 .bookmark-container::-webkit-scrollbar {
@@ -275,6 +228,8 @@
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  width: 400px;
+  height: 300px;
 }
 
 .message-card:hover {
@@ -404,6 +359,34 @@
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: 1000px) {
+
+    .bookmark-container {
+  display: flex;
+		flex-wrap: nowrap;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+		width: 100% !important;
+    margin-left: 0;
+    margin-right:auto;
+    margin-bottom: auto;
+    overflow-y: auto;
+    background-color: red;
+
+		// padding: var(--spacing-sm);
+    height: 50vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+		background-color: transparent;
+		border-radius: 1rem;
+}
+    .message-card {
+      margin-left: 4rem;
+      width: calc(100% - 4rem);
     }
   }
 </style>

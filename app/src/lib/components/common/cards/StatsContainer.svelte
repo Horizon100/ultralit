@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb, currentUser } from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 
 	export let threadCount = 0;
@@ -28,94 +28,53 @@
 		return Math.min(Math.round((count / target) * 100), 100);
 	}
 
-	async function fetchCount(collection: string, filter: string): Promise<number> {
-		if (!pb.authStore.isValid) {
-			console.error('User is not authenticated');
-			return 0;
-		}
-
-		try {
-			const resultList = await pb.collection(collection).getList(1, 1, {
-				sort: '-created',
-				filter: filter
-			});
-			return resultList.totalItems;
-		} catch (error) {
-			console.error(`Error fetching ${collection} count:`, error);
-			return 0;
-		}
-	}
-
 	async function fetchStats() {
-		if (!pb.authStore.isValid) {
+		if (!$currentUser) {
 			console.error('User is not authenticated');
 			return;
 		}
 
 		try {
-			const [threads, messages, tags, timer, lastActiveTime] = await Promise.all([
-				fetchCount('threads', `op = "${$currentUser?.id}"`),
-				fetchCount('messages', `user = "${$currentUser?.id}"`),
-				fetchCount('tags', `user = "${$currentUser?.id}"`),
-				fetchTimerCount(),
-				fetchLastActiveTime()
-			]);
-
-			threadCount = threads;
-			messageCount = messages;
-			tagCount = tags;
-			timerCount = timer;
-			lastActive = lastActiveTime;
-
-			console.log('Stats fetched successfully');
+			// Fetch stats from API endpoint
+			const response = await fetch(`/api/verify/users/${$currentUser.id}/stats`, {
+				credentials: 'include'
+			});
+			
+			if (!response.ok) {
+				throw new Error(`Failed to fetch stats: ${response.status}`);
+			}
+			
+			const data = await response.json();
+			
+			if (data.success) {
+				threadCount = data.threadCount || 0;
+				messageCount = data.messageCount || 0;
+				tagCount = data.tagCount || 0;
+				timerCount = data.timerCount || 0;
+				
+				if (data.lastActive) {
+					lastActive = new Date(data.lastActive);
+				}
+				
+				console.log('Stats fetched successfully');
+			} else {
+				console.error('Error in stats response:', data.error);
+			}
 		} catch (error) {
 			console.error('Error fetching stats:', error);
-		}
-	}
-
-	async function fetchTimerCount(): Promise<number> {
-		if (!pb.authStore.isValid || !$currentUser) {
-			console.error('User is not authenticated');
-			return 0;
-		}
-
-		try {
-			const user = await pb.collection('users').getOne($currentUser.id);
-			if (!user.timer_sessions || !Array.isArray(user.timer_sessions)) {
-				return 0;
-			}
-			return user.timer_sessions.reduce((total, session) => {
-				return total + (session.duration || 0);
-			}, 0);
-		} catch (error) {
-			console.error('Error fetching timer sessions:', error);
-			return 0;
-		}
-	}
-
-	async function fetchLastActiveTime(): Promise<Date | null> {
-		if (!pb.authStore.isValid || !$currentUser) {
-			console.error('User is not authenticated');
-			return null;
-		}
-
-		try {
-			const lastMessageResult = await pb.collection('messages').getList(1, 1, {
-				filter: `user = "${$currentUser.id}"`,
-				sort: '-created'
-			});
-			if (lastMessageResult.items.length > 0) {
-				return new Date(lastMessageResult.items[0].created);
-			}
-			return null;
-		} catch (error) {
-			console.error('Error fetching last active time:', error);
-			return null;
+			// Use default values if the API fails
+			threadCount = threadCount || 0;
+			messageCount = messageCount || 0;
+			tagCount = tagCount || 0;
+			timerCount = timerCount || 0;
 		}
 	}
 
 	onMount(() => {
-		fetchStats();
+		// If stats are already provided as props, don't fetch
+		if (threadCount === 0 && messageCount === 0 && tagCount === 0 && timerCount === 0) {
+			fetchStats();
+		}
 	});
 </script>
 
@@ -148,7 +107,6 @@
 		{lastActive ? formatDate(lastActive.toString()) : 'Never'}
 	</div>
 </div>
-
 <style lang="scss">
 	
 	* {

@@ -1,6 +1,6 @@
 // stores/newsletterStore.ts
 import { writable } from 'svelte/store';
-import { pb } from '$lib/pocketbase';
+import {  } from '$lib/pocketbase';
 import type { NewsletterSubscription, NewsletterPreferences } from '$lib/types/types.subscriptions';
 
 function createNewsletterStore() {

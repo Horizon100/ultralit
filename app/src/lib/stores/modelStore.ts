@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import type { AIModel } from '$lib/types/types';
 import type { ProviderType } from '$lib/constants/providers';
-import { pb, checkPocketBaseConnection } from '$lib/pocketbase';
+import { currentUser, pocketbaseUrl } from '$lib/pocketbase'; // Changed import
 import { defaultModel, availableModels } from '$lib/constants/models';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
@@ -27,61 +27,48 @@ const createModelStore = () => {
 	const saveModelToPocketBase = async (model: AIModel, userId: string): Promise<AIModel | null> => {
 		console.log('Saving model to PocketBase:', { model, userId });
 		try {
-			const existingModels = await pb.collection('models').getFullList<AIModel>({
-				filter: `api_type = "${model.api_type}" && provider = "${model.provider}" && user ~ "${userId}"`
+			// Use fetch API to communicate with server
+			const response = await fetch(`/api/ai/models/save`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ model, userId })
 			});
-
-			console.log('Existing models found:', existingModels);
-
-			if (existingModels.length > 0) {
-				const existingModel = existingModels[0];
-				console.log('Updating existing model:', existingModel.id);
-				const updatedModel = await pb.collection('models').update(existingModel.id, {
-					name: model.name,
-					api_key: model.api_key,
-					base_url: model.base_url,
-					description: model.description || '',
-					api_version: model.api_version || ''
-				});
-				console.log('Model updated successfully:', updatedModel);
-				return updatedModel as AIModel;
+			
+			const data = await response.json();
+			if (!data.success) {
+				throw new Error(data.error || 'Failed to save model');
 			}
-
-			console.log('Creating a new model in PocketBase...');
-			const modelData = {
-				name: model.name,
-				api_key: model.api_key,
-				base_url: model.base_url,
-				api_type: model.api_type,
-				provider: model.provider,
-				description: model.description || '',
-				user: [userId],
-				api_version: model.api_version || ''
-			};
-
-			const savedModel = await pb.collection('models').create(modelData);
-			console.log('Model created successfully:', savedModel);
-			return savedModel as AIModel;
+			
+			console.log('Model saved successfully:', data.model);
+			return data.model;
 		} catch (error) {
 			console.error('Error saving model to PocketBase:', error, 'Model Data:', model);
 			return null;
 		}
 	};
 
-	// Define the functions that were used in the return object
 	async function loadModels(userId: string) {
 		try {
-			const isConnected = await checkPocketBaseConnection();
-			if (!isConnected) throw new Error('PocketBase not available');
+			// Check connection first
+			const connectionResponse = await fetch('/api/verify/health');
+			const connectionData = await connectionResponse.json();
+			if (!connectionData.success) throw new Error('PocketBase not available');
 
-			const records = await pb.collection('models').getFullList({
-				filter: `user ~ "${userId}"`,
-				sort: '-created'
+			// Fetch models from API
+			const response = await fetch(`/api/ai/users/${userId}/models`, {
+				method: 'GET',
+				credentials: 'include'
 			});
+			
+			const data = await response.json();
+			if (!data.success) {
+				throw new Error(data.error || 'Failed to load models');
+			}
 
 			update((state) => ({
 				...state,
-				models: records as AIModel[],
+				models: data.models as AIModel[],
 				isOffline: false,
 				updateStatus: ''
 			}));
@@ -101,18 +88,19 @@ const createModelStore = () => {
 			const currentState = get({ subscribe });
 
 			console.log('Current state of models:', currentState.models);
-			await pb.collection('users').update(
-				userId,
-				{
-					model: model.id
-				},
-				{
-					headers: {
-						'Access-Control-Allow-Origin': '*',
-						'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
-					}
-				}
-			);
+			
+			// Update user's selected model
+			const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ model: model.id })
+			});
+			
+			if (!userUpdateResponse.ok) {
+				throw new Error(`Failed to update user's selected model: ${userUpdateResponse.statusText}`);
+			}
+			
 			const existingModel = currentState.models.find(
 				(m) => m.api_type === model.api_type && m.provider === model.provider
 			);
@@ -132,9 +120,17 @@ const createModelStore = () => {
 			}
 
 			console.log("Updating user's selected model in PocketBase...");
-			await pb.collection('users').update(userId, {
-				model: savedModel.id
+			const finalUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ model: savedModel.id })
 			});
+			
+			if (!finalUpdateResponse.ok) {
+				throw new Error(`Failed to update user's selected model: ${finalUpdateResponse.statusText}`);
+			}
+			
 			console.log("User's selected model updated successfully.");
 
 			// Update store state
@@ -163,9 +159,16 @@ const createModelStore = () => {
 
 	async function setSelectedProvider(userId: string, provider: ProviderType) {
 		try {
-			await pb.collection('users').update(userId, {
-				selected_provider: provider
+			const response = await fetch(`/api/verify/users/${userId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ selected_provider: provider })
 			});
+			
+			if (!response.ok) {
+				throw new Error(`Failed to update selected provider: ${response.statusText}`);
+			}
 
 			update((state) => ({
 				...state,
@@ -193,7 +196,7 @@ const createModelStore = () => {
 		setSelectedProvider,
 		reset,
 		
-		// Add the initialize method
+		// Updated initialize method using fetch API
 		async initialize(userId: string) {
 		  console.log('Initializing model selection...');
 		  
@@ -209,12 +212,26 @@ const createModelStore = () => {
 			
 			console.log('Available provider keys:', Object.keys(availableKeys).filter(k => !!availableKeys[k]));
 			
-			// 2. Get user preferences from PocketBase
-			const userData = await pb.collection('users').getOne(userId);
+			// 2. Get user preferences from API
+			const userResponse = await fetch(`/api/verify/users/${userId}`, {
+				method: 'GET',
+				credentials: 'include'
+			});
+			
+			if (!userResponse.ok) {
+				throw new Error(`Failed to fetch user data: ${userResponse.statusText}`);
+			}
+			
+			const userData = await userResponse.json();
+			if (!userData.success) {
+				throw new Error(userData.error || 'Failed to get user data');
+			}
+			
+			const user = userData.user;
 			
 			// 3. Extract provider and model preferences
-			const selectedProvider = userData.selected_provider as ProviderType || 'deepseek';
-			const selectedModelId = userData.model;
+			const selectedProvider = user.selected_provider as ProviderType || 'deepseek';
+			const selectedModelId = user.model;
 			
 			console.log('User preferences:', { selectedProvider, selectedModelId });
 			
@@ -248,17 +265,27 @@ const createModelStore = () => {
 			// If we have a model ID, try to fetch it
 			if (selectedModelId) {
 			  try {
-				const modelRecord = await pb.collection('models').getOne(selectedModelId);
+				const modelResponse = await fetch(`/api/ai/models/${selectedModelId}`, {
+					method: 'GET',
+					credentials: 'include'
+				});
 				
-				// Ensure the model belongs to the selected provider
-				if (modelRecord.provider === validProvider) {
-				  console.log('Using existing model:', modelRecord);
-				  validModel = modelRecord as AIModel;
+				if (modelResponse.ok) {
+					const modelData = await modelResponse.json();
+					if (modelData.success && modelData.model) {
+						// Ensure the model belongs to the selected provider
+						if (modelData.model.provider === validProvider) {
+							console.log('Using existing model:', modelData.model);
+							validModel = modelData.model as AIModel;
+						} else {
+							console.log('Stored model is for different provider than selected');
+						}
+					}
 				} else {
-				  console.log('Stored model is for different provider than selected');
+					console.warn('Could not fetch model with ID:', selectedModelId);
 				}
 			  } catch (error) {
-				console.warn('Could not fetch model with ID:', selectedModelId, error);
+				console.warn('Error fetching model with ID:', selectedModelId, error);
 			  }
 			}
 			
@@ -274,14 +301,17 @@ const createModelStore = () => {
 			  } else {
 				// Try to fetch from database one more time
 				try {
-				  const existingModels = await pb.collection('models').getFullList<AIModel>({
-					filter: `provider = "${validProvider}" && user ~ "${userId}"`,
-					sort: '-created'
+				  const modelsResponse = await fetch(`/api/ai/models/provider/${validProvider}/user/${userId}`, {
+					method: 'GET',
+					credentials: 'include'
 				  });
 				  
-				  if (existingModels.length > 0) {
-					console.log('Using existing provider model from DB:', existingModels[0]);
-					validModel = existingModels[0];
+				  if (modelsResponse.ok) {
+					const modelsData = await modelsResponse.json();
+					if (modelsData.success && modelsData.models && modelsData.models.length > 0) {
+						console.log('Using existing provider model from DB:', modelsData.models[0]);
+						validModel = modelsData.models[0];
+					}
 				  }
 				} catch (error) {
 				  console.warn('Error finding models for provider:', error);

@@ -28,7 +28,7 @@
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
-	import { currentUser, pb } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
 	import { goto } from '$app/navigation';

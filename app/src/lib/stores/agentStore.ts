@@ -2,8 +2,16 @@ import { writable } from 'svelte/store';
 import type { AIAgent } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import { updateAgent as updateAgentAPI } from '$lib/clients/agentClient';
-import { pb } from '$lib/pocketbase';
 import { browser } from '$app/environment';
+
+// Helper function to handle fetch API responses
+async function handleResponse<T>(response: Response): Promise<T> {
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(errorData.message || `API request failed with status ${response.status}`);
+	}
+	return await response.json();
+}
 
 function createAgentStore() {
 	const initialAgents = browser ? JSON.parse(localStorage.getItem('userAgents') || '[]') : [];
@@ -40,7 +48,19 @@ function createAgentStore() {
 			try {
 				console.log('Loading agents for workspace:', workspaceId);
 
-				const workspace = await pb.collection('workspaces').getOne(workspaceId);
+				// Fetch workspace using API
+				const workspaceResponse = await fetch(`/api/workspaces/${workspaceId}`, {
+					method: 'GET',
+					credentials: 'include'
+				});
+				
+				const workspaceData = await handleResponse<{ success: boolean; data: any; error?: string }>(workspaceResponse);
+				
+				if (!workspaceData.success) {
+					throw new Error(workspaceData.error || 'Failed to fetch workspace');
+				}
+				
+				const workspace = workspaceData.data;
 				console.log('Workspace:', workspace);
 
 				const parentAgentId = workspace.parent_agent;
@@ -53,25 +73,41 @@ function createAgentStore() {
 					return [];
 				}
 
-				const parentAgent = await pb.collection('ai_agents').getOne(parentAgentId, {
-					expand: 'actions,model'
+				// Fetch parent agent
+				const parentAgentResponse = await fetch(`/api/agents/${parentAgentId}?expand=actions,model`, {
+					method: 'GET',
+					credentials: 'include'
 				});
+				
+				const parentAgentData = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(parentAgentResponse);
+				
+				if (!parentAgentData.success) {
+					throw new Error(parentAgentData.error || 'Failed to fetch parent agent');
+				}
+				
+				const parentAgent = parentAgentData.data;
 				console.log('Parent agent:', parentAgent);
 
 				let allAgents = [parentAgent];
 
 				if (parentAgent.child_agents && parentAgent.child_agents.length > 0) {
-					const filter = parentAgent.child_agents.map((id) => `id = "${id}"`).join(' || ');
-					console.log('Filter for child agents:', filter);
-
-					const childAgentsResponse = await pb.collection('ai_agents').getList(1, 50, {
-						filter: filter,
-						expand: 'actions,model'
+					// Fetch child agents
+					const childAgentsResponse = await fetch(`/api/agents/list?filter=${encodeURIComponent(
+						parentAgent.child_agents.map((id) => `id = "${id}"`).join(' || ')
+					)}&expand=actions,model`, {
+						method: 'GET',
+						credentials: 'include'
 					});
+					
+					const childAgentsData = await handleResponse<{ success: boolean; data: AIAgent[]; error?: string }>(childAgentsResponse);
+					
+					if (!childAgentsData.success) {
+						throw new Error(childAgentsData.error || 'Failed to fetch child agents');
+					}
+					
+					console.log('Child agents response:', childAgentsData.data);
 
-					console.log('Child agents response:', childAgentsResponse);
-
-					allAgents = [...allAgents, ...childAgentsResponse.items];
+					allAgents = [...allAgents, ...childAgentsData.data];
 				}
 
 				const parsedAgents = allAgents.map((agent) => ({

@@ -43,7 +43,7 @@
 		deleteWorkshop,
 		updateWorkshop
 	} from '$lib/clients/workshopClient';
-	import { pb } from '$lib/pocketbase';
+	import {  } from '$lib/pocketbase';
 
 	import Builder from '$lib/components/ui/Builder.svelte';
 	import DefaultAvatar from '$lib/components/ui//DefaultAvatar.svelte';

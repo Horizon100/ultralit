@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { projectStore } from '$lib/stores/projectStore';
     import { threadsStore } from '$lib/stores/threadsStore';
-    import { pb, currentUser } from '$lib/pocketbase';
+    import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
     import { fade, fly, scale, slide } from 'svelte/transition';
     import type { User, Projects, Threads } from '$lib/types/types';
     import { t } from '$lib/stores/translationStore';
@@ -92,8 +92,11 @@
           // If not in store, fetch directly from PocketBase
           console.log("Thread not found in store, fetching from PocketBase");
           try {
-            thread = await pb.collection('threads').getOne<Threads>(threadId);
-            console.log("Thread data fetched from PocketBase:", thread);
+            const response = await fetch(`/api/threads/${threadId}`);
+            if (response.ok) {
+              thread = await response.json();
+            }            
+          console.log("Thread data fetched from PocketBase:", thread);
           } catch (error) {
             console.error("Error fetching thread from PocketBase:", error);
             thread = null;
@@ -118,40 +121,55 @@
     }
   
     async function loadProjectData() {
-      try {
-        if (!projectId) {
-          console.log("No project ID available");
-          return null;
-        }
-        
-        console.log("Loading project data for project ID:", projectId);
-        
-        try {
-          // Try to fetch from PocketBase
-          project = await pb.collection('projects').getOne<Projects>(projectId);
-          console.log("Project data loaded:", project);
-        } catch (error) {
-          console.error("Error fetching project from PocketBase:", error);
+  try {
+    if (!projectId) {
+      console.log("No project ID available");
+      return null;
+    }
+    
+    console.log("Loading project data for project ID:", projectId);
+    
+    try {
+      // Use the store's state to find the project
+      const storeState = $projectStore;
+      const projectFromStore = storeState.threads.find(p => p.id === projectId);
+      
+      if (projectFromStore) {
+        project = projectFromStore;
+        console.log("Project data found in store:", project);
+      } else {
+        // If not in store, fetch via API
+        const response = await fetch(`/api/projects/${projectId}`);
+        if (response.ok) {
+          project = await response.json();
+          console.log("Project data loaded via API:", project);
+        } else {
+          console.error("Error fetching project via API:", response.status, response.statusText);
           project = null;
         }
-        
-        if (project && $currentUser) {
-          isProjectOwner = project.owner === $currentUser.id;
-          console.log("Current user is project owner:", isProjectOwner);
-          
-          // Check if current user is a project collaborator
-          const collaborators = project.collaborators || [];
-          isProjectCollaborator = collaborators.includes($currentUser.id);
-          console.log("Current user is project collaborator:", isProjectCollaborator);
-        }
-        
-        return project;
-      } catch (error) {
-        console.error('Error loading project data:', error);
-        errorMessage = 'Failed to load project data.';
-        return null;
       }
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      project = null;
     }
+    
+    if (project && $currentUser) {
+      isProjectOwner = project.owner === $currentUser.id;
+      console.log("Current user is project owner:", isProjectOwner);
+      
+      // Check if current user is a project collaborator
+      const collaborators = project.collaborators || [];
+      isProjectCollaborator = collaborators.includes($currentUser.id);
+      console.log("Current user is project collaborator:", isProjectCollaborator);
+    }
+    
+    return project;
+  } catch (error) {
+    console.error('Error loading project data:', error);
+    errorMessage = 'Failed to load project data.';
+    return null;
+  }
+}
   
     // Check if the current user can add members to the thread
     function canAddMembers(): boolean {
@@ -211,67 +229,74 @@
     }
   
     async function loadThreadCollaborators() {
-      try {
-        errorMessage = '';
-        console.log('Loading thread collaborators for thread ID:', threadId);
-        
-        if (!thread) {
-          console.log("Thread data not available, attempting to load it");
-          const threadData = await loadThreadData();
-          if (!threadData) {
-            console.log("Could not load thread data, returning empty collaborators list");
-            threadCollaborators = [];
-            return [];
-          }
-        }
-        
-        if (!thread || !thread.members) {
-          console.log("Thread has no members field");
-          threadCollaborators = [];
-          return [];
-        }
-        
-        // If members is an array of IDs, fetch the user details
-        if (Array.isArray(thread.members) && thread.members.length > 0) {
-          console.log("Thread members:", thread.members);
-          
-          // Filter out non-string values to ensure we only have valid IDs
-          const memberIds = thread.members.filter((id): id is string => typeof id === 'string');
-          console.log("Filtered member IDs:", memberIds);
-          
-          if (memberIds.length > 0) {
-            try {
-              // Build filter for multiple IDs
-              const filter = memberIds.map(id => `id="${id}"`).join(' || ');
-              console.log("Using filter:", filter);
-              
-              const users = await pb.collection('users').getFullList<User>({
-                filter: filter
-              });
-              
-              console.log("Fetched thread collaborator users:", users);
-              threadCollaborators = users;
-            } catch (error) {
-              console.error("Error fetching users for thread members:", error);
-              threadCollaborators = [];
-            }
-          } else {
-            console.log("No valid member IDs, using empty array");
-            threadCollaborators = [];
-          }
-        } else {
-          console.log("Members is not an array or empty, using empty array");
-          threadCollaborators = [];
-        }
-        
-        return threadCollaborators;
-      } catch (error) {
-        console.error('Error loading thread collaborators:', error);
-        errorMessage = 'Failed to load thread collaborators';
+  try {
+    errorMessage = '';
+    console.log('Loading thread collaborators for thread ID:', threadId);
+    
+    if (!thread) {
+      console.log("Thread data not available, attempting to load it");
+      const threadData = await loadThreadData();
+      if (!threadData) {
+        console.log("Could not load thread data, returning empty collaborators list");
         threadCollaborators = [];
         return [];
       }
     }
+    
+    if (!thread || !thread.members) {
+      console.log("Thread has no members field");
+      threadCollaborators = [];
+      return [];
+    }
+    
+    if (Array.isArray(thread.members) && thread.members.length > 0) {
+      console.log("Thread members:", thread.members);
+      
+      const memberIds = thread.members.filter((id): id is string => typeof id === 'string');
+      console.log("Filtered member IDs:", memberIds);
+      
+      if (memberIds.length > 0) {
+        try {
+          // Fetch users one by one instead of batch
+          const fetchedUsers: User[] = [];
+          
+          for (const userId of memberIds) {
+            try {
+              const response = await fetch(`/api/users/${userId}`);
+              if (response.ok) {
+                const user = await response.json();
+                fetchedUsers.push(user);
+              } else {
+                console.error(`Failed to fetch user ${userId}: ${response.status} ${response.statusText}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching user ${userId}:`, error);
+            }
+          }
+          
+          console.log("Fetched thread collaborator users:", fetchedUsers);
+          threadCollaborators = fetchedUsers;
+        } catch (error) {
+          console.error("Error fetching users for thread members:", error);
+          threadCollaborators = [];
+        }
+      } else {
+        console.log("No valid member IDs, using empty array");
+        threadCollaborators = [];
+      }
+    } else {
+      console.log("Members is not an array or empty, using empty array");
+      threadCollaborators = [];
+    }
+    
+    return threadCollaborators;
+  } catch (error) {
+    console.error('Error loading thread collaborators:', error);
+    errorMessage = 'Failed to load thread collaborators';
+    threadCollaborators = [];
+    return [];
+  }
+}
   
     async function toggleCollaborator(user: User) {
       if (!thread) {
@@ -522,7 +547,7 @@
                     <div class="collaborator-left">
                       {#if collaborator.avatar}
                         <img 
-                          src={`${pb.baseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
+                          src={`${pocketbaseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
                           alt="Avatar" 
                           class="user-avatar" 
                         />
@@ -581,7 +606,7 @@
                         <div class="collaborator-left">
                           {#if collaborator.avatar}
                             <img 
-                              src={`${pb.baseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
+                              src={`${pocketbaseUrl}/api/files/${collaborator.collectionId}/${collaborator.id}/${collaborator.avatar}`} 
                               alt="Avatar" 
                               class="user-avatar" 
                             />

@@ -1,7 +1,6 @@
 import type { Projects, Threads, User } from '$lib/types/types';
-import { pb, ensureAuthenticated } from '$lib/pocketbase';
+import { ensureAuthenticated } from '$lib/pocketbase';
 import { marked } from 'marked';
-
 
 marked.setOptions({
 	gfm: true,
@@ -10,71 +9,110 @@ marked.setOptions({
 	// mangle: false
 });
 
-
+async function handleResponse<T>(response: Response): Promise<T> {
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(errorData.message || `API request failed with status ${response.status}`);
+	}
+	return await response.json();
+}
 
 export async function fetchProjects(): Promise<Projects[]> {
 	try {
-		ensureAuthenticated();
-		const projects = await pb.collection('projects').getFullList<Projects>({
-			expand: 'last_message'
-		});
-		return projects;
-	} catch (error) {
-		console.error('Error fetching projects:', error);
-		throw error;
-	}
-}
-
-export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
-	try {
-		ensureAuthenticated();
-		if (!projectId) {
-			console.error('projectId is not defined.');
-			return []; 
+	  const response = await fetch('/api/projects', {
+		method: 'GET',
+		credentials: 'include',
+		headers: {
+		  'Content-Type': 'application/json',
 		}
-		const resultList = await pb.collection('threads').getList<Threads>(1, 50, {
-			filter: `project_id = "${projectId}"`,
-			expand: 'last_message,tags,project_id',
-			sort: '-created',
-			$cancelKey: `project-threads-${projectId}`
-		});
-
-		if (!resultList?.items) {
-			console.warn(`No threads found for project ${projectId}`);
-			return [];
-		}
-
-		return resultList.items;
+	  });
+	  
+	  const data = await handleResponse<{ success: boolean; data: Projects[] }>(response);
+	  return data.data;
 	} catch (error) {
-		console.error('Error fetching project threads:', error);
-		return [];
+	  console.error('Error fetching projects:', error);
+	  throw error;
 	}
-}
+  }
+  export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
+    try {
+        await ensureAuthenticated();
 
+        const response = await fetch(`/api/projects/${projectId}/threads`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch threads for project ${projectId}: ${response.status}`);
+        }
+
+        const rawData = await response.json();
+        console.log('Raw API response:', rawData);
+
+        // Combine both arrays if they exist
+        let threads: Threads[] = [];
+        
+        if (rawData.threads && Array.isArray(rawData.threads)) {
+            threads = [...threads, ...rawData.threads];
+        }
+        
+        if (rawData.data && Array.isArray(rawData.data)) {
+            // Avoid duplicates when merging
+            const dataThreads = rawData.data.filter((dataThread: Threads) => 
+                !threads.some(thread => thread.id === dataThread.id)
+            );
+            threads = [...threads, ...dataThreads];
+        }
+        
+        // Direct array response handling
+        if (Array.isArray(rawData)) {
+            threads = [...threads, ...rawData];
+        }
+
+        // Ensure all threads have project_id set
+        threads = threads.map(thread => ({
+            ...thread,
+            project_id: thread.project_id || thread.project || projectId
+        }));
+
+        console.log(`Found ${threads.length} threads for project ${projectId}`);
+        console.log('Merged threads with project_id:', threads);
+        
+        return threads;
+    } catch (error) {
+        console.error('Error fetching threads for project:', error);
+        return [];
+    }
+}
 export async function createProject(projectData: Partial<Projects>): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
-			throw new Error('User ID not found');
+		
+		const response = await fetch('/api/projects', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({
+				name: projectData.name || 'New Project',
+				description: projectData.description || ''
+				// The backend will handle setting owner, collaborators, and timestamps
+			})
+		});
+		
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to create project');
 		}
-
-		// Make sure owner is explicitly set to the current user ID
-		const newProject: Partial<Projects> = {
-			name: projectData.name || 'New Project',
-			description: projectData.description || '',
-			owner: userId, // Always force owner to be current user
-			threads: [],
-			current_project: '',
-			collaborators: [userId], // Include current user as collaborator
-			created: new Date().toISOString(),
-			updated: new Date().toISOString()
-		};
-
-		// Log what we're about to create for debugging
-		console.log('Creating new project with data:', newProject);
-
-		return await pb.collection('projects').create<Projects>(newProject);
+		
+		console.log('Project created:', data.data);
+		return data.data;
 	} catch (error) {
 		console.error('Error creating project:', error);
 		throw error;
@@ -84,7 +122,23 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 export async function updateProject(id: string, changes: Partial<Projects>): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		return await pb.collection('projects').update<Projects>(id, changes);
+		
+		const response = await fetch(`/api/projects/${id}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify(changes)
+		});
+		
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to update project');
+		}
+		
+		return data.data;
 	} catch (error) {
 		console.error('Error updating project:', error);
 		throw error;
@@ -99,7 +153,17 @@ export async function updateProject(id: string, changes: Partial<Projects>): Pro
 export async function deleteProject(id: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		await pb.collection('projects').delete(id);
+		
+		const response = await fetch(`/api/projects/${id}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
+		
+		const data = await handleResponse<{ success: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to delete project');
+		}
 	} catch (error) {
 		console.error('Error deleting project:', error);
 		throw error;
@@ -112,9 +176,23 @@ export async function resetProject(projectId: string): Promise<void> {
 		if (!projectId) {
 			throw new Error('Project ID is required');
 		}
-		await pb.collection('projects').update(projectId, {
-			selected: false
+		
+		const response = await fetch(`/api/projects/${projectId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({
+				selected: false
+			})
 		});
+		
+		const data = await handleResponse<{ success: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to reset project');
+		}
 	} catch (error) {
 		console.error('Error resetting project:', error);
 		throw error;
@@ -124,14 +202,17 @@ export async function resetProject(projectId: string): Promise<void> {
 export async function removeThreadFromProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		await pb.collection('threads').update(threadId, {
-			project_id: null
+		
+		const response = await fetch(`/api/projects/${projectId}/threads/${threadId}`, {
+			method: 'DELETE',
+			credentials: 'include'
 		});
-		const project = await pb.collection('projects').getOne<Projects>(projectId);
-		const updatedThreads = project.threads?.filter((id) => id !== threadId) || [];
-		await pb.collection('projects').update(projectId, {
-			threads: updatedThreads
-		});
+		
+		const data = await handleResponse<{ success: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to remove thread from project');
+		}
 	} catch (error) {
 		console.error('Error removing thread from project:', error);
 		throw error;
@@ -141,32 +222,47 @@ export async function removeThreadFromProject(threadId: string, projectId: strin
 export async function addThreadToProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		await pb.collection('threads').update(threadId, {
-			project_id: projectId
+		
+		const response = await fetch(`/api/projects/${projectId}/threads`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({ threadId })
 		});
-		const project = await pb.collection('projects').getOne<Projects>(projectId);
-		const updatedThreads = [...(project.threads || []), threadId];
-		await pb.collection('projects').update(projectId, {
-			threads: updatedThreads
-		});
+		
+		const data = await handleResponse<{ success: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to add thread to project');
+		}
 	} catch (error) {
 		console.error('Error adding thread to project:', error);
 		throw error;
 	}
 }
+
 export async function addCollaboratorToProject(projectId: string, userId: string): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		const project = await pb.collection('projects').getOne<Projects>(projectId);
-		const collaborators = project.collaborators || [];
-		if (collaborators.includes(userId)) {
-		console.log('User is already a collaborator on this project');
-		return project;
-		}
-		const updatedCollaborators = [...collaborators, userId];
-		return await pb.collection('projects').update<Projects>(projectId, {
-		collaborators: updatedCollaborators
+		
+		const response = await fetch(`/api/projects/${projectId}/collaborators`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({ userId })
 		});
+		
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to add collaborator to project');
+		}
+		
+		return data.data;
 	} catch (error) {
 		console.error('Error adding collaborator to project:', error);
 		throw error;
@@ -175,84 +271,69 @@ export async function addCollaboratorToProject(projectId: string, userId: string
 
 export async function fetchProjectCollaborators(projectId: string): Promise<User[]> {
 	try {
-	  ensureAuthenticated();
-	  
-	  console.log('Fetching project with ID:', projectId);
-	  const project = await pb.collection('projects').getOne<Projects>(projectId);
-	  console.log('Project data retrieved:', project);
-	  
-	  const collaboratorIdsSet = new Set<string>();
-	  
-	  if (project.owner) {
-		collaboratorIdsSet.add(project.owner);
-		console.log('Added owner ID to collaborators:', project.owner);
-	  }
-	  
-	  if (Array.isArray(project.collaborators)) {
-		project.collaborators.forEach(id => {
-		  if (id) collaboratorIdsSet.add(id);
+		ensureAuthenticated();
+		
+		console.log('Fetching collaborators for project ID:', projectId);
+		
+		const response = await fetch(`/api/projects/${projectId}/collaborators`, {
+			method: 'GET',
+			credentials: 'include'
 		});
-	  }
-	  
-	  // Convert set to array
-	  const collaboratorIds = Array.from(collaboratorIdsSet);
-	  console.log('Final collaborator IDs (including owner):', collaboratorIds);
-	  
-	  if (collaboratorIds.length === 0) {
-		console.log('No collaborators found for this project (not even owner).');
-		return [];
-	  }
-	  
-	  // Fetch users directly one by one
-	  const userRecords: User[] = [];
-	  
-	  // Process collaborators in sequence to avoid overwhelming the server
-	  for (const id of collaboratorIds) {
-		try {
-		  console.log('Fetching user with ID:', id);
-		  const user = await pb.collection('users').getOne<User>(id);
-		  console.log('User found:', user);
-		  userRecords.push(user);
-		} catch (err) {
-		  console.error(`Error fetching user with ID ${id}:`, err);
+		
+		const data = await handleResponse<{ success: boolean; data: User[]; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to fetch project collaborators');
 		}
-	  }
-	  
-	  console.log('Total users found:', userRecords.length);
-	  return userRecords;
+		
+		console.log('Total users found:', data.data.length);
+		return data.data;
 	} catch (error) {
-	  console.error('Error in fetchProjectCollaborators:', error);
-	  return []; 
+		console.error('Error in fetchProjectCollaborators:', error);
+		return []; 
 	}
-  }
-  export async function isUserCollaborator(projectId: string, userId: string): Promise<boolean> {
+}
+
+export async function isUserCollaborator(projectId: string, userId: string): Promise<boolean> {
 	try {
-	  ensureAuthenticated();
-	  const project = await pb.collection('projects').getOne<Projects>(projectId);
-	  const collaborators = project.collaborators || [];
-	  return collaborators.includes(userId);
+		ensureAuthenticated();
+		
+		const response = await fetch(`/api/projects/${projectId}/collaborators/${userId}`, {
+			method: 'GET',
+			credentials: 'include'
+		});
+		
+		const data = await handleResponse<{ success: boolean; isCollaborator: boolean; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to check if user is a collaborator');
+		}
+		
+		return data.isCollaborator;
 	} catch (error) {
-	  console.error('Error checking if user is a collaborator:', error);
-	  return false;
+		console.error('Error checking if user is a collaborator:', error);
+		return false;
 	}
-  }
-  export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
+}
+
+export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
 	try {
-	  ensureAuthenticated();
-	  const project = await pb.collection('projects').getOne<Projects>(projectId);
-	  
-	  if (project.owner === userId) {
-		throw new Error('Cannot remove the project owner from collaborators');
-	  }
-	  
-	  const collaborators = Array.isArray(project.collaborators) ? [...project.collaborators] : [];
-	  const updatedCollaborators = collaborators.filter(id => id !== userId);
-	  
-	  return await pb.collection('projects').update<Projects>(projectId, {
-		collaborators: updatedCollaborators
-	  });
+		ensureAuthenticated();
+		
+		const response = await fetch(`/api/projects/${projectId}/collaborators/${userId}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
+		
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+		
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to remove collaborator from project');
+		}
+		
+		return data.data;
 	} catch (error) {
-	  console.error('Error removing collaborator from project:', error);
-	  throw error;
+		console.error('Error removing collaborator from project:', error);
+		throw error;
 	}
-  }
+}

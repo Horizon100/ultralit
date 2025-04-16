@@ -1,6 +1,6 @@
 // stores/subscriptionStore.ts
 import { writable } from 'svelte/store';
-import { pb } from '$lib/pocketbase';
+import {  } from '$lib/pocketbase';
 import type { Feature } from '$lib/types/types.features';
 import type { PaymentMethod } from '$lib/types/types.transactions';
 
