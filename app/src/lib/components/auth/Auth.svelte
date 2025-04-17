@@ -11,6 +11,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
+	import horizon100 from '$lib/assets/horizon100.svg';
 
 	// Form state
 	let email: string = '';
@@ -307,14 +308,13 @@
 					}} 
 					class="auth-form"
 				>
-					<button 
-						class="button button-subtle" 
-						on:click|preventDefault={openJoinWaitlistOverlay}
-						type="button"
-						disabled={isLoading}
-					>
-						{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
-					</button>
+				<img src={horizon100} alt="Horizon100" class="logo" />
+
+				<h2>
+					{$t('nav.welcome')}
+
+				</h2>
+
 					<input 
 						type="email" 
 						bind:value={email} 
@@ -337,27 +337,27 @@
 					<div class="button-group">
 						{#if !isWaitlistMode}
 							<button 
-								class="button button-login" 
+								class="button-login" 
 								on:click|preventDefault={login}
 								type="button"
 								disabled={isLoading}
 							>
+							
 								<span>							
 									<LogIn />
-									{isLoading ? 'Logging in...' : $t('profile.login')}
+									{isLoading ? '...' : $t('profile.login')}
 								</span>
 							</button>
 							<button 
-								class="button button-signup" 
-								on:click|preventDefault={signUp}
-								type="button"
-								disabled={isLoading}
-							>
-								<span>							
-									<UserPlus />
-									{isLoading ? 'Signing up...' : $t('profile.signup')}
-								</span>
-							</button>
+							class="button-login" 
+							on:click|preventDefault={signUp}
+							type="button"
+							disabled={isLoading}
+						>
+							<span>							
+								{isLoading ? 'Signing up...' : $t('nav.signup')}
+							</span>
+						</button>
 						{:else}
 							<button 
 								class="button button-waitlist" 
@@ -365,13 +365,21 @@
 								type="button"
 								disabled={isLoading}
 							>
-								<span>
+								<button class="button-login">
 									<Send />
 									{isLoading ? 'Joining...' : $t('profile.join')}
-								</span>
+								</button>
 							</button>
 						{/if}
 					</div>
+					<button 
+					class="button button-subtle" 
+					on:click|preventDefault={openJoinWaitlistOverlay}
+					type="button"
+					disabled={isLoading}
+				>
+					{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
+				</button>
 				</form>
 			</div>
 		
@@ -413,7 +421,8 @@
 
 	.auth-container {
 		display: flex;
-		background: var(--bg-gradient-left);
+		height: 50vh;
+		backdrop-filter: blur(20px);
 		border: 1px solid rgb(53, 53, 53);
 		/* border-radius: 20px; */
 		/* border-bottom-left-radius: 100%; */
@@ -499,7 +508,13 @@
 
 	.credentials {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
+		h2 {
+			display: flex;
+			justify-content:center;
+			width: 100%;
+			border-bottom: 1px solid var(--placeholder-color);
+		}
 	}
 	.welcome-message {
 		cursor: pointer;
@@ -507,29 +522,31 @@
 
 	.auth-form {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		
+		width: 100%;
 		/* height: 100px; */
-		gap: 2rem;
+		gap: 1rem;
 	}
 
 	.auth-form input {
 		color: var(--text-color); 
-		padding: 1.5rem;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--tertiary-color);
+		// padding: 1.5rem;
+		border-radius: 0.5rem;
+		display: flex;
+		width: calc(100% - 3rem) !important;
+		border: 1px solid transparent;
 		font-size: 1.5rem;
 		outline: none; 
-
+		margin-bottom: 0;
 		transition:
 			border-color 0.3s,
 			box-shadow 0.3s;
-		& ::focus {
+		&:focus {
 			outline: none; 
-			border-color: var(--tertiary-color);
-			background-color: red;
+			background: var(--primary-color) !important; 
+			color: var(--text-color);
 		}
 	}
 
@@ -541,45 +558,59 @@
 
 	.auth-form input[type='email'],
 	.auth-form input[type='password'] {
-		background: var(--bg-gradient-r);
+		background: var(--bg-color);
 		width: 50%;
 		& :focus {
 			outline: none; 
 			border-color: var(--tertiary-color);
-			background-color: red;
 		}
 	}
 
 	.button {
 		display: flex;
+		flex-direction: row;
 		align-items: center;
 		width: 100%;
-		padding: 10px;
+		// padding: 10px;
 		border: none;
-		border-radius: var(--radius-m);
 		cursor: pointer;
+		background: transparent;
 		transition: background-color 0.3s;
 	}
 
 	.button-signup {
-		background-color: var(--tertiary-color);
+		background-color:transparent;
+		justify-content: left;
+		color: var(--tertiary-color);
+		font-size: 1rem;
 		opacity: 0.8;
 		width: 100%;
 		display: flex;
-	}
+		padding: 0.5rem;
 
+		&:hover {
+			background: var(--primary-color);
+			border-radius: 1rem;
+		}
+	}
+	img.logo {
+		width: 4rem;
+		height: 4rem;
+	}
 	.button-login {
-		width: auto;
-		height: auto;
-		background: none;
+		width: 100%;
+		height: 100%;
+		background: var(--primary-color);
 		color: var(--placeholder-color);
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		flex-direction: column;
+		flex-direction: row;
+		padding: 1rem;
+		margin-bottom: 1rem;
 		border-radius: var(--radius-m) !important;
 		border: 1px solid transparent;
-		font-size: 1.5rem;
+		font-size: 1.25rem;
 		transition: all 0.3s ease-in;
 		&:hover {
 			color: var(--text-color);
@@ -587,7 +618,7 @@
 			border: 1px solid var(--tertiary-color);
 		}
 		& span {
-			width: 100%;
+			width: auto;
 			display: flex;
 			flex-direction: row;
 			justify-content: center;
@@ -605,13 +636,12 @@
 		background: transparent;
 		font-style: italic;
 		font-size: 1.2rem;
-		width: 200px;
+		width: 100%;
 		height: 80px;
 		user-select: none;
 		transition: all 0.3s ease-in-out;
 		&:hover {
 			background: transparent;
-			transform: scale(1.2);
 			color: var(--text-color);
 		}
 	}
@@ -643,11 +673,9 @@
 
 	.button-group {
 		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
+		flex-direction: column;
 		align-items: center;
-		width: 250px;
-		gap: 1rem;
+		width: 100%;
 		/* margin-left: 5%; */
 		/* margin-top: 10px; */
 		/* width: 100%; */
@@ -656,16 +684,17 @@
 
 
 	/* Hover effects for buttons */
-	.button-group .button:hover {
-		background-color: var(--tertiary-color); /* Darken background on hover */
-		opacity: 1;
-	}
+	// .button-group .button:hover {
+	// 	background-color: var(--tertiary-color); /* Darken background on hover */
+	// 	opacity: 1;
+	// }
 
 	@media (max-width: 768px) {
 		.auth-container {
 			display: flex;
 			background-color: rgba(255, 255, 255, 0.1);
 			backdrop-filter: blur(10px);
+			height: 80vh;
 			color: #ffffff;
 			border: 1px solid rgb(53, 53, 53);
 			/* border-radius: 20px; */
@@ -674,7 +703,6 @@
 			justify-content: center;
 			align-items: center;
 			gap: 20px;
-			height: 100%;
 			width: auto;
 			margin-top: 4rem;
 			margin-left: 1rem;
@@ -720,15 +748,7 @@
 
 
 		.button-group {
-			display: flex;
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-			width: 100%;
-			gap: 2px;
-			/* margin-left: 5%; */
-			/* margin-top: 10px; */
-			/* width: 100%; */
+
 		}
 
 		.button-group .button {

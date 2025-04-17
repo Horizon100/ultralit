@@ -5205,7 +5205,6 @@ color: #6fdfc4;
   justify-content: top;
   border-radius: var(--radius-m);
   top: 0;
-  backdrop-filter: blur(10px);
   // background: var(--primary-color);
   bottom: 0;
   height: 100vh;
@@ -5217,7 +5216,7 @@ color: #6fdfc4;
   position: absolute;
   width: auto;
   gap: 1rem;
-  left: 0;
+  left: 1rem;
   right: 0;
 
 

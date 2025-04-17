@@ -1124,7 +1124,7 @@
 		height: auto;
 		left: 5%;
 		top: 50%;
-		transform: translateY(-50%);
+		(-50%);
 		opacity: 0.025;
 		z-index: 1;
 		pointer-events: none;
@@ -1392,10 +1392,10 @@
 	@keyframes bounce {
 		0%,
 		100% {
-			transform: translateY(0);
+			(0);
 		}
 		50% {
-			transform: translateY(-30px);
+			(-30px);
 		}
 	}
 </style>

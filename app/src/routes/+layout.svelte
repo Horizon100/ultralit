@@ -21,7 +21,7 @@
 	
 	// Stores
 	
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import { currentLanguage, setLanguage, languages, initializeLanguage } from '$lib/stores/languageStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
@@ -66,7 +66,13 @@
 		Code,
 		KanbanSquare,
 		Box,
-		ChevronDown
+		ChevronDown,
+
+		LogOutIcon,
+
+		Github
+
+
 	} from 'lucide-svelte';
 	
 	// Component props
@@ -178,6 +184,7 @@
 	
 	function navigateTo(path: string) {
 		goto(path);
+		showProfile = false;
 	}
 	
 	function setActiveLink(path: string) {
@@ -245,6 +252,16 @@
 			showLanguageNotification = false;
 		}, 600);
 	}
+
+	async function logout() {
+    try {
+      await signOut();
+      showProfile = false;
+      goto('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  }
 	
 	// Lifecycle hooks
 	onMount(async () => {
@@ -342,10 +359,7 @@
 			{/if}
 
 			<div class="logo-container" on:click={handleLogoClick}>
-				<a href="/" class="logo-link">
-					<img src={horizon100} alt="Horizon100" class="logo" />
-					<!-- <h2>vRAZUM</h2> -->
-				</a>
+
 			</div>
 		</nav>
 	</header>
@@ -360,44 +374,56 @@
 		in:fly={{ x: -200, duration: 300 }}
 		out:fly={{ x: 200, duration: 300 }}
 	>
-	{#if $currentUser}
-    <button 
-        class="nav-button user" 
-        class:expanded={isNavExpanded}
-        on:click={toggleAuthOrProfile}
-    >
-	{#if getAvatarUrl($currentUser)}
-    <img 
-        src={getAvatarUrl($currentUser)}
-        alt="User avatar" 
-        class="user-avatar" 
-    />
-	{:else}
-		<div class="default-avatar">
-			{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-		</div>
+	<button
+	class="nav-button info"
+	class:expanded={isNavExpanded}
+	class:active={currentPath === '/'}
+	on:click={() => {
+		navigateTo('/');
+		if (isNavExpanded) {
+		isNavExpanded = false;
+		}
+	}}
+	>
+	<img src={horizon100} alt="Horizon100" class="logo" />
+	<h2>vRAZUM</h2>
+
+	<a
+	href="https://github.com/Horizon100/ultralit"
+	target="_blank"
+	rel="noopener noreferrer"
+>
+	<button class="icon">
+		<Github size="30" />
+	</button>
+</a>
+	{#if isNavExpanded}
+	<!-- <h2>vRAZUM</h2> -->
+
 	{/if}
-		{#if isNavExpanded}
-			<span class="nav-text">{username}</span>
-		{/if}
-    </button>
+	</button>
+	{#if $currentUser}
+
 		<button
 			class="nav-button"
 			class:expanded={isNavExpanded}
-			class:active={currentPath === '/'}
+			class:active={currentPath === '/chat'}
 			on:click={(event) => {
-			if (currentPath === '/') {
+			if (currentPath === '/chat') {
 				event.preventDefault();
 				toggleThreadList();
 				isNavExpanded = false;
 			} else {
-				navigateTo('/');
+				navigateTo('/chat');
+				if (isNavExpanded) {
+					isNavExpanded = false;
+				}
 			}
 			}}
 		>
-			{#if currentPath === '/' && showThreadList}
+			{#if currentPath === '/chat' && showThreadList}
 			<PanelLeftClose />
-			{:else if currentPath === '/'}
+			{:else if currentPath === '/chat'}
 			<MessageCircleDashed />
 			{:else}
 			<MessageCircle />
@@ -411,9 +437,15 @@
 				class="nav-button" 
 				class:expanded={isNavExpanded}
 				class:active={currentPath === '/canvas'}
-				on:click={() => navigateTo('/canvas')}
-			>
+				on:click={() => {
+					navigateTo('/canvas');
+					if (isNavExpanded) {
+					isNavExpanded = false;
+					}
+				}}			
+				>
 				<Combine />
+				
 				{#if isNavExpanded}
 				<span class="nav-text">Canvas</span>
 			  {/if}
@@ -422,8 +454,13 @@
 				class="nav-button"
 				class:expanded={isNavExpanded}
 				class:active={currentPath === '/notes'}
-				on:click={() => navigateTo('/notes')}
-			>
+				on:click={() => {
+					navigateTo('/notes');
+					if (isNavExpanded) {
+					isNavExpanded = false;
+					}
+				}}	
+				>
 				<NotebookTabs />
 				{#if isNavExpanded}
 				  <span class="nav-text">Notes</span>
@@ -441,14 +478,57 @@
 				{/if}
 			</button>
 
-
-			<button class="nav-button toggle" on:click={toggleNav}>
-				{#if isNavExpanded}
-				<PanelLeftClose size={24} />
+			<div class="middle-buttons" >
+				<button 
+				class="nav-button info" 
+				class:expanded={isNavExpanded}
+				on:click={() => {
+				  toggleAuthOrProfile();
+				  // Only close the nav if it's expanded
+				  if (isNavExpanded) {
+					isNavExpanded = false;
+				  }
+				}}
+			  >
+				{#if getAvatarUrl($currentUser)}
+				<img 
+					src={getAvatarUrl($currentUser)}
+					alt="User avatar" 
+					class="user-avatar" 
+				/>
 				{:else}
-				<PanelLeftOpen size={24} />
+					<div class="default-avatar">
+						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+					</div>
 				{/if}
-			</button>
+				<span class="nav-text">{username}
+
+				</span>
+				<span class="icon" on:click={logout} >
+					<LogOutIcon size={24} />
+
+				</span>
+					{#if isNavExpanded}
+
+
+					{/if}
+				</button>
+				<button class="nav-button" on:click={() => {
+					toggleNav();
+					if (showProfile || showAuth) {
+					  showProfile = false;
+					  showAuth = false;
+					}
+				  }}>
+					{#if isNavExpanded}
+					<PanelLeftClose size={24} />
+					{:else}
+					<PanelLeftOpen size={24} />
+					{/if}
+				  </button>
+			</div>
+
+
 		{:else}
 			<!-- <LogIn /> -->
 		{/if}
@@ -456,7 +536,6 @@
 
 	<!-- Navigation Buttons -->
 
-	<div class="middle-buttons"></div>
 </div>
 
 
@@ -602,6 +681,41 @@
 		transition: all 0.3s ease;
 	}
 
+	.middle-buttons {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: flex-start;
+		height: auto;
+		margin-left: 1rem;
+		position: absolute;
+		bottom: 1rem;
+		padding: 0;
+		width: auto;
+		gap: 1rem; 
+		margin-bottom: 0;
+		
+
+	}
+
+	button {
+		transition: all 0.3s ease;
+		&.icon {
+			background: var(--bg-gradient);
+			border: 1px solid var(--secondary-color);
+			border-radius: 50%;
+			width: 2rem;
+			height: 2rem;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+
+		}
+		&:hover {
+		}
+	}
+
 	.nav-button {
 		color: var(--text-color);
 		background: var(--bg-gradient-right);
@@ -619,6 +733,11 @@
 		transition: all 0.2s ease-in-out;
 		overflow: hidden;
 		user-select: none;
+
+		& img.logo {
+			width: 2rem;
+			height: 2rem;
+		}
 	}
 
 	.auth-overlay {
@@ -849,14 +968,20 @@
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
+		align-items: center;
 		height: 3rem;
-		width: auto;
+		background-color: red;
+		width: 100%;
 		position: relative;
 		margin-right: 0;
 		margin-left: 0.5rem;
 		margin-top: 0.5rem;
 		user-select: none;
-
+		&:hover {
+			h2 {
+				display: flex;
+			}
+			}
 
 		}
 	
@@ -864,13 +989,12 @@
 	.logo {
 		width: 2rem;
 		height: auto;
-		margin-right: 10px;
 
 	}
 
-	.logo-link {
+	a.logo-link {
 		display: flex;
-		flex-direction: row-reverse;
+		flex-direction: row;
 		align-items: center;
 		justify-content: center;
 		text-decoration: none;
@@ -878,16 +1002,13 @@
 		gap: 0.5rem;
 		margin: 0;
 		padding: 0;
-
-		h2 {
+		width: 100%;
+		z-index: 6000;
+		& h2 {
 			display: flex;
 
 		}
-		&:hover {
-			h2 {
-				display: block;
-			}
-			}
+
 	}
 
 	.h1 {
@@ -917,6 +1038,8 @@
 			padding: 1rem;
 		}
 	}
+
+
 	.style-overlay {
 		position: fixed;
 		top: 0;
@@ -1409,8 +1532,8 @@
 		.logo-container   {
 			width: 50%;
 			margin-left: 50%;
-			align-items: flex-end;
-			justify-content: flex-end;
+			align-items: center;
+			justify-content: center;
 		}
 
 		header {
@@ -1481,9 +1604,9 @@
 		gap: 10px;
 		position: fixed;
 		left: 0;
-		top: 3rem;
+		top: 0;
 		bottom: 0;
-		padding: 0.5rem 1rem;
+		padding: 0 0.5rem;
 		z-index:1000;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
@@ -1507,8 +1630,8 @@
     gap: 1rem;
 	margin-top: 0.5rem;
     width: 100%;
-	justify-content: space-between;
-	align-items: center;
+	justify-content: left;
+	align-items: left;
 
 	& .hidden {
 		display: none;
@@ -1693,6 +1816,69 @@
 		z-index: 5000;
 	}
 
+	.nav-button.info {
+		display: flex;
+		justify-content: center;
+		animation: none !important;
+		span.icon {
+			display: none;
+			padding: 1rem;
+			border-radius: 50%;
+			&:hover {
+				background: red;
+				padding: 1rem;
+			}
+		}
+		h2 {
+			display: none;
+		}
+
+		a {
+			display: none;
+		}
+		& .nav-text {
+			display: none;
+		}
+
+		&:hover {
+			justify-content: space-around;
+			background: var(--primary-color);
+			opacity: 1;
+			width: 300px;
+			border-radius: 2rem;
+
+			& .nav-text {
+				display: flex;
+			}
+			& h2 {
+				display: flex;
+			}
+			& a {
+				display: flex;
+			}
+			span.icon {
+				display: flex;
+			}
+		}
+		&.expanded {
+		width: 350px;
+		justify-content: space-around;
+		h2 {
+			display: flex;
+		}
+		a {
+			display: flex;
+		}
+		& .nav-text {
+				display: flex;
+			}
+		span.icon {
+				display: flex;
+			}
+
+		}
+	}
+
 	.nav-button.config {
 
 		bottom: 3rem;
@@ -1798,7 +1984,6 @@
 	.nav-button:hover,
 	.thread-toggle:hover {
 		box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-		transform: scale(1.1);
 		animation: nonlinearSpin 3.3s ease;
 	}
 	@keyframes nonlinearSpin {
@@ -1970,7 +2155,7 @@
 		
 		.sidenav {
 			display: flex;
-			justify-content: center;
+			justify-content: left;
 			// backdrop-filter: blur(30px);
 			height: 50px !important;
 			flex-direction: row;

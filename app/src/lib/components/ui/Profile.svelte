@@ -152,7 +152,7 @@
 		}
 	}
 
-	async function logout(): Promise<void> {
+	export async function logout(): Promise<void> {
 		try {
 			await signOut();
 			dispatch('logout');

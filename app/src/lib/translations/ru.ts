@@ -11,7 +11,10 @@ export default {
 		help: 'Помощь',
 		docs: 'Документы',
 		themes: 'Сменить тему',
-		searchProjects: 'Поиск проектов...'
+		searchProjects: 'Поиск проектов...',
+		welcome: 'Welcome to Vrazum',
+		signup: 'New user? Create an account'
+
 
 	},
 	lang: {

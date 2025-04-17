@@ -205,11 +205,11 @@ onMount(() => {
     <span class="trigger-text">
       <span class="icon" class:rotated={isExpanded}>
 
-      <Book/>
+      <Search/>
     </span>
 
     <span class="trigger-display">
-      {$projectStore.currentProject?.name || $t('drawer.project')}
+      {$projectStore.currentProject?.name || ''}
 
     </span>
       <span class="icon" class:rotated={isExpanded}>
@@ -307,7 +307,7 @@ onMount(() => {
     .dropdown-container {
       position: relative;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       width: 100%;
       margin-left: 1rem;
@@ -330,7 +330,7 @@ onMount(() => {
       padding: 1rem 0.5rem;
       transition: all 0.2s ease;
       height: 4rem;
-      width: 100%;
+      width: auto;
 
 
       &:hover {
@@ -364,9 +364,10 @@ onMount(() => {
       position: absolute;
       top: 0;
       left: 0;
-      width: 80vw;
+
+      width: 100%;
       height: 2rem;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
     }
   
@@ -374,10 +375,10 @@ onMount(() => {
       display: flex;
       height: 4rem;
       gap: 0;
-      background-color: var(--primary-color);
+      background-color: var(--bg-color);
       border-top-left-radius: var(--radius-m);
       border-top-right-radius: var(--radius-m);
-      border: 1px solid var(--secondary-color);
+      // border: 1px solid var(--secondary-color);
       border-bottom: 1px solid var(--secondary-color);
       // border-bottom: 1px solid var(--secondary-color);
       // border-radius: 2rem;
@@ -394,22 +395,25 @@ onMount(() => {
       flex: 1;
       color: var(--text-color);
       padding: 0.25rem 0.5rem;
-      background: var(--secondary-color);
+      background: var(--bg-color);
       
       input {
         border: none;
         border-radius: var(--radius-m);
         color: var(--text-color);
-        background: var(--secondary-color);
+        background: var(--primary-color);
         outline: none;
         line-height: 1;
         height: auto;
         padding: 0;
         justify-content: center;
+        padding-inline-start: 1rem;
         text-align: left;
         font-size: 1.5rem;
         transition: all 0.3s ease;
+        width: auto;
         &:focus {
+
         }
         &::placeholder {
           color: var(--placeholder-color);
@@ -479,17 +483,16 @@ onMount(() => {
   
     .projects-list {
       max-height: 400px;
-      width: auto;
-      border: 1px solid var(--secondary-color);
-      border-top: none;
+      width: calc(400px - 4rem);
+      // border: 1px solid var(--secondary-color);
       margin-right: 0;
       margin-left: 0;
       border-bottom-left-radius: var(--radius-m);
       border-bottom-right-radius: var(--radius-m);
       overflow-y: auto;
       scrollbar-color: var(--secondary-color) transparent;
-      background: var(--bg-gradient);
-      box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(50px);
+      box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
 
     }
   
@@ -497,6 +500,8 @@ onMount(() => {
       padding: 0.75rem 1rem;
       display: flex;
       align-items: center;
+      box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
+
       color: var(--placeholder-color);
       justify-content: space-between;
       cursor: pointer;
