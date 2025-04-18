@@ -84,7 +84,7 @@
   let userInput: string = '';
   // Auth state
   let isAuthenticated = false;
-  let username: string = 'You';
+  let name: string = 'You';
   let avatarUrl: string | null = null;
   let showAuth = false;
   // Thread-related state
@@ -129,7 +129,7 @@
   let scrollTopStart: number;
   let currentPage = 1;
   let searchQuery = '';
-  let currentPlaceholder = $t('chat.placeholder');
+  let currentPlaceholder = getRandomQuestions();
   let currentManualPlaceholder = $t('chat.manualPlaceholder');
   let quotedMessage: Messages | null = null;
   let expandedDates = new Set<string>();
@@ -251,7 +251,7 @@ const handleTextareaFocus = () => {
 const handleTextareaBlur = () => {
   hideTimeout = setTimeout(() => {
     isTextareaFocused = false;
-    currentPlaceholder = $t('chat.placeholder');
+    currentPlaceholder = getRandomQuestions();
     currentManualPlaceholder = $t('chat.placeholder');
 
   }, 500); 
@@ -500,7 +500,7 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
     // Create profile object from user data
     const profile: UserProfile = {
       id: userData.id,
-      name: userData.name || userData.username || 'User',
+      name: userData.name || userData.name || 'User',
       avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : null
     };
     
@@ -672,7 +672,16 @@ function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
 }
 // UI helper functions
 
-function getRandomQuote() {
+function getRandomGreeting() {
+		const quotes = $t('extras.greetings');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
+  function getRandomQuestions() {
+		const quotes = $t('extras.questions');
+		return quotes[Math.floor(Math.random() * quotes.length)];
+	}
+
+  function getRandomQuote() {
 		const quotes = $t('extras.quotes');
 		return quotes[Math.floor(Math.random() * quotes.length)];
 	}
@@ -1755,7 +1764,7 @@ onMount(async () => {
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
-      username = $currentUser.username || $currentUser.email;
+      name = $currentUser.name || $currentUser.email;
     }
     
     if ($currentUser && $currentUser.id && !modelInitialized) {
@@ -1911,7 +1920,7 @@ onDestroy(() => {
               {:else}
                   <div class="icon" in:fade>
                     <MessageCirclePlus />
-                    {#if createHovered}
+                    {#if searchHovered}
                       <span class="tooltip" in:fade>
                         {$t('tooltip.newThread')}
                       </span>
@@ -1942,8 +1951,8 @@ onDestroy(() => {
               {/if}
             </button>
             <div class="drawer-input">
-              <span 
-                class="icon" 
+              <button 
+                class="toolbar-button" 
                 class:active={isExpanded} 
                 on:click={() => {
                   isExpanded = !isExpanded;
@@ -1951,15 +1960,13 @@ onDestroy(() => {
                 on:mouseenter={() => searchHovered = true}
                 on:mouseleave={() => searchHovered = false}
               >
-                <div class="icon" in:fade>
                   <Search />
                   {#if searchHovered && !isExpanded}
-                    <span class="tooltip" in:fade>
+                    <span class="filter-badge" in:fade>
                       {$t('tooltip.findThread')}
                     </span>
                   {/if}
-                </div> 
-              </span>
+              </button>
               {#if isExpanded}
               <input
                 transition:slide={{ duration: 300 }}
@@ -2186,14 +2193,14 @@ onDestroy(() => {
                   {#if $isAiActive}
                     <PlugZap/>
                     {#if createHovered}
-                      <span class="tooltip-header" in:fade>
+                      <span class="tooltip" in:fade>
                         {$t('tooltip.pauseAi')}
                       </span>
                     {/if}
                   {:else}
                     <ZapOff/>
                     {#if createHovered}
-                      <span class="tooltip-header" in:fade>
+                      <span class="tooltip" in:fade>
                         {$t('tooltip.playAi')}
                       </span>
                     {/if}
@@ -2215,29 +2222,53 @@ onDestroy(() => {
             >     
             
               <div class="container-row">
-                <div class="logo-container" >
-                    <img src={horizon100} alt="Horizon100" class="logo" />
-                    <h2>vRAZUM</h2>
-                </div>
+
                 <span class="hero">
-                  <h3>
-                    {$t('threads.selectThread')} {username}  
-                  </h3>
+                  <!-- <div class="logo-container" >
+                    <h2>vRAZUM</h2>
+                </div> -->
                   <!-- <p >
                     {getRandomQuote()}
                   </p> -->
                 </span>
+
+
+
                   <div class="dashboard-items">
                     <div class="dashboard-scroll">
 
-                      <ProjectCard projectId={$projectStore.currentProjectId} />
 
                       <!-- <ProjectStatsContainer projectId={$projectStore.currentProjectId}/> -->
                     <!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
-                    </div>
 
                     {#if $projectStore.currentProjectId}
+
+                      {#if isTextareaFocused}
+                      {:else}
+                        {#if $expandedSections.bookmarks}
+                        <!-- {:else if $expandedSections.cites} -->
+                        {:else if $expandedSections.prompts}
+                        <!-- {:else if $expandedSections.models} -->
+                        {:else}
+                        <ProjectCard projectId={$projectStore.currentProjectId} />
+
+                        {/if}
+                      {/if}
+
+                    {:else}
+                    <span class="start" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                      <!-- <img src={horizon100} alt="Horizon100" class="logo" /> -->
+                      {#if isTextareaFocused}
+                    {:else}
+                      <h3 in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                        {getRandomGreeting()} {name},                     
+    
+                      </h3>
+                      {/if}
+                    </span>
+
                     {/if}
+                  </div>
 
                   </div>
 
@@ -2308,7 +2339,7 @@ onDestroy(() => {
                         transition:slide
                       >
                         <div class="submission" class:visible={isTextareaFocused} >
-                          {#if isTextareaFocused}
+                          <!-- {#if isTextareaFocused} -->
                           <span 
                             class="btn"
                             transition:slide
@@ -2367,7 +2398,7 @@ onDestroy(() => {
                               {/if}
                             </span>
                             <span 
-                              class="btn"
+                              class="btn model"
                               transition:slide
                               on:click={() => toggleSection('models')}
                               >
@@ -2395,7 +2426,7 @@ onDestroy(() => {
                             >
                               <Send />
                             </button>
-                          {/if}
+                          <!-- {/if} -->
                         </div>
                       </div>
                     </div>
@@ -2442,10 +2473,10 @@ onDestroy(() => {
                       <span class="role">
                         {#if message.type === 'human' && message.user}
                           {#await getUserProfile(message.user) then userProfile}
-                            {userProfile ? userProfile.name : username}
+                            {userProfile ? userProfile.name : name}
                           {/await}
                         {:else}
-                          {username}
+                          {name}
                         {/if}
                       </span>
                     </div>
@@ -2455,10 +2486,10 @@ onDestroy(() => {
                     </span> -->
                   {:else if message.role === 'assistant'}
                     <div class="user-header">
-                      <div class="avatar-container">
+                      <!-- <div class="avatar-container">
                         <Bot color="white" />
-                      </div>
-                      <span class="role">{message.prompt_type}</span>
+                      </div> -->
+                      <!-- <span class="role">{message.prompt_type}</span> -->
                       <span class="model">{message.model}</span>
                     </div>
                   {/if}
@@ -2623,14 +2654,12 @@ onDestroy(() => {
                       </span>
                       {#if selectedPromptLabel}
                         {#if selectedIcon}
-                          <div class="icon-wrapper">
-                            <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                          </div>
+                            <svelte:component this={selectedIcon} color="var(--text-color)" />
                         {/if}
                       {/if}
                     </span>
                     <span 
-                      class="btn"
+                      class="btn model"
                       transition:slide
                       on:click={() => toggleSection('models')}
                       >
@@ -2645,7 +2674,7 @@ onDestroy(() => {
                       {/if}
                       </span>
                     </span>
-                    <button 
+                    <span 
                       class="btn send-btn" 
                       class:visible={isTextareaFocused}
                       transition:slide
@@ -2653,7 +2682,7 @@ onDestroy(() => {
                       disabled={isLoading}
                     >
                       <Send />
-                    </button>
+                    </span>
                   {/if}
                 </div>
               </div>
@@ -2701,7 +2730,7 @@ onDestroy(() => {
                   >
                     <Paperclip />
                   </span>
-                  <button 
+                  <span 
                     class="btn send-btn" 
                     class:visible={isTextareaFocused}
                     transition:slide
@@ -2709,7 +2738,7 @@ onDestroy(() => {
                     disabled={isLoading}
                   >
                     <Send />
-                  </button>
+                  </span>
                 {/if}
               </div>
             </div>
@@ -3205,6 +3234,36 @@ p div {
       width: auto;
       margin-right: 0;
     }
+    .btn {
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      // box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+      border: none;
+      width: auto;
+      &.model {
+        background: transparent;
+        width: auto;
+
+        
+
+      }
+
+      &.send-btn {
+        background-color: var(--tertiary-color);
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        &:hover {
+        cursor: pointer;
+        transform: scale(1.3);
+        background: var(--bg-gradient-left);
+      }
+      }
+
+    }
   span {
     display: flex;
     justify-content: left;
@@ -3214,9 +3273,55 @@ p div {
     &.btn {
       display: flex;
       width: auto;
-      min-width: 4rem;
+      border-radius: 50%;
+      padding: 0.5rem;
+      width: 2rem;
+      height: 2rem;
+      transition: all 0.3s ease;
+      border: none;
+
+      &:hover {
+        cursor: pointer;
+        transform: scale(1.3);
+        background: var(--bg-gradient-left);
+      }
+    }
+
+    &.start {
+      display: flex;
+      height: auto;
+      justify-content: center;
+      align-items: flex-end;
+      width: 100%;
       gap: 0.5rem;
-      padding: 0 1rem;
+      margin: 0 !important;
+      position: relative;
+      transition: all 0.3s ease;
+
+      &:hover {
+        animation: shake 2.8s ease;
+
+      }
+      & h3 {
+        font-size: 2rem;
+        display: flex;
+        width: auto;
+        max-width: 800px;
+        height: auto;
+        margin-bottom: 1rem;
+
+        padding: 0 !important;
+      }
+
+      & img.logo {
+        width: 3rem;
+        height: 3rem;
+
+        margin-top: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
     }
 
     &.icon {
@@ -3227,7 +3332,7 @@ p div {
       & 
       
       &.active {
-        color: var(--tertiary-color) !important;
+        color: var(--bg-color) !important;
       }
 
 
@@ -3256,7 +3361,6 @@ p div {
       box-shadow:rgba(128, 128, 128, 0.8);
       justify-content: center;
       align-items: center;
-      padding: 0.5rem 1rem;
       border-radius: 1rem;
     }
     &.delete-card-container {
@@ -3470,14 +3574,7 @@ p div {
         transform: scale(1);
     }
   }
-  @keyframes swipe {
-    0% {
-      transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-    100% {
-      transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
-  }
+
 
   @keyframes nonlinearSpin {
     0% {
@@ -3709,16 +3806,35 @@ p div {
     display: flex;
     flex-direction: row;
     width: 100%;
-    justify-content: flex-end;
+    margin-top: 0.5rem;
+    justify-content: center;
     align-items: center;
     gap: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
     height: auto;
     // z-index: 8000;
-    margin-right: 2rem;
-    margin-top: 1rem;
     // background: var(--bg-gradient-r);
   }
-  
+  .submission {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    width: 100%;
+    height: auto;
+    justify-content: flex-end;
+    margin-right: 1rem;
+    align-self: center;
+    // padding: 0.5rem;
+    transition: all 0.3s ease;
+  }
+
+  .visible.submission {
+    // backdrop-filter: blur(4px);
+      z-index: 7000;
+
+  }
+
   .avatar-container {
     width: 30px;
     height: 30px;
@@ -3751,6 +3867,33 @@ p div {
   }
 
  .drawer-visible {
+    & .btn-row {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    margin-top: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    height: auto;
+    // z-index: 8000;
+    // background: var(--bg-gradient-r);
+  }
+
+  & .submission {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%;
+    height: auto;
+    justify-content: flex-end;
+    margin-right: 1rem;
+    align-self: center;
+    // padding: 0.5rem;
+    transition: all 0.3s ease;
+  }
 
     & .chat-content {
       margin-left: auto;
@@ -3810,12 +3953,13 @@ p div {
     flex-direction: column;
     position: relative;
     flex-grow: 1;
-    width: 100%;    
+    width: calc(100%);    
     margin-top: 0;
     height: auto;
     right: 0;
     bottom:0;
     margin-bottom: 0;
+    align-items: center;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
 
@@ -3840,7 +3984,8 @@ p div {
       box-shadow: none;
       position: relative; 
       border-radius: var(--radius-m);
-      background: var(--bg-gradient);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--secondary-color);
       // border-top-left-radius: var(--radius-m);
       // border-bottom-left-radius: var(--radius-m);
       // background-color: transparent;
@@ -3872,6 +4017,9 @@ p div {
       // box-shadow: none !important;
       
       // }
+      &:focus {
+          box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+      }
     }
 
   }
@@ -3881,31 +4029,43 @@ p div {
     flex-direction: column;
     width: 100%;
     height: 100%;
-    margin-top: 1rem;
+    margin-bottom: 0;
     position: relative;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
     // justify-content:space-between;
+    transition: all 0.3s ease;
+    gap: auto;
+
   }
   .input-container-start {
     display: flex;
     flex-direction: column;
-    position: absolute;
+    position: relative;
     flex-grow: 1;
     width: 100%;    
+    max-width: 800px;
     margin-top: 0;
     height: auto;
     right: 0;
-    bottom:0;
+    bottom:auto;
     margin-bottom: 0;
     overflow-y: none;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
-    align-items: center;
+    align-items: flex-end;
     // background: var(--bg-gradient);
     z-index: 1;
 
     & .combo-input {
+        background: var(--primary-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid var(--secondary-color);      
+        border-radius: 2rem;
+        width: 100%;
+        height: auto;
 
     }
 
@@ -3922,10 +4082,10 @@ p div {
     & textarea {
       border: none;
       box-shadow: none;
-      border-radius: var(--radius-m);
       transition: all 0.3s ease;
-
       background: var(--bg-color);
+      margin-top: 1rem !important;
+      // backdrop-filter: blur(14px);
       // margin-left: 7rem;
       // padding-left: 1rem;
       // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
@@ -3934,9 +4094,12 @@ p div {
       display: flex;
       // backdrop-filter: blur(40px);
       font-size: 1.5rem;
+      width: calc(100% - 2rem);
+      border-radius: 2rem;
+      background: transparent;
       // max-height: 400px;
-      margin-left: 2rem !important;
-      margin-right: 2rem !important;
+      // margin-left: 2rem !important;
+      // margin-right: 2rem !important;
 
       & :focus {
       color: white;
@@ -3951,7 +4114,7 @@ p div {
           // border-top: 4px solid var(--secondary-color) !important;
 
       box-shadow: none !important;
-      
+
       }
     }
 
@@ -3971,7 +4134,7 @@ p div {
   border-radius: var(--radius-m);
   margin-bottom: 0;
   height: auto;
-  width: 100%;
+  width: calc(100% - 2rem);
   margin-left: 0;
   bottom: auto;
   left: 0;
@@ -3985,9 +4148,9 @@ p div {
 
   & textarea {
     // max-height: 50vh;
-    height: 100px !important;
+    height: auto;
     margin: 1rem;
-    margin-top: 0.5rem;
+    margin-top: 0;
     margin-bottom: 0;
     z-index: 1000;
     // background: var(--bg-gradient-left);
@@ -3999,11 +4162,12 @@ p div {
     min-height: 400px !important;
     // background: var(--primary-color);
     // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-        margin: 2.5rem;
+        // margin: 2.5rem;
         margin-top: 0.5rem;
         margin-bottom: 0;
         background: var(--primary-color);
+
+
   }
 }
 }
@@ -4074,25 +4238,6 @@ color: #6fdfc4;
 
 
 
-.submission {
-  display: flex;
-  flex-direction: row;
-  margin-right: 2rem;
-  margin-bottom: 1rem;
-  width: auto;
-  justify-content: center;
-  align-self: center;
-  z-index: 6000;
-  gap: 2rem;
-  // padding: 0.5rem;
-  transition: height 0.3s ease;
-}
-
-.visible.submission {
-  // backdrop-filter: blur(4px);
-    z-index: 7000;
-
-}
 
 
   .chat-messages {
@@ -4148,7 +4293,6 @@ color: #6fdfc4;
       rgba(1, 1, 1, 0.05) 85%,
       rgba(117, 118, 114, 0) 100%
     );
-
     &::before {
       display: flex;
       flex-direction: column;
@@ -4464,6 +4608,7 @@ color: #6fdfc4;
 
     & h3 {
       margin: 0;
+      margin-top: auto;
       font-weight: 300;
       font-size: var(--font-size-m);    
       text-align: center;
@@ -4669,30 +4814,34 @@ color: #6fdfc4;
     gap: 0.5rem;
   }
   
-  .toolbar-button {
+  button.toolbar-button {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    width: auto !important;
+    justify-content: center !important;
+    color: var(--placeholder-color) !important;
+    width:3rem !important;
+    height: 3rem;
     border-radius: 1rem;
-    background: var(--bg-color) !important;
+    background: var(--bg-color);
     border: 1px solid var(--border-color, #e2e8f0);
     cursor: pointer;
     transition: all 0.2s ease;
-  }
-  
-  .toolbar-button:hover {
-    background-color: var(--secondary-color);
-  }
-  
-  .toolbar-button.active {
-    background-color: var(--tertiary-color);
+
+    
+    &:hover {
+      background-color: var(--secondary-color);
+      color: var(--text-color) !important;
+    }
+    
+    &.active {
+      background-color: var(--secondary-color);
+      color: var(--text-color) !important;
+    }
   }
   
   .button-label {
     display: flex;
+    color: var(--placeholder-color);
   }
   @media (min-width: 640px) {
     .button-label {
@@ -4700,15 +4849,14 @@ color: #6fdfc4;
     }
   }
 
-  .filter-badge {
+  span.filter-badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 1.25rem;
+    width: auto;
     height: 1.25rem;
-    background-color: var(--primary-color, #2563eb);
     color: white;
-    border-radius: 50%;
+    border-radius: 1rem;
     font-size: 0.75rem;
     font-weight: bold;
   }
@@ -4797,7 +4945,7 @@ color: #6fdfc4;
     justify-content: center;
     align-items: center;
     transition: all 0.3s ease;
-    justify-content: center !important;
+    justify-content: center;
     z-index: 2000;
     // &:hover{
     //   // background: var(--secondary-color);
@@ -5119,13 +5267,14 @@ color: #6fdfc4;
   textarea::placeholder {
     color: var(--placeholder-color);
     transition: all 0.3s ease;
-    font-style: italic;
     width: 100%;
     height: 100%;
-    align-items: center;
-    justify-content: center !important;
-    text-justify: center !important;
+    margin-top: auto;
 
+    display: flex;
+    text-align: left;
+    font-size: 1.5rem;
+    letter-spacing: 0.2rem;
   }
 
   textarea.quote-placeholder::placeholder {
@@ -5163,7 +5312,6 @@ color: #6fdfc4;
     vertical-align: middle; /* Align text vertically */
     transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
     margin-left: 1rem;
-    margin-right: 1rem;
     margin-top: 1rem;
     &:focus {
       /* margin-right: 5rem; */
@@ -5202,19 +5350,20 @@ color: #6fdfc4;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: top;
+  justify-content: flex-start;
   border-radius: var(--radius-m);
-  top: 0;
+
   // background: var(--primary-color);
-  bottom: 0;
-  height: 100vh;
+  transition: all 0.3s ease;
+  margin-left: 2rem;
+  margin-top: 0;
+  height: 90vh;
   user-select: none;
   overflow-y: auto;
   scrollbar-width:thin;
   scrollbar-color: var(--secondary-color) transparent;
   scroll-behavior: smooth;
-  position: absolute;
-  width: auto;
+  width: 100%;
   gap: 1rem;
   left: 1rem;
   right: 0;
@@ -5223,6 +5372,7 @@ color: #6fdfc4;
   & h3 {
       font-size: 50px;
       user-select: none;
+
       &:hover {
       // transform: scale(1.1);
       // animation: scaleEffect 1.3s ease-in-out;
@@ -5233,7 +5383,6 @@ color: #6fdfc4;
         color: var(--bg-gradient-left); 
         transition: all 0.3s ease-in-out;
         transform: scale(1.3) skewX(30px);
-        animation: shake 0.8s ease;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); 
         filter: blur(2px);
         filter: hue-rotate(1deg) drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
@@ -5245,7 +5394,7 @@ color: #6fdfc4;
       overflow-wrap: break-word;
       word-wrap: break-word;
       hyphens: auto;
-      text-align: right;
+      text-align: left;
     }
   
 }
@@ -5259,15 +5408,18 @@ color: #6fdfc4;
 .dashboard-items {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: flex-start;
+  transition: all 0.3s ease;
 
   position: relative;
-  border-top: 1px solid var(--secondary-color);
+  // border-top: 1px solid var(--secondary-color);
   left: 0;
+  top: 0;
   right: 0;
   gap: 0.5rem;
-  width: calc(100% - 2rem);
+  width: 100%;
+  height: auto;
   overflow: none;
   margin-bottom: auto;
   margin-top: 0;
@@ -5277,7 +5429,10 @@ color: #6fdfc4;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
+  transition: all 0.3s ease;
+
+  position: relative;
   width: 100%;
   // overflow-y: scroll !important;
   overflow: hidden !important;
@@ -5295,18 +5450,26 @@ color: #6fdfc4;
   .selector-lable {
   color: var(--text-color);
   opacity: 0.5;
-  display: inline;
-  font-size: var(--font-size-sm);
+  display: flex;
+  margin: 0;
+  padding: 0;
+  font-size: 0.7rem;
   font-style: italic;;
   font-weight: normal;
-  width: 100%;
+  text-align: left;
+  display: flex;
   user-select: none;
+
   // margin-left: 0.5rem;
 }
 
 
 
-
+p.selector-lable {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto;
+  }
 
   .landing-footer {
     display: flex;
@@ -5755,28 +5918,7 @@ color: #6fdfc4;
 
 
 
-.btn {
-  background-color: transparent;
-  height: 50px;
-  width: 50px;
-  display: flexbox;
-  justify-content: center;
-  align-items: center;
-  border-radius: var(--radius-l);
-  // box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-  border: none;
-  &:hover {
-    transform: translateY(-10px);
-    background: var(--bg-gradient-left);
 
-  }
-
-  &.send-btn {
-    background-color: var(--tertiary-color);
-  }
-
-}
 
 .scroll-bottom-btn {
   position: fixed;
@@ -5866,11 +6008,6 @@ color: #6fdfc4;
     cursor: pointer;
   }
 }
-  .icon-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
 
 
 
@@ -5905,7 +6042,6 @@ color: #6fdfc4;
     z-index: 10000;
     margin-bottom: 0;
     backdrop-filter: blur(200px);
-    border-radius: var(--radius-l);
   }
 
   .spinner {
@@ -5978,7 +6114,7 @@ color: #6fdfc4;
 
 
   .section-content {
-    width: 100%;
+    width: calc(100% - 2rem);
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -6020,10 +6156,11 @@ color: #6fdfc4;
   .ai-selector {
     display: flex;
     flex-direction: row;
-    justify-content:flex-end;
+    justify-content:center;
     // padding-left: 3rem;
     width: 100%;
     margin-left: 0;
+    z-index: 9000;
   }
 
   .tooltip {
@@ -6056,6 +6193,10 @@ color: #6fdfc4;
   }
 
   @media (max-width: 1000px) {
+
+
+
+
   .btn-col-left {
     display: flex;
     flex-direction: column;
@@ -6073,22 +6214,44 @@ color: #6fdfc4;
     transition: all 0.3s ease-in;
 
 }
+.container-row {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    margin-top: auto;
+    // justify-content:space-between;
+    transition: all 0.3s ease;
+    gap: 3rem;
+
+  }
+  .submission {
+    width: calc(100% - 2rem);
+  }
+.selector-lable {
+  display: none;
+
+
+}
+
 
 .chat-header-thread {
   width: 100%;
-  margin-left: 0;
+  margin-left: 4rem !important;
+  text-align: center;
+  align-items: center !important;
+  justify-content: center !important;
   left: 0;
+  
   h3 {
   }
 }
 
 .chat-header {
-  margin-left: 5.2rem;
+
+
 }
 
-.drawer-list {
-  height: 100%;
-}
 
 .btn-col-left:hover {
   width: 96%;
@@ -6188,12 +6351,11 @@ color: #6fdfc4;
   .dashboard-items {
     display: flex;
     flex-direction: row;
-    overflow-y: scroll;
     height: auto;
     justify-content: center;
     align-items: flex-start;
     position: relative;
-    border-top: 1px solid var(--secondary-color);
+    // border-top: 1px solid var(--secondary-color);
     padding-inline-start: 2rem;
     left: 0;
     right: 0;
@@ -6256,22 +6418,21 @@ color: #6fdfc4;
     .drawer-toolbar {
       width:auto;
       margin-bottom: 1rem;
-      left: 1rem;
+      left: 0;
       right: 0;
       margin-top: 1rem;
       margin-right: 0;
       margin-left: 0;     
       display: flex;
       position: relative;
-      height: 30px;
-      padding: 0.75rem 1rem;
+      height: auto;
       border: none;
       cursor: pointer;
       color: var(--text-color);
       
       text-align: left;
       display: flex;
-      gap: 2rem;
+      gap: auto;
       align-items: center;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
@@ -6280,15 +6441,33 @@ color: #6fdfc4;
       // background: var(--bg-gradient-r);
       z-index: 3000;
     }
+    .toolbar-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      height: 3rem;
+      width: 3rem;
+      padding: 0;
+      border-radius: 4rem;
+
+      border: 1px solid var(--border-color, #e2e8f0);
+      cursor: pointer;
+      &:hover {
+        background-color: var(--secondary-color);
+      }
+      
+      &.active {
+        background-color: var(--tertiary-color);
+      }
+    }
 
     .card {
       margin-left: 0;
       width: 100%;
     }
 
-    .container-row {
-      flex-direction: column;
-    }
+
 
 
     .thread-info input  {
@@ -6386,6 +6565,12 @@ color: #6fdfc4;
       margin-right: 2rem;
 
     }
+
+    .drawer-list {
+  height: 100%;
+  border-radius: 0;
+}
+
   .drawer {
       width: auto;
       margin-right:0;
@@ -6396,16 +6581,14 @@ color: #6fdfc4;
       padding: 0;
       z-index: 1;
       box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-      border-top-right-radius: var(--radius-l);
-      border-bottom-right-radius: var(--radius-l);
       // background-color: red !important;
-      top: 0;
+      top: 4rem;
       margin-right: 0;
       left: 0.5rem;
-    
+      border-radius: 0;
       width: calc(100%);
-      height: 100%;
-      margin-bottom: 20rem;
+      height: auto;
+      margin-bottom: auto;
 
       align-items: center;
       justify-content: center;
@@ -6419,6 +6602,8 @@ color: #6fdfc4;
     .drawer-visible .drawer {
       margin-left: -1rem;
       transform: translateX(0);
+      margin-bottom: 3rem;
+
     }
 
     .drawer-visible .chat-container {

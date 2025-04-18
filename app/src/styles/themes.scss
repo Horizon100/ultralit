@@ -75,7 +75,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #2ecc71, #16a085),
 		bg-gradient-right: linear-gradient(to right, #27ae60, #ffffff),
 		text-color: #2c4e39,
-		placeholder-color: rgb(255, 255, 255, 0.5),
+		placeholder-color: rgba(143, 143, 143, 0.5),
 		font-family: 'Source Code Pro',
 		primary-color: #ffffff,
 		secondary-color: #27ae60,
@@ -494,6 +494,7 @@ pre.code-block {
 
 	.tabs-navigation {
 		display: flex;
+		justify-content: center;
 		border-bottom: 1px solid var(--border-color);
 		margin-bottom: 1rem;
 		width: 100%;
@@ -514,17 +515,17 @@ pre.code-block {
 		transition: all 0.2s ease;
 		color: var(--text-color);
 		opacity: 0.7;
-	}
+	
+		&.active {
+			border-bottom: 3px solid var(--accent-color, #6b7280);
+			opacity: 1;
+			font-weight: 600;
+		}
 
-	.tab-button.active {
-		border-bottom: 3px solid var(--accent-color, #6b7280);
-		opacity: 1;
-		font-weight: 600;
-	}
-
-	.tab-button:hover {
-		background: var(--primary-color);
-		border-radius: 0.5rem 0.5rem 0 0;
+		&:hover {
+			background: var(--primary-color);
+			border-radius: 0.5rem 0.5rem 0 0;
+		}
 	}
 
 	.tab-content {
@@ -597,3 +598,12 @@ pre.code-block {
 		padding: 1rem;
 		font-style: italic;
 	}
+
+	@keyframes swipe {
+		0% {
+		  transform: translateX(-100%) translateY(-100%) rotate(45deg);
+		}
+		100% {
+		  transform: translateX(100%) translateY(100%) rotate(45deg);
+		}
+	  }

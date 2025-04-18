@@ -2,9 +2,9 @@
   import { fade, fly, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
   import { getThreadsStore, createThreadsStore } from '$lib/stores/threadsStore';
-
+  import { cubicOut } from 'svelte/easing';
   import { projectStore, getProjectStore } from '$lib/stores/projectStore';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, InfoIcon, ChartBarBig, Users } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, InfoIcon, ChartBarBig, Users, Logs } from 'lucide-svelte';
   import type { Projects, Thread } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { t } from '$lib/stores/translationStore';
@@ -13,7 +13,7 @@
 
   export let projectId: string | undefined = undefined;
   let isExpanded = false;
-  let activeTab: 'details' | 'stats' | 'members' = 'details';
+  let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
   let isCreatingProject = false;
   let newProjectName = '';
   let searchQuery = '';
@@ -91,9 +91,9 @@
     }
   }
   $: if (projectId) {
-  activeTab = 'details';
+  activeTab = 'info';
 }
-  function setActiveTab(tab: 'details' | 'stats' | 'members') {
+  function setActiveTab(tab: 'info' | 'details' | 'stats' | 'members') {
     activeTab = tab;
     if (!isExpanded) {
       isExpanded = true;
@@ -110,7 +110,7 @@
     }
 
     console.log('Loading data for projectId:', projectId);
-    activeTab = 'details';
+    activeTab = 'info';
     isLoading = true;
     
     try {
@@ -248,12 +248,15 @@
 
 <div class="project-container">
   <div class="project-content" transition:slide={{ duration: 200 }}>
-    <div class="project-header">
+    <div class="project-header"                 transition:slide={{ duration: 300 }}
+    >
       <!-- <h2>{$t('drawer.project')}</h2> -->
     </div>
     
     {#if project}
-      <div class="current-project">
+    
+      <div class="current-project" transition:slide={{ duration: 300 }}
+      >
         {#if isEditingProjectName && editingProjectId === project.id}
           <div class="edit-name-container">
             <input
@@ -266,52 +269,36 @@
             </button>
           </div>
         {:else}
-          <div class="project-name-container">
-            <h3 class="project-name">{projectName}</h3>
-            {#if isOwner}
-              <button class="edit-button" on:click={() => handleEditProject('name')}>
-                <Pen size={14} />
-              </button>
+          {#if isExpanded}
+          {:else}
+            <div class="project-name-container">
+              <!-- <h3 class="project-name">{projectName}</h3> -->
+              {#if isOwner}
+                <button class="edit-button" on:click={() => handleEditProject('name')}>
+                  <Pen size={14} />
+                </button>
+              {/if}
+            </div>
             {/if}
-          </div>
         {/if}
 
-        {#if isEditingProjectDescription && editingProjectId === project.id}
-          <div class="edit-description-container">
-            <textarea
-              bind:value={editedProjectDescription}
-              class="edit-description-input"
-              rows="3"
-              autofocus
-            ></textarea>
-            <button class="save-button" on:click={() => saveProjectEdit('description')}>
-              <Check size={16} />
-            </button>
-          </div>
-        {:else if projectDescription}
-          <div class="project-description-container">
-            <p class="project-description">{projectDescription}</p>
-            {#if isOwner}
-              <button class="edit-button" on:click={() => handleEditProject('description')}>
-                <Pen size={14} />
-              </button>
-            {/if}
-          </div>
-        {:else if isOwner}
-          <div class="add-description-container">
-            <button class="toggle-btn" on:click={() => handleEditProject('description')}>
-              <Plus size={14} /> Add description
-            </button>
-          </div>
-        {/if}
+
         
         <!-- New Tab Navigation -->
-        <div class="tabs-navigation">
+        <div class="tabs-navigation project">
+          <button 
+            class="tab-button {activeTab === 'info' ? 'active' : ''}" 
+            on:click={() => setActiveTab('info')}
+          >
+          <InfoIcon/>
+          {$t('dashboard.projectInfo')}
+        </button>
+
           <button 
             class="tab-button {activeTab === 'details' ? 'active' : ''}" 
             on:click={() => setActiveTab('details')}
           >
-          <InfoIcon/>
+          <Logs/>
             {$t('dashboard.projectDetails')}
           </button>
           <button 
@@ -335,7 +322,38 @@
 
         {#if isExpanded}
           <div class="project-tabs-content" transition:slide={{ duration: 150 }}>
-            {#if activeTab === 'details'}
+            {#if activeTab === 'info'}
+              {#if isEditingProjectDescription && editingProjectId === project.id}
+                <div class="edit-description-container" >
+                  <textarea
+                    bind:value={editedProjectDescription}
+                    class="edit-description-input"
+                    rows="3"
+                    autofocus
+                  ></textarea>
+                  <button class="save-button" on:click={() => saveProjectEdit('description')}>
+                    <Check size={16} />
+                  </button>
+                </div>
+              {:else if projectDescription}
+  
+                  <div class="project-description-container">
+                    <p class="project-description">{projectDescription}</p>
+                    {#if isOwner}
+                      <button class="edit-button" on:click={() => handleEditProject('description')}>
+                        <Pen size={14} />
+                      </button>
+                    {/if}
+                  </div>
+
+              {:else if isOwner}
+                <div class="add-description-container">
+                  <button class="toggle-btn" on:click={() => handleEditProject('description')}>
+                    <Plus size={14} /> Add description
+                  </button>
+                </div>
+              {/if}
+            {:else if activeTab === 'details'}
               <div class="project-details">
                 <div class="detail-row">
                   <span class="detail-label">Collaborators:</span>
@@ -372,10 +390,10 @@
       </div>
     {:else}
       <div class="no-project">
-        <h2>Create or select project to see the dashboard items.</h2>
-        <p >
+        <!-- <h2>Create or select project to see the dashboard items.</h2> -->
+        <!-- <p >
           {getRandomQuote()}
-        </p>
+        </p> -->
       </div>
     {/if}
   </div>
@@ -390,12 +408,11 @@
 
     .no-project {
 
-      height: 75vh;
+      height: auto;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-
       & p {
         font-style: italic;
         color: var(--placeholder-color);
@@ -458,6 +475,7 @@
     width: auto;
     gap: 2rem;
     display: flex;
+    margin-top: 1rem;
   }
   .icon {
     display: flex;
@@ -495,20 +513,21 @@
     }
   
     .project-content {
-		backdrop-filter: blur(10px);
+		// backdrop-filter: blur(10px);
 		display: flex;
 		flex-direction: column;
     align-items: left;
     height: auto;
+    position: relative;
 		width: 100%;
-    flex: 1;
-      top: 0;
-		height: auto;
-		margin-top: 0;
+    max-width: 800px;
+    flex: 1;		
+    margin-top: auto;
 		margin-left: 0;
       left: 0;
 		position: relative;
-		overflow: hidden;
+		overflow: none;
+    transition: all 0.3s ease;
 
 	}
   
@@ -517,6 +536,8 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    transition: all 0.3s ease;
+
   }
   
     .search-bar {
@@ -597,9 +618,7 @@
         align-items: center;
     }
 
-    .edit-description-container {
-      display: flex;
-    }
+
     textarea {
       background: var(--primary-color) !important;
       outline: none;
@@ -696,10 +715,50 @@
 		z-index: -1;
 	}
   
-    h3.project-name {
-      font-size: 2rem;
+
+  .tabs-navigation {
+    justify-content: top;
+    align-items: flex-end;
+    width: auto !important;
+    margin-top: 0;
+    gap: 0.5rem;
+    
+    &.project {
+      width: auto;
+      top: 0;
     }
-  
+  }
+  .tab-button {
+		display: flex;
+		align-items: center;
+    align-items: center;
+		gap: 0.5rem;
+		padding: 0 1.5rem;
+		font-size: 1rem;
+		background: transparent;
+		border: none !important;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		color: var(--placeholder-color);
+		opacity: 0.7;
+    border-radius: 1rem;
+
+		&.active {
+			opacity: 1;
+			font-weight: 600;
+      color: var(--text-color);
+
+		}
+
+		&:hover {
+			background: var(--primary-color);
+      border-radius: 1rem;
+      color: var(--text-color);
+      border-bottom: 1px solid green;
+
+		}
+	}
+
     .project-actions {
       display: flex;
       gap: 0.25rem;
@@ -737,25 +796,29 @@
 
   
   .current-project {
-    padding: 1rem;
-    border-radius: 6px;
-    margin-left: 2rem !important;
-    transition: all 0.3s ease;
+    // padding: 1rem;
     display: flex;
     flex-direction: column;
     // background-color: var(--secondary-color);
-    width: 100%;
+    width: auto;
+    transition: all 0.3s ease;
     &:hover {
       cursor: pointer;
-      // background: var(--primary-color);
+      transition: all 0.3s ease;
 
+      // background: var(--primary-color);
+      // .project-description-container {
+      //   display: flex;
+        
+      // }
     }
   }
   
   .project-name-container {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    width: 100%;
     
     &:hover {
       button.edit-button {
@@ -765,12 +828,17 @@
       }
     }
   }
-  
   .project-name {
-    font-size: 1.2rem;
+    font-size: 4.2rem;
     font-weight: 600;
     margin: 0 0 1rem 0;
+    width: 100%;
     color: var(--accent-color);
+    text-align: center;
+
+    & h3.project-name {
+    }
+
   }
   .project-description-container {
     display: flex;
@@ -779,8 +847,13 @@
     align-items: top;
     gap: 2rem;
     position: static;
+    height: auto;
+    display: flex;
+    overflow: hidden;
+    transition: all 0.3s ease;
 
     &:hover {
+
       button.edit-button {
         display: flex;
       }
@@ -849,9 +922,11 @@
     background-color: var(--hover-color);
   }
   
-  .edit-name-container {
+  .edit-name-container,  .edit-description-container {
     display: flex;
     margin-bottom: 8px;
+    width: 100%;
+    height: auto;
   }
   
   .edit-name-input {
@@ -904,10 +979,17 @@
 
   
   .no-project {
-    padding: 12px;
+    display: flex;
+
+    padding: 0.5rem;
+    width: 100%;
     text-align: center;
     color: var(--text-secondary-color);
-    margin-bottom: 2rem;
+
+    & p {
+      color: var(--placeholder-color);
+      max-width: 800px;
+    }
   }
   
   .collaborators {
@@ -945,13 +1027,15 @@
 
     }
     .project-tabs-content {
-    overflow-y: auto;
+		overflow: none;
     width: calc(100% - 2rem) !important;
     gap: 2rem;
     display: flex;
   }
+
+  
     .project-content {
-		backdrop-filter: blur(10px);
+		// backdrop-filter: blur(10px);
 		display: flex;
 		flex-direction: column;
     height: auto;

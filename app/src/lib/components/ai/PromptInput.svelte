@@ -201,9 +201,11 @@
 		@use "src/styles/themes.scss" as *;
 
 	.prompt-container {
-		width: 100%;
+		width: calc(100% - 2rem);
 		max-width: 1200px;
-		margin: 0 auto;
+		margin-right: 1rem;
+
+		margin-left: 1rem;
 	}
 	
 	.header-row {

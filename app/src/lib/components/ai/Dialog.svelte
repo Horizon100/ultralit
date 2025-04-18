@@ -1124,7 +1124,6 @@
 		height: auto;
 		left: 5%;
 		top: 50%;
-		(-50%);
 		opacity: 0.025;
 		z-index: 1;
 		pointer-events: none;
@@ -1389,13 +1388,5 @@
 	.thread-list button:hover .message-count {
 		font-size: 16px;
 	}
-	@keyframes bounce {
-		0%,
-		100% {
-			(0);
-		}
-		50% {
-			(-30px);
-		}
-	}
+
 </style>

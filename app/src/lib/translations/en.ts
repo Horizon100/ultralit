@@ -151,6 +151,30 @@ export default {
 	},
 
 	extras: {
+		greetings: [
+			"Hello",
+			"Hey",
+			"Hi",
+			"Greetings",
+			"Welcome back",
+			"Good to see you",
+			"Nice to have you here",
+			"Howdy",
+			"Salutations",
+			"Hi there",
+		],
+		questions: [
+			"What's on your mind?",
+			"How can I help?",
+			"What’s new with you?",
+			"Ready to dive in?",
+			"What’s the plan today?",
+			"What’s inspiring you right now?",
+			"How’s your day going?",
+			"What’s your thought of the hour?",
+			"Need a digital sidekick today?",
+			"What’s cooking in your world?",
+		],
 		quotes: [
 			'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra',
 			'Computer science is no more about computers than astronomy is about telescopes. - Edsger W. Dijkstra',
@@ -265,7 +289,9 @@ export default {
 		nameTags: 'tags',
 		nameTimer: 'time spent',
 		nameActive: 'Last Active:',
-		projectDetails: 'Info',
+		projectInfo: 'Info',
+
+		projectDetails: 'Logs',
 		projectStats: 'Stats',
 		projectMembers: 'Members'
 	},

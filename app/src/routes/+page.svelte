@@ -35,12 +35,13 @@
 	import { navigating } from '$app/stores';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { page } from '$app/stores';
+	import AIChat from '$lib/components/ai/AIChat.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
 	import { Mail, Bot, Send, Github, X, ChevronDown, LogIn } from 'lucide-svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
 	import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
-	import { showLoading } from '../lib/stores/loadingStore';
+	import { showLoading } from '$lib/stores/loadingStore';
 	import { t } from '$lib/stores/translationStore';
 	import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte';
 	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
@@ -365,14 +366,8 @@
 				</div>
 			</div>
 		{:else}
-			<div class="feed-container" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-				<!-- <AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} /> -->
-				<div class="feed">
-					feed
-				</div> 
-				<div class="trending">
-					trending
-				</div> 
+			<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+				<AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} />
 			</div>
 		{/if}
 	{:else}
@@ -591,39 +586,7 @@
 		/* bottom: 0; */
 	}
 
-	.feed-container {
-		display: flex;
-		flex-direction: row;
-		gap: 2rem;
-		justify-content: center;
-		align-items: center;
-		margin-top: 1rem;
-		margin-left: 5rem;
-		margin-right: auto;
-		width: 1200px;
-
-		& .feed {
-			display: flex;
-			height: 100%;
-			width: 800px;
-			background-color: black;
-		}
-		& .trending {
-			display: flex;
-			height: 100%;
-			width: 400px;
-
-			background-color: black;
-		}
-
-	}
-
-	@media (max-width: 1200px) {
-		.feed {
-
-		}
-	}
-		.spinner {
+	.spinner {
 		display: flex;
 		justify-content: center;
 		align-items: center;

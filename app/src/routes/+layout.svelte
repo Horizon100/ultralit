@@ -377,13 +377,7 @@
 	<button
 	class="nav-button info"
 	class:expanded={isNavExpanded}
-	class:active={currentPath === '/'}
-	on:click={() => {
-		navigateTo('/');
-		if (isNavExpanded) {
-		isNavExpanded = false;
-		}
-	}}
+
 	>
 	<img src={horizon100} alt="Horizon100" class="logo" />
 	<h2>vRAZUM</h2>
@@ -407,23 +401,23 @@
 		<button
 			class="nav-button"
 			class:expanded={isNavExpanded}
-			class:active={currentPath === '/chat'}
+			class:active={currentPath === '/'}
 			on:click={(event) => {
-			if (currentPath === '/chat') {
+			if (currentPath === '/') {
 				event.preventDefault();
 				toggleThreadList();
 				isNavExpanded = false;
 			} else {
-				navigateTo('/chat');
+				navigateTo('/');
 				if (isNavExpanded) {
 					isNavExpanded = false;
 				}
 			}
 			}}
 		>
-			{#if currentPath === '/chat' && showThreadList}
+			{#if currentPath === '/' && showThreadList}
 			<PanelLeftClose />
-			{:else if currentPath === '/chat'}
+			{:else if currentPath === '/'}
 			<MessageCircleDashed />
 			{:else}
 			<MessageCircle />
@@ -478,9 +472,8 @@
 				{/if}
 			</button>
 
-			<div class="middle-buttons" >
 				<button 
-				class="nav-button info" 
+				class="nav-button info user" 
 				class:expanded={isNavExpanded}
 				on:click={() => {
 				  toggleAuthOrProfile();
@@ -513,7 +506,7 @@
 
 					{/if}
 				</button>
-				<button class="nav-button" on:click={() => {
+				<button class="nav-button toggle" on:click={() => {
 					toggleNav();
 					if (showProfile || showAuth) {
 					  showProfile = false;
@@ -526,7 +519,6 @@
 					<PanelLeftOpen size={24} />
 					{/if}
 				  </button>
-			</div>
 
 
 		{:else}
@@ -1522,7 +1514,12 @@
 		h1 {
 			display: none;
 		}
-
+		.nav-button.info {
+			display: none !important;
+		}
+		.nav-button.user {
+			display: flex !important;
+		}
 		.project {
 			position: absolute;
 			left: 0;
@@ -1650,6 +1647,7 @@
     transition: all 0.2s ease-in-out;
     width: auto;
 
+
     &.active {
       background: var(--tertiary-color);
       box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
@@ -1661,6 +1659,9 @@
 		background: var(--primary-color);
 		opacity: 1 !important;
 
+		&:hover {
+		box-shadow: none !important;
+	}
 		}
     }
 
@@ -1681,6 +1682,8 @@
 
     &.toggle {
       margin-top: auto;
+	  position: absolute;
+	  bottom: 1rem;
     }
 
     &.profile {
@@ -1809,17 +1812,19 @@
 		overflow: auto;
 	}
 
-	.nav-button.toggle {
-		position: fixed;
-		bottom: 0;
-		left: 1rem;
-		z-index: 5000;
-	}
+
 
 	.nav-button.info {
 		display: flex;
 		justify-content: center;
 		animation: none !important;
+		background: var(--bg-color);
+		box-shadow: none !important;
+		&.user {
+			position: absolute;
+			bottom: 5rem;
+
+		}
 		span.icon {
 			display: none;
 			padding: 1rem;
@@ -1842,7 +1847,7 @@
 
 		&:hover {
 			justify-content: space-around;
-			background: var(--primary-color);
+			// background: var(--primary-color);
 			opacity: 1;
 			width: 300px;
 			border-radius: 2rem;
@@ -2144,8 +2149,80 @@
 
 
 	@media (max-width: 1000px) {
-		
+		.nav-button.info {
+			display: flex;
+			justify-content: center;
+			animation: none !important;
+			&.user {
+				position: relative;
+				bottom: auto;
+			}
+			span.icon {
+				display: none;
+				padding: 1rem;
+				border-radius: 50%;
+				&:hover {
+					background: red;
+					padding: 1rem;
+				}
+			}
+			h2 {
+				display: none;
+			}
 
+			a {
+				display: none;
+			}
+			& .nav-text {
+				display: none;
+			}
+
+			&:hover {
+				justify-content: space-around;
+				background: var(--primary-color);
+				opacity: 1;
+				width: 4rem;
+				height: 4rem;
+				border-radius: 2rem;
+				padding: 0;
+
+				& .nav-text {
+					display: none;
+				}
+				& h2 {
+					display: none;
+				}
+				& a {
+					display: none;
+				}
+				span.icon {
+					display: none;
+				}
+			}
+			&.expanded {
+				display: none;
+			width: 350px;
+			justify-content: space-around;
+			h2 {
+				display: flex;
+			}
+			a {
+				display: flex;
+			}
+			& .nav-text {
+					display: flex;
+				}
+			span.icon {
+					display: flex;
+				}
+
+			}
+		}
+
+		.nav-button.toggle {
+			display: none;
+		}
+		
 
 		.profile-overlay {
 			margin-left: 0;
@@ -2177,7 +2254,7 @@
 			margin-bottom: 0;
 			right: 0;
 			left: 0;
-			align-items: flex-end;
+			align-items: center;
 			justify-content: space-around;
 		}
 

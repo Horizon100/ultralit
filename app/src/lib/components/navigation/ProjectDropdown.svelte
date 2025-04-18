@@ -3,7 +3,7 @@
   import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { threadsStore } from '$lib/stores/threadsStore';
@@ -26,6 +26,7 @@
   let filteredProjects: Projects[] = [];
   let currentThreadId: string | null = null;  
   let isLoading: boolean = false;
+  let showThreadList = $threadsStore.showThreadList;
 
 
   $: console.log('Store state:', $projectStore);
@@ -33,8 +34,8 @@
   $: console.log('Is expanded:', isExpanded);
   $: console.log('Current project:', $projectStore.currentProject);
 
-  async function handleSelectProject(projectId: string) {
-  console.log('Selecting project:', projectId);
+  async function handleSelectProject(projectId: string, resetProject: boolean = false) {
+  console.log('Selecting project:', resetProject ? 'null' : projectId);
   
   try {
     isExpanded = false;
@@ -45,14 +46,20 @@
       // await resetThread(currentThreadId);
     }
     
-    console.log('Updating project store with project:', projectId);
-    await projectStore.setCurrentProject(projectId);
+    if (resetProject) {
+      console.log('Resetting current project');
+      await projectStore.setCurrentProject(null);
+
+    } else {
+      console.log('Updating project store with project:', projectId);
+      await projectStore.setCurrentProject(projectId);
+    }
     
     // Reset threads store state
     console.log('Resetting threads store');
     threadsStore.update(state => ({
       ...state,
-      showThreadList: true,
+      showThreadList: false,
       currentThreadId: null,
       currentMessage: null
     }));
@@ -205,7 +212,7 @@ onMount(() => {
     <span class="trigger-text">
       <span class="icon" class:rotated={isExpanded}>
 
-      <Search/>
+      <Layers/>
     </span>
 
     <span class="trigger-display">
@@ -225,6 +232,10 @@ onMount(() => {
       transition:slide={{ duration: 200 }}
     >
       <div class="dropdown-header">
+        <span class='toggle-btn' on:click|preventDefault={() => !isLoading && handleSelectProject(projects.id, false)}>
+
+          <Home/>
+        </span>
         <div class="search-bar">
           <span>
             <Search />
@@ -309,7 +320,7 @@ onMount(() => {
       display: flex;
       justify-content: flex-start;
       align-items: center;
-      width: 100%;
+      width: auto;
       margin-left: 1rem;
       z-index: 1;
       user-select: none;
@@ -364,7 +375,6 @@ onMount(() => {
       position: absolute;
       top: 0;
       left: 0;
-
       width: 100%;
       height: 2rem;
       // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -373,16 +383,18 @@ onMount(() => {
   
     .dropdown-header {
       display: flex;
+      align-items: center;
       height: 4rem;
+      width: calc(100vw - 6rem);
       gap: 0;
-      background-color: var(--bg-color);
-      border-top-left-radius: var(--radius-m);
-      border-top-right-radius: var(--radius-m);
+      background: transparent;
+      border-top: 1px solid var(--secondary-color);
+
       // border: 1px solid var(--secondary-color);
       border-bottom: 1px solid var(--secondary-color);
       // border-bottom: 1px solid var(--secondary-color);
       // border-radius: 2rem;
-
+      
     }
   
     .search-bar {
@@ -393,10 +405,13 @@ onMount(() => {
       // border-radius: var(--radius-l);
       height: auto;
       flex: 1;
+      height: 2rem;
+      border-radius: 2rem;
+      padding-inline-start: 0.5rem;
       color: var(--text-color);
-      padding: 0.25rem 0.5rem;
-      background: var(--bg-color);
-      
+      padding: 0.5rem 0.5rem;
+      background: var(--primary-color);
+      width: 100%;
       input {
         border: none;
         border-radius: var(--radius-m);
@@ -407,11 +422,11 @@ onMount(() => {
         height: auto;
         padding: 0;
         justify-content: center;
-        padding-inline-start: 1rem;
         text-align: left;
-        font-size: 1.5rem;
+        font-size: 1.1rem;
         transition: all 0.3s ease;
-        width: auto;
+        width: 100%;
+
         &:focus {
 
         }
@@ -483,7 +498,7 @@ onMount(() => {
   
     .projects-list {
       max-height: 400px;
-      width: calc(400px - 4rem);
+      width: calc(100vw - 6rem);
       // border: 1px solid var(--secondary-color);
       margin-right: 0;
       margin-left: 0;
@@ -554,9 +569,8 @@ onMount(() => {
     .dropdown-container {
       position: relative;
       display: flex;
-      width: auto;
+      width: 100%;
       z-index: 1;
-
       user-select: none;
       left:0;
       margin-left: 0;
@@ -564,9 +578,10 @@ onMount(() => {
 
     .dropdown-header {
       display: flex;
-      height: 4rem;
+      height: rem;
       top: 0;
       gap: 0;
+      width: 100%;
       border-bottom: 1px solid var(--secondary-color);
       background: var(--secondary-color);
       border-radius: 0;
@@ -575,6 +590,7 @@ onMount(() => {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      margin-left: 0.5rem;
       flex: 1;
       color: var(--text-color);
       input {
@@ -600,10 +616,11 @@ onMount(() => {
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }
       .projects-list {
-        max-height: 400px;
+        width: 100%;
+        max-height: auto;
         margin-right: 0;
         margin-left: 0;
-        box-shadow: 0 100px 100px 4px rgba(255, 255, 255, 0.2);
+        box-shadow: 0 100px 100px 4px rgba(0, 0, 0, 0.5);
 
       }
       .dropdown-trigger {
