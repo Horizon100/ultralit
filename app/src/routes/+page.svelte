@@ -822,7 +822,6 @@
 	button:hover {
 		background: var(--tertiary-color);
 		color: rgb(0, 0, 0);
-		font-size: 60px;
 	}
 
 	.illustration {

@@ -81,8 +81,8 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 	}
 }
 
+
 export async function ensureAuthenticated(): Promise<boolean> {
-    // Return existing promise if check is already in progress
     if (authCheckInProgress) {
         return authCheckInProgress;
     }
@@ -97,6 +97,7 @@ export async function ensureAuthenticated(): Promise<boolean> {
 
             if (!response.ok) {
                 currentUser.set(null);
+                console.warn('Authentication check failed: server returned', response.status);
                 return false;
             }
 
@@ -106,6 +107,7 @@ export async function ensureAuthenticated(): Promise<boolean> {
                 return true;
             }
 
+            console.warn('Authentication check failed: invalid user data', data);
             currentUser.set(null);
             return false;
         } catch (error) {
@@ -347,6 +349,8 @@ export async function getUserCount(): Promise<number> {
 		return 0;
 	}
 }
+
+
 
 // ============= AI Agent API Calls =============
 
@@ -865,39 +869,9 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
 	}
 }
 
-export async function fetchThreads(): Promise<Threads[]> {
-	try {
-		const response = await fetch('/api/keys/threads', {
-			method: 'GET',
-			credentials: 'include'
-		});
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		return data.threads;
-	} catch (error) {
-		console.error('Error fetching threads:', error);
-		throw error;
-	}
-}
 
-export async function fetchProjects(): Promise<Projects[]> {
-	try {
-		const response = await fetch('/api/keys/projects', {
-			method: 'GET',
-			credentials: 'include'
-		});
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		return data.projects;
-	} catch (error) {
-		console.error('Error fetching projects:', error);
-		throw error;
-	}
-}
+
+
 
 
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {

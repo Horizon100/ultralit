@@ -5,6 +5,11 @@ import { ClientResponseError } from 'pocketbase';
 import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { threadsStore } from '$lib/stores/threadsStore';
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
+import { projectStore } from '$lib/stores/projectStore';
+import { fetchThreadsForProject } from '$lib/clients/projectClient';
+// Throttling variables
+let isLoadingAllThreads = false;
+let lastThreadLoadTime = 0;
 
 const CACHE_DURATION = 10000;
 
@@ -13,6 +18,151 @@ const messageCache = new Map<string, {
     timestamp: number
 }>();
 
+export async function loadAllThreads(): Promise<void> {
+    // Throttle requests - don't reload if we've loaded in the last 5 seconds
+    const now = Date.now();
+    if (isLoadingAllThreads || (now - lastThreadLoadTime < 5000)) {
+      console.log('Skipping thread reload - already loading or recently loaded');
+      return;
+    }
+  
+    isLoadingAllThreads = true;
+    
+    try {
+      console.log('Loading all threads for all projects');
+      
+      threadsStore.update(state => ({
+        ...state,
+        isThreadsLoaded: false,
+        loadingError: null
+      }));
+      
+      // Get all projects from projectStore
+      const projects = get(projectStore).threads || [];
+      console.log(`Found ${projects.length} projects, loading threads for each`);
+      
+      // Use a map to collect threads by ID to avoid duplicates
+      const allThreadsMap = new Map();
+      
+      // Collect threads from all projects
+      for (const project of projects) {
+        if (project.id) {
+          try {
+            // Fetch threads for this project
+            const projectThreads = await fetchThreadsForProject(project.id);
+            console.log(`Fetched ${projectThreads.length} threads for project ${project.id} (${project.name})`);
+            
+            // Store threads in map, using ID as key to avoid duplicates
+            projectThreads.forEach(thread => {
+              if (thread.id) {
+                allThreadsMap.set(thread.id, {
+                  ...thread,
+                  project_id: project.id
+                });
+              }
+            });
+          } catch (error) {
+            console.warn(`Error fetching threads for project ${project.id}:`, error);
+            // Continue with other projects
+          }
+        }
+      }
+      
+      // Convert map to array
+      const allThreads = Array.from(allThreadsMap.values());
+      console.log(`Collected ${allThreads.length} total threads from ${projects.length} projects`);
+      
+      // Update threads store
+      threadsStore.update(state => {
+        // Apply current search query if it exists
+        let filteredThreads = allThreads;
+        if (state.searchQuery) {
+          filteredThreads = allThreads.filter(thread => 
+            thread.name?.toLowerCase().includes(state.searchQuery.toLowerCase())
+          );
+        }
+        
+        return {
+          ...state,
+          threads: allThreads,
+          searchedThreads: filteredThreads,
+          isThreadsLoaded: true,
+          showThreadList: true,
+          currentProjectId: get(projectStore).currentProjectId
+        };
+      });
+      
+      // Record successful load time
+      lastThreadLoadTime = Date.now();
+    } catch (error) {
+      console.error('Error loading all threads:', error);
+      threadsStore.update(state => ({
+        ...state,
+        loadingError: error instanceof Error ? error.message : 'Failed to load threads',
+        isThreadsLoaded: true // Prevent infinite loading state
+      }));
+    } finally {
+      isLoadingAllThreads = false;
+    }
+  }
+  
+  /**
+   * Modified function to load threads for a specific project or all threads
+   */
+  export async function loadProjectThreads(projectId?: string): Promise<void> {
+    // If no project ID, load all threads across projects
+    if (!projectId) {
+      return loadAllThreads();
+    }
+    
+    // Otherwise load threads for specific project
+    try {
+      console.log(`Loading threads for project ${projectId}`);
+      
+      threadsStore.update(state => ({
+        ...state,
+        isThreadsLoaded: false,
+        loadingError: null
+      }));
+      
+      // Fetch threads for this project
+      const projectThreads = await fetchThreadsForProject(projectId);
+      console.log(`Fetched ${projectThreads.length} threads for project ${projectId}`);
+      
+      // Ensure each thread has project_id set
+      const validatedThreads = projectThreads.map(thread => ({
+        ...thread,
+        project_id: thread.project_id || projectId
+      }));
+      
+      // Update threads store
+      threadsStore.update(state => {
+        // Apply current search query if it exists
+        let filteredThreads = validatedThreads;
+        if (state.searchQuery) {
+          filteredThreads = validatedThreads.filter(thread => 
+            thread.name?.toLowerCase().includes(state.searchQuery.toLowerCase())
+          );
+        }
+        
+        return {
+          ...state,
+          threads: validatedThreads,
+          searchedThreads: filteredThreads,
+          isThreadsLoaded: true,
+          showThreadList: true,
+          currentProjectId: projectId
+        };
+      });
+    } catch (error) {
+      console.error(`Error loading threads for project ${projectId}:`, error);
+      threadsStore.update(state => ({
+        ...state,
+        loadingError: error instanceof Error ? error.message : 'Failed to load threads',
+        isThreadsLoaded: true // Prevent infinite loading state
+      }));
+    }
+  }
 function invalidateThreadCache(threadId: string) {
     messageCache.delete(threadId);
 }
@@ -20,40 +170,37 @@ function invalidateThreadCache(threadId: string) {
 export async function fetchThreads(): Promise<Threads[]> {
     try {
         await ensureAuthenticated();
+        console.log('Fetching all threads for user');
         
-        const response = await fetch('/api/keys/threads', {
+        const response = await fetch('/api/threads', {
             method: 'GET',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token}` // Add auth token
             }
         });
         
         if (!response.ok) {
-            throw new Error(`Failed to fetch threads: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Failed to fetch threads: ${response.status}`);
         }
         
         const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to fetch threads');
-        }
-        
-        const allThreads = data.threads || [];
-        
-        const currentState = get(threadsStore);
-        
-        return allThreads.map((thread: Threads) => ({
-            ...thread,
-            showThreadList: currentState?.showThreadList ?? true,
-            tags: thread.tags || [],
-            current_thread: thread.current_thread || ''
-          }));
+        return data.threads || [];
     } catch (error) {
         console.error('Error fetching threads:', error);
-        
-        const currentState = get(threadsStore);
-        return currentState.threads || [];
+        throw error;
     }
+}
+// Helper function to process threads consistently
+function processThreads(threads: any[], currentState: any): Threads[] {
+    return threads.map((thread: any) => ({
+        ...thread,
+        showThreadList: currentState?.showThreadList ?? true,
+        tags: thread.tags || [],
+        current_thread: thread.current_thread || ''
+    }));
 }
 
 let isFetching = false;
@@ -120,37 +267,43 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 
         console.log('Received threadData:', threadData);
         
-        // Ensure project_id field name is consistent
+        // Extract project ID from any field it might be in
         const projectId = threadData.project_id || threadData.project;
         console.log('Project ID:', projectId);
 
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
             op: userId,
-            user: userId,  // Ensure user field is set
-            members: threadData.members || [userId],  // Add current user as member if not specified
+            user: userId,  
+            members: threadData.members || [userId],
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
             tags: threadData.tags || [],
             current_thread: '',
-            project: projectId,  // Use project field consistently
-            project_id: projectId  // Also set project_id for backward compatibility
         };
+
+        // Add both project and project_id fields if a projectId exists
+        if (projectId) {
+            newThread.project = projectId;
+            newThread.project_id = projectId;
+        }
 
         console.log('Creating thread with data:', newThread);
 
-        // Create thread via API endpoint instead of direct PocketBase access
+        // Create thread via API endpoint
         const response = await fetch('/api/keys/threads', {
             method: 'POST',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token || ''}`  // Add auth token
             },
             body: JSON.stringify(newThread)
         });
         
         if (!response.ok) {
-            throw new Error(`Failed to create thread: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`Failed to create thread: ${response.status} - ${errorText}`);
         }
         
         const data = await response.json();
@@ -158,13 +311,38 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
             throw new Error(data.message || 'Failed to create thread');
         }
         
-        const createdThread = data.thread;
+        let createdThread = data.thread;
+        
+        // If the API didn't set project_id but we have one, set it manually
+        if (projectId && !createdThread.project_id) {
+            createdThread = {
+                ...createdThread,
+                project_id: projectId
+            };
+            
+            // Also update the thread to ensure project_id is saved
+            try {
+                await fetch(`/api/keys/threads/${createdThread.id}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+                    },
+                    body: JSON.stringify({ project_id: projectId })
+                });
+                console.log(`Updated thread ${createdThread.id} with project_id ${projectId}`);
+            } catch (updateError) {
+                console.warn('Failed to update thread with project_id:', updateError);
+            }
+        }
 
         return {
             ...createdThread,
-            ...(threadData.showThreadList !== undefined && {
-                showThreadList: threadData.showThreadList
-            })
+            project_id: projectId || createdThread.project_id,  
+            showThreadList: threadData.showThreadList !== undefined 
+                ? threadData.showThreadList 
+                : false
         };
     } catch (error) {
         console.error('Thread creation process failed:', error);
@@ -336,12 +514,13 @@ export async function addMessageToThread(
             text: processMarkdown(message.text)
         };
 
-        // Create message via API endpoint
+        // Use the correct API endpoint - based on your structure, it should be:
         const response = await fetch('/api/keys/messages', {
             method: 'POST',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token || ''}`
             },
             body: JSON.stringify(processedMessage)
         });
@@ -359,27 +538,26 @@ export async function addMessageToThread(
         
         console.log('Created message:', createdMessage);
         
-		if (message.thread) {
-			invalidateThreadCache(message.thread);
-			
-			try {
-				// Update thread timestamp via API endpoint
-				await fetch(`/api/keys/threads/${message.thread}`, {
-					method: 'PATCH',
-					credentials: 'include',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						updated: new Date().toISOString()
-					})
-				});
-				
-				console.log(`Updated thread ${message.thread} timestamp successfully`);
-			} catch (updateError) {
-				console.error('Error updating thread timestamp:', updateError);
-			}
-		}
+        if (message.thread) {
+            try {
+                // Update thread timestamp via the correct API endpoint
+                await fetch(`/api/threads/${message.thread}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+                    },
+                    body: JSON.stringify({
+                        updated: new Date().toISOString()
+                    })
+                });
+                
+                console.log(`Updated thread ${message.thread} timestamp successfully`);
+            } catch (updateError) {
+                console.error('Error updating thread timestamp:', updateError);
+            }
+        }
 
         return createdMessage;
     } catch (error) {
@@ -416,7 +594,6 @@ export function setupMessageListener(threadId: string, onNewMessage: () => void)
             }
         }, pollInterval);
         
-        // Return a cleanup function
         return () => {
             clearInterval(intervalId);
             console.log(`Cleaned up polling for thread ${threadId}`);
@@ -433,22 +610,78 @@ export async function autoUpdateThreadName(
     userId: string
 ): Promise<Threads | null> {
     try {
-        await ensureAuthenticated();
-
+        // First check if thread exists in the store
+        const existingThreads = get(threadsStore).threads;
+        const threadExists = existingThreads.some(t => t.id === threadId);
+        
+        if (!threadExists) {
+            console.log(`Thread ${threadId} not found in store, fetching before naming`);
+            // Fetch thread if not in store
+            try {
+                const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+                    }
+                });
+                
+                if (threadResponse.ok) {
+                    const threadData = await threadResponse.json();
+                    if (threadData.success && threadData.thread) {
+                        // Add thread to store
+                        threadsStore.update(state => ({
+                            ...state,
+                            threads: [threadData.thread, ...state.threads.filter(t => t.id !== threadId)]
+                        }));
+                        console.log(`Added thread ${threadId} to store`);
+                    }
+                }
+            } catch (fetchError) {
+                console.error('Error fetching thread before naming:', fetchError);
+            }
+        }
+        
+        // Now update the thread name
         await updateThreadNameIfNeeded(threadId, messages, model, userId);
-
-        const updatedThread = await pb.collection('threads').getOne<Threads>(threadId);
+        
+        // Get the updated thread
+        const response = await fetch(`/api/keys/threads/${threadId}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch updated thread: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to fetch updated thread');
+        }
+        
+        // Also update the thread in the store to ensure consistency
+        const updatedThread = data.thread;
+        if (updatedThread) {
+            threadsStore.update(state => ({
+                ...state,
+                threads: state.threads.map(t => 
+                    t.id === threadId ? updatedThread : t
+                )
+            }));
+        }
+        
         return updatedThread;
     } catch (error) {
         console.error('Error in autoUpdateThreadName:', error);
-        if (error instanceof ClientResponseError) {
-            console.error('Response data:', error.data);
-            console.error('Status code:', error.status);
-        }
         return null;
     }
 }
-
 
 export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Messages[]> {
     try {
@@ -457,7 +690,7 @@ export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Mess
 
         const messages = await pb.collection('messages').getFullList<Messages>({
             filter: `id = "${bookmarkId}"`,
-            sort: '+created'  // Changed to oldest first for consistency
+            sort: '+created'
         });
 
         const processedMessages = messages.map((message) => ({

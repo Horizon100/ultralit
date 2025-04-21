@@ -1239,6 +1239,30 @@ $: displayUser = completeUserData || user;
 	}
 
 	@media (max-width: 768px) {
+
+		.avatar-container {
+		width: 3rem;
+		height:3rem;
+		border-radius: 50%;
+		overflow: hidden;
+	}
+
+	.avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.avatar-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: #e0e0e0;
+		color: #757575;
+	}
+
 		.settings-row {
 			display: flex;
 			flex-direction: row;

@@ -12,7 +12,7 @@
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import horizon100 from '$lib/assets/horizon100.svg';
-
+	import GoogleAuth from '$lib/components/buttons/GoogleAuth.svelte';
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -358,6 +358,7 @@
 								{isLoading ? 'Signing up...' : $t('nav.signup')}
 							</span>
 						</button>
+						<GoogleAuth/>
 						{:else}
 							<button 
 								class="button button-waitlist" 
@@ -421,7 +422,11 @@
 
 	.auth-container {
 		display: flex;
-		height: 50vh;
+		height: 70vh;
+		margin-top: 5vh;
+		width: 50vw;
+		margin-left: 25vw;
+		border-radius: 1rem;
 		backdrop-filter: blur(20px);
 		border: 1px solid rgb(53, 53, 53);
 		/* border-radius: 20px; */
@@ -437,11 +442,14 @@
 		/* width: 100%; */
 		/* width: 300px; */
 		/* height: 40px; */
+		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.5);
+
 	}
 
 	.login-container {
 		display: flex;
 		flex-direction: column;
+		
 	}
 
 	.terms-privacy {
@@ -615,7 +623,10 @@
 		&:hover {
 			color: var(--text-color);
 			background: var(--bg-gradient-left);
-			border: 1px solid var(--tertiary-color);
+          box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 10px 4px rgba(0, 0, 0, .25);
+
+			cursor: pointer;
+
 		}
 		& span {
 			width: auto;
@@ -643,6 +654,8 @@
 		&:hover {
 			background: transparent;
 			color: var(--text-color);
+			cursor: pointer;
+
 		}
 	}
 
@@ -664,6 +677,10 @@
 		cursor: pointer;
 		transition: background-color 0.3s;
 		font-size: 16px;
+
+		&:hover {
+			cursor: pointer;
+		}
 	}
 
 	.error {

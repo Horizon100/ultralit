@@ -778,9 +778,8 @@
 	}
 
 	.project {
-		position: absolute;
 		width: calc(400px - 4rem);
-		left: 4rem;
+		margin-left: 4rem;
 		top: 0;
 		// z-index: 999;
 		display: flex;
@@ -892,6 +891,7 @@
 		top: 0;
 		left: 0;
 		width: 100%;
+		justify-content: center;
 		/* height: 80px; */
 		/* margin-top: 0; */
 		/* align-items: center; */
@@ -1108,14 +1108,14 @@
 		align-items: center;
 		justify-content: center;
 		/* padding: 10px; */
-		width: auto;
+		width: 100%;
 		font-family: var(--font-family);
 	}
 
 	.nav-link {
 		display: flex;
 		flex-direction: row;
-		gap: 8px;
+		gap: 2rem;
 		font-weight: 400;
 		justify-content: center;
 		align-items: center;
@@ -1134,8 +1134,8 @@
 		border: none;
 		cursor: pointer;
 		border-radius: 50%;
-		width: 60px !important;
-		height: 60px;
+		width: 3rem !important;
+		height: 3rem;
 	}
 
 	.nav-link:hover {
@@ -1568,6 +1568,15 @@
 	}
 
 	@media (max-width: 767px) {
+		.modal-overlay {
+			width: 100%;
+		}
+
+		
+		.profile-content {
+			padding: auto;
+			width: 90vw !important;
+		}
 		.project {
 		margin-left: 0;
 	}
@@ -2296,7 +2305,17 @@
 
 	@media (max-width: 450px) {
 
-
+		.navigation-buttons {
+			display: flex;
+			flex-direction: row;
+			gap: 0.5rem;
+			margin-top: 0.5rem;
+			width: 100%;
+			margin-left: 0;
+			margin-right: 2rem;
+			justify-content: space-around;
+			align-items: center;
+		}
 
 		.top-buttons {
 			flex-direction: row;

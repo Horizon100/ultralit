@@ -1,6 +1,8 @@
 import type { Projects, Threads, User } from '$lib/types/types';
-import { ensureAuthenticated } from '$lib/pocketbase';
+import { ensureAuthenticated, currentUser} from '$lib/pocketbase';
 import { marked } from 'marked';
+import { get } from 'svelte/store';
+import { threadsStore } from '$lib/stores/threadsStore';
 
 marked.setOptions({
 	gfm: true,
@@ -33,21 +35,28 @@ export async function fetchProjects(): Promise<Projects[]> {
 	  console.error('Error fetching projects:', error);
 	  throw error;
 	}
-  }
-  export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
+}
+
+export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
     try {
         await ensureAuthenticated();
+            
+        // For project-specific requests, use the projects endpoint
+        const endpoint = `/api/projects/${projectId}/threads`;
+        console.log(`Fetching threads from endpoint: ${endpoint}`);
 
-        const response = await fetch(`/api/projects/${projectId}/threads`, {
+        const response = await fetch(endpoint, {
             method: 'GET',
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token}`
             },
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch threads for project ${projectId}: ${response.status}`);
+            const errorMessage = `Failed to fetch threads for project ${projectId}: ${response.status}`;
+            throw new Error(errorMessage);
         }
 
         const rawData = await response.json();
@@ -80,14 +89,13 @@ export async function fetchProjects(): Promise<Projects[]> {
         }));
 
         console.log(`Found ${threads.length} threads for project ${projectId}`);
-        console.log('Merged threads with project_id:', threads);
-        
         return threads;
     } catch (error) {
-        console.error('Error fetching threads for project:', error);
+        console.error(`Error fetching threads for project ${projectId}:`, error);
         return [];
     }
 }
+
 export async function createProject(projectData: Partial<Projects>): Promise<Projects> {
 	try {
 		ensureAuthenticated();

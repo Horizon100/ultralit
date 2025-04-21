@@ -54,57 +54,35 @@ function getAuthHeaders(): HeadersInit {
 }
 
 // Fetch threads function that uses Fetch API instead of PocketBase
-async function fetchThreads(): Promise<Threads[]> {
-	try {
-		ensureAuthenticated();
-		
-		console.log('Fetching threads, auth status:', !!get(currentUser)?.token);
-		
-		const response = await fetch('/api/threads', {
-			method: 'GET',
-			credentials: 'include',
-			headers: getAuthHeaders()
-		});
-		
-		// Enhanced error handling
-		if (!response.ok) {
-			const errorText = await response.text();
-			let errorData: any = {};
-			
-			try {
-				errorData = JSON.parse(errorText);
-			} catch (e) {
-				errorData = { message: errorText || 'Unknown error' };
-			}
-			
-			console.error('API Error:', {
-				status: response.status,
-				statusText: response.statusText,
-				url: response.url,
-				errorData,
-				errorText
-			});
-			
-			throw new Error(errorData.message || errorData.error || `API request failed with status ${response.status}`);
-		}
-		
-		const data = await response.json();
-		
-		if (!data?.success && !Array.isArray(data)) {
-			console.warn('API returned unsuccessful response:', data);
-			throw new Error(data?.error || 'Invalid response format');
-		}
-		
-		// Handle case where API might return the array directly
-		return Array.isArray(data) ? data : (data.data || []);
-	} catch (error) {
-		console.error('Detailed fetch error:', {
-			error,
-			user: get(currentUser)?.id,
-			time: new Date().toISOString()
-		});
-		throw error;
-	}
+export async function fetchThreads(): Promise<Threads[]> {
+    try {
+        await ensureAuthenticated();
+        const user = get(currentUser);
+        
+        if (!user || !user.token) {
+            throw new Error('User not authenticated');
+        }
+
+        const response = await fetch('/api/keys/threads', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.threads || [];
+    } catch (error) {
+        console.error('Error fetching threads:', error);
+        throw error;
+    }
 }
 
 // Function to update thread using Fetch API
@@ -151,7 +129,10 @@ export function createThreadsStore() {
 		date: new Date().toISOString(),
 		sortOption: ThreadSortOption.NewestFirst,
 		selectedUserIds: new Set<string>(),
-		availableUsers: []
+		availableUsers: [],
+		isLoading: false,
+		isUpdating: false,
+		error: null
 	});
 	const { subscribe, update } = store;
 	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
@@ -313,38 +294,49 @@ export function createThreadsStore() {
 		},
 		loadThreads: async (): Promise<Threads[]> => {
 			try {
-				console.log('Starting loadThreads');
-				
-				// Check if we can detect API issues early
-				if (!get(currentUser)?.token) {
-					console.warn('Warning: User token is missing, authentication may fail');
-				}
-				
-				const threads = await fetchThreads();
-				
-				store.update((state) => {
-					console.log('Updating store with threads');
-					return {
-						...state,
-						threads,
-						isThreadsLoaded: true,
-						updateStatus: 'Threads loaded successfully',
-						// Preserve current visibility state
-						showThreadList: state.showThreadList 
-					};
-				});
-				
-				return threads;
+			  update(state => ({
+				...state,
+				isLoading: true,
+				error: null
+			  }));
+		  
+			  // Make sure to handle authentication properly
+			  try {
+				await ensureAuthenticated();
+			  } catch (authError) {
+				console.warn('Authentication check failed:', authError);
+				// Don't throw here, continue and let the fetch handle it
+			  }
+		  
+			  const user = get(currentUser);
+			  if (!user?.token) {
+				console.warn('No user token available, attempting to fetch threads anyway');
+			  }
+		  
+			  const threads = await fetchThreads();
+			  
+			  update(state => ({
+				...state,
+				threads,
+				isThreadsLoaded: true,
+				updateStatus: 'Threads loaded successfully',
+				isLoading: false
+			  }));
+			  
+			  return threads;
 			} catch (error) {
-				console.error('Error loading threads:', error);
-				store.update((state) => ({
-					...state,
-					updateStatus: 'Failed to load threads',
-					isThreadsLoaded: false
-				}));
-				throw error; // Re-throw to let calling code handle it
+			  console.error('Error loading threads:', error);
+			  update(state => ({
+				...state,
+				isLoading: false,
+				error: error instanceof Error ? error.message : 'Failed to load threads',
+				updateStatus: 'Failed to load threads'
+			  }));
+			  
+			  // Return the existing threads instead of throwing
+			  return get(store).threads;
 			}
-		},
+		  },
 		loadMessages: async (threadId: string): Promise<Messages[]> => {
 			try {
 				const messages = await fetchMessagesForThread(threadId);
@@ -393,24 +385,40 @@ export function createThreadsStore() {
 		},
 		updateThread: async (id: string, changes: Partial<Threads>) => {
 			try {
-				console.log('Attempting to update thread:', id, 'with changes:', changes);
-				const updatedThread = await updateThread(id, changes);
-				console.log('Thread updated successfully:', updatedThread);
-		
-				store.update((state) => ({
-					...state,
-					threads: state.threads.map((t) => (t.id === id ? { ...t, ...updatedThread } : t)),
-					updateStatus: 'Thread updated successfully'
-				}));
-		
-				console.log('Store updated with new thread data');
-				return updatedThread;
+			  update(state => ({
+				...state,
+				isUpdating: true,
+				error: null
+			  }));
+		  
+			  const updatedThread = await updateThread(id, changes);
+			  
+			  const currentState = get(store);
+			  const existingThread = currentState.threads.find(t => t.id === id);
+			  
+			  update(state => ({
+				...state,
+				threads: state.threads.map(t => t.id === id ? { 
+				  ...(existingThread || t),
+				  ...updatedThread,         
+				  ...changes                
+				} : t),
+				isUpdating: false,
+				updateStatus: 'Thread updated successfully'
+			  }));
+			  
+			  return updatedThread;
 			} catch (error) {
-				console.error('Failed to update thread:', error);
-				store.update((state) => ({ ...state, updateStatus: 'Failed to update thread' }));
-				throw error;
+			  console.error('Failed to update thread:', error);
+			  update(state => ({
+				...state,
+				isUpdating: false,
+				error: error instanceof Error ? error.message : 'Failed to update thread',
+				updateStatus: 'Failed to update thread'
+			  }));
+			  throw error;
 			}
-		},
+		  },
 		getThreadCollaborators: async (threadId: string): Promise<User[]> => {
 			try {
 				const response = await fetch(`/api/threads/${threadId}/collaborators`, {

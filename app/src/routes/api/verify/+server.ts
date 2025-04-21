@@ -53,6 +53,23 @@ async function getUserCount(): Promise<number> {
 export const GET: RequestHandler = async ({ url, cookies, request }) => {
     console.log('GET request to', url.pathname);
     
+    // Support query param based check endpoints
+    const check = url.searchParams.get('check');
+    
+    // Health check via query param
+    if (check === 'health') {
+        try {
+            const isHealthy = await pbServer.checkPocketBaseConnection();
+            return json({ 
+                success: isHealthy, 
+                message: isHealthy ? 'PocketBase is healthy' : 'PocketBase is not healthy' 
+            });
+        } catch (error) {
+            console.error('PocketBase health check failed:', error);
+            return json({ success: false, error: 'PocketBase connection failed' }, { status: 500 });
+        }
+    }
+    
     // Restore auth from cookies if available
     const authCookie = cookies.get('pb_auth');
     if (authCookie) {
@@ -77,7 +94,7 @@ export const GET: RequestHandler = async ({ url, cookies, request }) => {
     const endpoint = pathParts.slice(verifyIndex + 1).join('/');
     console.log('Endpoint:', endpoint);
     
-    // Health check endpoint
+    // Health check endpoint via path
     if (endpoint === 'health') {
         try {
             const isHealthy = await pbServer.checkPocketBaseConnection();

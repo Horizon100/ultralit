@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import type { AIModel } from '$lib/types/types';
 import type { ProviderType } from '$lib/constants/providers';
-import { currentUser, pocketbaseUrl } from '$lib/pocketbase'; // Changed import
+import { currentUser } from '$lib/pocketbase';
 import { defaultModel, availableModels } from '$lib/constants/models';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
@@ -25,15 +25,19 @@ const createModelStore = () => {
 	const { subscribe, set, update } = writable<ModelState>(initialState);
 
 	const saveModelToPocketBase = async (model: AIModel, userId: string): Promise<AIModel | null> => {
-		console.log('Saving model to PocketBase:', { model, userId });
+		console.log('Saving model to API:', { model, userId });
 		try {
-			// Use fetch API to communicate with server
-			const response = await fetch(`/api/ai/models/save`, {
+			// Use fetch API to communicate with server - using main models endpoint
+			const response = await fetch(`/api/ai/models`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				credentials: 'include',
 				body: JSON.stringify({ model, userId })
 			});
+			
+			if (!response.ok) {
+				throw new Error(`Failed to save model: ${response.status} ${response.statusText}`);
+			}
 			
 			const data = await response.json();
 			if (!data.success) {
@@ -43,23 +47,27 @@ const createModelStore = () => {
 			console.log('Model saved successfully:', data.model);
 			return data.model;
 		} catch (error) {
-			console.error('Error saving model to PocketBase:', error, 'Model Data:', model);
+			console.error('Error saving model to API:', error, 'Model Data:', model);
 			return null;
 		}
 	};
 
 	async function loadModels(userId: string) {
 		try {
-			// Check connection first
+			// Check connection first - use the standard path endpoint
 			const connectionResponse = await fetch('/api/verify/health');
 			const connectionData = await connectionResponse.json();
 			if (!connectionData.success) throw new Error('PocketBase not available');
 
 			// Fetch models from API
-			const response = await fetch(`/api/ai/users/${userId}/models`, {
+			const response = await fetch(`/api/ai/models?userId=${userId}`, {
 				method: 'GET',
 				credentials: 'include'
 			});
+			
+			if (!response.ok) {
+				throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+			}
 			
 			const data = await response.json();
 			if (!data.success) {
@@ -89,49 +97,37 @@ const createModelStore = () => {
 
 			console.log('Current state of models:', currentState.models);
 			
-			// Update user's selected model
-			const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				credentials: 'include',
-				body: JSON.stringify({ model: model.id })
-			});
-			
-			if (!userUpdateResponse.ok) {
-				throw new Error(`Failed to update user's selected model: ${userUpdateResponse.statusText}`);
-			}
-			
+			// First try to find if the model already exists locally
 			const existingModel = currentState.models.find(
 				(m) => m.api_type === model.api_type && m.provider === model.provider
 			);
 
 			if (!existingModel) {
-				console.log('Model not found in local state. Attempting to save to PocketBase...');
+				console.log('Model not found in local state. Attempting to save to API...');
 				const newModel = await saveModelToPocketBase(model, userId);
 				if (newModel) {
-					console.log('New model saved to PocketBase:', newModel);
+					console.log('New model saved to API:', newModel);
 					savedModel = newModel;
 				} else {
-					console.warn('Failed to save new model to PocketBase.');
+					console.warn('Failed to save new model to API.');
 				}
 			} else {
 				console.log('Model already exists in local state:', existingModel);
 				savedModel = existingModel;
 			}
-
-			console.log("Updating user's selected model in PocketBase...");
-			const finalUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
+			
+			// Then update user's selected model in DB
+			console.log("Updating user's selected model in API...");
+			const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				credentials: 'include',
 				body: JSON.stringify({ model: savedModel.id })
 			});
 			
-			if (!finalUpdateResponse.ok) {
-				throw new Error(`Failed to update user's selected model: ${finalUpdateResponse.statusText}`);
+			if (!userUpdateResponse.ok) {
+				throw new Error(`Failed to update user's selected model: ${userUpdateResponse.statusText}`);
 			}
-			
-			console.log("User's selected model updated successfully.");
 
 			// Update store state
 			update((state) => {
@@ -230,8 +226,9 @@ const createModelStore = () => {
 			const user = userData.user;
 			
 			// 3. Extract provider and model preferences
-			const selectedProvider = user.selected_provider as ProviderType || 'deepseek';
-			const selectedModelId = user.model;
+			// If no selected_provider is found, keep it null instead of defaulting to 'openai'
+			const selectedProvider = user.selected_provider as ProviderType || null;
+			const selectedModelId = user.model || null;
 			
 			console.log('User preferences:', { selectedProvider, selectedModelId });
 			
@@ -240,23 +237,23 @@ const createModelStore = () => {
 			
 			// 4. Find a valid provider with API key
 			let validProvider = selectedProvider;
-			if (!availableKeys[selectedProvider]) {
-			  // Fall back to any provider with a key
-			  const providerWithKey = Object.keys(availableKeys).find(
-				k => !!availableKeys[k]
-			  ) as ProviderType | undefined;
-			  
-			  if (providerWithKey) {
-				console.log(`Falling back to provider with key: ${providerWithKey}`);
-				validProvider = providerWithKey;
-			  } else {
-				console.warn('No API keys found for any provider, using deepseek as fallback');
-				validProvider = 'deepseek';
-			  }
-			}
 			
-			// Update the provider in store and DB
-			await setSelectedProvider(userId, validProvider);
+			// Only try to find a provider with a key if we have keys
+			const availableKeyProviders = Object.keys(availableKeys).filter(k => !!availableKeys[k]);
+			
+			if (!selectedProvider) {
+				// Pick first available provider with a key, or default to 'openai' if none
+				validProvider = availableKeyProviders.length > 0 
+					? availableKeyProviders[0] as ProviderType 
+					: 'openai';
+				console.log(`No provider selected, using: ${validProvider}`);
+				
+				// Only update in database if we're setting for first time
+				await setSelectedProvider(userId, validProvider);
+			} else {
+				// Use the already selected provider from the user's preferences
+				console.log(`Using existing selected provider: ${selectedProvider}`);
+			}
 			
 			// 5. Find and initialize a valid model
 			let validModel: AIModel | null = null;
@@ -265,6 +262,7 @@ const createModelStore = () => {
 			// If we have a model ID, try to fetch it
 			if (selectedModelId) {
 			  try {
+				console.log('Trying to fetch selected model with ID:', selectedModelId);
 				const modelResponse = await fetch(`/api/ai/models/${selectedModelId}`, {
 					method: 'GET',
 					credentials: 'include'
@@ -273,8 +271,8 @@ const createModelStore = () => {
 				if (modelResponse.ok) {
 					const modelData = await modelResponse.json();
 					if (modelData.success && modelData.model) {
-						// Ensure the model belongs to the selected provider
-						if (modelData.model.provider === validProvider) {
+						// If we have a validProvider, ensure model provider matches
+						if (!validProvider || modelData.model.provider === validProvider) {
 							console.log('Using existing model:', modelData.model);
 							validModel = modelData.model as AIModel;
 						} else {
@@ -282,57 +280,60 @@ const createModelStore = () => {
 						}
 					}
 				} else {
-					console.warn('Could not fetch model with ID:', selectedModelId);
+					console.warn(`Could not fetch model with ID: ${selectedModelId} - Status: ${modelResponse.status}`);
 				}
 			  } catch (error) {
 				console.warn('Error fetching model with ID:', selectedModelId, error);
 			  }
 			}
 			
-			if (!validModel) {
-			  // Check models already loaded in the store
-			  const modelInStore = currentState.models.find(
-				m => m.provider === validProvider
-			  );
-			  
-			  if (modelInStore) {
-				console.log('Using model from store:', modelInStore);
-				validModel = modelInStore;
+// If still no model found and we have a valid provider, use default
+if (!validModel && validProvider) {
+	// Find a default model for the provider
+	const defaultForProvider = availableModels.find(m => m.provider === validProvider);
+	
+	if (defaultForProvider) {
+	  // Create a clean copy without api_key
+	  const modelToSave = {
+		name: defaultForProvider.name,
+		provider: defaultForProvider.provider,
+		api_type: defaultForProvider.api_type,
+		base_url: defaultForProvider.base_url,
+		description: defaultForProvider.description || '',
+		api_version: defaultForProvider.api_version || ''
+	  };
+	  
+	  console.log(`Using default model for provider ${validProvider}:`, modelToSave);
+	  
+	  // We need to save this model before using it
+	  try {
+		validModel = await saveModelToPocketBase(modelToSave as AIModel, userId);
+		console.log('Default model saved to database:', validModel);
+	  } catch (saveError) {
+		console.error('Error saving default model:', saveError);
+		// Return the original default model without trying to save it
+		validModel = defaultForProvider;
+	  }
+	} else {
+	  console.warn(`No default model found for provider ${validProvider}`);
+	  validModel = defaultModel; // Use the system default model
+	}
+  }
+			
+			// 6. Set the model in store and DB if we found one
+			if (validModel) {
+				await setSelectedModel(userId, validModel);
+				console.log('Model selection initialized with:', validModel);
+				return validModel;
 			  } else {
-				// Try to fetch from database one more time
-				try {
-				  const modelsResponse = await fetch(`/api/ai/models/provider/${validProvider}/user/${userId}`, {
-					method: 'GET',
-					credentials: 'include'
-				  });
-				  
-				  if (modelsResponse.ok) {
-					const modelsData = await modelsResponse.json();
-					if (modelsData.success && modelsData.models && modelsData.models.length > 0) {
-						console.log('Using existing provider model from DB:', modelsData.models[0]);
-						validModel = modelsData.models[0];
-					}
-				  }
-				} catch (error) {
-				  console.warn('Error finding models for provider:', error);
-				}
+				console.log('No valid model found, using default model');
+				// Always return at least the default model
+				return defaultModel;
 			  }
-			  
-			  // If still no model found, use default from availableModels
-			  if (!validModel) {
-				validModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
-				console.log('Using default model for provider:', validModel);
-			  }
-			}
-			
-			// 6. Set the model in store and DB
-			await setSelectedModel(userId, validModel);
-			
-			console.log('Model selection initialized with:', validModel);
-			return validModel;
 		  } catch (error) {
 			console.error('Error initializing model selection:', error);
-			return null;
+			// Return default model if initialization fails
+			return defaultModel;
 		  }
 		}
 	};

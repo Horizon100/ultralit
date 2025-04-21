@@ -71,9 +71,14 @@ function createMessagesStore() {
         }));
         
         if (message.thread) {
-          threadsStore.loadThreads().catch(err => {
-            console.error('Error loading threads after adding message:', err);
-          });
+          threadsStore.update(state => ({
+            ...state,
+            threads: state.threads.map(thread => 
+              thread.id === message.thread 
+                ? { ...thread, updated: new Date().toISOString() } 
+                : thread
+            )
+          }));
         }
         
         return newMessage;

@@ -414,7 +414,7 @@ return () => {
     .create-form {
         display: flex;
       gap: 0.5rem;
-      width: 100%;
+      width: auto;
   
       input {
         flex: 1;
@@ -524,8 +524,8 @@ return () => {
 
     .dropdown-container {
       position: relative;
-      display: inline-block;
-      width: 100%;
+      display: flex;
+      width: auto;
       z-index: 1;
       user-select: none;
       left:0;
@@ -565,7 +565,7 @@ return () => {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100vw;
+        width: auto;
         height: 2rem;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }

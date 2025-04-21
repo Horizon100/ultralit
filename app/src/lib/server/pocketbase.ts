@@ -166,6 +166,21 @@ export async function getPublicUserData(userId: string): Promise<Partial<User> |
 	}
 }
 
+export async function authenticateWithGoogle() {
+    try {
+      const authData = await pb.collection('users').authWithOAuth2({
+        provider: 'google',
+        createData: {
+        }
+      });
+      
+      return authData;
+    } catch (error) {
+      console.error('Google authentication error:', error);
+      throw error;
+    }
+  }
+
 // ============= AI Agent Functions =============
 
 export async function createAgentWithSummary(summary: string, userId: string): Promise<AIAgent> {
@@ -655,112 +670,66 @@ export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]>
 
 // ============= Thread & Project Functions =============
 
-export async function fetchThreads(): Promise<Threads[]> {
-	try {
-	  await ensureAuthenticated();
-	  const currentUserId = pb.authStore.model?.id;
+// export async function fetchThreads(): Promise<Threads[]> {
+// 	try {
+// 	  await ensureAuthenticated();
+// 	  const currentUserId = pb.authStore.model?.id;
 	  
-	  if (!currentUserId) {
-		throw new Error('User not authenticated');
-	  }
+// 	  if (!currentUserId) {
+// 		throw new Error('User not authenticated');
+// 	  }
 	  
-	  const userThreads = await pb.collection('threads').getFullList<Threads>({
-		sort: '-created',
-		filter: `user = "${currentUserId}"`,
-		expand: 'project,op,members',
-		$autoCancel: false
-	  });
+// 	  const userThreads = await pb.collection('threads').getFullList<Threads>({
+// 		sort: '-created',
+// 		filter: `user = "${currentUserId}"`,
+// 		expand: 'project,op,members',
+// 		$autoCancel: false
+// 	  });
 	  
-	  const opThreads = await pb.collection('threads').getFullList<Threads>({
-		sort: '-created',
-		filter: `op = "${currentUserId}"`,
-		expand: 'project,op,members',
-		$autoCancel: false
-	  });
+// 	  const opThreads = await pb.collection('threads').getFullList<Threads>({
+// 		sort: '-created',
+// 		filter: `op = "${currentUserId}"`,
+// 		expand: 'project,op,members',
+// 		$autoCancel: false
+// 	  });
 	  
-	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
-		sort: '-created',
-		filter: `members ~ "${currentUserId}"`,
-		expand: 'project,op,members',
-		$autoCancel: false
-	  });
+// 	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
+// 		sort: '-created',
+// 		filter: `members ~ "${currentUserId}"`,
+// 		expand: 'project,op,members',
+// 		$autoCancel: false
+// 	  });
 	  
-	  // Combine the results, removing duplicates by ID
-	  const combinedThreads = [...userThreads];
+// 	  // Combine the results, removing duplicates by ID
+// 	  const combinedThreads = [...userThreads];
 	  
-	  // Add op threads if not already included
-	  opThreads.forEach(thread => {
-		if (!combinedThreads.some(t => t.id === thread.id)) {
-		  combinedThreads.push(thread);
-		}
-	  });
+// 	  // Add op threads if not already included
+// 	  opThreads.forEach(thread => {
+// 		if (!combinedThreads.some(t => t.id === thread.id)) {
+// 		  combinedThreads.push(thread);
+// 		}
+// 	  });
 	  
-	  // Add member threads if not already included
-	  memberThreads.forEach(thread => {
-		if (!combinedThreads.some(t => t.id === thread.id)) {
-		  combinedThreads.push(thread);
-		}
-	  });
+// 	  // Add member threads if not already included
+// 	  memberThreads.forEach(thread => {
+// 		if (!combinedThreads.some(t => t.id === thread.id)) {
+// 		  combinedThreads.push(thread);
+// 		}
+// 	  });
 	  
-	  // Sort by created date (newest first)
-	  combinedThreads.sort((a, b) => 
-		new Date(b.created).getTime() - new Date(a.created).getTime()
-	  );
+// 	  // Sort by created date (newest first)
+// 	  combinedThreads.sort((a, b) => 
+// 		new Date(b.created).getTime() - new Date(a.created).getTime()
+// 	  );
 	  
-	  return combinedThreads;
-	} catch (error) {
-	  console.error('Error fetching threads:', error);
-	  throw error;
-	}
-}
+// 	  return combinedThreads;
+// 	} catch (error) {
+// 	  console.error('Error fetching threads:', error);
+// 	  throw error;
+// 	}
+// }
 
-export async function fetchProjects(): Promise<Projects[]> {
-	try {
-	  await ensureAuthenticated();
-	  const currentUserId = pb.authStore.model?.id;
-	  
-	  if (!currentUserId) {
-		throw new Error('User not authenticated');
-	  }
-	  
-	  const projects = await pb.collection('projects').getFullList<Projects>({
-		expand: 'last_message,owner,collaborators',
-		filter: `owner = "${currentUserId}" || collaborators ?~ "${currentUserId}"`,
-		sort: '-created',
-		$autoCancel: false
-	  });
-	  
-	  console.log('Fetched projects:', projects);
-	  return projects;
-	} catch (error) {
-	  console.error('Error fetching projects:', error);
-	  throw error;
-	}
-}
 
-export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
-	try {
-	  await ensureAuthenticated();
-	  const currentUserId = pb.authStore.model?.id;
-	  
-	  if (!currentUserId) {
-		throw new Error('User not authenticated');
-	  }
-	  
-	  const records = await pb.collection('threads').getFullList<Threads>({
-		sort: '-created',
-		filter: `project = "${projectId}" && (user = "${currentUserId}" || op = "${currentUserId}" || members ?~ "${currentUserId}")`,
-		expand: 'project,op,members',
-		$autoCancel: false
-	  });
-	  
-	  console.log('Fetched threads for project:', records);
-	  return records;
-	} catch (error) {
-	  console.error('Error fetching threads for project:', error);
-	  throw error;
-	}
-}
 
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
 	try {

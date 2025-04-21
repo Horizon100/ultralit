@@ -5,49 +5,49 @@ import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
 export async function fetchAIResponse(
-    messages: AIMessage[],
-    model: AIModel | null,
-    userId: string,
-    attachment: File | null = null
+	messages: AIMessage[],
+	model: AIModel | null,
+	userId: string,
+	attachment: File | null = null
 ): Promise<string> {
-    try {
-        const supportedMessages = messages
-            .filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
-            .map((msg) => ({
-                role: msg.role,
-                content: msg.prompt_type
-                    ? `${getPrompt(msg.prompt_type, '')}\n${msg.content}`
-                    : msg.content,
-                model: msg.model
-            }));
+	try {
+		const supportedMessages = messages
+			.filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
+			.map((msg) => ({
+				role: msg.role,
+				content: msg.prompt_type
+					? `${getPrompt(msg.prompt_type, '')}\n${msg.content}`
+					: msg.content,
+				model: msg.model
+			}));
 
-        console.log('Original model:', model);
-        
-        let modelToUse: AIModel;
-        if (!model || typeof model === 'string') {
-            console.log('Using default model due to invalid model data');
-            modelToUse = { ...defaultModel };
-        } else {
-            modelToUse = {
-                ...model,
-                provider: model.provider || defaultModel.provider,
-                api_type: model.api_type || defaultModel.api_type,
-                base_url: model.base_url || defaultModel.base_url,
-                api_version: model.api_version || defaultModel.api_version,
-                api_key: model.api_key || defaultModel.api_key
-            };
-        }
-        
-        console.log('Using model:', modelToUse);
+		console.log('Original model:', model);
+		
+		if (!model || (typeof model === 'string')) {
+			console.log('Using default model due to invalid model data');
+			model = { ...defaultModel };
+		}
+		
+		if (!model.provider) {
+			console.log('Setting default provider for model');
+			model.provider = 'deepseek';
+		}
+		
+		if (!model.api_type) {
+			console.log('Setting default api_type for model');
+			model.api_type = 'deepseek-chat'; 
+		}
+		
+		console.log('Using model:', model);
 
-        let requestBody: FormData | string;
-        
-        const modelData = {
-            id: modelToUse.id || 'default-model',
-            provider: modelToUse.provider,
-            api_type: modelToUse.api_type || modelToUse.name,
-            name: modelToUse.name || 'Default Model'
-        };
+		let requestBody: FormData | string;
+		
+		const modelData = {
+			id: model.id || 'default-model',
+			provider: model.provider,
+			api_type: model.api_type || model.name,
+			name: model.name || 'Default Model'
+		};
 		
 		if (attachment) {
 			const formData = new FormData();
@@ -64,7 +64,7 @@ export async function fetchAIResponse(
 			});
 		}
 
-        const provider = modelToUse.provider || 'openai';
+		const provider = model.provider || 'openai';
 		console.log('Provider:', provider);
 		
 		const userApiKey = get(apiKey)[provider] || '';
@@ -86,14 +86,14 @@ export async function fetchAIResponse(
 					const fallbackProvider = availableProviders[0];
 					console.log(`Falling back to provider: ${fallbackProvider}`);
 					
-					modelTo.provider = fallbackProvider;
+					model.provider = fallbackProvider;
 					
 					if (fallbackProvider === 'openai') {
-						modelToUse.api_type = 'gpt-3.5-turbo';
+						model.api_type = 'gpt-3.5-turbo';
 					} else if (fallbackProvider === 'anthropic') {
-						modelToUse.api_type = 'claude-3-sonnet-20240229';
+						model.api_type = 'claude-3-sonnet-20240229';
 					} else if (fallbackProvider === 'deepseek') {
-						modelToUse.api_type = 'deepseek-chat';
+						model.api_type = 'deepseek-chat';
 					}
 				} else {
 					throw new Error(`No API keys available for any provider`);
@@ -101,9 +101,9 @@ export async function fetchAIResponse(
 			}
 		}
 
-		const finalApiKey = get(apiKey)[modelToUse.provider] || '';
+		const finalApiKey = get(apiKey)[model.provider] || '';
 		if (!finalApiKey) {
-			throw new Error(`No API key found for provider: ${modelToUse.provider}`);
+			throw new Error(`No API key found for provider: ${model.provider}`);
 		}
 
 		const response = await fetch('/api/ai', {

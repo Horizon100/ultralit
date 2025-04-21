@@ -62,6 +62,7 @@
 	"type": "module",
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.39.0",
+		"@auth/sveltekit": "^1.8.0",
 		"@codemirror/basic-setup": "^0.20.0",
 		"@codemirror/lang-javascript": "^6.2.2",
 		"@codemirror/theme-one-dark": "^6.1.2",

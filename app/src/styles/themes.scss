@@ -24,6 +24,8 @@ $themes: (
 		primary-color: #2b2a2a,
 		secondary-color: #474747,
 		tertiary-color: #50e3c2,
+		line-color: rgba(255, 255, 255, 0.2),
+
 		text-color-rgb: '51, 51, 51'
 	),
 	dark: (
@@ -39,7 +41,9 @@ $themes: (
 		secondary-color: #1c1f21,
 		// primary-color: #2c3e50,
 		// secondary-color: #34495e,
-		tertiary-color: #7f8c8d
+		tertiary-color: #7f8c8d,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	light: (
 		bg-color: #ffe5b4,
@@ -52,7 +56,9 @@ $themes: (
 		font-family: 'Courier New',
 		primary-color: #4a5b5d,
 		secondary-color: #2a626b,
-		tertiary-color: #76afb3
+		tertiary-color: #76afb3,
+		line-color: rgba(54, 64, 64, 0.5),
+
 
 	),
 	sunset: (
@@ -66,7 +72,9 @@ $themes: (
 		font-family: 'Arial',
 		primary-color: #684504,
 		secondary-color: #543707,
-		tertiary-color: #e67e22
+		tertiary-color: #e67e22,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	focus: (
 		bg-color: #ffffff,
@@ -79,7 +87,9 @@ $themes: (
 		font-family: 'Source Code Pro',
 		primary-color: #ffffff,
 		secondary-color: #27ae60,
-		tertiary-color: #16a085
+		tertiary-color: #16a085,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	bold: (
 		bg-color: #151720,
@@ -92,7 +102,9 @@ $themes: (
 		font-family: 'Helvetica Neue',
 		primary-color: #3a2c3f,
 		secondary-color: #4a3951,
-		tertiary-color: #e90000
+		tertiary-color: #e90000,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	turbo: (
 		bg-color: #92dcdc,
@@ -105,7 +117,9 @@ $themes: (
 		font-family: 'Times New Roman',
 		primary-color: #f1c40f,
 		secondary-color: #f39c12,
-		tertiary-color: #d35400
+		tertiary-color: #d35400,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	bone: (
 		bg-color: #f1f3f5,
@@ -118,7 +132,9 @@ $themes: (
 		font-family: 'Century Gothic, sans-serif',
 		primary-color: #ffffff,
 		secondary-color: #e4e4e4,
-		tertiary-color: #8ea0a2
+		tertiary-color: #8ea0a2,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	),
 	ivoryx: (
 		bg-color: #92dcdc,
@@ -131,7 +147,9 @@ $themes: (
 		font-family: 'Century Gothic, sans-serif',
 		primary-color: #f1c40f,
 		secondary-color: #f39c12,
-		tertiary-color: #d35400
+		tertiary-color: #d35400,
+		line-color: rgba(54, 64, 64, 0.5),
+
 	)
 );
 
@@ -167,6 +185,7 @@ $themes: (
 			--primary-color: #{map-get($colors, primary-color)};
 			--secondary-color: #{map-get($colors, secondary-color)};
 			--tertiary-color: #{map-get($colors, tertiary-color)};
+			--line-color: #{map-get($colors, line-color)};
 
 			// Typography
 			--font-size-xss: 0.5rem;

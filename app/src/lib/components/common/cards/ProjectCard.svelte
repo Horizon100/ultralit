@@ -1,19 +1,23 @@
 <script lang="ts">
   import { fade, fly, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
-  import { getThreadsStore, createThreadsStore } from '$lib/stores/threadsStore';
+  import { threadsStore } from '$lib/stores/threadsStore';
   import { cubicOut } from 'svelte/easing';
-  import { projectStore, getProjectStore } from '$lib/stores/projectStore';
+  import { projectStore } from '$lib/stores/projectStore';
   import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, InfoIcon, ChartBarBig, Users, Logs } from 'lucide-svelte';
-  import type { Projects, Thread } from '$lib/types/types';
+  import type { Projects, Threads } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { t } from '$lib/stores/translationStore';
   import ProjectStatsContainer from '$lib/components/common/cards/ProjectStatsContainer.svelte';
   import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
+  import { isTextareaFocused } from '$lib/stores/textareaFocusStore';
+  import { loadProjectThreads } from '$lib/clients/threadsClient';
 
   export let projectId: string | undefined = undefined;
   let isExpanded = false;
   let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
+  let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
+
   let isCreatingProject = false;
   let newProjectName = '';
   let searchQuery = '';
@@ -30,6 +34,7 @@
 
   console.log('*** ProjectCard Initialization ***');
   console.log('Initial projectId received:', projectId);
+  $: console.log('Textarea is focused:', $isTextareaFocused);
 
   // Subscribe to the project store
   projectStore.subscribe((state) => {
@@ -63,10 +68,15 @@
       return 'Invalid date';
     }
   }
+
   function getRandomQuote() {
-		const quotes = $t('extras.quotes');
-		return quotes[Math.floor(Math.random() * quotes.length)];
-	}
+    const quotes = $t('extras.quotes');
+    if (Array.isArray(quotes)) {
+      return quotes[Math.floor(Math.random() * quotes.length)];
+    }
+    return 'Loading...';
+  }
+  
   // Reactive declarations for project details
   $: {
     console.log('*** Reactive Update ***');
@@ -90,11 +100,39 @@
       loadProjectThreadsData();
     }
   }
+
   $: if (projectId) {
-  activeTab = 'info';
-}
+    activeTab = 'info';
+  }
+
+  $: if ($isTextareaFocused) {
+    // When textarea gets focus, remember the current tab but set active to null
+    if (activeTab) {
+      previousActiveTab = activeTab;
+      activeTab = null as any; // Type assertion to handle null case
+    }
+  } else {
+    // When textarea loses focus, restore the previous tab if we have one
+    if (previousActiveTab) {
+      activeTab = previousActiveTab;
+    } else {
+      // Set default tab to 'info' if there's no previous tab
+      activeTab = 'info';
+    }
+  }
+
   function setActiveTab(tab: 'info' | 'details' | 'stats' | 'members') {
+    // If textarea is focused, store the requested tab but don't change activeTab
+    if ($isTextareaFocused) {
+      previousActiveTab = tab;
+      return;
+    }
+    
+    // Otherwise, set the active tab and store it as the previous tab too
     activeTab = tab;
+    previousActiveTab = tab;
+    
+    // Handle expansion
     if (!isExpanded) {
       isExpanded = true;
       if (projectId) {
@@ -150,15 +188,9 @@
     }
     
     try {
-      // Create or get the threads store for this project
-      const threadsStore = getThreadsStore(projectId) || await createThreadsStore(projectId);
-      console.log('Threads store initialized for project:', projectId);
-      
-      // Fetch threads data if needed
-      if (threadsStore && typeof threadsStore.loadThreads === 'function') {
-        await threadsStore.loadThreads();
-        console.log('Threads loaded for project:', projectId);
-      }
+      // Use our updated loadProjectThreads function
+      await loadProjectThreads(projectId);
+      console.log('Threads loaded for project:', projectId);
     } catch (error) {
       console.error('Error loading project threads:', error);
     }
@@ -217,7 +249,6 @@
       if (projectId) {
         await loadProjectData();
         await loadProjectThreadsData();
-        // await loadCollaborators();
       }
     } catch (error) {
       console.error('Error initializing component:', error);
@@ -290,30 +321,46 @@
             class="tab-button {activeTab === 'info' ? 'active' : ''}" 
             on:click={() => setActiveTab('info')}
           >
-          <InfoIcon/>
-          {$t('dashboard.projectInfo')}
+          <span>
+            <InfoIcon/>
+            <p>
+              {$t('dashboard.projectInfo')}
+            </p>
+          </span>
         </button>
-
           <button 
             class="tab-button {activeTab === 'details' ? 'active' : ''}" 
             on:click={() => setActiveTab('details')}
           >
+          <span>
           <Logs/>
-            {$t('dashboard.projectDetails')}
+            <p>
+              {$t('dashboard.projectDetails')}
+            </p>
+          </span>
           </button>
           <button 
             class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
             on:click={() => setActiveTab('stats')}
           >
+          <span>
           <ChartBarBig/>
-            {$t('dashboard.projectStats')}
+            <p>
+              {$t('dashboard.projectStats')}
+            </p>
+          </span>
           </button>
           <button 
             class="tab-button {activeTab === 'members' ? 'active' : ''}" 
             on:click={() => setActiveTab('members')}
           >
-          <Users/>
-            {$t('dashboard.projectMembers')}
+          <span>
+            <Users/>
+
+            <p>
+              {$t('dashboard.projectMembers')}
+            </p>
+          </span>
           </button>
           <!-- <button class="toggle-button" on:click={toggleExpanded}>
             <ChevronDown class="icon-wrapper {isExpanded ? 'rotated' : ''}" size={16} />
@@ -321,6 +368,7 @@
         </div>
 
         {#if isExpanded}
+          
           <div class="project-tabs-content" transition:slide={{ duration: 150 }}>
             {#if activeTab === 'info'}
               {#if isEditingProjectDescription && editingProjectId === project.id}
@@ -517,12 +565,13 @@
 		display: flex;
 		flex-direction: column;
     align-items: left;
+    justify-content: flex-start;;
     height: auto;
     position: relative;
 		width: 100%;
     max-width: 800px;
     flex: 1;		
-    margin-top: auto;
+    margin-top: -1rem;
 		margin-left: 0;
       left: 0;
 		position: relative;
@@ -717,7 +766,7 @@
   
 
   .tabs-navigation {
-    justify-content: top;
+    justify-content: space-around;
     align-items: flex-end;
     width: auto !important;
     margin-top: 0;
@@ -731,9 +780,8 @@
   .tab-button {
 		display: flex;
 		align-items: center;
-    align-items: center;
 		gap: 0.5rem;
-		padding: 0 1.5rem;
+		padding: 0 1rem;
 		font-size: 1rem;
 		background: transparent;
 		border: none !important;
@@ -742,21 +790,23 @@
 		color: var(--placeholder-color);
 		opacity: 0.7;
     border-radius: 1rem;
-
 		&.active {
 			opacity: 1;
 			font-weight: 600;
-      color: var(--text-color);
+      color: var(--tertiary-color);
 
 		}
-
 		&:hover {
-			background: var(--primary-color);
+			background: transparent;
       border-radius: 1rem;
       color: var(--text-color);
       border-bottom: 1px solid green;
 
 		}
+    & span {
+      display: flex;
+      gap: 0.5rem;
+    }
 	}
 
     .project-actions {
@@ -799,6 +849,7 @@
     // padding: 1rem;
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     // background-color: var(--secondary-color);
     width: auto;
     transition: all 0.3s ease;
@@ -916,6 +967,7 @@
     color: var(--text-color);
     padding: 4px;
     border-radius: 4px;
+
   }
   
   .toggle-button:hover {
@@ -976,7 +1028,15 @@
   }
   }
   
+  .tabs-navigation.project {
+      gap: auto;
 
+    display: flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      margin-top: 0;
+    }
   
   .no-project {
     display: flex;
@@ -1018,12 +1078,13 @@
     border-bottom: none;
   }
   @media (max-width: 1000px) {
+    
     .current-project {
       display: flex;
       width: 100%;
       margin: 0 !important;
-      align-items: flex-start;
-      justify-content: center !important;
+      align-items: center;
+      justify-content: center;
 
     }
     .project-tabs-content {
@@ -1038,7 +1099,7 @@
 		// backdrop-filter: blur(10px);
 		display: flex;
 		flex-direction: column;
-    height: auto;
+    height: 100%;
 		width: 100%;
     min-width: auto;
     flex: 1;
@@ -1075,6 +1136,34 @@
     height: 4rem;
     line-height: 1.5;
   }
+  }
+
+  @media (max-width: 767px) {
+    .current-project {
+      align-items: flex-end;
+    }
+    .project-content {
+      margin-top: -0.5rem !important;
+    }
+    .tabs-navigation.project {
+      gap: 0;
+      margin-top: 0 !important;
+      justify-content: flex-end;
+      align-items: flex-end;
+      width: auto !important;
+    }
+    .tab-button {
+      width: 2.5rem;
+      height: 2.5rem;
+      justify-content: center;
+
+      & span {
+        & p {
+          display: none;
+
+        }
+      }
+    }
   }
 
   </style>

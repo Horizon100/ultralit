@@ -2,8 +2,9 @@
   import { fade, fly, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
+  import { fetchThreads } from '$lib/clients/threadsClient';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { threadsStore } from '$lib/stores/threadsStore';
@@ -11,7 +12,9 @@
   import { t } from '$lib/stores/translationStore';
   import { goto } from '$app/navigation';
   import { get } from 'svelte/store';
+    import { loadProjectThreads } from '$lib/clients/threadsClient';
 
+  // import { loadProjectThreads } from '$lib/components/ai/AIChat.svelte'
   let dropdownContainer: HTMLElement;
   let isExpanded = false;
   let isCreatingProject = false;
@@ -23,7 +26,7 @@
   let isEditingProjectName = false;
   let editingProjectId: string | null = null;
   let editedProjectName = '';
-  let filteredProjects: Projects[] = [];
+  let filteredProjects = $projectStore.threads;
   let currentThreadId: string | null = null;  
   let isLoading: boolean = false;
   let showThreadList = $threadsStore.showThreadList;
@@ -34,6 +37,8 @@
   $: console.log('Is expanded:', isExpanded);
   $: console.log('Current project:', $projectStore.currentProject);
 
+
+  
   async function handleSelectProject(projectId: string, resetProject: boolean = false) {
   console.log('Selecting project:', resetProject ? 'null' : projectId);
   
@@ -41,34 +46,63 @@
     isExpanded = false;
     isLoading = true;
 
-    if (currentThreadId) {
-      console.log('Resetting current thread:', currentThreadId);
-      // await resetThread(currentThreadId);
+    // Current thread ID might be from threadsStore
+    const currThreadId = currentThreadId || get(threadsStore)?.currentThreadId;
+    
+    if (currThreadId) {
+      console.log('Resetting current thread:', currThreadId);
+      threadsStore.update(state => ({
+        ...state,
+        currentThreadId: null
+      }));
     }
     
     if (resetProject) {
       console.log('Resetting current project');
       await projectStore.setCurrentProject(null);
-
+      
+      // Get all threads from the store to avoid API calls
+      const currentStoreThreads = get(threadsStore).threads || [];
+      
+      // Update the store to show all threads
+      threadsStore.update(state => ({
+        ...state,
+        threads: currentStoreThreads,
+        currentProjectId: null,
+        showThreadList: true
+      }));
+      
+      console.log(`Updated store with ${currentStoreThreads.length} threads`);
+      
+      // Try fetching in the background, but don't block UI on it
+      // fetchThreads().then(threads => {
+      //   if (threads && threads.length > 0) {
+      //     threadsStore.update(state => ({
+      //       ...state,
+      //       threads: threads
+      //     }));
+      //     console.log(`Background fetch updated store with ${threads.length} threads`);
+      //   }
+      // }).catch(error => {
+      //   console.warn('Background thread fetch failed, using store threads:', error);
+      // });
     } else {
       console.log('Updating project store with project:', projectId);
       await projectStore.setCurrentProject(projectId);
+      
+      // For project threads, use your existing loadProjectThreads function
+      if (projectId && typeof loadProjectThreads === 'function') {
+        try {
+          await loadProjectThreads(projectId);
+        } catch (projectError) {
+          console.error('Error in loadProjectThreads:', projectError);
+        }
+      }
     }
-    
-    // Reset threads store state
-    console.log('Resetting threads store');
-    threadsStore.update(state => ({
-      ...state,
-      showThreadList: false,
-      currentThreadId: null,
-      currentMessage: null
-    }));
     
     console.log('Project selection completed successfully');
   } catch (error) {
     console.error("Error handling project selection:", error);
-    alert('Failed to select project. Please try again.');
-    isExpanded = true;
   } finally {
     isLoading = false;
   }
@@ -201,22 +235,31 @@ onMount(() => {
 </script>
 
 <div class="dropdown-container" bind:this={dropdownContainer}>
+  <span class="dropdown-trigger home">
+  {#if $projectStore.currentProject}
+  <span class="dropdown-trigger">
+    <span class="trigger-display" on:click|preventDefault={() => !isLoading && handleSelectProject('', true)}
+      >
+      <span class="icon home" class:rotated={isExpanded}>
+        <ChevronLeft/> 
+        <p>
+          Home
+        </p>
+      </span>
+    </span>
+  </span>
+{/if}
   <button 
-    class="dropdown-trigger"
+    class="dropdown-trigger selector"
     on:click={() => {
-      console.log('Dropdown trigger clicked');
       isExpanded = !isExpanded;
-      console.log('isExpanded set to:', isExpanded);
     }}
   >
-    <span class="trigger-text">
-      <span class="icon" class:rotated={isExpanded}>
-
-      <Layers/>
-    </span>
+    <span class="trigger-text" >
+     
 
     <span class="trigger-display">
-      {$projectStore.currentProject?.name || ''}
+      {$projectStore.currentProject?.name || 'Projects'}
 
     </span>
       <span class="icon" class:rotated={isExpanded}>
@@ -225,6 +268,9 @@ onMount(() => {
     </span>
     
   </button>
+</span>
+
+
 
   {#if isExpanded}
     <div 
@@ -232,10 +278,7 @@ onMount(() => {
       transition:slide={{ duration: 200 }}
     >
       <div class="dropdown-header">
-        <span class='toggle-btn' on:click|preventDefault={() => !isLoading && handleSelectProject(projects.id, false)}>
 
-          <Home/>
-        </span>
         <div class="search-bar">
           <span>
             <Search />
@@ -318,10 +361,10 @@ onMount(() => {
     .dropdown-container {
       position: relative;
       display: flex;
+      flex-direction: row;
       justify-content: flex-start;
-      align-items: center;
+      align-items: flex-start;
       width: auto;
-      margin-left: 1rem;
       z-index: 1;
       user-select: none;
       
@@ -332,51 +375,87 @@ onMount(() => {
       border: 1px solid transparent;
       // border-bottom: 1px solid var(--placeholder-color);
       margin-top: 0;
+      margin: 0;
       color: var(--text-color);
-      justify-content: left;
       cursor: pointer;
       // padding: 0.5rem 1rem;
       display: flex;
-      align-items: flex-end;
-      padding: 1rem 0.5rem;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 0;
       transition: all 0.2s ease;
-      height: 4rem;
+      height: auto;
       width: auto;
+      &.selector {
+        height: auto;
 
-
-      &:hover {
-        background: var(--secondary-color);
+        margin: 0;
+        padding: 0;
       }
+      &.home {
+        height: 3rem;
+        display: flex;
+        justify-content: center;
+      }
+
+      & span.icon {
+        display: none;
+        }
+      & span.icon.home {
+        display: flex;
+        flex-direction: row;
+        font-size: 0.9rem;
+        margin: 0;
+        letter-spacing: 0.2rem;
+        color: var(--tertiary-color);
+        gap: 0;
+        & p {
+          margin: 0;
+        }
+      }
+
     }
-  
+
     .trigger-text {
       display: flex;
-      align-items: space-between;
-      justify-content: space-between;
-      gap: 0.5rem;
-
-      font-size: 1.5rem;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-end;
+      height: 100%;
+      gap: 0;
+      font-size: 1.3rem;
       color: var(--placeholder-color);
-      letter-spacing: 0.5rem;
+      letter-spacing: 0.3rem;
+      &:hover {
+        color: var(--text-color);
+
+      }
       .icon {
         transition: transform 0.2s ease;
         
         &.rotated {
-          transform: rotate(180deg);
+          // transform: scale(1.5);
         }
       }
     }
 
     span.trigger-display {
       height: auto;
+      transition: all 0.3s ease;
+
     }
   
     .dropdown-content {
       position: absolute;
+      border-radius: 1rem;
+      padding: 1rem;
+      padding-top: 0;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 2rem;
+      width: auto;
+      background-color: var(--bg-color);
+      height: auto;
       // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
     }
@@ -384,14 +463,12 @@ onMount(() => {
     .dropdown-header {
       display: flex;
       align-items: center;
-      height: 4rem;
-      width: calc(100vw - 6rem);
-      gap: 0;
-      background: transparent;
-      border-top: 1px solid var(--secondary-color);
 
+      height: 3.5rem;
+      width: auto;
+      gap: 0;
+      backdrop-filter: blur(10px);
       // border: 1px solid var(--secondary-color);
-      border-bottom: 1px solid var(--secondary-color);
       // border-bottom: 1px solid var(--secondary-color);
       // border-radius: 2rem;
       
@@ -403,13 +480,12 @@ onMount(() => {
       margin-left: 0;
       margin-right: 0.5rem;
       // border-radius: var(--radius-l);
-      height: auto;
+
       flex: 1;
-      height: 2rem;
       border-radius: 2rem;
       padding-inline-start: 0.5rem;
       color: var(--text-color);
-      padding: 0.5rem 0.5rem;
+      padding: 0.5rem;
       background: var(--primary-color);
       width: 100%;
       input {
@@ -423,9 +499,9 @@ onMount(() => {
         padding: 0;
         justify-content: center;
         text-align: left;
-        font-size: 1.1rem;
+        font-size: 1.5rem;
         transition: all 0.3s ease;
-        width: 100%;
+        width: auto;
 
         &:focus {
 
@@ -441,12 +517,12 @@ onMount(() => {
       border: none;
       color: var(--text-color);
       cursor: pointer;
-      padding: 0.25rem 0.5rem;
+      padding: 0;
       border-radius:50%;
-      width: 3.5rem;
-      height: 3.5rem;
+      width: auto;
+      height: auto;
       margin-right: 0.5rem;
-      margin-top: 0.5rem;
+
   
       &:hover {
         background: var(--secondary-color);
@@ -466,7 +542,7 @@ onMount(() => {
         // padding: 0.5rem 1rem;
         border: none;
         border-radius: var(--radius-s);
-        background: var(--secondary-color);
+        background: var(--bg-color);
         color: var(--text-color);
       }
   
@@ -497,8 +573,8 @@ onMount(() => {
     }
   
     .projects-list {
-      max-height: 400px;
-      width: calc(100vw - 6rem);
+      height: auto;
+      width: 100% !important;
       // border: 1px solid var(--secondary-color);
       margin-right: 0;
       margin-left: 0;
@@ -506,22 +582,23 @@ onMount(() => {
       border-bottom-right-radius: var(--radius-m);
       overflow-y: auto;
       scrollbar-color: var(--secondary-color) transparent;
-      backdrop-filter: blur(50px);
+      padding: 1rem;
+      backdrop-filter: blur(20px);
       box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
 
     }
   
     .project-item {
-      padding: 0.75rem 1rem;
+      padding: 1rem;
       display: flex;
       align-items: center;
-      box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
-
+      // box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
       color: var(--placeholder-color);
       justify-content: space-between;
+
       cursor: pointer;
       transition: all 0.2s ease;
-
+      letter-spacing: 0.4rem;
       &:hover {
         background: var(--secondary-color);
   
@@ -531,13 +608,15 @@ onMount(() => {
       }
   
       &.active {
-        background: var(--tertiary-color);
+        // background: var(--bg-color);
         color: var(--text-color);
+        font-weight: 800;
       }
     }
   
     .project-name {
-      font-size: var(--font-size-sm);
+      font-size: 1.5rem;
+      letter-spacing: 0.5rem;
     }
   
     .project-actions {
@@ -569,8 +648,7 @@ onMount(() => {
     .dropdown-container {
       position: relative;
       display: flex;
-      width: 100%;
-      z-index: 1;
+      width: auto;
       user-select: none;
       left:0;
       margin-left: 0;
@@ -578,12 +656,13 @@ onMount(() => {
 
     .dropdown-header {
       display: flex;
-      height: rem;
+      height: auto;
+      background: var(--bg-color);
       top: 0;
       gap: 0;
       width: 100%;
       border-bottom: 1px solid var(--secondary-color);
-      background: var(--secondary-color);
+      backdrop-filter: blur(10px);
       border-radius: 0;
     }
     .search-bar {
@@ -591,13 +670,14 @@ onMount(() => {
       align-items: center;
       gap: 0.5rem;
       margin-left: 0.5rem;
+      padding: 1rem;
       flex: 1;
       color: var(--text-color);
       input {
         background: transparent;
         border: none;
         color: var(--text-color);
-        width: 90%;
+        width: auto;
         outline: none;
         font-size: var(--font-size-sm);
 
@@ -608,16 +688,20 @@ onMount(() => {
     }
   
       .dropdown-content {
-        position: absolute;
-        top: 0;
+        position:fixed;
+        top: 0.5rem;
+        padding: 0;
+
         left: 0;
-        width: 100vw;
+        right: 0;
         height: 2rem;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }
       .projects-list {
         width: 100%;
         max-height: auto;
+        background: transparent;
+        border: 1px solid transparent;
         margin-right: 0;
         margin-left: 0;
         box-shadow: 0 100px 100px 4px rgba(0, 0, 0, 0.5);
@@ -625,12 +709,58 @@ onMount(() => {
       }
       .dropdown-trigger {
         margin: 0;
-        padding: 1rem;
+        margin-top: 0.5rem;
+        margin-left: 0.5rem;
+        padding: 0;
+        height: auto;
+        justify-content: space-between;
+        align-items: flex-start;
+        & span.icon {
+          display: none;
+        }
+        & span.icon.home {
+          display: flex;
+          flex-direction: row;
+          
+          font-size: 1rem;
+          letter-spacing: 0.2rem;
+          color: var(--tertiary-color);
+          gap: 0;
+        }
+
+      }
+      .project-item {
+        border: 1px solid transparent;
 
       }
 
+      .trigger-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0;
+        margin: 0;
+        font-size: 1.5rem;
+        color: var(--placeholder-color);
+        letter-spacing: 0.5rem;
+        .icon {
+          transition: transform 0.2s ease;
+          
+          &.rotated {
+            transform: rotate(180deg);
+          }
+        }
+      }
+
       span.trigger-display {
-        display: none;
+        display: flex;
+        font-size: 1.8rem;
+        padding-inline-start: 1rem;
+        margin: 0;
+
+        letter-spacing: 0.1rem;
       }
     }
 

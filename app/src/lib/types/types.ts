@@ -80,6 +80,9 @@ export interface ThreadStoreState {
 	sortOption: ThreadSortOption;
 	selectedUserIds: Set<string>;
 	availableUsers: { id: string; name: string }[];
+	isLoading: boolean;
+	isUpdating: boolean;
+	error: string | null;
 }
 
 export interface Threads extends RecordModel {

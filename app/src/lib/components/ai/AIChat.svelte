@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {  currentUser, checkPocketBaseConnection, updateUser, fetchThreads } from '$lib/pocketbase';
+  import {  currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
   import { get, writable, derived } from 'svelte/store';
   import { fade, fly, scale, slide } from 'svelte/transition';
@@ -23,7 +23,7 @@
   import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
+  import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, fetchThreads, loadAllThreads, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
   import { threadsStore, ThreadSortOption } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
@@ -70,6 +70,7 @@
 
   let lastLoadedProjectId: string | null = null;
   let isLoadingThreads = false;
+  let isLoadingProject = false;
   let modelInitialized = false;
   let userProfileCache: Map<string, UserProfile | null> = new Map();
   let messageSubscription: any = null;
@@ -106,7 +107,7 @@
   let isExpanded = false;
   let bookmarkId = '';
   // let isLoading: boolean = false;
-  let isTextareaFocused = false;
+  // let isTextareaFocused = false;
   let isSubmissionAreaActive = false;
   let isFocused = false;
   let hideTimeout: ReturnType<typeof setTimeout>;
@@ -174,6 +175,7 @@
   let filteredProjects: Projects[] = [];
   let showSortOptions = false;
   let showUserFilter = false;
+  import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur } from '$lib/stores/textareaFocusStore';
 
   const unsubscribeFromModel = modelStore.subscribe(state => {
   // Skip if we're already in the middle of an update
@@ -238,24 +240,40 @@ const sourceUrls: Record<Cite, string> = {
 
 const isAiActive = writable(true);
 
-const handleTextareaFocus = () => {
-  clearTimeout(hideTimeout);
-  isTextareaFocused = true;
+const onTextareaFocus = () => {
+  handleTextareaFocus();
   showPromptCatalog = false;
   showModelSelector = false;
   showBookmarks = false;
   showCites = false;
   currentPlaceholder = getRandomQuote();
-
 };
-const handleTextareaBlur = () => {
-  hideTimeout = setTimeout(() => {
-    isTextareaFocused = false;
-    currentPlaceholder = getRandomQuestions();
-    currentManualPlaceholder = $t('chat.placeholder');
 
-  }, 500); 
+const onTextareaBlur = () => {
+  handleTextareaBlur();
+  // Handle component-specific actions in a subscription or in a reactive statement
+  // This could be in a $: block or in the setTimeout callback
 };
+
+
+// const handleTextareaFocus = () => {
+//   clearTimeout(hideTimeout);
+//   isTextareaFocused = true;
+//   showPromptCatalog = false;
+//   showModelSelector = false;
+//   showBookmarks = false;
+//   showCites = false;
+//   currentPlaceholder = getRandomQuote();
+
+// };
+// const handleTextareaBlur = () => {
+//   hideTimeout = setTimeout(() => {
+//     isTextareaFocused = false;
+//     currentPlaceholder = getRandomQuestions();
+//     currentManualPlaceholder = $t('chat.placeholder');
+
+//   }, 500); 
+// };
 // const searchedThreads = derived(threadsStore, ($store) => {
 //     const query = searchQuery.toLowerCase().trim();
 //     if (!query) return $store.threads;
@@ -393,47 +411,109 @@ function toggleAiActive() {
 }
 
 
-async function loadProjectThreads(projectId: string): Promise<void> {
-    if (!projectId) {
-        console.warn('No project ID provided to loadProjectThreads');
-        return;
-    }
 
-    // Prevent duplicate loading of the same project in quick succession
+
+export async function loadProjectThreads(projectId?: string): Promise<void> {
+    // If no project ID is provided, we're loading all threads for the user
+    const isLoadingAllThreads = !projectId;
+    
+    // Prevent duplicate loading in quick succession
     if (isLoadingThreads) {
-        console.log(`Already loading threads, skipping request for project ${projectId}`);
+        console.log(isLoadingAllThreads 
+            ? 'Already loading all threads, skipping request' 
+            : `Already loading threads, skipping request for project ${projectId}`);
         return;
     }
 
-    if (projectId === lastLoadedProjectId && $threadsStore.currentProjectId === projectId) {
+    // Check if we're reloading the same project/all threads
+    if (!isLoadingAllThreads && projectId === lastLoadedProjectId && get(threadsStore).currentProjectId === projectId) {
         console.log(`Project ${projectId} threads were recently loaded, skipping duplicate request`);
+        return;
+    }
+    
+    if (isLoadingAllThreads && lastLoadedProjectId === null && get(threadsStore).currentProjectId === null) {
+        console.log('All threads were recently loaded, skipping duplicate request');
         return;
     }
 
     isLoadingThreads = true;
-    lastLoadedProjectId = projectId;
+    lastLoadedProjectId = projectId || null;
     
-    console.log(`Loading threads for project ${projectId}`);
+    console.log(isLoadingAllThreads 
+        ? 'Loading all threads for user' 
+        : `Loading threads for project ${projectId}`);
 
     // Reset thread loading state
     threadsStore.update(state => ({
         ...state,
         threads: [], // Clear existing threads
+        searchedThreads: [],
         isThreadsLoaded: false,
         loadingError: null
     }));
 
     try {
-        const fetchedThreads = await fetchThreadsForProject(projectId) ?? [];
+        let fetchedThreads: any[] = [];
+        
+        if (isLoadingAllThreads) {
+            // Extract threads from all projects
+            const projects = get(projectStore).threads || [];
+            console.log(`Extracting threads from ${projects.length} projects`);
+            
+            // Get threads that are already in the threadsStore
+            const existingThreads = get(threadsStore).threads || [];
+            
+            // Collect all unique threads from all projects
+            const allThreadsMap = new Map();
+            
+            // First add existing threads from threadsStore if any
+            if (existingThreads.length > 0) {
+                console.log(`Using ${existingThreads.length} existing threads from threadsStore`);
+                existingThreads.forEach(thread => {
+                    if (thread.id) {
+                        allThreadsMap.set(thread.id, thread);
+                    }
+                });
+            }
+            
+            // Then check each project for threads
+            for (const project of projects) {
+                // Try to fetch project threads
+                try {
+                    if (project.id) {
+                        const projectThreads = await fetchThreadsForProject(project.id);
+                        if (projectThreads && projectThreads.length > 0) {
+                            console.log(`Found ${projectThreads.length} threads for project ${project.id}`);
+                            projectThreads.forEach(thread => {
+                                allThreadsMap.set(thread.id, {
+                                    ...thread,
+                                    project_id: project.id
+                                });
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`Could not fetch threads for project ${project.id}:`, err);
+                }
+            }
+            
+            // Convert map to array
+            fetchedThreads = Array.from(allThreadsMap.values());
+            console.log(`Collected ${fetchedThreads.length} threads in total`);
+        } else {
+            // Get threads for a specific project
+            fetchedThreads = await fetchThreadsForProject(projectId) || [];
+            console.log(`Fetched ${fetchedThreads.length} threads for project ${projectId}`);
+        }
 
         if (!Array.isArray(fetchedThreads)) {
             throw new Error('Unexpected threads response format');
         }
 
-        // Ensure each thread has the project_id set
+        // Ensure each thread has the project_id set correctly
         const validatedThreads = fetchedThreads.map(thread => ({
             ...thread,
-            project_id: thread.project_id || projectId
+            project_id: thread.project_id || thread.project || projectId || null
         }));
 
         threadsStore.update(state => {
@@ -441,7 +521,7 @@ async function loadProjectThreads(projectId: string): Promise<void> {
             let filteredThreads = validatedThreads;
             if (state.searchQuery) {
                 filteredThreads = validatedThreads.filter(thread => 
-                    thread.name.toLowerCase().includes(state.searchQuery.toLowerCase())
+                    thread.name?.toLowerCase().includes(state.searchQuery.toLowerCase())
                 );
             }
             
@@ -451,13 +531,19 @@ async function loadProjectThreads(projectId: string): Promise<void> {
                 searchedThreads: filteredThreads, // Store filtered threads
                 isThreadsLoaded: true,
                 showThreadList: true,
-                currentProjectId: projectId
+                currentProjectId: projectId || null  // Set to null when loading all threads
             };
         });
 
-        console.log(`Updated threadsStore with ${validatedThreads.length} threads for project ${projectId}`);
+        const logMessage = isLoadingAllThreads
+            ? `Updated threadsStore with ${validatedThreads.length} threads for user`
+            : `Updated threadsStore with ${validatedThreads.length} threads for project ${projectId}`;
+        console.log(logMessage);
     } catch (error) {
-        console.error(`Error loading project threads:`, error);
+        console.error(isLoadingAllThreads 
+            ? 'Error loading all threads:' 
+            : `Error loading project threads:`, error);
+        
         threadsStore.update(state => ({
             ...state,
             loadingError: error instanceof Error ? error.message : 'Failed to load threads',
@@ -809,13 +895,13 @@ export function toggleSection(section: keyof ExpandedSections): void {
    * Message handling functions
    */
 
-  async function handleThreadNameUpdate(threadId: string) {
+   async function handleThreadNameUpdate(threadId: string) {
   try {
     const currentMessages = await messagesStore.fetchMessages(threadId);
     if (currentMessages?.length > 0) {
       const robotMessages = currentMessages.filter(m => m.type === 'robot');
       if (robotMessages.length === 1) {
-        // Store current thread state
+        // Store current thread state before updates
         const currentState = get(threadsStore);
         
         // Set naming state
@@ -826,20 +912,46 @@ export function toggleSection(section: keyof ExpandedSections): void {
         }));
 
         try {
+          // Get the thread from the store before attempting to update
+          const threadToUpdate = currentState.threads.find(t => t.id === threadId);
+          
+          if (!threadToUpdate) {
+            // If thread isn't in the store, fetch it from the API
+            try {
+              const response = await fetch(`/api/keys/threads/${threadId}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+                }
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.thread) {
+                  // Add the thread to the store
+                  threadsStore.update(state => ({
+                    ...state,
+                    threads: [data.thread, ...state.threads.filter(t => t.id !== threadId)]
+                  }));
+                }
+              }
+            } catch (fetchError) {
+              console.error("Failed to fetch thread:", fetchError);
+            }
+          }
+          
+          // Now update the thread name
           await updateThreadNameIfNeeded(threadId, currentMessages, aiModel, userId);
           
-          // Try to refresh threads but don't fail if it errors
-          try {
-            // await threadsStore.loadThreads();
-          } catch (refreshError) {
-            console.error('Failed to refresh threads, keeping current state:', refreshError);
-            // Restore previous thread state
-            threadsStore.update(state => ({
-              ...state,
-              threads: currentState.threads,
-              showThreadList: currentState.showThreadList
-            }));
-          }
+          // Don't reload threads - this likely causes the disappearance
+          // Just ensure this thread stays in the store
+          threadsStore.update(state => ({
+            ...state,
+            showThreadList: false,
+            currentThreadId: threadId
+          }));
         } finally {
           // Always clear naming state
           threadsStore.update(state => ({
@@ -862,6 +974,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
 }
 
 async function handleSendMessage(message: string = userInput) {
+  handleImmediateTextareaBlur();
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
   ensureAuthenticated();
 
@@ -1033,81 +1146,6 @@ async function typeMessage(message: string) {
   }
 }
 // Thread management functions
-async function handleCreateNewThread(message = '') {
-  if (isCreatingThread) return null;
-    ensureAuthenticated();
-    try {
-        isCreatingThread = true;
-        const currentProjectId = get(projectStore).currentProjectId;
-        
-        // Get current threadlist visibility state
-        const currentVisibility = get(threadsStore).showThreadList;
-        
-        const threadData: Partial<Threads> = {
-            op: userId,
-            name: `(untitled)`,
-            // name: `(untitled) ${threads?.length ? threads.length + 1 : 1}`,
-            created: new Date().toISOString(),
-            updated: new Date().toISOString(),
-            current_thread: '',
-            ...(currentProjectId && { project_id: currentProjectId })
-        };
-
-        const newThread = await createThread(threadData);
-
-        if (newThread?.id) {
-            // Preserve thread list visibility state
-            threadsStore.update(state => ({
-                ...state,
-                // showThreadList: currentVisibility
-                showThreadList: false,
-            }));
-
-            if (currentProjectId) {
-                const currentProject = get(projectStore).currentProject;
-                if (currentProject) {
-                    await projectStore.updateProject(currentProjectId, {
-                        threads: [...(currentProject.threads || []), newThread.id]
-                    });
-                }
-
-                const projectThreads = await fetchThreadsForProject(currentProjectId);
-                threadsStore.update(state => ({
-                    ...state,
-                    threads: projectThreads,
-                    currentThreadId: newThread.id,
-                }));
-            } else {
-                const allThreads = await fetchThreads();
-                threadsStore.update(state => ({
-                    ...state,
-                    threads: allThreads,
-                    currentThreadId: newThread.id,
-                }));
-            }
-
-            currentThreadId = newThread.id;
-            showPromptCatalog = false;
-            showModelSelector = false;
-            showBookmarks = false;
-            showCites = false;
-            showThreadList = false;
-
-            await handleLoadThread(newThread.id);
-            if (message) {
-                await handleSendMessage(message);
-            }
-            return newThread;
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error in handleCreateNewThread:', error);
-        return null;
-    } finally {
-        isCreatingThread = false;
-    }
-}
 
 async function handleLoadThread(threadId: string) {
   try {
@@ -1286,6 +1324,98 @@ async function handleLoadThread(threadId: string) {
     isLoadingMessages = false;
   }
 }
+async function handleCreateNewThread(message = '') {
+ if (isCreatingThread) return null;
+ 
+ try {
+   isCreatingThread = true;
+   await ensureAuthenticated();
+   
+   const user = get(currentUser);
+   if (!user?.id) {
+     throw new Error('User information not available');
+   }
+   
+   const currentProjectId = get(projectStore).currentProjectId;
+   
+   const threadData = {
+     op: user.id,
+     name: `(untitled)`,
+     created: new Date().toISOString(),
+     updated: new Date().toISOString(),
+     current_thread: '',
+   };
+
+   if (currentProjectId) {
+     threadData.project = currentProjectId;
+     threadData.project_id = currentProjectId;
+   }
+
+   console.log('Attempting to create thread with data:', threadData);
+   
+   let newThread;
+   
+   try {
+     const response = await fetch('/api/threads', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${user.token}`
+       },
+       credentials: 'include',
+       body: JSON.stringify(threadData)
+     });
+     
+     if (!response.ok) {
+       const errorText = await response.text();
+       console.error(`Error response from thread creation: ${response.status} - ${errorText}`);
+       throw new Error(`Failed to create thread: ${response.status}`);
+     }
+     
+     const data = await response.json();
+     newThread = data.thread || data.data;
+   } catch (apiError) {
+     console.warn('API thread creation failed, using client fallback:', apiError);
+     newThread = await createThread(threadData);
+   }
+   
+   if (!newThread?.id) {
+     throw new Error('No thread ID returned from creation');
+   }
+   
+   currentThreadId = newThread.id;
+   showPromptCatalog = false;
+   showModelSelector = false;
+   showBookmarks = false;
+   showCites = false;
+   
+   threadsStore.update(state => ({
+     ...state,
+     showThreadList: false,
+     currentThreadId: newThread.id,
+     threads: [newThread, ...state.threads]
+   }));
+   
+   await handleLoadThread(newThread.id);
+   
+   if (message) {
+     await handleSendMessage(message);
+   }
+   
+   return newThread;
+ } catch (error) {
+   console.error('Error in handleCreateNewThread:', error);
+   showNotification({
+     message: 'Failed to create a new conversation',
+     type: 'error',
+     duration: 5000
+   });
+   return null;
+ } finally {
+   isCreatingThread = false;
+ }
+}
+
   async function handleDeleteThread(event: MouseEvent, threadId: string) {
     event.stopPropagation();
     if (confirm('Are you sure you want to delete this thread?')) {
@@ -1532,10 +1662,10 @@ function enhanceWithCitations() {
     });
   }
 
-  const unsubscribe = currentCite.subscribe(() => {
-    // When citation source changes, update all links
-    setTimeout(enhanceWithCitations, 0);
-  });
+  // const unsubscribe = currentCite.subscribe(() => {
+  //   // When citation source changes, update all links
+  //   setTimeout(enhanceWithCitations, 0);
+  // });
 
 // projectStore.subscribe((state) => {
 //   currentProjectId = state.currentProjectId;
@@ -1548,6 +1678,9 @@ function enhanceWithCitations() {
 //     loadProjectThreads(currentProjectId);
 //   }
 // });
+$: isLoading = $threadsStore.isLoading;
+  $: isUpdating = $threadsStore.isUpdating;
+  $: error = $threadsStore.error;
 $: {
   const storeState = $threadsStore;
   if (storeState) {
@@ -1564,6 +1697,7 @@ $: {
     
     messages = storeState.messages;
     updateStatus = storeState.updateStatus;
+    // showThreadList = storeState.showThreadList;
     showThreadList = storeState.showThreadList;
     
     // Only update these if not actively editing
@@ -1643,6 +1777,7 @@ $: allSortOptions = threadsStore.allSortOptions;
 $: searchedThreads = threadsStore.searchedThreads;
 $: selectedUserIds = threadsStore.selectedUserIds;
 $: availableUsers = threadsStore.availableUsers;
+
 projectStore.subscribe((state) => {
   if (!projectSubscriptionInitialized) {
     projectSubscriptionInitialized = true;
@@ -1653,29 +1788,57 @@ projectStore.subscribe((state) => {
   }
   
   const newProjectId = state.currentProjectId;
+  const projectChanged = newProjectId !== previousProjectId;
   
-  // Only load threads if project ID actually changed and isn't null
-  if (newProjectId && newProjectId !== previousProjectId) {
-    previousProjectId = newProjectId;
-    currentProjectId = newProjectId;
-    loadProjectThreads(newProjectId);
-  } else {
-    currentProjectId = newProjectId;
+  // Update local state
+  previousProjectId = newProjectId;
+  currentProjectId = newProjectId;
+  
+  // Load threads whenever project ID changes
+  if (projectChanged) {
+    isLoadingProject = true; // Set loading state
+    console.log(`Project changed from ${previousProjectId || 'none'} to ${newProjectId || 'none'}`);
+    
+    const loadPromise = newProjectId 
+      ? loadProjectThreads(newProjectId)
+      : loadAllThreads();
+
+    loadPromise
+      .catch(err => {
+        console.error(`Error loading threads:`, err);
+      })
+      .finally(() => {
+        isLoadingProject = false; // Clear loading state when done
+      });
   }
   
   isEditingProjectName = state.isEditingProjectName;
   editedProjectName = state.editedProjectdName;
 });
+// $: {
+//   if ($threadsStore.threads) {
+//     // Update local threads array whenever store changes
+//     threads = $threadsStore.threads.filter(thread => {
+//       // Apply any filters you need here
+//       if (searchQuery) {
+//         return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
+//       }
+//       return true;
+//     });
+//   }
+// }
 $: {
   if ($threadsStore.threads) {
-    // Update local threads array whenever store changes
-    threads = $threadsStore.threads.filter(thread => {
-      // Apply any filters you need here
-      if (searchQuery) {
-        return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
-      }
-      return true;
-    });
+    // Only update if we're not displaying non-project threads
+    if ($projectStore.currentProjectId || threads.length === 0) {
+      threads = $threadsStore.threads.filter(thread => {
+        // Apply any filters you need here
+        if (searchQuery) {
+          return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
+        }
+        return true;
+      });
+    }
   }
 }
 $: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
@@ -1752,7 +1915,7 @@ $: if (chatMessages && chatMessages.length > 0) {
 onMount(async () => {
   try {
     console.log('onMount initiated');
-    enhanceWithCitations();
+    // enhanceWithCitations();
 
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
@@ -1793,22 +1956,32 @@ onMount(async () => {
       }
     }
     
-    // if ($projectStore.currentProjectId) {
-    //   await loadProjectThreads($projectStore.currentProjectId);
-    // } else {
-    //   // If no project selected, load all threads
-    //   await threadsStore.loadThreads();
-    // }
-    // Initialize real-time updates
+    // Load initial thread data based on current project
+    console.log('Loading initial thread data...');
+    const currentProjectId = get(projectStore).currentProjectId;
+    
+    // First, ensure projects are loaded
+    if (get(projectStore).threads.length === 0) {
+      console.log('Loading projects first...');
+      await projectStore.loadProjects();
+    }
+    
+    // Then, load threads based on project context
+    if (currentProjectId) {
+      console.log(`Project ${currentProjectId} selected, loading project threads`);
+      await loadProjectThreads(currentProjectId);
+    } else {
+      console.log('No project selected, loading all threads');
+      await loadAllThreads();
+    }
+    
+    // Initialize thread listener if needed
     if (currentThreadId) {
       await preloadUserProfiles();
       
       if (chatMessagesDiv) {
         enhanceCodeBlocks(chatMessagesDiv);
       }
-      
-      // Note: For real-time updates, you'll need to implement a WebSocket solution
-      // or use server-sent events since you can't use pb.subscribe directly anymore
     }
     
     if (textareaElement) {
@@ -1829,7 +2002,7 @@ onMount(async () => {
 
 // Update the afterUpdate lifecycle function to handle real-time updates
 afterUpdate(() => {
-  enhanceWithCitations();
+  // enhanceWithCitations();
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     lastMessageCount = chatMessages.length;
@@ -2040,6 +2213,11 @@ onDestroy(() => {
               {/if}
             </div>
           {/if}
+          {#if isLoadingProject}
+            <div class="spinner-container">
+              <div class="spinner"></div>
+            </div>
+            {:else}
           <div class="thread-filtered-results" transition:slide={{duration: 200}}>
             <!-- <div class="debug-info" style="font-size: 10px; color: gray; padding: 4px;">
               <p>Total threads: {$threadsStore.threads?.length || 0}</p>
@@ -2047,11 +2225,15 @@ onDestroy(() => {
               <p>Search query: "{searchQuery || 'None'}"</p>
             </div>
              -->
-
+             {#if isLoadingThreads}
+             <div class="spinner-container">
+               <div class="spinner"></div>
+             </div>
+           {/if}
 
               {#if threads.length === 0}
               <div class="empty-state">
-                No threads. Select or create project first.
+                <!-- No threads. Select or create project first. -->
               </div>
               {:else}
               {#each threads as thread (thread.id)}
@@ -2094,6 +2276,7 @@ onDestroy(() => {
               {/if}
 
           </div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -2236,39 +2419,25 @@ onDestroy(() => {
 
                   <div class="dashboard-items">
                     <div class="dashboard-scroll">
+                      {#if $projectStore.currentProjectId}
+                          <ProjectCard projectId={$projectStore.currentProjectId} />
 
-
-                      <!-- <ProjectStatsContainer projectId={$projectStore.currentProjectId}/> -->
-                    <!-- <StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} /> -->
-
-                    {#if $projectStore.currentProjectId}
-
-                      {#if isTextareaFocused}
                       {:else}
-                        {#if $expandedSections.bookmarks}
-                        <!-- {:else if $expandedSections.cites} -->
-                        {:else if $expandedSections.prompts}
-                        <!-- {:else if $expandedSections.models} -->
+                        {#if $isTextareaFocused}
+                          <!-- Hide greeting when textarea is focused -->
                         {:else}
-                        <ProjectCard projectId={$projectStore.currentProjectId} />
-
+                          <span class="start" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                            <!-- <img src={horizon100} alt="Horizon100" class="logo" /> -->
+                            <h3 in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                              {getRandomGreeting()} {name},                    
+                            </h3>
+                            <p>
+                              {getRandomQuestions()}  
+                            </p>
+                          </span>
                         {/if}
                       {/if}
-
-                    {:else}
-                    <span class="start" in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                      <!-- <img src={horizon100} alt="Horizon100" class="logo" /> -->
-                      {#if isTextareaFocused}
-                    {:else}
-                      <h3 in:slide={{duration: 200}} out:slide={{duration: 200}}>
-                        {getRandomGreeting()} {name},                     
-    
-                      </h3>
-                      {/if}
-                    </span>
-
-                    {/if}
-                  </div>
+                    </div>
 
                   </div>
 
@@ -2329,8 +2498,8 @@ onDestroy(() => {
                             !isLoading && handleSendMessage();
                           }
                         }}      
-                        on:focus={handleTextareaFocus}
-                        on:blur={handleTextareaBlur}
+                        on:focus={onTextareaFocus}
+                        on:blur={onTextareaBlur}
                         placeholder={currentPlaceholder}
                         disabled={isLoading}
                         rows="1"
@@ -2596,10 +2765,11 @@ onDestroy(() => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     !isLoading && handleSendMessage();
+                    {onTextareaBlur};
                   }
                 }}      
-                on:focus={handleTextareaFocus}
-                on:blur={handleTextareaBlur}
+                on:focus={onTextareaFocus}
+                on:blur={onTextareaBlur}
                 placeholder={currentPlaceholder}
                 disabled={isLoading}
                 rows="1"
@@ -2688,6 +2858,7 @@ onDestroy(() => {
               </div>
             </div>
           {/if}
+          
           {#if !$isAiActive}
           <div class="combo-input-human" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
             <textarea 
@@ -2701,8 +2872,8 @@ onDestroy(() => {
                   !isLoading && handleSendMessage();
                 }
               }}      
-              on:focus={handleTextareaFocus}
-              on:blur={handleTextareaBlur}
+              on:focus={onTextareaFocus}
+              on:blur={onTextareaBlur}
               placeholder={currentManualPlaceholder}
               disabled={isLoading}
               rows="1"
@@ -3289,15 +3460,21 @@ p div {
 
     &.start {
       display: flex;
-      height: auto;
+      flex-direction: column;
       justify-content: center;
-      align-items: flex-end;
-      width: 100%;
+      align-items: center;
+      height: 50vh !important;
+      width: auto;
+      margin-bottom: 0 !important;
+      max-width: 800px;
       gap: 0.5rem;
-      margin: 0 !important;
+      margin: 0;
+
       position: relative;
       transition: all 0.3s ease;
-
+      & p {
+        font-size: 1.5rem;
+      }
       &:hover {
         animation: shake 2.8s ease;
 
@@ -3307,9 +3484,8 @@ p div {
         display: flex;
         width: auto;
         max-width: 800px;
-        height: auto;
-        margin-bottom: 1rem;
-
+        justify-content: center !important;
+        align-items: center !important;
         padding: 0 !important;
       }
 
@@ -4043,7 +4219,7 @@ p div {
     flex-direction: column;
     position: relative;
     flex-grow: 1;
-    width: 100%;    
+    width: calc(100% - 1rem);    
     max-width: 800px;
     margin-top: 0;
     height: auto;
@@ -4053,7 +4229,7 @@ p div {
     overflow-y: none;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
-    align-items: flex-end;
+    align-items: center;
     // background: var(--bg-gradient);
     z-index: 1;
 
@@ -4604,7 +4780,7 @@ color: #6fdfc4;
     // gap: 2rem;
     flex-direction: row;
     transition: all 0.2s ease;
-    border-bottom: 1px solid var(--placeholder-color);
+    border-bottom: 1px solid var(--line-color);
 
     & h3 {
       margin: 0;
@@ -4784,7 +4960,7 @@ color: #6fdfc4;
       height: auto;
       width: calc(100% - 2rem);
       // padding: 0.75rem 1rem;
-      border-top: 1px solid var(--placeholder-color);
+      border-top: 1px solid var(--line-color);
 
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
@@ -5429,6 +5605,7 @@ color: #6fdfc4;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  
   align-items: center;
   transition: all 0.3s ease;
 
@@ -6217,12 +6394,14 @@ p.selector-lable {
 .container-row {
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    top: 0 !important;
+    margin-top: 0 !important;
     width: 100%;
-    height: auto;
-    margin-top: auto;
+    margin-top: 0;
     // justify-content:space-between;
     transition: all 0.3s ease;
-    gap: 3rem;
+    gap: 0rem;
 
   }
   .submission {
@@ -6248,6 +6427,10 @@ p.selector-lable {
 }
 
 .chat-header {
+  border-bottom: none;
+  background: var(--bg-color);
+  box-shadow: none;
+  backdrop-filter: none;
 
 
 }
@@ -6372,8 +6555,26 @@ p.selector-lable {
       margin-bottom: 5rem;
     }
     .chat-content {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      // background: var(--bg-gradient);
+      justify-content: flex-start;
+      // align-items: center;
+      width: calc(100% - 2rem) !important;
       margin-left: 0 !important;
-      
+      height: auto;
+      margin-top: 0;
+      margin-right: 1rem !important;
+      height: auto;
+      // width: 50%;
+      // margin: 0 1rem;
+      // margin-left: 25%;
+      // padding: 0 10px;
+      overflow-y: hidden;
+      overflow-x: hidden;
+      background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 60%);
+      transition: all ease 0.3s;
     }
 
     .chat-messages {
@@ -6413,14 +6614,14 @@ p.selector-lable {
 
     .input-container-start {
       margin-top: 4rem;
-      bottom: 7rem;
+      bottom: 0;
     }
     .drawer-toolbar {
       width:auto;
       margin-bottom: 1rem;
       left: 0;
       right: 0;
-      margin-top: 1rem;
+      margin-top: 0;
       margin-right: 0;
       margin-left: 0;     
       display: flex;
@@ -6429,7 +6630,7 @@ p.selector-lable {
       border: none;
       cursor: pointer;
       color: var(--text-color);
-      
+      border-bottom: 1px solid var(--line-color);
       text-align: left;
       display: flex;
       gap: auto;
@@ -6575,12 +6776,13 @@ p.selector-lable {
       width: auto;
       margin-right:0;
       margin-left: 0;
-      backdrop-filter: blur(100px);
-      border-top: 1px solid var(--primary-color);
-      border-right: 1px solid var(--primary-color);
+      background: var(--bg-color);
+      // backdrop-filter: blur(100px);
+      // border-top: 1px solid var(--primary-color);
+      // border-right: 1px solid var(--primary-color);
       padding: 0;
       z-index: 1;
-      box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+      // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
       // background-color: red !important;
       top: 4rem;
       margin-right: 0;
@@ -6648,7 +6850,25 @@ p.selector-lable {
     
   // }
 
-
+  .chat-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    transition: all 0.3s ease-in-out;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    // /* left: 20%; */
+    width: 100%;
+    // background: rgba(0, 0, 0, 0.2);
+    left: 0;
+    right: 0;
+    padding: 0;
+    padding-top: 0;
+    height: 100%;
+    margin-top: 0;
+    margin-left: 0;
+  }
 
 
   @media (min-width: 1900px) {
@@ -6807,6 +7027,21 @@ p.selector-lable {
 
 
 @media (max-width: 450px) {
+  .input-container {
+    margin-bottom: 2rem;
+
+    & .combo-input textarea {
+      background: var(--primary-color);
+      font-size: 0.5rem !important;
+      &:focus {
+
+        font-size: 0.5rem !important;
+
+      };
+    }
+
+  }
+  
 
   .submission {
     gap: 1rem;
@@ -6828,10 +7063,14 @@ p.selector-lable {
 
   .chat-container {
     padding: 0;
-    top: 3rem;
+    top: 0;
     left: 0;
   }
   
+  .combo-input {
+    width: 100% !important;
+    padding: 0;
+  }
 
 
 
@@ -6853,7 +7092,7 @@ p.selector-lable {
     // padding: 20px 10px;
     // border-top-left-radius: 50px;
     // background-color: var(--bg-color);
-    top: 0;
+    top: 5rem;
     bottom: 2rem;
     gap: 1px;
     // left: 64px;
@@ -6944,6 +7183,11 @@ p.selector-lable {
 }
 
 
+.input-container-start {
+      
+      bottom: 6rem;
+      width: 100%;
+    }
 
 
 .drawer-input {
