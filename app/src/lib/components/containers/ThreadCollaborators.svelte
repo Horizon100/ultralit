@@ -514,12 +514,16 @@
           {$t('threads.shared')}
         </span>
       {/if}
-      {#if !createHovered}
+      <!-- {#if !createHovered}
       <span class="tooltip" in:fade>
         <Users/>
       </span>
-    {/if}
-      ({threadCollaborators.length})
+    {/if} -->
+    <Users/>
+        <span class="toggle-text">
+          ({threadCollaborators.length})
+
+        </span>
     </button>
     
     {#if showCollaboratorsList}
@@ -736,7 +740,15 @@
     }
 
 
-  
+    .toggle-btn {
+      width: auto;
+      padding: 0 !important;
+      height: auto;
+
+      & span.toggle-text {
+        display: none;
+      }
+    }
     .collaborator-left {
       display: flex;
       align-items: center;
@@ -826,6 +838,16 @@
       font-size: 0.9rem;
       padding: 0.5rem 0;
     }
+    @media (max-width: 767px) {
 
-    
+    .toggle-btn {
+      width: auto;
+      padding: 0 !important;
+      height: auto;
+
+      & span.toggle-text {
+        display: none;
+      }
+    }
+  }
   </style>

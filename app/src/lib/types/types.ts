@@ -574,15 +574,15 @@ export type NoteRecord = Notes & {
 };
 
 export interface ProjectStoreState {
-	threads: Threads[];
+	threads: Projects[];
 	currentProjectId: string | null;
 	messages: Messages[];
 	updateStatus: string;
 	isProjectLoaded: boolean;
 	searchQuery: string;
 	namingProjectId: string | null;
-	currentProject: Threads | null;
-	filteredProject: Threads[];
+	currentProject: Projects | null;
+	filteredProject: Projects[];
 	isEditingProjectName: boolean;
 	editedProjectdName: string;
 	owner: User | null;

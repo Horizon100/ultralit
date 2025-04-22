@@ -349,7 +349,8 @@ export default {
 		yes: "Дв",
 		no: "Нет",
 		language: "Языки",
-		theme: "Темы"
+		theme: "Темы",
+		googleAuth: "Google"
 	},
 	thinkingPhrases: [
 		'Мысль - начало всего...', // "Thought is the beginning of everything..." - Tolstoy

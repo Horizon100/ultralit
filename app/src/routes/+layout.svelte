@@ -6,7 +6,8 @@
 	import { goto } from '$app/navigation';
 	import { fly, fade, slide } from 'svelte/transition';
 	import horizon100 from '$lib/assets/horizon100.svg';
-
+	import type { ThreadStoreState } from '$lib/types/types';
+	
 	// Components
 	import Kanban from '$lib/components/lean/Kanban.svelte';
 	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
@@ -20,59 +21,55 @@
 	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
 	
 	// Stores
-	
 	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import { currentLanguage, setLanguage, languages, initializeLanguage } from '$lib/stores/languageStore';
-	import { threadsStore } from '$lib/stores/threadsStore';
+	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { t } from '$lib/stores/translationStore';
+	import { threadListVisibility } from '$lib/clients/threadsClient';
 	
 	// Icons
 	import {
-		MessageSquare,
-		X,
-		PanelLeftClose,
-		PanelLeftOpen,
-		Drill,
-		NotebookTabs,
-		Sun,
-		Moon,
-		Languages,
-		Camera,
-		Plus,
-		LogIn,
-		LogOut,
-		User,
-		Sunrise,
-		Sunset,
-		Focus,
-		Bold,
-		Gauge,
-		Component,
-		Bone,
-		SquareKanban,
-		MapPin,
-		Combine,
-		MessageCircleDashed,
-		MessageCircle,
-		ChevronLeft,
-		HelpCircle,
-		InfoIcon,
-		Settings2,
-		Settings,
-		Brain,
-		Menu,
-		Code,
-		KanbanSquare,
-		Box,
-		ChevronDown,
-
-		LogOutIcon,
-
-		Github
-
-
+	  MessageSquare,
+	  X,
+	  PanelLeftClose,
+	  PanelLeftOpen,
+	  Drill,
+	  NotebookTabs,
+	  Sun,
+	  Moon,
+	  Languages,
+	  Camera,
+	  Plus,
+	  LogIn,
+	  LogOut,
+	  User,
+	  Sunrise,
+	  Sunset,
+	  Focus,
+	  Bold,
+	  Gauge,
+	  Component,
+	  Bone,
+	  SquareKanban,
+	  MapPin,
+	  Combine,
+	  MessageCircleDashed,
+	  MessageCircle,
+	  ChevronLeft,
+	  HelpCircle,
+	  InfoIcon,
+	  Settings2,
+	  Settings,
+	  Brain,
+	  Menu,
+	  Code,
+	  KanbanSquare,
+	  Box,
+	  ChevronDown,
+	  LogOutIcon,
+	  Github
 	} from 'lucide-svelte';
 	
 	// Component props
@@ -82,7 +79,6 @@
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
 	let isStylesOpen = false;
-	let showThreadList: boolean;
 	let placeholderText = '';
 	let username: string = 'You';
 	let isMenuOpen = true;
@@ -96,7 +92,7 @@
 	
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
-	$: showThreadList = $threadsStore.showThreadList;
+	$: isThreadListVisible = $showThreadList;
 	$: currentPath = $page.url.pathname;
 	$: showBottomButtons = currentPath === '/';
 	$: isNarrowScreen = innerWidth <= 1000;
@@ -104,206 +100,209 @@
 	
 	// Event handling
 	const dispatch = createEventDispatcher<{
-		promptSelect: any;
-		promptAuxclick: any;
-		threadListToggle: void;
+	  promptSelect: any;
+	  promptAuxclick: any;
+	  threadListToggle: void;
 	}>();
 	
 	// Styles configuration
 	const styles = [
-		{ name: 'Daylight Delight', value: 'default', icon: Sun },
-		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
-		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-		{ name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-		{ name: 'Laser Focus', value: 'focus', icon: Focus },
-		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-		{ name: 'Bone Tone', value: 'bone', icon: Bone },
-		{ name: 'Ivory Tower', value: 'ivoryx', icon: Component }
+	  { name: 'Daylight Delight', value: 'default', icon: Sun },
+	  { name: 'Midnight Madness', value: 'dark', icon: Moon },
+	  { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+	  { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+	  { name: 'Laser Focus', value: 'focus', icon: Focus },
+	  { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+	  { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+	  { name: 'Bone Tone', value: 'bone', icon: Bone },
+	  { name: 'Ivory Tower', value: 'ivoryx', icon: Component }
 	];
 	
 	// Functions
 	function getRandomQuote() {
-		const quotes = $t('extras.quotes');
-		return quotes[Math.floor(Math.random() * quotes.length)];
+	  const quotes = $t('extras.quotes');
+	  return quotes[Math.floor(Math.random() * quotes.length)];
 	}
 	
 	function toggleThreadList() {
-		threadsStore.toggleThreadList();
+	  threadListVisibility.toggle();
+	  dispatch('threadListToggle');
 	}
 	
 	function toggleStyles() {
-		showStyles = !showStyles;
+	  showStyles = !showStyles;
 	}
 	
 	function handleStyleClick() {
-		showStyles = !showStyles;
+	  showStyles = !showStyles;
 	}
 	
 	function handleStyleClose() {
-		showStyles = false;
+	  showStyles = false;
 	}
 	
 	async function handleStyleChange(event: CustomEvent) {
-		const { style } = event.detail;
-		await currentTheme.set(style);
-		showStyles = false;
+	  const { style } = event.detail;
+	  await currentTheme.set(style);
+	  showStyles = false;
 	}
 	
 	function toggleNav() {
-		isNavExpanded = !isNavExpanded;
+	  isNavExpanded = !isNavExpanded;
 	}
 	
 	function toggleAuthOrProfile() {
-		if ($currentUser) {
-			showProfile = !showProfile;
-			showAuth = false;
-		} else {
-			showAuth = !showAuth;
-			showProfile = false;
-		}
+	  if ($currentUser) {
+		showProfile = !showProfile;
+		showAuth = false;
+	  } else {
+		showAuth = !showAuth;
+		showProfile = false;
+	  }
 	}
 	
 	function handleAuthSuccess() {
-		showAuth = false;
+	  showAuth = false;
 	}
 	
 	function handleLogout() {
-		showProfile = false;
-		showAuth = false;
-		goto('/');
+	  showProfile = false;
+	  showAuth = false;
+	  goto('/');
 	}
 	
 	function handleOverlayClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			showAuth = false;
-			showProfile = false;
-			showStyles = false;
-		}
+	  if (event.target === event.currentTarget) {
+		showAuth = false;
+		showProfile = false;
+		showStyles = false;
+	  }
 	}
 	
 	function navigateTo(path: string) {
-		goto(path);
-		showProfile = false;
+	  goto(path);
+	  showProfile = false;
 	}
 	
 	function setActiveLink(path: string) {
-		goto(path);
-		activeLink = path;
+	  goto(path);
+	  activeLink = path;
 	}
 	
 	function handleLogoClick(event: MouseEvent) {
-		event.preventDefault();
-		setActiveLink('/');
+	  event.preventDefault();
+	  setActiveLink('/');
 	}
 	
 	function scrollToSection(id: string) {
-		const element = document.getElementById(id);
-		if (element) {
-			element.scrollIntoView({ behavior: 'smooth' });
-		}
+	  const element = document.getElementById(id);
+	  if (element) {
+		element.scrollIntoView({ behavior: 'smooth' });
+	  }
 	}
 	
 	function handlePromptSelect(event: CustomEvent) {
-		dispatch('promptSelect', event.detail);
-		console.log('Layout: Received promptSelect:', event.detail);
+	  dispatch('promptSelect', event.detail);
+	  console.log('Layout: Received promptSelect:', event.detail);
 	}
 	
 	function handlePromptAuxclick(event: CustomEvent) {
-		console.log('Layout: Received promptAuxclick:', event.detail);
-		dispatch('promptAuxclick', event.detail);
-		handlePromptSelect(event);
+	  console.log('Layout: Received promptAuxclick:', event.detail);
+	  dispatch('promptAuxclick', event.detail);
+	  handlePromptSelect(event);
 	}
 	
 	function handleThreadListToggle() {
-		threadsStore.toggleThreadList();
+	  toggleThreadList();
 	}
+	
 	function getAvatarUrl(user: any): string {
-		if (!user) return '';
-		
-		// If avatarUrl is already provided (e.g., from social login)
-		if (user.avatarUrl) return user.avatarUrl;
-		
-		// For PocketBase avatars
-		if (user.avatar) {
+	  if (!user) return '';
+	  
+	  // If avatarUrl is already provided (e.g., from social login)
+	  if (user.avatarUrl) return user.avatarUrl;
+	  
+	  // For PocketBase avatars
+	  if (user.avatar) {
 		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
-		}
-		
-		// Fallback - no avatar
-		return '';
+	  }
+	  
+	  // Fallback - no avatar
+	  return '';
 	}
-		async function handleLanguageChange() {
+	
+	async function handleLanguageChange() {
+	  showLanguageNotification = true;
+	  
+	  const currentLang = $currentLanguage;
+	  const currentIndex = languages.findIndex((lang) => lang.code === currentLang);
+	  const nextIndex = (currentIndex + 1) % languages.length;
+	  const nextLanguage = languages[nextIndex];
+	  
+	  await setLanguage(nextLanguage.code);
+	  selectedLanguageName = nextLanguage.name;
+	  
+	  await tick();
+	  
+	  setTimeout(() => {
 		showLanguageNotification = true;
-		
-		const currentLang = $currentLanguage;
-		const currentIndex = languages.findIndex((lang) => lang.code === currentLang);
-		const nextIndex = (currentIndex + 1) % languages.length;
-		const nextLanguage = languages[nextIndex];
-		
-		await setLanguage(nextLanguage.code);
-		selectedLanguageName = nextLanguage.name;
-		
-		await tick();
-		
-		setTimeout(() => {
-			showLanguageNotification = true;
-		}, 0);
-		setTimeout(() => {
-			showLanguageNotification = false;
-		}, 600);
+	  }, 0);
+	  setTimeout(() => {
+		showLanguageNotification = false;
+	  }, 600);
 	}
-
+  
 	async function logout() {
-    try {
-      await signOut();
-      showProfile = false;
-      goto('/');
-    } catch (error) {
-      console.error('Error during logout:', error);
-    }
-  }
+	  try {
+		await signOut();
+		showProfile = false;
+		goto('/');
+	  } catch (error) {
+		console.error('Error during logout:', error);
+	  }
+	}
 	
 	// Lifecycle hooks
 	onMount(async () => {
-		try {
-			console.log('onMount initiated');
-			
-			// Initialize theme and language
-			currentTheme.initialize();
-			await initializeLanguage();
-			
-			// Set up user info
-			if ($currentUser && $currentUser.id) {
-				console.log('Current user:', $currentUser);
-				username = $currentUser.username || $currentUser.email;
-			}
-			
-			// Set up navigation tracking
-			const unsubscribe = navigating.subscribe((navigationData) => {
-				if (navigationData) {
-					isNavigating.set(true);
-				} else {
-					setTimeout(() => {
-						isNavigating.set(false);
-					}, 300);
-				}
-			});
-			
-			// Set up theme tracker
-			const themeUnsubscribe = currentTheme.subscribe((theme) => {
-				document.documentElement.className = theme;
-			});
-			
-			// Return cleanup function
-			return () => {
-				unsubscribe();
-				themeUnsubscribe();
-			};
-		} catch (error) {
-			console.error('Error during onMount:', error);
+	  try {
+		console.log('onMount initiated');
+		
+		// Initialize theme and language
+		currentTheme.initialize();
+		await initializeLanguage();
+		
+		// Set up user info
+		if ($currentUser && $currentUser.id) {
+		  console.log('Current user:', $currentUser);
+		  username = $currentUser.username || $currentUser.email;
 		}
+		
+		// Set up navigation tracking
+		const unsubscribe = navigating.subscribe((navigationData) => {
+		  if (navigationData) {
+			isNavigating.set(true);
+		  } else {
+			setTimeout(() => {
+			  isNavigating.set(false);
+			}, 300);
+		  }
+		});
+		
+		// Set up theme tracker
+		const themeUnsubscribe = currentTheme.subscribe((theme) => {
+		  document.documentElement.className = theme;
+		});
+		
+		// Return cleanup function
+		return () => {
+		  unsubscribe();
+		  themeUnsubscribe();
+		};
+	  } catch (error) {
+		console.error('Error during onMount:', error);
+	  }
 	});
-</script>
+  </script>
 
 <svelte:window bind:innerWidth />
 	{#if $currentUser}
@@ -354,13 +353,15 @@
 						>
 							{$t('nav.docs')}
 						</a>
+						<div class="logo-container" on:click={handleLogoClick}>
+							<img src={horizon100} alt="Horizon100" class="logo" />
+							<h2>vRAZUM</h2>
+						</div>
 					{/if}
 				</div>
 			{/if}
 
-			<div class="logo-container" on:click={handleLogoClick}>
 
-			</div>
 		</nav>
 	</header>
 
@@ -374,30 +375,30 @@
 		in:fly={{ x: -200, duration: 300 }}
 		out:fly={{ x: 200, duration: 300 }}
 	>
-	<button
-	class="nav-button info"
-	class:expanded={isNavExpanded}
 
-	>
-	<img src={horizon100} alt="Horizon100" class="logo" />
-	<h2>vRAZUM</h2>
-
-	<a
-	href="https://github.com/Horizon100/ultralit"
-	target="_blank"
-	rel="noopener noreferrer"
->
-	<button class="icon">
-		<Github size="30" />
-	</button>
-</a>
-	{#if isNavExpanded}
-	<!-- <h2>vRAZUM</h2> -->
-
-	{/if}
-	</button>
 	{#if $currentUser}
+	<button
+		class="nav-button info"
+		class:expanded={isNavExpanded}
 
+		>
+		<img src={horizon100} alt="Horizon100" class="logo" />
+		<h2>vRAZUM</h2>
+
+		<a
+		href="https://github.com/Horizon100/ultralit"
+		target="_blank"
+		rel="noopener noreferrer"
+	>
+		<button class="icon">
+			<Github size="30" />
+		</button>
+	</a>
+		{#if isNavExpanded}
+		<!-- <h2>vRAZUM</h2> -->
+
+		{/if}
+	</button>
 		<button
 			class="nav-button"
 			class:expanded={isNavExpanded}
@@ -733,7 +734,7 @@
 	}
 
 	.auth-overlay {
-		position: fixed;
+
 		top: 0;
 		left: 0;
 		width: 100%;
@@ -745,22 +746,19 @@
 		z-index: 1000;
 	}
 
-	.auth-container {
-		background-color: #fff;
-		padding: 2rem;
-		border-radius: 10px;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	}
+
 
 	.auth-content {
-		position: fixed;
+		position: relative;
 		top: 0;
 		/* background-color: #2b2a2a; */
 		/* padding: 2rem; */
-		width: 100%;
+		width: auto;
 		/* max-width: 500px; */
 		height: auto;
 		overflow-y: auto;
+		transition: all 0.3s ease;
+
 	}
 	.profile-overlay {
 		position: fixed;
@@ -866,12 +864,6 @@
 		//   /* width: 100vw;; */;
 	}
 
-	.auth-container {
-		background-color: #fff;
-		padding: 2rem;
-		border-radius: 10px;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	}
 
 	.auth-content {
 		position: fixed;
@@ -962,16 +954,22 @@
 		justify-content: center;
 		align-items: center;
 		height: 3rem;
-		background-color: red;
-		width: 100%;
+
+		gap: 0.5rem;
 		position: relative;
-		margin-right: 0;
-		margin-left: 0.5rem;
-		margin-top: 0.5rem;
+
 		user-select: none;
+		width: 10rem;
+
+		& h2 {
+			padding: 0 !important;
+			height: auto !important;
+			margin: 0;
+			font-style: normal;
+		}
 		&:hover {
 			h2 {
-				display: flex;
+				// font-size: 1rem;
 			}
 			}
 
@@ -1059,21 +1057,15 @@
 	nav {
 		display: flex;
 
-		justify-content: right;
-		align-items: center;
-
-		background: transparent;
+		justify-content: flex-end;
+		align-items: flex-start;
 		/* padding: 5px 10px; */
 		/* background-color: #2b2a2a; */
 		/* border-radius: 20px; */
 		/* background-color: black; */
 		/* height: 80px; */
-		gap: 1rem;
-		padding: 0 10px;
-		border-bottom-left-radius: 20px;
-		border-bottom-right-radius: 20px;
-		border-top-left-radius: 20px;
-		border-top-right-radius: 20px;
+		gap: 2rem;
+		width: 100% ;
 		/* margin-right: 10%; */
 		/* padding: 10px; */
 	}
@@ -1089,13 +1081,14 @@
 	}
 
 	nav a:hover {
-		opacity: 0.8;
 		/* background-color: rgba(255, 255, 255, 0.1); */
 		transform: scale(1.1);
+		color: var(--tertiary-color);
 	}
-
 	a {
+		display: flex;
 		justify-content: center;
+		width: auto !important;
 		align-items: center;
 		/* padding: 20px; */
 		text-decoration: none;
@@ -1104,12 +1097,16 @@
 
 	.nav-links {
 		display: flex;
-		gap: 2rem;
+		flex-direction: row;
+		font-size: 1.25rem;
+		gap: 4rem;
+		font-style: italic;
 		align-items: center;
 		justify-content: center;
 		/* padding: 10px; */
-		width: 100%;
 		font-family: var(--font-family);
+		width: auto;
+		height: 3rem;
 	}
 
 	.nav-link {
@@ -1133,15 +1130,11 @@
 		font-size: auto;
 		border: none;
 		cursor: pointer;
-		border-radius: 50%;
-		width: 3rem !important;
-		height: 3rem;
+		width: auto;
+		height: 2rem;
 	}
 
-	.nav-link:hover {
-		background-color: rgba(255, 255, 255, 0.1);
-		color: #6fdfc4;
-	}
+
 
 	.nav-link.active {
 		background: var(--secondary-color) !important;
@@ -1428,18 +1421,7 @@
 		overflow: none;
 		transition: all 0.3s ease;
 	}
-	.auth-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		/* background-color: rgba(0, 0, 0, 0.5); */
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
-	}
+
 
 	.user-button {
 		background-color: #3c3c3c;
@@ -1510,7 +1492,7 @@
 		padding: 2rem;
 	}
 	@media (max-width: 1000px) {
-		.nav-links,
+
 		h1 {
 			display: none;
 		}
@@ -1531,6 +1513,7 @@
 			margin-left: 50%;
 			align-items: center;
 			justify-content: center;
+			background: red;
 		}
 
 		header {
@@ -1706,26 +1689,6 @@
   }
 
 
-
-	.auth-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		/* background-color: rgba(0, 0, 0, 0.5); */
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
-	}
-
-	.auth-container {
-		background-color: #fff;
-		padding: 2rem;
-		border-radius: 10px;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	}
 
 	.auth-content {
 		position: fixed;

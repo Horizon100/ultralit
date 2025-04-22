@@ -2,7 +2,7 @@
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh } from 'lucide-svelte';
+	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus } from 'lucide-svelte';
 	import Profile from '$lib/components/ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
@@ -280,7 +280,7 @@
 	on:touchend={handleTouchEnd}
 >
 	{#if $currentUser}
-		<div class="user-info">
+		<!-- <div class="user-info">
 			<div class="avatar-container">
 				{#if avatarUrl}
 					<img src={avatarUrl} alt="User avatar" class="avatar" />
@@ -293,7 +293,7 @@
 			<p class="welcome-message" on:click={toggleProfileModal}>
 				<strong>{$currentUser.username || $currentUser.email}</strong>
 			</p>
-		</div>
+		</div> -->
 	{:else}
 		<div class="login-container">
 			<div class="credentials">
@@ -311,7 +311,6 @@
 				<img src={horizon100} alt="Horizon100" class="logo" />
 
 				<h2>
-					{$t('nav.welcome')}
 
 				</h2>
 
@@ -345,7 +344,11 @@
 							
 								<span>							
 									<LogIn />
-									{isLoading ? '...' : $t('profile.login')}
+									<span class="btn-description">
+										{$t('profile.login')}
+									</span>
+
+									{isLoading ? '...' : '' }
 								</span>
 							</button>
 							<button 
@@ -354,13 +357,22 @@
 							type="button"
 							disabled={isLoading}
 						>
-							<span>							
-								{isLoading ? 'Signing up...' : $t('nav.signup')}
+							<span>
+								<MailPlus />	
+								<span class="btn-description">
+									{$t('profile.signup')}
+								</span>						
+								{isLoading ? 'Signing up...' : ''}
 							</span>
 						</button>
-						<GoogleAuth/>
+						<div class="button-login">
+							<GoogleAuth/>
+							<span class="btn-description google">
+								{$t('profile.googleAuth')}
+							</span>
+						</div> 
 						{:else}
-							<button 
+							<!-- <button 
 								class="button button-waitlist" 
 								on:click|preventDefault={handleWaitlistSubmission}
 								type="button"
@@ -370,17 +382,17 @@
 									<Send />
 									{isLoading ? 'Joining...' : $t('profile.join')}
 								</button>
-							</button>
+							</button> -->
 						{/if}
 					</div>
-					<button 
+					<!-- <button 
 					class="button button-subtle" 
 					on:click|preventDefault={openJoinWaitlistOverlay}
 					type="button"
 					disabled={isLoading}
 				>
 					{isWaitlistMode ? $t('profile.login') : $t('profile.waitlist')}
-				</button>
+				</button> -->
 				</form>
 			</div>
 		
@@ -422,12 +434,12 @@
 
 	.auth-container {
 		display: flex;
-		height: 70vh;
-		margin-top: 5vh;
-		width: 50vw;
-		margin-left: 25vw;
-		border-radius: 1rem;
-		backdrop-filter: blur(20px);
+		flex-direction: column;
+		height: 100%;
+
+		width: 100% ;
+		border-radius: 2rem;
+		background: var(--bg-gradient);
 		border: 1px solid rgb(53, 53, 53);
 		/* border-radius: 20px; */
 		/* border-bottom-left-radius: 100%; */
@@ -442,7 +454,6 @@
 		/* width: 100%; */
 		/* width: 300px; */
 		/* height: 40px; */
-		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.5);
 
 	}
 
@@ -453,15 +464,13 @@
 	}
 
 	.terms-privacy {
+		margin-top: 1rem;
 		font-size: 1rem;
 		color: #ffffff;
-		width: 100%;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		flex-wrap: wrap;
+		letter-spacing: 0.1rem;
 		gap: 0.5rem;
-		margin-top: 1rem;
+		text-align: center;
+
 		user-select: none;
 	}
 
@@ -543,7 +552,7 @@
 		// padding: 1.5rem;
 		border-radius: 0.5rem;
 		display: flex;
-		width: calc(100% - 3rem) !important;
+		width: calc(100% - 2rem) !important;
 		border: 1px solid transparent;
 		font-size: 1.5rem;
 		outline: none; 
@@ -578,6 +587,7 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		justify-content: center;
 		width: 100%;
 		// padding: 10px;
 		border: none;
@@ -606,25 +616,33 @@
 		height: 4rem;
 	}
 	.button-login {
-		width: 100%;
-		height: 100%;
+		width: 4rem;
+		height: 4rem;
 		background: var(--primary-color);
 		color: var(--placeholder-color);
 		display: flex;
-		justify-content: center;
-		align-items: center;
+		justify-content: center !important;
+		align-items: center !important;
 		flex-direction: row;
-		padding: 1rem;
-		margin-bottom: 1rem;
 		border-radius: var(--radius-m) !important;
 		border: 1px solid transparent;
-		font-size: 1.25rem;
+		font-size: 1rem;
 		transition: all 0.3s ease-in;
 		&:hover {
+			width: auto;
 			color: var(--text-color);
-			background: var(--bg-gradient-left);
-          box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 10px 4px rgba(0, 0, 0, .25);
+			background: var(--secondary-color);
+        //   box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 1px 4px rgba(0, 0, 0, .25);
+		box-shadow: 0px 2px 2px 0px rgba(251, 245, 245, 0.2);
+		& span.btn-description {
+				display: flex;
+				margin-left: 1rem;
+				margin-right: 1rem;
+		}
+		& span.btn-description.google {
+				display: flex;
 
+		}
 			cursor: pointer;
 
 		}
@@ -635,6 +653,14 @@
 			justify-content: center;
 			align-items: center;
 			gap: 1rem;
+
+			&.btn-description {
+				display: none;
+
+				& :hover {
+					display: flex;
+				}
+			}
 
 		}
 	}
@@ -690,9 +716,12 @@
 
 	.button-group {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		flex-wrap: wrap;
+		height: auto;
 		align-items: center;
-		width: 100%;
+		justify-content: space-around;
+		width: calc(100% - 2rem) !important;
 		/* margin-left: 5%; */
 		/* margin-top: 10px; */
 		/* width: 100%; */

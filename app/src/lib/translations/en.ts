@@ -13,7 +13,7 @@ export default {
 		themes: 'Switch themes',
 		searchProjects: 'Search projects...',
 		welcome: 'Welcome to Vrazum',
-		signup: 'New user? Sign Up'
+		signup: 'Sign Up'
 
 	},
 
@@ -345,7 +345,8 @@ export default {
 		yes: "Yes",
 		no: "No",
 		language: "Languages",
-		theme: "Themes"
+		theme: "Themes",
+		googleAuth: "Google"
 
 	},
 	thinkingPhrases: [

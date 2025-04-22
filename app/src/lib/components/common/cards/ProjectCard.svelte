@@ -11,13 +11,12 @@
   import ProjectStatsContainer from '$lib/components/common/cards/ProjectStatsContainer.svelte';
   import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
   import { isTextareaFocused } from '$lib/stores/textareaFocusStore';
-  import { loadProjectThreads } from '$lib/clients/threadsClient';
+  import { loadThreads } from '$lib/clients/threadsClient'; // Updated import
 
   export let projectId: string | undefined = undefined;
+  export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
+  export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
   let isExpanded = false;
-  let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
-  let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
-
   let isCreatingProject = false;
   let newProjectName = '';
   let searchQuery = '';
@@ -31,23 +30,15 @@
   let isOwner: boolean = false;
   let errorMessage: string = '';
   let isLoading: boolean = false;
+  let unsubscribeProjectStore: () => void;
+  let unsubscribeThreadsStore: () => void;
 
   console.log('*** ProjectCard Initialization ***');
   console.log('Initial projectId received:', projectId);
   $: console.log('Textarea is focused:', $isTextareaFocused);
 
   // Subscribe to the project store
-  projectStore.subscribe((state) => {
-    // Only proceed if we have a valid projectId or currentProjectId
-    const targetId = projectId || state.currentProjectId;
-    if (!targetId) return;
-    
-    project = state.threads.find(p => p.id === targetId) || null;
-    
-    if (project && $currentUser) {
-      isOwner = project.owner === $currentUser.id;
-    }
-  });
+
   
   $: if ($projectStore.currentProjectId && !projectId) {
     projectId = $projectStore.currentProjectId;
@@ -166,6 +157,8 @@
         project = data.data;
         if ($currentUser) {
           isOwner = project.owner === $currentUser.id;
+          activeTab = 'info';
+
         }
       } else {
         throw new Error(data.error || 'Failed to fetch project');
@@ -180,7 +173,7 @@
 
   
   async function loadProjectThreadsData() {
-    console.log('*** loadProjectThreadsData called ***');
+    console.log('Loading threads for project:', projectId);
     
     if (!projectId) {
       console.error('No projectId available for loading threads');
@@ -188,13 +181,14 @@
     }
     
     try {
-      // Use our updated loadProjectThreads function
-      await loadProjectThreads(projectId);
+      // Use the updated loadThreads function with projectId
+      await loadThreads(projectId);
       console.log('Threads loaded for project:', projectId);
     } catch (error) {
       console.error('Error loading project threads:', error);
     }
   }
+
   
   function handleEditProject(type: 'name' | 'description') {
     if (!project) return;
@@ -237,44 +231,70 @@
   }
 
   async function initializeComponent() {
-    console.log('Initializing with projectId:', projectId);
-    isLoading = true;
-    
-    try {
-      // If no projectId but we have a current project in the store
-      if (!projectId && $projectStore.currentProjectId) {
-        projectId = $projectStore.currentProjectId;
-      }
+  console.log('Initializing with projectId:', projectId);
+  if (!projectId) return;
 
-      if (projectId) {
-        await loadProjectData();
-        await loadProjectThreadsData();
+  isLoading = true;
+  activeTab = 'info'; // Explicitly set tab
+  
+  try {
+    await loadProjectData();
+    await loadProjectThreadsData();
+  } catch (error) {
+    console.error('Initialization error:', error);
+    errorMessage = 'Failed to initialize project';
+  } finally {
+    isLoading = false;
+  }
+}
+
+  onMount(async () => {
+  console.log('Component mounting...');
+  
+  // Set initial tab state
+  activeTab = 'info';
+  previousActiveTab = 'info';
+  
+  // Set up store subscriptions
+  unsubscribeProjectStore = projectStore.subscribe(async (state) => {
+    const targetId = projectId || state.currentProjectId;
+    if (!targetId) return;
+    
+    const foundProject = state.threads.find(p => p.id === targetId);
+    if (foundProject && (!project || project.id !== foundProject.id)) {
+      project = foundProject;
+      if ($currentUser) {
+        isOwner = project.owner === $currentUser.id;
       }
-    } catch (error) {
-      console.error('Error initializing component:', error);
-    } finally {
-      isLoading = false;
+      // Ensure info tab is active when project changes
+      activeTab = 'info';
+      previousActiveTab = 'info';
+      
+      // Load threads for the project
+      await loadProjectThreadsData();
     }
+  });
+
+  if (!$currentUser) {
+    isLoading = true;
+    const unsubscribeUser = currentUser.subscribe((user) => {
+      if (user) {
+        unsubscribeUser();
+        initializeComponent();
+      } else {
+        isLoading = false;
+      }
+    });
+    return;
   }
   
-  onMount(async () => {
-    console.log('Component mounting...');
-    
-    if (!$currentUser) {
-      isLoading = true; 
-      const unsubscribe = currentUser.subscribe((user) => {
-        if (user) {
-          unsubscribe();
-          initializeComponent();
-        } else {
-          isLoading = false; 
-        }
-      });
-      return;
-    }
-    
-    await initializeComponent();
-  });
+  await initializeComponent();
+  
+  return () => {
+    unsubscribeProjectStore?.();
+    unsubscribeThreadsStore?.();
+  };
+});
 </script>
 
 <div class="project-container">
@@ -312,10 +332,6 @@
             </div>
             {/if}
         {/if}
-
-
-        
-        <!-- New Tab Navigation -->
         <div class="tabs-navigation project">
           <button 
             class="tab-button {activeTab === 'info' ? 'active' : ''}" 
@@ -366,9 +382,6 @@
             <ChevronDown class="icon-wrapper {isExpanded ? 'rotated' : ''}" size={16} />
           </button> -->
         </div>
-
-        {#if isExpanded}
-          
           <div class="project-tabs-content" transition:slide={{ duration: 150 }}>
             {#if activeTab === 'info'}
               {#if isEditingProjectDescription && editingProjectId === project.id}
@@ -434,7 +447,6 @@
             </div>
           {/if}
           </div>
-        {/if}
       </div>
     {:else}
       <div class="no-project">

@@ -226,7 +226,6 @@ function createProjectStore() {
 				let currentProject = project;
 				if (!currentProject) {
 					try {
-						// Attempt to fetch the project directly using fetch API
 						const response = await fetch(`/api/projects/${id}`, {
 							method: 'GET',
 							credentials: 'include'
@@ -250,25 +249,32 @@ function createProjectStore() {
 						}
 						
 						currentProject = fetchedProject;
+						
+						// Add the fetched project to the store
+						store.update(state => ({
+							...state,
+							threads: [...state.threads.filter(p => p.id !== id), fetchedProject]
+						}));
 					} catch (error) {
 						console.error('Failed to fetch project:', error);
 						throw new Error('Project not found or unauthorized');
 					}
 				}
 				
-				// If we get here, we have permission to access the project
+				// Update store with the current project
 				store.update((state) => ({
 					...state,
 					currentProjectId: id,
-					currentProject
+					currentProject,
+					updateStatus: ''
 				}));
 				
-				// Load collaborators - use storeObj reference instead of 'this'
+				// Load collaborators
 				try {
 					await storeObj.loadCollaborators(id);
 				} catch (err) {
 					console.error('Failed to load collaborators:', err);
-					// Continue anyway even if collaborator loading fails
+					// Continue even if collaborator loading fails
 				}
 				
 			} catch (error) {
@@ -278,7 +284,7 @@ function createProjectStore() {
 					currentProjectId: null,
 					currentProject: null,
 					collaborators: [],
-					updateStatus: 'Failed to set current project'
+					updateStatus: error instanceof Error ? error.message : 'Failed to set current project'
 				}));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				throw error;

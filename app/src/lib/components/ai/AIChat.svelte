@@ -23,8 +23,8 @@
   import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, fetchThreads, loadAllThreads, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
-  import { threadsStore, ThreadSortOption } from '$lib/stores/threadsStore';
+  import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, loadThreads, threadListVisibility, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
+  import { threadsStore, ThreadSortOption, showThreadList } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { promptStore } from '$lib/stores/promptStore';
   import { modelStore } from '$lib/stores/modelStore';
@@ -65,6 +65,7 @@
   let activeSelection = '';
   let messageProcessor;
   let isTypingInProgress = false;
+  let textareaElement: HTMLTextAreaElement | null = null;
 
   let isUpdatingThreadName = false;
 
@@ -98,7 +99,6 @@
   let editedThreadName = '';
   let isCreatingThread = false;
   let updateStatus: string = ''; 
-  let showThreadList = $threadsStore.showThreadList;
   let isThreadsLoaded: boolean;
   let isThreadListVisible = true;
   let isProjectListVisible = false;
@@ -106,6 +106,7 @@
   let isLoading = false;
   let isExpanded = false;
   let bookmarkId = '';
+  
   // let isLoading: boolean = false;
   // let isTextareaFocused = false;
   let isSubmissionAreaActive = false;
@@ -121,7 +122,6 @@
   let isLoadingMessages = false;
   let initialLoadComplete = false;
   let showScrollButton = false;
-  let textareaElement: HTMLTextAreaElement;
   let defaultTextareaHeight = '60px'; 
   let selected: Date = date || new Date(); 
   let showNetworkVisualization: boolean = false;
@@ -446,7 +446,7 @@ export async function loadProjectThreads(projectId?: string): Promise<void> {
     // Reset thread loading state
     threadsStore.update(state => ({
         ...state,
-        threads: [], // Clear existing threads
+        threads: [],
         searchedThreads: [],
         isThreadsLoaded: false,
         loadingError: null
@@ -930,7 +930,6 @@ export function toggleSection(section: keyof ExpandedSections): void {
               if (response.ok) {
                 const data = await response.json();
                 if (data.thread) {
-                  // Add the thread to the store
                   threadsStore.update(state => ({
                     ...state,
                     threads: [data.thread, ...state.threads.filter(t => t.id !== threadId)]
@@ -942,23 +941,19 @@ export function toggleSection(section: keyof ExpandedSections): void {
             }
           }
           
-          // Now update the thread name
           await updateThreadNameIfNeeded(threadId, currentMessages, aiModel, userId);
           
-          // Don't reload threads - this likely causes the disappearance
-          // Just ensure this thread stays in the store
           threadsStore.update(state => ({
             ...state,
-            showThreadList: false,
             currentThreadId: threadId
           }));
         } finally {
-          // Always clear naming state
           threadsStore.update(state => ({
             ...state,
             namingThreadId: null,
             isNaming: false
           }));
+          threadListVisibility.set(false);
         }
       }
     }
@@ -973,14 +968,30 @@ export function toggleSection(section: keyof ExpandedSections): void {
   }
 }
 
+function resetTextarea() {
+  userInput = '';
+  
+  // Ensure DOM updates before resetting height
+  setTimeout(() => {
+    resetTextareaHeight(textareaElement);
+  }, 0);
+}
+
+// Make sure to handle cases when clearing message and sending
+$: if (userInput === '' && textareaElement) {
+  resetTextareaHeight(textareaElement);
+}
 async function handleSendMessage(message: string = userInput) {
-  handleImmediateTextareaBlur();
+  // handleImmediateTextareaBlur();
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
   ensureAuthenticated();
 
   try {
     userInput = '';
+    if (textareaElement) {
+    // Reset height immediately
     resetTextareaHeight(textareaElement);
+  }
 
     if (!currentThreadId) {
       console.log('No current thread ID - creating a new thread');
@@ -1103,11 +1114,11 @@ async function handleSendMessage(message: string = userInput) {
 
       await typeMessage(aiResponse);
 
-      chatMessages = chatMessages.map(msg =>
-        msg.id === String(typingMessageId)
-          ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-          : msg
-      );
+      // chatMessages = chatMessages.map(msg =>
+      //   msg.id === String(typingMessageId)
+      //     ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+      //     : msg
+      // );
     }
 
     await handleThreadNameUpdate(currentThreadId);
@@ -1151,7 +1162,6 @@ async function handleLoadThread(threadId: string) {
   try {
     isLoadingMessages = true;
     
-    // Update the threadsStore to hide thread list
     threadsStore.update(state => ({
       ...state,
       showThreadList: false
@@ -1309,7 +1319,6 @@ async function handleLoadThread(threadId: string) {
     showModelSelector = false;
     showBookmarks = false;
     showCites = false;
-    showThreadList = false;
     return thread;
   } catch (error) {
     console.error(`Error loading thread ${threadId}:`, error);
@@ -1391,11 +1400,11 @@ async function handleCreateNewThread(message = '') {
    
    threadsStore.update(state => ({
      ...state,
-     showThreadList: false,
      currentThreadId: newThread.id,
      threads: [newThread, ...state.threads]
    }));
-   
+   threadListVisibility.set(false);
+
    await handleLoadThread(newThread.id);
    
    if (message) {
@@ -1601,6 +1610,7 @@ async function handleCreateNewThread(message = '') {
     }
 }
 
+
 function enhanceWithCitations() {
     const messageElements = document.querySelectorAll('.chat-messages .message p');
     
@@ -1697,10 +1707,7 @@ $: {
     
     messages = storeState.messages;
     updateStatus = storeState.updateStatus;
-    // showThreadList = storeState.showThreadList;
-    showThreadList = storeState.showThreadList;
     
-    // Only update these if not actively editing
     if (!isEditingThreadName) {
       isEditingThreadName = storeState.isEditingThreadName;
       editedThreadName = storeState.editedThreadName;
@@ -1771,7 +1778,7 @@ $: {
         threadsStore.setSearchQuery(searchQuery);
     }
 }
-
+$: isThreadListVisible = $showThreadList;
 $: sortOptionInfo = threadsStore.sortOptionInfo;
 $: allSortOptions = threadsStore.allSortOptions;
 $: searchedThreads = threadsStore.searchedThreads;
@@ -1790,26 +1797,16 @@ projectStore.subscribe((state) => {
   const newProjectId = state.currentProjectId;
   const projectChanged = newProjectId !== previousProjectId;
   
-  // Update local state
   previousProjectId = newProjectId;
   currentProjectId = newProjectId;
   
-  // Load threads whenever project ID changes
   if (projectChanged) {
-    isLoadingProject = true; // Set loading state
-    console.log(`Project changed from ${previousProjectId || 'none'} to ${newProjectId || 'none'}`);
+    isLoadingProject = true;
+    console.log(`Project changed to ${newProjectId || 'none'}`);
     
-    const loadPromise = newProjectId 
-      ? loadProjectThreads(newProjectId)
-      : loadAllThreads();
-
-    loadPromise
-      .catch(err => {
-        console.error(`Error loading threads:`, err);
-      })
-      .finally(() => {
-        isLoadingProject = false; // Clear loading state when done
-      });
+    loadThreads(newProjectId)
+      .catch(err => console.error('Error loading threads:', err))
+      .finally(() => isLoadingProject = false);
   }
   
   isEditingProjectName = state.isEditingProjectName;
@@ -1968,12 +1965,12 @@ onMount(async () => {
     
     // Then, load threads based on project context
     if (currentProjectId) {
-      console.log(`Project ${currentProjectId} selected, loading project threads`);
-      await loadProjectThreads(currentProjectId);
-    } else {
-      console.log('No project selected, loading all threads');
-      await loadAllThreads();
-    }
+    console.log(`Project ${currentProjectId} selected, loading threads`);
+    await loadThreads(currentProjectId);
+  } else {
+    console.log('No project selected, loading unassigned threads');
+    await loadThreads(null);
+  }
     
     // Initialize thread listener if needed
     if (currentThreadId) {
@@ -1987,6 +1984,7 @@ onMount(async () => {
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
+        if (!textareaElement) return;
         textareaElement.style.height = 'auto';
         textareaElement.style.height = `${textareaElement.scrollHeight}px`;
       };
@@ -2057,11 +2055,11 @@ onDestroy(() => {
 
   <div class="chat-container" 
     transition:fly="{{ x: 300, duration: 300 }}" 
-    class:drawer-visible={$threadsStore.showThreadList}
+    class:drawer-visible={$showThreadList}
   >
   <img src={Headmaster} alt="Notes illustration" class="illustration" />
 
-    {#if $threadsStore.showThreadList}
+    {#if $showThreadList}
       <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
@@ -2076,7 +2074,6 @@ onDestroy(() => {
                     showModelSelector = false;
                     showBookmarks = false;
                     showCites = false;
-                    showThreadList = false;
                   }
                 } catch (error) {
                   console.error('Error creating new thread:', error);
@@ -2093,7 +2090,7 @@ onDestroy(() => {
               {:else}
                   <div class="icon" in:fade>
                     <MessageCirclePlus />
-                    {#if searchHovered}
+                    {#if createHovered}
                       <span class="tooltip" in:fade>
                         {$t('tooltip.newThread')}
                       </span>
@@ -2136,7 +2133,7 @@ onDestroy(() => {
                   <Search />
                   {#if searchHovered && !isExpanded}
                     <span class="filter-badge" in:fade>
-                      {$t('tooltip.findThread')}
+                      search
                     </span>
                   {/if}
               </button>
@@ -2283,7 +2280,7 @@ onDestroy(() => {
 
     <div class="chat-container" in:fly="{{ x: 200, duration: 1000 }}" out:fade="{{ duration: 200 }}">
 
-      <div class="chat-content" class:drawer-visible={$threadsStore.showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
+      <div class="chat-content" class:drawer-visible={$showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
         
         {#if isLoadingMessages}
           <div class="loading-overlay">
@@ -2389,7 +2386,11 @@ onDestroy(() => {
                     {/if}
                   {/if}
                 </button>
-                <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+
+                <button class="toggle-btn">
+                  <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+
+                </button>
 
               </span>
               {/if}
@@ -2401,7 +2402,7 @@ onDestroy(() => {
 
           {:else}
             <div class="chat-placeholder"
-              class:drawer-visible={$threadsStore.showThreadList}
+              class:drawer-visible={$showThreadList}
             >     
             
               <div class="container-row">
@@ -2420,7 +2421,7 @@ onDestroy(() => {
                   <div class="dashboard-items">
                     <div class="dashboard-scroll">
                       {#if $projectStore.currentProjectId}
-                          <ProjectCard projectId={$projectStore.currentProjectId} />
+                      <ProjectCard projectId={$projectStore.currentProjectId} />
 
                       {:else}
                         {#if $isTextareaFocused}
@@ -2441,7 +2442,7 @@ onDestroy(() => {
 
                   </div>
 
-                  <div class="input-container-start" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                  <div class="input-container-start" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="ai-selector">
                       {#if $expandedSections.cites}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
@@ -2504,6 +2505,7 @@ onDestroy(() => {
                         disabled={isLoading}
                         rows="1"
                       />
+
                       <div class="btn-row"
                         transition:slide
                       >
@@ -2598,6 +2600,7 @@ onDestroy(() => {
                           <!-- {/if} -->
                         </div>
                       </div>
+
                     </div>
 
                   </div>   
@@ -2663,7 +2666,7 @@ onDestroy(() => {
                     </div>
                   {/if}
                 </div>
-                <p class:typing={message.isTyping && message.id === latestMessageId}>{@html message.content}</p>
+                <p class:typing={message.isTyping}>{@html message.content}</p>
                 {#if message.role === 'thinking'}
                   <div class="thinking-animation">
                     <span>
@@ -2711,7 +2714,7 @@ onDestroy(() => {
             </button>
           {/if}
           </div>
-          <div class="input-container" class:drawer-visible={$threadsStore.showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+          <div class="input-container" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
             {#if $isAiActive}
             <div class="ai-selector">
               {#if $expandedSections.cites}
@@ -2765,7 +2768,7 @@ onDestroy(() => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     !isLoading && handleSendMessage();
-                    {onTextareaBlur};
+                    // {onTextareaBlur};
                   }
                 }}      
                 on:focus={onTextareaFocus}
@@ -2774,6 +2777,8 @@ onDestroy(() => {
                 disabled={isLoading}
                 rows="1"
               />
+              {#if $isTextareaFocused}
+
               <div class="btn-row"
                 transition:slide
               >
@@ -2856,6 +2861,8 @@ onDestroy(() => {
                   {/if}
                 </div>
               </div>
+              {:else}
+              {/if}
             </div>
           {/if}
           
@@ -3399,6 +3406,7 @@ p div {
 
   span.header-btns {
       display: flex;
+      flex-direction: row;
       position: absolute;
       right: 0;
       gap: rem;
@@ -4095,7 +4103,7 @@ p div {
     & .chat-header-thread {
       margin-left: 0;
       left: 0;
-      justify-content: left !important;
+      justify-content: center !important;
     }
     & .thread-info {
       margin-left: 0;
@@ -4296,13 +4304,6 @@ p div {
 
   }
 
-  .auth-container {
-    background-color: #fff;
-    padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-
 
 
 .combo-input {
@@ -4427,7 +4428,7 @@ color: #6fdfc4;
     left: 1rem;
     right: 3rem;
     margin-bottom: 0;
-    margin-top: 1rem;
+    margin-top: 0;
     // left: 25%;
     padding: 1rem;
     // backdrop-filter: blur(10px);
@@ -4769,7 +4770,6 @@ color: #6fdfc4;
     left: 0rem;
     right: 0;
     width: auto;
-
     z-index: 2000;
     // padding: 0.5rem;
     color: var(--text-color);
@@ -4803,7 +4803,8 @@ color: #6fdfc4;
   }
 
   .chat-header-thread {
-    width: 100%;
+    width: 100%; 
+    gap: auto;
     height: 4rem;
     font-size: 1.5rem;
     // border-bottom: 1px solid var(--placeholder-color);
@@ -5501,18 +5502,18 @@ color: #6fdfc4;
     }
   }
 
-  .auth-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
+  // .auth-overlay {
+  //   position: fixed;
+  //   top: 0;
+  //   left: 0;
+  //   width: 100%;
+  //   height: 100%;
+  //   background-color: rgba(0, 0, 0, 0.5);
+  //   display: flex;
+  //   justify-content: center;
+  //   align-items: center;
+  //   z-index: 1000;
+  // }
 
 
 
@@ -5949,7 +5950,7 @@ p.selector-lable {
       }
       &.selected {
         backdrop-filter: blur(30px);
-        background: var(--bg-gradient-r);
+        background: var(--primary-color);
         border-radius: 2rem;
       }
 
@@ -6340,23 +6341,7 @@ p.selector-lable {
     z-index: 9000;
   }
 
-  .tooltip {
-    position: absolute;
-    left: 0;
-    margin-left: 18px;
-    margin-top: 50px;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    background-color: var(--secondary-color);
-    backdrop-filter: blur(80px);
-    border: 1px solid var(--secondary-color);
-      font-weight: 100;
-      animation: glowy 0.5s 0.5s initial;    
-    padding: 4px 8px;
-    border-radius: var(--radius-s);
-    z-index: 2000;
-    transition: all 0.2s ease ;
-  }
+
 
 
   .create-confirm {
@@ -6397,7 +6382,7 @@ p.selector-lable {
     justify-content: flex-start;
     top: 0 !important;
     margin-top: 0 !important;
-    width: 100%;
+    width: 100% !important;
     margin-top: 0;
     // justify-content:space-between;
     transition: all 0.3s ease;
@@ -6561,7 +6546,7 @@ p.selector-lable {
       // background: var(--bg-gradient);
       justify-content: flex-start;
       // align-items: center;
-      width: calc(100% - 2rem) !important;
+      width: calc(100%) !important;
       margin-left: 0 !important;
       height: auto;
       margin-top: 0;
@@ -6983,10 +6968,37 @@ p.selector-lable {
 
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1000px) {
   
   .input-container {
     bottom: 1rem;
+  }
+  span.header-btns {
+      display: flex;
+    flex-direction: row !important;
+    position: relative;
+      left: 0;
+      margin-right: 0.5rem;
+      margin-top: 0;
+      width: auto !important;
+    }
+
+    .toggle-btn {
+      width: auto;
+      padding: 0.5rem !important;
+      height: auto;
+    }
+  .chat-header {
+    height: auto;
+  }
+
+  .chat-header-thread {
+    margin-top: 1rem;
+    margin-left: 0 !important;
+
+    & span {
+      width: 100%;
+    }
   }
 
   // .logo-container {
@@ -7009,7 +7021,7 @@ p.selector-lable {
   // }
 
   .chat-messages {
-    margin-right: 2rem;
+    margin-right: 0rem;
     margin-left: 0rem;
 
   }

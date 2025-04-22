@@ -8,6 +8,7 @@
 	import { elasticOut, elasticIn } from 'svelte/easing';
 	import Auth from '$lib/components/auth/Auth.svelte';
 	import { pocketbaseUrl } from '$lib/pocketbase';
+	import { showAuth, toggleAuth, initAuthState } from '$lib/stores/authStore';
 
 	import Paper from '$lib/components/network/Paper.svelte';
 	import { agentStore } from '$lib/stores/agentStore';
@@ -17,7 +18,6 @@
 	import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
-	import Dialog from '$lib/components/ai/Dialog.svelte';
 	import type {
 		User,
 		Node,
@@ -89,7 +89,6 @@
 	// export let userId: string = crypto.randomUUID();
 	let threads: Threads[];
 	let attachment: Attachment | null = null;
-	let dialogAiModel: AIModel | null = null;
 
 	let showContent = false;
 
@@ -103,7 +102,6 @@
 	let showTypeWriter = false;
 	let placeholderText = '';
 
-	let showAuth = false;
 
 	let logoSize = spring(80);
 	let logoMargin = spring(0);
@@ -134,13 +132,6 @@
 	$: placeholderText = getRandomTip();
 
 	let currentTip = '';
-
-	function handleDialogSubmit(event: CustomEvent) {
-		const { seedPrompt, aiModel, promptType } = event.detail;
-		// Handle the submitted data, e.g., create a new thread
-		handleSeedPromptSubmit(seedPrompt, aiModel, promptType);
-		// goto('/ask');
-	}
 
 	let newThreadName = '';
 	let newThreadId: string | null = null;
@@ -256,13 +247,13 @@
 
 	function handleOverlayClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {
-			showAuth = false;
+			$showAuth = false;
 			showArrowOverlay = false;
 		}
 	}
-	function toggleAuth() {
-		showAuth = !showAuth;
-		showArrowOverlay = !showArrowOverlay;
+	function handleSignOut() {
+		// Ensure auth dialog is closed when logging out
+		$showAuth = false;
 	}
 
 	function toggleIntro() {
@@ -279,18 +270,23 @@
 	$: aiModel = defaultAIModel;
 
 	onMount(async () => {
-	try {
-		// Initialize loading state
-		isLoading = true;
-		updatePageContent();
-
-		// Check auth using the currentUser store instead of pb directly
-		if (!$currentUser) {
-		showContent = true;
-		}
-
-		user = $currentUser;
-		currentTip = getRandomTip();
+    try {
+      // Initialize loading state
+      isLoading = true;
+      updatePageContent();
+      
+      // Initialize auth state management
+      const unsubAuthState = initAuthState();
+      
+      // Check auth using the currentUser store instead of pb directly
+      if (!$currentUser) {
+        showContent = true;
+        // Don't automatically show auth dialog on initial load
+        // $showAuth = false; // This line would force the auth to be hidden
+      }
+      
+      user = $currentUser;
+      currentTip = getRandomTip();
 
 		// Handle navigation subscription
 		const unsubscribe = navigating.subscribe((navigationData) => {
@@ -338,18 +334,18 @@
 
 		return () => {
 		unsubscribe();
-		};
-	} catch (e) {
-		error = 'Failed to load thread. Please try again.';
-		console.error(e);
-	} finally {
-		// Ensure minimum loading time
-		const minimumLoadingTime = 800;
-		setTimeout(() => {
-		isLoading = false;
-		}, minimumLoadingTime);
-	}
-	});
+		unsubAuthState(); 
+    };
+    } catch (e) {
+      error = 'Failed to load thread. Please try again.';
+      console.error(e);
+    } finally {
+      const minimumLoadingTime = 800;
+      setTimeout(() => {
+        isLoading = false;
+      }, minimumLoadingTime);
+    }
+  });
 
 
 
@@ -377,6 +373,8 @@
 			out:fly={{ y: 50, duration: 500, delay: 400 }}
 			>
 			<LogIn/>
+			{$t('profile.login')}
+
 		</button>
 		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
@@ -416,7 +414,7 @@
 							in:fly={{ y: -50, duration: 500, delay: 200 }}
 							out:fade={{ duration: 300 }}
 						>
-							{#if !showAuth}
+							{#if !$showAuth}
 								<button
 									on:click={toggleAuth}
 									in:fly={{ y: 50, duration: 500, delay: 400 }}
@@ -499,35 +497,38 @@
 	<PrivacyPolicy on:close={closeOverlay} />
 {/if}
 
-{#if showArrowOverlay}
+<!-- {#if showArrowOverlay}
 	<div class="arrow-overlay" transition:fly={{ y: 200, duration: 300, easing: quintOut }}>
 		<div class="arrow"></div>
 	</div>
-{/if}
+{/if} -->
 
-{#if showAuth}
+{#if $showAuth && !user}
 	<div
 		class="auth-overlay"
 		on:click={handleOverlayClick}
 		transition:fly={{ y: 0, duration: 300, easing: quintOut }}
 	>
-		<div class="auth-content" transition:fly={{ y: 50, duration: 700 }}>
-			<button
+		<div class="auth-content" transition:fly={{ y: 0, duration: 300 }}>
+			<!-- <button
 				class="close-button"
 				on:click={() => {
 					showAuth = false;
-					showArrowOverlay = false;
+					// showArrowOverlay = false;
 				}}
 				transition:fly={{ y: -200, duration: 300 }}
 			>
 				<X size={24} />
-			</button>
+			</button> -->
 
 			<Auth
 				on:close={() => {
-					showAuth = false;
-					showArrowOverlay = false;
+					$showAuth = false;
+
+// showArrowOverlay = false;
 				}}
+				        on:signOut={handleSignOut}
+
 			/>
 		</div>
 	</div>
@@ -645,7 +646,19 @@
 		padding: 1rem;
 		margin-top: 2rem;
 		text-align: center;
-		width: 50%;
+		max-width: 1200px;
+		width: 100%;
+	}
+
+
+
+	.feature-cards {
+		width: 100%;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		
 	}
 
 	.chat {
@@ -698,21 +711,30 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
+		backdrop-filter: blur(5px);
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		z-index: 1000;
+		transition: all 0.3s ease;
+
 	}
 
 	.auth-content {
 		position: fixed;
-		top: 0;
+		display: flex;
+		justify-content: center;
 		/* background-color: #2b2a2a; */
 		/* padding: 2rem; */
 		width: 100%;
+		max-width: 400px;
+		border-radius: 2rem;
 		/* max-width: 500px; */
 		height: auto;
 		overflow-y: auto;
+		box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
+		transition: all 0.3s ease-in;
+
 	}
 
 	.close-button {
@@ -808,10 +830,11 @@
 		filter: drop-shadow(0 0 4px var(--tertiary-color));
 
 		&.fastlogin {
-			width: 40px;
-			height: 40px;
-			font-size: 10px;
-			padding: 0;
+			width: auto;
+			height: 2rem;
+			background: var(--primary-color) !important;
+			font-size: 1.25rem;
+			padding: 1rem;
 			position: fixed;
 			top: 0;
 			left: 1rem;
@@ -820,8 +843,8 @@
 	}
 
 	button:hover {
-		background: var(--tertiary-color);
-		color: rgb(0, 0, 0);
+		background: var(--tertiary-color) !important;
+		color: var(--secondary-color);
 	}
 
 	.illustration {
@@ -979,6 +1002,7 @@
 		font-size: 1.2rem;
 	}
 
+
 	.pricing-plans {
 		display: flex;
 		justify-content: space-around;
@@ -992,7 +1016,7 @@
 		margin: 1rem;
 		text-align: center;
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
-		width: calc(33.333% - 2rem); /* 3 cards per row on larger screens */
+		width: calc(69.333% - 2rem); /* 3 cards per row on larger screens */
 		min-width: 250px; /* Minimum width for cards */
 		margin: 1rem;
 		border: 1px solid var(--bg-color);
@@ -1075,7 +1099,7 @@
 	@media (max-width: 767px) {
 
 		.fastlogin {
-			display: none;
+			display: flex;
 		}
 		.arrow-overlay {
 			top: 200px;

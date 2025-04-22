@@ -1,32 +1,27 @@
-// lib/stores/authStore.ts
 import { writable } from 'svelte/store';
-import { pb } from '$lib/server/pocketbase';
-import { apiKey } from './apiKeyStore';
+import { currentUser } from '$lib/pocketbase';
 
-async function initializeAuth() {
-    try {
-        const response = await fetch('/api/verify/auth-check', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                pb.authStore.save(pb.authStore.token, data.user);
-                await apiKey.loadKeys();
-                return true;
-            }
-        }
-        return false;
-    } catch (error) {
-        console.error('Auth initialization error:', error);
-        return false;
-    }
+export const showAuth = writable(false);
+
+// Enhanced toggle with optional force parameter
+export function toggleAuth(force?: boolean) {
+  if (force !== undefined) {
+    showAuth.set(force);
+  } else {
+    showAuth.update(value => !value);
+  }
 }
 
-export const authInitialized = writable(false);
-
-// Initialize once when store is loaded
-initializeAuth().then(success => {
-    authInitialized.set(success);
-});
+// Initialize the auth state based on user status
+export function initAuthState() {
+  // Subscribe to user changes to manage auth state
+  const unsubscribe = currentUser.subscribe(user => {
+    // If user logs in, close the auth overlay
+    if (user) {
+      showAuth.set(false);
+    }
+    // Don't automatically show auth when logged out
+  });
+  
+  return unsubscribe;
+}

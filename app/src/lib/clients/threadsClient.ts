@@ -1,12 +1,12 @@
 import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
 import { ensureAuthenticated, currentUser } from '$lib/pocketbase'; // Client-side import
-import { ClientResponseError } from 'pocketbase';
-import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
-import { threadsStore } from '$lib/stores/threadsStore';
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
+import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 import { projectStore } from '$lib/stores/projectStore';
+import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
+
 // Throttling variables
 let isLoadingAllThreads = false;
 let lastThreadLoadTime = 0;
@@ -18,190 +18,139 @@ const messageCache = new Map<string, {
     timestamp: number
 }>();
 
-export async function loadAllThreads(): Promise<void> {
-    // Throttle requests - don't reload if we've loaded in the last 5 seconds
-    const now = Date.now();
-    if (isLoadingAllThreads || (now - lastThreadLoadTime < 5000)) {
-      console.log('Skipping thread reload - already loading or recently loaded');
-      return;
-    }
-  
-    isLoadingAllThreads = true;
-    
-    try {
-      console.log('Loading all threads for all projects');
-      
-      threadsStore.update(state => ({
-        ...state,
-        isThreadsLoaded: false,
-        loadingError: null
-      }));
-      
-      // Get all projects from projectStore
-      const projects = get(projectStore).threads || [];
-      console.log(`Found ${projects.length} projects, loading threads for each`);
-      
-      // Use a map to collect threads by ID to avoid duplicates
-      const allThreadsMap = new Map();
-      
-      // Collect threads from all projects
-      for (const project of projects) {
-        if (project.id) {
-          try {
-            // Fetch threads for this project
-            const projectThreads = await fetchThreadsForProject(project.id);
-            console.log(`Fetched ${projectThreads.length} threads for project ${project.id} (${project.name})`);
-            
-            // Store threads in map, using ID as key to avoid duplicates
-            projectThreads.forEach(thread => {
-              if (thread.id) {
-                allThreadsMap.set(thread.id, {
-                  ...thread,
-                  project_id: project.id
-                });
-              }
-            });
-          } catch (error) {
-            console.warn(`Error fetching threads for project ${project.id}:`, error);
-            // Continue with other projects
-          }
-        }
-      }
-      
-      // Convert map to array
-      const allThreads = Array.from(allThreadsMap.values());
-      console.log(`Collected ${allThreads.length} total threads from ${projects.length} projects`);
-      
-      // Update threads store
-      threadsStore.update(state => {
-        // Apply current search query if it exists
-        let filteredThreads = allThreads;
-        if (state.searchQuery) {
-          filteredThreads = allThreads.filter(thread => 
-            thread.name?.toLowerCase().includes(state.searchQuery.toLowerCase())
-          );
-        }
-        
-        return {
-          ...state,
-          threads: allThreads,
-          searchedThreads: filteredThreads,
-          isThreadsLoaded: true,
-          showThreadList: true,
-          currentProjectId: get(projectStore).currentProjectId
-        };
-      });
-      
-      // Record successful load time
-      lastThreadLoadTime = Date.now();
-    } catch (error) {
-      console.error('Error loading all threads:', error);
-      threadsStore.update(state => ({
-        ...state,
-        loadingError: error instanceof Error ? error.message : 'Failed to load threads',
-        isThreadsLoaded: true // Prevent infinite loading state
-      }));
-    } finally {
-      isLoadingAllThreads = false;
-    }
-  }
-  
-  /**
-   * Modified function to load threads for a specific project or all threads
-   */
-  export async function loadProjectThreads(projectId?: string): Promise<void> {
-    // If no project ID, load all threads across projects
-    if (!projectId) {
-      return loadAllThreads();
-    }
-    
-    // Otherwise load threads for specific project
-    try {
-      console.log(`Loading threads for project ${projectId}`);
-      
-      threadsStore.update(state => ({
-        ...state,
-        isThreadsLoaded: false,
-        loadingError: null
-      }));
-      
-      // Fetch threads for this project
-      const projectThreads = await fetchThreadsForProject(projectId);
-      console.log(`Fetched ${projectThreads.length} threads for project ${projectId}`);
-      
-      // Ensure each thread has project_id set
-      const validatedThreads = projectThreads.map(thread => ({
-        ...thread,
-        project_id: thread.project_id || projectId
-      }));
-      
-      // Update threads store
-      threadsStore.update(state => {
-        // Apply current search query if it exists
-        let filteredThreads = validatedThreads;
-        if (state.searchQuery) {
-          filteredThreads = validatedThreads.filter(thread => 
-            thread.name?.toLowerCase().includes(state.searchQuery.toLowerCase())
-          );
-        }
-        
-        return {
-          ...state,
-          threads: validatedThreads,
-          searchedThreads: filteredThreads,
-          isThreadsLoaded: true,
-          showThreadList: true,
-          currentProjectId: projectId
-        };
-      });
-    } catch (error) {
-      console.error(`Error loading threads for project ${projectId}:`, error);
-      threadsStore.update(state => ({
-        ...state,
-        loadingError: error instanceof Error ? error.message : 'Failed to load threads',
-        isThreadsLoaded: true // Prevent infinite loading state
-      }));
-    }
-  }
-function invalidateThreadCache(threadId: string) {
-    messageCache.delete(threadId);
+// Thread list visibility functions
+export function isThreadListVisible(): boolean {
+    return get(showThreadList);
 }
 
-export async function fetchThreads(): Promise<Threads[]> {
+export function toggleThreadList(): void {
+    threadsStore.toggleThreadList();
+}
+
+export function setThreadListVisibility(visible: boolean): void {
+    threadsStore.setThreadListVisibility(visible);
+}
+
+// Export a consistent interface for thread list visibility management
+export const threadListVisibility = {
+    get: isThreadListVisible,
+    set: setThreadListVisibility,
+    toggle: toggleThreadList
+};
+export async function fetchProjectThreads(projectId: string): Promise<Threads[]> {
     try {
         await ensureAuthenticated();
-        console.log('Fetching all threads for user');
+        console.log(`Fetching threads for project ${projectId}`);
         
-        const response = await fetch('/api/threads', {
+        const response = await fetch(`/api/projects/${projectId}/threads`, {
             method: 'GET',
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${get(currentUser)?.token}` // Add auth token
+                'Authorization': `Bearer ${get(currentUser)?.token}`
             }
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Failed to fetch threads: ${response.status}`);
+            throw new Error(errorData.message || `Failed to fetch project threads: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        return data.threads || [];
+        // Handle both response formats
+        return data.threads || data.data || [];
     } catch (error) {
-        console.error('Error fetching threads:', error);
+        console.error('Error fetching project threads:', error);
         throw error;
     }
 }
-// Helper function to process threads consistently
-function processThreads(threads: any[], currentState: any): Threads[] {
-    return threads.map((thread: any) => ({
-        ...thread,
-        showThreadList: currentState?.showThreadList ?? true,
-        tags: thread.tags || [],
-        current_thread: thread.current_thread || ''
-    }));
+
+export async function fetchUnassignedThreads(): Promise<Threads[]> {
+    try {
+        console.log('Fetching unassigned threads');
+        
+        const response = await fetch('/api/threads', {
+            method: 'GET',
+            credentials: 'include'
+        });
+
+        console.log(`Threads API response status: ${response.status}`);
+        
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+            console.log('Parsed response data:', data);
+        } catch (parseError) {
+            throw new Error(`Failed to parse response: ${responseText}`);
+        }
+
+        if (!response.ok) {
+            const errorMessage = data?.error || data?.message || `Request failed with status ${response.status}`;
+            throw new Error(errorMessage);
+        }
+
+        return data.threads || [];
+    } catch (error) {
+        console.error('Error fetching unassigned threads:', error);
+        throw error;
+    }
 }
+export async function loadThreads(projectId: string | null): Promise<void> {
+    const now = Date.now();
+    if (isLoadingAllThreads || (now - lastThreadLoadTime < 5000)) {
+        console.log('Skipping thread reload');
+        return;
+    }
+
+    isLoadingAllThreads = true;
+    
+    try {
+        threadsStore.update(state => ({
+            ...state,
+            isThreadsLoaded: false,
+            error: null
+        }));
+
+        const threads = projectId 
+            ? await fetchProjectThreads(projectId)
+            : await fetchUnassignedThreads();
+
+        console.log(`Loaded ${threads.length} threads for ${projectId ? `project ${projectId}` : 'unassigned'}`);
+
+        threadsStore.update(state => {
+            const filteredThreads = state.searchQuery
+                ? threads.filter(t => t.name?.toLowerCase().includes(state.searchQuery.toLowerCase()))
+                : threads;
+            
+            return {
+                ...state,
+                threads,
+                filteredThreads,
+                isThreadsLoaded: true,
+                project_id: projectId
+            };
+        });
+
+        lastThreadLoadTime = now;
+    } catch (error) {
+        console.error('Error loading threads:', error);
+        threadsStore.update(state => ({
+            ...state,
+            error: error instanceof Error ? error.message : 'Failed to load threads',
+            isThreadsLoaded: true
+        }));
+    } finally {
+        isLoadingAllThreads = false;
+    }
+}
+function invalidateThreadCache(threadId: string) {
+    messageCache.delete(threadId);
+}
+
+
 
 let isFetching = false;
 
@@ -238,7 +187,7 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
         }
         
         const messages = data.messages || [];
-        const processedMessages = messages.map((message) => ({
+        const processedMessages = messages.map((message: Messages) => ({
             ...message,
             text: processMarkdown(message.text)
         }));
@@ -261,91 +210,43 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
     try {
         await ensureAuthenticated();
         const userId = get(currentUser)?.id;
-        if (!userId) {
-            throw new Error('User ID not found');
-        }
+        if (!userId) throw new Error('User ID not found');
 
-        console.log('Received threadData:', threadData);
-        
-        // Extract project ID from any field it might be in
         const projectId = threadData.project_id || threadData.project;
-        console.log('Project ID:', projectId);
-
+        
         const newThread: Partial<Threads> = {
             name: threadData.name || 'New Thread',
             op: userId,
-            user: userId,  
+            user: userId,
             members: threadData.members || [userId],
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
             tags: threadData.tags || [],
             current_thread: '',
+            ...(projectId ? { project: projectId, project_id: projectId } : {})
         };
 
-        // Add both project and project_id fields if a projectId exists
-        if (projectId) {
-            newThread.project = projectId;
-            newThread.project_id = projectId;
-        }
-
-        console.log('Creating thread with data:', newThread);
-
-        // Create thread via API endpoint
-        const response = await fetch('/api/keys/threads', {
+        const response = await fetch('/api/threads', {
             method: 'POST',
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${get(currentUser)?.token || ''}`  // Add auth token
+                'Authorization': `Bearer ${get(currentUser)?.token}`
             },
             body: JSON.stringify(newThread)
         });
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to create thread: ${response.status} - ${errorText}`);
-        }
+        if (!response.ok) throw new Error(`Failed to create thread: ${response.status}`);
         
         const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to create thread');
-        }
+        if (!data.success) throw new Error(data.message || 'Failed to create thread');
         
-        let createdThread = data.thread;
-        
-        // If the API didn't set project_id but we have one, set it manually
-        if (projectId && !createdThread.project_id) {
-            createdThread = {
-                ...createdThread,
-                project_id: projectId
-            };
-            
-            // Also update the thread to ensure project_id is saved
-            try {
-                await fetch(`/api/keys/threads/${createdThread.id}`, {
-                    method: 'PATCH',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${get(currentUser)?.token || ''}`
-                    },
-                    body: JSON.stringify({ project_id: projectId })
-                });
-                console.log(`Updated thread ${createdThread.id} with project_id ${projectId}`);
-            } catch (updateError) {
-                console.warn('Failed to update thread with project_id:', updateError);
-            }
-        }
-
         return {
-            ...createdThread,
-            project_id: projectId || createdThread.project_id,  
-            showThreadList: threadData.showThreadList !== undefined 
-                ? threadData.showThreadList 
-                : false
+            ...data.thread,
+            project_id: projectId || data.thread.project_id
         };
     } catch (error) {
-        console.error('Thread creation process failed:', error);
+        console.error('Thread creation failed:', error);
         throw error;
     }
 }
@@ -382,7 +283,6 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
         
         const updatedMessage = responseData.message;
         
-        // Find which thread this message belongs to and invalidate its cache
         if (updatedMessage.thread) {
             invalidateThreadCache(updatedMessage.thread);
         }
@@ -398,73 +298,42 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
     try {
         await ensureAuthenticated();
 
-        // Get current thread data
-        const threadResponse = await fetch(`/api/keys/threads/${id}`, {
-            method: 'GET',
-            credentials: 'include'
-        });
-        
-        if (!threadResponse.ok) {
-            throw new Error(`Failed to fetch thread: ${threadResponse.status}`);
+        if (changes.project_id || changes.project) {
+            const projectId = changes.project_id || changes.project;
+            changes = {
+                ...changes,
+                project: projectId,
+                project_id: projectId
+            };
         }
-        
-        const threadData = await threadResponse.json();
-        if (!threadData.success) {
-            throw new Error(threadData.message || 'Failed to fetch thread');
-        }
-        
-        const currentThread = threadData.thread;
-        
-        const updateData: Record<string, any> = {};
-        
-        Object.keys(changes).forEach(key => {
-            if (changes[key as keyof Partial<Threads>] !== undefined && key !== 'showThreadList') {
-                updateData[key] = changes[key as keyof Partial<Threads>];
-            }
-        });
-        
-        if (Object.keys(updateData).length === 0) {
-            console.log('No valid changes to update for thread:', id);
-            return currentThread;
-        }
-        
-        console.log('Updating thread with data:', updateData);
-        
-        // Update thread via API endpoint
-        const response = await fetch(`/api/keys/threads/${id}`, {
+
+        const response = await fetch(`/api/threads/${id}`, {
             method: 'PATCH',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token}`
             },
-            body: JSON.stringify(updateData)
+            body: JSON.stringify(changes)
         });
         
-        if (!response.ok) {
-            throw new Error(`Failed to update thread: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Failed to update thread: ${response.status}`);
         
         const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to update thread');
-        }
+        if (!data.success) throw new Error(data.message || 'Failed to update thread');
         
-        const updatedThread = data.thread;
+        // Update store
+        threadsStore.update(state => ({
+            ...state,
+            threads: state.threads.map(t => 
+                t.id === id ? data.thread : t
+            )
+        }));
         
-        console.log('Thread updated successfully:', updatedThread);
-        
-        // Reapply showThreadList which isn't stored in the database
-        const result = {
-            ...updatedThread,
-            showThreadList: currentThread.showThreadList !== undefined 
-                ? currentThread.showThreadList 
-                : get(threadsStore).showThreadList
-        };
-        
-        return result;
+        return data.thread;
     } catch (error) {
         console.error('Thread update failed:', error);
-        throw new Error(`Thread update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
     }
 }
 
@@ -497,10 +366,6 @@ export async function resetThread(threadId: string): Promise<void> {
     }
 }
 
-// For other functions that need real-time capabilities, we'll need to implement
-// alternative solutions since we can't use PocketBase's subscribe features directly
-
-// Create an endpoint for messages in a thread
 export async function addMessageToThread(
     message: Omit<Messages, 'id' | 'created' | 'updated'>
 ): Promise<Messages> {
@@ -511,10 +376,9 @@ export async function addMessageToThread(
         
         const processedMessage = {
             ...message,
-            text: processMarkdown(message.text)
+            // text: processMarkdown(message.text)
         };
 
-        // Use the correct API endpoint - based on your structure, it should be:
         const response = await fetch('/api/keys/messages', {
             method: 'POST',
             credentials: 'include',
@@ -603,6 +467,7 @@ export function setupMessageListener(threadId: string, onNewMessage: () => void)
         return () => {}; // Return dummy cleanup function
     }
 }
+
 export async function autoUpdateThreadName(
     threadId: string,
     messages: Messages[],
@@ -688,12 +553,27 @@ export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Mess
         await ensureAuthenticated();
         console.log(`Attempting to fetch bookmarked messages: ${bookmarkId}`);
 
-        const messages = await pb.collection('messages').getFullList<Messages>({
-            filter: `id = "${bookmarkId}"`,
-            sort: '+created'
+        // Replace the PocketBase call with a fetch to your API
+        const response = await fetch(`/api/bookmarks/${bookmarkId}/messages`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+            }
         });
-
-        const processedMessages = messages.map((message) => ({
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch bookmarked messages: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to fetch bookmarked messages');
+        }
+        
+        const messages = data.messages || [];
+        const processedMessages = messages.map((message: Messages) => ({
             ...message,
             text: processMarkdown(message.text)
         }));
@@ -702,10 +582,17 @@ export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Mess
         return processedMessages;
     } catch (error) {
         console.error('Error fetching messages for bookmark:', error);
-        if (error instanceof ClientResponseError) {
-            console.error('Response data:', error.data);
-            console.error('Status code:', error.status);
-        }
         throw error;
     }
+}
+
+// Function to get the current thread state
+export function getCurrentThread(): Threads | null {
+    const state = get(threadsStore);
+    return state.currentThread;
+}
+
+// Function to set the current thread
+export function setCurrentThread(threadId: string | null): void {
+    threadsStore.setCurrentThread(threadId);
 }

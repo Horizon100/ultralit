@@ -1,4 +1,4 @@
-export const textareaElement: HTMLTextAreaElement | null = null;
+// export const textareaElement: HTMLTextAreaElement | null = null;
 export const defaultTextareaHeight = '60px';
 
 export function adjustFontSize(element: HTMLTextAreaElement) {
@@ -17,7 +17,8 @@ export function adjustFontSize(element: HTMLTextAreaElement) {
 }
 
 export function resetTextareaHeight(element?: HTMLTextAreaElement | null) {
-	if (element) {
-	  element.style.height = defaultTextareaHeight;
-	}
+	if (!element) return;
+	
+	element.style.height = 'auto';
+	element.style.height = defaultTextareaHeight;
   }

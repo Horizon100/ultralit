@@ -618,6 +618,24 @@ pre.code-block {
 		font-style: italic;
 	}
 
+	.tooltip {
+		position: absolute;
+		left: 0;
+		margin-left: 18px;
+		margin-top: 50px;
+		font-size: 0.7rem;
+		white-space: nowrap;
+		background-color: var(--secondary-color);
+		backdrop-filter: blur(80px);
+		border: 1px solid var(--secondary-color);
+		  font-weight: 100;
+		  animation: glowy 0.5s 0.5s initial;    
+		padding: 4px 8px;
+		border-radius: var(--radius-s);
+		z-index: 2000;
+		transition: all 0.2s ease ;
+	  }
+
 	@keyframes swipe {
 		0% {
 		  transform: translateX(-100%) translateY(-100%) rotate(45deg);

@@ -2,7 +2,9 @@ import type { Projects, Threads, User } from '$lib/types/types';
 import { ensureAuthenticated, currentUser} from '$lib/pocketbase';
 import { marked } from 'marked';
 import { get } from 'svelte/store';
-import { threadsStore } from '$lib/stores/threadsStore';
+import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
+import { threadListVisibility } from '$lib/clients/threadsClient';
+
 
 marked.setOptions({
 	gfm: true,
@@ -77,16 +79,18 @@ export async function fetchThreadsForProject(projectId: string): Promise<Threads
             threads = [...threads, ...dataThreads];
         }
         
-        // Direct array response handling
         if (Array.isArray(rawData)) {
             threads = [...threads, ...rawData];
         }
 
-        // Ensure all threads have project_id set
-        threads = threads.map(thread => ({
-            ...thread,
-            project_id: thread.project_id || thread.project || projectId
-        }));
+		if (threads.length > 0) {
+			threadsStore.update(state => ({
+				...state,
+				threads: threads,
+				filteredThreads: threads,
+				project_id: projectId
+			}));
+		}
 
         console.log(`Found ${threads.length} threads for project ${projectId}`);
         return threads;

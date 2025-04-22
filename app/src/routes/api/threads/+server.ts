@@ -2,51 +2,80 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-    console.log('API threads: Fetching threads list');
+export const GET: RequestHandler = async ({ locals, url }) => {
+    console.log('Thread GET endpoint called');
     
     if (!locals.user) {
-        console.error('API threads: User not authenticated');
-        throw error(401, 'Unauthorized');
+        console.log('No authenticated user found');
+        return json({ success: false, message: 'Authentication required' }, { status: 401 });
     }
     
+    const userId = locals.user.id;
+    console.log('Authenticated user:', userId);
+    
     try {
-        const userId = locals.user.id;
-        
-        // Check for query parameters
-        const projectId = url.searchParams.get('project');
-        const sort = url.searchParams.get('sort') || '-updated';
-        
-        let filter = '';
-        
-        // Determine the right filter based on presence of project ID
-        if (projectId) {
-            // Filter threads for a specific project
-            filter = `project = "${projectId}" && (user = "${userId}" || op = "${userId}" || members ?~ "${userId}")`;
-        } else {
-            // Get ALL threads the user has access to
-            filter = `user = "${userId}" || op = "${userId}" || members ?~ "${userId}"`;
+        const pb = locals.pb;
+        if (!pb) {
+            console.log('PocketBase instance not found in locals');
+            return json({ success: false, message: 'Database connection not available' }, { status: 500 });
         }
-        
-        console.log(`API threads: Using filter: ${filter}`);
-        
-        const threads = await pb.collection('threads').getFullList({
-            filter: filter,
-            sort: sort,
-            expand: 'user,op,project',
-            $autoCancel: false
-        });
-        
-        console.log(`API threads: Found ${threads.length} threads`);
-        
-        return json({
-            success: true,
-            data: threads,
-            threads: threads
-        });
+        const projectId = url.searchParams.get('project');
+        console.log('Project ID from query:', projectId);
+        let filter = `op = "${userId}" || members ?~ "${userId}"`;
+        if (projectId) {
+            filter = `(${filter}) && project_id = "${projectId}"`;
+        } else {
+            filter = `(${filter}) && (project_id = "" || project_id = null)`;
+        }
+        console.log('Using filter:', filter);
+        try {
+            const threads = await pb.collection('threads').getList(1, 50, {
+                filter,
+                sort: '-updated'
+            });
+            
+            console.log(`Found ${threads.items.length} threads`);
+            
+            return json({ 
+                success: true,
+                threads: threads.items
+            });
+        } catch (filterError) {
+            console.error('Error with filter:', filterError);
+            
+            // If the complex filter fails, try a simpler one
+            try {
+                const simpleFilter = `op = "${userId}"`;
+                console.log('Trying simple filter:', simpleFilter);
+                
+                const simpleThreads = await pb.collection('threads').getList(1, 50, {
+                    filter: simpleFilter,
+                    sort: '-updated'
+                });
+                
+                console.log(`Found ${simpleThreads.items.length} threads with simple filter`);
+                
+                return json({ 
+                    success: true,
+                    threads: simpleThreads.items
+                });
+            } catch (simpleError) {
+                console.error('Error with simple filter:', simpleError);
+                
+                // If even the simple filter fails, return an empty array
+                return json({ 
+                    success: true,
+                    threads: []
+                });
+            }
+        }
     } catch (err) {
-        console.error('API threads: Error fetching threads list:', err);
-        throw error(400, String(err.message || 'Failed to fetch threads'));
+        console.error('Unexpected thread fetch error:', err);
+        return json({
+            success: false,
+            message: 'Failed to fetch threads',
+            error: err.message || String(err)
+        }, { status: 500 });
     }
 };
 

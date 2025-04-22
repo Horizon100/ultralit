@@ -17,7 +17,6 @@
 	import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
-	import Dialog from '$lib/components/ai/Dialog.svelte';
 	import type {
 		User,
 		Node,
@@ -89,7 +88,6 @@
 	// export let userId: string = crypto.randomUUID();
 	let threads: Threads[];
 	let attachment: Attachment | null = null;
-	let dialogAiModel: AIModel | null = null;
 
 	let showContent = false;
 
@@ -135,12 +133,6 @@
 
 	let currentTip = '';
 
-	function handleDialogSubmit(event: CustomEvent) {
-		const { seedPrompt, aiModel, promptType } = event.detail;
-		// Handle the submitted data, e.g., create a new thread
-		handleSeedPromptSubmit(seedPrompt, aiModel, promptType);
-		// goto('/ask');
-	}
 
 	let newThreadName = '';
 	let newThreadId: string | null = null;

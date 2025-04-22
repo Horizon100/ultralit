@@ -36,7 +36,6 @@
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
 
-	import Assistant from '$lib/components/ai/Assistant.svelte';
 	import NodeCreationModal from '$lib/components/node/NodeCreationModal.svelte';
 	import AgentGen from '$lib/components/agents/AgentGen.svelte';
 

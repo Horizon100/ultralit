@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import Assistant from '$lib/components/ai/Assistant.svelte';
+	// import Assistant from '$lib/components/ai/Assistant.svelte';
 	import Assets from '$lib/components/canvas/Assets.svelte';
 
 	export let width: number;
@@ -57,7 +57,7 @@
 			</div>
 		{:else if activeTab === 'assistant'}
 			<div in:slideTransition={{ direction: 1 }} out:slideTransition={{ direction: -1 }}>
-				<Assistant {userId} />
+				<!-- <Assistant {userId} /> -->
 			</div>
 		{/if}
 	</div>
