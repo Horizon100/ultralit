@@ -26,7 +26,10 @@ export default {
 		newThread: 'Создать обсуждение',
 		findThread: 'Найти обсуждение',
 		pauseAi: "ИИ выключен",
-		playAi: "ИИ включен"
+		playAi: "ИИ включен",
+		editDescription: "Изменить описание",
+		generateHints: "Создать/обновить подсказки ИИ",
+		done: "Готово"
 	},
 	drawer: {
 		project: 'Проекты',
@@ -297,7 +300,11 @@ export default {
 		nameActive: 'Последняя активность:',
 		projectDetails: 'Инфо',
 		projectStats: 'Статистика',
-		projectMembers: 'Люди'
+		projectMembers: 'Люди',
+		projectCollaborators: 'Сотрудники',
+		projectActivity: 'Действия',
+		projectSuggestions: 'Предложения',
+		projectDescription: 'Описание'
 	},
 
 	threads: {

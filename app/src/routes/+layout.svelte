@@ -498,7 +498,15 @@
 				<span class="nav-text">{username}
 
 				</span>
-				<span class="icon" on:click={logout} >
+				<span class="icon"
+				on:click={() => {
+					logout();
+					// Only close the nav if it's expanded
+					if (isNavExpanded) {
+					  isNavExpanded = false;
+					}
+				  }}
+				on:click={logout} >
 					<LogOutIcon size={24} />
 
 				</span>

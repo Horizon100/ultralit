@@ -599,6 +599,7 @@ export interface Projects extends RecordModel {
 	threads: string[];
 	owner: string;
 	collaborators: string[];
+	aiSuggestions: string[];
 }
 
 export interface ExpandedSections {

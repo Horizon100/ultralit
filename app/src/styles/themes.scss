@@ -636,6 +636,33 @@ pre.code-block {
 		transition: all 0.2s ease ;
 	  }
 
+	  span {      
+		&.prompts {
+		  align-items: flex-start;
+		  gap: 1rem;
+		  flex-direction: column;
+		  display: flex;
+		  width: auto;
+		}
+		&.prompt {
+			width: auto;
+			display: flex;
+		  cursor: pointer;
+		  background: var(--bg-gradient-left);
+		  padding: 0.5rem 1rem;
+		  border-radius: 2rem;
+		  letter-spacing: 0.1rem;
+		  transition: all 0.3s ease;
+		  &:hover {
+			background: var(--tertiary-color);
+		  }
+		  &:focus {
+			outline: 2px solid #0066cc;
+			outline-offset: 2px;
+		  }
+		}
+	  }
+
 	@keyframes swipe {
 		0% {
 		  transform: translateX(-100%) translateY(-100%) rotate(45deg);

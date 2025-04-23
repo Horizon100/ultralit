@@ -163,6 +163,168 @@ export async function fetchNamingResponse(
 	}
 }
 
+export async function handleStartPromptClick(
+	promptText: string,
+	threadId: string | null,
+	aiModel: AIModel,
+	userId: string
+  ): Promise<{
+	response: string;
+	threadId: string;
+	userMessageId: string;
+	assistantMessageId: string;
+  }> {
+	try {
+	  // Create thread if needed
+	  let currentThreadId = threadId;
+	  if (!currentThreadId) {
+		const response = await fetch('/api/threads', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json'
+		  },
+		  body: JSON.stringify({
+			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+			userId
+		  })
+		});
+  
+		if (!response.ok) {
+		  throw new Error('Failed to create a new thread');
+		}
+  
+		const newThread = await response.json();
+		currentThreadId = newThread.id;
+	  }
+  
+	  // Save user message
+	  const userMessageResponse = await fetch('/api/messages', {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+		  text: promptText,
+		  type: 'human',
+		  thread: currentThreadId,
+		  parent_msg: null
+		})
+	  });
+  
+	  if (!userMessageResponse.ok) {
+		throw new Error('Failed to save user message');
+	  }
+  
+	  const userMessage = await userMessageResponse.json();
+  
+	  // Get AI response
+	  const messages: AIMessage[] = [
+		{
+		  role: 'user',
+		  content: promptText,
+		  model: aiModel.api_type
+		}
+	  ];
+  
+	  const aiResponseText = await fetchAIResponse(
+		messages,
+		aiModel,
+		userId
+	  );
+  
+	  const assistantMessageResponse = await fetch('/api/messages', {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+		  text: aiResponseText,
+		  type: 'robot',
+		  thread: currentThreadId,
+		  parent_msg: userMessage.id,
+		  model: aiModel.api_type
+		})
+	  });
+  
+	  if (!assistantMessageResponse.ok) {
+		throw new Error('Failed to save assistant message');
+	  }
+	  
+	  const assistantMessage = await assistantMessageResponse.json();
+  
+	  if (!threadId) {
+		await fetch(`/api/threads/${currentThreadId}`, {
+		  method: 'PATCH',
+		  headers: {
+			'Content-Type': 'application/json'
+		  },
+		  body: JSON.stringify({
+			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+		  })
+		});
+	  }
+  
+	  return {
+		response: aiResponseText,
+		threadId: currentThreadId,
+		userMessageId: userMessage.id,
+		assistantMessageId: assistantMessage.id
+	  };
+	} catch (error) {
+	  console.error('Error in handlePromptClick:', error);
+	  throw error;
+	}
+  }
+  export async function generateAISuggestions(projectDescription: string, model: AIModel, userId: string): Promise<string[]> {
+	try {
+	  const messages: AIMessage[] = [
+		{
+		  role: 'system',
+		  content: 'You are an AI assistant helping generate useful prompts based on a project description. Generate exactly 10 relevant prompt suggestions that would help the user explore or develop their project further. Each suggestion should be concise (under 15 words), actionable, and directly usable as a prompt. Do not include any introduction, numbering, or formatting characters like asterisks. Return just a plain list of prompts, one per line.',
+		  model: model.api_type
+		},
+		{
+		  role: 'user',
+		  content: `Project Description: "${projectDescription}"\n\nGenerate a list of 10 helpful prompts related to this project that I could ask an AI assistant.`,
+		  model: model.api_type
+		}
+	  ];
+  
+	  const response = await fetchAIResponse(messages, model, userId);
+	  
+	  // Parse the response to extract individual suggestions
+	  const suggestions = response
+		.split(/\n+/)
+		.map(line => line.trim())
+		.filter(line => line.length > 0)
+		// Remove list markers and any introductory text
+		.map(line => line.replace(/^[-*\d.]+\s*/, ''))
+		// Remove any markdown formatting like asterisks, quotes, backticks
+		.map(line => line.replace(/[\*\"`']/g, ''))
+		// Skip any line that looks like an introduction
+		.filter(line => !line.toLowerCase().includes("here are") && 
+					   !line.toLowerCase().includes("suggestions") &&
+					   !line.toLowerCase().includes("prompts to"))
+		.filter(line => line.length > 5 && line.length < 100)
+		.slice(0, 10); // Limit to max 10 suggestions
+	  
+	  if (suggestions.length === 0) {
+		// Fallback in case parsing fails
+		return [
+		  "How to optimize the project architecture?",
+		  "Ways to improve user experience in this application",
+		  "Suggest performance optimizations for this project",
+		  "Best practices for securing this application",
+		  "Ideas for new features to add to this project"
+		];
+	  }
+	  
+	  return suggestions;
+	} catch (error) {
+	  console.error('Error generating AI suggestions:', error);
+	  throw error;
+	}
+  }
 export async function generateGuidance(
 	context: { type: string; description: string },
 	model: AIModel,

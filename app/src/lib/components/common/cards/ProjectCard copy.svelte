@@ -1,32 +1,23 @@
 <script lang="ts">
   import { fade, fly, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
-  import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
+  import { threadsStore } from '$lib/stores/threadsStore';
   import { cubicOut } from 'svelte/easing';
   import { projectStore } from '$lib/stores/projectStore';
   import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, InfoIcon, ChartBarBig, Users, Logs, BrainCircuit } from 'lucide-svelte';
   import type { Projects, Threads } from '$lib/types/types';
   import { onMount } from 'svelte';
-  import { generateAISuggestions } from '$lib/clients/aiClient';
   import { t } from '$lib/stores/translationStore';
   import ProjectStatsContainer from '$lib/components/common/cards/ProjectStatsContainer.svelte';
   import ProjectCollaborators from '$lib/components/containers/ProjectCollaborators.svelte'
   import { isTextareaFocused } from '$lib/stores/textareaFocusStore';
   import { loadThreads } from '$lib/clients/threadsClient'; // Updated import
-  import { get } from 'svelte/store';
-  import { pendingSuggestion } from '$lib/stores/suggestionStore';
-  import { goto } from '$app/navigation';
-  import { modelStore } from '$lib/stores/modelStore';
-  import { messagesStore } from '$lib/stores/messagesStore';
 
-  import { defaultModel, availableModels } from '$lib/constants/models';
-  import handleSendMessage from '$lib/components/ai/AIChat.svelte'
   export let projectId: string | undefined = undefined;
   export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
   export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
   let isExpanded = false;
   let isExpandedContent = false;
-  let isGeneratingSuggestions = false;
 
   let isCreatingProject = false;
   let newProjectName = '';
@@ -264,121 +255,6 @@
   }
 }
 
-async function handleProjectSuggestions() {
-  if (!project || !project.description) {
-    // Use your app's notification system or you can add alert/notification logic
-    alert('Project needs a description to generate suggestions');
-    return;
-  }
-  
-  try {
-    // Show loading state
-    isGeneratingSuggestions = true;
-    
-    // Get current model from store or use default
-    const modelState = get(modelStore);
-    const aiModel = modelState.selectedModel || defaultModel;
-    
-    // Get current user ID
-    const userId = $currentUser?.id;
-    if (!userId) {
-      throw new Error('User must be logged in to generate suggestions');
-    }
-    
-    // Generate suggestions
-    const suggestions = await generateAISuggestions(project.description, aiModel, userId);
-    
-    // Update project in database with new suggestions
-    const response = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        aiSuggestions: suggestions
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update project with AI suggestions');
-    }
-    
-    // Update local project data
-    project = {
-      ...project,
-      aiSuggestions: suggestions
-    };
-    
-    // Show success message - use your preferred notification method
-    console.log('AI suggestions generated successfully');
-    
-  } catch (error) {
-    console.error('Error in handleProjectSuggestions:', error);
-    // Use your app's error notification method
-    alert(`Failed to generate suggestions: ${error.message}`);
-  } finally {
-    isGeneratingSuggestions = false;
-  }
-}
-async function handleStartSuggestion(suggestionText: string) {
-  try {
-    // First navigate to the appropriate thread or create a new one
-    const threadId = await ensureThreadExists(project.id);
-    
-    // Store the suggestion in the store
-    pendingSuggestion.set(suggestionText);
-    
-    // Navigate to the thread view
-    goto(`/projects/${project.id}/threads/${threadId}`);
-    
-  } catch (error) {
-    console.error('Error handling suggestion:', error);
-    // Use console.error instead of showToast
-    console.error(`Failed to use suggestion: ${error.message}`);
-    // Optional: Display a simple alert for the user
-    alert(`Could not use this suggestion: ${error.message}`);
-  }
-}
-
-// Helper function to ensure a thread exists for this project
-async function ensureThreadExists(projectId: string): Promise<string> {
-  // Check if the project has any threads
-  if (project.threads && project.threads.length > 0) {
-    return project.threads[0]; // Use the first thread
-  }
-  
-  try {
-    // Create a new thread
-    const response = await fetch('/api/threads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        title: `${project.name} - AI Chat`,
-        userId: $currentUser.id,
-        projectId: projectId
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to create a new thread');
-    }
-
-    const newThread = await response.json();
-    
-    // Update project's threads array locally
-    project = {
-      ...project,
-      threads: [...(project.threads || []), newThread.id]
-    };
-    
-    return newThread.id;
-  } catch (error) {
-    console.error('Error creating thread:', error);
-    throw new Error(`Could not create thread: ${error.message}`);
-  }
-}
   onMount(async () => {
   console.log('Component mounting...');
   
@@ -430,7 +306,10 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 
 <div class="project-container">
   <div class="project-content" transition:slide={{ duration: 200 }}>
-
+    <div class="project-header"                 transition:slide={{ duration: 300 }}
+    >
+      <!-- <h2>{$t('drawer.project')}</h2> -->
+    </div>
     
     {#if project}
     
@@ -450,7 +329,26 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         {:else}
           {#if isExpanded}
           {:else}
-
+            <div class="project-name-container">
+              <!-- <h3 class="project-name">{projectName}</h3> -->
+              {#if isOwner}
+                <button class="edit-button" 
+                on:click={() => handleEditProject('name')}
+                on:mouseenter={() => hoveredGenerate = true}
+                on:mouseleave={() => hoveredGenerate = false}
+                
+                >
+                <div class="icon" in:fade>
+                  <Pen size={14} />
+                  {#if hoveredGenerate}
+                    <span class="tooltip" in:fade>
+                      {$t('tooltip.newThread')}
+                    </span>
+                  {/if}
+                </div> 
+                </button>
+              {/if}
+            </div>
             {/if}
         {/if}
         <div class="tabs-navigation project">
@@ -519,17 +417,33 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                   </button>
                 </div>
               {:else if projectDescription}
-              {#if $showThreadList}
-              {:else}
-
+  
                   <div class="project-description-container"
                   class:expanded={isExpandedContent}
                   on:click={toggleDescription}
                   >
-                  <span class="header-btns">
-                    <h3>{$t('dashboard.projectDescription')}</h3>
+                    <p 
+                    class="project-description" 
+                  >
+                    {projectDescription}
+                  </p>
                     {#if isOwner}
                     <span class='edit-btns'>
+                      <button class="edit-button generate" 
+                      on:click={() => handleEditProject('description')}
+                      on:mouseenter={() => hoveredGenerate = true}
+                      on:mouseleave={() => hoveredGenerate = false}
+                      >
+                      <div class="icon" in:fade>
+                        <BrainCircuit/>
+                        {#if hoveredGenerate}
+                          <span class="tooltip" in:fade>
+                            {$t('tooltip.generateHints')}
+                          </span>
+                        {/if}
+                      </div> 
+                      </button>
+
                       <button class="edit-button" 
                       on:click={() => handleEditProject('description')}
                       on:mouseenter={() => hoveredEdit = true}
@@ -545,25 +459,13 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                       </div> 
                       </button>
                     </span>
-  
+
                     {/if}
-                  </span>
-
-                    <p 
-                    class="project-description" 
-                  >
-                    {projectDescription}
-                  </p>
-
                   </div>
-                  {/if}
                   <div class="project-sidenav">
-
                     <ProjectCollaborators projectId={$projectStore.currentProjectId}/>
 
                     <div class="project-details">
-                      <h3>{$t('dashboard.projectActivity')}</h3>
-
                       <div class="detail-row">
                         <span class="detail-label">Collaborators:</span>
                         <span class="detail-value">{projectCollaboratorsCount}</span>
@@ -585,62 +487,21 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                         <span class="detail-value">{updatedDate}</span>
                       </div>
                     </div>
-                    <span class="header-btns">
-                      <h3>{$t('dashboard.projectSuggestions')}</h3>
-                      {#if isOwner}
-                      <span class='edit-btns'>
-                        <button class="edit-button generate" 
-                        on:click={() => handleProjectSuggestions()}
-                        on:mouseenter={() => hoveredGenerate = true}
-                        on:mouseleave={() => hoveredGenerate = false}
-                        disabled={isGeneratingSuggestions}
-                        >
-                        <div class="icon" in:fade>
-                          {#if isGeneratingSuggestions}
-                            <div class="spinner-container">
-                              <div class="spinner"></div>
-                            </div>
-                          {:else}
-                            <BrainCircuit/>
-                            {#if hoveredGenerate}
-                              <span class="tooltip" in:fade>
-                                {$t('tooltip.generateHints')}
-                              </span>
-                            {/if}
-                          {/if}
-                        </div> 
-                        </button>
-                      </span>
-    
-                      {/if}
-                    </span>
-                    {#if project?.aiSuggestions && project.aiSuggestions.length > 0}
-                      {#if isGeneratingSuggestions}
-                      <div class="spinner-container">
-                        <div class="spinner"></div>
-                      </div>
-                      {:else}
-                      <div class="ai-suggestions">
-                        <!-- <h4>{$t('project.aiSuggestions')}</h4> -->
-                        <div class="suggestions-list">
-                          {#each project.aiSuggestions as suggestion}
-                            <span 
-                              class="suggestion-item" 
-                              on:click={() => handleStartSuggestion(suggestion)}
-                              on:keydown={(e) => e.key === 'Enter' && handleStartSuggestion(suggestion)}
-                              role="button"
-                              tabindex="0"
-                            >
-                              {suggestion}
-                            </span>
-                          {/each}
-                        </div>
-                      </div>
-                      {/if}
-                    {/if}
+
+                    <ProjectStatsContainer projectId={$projectStore.currentProjectId}/>
                     {#if isExpandedContent}
                     {:else}
-
+                    <span class="prompts">
+                        <span class="prompt">
+                          Find out why there are no clear project goals.
+                        </span>
+                        <span class="prompt">
+                          Find 
+                        </span>
+                        <span class="prompt">
+                          test
+                        </span>
+                    </span>
                     {/if}
                   </div>
 
@@ -785,39 +646,21 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 		opacity: 1;
 	}
   .project-tabs-content {
+    width: auto;
     height: 100%;
-    width: 100%;
-    max-width: 1200px;
     position: relative;
-    gap: 0;
+    gap: 2rem;
     display: flex;
     flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    & h3 {
-      font-size: 1.5rem;
-      margin-left: 1rem;
-      padding: 0.5rem 0;
-
-      border-top: 1px solid var(--line-color);
-      color: var(--placeholder-color);
-      text-align: center;
-      &:first-child {
-        border-top: 1px solid transparent;
-      }
-    }
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 0;
   }
 
   .project-sidenav {
-    height: 80vh;
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-width: 1200px;
-    width: 100%;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-color) transparent;
-
-    
+    display: flex;
+    flex-direction: column;
+    height: auto;
   }
   .icon {
     display: flex;
@@ -875,6 +718,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 8px;
     transition: all 0.3s ease;
 
   }
@@ -956,19 +800,6 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         justify-content: center;
         align-items: center;
 
-        &.header-btns {
-          display: flex;
-          flex-direction: row;
-          width: 90%;
-          justify-content: flex-start;
-          align-items: center;
-          transition: all 0.3s ease;
-          & h3 {
-            padding: 0.5rem 0;
-            text-align: left;
-          }
-        }
-
         &.prompts {
           justify-content: center !important;
           align-items: flex-end;
@@ -1013,15 +844,14 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     margin-top: 100px;
     font-size: 0.7rem;
     white-space: nowrap;
-    color: var(--tertiary-color) !important;
-    background-color: var(--primary-color);
+    background-color: var(--secondary-color);
     backdrop-filter: blur(80px);
     border: 1px solid var(--secondary-color);
       font-weight: 100;
       animation: glowy 0.5s 0.5s initial;    
     padding: 4px 8px;
     border-radius: var(--radius-s);
-    transition: all 0.2s ease;
+    transition: all 0.2s ease ;
   }
     .project-item {
       display: flex;
@@ -1083,7 +913,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
   
 
   .tabs-navigation {
-    justify-content: center;
+    justify-content:flex-end;
     align-items: flex-end;
     position: relative;
     margin-top: 0;
@@ -1175,12 +1005,13 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     // padding: 1rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    justify-content: flex-start;
     height: auto;
     // background-color: var(--secondary-color);
     width: 100%;
     transition: all 0.3s ease;
     &:hover {
+      cursor: pointer;
       transition: all 0.3s ease;
 
       // background: var(--primary-color);
@@ -1210,7 +1041,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     margin: 0 0 1rem 0;
     width: 100%;
     color: var(--accent-color);
-    text-align: left;
+    text-align: center;
 
     & h3.project-name {
     }
@@ -1218,64 +1049,62 @@ async function ensureThreadExists(projectId: string): Promise<string> {
   }
   .project-description-container {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
+    flex-direction: row;
+    justify-content: top;
+    align-items: top;
+    gap: 1rem;
     position: relative;
-    height: 80vh;
-    // margin-top: 10rem;
-    width: 100%;
-    max-width: 800px;
+    height: 10rem;
     display: flex;
-    overflow-y: auto;
-    overflow-x: hidden;   
-    border-radius: 2rem;
     transition: all 0.3s ease;
     &.expanded {
-      position: absolute;
-      width: 100vh;
 
       & .project-description {
-        font-size: 1.5rem;
+        font-size: 1rem;
         border: 1px solid var(--line-color);
-        background: var(--primary-color);
-        border-radius: 2rem;
 
       }
+      max-height: auto; 
+      height: 64vh;
+      overflow-y: auto; 
       position: relative;
     }
     &:hover {
+
       button.edit-button {
         display: flex;
       }
     }
   }
   .project-description {
-    font-size: calc(1.2rem - 0.2vmin);
+    font-size: 1.2rem;
     letter-spacing: 0.1rem;
     text-justify: justify;
     text-align: justify;
-    border-radius: 2rem;
-    margin-top: 0;
     line-height: 2;
     height: auto;
     width: auto;
+    border-radius: 2rem;
+
     display: flex;
-    align-items: flex-start;
     justify-content: flex-start;
     padding: 1rem;
     color: var(--text-color);
     transition: all 0.3s ease;
+    overflow-y: scroll;
     white-space: pre-line;
     scrollbar-width: thin;
     scroll-behavior: smooth;
     scrollbar-color: var(--placeholder-color) transparent;
+    background: var(--secondary-color);
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
     
     &:hover {
-      background: var(--bg-color);
+      background: var(--primary-color);
     }
+
+
+
   }
   
   .project-details {
@@ -1283,38 +1112,26 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     flex-direction: column;
     transition: all 0.3s ease;
     // border-bottom-left-radius: 2rem;
-    gap: 0;
+    gap: 1rem;
     // border-left: 5px solid var(--tertiary-color);
+    margin-top: 1rem;
+    padding-top: 1rem;
     // border-bottom: 1px solid var(--tertiary-color);
     width: 100%;
-    margin-top: 1rem;
-    padding-bottom: 1rem;
-    border-top: 1px solid var(--line-color);
-    border-bottom: 1px solid var(--line-color);
-    & h3 {
-      text-align: left;
-    }
 
   }
   
   .detail-row {
     display: flex;
-    padding: 0 0.5rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
     letter-spacing: 0.2rem;
-    // border-bottom: 1px solid var(--secondary-color);
+    margin-right: 2rem;
+    border-bottom: 1px solid var(--secondary-color);
     justify-content: space-between;
       align-items: center;
     width: auto;
-    font-size: 1rem;
-    color: var(--placeholder-color);
-    height: auto;
-    line-height: 2;
-    transition: all 0.3s ease;
-    &:hover {
-      background: var(--primary-color);
-    }
+    font-size: 1.2rem;
+    height: 4rem;
+    line-height: 1.5;
   }
   
   .detail-label {
@@ -1348,7 +1165,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     margin-right: 2rem;
     gap: 1rem;
     width: 100%;
-    height: auto;
+    height: 500px;
   }
   
   .edit-name-input {
@@ -1386,7 +1203,8 @@ async function ensureThreadExists(projectId: string): Promise<string> {
   span.edit-btns {
     display: flex;
     flex-direction: row;
-    position: relative;
+    position: absolute;
+    right:0;
     height: auto;
     transition: all 0.3s ease;
   }
@@ -1402,16 +1220,17 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
   button.edit-button {
     background: transparent;
-    color: var(--placeholder-color);
+    background: var(--secondary-color);
     border: none;
     cursor: pointer;
+    padding: 0.5rem 1rem;
     width: auto;
-    height: 2rem;
-    width: 2rem;
-    display: flex;
+    height: 3rem;
+    display: none;
     justify-content: center;
     align-items: center;
-    border-radius: 50%;
+    color: var(--text-color);
+    border-radius: 1rem;
     opacity: 1;
     z-index: 1000;
     & .tooltip {
@@ -1419,9 +1238,8 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       font-size: 1rem;
     }
     &:hover {
-      background-color: var(--primary-color);
+      background-color: var(--bg-color);
       transform: scale(1.1);
-      color: var(--text-color);
       opacity: 1;
       & .tooltip {
           color: var(--text-color);
@@ -1429,45 +1247,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
 
   }
-  .ai-suggestions {
-    margin-top: 1rem;
-  }
   
-  .suggestions-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-  
-  .suggestion-item {
-    background-color: var(--primary-color-light);
-    color: var(--text-color);
-    padding: 0.5rem 0.75rem;
-    border-radius: 1rem;
-    line-height: 1.5;
-    font-size: 1.2rem;
-    font-style: italic;
-    background: var(--primary-color);
-    border: 1px solid var(--secondary-color);
-
-    letter-spacing: 0.1rem;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    user-select: none;
-    display: inline-block;
-    transition: all 0.3s ease;
-    &:hover {
-      background-color: var(--line-color);
-      color: var(--tertiary-color);
-    }
-  }
-  
-
-  
-  .icon {
-    position: relative;
-  }
 
   .no-project {
     display: flex;
@@ -1509,71 +1289,6 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     border-bottom: none;
   }
   @media (max-width: 1000px) {
-    .project-container {
-    width: 100%;
-	}
-    .project-tabs-content {
-      max-width: 1200px !important;
-      height: 100%;
-      position: relative;
-      gap: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: flex-start;
-      margin-top: 0;
-    }
-
-    .project-sidenav {
-      width: 100%;
-      height: 60vh;
-      overflow-y: scroll;
-
-    }
-
-    .project-description-container {
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    position: relative;
-    height: 10vh;
-    // margin-top: 10rem;
-    width: 100%;
-    max-width: 100%;
-    margin-top: 0;
-
-    display: flex;
-    overflow-y: auto;
-    overflow-x: hidden;   
-    border-radius: 2rem;
-    transition: all 0.3s ease;
-    background: var(--bg-gradient-r);
-    &.expanded {
-      height: 60vh !important;
-      & .project-description {
-        font-size: 1rem;
-        margin-top: 0;
-        border: 1px solid var(--line-color);
-      }
-      max-height: auto; 
-      height: 100%;
-      position: relative;
-    }
-    &:hover {
-      button.edit-button {
-        display: flex;
-      }
-    }
-  }
-  .project-description {
-    font-size: calc(1.2rem - 0.2vmin);
-    letter-spacing: 0.1rem;
-
-    
-    &:hover {
-      background: var(--primary-color);
-    }
-  }
     
     .current-project {
       display: flex;
@@ -1612,10 +1327,12 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     flex-direction: column;
     transition: all 0.3s ease;
     // border-bottom-left-radius: 2rem;
-    gap: 0;
+    gap: 1rem;
     // border-left: 5px solid var(--tertiary-color);
+    margin-top: 1rem;
+    padding-top: 1rem;
     // border-bottom: 1px solid var(--tertiary-color);
-
+    width: 100% !important;
 
   }
   .detail-row {
@@ -1624,10 +1341,9 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     border-bottom: 1px solid var(--secondary-color);
     justify-content: space-between;
       align-items: center;
-    width: auto;
+    width: 100% !important;
     font-size: 1.2rem;
-    padding: 0.5rem;
-    height: auto;
+    height: 4rem;
     line-height: 1.5;
   }
   }

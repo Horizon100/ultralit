@@ -4,7 +4,8 @@
   import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
   import type { User, Projects } from '$lib/types/types';
 	import { PlusSquareIcon, Trash2, Users } from 'lucide-svelte';
-  
+    import { t } from '$lib/stores/translationStore';
+
   export let projectId: string;
 
   let collaborators: User[] = [];
@@ -310,18 +311,8 @@ async function addCollaborator() {
     }
   });
 </script>
-{#if isLoading}
-<div class="spinner-container">
-    <div class="spinner"></div>
-</div>
-{:else}
-  
-<div class="collaborators-container">
-
-  {#if isLoading}
-      <!-- <div class="loading">Loading...</div> -->
-  {:else if collaborators.length > 0}
-  <div class="add-collaborator-form">
+<div class="add-collaborator-form">
+    <h3>{$t('dashboard.projectCollaborators')}</h3>
 
     <div class="input-group">
         <span class="input-span">
@@ -333,14 +324,9 @@ async function addCollaborator() {
             disabled={isLoading}
         />
         <button class="add" on:click={addCollaborator} disabled={isLoading}>
-            {#if isLoading}
-                <div class="spinner-container">
-                    <div class="spinner"></div>
-                </div>
-            {:else}
+
             <Users/>
             +
-            {/if}
         </button>
 
     </div>
@@ -353,7 +339,20 @@ async function addCollaborator() {
         <div class="success-message">{successMessage}</div>
     {/if}
 </div>
+{#if isLoading}
+<div class="spinner-container">
+    <div class="spinner"></div>
+</div>
+{:else}
+  
+<div class="collaborators-container">
+
+  {#if isLoading}
+      <!-- <div class="loading">Loading...</div> -->
+  {:else if collaborators.length > 0}
+
     <div class="collaborators-list">
+        
       {#each collaborators as collaborator}
       <div class="collaborator-item">
         <div class="collaborator-wrapper">
@@ -438,7 +437,7 @@ async function addCollaborator() {
     flex-direction: row; 
     position: static;
     top: 0;
-    justify-content:flex-start;
+    justify-content: flex-start;
     align-items: flex-end;
     gap: 0.5rem;
     margin: 0;
@@ -449,9 +448,9 @@ async function addCollaborator() {
 .add-collaborator-form {
 
 display: flex;
-flex-direction: column;
-justify-content: flex-end;
-align-items: flex-end;
+flex-direction: row;
+justify-content: space-between;
+align-items: center;
 height: auto;
 width: auto;
 gap: 0.75rem;
@@ -468,6 +467,11 @@ button.add {
     width: 3rem !important;
     height: 3rem !important;
 
+}
+& h3 {
+    font-size: 1.5rem;
+    margin-left: 1rem;
+    color: var(--placeholder-color);
 }
 
 &:hover {

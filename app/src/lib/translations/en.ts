@@ -26,7 +26,11 @@ export default {
 		newThread: 'Create discussion',
 		findThread: 'Find discussion',
 		pauseAi: "AI responses off",
-		playAi: "AI responses on"
+		playAi: "AI responses on",
+		edit: "Edit",
+		editDescription: "Edit description",
+		generateHints: "Generate/refresh AI tips",
+		done: "Done"
 	},
 	drawer: {
 		project: 'Projects',
@@ -290,10 +294,13 @@ export default {
 		nameTimer: 'time spent',
 		nameActive: 'Last Active:',
 		projectInfo: 'Info',
-
 		projectDetails: 'Logs',
 		projectStats: 'Stats',
-		projectMembers: 'Members'
+		projectMembers: 'Members',
+		projectCollaborators: 'Collaborators',
+		projectActivity: 'Activities',
+		projectSuggestions: 'Suggestions',
+		projectDescription: 'Description'
 	},
 
 	threads: {

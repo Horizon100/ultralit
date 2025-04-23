@@ -6,12 +6,12 @@
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
   import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink} from 'lucide-svelte';
-  import { fetchAIResponse, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
+  import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
   import { pocketbaseUrl } from '$lib/pocketbase';
   import { messagesStore} from '$lib/stores/messagesStore';
-
+  import { getRandomPrompts } from '$lib/constants/startPrompts';
 	import ProjectCard from '$lib/components/common/cards/ProjectCard.svelte';
 	import MsgBookmarks from '$lib/components/features/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/horizon100.svg';
@@ -19,6 +19,7 @@
   import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
   // import PromptCatalog from './PromptCatalog.svelte';
     import PromptCatalog from './PromptInput.svelte';
+    import { pendingSuggestion } from '$lib/stores/suggestionStore';
 
   import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
@@ -154,6 +155,8 @@
   let lastMessageCount = 0;
   let latestMessageId: string | null = null;
   // Prompt state
+  let promptSuggestions = getRandomPrompts(3);
+  let isProcessingPromptClick = false;
   let currentPromptType: PromptType;
   let hasSentSeedPrompt: boolean = false;
   let scenarios: Scenario[] = [];
@@ -981,7 +984,8 @@ function resetTextarea() {
 $: if (userInput === '' && textareaElement) {
   resetTextareaHeight(textareaElement);
 }
-async function handleSendMessage(message: string = userInput) {
+
+export async function handleSendMessage(message: string = userInput) {
   // handleImmediateTextareaBlur();
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
   ensureAuthenticated();
@@ -1438,7 +1442,30 @@ async function handleCreateNewThread(message = '') {
       }
     }
   }
+
+
+  async function handleStartPromptSelection(promptText: string) {
+  if (isProcessingPromptClick) return;
   
+  try {
+    isProcessingPromptClick = true;
+    
+    // Use the existing handleSendMessage function
+    await handleSendMessage(promptText);
+    
+    // Refresh prompts after processing
+    promptSuggestions = getRandomPrompts(3);
+    
+  } catch (error) {
+    handleError(error);
+  } finally {
+    isProcessingPromptClick = false;
+  }
+}
+function refreshPromptSuggestions() {
+  promptSuggestions = getRandomPrompts(3);
+}
+
   async function submitThreadNameChange() {
   if (currentThreadId && editedThreadName.trim() !== '') {
     try {
@@ -1933,6 +1960,7 @@ onMount(async () => {
       try {
         await modelStore.initialize($currentUser.id);
         modelInitialized = true;
+        refreshPromptSuggestions();
       } catch (error) {
         console.error('Error initializing models:', error);
         
@@ -1961,6 +1989,13 @@ onMount(async () => {
     if (get(projectStore).threads.length === 0) {
       console.log('Loading projects first...');
       await projectStore.loadProjects();
+      const suggestion = get(pendingSuggestion);
+      if (suggestion) {
+        // Use the suggestion
+        handleSendMessage(suggestion);
+        // Clear the pending suggestion
+        pendingSuggestion.set(null);
+  }
     }
     
     // Then, load threads based on project context
@@ -2404,19 +2439,7 @@ onDestroy(() => {
             <div class="chat-placeholder"
               class:drawer-visible={$showThreadList}
             >     
-            
               <div class="container-row">
-
-                <span class="hero">
-                  <!-- <div class="logo-container" >
-                    <h2>vRAZUM</h2>
-                </div> -->
-                  <!-- <p >
-                    {getRandomQuote()}
-                  </p> -->
-                </span>
-
-
 
                   <div class="dashboard-items">
                     <div class="dashboard-scroll">
@@ -2436,6 +2459,22 @@ onDestroy(() => {
                               {getRandomQuestions()}  
                             </p>
                           </span>
+                          <span class="prompts">
+                            {#each promptSuggestions as prompt}
+                              <span 
+                                class="prompt" 
+                                on:click={() => handleStartPromptSelection(prompt)}
+                                on:keydown={(e) => e.key === 'Enter' && handleStartPromptSelection(prompt)}
+                                role="button"
+                                tabindex="0"
+                              >
+                                {prompt}
+                              </span>
+                            {/each}
+                          </span>
+                          
+
+
                         {/if}
                       {/if}
                     </div>
@@ -3443,11 +3482,15 @@ p div {
       }
 
     }
+
+
+
   span {
     display: flex;
     justify-content: left;
     align-items: center;
     color: var(--text-color);
+
 
     &.btn {
       display: flex;
@@ -3970,8 +4013,8 @@ p div {
     // background: var(--bg-gradient);
     justify-content: flex-start;
     // align-items: center;
-    width: 50vw;
-    margin-left: 25vw;
+    width: 60vw;
+    margin-left: 20vw;
     height: auto;
     margin-top: 0;
     margin-right: 0;
@@ -4065,7 +4108,20 @@ p div {
     // z-index: 8000;
     // background: var(--bg-gradient-r);
   }
+  & .dashboard-scroll {
+    align-items: center;
+    max-width: 100%;
+    margin-left: 0;
+    margin-bottom: 0;
+  }
+  & .prompts {
+    display: flex;
+  }
+  & span.start {
+    align-items: flex-start;
 
+
+  }
   & .submission {
     display: flex;
     flex-direction: row;
@@ -4213,9 +4269,10 @@ p div {
     flex-direction: column;
     width: 100%;
     height: 100%;
+    margin-top: 0;
     margin-bottom: 0;
     position: relative;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     // justify-content:space-between;
     transition: all 0.3s ease;
@@ -4226,9 +4283,9 @@ p div {
     display: flex;
     flex-direction: column;
     position: relative;
-    flex-grow: 1;
-    width: calc(100% - 1rem);    
-    max-width: 800px;
+
+    width: calc(100%);    
+    max-width: 1200px;
     margin-top: 0;
     height: auto;
     right: 0;
@@ -5529,21 +5586,19 @@ color: #6fdfc4;
   align-items: center;
   justify-content: flex-start;
   border-radius: var(--radius-m);
-
   // background: var(--primary-color);
   transition: all 0.3s ease;
-  margin-left: 2rem;
+  margin-left: 1rem;
+  margin-right: 1rem;
+
   margin-top: 0;
-  height: 90vh;
+  height: calc(100vh - 2rem);
   user-select: none;
-  overflow-y: auto;
   scrollbar-width:thin;
   scrollbar-color: var(--secondary-color) transparent;
   scroll-behavior: smooth;
   width: 100%;
-  gap: 1rem;
-  left: 1rem;
-  right: 0;
+
 
 
   & h3 {
@@ -5586,9 +5641,8 @@ color: #6fdfc4;
   display: flex;
   flex-direction: row;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   transition: all 0.3s ease;
-
   position: relative;
   // border-top: 1px solid var(--secondary-color);
   left: 0;
@@ -5606,10 +5660,8 @@ color: #6fdfc4;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  
   align-items: center;
   transition: all 0.3s ease;
-
   position: relative;
   width: 100%;
   // overflow-y: scroll !important;
@@ -6384,6 +6436,7 @@ p.selector-lable {
     margin-top: 0 !important;
     width: 100% !important;
     margin-top: 0;
+    margin-bottom: 4rem;
     // justify-content:space-between;
     transition: all 0.3s ease;
     gap: 0rem;
@@ -6598,8 +6651,9 @@ p.selector-lable {
     }
 
     .input-container-start {
-      margin-top: 4rem;
-      bottom: 0;
+      margin-top: 0;
+      bottom: 5rem;
+      position: fixed;
     }
     .drawer-toolbar {
       width:auto;
@@ -6792,6 +6846,7 @@ p.selector-lable {
       margin-bottom: 3rem;
 
     }
+    
 
     .drawer-visible .chat-container {
       display: flex;
