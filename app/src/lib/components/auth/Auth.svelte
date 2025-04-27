@@ -13,6 +13,7 @@
 	import { get } from 'svelte/store';
 	import horizon100 from '$lib/assets/horizon100.svg';
 	import GoogleAuth from '$lib/components/buttons/GoogleAuth.svelte';
+	import type { User } from '$lib/types/types';
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -142,32 +143,36 @@
 	}
 
 	async function signUp(): Promise<void> {
-		if (!browser) return;
-		
-		errorMessage = '';
-		isLoading = true;
-		
-		try {
-			if (!email || !password) {
-				errorMessage = 'Email and password are required';
-				isLoading = false;
-				return;
-			}
-			
-			const createdUser = await registerUser(email, password);
-			if (createdUser) {
-				// Login with the newly created credentials
-				await login();
-			} else {
-				errorMessage = 'Signup failed. Please try again.';
-			}
-		} catch (err) {
-			console.error('Signup error:', err);
-			errorMessage = err instanceof Error ? err.message : 'An error occurred during signup';
-		} finally {
-			isLoading = false;
-		}
-	}
+    if (!browser) return;
+    
+    errorMessage = '';
+    isLoading = true;
+    
+    try {
+        if (!email || !password) {
+            errorMessage = 'Email and password are required';
+            isLoading = false;
+            return;
+        }
+        
+        console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
+        
+        const createdUser = await registerUser(email, password);
+        if (createdUser) {
+            // Login with the newly created credentials
+            await login();
+        } else {
+            // Handle null return from registerUser like you do in login
+            errorMessage = 'Signup failed. Please try again.';
+        }
+    } catch (err) {
+        // This catch should now only trigger for unexpected errors
+        console.error('Unexpected signup error:', err);
+        errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+    } finally {
+        isLoading = false;
+    }
+}
 
 	async function handleWaitlistSubmission(): Promise<void> {
 		if (!browser) return;
@@ -298,16 +303,12 @@
 		<div class="login-container">
 			<div class="credentials">
 				<form 
-					on:submit|preventDefault={(e) => {
-						e.preventDefault();
-						if (!isWaitlistMode) {
-							login();
-						} else {
-							handleWaitlistSubmission();
-						}
-					}} 
-					class="auth-form"
-				>
+				on:submit|preventDefault={(e) => {
+				  e.preventDefault();
+				  // This ensures the form never handles the signup
+				}} 
+				class="auth-form"
+			  >
 				<img src={horizon100} alt="Horizon100" class="logo" />
 
 				<h2>
@@ -322,7 +323,7 @@
 						disabled={isLoading}
 					/>
 					
-					{#if !isWaitlistMode}
+					<!-- {#if !isWaitlistMode} -->
 						<input
 							type="password"
 							bind:value={password}
@@ -331,7 +332,7 @@
 							disabled={isLoading}
 							transition:fly={{ duration: 300 }}
 						/>
-					{/if}
+					<!-- {/if} -->
 					
 					<div class="button-group">
 						{#if !isWaitlistMode}
@@ -353,18 +354,25 @@
 							</button>
 							<button 
 							class="button-login" 
-							on:click|preventDefault={signUp}
+							on:click={(e) => {
+							  e.preventDefault();
+							  if (email && password) {
+								signUp();
+							  } else {
+								errorMessage = 'Email and password are required';
+							  }
+							}}
 							type="button"
 							disabled={isLoading}
-						>
+						  >
 							<span>
-								<MailPlus />	
-								<span class="btn-description">
-									{$t('profile.signup')}
-								</span>						
-								{isLoading ? 'Signing up...' : ''}
+							  <MailPlus />	
+							  <span class="btn-description">
+								{$t('profile.signup')}
+							  </span>						
+							  {isLoading ? 'Signing up...' : ''}
 							</span>
-						</button>
+						  </button>
 						<div class="button-login">
 							<GoogleAuth/>
 							<span class="btn-description google">

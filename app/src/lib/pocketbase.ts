@@ -128,41 +128,41 @@ export async function withAuth<T>(fn: () => Promise<T>): Promise<T | null> {
 }
 
 export async function signUp(email: string, password: string): Promise<User | null> {
-	try {
-		// Log the full URL we're trying to fetch
-		const url = '/api/verify/signup';
-		console.log('Signing up at:', url);
-		
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email, password })
-		});
-		
-		// Check if response is ok
-		if (!response.ok) {
-			console.error('Sign-up failed:', response.status, response.statusText);
-			
-			// Try to get error message from response
-			const errorData = await response.json().catch(() => null);
-			if (errorData && errorData.error) {
-				throw new Error(errorData.error);
-			}
-			
-			throw new Error(`Sign-up failed with status: ${response.status}`);
-		}
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		currentUser.set(data.user);
-		return data.user;
-	} catch (error) {
-		console.error('Sign-up error:', error instanceof Error ? error.message : String(error));
-		return null;
-	}
+    try {
+        // Log the full URL we're trying to fetch (like in your signIn function)
+        const url = '/api/verify/signup';
+        console.log('Signing up at:', url);
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        
+        // Check if response is ok
+        if (!response.ok) {
+            console.error('Sign-up failed:', response.status, response.statusText);
+            
+            // Try to get error message from response
+            const errorData = await response.json().catch(() => null);
+            if (errorData && errorData.error) {
+                throw new Error(errorData.error);
+            }
+            
+            throw new Error(`Sign-up failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Unknown error during sign-up');
+        
+        currentUser.set(data.user);
+        return data.user;
+    } catch (error) {
+        console.error('Sign-up error:', error instanceof Error ? error.message : String(error));
+        // Return null instead of rethrowing, just like in signIn
+        return null;
+    }
 }
-
 export async function signIn(email: string, password: string): Promise<AuthModel | null> {
 	try {
 		// Log the full URL we're trying to fetch
