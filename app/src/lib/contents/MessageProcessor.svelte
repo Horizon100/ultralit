@@ -78,28 +78,28 @@
     strongEl.parentNode?.replaceChild(clone, strongEl);
     
     // Add citation hover effect
-    // clone.addEventListener('mouseenter', (e) => {
-    //   const target = e.currentTarget as HTMLElement;
-    //   const text = target.textContent || '';
-    //   target.style.cursor = 'pointer';
-    //   target.style.textDecoration = 'underline';
-    //   target.title = `Click to search for "${text}" on ${$currentCite}`;
-    // });
+    clone.addEventListener('mouseenter', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const text = target.textContent || '';
+      target.style.cursor = 'pointer';
+      target.style.textDecoration = 'underline';
+      target.title = `Click to search for "${text}" on ${$currentCite}`;
+    });
     
-    // clone.addEventListener('mouseleave', (e) => {
-    //   const target = e.currentTarget as HTMLElement;
-    //   target.style.textDecoration = 'none';
-    // });
+    clone.addEventListener('mouseleave', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      target.style.textDecoration = 'none';
+    });
     
-    // // Add click handler to open citation source
-    // clone.addEventListener('click', (e) => {
-    //   const target = e.currentTarget as HTMLElement;
-    //   const text = target.textContent || '';
-    //   if (text) {
-    //     const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
-    //     window.open(url, '_blank');
-    //   }
-    // });
+    // Add click handler to open citation source
+    clone.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const text = target.textContent || '';
+      if (text) {
+        const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+      }
+    });
   });
 }
 
