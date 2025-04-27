@@ -102,7 +102,7 @@ $themes: (
 		font-family: 'Helvetica Neue',
 		primary-color: #3a2c3f,
 		secondary-color: #4a3951,
-		tertiary-color: #e90000,
+		tertiary-color: rgb(210, 151, 205),
 		line-color: rgba(54, 64, 64, 0.5),
 
 	),
@@ -127,13 +127,13 @@ $themes: (
 		bg-gradient-r: linear-gradient(to top, #699999, #f1f3f5),
 		bg-gradient-left: linear-gradient(to left, #699999, #f1f3f5),
 		bg-gradient-right: linear-gradient(to right, #699999, #f1f3f5),
-		text-color: #000000,
+		text-color: rgb(25, 46, 48),
 		placeholder-color: rgb(0, 0, 0, 0.5),
 		font-family: 'Century Gothic, sans-serif',
 		primary-color: #ffffff,
 		secondary-color: #e4e4e4,
 		tertiary-color: #8ea0a2,
-		line-color: rgba(54, 64, 64, 0.5),
+		line-color: rgba(0, 234, 234, 0.5),
 
 	),
 	ivoryx: (
@@ -513,7 +513,7 @@ pre.code-block {
 
 	.tabs-navigation {
 		display: flex;
-		justify-content: center;
+		justify-content: flex-start;
 		border-bottom: 1px solid var(--border-color);
 		margin-bottom: 1rem;
 		width: 100%;

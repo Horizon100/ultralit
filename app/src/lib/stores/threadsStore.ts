@@ -940,13 +940,11 @@ function getSortOptionInfo(option: ThreadSortOption): SortOptionInfo {
 	return get(threadsStore);
   }
   
-  // Create a dedicated accessor for the showThreadList property
   export const showThreadList = derived(
 	threadsStore.showThreadList,
 	$showThreadList => $showThreadList
   );
   
-  // Set up automatic refresh of thread times when browser is available
   if (browser) {
 	setInterval(() => {
 	  threadsStore.refreshThreadTimes();

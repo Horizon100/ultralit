@@ -384,6 +384,50 @@
 		>
 		<img src={horizon100} alt="Horizon100" class="logo" />
 		<h2>vRAZUM</h2>
+		<button
+		class="nav-button" 
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/canvas'}
+		on:click={() => {
+			navigateTo('/canvas');
+			if (isNavExpanded) {
+			isNavExpanded = false;
+			}
+		}}			
+		>
+		<Combine />
+		
+		{#if isNavExpanded}
+		<span class="nav-text">Canvas</span>
+	  {/if}
+	</button>
+	<button
+		class="nav-button"
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/notes'}
+		on:click={() => {
+			navigateTo('/notes');
+			if (isNavExpanded) {
+			isNavExpanded = false;
+			}
+		}}	
+		>
+		<NotebookTabs />
+		{#if isNavExpanded}
+		  <span class="nav-text">Notes</span>
+		{/if}
+	</button>
+	<button
+		class="nav-button"
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/lean'}
+		on:click={() => navigateTo('/lean')}
+	>
+		<SquareKanban />
+		{#if isNavExpanded}
+			<span class="nav-text">Lean</span>
+		{/if}
+	</button>
 
 		<a
 		href="https://github.com/Horizon100/ultralit"
@@ -393,14 +437,14 @@
 		<button class="icon">
 			<Github size="30" />
 		</button>
-	</a>
+		</a>
 		{#if isNavExpanded}
 		<!-- <h2>vRAZUM</h2> -->
 
 		{/if}
 	</button>
 		<button
-			class="nav-button"
+			class="nav-button drawer"
 			class:expanded={isNavExpanded}
 			class:active={currentPath === '/'}
 			on:click={(event) => {
@@ -428,50 +472,6 @@
 			<span class="nav-text">Chat</span>
 			{/if}
 		</button>
-			<button
-				class="nav-button" 
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/canvas'}
-				on:click={() => {
-					navigateTo('/canvas');
-					if (isNavExpanded) {
-					isNavExpanded = false;
-					}
-				}}			
-				>
-				<Combine />
-				
-				{#if isNavExpanded}
-				<span class="nav-text">Canvas</span>
-			  {/if}
-			</button>
-			<button
-				class="nav-button"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/notes'}
-				on:click={() => {
-					navigateTo('/notes');
-					if (isNavExpanded) {
-					isNavExpanded = false;
-					}
-				}}	
-				>
-				<NotebookTabs />
-				{#if isNavExpanded}
-				  <span class="nav-text">Notes</span>
-				{/if}
-			</button>
-			<button
-				class="nav-button"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/lean'}
-				on:click={() => navigateTo('/lean')}
-			>
-				<SquareKanban />
-				{#if isNavExpanded}
-					<span class="nav-text">Lean</span>
-				{/if}
-			</button>
 
 				<button 
 				class="nav-button info user" 
@@ -714,6 +714,7 @@
 
 		}
 		&:hover {
+			background: var(--tertiary-color);
 		}
 	}
 
@@ -1053,7 +1054,6 @@
 
 	.style-content {
 		background-color: #2b2a2a;
-		padding: 1rem;
 		border: 1px solid rgb(69, 69, 69);
 		border-radius: 20px;
 		position: relative;
@@ -1101,6 +1101,7 @@
 		/* padding: 20px; */
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
 	}
 
 	.nav-links {
@@ -1499,16 +1500,112 @@
 		text-align: center;
 		padding: 2rem;
 	}
-	@media (max-width: 1000px) {
+	.sidenav {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: flex-start;
+		gap: 10px;
+		position: absolute;
+		left: 0;
+		right: 50% !important;
+		top: 0;
+		bottom: 0;
+		padding: 0 0.5rem;
+		z-index:1000;
+		width: 3rem;
+		border-radius: 0 1rem 1rem 0;
+		transition: all 0.3s ease-in;
+		border: 0px solid transparent;
+		border-right: 1px solid transparent;
+		&.expanded {
+			width: 380px;
+			backdrop-filter: blur(30px);
+			border-right: 1px solid var(--bg-color);
+		}
+	}
 
+	@media (max-width: 1000px) {
+		main {
+		background: var(--bg-gradient-r);
+		color: var(--text-color);
+		width: 100%;
+		height: 100%;
+		height: auto;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		position: fixed;
+		display: flex;
+		flex-grow: 1;
+	}
 		h1 {
 			display: none;
 		}
-		.nav-button.info {
-			display: none !important;
+
+		.nav-button.drawer {
+			position: absolute;
+			left: 1rem;
+			bottom: 1rem;
+			padding: 0;
+			height: 2rem !important;
+			width: 2rem !important;
+			color: var(--placeholder-color);
+			border: 1px solid transparent !important;
 		}
-		.nav-button.user {
+		.nav-button.info {
+			position:fixed;
+			top: 0;
+			right: 0.5rem;
+			border-radius: auto;
+			align-items: center;
+			justify-content: center;
+			height: 3rem;
+			// display: none !important;
+			&:hover {
+				width: 20rem !important;
+				border-radius: 2rem;
+				padding: 0;
+
+				& .nav-button {
+				display: flex;
+			}
+			}
+			&:first-child {
+			display: flex;
+			}
+			& .nav-button {
+				display: none;
+				&:first-child {
+				display: flex;
+				}
+			}
+		}
+		.nav-button.info.user {
 			display: flex !important;
+			position: fixed !important;
+			top: 0;
+			right: 4rem;
+			z-index: -1;
+
+			& img.user-avatar {
+					width: 2rem !important;
+					height: 2rem !important;
+					padding: 0;
+
+				}
+			&:hover {
+				width: 6rem !important;
+				height: 6rem !important;
+
+				& img.user-avatar {
+					width: 4rem !important;
+					height: 4rem !important;
+					padding: 0;
+
+				}
+
+			}
 		}
 		.project {
 			position: absolute;
@@ -1584,37 +1681,17 @@
 			height: 100%;
 			height: auto;
 			left: 0;
-			top: 3rem;
 			bottom: 0;
 			position: fixed;
+			overflow: auto;
 			display: flex;
 			flex-grow: 1;
+			height: -webkit-fill-available; 
+
 		}
 
 	}
 
-	.sidenav {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		justify-content: flex-start;
-		gap: 10px;
-		position: fixed;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		padding: 0 0.5rem;
-		z-index:1000;
-		border-radius: 0 1rem 1rem 0;
-		transition: all 0.3s ease-in;
-		border: 0px solid transparent;
-		border-right: 1px solid transparent;
-		&.expanded {
-			width: 380px;
-			backdrop-filter: blur(30px);
-			border-right: 1px solid var(--bg-color);
-		}
-	}
 
 
 	// .sidenav:hover {
@@ -1732,6 +1809,7 @@
 		top: 0;
 		left: 0;
 		bottom: auto;
+		
 		/* right: 0; */
 		/* background-color: #2b2a2a; */
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
@@ -1796,13 +1874,15 @@
 
 	.nav-button.info {
 		display: flex;
-		justify-content: center;
+		justify-content: flex-start;
+		align-items: center;
 		animation: none !important;
 		background: var(--bg-color);
 		box-shadow: none !important;
 		&.user {
 			position: absolute;
 			bottom: 5rem;
+			width: auto;
 
 		}
 		span.icon {
@@ -1830,7 +1910,7 @@
 			// background: var(--primary-color);
 			opacity: 1;
 			width: 300px;
-			border-radius: 2rem;
+			border-radius: 0;
 
 			& .nav-text {
 				display: flex;
@@ -2131,7 +2211,9 @@
 	@media (max-width: 1000px) {
 		.nav-button.info {
 			display: flex;
+			flex-direction: row-reverse;
 			justify-content: center;
+			border-radius: 1rem !important;
 			animation: none !important;
 			&.user {
 				position: relative;
@@ -2161,8 +2243,7 @@
 				justify-content: space-around;
 				background: var(--primary-color);
 				opacity: 1;
-				width: 4rem;
-				height: 4rem;
+
 				border-radius: 2rem;
 				padding: 0;
 
@@ -2173,7 +2254,7 @@
 					display: none;
 				}
 				& a {
-					display: none;
+					display: flex;
 				}
 				span.icon {
 					display: none;
@@ -2217,7 +2298,7 @@
 			height: 50px !important;
 			flex-direction: row;
 			height: auto;
-			width: 100%;
+			width: auto;
 			bottom: 0;
 			gap: 10px;
 			left: 0;
@@ -2275,6 +2356,28 @@
 	}
 
 	@media (max-width: 450px) {
+		.sidenav {
+			display: flex;
+			justify-content: left;
+			// backdrop-filter: blur(30px);
+			background: transparent;
+			flex-direction: row;
+			height: 2rem;
+			width: 100%;
+			bottom: 0;
+			gap: 10px;
+			left: 0;
+			top: auto;
+			bottom: 0;
+			padding: 0;
+			z-index: 10;
+			border-radius: 0;
+			transition: all 0.3s ease-in;
+		}
+
+		.nav-button.drawer {
+			bottom: 0.5rem;
+		}
 
 		.navigation-buttons {
 			display: flex;

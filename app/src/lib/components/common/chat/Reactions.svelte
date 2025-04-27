@@ -24,7 +24,7 @@
     }>;
 
     type Reaction = {
-        symbol: typeof Bookmark | typeof Copy;
+        symbol: typeof Bookmark | typeof Copy ;
         action: string;
         label: string;
         isIcon: boolean;
@@ -127,7 +127,7 @@
                 <div class="reaction-content">
                     <svelte:component
                         this={reaction.symbol}
-                        size={24}
+                        size={20}
                         class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
                     />
                 </div>
@@ -149,7 +149,7 @@
 		position: relative; // Keep this
 		display: flex; // Changed from inline-block
 		overflow: visible; // Changed from hidden to show tooltips
-		justify-content: flex-start;
+		justify-content: flex-end;
 		height: auto;
 		width: 100%;
 		transition: width 0.3s ease-in-out;
@@ -233,4 +233,14 @@
 		fill: var(--tertiary-color) !important;
 		stroke: var(--tertiary-color) !important;
 	}
+
+    @media (max-width: 450px) {
+        .message-reactions {
+            button.reaction-btn {
+                padding: 0;
+
+
+            }
+        }
+    }
 </style>

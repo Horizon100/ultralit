@@ -704,13 +704,20 @@ input {
 	@media (max-width: 450px) {
 		.selector-container {
 			height: 100%;
+			border-radius: 0;
+			width: 100%;
 		}
 
 		.providers-list {
 			display: flex;
-			flex-direction: row;
+			flex-wrap: wrap;
 			height: auto;
-			overflow-x: scroll;
+			margin: auto;
+			width: 100%;
+			margin-right: 1rem !important;
+			backdrop-filter: blur(10px);
+			border-radius: 0;
+			overflow-x: none;
 			gap: var(--spacing-sm);
 		}
 

@@ -136,16 +136,16 @@
         display: flex;
         flex-wrap: wrap;
 		position: relative;
+		max-width: 500px;
         margin: 0;
-		max-width: 600px;
         text-align: left;
 		left: 0;
 		gap: 0;
-        justify-content: flex-start;
-        align-items: flex-start;
+        justify-content: center;
+        align-items: center;
         font-size: var(--font-size-m);
         color: var(--placeholder-color);
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 		border-radius: 2rem;
         line-height: 1.5;
 		padding: 1rem;
@@ -155,7 +155,6 @@
 	h2 {
 
 		margin-left: 2rem;
-		width: 100%;
 		padding: 1rem 0;
 		font-size: 1.5rem;
 		text-align: left;
@@ -197,8 +196,8 @@
 		gap: 0;
         width: 100%;
         text-align: center;
-        justify-content: flex-start;
-        align-items: flex-start;
+        justify-content: center;
+        align-items: center;
         font-size: var(--font-size-m);
         color: var(--placeholder-color);
         line-height: 1.5;
@@ -260,6 +259,12 @@
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
+		&.bone {
+			background-color: var(--primary-color);
+			color: var(--text-color);
+			font-family: var(--font-family);
+		}
+
 
 		&:hover,
 		&.active {
@@ -274,7 +279,7 @@
 	@media (max-width: 1000px) {
 		.style-switcher {
 			flex-direction: column;
-			padding: 0;
+			padding: 2rem;
 			width: auto;
 		}
 

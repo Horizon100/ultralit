@@ -27,12 +27,46 @@
   export function setTypingState(isTyping: boolean) {
   isTypingInProgress = isTyping;
 }
-  // Add citation functionality to DOM elements after render
   function enhanceWithCitations() {
-  // Skip all processing if typing is in progress
   if (isTypingInProgress) {
     return;
   }
+
+  const replyableElements = document.querySelectorAll('.message p strong, .message li, .message blockquote');
+  
+  replyableElements.forEach(element => {
+    const el = element as HTMLElement;
+    
+    // Generate an ID if needed
+    if (!el.id) {
+      el.id = `replyable-${Math.random().toString(36).substring(2, 15)}`;
+    }
+    
+    // Find parent message container to get message ID
+    const messageContainer = el.closest('.message');
+    if (messageContainer) {
+      const messageId = messageContainer.getAttribute('data-message-id') || 
+                        messageContainer.id.replace('message-', '');
+      
+      if (messageId) {
+        el.setAttribute('data-parent-msg', messageId);
+        el.classList.add('replyable');
+        
+        // Remove existing listeners to prevent duplicates
+        const clone = el.cloneNode(true) as HTMLElement;
+        el.parentNode?.replaceChild(clone, el);
+        
+        // Add hover effect
+        clone.addEventListener('mouseenter', () => {
+          clone.classList.add('hover-replyable');
+        });
+        
+        clone.addEventListener('mouseleave', () => {
+          clone.classList.remove('hover-replyable');
+        });
+      }
+    }
+  });
 
   const strongElements = document.querySelectorAll('.message p strong');
   
@@ -44,28 +78,28 @@
     strongEl.parentNode?.replaceChild(clone, strongEl);
     
     // Add citation hover effect
-    clone.addEventListener('mouseenter', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const text = target.textContent || '';
-      target.style.cursor = 'pointer';
-      target.style.textDecoration = 'underline';
-      target.title = `Click to search for "${text}" on ${$currentCite}`;
-    });
+    // clone.addEventListener('mouseenter', (e) => {
+    //   const target = e.currentTarget as HTMLElement;
+    //   const text = target.textContent || '';
+    //   target.style.cursor = 'pointer';
+    //   target.style.textDecoration = 'underline';
+    //   target.title = `Click to search for "${text}" on ${$currentCite}`;
+    // });
     
-    clone.addEventListener('mouseleave', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      target.style.textDecoration = 'none';
-    });
+    // clone.addEventListener('mouseleave', (e) => {
+    //   const target = e.currentTarget as HTMLElement;
+    //   target.style.textDecoration = 'none';
+    // });
     
-    // Add click handler to open citation source
-    clone.addEventListener('click', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const text = target.textContent || '';
-      if (text) {
-        const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
-        window.open(url, '_blank');
-      }
-    });
+    // // Add click handler to open citation source
+    // clone.addEventListener('click', (e) => {
+    //   const target = e.currentTarget as HTMLElement;
+    //   const text = target.textContent || '';
+    //   if (text) {
+    //     const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
+    //     window.open(url, '_blank');
+    //   }
+    // });
   });
 }
 

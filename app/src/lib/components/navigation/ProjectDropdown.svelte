@@ -565,6 +565,7 @@
       user-select: none;
       left:0;
       margin-left: 0;
+      z-index: 1000;
     }
     .dropdown-wrapper {
       display: flex;
@@ -699,10 +700,12 @@
     @media (max-width: 767px) {
       .trigger-text {
         font-size: 2rem;
+        margin-top: 0.5rem;
+        align-items: center;
       }
       span.trigger-display {
         display: flex;
-        font-size: 1rem;
+        font-size: 1.2rem;
         margin: 0;
         letter-spacing: 0.1rem;
       }

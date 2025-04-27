@@ -445,7 +445,7 @@ $: displayUser = completeUserData || user;
 						  </div>
 					</div>
 				</div>
-				<div class="info-stats">
+				<!-- <div class="info-stats">
 					<div class="info-column">
 						<span class="stat">{$t('profile.projects')}</span>
 						343
@@ -468,7 +468,7 @@ $: displayUser = completeUserData || user;
 						<Group/>
 						Connect
 					</button>
-				</div>
+				</div> -->
 			</div>
 
 			<!-- Tab Navigation -->
@@ -734,7 +734,7 @@ $: displayUser = completeUserData || user;
 	.profile-header {
 		display: flex;
 		flex-direction: row;
-		justify-content: space-between;
+		justify-content: center;
 		align-items: flex-start;
 		width: 100%;
 		max-width: 800px;
@@ -754,6 +754,7 @@ $: displayUser = completeUserData || user;
 		}
 		.info-row {
 			display: flex;
+			justify-content: center;
 			height: auto;
 			padding: 0.5rem;
 			font-size: 2.5rem;
@@ -791,7 +792,7 @@ $: displayUser = completeUserData || user;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		align-items: left;
+		align-items: center;
 		min-width: 300px;
 	}
 
@@ -879,8 +880,9 @@ $: displayUser = completeUserData || user;
 
 	.style-content {
 		display: flex;
-		justify-content: right;
-		border: 1px solid rgb(69, 69, 69);
+		justify-content: center;
+		align-items: center;
+		// border: 1px solid rgb(69, 69, 69);
 		border-radius: 50px;
 		position: relative;
 		height: 100%;

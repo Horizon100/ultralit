@@ -5,7 +5,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon} from 'lucide-svelte';
   import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
@@ -69,7 +69,11 @@
   let textareaElement: HTMLTextAreaElement | null = null;
 
   let isUpdatingThreadName = false;
-
+  let activeReplyMenu: { 
+  elementId: string; 
+  position: { x: number; y: number; }; 
+} | null = null;  
+let replyText = '';
   let lastLoadedProjectId: string | null = null;
   let isLoadingThreads = false;
   let isLoadingProject = false;
@@ -81,6 +85,9 @@
   // let deg = 0;
   // Chat-related state
   let isUpdatingModel = false;
+  let showTextModal = false;
+  let textTooLong = false;
+  const MAX_VISIBLE_CHARS = 200;
 
   let messages: Messages[] = [];
   let chatMessages: InternalChatMessage[] = [];
@@ -178,6 +185,8 @@
   let filteredProjects: Projects[] = [];
   let showSortOptions = false;
   let showUserFilter = false;
+  let selectedSystemPrompt: string | null = null;
+
   import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur } from '$lib/stores/textareaFocusStore';
 
   const unsubscribeFromModel = modelStore.subscribe(state => {
@@ -376,9 +385,29 @@ function toggleAiActive() {
       }
     };
   }
+
+  function processMessageContentWithReplyable(content: string, messageId: string): string {
+  if (!content || typeof content !== 'string') return content || '';
+  
+  // Create a temporary element to process the content
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = content;
+  
+  // Add data attributes to elements that can be replied to
+  const replyableElements = tempDiv.querySelectorAll('p, li, ul, ol, blockquote, pre, code, strong, em');
+  replyableElements.forEach(el => {
+    if (!el.id) {
+      el.id = `replyable-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    el.setAttribute('data-parent-msg', messageId);
+    el.classList.add('replyable');
+  });
+  
+  return tempDiv.innerHTML;
+}
   function getLastMessage(): Messages | null {
     if (messages && messages.length > 0) {
-      return messages[messages.length - 1]; // Returns the last message in the array
+      return messages[messages.length - 1];
     }
     return null;
   }
@@ -414,7 +443,185 @@ function toggleAiActive() {
 }
 
 
+function handleReplyableClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  const selection = window.getSelection();
 
+  if (target.classList.contains('replyable') && 
+      (!selection || selection.toString().length === 0)) {
+    event.stopPropagation();
+    
+    // Close menu if clicking the same element
+    if (activeReplyMenu && activeReplyMenu.elementId === target.id) {
+      activeReplyMenu = null;
+      return;
+    }
+    
+    // Position the menu near the clicked element
+    const rect = target.getBoundingClientRect();
+    const position = {
+      x: rect.left + window.scrollX,
+      y: rect.bottom + window.scrollY
+    };
+    
+    activeReplyMenu = {
+      elementId: target.id,
+      position
+    };
+    
+    // Reset reply text
+    replyText = '';
+  } else if (!target.closest('.reply-menu')) {
+    // Close menu if clicking outside
+    activeReplyMenu = null;
+  }
+}
+function handleReplyableDoubleClick(event: MouseEvent) {
+  // Allow text selection on double-click without showing menu
+  const target = event.target as HTMLElement;
+  if (target.classList.contains('replyable')) {
+    event.stopPropagation();
+    return;
+  }
+}
+
+async function submitReply(elementId: string, text: string = '') {
+  try {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const parentMsgId = element.getAttribute('data-parent-msg');
+    if (!parentMsgId) return;
+    
+    // Find the parent message in the chat messages
+    const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
+    if (!parentMessage) return;
+    
+    // Use the parent message's thread ID
+    const threadId = parentMessage.thread || currentThreadId;
+    
+    // Get quoted element content
+    const quotedText = element.textContent?.trim() || '';
+    
+    // Format the message content to include the quoted text
+    let messageContent = '';
+      if (text) {
+        // Format quoted text as a markdown blockquote
+        const formattedQuote = quotedText
+          .split('\n')
+          .map(line => `> ${line}`)
+          .join('\n');
+        
+        messageContent = `${formattedQuote}\n\n${text}`;
+      } else {
+        // If no text was provided (re-prompt), just use the quoted text
+        messageContent = `Re-prompt: "${quotedText}"`;
+      }
+    
+    // Close the menu
+    activeReplyMenu = null;
+    
+    // Create a temporary UI message
+    const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
+    chatMessages = [...chatMessages, userMessageUI];
+    
+    // Save the message using the messagesStore's saveMessage method
+    const userMessage = await messagesStore.saveMessage({
+      text: messageContent,
+      type: 'human',
+      thread: threadId, // Use the thread ID from the parent message
+      parent_msg: parentMsgId, // Set parent message ID
+      prompt_type: promptType
+    }, threadId); // Pass thread ID as second parameter
+    
+    // Check if AI should respond
+    if ($isAiActive) {
+      // Show thinking indicator
+      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
+      thinkingMessageId = thinkingMessage.id;
+      chatMessages = [...chatMessages, thinkingMessage];
+      
+      // Get context messages for this thread
+      const contextMessages = chatMessages
+        .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
+        .filter(({ role, content }) => role && content)
+        .map(({ role, content }) => ({
+          role,
+          content: role === 'user' && promptType 
+            ? `[Using ${promptType} prompt]\n${content.toString()}`
+            : content.toString(),
+          model: aiModel.api_type,
+        }));
+      
+      if (contextMessages.length === 0) {
+        throw new Error('No valid messages to send');
+      }
+      
+      // Add prompt type if needed
+      if (promptType) {
+        contextMessages.unshift({
+          role: 'system',
+          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+          model: aiModel.api_type,
+        });
+      }
+      
+      // Fetch AI response
+      const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
+      
+      // Remove thinking message
+      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+      
+      // Save AI response
+      const assistantMessage = await messagesStore.saveMessage({
+        text: aiResponse,
+        type: 'robot',
+        thread: threadId,
+        parent_msg: userMessage.id,
+        prompt_type: promptType,
+        model: aiModel.api_type,
+      }, threadId);
+      
+      // Add assistant message to UI
+      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      chatMessages = [...chatMessages, newAssistantMessage];
+      typingMessageId = newAssistantMessage.id;
+      
+      // Type the message
+      await typeMessage(aiResponse);
+    }
+  } catch (error) {
+    console.error("Message handling error:", error);
+    // Handle error (show notification, etc.)
+  }
+}
+
+function toggleReplies(messageId: string) {
+  const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+  const repliesContainer = document.querySelector(`.replies-to-${messageId}`);
+  
+  if (messageElement && repliesContainer && chatMessagesDiv) {
+    // Toggle visibility
+    const isHidden = repliesContainer.classList.toggle('hidden');
+    
+    // Hide thread list
+    threadsStore.update(store => ({ ...store, showThreadList: false }));
+
+    if (!isHidden) {
+      // Calculate position of the message element
+      const containerRect = chatMessagesDiv.getBoundingClientRect();
+      const elementRect = messageElement.getBoundingClientRect();
+      const scrollPosition = elementRect.top - containerRect.top + chatMessagesDiv.scrollTop;
+      
+      // Scroll with some padding
+      const offset = 0;
+      chatMessagesDiv.scrollTo({
+        top: scrollPosition - offset,
+        behavior: 'smooth'
+      });
+    }
+  }
+}
 
 export async function loadProjectThreads(projectId?: string): Promise<void> {
     // If no project ID is provided, we're loading all threads for the user
@@ -971,6 +1178,25 @@ export function toggleSection(section: keyof ExpandedSections): void {
   }
 }
 
+function getThreadedReplies(parentId, allMessages, depth = 0) {
+  let result = [];
+  
+  // Get direct replies to this parent
+  const directReplies = allMessages.filter(msg => msg.parent_msg === parentId);
+  
+  // Add each direct reply and its nested replies
+  directReplies.forEach(reply => {
+    // Add the current reply with its depth
+    result.push({ ...reply, depth });
+    
+    // Recursively add all replies to this reply
+    const nestedReplies = getThreadedReplies(reply.id, allMessages, depth + 1);
+    result = [...result, ...nestedReplies];
+  });
+  
+  return result;
+}
+
 function resetTextarea() {
   userInput = '';
   
@@ -1511,6 +1737,22 @@ function refreshPromptSuggestions() {
   }
 };
 
+function getAvatarUrl(user: any): string {
+	  if (!user) return '';
+	  
+	  // If avatarUrl is already provided (e.g., from social login)
+	  if (user.avatarUrl) return user.avatarUrl;
+	  
+	  // For PocketBase avatars
+	  if (user.avatar) {
+		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+	  }
+	  
+	  // Fallback - no avatar
+	  return '';
+	}
+	
+
   async function goBack() {
   console.log('Back button clicked');
   console.log('Initial state:', {
@@ -1940,7 +2182,8 @@ onMount(async () => {
   try {
     console.log('onMount initiated');
     // enhanceWithCitations();
-
+    document.addEventListener('click', handleReplyableClick);
+  
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
@@ -1961,6 +2204,7 @@ onMount(async () => {
         await modelStore.initialize($currentUser.id);
         modelInitialized = true;
         refreshPromptSuggestions();
+        
       } catch (error) {
         console.error('Error initializing models:', error);
         
@@ -2029,13 +2273,57 @@ onMount(async () => {
     console.error('Error during onMount:', error);
   }
   return () => {
+    document.removeEventListener('click', handleReplyableClick);
+
       unsubscribe();
     };
 });
+function setupReplyableHandlers() {
+  document.querySelectorAll('.replyable').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      
+      // Close menu if clicking the same element
+      if (activeReplyMenu && activeReplyMenu.elementId === target.id) {
+        activeReplyMenu = null;
+        return;
+      }
+      
+      // Position the menu near the clicked element
+      const rect = target.getBoundingClientRect();
+      const position = {
+        x: Math.min(rect.left + window.scrollX, window.innerWidth - 300), // Ensure menu doesn't go off-screen
+        y: Math.min(rect.bottom + window.scrollY, window.innerHeight - 200)
+      };
+      
+      activeReplyMenu = {
+        elementId: target.id,
+        position
+      };
+      
+      // Reset reply text
+      replyText = '';
+    });
+  });
+  
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (activeReplyMenu && !(e.target as HTMLElement).closest('.reply-menu') && 
+        !(e.target as HTMLElement).classList.contains('replyable')) {
+      activeReplyMenu = null;
+    }
+  });
+}
 
 // Update the afterUpdate lifecycle function to handle real-time updates
 afterUpdate(() => {
   // enhanceWithCitations();
+  if (!isTypingInProgress) {
+    setTimeout(() => {
+      setupReplyableHandlers();
+    }, 100);
+  }
   if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     lastMessageCount = chatMessages.length;
@@ -2166,11 +2454,11 @@ onDestroy(() => {
                 on:mouseleave={() => searchHovered = false}
               >
                   <Search />
-                  {#if searchHovered && !isExpanded}
+                  <!-- {#if searchHovered && !isExpanded}
                     <span class="filter-badge" in:fade>
                       search
                     </span>
-                  {/if}
+                  {/if} -->
               </button>
               {#if isExpanded}
               <input
@@ -2659,25 +2947,27 @@ onDestroy(() => {
             <div class="date-divider">
               {formatDate(date)}
             </div>
+            
             {#each messages as message (message.id)}
-              <div class="message {message.role}" class:latest-message={message.id === latestMessageId} in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+            {#if !message.parent_msg || !chatMessages.some(m => m.id === message.parent_msg)}
+
+              <div class="message {message.role}" class:latest-message={message.id === latestMessageId} 
+              data-message-id={message.id} 
+              in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}"
+              >
                 <div class="message-header">
                   {#if message.role === 'user'}
                     <div class="user-header">
                       <div class="avatar-container">
-                        {#if message.type === 'human' && message.user}
-                          {#await getUserProfile(message.user) then userProfile}
-                            {#if userProfile && userProfile.avatarUrl}
-                              <img src={userProfile.avatarUrl} alt="User avatar" class="avatar" />
-                            {:else}
-                              <div class="avatar-placeholder">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                              </div>
-                            {/if}
-                          {/await}
+                        {#if getAvatarUrl($currentUser)}
+                        <img 
+                          src={getAvatarUrl($currentUser)}
+                          alt="User avatar" 
+                          class="user-avatar" 
+                        />
                         {:else}
-                          <div class="avatar-placeholder">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                          <div class="default-avatar">
+                            {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
                           </div>
                         {/if}
                       </div>
@@ -2696,16 +2986,132 @@ onDestroy(() => {
                       <Bot size="50" color="white" />
                     </span> -->
                   {:else if message.role === 'assistant'}
-                    <div class="user-header">
-                      <!-- <div class="avatar-container">
+                    <!-- <div class="user-header">
+                      <div class="avatar-container">
                         <Bot color="white" />
-                      </div> -->
-                      <!-- <span class="role">{message.prompt_type}</span> -->
+                      </div>
+                      <span class="role">{message.prompt_type}</span>
                       <span class="model">{message.model}</span>
-                    </div>
+                    </div> -->
                   {/if}
                 </div>
-                <p class:typing={message.isTyping}>{@html message.content}</p>
+                <p class:typing={message.isTyping}>
+                  {@html processMessageContentWithReplyable(message.content, message.id)}
+                </p>
+                <div class="replies-section">
+                  {#if chatMessages.filter(msg => msg.parent_msg === message.id).length > 0}
+                    <button class="toggle-replies-btn" 
+                    on:click={() => toggleReplies(message.id)} 
+
+                    >
+                      <span class="replies-indicator">
+                        <MessagesSquare/>
+                          {chatMessages.filter(msg => msg.parent_msg === message.id).length} 
+                        replies
+
+                      </span>
+                    </button>
+                  {/if}
+                  
+                  <div class="replies-container replies-to-{message.id}">
+                    {#each getThreadedReplies(message.id, chatMessages) as reply (reply.id)}
+                    <div class="reply-message {reply.role}" in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                        <div class="reply-indicator"></div>
+                        <div class="reply-content">
+                          <div class="message-header">
+                            {#if reply.role === 'user'}
+                            <div class="avatar-container">
+                              {#if getAvatarUrl($currentUser)}
+                              <img 
+                                src={getAvatarUrl($currentUser)}
+                                alt="User avatar" 
+                                class="user-avatar" 
+                              />
+                              {:else}
+                                <div class="default-avatar">
+                                  {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+                                </div>
+                              {/if}
+                            </div>
+                              <div class="user-header">
+                                <span class="role">
+                                  {#if reply.type === 'human' && reply.user}
+                                    {#await getUserProfile(reply.user) then userProfile}
+                                      {userProfile ? userProfile.name : name}
+                                    {/await}
+                                  {:else}
+                                    {name}
+                                  {/if}
+                                </span>
+                              </div>
+                            {:else if reply.role === 'assistant'}
+
+                              <div class="user-header">
+                                <span class="model"> <Bot />
+                                  {reply.model}</span>
+                              </div>
+                            {/if}
+                          </div>
+                          <p>{@html reply.content}</p>
+                        </div>
+                      </div>
+                  <div class="message-footer">
+                    {#if reply.role === 'user'}
+                    {:else if reply.role === 'assistant'}
+
+                    <Reactions 
+                      {message}
+                      {userId}
+                      on:update={async (event) => {
+                        const { messageId, reactions } = event.detail;
+                        await messagesStore.updateMessage(messageId, { reactions });
+                        chatMessages = chatMessages.map(msg => 
+                          msg.id === messageId 
+                            ? { ...msg, reactions }
+                            : msg
+                        );
+                      }}
+                      on:notification={(event) => {
+                        console.log(event.detail);
+                      }}
+                    />
+                    {/if}
+
+                  </div>
+                    {/each}
+                  </div>
+                </div>                
+                <!-- {#if message.id}
+                <div class="replies-container replies-to-{message.id}">
+                  {#each chatMessages.filter(msg => msg.parent_msg === message.id) as reply (reply.id)}
+                    <div class="reply-message {reply.role}" in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                      <div class="reply-indicator"></div>
+                      <div class="reply-content">
+                        <div class="message-header">
+                          {#if reply.role === 'user'}
+                            <div class="user-header">
+                              <span class="role">
+                                {#if reply.type === 'human' && reply.user}
+                                  {#await getUserProfile(reply.user) then userProfile}
+                                    {userProfile ? userProfile.name : name}
+                                  {/await}
+                                {:else}
+                                  {name}
+                                {/if}
+                              </span>
+                            </div>
+                          {:else if reply.role === 'assistant'}
+                            <div class="user-header">
+                              <span class="model">{reply.model}</span>
+                            </div>
+                          {/if}
+                        </div>
+                        <p>{@html reply.content}</p>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if} -->
                 {#if message.role === 'thinking'}
                   <div class="thinking-animation">
                     <span>
@@ -2740,14 +3146,33 @@ onDestroy(() => {
                   </div>
                 {/if}
               </div>
+              {/if}
             {/each}
+            {#if activeReplyMenu}
+            <div class="reply-menu" 
+            style="position: absolute; left: {activeReplyMenu.position.x}px; top: {activeReplyMenu.position.y}px;"
+            transition:fly="{{ y: 10, duration: 150 }}">
+              <div class="reply-options">
+                <button class="reply-option" on:click={() => submitReply(activeReplyMenu.elementId, '')}>
+                  <RefreshCcw size={16} />
+                  <span>Re-prompt AI</span>
+                </button>
+                <div class="reply-input-container">
+                  <textarea bind:value={replyText} placeholder="Type your reply..." rows="2"></textarea>
+                  <button class="send-reply" on:click={() => submitReply(activeReplyMenu.elementId, replyText)}>
+                    <MessageSquare size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
           {/each}
-      
+                    <!-- style="transform: translateY({scrollPercentage * 0.5}%);" -->
+
           {#if showScrollButton}
             <button 
               class="scroll-bottom-btn" 
               on:click={scrollToBottom}
-              style="transform: translateY({scrollPercentage * 0.5}%);"
             >
               <ChevronDown />
             </button>
@@ -2798,24 +3223,41 @@ onDestroy(() => {
               {/if}
             </div>
             <div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
-              <textarea 
-                bind:this={textareaElement}
-                bind:value={userInput}
-                class:quote-placeholder={isTextareaFocused}
-                on:input={(e) => adjustFontSize(e.target)}
-                on:keydown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    !isLoading && handleSendMessage();
-                    // {onTextareaBlur};
-                  }
-                }}      
-                on:focus={onTextareaFocus}
-                on:blur={onTextareaBlur}
-                placeholder={currentPlaceholder}
-                disabled={isLoading}
-                rows="1"
-              />
+              {#if userInput.length > MAX_VISIBLE_CHARS && !isTextareaFocused}
+                <div class="text-preview-container">
+                  <button class="text-preview-btn" on:click={() => showTextModal = true}>
+                    View/Edit Text ({userInput.length} chars)
+                  </button>
+                  <button class="text-trash-btn" on:click={() => userInput = ''}>
+                    <TrashIcon size={16} />
+                  </button>
+                </div>
+              {:else}
+                <textarea 
+                  bind:this={textareaElement}
+                  bind:value={userInput}
+                  class:quote-placeholder={isTextareaFocused}
+                  on:input={(e) => {
+                    adjustFontSize(e.target);
+                    textTooLong = e.target.value.length > MAX_VISIBLE_CHARS;
+                  }}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      !isLoading && handleSendMessage();
+                    }
+                  }}      
+                  on:focus={onTextareaFocus}
+                  on:blur={() => {
+                    onTextareaBlur();
+                    textTooLong = userInput.length > MAX_VISIBLE_CHARS;
+                  }}
+                  placeholder={currentPlaceholder}
+                  disabled={isLoading}
+                  rows="1"
+                />
+              {/if}
+              
               {#if $isTextareaFocused}
 
               <div class="btn-row"
@@ -3040,7 +3482,8 @@ onDestroy(() => {
     background: var(--primary-color) !important;
     text-align: left;
     font-weight: 800;
-    font-size: 1.8rem;
+    font-size: auto;
+    line-break: strict;
     color: var(--text-color);
     padding-inline-start: 1rem !important;
 
@@ -3115,7 +3558,6 @@ onDestroy(() => {
       margin-top: 0;
       margin-bottom: 0;
       transition: all 0.3s ease;
-
       &:hover {
         background: var(--primary-color);
         transform: translateX(1rem);
@@ -3262,23 +3704,29 @@ onDestroy(() => {
 
       // Spacing between heading and content
       strong, b {
-        font-weight: 800;
-        background: var(--bg-color);
-        color: var(--tertiary-color);
+        // font-weight: 800;
+        // background: var(--bg-color);
+        // color: var(--tertiary-color);
         transition: all 0.3s ease;
+        color: var(--text-color);
         border-radius: 1rem;
-
+        // display: block;
+        margin-bottom: 1em;
 
         &:hover {
-          background: var(--tertiary-color);
-          color: var(--text-color);
-          padding: 1rem;
-          font-size: 1.5rem;
-          border-radius: 2rem;
+          // background: var(--tertiary-color);
+          // color: var(--text-color);
+          // padding: 1rem;
+          // font-size: 1.5rem;
+          // border-radius: 2rem;
           
         }
 
       }
+      strong + p, b + p {
+    display: block;
+    margin-top: 1em;
+}
 
       .message.assistant div div {
   // Code block styling
@@ -3446,9 +3894,7 @@ p div {
   span.header-btns {
       display: flex;
       flex-direction: row;
-      position: absolute;
       right: 0;
-      gap: rem;
       width: auto;
       margin-right: 0;
     }
@@ -3584,11 +4030,14 @@ p div {
     }
     &.model {
       display: flex;
-      background-color: var(--secondary-color);
+      background-color: var(--primary-color) !important;
       box-shadow:rgba(128, 128, 128, 0.8);
       justify-content: center;
       align-items: center;
+      padding: 0.5rem;
+      gap: 0.5rem;
       border-radius: 1rem;
+      margin-bottom: 1rem;
     }
     &.delete-card-container {
       border: none;
@@ -4204,7 +4653,7 @@ p div {
     justify-content: flex-end;
 
     // background: var(--bg-gradient);
-    z-index: 1;
+    z-index:7700;
 
 
     &::placeholder {
@@ -4272,7 +4721,7 @@ p div {
     margin-top: 0;
     margin-bottom: 0;
     position: relative;
-    justify-content: flex-start;
+    justify-content: flex-end;
     align-items: center;
     // justify-content:space-between;
     transition: all 0.3s ease;
@@ -4393,7 +4842,7 @@ p div {
       // box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
       // border-bottom: 1px solid var(--placeholder-color);
     // border-top-left-radius: 0;
-    min-height: 400px !important;
+    min-height: 300px;
     // background: var(--primary-color);
     // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
         // margin: 2.5rem;
@@ -4483,7 +4932,6 @@ color: #6fdfc4;
     display: flex;
     position: relative;
     left: 1rem;
-    right: 3rem;
     margin-bottom: 0;
     margin-top: 0;
     // left: 25%;
@@ -4622,7 +5070,6 @@ color: #6fdfc4;
     & p {
       font-size: calc(0.5rem + 1vmin);
       margin: 0;
-      padding-left: 0.5rem;
       display: flex;
       flex-direction: column;
       white-space: pre-wrap;
@@ -4631,7 +5078,8 @@ color: #6fdfc4;
       hyphens: auto;
       text-align: left;
       height: fit-content;
-      line-height: 2;
+      line-height: 1.5;
+
       // margin-left: 1rem;
       // margin-right: 1rem;
       // padding-left: 1rem;
@@ -4711,13 +5159,20 @@ color: #6fdfc4;
     &.user {
       display: flex;
       flex-direction: column;
-      align-self: flex-end;
+      align-self: flex-start;
+      // border: 1px solid var(--line-color);
       color: var(--text-color);
-      background-color: var(--secondary-color);
-      border-radius: var(--radius-m);
+      // background-color: transparent;
+      // border-bottom: 1px solid var(--line-color);
       height: auto;
-      margin-right: 0.5rem;
-      max-width: 600px;
+      margin-right: 3.5rem;
+      margin-left: 0;
+      border-top: 2px solid var(--line-color);
+      border-left: 2px solid var(--line-color);
+      border-bottom: 1px solid transparent;
+      border-radius: 0;
+      max-width: 1200px;
+      width: calc(100% - 2rem);
       min-width: 200px;
       font-weight: 500;
       // background: var(--bg-color);
@@ -4725,17 +5180,58 @@ color: #6fdfc4;
         // top: 1px solid var(--primary-color);
         // left: 1px solid red;
       }
+      // border-top-left-radius: 1rem!important;
       // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
-
-      
+      // border-bottom-left-radius: 3rem !important;
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+      &:hover {
+        cursor: pointer;
+        // backdrop-filter: blur(30px);
+        box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
 
+        // border: 1px solid var(--line-color);
+        border-left: 2px solid var(--tertiary-color);
+        // background: var(--primary-color) !important;
+
+      }
+      &:hidden {
+        background-color: red;
+      }
+        &:nth-child(even) {
+      }
     }
     
   }
   .message-header + p + div > div {
+    border-left: 3px solid #546e7a;
+  margin-left: 0;
+  padding-left: 12px;
+  color: var(--text-color);
   // Styles for the grid container divs
   // This targets the div that contains your code examples
+}
+
+.message p blockquote,
+.message p > blockquote {
+  border-left: 3px solid #546e7a;
+  margin-left: 0;
+  padding-left: 12px;
+  color: #b0bec5;
+  font-style: italic;
+}
+
+/* Style for quoted text in user messages */
+.message.user p > blockquote {
+  background-color: rgba(84, 110, 122, 0.1);
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+/* Format the quoted prefix in messages */
+.message p:has(> blockquote) + p,
+.message p blockquote + p {
+  margin-top: 8px;
 }
 
 // Target code blocks inside these nested divs
@@ -5316,6 +5812,7 @@ color: #6fdfc4;
     display: flex;
     flex-direction: row;
     margin-left: 0;
+    margin-top: 1rem;
     justify-content: flex-start;
     align-items: center;
     width: 100% ;
@@ -5515,6 +6012,8 @@ color: #6fdfc4;
     font-style: italic;
     color: var(--placeholder-color);
     opacity: 0.8;
+    padding: 1rem;
+    font-size: 1.2rem;
   }
   textarea {
     display: flex;
@@ -6149,11 +6648,180 @@ p.selector-lable {
 
 
 
+.drawer-visible .replies-container {
+  max-height: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  padding: 0;
+}
+.replies-container {
+  max-height: 100%;
+  transition: max-height 0.3s ease;
+  overflow-y: scroll;
+  // background: var(--bg-gradient-right);
+  // border: 1px solid var(--line-color);
+  padding: 0;
+  // border-top: 1px solid var(--line-color);
+  // background: var(--primary-color);
+  
+
+
+
+}
+
+.replies-section {
+  width: 100%;
+
+}
+
+.replies-container.hidden {
+  max-height: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  padding: 0;
+  background: transparent;
+
+
+
+}
+
+.reply-message {
+  display: flex;
+  margin-left: 0;
+  margin-top: 8px;
+  padding: 1rem;
+
+}
+.reply-message[data-depth="1"] { margin-left: 20px; }
+.reply-message[data-depth="2"] { margin-left: 40px; }
+.reply-message[data-depth="3"] { margin-left: 60px; }
+.reply-message[data-depth="4"] { margin-left: 80px; }
+.reply-message[data-depth="5"] { margin-left: 100px; }
+
+.reply-indicator {
+  border-left: 2px solid transparent;
+  margin-right: 12px;
+}
+
+.reply-content {
+  border: 1px solid var(--line-color);
+  border-radius: 4rem;
+  backdrop-filter: blur(30px);
+  // background-color: #2a2a2a;
+  // background: var(--bg-gradient-r);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  flex-grow: 1;
+  padding: 8px 12px;
+
+}
+
+.toggle-replies-btn {
+  background: none;
+  border: none;
+  color: #90caf9;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.replies-indicator {
+  display: flex;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  align-items: center;
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  transition: all 0.3s ease-in-out;
+  & p {
+    background: blue;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: auto;
+    gap: 0;
+    // display: none;
+  }
+  &:hover {
+    background: var(--primary-color);
+
+    & h3 {
+      display: flex;
+    }
+  }
+}
+
+.reply-menu {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  width: 280px;
+  z-index: 1000;
+}
+
+.reply-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reply-option {
+  background-color: #3a3a3a;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  transition: background-color 0.2s ease;
+}
+
+.reply-option:hover {
+  background-color: #4a4a4a;
+}
+
+.reply-input-container {
+  display: flex;
+  gap: 8px;
+}
+
+.reply-input-container textarea {
+  background-color: #3a3a3a;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  flex-grow: 1;
+  padding: 8px;
+  resize: none;
+}
+
+.send-reply {
+  background-color: #1976d2;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.send-reply:hover {
+  background-color: #1565c0;
+}
+
 
 .scroll-bottom-btn {
   position: fixed;
   bottom: 15rem !important;
-  right: 4rem;
+  right: 2rem;
   background-color: #21201d;
   color: white;
   border: 1px solid rgba(53, 63, 63, 0.5);
@@ -6407,9 +7075,116 @@ p.selector-lable {
   }
 
   @media (max-width: 1000px) {
+    .input-container-start {
+    display: flex;
+    flex-direction: column;
+    position: relative;
 
+    width: calc(100%);    
+    max-width: 1200px;
+    margin-top: 0;
+    height: auto;
+    right: 0;
+    bottom:0 !important;
+    margin-bottom: 0;
+    overflow-y: none;
+    // backdrop-filter: blur(4px);
+    justify-content: flex-end;
+    align-items: center;
+    // background: var(--bg-gradient);
+    z-index: 1;
 
+    & .combo-input {
+        background: var(--primary-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid var(--secondary-color);      
+        border-radius: 2rem;
+        width: 100%;
+        height: auto;
 
+    }
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+    
+    :global(svg) {
+      color: var(--primary-color);
+      stroke: var(--primary-color);
+      fill: var(--tertiary-color);
+    }
+
+    & textarea {
+      border: none;
+      box-shadow: none;
+      transition: all 0.3s ease;
+      background: var(--bg-color);
+      margin-top: 0 !important;
+      padding: 0;
+      margin: 0;
+      // backdrop-filter: blur(14px);
+      // margin-left: 7rem;
+      // padding-left: 1rem;
+      // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+      color: var(--text-color);
+      // background: transparent;
+      display: flex;
+      // backdrop-filter: blur(40px);
+      font-size: 1.5rem;
+      width: 100%;
+      border-radius: 0;
+      background: transparent;
+      // max-height: 400px;
+      // margin-left: 2rem !important;
+      // margin-right: 2rem !important;
+
+      & :focus {
+      color: white;
+      animation: none;
+      box-shadow: none;
+      overflow-y: auto !important;
+      transition: all 0.3s ease;
+      display: flex;
+      // background: var(--bg-gradient-left) !important;
+          // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+          // border-top: 4px solid var(--secondary-color) !important;
+
+      box-shadow: none !important;
+
+      }
+    }
+
+  }
+
+    .btn-row {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    height: auto;
+    // z-index: 8000;
+    // background: var(--bg-gradient-r);
+  }
+  .submission {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    width: auto;
+    height: auto;
+    justify-content: flex-end;
+    align-self: flex-end;
+    // padding: 0.5rem;
+    transition: all 0.3s ease;
+  }
 
   .btn-col-left {
     display: flex;
@@ -6442,9 +7217,7 @@ p.selector-lable {
     gap: 0rem;
 
   }
-  .submission {
-    width: calc(100% - 2rem);
-  }
+
 .selector-lable {
   display: none;
 
@@ -6466,7 +7239,7 @@ p.selector-lable {
 
 .chat-header {
   border-bottom: none;
-  background: var(--bg-color);
+  // background: var(--bg-color);
   box-shadow: none;
   backdrop-filter: none;
 
@@ -6543,7 +7316,7 @@ p.selector-lable {
       flex-direction: column;
       align-self: center;
       color: var(--text-color);
-      background-color: var(--secondary-color);
+      background-color: transparent;
       border-radius: var(--radius-m);
       height: auto;
       margin-right: 0;
@@ -6590,7 +7363,7 @@ p.selector-lable {
 
       
     .thread-filtered-results {
-      margin-bottom: 5rem;
+      margin-bottom: 0rem;
     }
     .chat-content {
       flex-grow: 1;
@@ -6725,20 +7498,39 @@ p.selector-lable {
       position: relative;
       width: 100%;
       margin-left: 0;
-      border-top-right-radius: var(--radius-m);
-      border-bottom-right-radius: var(--radius-m);
-      border-bottom-left-radius: var(--radius-m);
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
 
       margin-right: 0;
       padding: 0;
       cursor: pointer;
+
+      &:hover {
+      box-shadow: none;
+      background: var(--secondary-color) !important;
+
+        // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+        opacity: 1;
+        visibility: visible;
+        // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
+      }
+      &.selected {
+        backdrop-filter: blur(30px);
+        background: var(--primary-color);
+        border-radius: 0 !important;
+      }
+
+  
     }
     button.card-container {
       width: 96%;
       gap: 1rem;
       padding: 1rem;      
       margin-left: 1rem;
-    }
+
+
+  }
 
 
     .section-content {
@@ -6815,7 +7607,7 @@ p.selector-lable {
       width: auto;
       margin-right:0;
       margin-left: 0;
-      background: var(--bg-color);
+
       // backdrop-filter: blur(100px);
       // border-top: 1px solid var(--primary-color);
       // border-right: 1px solid var(--primary-color);
@@ -6827,10 +7619,11 @@ p.selector-lable {
       margin-right: 0;
       left: 0.5rem;
       border-radius: 0;
-      width: calc(100%);
+      width: calc(50%);
       height: auto;
       margin-bottom: auto;
-
+      backdrop-filter: blur(5px);
+      border-right: 1px solid var(--secondary-color);
       align-items: center;
       justify-content: center;
       // margin-bottom: 4rem;
@@ -6839,6 +7632,9 @@ p.selector-lable {
       /* z-index: 1000; */
     }
 
+    .drawer-visible .chat-messages {
+      margin-left: 50%;
+    }
 
     .drawer-visible .drawer {
       margin-left: -1rem;
@@ -6868,12 +7664,12 @@ p.selector-lable {
 
     .input-container {
       margin-right: 0;
-      margin-bottom: 5rem;
+      margin-bottom: 0;
       background: transparent;
     }
 
     .chat-messages {
-      right: 0rem !important;
+      right: 0rem;
     }
 
 }
@@ -7024,9 +7820,28 @@ p.selector-lable {
 }
 
 @media (max-width: 1000px) {
-  
+  .chat-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: var(--radius-m);
+  // background: var(--primary-color);
+  transition: all 0.3s ease;
+  margin-left: 0;
+  margin-right: 0;
+
+  margin-top: 0;
+  height: calc(100vh - 2rem);
+  user-select: none;
+  scrollbar-width:thin;
+  scrollbar-color: var(--secondary-color) transparent;
+  scroll-behavior: smooth;
+  width: 100%;
+  }
   .input-container {
     bottom: 1rem;
+    overflow: none;
   }
   span.header-btns {
       display: flex;
@@ -7050,9 +7865,10 @@ p.selector-lable {
   .chat-header-thread {
     margin-top: 1rem;
     margin-left: 0 !important;
-
+    justify-content: flex-start !important;
+    gap: 1rem;
     & span {
-      width: 100%;
+      width: auto;
     }
   }
 
@@ -7094,27 +7910,315 @@ p.selector-lable {
 
 
 @media (max-width: 450px) {
+
+  .message {
+    p {
+      font-size: 0.9rem;
+      letter-spacing: 0.1rem;
+      line-height:1.5;
+    }
+  }
+
+  button.toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center !important;
+    color: var(--placeholder-color) !important;
+    width:2rem !important;
+    height: 2rem;
+    border-radius: 1rem;
+    background: var(--bg-color);
+    border: 2px solid var(--line-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+
+    
+    &:hover {
+      background-color: var(--secondary-color);
+      color: var(--text-color) !important;
+    }
+    
+    &.active {
+      background-color: var(--secondary-color);
+      color: var(--text-color) !important;
+    }
+  }
+  
+  .button-label {
+    display: flex;
+    color: var(--placeholder-color);
+  }
+  .drawer-input {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  // padding: 0.75rem 0;
+  gap: 0.5rem;
+  border-radius: var(--radius-m);
+  height: auto;
+  width: 60px;
+  color: var(--bg-color);
+  transition: all 0.3s ease;
+
+
+
+  & button {
+    border-radius: var(--radius-m);
+    width: auto;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    justify-content: center;
+    z-index: 2000;
+    // &:hover{
+    //   // background: var(--secondary-color);
+    //   // box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
+    //   // transform: translateY(-10px);
+
+    // }
+  }
+
+    & input {
+      padding: 0.5rem;
+      border: none;
+      border-radius: var(--radius-m);
+      padding-left: 1rem;
+      outline: none;
+      margin-left: 2rem;
+      margin-right: 0;
+      width: 150px;
+      color: var(--text-color);
+      transition: all 0.3s ease;
+      font-size: 1rem;
+      &::placeholder {
+        color: var(--placeholder-color);
+      }
+      
+      &:focus {
+        background-color: var(--secondary-color);
+        position: absolute;
+        width: auto;
+        right: 2rem;
+        left: 4rem;
+        z-index: 1;
+        &::placeholder {
+          color: var(--placeholder-color);
+          
+        }
+      }
+    }
+}
+  .card-title {
+    font-weight: 300;
+    font-size: 1.1rem;
+    // font-size: var( --font-size-s);
+    margin-bottom: 0;
+    text-align: left;    
+  }
+  .card-title.project {
+    font-weight: 300;
+    font-size: var(--font-size-sm);
+    display: flex;
+    width: auto;
+  }
+  .card-static {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    align-items: flex-start;
+    justify-content: flex-start;
+    width: 100%;
+    line-height: 1;
+    margin-left: 0;
+  }
+  button.card-container {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    flex-grow: 1;
+    padding: 0.5rem;
+    margin-bottom: var(--spacing-xs);
+    // background-color: var(--bg-color);
+    width: calc(100% - 1rem);
+    // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.1s ease-in-out;
+    &:hover {
+      box-shadow: none;
+      background: var(--secondary-color) !important;
+
+        // background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
+        opacity: 1;
+        visibility: visible;
+        // box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
+      }
+      &.selected {
+        backdrop-filter: blur(30px);
+        background: var(--primary-color);
+        border-radius: 2rem;
+      }
+
+  }
+  .chat-header-thread {
+    margin-top: 2rem;
+    margin-left: 0 !important;
+
+    & span {
+      width: auto;
+    }
+  }
+  .scroll-bottom-btn {
+  position: fixed;
+  bottom: 10rem !important;
+  right: 1rem;
+  background-color: #21201d;
+  color: white;
+  border: 1px solid rgba(53, 63, 63, 0.5);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  z-index: 6;
+  align-self: flex-end;
+  padding: 0.5rem;
+  margin-right: 0;
+  margin-bottom: 0;
+
+  &:hover {
+    background-color: #000000;
+  }
+}
+
+.messages {
+  & p {
+
+  }
+}
   .input-container {
-    margin-bottom: 2rem;
+    margin-bottom: 0;
 
     & .combo-input textarea {
       background: var(--primary-color);
-      font-size: 0.5rem !important;
       &:focus {
 
-        font-size: 0.5rem !important;
 
       };
     }
 
   }
+  textarea::placeholder {
+    color: var(--placeholder-color);
+    transition: all 0.3s ease;
+    width: 100%;
+    height: auto;
+    margin-top: auto;
+    display: flex;
+    text-align: left;
+    font-size: 0.8rem;
+    letter-spacing: 0.2rem;
+
+
+  }
+
+  textarea.quote-placeholder::placeholder {
+    font-style: italic;
+    color: var(--placeholder-color);
+    opacity: 0.8;
+    height: auto;
+
+  }
+  .input-container-start {
+      
+      bottom: 3rem;
+      width: 100%;
+      height: auto;
+
+    & .combo-input {
+        background: var(--primary-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid var(--secondary-color);      
+        border-radius: 0;
+        border-top-left-radius: 2rem;
+        border-top-right-radius: 2rem;
+        width: 100%;
+        height: auto;
+
+        & textarea {
+          height: 100px !important;
+          font-size: 1rem !important;
+          &:focus {
+            // font-size: 1rem !important;
+          }
+        }
+
+    }
+
+    &::placeholder {
+      color: var(--placeholder-color);
+    }
+    
+    :global(svg) {
+      color: var(--primary-color);
+      stroke: var(--primary-color);
+      fill: var(--tertiary-color);
+    }
+
+    & textarea {
+      border: none;
+      box-shadow: none;
+      transition: all 0.3s ease;
+      background: var(--bg-color);
+      margin-top: 1rem !important;
+      // backdrop-filter: blur(14px);
+      // margin-left: 7rem;
+      // padding-left: 1rem;
+      // box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+      color: var(--text-color);
+      // background: transparent;
+      display: flex;
+      // backdrop-filter: blur(40px);
+      font-size: 1rem;
+      width: calc(100% - 2rem);
+      border-radius: 0;
+      background: transparent;
+      // max-height: 400px;
+      // margin-left: 2rem !important;
+      // margin-right: 2rem !important;
+
+      &:focus {
+      color: white;
+      animation: none;
+      box-shadow: none;
+      overflow-y: auto !important;
+      transition: all 0.3s ease;
+      display: flex;
+      font-size: 1rem;
+      // background: var(--bg-gradient-left) !important;
+          // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+          // border-top: 4px solid var(--secondary-color) !important;
+
+      box-shadow: none !important;
+
+      }
+    }
+
+  }
+
   
 
   .submission {
-    gap: 1rem;
+    gap: 0.5rem;
     margin-right: 0;
-    margin-left: 0;
-    margin-bottom: 1rem; 
+    margin-left: 2rem;
+    margin-bottom: 0; 
     width: 100%; 
   }
 
@@ -7144,6 +8248,7 @@ p.selector-lable {
   .drawer-list {
     margin-top: 0 !important;
     top: 0 !important;
+    margin-bottom: 0;
     
 
   }
@@ -7159,8 +8264,9 @@ p.selector-lable {
     // padding: 20px 10px;
     // border-top-left-radius: 50px;
     // background-color: var(--bg-color);
-    top: 5rem;
-    bottom: 2rem;
+    top: 3rem;
+    bottom: 0rem;
+    margin-bottom: 0;
     gap: 1px;
     // left: 64px;
     height: 100%;
@@ -7250,11 +8356,7 @@ p.selector-lable {
 }
 
 
-.input-container-start {
-      
-      bottom: 6rem;
-      width: 100%;
-    }
+
 
 
 .drawer-input {
@@ -7381,7 +8483,111 @@ pre.code-block {
 	transform: translateY(0);
   }
 
+  .text-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-color-light);
+  border-radius: var(--border-radius);
+  margin-bottom: 8px;
+}
 
+.text-preview-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--primary-color-light);
+  color: var(--text-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.text-preview-btn:hover {
+  background: var(--primary-color);
+}
+
+.text-trash-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-trash-btn:hover {
+  color: var(--error-color);
+  background: var(--error-color-light);
+}
+
+/* Modal Styles */
+.text-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-color);
+  border-radius: var(--border-radius-lg);
+  width: 80%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-textarea {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  resize: none;
+  min-height: 200px;
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--bg-color-light);
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: var(--text-color);
+}
 
 
 </style>

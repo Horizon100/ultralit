@@ -1413,7 +1413,6 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     align-items: center;
     border-radius: 50%;
     opacity: 1;
-    z-index: 1000;
     & .tooltip {
       letter-spacing: 0.2rem;
       font-size: 1rem;
@@ -1526,7 +1525,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 
     .project-sidenav {
       width: 100%;
-      height: 60vh;
+      height: 100%;
       overflow-y: scroll;
 
     }
@@ -1536,7 +1535,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     justify-content: flex-start;
     align-items: flex-start;
     position: relative;
-    height: 10vh;
+    height: 8vh;
     // margin-top: 10rem;
     width: 100%;
     max-width: 100%;
@@ -1549,7 +1548,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     transition: all 0.3s ease;
     background: var(--bg-gradient-r);
     &.expanded {
-      height: 60vh !important;
+      max-height: 60vh !important;
       & .project-description {
         font-size: 1rem;
         margin-top: 0;
@@ -1585,7 +1584,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
     .project-tabs-content {
     width: calc(100% - 2rem) !important;
-    gap: 2rem;
+    gap: 0.5rem;
     display: flex;
   }
 
@@ -1634,14 +1633,21 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 
   @media (max-width: 767px) {
     .current-project {
-      align-items: flex-end;
+      align-items: center;
+      width: 100%;
+    }
+    .project-description-container {
+      height: 3rem;
+    }
+    h3 {
+      font-size: 1.2rem !important;
     }
     .project-content {
       margin-top: -0.5rem !important;
     }
     .tabs-navigation.project {
       gap: 0;
-      margin-top: 0 !important;
+      margin-top: 0.5rem !important;
       justify-content: flex-end;
       align-items: flex-end;
       width: auto !important;
@@ -1658,6 +1664,9 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         }
       }
     }
+  }
+  @media (max-width: 450px) {
+    
   }
 
   </style>
