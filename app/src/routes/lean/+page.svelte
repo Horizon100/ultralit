@@ -93,19 +93,17 @@
 	main {
 		flex-grow: 1;
 		overflow-y: auto;
-		padding: 20px;
+    padding: 1rem;
         position: absolute;
 		align-items: center;
 		margin-left: auto;
 		margin-right: auto;
-		width: auto;
-		left: 4rem;
-		right: 0.5rem;
-		height: 90vh;
+		width: 100%;
+		left: 0;
+		height: 100vh;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		background: var(--primary-color);
 		border-radius: 40px;
 	}
   
@@ -151,16 +149,14 @@
   
     .tab-panels {
       margin-top: 1rem;
-      width: 100%;
       height: auto;
+      width: 90%;
     }
   
     .tab-panel {
-      padding: 1rem;
       border: 1px solid var(--secondary-color);
       border-radius: var(--radius-m);
       background: var(--bg-gradient-r);
-
       height: 80vh;
 
     }

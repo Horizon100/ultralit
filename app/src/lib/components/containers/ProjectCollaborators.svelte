@@ -39,7 +39,7 @@
         if (projectFromStore) {
             project = projectFromStore;
         } else {
-            project = await pb.collection('projects').getOne<Projects>(projectId);
+            project = await pocketbaseUrl.collection('projects').getOne<Projects>(projectId);
         }
         
         if (project && $currentUser) {

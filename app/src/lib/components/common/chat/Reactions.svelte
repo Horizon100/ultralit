@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import {  currentUser } from '$lib/pocketbase';
+    import { currentUser } from '$lib/pocketbase';
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
     import { Bookmark, Copy } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
@@ -24,7 +24,7 @@
     }>;
 
     type Reaction = {
-        symbol: typeof Bookmark | typeof Copy ;
+        symbol: typeof Bookmark | typeof Copy;
         action: string;
         label: string;
         isIcon: boolean;
@@ -59,35 +59,61 @@
 
     async function handleReaction(action: string) {
         try {
+            // Only process reactions for assistant messages
+            if (message.role !== 'assistant') {
+                console.log('Reactions only available for assistant messages');
+                return;
+            }
+
             switch (action) {
                 case 'bookmark':
                     const user = $currentUser;
                     if (!user) return;
 
-                    const currentBookmarks = user.bookmarks || [];
-                    let updatedBookmarks: string[];
+                    // Determine if we're adding or removing
+                    const bookmarkAction = isBookmarkedState ? 'remove' : 'add';
+                    
+                    // Use API route with POST method
+                    const response = await fetch('/api/bookmarks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            messageId: message.id,
+                            action: bookmarkAction
+                        })
+                    });
 
-                    if (currentBookmarks.includes(message.id)) {
-                        updatedBookmarks = currentBookmarks.filter((id) => id !== message.id);
-                        bookmarkTooltipText = 'Removed from bookmarks';
-                    } else {
-                        updatedBookmarks = [...currentBookmarks, message.id];
-                        bookmarkTooltipText = 'Added to bookmarks';
+                    if (!response.ok) {
+                        throw new Error('Failed to update bookmark');
                     }
 
-                    // Update PocketBase
-                    await pb.collection('users').update(user.id, {
-                        bookmarks: updatedBookmarks
-                    });
-
-                    // Update store
-                    currentUser.update((currentUser) => {
-                        if (!currentUser) return currentUser;
-                        return {
-                            ...currentUser,
-                            bookmarks: updatedBookmarks
-                        };
-                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update local state
+                        isBookmarkedState = !isBookmarkedState;
+                        bookmarkTooltipText = isBookmarkedState ? 'Added to bookmarks' : 'Removed from bookmarks';
+                        
+                        // Update the current user store with new bookmarks
+                        currentUser.update(currentUser => {
+                            if (!currentUser) return currentUser;
+                            return {
+                                ...currentUser,
+                                bookmarks: result.bookmarks
+                            };
+                        });
+                        
+                        // Notify parent component
+                        dispatch('update', {
+                            messageId: message.id,
+                            action: 'bookmark',
+                            success: true
+                        });
+                    } else {
+                        throw new Error(result.message || 'Bookmark operation failed');
+                    }
 
                     showBookmarkTooltip = true;
                     setTimeout(() => {
@@ -96,8 +122,9 @@
                     break;
 
                 case 'copy':
-                    // Use the new utility to copy as plain text instead
+                    // Copy functionality works fine, keep as is
                     await MarkupFormatter.copyAsPlainText(message.text);
+                    
                     showCopiedTooltip = true;
                     setTimeout(() => {
                         showCopiedTooltip = false;
@@ -106,6 +133,11 @@
             }
         } catch (error) {
             console.error('Error handling reaction:', error);
+            dispatch('notification', {
+                message: error.message || 'Failed to process request',
+                type: 'error'
+            });
+            
             bookmarkTooltipText = 'Failed to update bookmark';
             showBookmarkTooltip = true;
             setTimeout(() => {
@@ -116,6 +148,7 @@
 </script>
 
 <div class="message-reactions">
+    {#if message.role === 'assistant'}
     <div class="reaction-buttons">
         {#each reactions as reaction}
             <button
@@ -134,6 +167,7 @@
             </button>
         {/each}
     </div>
+    {/if}
 
     {#if showBookmarkTooltip}
         <div class="bookmark-tooltip">{bookmarkTooltipText}</div>

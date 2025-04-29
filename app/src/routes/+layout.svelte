@@ -384,60 +384,57 @@
 		>
 		<img src={horizon100} alt="Horizon100" class="logo" />
 		<h2>vRAZUM</h2>
-		<button
-		class="nav-button" 
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/canvas'}
-		on:click={() => {
-			navigateTo('/canvas');
-			if (isNavExpanded) {
-			isNavExpanded = false;
-			}
-		}}			
+		<div class="shortcut-buttons">
+			<a
+			href="https://github.com/Horizon100/ultralit"
+			target="_blank"
+			rel="noopener noreferrer"
 		>
-		<Combine />
-		
-		{#if isNavExpanded}
-		<span class="nav-text">Canvas</span>
-	  {/if}
-	</button>
-	<button
-		class="nav-button"
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/notes'}
-		on:click={() => {
-			navigateTo('/notes');
-			if (isNavExpanded) {
-			isNavExpanded = false;
-			}
-		}}	
-		>
-		<NotebookTabs />
-		{#if isNavExpanded}
-		  <span class="nav-text">Notes</span>
+			<button class="shortcut"
+			class:expanded={isNavExpanded}
+			>
+				<Github size="30" /> 
+				{#if isNavExpanded}
+					<span class="nav-text">GitHub</span>
+				{/if}
+			</button>
+			</a>
+			<button
+			class="shortcut" 
+			class:expanded={isNavExpanded}
+			class:active={currentPath === '/canvas'}
+			on:click={() => {
+				navigateTo('/canvas');
+				if (isNavExpanded) {
+				isNavExpanded = false;
+				}
+			}}			
+			>
+			<Combine />
+			
+			{#if isNavExpanded}
+			<span class="nav-text">Canvas</span>
 		{/if}
-	</button>
-	<button
-		class="nav-button"
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/lean'}
-		on:click={() => navigateTo('/lean')}
-	>
-		<SquareKanban />
-		{#if isNavExpanded}
-			<span class="nav-text">Lean</span>
-		{/if}
-	</button>
+			</button>
+			<button
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/notes'}
+				on:click={() => {
+					navigateTo('/notes');
+					if (isNavExpanded) {
+					isNavExpanded = false;
+					}
+				}}	
+				>
+				<NotebookTabs />
+				{#if isNavExpanded}
+				<span class="nav-text">Notes</span>
+				{/if}
+			</button>
+			
 
-		<a
-		href="https://github.com/Horizon100/ultralit"
-		target="_blank"
-		rel="noopener noreferrer"
-	>
-		<button class="icon">
-			<Github size="30" />
-		</button>
-		</a>
+	</div>
 		{#if isNavExpanded}
 		<!-- <h2>vRAZUM</h2> -->
 
@@ -472,7 +469,17 @@
 			<span class="nav-text">Chat</span>
 			{/if}
 		</button>
-
+		<button
+			class="nav-button drawer"
+			class:expanded={isNavExpanded}
+			class:active={currentPath === '/lean'}
+			on:click={() => navigateTo('/lean')}
+		>
+			<SquareKanban />
+			{#if isNavExpanded}
+				<span class="nav-text">Lean</span>
+			{/if}
+		</button>
 				<button 
 				class="nav-button info user" 
 				class:expanded={isNavExpanded}
@@ -523,9 +530,9 @@
 					}
 				  }}>
 					{#if isNavExpanded}
-					<PanelLeftClose size={24} />
+					<PanelLeftClose  />
 					{:else}
-					<PanelLeftOpen size={24} />
+					<PanelLeftOpen />
 					{/if}
 				  </button>
 
@@ -574,13 +581,13 @@
 		transition:fly={{ y: -200, duration: 300 }}
 	>
 		<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-			<button
+			<!-- <button
 				class="close-button"
 				transition:fly={{ y: -200, duration: 300 }}
 				on:click={() => (showProfile = false)}
 			>
 				<ChevronLeft size={24} />
-			</button>
+			</button> -->
 			<Profile
 				user={$currentUser}
 				onClose={() => (showProfile = false)}
@@ -589,6 +596,28 @@
 		</div>
 	</div>
 {/if}
+<!-- {#if showProfile}
+<div
+	class="profile-overlay"
+	on:click={handleOverlayClick}
+	transition:fly={{ y: -200, duration: 300 }}
+>
+	<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+		<button
+			class="close-button"
+			transition:fly={{ y: -200, duration: 300 }}
+			on:click={() => (showProfile = false)}
+		>
+			<X size={24} />
+		</button>
+		<Profile
+			user={$currentUser}
+			onClose={() => (showProfile = false)}
+			onStyleClick={handleStyleClick}
+		/>
+	</div>
+</div>
+{/if} -->
 {#if showLanguageNotification}
 	<div class="language-overlay" transition:fade={{ duration: 300 }}>
 		<div class="language-notification" transition:fade={{ duration: 300 }}>
@@ -643,28 +672,7 @@
 		</div>
 	{/if}
 
-	{#if showProfile}
-		<div
-			class="profile-overlay"
-			on:click={handleOverlayClick}
-			transition:fly={{ y: -200, duration: 300 }}
-		>
-			<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-				<button
-					class="close-button"
-					transition:fly={{ y: -200, duration: 300 }}
-					on:click={() => (showProfile = false)}
-				>
-					<X size={24} />
-				</button>
-				<Profile
-					user={$currentUser}
-					onClose={() => (showProfile = false)}
-					onStyleClick={handleStyleClick}
-				/>
-			</div>
-		</div>
-	{/if}
+
 	<main>
 		<slot />
 	</main>
@@ -778,8 +786,8 @@
 		display: flex;
 		flex-grow: 1;
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		justify-content: center;
-		align-items: center;
+		justify-content: flex-end !important;
+		align-items: flex-start !important;
 		z-index: 1002;
 		transition: all 0.3s ease;
 	}
@@ -794,26 +802,24 @@
 	}
 
 	.profile-content {
-		position: absolute;
-		width: auto;
-		height: auto;
-		top: 0;
-		bottom: auto;
+		position: relative;
+		width:auto;
+		height: 94vh;
+		max-width: 500px;
+		top: 4rem;
+		margin-bottom: auto;
 		padding: 0;
 		margin: 0;
 		/* right: 0; */
 		/* background-color: #2b2a2a; */
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		border-bottom: 1px solid var(--secondary-color);
-		border-bottom-left-radius: var(--radius-m);
-		border-bottom-right-radius: var(--radius-m);
-		width: calc(100% - 20rem) !important;
+		border-radius: 2rem;
 		/* max-width: 500px; */
 		/* max-height: 90vh; */
 		overflow: none;
 		transition: all 0.3s ease;
-		background: var(--bg-gradient);
-
+		backdrop-filter: blur(30px);
+		border: 1px solid var(--secondary-color);
 	}
 
 	.profile-button {
@@ -1413,23 +1419,7 @@
 		transition: all 0.3s ease;
 	}
 
-	.profile-content {
-		position: absolute;
-		width: 94%;
-		height: auto;
-		top: 60px;
-		/* background-color: #2b2a2a; */
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
-		backdrop-filter: blur(40px);
-		border: 1px solid var(--tertiary-color);
-		padding: 2rem;
-		border-radius: 50px;
-		/* width: 90%; */
-		/* max-width: 500px; */
-		/* max-height: 90vh; */
-		overflow: none;
-		transition: all 0.3s ease;
-	}
+
 
 
 	.user-button {
@@ -1504,16 +1494,16 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		justify-content: flex-start;
+		justify-content: flex-end;
 		gap: 10px;
 		position: absolute;
 		left: 0;
 		right: 50% !important;
-		top: 0;
-		bottom: 0;
+		top: 0.5rem;
 		padding: 0 0.5rem;
 		z-index:1000;
 		width: 3rem;
+		height: calc(100% - 2rem);
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -1543,6 +1533,25 @@
 			display: none;
 		}
 
+		.profile-content {
+		position: relative;
+		width: 100%;
+		top: 1rem;
+		bottom: auto;
+		padding: 0;
+		margin: 0;
+		/* right: 0; */
+		/* background-color: #2b2a2a; */
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+		border-radius: 2rem;
+		/* max-width: 500px; */
+		/* max-height: 90vh; */
+		overflow: none;
+		transition: all 0.3s ease;
+		backdrop-filter: blur(30px);
+		border: 1px solid var(--secondary-color);
+	}
+
 		.nav-button.drawer {
 			position: absolute;
 			left: 1rem;
@@ -1554,13 +1563,12 @@
 			border: 1px solid transparent !important;
 		}
 		.nav-button.info {
-			position:fixed;
+			display: flex !important;
+			position: fixed !important;
 			top: 0;
-			right: 0.5rem;
-			border-radius: auto;
-			align-items: center;
-			justify-content: center;
-			height: 3rem;
+			right: 0;
+
+			
 			// display: none !important;
 			&:hover {
 				width: 20rem !important;
@@ -1595,8 +1603,11 @@
 
 				}
 			&:hover {
-				width: 6rem !important;
-				height: 6rem !important;
+				// width: 6rem !important;
+				// height: 6rem !important;
+				justify-content: center;
+				width: 4rem !important;
+				padding: 0;
 
 				& img.user-avatar {
 					width: 4rem !important;
@@ -1607,6 +1618,8 @@
 
 			}
 		}
+
+
 		.project {
 			position: absolute;
 			left: 0;
@@ -1661,10 +1674,7 @@
 		}
 
 		
-		.profile-content {
-			padding: auto;
-			width: 90vw !important;
-		}
+
 		.project {
 		margin-left: 0;
 	}
@@ -1702,7 +1712,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-	margin-top: 0.5rem;
     width: 100%;
 	justify-content: left;
 	align-items: left;
@@ -1733,7 +1742,6 @@
 		justify-content: flex-start;
 		padding: 0.5rem 1rem;
 		border-radius: var(--radius-s);
-		background: var(--primary-color);
 		opacity: 1 !important;
 
 		&:hover {
@@ -1751,7 +1759,7 @@
       justify-content: flex-start;
       padding: 0.5rem 1rem;
 	  border-radius: var(--radius-s);
-	  opacity: 0.5;
+	  opacity: 1;
 	  animation: none !important;
 	  border-radius: 2rem !important;
 
@@ -1759,8 +1767,9 @@
 
     &.toggle {
       margin-top: auto;
-	  position: absolute;
-	  bottom: 1rem;
+
+	  &:hover {
+	  }
     }
 
     &.profile {
@@ -1785,45 +1794,9 @@
 		height: auto;
 		overflow-y: auto;
 	}
-	.profile-overlay {
-		position: fixed;
-		top: 0;
-		left: 5rem;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		flex-grow: 1;
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		backdrop-filter: blur(10px);
-		justify-content: center;
-		align-items: center;
-		z-index: 1002;
-		transition: all 0.3s ease;
-	}
 
-	.profile-content {
-		position: relative;
-		width: calc(100% - 4rem);
-		height: auto;
-		margin: 0;
-		top: 0;
-		left: 0;
-		bottom: auto;
-		
-		/* right: 0; */
-		/* background-color: #2b2a2a; */
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		backdrop-filter: blur(40px);
-		border-bottom: 1px solid var(--secondary-color);
-		// background: var(--bg-gradient-r);
-		border-bottom-left-radius: var(--radius-m);
-		border-bottom-right-radius: var(--radius-m);
 
-		/* max-width: 500px; */
-		/* max-height: 90vh; */
-		overflow: none;
-		transition: all 0.3s ease;
-	}
+
 
 
 	.user-button {
@@ -1871,23 +1844,60 @@
 	}
 
 
-
+	.shortcut-buttons {
+			display: flex;
+			flex-direction: row;
+			gap: 0.5rem;
+		}
 	.nav-button.info {
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
+		position: absolute;
+		top: 0;
 		animation: none !important;
-		background: var(--bg-color);
 		box-shadow: none !important;
+		border-radius: 1rem !important;
+		transition: all 0.3s ease-in;
+
+		& button.shortcut {
+			background: var(--primary-color);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			width: 2rem;
+			height: 2rem;
+			border-radius: 50%;
+			&:hover {
+				background: var(--tertiary-color);
+			}
+		}
+		& h2 {
+			font-size: 1.2rem;
+		}
 		&.user {
-			position: absolute;
-			bottom: 5rem;
+			position: relative;
+			justify-content: space-around;
+			flex-direction: row !important;
 			width: auto;
+			padding: 0;
+
+			&.expanded {
+				height: 3rem;
+				width: 100%;
+				justify-content: space-between;
+
+			}
+
+			&:hover {
+				padding: 1rem;
+				
+			}
 
 		}
 		span.icon {
 			display: none;
-			padding: 1rem;
+			padding: 0;
 			border-radius: 50%;
 			&:hover {
 				background: red;
@@ -1926,8 +1936,36 @@
 			}
 		}
 		&.expanded {
-		width: 350px;
+		width: 100%;
+		height: auto;
+		flex-direction: column;
 		justify-content: space-around;
+
+		&:hover {
+			background: transparent;
+		}
+		& .shortcut-buttons {
+					display: flex;
+					flex-direction: column;
+					gap: 0.5rem;
+					width: 100%;
+				}
+		& button.shortcut {
+			width: 100%;
+			border-radius: 2rem;
+			gap: 0.5rem;
+			height: 3rem;
+			justify-content: flex-start;
+			padding-inline-start: 1rem;
+		}
+		& a {
+			width: 100%;
+			justify-content: flex-start;
+			& button.icon {
+				width: 100%;
+				border-radius: 2rem;;
+			}
+		}
 		h2 {
 			display: flex;
 		}
@@ -2035,11 +2073,15 @@
 	
 
 	.nav-button.active {
-		border: 1px solid var(--tertiary-color);
+		border: 1px solid var(--secondary-color);
 		background: var(--bg-color);
 		width: 4rem;
 		height: 4rem;
 		box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+
+		&.expanded {
+			height: 3rem;
+		}
 	}
 
 	.thread-list-visible .thread-toggle {
@@ -2288,7 +2330,8 @@
 		.profile-overlay {
 			margin-left: 0;
 			left: 0;
-			height: 100%;
+			height: auto;
+			margin-top: 5rem;
 		}
 		
 		.sidenav {

@@ -4,7 +4,9 @@
 		Camera, LogOutIcon, Languages, Palette, X, Bone, Save, 
 		TextCursorIcon, Pen, User2, UserCircle, MailCheck, 
 		Mail, KeyIcon, Cake, History, Shield, Layers, 
-		MessageCirclePlus, Group, ChevronLeft 
+		MessageCirclePlus, Group, ChevronLeft, 
+		TagsIcon
+
 	} from 'lucide-svelte';
 	import { 
 		Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key 
@@ -21,7 +23,7 @@
 	import APIKeyInput from '$lib/components/common/keys/APIKeyInput.svelte';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import KeyStatusButton from '$lib/components/common/buttons/KeyStatusButton.svelte';
-
+	import TagEditor from '$lib/components/overlays/TagEditor.svelte';
 	$: hasApiKey = $apiKey !== '';
 
 	interface UserData {
@@ -423,26 +425,29 @@ $: displayUser = completeUserData || user;
 								</div>
 							{/if}
 						</div>
-						<div class="info-row">
-							{#if isEditing}
-							  <input 
-								value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
-								on:input={(e) => editedUser.name = e.target.value}
-							  />
-							{:else}
-							  <span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
-							{/if}
-						  </div>
-						  <div class="info-row">
-							{#if isEditing}
-							  <input 
-								value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
-								on:input={(e) => editedUser.username = e.target.value}
-							  />
-							{:else}
-							  <span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
-							{/if}
-						  </div>
+						<div class="info-wrapper">
+							<div class="info-row">
+								{#if isEditing}
+								  <input 
+									value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
+									on:input={(e) => editedUser.name = e.target.value}
+								  />
+								{:else}
+								  <span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
+								{/if}
+							  </div>
+							  <div class="info-row">
+								{#if isEditing}
+								  <input 
+									value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
+									on:input={(e) => editedUser.username = e.target.value}
+								  />
+								{:else}
+								  <span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
+								{/if}
+							  </div>
+						</div>
+
 					</div>
 				</div>
 				<!-- <div class="info-stats">
@@ -488,24 +493,28 @@ $: displayUser = completeUserData || user;
 						<Layers size={20} />
 						<span>Stats</span>
 					</button>
+					<button 
+						class="tab-button {activeTab === 'tags' ? 'active' : ''}" 
+						on:click={() => switchTab('tags')}
+					>
+						<TagsIcon size={20} />
+						<span>Tags</span>
+					</button>
 				</div>
 
 				<!-- Tab Content -->
 				<div class="tab-content">
 					{#if activeTab === 'profile'}
 					<div class="profile-info" transition:fade={{ duration: 200 }}>
-						{#if isLoading}
-						  <div class="spinner-container">
-							<div class="spinner"></div>
-						  </div>
-						{:else}
-						  <div class="info-row-profile">
+
+						<div class="info-row-profile">
 							{#if isEditing}
-							  <textarea 
-								class="textarea-description" 
-								bind:value={editedUser.description}
-								placeholder="Enter your description"
-							  ></textarea>
+							<textarea 
+							class="textarea-description"
+							value={editedUser.description}
+							on:input={(e) => editedUser.description = e.target.value}
+							placeholder="Enter your description"
+						  ></textarea>
 							{:else}
 							  <span class="description">
 								{displayUser?.description || $t('profile.not_set')}
@@ -543,9 +552,9 @@ $: displayUser = completeUserData || user;
 								{/if}
 							  </span>
 							</div>
-							<span class="info-avatar">
+							<!-- <span class="info-avatar">
 							  <Mail size={50}/>
-							</span>
+							</span> -->
 						  </div>
 					  
 						  <!-- Role -->
@@ -558,7 +567,7 @@ $: displayUser = completeUserData || user;
 								{displayUser?.role || $t('profile.not_available')}
 							</span>
 							</div>
-							<KeyIcon size={50}/>
+							<!-- <KeyIcon size={50}/> -->
 						  </div>
 					  
 						  <!-- Created Date -->
@@ -571,7 +580,7 @@ $: displayUser = completeUserData || user;
 								{displayUser?.created ? formatDate(displayUser.created) : $t('profile.not_available')}
 							  </span>
 							</div>
-							<Cake size={50}/>
+							<!-- <Cake size={50}/> -->
 						  </div>
 					  
 						  <!-- Updated Date -->
@@ -584,7 +593,7 @@ $: displayUser = completeUserData || user;
 								{user?.updated ? formatDate(user.updated) : $t('profile.not_available')}
 							  </span>
 							</div>
-							<History size={50}/>
+							<!-- <History size={50}/> -->
 						  </div>
 					  
 						  <!-- Verified Status -->
@@ -600,14 +609,17 @@ $: displayUser = completeUserData || user;
 							  </span>
 
 							</div>
-							<Shield size={50}/>
+							<!-- <Shield size={50}/> -->
 						  </div>
-						{/if}
 					  </div>
 					{:else if activeTab === 'stats'}
 						<div class="stats-tab" transition:fade={{ duration: 200 }}>
 							<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
 						</div>
+					{:else if activeTab === 'tags'}
+					<div class="tags-tab" transition:fade={{ duration: 200 }}>
+						<TagEditor />
+					</div>
 					{/if}
 				</div>
 			</div>
@@ -655,12 +667,11 @@ $: displayUser = completeUserData || user;
 	}
 	.modal-overlay {
 		display: flex;
-		justify-content: flex-end;
 		align-items: flex-start;
-		padding: 2rem;
-		width: auto;
-		height: 80vh;
-		border-radius: 20px;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		border-radius: 2rem;
 		overflow-y: scroll;
 		overflow-x: hidden;
 		scroll-behavior: smooth;
@@ -684,6 +695,7 @@ $: displayUser = completeUserData || user;
 		justify-content: center;
 		align-items: center;
 		width: 100%;
+		padding: 1rem;
 
 	}
 
@@ -842,10 +854,11 @@ $: displayUser = completeUserData || user;
 	}
 
 	.avatar-container {
-		width: 150px;
-		height: 150px;
+		width: 5rem;
+		height: 5rem;
 		border-radius: 50%;
 		overflow: hidden;
+		justify-content: center;
 	}
 
 	.avatar {
@@ -895,7 +908,6 @@ $: displayUser = completeUserData || user;
 		margin: 0;
 		width: 100%;
 		height: 100%;
-		max-width: 800px;
 		height: auto;
 		gap: 0.5rem;
 		display: flex;
@@ -907,10 +919,11 @@ $: displayUser = completeUserData || user;
 			justify-content: space-between;
 			align-items: center;
 			height: 100%;
-			width: calc(100% - 2rem);
-			padding: 1rem;
-			background: var(--primary-color);
-			border-radius: 1rem;
+			width: 100%;
+			padding:0;
+			// background: var(--primary-color);
+			border-radius: 0;
+			border-top: 1px solid var(--line-color);
 		}
 		
 		.info-row {
@@ -974,6 +987,7 @@ $: displayUser = completeUserData || user;
 		line-height: 1.5;
 		letter-spacing: 0.2rem;
 		text-align: justify;
+		width: auto;
 	}
 	
 	.info-row {
@@ -998,14 +1012,21 @@ $: displayUser = completeUserData || user;
 		}
 	}
 	span.meta {
-		padding-inline-start: 1rem;
+		padding-inline-end: 0.5rem;
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 0.5rem;
+
+
 	}
 	.label {
 		font-weight:300;
 		font-size: 1rem;
 		letter-spacing: 0.3rem;
+		margin-top: 0.5rem;
 		width: auto;
 		user-select: none;
+		padding-inline-start: 1rem;
 
 
 
@@ -1049,12 +1070,11 @@ $: displayUser = completeUserData || user;
 		}
 
 		&:hover {
-			transform: translateY(-4px);
 			background: red;
 			box-shadow: 0 4px 6px rgba(255, 0, 0, 0.5);
 			font-weight: bold;
 			opacity: 1;
-			min-width: 8rem;
+			width: auto;
 			span.hover {
 				display: flex;
 			}
@@ -1075,14 +1095,14 @@ $: displayUser = completeUserData || user;
 		margin-bottom: 1rem;
 	}
 
-	.settings-button {
+	button.settings-button {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem 1rem;
+		padding: 0.5rem;
 		border-radius: 20px;
 		width: auto;
-		height: 60px;
+		height: auto;
 		background: var(--bg-gradient);
 		border: 1px solid var(--border-color);
 		color: var(--text-color);
@@ -1094,7 +1114,7 @@ $: displayUser = completeUserData || user;
 		}
 		
 		&:hover {
-			transform: translateY(-4px);
+			// transform: translateY(-4px);
 			box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2);
 			opacity: 1;
 			& span.hover {
@@ -1184,37 +1204,114 @@ $: displayUser = completeUserData || user;
 	}
 
 	@media (max-width: 1000px) {
-		.modal-overlay {
+
+		span.meta {
+			padding-inline-start: 2rem;
+			font-size: 0.9rem;
+		}
+		.label {
+			font-weight:300;
+			font-size: 0.9rem;
+			letter-spacing: 0.3rem;
 			width: auto;
-			margin: 0;
-			margin-top: 2rem;
-			justify-content: flex-start !important;
-			height: 100vh;
+			user-select: none;
+			padding-inline-start: 1rem;
+
+
+
+			& span.data {
+				color: var(--placeholder-color);
+			}
+		}
+		span.info-avatar {
+			font-size: 3rem;
+		}
+
+		span.stat {
+			font-size: 0.8rem;
+		}
+		span.name {
+			font-size: 1.2rem;
+		}
+
+		span.username {
+			font-size: 1rem;
+			color: var(--placeholder-color);
+		}
+
+		span.description {
+			font-size: 0.8rem;
+			line-height: 1.5;
+			letter-spacing: 0.2rem;
+			text-align: justify;
+			width: auto;
 		}
 
 		.header-wrapper {
-			width: auto;
-			min-width: 100px !important;
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+			align-items: center;
+			gap: 0.5rem;
+			
 		}
 
-		.info-column {
-			flex-direction: column;
-		}
-		
-		.info-stats {
+		.profile-header {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: flex-start;
+		width: 100%;
+		max-width: 800px;
+		height: auto;
+		margin-bottom: 1rem;
+		color: white;
+
+		&.info-column {
 			display: flex;
-			flex-direction: column !important;
-			align-items: flex-start !important;
-			justify-content: flex-end !important;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			height: 100%;
+			width: auto;
+			padding: 1rem;
+			border-radius: 1rem;
+		}
+		.info-row {
+			display: flex;
+			justify-content: center;
 			height: auto;
-			padding: 0.5rem;
-			font-size: 1.5rem !important;
+			padding: 0;
+			font-size: 2.5rem;
 			letter-spacing: 0.1rem;
-			gap: 2rem;
 			font-weight: 800;
 			max-width: 800px;
-			width: 100% !important;
+			width: auto;
+
+
+
+			
 		}
+		.info-stats {
+			display: flex;
+			flex-direction: row;
+
+			align-items: center;
+			height: auto;
+			padding: 0.5rem;
+			font-size: 2rem;
+			letter-spacing: 0.1rem;
+			font-weight: 800;
+			max-width: 800px;
+			width: auto;
+			&.activity {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+			}
+		}
+	}
 		
 		.style-overlay {
 			top: auto;
@@ -1236,7 +1333,11 @@ $: displayUser = completeUserData || user;
 		}
 		
 		.tabs-navigation {
-			justify-content: center;
+			justify-content: flex-start;
+
+			& button.tab-button {
+				font-size: 1rem;
+			}
 		}
 	}
 
@@ -1289,7 +1390,7 @@ $: displayUser = completeUserData || user;
 			transition: all 0.2s ease;
 
 			&:hover {
-				transform: translateY(-4px);
+				// transform: translateY(-4px);
 				background: var(--bg-gradient);
 			}
 

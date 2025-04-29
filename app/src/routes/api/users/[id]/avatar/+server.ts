@@ -2,20 +2,21 @@
 import { pb } from '$lib/server/pocketbase';
 import { error } from '@sveltejs/kit';
 
-export async function GET({ params, locals }) {
+export async function GET({ params }) {
     const userId = params.id;
     
+    // No auth check for avatars - they're public
     
     try {
         // Fetch the user
         const user = await pb.collection('users').getOne(userId);
         
         if (!user || !user.avatar) {
-            // Return a default avatar if no avatar exists
+            // Return a default avatar
             return new Response(null, {
                 status: 302,
                 headers: {
-                    Location: '/images/default-avatar.png' // Path to your default avatar
+                    Location: '/images/default-avatar.png'
                 }
             });
         }
@@ -23,7 +24,6 @@ export async function GET({ params, locals }) {
         // Get the avatar file URL
         const avatarUrl = pb.files.getUrl(user, user.avatar);
         
-        // For better performance, redirect to the actual file URL
         return new Response(null, {
             status: 302,
             headers: {

@@ -297,6 +297,7 @@
 		background: var(--secondary-color);
 		color: var(--placeholder-color);
 		flex: 1;
+		border: 1px solid transparent;
 		min-width: 200px;
 		font-size: 1rem;
 		transition: background-color 0.2s;
@@ -488,10 +489,8 @@
 		overflow-x: hidden;
 		height: 400px;
 		width: 100%;
-		border-radius: 1rem;
 		gap: 0;
-		background-color: rgba(255, 255, 255, 0.1);
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(20px);
 	}
 	
 	.prompt-item {
@@ -500,7 +499,6 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		border-bottom: 1px solid var(--primary-color);
 		background: transparent;
 		border-radius: 0;
 

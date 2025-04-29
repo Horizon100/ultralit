@@ -96,6 +96,8 @@ export interface Threads extends RecordModel {
 	current_thread: string;
 	messageCount?: number;
 	project_id: string;
+	agents: string[];
+
 	// currentThread: Threads | null;
 	// filteredThreads: Threads[];
 	// isEditingThreadName: boolean;
@@ -106,7 +108,7 @@ export interface Tag extends RecordModel {
 	id: string;
 	name: string;
 	color: string;
-	selected_threads: string[];
+	thread_id: string[];
 	user: string;
 }
 
@@ -249,6 +251,8 @@ export interface AIPreferences extends RecordModel {
 }
 export interface Task extends RecordModel {
 	id: string;
+	project_id: string;
+	createdBy: User | string;
 	title: string;
 	prompt: string;
 	context: string;
@@ -264,19 +268,20 @@ export interface Task extends RecordModel {
 		| 'delegate'
 		| 'archive';
 	priority: 'high' | 'medium' | 'low';
-	due_date: Date;
-	parent_agent: string;
+	due_date: Date | string;
+	allocatedAgents: string[];
 	dependencies: {
 		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
 		task_id: string; 
 	}[];
-	messages: string[];
+	agentMessages: string[];
 	attachments: string;
-	eisenhower: string;
-	rice_score: number;
+	taskDescription: string;
+	taskTags: string[];
 	created: string;
 	updated: string;
 }
+
 export interface Message extends RecordModel {
 	text: string;
 	user: string;
@@ -327,16 +332,8 @@ export interface Scenario extends RecordModel {
 	id: string;
 	description: string;
 }
-export interface Task extends RecordModel {
-	id: string;
-	description: string;
-}
-export interface Attachment {
-	id: string;
-	name: string;
-	url: string;
-	file?: File;
-}
+
+
 export interface Network extends RecordModel {
 	id: string;
 	name: string;
@@ -531,9 +528,14 @@ export interface ChatMessage extends RecordModel {
 export interface Tag {
 	id: string;
 	name: string;
-	selected: boolean;
+	tagDescription: string;
+	taggedProjects?: string;
+	taggedThreads?: string;
+	taggedTasks?: string;
 	color: string;
-	user: string;
+	createdBy: string;
+	selected: boolean;
+
 }
 
 export type Folders = {
@@ -547,11 +549,18 @@ export type Folders = {
 
 export interface Attachment {
 	id: string;
+	file: string;
 	fileName: string;
-	note: string;
+	note?: string;
+	url?: string;
+	attachedProjects?: string;
+	attachedThreads?: string;
+	attachedTasks?: string;
+	createdBy: string;
 	created: string;
 	updated: string;
 }
+
 export type Notes = {
 	id: string;
 	title: string;
@@ -572,6 +581,37 @@ export type NoteRecord = Notes & {
 	collectionId: string;
 	collectionName: 'notes';
 };
+
+export interface KanbanTask {
+    id: string;
+    title: string;
+    taskDescription: string;
+    creationDate: Date;
+    due_date: Date | null;
+    tags: string[];
+    attachments: KanbanAttachment[];
+    project_id?: string;
+    createdBy?: string;
+    allocatedAgents: string[];
+    status: Task['status'];
+    priority: 'high' | 'medium' | 'low';
+    prompt?: string;
+    context?: string;
+    task_outcome?: string;
+    dependencies?: {
+        type: 'subtask' | 'dependency' | 'resource' | 'precedence';
+        task_id: string;
+    }[];
+    agentMessages?: string[];
+}
+
+export interface KanbanAttachment {
+    id: string;
+    fileName: string;
+    url: string;
+    file?: File;
+    note?: string;
+}
 
 export interface ProjectStoreState {
 	threads: Projects[];

@@ -1,5 +1,14 @@
 <script lang="ts">
-    import { writable } from 'svelte/store';
+    import { writable, get } from 'svelte/store';
+    import { currentUser } from '$lib/pocketbase';
+    import { projectStore } from '$lib/stores/projectStore';
+    import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
+    import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
+    // Get current project ID from project store if available
+    let currentProjectId = null;
+    projectStore.subscribe(state => {
+        currentProjectId = state.currentProjectId;
+    });
 
     function getRandomBrightColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {
@@ -9,58 +18,419 @@
         return `hsl(${h}, 70%, 60%)`;
     }
 
-    interface Tag {
-        id: number;
-        name: string;
-        color: string;
-    }
-
-    interface Attachment {
-        id: number;
-        name: string;
-        url: string;
-    }
-
-    interface Task {
-        id: number;
-        title: string;
-        description: string;
-        creationDate: Date;
-        deadline: Date | null;
-        tags: number[];
-        attachments: Attachment[];
-    }
-
     interface Column {
         id: number;
         title: string;
-        tasks: Task[];
+        status: KanbanTask['status'] | 'backlog' | 'inprogress';
+        tasks: KanbanTask[];
         isOpen: boolean;
     }
 
+    // Map column status to PocketBase status
+    const statusMapping = {
+        'Backlog': 'backlog',
+        'To Do': 'todo',
+        'In Progress': 'inprogress',
+        'Done': 'done'
+    };
+
+    // Reverse mapping for loading tasks from PocketBase
+    const reverseStatusMapping = {
+        'backlog': ['Backlog'],
+        'todo': ['To Do'],
+        'inprogress': ['In Progress'],
+        'done': ['Done'],
+        'hold': ['Backlog'],
+        'postpone': ['Backlog'],
+        'cancel': ['Done'],
+        'review': ['In Progress'],
+        'delegate': ['In Progress'],
+        'archive': ['Done']
+    };
+
     let columns = writable<Column[]>([
-        { id: 1, title: 'Backlog', tasks: [], isOpen: true },
-        { id: 2, title: 'To Do', tasks: [], isOpen: true },
-        { id: 3, title: 'In Progress', tasks: [], isOpen: true },
-        { id: 4, title: 'Done', tasks: [], isOpen: true }
+        { id: 1, title: 'Backlog', status: 'backlog', tasks: [], isOpen: true },
+        { id: 2, title: 'To Do', status: 'todo', tasks: [], isOpen: true },
+        { id: 3, title: 'In Progress', status: 'inprogress', tasks: [], isOpen: true },
+        { id: 4, title: 'Done', status: 'done', tasks: [], isOpen: true }
     ]);
 
     let tags = writable<Tag[]>([]);
-    let nextTaskId = 1;
-    let nextTagId = 1;
-    let nextAttachmentId = 1;
-    let selectedTask: Task | null = null;
+    let selectedTask: KanbanTask | null = null;
     let isModalOpen = false;
     let newTagName = '';
     let isEditingDescription = false;
     let isEditingTitle = false;
-    let selectedDeadline: number | null = null;
+    let selectedDeadline: number | string | null = null;
+    let isLoading = writable(true);
+    let error = writable<string | null>(null);
 
+    // Load data from PocketBase
+    async function loadData() {
+        isLoading.set(true);
+        error.set(null);
+        
+        try {
+            // Load tasks
+            await loadTasks();
+            
+            // Load tags
+            await loadTags();
+            
+            isLoading.set(false);
+        } catch (err) {
+            console.error('Error loading data:', err);
+            error.set(err.message || 'Failed to load data');
+            isLoading.set(false);
+        }
+    }
 
+    async function loadTasks() {
+    try {
+        let url = '/api/tasks';
+        if (currentProjectId) {
+            url = `/api/projects/${currentProjectId}/tasks`;
+        }
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+        
+        const data = await response.json();
+        
+        // Reset all columns tasks
+        columns.update(cols => {
+            return cols.map(col => ({...col, tasks: []}));
+        });
+        
+        // Distribute tasks to appropriate columns
+        columns.update(cols => {
+            data.items.forEach(task => {
+                const taskObj: KanbanTask = {
+                    id: task.id,
+                    title: task.title,
+                    taskDescription: task.taskDescription || '',
+                    creationDate: new Date(task.created),
+                    due_date: task.due_date ? new Date(task.due_date) : null,
+                    tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+                    attachments: [],
+                    project_id: task.project_id,
+                    createdBy: task.createdBy,
+                    allocatedAgents: task.allocatedAgents || [],
+                    status: task.status,
+                    priority: task.priority || 'medium',
+                    prompt: task.prompt || '',
+                    context: task.context || '',
+                    task_outcome: task.task_outcome || '',
+                    dependencies: task.dependencies || [],
+                    agentMessages: task.agentMessages || []
+                };
+                
+                // Find the appropriate column based on status
+                const targetColumns = reverseStatusMapping[task.status] || ['Backlog'];
+                const targetColumn = cols.find(col => targetColumns.includes(col.title));
+                
+                if (targetColumn) {
+                    targetColumn.tasks.push(taskObj);
+                } else {
+                    // If we can't find a matching column, default to Backlog
+                    const backlog = cols.find(col => col.title === 'Backlog');
+                    if (backlog) backlog.tasks.push(taskObj);
+                }
+            });
+            return cols;
+        });
+            
+            // Load attachments for each task
+            data.items.forEach(async task => {
+                if (task.attachments) {
+                    try {
+                        // Fetch attachments for this task
+                        const response = await fetch(`/api/tasks/${task.id}/attachments`);
+                        if (!response.ok) throw new Error('Failed to fetch attachments');
+                        
+                        const attachments = await response.json();
+                        
+                        if (attachments.items && attachments.items.length > 0) {
+                            const mappedAttachments: KanbanAttachment[] = attachments.items.map(att => ({
+                                id: att.id,
+                                fileName: att.fileName,
+                                url: att.url || '',
+                                note: att.note
+                            }));
+                            
+                            columns.update(cols => {
+                                // Find and update the task with attachments
+                                cols.forEach(col => {
+                                    col.tasks.forEach(t => {
+                                        if (t.id === task.id) {
+                                            t.attachments = mappedAttachments;
+                                        }
+                                    });
+                                });
+                                return cols;
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Error loading attachments for task ${task.id}:`, err);
+                    }
+                }
+            });
+            
+        } catch (err) {
+            console.error('Error loading tasks:', err);
+            throw err;
+        }
+    }
 
+    async function loadTags() {
+        try {
+            let url = '/api/tags';
+            if (currentProjectId) {
+                url = `/api/projects/${currentProjectId}/tags`;
+            }
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch tags');
+            
+            const data = await response.json();
+            tags.set(data.items);
+        } catch (err) {
+            console.error('Error loading tags:', err);
+            throw err;
+        }
+    }
 
+    // Save a tag to PocketBase
+    async function saveTag(tag: Tag) {
+    try {
+        const tagData = {
+            name: tag.name,
+            tagDescription: tag.tagDescription || '',
+            color: tag.color,
+            createdBy: get(currentUser)?.id,
+            selected: tag.selected || false
+        };
+        
+        // Update taggedProjects field if we have a current project
+        if (currentProjectId) {
+            tagData['taggedProjects'] = currentProjectId;
+        }
+        
+        const response = await fetch('/api/tags', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tagData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save tag');
+        
+        const savedTag = await response.json();
+        tags.update(t => {
+            // Remove the local version and add the saved version
+            const filtered = t.filter(existingTag => existingTag.id !== tag.id);
+            return [...filtered, savedTag];
+        });
+        
+        return savedTag;
+    } catch (err) {
+        console.error('Error saving tag:', err);
+        throw err;
+    }
+}
+async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?: string) {
+    try {
+        console.log(`Updating tags for task ${taskId} with:`, tagIds);
+        
+        // Prepare the update data
+        const updateData: any = {
+            taggedTasks: tagIds.join(','),
+            taskTags: tagIds
+        };
+        
+        // If taskDescription is provided, update it as well
+        if (taskDescription !== undefined) {
+            updateData.taskDescription = taskDescription;
+        }
+        
+        console.log('Update data:', updateData);
+        
+        // Update the task directly
+        const updateResponse = await fetch(`/api/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!updateResponse.ok) {
+            const errorText = await updateResponse.text();
+            console.error(`Server error (${updateResponse.status}):`, errorText);
+            throw new Error(`Failed to update task tags: ${updateResponse.status} ${updateResponse.statusText}`);
+        }
+        
+        return await updateResponse.json();
+    } catch (err) {
+        console.error('Error updating task tags:', err);
+        throw err;
+    }
+}
 
+    // Save a task to PocketBase
+    async function saveTask(task: KanbanTask) {
+    try {
+        // First, handle file uploads for any new attachments
+        const attachmentPromises = task.attachments
+            .filter(att => att.file)
+            .map(async (att) => {
+                const formData = new FormData();
+                formData.append('file', att.file);
+                formData.append('fileName', att.fileName);
+                if (att.note) formData.append('note', att.note);
+                formData.append('createdBy', get(currentUser)?.id);
+                
+                // If we have a task ID (for updates), link the attachment to the task
+                if (task.id && !task.id.startsWith('local_')) {
+                    formData.append('attachedTasks', task.id);
+                }
+                
+                // If we have a project ID, link the attachment to the project
+                if (task.project_id) {
+                    formData.append('attachedProjects', task.project_id);
+                }
+                
+                const response = await fetch('/api/attachments', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Failed to upload attachment');
+                
+                const savedAttachment = await response.json();
+                return {
+                    id: savedAttachment.id,
+                    fileName: att.fileName,
+                    url: savedAttachment.url || '',
+                    note: att.note
+                };
+            });
+            
+        const savedAttachments = await Promise.all(attachmentPromises);
+        
+        // Replace file attachments with saved ones
+        const updatedAttachments = task.attachments.map(att => {
+            if (att.file) {
+                const savedAtt = savedAttachments.find(sa => sa.fileName === att.fileName);
+                return savedAtt || att;
+            }
+            return att;
+        });
+        
+        // Use the task's current status directly instead of trying to determine it from columns
+        // This fixes the issue where status gets overridden during drag operations
+        const taskStatus = task.status;
+        
+        // Prepare attachment IDs as a comma-separated string
+        const attachmentIds = updatedAttachments.map(att => att.id).join(',');
+        
+        const taskData = {
+            title: task.title,
+            taskDescription: task.taskDescription,
+            project_id: currentProjectId || '',
+            createdBy: get(currentUser)?.id,
+            status: taskStatus,
+            priority: task.priority || 'medium',
+            due_date: task.due_date ? task.due_date.toISOString() : null,
+            taggedTasks: task.tags.join(','),
+            taskTags: task.tags,
+            allocatedAgents: task.allocatedAgents || [],
+            attachments: attachmentIds,
+            prompt: task.prompt || '',
+            context: task.context || '',
+            task_outcome: task.task_outcome || '',
+            dependencies: task.dependencies || [],
+            agentMessages: task.agentMessages || []
+        };
+        
+        let url = '/api/tasks';
+        let method = 'POST';
+        
+        // If task has an ID that's not auto-generated locally, it's an update
+        if (task.id && !task.id.startsWith('local_')) {
+            url = `/api/tasks/${task.id}`;
+            method = 'PATCH';
+        }
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(taskData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save task');
+        
+        const savedTask = await response.json();
+        
+        // Update the task in the columns
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.map(t => 
+                    t.id === task.id ? {
+                        ...savedTask,
+                        id: savedTask.id,
+                        attachments: updatedAttachments,
+                        creationDate: new Date(savedTask.created),
+                        due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                        tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : [],
+                        status: savedTask.status // Make sure status is updated from the server response
+                    } : t
+                )
+            }));
+        });
+        
+        return savedTask;
+    } catch (err) {
+        console.error('Error saving task:', err);
+        throw err;
+    }
+}
 
+    // Delete a task
+    async function deleteTask(taskId: string) {
+        try {
+            // Check if task is local only
+            if (taskId.startsWith('local_')) {
+                columns.update(cols => {
+                    return cols.map(col => ({
+                        ...col,
+                        tasks: col.tasks.filter(t => t.id !== taskId)
+                    }));
+                });
+                return;
+            }
+            
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) throw new Error('Failed to delete task');
+            
+            columns.update(cols => {
+                return cols.map(col => ({
+                    ...col,
+                    tasks: col.tasks.filter(t => t.id !== taskId)
+                }));
+            });
+        } catch (err) {
+            console.error('Error deleting task:', err);
+            throw err;
+        }
+    }
 
     function deepCopy<T>(obj: T): T {
         if (obj === null || typeof obj !== 'object') {
@@ -95,14 +465,41 @@
                 columns.update(cols => {
                     const column = cols.find(col => col.id === columnId);
                     if (column) {
-                        column.tasks.push({
-                            id: nextTaskId++,
+                        const localId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                        const newTask: KanbanTask = {
+                            id: localId,
                             title,
-                            description: '',
+                            taskDescription: '',
                             creationDate: new Date(),
-                            deadline: null,
+                            due_date: null,
                             tags: [],
-                            attachments: []
+                            attachments: [],
+                            project_id: currentProjectId || undefined,
+                            createdBy: get(currentUser)?.id,
+                            allocatedAgents: [],
+                            status: statusMapping[column.title] as KanbanTask['status'] || 'todo',
+                            priority: 'medium'
+                        };
+                        column.tasks.push(newTask);
+                        
+                        // Save to PocketBase
+                        saveTask(newTask).then(savedTask => {
+                            columns.update(cols => {
+                                return cols.map(col => ({
+                                    ...col,
+                                    tasks: col.tasks.map(t => 
+                                        t.id === localId ? {
+                                            ...savedTask,
+                                            id: savedTask.id,
+                                            creationDate: new Date(savedTask.created),
+                                            due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                                            tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
+                                        } : t
+                                    )
+                                }));
+                            });
+                        }).catch(err => {
+                            error.set(`Failed to save task: ${err.message}`);
                         });
                     }
                     return cols;
@@ -112,20 +509,59 @@
         }
     }
 
-    function moveTask(taskId: number, fromColumnId: number, toColumnId: number) {
-        columns.update(cols => {
-            const fromColumn = cols.find(col => col.id === fromColumnId);
-            const toColumn = cols.find(col => col.id === toColumnId);
-            if (fromColumn && toColumn) {
-                const taskIndex = fromColumn.tasks.findIndex(task => task.id === taskId);
-                if (taskIndex !== -1) {
-                    const [task] = fromColumn.tasks.splice(taskIndex, 1);
-                    toColumn.tasks.push(task);
-                }
+    function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
+    columns.update(cols => {
+        const fromColumn = cols.find(col => col.id === fromColumnId);
+        const toColumn = cols.find(col => col.id === toColumnId);
+        if (fromColumn && toColumn) {
+            const taskIndex = fromColumn.tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                const task = deepCopy(fromColumn.tasks[taskIndex]);
+                fromColumn.tasks.splice(taskIndex, 1);
+                
+                // Update status based on new column
+                const newStatus = statusMapping[toColumn.title] as KanbanTask['status'] || 'todo';
+                task.status = newStatus;
+                
+                // Add to new column
+                toColumn.tasks.push(task);
+                
+                // Save the updated task to PocketBase with explicit status
+                const taskToSave = {...task};
+                
+                // Use async/await in an IIFE to handle the promise
+                (async () => {
+                    try {
+                        // Directly update the status in PocketBase
+                        const response = await fetch(`/api/tasks/${taskId}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ status: newStatus })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Failed to update task status');
+                        }
+                        
+                        // Full task save can be done separately if needed
+                        await saveTask(taskToSave);
+                    } catch (err) {
+                        error.set(`Failed to move task: ${err.message}`);
+                        // Revert the move if saving fails
+                        fromColumn.tasks.splice(taskIndex, 0, task);
+                        const revertIndex = toColumn.tasks.findIndex(t => t.id === taskId);
+                        if (revertIndex !== -1) {
+                            toColumn.tasks.splice(revertIndex, 1);
+                        }
+                    }
+                })();
             }
-            return cols;
-        });
-    }
+        }
+        return cols;
+    });
+}
 
     function toggleColumn(columnId: number) {
         columns.update(cols => {
@@ -137,7 +573,7 @@
         });
     }
 
-    function handleDragStart(event: DragEvent, taskId: number, fromColumnId: number) {
+    function handleDragStart(event: DragEvent, taskId: string, fromColumnId: number) {
         if (event.dataTransfer) {
             event.dataTransfer.setData('text/plain', JSON.stringify({ taskId, fromColumnId }));
             event.dataTransfer.effectAllowed = 'move';
@@ -159,55 +595,131 @@
         }
     }
 
-    function openModal(task: Task, event: MouseEvent) {
+    function openModal(task: KanbanTask, event: MouseEvent) {
         event.stopPropagation();
         selectedTask = deepCopy(task);
         isModalOpen = true;
         isEditingTitle = false;
         isEditingDescription = false;
-        selectedDeadline = null;  // Reset selected deadline
+        selectedDeadline = null;
     }
+
     function saveAndCloseModal() {
         if (selectedTask) {
-            columns.update(cols => {
-                return cols.map(col => ({
-                    ...col,
-                    tasks: col.tasks.map(task => 
-                        task.id === selectedTask!.id ? {...selectedTask!} : task
-                    )
-                }));
+            // Save to PocketBase
+            saveTask(selectedTask).then(() => {
+                columns.update(cols => {
+                    return cols.map(col => ({
+                        ...col,
+                        tasks: col.tasks.map(task => 
+                            task.id === selectedTask!.id ? {...selectedTask!} : task
+                        )
+                    }));
+                });
+                selectedTask = null;
+                isModalOpen = false;
+            }).catch(err => {
+                error.set(`Failed to save task: ${err.message}`);
             });
         }
-        selectedTask = null;
-        isModalOpen = false;
     }
-    function addTag() {
+
+    async function addTag() {
         if (newTagName.trim()) {
-            tags.update(t => {
-                const newTag = {
-                    id: nextTagId++,
-                    name: newTagName.trim(),
-                    color: getRandomBrightColor(newTagName.trim())
-                };
-                return [...t, newTag];
-            });
+            const tagColor = getRandomBrightColor(newTagName.trim());
+            const newTag: Tag = {
+                id: `local_tag_${Date.now()}`,
+                name: newTagName.trim(),
+                tagDescription: '',
+                color: tagColor,
+                createdBy: get(currentUser)?.id,
+                selected: false
+            };
+            
+            tags.update(t => [...t, newTag]);
             newTagName = '';
+            
+            // Save tag to PocketBase
+            try {
+                await saveTag(newTag);
+            } catch (err) {
+                error.set(`Failed to save tag: ${err.message}`);
+            }
         }
     }
-
-
+    function addGlobalTask(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        const input = event.target as HTMLTextAreaElement;
+        const title = input.value.trim();
+        
+        if (title) {
+            // Find the Backlog column (should be the first one with id=1)
+            columns.update(cols => {
+                const backlogColumn = cols.find(col => col.title === 'Backlog');
+                
+                if (backlogColumn) {
+                    const localId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                    const newTask: KanbanTask = {
+                        id: localId,
+                        title,
+                        taskDescription: '',
+                        creationDate: new Date(),
+                        due_date: null,
+                        tags: [],
+                        attachments: [],
+                        project_id: currentProjectId || undefined,
+                        createdBy: get(currentUser)?.id,
+                        allocatedAgents: [],
+                        status: 'todo', // Use the appropriate status for Backlog
+                        priority: 'medium'
+                    };
+                    
+                    backlogColumn.tasks.push(newTask);
+                    
+                    // Save to PocketBase
+                    saveTask(newTask).then(savedTask => {
+                        columns.update(cols => {
+                            return cols.map(col => ({
+                                ...col,
+                                tasks: col.tasks.map(t => 
+                                    t.id === localId ? {
+                                        ...savedTask,
+                                        id: savedTask.id,
+                                        creationDate: new Date(savedTask.created),
+                                        due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                                        tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
+                                    } : t
+                                )
+                            }));
+                        });
+                    }).catch(err => {
+                        error.set(`Failed to save task: ${err.message}`);
+                    });
+                }
+                
+                return cols;
+            });
+            
+            // Clear the input field
+            input.value = '';
+        }
+    }
+}
     function handleFileUpload(event: Event) {
         const input = event.target as HTMLInputElement;
         if (input.files && selectedTask) {
             for (let i = 0; i < input.files.length; i++) {
                 const file = input.files[i];
-                const attachment: Attachment = {
-                    id: nextAttachmentId++,
-                    name: file.name,
-                    url: URL.createObjectURL(file)
+                const attachment: KanbanAttachment = {
+                    id: `local_attachment_${Date.now()}_${i}`,
+                    fileName: file.name,
+                    url: URL.createObjectURL(file),
+                    file: file
                 };
                 selectedTask.attachments = [...selectedTask.attachments, attachment];
             }
+            selectedTask = { ...selectedTask }; // Trigger reactivity
         }
     }
 
@@ -215,7 +727,7 @@
         if (selectedTask) {
             const deadline = new Date();
             deadline.setDate(deadline.getDate() + days);
-            selectedTask.deadline = deadline;
+            selectedTask.due_date = deadline;
             selectedTask = { ...selectedTask };
             selectedDeadline = days;
         }
@@ -226,13 +738,13 @@
             const deadline = new Date();
             const daysUntilEndOfWeek = 7 - deadline.getDay();
             deadline.setDate(deadline.getDate() + daysUntilEndOfWeek);
-            selectedTask.deadline = deadline;
+            selectedTask.due_date = deadline;
             selectedTask = { ...selectedTask };
             selectedDeadline = 'endOfWeek';
         }
     }
 
-    function toggleTag(tagId: number) {
+    function toggleTag(tagId: string) {
     if (selectedTask) {
         const tagIndex = selectedTask.tags.indexOf(tagId);
         if (tagIndex === -1) {
@@ -241,54 +753,120 @@
             selectedTask.tags = selectedTask.tags.filter(id => id !== tagId);
         }
         selectedTask = { ...selectedTask };  // Trigger reactivity
+        
+        // If task is already saved to PocketBase, update the tags relation
+        if (selectedTask.id && !selectedTask.id.startsWith('local_')) {
+            console.log(`Toggling tag ${tagId} on task ${selectedTask.id}`);
+            updateTaskTags(selectedTask.id, selectedTask.tags, selectedTask.taskDescription)
+                .then(updatedTask => {
+                    console.log('Tags updated successfully:', updatedTask);
+                })
+                .catch(err => {
+                    console.error('Failed to update tags:', err);
+                    error.set(`Failed to update task tags: ${err.message}`);
+                });
+        }
     }
 }
 
-    
+    function toggleAgent(agentId: string) {
+        if (selectedTask) {
+            const agentIndex = selectedTask.allocatedAgents.indexOf(agentId);
+            if (agentIndex === -1) {
+                selectedTask.allocatedAgents = [...selectedTask.allocatedAgents, agentId];
+            } else {
+                selectedTask.allocatedAgents = selectedTask.allocatedAgents.filter(id => id !== agentId);
+            }
+            selectedTask = { ...selectedTask };  // Trigger reactivity
+        }
+    }
+
+    // Load initial data when component mounts
+    $: {
+        if (currentProjectId) {
+            loadData();
+        } else {
+            // If no project is selected, still try to load personal tasks
+            loadData();
+        }
+    }
 
     $: taskTags = selectedTask ? $tags.filter(tag => selectedTask.tags.includes(tag.id)) : [];
 </script>
 
-<div class="kanban-board">
-    {#each $columns as column}
-        <div class="kanban-column" on:dragover={handleDragOver} on:drop={(e) => handleDrop(e, column.id)}>
-            <button type="button" on:click={() => toggleColumn(column.id)}>{column.title}</button>
-            <textarea 
-                placeholder="Add a task and press Enter"
-                on:keydown={(e) => addTask(column.id, e)}
-            ></textarea>
-            {#if column.isOpen}
-                <div class="task-list">
-                    {#each column.tasks as task}
-                        <div 
-                            class="task-card" 
-                            draggable="true" 
-                            on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
-                            on:click={(e) => openModal(task, e)}
-                        >
-                            <h4>{task.title}</h4>
+<div class="kanban-container">
+    <!-- Single input field above all columns -->
+    <div class="global-input-container">
+        <textarea 
+            placeholder="Add a task and press Enter (will be added to Backlog)"
+            on:keydown={(e) => addGlobalTask(e)}
+            class="global-task-input"
+        ></textarea>
+    </div>
 
-                            {#if task.deadline}
-                                <p class="deadline">⌛ {task.deadline.toLocaleDateString()}</p>
-                            {/if}
-                            {#if task.tags.length > 0}
-                            <div class="tag-list">
-                                {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
-                                    <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
-                                {/each}
-                            </div>
-                            {/if}
-                            {#if task.attachments.length > 0}
-                                <div class="attachment-indicator">
-                                    📎 {task.attachments.length}
+    <div class="kanban-board">
+        {#each $columns as column}
+            <div class="kanban-column" on:dragover={handleDragOver} on:drop={(e) => handleDrop(e, column.id)}>
+                <button type="button" class="column-header" on:click={() => toggleColumn(column.id)}>
+                    {column.title}
+                </button>
+                
+                {#if column.isOpen}
+                    <div class="task-list">
+                        {#each column.tasks as task}
+                            <div 
+                                class="task-card" 
+                                draggable="true" 
+                                on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
+                                on:click={(e) => openModal(task, e)}
+                            >
+                                <h4>{task.title}</h4>
+
+                                <p class="description">{task.taskDescription}</p>
+
+                                {#if task.due_date}
+                                    <p class="deadline">⌛ {task.due_date.toLocaleDateString()}</p>
+                                {/if}
+                                {#if task.tags && task.tags.length > 0}
+                                <div class="tag-list">
+                                    {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
+                                        <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
+                                    {/each}
                                 </div>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        </div>
-    {/each}
+                                {/if}
+                                {#if task.createdBy}
+                                <p class="task-creator">
+                                    <img 
+                                        src={`/api/users/${task.createdBy}/avatar`} 
+                                        alt="Avatar" 
+                                        class="user-avatar"
+                                        onerror="this.style.display='none'"
+                                    />
+                                    <span class="username">
+                                        {#await fetch(`/api/users/${task.createdBy}`).then(r => {
+                                            if (!r.ok) throw new Error(`Error ${r.status}: ${r.statusText}`);
+                                            return r.json();
+                                        }).catch(err => {
+                                            console.error('Error fetching user:', err, task.createdBy);
+                                            return { username: 'Error' };
+                                        }) then user}
+                                            {user.name || user.username || 'Unknown'}
+                                        {/await}
+                                    </span>
+                                </p>
+                                {/if}
+                                {#if task.attachments && task.attachments.length > 0}
+                                    <div class="attachment-indicator">
+                                        📎 {task.attachments.length}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/each}
+    </div>
 </div>
 
 {#if isModalOpen && selectedTask}
@@ -311,19 +889,19 @@
             <div class="description-section">
                 <p>Description:</p>
                 {#if isEditingDescription}
-                    <textarea
-                        bind:value={selectedTask.description}
-                        on:blur={() => isEditingDescription = false}
-                        autoFocus
-                    ></textarea>
-                {:else}
-                    <div 
-                        class="description-display"
-                        on:click={() => isEditingDescription = true}
-                    >
-                        {selectedTask.description || 'Click to add a description'}
-                    </div>
-                {/if}
+                <textarea
+                    bind:value={selectedTask.taskDescription}
+                    on:blur={() => isEditingDescription = false}
+                    autoFocus
+                ></textarea>
+            {:else}
+                <div 
+                    class="description-display"
+                    on:click={() => isEditingDescription = true}
+                >
+                    {selectedTask.taskDescription || 'Click to add a description'}
+                </div>
+            {/if}
             </div>
             <div class="deadline-section">
                 <p>Deadline:</p>
@@ -380,27 +958,87 @@
                     {/each}
                 </div>
             </div>
-            <button class="done-button" on:click={saveAndCloseModal}>Done</button>
             <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
+
+            <button class="done-button" on:click={saveAndCloseModal}>Done</button>
 
         </div>
     </div>
 {/if}
 
-<style>
-
+<style lang="scss">
+    $breakpoint-sm: 576px;
+    $breakpoint-md: 1000px;
+    $breakpoint-lg: 992px;
+    $breakpoint-xl: 1200px;
+      @use "src/styles/themes.scss" as *;
+    * {
+      /* font-family: 'Merriweather', serif; */
+      /* font-family: 'Roboto', sans-serif; */
+      /* font-family: 'Montserrat'; */
+      /* color: var(--text-color); */
+      font-family: var(--font-family);
+    }
     p {
-        font-size: 14px;
+        font-size: 1.2rem;
+        line-height: 1;
+        color: var(--text-color);
+        opacity: 0.8;
+        font-weight: 800;
+        text-align: left;
+        letter-spacing: 0.3rem;
+        transition: all 0.3s ease;
+
+        &.description {
+            color: var(--placeholder-color);
+            letter-spacing: 0.1rem;
+            font-weight: 100;
+            font-size: 0.9rem;
+            text-align: justify;
+        }
+    }
+
+    .global-input-container {
+        width: 100%;
+        padding: 0;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+        & textarea {
+            text-align: center;
+            line-height: 2;
+        }
+    }
+    
+    .global-task-input {
+        width: calc(100% - 2rem);
+        height: 3rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 2rem;
+        padding: 10px;
+        font-size: 1.4rem;
+    }
+    
+    .global-task-input:focus {
+        outline: none;
+        border-color: var(--tertiary-color);
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
     }
     .kanban-board {
         display: flex;
         flex-direction: row;
-        gap: 10px;
-        padding: 10px;
-        overflow-x: auto;
-        justify-content: flex-start; 
+        gap: 1.5rem;
+        overflow-x: auto; 
+        scrollbar-width: thin;
+        scroll-behavior: smooth;
+        scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
         height: 100%;
+        width: 100%;
+        padding: 1rem;
+        transition: all 0.3s ease;
 
     }
 
@@ -410,65 +1048,97 @@
         flex: 0 0 auto;
         display: flex;        
         flex-direction: column;
-        max-width: 300px;
-        min-width: 200px;
-        padding: 10px;
+        width: calc(25% - 2rem);
         transition: all 0.3s ease;
     }
 
+
     .kanban-column button {
         cursor: pointer;
-        width: 100%;
+        display: flex;
+        width: auto;
         text-align: left;
-        padding: 10px;
-        background: none;
         border: none;
+        padding: 0.5rem;
+        color: var(--text-color);
+        background: var(--bg-color);
         font-size: 1.2em;
         font-weight: bold;
+        transition: all 0.3s ease;
     }
 
     textarea {
-        width: 90%;
+        width: 100%;
+        padding: 0.5rem;
         align-items: center;
         justify-content: center;
-        margin-bottom: 10px;
-        padding: 5px;
+        margin-bottom: 0.5rem;
         border-radius: 10px;
-        border: 1px solid #ddd;
-        background-color: #3a3e3c;
+        border: 1px solid var(--line-color);
+        background-color: var(--secondary-color);
         resize:none;
         color: white;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+        height: auto;
+        font-size: 1.1em;
 
+        &.selected {
+            background-color: red;
+        }
     }
 
     textarea:hover {
         /* border: 1px solid #7cb87e; */
-        transform: scale(1.05);
+        transform: scale(0.99);
     }
 
     .task-list {
         min-height: 100px;
     }
-
+    .description-display {
+        font-size: 1.5rem;
+        padding: 1rem;
+    }
     .task-card {
-        background-color: #1c1c1c;
+        background: var(--secondary-color);
         border-radius: 10px;
-        padding: 5px;
-        margin-bottom: 10px;;
+        margin-bottom: 0.5rem;
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
+        width: 100%;
+        padding: 0.5rem;
+        word-break: break-all;
+        transition: all 0.3s ease;
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(5px) rotate(5deg);        
+        transform: scale(1.05) translateX(5px) rotate(3deg);    
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        border: 1px solid var(--line-color);
+        z-index: 1;
+        & h4 {
+
+        }
     }
 
     .task-card:active {
-        transform: rotate(-5deg);
+        transform: rotate(-3deg);
     }
 
+    h1 {
+        font-size: 1.8em;
+        color: var(--tertiary-color);
+        text-align: left;
+        border-bottom: 1px solid var(--line-color);
+    line-height: 2;
+    margin: 0;
+    }
+    h4 {
+        font-size: 1rem;
+        margin: 0;
+        margin-top: 0.5rem;
+    }
 
     .tag-list {
         display: flex;
@@ -478,11 +1148,15 @@
     }
 
     .tag {
-        color: white;
-        padding: 2px 5px;
+        color: var(--text-color);
+        opacity: 0.5;
+        border: none;
+        padding: 0 0.5rem;
+
         border-radius: 10px;
-        font-size: 0.8em;
-        border: 2px solid transparent;
+        font-size: 1.1em;
+        line-height: 2rem;
+
         transition: all 0.3s ease;
         cursor: pointer;
     }
@@ -492,17 +1166,40 @@
     }
 
     .tag.selected {
-        border-color: white;
+        opacity: 1;
+
         box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }
 
+    .task-creator {
+        display: flex;
+        justify-content: flex-end;
 
+        margin-top: 4px;
+        font-size: 0.8rem;
+        color: #666;
+    }
+    
+    .user-avatar {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    
+    .username {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
 
     .deadline {
-        font-size: 0.8em;
-        color: #888;
-        margin-top: 5px;
+        font-size: 0.9em;
+        color: var(--placeholder-color);
+
+        letter-spacing: 0.1rem;
     }
 
     .deadline.selected {
@@ -531,18 +1228,22 @@
     }
 
     .modal-content {
-        background-color: #333333;
+        backdrop-filter: blur(20px);
         color: white;
-        padding: 20px;
+        padding: 2rem;
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
+
         border-radius: 40px;
         max-width: 500px;
         width: 100%;
         position: relative;
-        border: 1px solid white;
+        border: 1px solid var(--line-color);
     }
 
     .deadline-section {
         margin-top: 10px;
+        padding: 1rem;
+
     }
 
     .deadline-controls {
@@ -563,27 +1264,37 @@
 
     .deadline-controls button {
         padding: 5px 10px;
-        background-color: #4CAF50;
+        background: var(--secondary-color);
         color: white;
         border: none;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 0.8em;
+        font-size: 1.2em;
+        letter-spacing: 0.1rem;
+        line-height: 2;
+
     }
 
     .deadline-controls button.selected {
-        border: 2px solid white;
-        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        border: 2px solid var(--tertiary-color);
+        background: var(--tertiary-color);
+        color: var(--bg-color);
+        box-shadow: 0px 1px 45px 1px rgba(255, 255, 255, 0.4);
+        font-weight: 800;
     }
 
 
     .tag-section, .attachment-section {
         margin-top: 10px;
+        padding: 1rem;
+
     }
 
+
+
     .add-tag {
-        border-radius: 20px;
-        margin-top: 10px;
+        border-radius: 1rem;
+        margin-top: 1rem;
         display: flex;
         gap: 10px;
     }
@@ -591,21 +1302,39 @@
     .add-tag input[type="text"] {
         flex-grow: 1;
         padding: 5px;
-        border-radius: 5px;
-        border: 1px solid #ddd;
+        border-radius:2rem;
+        padding-inline-start: 1rem;
+    border: none;
         background-color: #3a3e3c;
         color: white;
+        font-size: 1.2rem;
+
     }
 
     .add-tag button {
-        padding: 5px 10px;
-        background-color: #4CAF50;
+        padding:0.5rem;
+        width: 200px;
+        font-size: 1.2rem;
+        background: var(--secondary-color);
         color: white;
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        &:hover {
+            box-shadow: 0px 1px 45px 1px rgba(255, 255, 255, 0.4);
+            background: var(--tertiary-color);
+            color: var(--bg-color);
+        }
     }
+    
+    input[type="file"] {
+  display: flex;
+  border-radius: 1rem;
+  font-size: 1.4rem;
+  gap: 0.5rem;
 
+  
+}
     .attachment-list {
         margin-top: 10px;
     }
@@ -618,20 +1347,22 @@
     }
 
     .done-button {
-        position: absolute;
         bottom: 20px;
         right: 20px;
-        background-color: #4CAF50;
+        background: var(--secondary-color);
+        border: 1px solid var(--line-color);
         color: white;
         padding: 10px 20px;
-        border: none;
         border-radius: 20px;
         cursor: pointer;
-        font-size: 1em;
+        font-size: 1.2em;
+        letter-spacing: 0.5rem;
+        width: 100%;
     }
 
     .done-button:hover {
-        background-color: #45a049;
+        background: var(--tertiary-color);
+
     }
 
     @keyframes selectPulse {
@@ -642,6 +1373,8 @@
 
     .tag.selected {
         animation: selectPulse 0.3s ease-in-out;
+        box-shadow: 0px 1px 40px 1px rgba(255, 255, 255, 0.4);
+
     }
 
     @media (max-width: 970px) {

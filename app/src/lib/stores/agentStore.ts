@@ -44,82 +44,52 @@ function createAgentStore() {
 
 	return {
 		subscribe,
-		loadAgents: async (workspaceId: string): Promise<AIAgent[]> => {
+		loadAgents: async (projectId: string): Promise<AIAgent[]> => {
 			try {
-				console.log('Loading agents for workspace:', workspaceId);
+				console.log('Loading agents for project:', projectId);
 
-				// Fetch workspace using API
-				const workspaceResponse = await fetch(`/api/workspaces/${workspaceId}`, {
+				// Try exact project ID format to fix 404 error
+				const projectResponse = await fetch(`/api/projects/${projectId}`, {
 					method: 'GET',
 					credentials: 'include'
 				});
 				
-				const workspaceData = await handleResponse<{ success: boolean; data: any; error?: string }>(workspaceResponse);
-				
-				if (!workspaceData.success) {
-					throw new Error(workspaceData.error || 'Failed to fetch workspace');
-				}
-				
-				const workspace = workspaceData.data;
-				console.log('Workspace:', workspace);
-
-				const parentAgentId = workspace.parent_agent;
-				console.log('Parent agent ID:', parentAgentId);
-
-				if (!parentAgentId) {
-					console.error('No parent agent found for this workspace');
-					set({ agents: [], updateStatus: 'No parent agent found for this workspace' });
-					setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-					return [];
-				}
-
-				// Fetch parent agent
-				const parentAgentResponse = await fetch(`/api/agents/${parentAgentId}?expand=actions,model`, {
-					method: 'GET',
-					credentials: 'include'
-				});
-				
-				const parentAgentData = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(parentAgentResponse);
-				
-				if (!parentAgentData.success) {
-					throw new Error(parentAgentData.error || 'Failed to fetch parent agent');
-				}
-				
-				const parentAgent = parentAgentData.data;
-				console.log('Parent agent:', parentAgent);
-
-				let allAgents = [parentAgent];
-
-				if (parentAgent.child_agents && parentAgent.child_agents.length > 0) {
-					// Fetch child agents
-					const childAgentsResponse = await fetch(`/api/agents/list?filter=${encodeURIComponent(
-						parentAgent.child_agents.map((id) => `id = "${id}"`).join(' || ')
-					)}&expand=actions,model`, {
+				// If first attempt fails, try the alternative format
+				if (!projectResponse.ok) {
+					console.log('First endpoint attempt failed, trying alternative format');
+					const altProjectResponse = await fetch(`/api/project/${projectId}`, {
 						method: 'GET',
 						credentials: 'include'
 					});
 					
-					const childAgentsData = await handleResponse<{ success: boolean; data: AIAgent[]; error?: string }>(childAgentsResponse);
-					
-					if (!childAgentsData.success) {
-						throw new Error(childAgentsData.error || 'Failed to fetch child agents');
+					if (!altProjectResponse.ok) {
+						throw new Error(`Failed to fetch project: ${altProjectResponse.status}`);
 					}
 					
-					console.log('Child agents response:', childAgentsData.data);
-
-					allAgents = [...allAgents, ...childAgentsData.data];
+					const projectData = await handleResponse<{ success: boolean; data: any; error?: string }>(altProjectResponse);
+					
+					if (!projectData.success) {
+						throw new Error(projectData.error || 'Failed to fetch project data');
+					}
+					
+					const project = projectData.data;
+					console.log('Project (alt format):', project);
+					
+					// Continue with the rest of the function using project data...
+					return processProjectData(project, set, update);
 				}
-
-				const parsedAgents = allAgents.map((agent) => ({
-					...agent,
-					position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
-				}));
-
-				console.log('Parsed agents:', parsedAgents);
-
-				set({ agents: parsedAgents, updateStatus: 'Agents loaded successfully' });
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return parsedAgents;
+				
+				const projectData = await handleResponse<{ success: boolean; data: any; error?: string }>(projectResponse);
+				
+				if (!projectData.success) {
+					throw new Error(projectData.error || 'Failed to fetch project data');
+				}
+				
+				const project = projectData.data;
+				console.log('Project:', project);
+				
+				return processProjectData(project, set, update);
+				
 			} catch (error) {
 				console.error('Error loading agents:', error);
 				set({ agents: [], updateStatus: 'Failed to load agents' });
@@ -158,6 +128,79 @@ function createAgentStore() {
 			})),
 		reset: () => set({ agents: [], updateStatus: '' })
 	};
+}
+
+// Helper function to process project data and fetch agents
+async function processProjectData(project: any, set: Function, update: Function): Promise<AIAgent[]> {
+	const parentAgentId = project.parent_agent;
+	console.log('Parent agent ID:', parentAgentId);
+
+	if (!parentAgentId) {
+		console.error('No parent agent found for this project');
+		set({ agents: [], updateStatus: 'No parent agent found for this project' });
+		setTimeout(() => update((state: any) => ({ ...state, updateStatus: '' })), 3000);
+		return [];
+	}
+
+	// Fetch parent agent
+	const parentAgentResponse = await fetch(`/api/agents/${parentAgentId}?expand=actions,model`, {
+		method: 'GET',
+		credentials: 'include'
+	});
+	
+	// Handle potential 404 for the agent endpoint
+	if (!parentAgentResponse.ok) {
+		throw new Error(`Failed to fetch parent agent: ${parentAgentResponse.status}`);
+	}
+	
+	const parentAgentData = await handleResponse<{ success: boolean; data: AIAgent; error?: string }>(parentAgentResponse);
+	
+	if (!parentAgentData.success) {
+		throw new Error(parentAgentData.error || 'Failed to fetch parent agent data');
+	}
+	
+	const parentAgent = parentAgentData.data;
+	console.log('Parent agent:', parentAgent);
+
+	let allAgents = [parentAgent];
+
+	if (parentAgent.child_agents && parentAgent.child_agents.length > 0) {
+		try {
+			// Fetch child agents
+			const childAgentsResponse = await fetch(`/api/agents/list?filter=${encodeURIComponent(
+				parentAgent.child_agents.map((id) => `id = "${id}"`).join(' || ')
+			)}&expand=actions,model`, {
+				method: 'GET',
+				credentials: 'include'
+			});
+			
+			if (!childAgentsResponse.ok) {
+				console.error('Failed to fetch child agents:', childAgentsResponse.status);
+				// Continue with just the parent agent instead of failing completely
+			} else {
+				const childAgentsData = await handleResponse<{ success: boolean; data: AIAgent[]; error?: string }>(childAgentsResponse);
+				
+				if (childAgentsData.success) {
+					console.log('Child agents response:', childAgentsData.data);
+					allAgents = [...allAgents, ...childAgentsData.data];
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching child agents:', error);
+			// Continue with just the parent agent
+		}
+	}
+
+	const parsedAgents = allAgents.map((agent) => ({
+		...agent,
+		position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
+	}));
+
+	console.log('Parsed agents:', parsedAgents);
+
+	set({ agents: parsedAgents, updateStatus: 'Agents loaded successfully' });
+	setTimeout(() => update((state: any) => ({ ...state, updateStatus: '' })), 3000);
+	return parsedAgents;
 }
 
 export const agentStore = createAgentStore();

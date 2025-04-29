@@ -41,12 +41,12 @@
 					<div class="tag-item" transition:fly={{ y: 20, duration: 50 }}>
 						<button
 							class="tag"
-							class:selected={tag.selected_threads?.includes(currentThreadId)}
+							class:selected={tag.thread_id?.includes(currentThreadId)}
 							on:click={() => toggleTag(tag)}
 							style="background-color: {tag.color}"
 						>
 							{tag.name}
-							{#if tag.selected_threads?.includes(currentThreadId)}
+							{#if tag.thread_id?.includes(currentThreadId)}
 								<span class="checkmark">✓</span>
 							{/if}
 						</button>
@@ -59,7 +59,7 @@
 				on:click={toggleTagSelector}
 				transition:fly={{ y: -300, duration: 300 }}
 			>
-				{#each availableTags.filter( (tag) => tag.selected_threads?.includes(currentThreadId) ) as tag (tag.id)}
+				{#each availableTags.filter( (tag) => tag.thread_id?.includes(currentThreadId) ) as tag (tag.id)}
 					<span class="tag" style="background-color: {tag.color}">{tag.name}</span>
 				{/each}
 			</div>

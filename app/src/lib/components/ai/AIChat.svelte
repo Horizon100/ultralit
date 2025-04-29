@@ -5,7 +5,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon} from 'lucide-svelte';
   import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
@@ -43,6 +43,7 @@
 	import ReferenceSelector from '$lib/components/features/ReferenceSelector.svelte';
   import { currentCite, availableCites, type Cite } from '$lib/stores/citeStore';
   import MessageProcessor from '$lib/contents/MessageProcessor.svelte';
+	import AgentPicker from '$lib/components/overlays/AgentPicker.svelte';
 
   interface UserProfile {
     id: string;
@@ -67,12 +68,12 @@
   let messageProcessor;
   let isTypingInProgress = false;
   let textareaElement: HTMLTextAreaElement | null = null;
-
+  let showAgentPicker = false;
   let isUpdatingThreadName = false;
-  let activeReplyMenu: { 
-  elementId: string; 
-  position: { x: number; y: number; }; 
-} | null = null;  
+  let activeReplyMenu: {
+    elementId: string;
+    position: { x: number; y: number };
+} | null = null;
 let replyText = '';
   let lastLoadedProjectId: string | null = null;
   let isLoadingThreads = false;
@@ -186,6 +187,8 @@ let replyText = '';
   let showSortOptions = false;
   let showUserFilter = false;
   let selectedSystemPrompt: string | null = null;
+  let hiddenReplies = new Set();
+
 
   import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur } from '$lib/stores/textareaFocusStore';
 
@@ -312,6 +315,10 @@ function handleModelSelection(event: CustomEvent<AIModel>) {
     ...sections,
     models: false
   }));
+}
+function isReplyHidden(messageId) {
+  const repliesContainer = document.querySelector(`.replies-to-${messageId}`);
+  return repliesContainer ? repliesContainer.classList.contains('hidden') : true;
 }
 function handleTextSelection() {
     const selection = window.getSelection();
@@ -596,30 +603,65 @@ async function submitReply(elementId: string, text: string = '') {
   }
 }
 
-function toggleReplies(messageId: string) {
-  const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-  const repliesContainer = document.querySelector(`.replies-to-${messageId}`);
+function toggleReplies(messageId) {
+  console.log(`[toggleReplies] Starting to toggle replies for message ID: ${messageId}`);
   
-  if (messageElement && repliesContainer && chatMessagesDiv) {
-    // Toggle visibility
-    const isHidden = repliesContainer.classList.toggle('hidden');
+  try {
+    // Find the replies container for this message
+    const repliesContainer = document.querySelector(`.replies-to-${messageId}`);
     
-    // Hide thread list
-    threadsStore.update(store => ({ ...store, showThreadList: false }));
-
-    if (!isHidden) {
-      // Calculate position of the message element
-      const containerRect = chatMessagesDiv.getBoundingClientRect();
-      const elementRect = messageElement.getBoundingClientRect();
-      const scrollPosition = elementRect.top - containerRect.top + chatMessagesDiv.scrollTop;
-      
-      // Scroll with some padding
-      const offset = 0;
-      chatMessagesDiv.scrollTo({
-        top: scrollPosition - offset,
-        behavior: 'smooth'
-      });
+    if (!repliesContainer) {
+      console.warn(`[toggleReplies] No replies container found for message ID: ${messageId} - this might be expected if there are no replies`);
+      // Still try to update the toggle button state if it exists
+      updateToggleButtonState(messageId, true); // Assume hidden state if no container
+      return;
     }
+    
+    // Toggle the 'hidden' class on the replies container
+    const isHidden = repliesContainer.classList.toggle('hidden');
+    console.log(`[toggleReplies] Toggled visibility. Now hidden: ${isHidden}`);
+    
+    // Update toggle button state
+    updateToggleButtonState(messageId, isHidden);
+    
+    // If we're showing messages and have a chat div to scroll
+    if (!isHidden && chatMessagesDiv) {
+      setTimeout(() => {
+        try {
+          const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+          if (messageElement) {
+            const containerRect = chatMessagesDiv.getBoundingClientRect();
+            const elementRect = messageElement.getBoundingClientRect();
+            const scrollPosition = elementRect.top - containerRect.top + chatMessagesDiv.scrollTop;
+            
+            chatMessagesDiv.scrollTo({
+              top: scrollPosition - 20,
+              behavior: 'smooth'
+            });
+          }
+        } catch (scrollError) {
+          console.error(`[toggleReplies] Error during scroll:`, scrollError);
+        }
+      }, 100);
+    }
+  } catch (mainError) {
+    console.error(`[toggleReplies] Critical error:`, mainError);
+  }
+}
+
+// Helper function to update toggle button state
+function updateToggleButtonState(messageId, isHidden) {
+  try {
+    const toggleButton = document.querySelector(
+      `[data-message-id="${messageId}"] .toggle-replies-btn .toggle-icon, 
+       .reply-content .toggle-replies-btn[data-parent-id="${messageId}"] .toggle-icon`
+    );
+    
+    if (toggleButton) {
+      toggleButton.textContent = isHidden ? '+' : '-';
+    }
+  } catch (error) {
+    console.error(`[updateToggleButtonState] Error:`, error);
   }
 }
 
@@ -2375,7 +2417,11 @@ onDestroy(() => {
 {#if $currentUser}
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-
+  {#if showAgentPicker}
+  <AgentPicker 
+    on:close={() => showAgentPicker = false}
+  />
+{/if}
   <div class="chat-container" 
     transition:fly="{{ x: 300, duration: 300 }}" 
     class:drawer-visible={$showThreadList}
@@ -2421,7 +2467,7 @@ onDestroy(() => {
                   </div> 
               {/if}
             </button>
-            <button 
+            <!-- <button 
               class="toolbar-button"
               class:active={showSortOptions}
               on:click={() => showSortOptions = !showSortOptions}
@@ -2442,7 +2488,7 @@ onDestroy(() => {
               {#if $selectedUserIds.size > 0}
                 <span class="filter-badge">{$selectedUserIds.size}</span>
               {/if}
-            </button>
+            </button> -->
             <div class="drawer-input">
               <button 
                 class="toolbar-button" 
@@ -2461,6 +2507,7 @@ onDestroy(() => {
                   {/if} -->
               </button>
               {#if isExpanded}
+
               <input
                 transition:slide={{ duration: 300 }}
                 type="text"
@@ -2714,8 +2761,14 @@ onDestroy(() => {
                   <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
 
                 </button>
-
+                <button 
+                class="toggle-btn"
+                on:click={() => showAgentPicker = !showAgentPicker}
+              >
+                <BotIcon/>
+              </button>
               </span>
+
               {/if}
 
               {/if}
@@ -3005,9 +3058,9 @@ onDestroy(() => {
 
                     >
                       <span class="replies-indicator">
-                        <MessagesSquare/>
+                        <!-- <MessagesSquare/> -->
                           {chatMessages.filter(msg => msg.parent_msg === message.id).length} 
-                        replies
+                          <span class="toggle-icon">+</span>
 
                       </span>
                     </button>
@@ -3015,10 +3068,26 @@ onDestroy(() => {
                   
                   <div class="replies-container replies-to-{message.id}">
                     {#each getThreadedReplies(message.id, chatMessages) as reply (reply.id)}
+                    {#if chatMessages.filter(msg => msg.parent_msg === reply.id).length > 0}
+                    <button class="toggle-replies-btn" 
+                      data-parent-id={reply.parent_msg}
+                      on:click={(e) => {
+                        e.stopPropagation(); // Prevent event bubbling
+                        toggleReplies(reply.id);
+                      }}>
+                      <span class="replies-indicator">
+                        <MessagesSquare/>
+                        {chatMessages.filter(msg => msg.parent_msg === reply.id).length}
+                        <span class="toggle-icon">▲</span>
+                      </span>
+                    </button>
+                  {/if}
                     <div class="reply-message {reply.role}" in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                        <div class="reply-indicator"></div>
+                        <!-- <div class="reply-indicator"></div> -->
+
                         <div class="reply-content">
-                          <div class="message-header">
+
+                          <div class="message-header assistant">
                             {#if reply.role === 'user'}
                             <div class="avatar-container">
                               {#if getAvatarUrl($currentUser)}
@@ -3045,39 +3114,39 @@ onDestroy(() => {
                                 </span>
                               </div>
                             {:else if reply.role === 'assistant'}
-
+                              <div class="avatar-container">
+                                <Bot />
+                              </div>
                               <div class="user-header">
-                                <span class="model"> <Bot />
+                                <span class="model"> 
                                   {reply.model}</span>
                               </div>
                             {/if}
                           </div>
                           <p>{@html reply.content}</p>
+                          <div class="message-footer">
+                            {#if reply.role === 'user'}
+                              <!-- User-specific footer content -->
+                            {:else if reply.role === 'assistant'}
+                              <Reactions 
+                                message={reply}
+                                userId={userId}
+                                on:update={async (event) => {
+                                  const { messageId, reactions } = event.detail;
+                                  await messagesStore.updateMessage(messageId, { reactions });
+                                  chatMessages = chatMessages.map(msg => 
+                                    msg.id === messageId 
+                                      ? { ...msg, reactions }
+                                      : msg
+                                  );
+                                }}
+
+                              />
+                            {/if}
+                          </div>
                         </div>
                       </div>
-                  <div class="message-footer">
-                    {#if reply.role === 'user'}
-                    {:else if reply.role === 'assistant'}
-
-                    <Reactions 
-                      {message}
-                      {userId}
-                      on:update={async (event) => {
-                        const { messageId, reactions } = event.detail;
-                        await messagesStore.updateMessage(messageId, { reactions });
-                        chatMessages = chatMessages.map(msg => 
-                          msg.id === messageId 
-                            ? { ...msg, reactions }
-                            : msg
-                        );
-                      }}
-                      on:notification={(event) => {
-                        console.log(event.detail);
-                      }}
-                    />
-                    {/if}
-
-                  </div>
+                  
                     {/each}
                   </div>
                 </div>                
@@ -3150,8 +3219,8 @@ onDestroy(() => {
             {/each}
             {#if activeReplyMenu}
             <div class="reply-menu" 
-            style="position: absolute; left: {activeReplyMenu.position.x}px; top: {activeReplyMenu.position.y}px;"
-            transition:fly="{{ y: 10, duration: 150 }}">
+                 style="position: absolute; left: {activeReplyMenu.position.x}px; top: {activeReplyMenu.position.y}px;"
+                 transition:fly="{{ y: 10, duration: 150 }}">
               <div class="reply-options">
                 <button class="reply-option" on:click={() => submitReply(activeReplyMenu.elementId, '')}>
                   <RefreshCcw size={16} />
@@ -3346,7 +3415,7 @@ onDestroy(() => {
               {/if}
             </div>
           {/if}
-          
+
           {#if !$isAiActive}
           <div class="combo-input-human" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
             <textarea 
@@ -4030,14 +4099,11 @@ p div {
     }
     &.model {
       display: flex;
-      background-color: var(--primary-color) !important;
       box-shadow:rgba(128, 128, 128, 0.8);
       justify-content: center;
       align-items: center;
-      padding: 0.5rem;
       gap: 0.5rem;
       border-radius: 1rem;
-      margin-bottom: 1rem;
     }
     &.delete-card-container {
       border: none;
@@ -4512,8 +4578,8 @@ p div {
   }
 
   .avatar-container {
-    width: 30px;
-    height: 30px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     justify-content: center;
     align-items: center;
@@ -4932,6 +4998,7 @@ color: #6fdfc4;
     display: flex;
     position: relative;
     left: 1rem;
+    gap: 2rem;
     margin-bottom: 0;
     margin-top: 0;
     // left: 25%;
@@ -5167,7 +5234,7 @@ color: #6fdfc4;
       height: auto;
       margin-right: 3.5rem;
       margin-left: 0;
-      border-top: 2px solid var(--line-color);
+      // border-top: 2px solid var(--line-color);
       border-left: 2px solid var(--line-color);
       border-bottom: 1px solid transparent;
       border-radius: 0;
@@ -5203,7 +5270,7 @@ color: #6fdfc4;
     
   }
   .message-header + p + div > div {
-    border-left: 3px solid #546e7a;
+    // border-left: 3px solid #546e7a;
   margin-left: 0;
   padding-left: 12px;
   color: var(--text-color);
@@ -5226,6 +5293,7 @@ color: #6fdfc4;
   padding: 6px 12px;
   border-radius: 4px;
   margin-bottom: 8px;
+
 }
 
 /* Format the quoted prefix in messages */
@@ -5523,7 +5591,7 @@ color: #6fdfc4;
       z-index: 1;
       text-align: left;
       align-items: center;
-      justify-content: space-around;
+      justify-content: flex-start;
       gap: 0.5rem;
       transition: background-color 0.2s;
       // border-radius: var(--radius-m);
@@ -5536,6 +5604,7 @@ color: #6fdfc4;
 
     & input {
       width: 200px;
+      z-index: 2;
     };
   }
 
@@ -5658,14 +5727,12 @@ color: #6fdfc4;
   flex-direction: row;
   align-items: center;
   // padding: 0.75rem 0;
-  gap: 0.5rem;
   border-radius: var(--radius-m);
   height: auto;
-  width: 60px;
+  width: auto;
+  padding: 0;
   color: var(--bg-color);
   transition: all 0.3s ease;
-
-
 
   & button {
     border-radius: var(--radius-m);
@@ -5686,14 +5753,16 @@ color: #6fdfc4;
   }
 
     & input {
-      padding: 0.5rem;
       border: none;
-      border-radius: var(--radius-m);
+      border-radius: 0;
+      border-top-right-radius: 1rem;
+      border-bottom-right-radius: 1rem;
+      padding: 0.5rem;
       padding-left: 1rem;
+      height: auto;
       outline: none;
-      margin-left: 0;
       margin-right: 0;
-      width: 150px;
+      width: auto;
       color: var(--text-color);
       transition: all 0.3s ease;
       font-size: 1.5rem;
@@ -5702,8 +5771,6 @@ color: #6fdfc4;
       }
       
       &:focus {
-        background-color: var(--secondary-color);
-        position: absolute;
         width: auto;
         right: 2rem;
         left: 4rem;
@@ -5811,12 +5878,16 @@ color: #6fdfc4;
   .message-header {
     display: flex;
     flex-direction: row;
-    margin-left: 0;
-    margin-top: 1rem;
+    margin-left: -2rem;
+    margin-top: -2rem;
     justify-content: flex-start;
     align-items: center;
     width: 100% ;
     gap: 1rem;
+
+    &.assistant {
+      margin-bottom: 0.5rem;
+    }
   }
 
   .message-time {
@@ -6603,7 +6674,7 @@ p.selector-lable {
     overflow: hidden;
     user-select: none;
   &:hover {
-    box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+    // box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
   }
   }
 
@@ -6671,6 +6742,8 @@ p.selector-lable {
 
 .replies-section {
   width: 100%;
+  margin-left: -2rem;
+  margin-bottom: -2rem;
 
 }
 
@@ -6680,16 +6753,77 @@ p.selector-lable {
   border: 1px solid transparent;
   padding: 0;
   background: transparent;
-
+  display: none;
 
 
 }
+.collapse-replies-btn {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  background-color: transparent;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
 
+.toggle-icon {
+  margin-left: 0.25rem;
+  font-size: auto;
+  background: var(--primary-color);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--bg-color);
+}
+
+/* Make sure hidden replies are actually hidden */
+.replies-container.hidden {
+  display: none;
+}
 .reply-message {
   display: flex;
   margin-left: 0;
-  margin-top: 8px;
   padding: 1rem;
+  padding-bottom: 0rem;
+
+  &.assistant {
+    &.assistant + div {
+    padding-left: 1rem; 
+    margin-left: 0;
+
+
+    & .reply-content {
+      border: 1px solid transparent ;
+      border-left: 1px solid var(--line-color);
+
+
+    }
+  }
+}
+
+  &.user {
+    border-left: 1px solid var(--line-color);
+    margin-left: 2rem;
+    &.user + div {
+      margin-left: 2rem;
+      border-left: 1px solid var(--line-color);
+  }
+
+
+    & .reply-content {
+      border: 1px solid transparent;
+      border-left: 1px solid var(--line-color);
+
+
+    }
+  }
+
+
 
 }
 .reply-message[data-depth="1"] { margin-left: 20px; }
@@ -6699,32 +6833,37 @@ p.selector-lable {
 .reply-message[data-depth="5"] { margin-left: 100px; }
 
 .reply-indicator {
-  border-left: 2px solid transparent;
+  border-left: 2px solid var(--line-color);
   margin-right: 12px;
 }
 
 .reply-content {
-  border: 1px solid var(--line-color);
-  border-radius: 4rem;
+  border-radius: 0;
+  margin-left: 1rem;
+  margin-top: 1rem;
+  border-left: 1px solid var(--line-color);
   backdrop-filter: blur(30px);
   // background-color: #2a2a2a;
   // background: var(--bg-gradient-r);
   backdrop-filter: blur(8px);
-  border-radius: 8px;
   flex-grow: 1;
   padding: 8px 12px;
 
 }
 
 .toggle-replies-btn {
-  background: none;
-  border: none;
-  color: #90caf9;
+  background: var(--secondary-color);
   cursor: pointer;
+  border: none;
+  border-radius: 1rem;
   font-size: 0.9rem;
   margin-top: 0;
-  padding: 0;
+  padding: 0.25rem;
   text-align: left;
+
+  &:hover {
+    background: var(--primary-color);
+  }
 }
 
 .replies-indicator {
@@ -6745,7 +6884,6 @@ p.selector-lable {
     // display: none;
   }
   &:hover {
-    background: var(--primary-color);
 
     & h3 {
       display: flex;
@@ -7607,6 +7745,7 @@ p.selector-lable {
       width: auto;
       margin-right:0;
       margin-left: 0;
+      backdrop-filter: blur(20px);
 
       // backdrop-filter: blur(100px);
       // border-top: 1px solid var(--primary-color);
@@ -7615,14 +7754,13 @@ p.selector-lable {
       z-index: 1;
       // box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
       // background-color: red !important;
-      top: 4rem;
+      top: 2rem;
       margin-right: 0;
       left: 0.5rem;
       border-radius: 0;
       width: calc(50%);
       height: auto;
       margin-bottom: auto;
-      backdrop-filter: blur(5px);
       border-right: 1px solid var(--secondary-color);
       align-items: center;
       justify-content: center;
@@ -8543,8 +8681,8 @@ pre.code-block {
 .modal-content {
   background: var(--bg-color);
   border-radius: var(--border-radius-lg);
-  width: 80%;
-  max-width: 600px;
+  width: 100%;
+
   max-height: 80vh;
   display: flex;
   flex-direction: column;

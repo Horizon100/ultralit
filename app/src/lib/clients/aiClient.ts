@@ -408,17 +408,16 @@ export async function generateTasks(
 		.map((desc, index) => ({
 			id: `task-${index + 1}`,
 			title: `Task ${index + 1}`,
-			description: desc.trim(),
+			taskDescription: desc.trim(),
 			status: 'todo',
 			priority: 'medium',
 			due_date: new Date(),
-			created_by: userId,
+			createdBy: userId,
 			assigned_to: '',
 			ai_agents: '',
 			tags: [],
 			attachments: '',
-			eisenhower: '',
-			rice_score: 0,
+			project_id: '',
 			parent_task_id: '',
 			subtasks: [],
 			prompt: '',
@@ -436,9 +435,9 @@ export async function generateTasks(
 			created: '',
 			updated: '',
 			task_outcome: '',
-			parent_agent: '',
+			allocatedAgents: '',
 			dependencies: [],
-			messages: []
+			agentMessages: []
 		}));
 
 	return tasks;
