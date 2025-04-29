@@ -6216,7 +6216,7 @@ color: #6fdfc4;
   position: relative;
   // border-top: 1px solid var(--secondary-color);
   left: 0;
-  top: 0;
+  top: 8rem;
   right: 0;
   gap: 0.5rem;
   width: 100%;
@@ -7073,11 +7073,9 @@ p.selector-lable {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-
     color: white;
     z-index: 10000;
     margin-bottom: 0;
-    backdrop-filter: blur(200px);
   }
 
   .spinner {

@@ -544,7 +544,6 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background-color: rgba(0, 0, 0, 0.5);
 		z-index: 9999;
 	}
 
@@ -558,7 +557,6 @@
 		top: 60px;
 		left: 0;
 		z-index: 9999;
-		background-color: var(--bg-color);
 	}
 
 	.loading-overlay {

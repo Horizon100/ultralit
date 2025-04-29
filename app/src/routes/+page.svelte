@@ -354,8 +354,11 @@
 {#if pageReady}
 	{#if user}
 		{#if isLoading}
+
 			<div class="center-container" transition:fade={{ duration: 300 }}>
+
 				<div class="loading-overlay">
+
 					<div class="spinner">
 						<Bot size={80} class="bot-icon" />
 					</div>
@@ -553,7 +556,6 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background-color: rgba(0, 0, 0, 0.5);
 		z-index: 9999;
 	}
 
@@ -567,7 +569,6 @@
 		top: 60px;
 		left: 0;
 		z-index: 9999;
-		background-color: var(--bg-color);
 	}
 
 	.loading-overlay {

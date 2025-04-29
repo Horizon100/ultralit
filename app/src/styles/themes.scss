@@ -338,12 +338,16 @@ $themes: (
 
 
 .spinner-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    gap: 1rem;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+
     
     p {
         color: var(--text-color);
@@ -554,6 +558,26 @@ pre.code-block {
 	.stats-tab {
 		padding: 1rem 0;
 	}
+
+	.add-btn {
+		background-color: var(--secondary-color);
+		color: var(--text-color);
+		font-size: 1.2rem;
+		display: flex;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border: none;
+		border-radius: 50%;
+		transition: all 0.3s ease;
+
+		&:hover {
+		  background-color: var(--tertiary-color);
+		  cursor: pointer;
+		}
+	  }
 	.delete-button {
 		background: transparent;
 		border: 1px solid transparent;
@@ -577,7 +601,7 @@ pre.code-block {
 		
 		&:hover {
 			background: #e74c3c;
-			color: white;
+			color: var(--text-color);
 			opacity: 1;
 			transform: scale(1.4);
 		}

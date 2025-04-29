@@ -4,12 +4,15 @@
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
+	import { CalendarClock, Trash2 } from 'lucide-svelte';
+    import { fade } from 'svelte/transition';
     // Get current project ID from project store if available
     let currentProjectId = null;
     projectStore.subscribe(state => {
         currentProjectId = state.currentProjectId;
     });
-
+    let isDeleteConfirmOpen = false;
+    let taskToDelete: string | null = null;
     function getRandomBrightColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {
             return char.charCodeAt(0) + ((acc << 5) - acc);
@@ -400,37 +403,67 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     }
 }
 
-    // Delete a task
-    async function deleteTask(taskId: string) {
-        try {
-            // Check if task is local only
-            if (taskId.startsWith('local_')) {
-                columns.update(cols => {
-                    return cols.map(col => ({
-                        ...col,
-                        tasks: col.tasks.filter(t => t.id !== taskId)
-                    }));
-                });
-                return;
-            }
-            
-            const response = await fetch(`/api/tasks/${taskId}`, {
-                method: 'DELETE'
-            });
-            
-            if (!response.ok) throw new Error('Failed to delete task');
-            
+function openDeleteConfirm(taskId: string, event: MouseEvent) {
+    event.stopPropagation(); 
+    taskToDelete = taskId;
+    isDeleteConfirmOpen = true;
+}
+
+function confirmDelete() {
+    if (taskToDelete) {
+        // If the task to delete is currently open in the modal, close it first
+        if (selectedTask && selectedTask.id === taskToDelete) {
+            isModalOpen = false;
+            selectedTask = null;
+        }
+        
+        // Then delete the task
+        deleteTask(taskToDelete).then(() => {
+            isDeleteConfirmOpen = false;
+            taskToDelete = null;
+        }).catch(err => {
+            error.set(`Failed to delete task: ${err.message}`);
+            isDeleteConfirmOpen = false;
+            taskToDelete = null;
+        });
+    }
+}
+
+function cancelDelete() {
+    isDeleteConfirmOpen = false;
+    taskToDelete = null;
+}
+
+async function deleteTask(taskId: string) {
+    try {
+        // Check if task is local only
+        if (taskId.startsWith('local_')) {
             columns.update(cols => {
                 return cols.map(col => ({
                     ...col,
                     tasks: col.tasks.filter(t => t.id !== taskId)
                 }));
             });
-        } catch (err) {
-            console.error('Error deleting task:', err);
-            throw err;
+            return;
         }
+        
+        const response = await fetch(`/api/tasks/${taskId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete task');
+        
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.filter(t => t.id !== taskId)
+            }));
+        });
+    } catch (err) {
+        console.error('Error deleting task:', err);
+        throw err;  
     }
+}
 
     function deepCopy<T>(obj: T): T {
         if (obj === null || typeof obj !== 'object') {
@@ -509,44 +542,49 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
         }
     }
 
-    function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
+function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
     columns.update(cols => {
         const fromColumn = cols.find(col => col.id === fromColumnId);
         const toColumn = cols.find(col => col.id === toColumnId);
+        
         if (fromColumn && toColumn) {
             const taskIndex = fromColumn.tasks.findIndex(task => task.id === taskId);
+            
             if (taskIndex !== -1) {
                 const task = deepCopy(fromColumn.tasks[taskIndex]);
+                
                 fromColumn.tasks.splice(taskIndex, 1);
                 
-                // Update status based on new column
                 const newStatus = statusMapping[toColumn.title] as KanbanTask['status'] || 'todo';
                 task.status = newStatus;
                 
-                // Add to new column
+                if (!task.tags) {
+                    task.tags = [];
+                }
+                
                 toColumn.tasks.push(task);
                 
-                // Save the updated task to PocketBase with explicit status
-                const taskToSave = {...task};
-                
-                // Use async/await in an IIFE to handle the promise
                 (async () => {
                     try {
-                        // Directly update the status in PocketBase
                         const response = await fetch(`/api/tasks/${taskId}`, {
                             method: 'PATCH',
                             headers: {
                                 'Content-Type': 'application/json'
                             },
-                            body: JSON.stringify({ status: newStatus })
+                            body: JSON.stringify({ 
+                                status: newStatus,
+                                // Explicitly include tags to make sure they're preserved
+                                taggedTasks: task.tags.join(','),
+                                taskTags: task.tags
+                            })
                         });
                         
                         if (!response.ok) {
                             throw new Error('Failed to update task status');
                         }
                         
-                        // Full task save can be done separately if needed
-                        await saveTask(taskToSave);
+                        // Optional: Full task save if needed
+                        // await saveTask(task);
                     } catch (err) {
                         error.set(`Failed to move task: ${err.message}`);
                         // Revert the move if saving fails
@@ -605,24 +643,43 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     }
 
     function saveAndCloseModal() {
-        if (selectedTask) {
-            // Save to PocketBase
-            saveTask(selectedTask).then(() => {
-                columns.update(cols => {
-                    return cols.map(col => ({
-                        ...col,
-                        tasks: col.tasks.map(task => 
-                            task.id === selectedTask!.id ? {...selectedTask!} : task
-                        )
-                    }));
-                });
-                selectedTask = null;
-                isModalOpen = false;
-            }).catch(err => {
-                error.set(`Failed to save task: ${err.message}`);
-            });
+    if (selectedTask) {
+        // Check if the task still exists in any column
+        let taskExists = false;
+        columns.update(cols => {
+            for (const col of cols) {
+                if (col.tasks.some(t => t.id === selectedTask.id)) {
+                    taskExists = true;
+                    break;
+                }
+            }
+            return cols;
+        });
+        
+        if (!taskExists) {
+            // Task doesn't exist anymore, just close the modal
+            selectedTask = null;
+            isModalOpen = false;
+            return;
         }
+        
+        // Save to PocketBase
+        saveTask(selectedTask).then(() => {
+            columns.update(cols => {
+                return cols.map(col => ({
+                    ...col,
+                    tasks: col.tasks.map(task => 
+                        task.id === selectedTask!.id ? {...selectedTask!} : task
+                    )
+                }));
+            });
+            selectedTask = null;
+            isModalOpen = false;
+        }).catch(err => {
+            error.set(`Failed to save task: ${err.message}`);
+        });
     }
+}
 
     async function addTag() {
         if (newTagName.trim()) {
@@ -794,8 +851,19 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     $: taskTags = selectedTask ? $tags.filter(tag => selectedTask.tags.includes(tag.id)) : [];
 </script>
 
-<div class="kanban-container">
-    <!-- Single input field above all columns -->
+{#if $isLoading}
+<div class="spinner-container">
+    <div class="spinner"></div>
+</div>
+{:else if $error}
+    <div class="error-message">
+        <p>Error: {$error}</p>
+        <button on:click={loadData}>Retry</button>
+    </div>
+{:else}
+<div class="kanban-container" transition:fade={{ duration: 150 }}
+>
+
     <div class="global-input-container">
         <textarea 
             placeholder="Add a task and press Enter (will be added to Backlog)"
@@ -824,9 +892,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
                                 <p class="description">{task.taskDescription}</p>
 
-                                {#if task.due_date}
-                                    <p class="deadline">⌛ {task.due_date.toLocaleDateString()}</p>
-                                {/if}
+
                                 {#if task.tags && task.tags.length > 0}
                                 <div class="tag-list">
                                     {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
@@ -836,23 +902,16 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
                                 {/if}
                                 {#if task.createdBy}
                                 <p class="task-creator">
+
                                     <img 
                                         src={`/api/users/${task.createdBy}/avatar`} 
                                         alt="Avatar" 
                                         class="user-avatar"
                                         onerror="this.style.display='none'"
                                     />
-                                    <span class="username">
-                                        {#await fetch(`/api/users/${task.createdBy}`).then(r => {
-                                            if (!r.ok) throw new Error(`Error ${r.status}: ${r.statusText}`);
-                                            return r.json();
-                                        }).catch(err => {
-                                            console.error('Error fetching user:', err, task.createdBy);
-                                            return { username: 'Error' };
-                                        }) then user}
-                                            {user.name || user.username || 'Unknown'}
-                                        {/await}
-                                    </span>
+                                    {#if task.due_date}
+                                    <p class="deadline"> by {task.due_date.toLocaleDateString()}</p>
+                                    {/if}
                                 </p>
                                 {/if}
                                 {#if task.attachments && task.attachments.length > 0}
@@ -868,10 +927,11 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
         {/each}
     </div>
 </div>
-
+{/if} 
 {#if isModalOpen && selectedTask}
     <div class="modal-overlay" on:click={saveAndCloseModal}>
-        <div class="modal-content" on:click|stopPropagation>
+        <div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 150 }}
+        >
             {#if isEditingTitle}
                 <textarea
                     type="text"
@@ -959,13 +1019,30 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
                 </div>
             </div>
             <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
-
-            <button class="done-button" on:click={saveAndCloseModal}>Done</button>
+            <div class="button-group">
+                <button class="done-button" on:click={saveAndCloseModal}>Done</button>
+                <button class="delete-task-btn" on:click={(e) => openDeleteConfirm(selectedTask.id, e)}>
+                    <Trash2 /> 
+                    <span>Delete</span>
+                </button>
+            </div>
 
         </div>
     </div>
 {/if}
-
+{#if isDeleteConfirmOpen}
+    <div class="confirm-delete-overlay">
+        <div class="confirm-delete-modal">
+            <h3>Delete Task</h3>
+            <p>Are you sure you want to delete this task? This action cannot be undone.</p>
+            
+            <div class="confirm-buttons">
+                <button class="cancel-btn" on:click={cancelDelete}>Cancel</button>
+                <button class="confirm-btn" on:click={confirmDelete}>Delete</button>
+            </div>
+        </div>
+    </div>
+{/if}
 <style lang="scss">
     $breakpoint-sm: 576px;
     $breakpoint-md: 1000px;
@@ -980,8 +1057,10 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
       font-family: var(--font-family);
     }
     p {
-        font-size: 1.2rem;
-        line-height: 1;
+        font-size: 1.4rem;
+        padding: 1rem 0;
+        margin: 0;
+        line-height: 1.5;
         color: var(--text-color);
         opacity: 0.8;
         font-weight: 800;
@@ -991,22 +1070,34 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
         &.description {
             color: var(--placeholder-color);
-            letter-spacing: 0.1rem;
+            letter-spacing: 0;
             font-weight: 100;
-            font-size: 0.9rem;
-            text-align: justify;
+            font-size:1rem;
+            line-height: 1.5;
+            max-height: 3rem;
+            overflow: hidden;
+            text-align: left;
         }
     }
-
+    .button-group {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 1rem;
+        gap: 1rem;
+    }
+ 
     .global-input-container {
         width: 100%;
         padding: 0;
         margin-bottom: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 
         & textarea {
             text-align: center;
             line-height: 2;
+ 
+            overflow-y: hidden;
         }
     }
     
@@ -1035,7 +1126,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
-        height: 100%;
+        height: 100vh;
         width: 100%;
         padding: 1rem;
         transition: all 0.3s ease;
@@ -1043,28 +1134,44 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     }
 
     .kanban-column {
-        background-color: none;
         border-radius: 5px;
         flex: 0 0 auto;
         display: flex;        
         flex-direction: column;
+        justify-content: center;
         width: calc(25% - 2rem);
         transition: all 0.3s ease;
+        // border: 1px solid var(--secondary-color);
+        // background: var(--primary-color);
+        border-radius: 1rem;
+        transition: all 0.3s ease;
+
+        &:hover {
+            border: 1px solid var(--secondary-color);
+            background: var(--primary-color);
+        }
+
     }
 
 
     .kanban-column button {
         cursor: pointer;
+        border-top-left-radius: 2rem;
+        background: transparent;
         display: flex;
         width: auto;
         text-align: left;
         border: none;
-        padding: 0.5rem;
+        padding: 1rem;
         color: var(--text-color);
-        background: var(--bg-color);
         font-size: 1.2em;
         font-weight: bold;
         transition: all 0.3s ease;
+
+        &:hover {
+            color: var(--tertiary-color);
+            letter-spacing: 0.2rem;
+        }
     }
 
     textarea {
@@ -1077,7 +1184,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
         border: 1px solid var(--line-color);
         background-color: var(--secondary-color);
         resize:none;
-        color: white;
+        color: var(--text-color);
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         height: auto;
         font-size: 1.1em;
@@ -1094,6 +1201,10 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
     .task-list {
         min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     .description-display {
         font-size: 1.5rem;
@@ -1102,12 +1213,12 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     .task-card {
         background: var(--secondary-color);
         border-radius: 10px;
+        padding: 0.5rem 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
-        width: 100%;
-        padding: 0.5rem;
+        width: calc(100% - 4rem);
         word-break: break-all;
         transition: all 0.3s ease;
     }
@@ -1149,7 +1260,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
     .tag {
         color: var(--text-color);
-        opacity: 0.5;
+        // opacity: 0.5;
         border: none;
         padding: 0 0.5rem;
 
@@ -1167,22 +1278,25 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
     .tag.selected {
         opacity: 1;
-
+        font-weight: 800;
+        font-size: 1.5rem;
         box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }
 
     .task-creator {
         display: flex;
-        justify-content: flex-end;
-
+        justify-content: flex-start;
+        align-items: center;
+        gap: 0.5rem;
         margin-top: 4px;
         font-size: 0.8rem;
         color: #666;
     }
+
     
-    .user-avatar {
-        width: 20px;
-        height: 20px;
+    img.user-avatar {
+        width: 2.5rem !important;
+        height: 2.5rem!important;
         border-radius: 50%;
         margin-right: 4px;
     }
@@ -1196,14 +1310,18 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
 
     .deadline {
-        font-size: 0.9em;
-        color: var(--placeholder-color);
+        font-size: 1em;
+        color: var(--text-color);
 
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 0.5rem;
         letter-spacing: 0.1rem;
     }
 
     .deadline.selected {
-        border-color: white;
+        color: var(--text-color);
         box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }    
 
@@ -1229,7 +1347,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
     .modal-content {
         backdrop-filter: blur(20px);
-        color: white;
+        color: var(--text-color);
         padding: 2rem;
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
 
@@ -1265,9 +1383,9 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
     .deadline-controls button {
         padding: 5px 10px;
         background: var(--secondary-color);
-        color: white;
+        color: var(--text-color);
         border: none;
-        border-radius: 5px;
+        border-radius: 0.5rem;
         cursor: pointer;
         font-size: 1.2em;
         letter-spacing: 0.1rem;
@@ -1346,12 +1464,86 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
         margin-bottom: 5px;
     }
 
+    .delete-task-btn {
+        background: transparent;
+        color: var(--placeholder-color);
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        padding: 0.5rem;
+        border-radius: 2rem;
+        border: none;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        & span {
+                display: none;
+                transition: all 0.3s ease;
+            }
+        &:hover {
+            cursor: pointer;
+            background: red;
+            color: white;
+
+            & span {
+                display: flex;
+            }
+        }
+    }
+    .confirm-delete-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1100; /* Higher than the task modal */
+    }
+    
+    .confirm-delete-modal {
+        background-color: var(--secondary-color);
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .confirm-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .cancel-btn {
+        background-color: var(--primary-color);
+        color: var(--text-color);
+        border: 1px solid var(--line-color);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    
+    .confirm-btn {
+        background-color: red;
+        color: white;
+        border: 1px solid var(--line-color);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-size: 1rem;
+    }
     .done-button {
         bottom: 20px;
         right: 20px;
         background: var(--secondary-color);
         border: 1px solid var(--line-color);
-        color: white;
+        color: var(--text-color);
         padding: 10px 20px;
         border-radius: 20px;
         cursor: pointer;
@@ -1377,10 +1569,13 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
 
     }
 
-    @media (max-width: 970px) {
+    @media (max-width: 1000px) {
         .kanban-board {
             flex-direction: column;
             align-items: center;
+            overflow-y: scroll;
+            overflow-x: hidden;
+            height: 80vh;
         }
 
         .kanban-column {
@@ -1388,6 +1583,8 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
             max-width: none;
             display: flex;
             flex-direction: column;
+            border: 1px solid var(--secondary-color);
+            background: var(--primary-color);
         }
 
         .deadline-controls {

@@ -1553,7 +1553,6 @@
 	}
 
 		.nav-button.drawer {
-			position: absolute;
 			left: 1rem;
 			bottom: 1rem;
 			padding: 0;
@@ -2356,6 +2355,7 @@
 		.navigation-buttons {
 			flex-direction: row;
 			margin-bottom: 0;
+			width: auto;
 			right: 0;
 			left: 0;
 			align-items: center;
@@ -2401,12 +2401,10 @@
 	@media (max-width: 450px) {
 		.sidenav {
 			display: flex;
-			justify-content: left;
 			// backdrop-filter: blur(30px);
 			background: transparent;
 			flex-direction: row;
 			height: 2rem;
-			width: 100%;
 			bottom: 0;
 			gap: 10px;
 			left: 0;
@@ -2419,19 +2417,17 @@
 		}
 
 		.nav-button.drawer {
-			bottom: 0.5rem;
 		}
 
 		.navigation-buttons {
 			display: flex;
-			flex-direction: row;
+			flex-direction: column;
 			gap: 0.5rem;
-			margin-top: 0.5rem;
+			margin-bottom: 1rem;
 			width: 100%;
-			margin-left: 0;
-			margin-right: 2rem;
-			justify-content: space-around;
-			align-items: center;
+			margin-left: 0.5rem;
+
+			align-items: flex-start;
 		}
 
 		.top-buttons {

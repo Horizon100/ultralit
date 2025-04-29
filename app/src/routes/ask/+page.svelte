@@ -173,7 +173,6 @@
 		top: 0;
 		left: 0;
 		z-index: 9999;
-		background-color: rgba(0, 0, 0, 0.5);
 	}
 
 	.loading-overlay {
@@ -188,7 +187,6 @@
 		position: fixed;
 		right: calc(50% - 40px);
 		top: calc(50% - 40px);
-		color: #363f3f;
 
 		/* bottom: 0; */
 	}

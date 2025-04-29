@@ -1,13 +1,15 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import Kanban from '$lib/components/lean/Kanban.svelte';
-	import { KanbanIcon, KanbanSquareDashed, KanbanSquareIcon, Lightbulb, MapIcon, MapPinCheck, MapPinned, Minimize, UserRoundSearch } from 'lucide-svelte';
+	import { Calendar, KanbanIcon, KanbanSquareDashed, KanbanSquareIcon, Lightbulb, MapIcon, MapPinCheck, MapPinned, Minimize, UserRoundSearch } from 'lucide-svelte';
     import { writable } from 'svelte/store';
     import {slide, fly, fade } from 'svelte/transition'
 	import { quintOut } from 'svelte/easing';
     import {  } from '$lib/pocketbase';
 	import { currentUser } from '$lib/pocketbase';
-    
+    import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
+    import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+
 	let showFade = false;
 	let showH2 = false;
     const activeTab = writable('kanban');
@@ -20,40 +22,20 @@
 		setTimeout(() => (showH2 = true), 50);
 	});
   </script>
-  
+    <img src={Headmaster} alt="Notes illustration" class="illustration" />
+
   <main in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
-    <h1>Lean Workspace</h1>
   
     <!-- Tab Navigation -->
     <div class="tabs" transition:slide={{ duration: 300, easing: quintOut }}>
         <button
-            class:active={$activeTab === 'Lean Canvas'}
-            on:click={() => activeTab.set('Lean Canvas')}
+            class:active={$activeTab === 'task-calendar'}
+            on:click={() => activeTab.set('task-calendar')}
             in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}
+
             >
-            <Lightbulb/>
-            Lean Canvas
-        </button>
-        <button
-            class:active={$activeTab === 'MVP'}
-            on:click={() => activeTab.set('MVP')}
-            >
-            <Minimize/>
-            MVP
-        </button>
-        <button
-            class:active={$activeTab === 'user-journey'}
-            on:click={() => activeTab.set('user-journey')}
-            >
-            <MapIcon/>
-            User Journey
-        </button>
-        <button
-            class:active={$activeTab === 'story-map'}
-            on:click={() => activeTab.set('story-map')}
-            >
-            <MapPinned/>
-            Story Map
+            <Calendar/>
+            Calendar
         </button>
         <button
             class:active={$activeTab === 'kanban'}
@@ -72,17 +54,13 @@
           <Kanban />
         </div>
       {/if}
-  
-      {#if $activeTab === 'user-journey'}
-        <div class="tab-panel">
-          <p>This is the User Journey tab. Add your user journey map or related content here.</p>
-        </div>
-      {/if}
-      {#if $activeTab === 'MVP'}
+      {#if $activeTab === 'task-calendar'}
       <div class="tab-panel">
-        <p>This is the User Journey tab. Add your user journey map or related content here.</p>
+        <TaskCalendar />
       </div>
     {/if}
+
+
     </div>
   </main>
   
@@ -92,19 +70,14 @@
 
 	main {
 		flex-grow: 1;
-		overflow-y: auto;
+    left: 3rem;
     padding: 1rem;
         position: absolute;
-		align-items: center;
-		margin-left: auto;
-		margin-right: auto;
-		width: 100%;
-		left: 0;
+		margin-left: 0 !important;
+		width: calc(100% - 4rem);
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
-		border-radius: 40px;
 	}
   
     h1 {
@@ -115,9 +88,10 @@
   
     .tabs {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
+      gap: 0.5rem;
+      margin-bottom: 0;
       width: 100%;
+      user-select: none;
     }
   
     .tabs button {
@@ -149,20 +123,64 @@
   
     .tab-panels {
       margin-top: 1rem;
+      display: flex;
+      justify-content: center;
       height: auto;
-      width: 90%;
     }
   
     .tab-panel {
-      border: 1px solid var(--secondary-color);
+      // border: 1px solid var(--secondary-color);
       border-radius: var(--radius-m);
-      background: var(--bg-gradient-r);
+      // background: var(--bg-gradient-r);
       height: 80vh;
-
+      max-width: 1600px;
+      width: 100%;
     }
   
     p {
       font-size: 1.2rem;
       color: #666;
     }
+  //   .illustration {
+	// 	position: absolute;
+	// 	width: 95%;
+	// 	height: auto;
+	// 	left: 5%;
+	// 	top: 50%;
+	// 	transform: translateY(-50%);
+	// 	opacity: 0.015;
+	// 	z-index: 0;
+	// 	pointer-events: none;
+	// }
+  .illustration {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width:100%;
+    height: auto;
+    left: 0%;
+    top: 60%;
+    transform: translateY(-50%);
+    opacity: 0.025;
+    // z-index: 1;
+    pointer-events: none;
+    backdrop-filter: blur(20px);
+  }
+
+  @media (max-width: 1000px) {
+
+	main {
+		flex-grow: 1;
+    left: 0;
+    padding: 1rem;
+        position: absolute;
+		margin-left: 0 !important;
+    margin-top: 1rem;
+		width: calc(100% - 2rem);
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+}
   </style>
