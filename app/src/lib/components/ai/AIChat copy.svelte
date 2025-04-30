@@ -45,8 +45,6 @@
   import MessageProcessor from '$lib/contents/MessageProcessor.svelte';
 	import AgentPicker from '$lib/components/overlays/AgentPicker.svelte';
   import RecursiveMessage from '$lib/components/containers/RecursiveMessage.svelte';
-  import { prepareReplyContext } from '$lib/utils/handleReplyMessage';
-
   interface UserProfile {
     id: string;
     name: string;
@@ -348,141 +346,6 @@ function toggleAiActive() {
     editingProjectId = null;
     editedProjectName = '';
   }
-  async function sendReply(content: string, parentMessageId: string) {
-  if (!content.trim()) return;
-  
-  try {
-    // Create a unique ID for the new message
-    const replyId = crypto.randomUUID();
-    
-    // Create the message object
-    const replyMessage: InternalChatMessage = {
-      id: replyId,
-      collectionId: 'messages',
-      collectionName: 'messages',
-      content: content,
-      text: content,
-      role: 'user',
-      type: 'human',
-      user: userId,
-      parent_msg: parentMessageId,
-      prompt_type: promptType,
-      model: aiModel.id,
-      thread: currentThreadId || undefined,
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
-    };
-    
-    // Add to the chatMessages array locally
-    chatMessages = [...chatMessages, replyMessage];
-    
-    // If we're in a thread, add the message to the thread
-    if (currentThreadId) {
-      await addMessageToThread(currentThreadId, content, userId, parentMessageId);
-    }
-    
-    // If this is a reply to an AI message, send the content to the AI
-    // to get a response
-    if (chatMessages.find(m => m.id === parentMessageId)?.role === 'assistant') {
-      // Add a thinking message as a reply to the user's reply
-      const thinkingId = crypto.randomUUID();
-      const thinkingMessage: InternalChatMessage = {
-        id: thinkingId,
-        collectionId: 'messages',
-        collectionName: 'messages',
-        content: '...',
-        text: '...',
-        role: 'thinking',
-        type: 'robot',
-        user: 'system',
-        parent_msg: replyId,
-        prompt_type: promptType,
-        model: aiModel.id,
-        thread: currentThreadId || undefined,
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
-      };
-      
-      chatMessages = [...chatMessages, thinkingMessage];
-      thinkingMessageId = thinkingId;
-      
-      // Call your AI response function here
-      try {
-        const aiResponse = await fetchAIResponse(
-          content,
-          userId,
-          aiModel.id,
-          promptType,
-          currentThreadId
-        );
-        
-        // Remove the thinking message
-        chatMessages = chatMessages.filter(m => m.id !== thinkingId);
-        thinkingMessageId = null;
-        
-        // Add the AI response as a reply to the user's reply
-        const aiReplyMessage: InternalChatMessage = {
-          id: crypto.randomUUID(),
-          collectionId: 'messages',
-          collectionName: 'messages',
-          content: aiResponse.content || 'No response',
-          text: aiResponse.content || 'No response',
-          role: 'assistant',
-          type: 'robot',
-          user: 'system',
-          parent_msg: replyId,
-          prompt_type: promptType,
-          model: aiModel.id,
-          thread: currentThreadId || undefined,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        };
-        
-        chatMessages = [...chatMessages, aiReplyMessage];
-        
-        // Add the AI response to the thread if needed
-        if (currentThreadId) {
-          await addMessageToThread(
-            currentThreadId, 
-            aiResponse.content || 'No response', 
-            'system',
-            replyId,
-            'robot',
-            aiModel.id,
-            promptType
-          );
-        }
-      } catch (error) {
-        console.error('Error getting AI response:', error);
-        // Remove the thinking message
-        chatMessages = chatMessages.filter(m => m.id !== thinkingId);
-        thinkingMessageId = null;
-        
-        // Add an error message
-        const errorMessage: InternalChatMessage = {
-          id: crypto.randomUUID(),
-          collectionId: 'messages',
-          collectionName: 'messages',
-          content: 'Failed to get a response. Please try again.',
-          text: 'Failed to get a response. Please try again.',
-          role: 'assistant',
-          type: 'robot',
-          user: 'system',
-          parent_msg: replyId,
-          prompt_type: promptType,
-          model: aiModel.id,
-          thread: currentThreadId || undefined,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        };
-        
-        chatMessages = [...chatMessages, errorMessage];
-      }
-    }
-  } catch (error) {
-    console.error('Error sending reply:', error);
-  }
-}
 
   function addMessage(
     role: RoleType,
@@ -490,8 +353,8 @@ function toggleAiActive() {
     parentMsgId: string | null = null,
     model: string = 'default',
     
-    ): InternalChatMessage {
-      messageIdCounter++;
+  ): InternalChatMessage {
+    messageIdCounter++;
 
     let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
     
@@ -530,266 +393,6 @@ function toggleAiActive() {
       }
     };
   }
-  export async function handleSendMessage(message: string = userInput) {
-  // handleImmediateTextareaBlur();
-  if (!message.trim() && chatMessages.length === 0 && !attachment) return;
-  ensureAuthenticated();
-
-  try {
-    userInput = '';
-    if (textareaElement) {
-    // Reset height immediately
-    resetTextareaHeight(textareaElement);
-  }
-
-    if (!currentThreadId) {
-      console.log('No current thread ID - creating a new thread');
-      const newThread = await handleCreateNewThread();
-      if (!newThread || !newThread.id) {
-        console.error('Failed to create a new thread');
-        return;
-      }
-      // currentThreadId should now be set by handleCreateNewThread
-    }
-
-    if (!currentThreadId) {
-      console.error('Still no current thread ID after attempt to create one');
-      return;
-    }
-
-    // Ensure we have a valid model with fallback
-    if (!aiModel || !aiModel.api_type) {
-      console.log('No valid model selected, using fallback');
-      
-      // Get model from store if available
-      const modelState = get(modelStore);
-      if (modelState.selectedModel) {
-        aiModel = modelState.selectedModel;
-        console.log('Using model from store:', aiModel);
-      } else {
-        // Get available keys
-        const availableKeys = get(apiKey);
-        const providersWithKeys = Object.keys(availableKeys)
-          .filter(p => !!availableKeys[p]);
-        
-        // Use first provider with a key, or deepseek as fallback
-        const validProvider = 
-          providersWithKeys.length > 0 ? 
-          providersWithKeys[0] as ProviderType : 
-          'deepseek';
-        
-        // Use default model from your constants
-        aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
-        console.log(`Using default model for ${validProvider}:`, aiModel);
-        
-        // Also update the modelStore in the background
-        if ($currentUser) {
-          modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
-            console.warn('Could not save fallback model:', err);
-          });
-        }
-      }
-    }
-    
-    // Ensure model has all required fields
-    if (!aiModel.provider) {
-      aiModel.provider = 'deepseek';
-    }
-
-    const currentMessage = message.trim();
-    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
-    chatMessages = [...chatMessages, userMessageUI];
-
-    // Scroll the new message into view at the top
-    setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
-      if (messageElement) {
-        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-
-    const userMessage = await messagesStore.saveMessage({
-      text: currentMessage,
-      type: 'human',
-      thread: currentThreadId,
-      parent_msg: quotedMessage?.id ?? null,
-      prompt_type: promptType
-    }, currentThreadId);
-
-    quotedMessage = null;
-
-    if ($isAiActive) {
-      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-      thinkingMessageId = thinkingMessage.id;
-      chatMessages = [...chatMessages, thinkingMessage];
-
-      const messagesToSend = chatMessages
-        .filter(({ role, content }) => role && content)
-        .map(({ role, content }) => ({
-          role,
-          content: role === 'user' && promptType 
-            ? `[Using ${promptType} prompt]\n${content.toString()}`
-            : content.toString(),
-          model: aiModel.api_type,
-        }));
-
-      if (!messagesToSend.length) {
-        throw new Error('No valid messages to send');
-      }
-
-      if (promptType) {
-        messagesToSend.unshift({
-          role: 'system',
-          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-          model: aiModel.api_type,
-        });
-      }
-
-      const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-      const assistantMessage = await messagesStore.saveMessage({
-        text: aiResponse,
-        type: 'robot',
-        thread: currentThreadId,
-        parent_msg: userMessage.id,
-        prompt_type: promptType,
-        model: aiModel.api_type,
-      }, currentThreadId);
-
-      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-      chatMessages = [...chatMessages, newAssistantMessage];
-      typingMessageId = newAssistantMessage.id;
-
-      await typeMessage(aiResponse);
-
-      // chatMessages = chatMessages.map(msg =>
-      //   msg.id === String(typingMessageId)
-      //     ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-      //     : msg
-      // );
-    }
-
-    await handleThreadNameUpdate(currentThreadId);
-
-  } catch (error) {
-    handleError(error);
-  } finally {
-    cleanup();
-  }
-}
-async function replyToMessage(replyText: string, parentMessageId: string) {
-    if (!replyText.trim()) return;
-    ensureAuthenticated();
-    
-    try {
-      if (!currentThreadId) {
-        console.log('No current thread ID - creating a new thread');
-        const newThread = await handleCreateNewThread();
-        if (!newThread || !newThread.id) {
-          console.error('Failed to create a new thread');
-          return;
-        }
-      }
-      
-      if (!currentThreadId) {
-        console.error('Still no current thread ID after attempt to create one');
-        return;
-      }
-      
-      // Ensure we have a valid model
-      if (!aiModel || !aiModel.api_type) {
-        console.log('No valid model selected, using fallback');
-        // Use same fallback logic you have in handleSendMessage
-        // (Including this logic would make this example too long)
-      }
-      
-      // Add the user reply message to UI
-      const userMessageUI = addMessage('user', replyText, parentMessageId, aiModel.id);
-      chatMessages = [...chatMessages, userMessageUI];
-      
-      // Save the message to the database
-      const userMessage = await messagesStore.saveMessage({
-        text: replyText,
-        type: 'human',
-        thread: currentThreadId,
-        parent_msg: parentMessageId,
-        prompt_type: promptType
-      }, currentThreadId);
-      
-      if ($isAiActive) {
-        // Show thinking message
-        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), userMessageUI.id);
-        thinkingMessageId = thinkingMessage.id;
-        chatMessages = [...chatMessages, thinkingMessage];
-        
-        // Prepare the context for this reply
-        const { messagesToSend } = prepareReplyContext(
-          replyText,
-          parentMessageId,
-          chatMessages,
-          aiModel,
-          promptType
-        );
-        
-        // Get AI response
-        const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-        
-        // Remove thinking message
-        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-        
-        // Save the AI response to the database
-        const assistantMessage = await messagesStore.saveMessage({
-          text: aiResponse,
-          type: 'robot',
-          thread: currentThreadId,
-          parent_msg: userMessage.id,
-          prompt_type: promptType,
-          model: aiModel.api_type,
-        }, currentThreadId);
-        
-        // Add the AI response to UI
-        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-        chatMessages = [...chatMessages, newAssistantMessage];
-        typingMessageId = newAssistantMessage.id;
-        
-        // Type out the message
-        await typeMessage(aiResponse);
-      }
-      
-      // Update thread name if needed
-      await handleThreadNameUpdate(currentThreadId);
-      
-    } catch (error) {
-      handleError(error);
-    }
-  }
-async function typeMessage(message: string) {
-  const typingSpeed = 1;
-  
-  // Get the DOM element directly
-  const messageElement = document.querySelector(`[data-message-id="${typingMessageId}"] p`);
-  if (!messageElement) return;
-  
-  // Bypass Svelte's reactivity by directly manipulating the DOM
-  for (let i = 0; i <= message.length; i++) {
-    const typedMessage = message.slice(0, i);
-    messageElement.innerHTML = typedMessage;
-    await new Promise(resolve => setTimeout(resolve, typingSpeed));
-  }
-  
-  // Only update Svelte state once at the end
-  chatMessages = chatMessages.map(msg => 
-    msg.id === String(typingMessageId) 
-      ? { ...msg, content: message, text: message, isTyping: false }
-      : msg
-  );
-  
-  // Scroll to the bottom after typing is complete
-  if (chatMessagesDiv) {
-    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-  }
-}
 
   function processMessageContentWithReplyable(content: string, messageId: string): string {
   if (!content || typeof content !== 'string') return content || '';
@@ -1651,7 +1254,181 @@ $: if (userInput === '' && textareaElement) {
   resetTextareaHeight(textareaElement);
 }
 
+export async function handleSendMessage(message: string = userInput) {
+  // handleImmediateTextareaBlur();
+  if (!message.trim() && chatMessages.length === 0 && !attachment) return;
+  ensureAuthenticated();
 
+  try {
+    userInput = '';
+    if (textareaElement) {
+    // Reset height immediately
+    resetTextareaHeight(textareaElement);
+  }
+
+    if (!currentThreadId) {
+      console.log('No current thread ID - creating a new thread');
+      const newThread = await handleCreateNewThread();
+      if (!newThread || !newThread.id) {
+        console.error('Failed to create a new thread');
+        return;
+      }
+      // currentThreadId should now be set by handleCreateNewThread
+    }
+
+    if (!currentThreadId) {
+      console.error('Still no current thread ID after attempt to create one');
+      return;
+    }
+
+    // Ensure we have a valid model with fallback
+    if (!aiModel || !aiModel.api_type) {
+      console.log('No valid model selected, using fallback');
+      
+      // Get model from store if available
+      const modelState = get(modelStore);
+      if (modelState.selectedModel) {
+        aiModel = modelState.selectedModel;
+        console.log('Using model from store:', aiModel);
+      } else {
+        // Get available keys
+        const availableKeys = get(apiKey);
+        const providersWithKeys = Object.keys(availableKeys)
+          .filter(p => !!availableKeys[p]);
+        
+        // Use first provider with a key, or deepseek as fallback
+        const validProvider = 
+          providersWithKeys.length > 0 ? 
+          providersWithKeys[0] as ProviderType : 
+          'deepseek';
+        
+        // Use default model from your constants
+        aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
+        console.log(`Using default model for ${validProvider}:`, aiModel);
+        
+        // Also update the modelStore in the background
+        if ($currentUser) {
+          modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
+            console.warn('Could not save fallback model:', err);
+          });
+        }
+      }
+    }
+    
+    // Ensure model has all required fields
+    if (!aiModel.provider) {
+      aiModel.provider = 'deepseek';
+    }
+
+    const currentMessage = message.trim();
+    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
+    chatMessages = [...chatMessages, userMessageUI];
+
+    // Scroll the new message into view at the top
+    setTimeout(() => {
+      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+
+    const userMessage = await messagesStore.saveMessage({
+      text: currentMessage,
+      type: 'human',
+      thread: currentThreadId,
+      parent_msg: quotedMessage?.id ?? null,
+      prompt_type: promptType
+    }, currentThreadId);
+
+    quotedMessage = null;
+
+    if ($isAiActive) {
+      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+      thinkingMessageId = thinkingMessage.id;
+      chatMessages = [...chatMessages, thinkingMessage];
+
+      const messagesToSend = chatMessages
+        .filter(({ role, content }) => role && content)
+        .map(({ role, content }) => ({
+          role,
+          content: role === 'user' && promptType 
+            ? `[Using ${promptType} prompt]\n${content.toString()}`
+            : content.toString(),
+          model: aiModel.api_type,
+        }));
+
+      if (!messagesToSend.length) {
+        throw new Error('No valid messages to send');
+      }
+
+      if (promptType) {
+        messagesToSend.unshift({
+          role: 'system',
+          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+          model: aiModel.api_type,
+        });
+      }
+
+      const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+      const assistantMessage = await messagesStore.saveMessage({
+        text: aiResponse,
+        type: 'robot',
+        thread: currentThreadId,
+        parent_msg: userMessage.id,
+        prompt_type: promptType,
+        model: aiModel.api_type,
+      }, currentThreadId);
+
+      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      chatMessages = [...chatMessages, newAssistantMessage];
+      typingMessageId = newAssistantMessage.id;
+
+      await typeMessage(aiResponse);
+
+      // chatMessages = chatMessages.map(msg =>
+      //   msg.id === String(typingMessageId)
+      //     ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
+      //     : msg
+      // );
+    }
+
+    await handleThreadNameUpdate(currentThreadId);
+
+  } catch (error) {
+    handleError(error);
+  } finally {
+    cleanup();
+  }
+}
+
+async function typeMessage(message: string) {
+  const typingSpeed = 1;
+  
+  // Get the DOM element directly
+  const messageElement = document.querySelector(`[data-message-id="${typingMessageId}"] p`);
+  if (!messageElement) return;
+  
+  // Bypass Svelte's reactivity by directly manipulating the DOM
+  for (let i = 0; i <= message.length; i++) {
+    const typedMessage = message.slice(0, i);
+    messageElement.innerHTML = typedMessage;
+    await new Promise(resolve => setTimeout(resolve, typingSpeed));
+  }
+  
+  // Only update Svelte state once at the end
+  chatMessages = chatMessages.map(msg => 
+    msg.id === String(typingMessageId) 
+      ? { ...msg, content: message, text: message, isTyping: false }
+      : msg
+  );
+  
+  // Scroll to the bottom after typing is complete
+  if (chatMessagesDiv) {
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+}
 // Thread management functions
 
 async function handleLoadThread(threadId: string) {
@@ -3220,32 +2997,247 @@ onDestroy(() => {
         <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
         transition:fly="{{ x: -300, duration: 300 }}">
           
-        {#each groupMessagesByDate(chatMessages) as { date, messages }}
-        <div class="date-divider">
-          {formatDate(date)}
-        </div>
-        
-        {#each messages as message (message.id)}
-        {#if !message.parent_msg || !chatMessages.some(m => m.id === message.parent_msg)}
-          <RecursiveMessage
-            message={message}
-            allMessages={chatMessages}
-            {userId}
-            {currentUser}
-            name={name}
-            getUserProfile={getUserProfile}
-            getAvatarUrl={getAvatarUrl}
-            processMessageContentWithReplyable={processMessageContentWithReplyable}
-            latestMessageId={latestMessageId}
-            toggleReplies={toggleReplies}
-            hiddenReplies={hiddenReplies}
-            sendMessage={replyToMessage}
-            aiModel={aiModel}
-            promptType={promptType}
-          />
-        {/if}
-      {/each}
-      {/each}
+          {#each groupMessagesByDate(chatMessages) as { date, messages }}
+            <div class="date-divider">
+              {formatDate(date)}
+            </div>
+            
+            {#each messages as message (message.id)}
+            {#if !message.parent_msg || !chatMessages.some(m => m.id === message.parent_msg)}
+
+              <div class="message {message.role}" class:latest-message={message.id === latestMessageId} 
+              data-message-id={message.id} 
+              in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}"
+              >
+                <div class="message-header">
+                  {#if message.role === 'user'}
+                    <div class="user-header">
+                      <div class="avatar-container">
+                        {#if getAvatarUrl($currentUser)}
+                        <img 
+                          src={getAvatarUrl($currentUser)}
+                          alt="User avatar" 
+                          class="user-avatar" 
+                        />
+                        {:else}
+                          <div class="default-avatar">
+                            {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+                          </div>
+                        {/if}
+                      </div>
+                      <span class="role">
+                        {#if message.type === 'human' && message.user}
+                          {#await getUserProfile(message.user) then userProfile}
+                            {userProfile ? userProfile.name : name}
+                          {/await}
+                        {:else}
+                          {name}
+                        {/if}
+                      </span>
+                    </div>
+                  {:else if message.role === 'thinking'}
+                    <!-- <span class="role">
+                      <Bot size="50" color="white" />
+                    </span> -->
+                  {:else if message.role === 'assistant'}
+                    <!-- <div class="user-header">
+                      <div class="avatar-container">
+                        <Bot color="white" />
+                      </div>
+                      <span class="role">{message.prompt_type}</span>
+                      <span class="model">{message.model}</span>
+                    </div> -->
+                  {/if}
+                </div>
+                <p class:typing={message.isTyping} >
+                  {@html processMessageContentWithReplyable(message.content, message.id)}
+                </p>
+                <div class="replies-section">
+                  {#if chatMessages.filter(msg => msg.parent_msg === message.id).length > 0}
+                  <button class="toggle-replies-btn" 
+                  on:click|stopPropagation={(e) => {
+                    e.preventDefault();
+                    toggleReplies(message.id);
+                  }}>
+                      <span class="replies-indicator">
+                        <!-- <MessagesSquare/> -->
+                          {chatMessages.filter(msg => msg.parent_msg === message.id).length} 
+                          <span class="toggle-icon">+</span>
+
+                      </span>
+                    </button>
+                  {/if}
+                  
+                  <div class="replies-container replies-to-{message.id}">
+                    {#each getThreadedReplies(message.id, chatMessages) as reply (reply.id)}
+                    {#if chatMessages.filter(msg => msg.parent_msg === reply.id).length > 0}
+                    <button class="toggle-replies-btn" 
+                      data-parent-id={reply.parent_msg}
+                      on:click={(e) => {
+                        e.stopPropagation(); // Prevent event bubbling
+                        toggleReplies(reply.id);
+                      }}>
+                      <span class="replies-indicator">
+                        <MessagesSquare/>
+                        {chatMessages.filter(msg => msg.parent_msg === reply.id).length}
+                        <span class="toggle-icon">▲</span>
+                      </span>
+                    </button>
+                  {/if}
+                    <div class="reply-message {reply.role}" in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                        <!-- <div class="reply-indicator"></div> -->
+
+                        <div class="reply-content">
+
+                          <div class="message-header assistant">
+                            {#if reply.role === 'user'}
+                            <div class="avatar-container">
+                              {#if getAvatarUrl($currentUser)}
+                              <img 
+                                src={getAvatarUrl($currentUser)}
+                                alt="User avatar" 
+                                class="user-avatar" 
+                              />
+                              {:else}
+                                <div class="default-avatar">
+                                  {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+                                </div>
+                              {/if}
+                            </div>
+                              <div class="user-header">
+                                <span class="role">
+                                  {#if reply.type === 'human' && reply.user}
+                                    {#await getUserProfile(reply.user) then userProfile}
+                                      {userProfile ? userProfile.name : name}
+                                    {/await}
+                                  {:else}
+                                    {name}
+                                  {/if}
+                                </span>
+                              </div>
+                            {:else if reply.role === 'assistant'}
+                              <div class="avatar-container">
+                                <Bot />
+                              </div>
+                              <div class="user-header">
+                                <span class="model"> 
+                                  {reply.model}</span>
+                              </div>
+                            {/if}
+                          </div>
+                          <p>{@html reply.content}</p>
+                          <div class="message-footer">
+                            {#if reply.role === 'user'}
+                              <!-- User-specific footer content -->
+                            {:else if reply.role === 'assistant'}
+                              <Reactions 
+                                message={reply}
+                                userId={userId}
+                                on:update={async (event) => {
+                                  const { messageId, reactions } = event.detail;
+                                  await messagesStore.updateMessage(messageId, { reactions });
+                                  chatMessages = chatMessages.map(msg => 
+                                    msg.id === messageId 
+                                      ? { ...msg, reactions }
+                                      : msg
+                                  );
+                                }}
+
+                              />
+                            {/if}
+                          </div>
+                        </div>
+                      </div>
+                  
+                    {/each}
+                  </div>
+                </div>                
+                <!-- {#if message.id}
+                <div class="replies-container replies-to-{message.id}">
+                  {#each chatMessages.filter(msg => msg.parent_msg === message.id) as reply (reply.id)}
+                    <div class="reply-message {reply.role}" in:fly="{{ y: 20, duration: 300 }}" out:fade="{{ duration: 200 }}">
+                      <div class="reply-indicator"></div>
+                      <div class="reply-content">
+                        <div class="message-header">
+                          {#if reply.role === 'user'}
+                            <div class="user-header">
+                              <span class="role">
+                                {#if reply.type === 'human' && reply.user}
+                                  {#await getUserProfile(reply.user) then userProfile}
+                                    {userProfile ? userProfile.name : name}
+                                  {/await}
+                                {:else}
+                                  {name}
+                                {/if}
+                              </span>
+                            </div>
+                          {:else if reply.role === 'assistant'}
+                            <div class="user-header">
+                              <span class="model">{reply.model}</span>
+                            </div>
+                          {/if}
+                        </div>
+                        <p>{@html reply.content}</p>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if} -->
+                {#if message.role === 'thinking'}
+                  <div class="thinking-animation">
+                    <span>
+                      <Bot color="white" />
+                    </span>
+                    <span>
+                      <Bot color="gray" />
+                    </span>
+                    <span>
+                      <Bot color="white" />
+                    </span>
+                  </div>
+                {/if}
+                {#if message.role === 'assistant'}
+                  <div class="message-footer">
+                    <Reactions 
+                      {message}
+                      {userId}
+                      on:update={async (event) => {
+                        const { messageId, reactions } = event.detail;
+                        await messagesStore.updateMessage(messageId, { reactions });
+                        chatMessages = chatMessages.map(msg => 
+                          msg.id === messageId 
+                            ? { ...msg, reactions }
+                            : msg
+                        );
+                      }}
+                      on:notification={(event) => {
+                        console.log(event.detail);
+                      }}
+                    />
+                  </div>
+                {/if}
+              </div>
+              {/if}
+            {/each}
+            {#if activeReplyMenu}
+            <div class="reply-menu" 
+                 style="position: absolute; left: {activeReplyMenu.position.x}px; top: {activeReplyMenu.position.y}px;"
+                 transition:fly="{{ y: 10, duration: 150 }}">
+              <div class="reply-options">
+                <button class="reply-option" on:click={() => submitReply(activeReplyMenu.elementId, '')}>
+                  <RefreshCcw size={16} />
+                  <span>Re-prompt AI</span>
+                </button>
+                <div class="reply-input-container">
+                  <textarea bind:value={replyText} placeholder="Type your reply..." rows="2"></textarea>
+                  <button class="send-reply" on:click={() => submitReply(activeReplyMenu.elementId, replyText)}>
+                    <MessageSquare size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+          {/each}
                     <!-- style="transform: translateY({scrollPercentage * 0.5}%);" -->
 
           {#if showScrollButton}
@@ -3807,23 +3799,22 @@ onDestroy(() => {
     margin-top: 1em;
 }
 
-//       .message.assistant div div {
-//   // Code block styling
-//   margin: 0;
-//   padding: 0;
-//   // padding-inline-start: 1rem !important;
-//   // border-top: 1px solid var(--secondary-color);
-//   // border-bottom: 1px solid var(--secondary-color);
-//       border: none !important;
-//   border-radius: 1rem !important;
-//   overflow-x: auto;
-//   display: flex;
-//   flex-direction: column;
+      .message.assistant div div {
+  // Code block styling
+  margin: 0;
+  padding: 0;
+  padding-inline-start: 1rem !important;
+  // border-top: 1px solid var(--secondary-color);
+  // border-bottom: 1px solid var(--secondary-color);
+      border: none !important;
+  border-radius: 1rem !important;
+  overflow-x: auto;
+  display: flex;
 
-//   &:hover {
-//     // background: var(--bg-color);
-//   }
-// }
+  &:hover {
+    background: var(--bg-color);
+  }
+}
 
 p div {
   display: flex !important;
@@ -3832,17 +3823,17 @@ p div {
 }
 
   // Code styles
-//   .message.assistant div div pre {
-//   // Code block styling
-//   margin: 0;
-//   padding: 1rem;
-//   border-radius: 1rem !important;
-//   // padding-inline-start: 1rem !important;
-//   background-color: var(--primary-color) !important;
-//   overflow-x: auto;
-//   margin-top: 1rem !important;
+  .message.assistant div div pre {
+  // Code block styling
+  margin: 0;
+  padding: 1rem;
+  border-radius: 1rem !important;
+  padding-inline-start: 1rem !important;
+  background-color: var(--primary-color) !important;
+  overflow-x: auto;
+  margin-top: 1rem !important;
 
-// }
+}
   pre {
     background: var(--bg-color) !important;
     border-radius: 1rem !important;
@@ -3970,27 +3961,7 @@ p div {
       
     }
 
-//     :global(.depth-1) {
-//   margin-left: 1.5rem !important;
-//   max-width: calc(80% - 1.5rem) !important;
-// }
 
-// :global(.depth-2) {
-//   margin-left: 3rem !important;
-//   max-width: calc(80% - 3rem) !important;
-// }
-
-// :global(.depth-3), :global(.depth-4), :global(.depth-5) {
-//   margin-left: 4rem !important;
-//   max-width: calc(80% - 4rem) !important;
-// }
-
-// :global(.replies-container) {
-//   margin-left: 1rem !important;
-//   margin-top: 0.5rem !important;
-//   border-left: 2px solid var(--reply-border, #ddd) !important;
-//   padding-left: 0.75rem !important;
-// }
   span.header-btns {
       display: flex;
       flex-direction: row;
@@ -5930,7 +5901,15 @@ color: #6fdfc4;
     
   }
 
-
+  .message-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    color: var(--placeholder-color);
+    font-weight: 200;
+    
+  }
 
 
 
@@ -6756,9 +6735,27 @@ p.selector-lable {
   border: 1px solid transparent;
   padding: 0;
 }
+.replies-container {
+  max-height: 100%;
+  transition: max-height 0.3s ease;
+  overflow-y: auto;
+  // background: var(--bg-gradient-right);
+  // border: 1px solid var(--line-color);
+  padding: 0;
+  // border-top: 1px solid var(--line-color);
+  // background: var(--primary-color);
+  
 
 
 
+}
+
+.replies-section {
+  width: 100%;
+  margin-left: -2rem;
+  margin-bottom: -2rem;
+
+}
 
 .replies-container.hidden {
   max-height: 0;
@@ -6864,7 +6861,20 @@ p.selector-lable {
 
 }
 
+.toggle-replies-btn {
+  background: var(--secondary-color);
+  cursor: pointer;
+  border: none;
+  border-radius: 1rem;
+  font-size: 0.9rem;
+  margin-top: 0;
+  padding: 0.25rem;
+  text-align: left;
 
+  &:hover {
+    background: var(--primary-color);
+  }
+}
 
 .replies-indicator {
   display: flex;
@@ -7076,7 +7086,6 @@ p.selector-lable {
     color: white;
     z-index: 10000;
     margin-bottom: 0;
-    backdrop-filter: blur(20px);
   }
 
   .spinner {

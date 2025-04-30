@@ -1,8 +1,9 @@
+
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import { currentUser } from '$lib/pocketbase';
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
-    import { Bookmark, Copy } from 'lucide-svelte';
+    import { Bookmark, Copy, MessageSquare } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
     import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
@@ -24,7 +25,7 @@
     }>;
 
     type Reaction = {
-        symbol: typeof Bookmark | typeof Copy;
+        symbol: typeof Bookmark | typeof Copy | typeof MessageSquare;
         action: string;
         label: string;
         isIcon: boolean;
@@ -41,6 +42,12 @@
             symbol: Copy,
             action: 'copy',
             label: 'Copy to Clipboard',
+            isIcon: true
+        },
+        {
+            symbol: MessageSquare,
+            action: 'reply',
+            label: 'Reply to message',
             isIcon: true
         }
     ];
@@ -130,6 +137,13 @@
                         showCopiedTooltip = false;
                     }, 1000);
                     break;
+                    
+                case 'reply':
+                    // Dispatch an event to notify RecursiveMessage to show reply input
+                    dispatch('reply', {
+                        messageId: message.id
+                    });
+                    break;
             }
         } catch (error) {
             console.error('Error handling reaction:', error);
@@ -146,6 +160,7 @@
         }
     }
 </script>
+
 
 <div class="message-reactions">
     {#if message.role === 'assistant'}
@@ -183,7 +198,7 @@
 		position: relative; // Keep this
 		display: flex; // Changed from inline-block
 		overflow: visible; // Changed from hidden to show tooltips
-		justify-content: flex-end;
+		justify-content: flex-start;
 		height: auto;
 		width: 100%;
 		transition: width 0.3s ease-in-out;
@@ -193,16 +208,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
+        align-items: center;
 		padding: {
 			left: 0;
-			right: 2rem;
+			right: 0;
 		}
-		gap: 1rem !important;
-		height: 100%;
-		width: auto; // Changed from 100%
+		gap: 2rem;
+		height: auto;
+		width: 100%; 
 		white-space: nowrap;
 		transition: all 0.3s ease;
-		position: relative; // Added for tooltip positioning
+		position: relative;
 	}
 
 
@@ -254,7 +270,58 @@
 			fadeIn 0.2s ease-in,
 			fadeOut 0.2s ease-out 0.8s forwards;
 	}
+    .reaction-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative; 
 
+            margin: 0;
+            padding: 0;
+            width: 2rem;
+            height: 2rem;
+        }
+    .reaction-btn {
+        position: relative; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 2rem !important;
+        height: 2rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: auto;
+        font-weight: bold;
+        color: var(--placeholder-color);
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        opacity: 0.5;
+        transition: all 0.1s ease-in-out;
+
+
+
+        &.bookmarked {
+            color: var(--tertiary-color);
+            // background-color: var(--secondary-color);
+            border-radius: var(--radius-m);
+            opacity: 1;
+
+            :global(svg) {
+                fill: var(--tertiary-color) !important;
+                stroke: var(--tertiary-color) !important;
+            }
+        }
+
+        &:hover {
+            color: var(--tertiary-color);
+
+            :global(svg) {
+                stroke: var(--tertiary-color);
+            }
+        }
+    }
 	/* Hover effect */
 	.message-reactions:hover {
         background: transparent !important;

@@ -19,7 +19,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #2b2a2a, #353f3f),
 		bg-gradient-right: linear-gradient(to right, #2b2a2a, #353f3f),
 		text-color: #ffffff,
-		placeholder-color: rgb(255, 255, 255, 0.5),
+		placeholder-color: rgba(255, 255, 255, 0.5),
 		font-family: 'Merriweather',
 		primary-color: #2b2a2a,
 		secondary-color: #474747,
@@ -35,7 +35,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #1a1a1a, #000000),
 		bg-gradient-right: linear-gradient(to right, #1a1a1a, #000000),
 		text-color: #f0f0f0,
-		placeholder-color: rgb(240, 240, 240, 0.5),
+		placeholder-color: rgba(240, 240, 240, 0.5),
 		font-family: 'Montserrat',
 		primary-color: #0e0e0e,
 		secondary-color: #1c1f21,
@@ -52,7 +52,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #2c3e50, #4ca1af),
 		bg-gradient-right: linear-gradient(to right, #2c3e50, #4ca1af),
 		text-color: #ffffff,
-		placeholder-color: rgb(74, 74, 74, 0.5),
+		placeholder-color: rgba(74, 74, 74, 0.5),
 		font-family: 'Courier New',
 		primary-color: #4a5b5d,
 		secondary-color: #2a626b,
@@ -68,7 +68,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #ff9966, #745803),
 		bg-gradient-right: linear-gradient(to right, #ff9966, #745803),
 		text-color: #4a0e0e,
-		placeholder-color: rgb(74, 14, 14, 0.5),
+		placeholder-color: rgba(74, 14, 14, 0.5),
 		font-family: 'Arial',
 		primary-color: #684504,
 		secondary-color: #543707,
@@ -98,11 +98,11 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #3a2c3f, #151720),
 		bg-gradient-right: linear-gradient(to right, #3a2c3f, #151720),
 		text-color: #ffffff,
-		placeholder-color: rgb(255, 255, 255, 0.5),
+		placeholder-color: rgba(255, 255, 255, 0.5),
 		font-family: 'Helvetica Neue',
 		primary-color: #3a2c3f,
 		secondary-color: #4a3951,
-		tertiary-color: rgb(210, 151, 205),
+		tertiary-color: rgba(210, 151, 205),
 		line-color: rgba(54, 64, 64, 0.5),
 
 	),
@@ -113,7 +113,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
 		bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
 		text-color: #000000,
-		placeholder-color: rgb(0, 0, 0, 0.5),
+		placeholder-color: rgba(0, 0, 0, 0.5),
 		font-family: 'Times New Roman',
 		primary-color: #f1c40f,
 		secondary-color: #f39c12,
@@ -127,8 +127,8 @@ $themes: (
 		bg-gradient-r: linear-gradient(to top, #699999, #f1f3f5),
 		bg-gradient-left: linear-gradient(to left, #699999, #f1f3f5),
 		bg-gradient-right: linear-gradient(to right, #699999, #f1f3f5),
-		text-color: rgb(25, 46, 48),
-		placeholder-color: rgb(0, 0, 0, 0.5),
+		text-color: rgba(25, 46, 48),
+		placeholder-color: rgba(0, 0, 0, 0.5),
 		font-family: 'Century Gothic, sans-serif',
 		primary-color: #ffffff,
 		secondary-color: #e4e4e4,
@@ -143,7 +143,7 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #699999, #92dcdc),
 		bg-gradient-right: linear-gradient(to right, #699999, #92dcdc),
 		text-color: #000000,
-		placeholder-color: rgb(0, 0, 0, 0.5),
+		placeholder-color: rgba(0, 0, 0, 0.5),
 		font-family: 'Century Gothic, sans-serif',
 		primary-color: #f1c40f,
 		secondary-color: #f39c12,
@@ -240,8 +240,8 @@ $themes: (
 }
 
 .user-avatar {
-	width: 3rem !important;
-	height: 3rem !important;
+	width: 2rem;
+	height: 2rem;
 	border-radius: 50%;
 	object-fit: cover;
 }
@@ -473,40 +473,7 @@ pre.code-block {
   }
 
 
-  .reaction-btn {
-	position: relative; // Added for tooltip positioning
-	font-family: var(--font-family);
-	font-size: 1rem;
-	font-weight: bold;
-	color: var(--placeholder-color);
-	background-color: transparent;
-	border: none;
-	cursor: pointer;
-	padding: 1rem;
-	margin: 0 2px;
-	opacity: 0.5;
-	transition: all 0.1s ease-in-out;
 
-	&.bookmarked {
-		color: var(--tertiary-color);
-		// background-color: var(--secondary-color);
-		border-radius: var(--radius-m);
-		opacity: 1;
-
-		:global(svg) {
-			fill: var(--tertiary-color) !important;
-			stroke: var(--tertiary-color) !important;
-		}
-	}
-
-	&:hover {
-		color: var(--tertiary-color);
-
-		:global(svg) {
-			stroke: var(--tertiary-color);
-		}
-	}
-}
 
 	/* Tab Styles */
 	.tabs-container {
