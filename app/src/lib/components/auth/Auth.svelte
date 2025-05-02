@@ -309,11 +309,11 @@
 				}} 
 				class="auth-form"
 			  >
+			  <span>
 				<img src={horizon100} alt="Horizon100" class="logo" />
+				<h2>vRAZUM</h2>							
 
-				<h2>
-
-				</h2>
+			  </span>
 
 					<input 
 						type="email" 
@@ -373,12 +373,12 @@
 							  {isLoading ? 'Signing up...' : ''}
 							</span>
 						  </button>
-						<div class="button-login">
+						<!-- <div class="button-login">
 							<GoogleAuth/>
 							<span class="btn-description google">
 								{$t('profile.googleAuth')}
 							</span>
-						</div> 
+						</div>  -->
 						{:else}
 							<!-- <button 
 								class="button button-waitlist" 
@@ -445,10 +445,10 @@
 		flex-direction: column;
 		height: 100%;
 
-		width: 100% ;
-		border-radius: 2rem;
-		background: var(--bg-gradient);
-		border: 1px solid rgb(53, 53, 53);
+		width: 100%;
+		// border-radius: 2rem;
+		// background: var(--bg-gradient);
+		// border: 1px solid rgb(53, 53, 53);
 		/* border-radius: 20px; */
 		/* border-bottom-left-radius: 100%; */
 		/* border-bottom-right-radius: 100%; */
@@ -456,7 +456,7 @@
 		align-items: center;
 		gap: 20px;
 		/* height: 50px; */
-		padding: 10px 20px;
+		padding: 3rem;
 		/* width: 100%; */
 		/* padding: 20px; */
 		/* width: 100%; */
@@ -538,7 +538,8 @@
 			display: flex;
 			justify-content:center;
 			width: 100%;
-			border-bottom: 1px solid var(--placeholder-color);
+			margin: 0;
+			padding: 0;
 		}
 	}
 	.welcome-message {
@@ -551,10 +552,21 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
+		height: auto;
 		/* height: 100px; */
 		gap: 1rem;
-	}
 
+		& span {
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+		}
+		& h2 {
+			font-size: 2rem;
+		}
+		
+	}
 	.auth-form input {
 		color: var(--text-color); 
 		// padding: 1.5rem;
@@ -570,7 +582,7 @@
 			box-shadow 0.3s;
 		&:focus {
 			outline: none; 
-			background: var(--primary-color) !important; 
+			background: var(--secondary-color) !important; 
 			color: var(--text-color);
 		}
 	}
@@ -615,8 +627,6 @@
 		padding: 0.5rem;
 
 		&:hover {
-			background: var(--primary-color);
-			border-radius: 1rem;
 		}
 	}
 	img.logo {
@@ -624,8 +634,8 @@
 		height: 4rem;
 	}
 	.button-login {
-		width: 4rem;
-		height: 4rem;
+		width: 100% !important;
+		height: 3rem;
 		background: var(--primary-color);
 		color: var(--placeholder-color);
 		display: flex;
@@ -637,20 +647,11 @@
 		font-size: 1rem;
 		transition: all 0.3s ease-in;
 		&:hover {
-			width: auto;
 			color: var(--text-color);
 			background: var(--secondary-color);
         //   box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 1px 4px rgba(0, 0, 0, .25);
-		box-shadow: 0px 2px 2px 0px rgba(251, 245, 245, 0.2);
-		& span.btn-description {
-				display: flex;
-				margin-left: 1rem;
-				margin-right: 1rem;
-		}
-		& span.btn-description.google {
-				display: flex;
+		// box-shadow: 0px 2px 2px 0px rgba(251, 245, 245, 0.2);
 
-		}
 			cursor: pointer;
 
 		}
@@ -663,7 +664,7 @@
 			gap: 1rem;
 
 			&.btn-description {
-				display: none;
+				display: flex;
 
 				& :hover {
 					display: flex;
@@ -724,12 +725,12 @@
 
 	.button-group {
 		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
+		flex-direction: column;
 		height: auto;
 		align-items: center;
 		justify-content: space-around;
-		width: calc(100% - 2rem) !important;
+		width: 100%;
+		gap: 0.5rem;
 		/* margin-left: 5%; */
 		/* margin-top: 10px; */
 		/* width: 100%; */
@@ -746,22 +747,17 @@
 	@media (max-width: 768px) {
 		.auth-container {
 			display: flex;
-			background-color: rgba(255, 255, 255, 0.1);
-			backdrop-filter: blur(10px);
-			height: 80vh;
-			color: #ffffff;
-			border: 1px solid rgb(53, 53, 53);
+			// background-color: rgba(255, 255, 255, 0.1);
+			// backdrop-filter: blur(10px);
+			color: var(--text-color);
+			// border: 1px solid rgb(53, 53, 53);
 			/* border-radius: 20px; */
 			/* border-bottom-left-radius: 100%; */
 			/* border-bottom-right-radius: 100%; */
 			justify-content: center;
 			align-items: center;
-			gap: 20px;
-			width: auto;
-			margin-top: 4rem;
-			margin-left: 1rem;
-			margin-right: 1rem;
 			border-radius: var(--radius-m);
+			padding: 1rem;
 			/* height: 50px; */
 			// padding: 10px 20px;
 			/* width: 100%; */
@@ -777,7 +773,6 @@
 			flex-direction: column;
 			justify-content: center;
 			align-items: center;
-			width: auto;
 		}
 
 		.credentials {
@@ -793,7 +788,6 @@
 			align-items: center;
 			/* height: 100px; */
 			gap: 1rem;
-			width: 100%;
 		}
 
 		form {
@@ -823,7 +817,7 @@
 			flex-direction: row;
 			flex-wrap: wrap;
 			font-size: 1rem;
-			color: #ffffff;
+			color: var(--text-color);
 			width: 100%;
 			display: flex;
 			justify-content: center;

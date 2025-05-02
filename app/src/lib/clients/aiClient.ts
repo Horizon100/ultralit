@@ -475,3 +475,121 @@ export async function createAIAgent(
 		collectionName: ''
 	};
 }
+
+/**
+ * Generates a focused, action-oriented task description from message content
+ * @param content Original message content to transform into a task
+ * @param model AI model to use for generation
+ * @param userId User ID for authorization
+ * @returns Promise with a focused task description
+ */
+export async function generateTaskDescription(
+	content: string, 
+	model: AIModel,
+	userId: string
+  ): Promise<string> {
+	try {
+	  // Define the system prompt for task generation
+	  const systemPrompt = {
+		role: 'system',
+		content: `Create a focused, action-oriented task description from the provided content.
+  - Write in imperative style (e.g., "Develop API documentation" not "Here's a task to develop API documentation")
+  - Be specific about requirements and acceptance criteria
+  - Omit any phrases like "here is" or meta-commentary
+  - Focus only on actionable items and deliverables
+  - Format as direct instructions
+  - Be concise but complete
+  - Include only text that would be useful in a task tracking system`,
+		model: model.api_type
+	  };
+  
+	  // User prompt with the content to transform
+	  const userPrompt = {
+		role: 'user',
+		content: `Transform this into a focused task description:
+  ${content}`,
+		model: model.api_type
+	  };
+  
+	  // Use the existing fetchAIResponse function
+	  const taskDescription = await fetchAIResponse(
+		[systemPrompt, userPrompt],
+		model,
+		userId
+	  );
+  
+	  return taskDescription.trim();
+	} catch (error) {
+	  console.error('Error generating task description:', error);
+	  // Fall back to original content if the AI fails
+	  return content;
+	}
+  }
+  
+  /**
+   * Extracts a suitable title from a task description
+   * @param taskDescription The full task description
+   * @param maxLength Maximum length for the title (default: 50)
+   * @returns A title for the task
+   */
+  function extractTaskTitle(taskDescription: string, maxLength: number = 50): string {
+	// Get the first sentence or phrase
+	let title = '';
+	
+	// Try to get the first sentence (ending with period)
+	const firstSentence = taskDescription.split('.')[0];
+	if (firstSentence && firstSentence.length > 5) {
+	  title = firstSentence.trim();
+	} else {
+	  // Fall back to first line
+	  title = taskDescription.split('\n')[0].trim();
+	}
+	
+	// Limit length
+	if (title.length > maxLength) {
+	  title = title.substring(0, maxLength - 3) + '...';
+	}
+	
+	return title;
+  }
+  
+  /**
+   * Generates a complete task object from message content
+   * @param taskDetails Object containing message details
+   * @returns Promise with the task description and title
+   */
+  export async function generateTaskFromMessage(taskDetails: {
+	content: string,
+	messageId?: string,
+	model: AIModel,
+	userId: string,
+	threadId?: string
+  }): Promise<{
+	title: string,
+	description: string
+  }> {
+	try {
+	  const taskDescription = await generateTaskDescription(
+		taskDetails.content,
+		taskDetails.model,
+		taskDetails.userId
+	  );
+	  
+	  const title = extractTaskTitle(taskDescription);
+	  
+	  return {
+		title,
+		description: taskDescription
+	  };
+	} catch (error) {
+	  console.error('Error in generateTaskFromMessage:', error);
+	  
+	  const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
+	  const fallbackTitle = extractTaskTitle(cleanContent);
+	  
+	  return {
+		title: fallbackTitle,
+		description: cleanContent
+	  };
+	}
+  }

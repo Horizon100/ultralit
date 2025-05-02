@@ -43,7 +43,6 @@ export async function fetchThreadsForProject(projectId: string): Promise<Threads
     try {
         await ensureAuthenticated();
             
-        // For project-specific requests, use the projects endpoint
         const endpoint = `/api/projects/${projectId}/threads`;
         console.log(`Fetching threads from endpoint: ${endpoint}`);
 
@@ -64,7 +63,6 @@ export async function fetchThreadsForProject(projectId: string): Promise<Threads
         const rawData = await response.json();
         console.log('Raw API response:', rawData);
 
-        // Combine both arrays if they exist
         let threads: Threads[] = [];
         
         if (rawData.threads && Array.isArray(rawData.threads)) {
@@ -72,7 +70,6 @@ export async function fetchThreadsForProject(projectId: string): Promise<Threads
         }
         
         if (rawData.data && Array.isArray(rawData.data)) {
-            // Avoid duplicates when merging
             const dataThreads = rawData.data.filter((dataThread: Threads) => 
                 !threads.some(thread => thread.id === dataThread.id)
             );

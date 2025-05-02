@@ -131,7 +131,6 @@ export function createThreadsStore() {
     isLoading: false,
     isUpdating: false,
     error: null,
-    // Make sure all required properties from ThreadStoreState are initialized
     currentThread: null,
     filteredThreads: [],
     isNaming: false,

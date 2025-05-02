@@ -1,9 +1,8 @@
-
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import { currentUser } from '$lib/pocketbase';
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
-    import { Bookmark, Copy, MessageSquare } from 'lucide-svelte';
+    import { Bookmark, Copy, MessageSquare, ListTodo } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
     import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
@@ -15,6 +14,8 @@
     let showBookmarkTooltip = false;
     let bookmarkTooltipText = '';
     let isBookmarkedState = false;
+    let showTaskTooltip = false;
+    let taskTooltipText = '';
 
     // Define type for Lucide icons
     type IconComponent = SvelteComponentTyped<{
@@ -25,12 +26,13 @@
     }>;
 
     type Reaction = {
-        symbol: typeof Bookmark | typeof Copy | typeof MessageSquare;
+        symbol: typeof Bookmark | typeof Copy | typeof MessageSquare | typeof ListTodo;
         action: string;
         label: string;
         isIcon: boolean;
     };
 
+    // Updated reactions array with the new task button
     const reactions: Reaction[] = [
         {
             symbol: Bookmark,
@@ -48,6 +50,12 @@
             symbol: MessageSquare,
             action: 'reply',
             label: 'Reply to message',
+            isIcon: true
+        },
+        {
+            symbol: ListTodo,
+            action: 'task',
+            label: 'Create task from message',
             isIcon: true
         }
     ];
@@ -129,8 +137,7 @@
                     break;
 
                 case 'copy':
-                    // Copy functionality works fine, keep as is
-                    await MarkupFormatter.copyAsPlainText(message.text);
+                    await MarkupFormatter.copyAsPlainText(message.text || message.content);
                     
                     showCopiedTooltip = true;
                     setTimeout(() => {
@@ -139,10 +146,25 @@
                     break;
                     
                 case 'reply':
-                    // Dispatch an event to notify RecursiveMessage to show reply input
                     dispatch('reply', {
                         messageId: message.id
                     });
+                    break;
+                
+                case 'task':
+                    // Dispatch event to create a task
+                    dispatch('createTask', {
+                        messageId: message.id,
+                        content: message.content,
+                        threadId: message.thread,
+                        model: message.model
+                    });
+                    
+                    taskTooltipText = 'Creating task...';
+                    showTaskTooltip = true;
+                    setTimeout(() => {
+                        showTaskTooltip = false;
+                    }, 1000);
                     break;
             }
         } catch (error) {
@@ -152,15 +174,22 @@
                 type: 'error'
             });
             
-            bookmarkTooltipText = 'Failed to update bookmark';
-            showBookmarkTooltip = true;
-            setTimeout(() => {
-                showBookmarkTooltip = false;
-            }, 1000);
+            if (action === 'bookmark') {
+                bookmarkTooltipText = 'Failed to update bookmark';
+                showBookmarkTooltip = true;
+                setTimeout(() => {
+                    showBookmarkTooltip = false;
+                }, 1000);
+            } else if (action === 'task') {
+                taskTooltipText = 'Failed to create task';
+                showTaskTooltip = true;
+                setTimeout(() => {
+                    showTaskTooltip = false;
+                }, 1000);
+            }
         }
     }
 </script>
-
 
 <div class="message-reactions">
     {#if message.role === 'assistant'}
@@ -190,6 +219,9 @@
 
     {#if showCopiedTooltip}
         <div class="copied-tooltip">Copied!</div>
+    {/if}
+    {#if showTaskTooltip}
+        <div class="task-tooltip">{taskTooltipText}</div>
     {/if}
 </div>
 <style lang="scss">
@@ -237,6 +269,17 @@
 		white-space: nowrap;
 		z-index: 1000; // Added z-index
 	}
+    .task-tooltip {
+        position: absolute;
+        top: -30px;
+        right: 0;
+        background-color: var(--success-color, #4caf50);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10;
+    }
 	@keyframes fadeIn {
 		from {
 			opacity: 0;

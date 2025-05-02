@@ -8,53 +8,49 @@
     import { threadListVisibility } from '$lib/clients/threadsClient';
     import { prepareReplyContext } from '$lib/utils/handleReplyMessage';
     import { pocketbaseUrl } from '$lib/pocketbase';
-    import {  currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+    import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+    import { createTaskFromMessage, saveTask, getPromptFromThread, loadTasks, updateTask, deleteTask, updateTaskTags } from '$lib/clients/taskClient';
+    import type { KanbanTask } from '$lib/types/types';
+    import { 
+        fetchAIResponse, 
+        handleStartPromptClick, 
+        generateScenarios, 
+        generateTaskFromMessage,
+        createAIAgent, 
+        generateGuidance 
+    } from '$lib/clients/aiClient';
 
-
- // The message to display
- export let message: InternalChatMessage;
-    // All messages in the chat (used to find replies)
+    export let message: InternalChatMessage;
     export let allMessages: InternalChatMessage[] = [];
-    // Current user's ID
     export let userId: string;
-    // Current user object
-    // Username to display
     export let name: string;
-    // Nesting depth of this message (for styling)
     export let depth: number = 0;
-    // Function to get a user's profile
     export let getUserProfile;
-    // Function to process message content
+    export let getAvatarUrl: (user: any) => string;
     export let processMessageContentWithReplyable;
-    // ID of the latest message (for highlighting)
     export let latestMessageId: string | null;
-    // Function to toggle replies visibility
-    // Set of hidden reply IDs
+    export let toggleReplies: (messageId: string) => void;
     export let hiddenReplies: Set<string>;
-    // Reference to the AI model being used
     export let aiModel: any;
-    // Current prompt type
     export let promptType: string | null = null;
-    // Function to send a message (optional)
     export let sendMessage: (text: string, parent_msg?: string, contextMessages?: any[]) => Promise<void> = async () => {};
+    
+    let currentProjectId: string | null = null;
     
     const dispatch = createEventDispatcher();
     
-    // Maximum nesting depth for performance
     const MAX_DEPTH = 5;
   
-    // Get direct replies to this message
     $: childReplies = allMessages.filter(msg => msg.parent_msg === message.id);
     
-    // Check if replies to this message are hidden
     $: repliesHidden = hiddenReplies.has(message.id) || $showThreadList;
     
-    // State for the reply input
     let showReplyInput = false;
     let replyText = '';
     let isSubmitting = false;
-
-    function toggleReplies(messageId: string) {
+   let showTaskTooltip = false;
+    let taskTooltipText = '';
+    function handleToggleReplies(messageId: string) {
         if (hiddenReplies.has(messageId)) {
             hiddenReplies.delete(messageId);
         } else {
@@ -63,11 +59,9 @@
         hiddenReplies = new Set(hiddenReplies); 
     }
 
-    // Handle reply button click from Reactions component
     function handleReply() {
         showReplyInput = !showReplyInput;
         
-        // If opening the reply input, focus the textarea after it's rendered
         if (showReplyInput) {
             setTimeout(() => {
                 const textarea = document.getElementById(`reply-textarea-${message.id}`);
@@ -76,14 +70,12 @@
         }
     }
     
-    // Submit a reply with enhanced context
     async function submitReply() {
         if (!replyText.trim() || isSubmitting) return;
         
         try {
             isSubmitting = true;
             
-            // Prepare the reply context with parent message information
             const { messagesToSend, contextMessage } = prepareReplyContext(
                 replyText,
                 message.id,
@@ -92,7 +84,6 @@
                 promptType
             );
             
-            // Send the reply with parent_msg set to the current message ID and enhanced context
             await sendMessage(replyText, message.id, messagesToSend);
             
             // Clear the input and hide it
@@ -115,61 +106,192 @@
         }
     }
     
-    // Cancel the reply (hide the input)
     function cancelReply() {
         replyText = '';
         showReplyInput = false;
     }
-    function getAvatarUrl(user: any): string {
-	  if (!user) return '';
-	  
-	  // If avatarUrl is already provided (e.g., from social login)
-	  if (user.avatarUrl) return user.avatarUrl;
-	  
-	  // For PocketBase avatars
-	  if (user.avatar) {
-		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
-	  }
-	  
-	  // Fallback - no avatar
-	  return '';
-	}
-    function handleMessageClick(event) {
-        // Don't trigger if clicking on buttons or interactive elements
+    
+    async function generateTaskDescription(content: string): Promise<string> {
+  try {
+    // Set up system instructions for the AI to generate a focused task description
+    const systemPrompt = `
+      Create a clear, concise task description based on the provided content. 
+      - Focus only on actionable items and deliverables
+      - Write in an imperative style (e.g., "Create a report" not "Here is a task to create a report")
+      - Do not include phrases like "here is" or other meta-commentary
+      - Be specific about requirements and acceptance criteria
+      - Keep it focused and task-oriented
+      - Format as a direct set of instructions
+      - Include only text that would be useful in a task tracking system
+    `;
+
+    // If the content is already reasonably sized, use it directly
+    if (content.length < 500) {
+      // Clean the content of HTML and other markup
+      const cleanContent = content.replace(/<\/?[^>]+(>|$)/g, '');
+      
+      // Prepare the messages for AI processing
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Transform this into a focused task description: ${cleanContent}` }
+      ];
+      
+      // Use the appropriate AI model to generate the description
+      const aiResponse = await fetchAIResponse(messages, aiModel, userId);
+      return aiResponse;
+    } else {
+      // For longer content, extract the most relevant parts
+      const summary = content.substring(0, 1000); // Take first 1000 chars as a sample
+      
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Create a focused task description from this content: ${summary}` }
+      ];
+      
+      const aiResponse = await fetchAIResponse(messages, aiModel, userId);
+      return aiResponse;
+    }
+  } catch (error) {
+    console.error('Error generating task description:', error);
+    // Fall back to original content if description generation fails
+    return content;
+  }
+}
+
+async function generateTask(taskDetails: { 
+  messageId: string, 
+  content: string,
+  model: string,
+  promptType: string,
+  threadId?: string 
+}) {
+  console.log('generateTask called with details:', taskDetails);
+  try {
+    // Convert model string to AIModel object for the API call
+    const modelObject = typeof aiModel === 'string' 
+      ? { api_type: aiModel, provider: 'anthropic', name: aiModel } 
+      : aiModel;
+    
+    // Generate task title and description using the specialized function
+    const { title, description } = await generateTaskFromMessage({
+      content: taskDetails.content,
+      messageId: taskDetails.messageId,
+      model: modelObject,
+      userId: userId,
+      threadId: taskDetails.threadId || message.thread
+    });
+    
+    console.log('Generated task title:', title);
+    console.log('Generated task description:', description);
+    
+    const threadId = taskDetails.threadId || message.thread || '';
+    
+    // Create the task object with the generated title and description
+    const newTask: KanbanTask = {
+      id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      title,
+      taskDescription: description, // Use the focused AI-generated description
+      creationDate: new Date(),
+      due_date: null,
+      tags: [],
+      attachments: [],
+      project_id: currentProjectId || '',
+      createdBy: $currentUser?.id || '',
+      allocatedAgents: [],
+      status: 'backlog' as 'backlog',
+      priority: 'medium' as 'medium', 
+      prompt: getPromptFromThread(threadId, allMessages), 
+      context: '',
+      task_outcome: '',
+      dependencies: [],
+      agentMessages: [taskDetails.messageId]
+    };
+    
+    console.log('Task object created:', newTask);
+    
+    // Save the task
+    const projectId = currentProjectId || '';
+    console.log('Calling saveTask with projectId:', projectId);
+    
+    const savedTask = await saveTask(newTask);
+    console.log('Task saved successfully:', savedTask);
+    
+    // Show notification to user
+    dispatch('notification', {
+      message: 'Task created successfully',
+      type: 'success'
+    });
+    
+    // Show a temporary tooltip
+    taskTooltipText = 'Task created successfully';
+    showTaskTooltip = true;
+    setTimeout(() => {
+      showTaskTooltip = false;
+    }, 2000);
+    
+    return savedTask;
+  } catch (error) {
+    console.error('Error generating task:', error);
+    // Log the full error object for debugging
+    console.log('Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      fullError: error
+    });
+    
+    // Safely handle the error message
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    dispatch('notification', {
+      message: 'Failed to create task: ' + errorMessage,
+      type: 'error'
+    });
+    
+    // Show error tooltip
+    taskTooltipText = 'Failed to create task';
+    showTaskTooltip = true;
+    setTimeout(() => {
+      showTaskTooltip = false;
+    }, 2000);
+  }
+}
+    
+    function cleanHtmlContent(htmlContent: string): string {
+        let cleaned = htmlContent.replace(/<\/?[^>]+(>|$)/g, '');
+        cleaned = cleaned.replace(/\s+/g, ' ');
+        cleaned = cleaned.trim();
+        return cleaned;
+    }    
+    function handleMessageClick(event: MouseEvent) {
         if (
-            event.target.tagName === 'BUTTON' || 
-            event.target.closest('button') || 
-            event.target.tagName === 'A' ||
-            event.target.tagName === 'INPUT' ||
-            event.target.tagName === 'TEXTAREA' ||
-            event.target.closest('.message-footer') ||
-            event.target.closest('.reply-input-container')
+            event.target instanceof HTMLElement && (
+                event.target.tagName === 'BUTTON' || 
+                event.target.closest('button') || 
+                event.target.tagName === 'A' ||
+                event.target.tagName === 'INPUT' ||
+                event.target.tagName === 'TEXTAREA' ||
+                event.target.closest('.message-footer') ||
+                event.target.closest('.reply-input-container')
+            )
         ) {
             return;
         }
         
-        // If thread list is visible, hide it when clicking any message
         if ($showThreadList) {
-            // Use the threadListVisibility utility to set the value to false
             threadListVisibility.set(false);
             
-            // Store the clicked message ID to scroll to after thread list is hidden
-            const messageElement = event.currentTarget;
+            const messageElement = event.currentTarget as HTMLElement;
             const messageId = messageElement.dataset.messageId;
             
-            // Wait for the UI to update after hiding thread list
             setTimeout(() => {
-                // Find the message element again (as the DOM might have changed)
                 const targetMessage = document.querySelector(`[data-message-id="${messageId}"]`);
                 
                 if (targetMessage) {
-                    // Scroll the message to the top with smooth animation
                     targetMessage.scrollIntoView({ 
                         behavior: 'smooth', 
                         block: 'start'
                     });
                     
-                    // Optional: Add a brief highlight effect to the scrolled message
                     targetMessage.classList.add('scroll-highlight');
                     setTimeout(() => {
                         targetMessage.classList.remove('scroll-highlight');
@@ -179,14 +301,11 @@
         }
     }
 
-    // Handle keyboard shortcuts in the reply textarea
     function handleKeydown(event: KeyboardEvent) {
-        // Send on Ctrl+Enter or Cmd+Enter
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
             event.preventDefault();
             submitReply();
         }
-        // Cancel on Escape
         else if (event.key === 'Escape') {
             event.preventDefault();
             cancelReply();
@@ -248,7 +367,6 @@
         {@html processMessageContentWithReplyable(message.content, message.id)}
     </p>
     
-    <!-- Reply input area with loading state -->
     {#if showReplyInput}
         <div class="reply-input-container" transition:slide={{ duration: 200 }}>
             <textarea 
@@ -284,12 +402,11 @@
         </div>
     {/if}
     
-    <!-- Replies section -->
     {#if childReplies.length > 0}
         <div class="replies-section">
             <button 
                 class="toggle-replies-btn" 
-                on:click|stopPropagation={() => toggleReplies(message.id)}
+                on:click|stopPropagation={() => handleToggleReplies(message.id)}
             >
                 <span class="replies-indicator">
                     <MessagesSquare size={16} />
@@ -307,13 +424,13 @@
                                 allMessages={allMessages}
                                 {userId}
                                 {currentUser}
-                                {name}
+                                name={name}
                                 depth={depth + 1}
                                 {getUserProfile}
-                                {getAvatarUrl}
+                                getAvatarUrl={getAvatarUrl}
                                 {processMessageContentWithReplyable}
                                 {latestMessageId}
-                                {toggleReplies}
+                                toggleReplies={handleToggleReplies}
                                 {hiddenReplies}
                                 {sendMessage}
                                 {aiModel}
@@ -348,6 +465,10 @@
                 on:update
                 on:notification
                 on:reply={() => handleReply()}
+                on:createTask={(event) => {
+                    console.log('createTask event received:', event.detail);
+                    generateTask(event.detail);
+                }}
             />
         </div>
     {/if}
@@ -366,10 +487,7 @@
       /* color: var(--text-color); */
       font-family: var(--font-family);
     }
-      /* Depth styling */
     .message.depth-0 {
-      /* Top-level styling */
-
     }
     
     .message.depth-1 {
@@ -425,17 +543,18 @@
         border-radius: 0.5rem;
         background: var(--primary-color);
         padding: 0.5rem;
+        width: 100%;
     }
     
     .reply-input-container textarea {
         width: 100%;
         border: none;
-        resize: vertical;
+        resize:none;
         min-height: 60px;
         background-color: transparent;
         padding: 0.5rem;
         font-family: inherit;
-        font-size: 0.9rem;
+        font-size: 1.3rem;
         color: var(--text-color, #333);
         outline: none;
     }
@@ -445,25 +564,35 @@
         justify-content: flex-end;
         gap: 0.5rem;
         margin-top: 0.25rem;
+        height: auto;
     }
     
     .cancel-btn, .send-btn {
         padding: 0.25rem 0.5rem;
+        height: 3rem;
+        width: 3rem;
         border: none;
         border-radius: 0.25rem;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
+        transition: all 0.2s ease;
+        &:hover {
+            color: var(--tertiary-color);
+
+        }
     }
     
     .cancel-btn {
       background-color: transparent;
-      color: var(--text-muted, #666);
+      color: var(--text-color);
+
     }
     
     .send-btn {
-        background-color: var(--primary-color, #0077cc);
+        background-color: var(--secondary-color);
+        border-radius: 50%;
         color: white;
     }
     
@@ -606,7 +735,38 @@
         animation: highlight-fade 1.5s ease-in-out forwards;
         border-radius: 2rem;
     }
+    @keyframes bounce {
+    0%, 80%, 100% { 
+      transform: scale(0); 
+    }
+    40% { 
+      transform: scale(1); 
+    }
+  }
+    .thinking-animation {
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+    align-items: left;
+    margin-top: 10px;
 
+    span {
+      width: 40px;
+      height: 40px;
+      margin: 0 5px;
+      padding: 10px;
+      background-color: transparent;
+      animation: bounce 1s infinite ease-in-out both;
+
+      &:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+
+      &:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+    }
+  }
     .message {
     display: flex;
     flex-direction: column;

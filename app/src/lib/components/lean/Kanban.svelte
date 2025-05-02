@@ -880,7 +880,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                 </button>
                 
                 {#if column.isOpen}
-                    <div class="task-list">
+                    <div class="task-list" transition:fade={{ duration: 150 }}>
                         {#each column.tasks as task}
                             <div 
                                 class="task-card" 
@@ -1089,21 +1089,21 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
  
     .global-input-container {
         width: 100%;
-        padding: 0;
-        margin-bottom: 10px;
         // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-
+        display: flex;
+        justify-content: center;
+        align-items: center;
         & textarea {
             text-align: center;
-            line-height: 2;
- 
+            height: 1.5rem;
+            font-size: 1rem;
             overflow-y: hidden;
         }
     }
     
     .global-task-input {
         width: calc(100% - 2rem);
-        height: 3rem;
+        height: auto;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -1120,14 +1120,14 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
     .kanban-board {
         display: flex;
         flex-direction: row;
-        gap: 1.5rem;
+        gap: 0.5rem;
         overflow-x: auto; 
         scrollbar-width: thin;
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
         height: 100vh;
-        width: 100%;
+        width: calc(100% - 3rem);
         padding: 1rem;
         transition: all 0.3s ease;
 
@@ -1139,10 +1139,9 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         display: flex;        
         flex-direction: column;
         justify-content: center;
-        width: calc(25% - 2rem);
+        width: calc(25%);
         transition: all 0.3s ease;
         // border: 1px solid var(--secondary-color);
-        // background: var(--primary-color);
         border-radius: 1rem;
         transition: all 0.3s ease;
 
@@ -1205,6 +1204,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         flex-direction: column;
         justify-content: center;
         align-items: center;
+
     }
     .description-display {
         font-size: 1.5rem;
@@ -1293,7 +1293,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         color: #666;
     }
 
-    
+
     img.user-avatar {
         width: 2.5rem !important;
         height: 2.5rem!important;

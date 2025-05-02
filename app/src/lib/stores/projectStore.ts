@@ -202,94 +202,111 @@ function createProjectStore() {
 			}
 		},
 
-		setCurrentProject: async (id: string | null) => {
-			try {
-				if (!id) {
-					store.update((state) => ({
-						...state,
-						currentProjectId: null,
-						currentProject: null,
-						collaborators: []
-					}));
-					return;
-				}
-				
-				const user = get(currentUser);
-				if (!user) {
-					throw new Error('User not authenticated');
-				}
-				
-				// Get the current project from the store
-				const project = get(store).threads.find(p => p.id === id);
-				
-				// If project not in store, try to fetch it directly
-				let currentProject = project;
-				if (!currentProject) {
-					try {
-						const response = await fetch(`/api/projects/${id}`, {
-							method: 'GET',
-							credentials: 'include'
-						});
-						
-						const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-						
-						if (!data.success) {
-							throw new Error(data.error || 'Failed to fetch project');
-						}
-						
-						const fetchedProject = data.data;
-						
-						// Verify user has permission to access this project
-						const isOwner = fetchedProject.owner === user.id;
-						const isCollaborator = Array.isArray(fetchedProject.collaborators) && 
-								fetchedProject.collaborators.includes(user.id);
-						
-						if (!isOwner && !isCollaborator) {
-							throw new Error('Unauthorized to access this project');
-						}
-						
-						currentProject = fetchedProject;
-						
-						// Add the fetched project to the store
-						store.update(state => ({
-							...state,
-							threads: [...state.threads.filter(p => p.id !== id), fetchedProject]
-						}));
-					} catch (error) {
-						console.error('Failed to fetch project:', error);
-						throw new Error('Project not found or unauthorized');
-					}
-				}
-				
-				// Update store with the current project
-				store.update((state) => ({
-					...state,
-					currentProjectId: id,
-					currentProject,
-					updateStatus: ''
-				}));
-				
-				// Load collaborators
-				try {
-					await storeObj.loadCollaborators(id);
-				} catch (err) {
-					console.error('Failed to load collaborators:', err);
-					// Continue even if collaborator loading fails
-				}
-				
-			} catch (error) {
-				console.error('Error setting current project:', error);
-				store.update((state) => ({
-					...state,
-					currentProjectId: null,
-					currentProject: null,
-					collaborators: [],
-					updateStatus: error instanceof Error ? error.message : 'Failed to set current project'
-				}));
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				throw error;
-			}
-		},
+
+setCurrentProject: async (id: string | null) => {
+	try {
+	  if (!id) {
+		store.update((state) => ({
+		  ...state,
+		  currentProjectId: null,
+		  currentProject: null,
+		  collaborators: []
+		}));
+		return;
+	  }
+	  
+	  const user = get(currentUser);
+	  if (!user) {
+		throw new Error('User not authenticated');
+	  }
+	  
+	  const project = get(store).threads.find(p => p.id === id);
+	  
+	  let currentProject = project;
+	  if (!currentProject) {
+		try {
+		  const response = await fetch(`/api/projects/${id}`, {
+			method: 'GET',
+			credentials: 'include'
+		  });
+		  
+		  const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
+		  
+		  if (!data.success) {
+			throw new Error(data.error || 'Failed to fetch project');
+		  }
+		  
+		  const fetchedProject = data.data;
+		  
+		  // Verify user has permission to access this project
+		  const isOwner = fetchedProject.owner === user.id;
+		  const isCollaborator = Array.isArray(fetchedProject.collaborators) && 
+			  fetchedProject.collaborators.includes(user.id);
+		  
+		  if (!isOwner && !isCollaborator) {
+			throw new Error('Unauthorized to access this project');
+		  }
+		  
+		  currentProject = fetchedProject;
+		  
+		  // Add the fetched project to the store
+		  store.update(state => ({
+			...state,
+			threads: [...state.threads.filter(p => p.id !== id), fetchedProject]
+		  }));
+		} catch (error) {
+		  console.error('Failed to fetch project:', error);
+		  throw new Error('Project not found or unauthorized');
+		}
+	  }
+	  
+	  store.update((state) => ({
+		...state,
+		currentProjectId: id,
+		currentProject,
+		updateStatus: ''
+	  }));
+	  
+	  // Load collaborators
+	  try {
+		await storeObj.loadCollaborators(id);
+	  } catch (err) {
+		console.error('Failed to load collaborators:', err);
+		// Continue even if collaborator loading fails
+	  }
+	  
+	  // IMPORTANT: Load the threads for this project
+	  // This is the key fix to ensure threads are loaded when a project is selected
+	  try {
+		console.log(`Loading threads for selected project ${id}`);
+		// Use window.threadsclient if it exists, otherwise try to import it
+		if (typeof window !== 'undefined' && window.threadsclient?.loadThreads) {
+		  await window.threadsclient.loadThreads(id);
+		} else {
+		  try {
+			const { loadThreads } = await import('$lib/clients/threadsClient');
+			await loadThreads(id);
+		  } catch (e) {
+			console.error('Failed to import threadsClient:', e);
+		  }
+		}
+	  } catch (threadErr) {
+		console.error('Failed to load threads for project:', threadErr);
+	  }
+	  
+	} catch (error) {
+	  console.error('Error setting current project:', error);
+	  store.update((state) => ({
+		...state,
+		currentProjectId: null,
+		currentProject: null,
+		collaborators: [],
+		updateStatus: error instanceof Error ? error.message : 'Failed to set current project'
+	  }));
+	  setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+	  throw error;
+	}
+  },
 		
 		loadCollaborators: async (projectId: string) => {
 			try {

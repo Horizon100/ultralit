@@ -258,6 +258,7 @@ export interface Task extends RecordModel {
 	context: string;
 	task_outcome: string;
 	status:
+		| 'backlog'
 		| 'todo'
 		| 'focus'
 		| 'done'

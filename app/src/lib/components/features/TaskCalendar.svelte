@@ -18,6 +18,9 @@
         month: string;
         year: number;
     }>({ days: [], month: '', year: 0 });
+    let isTaskListModalOpen = false;
+    let selectedDay: Day | null = null;
+
 
     // Interface for calendar days
     interface Day {
@@ -327,18 +330,23 @@ function goToToday() {
     currentDate = new Date();
     updateCalendarGrid();
 }
-
-// Add this event handler for clicks on calendar days
+function openTaskDetails(task: KanbanTask) {
+    selectedTask = {...task}; // Create a copy to avoid direct store mutation
+    isTaskListModalOpen = false;
+    isModalOpen = true;
+}
+function closeTaskListModal() {
+    isTaskListModalOpen = false;
+    selectedDay = null;
+}
 function handleDayClick(day: Day) {
-    // Store all tasks for this day (for modal display)
-    selectedDayTasks = day.tasks;
-    
+    // For days with tasks, show the task list modal first
     if (day.tasks.length > 0) {
-        // For existing tasks - open the first one but show all in modal
-        selectedTask = {...day.tasks[0]}; // Create a copy to avoid direct store mutation
-        isModalOpen = true;
+        selectedDay = day;
+        selectedDayTasks = day.tasks;
+        isTaskListModalOpen = true;
     } else {
-        // Create new task with this date pre-filled
+        // For empty days, keep existing behavior - create a new task
         selectedTask = {
             id: `local_${Date.now()}`,
             title: 'New Task',
@@ -361,7 +369,6 @@ function handleDayClick(day: Day) {
         isEditingTitle = true;
     }
 }
-    // Save task after editing
     async function saveTask(task: KanbanTask) {
         try {
             const taskData: any = {
@@ -848,6 +855,62 @@ function handleDayClick(day: Day) {
         </div>
     </div>
 {/if}
+{#if isTaskListModalOpen && selectedDay}
+    <div class="modal-overlay" on:click={closeTaskListModal} transition:fade={{ duration: 150 }}>
+        <div class="task-list-modal" on:click|stopPropagation>
+            <h3>Tasks for {formatDateDisplay(selectedDay.date)}</h3>
+            <div class="task-list">
+                {#each selectedDayTasks as task}
+                    <div 
+                        class="task-list-item" 
+                        on:click={() => openTaskDetails(task)}
+                        style="background-color: {
+                            task.priority === 'high' ? '#e53e3e' : 
+                            task.status === 'done' ? '#48bb78' : 
+                            task.status === 'inprogress' ? '#ed8936' : '#4299e1'
+                        }"
+                    >
+                        <span class="task-title">{task.title}</span>
+                        {#if task.tags && task.tags.length > 0}
+                            <div class="tag-list-small">
+                                {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
+                                    <span class="tag-small" style="background-color: {tag.color}">{tag.name}</span>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+            <div class="task-list-actions">
+                <button class="cancel-button" on:click={closeTaskListModal}>Close</button>
+                <button class="save-button"on:click={() => {
+                    // Create a new task for this day
+                    selectedTask = {
+                        id: `local_${Date.now()}`,
+                        title: 'New Task',
+                        taskDescription: '',
+                        creationDate: new Date(),
+                        due_date: new Date(selectedDay.date),
+                        tags: [],
+                        attachments: [],
+                        project_id: currentProjectId || undefined,
+                        createdBy: get(currentUser)?.id,
+                        allocatedAgents: [],
+                        status: 'todo',
+                        priority: 'medium',
+                        prompt: '',
+                        context: '',
+                        task_outcome: '',
+                        dependencies: []
+                    };
+                    isTaskListModalOpen = false;
+                    isModalOpen = true;
+                    isEditingTitle = true;
+                }}>Add New Task</button>
+            </div>
+        </div>
+    </div>
+{/if}
 <style lang="scss">
     $breakpoint-sm: 576px;
     $breakpoint-md: 1000px;
@@ -1244,15 +1307,15 @@ function handleDayClick(day: Day) {
     }
     
     .save-button {
-        background-color: #4299e1;
-        color: white;
+        color: var(--primary-color);
+        background: var(--tertiary-color);
         border: none;
     }
     
     .cancel-button {
-        background-color: #e2e8f0;
+        background: var(--secondary-color);
         border: none;
-        color: #475569;
+        color: var(--tertiary-color);
     }
     
     .delete-button {
@@ -1592,7 +1655,68 @@ h2 {
     color: #64748b;
     text-align: center;
 }
+.task-list-modal {
+    background: var(--primary-color);
+    border-radius: 8px;
+    padding: 16px;
+    width: 450px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.task-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 2rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    &:hover {
+    }
+}
+
+.task-list-item
+
+.task-list-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    
+
+}
+.task-list-actions button {
+    font-size: 1.3rem !important;
+}
+.task-title {
+    font-weight: 500;
+}
+
+.tag-list-small {
+    display: flex;
+    gap: 4px;
+}
+
+.tag-small {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    white-space: nowrap;
+}
 button.calendar-btn {
 		background-color: var(--primary-color) !important;
 		color: var(--text-color);

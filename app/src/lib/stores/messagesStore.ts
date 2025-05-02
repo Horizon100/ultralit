@@ -126,45 +126,74 @@ function createMessagesStore() {
       }
   },
     
-    saveMessage: async (message: Partial<Messages>, threadId: string) => {
-      try {
-        // Get user from store properly using get()
-        const user = get(currentUser);
-        if (!user || !user.id) {
-          throw new Error('User not authenticated');
-        }
-    
-        const userId = user.id;
-    
-        const newMessage: Omit<Messages, 'id' | 'created' | 'updated'> = {
-          text: message.text || '',
-          user: userId,
-          parent_msg: message.parent_msg || null,
-          task_relation: message.task_relation || null,
-          agent_relation: message.agent_relation || null,
-          type: message.type || 'human',
-          read_by: [userId],
-          thread: threadId,
-          attachments: message.attachments || '',
-          prompt_type: message.prompt_type || null,
-          model: message.model || 'fail'
-        };
-    
-        // addMessageToThread already updates the thread timestamp
-        const savedMessage = await addMessageToThread(newMessage);
-        
-        update((state) => ({
-          ...state,
-          messages: [...state.messages, savedMessage]
-        }));
-
-        
-        return savedMessage;
-      } catch (error) {
-        console.error('Error saving message:', error);
-        throw error;
+  saveMessage: async (message: Partial<Messages>, threadId: string) => {
+    try {
+      // Get user from store properly using get()
+      const user = get(currentUser);
+      if (!user || !user.id) {
+        throw new Error('User not authenticated');
       }
-    },
+  
+      const userId = user.id;
+      
+      // Store the temporary ID for tracking (if provided)
+      const tempId = message.tempId;
+      
+      // Create the message object to save
+      const newMessage: Omit<Messages, 'id' | 'created' | 'updated'> = {
+        text: message.text || '',
+        user: userId,
+        parent_msg: message.parent_msg || null,
+        task_relation: message.task_relation || null,
+        agent_relation: message.agent_relation || null,
+        type: message.type || 'human',
+        read_by: [userId],
+        thread: threadId,
+        attachments: message.attachments || '',
+        prompt_type: message.prompt_type || null,
+        model: message.model || 'fail'
+      };
+  
+      // Save message to the server
+      const savedMessage = await addMessageToThread(newMessage);
+      
+      // Update our store with the saved message
+      update((state) => {
+        // Check if we already have a message with this temp ID
+        const existingMessageIndex = state.messages.findIndex(
+          m => (tempId && m.tempId === tempId) || m.id === savedMessage.id
+        );
+        
+        if (existingMessageIndex >= 0) {
+          // Update the existing message instead of adding a duplicate
+          const updatedMessages = [...state.messages];
+          updatedMessages[existingMessageIndex] = {
+            ...savedMessage,
+            tempId // Keep the temp ID for tracking in the UI
+          };
+          
+          return {
+            ...state,
+            messages: updatedMessages
+          };
+        } else {
+          // Add as a new message with the temp ID for tracking
+          return {
+            ...state,
+            messages: [...state.messages, {
+              ...savedMessage,
+              tempId // Keep temp ID for tracking
+            }]
+          };
+        }
+      });
+      
+      return savedMessage;
+    } catch (error) {
+      console.error('Error saving message:', error);
+      throw error;
+    }
+  },
     
     fetchBookmarkedMessages: async (messageId: string) => {
       try {

@@ -70,6 +70,8 @@
   let activeSelection = '';
   let messageProcessor;
   let isTypingInProgress = false;
+  $: isTypingInProgress = chatMessages.some(msg => msg.isTyping);
+
   let textareaElement: HTMLTextAreaElement | null = null;
   let showAgentPicker = false;
   let isUpdatingThreadName = false;
@@ -531,16 +533,14 @@ function toggleAiActive() {
     };
   }
   export async function handleSendMessage(message: string = userInput) {
-  // handleImmediateTextareaBlur();
   if (!message.trim() && chatMessages.length === 0 && !attachment) return;
   ensureAuthenticated();
 
   try {
     userInput = '';
     if (textareaElement) {
-    // Reset height immediately
-    resetTextareaHeight(textareaElement);
-  }
+      resetTextareaHeight(textareaElement);
+    }
 
     if (!currentThreadId) {
       console.log('No current thread ID - creating a new thread');
@@ -549,7 +549,6 @@ function toggleAiActive() {
         console.error('Failed to create a new thread');
         return;
       }
-      // currentThreadId should now be set by handleCreateNewThread
     }
 
     if (!currentThreadId) {
@@ -557,32 +556,27 @@ function toggleAiActive() {
       return;
     }
 
-    // Ensure we have a valid model with fallback
+    // Ensure valid model
     if (!aiModel || !aiModel.api_type) {
       console.log('No valid model selected, using fallback');
       
-      // Get model from store if available
       const modelState = get(modelStore);
       if (modelState.selectedModel) {
         aiModel = modelState.selectedModel;
         console.log('Using model from store:', aiModel);
       } else {
-        // Get available keys
         const availableKeys = get(apiKey);
         const providersWithKeys = Object.keys(availableKeys)
           .filter(p => !!availableKeys[p]);
         
-        // Use first provider with a key, or deepseek as fallback
         const validProvider = 
           providersWithKeys.length > 0 ? 
           providersWithKeys[0] as ProviderType : 
           'deepseek';
         
-        // Use default model from your constants
         aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
         console.log(`Using default model for ${validProvider}:`, aiModel);
         
-        // Also update the modelStore in the background
         if ($currentUser) {
           modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
             console.warn('Could not save fallback model:', err);
@@ -591,16 +585,17 @@ function toggleAiActive() {
       }
     }
     
-    // Ensure model has all required fields
     if (!aiModel.provider) {
       aiModel.provider = 'deepseek';
     }
 
     const currentMessage = message.trim();
+    const tempUserMsgId = `temp-user-${Date.now()}`;
+    
     const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
+    userMessageUI.tempId = tempUserMsgId;
     chatMessages = [...chatMessages, userMessageUI];
 
-    // Scroll the new message into view at the top
     setTimeout(() => {
       const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
       if (messageElement) {
@@ -613,8 +608,15 @@ function toggleAiActive() {
       type: 'human',
       thread: currentThreadId,
       parent_msg: quotedMessage?.id ?? null,
-      prompt_type: promptType
+      prompt_type: promptType,
+      tempId: tempUserMsgId 
     }, currentThreadId);
+
+    chatMessages = chatMessages.map(msg => 
+      (msg.tempId === tempUserMsgId) 
+        ? { ...msg, id: userMessage.id, tempId: undefined }
+        : msg
+    );
 
     quotedMessage = null;
 
@@ -623,6 +625,7 @@ function toggleAiActive() {
       thinkingMessageId = thinkingMessage.id;
       chatMessages = [...chatMessages, thinkingMessage];
 
+      // Prepare messages for AI
       const messagesToSend = chatMessages
         .filter(({ role, content }) => role && content)
         .map(({ role, content }) => ({
@@ -645,9 +648,16 @@ function toggleAiActive() {
         });
       }
 
+      // Get AI response
       const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+      
+      // Remove thinking message
       chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
 
+      // Create temp ID for assistant message
+      const tempAssistantMsgId = `temp-assistant-${Date.now()}`;
+      
+      // Save AI response to database with temp ID
       const assistantMessage = await messagesStore.saveMessage({
         text: aiResponse,
         type: 'robot',
@@ -655,19 +665,32 @@ function toggleAiActive() {
         parent_msg: userMessage.id,
         prompt_type: promptType,
         model: aiModel.api_type,
+        tempId: tempAssistantMsgId // Track with temp ID
       }, currentThreadId);
 
+      // Add assistant message to UI with empty content
       const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      newAssistantMessage.tempId = tempAssistantMsgId; // Set temp ID for tracking
+      newAssistantMessage.serverId = assistantMessage.id; // Store server ID
       chatMessages = [...chatMessages, newAssistantMessage];
       typingMessageId = newAssistantMessage.id;
 
+      // Type out the message
       await typeMessage(aiResponse);
-
-      // chatMessages = chatMessages.map(msg =>
-      //   msg.id === String(typingMessageId)
-      //     ? { ...msg, content: aiResponse, text: aiResponse, isTyping: false }
-      //     : msg
-      // );
+      
+      // After typing is complete, update with final state
+      chatMessages = chatMessages.map(msg => 
+        (msg.tempId === tempAssistantMsgId)
+          ? { 
+              ...msg, 
+              id: assistantMessage.id,
+              content: aiResponse, 
+              text: aiResponse, 
+              isTyping: false,
+              tempId: undefined 
+            }
+          : msg
+      );
     }
 
     await handleThreadNameUpdate(currentThreadId);
@@ -678,6 +701,7 @@ function toggleAiActive() {
     cleanup();
   }
 }
+
 async function replyToMessage(replyText: string, parentMessageId: string) {
     if (!replyText.trim()) return;
     ensureAuthenticated();
@@ -732,13 +756,10 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
           promptType
         );
         
-        // Get AI response
         const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
         
-        // Remove thinking message
         chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
         
-        // Save the AI response to the database
         const assistantMessage = await messagesStore.saveMessage({
           text: aiResponse,
           type: 'robot',
@@ -764,30 +785,76 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
       handleError(error);
     }
   }
-async function typeMessage(message: string) {
+  async function typeMessage(message: string) {
   const typingSpeed = 1;
+  isTypingInProgress = true;
   
-  // Get the DOM element directly
-  const messageElement = document.querySelector(`[data-message-id="${typingMessageId}"] p`);
-  if (!messageElement) return;
-  
-  // Bypass Svelte's reactivity by directly manipulating the DOM
-  for (let i = 0; i <= message.length; i++) {
-    const typedMessage = message.slice(0, i);
-    messageElement.innerHTML = typedMessage;
-    await new Promise(resolve => setTimeout(resolve, typingSpeed));
+  // Find the typing message to make sure it exists
+  const typingMessage = chatMessages.find(msg => msg.id === String(typingMessageId));
+  if (!typingMessage) {
+    console.error("Typing message not found:", typingMessageId);
+    isTypingInProgress = false;
+    return;
   }
   
-  // Only update Svelte state once at the end
-  chatMessages = chatMessages.map(msg => 
-    msg.id === String(typingMessageId) 
-      ? { ...msg, content: message, text: message, isTyping: false }
-      : msg
-  );
-  
-  // Scroll to the bottom after typing is complete
-  if (chatMessagesDiv) {
-    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  try {
+    // Split message into chunks for better performance
+    const messageLength = message.length;
+    const chunkSize = Math.max(10, Math.floor(messageLength / 20));
+    
+    for (let i = chunkSize; i <= messageLength; i += chunkSize) {
+      const typedMessage = message.slice(0, i);
+      
+      // Update message in the chatMessages array
+      chatMessages = chatMessages.map(msg => 
+        msg.id === String(typingMessageId) 
+          ? { ...msg, content: typedMessage, text: typedMessage, isTyping: true }
+          : msg
+      );
+      
+      // Small delay between updates
+      await new Promise(resolve => setTimeout(resolve, typingSpeed * chunkSize));
+    }
+    
+    // Final update to complete the message
+    chatMessages = chatMessages.map(msg => 
+      msg.id === String(typingMessageId) 
+        ? { 
+            ...msg, 
+            content: message, 
+            text: message, 
+            isTyping: false,
+            // If the message has a serverId, use it as the ID
+            id: msg.serverId || msg.id,
+            serverId: undefined,
+            tempId: undefined
+          }
+        : msg
+    );
+  } catch (error) {
+    console.error('Error typing message:', error);
+    
+    // Make sure to update the message even if there's an error
+    chatMessages = chatMessages.map(msg => 
+      msg.id === String(typingMessageId) 
+        ? { 
+            ...msg, 
+            content: message, 
+            text: message, 
+            isTyping: false,
+            id: msg.serverId || msg.id,
+            serverId: undefined,
+            tempId: undefined
+          }
+        : msg
+    );
+  } finally {
+    isTypingInProgress = false;
+    
+    // Scroll to the bottom after typing is complete
+    if (chatMessagesDiv) {
+      chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+    }
   }
 }
 
@@ -1063,7 +1130,7 @@ function updateToggleButtonState(messageId, isHidden) {
   }
 }
 
-export async function loadProjectThreads(projectId?: string): Promise<void> {
+  export async function loadProjectThreads(projectId?: string): Promise<void> {
     // If no project ID is provided, we're loading all threads for the user
     const isLoadingAllThreads = !projectId;
     
@@ -1076,12 +1143,12 @@ export async function loadProjectThreads(projectId?: string): Promise<void> {
     }
 
     // Check if we're reloading the same project/all threads
-    if (!isLoadingAllThreads && projectId === lastLoadedProjectId && get(threadsStore).currentProjectId === projectId) {
+    if (!isLoadingAllThreads && projectId === lastLoadedProjectId && get(threadsStore).project_id === projectId) {
         console.log(`Project ${projectId} threads were recently loaded, skipping duplicate request`);
         return;
     }
     
-    if (isLoadingAllThreads && lastLoadedProjectId === null && get(threadsStore).currentProjectId === null) {
+    if (isLoadingAllThreads && lastLoadedProjectId === null && get(threadsStore).project_id === null) {
         console.log('All threads were recently loaded, skipping duplicate request');
         return;
     }
@@ -2220,8 +2287,8 @@ function enhanceWithCitations() {
 //   // Call your loadProjectThreads function only when the project ID changes
 //   if (currentProjectId && currentProjectId !== previousProjectId) {
 //     previousProjectId = currentProjectId;
-//     loadProjectThreads(currentProjectId);
-//   }
+//     (currentProjectId);
+//   }loadProjectThreads
 // });
 $: isLoading = $threadsStore.isLoading;
   $: isUpdating = $threadsStore.isUpdating;
@@ -2447,9 +2514,10 @@ $: if (chatMessages && chatMessages.length > 0) {
 onMount(async () => {
   try {
     console.log('onMount initiated');
-    // enhanceWithCitations();
+    // Add event listener for replyable elements
     document.addEventListener('click', handleReplyableClick);
   
+    // Check authentication
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
@@ -2457,12 +2525,14 @@ onMount(async () => {
       return undefined;
     }
     
+    // Set up user data
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       name = $currentUser.name || $currentUser.email;
     }
     
+    // Initialize models
     if ($currentUser && $currentUser.id && !modelInitialized) {
       console.log('Initializing models for user:', $currentUser.id);
       
@@ -2505,17 +2575,17 @@ onMount(async () => {
         handleSendMessage(suggestion);
         // Clear the pending suggestion
         pendingSuggestion.set(null);
-  }
+      }
     }
     
     // Then, load threads based on project context
     if (currentProjectId) {
-    console.log(`Project ${currentProjectId} selected, loading threads`);
-    await loadThreads(currentProjectId);
-  } else {
-    console.log('No project selected, loading unassigned threads');
-    await loadThreads(null);
-  }
+      console.log(`Project ${currentProjectId} selected, loading threads`);
+      await loadThreads(currentProjectId);
+    } else {
+      console.log('No project selected, loading unassigned threads');
+      await loadThreads(null);
+    }
     
     // Initialize thread listener if needed
     if (currentThreadId) {
@@ -2526,6 +2596,7 @@ onMount(async () => {
       }
     }
     
+    // Set up textarea auto-resize
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -2535,14 +2606,55 @@ onMount(async () => {
       };
       textareaElement.addEventListener('input', adjustTextareaHeight);
     }
+    
+    // Create MutationObserver to watch for changes to the chat messages
+    if (chatMessagesDiv) {
+      const observer = new MutationObserver((mutations) => {
+        // Check for new messages
+        mutations.forEach(mutation => {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            // Process any markdown in new messages
+            const messageContents = chatMessagesDiv.querySelectorAll('.message-content:not([data-processed="true"])');
+            messageContents.forEach(content => {
+              enhanceCodeBlocks(content);
+              content.setAttribute('data-processed', 'true');
+            });
+            
+            // Update typing status
+            isTypingInProgress = chatMessages.some(msg => msg.isTyping);
+            
+            // Scroll to bottom if near bottom
+            const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+            const scrollBottom = scrollTop + clientHeight;
+            if (scrollHeight - scrollBottom < 100) {
+              chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+            }
+          }
+        });
+      });
+      
+      observer.observe(chatMessagesDiv, {
+        childList: true,
+        subtree: true
+      });
+    }
   } catch (error) {
     console.error('Error during onMount:', error);
   }
+  
+  // Modified typeMessage function - add this outside onMount but update your existing one
   return () => {
     document.removeEventListener('click', handleReplyableClick);
-
-      unsubscribe();
-    };
+    if (chatMessagesDiv) {
+      // Disconnect any observers
+      Array.from(chatMessagesDiv._observers || []).forEach(observer => {
+        if (observer && typeof observer.disconnect === 'function') {
+          observer.disconnect();
+        }
+      });
+    }
+    unsubscribe();
+  };
 });
 function setupReplyableHandlers() {
   document.querySelectorAll('.replyable').forEach(el => {
@@ -5029,7 +5141,7 @@ color: #6fdfc4;
     display: flex;
     position: relative;
     left: 1rem;
-    gap: 2rem;
+    gap: 0;
     margin-bottom: 0;
     margin-top: 0;
     // left: 25%;
