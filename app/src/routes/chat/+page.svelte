@@ -1,52 +1,18 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { currentLanguage } from '$lib/stores/languageStore';
-	import { fade, fly, blur, scale, slide } from 'svelte/transition';
-	import { spring } from 'svelte/motion';
-	import { quintOut } from 'svelte/easing';
+	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
-	import { elasticOut, elasticIn } from 'svelte/easing';
-	import Auth from '$lib/components/auth/Auth.svelte';
-	import { pocketbaseUrl } from '$lib/pocketbase';
-
-	import Paper from '$lib/components/network/Paper.svelte';
-	import { agentStore } from '$lib/stores/agentStore';
-	import { initializeLanguage } from '$lib/stores/languageStore';
 	import { goto } from '$app/navigation';
-	import Builder from '$lib/components/ui/Builder.svelte';
-	import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
-	import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
-	import type {
-		User,
-		Node,
-		NodeConfig,
-		AIModel,
-		NetworkData,
-		Task,
-		PromptType,
-		Attachment,
-		Threads,
-		Messages
-	} from '$lib/types/types';
-	import { threadsStore } from '$lib/stores/threadsStore';
-	import {  } from '$lib/pocketbase';
-	import { navigating } from '$app/stores';
-	import { isNavigating } from '$lib/stores/navigationStore';
 	import { page } from '$app/stores';
 	import AIChat from '$lib/components/ai/AIChat.svelte';
-	import horizon100 from '$lib/assets/horizon100.svg';
-	import { Mail, Bot, Send, Github, X, ChevronDown, LogIn } from 'lucide-svelte';
-	import Terms from '$lib/components/overlays/Terms.svelte';
-	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
-	import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
-	import { showLoading } from '$lib/stores/loadingStore';
-	import { t } from '$lib/stores/translationStore';
-	import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-	$: showThreadList = $threadsStore.showThreadList;
-
-	const defaultAIModel: AIModel = {
+	import { Bot } from 'lucide-svelte';
+	
+	let isLoading = true;
+	let error: string | null = null;
+	let pageReady = false;
+	
+	// Default AI model configuration (copy from your root component)
+	const defaultAIModel = {
 		id: 'default',
 		name: 'Default Model',
 		api_key: 'default_key',
@@ -60,470 +26,61 @@
 		collectionId: '',
 		collectionName: ''
 	};
-
+	
 	let userId: string;
-	let aiModel: AIModel = defaultAIModel;
-
+	let aiModel = defaultAIModel;
 	let threadId: string | null = null;
 	let messageId: string | null = null;
-	let pageReady = false;
-	let showNewsletterPopup = false;
-
-	let isLoading = true;
-	let error: string | null = null;
-
-	$: if ($currentLanguage) {
-		updatePageContent();
-	}
-
-	async function updatePageContent() {
-		pageReady = false;
-		await tick();
-		await new Promise((resolve) => setTimeout(resolve, 600));
-		pageReady = true;
-	}
-
-	$: userId = $currentUser?.id;
-
-	// export let userId: string = crypto.randomUUID();
-	let threads: Threads[];
-	let attachment: Attachment | null = null;
-
-	let showContent = false;
-
-	let showAuthPopup = false;
-	let showFade = false;
-	let showLogo = false;
-	let showH1 = false;
-	let showH2 = false;
-	let showH3 = false;
-	let showButton = false;
-	let showTypeWriter = false;
-	let placeholderText = '';
-
-	let showAuth = false;
-
-	let logoSize = spring(80);
-	let logoMargin = spring(0);
-
-	$: user = $currentUser;
-
-	function handleGetStarted() {
-		if (user) {
-			// goto('/ask');
-		} else {
-			showAuthPopup = true;
-		}
-	}
-
-	function checkLoginStatus() {
-		showAuthPopup = true;
-	}
-
-	function closeAuthPopup() {
-		showAuthPopup = false;
-	}
-
-	function getRandomTip() {
-		const tips = $t('landing.productivityTips');
-		return tips[Math.floor(Math.random() * tips.length)];
-	}
-
-	$: placeholderText = getRandomTip();
-
-	let currentTip = '';
-
-
-	let newThreadName = '';
-	let newThreadId: string | null = null;
-	let showConfirmation = false;
-
-	async function handleSeedPromptSubmit(
-		seedPrompt: string,
-		aiModel: AIModel,
-		promptType: PromptType
-	) {
-		console.log('handleSeedPromptSubmit called');
-		if (!$currentUser) {
-			console.error('User is not authenticated');
-			return;
-		}
-		if (seedPrompt.trim() || attachment) {
-			isLoading = true;
-			try {
-				// Create new thread
-				const newThread = await threadsStore.addThread({
-					op: $currentUser.id,
-					name: `Thread ${threads?.length ? threads.length + 1 : 1}`
-				});
-				if (newThread && newThread.id) {
-					threads = [...(threads || []), newThread];
-					await threadsStore.setCurrentThread(newThread.id);
-					newThreadName = newThread.name;
-					newThreadId = newThread.id;
-
-					// Add the seed prompt as the first message
-					if (seedPrompt.trim()) {
-						const firstMessage = await threadsStore.addMessage({
-							thread: newThread.id,
-							text: seedPrompt.trim(),
-							type: 'human',
-							user: $currentUser.id
-						});
-						console.log('First message added:', firstMessage);
-					}
-
-					showConfirmation = true;
-					// handleConfirmation();
-				} else {
-					console.error('Failed to create new thread: Thread object is undefined or missing id');
-				}
-			} catch (error) {
-				console.error('Error creating new thread:', error);
-				// Handle the error appropriately (e.g., show an error message to the user)
-			} finally {
-				isLoading = false;
-			}
-		}
-	}
-
-	let userCount = 0;
-	// async function fetchUserCount() {
-	// 	try {
-	// 		console.log('Fetching user count...');
-			
-	// 		// For debugging, directly use the PocketBase client from server if available in development
-	// 		if (typeof pb !== 'undefined') {
-	// 		try {
-	// 			const resultList = await pb.collection('users').getList(1, 1, {
-	// 			sort: '-created'
-	// 			});
-	// 			userCount = resultList.totalItems;
-	// 			console.log('User count fetched directly:', userCount);
-	// 			return;
-	// 		} catch (error) {
-	// 			console.error('Error fetching user count directly:', error);
-	// 		}
-	// 		}
-			
-	// 		// Fall back to API if direct access fails or isn't available
-	// 		const response = await fetch('/api/verify/users/count');
-	// 		console.log('User count API response status:', response.status);
-			
-	// 		if (!response.ok) {
-	// 		throw new Error(`Server returned ${response.status}`);
-	// 		}
-			
-	// 		const data = await response.json();
-	// 		console.log('User count API response data:', data);
-			
-	// 		userCount = data.success ? data.count : 0;
-	// 	} catch (error) {
-	// 		console.error('Error fetching user count:', error);
-	// 		userCount = 0; // Default value if fetch fails
-	// 	}
-	// 	}
-
-	let showTermsOverlay = false;
-	let showPrivacyOverlay = false;
-	let showArrowOverlay = false;
-
-	function openTermsOverlay() {
-		showTermsOverlay = true;
-	}
-
-	function openPrivacyOverlay() {
-		showPrivacyOverlay = true;
-	}
-
-	function closeOverlay() {
-		showTermsOverlay = false;
-		showPrivacyOverlay = false;
-	}
-
-	function subscribeToNewsletter() {
-		showNewsletterPopup = true;
-		// Implement newsletter subscription logic
-	}
-
-	function handleOverlayClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			showAuth = false;
-			showArrowOverlay = false;
-		}
-	}
-	function toggleAuth() {
-		showAuth = !showAuth;
-		showArrowOverlay = !showArrowOverlay;
-	}
-
-	function toggleIntro() {
-		showArrowOverlay = !showArrowOverlay;
-	}
-
-	$: {
-		if ($t) {
-			placeholderText = getRandomTip();
-		}
-	}
-
-	$: userId = $currentUser?.id;
-	$: aiModel = defaultAIModel;
-
+	
 	onMount(async () => {
-	try {
-		// Initialize loading state
-		isLoading = true;
-		updatePageContent();
-
-		// Check auth using the currentUser store instead of pb directly
-		if (!$currentUser) {
-		showContent = true;
-		}
-
-		user = $currentUser;
-		currentTip = getRandomTip();
-
-		// Handle navigation subscription
-		const unsubscribe = navigating.subscribe((navigationData) => {
-		if (navigationData) {
-			isNavigating.set(true);
-		} else {
+		try {
+			isLoading = true;
+			
+			// Check if user is logged in
+			if (!$currentUser) {
+				// Redirect to root if not logged in
+				goto('/');
+				return;
+			}
+			
+			userId = $currentUser.id;
+			
+			// Get URL parameters
+			threadId = $page.url.searchParams.get('threadId');
+			messageId = $page.url.searchParams.get('messageId');
+			
+			pageReady = true;
+		} catch (e) {
+			error = 'Failed to load chat. Please try again.';
+			console.error(e);
+		} finally {
+			const minimumLoadingTime = 800;
 			setTimeout(() => {
-			isNavigating.set(false);
-			}, 300);
+				isLoading = false;
+			}, minimumLoadingTime);
 		}
-		});
-
-		// Get URL parameters if they exist
-		threadId = $page.url.searchParams.get('threadId');
-		messageId = $page.url.searchParams.get('messageId');
-
-		/*
-		* Set current thread if threadId exists
-		* if (threadId) {
-		*     await threadsStore.setCurrentThread(threadId);
-		* }
-		*/
-
-		// Initialize necessary data
-		// await initializeLanguage();
-		// await fetchUserCount();
-
-		// Landing page animations (only if not logged in)
-		if (!user) {
-		setTimeout(() => (showFade = true), 200);
-		setTimeout(() => {
-			showLogo = true;
-			setTimeout(() => {
-			logoSize.set(0);
-			logoMargin.set(0);
-			}, 300);
-		}, 150);
-
-		setTimeout(() => (showH1 = true), 600);
-		setTimeout(() => (showH2 = true), 700);
-		setTimeout(() => (showH3 = true), 800);
-		setTimeout(() => (showTypeWriter = true), 900);
-		setTimeout(() => (showButton = true), 1000);
-		}
-
-		return () => {
-		unsubscribe();
-		};
-	} catch (e) {
-		error = 'Failed to load thread. Please try again.';
-		console.error(e);
-	} finally {
-		// Ensure minimum loading time
-		const minimumLoadingTime = 800;
-		setTimeout(() => {
-		isLoading = false;
-		}, minimumLoadingTime);
-	}
 	});
-
-
-
+	
+	$: userId = $currentUser?.id;
 </script>
 
 {#if pageReady}
-	{#if user}
-		{#if isLoading}
-			<div class="center-container" transition:fade={{ duration: 300 }}>
-				<div class="loading-overlay">
-					<div class="spinner">
-						<Bot size={80} class="bot-icon" />
-					</div>
+	{#if isLoading}
+		<div class="center-container" transition:fade={{ duration: 300 }}>
+			<div class="loading-overlay">
+				<div class="spinner">
+					<Bot size={80} class="bot-icon" />
 				</div>
 			</div>
-		{:else}
-			<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-				<AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} />
-			</div>
-		{/if}
+		</div>
 	{:else}
-		<button class="fastlogin"
-			on:click={toggleAuth}
-			in:fly={{ y: 0, duration: 500, delay: 400 }}
-			out:fly={{ y: 50, duration: 500, delay: 400 }}
-			>
-			<LogIn/>
-		</button>
-		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
-			{#if showFade}
-				<img
-					src={Headmaster}
-					alt="Landing illustration"
-					class="illustration"
-					in:fade={{ duration: 2000 }}
-				/>
-			{/if}
-			<div class="half-container">
-				<div class="content-wrapper">
-					{#if showLogo}
-						<div
-							class="logo-container"
-							style="height: {$logoSize}%; margin-top: {$logoMargin}%;"
-							in:fade={{ duration: 2000, delay: 0 }}
-							out:fade={{ duration: 100 }}
-						>
-							<img src={horizon100} alt="Horizon100" class="logo" in:fade={{ duration: 100 }} />
-						</div>
-					{/if}
-
-					{#if showH2}
-						<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
-							{$t('landing.h1')}
-						</h1>
-					{/if}
-					{#if showTypeWriter}
-						<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-							<TypeWriter text={$t('landing.introText')} minSpeed={1} maxSpeed={10} />
-						</div>
-					{/if}
-					{#if showButton}
-						<div
-							class="footer-container"
-							in:fly={{ y: -50, duration: 500, delay: 200 }}
-							out:fade={{ duration: 300 }}
-						>
-							{#if !showAuth}
-								<button
-									on:click={toggleAuth}
-									in:fly={{ y: 50, duration: 500, delay: 400 }}
-									out:fly={{ y: 50, duration: 500, delay: 400 }}
-								>
-									{$t('landing.cta')}
-								</button>
-							{/if}
-
-							<div class="cta-buttons">
-								<button on:click={subscribeToNewsletter}>
-									<Mail size="30" />
-									{$t('landing.subscribing')}
-								</button>
-								<NewsletterPopup bind:showPopup={showNewsletterPopup} />
-
-								<a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
-									<button>
-										<Send size="30" />
-										Telegram
-									</button>
-								</a>
-								<a
-									href="https://github.com/Horizon100/ultralit"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<button>
-										<Github size="30" />
-										GitHub
-									</button>
-								</a>
-							</div>
-							<div class="testimonial">
-								<p>{userCount} {$t('landing.usercount')}</p>
-							</div>
-						</div>
-					{/if}
-
-					{#if showH2}
-						<div id="features" class="section">
-							<h2>{$t('features.title')}</h2>
-							<div class="feature-cards">
-								{#each $t('features.cards') as card}
-									<FeatureCard title={card.title} features={card.features} isPro={card.isPro} />
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					{#if showButton}
-						<div id="pricing" class="section">
-							<h2>{$t('pricing.title')}</h2>
-							<div class="pricing-plans">
-								{#each $t('pricing.plans') as plan}
-									<div class="card">
-										<h3>{plan.name}</h3>
-										<p class="price">{plan.price}</p>
-										<ul>
-											{#each plan.features as feature}
-												<li>{feature}</li>
-											{/each}
-										</ul>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
+		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+			<AIChat {threadId} initialMessageId={messageId} aiModel={aiModel} userId={userId} />
 		</div>
 	{/if}
 {/if}
 
-{#if showTermsOverlay}
-	<Terms on:close={closeOverlay} />
-{/if}
 
-{#if showPrivacyOverlay}
-	<PrivacyPolicy on:close={closeOverlay} />
-{/if}
-
-{#if showArrowOverlay}
-	<div class="arrow-overlay" transition:fly={{ y: 200, duration: 300, easing: quintOut }}>
-		<div class="arrow"></div>
-	</div>
-{/if}
-
-{#if showAuth}
-	<div
-		class="auth-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ y: 0, duration: 300, easing: quintOut }}
-	>
-		<div class="auth-content" transition:fly={{ y: 50, duration: 700 }}>
-			<button
-				class="close-button"
-				on:click={() => {
-					showAuth = false;
-					showArrowOverlay = false;
-				}}
-				transition:fly={{ y: -200, duration: 300 }}
-			>
-				<X size={24} />
-			</button>
-
-			<Auth
-				on:close={() => {
-					showAuth = false;
-					showArrowOverlay = false;
-				}}
-			/>
-		</div>
-	</div>
-{/if}
 
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
@@ -635,7 +192,19 @@
 		padding: 1rem;
 		margin-top: 2rem;
 		text-align: center;
-		width: 50%;
+		max-width: 1200px;
+		width: 100%;
+	}
+
+
+
+	.feature-cards {
+		width: 100%;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		
 	}
 
 	.chat {
@@ -688,21 +257,30 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
+		backdrop-filter: blur(5px);
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		z-index: 1000;
+		transition: all 0.3s ease;
+
 	}
 
 	.auth-content {
 		position: fixed;
-		top: 0;
+		display: flex;
+		justify-content: center;
 		/* background-color: #2b2a2a; */
 		/* padding: 2rem; */
 		width: 100%;
+		max-width: 400px;
+		border-radius: 2rem;
 		/* max-width: 500px; */
 		height: auto;
 		overflow-y: auto;
+		box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
+		transition: all 0.3s ease-in;
+
 	}
 
 	.close-button {
@@ -798,10 +376,11 @@
 		filter: drop-shadow(0 0 4px var(--tertiary-color));
 
 		&.fastlogin {
-			width: 40px;
-			height: 40px;
-			font-size: 10px;
-			padding: 0;
+			width: auto;
+			height: 2rem;
+			background: var(--primary-color) !important;
+			font-size: 1.25rem;
+			padding: 1rem;
 			position: fixed;
 			top: 0;
 			left: 1rem;
@@ -810,9 +389,8 @@
 	}
 
 	button:hover {
-		background: var(--tertiary-color);
-		color: rgb(0, 0, 0);
-		font-size: 60px;
+		background: var(--tertiary-color) !important;
+		color: var(--secondary-color);
 	}
 
 	.illustration {
@@ -970,6 +548,7 @@
 		font-size: 1.2rem;
 	}
 
+
 	.pricing-plans {
 		display: flex;
 		justify-content: space-around;
@@ -983,7 +562,7 @@
 		margin: 1rem;
 		text-align: center;
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
-		width: calc(33.333% - 2rem); /* 3 cards per row on larger screens */
+		width: calc(69.333% - 2rem); /* 3 cards per row on larger screens */
 		min-width: 250px; /* Minimum width for cards */
 		margin: 1rem;
 		border: 1px solid var(--bg-color);
@@ -1066,7 +645,7 @@
 	@media (max-width: 767px) {
 
 		.fastlogin {
-			display: none;
+			display: flex;
 		}
 		.arrow-overlay {
 			top: 200px;

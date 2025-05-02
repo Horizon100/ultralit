@@ -2,11 +2,14 @@ import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
 
 export default {
 	nav: {
+		home: 'Home',
 		ask: 'Ask',
 		build: 'Build',
 		notes: 'Notes',
 		features: 'Features',
 		pricing: 'Pricing',
+		integrations: 'Integrations',
+		comparison: 'Compare',
 		blog: 'Blog',
 		help: 'Help',
 		docs: 'Docs',
@@ -21,6 +24,28 @@ export default {
 		notification: 'Language: English',
 		flag: '🇬🇧'
 	},
+	guidance: {
+        productivity: [
+            "🚀 Unlock 10x productivity with AI-powered task generation!",
+            "🤔 Did you know AI can automatically create kanban boards from your conversations?",
+            "💡 Pro tip: Connect your calendar to AI agents for seamless task scheduling"
+        ],
+        aiPowerTips: [
+            "🎯 This one weird trick will revolutionize your workflow instantly!",
+            "🧐 Did you know you can toggle AI responses on/off mid-conversation?",
+            "✨ Hint: Control AI response frequency to match your work style perfectly"
+        ],
+        projectMastery: [
+            "🔥 Nobody tells you about this hidden feature until it's too late!",
+            "🤯 Did you know each project unlocks exclusive AI agent capabilities?",
+            "💫 Secret: Use project workspaces to create hyper-specialized AI assistants"
+        ],
+        timeSaving: [
+            "⏰ Save 40+ hours a week with these bookmarking hacks!",
+            "🎨 Did you know you can theme your workspace for maximum focus?",
+            "🚄 Game changer: Use prompt shortcuts to eliminate repetitive typing"
+        ]
+    },
 	tooltip: {
 		newProject: 'Create project',
 		newThread: 'Create discussion',

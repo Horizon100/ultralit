@@ -677,6 +677,7 @@ $: displayUser = completeUserData || user;
 		scroll-behavior: smooth;
 		scrollbar-color: var(--bg-color) transparent;
 		transition: all 0.3s ease;
+		background: transparent;
 	}
 
 	.btn-row {

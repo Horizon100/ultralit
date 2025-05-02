@@ -46,18 +46,20 @@
 
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
-
+	* {
+		font-family: var(--font-family);
+	}
 	p {
 		line-height: 1.5;
-		text-align: justify;
-
+		text-align: center;
 		font-size: 1.2rem;
 		color: var(--text-color);
-		margin-top: 2rem;
-		font-size: 32px;
+		margin-top: 1rem;
+		font-size: 1.7rem;
 		// width: 50%;
 		// margin-left: 25%;
 		display: flex;
+		width: 100%;
 	}
 
 	.blink {

@@ -1,98 +1,33 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { currentLanguage } from '$lib/stores/languageStore';
-	import { fade, fly, blur, scale, slide } from 'svelte/transition';
-	import { spring } from 'svelte/motion';
-	import { quintOut } from 'svelte/easing';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { currentUser } from '$lib/pocketbase';
-	import { elasticOut, elasticIn } from 'svelte/easing';
-	import Auth from '$lib/components/auth/Auth.svelte';
-	import { pocketbaseUrl } from '$lib/pocketbase';
-	import { showAuth, toggleAuth, initAuthState } from '$lib/stores/authStore';
-
-	import Paper from '$lib/components/network/Paper.svelte';
-	import { agentStore } from '$lib/stores/agentStore';
-	import { initializeLanguage } from '$lib/stores/languageStore';
 	import { goto } from '$app/navigation';
-	import Builder from '$lib/components/ui/Builder.svelte';
-	import SarcasticAuthPopup from '$lib/components/auth/SarcasticAuthPopup.svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+	import { showAuth, toggleAuth } from '$lib/stores/authStore';
+	import { fade, fly } from 'svelte/transition';
+	import { spring } from 'svelte/motion';
+	import { t } from '$lib/stores/translationStore';
+	import { LogIn, Bot, Mail, Send, Github } from 'lucide-svelte';
 	import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
-	import type {
-		User,
-		Node,
-		NodeConfig,
-		AIModel,
-		NetworkData,
-		Task,
-		PromptType,
-		Attachment,
-		Threads,
-		Messages
-	} from '$lib/types/types';
-	import { threadsStore } from '$lib/stores/threadsStore';
-	import {  } from '$lib/pocketbase';
-	import { navigating } from '$app/stores';
-	import { isNavigating } from '$lib/stores/navigationStore';
-	import { page } from '$app/stores';
-	import AIChat from '$lib/components/ai/AIChat.svelte';
-	import horizon100 from '$lib/assets/horizon100.svg';
-	import { Mail, Bot, Send, Github, X, ChevronDown, LogIn } from 'lucide-svelte';
+	import FeatureCard from '$lib/components/ui/FeatureCard.svelte';
+	import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
-	import FeatureCard from '$lib/components/ui//FeatureCard.svelte';
-	import { showLoading } from '$lib/stores/loadingStore';
-	import { t } from '$lib/stores/translationStore';
-	import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-	$: showThreadList = $threadsStore.showThreadList;
-
-	const defaultAIModel: AIModel = {
-		id: 'default',
-		name: 'Default Model',
-		api_key: 'default_key',
-		base_url: 'https://api.openai.com/v1',
-		api_type: 'gpt-3.5-turbo',
-		api_version: 'v1',
-		description: 'Default OpenAI Model',
-		user: [],
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		collectionId: '',
-		collectionName: ''
-	};
-
-	let userId: string;
-	let aiModel: AIModel = defaultAIModel;
-
-	let threadId: string | null = null;
-	let messageId: string | null = null;
+	import Auth from '$lib/components/auth/Auth.svelte';
+	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+	import horizon100 from '$lib/assets/horizon100.svg';
+	import ServiceComparison from '$lib/components/containers/ServiceComparison.svelte';
+	
 	let pageReady = false;
-	let showNewsletterPopup = false;
-
+	let redirectedFromLogin = false;
 	let isLoading = true;
 	let error: string | null = null;
+	let showNewsletterPopup = false;
+	let navigationFlagChecked = false;
 
-	$: if ($currentLanguage) {
-		updatePageContent();
-	}
 
-	async function updatePageContent() {
-		pageReady = false;
-		await tick();
-		await new Promise((resolve) => setTimeout(resolve, 600));
-		pageReady = true;
-	}
-
-	$: userId = $currentUser?.id;
-
-	// export let userId: string = crypto.randomUUID();
-	let threads: Threads[];
-	let attachment: Attachment | null = null;
-
+	// Animation states
 	let showContent = false;
-
-	let showAuthPopup = false;
 	let showFade = false;
 	let showLogo = false;
 	let showH1 = false;
@@ -101,284 +36,142 @@
 	let showButton = false;
 	let showTypeWriter = false;
 	let placeholderText = '';
-
-
+	
 	let logoSize = spring(80);
 	let logoMargin = spring(0);
-
-	$: user = $currentUser;
-
-	function handleGetStarted() {
-		if (user) {
-			// goto('/ask');
-		} else {
-			showAuthPopup = true;
-		}
-	}
-
-	function checkLoginStatus() {
-		showAuthPopup = true;
-	}
-
-	function closeAuthPopup() {
-		showAuthPopup = false;
-	}
+	
+	let userCount = 0;
+	let showTermsOverlay = false;
+	let showPrivacyOverlay = false;
+	let currentTip = '';
 
 	function getRandomTip() {
 		const tips = $t('landing.productivityTips');
 		return tips[Math.floor(Math.random() * tips.length)];
 	}
 
-	$: placeholderText = getRandomTip();
-
-	let currentTip = '';
-
-	let newThreadName = '';
-	let newThreadId: string | null = null;
-	let showConfirmation = false;
-
-	async function handleSeedPromptSubmit(
-		seedPrompt: string,
-		aiModel: AIModel,
-		promptType: PromptType
-	) {
-		console.log('handleSeedPromptSubmit called');
-		if (!$currentUser) {
-			console.error('User is not authenticated');
-			return;
-		}
-		if (seedPrompt.trim() || attachment) {
-			isLoading = true;
-			try {
-				// Create new thread
-				const newThread = await threadsStore.addThread({
-					op: $currentUser.id,
-					name: `Thread ${threads?.length ? threads.length + 1 : 1}`
-				});
-				if (newThread && newThread.id) {
-					threads = [...(threads || []), newThread];
-					await threadsStore.setCurrentThread(newThread.id);
-					newThreadName = newThread.name;
-					newThreadId = newThread.id;
-
-					// Add the seed prompt as the first message
-					if (seedPrompt.trim()) {
-						const firstMessage = await threadsStore.addMessage({
-							thread: newThread.id,
-							text: seedPrompt.trim(),
-							type: 'human',
-							user: $currentUser.id
-						});
-						console.log('First message added:', firstMessage);
-					}
-
-					showConfirmation = true;
-					// handleConfirmation();
-				} else {
-					console.error('Failed to create new thread: Thread object is undefined or missing id');
-				}
-			} catch (error) {
-				console.error('Error creating new thread:', error);
-				// Handle the error appropriately (e.g., show an error message to the user)
-			} finally {
-				isLoading = false;
-			}
-		}
+	function getRandomGuidance() {
+		const guidanceCategories = ['productivity', 'aiPowerTips', 'projectMastery', 'timeSaving'];
+		const randomCategory = guidanceCategories[Math.floor(Math.random() * guidanceCategories.length)];
+		const categoryItems = $t(`guidance.${randomCategory}`);
+		return {
+			hook: categoryItems[0],      
+			question: categoryItems[1],   
+			hint: categoryItems[2]       
+		};
 	}
+	const guidance = getRandomGuidance();
 
-	let userCount = 0;
-	// async function fetchUserCount() {
-	// 	try {
-	// 		console.log('Fetching user count...');
-			
-	// 		// For debugging, directly use the PocketBase client from server if available in development
-	// 		if (typeof pb !== 'undefined') {
-	// 		try {
-	// 			const resultList = await pb.collection('users').getList(1, 1, {
-	// 			sort: '-created'
-	// 			});
-	// 			userCount = resultList.totalItems;
-	// 			console.log('User count fetched directly:', userCount);
-	// 			return;
-	// 		} catch (error) {
-	// 			console.error('Error fetching user count directly:', error);
-	// 		}
-	// 		}
-			
-	// 		// Fall back to API if direct access fails or isn't available
-	// 		const response = await fetch('/api/verify/users/count');
-	// 		console.log('User count API response status:', response.status);
-			
-	// 		if (!response.ok) {
-	// 		throw new Error(`Server returned ${response.status}`);
-	// 		}
-			
-	// 		const data = await response.json();
-	// 		console.log('User count API response data:', data);
-			
-	// 		userCount = data.success ? data.count : 0;
-	// 	} catch (error) {
-	// 		console.error('Error fetching user count:', error);
-	// 		userCount = 0; // Default value if fetch fails
-	// 	}
-	// 	}
-
-	let showTermsOverlay = false;
-	let showPrivacyOverlay = false;
-	let showArrowOverlay = false;
-
+	$: placeholderText = getRandomTip();
+	
+	function subscribeToNewsletter() {
+		showNewsletterPopup = true;
+	}
+	
 	function openTermsOverlay() {
 		showTermsOverlay = true;
 	}
-
+	
 	function openPrivacyOverlay() {
 		showPrivacyOverlay = true;
 	}
-
+	
 	function closeOverlay() {
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
 	}
-
-	function subscribeToNewsletter() {
-		showNewsletterPopup = true;
-		// Implement newsletter subscription logic
-	}
-
+	
 	function handleOverlayClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {
 			$showAuth = false;
-			showArrowOverlay = false;
 		}
 	}
+
 	function handleSignOut() {
-		// Ensure auth dialog is closed when logging out
 		$showAuth = false;
+		// Force page reload to ensure proper state after logout
+		setTimeout(() => window.location.reload(), 100);
 	}
-
-	function toggleIntro() {
-		showArrowOverlay = !showArrowOverlay;
+	$: if (browser && $currentUser && pageReady && !isLoading && !redirectedFromLogin && !navigationFlagChecked) {
+		redirectedFromLogin = true;
+		goto('/chat');
 	}
-
-	$: {
-		if ($t) {
-			placeholderText = getRandomTip();
-		}
-	}
-
-	$: userId = $currentUser?.id;
-	$: aiModel = defaultAIModel;
-
 	onMount(async () => {
-    try {
-      // Initialize loading state
-      isLoading = true;
-      updatePageContent();
-      
-      // Initialize auth state management
-      const unsubAuthState = initAuthState();
-      
-      // Check auth using the currentUser store instead of pb directly
-      if (!$currentUser) {
-        showContent = true;
-        // Don't automatically show auth dialog on initial load
-        // $showAuth = false; // This line would force the auth to be hidden
-      }
-      
-      user = $currentUser;
-      currentTip = getRandomTip();
-
-		// Handle navigation subscription
-		const unsubscribe = navigating.subscribe((navigationData) => {
-		if (navigationData) {
-			isNavigating.set(true);
-		} else {
+		try {
+			isLoading = true;
+			
+			// Check for logged-in user and let the page appear before redirecting
+			if ($currentUser) {
+				// Use a flag or localStorage to check if the user deliberately navigated here
+				const directNavigation = sessionStorage.getItem('directNavigation') === 'true';
+				navigationFlagChecked = true; // Mark that we've checked the flag
+				
+				if (!directNavigation) {
+					setTimeout(() => {
+						goto('/chat');
+					}, 100);
+					return; 
+				}
+				
+				// Clear the flag after using it
+				sessionStorage.removeItem('directNavigation');
+			}
+			
+			pageReady = true;
+			
+			// Only run landing page animations if we're staying on this page
+			setTimeout(() => (showFade = true), 200);
 			setTimeout(() => {
-			isNavigating.set(false);
-			}, 300);
-		}
-		});
-
-		// Get URL parameters if they exist
-		threadId = $page.url.searchParams.get('threadId');
-		messageId = $page.url.searchParams.get('messageId');
-
-		/*
-		* Set current thread if threadId exists
-		* if (threadId) {
-		*     await threadsStore.setCurrentThread(threadId);
-		* }
-		*/
-
-		// Initialize necessary data
-		// await initializeLanguage();
-		// await fetchUserCount();
-
-		// Landing page animations (only if not logged in)
-		if (!user) {
-		setTimeout(() => (showFade = true), 200);
-		setTimeout(() => {
 			showLogo = true;
 			setTimeout(() => {
-			logoSize.set(0);
-			logoMargin.set(0);
+				logoSize.set(0);
+				logoMargin.set(0);
 			}, 300);
-		}, 150);
-
-		setTimeout(() => (showH1 = true), 600);
-		setTimeout(() => (showH2 = true), 700);
-		setTimeout(() => (showH3 = true), 800);
-		setTimeout(() => (showTypeWriter = true), 900);
-		setTimeout(() => (showButton = true), 1000);
+			}, 150);
+			
+			setTimeout(() => (showH1 = true), 600);
+			setTimeout(() => (showH2 = true), 700);
+			setTimeout(() => (showH3 = true), 800);
+			setTimeout(() => (showTypeWriter = true), 900);
+			setTimeout(() => (showButton = true), 1000);
+			
+			currentTip = getRandomTip();
+			
+		} catch (e) {
+			error = 'Failed to load page. Please try again.';
+			console.error(e);
+		} finally {
+			const minimumLoadingTime = 800;
+			setTimeout(() => {
+			isLoading = false;
+			}, minimumLoadingTime);
 		}
-
-		return () => {
-		unsubscribe();
-		unsubAuthState(); 
-    };
-    } catch (e) {
-      error = 'Failed to load thread. Please try again.';
-      console.error(e);
-    } finally {
-      const minimumLoadingTime = 800;
-      setTimeout(() => {
-        isLoading = false;
-      }, minimumLoadingTime);
-    }
-  });
-
-
-
+	});
 </script>
 
 {#if pageReady}
-	{#if user}
-		{#if isLoading}
-
-			<div class="center-container" transition:fade={{ duration: 300 }}>
-
-				<div class="loading-overlay">
-
-					<div class="spinner">
-						<Bot size={80} class="bot-icon" />
-					</div>
+	{#if isLoading}
+		<div class="center-container" transition:fade={{ duration: 300 }}>
+			<div class="loading-overlay">
+				<div class="spinner">
+					<Bot size={80} class="bot-icon" />
 				</div>
 			</div>
-		{:else}
-			<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-				<AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} />
-			</div>
-		{/if}
+		</div>
 	{:else}
-		<button class="fastlogin"
+		{#if pageReady && !isLoading && !$currentUser}
+			<button 
+			class="fastlogin"
 			on:click={toggleAuth}
 			in:fly={{ y: 0, duration: 500, delay: 400 }}
 			out:fly={{ y: 50, duration: 500, delay: 400 }}
 			>
 			<LogIn/>
-			{$t('profile.login')}
-
-		</button>
+			<span>
+				{$t('profile.login')}
+			</span>
+			</button>
+		{/if}
 		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
 				<img
@@ -390,73 +183,95 @@
 			{/if}
 			<div class="half-container">
 				<div class="content-wrapper">
-					{#if showLogo}
-						<div
-							class="logo-container"
-							style="height: {$logoSize}%; margin-top: {$logoMargin}%;"
-							in:fade={{ duration: 2000, delay: 0 }}
-							out:fade={{ duration: 100 }}
-						>
-							<img src={horizon100} alt="Horizon100" class="logo" in:fade={{ duration: 100 }} />
-						</div>
-					{/if}
-
-					{#if showH2}
-						<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
-							{$t('landing.h1')}
-						</h1>
-					{/if}
-					{#if showTypeWriter}
-						<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-							<TypeWriter text={$t('landing.introText')} minSpeed={1} maxSpeed={10} />
-						</div>
-					{/if}
-					{#if showButton}
-						<div
-							class="footer-container"
-							in:fly={{ y: -50, duration: 500, delay: 200 }}
-							out:fade={{ duration: 300 }}
-						>
-							{#if !$showAuth}
-								<button
-									on:click={toggleAuth}
-									in:fly={{ y: 50, duration: 500, delay: 400 }}
-									out:fly={{ y: 50, duration: 500, delay: 400 }}
-								>
-									{$t('landing.cta')}
-								</button>
+					<div id="start" class="section">
+						{#if showLogo}
+							<div
+								class="logo-container"
+								style="height: {$logoSize}%; margin-top: {$logoMargin}%;"
+								in:fade={{ duration: 2000, delay: 0 }}
+								out:fade={{ duration: 100 }}
+							>
+								<img src={horizon100} alt="Horizon100" class="logo" in:fade={{ duration: 100 }} />
+							</div>
+						{/if}
+						{#if !$currentUser}
+							{#if showH2}
+								<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
+									{$t('landing.h1')}
+								</h1>
 							{/if}
-
-							<div class="cta-buttons">
-								<button on:click={subscribeToNewsletter}>
-									<Mail size="30" />
-									{$t('landing.subscribing')}
-								</button>
-								<NewsletterPopup bind:showPopup={showNewsletterPopup} />
-
-								<a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
-									<button>
-										<Send size="30" />
-										Telegram
-									</button>
-								</a>
-								<a
-									href="https://github.com/Horizon100/ultralit"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<button>
-										<Github size="30" />
-										GitHub
-									</button>
-								</a>
+							
+							{#if showTypeWriter}
+								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+									<TypeWriter text={$t('landing.introText')} minSpeed={1} maxSpeed={10} />
+								</div>
+							{/if}
+						{:else}
+							{#if showH2}
+								<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
+									{guidance.hook}
+								</h1>
+							{/if}
+							
+							{#if showTypeWriter}
+								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+									<TypeWriter text={guidance.question} minSpeed={1} maxSpeed={10} />
+								</div>
+							{/if}
+							{#if showTypeWriter}
+							<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+								<TypeWriter text={guidance.hint} minSpeed={1} maxSpeed={20} />
 							</div>
-							<div class="testimonial">
-								<p>{userCount} {$t('landing.usercount')}</p>
-							</div>
-						</div>
-					{/if}
+							{/if}
+						{/if}
+						{#if showButton}
+							<div
+								class="footer-container"
+								in:fly={{ y: -50, duration: 500, delay: 200 }}
+								out:fade={{ duration: 300 }}
+							>
+								{#if !$showAuth}
+									{#if pageReady && !isLoading && !$currentUser}
+										<button
+											on:click={toggleAuth}
+											in:fly={{ y: 50, duration: 500, delay: 400 }}
+											out:fly={{ y: 50, duration: 500, delay: 400 }}
+										>
+											{$t('landing.cta')}
+										</button>
+									{/if}
+								{/if}
 
+								<div class="cta-buttons">
+									<button on:click={subscribeToNewsletter}>
+										<Mail size="30" />
+										{$t('landing.subscribing')}
+									</button>
+									<NewsletterPopup bind:showPopup={showNewsletterPopup} />
+
+									<!-- <a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
+										<button>
+											<Send size="30" />
+											Telegram
+										</button>
+									</a> -->
+									<a
+
+										href="https://github.com/Horizon100/ultralit"
+										target="_blank"
+										rel="noopener noreferrer">
+										<button>
+											<Github size="30" />
+											GitHub
+										</button>
+									</a>
+								</div>
+								<!-- <div class="testimonial">
+									<p>{userCount} {$t('landing.usercount')}</p>
+								</div> -->
+							</div>
+						{/if}
+					</div>
 					{#if showH2}
 						<div id="features" class="section">
 							<h2>{$t('features.title')}</h2>
@@ -486,6 +301,16 @@
 							</div>
 						</div>
 					{/if}
+					{#if showH2}
+					<div id="integrations" class="section">
+						<ServiceComparison/>
+					</div>
+					{/if}
+					{#if showH2}
+					<div id="comparison" class="section">
+						<ServiceComparison/>
+					</div>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -500,38 +325,18 @@
 	<PrivacyPolicy on:close={closeOverlay} />
 {/if}
 
-<!-- {#if showArrowOverlay}
-	<div class="arrow-overlay" transition:fly={{ y: 200, duration: 300, easing: quintOut }}>
-		<div class="arrow"></div>
-	</div>
-{/if} -->
-
-{#if $showAuth && !user}
+{#if $showAuth}
 	<div
 		class="auth-overlay"
 		on:click={handleOverlayClick}
-		transition:fly={{ y: 0, duration: 300, easing: quintOut }}
+		transition:fade={{ duration: 300 }}
 	>
-		<div class="auth-content" transition:fly={{ y: 0, duration: 300 }}>
-			<!-- <button
-				class="close-button"
-				on:click={() => {
-					showAuth = false;
-					// showArrowOverlay = false;
-				}}
-				transition:fly={{ y: -200, duration: 300 }}
-			>
-				<X size={24} />
-			</button> -->
-
+		<div class="auth-content" transition:fade={{ duration: 300 }}>
 			<Auth
 				on:close={() => {
 					$showAuth = false;
-
-// showArrowOverlay = false;
 				}}
-				        on:signOut={handleSignOut}
-
+				on:signOut={handleSignOut}
 			/>
 		</div>
 	</div>
@@ -542,9 +347,6 @@
 
 	* {
 		font-family: var(--font-family);
-
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: Georgia, 'Times New Roman', Times, serif; */
 	}
 
 	:global(.loading-spinner) {
@@ -643,13 +445,6 @@
 		}
 	}
 
-	.section {
-		padding: 1rem;
-		margin-top: 2rem;
-		text-align: center;
-		max-width: 1200px;
-		width: 100%;
-	}
 
 
 
@@ -672,7 +467,7 @@
 		overflow: auto;
 		border-radius: 40px;
 		width: 100%;
-		height: 100%;
+		height: auto;
 		scrollbar-width: thin;
 		scrollbar-color: #ffffff transparent;
 		overflow-y: auto;
@@ -683,23 +478,38 @@
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
-		margin-top: 2rem;
 	}
 
 	.content-wrapper {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: flex-start;
 		width: 100%;
+
 		background: radial-gradient(
 			circle at center,
 			rgba(255, 255, 255, 0.2) 0%,
 			rgba(255, 255, 255, 0) 50%
 		);
-
-		/* Remove fixed height to allow content to expand */
 	}
+	.section {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		padding: 0;
+		text-align: center;
+		max-width: 1200px;
+		width: 100%;
+		height: 100vh;
+
+		background: radial-gradient(
+			circle at center,
+			rgba(255, 255, 255, 0.2) 0%,
+			rgba(255, 255, 255, 0) 50%
+		);
+	}
+
 	.split-container {
 		display: flex;
 		flex-direction: column;
@@ -725,13 +535,14 @@
 		position: fixed;
 		display: flex;
 		justify-content: center;
-		/* background-color: #2b2a2a; */
+		align-items: center;
+		background: var(--bg-gradient);
 		/* padding: 2rem; */
-		width: 100%;
-		max-width: 400px;
+		width: auto;
 		border-radius: 2rem;
 		/* max-width: 500px; */
 		height: auto;
+		padding: 0;
 		overflow-y: auto;
 		box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
 		transition: all 0.3s ease-in;
@@ -776,47 +587,51 @@
 	}
 
 	.typewriter {
-		width: 50%;
+		width: 100%;
+		max-width: 1000px;
 	}
 
 	h1 {
 		/* margin-top: 25%; */
 		font-size: 4rem;
-		color: #fff;
-		margin-bottom: 2rem;
-		width: 50%;
-		text-align: left;
+		color: var(--text-color);
+		margin: 0;
+		width: 100%;
+		max-width: 1000px;
+		text-align: center;
 	}
 	h2 {
 		/* margin-top: 25%; */
 		font-size: 3rem;
 		font-weight: 500;
-		color: #fff;
+		color: var(--text-color);
 		margin-bottom: 2rem;
-		width: 100%;
+		width: 100%;	
 	}
 
 	h3 {
 		font-size: 1.5rem;
-		color: #959595;
+		color: var(--text-color);
 		margin-bottom: 2rem;
 		font-weight: 300;
-		width: 100%;
+		width: 100%;		
 		font-style: italic;
 	}
 
 	p {
 		display: flex;
+		color: var(--text-color);
 		line-height: 1.5;
 		text-align: justify;
-		font-size: 24px;
-		width: 50%;
+		width: 100%;	
+		max-width: 1000px;
 	}
 
 	button {
 		display: flex;
 		align-items: center;
-		width: 50%;
+		width: 100%;
+		max-width: 800px;
 		gap: 5px;
 		font-size: 30px;
 		justify-content: center;
@@ -828,18 +643,21 @@
 		cursor: pointer;
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		background: var(--secondary-color);
-		filter: drop-shadow(0 0 4px var(--tertiary-color));
+		// filter: drop-shadow(0 0 4px var(--tertiary-color));
 
 		&.fastlogin {
 			width: auto;
-			height: 2rem;
-			background: var(--primary-color) !important;
+			height: 3rem;
+			padding: 0 0.5rem;
 			font-size: 1.25rem;
-			padding: 1rem;
+			filter: none;
 			position: fixed;
+			width: auto !important;
 			top: 0;
 			left: 1rem;
 			background: none;
+			margin-top: 0;
+
 		}
 	}
 
@@ -864,6 +682,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		position: absolute;
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		width: 100%;
 	}
@@ -878,20 +697,22 @@
 	h2,
 	h3,
 	button {
-		margin-top: 1rem;
 		color: var(--text-color);
 	}
 
 	.footer-container {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
+		width:100%;
+		max-width: 1000px;
+		overflow: hidden;
 		justify-content: center;
 		align-items: center;
+		gap: 1rem;
 	}
 
 	.footer-container button {
-		max-width: 90%;
+		max-width: 1000px;
 	}
 
 	.terms-privacy {
@@ -926,36 +747,41 @@
 	.testimonial {
 		display: flex;
 		flex-direction: row;
-		text-align: right;
-		justify-content: right;
+		text-align: center;
+		justify-content: center;
 		align-items: center;
-		width: 50%;
+		width: 100%;
 	}
 
 	.testimonial p {
 		font-style: italic;
 		color: var(--text-color);
-		justify-content: right;
+		justify-content: center;
 	}
 
 	.cta-buttons {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: flex-end;
+		width: 100%;
 		align-items: center;
 		gap: 1rem;
-		margin-top: 1rem;
-		width: auto;
+		height: 3rem;
+
+		& button {
+			height: 3rem !important;
+			margin: 0;
+			
+		}
 	}
 
 	.cta-buttons button {
 		font-size: 14px;
-		padding: 10px 20px;
+		padding: 0 1rem;
 		background-color: var(--bg-gradient);
 		color: var(--text-color);
 		justify-content: left;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		filter: drop-shadow(0 0 10px var(--text-color));
 
 		height: 60px;
 		width: auto;
@@ -966,7 +792,8 @@
 		color: var(--bg-color);
 		transform: scale(0.9);
 		background-color: var(--tertiary-color);
-		filter: none;
+		filter: drop-shadow(0 0 4px var(--tertiary-color));
+
 	}
 
 	.arrow-overlay {
@@ -1051,12 +878,6 @@
 		align-items: center;
 	}
 
-	.pricing-plans,
-	.cta-buttons,
-	.footer-container {
-		max-width: 100%;
-		overflow-x: hidden;
-	}
 	@keyframes bounce {
 		0%,
 		100% {
@@ -1067,30 +888,47 @@
 		}
 	}
 	@media (max-width: 767px) {
-		.cta-buttons {
+
+	}
+
+	@media (max-width: 1000px) {
+
+		.hero-container {
+			display: flex;
+			flex-direction: column;
+			overflow: auto;
+			border-radius: 40px;
+			height: auto;
+			width: auto;
+			overflow-x: hidden;
+			scrollbar-width: thin;
+			scrollbar-color: #ffffff transparent;
+			overflow-y: auto;
+		}
+
+		.logo-container {
+			display: none;
+		}
+		.content-wrapper {
+			display: flex;
 			flex-direction: column;
 			align-items: center;
-		}
-	}
-
-	@media (max-width: 1199px) {
-		h2,
-		h3,
-		button {
+			position: relative;
 			width: 100%;
+			height: 100%;
+			background: radial-gradient(
+				circle at center,
+				rgba(255, 255, 255, 0.2) 0%,
+				rgba(255, 255, 255, 0) 50%
+			);
 		}
 
-		h1,
-		.typewriter,
-		.testimonial,
 		.section {
-			width: 90%;
 		}
-	}
 
-	@media (max-width: 991px) {
+
 		.card {
-			width: calc(50% - 2rem); /* 2 cards per row on medium screens */
+			width: calc(50% - 2rem); 
 		}
 		h2 {
 			font-size: 60px;
@@ -1098,9 +936,33 @@
 	}
 
 	@media (max-width: 767px) {
+		.auth-content {
+			position: fixed;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background: var(--bg-gradient);
+			/* padding: 2rem; */
+			width: 90%;
+			border-radius: 2rem;
+			/* max-width: 500px; */
+			height: auto;
+			padding: 0;
+			overflow: hidden;
+			box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
+			transition: all 0.3s ease-in;
 
+		}
 		.fastlogin {
 			display: flex;
+			&:hover {
+				& span {
+					display: flex;
+				}
+			}
+			& span {
+				display: none;
+			}
 		}
 		.arrow-overlay {
 			top: 200px;
@@ -1132,6 +994,9 @@
 
 		.card {
 			width: 100%; /* 1 card per row on small screens */
+		}
+		.section {
+			height: auto;
 		}
 	}
 </style>

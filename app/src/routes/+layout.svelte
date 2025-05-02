@@ -69,7 +69,22 @@
 	  Box,
 	  ChevronDown,
 	  LogOutIcon,
-	  Github
+	  Github,
+
+	  CircleDollarSign,
+
+	  Link,
+
+	  Table,
+
+	  ComponentIcon,
+
+	  Home
+
+
+
+
+
 	} from 'lucide-svelte';
 	
 	// Component props
@@ -89,7 +104,8 @@
 	let showStyles = false;
 	let currentStyle = 'default';
 	let activeLink = '/';
-	
+	let activeSection = '';
+
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
 	$: isThreadListVisible = $showThreadList;
@@ -146,7 +162,9 @@
 	  await currentTheme.set(style);
 	  showStyles = false;
 	}
-	
+	function updateActiveSection(sectionId: string) {
+	activeSection = sectionId;
+	}
 	function toggleNav() {
 	  isNavExpanded = !isNavExpanded;
 	}
@@ -194,11 +212,12 @@
 	  setActiveLink('/');
 	}
 	
-	function scrollToSection(id: string) {
-	  const element = document.getElementById(id);
-	  if (element) {
-		element.scrollIntoView({ behavior: 'smooth' });
-	  }
+	function scrollToSection(sectionId: string) {
+		const section = document.getElementById(sectionId);
+		if (section) {
+			section.scrollIntoView({ behavior: 'smooth' });
+			updateActiveSection(sectionId);
+		}
 	}
 	
 	function handlePromptSelect(event: CustomEvent) {
@@ -264,43 +283,78 @@
 	
 	// Lifecycle hooks
 	onMount(async () => {
-	  try {
-		console.log('onMount initiated');
-		
-		// Initialize theme and language
-		currentTheme.initialize();
-		await initializeLanguage();
-		
-		// Set up user info
-		if ($currentUser && $currentUser.id) {
-		  console.log('Current user:', $currentUser);
-		  username = $currentUser.username || $currentUser.email;
+		try {
+			console.log('onMount initiated');
+			
+			// Initialize theme and language
+			currentTheme.initialize();
+			await initializeLanguage();
+			
+			// Set up user info
+			if ($currentUser && $currentUser.id) {
+			console.log('Current user:', $currentUser);
+			username = $currentUser.username || $currentUser.email;
+			}
+			
+			// Set up navigation tracking
+			const unsubscribe = navigating.subscribe((navigationData) => {
+			if (navigationData) {
+				isNavigating.set(true);
+			} else {
+				setTimeout(() => {
+				isNavigating.set(false);
+				}, 300);
+			}
+			});
+			
+			// Set up theme tracker
+			const themeUnsubscribe = currentTheme.subscribe((theme) => {
+			document.documentElement.className = theme;
+			});
+			
+			// Define function to update active section
+			function updateActiveSection(sectionId: string) {
+			activeSection = sectionId;
+			}
+			
+			// Add IntersectionObserver for active section tracking
+			const observerOptions = {
+			root: null, // Use the viewport
+			rootMargin: '0px',
+			threshold: 0.5 // Consider section visible when 50% visible
+			};
+			
+			const sectionObserver = new IntersectionObserver((entries) => {
+			entries.forEach(entry => {
+				if (entry.isIntersecting) {
+				updateActiveSection(entry.target.id);
+				}
+			});
+			}, observerOptions);
+			
+			// Observe all sections with IDs including specific divs
+			const sections = document.querySelectorAll('section[id], div[id="start"], div[id="features"], div[id="pricing"], div[id="integrations"], div[id="comparison"]');
+			sections.forEach(section => {
+			sectionObserver.observe(section);
+			});
+			
+			// Add hash change listener
+			const handleHashChange = () => {
+			activeSection = window.location.hash.slice(1);
+			};
+			window.addEventListener('hashchange', handleHashChange);
+			handleHashChange(); // Initial check
+			
+			// Return cleanup function
+			return () => {
+			unsubscribe();
+			themeUnsubscribe();
+			sectionObserver.disconnect();
+			window.removeEventListener('hashchange', handleHashChange);
+			};
+		} catch (error) {
+			console.error('Error during onMount:', error);
 		}
-		
-		// Set up navigation tracking
-		const unsubscribe = navigating.subscribe((navigationData) => {
-		  if (navigationData) {
-			isNavigating.set(true);
-		  } else {
-			setTimeout(() => {
-			  isNavigating.set(false);
-			}, 300);
-		  }
-		});
-		
-		// Set up theme tracker
-		const themeUnsubscribe = currentTheme.subscribe((theme) => {
-		  document.documentElement.className = theme;
-		});
-		
-		// Return cleanup function
-		return () => {
-		  unsubscribe();
-		  themeUnsubscribe();
-		};
-	  } catch (error) {
-		console.error('Error during onMount:', error);
-	  }
 	});
   </script>
 
@@ -322,7 +376,7 @@
 			  </button> -->
 
 
-			{#if isNarrowScreen}
+			<!-- {#if isNarrowScreen} -->
 				<!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
                     {#if $currentUser}
                         <User size={24} />
@@ -330,36 +384,65 @@
                         <LogIn size={24} />
                     {/if}
                 </button> -->
-			{:else}
-				<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
-					{#if $currentUser}{:else}
+			<!-- {:else} -->
+			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+				{#if currentPath === '/'}
+					{#if $currentUser}
+						
+					{:else}
+						<!-- Links for non-logged-in users on root page (with home link) -->
+						<a
+							href="#start"
+							class="nav-link home {activeSection === 'start' ? 'active' : ''}"
+							on:click|preventDefault={() => scrollToSection('start')}
+						>
+							<img src={horizon100} alt="Horizon100" class="logo" />
+							<h2>vRAZUM</h2>                         
+						</a>
 						<a
 							href="#features"
-							class="nav-link"
+							class="nav-link {activeSection === 'features' ? 'active' : ''}"
 							on:click|preventDefault={() => scrollToSection('features')}
 						>
-							{$t('nav.features')}
+							<ComponentIcon/>
+							<span>
+								{$t('nav.features')}
+							</span>
 						</a>
 						<a
 							href="#pricing"
-							class="nav-link"
+							class="nav-link {activeSection === 'pricing' ? 'active' : ''}"
 							on:click|preventDefault={() => scrollToSection('pricing')}
 						>
-							{$t('nav.pricing')}
+							<CircleDollarSign/>
+							<span>
+								{$t('nav.pricing')}
+							</span>
 						</a>
 						<a
-							href="#docs"
-							class="nav-link"
+							href="#integrations"
+							class="nav-link {activeSection === 'integrations' ? 'active' : ''}"
+							on:click|preventDefault={() => scrollToSection('integrations')}
 						>
-							{$t('nav.docs')}
+							<Link/>
+							<span>
+								{$t('nav.integrations')}
+							</span>
 						</a>
-						<div class="logo-container" on:click={handleLogoClick}>
-							<img src={horizon100} alt="Horizon100" class="logo" />
-							<h2>vRAZUM</h2>
-						</div>
+						<a
+							href="#comparison"
+							class="nav-link {activeSection === 'comparison' ? 'active' : ''}"
+							on:click|preventDefault={() => scrollToSection('comparison')}
+						>
+							<Table/>
+							<span>
+								{$t('nav.comparison')}
+							</span>
+						</a>
 					{/if}
-				</div>
-			{/if}
+				{/if}
+			</div>
+			<!-- {/if} -->
 
 
 		</nav>
@@ -382,8 +465,18 @@
 		class:expanded={isNavExpanded}
 
 		>
-		<img src={horizon100} alt="Horizon100" class="logo" />
-		<h2>vRAZUM</h2>
+		<div 
+			class="logo-container" 
+			on:click|stopPropagation={() => {
+			// Set a flag before navigating to root
+			sessionStorage.setItem('directNavigation', 'true');
+			navigateTo('/');
+			}}
+			style="cursor: pointer;"
+		>
+			<img src={horizon100} alt="Horizon100" class="logo" />
+			<h2>vRAZUM</h2>
+		</div>
 		<div class="shortcut-buttons">
 			<a
 			href="https://github.com/Horizon100/ultralit"
@@ -443,23 +536,23 @@
 		<button
 			class="nav-button drawer"
 			class:expanded={isNavExpanded}
-			class:active={currentPath === '/'}
+			class:active={currentPath === '/chat'}
 			on:click={(event) => {
-			if (currentPath === '/') {
+			if (currentPath === '/chat') {
 				event.preventDefault();
 				toggleThreadList();
 				isNavExpanded = false;
 			} else {
-				navigateTo('/');
+				navigateTo('/chat');
 				if (isNavExpanded) {
 					isNavExpanded = false;
 				}
 			}
 			}}
 		>
-			{#if currentPath === '/' && showThreadList}
+			{#if currentPath === '/chat' && showThreadList}
 			<PanelLeftClose />
-			{:else if currentPath === '/'}
+			{:else if currentPath === '/chat'}
 			<MessageCircleDashed />
 			{:else}
 			<MessageCircle />
@@ -480,6 +573,7 @@
 				<span class="nav-text">Lean</span>
 			{/if}
 		</button>
+
 				<button 
 				class="nav-button info user" 
 				class:expanded={isNavExpanded}
@@ -558,9 +652,9 @@
 	<div
 		class="auth-overlay"
 		on:click={handleOverlayClick}
-		transition:fly={{ y: -20, duration: 300 }}
+		transition:fade={{ duration: 300 }}
 	>
-		<div class="auth-content" transition:fly={{ y: -20, duration: 300 }}>
+		<div class="auth-content" transition:fade={{ duration: 300 }}>
 			<button
 				on:click={() => (showAuth = false)}
 				class="close-button"
@@ -721,9 +815,7 @@
 
 
 		}
-		&:hover {
-			background: var(--tertiary-color);
-		}
+
 	}
 
 	.nav-button {
@@ -1070,23 +1162,25 @@
 
 	nav {
 		display: flex;
-
-		justify-content: flex-end;
-		align-items: flex-start;
+		justify-content: center;
+		align-items: center;
 		/* padding: 5px 10px; */
 		/* background-color: #2b2a2a; */
 		/* border-radius: 20px; */
 		/* background-color: black; */
 		/* height: 80px; */
 		gap: 2rem;
-		width: 100% ;
+		width: auto;
+
 		/* margin-right: 10%; */
 		/* padding: 10px; */
 	}
 
 	nav a {
+		display: flex;
 		justify-content: center;
 		align-items: center;
+		width: auto;
 		font-weight: bold;
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -1094,11 +1188,7 @@
 		color: var(--text-color);
 	}
 
-	nav a:hover {
-		/* background-color: rgba(255, 255, 255, 0.1); */
-		transform: scale(1.1);
-		color: var(--tertiary-color);
-	}
+
 	a {
 		display: flex;
 		justify-content: center;
@@ -1114,21 +1204,26 @@
 		display: flex;
 		flex-direction: row;
 		font-size: 1.25rem;
-		gap: 4rem;
-		font-style: italic;
+		gap: 1rem;
+		// font-style: italic;
 		align-items: center;
 		justify-content: center;
 		/* padding: 10px; */
 		font-family: var(--font-family);
-		width: auto;
+		max-width: 1000px;
+		width: 100%;
+		margin-left: 8rem;
+		margin-right: 8rem;
 		height: 3rem;
 	}
 
 	.nav-link {
 		display: flex;
 		flex-direction: row;
-		gap: 2rem;
+		flex: 1;
+		gap: 0.5rem;
 		font-weight: 400;
+		letter-spacing: 0.2rem;
 		justify-content: center;
 		align-items: center;
 		/* background-color: red; */
@@ -1136,34 +1231,42 @@
 		font-size: auto;
 		/* padding: 5px 10px; */
 		/* border-radius: 20px; */
-		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+		// transition: all 0.2s cubic-bezier(0.075, 0.82, 0.165, 1);
 		/* border-left: 1px solid rgb(130, 130, 130); */
 		user-select: none;
 		color: var(--text-color);
 		// background: var(--bg-gradient-right);
-		padding: 4px;
+		padding: 0 0.5rem;
 		font-size: auto;
 		border: none;
+		border-radius: 0;
 		cursor: pointer;
 		width: auto;
-		height: 2rem;
+		height: 3rem;
+		&.home {
+			letter-spacing: 0;
+		}
+		&:hover {
+			transform: none;
+			border-radius: 0;
+			color: var(--tertiary-color);
+		}
+
 	}
-
-
-
 	.nav-link.active {
-		background: var(--secondary-color) !important;
+		background: transparent;
 		color: var(--tertiary-color);
-		font-size: var(--font-size-s);
-		width: fit-content;
-		flex: 1;
-		justify-content: center;
+		padding: 0 0.5rem;
+		margin: 0;
 
 		&:hover {
 			background: rgba(255, 255, 255, 0.1);
+			transform: none;
 		}
 	}
-
+	.nav-link.home.active {
+		letter-spacing: 0;
+	}
 	.svg-container {
 		display: flex;
 		flex-direction: row;
@@ -1380,10 +1483,7 @@
 		cursor: pointer;
 	}
 
-	button:hover {
-		opacity: 0.8;
-		background-color: var(--tertiary-color);
-	}
+
 
 	footer {
 		/* background-color: #1d2026; */
@@ -1515,191 +1615,7 @@
 		}
 	}
 
-	@media (max-width: 1000px) {
-		main {
-		background: var(--bg-gradient-r);
-		color: var(--text-color);
-		width: 100%;
-		height: 100%;
-		height: auto;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		position: fixed;
-		display: flex;
-		flex-grow: 1;
-	}
-		h1 {
-			display: none;
-		}
 
-		.profile-content {
-		position: relative;
-		width: 100%;
-		top: 1rem;
-		bottom: auto;
-		padding: 0;
-		margin: 0;
-		/* right: 0; */
-		/* background-color: #2b2a2a; */
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		border-radius: 2rem;
-		/* max-width: 500px; */
-		/* max-height: 90vh; */
-		overflow: none;
-		transition: all 0.3s ease;
-		backdrop-filter: blur(30px);
-		border: 1px solid var(--secondary-color);
-	}
-
-		.nav-button.drawer {
-			left: 1rem;
-			bottom: 1rem;
-			padding: 0;
-			height: 2rem !important;
-			width: 2rem !important;
-			color: var(--placeholder-color);
-			border: 1px solid transparent !important;
-		}
-		.nav-button.info {
-			display: flex !important;
-			position: fixed !important;
-			top: 0;
-			right: 0;
-
-			
-			// display: none !important;
-			&:hover {
-				width: 20rem !important;
-				border-radius: 2rem;
-				padding: 0;
-
-				& .nav-button {
-				display: flex;
-			}
-			}
-			&:first-child {
-			display: flex;
-			}
-			& .nav-button {
-				display: none;
-				&:first-child {
-				display: flex;
-				}
-			}
-		}
-		.nav-button.info.user {
-			display: flex !important;
-			position: fixed !important;
-			top: 0;
-			right: 4rem;
-			z-index: -1;
-
-			& img.user-avatar {
-					width: 2rem !important;
-					height: 2rem !important;
-					padding: 0;
-
-				}
-			&:hover {
-				// width: 6rem !important;
-				// height: 6rem !important;
-				justify-content: center;
-				width: 4rem !important;
-				padding: 0;
-
-				& img.user-avatar {
-					width: 4rem !important;
-					height: 4rem !important;
-					padding: 0;
-
-				}
-
-			}
-		}
-
-
-		.project {
-			position: absolute;
-			left: 0;
-			right: 4rem;
-		}
-
-		.logo-container   {
-			width: 50%;
-			margin-left: 50%;
-			align-items: center;
-			justify-content: center;
-			background: red;
-		}
-
-		header {
-			// justify-content: center;
-		}
-
-		.header-logo {
-			display: flex;
-		}
-
-		.menu-button {
-			position: absolute;
-			right: 2rem;
-		}
-
-		main {
-			flex-grow: 1;
-		}
-
-		nav {
-			justify-content: center;
-		}
-
-		footer {
-			color: white;
-			text-align: center;
-			width: 100%;
-			padding: 1rem 0;
-		}
-
-		.project {
-		margin-left: 0;
-	}
-
-	}
-
-	@media (max-width: 767px) {
-		.modal-overlay {
-			width: 100%;
-		}
-
-		
-
-		.project {
-		margin-left: 0;
-	}
-	.logo-container a {
-			display: none;
-		}
-	}
-
-	@media (max-width: 450px) {
-		main {
-			background: var(--bg-gradient-r);
-			color: var(--text-color);
-			width: 100%;
-			height: 100%;
-			height: auto;
-			left: 0;
-			bottom: 0;
-			position: fixed;
-			overflow: auto;
-			display: flex;
-			flex-grow: 1;
-			height: -webkit-fill-available; 
-
-		}
-
-	}
 
 
 
@@ -1857,8 +1773,8 @@
 		animation: none !important;
 		box-shadow: none !important;
 		border-radius: 1rem !important;
-		transition: all 0.3s ease-in;
-
+		transition: all 0.3s ease;
+		height: 3rem;
 		& button.shortcut {
 			background: var(--primary-color);
 			display: flex;
@@ -2248,157 +2164,372 @@
 		}
 	}
 
-
 	@media (max-width: 1000px) {
-		.nav-button.info {
-			display: flex;
-			flex-direction: row-reverse;
-			justify-content: center;
-			border-radius: 1rem !important;
-			animation: none !important;
-			&.user {
-				position: relative;
-				bottom: auto;
-			}
-			span.icon {
-				display: none;
-				padding: 1rem;
-				border-radius: 50%;
-				&:hover {
-					background: red;
-					padding: 1rem;
-				}
-			}
-			h2 {
-				display: none;
-			}
-
-			a {
-				display: none;
-			}
-			& .nav-text {
-				display: none;
-			}
-
-			&:hover {
-				justify-content: space-around;
-				background: var(--primary-color);
-				opacity: 1;
-
-				border-radius: 2rem;
-				padding: 0;
-
-				& .nav-text {
-					display: none;
-				}
-				& h2 {
-					display: none;
-				}
-				& a {
-					display: flex;
-				}
-				span.icon {
-					display: none;
-				}
-			}
-			&.expanded {
-				display: none;
-			width: 350px;
-			justify-content: space-around;
-			h2 {
-				display: flex;
-			}
-			a {
-				display: flex;
-			}
-			& .nav-text {
-					display: flex;
-				}
-			span.icon {
-					display: flex;
-				}
-
-			}
-		}
-
-		.nav-button.toggle {
-			display: none;
-		}
-		
-
-		.profile-overlay {
-			margin-left: 0;
-			left: 0;
-			height: auto;
-			margin-top: 5rem;
-		}
-		
-		.sidenav {
-			display: flex;
-			justify-content: left;
-			// backdrop-filter: blur(30px);
-			height: 50px !important;
-			flex-direction: row;
-			height: auto;
-			width: auto;
-			bottom: 0;
-			gap: 10px;
-			left: 0;
-			top: auto;
-			bottom: 0;
-			padding: 1rem;
-			z-index: 10;
-			border-radius: 0 1rem 1rem 0;
-			transition: all 0.3s ease-in;
-		}
-
-		.navigation-buttons {
-			flex-direction: row;
-			margin-bottom: 0;
-			width: auto;
-			right: 0;
-			left: 0;
-			align-items: center;
-			justify-content: space-around;
-		}
-
-		.bottom-buttons {
-			flex-direction: row;
-			margin: 0;
-			left: auto;
-			width: 7rem;
-			gap: 2rem;
-			height: 97vh;
-		}
-
-		.top-buttons {
-			flex-direction: row;
-			margin: 0;
-			gap: 8px;
-		}
-
-		.nav-button,
-		.thread-toggle,
-		.avatar-container {
-			width: 40px;
-			height: 40px;
-			padding: 0.3rem;
-			border-radius: 50% !important;
-		}
-
-		.nav-button:hover,
-		.thread-toggle:hover {
-			transform: scale(1.1);
-		}
-
-		.nav-button.toggle {
-			display: none;
-		}
-
+	main {
 
 	}
 
+	.nav-links {
+		max-width: 800px !important;
+		margin: 0;
+	}
+
+	.nav-link {
+		font-size: 1rem;
+		padding: 0 !important;
+		margin: 0 !important;
+		width: auto;
+		&.home {
+			width: 2rem !important;
+			flex: none;
+			& h2 {
+				display: none;
+			}
+		}
+
+	}
+		h1 {
+			display: none;
+		}
+
+		.profile-content {
+		position: relative;
+		width: 100%;
+		top: 1rem;
+		bottom: auto;
+		padding: 0;
+		margin: 0;
+		/* right: 0; */
+		/* background-color: #2b2a2a; */
+		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+		border-radius: 2rem;
+		/* max-width: 500px; */
+		/* max-height: 90vh; */
+		overflow: none;
+		transition: all 0.3s ease;
+		backdrop-filter: blur(30px);
+		border: 1px solid var(--secondary-color);
+	}
+
+		.nav-button.drawer {
+			left: 1rem;
+			bottom: 1rem;
+			padding: 0;
+			height: 2rem !important;
+			width: 2rem !important;
+			color: var(--placeholder-color);
+			border: 1px solid transparent !important;
+		}
+		.nav-button.info {
+			display: flex !important;
+			position: fixed !important;
+			top: 0;
+			right: 0;
+
+			
+			// display: none !important;
+			&:hover {
+				width: 20rem !important;
+				border-radius: 2rem;
+				padding: 0;
+
+				& .nav-button {
+				display: flex;
+			}
+			}
+			&:first-child {
+			display: flex;
+			}
+			& .nav-button {
+				display: none;
+				&:first-child {
+				display: flex;
+				}
+			}
+		}
+		.nav-button.info.user {
+			display: flex !important;
+			position: fixed !important;
+			top: 0;
+			right: 4rem;
+			z-index: -1;
+
+			& img.user-avatar {
+					width: 2rem !important;
+					height: 2rem !important;
+					padding: 0;
+
+				}
+			&:hover {
+				// width: 6rem !important;
+				// height: 6rem !important;
+				justify-content: center;
+				width: 4rem !important;
+				padding: 0;
+
+				& img.user-avatar {
+					width: 4rem !important;
+					height: 4rem !important;
+					padding: 0;
+
+				}
+
+			}
+		}
+
+
+		.project {
+			position: absolute;
+			left: 0;
+			right: 4rem;
+		}
+
+		.logo-container   {
+			width: 50%;
+			margin-left: 50%;
+			align-items: center;
+			justify-content: center;
+			background: red;
+		}
+
+		header {
+			// justify-content: center;
+		}
+
+		.header-logo {
+			display: flex;
+		}
+
+		.menu-button {
+			position: absolute;
+			right: 2rem;
+		}
+
+		main {
+		}
+
+		nav {
+			justify-content: flex-end;
+			width: calc(100% - 8rem);
+			margin-left: 8rem;
+		}
+
+		footer {
+			color: white;
+			text-align: center;
+			width: 100%;
+			padding: 1rem 0;
+		}
+
+		.project {
+		margin-left: 0;
+	}
+	.nav-button.info {
+		display: flex;
+		flex-direction: row-reverse;
+		justify-content: center;
+		border-radius: 1rem !important;
+		animation: none !important;
+		&.user {
+			position: relative;
+			bottom: auto;
+		}
+		span.icon {
+			display: none;
+			padding: 1rem;
+			border-radius: 50%;
+			&:hover {
+				background: red;
+				padding: 1rem;
+			}
+		}
+		h2 {
+			display: none;
+		}
+
+		a {
+			display: none;
+		}
+		& .nav-text {
+			display: none;
+		}
+
+		&:hover {
+			justify-content: space-around;
+			background: var(--primary-color);
+			opacity: 1;
+
+			border-radius: 2rem;
+			padding: 0;
+
+			& .nav-text {
+				display: none;
+			}
+			& h2 {
+				display: none;
+			}
+			& a {
+				display: flex;
+			}
+			span.icon {
+				display: none;
+			}
+		}
+		&.expanded {
+			display: none;
+		width: 350px;
+		justify-content: space-around;
+		h2 {
+			display: flex;
+		}
+		a {
+			display: flex;
+		}
+		& .nav-text {
+				display: flex;
+			}
+		span.icon {
+				display: flex;
+			}
+
+		}
+	}
+
+	.nav-button.toggle {
+		display: none;
+	}
+	
+
+	.profile-overlay {
+		margin-left: 0;
+		left: 0;
+		height: auto;
+		margin-top: 5rem;
+	}
+	
+	.sidenav {
+		display: flex;
+		justify-content: left;
+		// backdrop-filter: blur(30px);
+		height: 50px !important;
+		flex-direction: row;
+		height: auto;
+		width: auto;
+		bottom: 0;
+		gap: 10px;
+		left: 0;
+		top: auto;
+		bottom: 0;
+		padding: 1rem;
+		z-index: 10;
+		border-radius: 0 1rem 1rem 0;
+		transition: all 0.3s ease-in;
+	}
+
+	.navigation-buttons {
+		flex-direction: row;
+		margin-bottom: 0;
+		width: auto;
+		right: 0;
+		left: 0;
+		align-items: center;
+		justify-content: space-around;
+	}
+
+	.bottom-buttons {
+		flex-direction: row;
+		margin: 0;
+		left: auto;
+		width: 7rem;
+		gap: 2rem;
+		height: 97vh;
+	}
+
+	.top-buttons {
+		flex-direction: row;
+		margin: 0;
+		gap: 8px;
+	}
+
+	.nav-button,
+	.thread-toggle,
+	.avatar-container {
+		width: 40px;
+		height: 40px;
+		padding: 0.3rem;
+		border-radius: 50% !important;
+	}
+
+	.nav-button:hover,
+	.thread-toggle:hover {
+		transform: scale(1.1);
+	}
+
+	.nav-button.toggle {
+		display: none;
+	}
+
+
+	}
+	@media (max-width: 767px) {
+		nav {
+			justify-content: flex-end;
+			width: calc(100% - 4rem);
+			margin-left: 3rem;
+		}
+		.nav-links {
+			max-width: auto !important;
+			margin: 0;
+			gap: 0;
+			justify-content: space-around;
+		}
+
+		.nav-link {
+			font-size: 0.8rem;
+			padding: 0 !important;
+			margin: 0 !important;
+			flex: 0;
+			width: auto;
+			& span {
+				display: none;
+			}
+			&.home {
+				width: 2rem !important;
+				flex: none;
+				& h2 {
+					display: none;
+				}
+			}
+		}
+		.modal-overlay {
+			width: 100%;
+		}
+
+		
+
+		.project {
+		margin-left: 0;
+	}
+	.logo-container a {
+			display: none;
+		}
+	}
 	@media (max-width: 450px) {
+		main {
+			background: var(--bg-gradient-r);
+			color: var(--text-color);
+			width: 100%;
+			height: 100%;
+			height: auto;
+			left: 0;
+			bottom: 0;
+			position: fixed;
+			overflow: auto;
+			display: flex;
+			flex-grow: 1;
+			height: -webkit-fill-available; 
+
+		}		
 		.sidenav {
 			display: flex;
 			// backdrop-filter: blur(30px);

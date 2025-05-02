@@ -1,68 +1,84 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import Kanban from '$lib/components/lean/Kanban.svelte';
-	import { Calendar, KanbanIcon, KanbanSquareDashed, KanbanSquareIcon, Lightbulb, MapIcon, MapPinCheck, MapPinned, Minimize, UserRoundSearch } from 'lucide-svelte';
-    import { writable } from 'svelte/store';
-    import {slide, fly, fade } from 'svelte/transition'
-	import { quintOut } from 'svelte/easing';
-    import {  } from '$lib/pocketbase';
-	import { currentUser } from '$lib/pocketbase';
-    import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
-    import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+  import { onMount } from 'svelte';
+  import Kanban from '$lib/components/lean/Kanban.svelte';
+  import { Calendar, KanbanSquareIcon } from 'lucide-svelte';
+  import { writable } from 'svelte/store';
+  import { slide, fly, fade } from 'svelte/transition';
+  import { quintOut } from 'svelte/easing';
+  import { currentUser } from '$lib/pocketbase';
+  import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
+  import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 
-	let showFade = false;
-	let showH2 = false;
-    const activeTab = writable('kanban');
-
-	$: user = $currentUser;
-
-    onMount(() => {
-		user = $currentUser;
-		setTimeout(() => (showFade = true), 50);
-		setTimeout(() => (showH2 = true), 50);
-	});
-  </script>
-    <img src={Headmaster} alt="Notes illustration" class="illustration" />
-
-  <main in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
+  let showPage = false;
+  const activeTab = writable('kanban');
   
-    <!-- Tab Navigation -->
-    <div class="tabs" transition:slide={{ duration: 300, easing: quintOut }}>
-        <button
-            class:active={$activeTab === 'task-calendar'}
-            on:click={() => activeTab.set('task-calendar')}
-            in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}
+  // Store for tracking which tab is transitioning
+  const tabTransition = writable(null);
 
-            >
-            <Calendar/>
-            Calendar
-        </button>
-        <button
-            class:active={$activeTab === 'kanban'}
-            on:click={() => activeTab.set('kanban')}
-        >
-        <KanbanSquareIcon/>
-            Kanban Board
-        </button>
+  $: user = $currentUser;
 
-    </div>
+  onMount(() => {
+      user = $currentUser;
+      // Short delay to ensure DOM is ready
+      setTimeout(() => {
+          showPage = true;
+      }, 50);
+  });
   
-    <!-- Tab Panels -->
-    <div class="tab-panels">
-      {#if $activeTab === 'kanban'}
-        <div class="tab-panel">
-          <Kanban />
-        </div>
-      {/if}
-      {#if $activeTab === 'task-calendar'}
-      <div class="tab-panel">
-        <TaskCalendar />
+  // Function to handle tab switching with transitions
+  function switchTab(tabName) {
+      // Set the transitioning tab
+      tabTransition.set(tabName);
+      
+      // After a short delay for the out transition, change the active tab
+      setTimeout(() => {
+          activeTab.set(tabName);
+      }, 300);
+  }
+</script>
+
+{#if showPage}
+<div in:fade={{ duration: 800 }}>
+  <img src={Headmaster} alt="Notes illustration" class="illustration" in:fade={{ duration: 1000, delay: 200 }} />
+
+  <main in:fade={{ duration: 600, delay: 400 }}>
+      <!-- Tab Navigation -->
+      <div class="tabs" in:slide={{ duration: 400, delay: 600, easing: quintOut }}>
+          <button
+              class:active={$activeTab === 'task-calendar'}
+              on:click={() => switchTab('task-calendar')}
+              in:fade={{ duration: 400, delay: 800 }}
+          >
+              <Calendar/>
+              Calendar
+          </button>
+          <button
+              class:active={$activeTab === 'kanban'}
+              on:click={() => switchTab('kanban')}
+              in:fade={{ duration: 400, delay: 850 }}
+          >
+              <KanbanSquareIcon/>
+              Kanban Board
+          </button>
       </div>
-    {/if}
-
-
-    </div>
+    
+      <!-- Tab Panels -->
+      <div class="tab-panels">
+          {#if $activeTab === 'kanban'}
+              <div class="tab-panel" in:fade={{ duration: 400 }}>
+                  <Kanban />
+              </div>
+          {/if}
+          
+          {#if $activeTab === 'task-calendar'}
+              <div class="tab-panel" in:fade={{ duration: 400 }}>
+                  <TaskCalendar />
+              </div>
+          {/if}
+      </div>
   </main>
+</div>
+{/if}
   
 <style lang="scss">
 
@@ -92,6 +108,7 @@
       margin-bottom: 0;
       width: 100%;
       user-select: none;
+      justify-content: center;
     }
   
     .tabs button {
@@ -99,12 +116,12 @@
       border: none;
       background: none;
       cursor: pointer;
-      font-size: 1rem;
+      font-size: 1.3rem;
       color: #666;
       transition: color 0.3s, border-bottom 0.3s;
       display: flex;
       justify-content: center;
-      width: 170px;
+      width: auto;
       align-items: center;
       gap: 0.5rem;
       transition: all ease-in-out 0.3s;
