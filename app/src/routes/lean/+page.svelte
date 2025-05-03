@@ -195,9 +195,10 @@
 		margin-left: 0 !important;
     margin-top: 1rem;
 		width: calc(100% - 2rem);
-		height: 100vh;
+		height: auto;
 		display: flex;
 		flex-direction: column;
+    overflow-y: none;
 	}
 }
   </style>

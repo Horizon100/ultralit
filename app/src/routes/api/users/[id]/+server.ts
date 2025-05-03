@@ -1,37 +1,28 @@
-// src/routes/api/users/[id]/avatar/+server.ts
+// src/routes/api/users/[id]/+server.ts
 import { pb } from '$lib/server/pocketbase';
-import { error } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 
 export async function GET({ params, locals }) {
     const userId = params.id;
     
-    
     try {
         // Fetch the user
-        const user = await pb.collection('users').getOne(userId);
+        const user = await pb.collection('users').getOne(userId, {
+            fields: 'id,name,username,email'
+        });
         
-        if (!user || !user.avatar) {
-            // Return a default avatar if no avatar exists
-            return new Response(null, {
-                status: 302,
-                headers: {
-                    Location: '/images/default-avatar.png' // Path to your default avatar
-                }
-            });
+        if (!user) {
+            throw error(404, 'User not found');
         }
         
-        // Get the avatar file URL
-        const avatarUrl = pb.files.getUrl(user, user.avatar);
-        
-        // For better performance, redirect to the actual file URL
-        return new Response(null, {
-            status: 302,
-            headers: {
-                Location: avatarUrl
-            }
+        return json({
+            id: user.id,
+            name: user.name || '',
+            username: user.username || '',
+            email: user.email || ''
         });
     } catch (err) {
-        console.error('Error fetching user avatar:', err);
-        throw error(404, 'User avatar not found');
+        console.error('Error fetching user data:', err);
+        throw error(404, 'User not found');
     }
 }

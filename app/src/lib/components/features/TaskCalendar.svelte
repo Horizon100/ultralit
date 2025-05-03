@@ -1558,7 +1558,8 @@ h2 {
     cursor: pointer;
     margin: 0; 
     box-sizing: border-box; 
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .calendar-day:hover {

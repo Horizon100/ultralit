@@ -808,17 +808,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
   }
 
-  .project-sidenav {
-    height: 80vh;
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-width: 1200px;
-    width: 100%;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-color) transparent;
 
-    
-  }
   .icon {
     display: flex;
     align-items: center;
@@ -1216,6 +1206,17 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
 
   }
+  .project-sidenav {
+      display: flex;
+      flex-direction: column;
+        height: 80vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        max-width: 600px !important;
+        width: 100%;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-color) transparent;
+      }
   .project-description-container {
     display: flex;
     flex-direction: column;
@@ -1231,17 +1232,24 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     overflow-x: hidden;   
     border-radius: 2rem;
     transition: all 0.3s ease;
+
     &.expanded {
-      position: absolute;
-      width: 100vh;
+      width: 100vw;
 
       & .project-description {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         border: 1px solid var(--line-color);
         background: var(--primary-color);
         border-radius: 2rem;
 
       }
+      & .project-sidenav {
+        width: 100%;
+        height: 100%;
+        overflow-y: scroll;
+        background-color: red !important;
+      }
+
       position: relative;
     }
     &:hover {
@@ -1251,7 +1259,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     }
   }
   .project-description {
-    font-size: calc(1.2rem - 0.2vmin);
+    font-size: 0.9rem;
     letter-spacing: 0.1rem;
     text-justify: justify;
     text-align: justify;
@@ -1263,7 +1271,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    padding: 1rem;
+    padding: 2rem;
     color: var(--text-color);
     transition: all 0.3s ease;
     white-space: pre-line;
@@ -1523,12 +1531,6 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       margin-top: 0;
     }
 
-    .project-sidenav {
-      width: 100%;
-      height: 100%;
-      overflow-y: scroll;
-
-    }
 
     .project-description-container {
     display: flex;
@@ -1547,6 +1549,8 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     border-radius: 2rem;
     transition: all 0.3s ease;
     background: var(--bg-gradient-r);
+
+
     &.expanded {
       max-height: 60vh !important;
       & .project-description {
@@ -1554,6 +1558,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         margin-top: 0;
         border: 1px solid var(--line-color);
       }
+
       max-height: auto; 
       height: 100%;
       position: relative;

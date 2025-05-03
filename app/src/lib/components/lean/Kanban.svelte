@@ -1,25 +1,33 @@
 <script lang="ts">
     import { writable, get } from 'svelte/store';
+    import { slide } from 'svelte/transition';
     import { currentUser } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { CalendarClock, Trash2 } from 'lucide-svelte';
+	import { CalendarClock, ChevronLeft, ChevronRight, FolderGit, GitFork, LayoutList, ListCollapse, Trash2 } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
-    // Get current project ID from project store if available
-    let currentProjectId = null;
+    import { t } from '$lib/stores/translationStore';
+
+    let currentProjectId: string | null = null;
     projectStore.subscribe(state => {
         currentProjectId = state.currentProjectId;
     });
     let isDeleteConfirmOpen = false;
     let taskToDelete: string | null = null;
-    function getRandomBrightColor(tagName: string): string {
-        const hash = tagName.split('').reduce((acc, char) => {
-            return char.charCodeAt(0) + ((acc << 5) - acc);
-        }, 0);
-        const h = hash % 360;
-        return `hsl(${h}, 70%, 60%)`;
+    let showSubtasks = false;
+    let taskTransition = false;
+    let hoveredButton: 'all' | 'parents' | 'subtasks' | null = null;
+
+
+    enum TaskViewMode {
+        All = 'all',
+        OnlySubtasks = 'subtasks',
+        OnlyParentTasks = 'parents'
     }
+    let taskViewMode = TaskViewMode.All;
+    let allTasksBackup: KanbanTask[] = [];
+
 
     interface Column {
         id: number;
@@ -28,8 +36,8 @@
         tasks: KanbanTask[];
         isOpen: boolean;
     }
+    const userNameCache = new Map<string, string>();
 
-    // Map column status to PocketBase status
     const statusMapping = {
         'Backlog': 'backlog',
         'To Do': 'todo',
@@ -37,7 +45,6 @@
         'Done': 'done'
     };
 
-    // Reverse mapping for loading tasks from PocketBase
     const reverseStatusMapping = {
         'backlog': ['Backlog'],
         'todo': ['To Do'],
@@ -68,6 +75,37 @@
     let isLoading = writable(true);
     let error = writable<string | null>(null);
 
+    function getRandomBrightColor(tagName: string): string {
+        const hash = tagName.split('').reduce((acc, char) => {
+            return char.charCodeAt(0) + ((acc << 5) - acc);
+        }, 0);
+        const h = hash % 360;
+        return `hsl(${h}, 70%, 60%)`;
+    }
+    async function getUserName(userId: string | undefined): Promise<string> {
+        if (!userId) return "Unknown";
+        
+        // Check if we already have this username in cache
+        if (userNameCache.has(userId)) {
+            return userNameCache.get(userId) || "Unknown";
+        }
+        
+        try {
+            const response = await fetch(`/api/users/${userId}`);
+            if (!response.ok) throw new Error('Failed to fetch user');
+            
+            const userData = await response.json();
+            const userName = userData.name || userData.username || userData.email || "Unknown";
+            
+            // Cache the result for future use
+            userNameCache.set(userId, userName);
+            
+            return userName;
+        } catch (err) {
+            console.error('Error fetching user data:', err);
+            return "Unknown";
+        }
+    }
     // Load data from PocketBase
     async function loadData() {
         isLoading.set(true);
@@ -105,6 +143,9 @@
             return cols.map(col => ({...col, tasks: []}));
         });
         
+        // Store all tasks for filtering purposes
+        allTasksBackup = [];
+        
         // Distribute tasks to appropriate columns
         columns.update(cols => {
             data.items.forEach(task => {
@@ -118,6 +159,7 @@
                     attachments: [],
                     project_id: task.project_id,
                     createdBy: task.createdBy,
+                    parent_task: task.parent_task || undefined,
                     allocatedAgents: task.allocatedAgents || [],
                     status: task.status,
                     priority: task.priority || 'medium',
@@ -127,6 +169,9 @@
                     dependencies: task.dependencies || [],
                     agentMessages: task.agentMessages || []
                 };
+                
+                // Add to our backup of all tasks
+                allTasksBackup.push(taskObj);
                 
                 // Find the appropriate column based on status
                 const targetColumns = reverseStatusMapping[task.status] || ['Backlog'];
@@ -142,48 +187,19 @@
             });
             return cols;
         });
-            
-            // Load attachments for each task
-            data.items.forEach(async task => {
-                if (task.attachments) {
-                    try {
-                        // Fetch attachments for this task
-                        const response = await fetch(`/api/tasks/${task.id}/attachments`);
-                        if (!response.ok) throw new Error('Failed to fetch attachments');
-                        
-                        const attachments = await response.json();
-                        
-                        if (attachments.items && attachments.items.length > 0) {
-                            const mappedAttachments: KanbanAttachment[] = attachments.items.map(att => ({
-                                id: att.id,
-                                fileName: att.fileName,
-                                url: att.url || '',
-                                note: att.note
-                            }));
-                            
-                            columns.update(cols => {
-                                // Find and update the task with attachments
-                                cols.forEach(col => {
-                                    col.tasks.forEach(t => {
-                                        if (t.id === task.id) {
-                                            t.attachments = mappedAttachments;
-                                        }
-                                    });
-                                });
-                                return cols;
-                            });
-                        }
-                    } catch (err) {
-                        console.error(`Error loading attachments for task ${task.id}:`, err);
-                    }
-                }
-            });
-            
-        } catch (err) {
-            console.error('Error loading tasks:', err);
-            throw err;
+        
+        // Initial application of task view filtering
+        if (taskViewMode !== TaskViewMode.All) {
+            applyTaskViewFilter();
         }
+        
+        // Rest of your loadTasks function...
+    } catch (err) {
+        console.error('Error loading tasks:', err);
+        throw err;
     }
+}
+
 
     async function loadTags() {
         try {
@@ -343,6 +359,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
             taskDescription: task.taskDescription,
             project_id: currentProjectId || '',
             createdBy: get(currentUser)?.id,
+            parent_task: task.parent_task || '',
             status: taskStatus,
             priority: task.priority || 'medium',
             due_date: task.due_date ? task.due_date.toISOString() : null,
@@ -432,6 +449,40 @@ function confirmDelete() {
 function cancelDelete() {
     isDeleteConfirmOpen = false;
     taskToDelete = null;
+}
+function applyTaskViewFilter() {
+    columns.update(cols => {
+        return cols.map(col => {
+            // Start with all tasks
+            const tasksForColumn = allTasksBackup.filter(task => {
+                // Only include tasks that belong in this column
+                const belongsInColumn = col.status === statusMapping[task.status] || 
+                                       (reverseStatusMapping[task.status] && 
+                                        reverseStatusMapping[task.status].includes(col.title));
+                
+                if (!belongsInColumn) return false;
+                
+                // Apply view mode filter
+                switch (taskViewMode) {
+                    case TaskViewMode.All:
+                        return true;
+                    case TaskViewMode.OnlySubtasks:
+                        return !!task.parent_task; // Only show tasks with a parent
+                    case TaskViewMode.OnlyParentTasks:
+                        // Show tasks that have children (are parent tasks)
+                        return allTasksBackup.some(t => t.parent_task === task.id);
+                    default:
+                        return true;
+                }
+            });
+            
+            return { ...col, tasks: tasksForColumn };
+        });
+    });
+}
+function toggleTaskView(mode: TaskViewMode) {
+    taskViewMode = mode;
+    applyTaskViewFilter();
 }
 
 async function deleteTask(taskId: string) {
@@ -644,11 +695,12 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
 
     function saveAndCloseModal() {
     if (selectedTask) {
-        // Check if the task still exists in any column
+        const taskToSave = { ...selectedTask };
+
         let taskExists = false;
         columns.update(cols => {
             for (const col of cols) {
-                if (col.tasks.some(t => t.id === selectedTask.id)) {
+                if (col.tasks.some(t => t.id === taskToSave.id)) {
                     taskExists = true;
                     break;
                 }
@@ -657,7 +709,6 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         });
         
         if (!taskExists) {
-            // Task doesn't exist anymore, just close the modal
             selectedTask = null;
             isModalOpen = false;
             return;
@@ -669,7 +720,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                 return cols.map(col => ({
                     ...col,
                     tasks: col.tasks.map(task => 
-                        task.id === selectedTask!.id ? {...selectedTask!} : task
+                        task.id === taskToSave.id ? {...taskToSave} : task
                     )
                 }));
             });
@@ -678,6 +729,8 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         }).catch(err => {
             error.set(`Failed to save task: ${err.message}`);
         });
+    } else {
+        isModalOpen = false;
     }
 }
 
@@ -837,6 +890,76 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             selectedTask = { ...selectedTask };  // Trigger reactivity
         }
     }
+ // Update these helper functions to check allTasksBackup instead of just visible tasks
+function hasSubtasks(taskId: string): boolean {
+  if (!taskId) return false;
+  
+  // Check in the complete tasks backup, not just currently visible tasks
+  return allTasksBackup.some(task => task.parent_task === taskId);
+}
+
+function countSubtasks(taskId: string): number {
+  if (!taskId) return 0;
+  
+  // Count in the complete tasks backup
+  return allTasksBackup.filter(task => task.parent_task === taskId).length;
+}
+
+function getSubtasks(taskId: string): KanbanTask[] {
+  if (!taskId) return [];
+  
+  // Get from the complete tasks backup
+  return allTasksBackup.filter(task => task.parent_task === taskId);
+}
+
+// Reactive statement to maintain a map of parent task titles
+$: parentTaskNames = (() => {
+  const map = new Map<string, string>();
+  allTasksBackup.forEach(task => {
+    map.set(task.id, task.title);
+  });
+  return map;
+})();
+
+function getParentTaskTitle(parentId: string | undefined): string {
+  if (!parentId) return "Unknown";
+  return parentTaskNames.get(parentId) || "Unknown";
+}
+
+function navigateToParentTask(parentId: string, event: MouseEvent) {
+    if (!parentId) return;
+    
+    event.stopPropagation();
+    
+    // Find the parent task
+    let parentTask: KanbanTask | null = null;
+    $columns.forEach(col => {
+        col.tasks.forEach(task => {
+            if (task.id === parentId) {
+                parentTask = task;
+            }
+        });
+    });
+    
+    if (parentTask) {
+        // Add a visual transition effect
+        taskTransition = true;
+        
+        // Update the task with a small delay for visual feedback
+        setTimeout(() => {
+            selectedTask = deepCopy(parentTask);
+            isEditingTitle = false;
+            isEditingDescription = false;
+            showSubtasks = false;
+            selectedDeadline = null;
+            
+            // Reset the transition flag after a moment
+            setTimeout(() => {
+                taskTransition = false;
+            }, 300);
+        }, 50);
+    }
+}
 
     // Load initial data when component mounts
     $: {
@@ -863,15 +986,6 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
 {:else}
 <div class="kanban-container" transition:fade={{ duration: 150 }}
 >
-
-    <div class="global-input-container">
-        <textarea 
-            placeholder="Add a task and press Enter (will be added to Backlog)"
-            on:keydown={(e) => addGlobalTask(e)}
-            class="global-task-input"
-        ></textarea>
-    </div>
-
     <div class="kanban-board">
         {#each $columns as column}
             <div class="kanban-column" on:dragover={handleDragOver} on:drop={(e) => handleDrop(e, column.id)}>
@@ -888,8 +1002,19 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                                 on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
                                 on:click={(e) => openModal(task, e)}
                             >
+                            {#if hasSubtasks(task.id)}
+                                <div class="task-badge subtasks">
+                                    {countSubtasks(task.id)} subtasks
+                                </div>
+                            {/if}
+                        
+                            {#if task.parent_task}
+                                <div class="task-badge ">
+                                    {getParentTaskTitle(task.parent_task)}
+                                </div>
+                            {/if}
                                 <h4>{task.title}</h4>
-
+                                
                                 <p class="description">{task.taskDescription}</p>
 
 
@@ -903,22 +1028,31 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                                 {#if task.createdBy}
                                 <p class="task-creator">
 
-                                    <img 
+                                    <span>
+                                        <img 
                                         src={`/api/users/${task.createdBy}/avatar`} 
                                         alt="Avatar" 
                                         class="user-avatar"
                                         onerror="this.style.display='none'"
                                     />
+                                        <span class="username">
+                                            {#await getUserName(task.createdBy) then username}
+                                                {username}
+                                            {/await}
+                                        </span>
+                                    </span>
                                     {#if task.due_date}
                                     <p class="deadline"> by {task.due_date.toLocaleDateString()}</p>
                                     {/if}
                                 </p>
+                                
                                 {/if}
                                 {#if task.attachments && task.attachments.length > 0}
                                     <div class="attachment-indicator">
                                         📎 {task.attachments.length}
                                     </div>
                                 {/if}
+
                             </div>
                         {/each}
                     </div>
@@ -926,26 +1060,111 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             </div>
         {/each}
     </div>
+    <div class="global-input-container">
+        <div class="view-controls">
+            <div class="tooltip-container">
+                <span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
+                    Show all tasks
+                </span>
+                <span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
+                    Show parent tasks only
+                </span>
+                <span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
+                    Show subtasks only
+                </span>
+            </div>
+            
+            <button 
+                class:active={taskViewMode === TaskViewMode.All} 
+                on:click={() => toggleTaskView(TaskViewMode.All)}
+                on:mouseenter={() => hoveredButton = 'all'}
+                on:mouseleave={() => hoveredButton = null}
+            >
+                <ListCollapse/>
+            </button>
+            <button 
+                class:active={taskViewMode === TaskViewMode.OnlyParentTasks} 
+                on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
+                on:mouseenter={() => hoveredButton = 'parents'}
+                on:mouseleave={() => hoveredButton = null}
+            >
+                <FolderGit/>
+            </button>
+            <button 
+                class:active={taskViewMode === TaskViewMode.OnlySubtasks} 
+                on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
+                on:mouseenter={() => hoveredButton = 'subtasks'}
+                on:mouseleave={() => hoveredButton = null}
+            >
+                <GitFork/>
+            </button>
+        </div>
+        <textarea 
+            placeholder="Add a task"
+            on:keydown={(e) => addGlobalTask(e)}
+            class="global-task-input"
+        ></textarea>
+    </div>
+
 </div>
 {/if} 
 {#if isModalOpen && selectedTask}
     <div class="modal-overlay" on:click={saveAndCloseModal}>
-        <div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 150 }}
+        <div class="modal-content"     
+            class:task-changing={taskTransition}
+            on:click|stopPropagation 
+            transition:fade={{ duration: 150 }}
         >
-            {#if isEditingTitle}
-                <textarea
-                    type="text"
-                    bind:value={selectedTask.title}
-                    on:blur={() => isEditingTitle = false}
-                    on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
-                    autoFocus
-                    class="title-input"
-                />
-            {:else}
-                <h1 on:click={() => isEditingTitle = true}>
-                    {selectedTask.title}
-                </h1>
+            {#if selectedTask && selectedTask.parent_task}
+                <div class="parent-task-section">
+                    <button 
+                        class="tasknav-btn" 
+                        on:click={(e) => navigateToParentTask(selectedTask.parent_task || '', e)}
+                    >
+                        <ChevronLeft size="16"/>
+                    </button>
+                    <p>{getParentTaskTitle(selectedTask.parent_task)}</p>
+                </div>
             {/if}
+            <div class="title-section">
+                <p>Title:</p>
+                {#if isEditingTitle}
+                    <textarea
+                        type="text"
+                        bind:value={selectedTask.title}
+                        on:blur={() => isEditingTitle = false}
+                        on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
+                        autoFocus
+                        class="title-input"
+                    />
+                {:else}
+                    <h1 on:click={() => isEditingTitle = true}>
+                        {selectedTask.title}
+                    </h1>
+                {/if}
+            </div>
+            {#if hasSubtasks(selectedTask.id)}
+            <div class="subtasks-section" on:click={() => showSubtasks = !showSubtasks}>
+                <div class="section-header">
+                    <p>Subtasks ({countSubtasks(selectedTask.id)})</p>
+                    <!-- <button class="toggle-btn" on:click={() => showSubtasks = !showSubtasks}>
+                        {showSubtasks ? 'Hide' : 'Show'}
+                    </button> -->
+                </div>
+                
+                {#if showSubtasks}
+                    <div class="subtasks-list" transition:slide={{ duration: 150 }}>
+                        {#each getSubtasks(selectedTask.id) as subtask}
+                            <div class="subtask-item" on:click={(e) => openModal(subtask, e)}>
+                                <div class="subtask-title">{subtask.title}</div>
+                                <div class="subtask-status">{subtask.status}</div>
+                                    <ChevronRight size="16"/>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/if}
             <div class="description-section">
                 <p>Description:</p>
                 {#if isEditingDescription}
@@ -1018,15 +1237,16 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                     {/each}
                 </div>
             </div>
-            <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
-            <div class="button-group">
-                <button class="done-button" on:click={saveAndCloseModal}>Done</button>
-                <button class="delete-task-btn" on:click={(e) => openDeleteConfirm(selectedTask.id, e)}>
-                    <Trash2 /> 
-                    <span>Delete</span>
-                </button>
+            <div class="submit-section">
+                <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
+                <div class="button-group">
+                    <button class="done-button" on:click={saveAndCloseModal}>Done</button>
+                    <button class="delete-task-btn" on:click={(e) => openDeleteConfirm(selectedTask.id, e)}>
+                        <Trash2 /> 
+                        <span>Delete</span>
+                    </button>
+                </div>    
             </div>
-
         </div>
     </div>
 {/if}
@@ -1057,8 +1277,8 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
       font-family: var(--font-family);
     }
     p {
-        font-size: 1.4rem;
-        padding: 1rem 0;
+        font-size: 1.1rem;
+        // padding: 1rem 0;
         margin: 0;
         line-height: 1.5;
         color: var(--text-color);
@@ -1072,11 +1292,14 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             color: var(--placeholder-color);
             letter-spacing: 0;
             font-weight: 100;
-            font-size:1rem;
-            line-height: 1.5;
-            max-height: 3rem;
+            font-size:0.8rem;
+            line-height: 1.25;
+            max-height: 1rem;
             overflow: hidden;
             text-align: left;
+            margin-bottom: 0.5rem;
+            padding: 0 0.5rem;
+
         }
     }
     .button-group {
@@ -1084,32 +1307,51 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         align-items: center;
         justify-content: space-between;
         margin-top: 1rem;
+        width: 100%;
         gap: 1rem;
     }
  
     .global-input-container {
         width: 100%;
+        padding: 0;
+        margin: 0;
+        margin-top: 1rem;
+        gap: 1rem;
         // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         display: flex;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
+        height: auto;
+        width: 100%;
+        transition: all 1s ease;
         & textarea {
+            display: flex;
+            justify-content: center;
+            align-items: center;
             text-align: center;
-            height: 1.5rem;
+            height: auto;
+            padding: 0;
+            margin: 0;
+            line-height: 3rem;
             font-size: 1rem;
+            width: 100%;
             overflow-y: hidden;
         }
+
     }
     
+
     .global-task-input {
-        width: calc(100% - 2rem);
-        height: auto;
+        width: calc(100% - 4rem);
+        height: 3rem !important;
         display: flex;
         justify-content: center;
         align-items: center;
         border-radius: 2rem;
-        padding: 10px;
-        font-size: 1.4rem;
+        font-size: 1.2rem;
+        background: var(--secondary-color);
+        textarea {
+        }
     }
     
     .global-task-input:focus {
@@ -1126,7 +1368,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
-        height: 100vh;
+        height: 82vh;
         width: calc(100% - 3rem);
         padding: 1rem;
         transition: all 0.3s ease;
@@ -1205,15 +1447,86 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         justify-content: center;
         align-items: center;
 
+
+
+    }
+
+    .title-section {
+        textarea.title-input {
+            background: var(--primary-color);
+            width: auto;
+            height: 100px;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            border: 1px solid var(--line-color);
+            border-radius: 1rem;
+            color: var(--tertiary-color);
+            text-align: left;
+            line-height: 2;
+            margin: 0;
+        }
+    }
+
+    .submit-section {
+        p {
+            text-align: right;
+            font-weight: 100;
+            font-size: 0.8rem;
+        }
+    }
+
+    .parent-task-section {
+        flex-direction: row !important;
+        // border-bottom: 1px solid var(--line-color);
+        padding: 1rem;
+        gap: 1rem;
+        p {
+            font-size: 1.3rem;
+        }
+    }
+    .title-section,
+    .deadline-section,
+    .attachment-section,
+    .tag-section,
+    .submit-section,
+    .subtasks-section,
+    .parent-task-section,
+    .description-section {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+        max-width: 450px;
+        width: 100%;
+        transition: all 0.2s ease;
+        & textarea {
+            background: var(--primary-color);
+            height: 300px;
+            width: auto;
+
+        }
+        & p {
+            margin: 0;
+            margin-bottom: 0.5rem;
+            padding: 0;
+            letter-spacing: 0.1rem;
+        }
     }
     .description-display {
-        font-size: 1.5rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+        height: 80px;
+        font-size: 1.1rem;
+        border: 1px solid var(--line-color);
+        border-radius: 1rem;
         padding: 1rem;
+
     }
     .task-card {
         background: var(--secondary-color);
         border-radius: 10px;
-        padding: 0.5rem 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -1237,36 +1550,31 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         transform: rotate(-3deg);
     }
 
-    h1 {
-        font-size: 1.8em;
-        color: var(--tertiary-color);
-        text-align: left;
-        border-bottom: 1px solid var(--line-color);
-    line-height: 2;
-    margin: 0;
-    }
+
     h4 {
-        font-size: 1rem;
+        font-size: 0.9rem;
+        padding: 0 0.5rem;
         margin: 0;
         margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
     }
 
     .tag-list {
         display: flex;
         flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 5px;
+        gap: 0.5rem;
+        padding: 0 0.5rem;
+        margin-bottom: 0.5rem;
     }
 
     .tag {
         color: var(--text-color);
         // opacity: 0.5;
         border: none;
-        padding: 0 0.5rem;
+        padding: 0.25rem;
 
-        border-radius: 10px;
-        font-size: 1.1em;
-        line-height: 2rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
 
         transition: all 0.3s ease;
         cursor: pointer;
@@ -1285,18 +1593,31 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
 
     .task-creator {
         display: flex;
-        justify-content: flex-start;
+        justify-content: space-between;
         align-items: center;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        // border-top: 1px solid var(--line-color);
         gap: 0.5rem;
-        margin-top: 4px;
+        padding: 0.25rem 0.5rem;
+        margin: 0;
         font-size: 0.8rem;
-        color: #666;
+        span {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        & .username {
+            color: var(--placeholder-color);
+            letter-spacing: 0.1rem;
+        }
     }
 
 
     img.user-avatar {
-        width: 2.5rem !important;
-        height: 2.5rem!important;
+        width: 1.5rem !important;
+        height: 1.5rem!important;
         border-radius: 50%;
         margin-right: 4px;
     }
@@ -1310,14 +1631,16 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
 
 
     .deadline {
-        font-size: 1em;
-        color: var(--text-color);
-
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 0.5rem;
-        letter-spacing: 0.1rem;
+    // color: var(--text-color);
+    // padding: 0.25rem 0.5rem;
+    // border-bottom-left-radius: 0.5rem;
+    // border-top-right-radius: 0.5rem;
+    font-size: 0.75rem;
+    // display: inline-block;
+    letter-spacing: 0.1rem;
+    // position: absolute;
+    // left: 0;
+    // bottom: 0;
     }
 
     .deadline.selected {
@@ -1350,25 +1673,25 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         color: var(--text-color);
         padding: 2rem;
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
-
-        border-radius: 40px;
-        max-width: 500px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        border-radius: 2rem;
+        max-width: 600px;
         width: 100%;
+        height: auto;
         position: relative;
         border: 1px solid var(--line-color);
-    }
-
-    .deadline-section {
-        margin-top: 10px;
-        padding: 1rem;
 
     }
+
+
 
     .deadline-controls {
         display: flex;
         flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 5px;
+        gap: 0.5rem;
     }
 
     .deadline-controls input[type="date"] {
@@ -1387,8 +1710,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         border: none;
         border-radius: 0.5rem;
         cursor: pointer;
-        font-size: 1.2em;
-        letter-spacing: 0.1rem;
+        font-size: 0.9rem;
         line-height: 2;
 
     }
@@ -1402,11 +1724,6 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
     }
 
 
-    .tag-section, .attachment-section {
-        margin-top: 10px;
-        padding: 1rem;
-
-    }
 
 
 
@@ -1454,14 +1771,13 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
   
 }
     .attachment-list {
-        margin-top: 10px;
     }
 
     .attachment-list a {
         display: block;
         color: #4CAF50;
         text-decoration: none;
-        margin-bottom: 5px;
+        margin-bottom: 0.5rem;
     }
 
     .delete-task-btn {
@@ -1548,7 +1864,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         border-radius: 20px;
         cursor: pointer;
         font-size: 1.2em;
-        letter-spacing: 0.5rem;
+        letter-spacing: 0.3rem;
         width: 100%;
     }
 
@@ -1556,28 +1872,387 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         background: var(--tertiary-color);
 
     }
+    .task-badge {
+        display: flex;
+        width: auto;
+    color: var(--placeholder-color);
+    padding: 0.25rem 0.5rem;
+    border-top-right-radius: 0.5rem;
+    border-top-left-radius: 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.1rem;
+    cursor: pointer;
 
+    &.subtasks {
+        color: var(--placeholder-color);
+        justify-content: flex-end;
+    }
+    &:hover {
+        background: var(--tertiary-color);
+        color: var(--text-color);
+    }
+}
+
+
+
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100vw;
+    max-width: 450px;
+    &:hover {
+            cursor: pointer;
+            p {
+                color: var(--tertiary-color);
+            }
+        }
+}
+
+.subtasks-list {
+    width: 100%;
+    max-width: 450px;
+    display: flex;
+    flex-direction: column;
+}
+
+.subtask-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    width: auto;
+    background: var(--primary-color);
+    border-radius: 4px;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
+    &:hover {
+        cursor: pointer;
+        background: var(--secondary-color);
+
+    }
+}
+
+.subtask-title {
+    flex: 1;
+    font-weight: 500;
+}
+
+.subtask-status {
+    background: var(--color-primary-lighter);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin: 0 8px;
+    background: var(--secondary-color);
+}
+
+.tasknav-btn {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
+.parent-task-section {
+    margin-top: 15px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navigate-parent-btn {
+    background-color: var(--color-secondary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.task-changing {
+    animation: flash 0.3s;
+}
+
+.tag.selected {
+        animation: selectPulse 0.3s ease-in-out;
+        box-shadow: 0px 1px 40px 1px rgba(255, 255, 255, 0.4);
+    }
+.view-controls {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: var(--color-bg-secondary);
+
+}
+
+
+
+.view-controls button {
+    display: flex;
+    flex-direction: row;
+    padding: 1rem;
+
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-right: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--placeholder-color);
+
+    &:hover {
+        background: var(--secondary-color);
+    }
+
+
+}
+
+.view-controls button.active {
+    background-color: var(--color-primary);
+    color: var(--tertiary-color);
+    border-color: var(--color-primary);
+}
+.tooltip-container {
+    position: absolute;
+    top: -35px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.shared-tooltip {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+    position: absolute;
+}
+
+.shared-tooltip.visible {
+    opacity: 1;
+}
+
+.shared-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+}
+
+@keyframes flash {
+    0% { background-color: var(--color-bg); }
+    50% { background-color: var(--color-highlight); }
+    100% { background-color: var(--color-bg); }
+}
     @keyframes selectPulse {
         0% { transform: scale(1); }
         50% { transform: scale(1.05); }
         100% { transform: scale(1); }
     }
 
-    .tag.selected {
-        animation: selectPulse 0.3s ease-in-out;
-        box-shadow: 0px 1px 40px 1px rgba(255, 255, 255, 0.4);
+
+    @media (max-width: 1000px) {
+
+        .modal-overlay {
+            align-items: center;
+        }
+        .modal-content {
+            margin-left: 1rem;
+            margin-right: 1rem;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .view-controls {
+            padding: 0;
+            margin: 0;
+        }
+        .view-controls button {
+            display: flex;
+            flex-direction: row;
+            padding: 0.5rem;
+            background-color: transparent;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            margin-right: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--placeholder-color);
+            &:hover {
+                background: var(--secondary-color);
+            }
+        }
+
+        .view-controls button.active {
+            background-color: var(--color-primary);
+            color: var(--tertiary-color);
+            border-color: var(--color-primary);
+        }
+
+        .title-section,
+        .deadline-section,
+        .attachment-section,
+        .tag-section,
+        .submit-section,
+        .subtasks-section,
+        .parent-task-section,
+        .description-section {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+            max-width: 450px;
+            width: 100% !important;
+            & textarea {
+                background: var(--primary-color);
+                height: 300px;
+                width: auto;
+                font-size: 0.9rem;
+
+            }
+            & p {
+                margin: 0;
+                margin-bottom: 0.5rem;
+                padding: 0;
+                font-size: 0.9rem;
+            }
+        }
+    .description-display {
+        overflow-y: auto;
+        height: 80px;
+        font-size: 0.9rem;
+        border: 1px solid var(--line-color);
+        border-radius: 1rem;
+        padding: 1rem;
+
+    }
+    .deadline-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 5px;
+    }
+
+    .deadline-controls input[type="date"] {
+        flex-grow: 1;
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        background-color: #3a3e3c;
+        color: white;
+    }
+
+    .deadline-controls button {
+        padding: 5px 10px;
+        background: var(--secondary-color);
+        color: var(--text-color);
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        line-height: 2;
 
     }
 
-    @media (max-width: 1000px) {
+    .deadline-controls button.selected {
+        border: 2px solid var(--tertiary-color);
+        background: var(--tertiary-color);
+        color: var(--bg-color);
+        box-shadow: 0px 1px 45px 1px rgba(255, 255, 255, 0.4);
+        font-weight: 800;
+    }
+
+
+
+
+
+    .add-tag {
+        border-radius: 1rem;
+        margin-top: 1rem;
+        display: flex;
+        gap: 10px;
+        
+    }
+
+    .add-tag input[type="text"] {
+        flex-grow: 1;
+        padding: 5px;
+        border-radius:2rem;
+        padding-inline-start: 1rem;
+    border: none;
+        background-color: #3a3e3c;
+        color: white;
+        font-size: 0.9rem;
+
+    }
+
+    .add-tag button {
+        padding:0.5rem;
+        width: 200px;
+        font-size: 0.9rem;
+        background: var(--secondary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        &:hover {
+            box-shadow: 0px 1px 45px 1px rgba(255, 255, 255, 0.4);
+            background: var(--tertiary-color);
+            color: var(--bg-color);
+        }
+    }
+    
+    input[type="file"] {
+    display: flex;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    gap: 0.5rem;
+    }
+    .attachment-list {
+        margin-top: 10px;
+    }
+
+    .attachment-list a {
+        display: block;
+        color: #4CAF50;
+        text-decoration: none;
+        margin-bottom: 5px;
+    }
+
+
         .kanban-board {
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
             overflow-y: scroll;
             overflow-x: hidden;
+            width: auto;
+            margin-right: 2rem;
             height: 80vh;
+            border-radius: 2rem;
+            border: 1px solid var(--line-color);
+            padding: 0;
+            margin: 0;
         }
-
         .kanban-column {
             width: 100%;
             max-width: none;
@@ -1587,12 +2262,26 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             background: var(--primary-color);
         }
 
-        .deadline-controls {
-            flex-direction: column;
-        }
+        // .deadline-controls {
+        //     flex-direction: column;
+        // }
 
-        .deadline-controls input[type="date"],
-        .deadline-controls button {
+        // .deadline-controls input[type="date"],
+        // .deadline-controls button {
+        //     width: 100%;
+        // }
+    }
+    @media (max-width: 450px) {
+        .global-input-container {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: auto;
+            margin-left: 2rem;
+            margin-right: 2rem;
+        }
+        .view-controls {
+            justify-content: space-between;
             width: 100%;
         }
     }
