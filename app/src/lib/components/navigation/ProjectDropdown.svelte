@@ -40,16 +40,28 @@
     // Clear current thread first
     threadsStore.update(state => ({
       ...state,
-      currentThreadId: null
+      currentThreadId: null,
+      threads: []
     }));
 
-    // Set the current project in the store
     await projectStore.setCurrentProject(projectId);
     
-    // Load appropriate threads based on project selection
     console.log(`Loading ${projectId ? 'project' : 'unassigned'} threads...`);
     try {
       await loadThreads(projectId);
+      
+      threadsStore.update(state => {
+        const threadsForProject = projectId 
+          ? state.threads.filter(thread => thread.project_id === projectId)
+          : state.threads;
+        
+        return {
+          ...state,
+          threads: threadsForProject,
+          filteredThreads: threadsForProject
+        };
+      });
+      
       console.log('Threads loaded successfully for:', projectId ? `project ${projectId}` : 'unassigned threads');
     } catch (error) {
       console.error('Error loading threads:', error);

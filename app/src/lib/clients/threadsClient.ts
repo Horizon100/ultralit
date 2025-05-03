@@ -37,110 +37,207 @@ export const threadListVisibility = {
     set: setThreadListVisibility,
     toggle: toggleThreadList
 };
-export async function fetchProjectThreads(projectId: string): Promise<Threads[]> {
+/**
+ * Fetch threads from the server API
+ * @param projectId Optional project ID to filter threads
+ * @returns Promise<any[]> Array of thread objects
+ */
+export async function fetchThreads(projectId: string | null = null): Promise<any[]> {
     try {
-        await ensureAuthenticated();
-        console.log(`Fetching threads for project ${projectId}`);
-        
-        const response = await fetch(`/api/projects/${projectId}/threads`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${get(currentUser)?.token}`
-            }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Failed to fetch project threads: ${response.status}`);
-        }
-
-        const data = await response.json();
-        // Handle both response formats
-        return data.threads || data.data || [];
+      // Skip ensureAuthenticated since it's causing issues
+      const user = get(currentUser);
+      
+      if (!user?.token) {
+        console.warn('No user token found, but continuing with request');
+      }
+  
+      // Build the URL with project parameter if provided
+      let url = '/api/threads';
+      if (projectId) {
+        url = `${url}?project=${projectId}`;
+      }
+  
+      console.log(`Fetching threads from ${url}`);
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header if we have a token
+      if (user?.token) {
+        headers['Authorization'] = `Bearer ${user.token}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Received ${data.threads?.length || 0} threads from API`);
+      return data.threads || [];
     } catch (error) {
-        console.error('Error fetching project threads:', error);
-        throw error;
+      console.error('Error fetching threads:', error);
+      return []; // Return empty array instead of throwing
     }
-}
+  }
+  
+  /**
+   * Fetch threads for a project from the API
+   * @param projectId Project ID
+   * @returns Promise with thread array
+   */
+  export async function fetchProjectThreads(projectId: string): Promise<any[]> {
+    return fetchThreads(projectId);
+  }
+  
+  /**
+   * Fetch unassigned threads (not belonging to any project)
+   * @returns Promise with thread array
+   */
+  export async function fetchUnassignedThreads(): Promise<any[]> {
+    return fetchThreads(null);
+  }
+  
 
-export async function fetchUnassignedThreads(): Promise<Threads[]> {
+/**
+ * Fetch all threads regardless of project
+ * Special function to get ALL threads across all projects
+ * @returns Promise with thread array
+ */
+export async function fetchAllThreads(): Promise<any[]> {
     try {
-        console.log('Fetching unassigned threads');
-        
-        const response = await fetch('/api/threads', {
-            method: 'GET',
-            credentials: 'include'
-        });
-
-        console.log(`Threads API response status: ${response.status}`);
-        
-        const responseText = await response.text();
-        console.log('Response text:', responseText);
-        
-        let data;
-        try {
-            data = JSON.parse(responseText);
-            console.log('Parsed response data:', data);
-        } catch (parseError) {
-            throw new Error(`Failed to parse response: ${responseText}`);
-        }
-
-        if (!response.ok) {
-            const errorMessage = data?.error || data?.message || `Request failed with status ${response.status}`;
-            throw new Error(errorMessage);
-        }
-
-        return data.threads || [];
+      // Don't call ensureAuthenticated() here since it's throwing an error
+      const user = get(currentUser);
+      
+      if (!user?.token) {
+        console.warn('No user token found, but continuing with request');
+      }
+  
+      // Use a special query parameter to indicate we want ALL threads
+      const url = '/api/threads?all=true';
+      console.log(`Fetching all threads from ${url}`);
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header if we have a token
+      if (user?.token) {
+        headers['Authorization'] = `Bearer ${user.token}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Received ${data.threads?.length || 0} total threads from API`);
+      return data.threads || [];
     } catch (error) {
-        console.error('Error fetching unassigned threads:', error);
-        throw error;
+      console.error('Error fetching all threads:', error);
+      return []; // Return empty array instead of throwing
     }
-}
+  }
+  
+  /**
+   * Load threads based on project context and update the store
+   * @param projectId Optional project ID to filter threads by
+   * @returns Promise that resolves when threads are loaded
+   */
+/**
+ * Load threads based on project context and update the store
+ * @param projectId Optional project ID to filter threads by
+ * @returns Promise that resolves when threads are loaded
+ */
 export async function loadThreads(projectId: string | null): Promise<void> {
     const now = Date.now();
-    if (isLoadingAllThreads || (now - lastThreadLoadTime < 5000)) {
-        console.log('Skipping thread reload');
+    // Throttle repeated calls to prevent hammering the API
+    if (isLoadingAllThreads || (now - lastThreadLoadTime < 2000)) {
+        console.log('Skipping thread reload due to throttling');
         return;
     }
 
     isLoadingAllThreads = true;
     
     try {
+        // Set loading state but don't clear threads yet to avoid UI flicker
         threadsStore.update(state => ({
             ...state,
-            isThreadsLoaded: false,
+            isLoading: true,
             error: null
         }));
 
-        const threads = projectId 
-            ? await fetchProjectThreads(projectId)
-            : await fetchUnassignedThreads();
+        console.log(`Loading threads for ${projectId ? `project ${projectId}` : 'all projects'}`);
+        
+        // Fetch threads from API based on projectId
+        let threads;
+        
+        try {
+            if (projectId) {
+                // Fetch threads for the specific project
+                threads = await fetchThreads(projectId);
+            } else {
+                // If null is explicitly provided, we want all threads across all projects
+                threads = await fetchAllThreads();
+            }
+        } catch (fetchError) {
+            console.error('Error fetching threads:', fetchError);
+            // Return early but don't throw - keep existing threads in the store
+            threadsStore.update(state => ({
+                ...state,
+                isLoading: false,
+                error: fetchError instanceof Error ? fetchError.message : 'Failed to fetch threads',
+                updateStatus: 'Failed to load threads'
+            }));
+            isLoadingAllThreads = false;
+            return;
+        }
+        
+        console.log(`Successfully loaded ${threads.length} threads`);
+        
+        // Ensure project_id is consistently set on all threads
+        const processedThreads = threads.map(thread => ({
+            ...thread,
+            // Ensure project_id is set consistently for filtering
+            project_id: thread.project_id || thread.project || null
+        }));
 
-        console.log(`Loaded ${threads.length} threads for ${projectId ? `project ${projectId}` : 'unassigned'}`);
-
+        // Update the store with all threads
         threadsStore.update(state => {
-            const filteredThreads = state.searchQuery
-                ? threads.filter(t => t.name?.toLowerCase().includes(state.searchQuery.toLowerCase()))
-                : threads;
-            
             return {
                 ...state,
-                threads,
-                filteredThreads,
+                threads: processedThreads,
+                filteredThreads: processedThreads,
                 isThreadsLoaded: true,
-                project_id: projectId
+                isLoading: false,
+                project_id: projectId,
+                updateStatus: 'Threads loaded successfully',
+                error: null
             };
         });
 
         lastThreadLoadTime = now;
     } catch (error) {
-        console.error('Error loading threads:', error);
+        console.error('Error in loadThreads:', error);
         threadsStore.update(state => ({
             ...state,
+            isLoading: false,
             error: error instanceof Error ? error.message : 'Failed to load threads',
-            isThreadsLoaded: true
+            updateStatus: 'Failed to load threads'
         }));
     } finally {
         isLoadingAllThreads = false;

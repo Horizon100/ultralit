@@ -71,6 +71,7 @@
   let messageProcessor;
   let isTypingInProgress = false;
   $: isTypingInProgress = chatMessages.some(msg => msg.isTyping);
+  let observer: MutationObserver | null = null;
 
   let textareaElement: HTMLTextAreaElement | null = null;
   let showAgentPicker = false;
@@ -2365,12 +2366,22 @@ $: {
   }
 }
 $: {
-    if ($threadsStore.searchedThreads !== undefined) {
-        threads = $threadsStore.searchedThreads;
-    } else if ($threadsStore.threads) {
-        threads = $threadsStore.threads.filter(thread =>
-            thread.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+    if ($threadsStore.threads) {
+        // Get current project ID from either threadsStore or projectStore
+        const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
+        
+        // First filter by project ID
+        const projectThreads = currentProjectId
+            ? $threadsStore.threads.filter(thread => thread.project_id === currentProjectId)
+            : $threadsStore.threads;
+        
+        // Then apply search filter
+        threads = searchQuery
+            ? projectThreads.filter(thread => 
+                thread.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+            : projectThreads;
+        
+        console.log(`Filtered to ${threads.length} threads for project ${currentProjectId || 'none'} with search "${searchQuery}"`);
     }
 }
 
@@ -2406,7 +2417,21 @@ projectStore.subscribe((state) => {
     isLoadingProject = true;
     console.log(`Project changed to ${newProjectId || 'none'}`);
     
+    // Clear current threads first to avoid showing incorrect data
+    threads = [];
+    
+    // Always load threads for the new project
     loadThreads(newProjectId)
+      .then(() => {
+        console.log(`Successfully loaded threads for project ${newProjectId || 'none'}`);
+        // Force update threads from store after loading
+        if ($threadsStore.threads) {
+          threads = $threadsStore.threads.filter(thread => 
+            (newProjectId ? thread.project_id === newProjectId : true) &&
+            (!searchQuery || thread.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
+        }
+      })
       .catch(err => console.error('Error loading threads:', err))
       .finally(() => isLoadingProject = false);
   }
@@ -2609,7 +2634,7 @@ onMount(async () => {
     
     // Create MutationObserver to watch for changes to the chat messages
     if (chatMessagesDiv) {
-      const observer = new MutationObserver((mutations) => {
+      observer = new MutationObserver((mutations) => {
         // Check for new messages
         mutations.forEach(mutation => {
           if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
@@ -2644,17 +2669,12 @@ onMount(async () => {
   
   // Modified typeMessage function - add this outside onMount but update your existing one
   return () => {
-    document.removeEventListener('click', handleReplyableClick);
-    if (chatMessagesDiv) {
-      // Disconnect any observers
-      Array.from(chatMessagesDiv._observers || []).forEach(observer => {
-        if (observer && typeof observer.disconnect === 'function') {
-          observer.disconnect();
-        }
-      });
-    }
-    unsubscribe();
-  };
+  document.removeEventListener('click', handleReplyableClick);
+  if (observer) {
+    observer.disconnect();
+  }
+  unsubscribe();
+};
 });
 function setupReplyableHandlers() {
   document.querySelectorAll('.replyable').forEach(el => {

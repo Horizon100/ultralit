@@ -19,6 +19,10 @@
         createAIAgent, 
         generateGuidance 
     } from '$lib/clients/aiClient';
+    import { addNotification, updateNotification, removeNotification } from '$lib/stores/taskNotificationStore';
+    import { goto } from '$app/navigation';
+    import { projectStore } from '$lib/stores/projectStore';
+
 
     export let message: InternalChatMessage;
     export let allMessages: InternalChatMessage[] = [];
@@ -35,8 +39,9 @@
     export let promptType: string | null = null;
     export let sendMessage: (text: string, parent_msg?: string, contextMessages?: any[]) => Promise<void> = async () => {};
     
-    let currentProjectId: string | null = null;
-    
+    let currentProjectId: string | null;
+    $: currentProjectId = $projectStore.currentProjectId;    
+
     const dispatch = createEventDispatcher();
     
     const MAX_DEPTH = 5;
@@ -167,22 +172,22 @@ async function generateTask(taskDetails: {
 }) {
   console.log('generateTask called with details:', taskDetails);
   try {
-    // Convert model string to AIModel object for the API call
+    const notificationId = addNotification('Generating parent task...', 'loading');
     const modelObject = typeof aiModel === 'string' 
       ? { api_type: aiModel, provider: 'anthropic', name: aiModel } 
       : aiModel;
     
-    // First, generate the parent task with title and short summary description
     const { title, description } = await generateTaskFromMessage({
       content: taskDetails.content,
       messageId: taskDetails.messageId,
       model: modelObject,
       userId: userId,
       threadId: taskDetails.threadId || message.thread,
-      isParentTask: true // Flag to indicate this is the parent task
+      isParentTask: true 
     });
-    
-    // Clean up the title - remove any markdown, "Title:" prefix, or other formatting
+    updateNotification(notificationId, {
+      message: 'Creating task...',
+    });
     const cleanTitle = title
       .replace(/^\*\*Title:\*\*\s*/i, '')
       .replace(/^Title:\s*/i, '')
@@ -195,18 +200,17 @@ async function generateTask(taskDetails: {
     
     const threadId = taskDetails.threadId || message.thread || '';
     
-    // Create the parent task object with clean title
     const newParentTask: KanbanTask = {
       id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       title: cleanTitle,
-      taskDescription: description, // Short summary description for parent
+      taskDescription: description,
       creationDate: new Date(),
       due_date: null,
       tags: [],
       attachments: [],
       project_id: currentProjectId || '',
       createdBy: $currentUser?.id || '',
-      parent_task: undefined, // This is the parent task
+      parent_task: undefined,
       allocatedAgents: [],
       status: 'backlog' as 'backlog',
       priority: 'medium' as 'medium', 
@@ -217,40 +221,44 @@ async function generateTask(taskDetails: {
       agentMessages: [taskDetails.messageId]
     };
     
-    // Save the parent task
     const projectId = currentProjectId || '';
     console.log('Saving parent task with projectId:', projectId);
     const savedParentTask = await saveTask(newParentTask);
     console.log('Parent task saved successfully:', savedParentTask);
     
-    // Important: Get the actual saved ID from the returned task object
     const parentId = savedParentTask.id;
     console.log('Using parent task ID for child tasks:', parentId);
-    
-    // Now generate the child tasks based on the detailed structure in the content
+    updateNotification(notificationId, {
+      message: 'Generating subtasks...',
+    });
     const childTasks = await generateChildTasks({
       content: taskDetails.content,
       messageId: taskDetails.messageId,
       model: modelObject,
       userId: userId,
-      parentTaskId: parentId, // Use the actual ID from saved parent
-      projectId: projectId
+      parentTaskId: parentId,
+      projectId: currentProjectId || ''
     });
     
     console.log(`Generated and saved ${childTasks.length} child tasks`);
-    
-    // Show notification to user
+    updateNotification(notificationId, {
+      message: `Task "${cleanTitle}" created with ${childTasks.length} subtasks`,
+      type: 'success',
+      link: {
+        url: '/lean',
+        text: 'Open Tasks'
+      }
+    });
     dispatch('notification', {
       message: `Task created with ${childTasks.length} subtasks`,
       type: 'success'
     });
     
-    // Show a temporary tooltip
-    taskTooltipText = `Task created with ${childTasks.length} subtasks`;
-    showTaskTooltip = true;
-    setTimeout(() => {
-      showTaskTooltip = false;
-    }, 2000);
+    // taskTooltipText = `Task created with ${childTasks.length} subtasks`;
+    // showTaskTooltip = true;
+    // setTimeout(() => {
+    //   showTaskTooltip = false;
+    // }, 2000);
     
     return {
       parentTask: savedParentTask,
@@ -258,15 +266,16 @@ async function generateTask(taskDetails: {
     };
   } catch (error) {
     console.error('Error generating task:', error);
-    // Log the full error object for debugging
     console.log('Error details:', {
       name: error?.name,
       message: error?.message,
       stack: error?.stack,
       fullError: error
     });
-    
-    // Safely handle the error message
+    addNotification(
+      'Failed to create task: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      'error'
+    );
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     dispatch('notification', {
       message: 'Failed to create task: ' + errorMessage,
@@ -282,7 +291,6 @@ async function generateTask(taskDetails: {
   }
 }
 
-// New function to generate child tasks
 async function generateChildTasks({
   content,
   messageId,
@@ -295,12 +303,13 @@ async function generateChildTasks({
   messageId: string,
   model: any,
   userId: string,
-  parentTaskId: string, // This is the database ID of the parent task
+  parentTaskId: string,
   projectId: string
 }) {
   console.log('generateChildTasks called with parentTaskId:', parentTaskId);
+  const subtasksNotificationId = addNotification('Analyzing message for subtasks...', 'loading');
+
   try {
-    // Create a system prompt to generate an array of subtask titles
     const systemPrompt = {
       role: 'system',
       content: `Extract 4-8 specific subtasks from the content below. Each subtask should be:
@@ -309,7 +318,6 @@ async function generateChildTasks({
       - Specific to one part of the overall task
       - Written in imperative form (e.g., "Design user interface" not "Designing user interface")
       - 3-8 words in length
-      
       Format your response as a JSON array of strings containing ONLY the subtask titles. 
       Example: ["Create project plan", "Design user interface", "Implement backend API", "Test functionality"]`,
       model: model.api_type
@@ -321,28 +329,25 @@ async function generateChildTasks({
       ${content}`,
       model: model.api_type
     };
-
-    // Get the subtask titles
+    updateNotification(subtasksNotificationId, {
+      message: 'Generating subtask titles...',
+    });
     const subtasksResponse = await fetchAIResponse(
       [systemPrompt, userPrompt],
       model,
       userId
     );
 
-    // Parse the JSON response - handle potential formatting issues
     let subtaskTitles = [];
     try {
-      // Try to parse the direct response
       subtaskTitles = JSON.parse(subtasksResponse);
     } catch (e) {
-      // If direct parsing fails, try to extract JSON array from the response
       const jsonMatch = subtasksResponse.match(/\[.*\]/s);
       if (jsonMatch) {
         try {
           subtaskTitles = JSON.parse(jsonMatch[0]);
         } catch (e2) {
           console.error('Failed to parse subtasks JSON:', e2);
-          // Fallback to splitting by newlines and cleaning up
           subtaskTitles = subtasksResponse
             .split('\n')
             .map(line => line.trim())
@@ -351,7 +356,6 @@ async function generateChildTasks({
             .filter(line => line.length > 0);
         }
       } else {
-        // Last resort fallback
         subtaskTitles = subtasksResponse
           .split('\n')
           .map(line => line.trim())
@@ -359,37 +363,40 @@ async function generateChildTasks({
       }
     }
 
-    // Ensure we have valid subtask titles
     if (!Array.isArray(subtaskTitles) || subtaskTitles.length === 0) {
       console.error('Failed to generate valid subtasks array:', subtasksResponse);
+      updateNotification(subtasksNotificationId, {
+        message: 'Failed to generate subtasks',
+        type: 'error'
+      });
       return [];
     }
 
     console.log('Generated subtask titles:', subtaskTitles);
     console.log('Creating child tasks with parent_task ID:', parentTaskId);
-
-    // Create and save each child task
+    updateNotification(subtasksNotificationId, {
+      message: `Saving ${subtaskTitles.length} subtasks...`,
+    });
     const savedChildTasks = [];
 
     for (const title of subtaskTitles) {
-      // Create a clean task title - remove any markdown or numbering
       const cleanTitle = title
-        .replace(/^\d+\.\s*/, '') // Remove numbering (e.g., "1. ")
-        .replace(/^\*+\s*/, '')   // Remove asterisks
-        .replace(/^-\s*/, '')     // Remove bullet points
+        .replace(/^\d+\.\s*/, '') 
+        .replace(/^\*+\s*/, '') 
+        .replace(/^-\s*/, '') 
         .trim();
 
       const childTask: KanbanTask = {
         id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         title: cleanTitle,
-        taskDescription: "", // No description for child tasks
+        taskDescription: "",
         creationDate: new Date(),
         due_date: null,
         tags: [],
         attachments: [],
         project_id: projectId,
         createdBy: $currentUser?.id || '',
-        parent_task: parentTaskId, // Make sure this ID is being correctly set
+        parent_task: parentTaskId,
         allocatedAgents: [],
         status: 'backlog' as 'backlog',
         priority: 'medium' as 'medium',
@@ -412,10 +419,17 @@ async function generateChildTasks({
         console.error('Failed task object:', childTask);
       }
     }
-
+    updateNotification(subtasksNotificationId, {
+      message: `Created ${savedChildTasks.length} subtasks`,
+      type: 'success'
+    });
     return savedChildTasks;
   } catch (error) {
     console.error('Error generating child tasks:', error);
+    updateNotification(subtasksNotificationId, {
+      message: 'Failed to generate subtasks: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      type: 'error'
+    });
     return [];
   }
 }

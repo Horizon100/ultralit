@@ -66,23 +66,26 @@ export interface ThreadStoreState {
 	threads: Threads[];
 	currentThreadId: string | null;
 	messages: Messages[];
-	updateStatus: string;
+	updateStatus: string | null;
 	isThreadsLoaded: boolean;
 	showThreadList: boolean;
 	searchQuery: string;
 	namingThreadId: string | null;
 	currentThread: Threads | null;
 	filteredThreads: Threads[];
+	searchedThreads?: Threads[];
 	isEditingThreadName: boolean;
 	editedThreadName: string;
 	isNaming: boolean;
-	project_id?: string;
+	project_id: string | null;
 	sortOption: ThreadSortOption;
 	selectedUserIds: Set<string>;
 	availableUsers: { id: string; name: string }[];
 	isLoading: boolean;
 	isUpdating: boolean;
 	error: string | null;
+	currentProjectId?: string | null;
+
 }
 
 export interface Threads extends RecordModel {
@@ -97,6 +100,8 @@ export interface Threads extends RecordModel {
 	messageCount?: number;
 	project_id: string;
 	agents: string[];
+	project?: string | null;
+
 
 	// currentThread: Threads | null;
 	// filteredThreads: Threads[];

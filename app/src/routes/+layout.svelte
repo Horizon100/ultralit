@@ -7,7 +7,8 @@
 	import { fly, fade, slide } from 'svelte/transition';
 	import horizon100 from '$lib/assets/horizon100.svg';
 	import type { ThreadStoreState } from '$lib/types/types';
-	
+	import TaskNotification from '$lib/components/common/containers/TaskNotification.svelte';
+	import { taskNotifications } from '$lib/stores/taskNotificationStore';
 	// Components
 	import Kanban from '$lib/components/lean/Kanban.svelte';
 	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
@@ -156,7 +157,12 @@
 	function handleStyleClose() {
 	  showStyles = false;
 	}
-	
+	function handleLinkClick(event: CustomEvent) {
+		const notification = event.detail;
+		if (notification.link?.url) {
+		goto(notification.link.url);
+		}
+	}
 	async function handleStyleChange(event: CustomEvent) {
 	  const { style } = event.detail;
 	  await currentTheme.set(style);
@@ -365,6 +371,11 @@
 		</div>
 	{/if}
 <div class="app-container {$currentTheme}">
+	<TaskNotification 
+  notifications={$taskNotifications} 
+  on:remove 
+  on:linkClick={handleLinkClick}
+/>
 	<header>
 		<nav style="z-index: 1000;">
 			<!-- <TimeTracker /> -->
