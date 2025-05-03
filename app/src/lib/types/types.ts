@@ -271,6 +271,7 @@ export interface Task extends RecordModel {
 	priority: 'high' | 'medium' | 'low';
 	due_date: Date | string;
 	allocatedAgents: string[];
+	parent_task: string;
 	dependencies: {
 		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
 		task_id: string; 
@@ -593,6 +594,7 @@ export interface KanbanTask {
     attachments: KanbanAttachment[];
     project_id?: string;
     createdBy?: string;
+	parent_task?: string;
     allocatedAgents: string[];
     status: Task['status'];
     priority: 'high' | 'medium' | 'low';

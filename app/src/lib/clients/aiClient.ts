@@ -553,43 +553,111 @@ export async function generateTaskDescription(
 	return title;
   }
   
-  /**
-   * Generates a complete task object from message content
-   * @param taskDetails Object containing message details
-   * @returns Promise with the task description and title
-   */
-  export async function generateTaskFromMessage(taskDetails: {
+/**
+ * Generates a complete task object from message content
+ * @param taskDetails Object containing message details
+ * @returns Promise with the task description and title
+ */
+export async function generateTaskFromMessage(taskDetails: {
 	content: string,
 	messageId?: string,
 	model: AIModel,
 	userId: string,
-	threadId?: string
+	threadId?: string,
+	isParentTask?: boolean 
   }): Promise<{
 	title: string,
 	description: string
   }> {
 	try {
-	  const taskDescription = await generateTaskDescription(
-		taskDetails.content,
+	  const systemPrompt = {
+		role: 'system',
+		content: taskDetails.isParentTask 
+		  ? `Create a concise title and short summary for a task based on the provided content.
+			 The title should be clear, specific, and under 50 characters.
+			 The summary should be 2-3 sentences explaining the overall goal and purpose.
+			 Format your response with just the title on the first line (no 'Title:' prefix),
+			 followed by the summary description.
+			DO NOT include "Title:" or any other labels or markdown formatting.
+			 DO NOT include numbered steps, bullet points, or detailed subtasks - those will be handled separately.`
+		  : `Create a focused, action-oriented task description from the provided content.
+			 - Write in imperative style
+			 - Be specific about requirements and acceptance criteria
+			 - Omit any phrases like "here is" or meta-commentary
+			 - Focus only on actionable items and deliverables
+			 - Format as direct instructions
+			 - Be concise but complete`,
+		model: taskDetails.model.api_type
+	  };
+  
+	  // User prompt with the content to transform
+	  const userPrompt = {
+		role: 'user',
+		content: `Transform this into a ${taskDetails.isParentTask ? 'task title and summary' : 'focused task description'}:
+		  ${taskDetails.content}`,
+		model: taskDetails.model.api_type
+	  };
+  
+	  // Use the existing fetchAIResponse function
+	  const response = await fetchAIResponse(
+		[systemPrompt, userPrompt],
 		taskDetails.model,
 		taskDetails.userId
 	  );
-	  
-	  const title = extractTaskTitle(taskDescription);
-	  
-	  return {
-		title,
-		description: taskDescription
-	  };
+  
+	  if (taskDetails.isParentTask) {
+		// Parse the response to extract title and description for parent task
+		const lines = response.trim().split('\n');
+		let title = '';
+		let description = '';
+  
+		// Check if the first line contains a title marker (not wanted but check anyway)
+		if (lines[0].toLowerCase().includes('title:')) {
+		  // Extract without the "Title:" prefix
+		  title = lines[0].replace(/^.*title:\s*/i, '').trim();
+		  // Join remaining lines as description
+		  description = lines.slice(1).join(' ').trim();
+		} else if (lines[0].length <= 70) {
+		  // First line is short enough to be the title
+		  title = lines[0].trim();
+		  // Join remaining lines as description
+		  description = lines.slice(1).join(' ').trim();
+		} else {
+		  // If first line is too long, extract a sensible title
+		  title = extractTaskTitle(lines[0]);
+		  description = response.trim();
+		}
+  
+		// Clean up description - remove any "Description:" prefix
+		description = description.replace(/^.*description:\s*/i, '').trim();
+  
+		// Remove any markdown formatting from title
+		title = title.replace(/\*\*/g, '').trim();
+  
+		return {
+		  title: title || extractTaskTitle(taskDetails.content),
+		  description: description || taskDetails.content.substring(0, 200)
+		};
+	  } else {
+		// For child tasks, we're just getting a description
+		const taskDescription = response.trim();
+		const title = extractTaskTitle(taskDescription);
+		
+		return {
+		  title,
+		  description: taskDescription
+		};
+	  }
 	} catch (error) {
 	  console.error('Error in generateTaskFromMessage:', error);
 	  
+	  // Create a fallback title and description
 	  const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
 	  const fallbackTitle = extractTaskTitle(cleanContent);
 	  
 	  return {
 		title: fallbackTitle,
-		description: cleanContent
+		description: taskDetails.isParentTask ? cleanContent.substring(0, 200) : cleanContent
 	  };
 	}
   }

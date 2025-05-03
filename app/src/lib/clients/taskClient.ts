@@ -46,7 +46,6 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             
         const savedAttachments = await Promise.all(attachmentPromises);
         
-        // Replace file attachments with saved ones
         const updatedAttachments = task.attachments.map(att => {
             if (att.file) {
                 const savedAtt = savedAttachments.find(sa => sa.fileName === att.fileName);
@@ -55,7 +54,6 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             return att;
         });
         
-        // Prepare attachment IDs as a comma-separated string
         const attachmentIds = updatedAttachments.map(att => att.id).join(',');
         
         const taskData = {
@@ -63,6 +61,7 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             taskDescription: task.taskDescription,
             project_id: task.project_id || '',
             createdBy: get(currentUser)?.id,
+            parent_task: task.parent_task || '',
             status: task.status,
             priority: task.priority || 'medium',
             due_date: task.due_date ? task.due_date.toISOString() : null,
@@ -80,7 +79,6 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
         let url = '/api/tasks';
         let method = 'POST';
         
-        // If task has an ID that's not auto-generated locally, it's an update
         if (task.id && !task.id.startsWith('local_')) {
             url = `/api/tasks/${task.id}`;
             method = 'PATCH';
