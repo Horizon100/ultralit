@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Kanban from '$lib/components/lean/Kanban.svelte';
-  import { Calendar, KanbanSquareIcon } from 'lucide-svelte';
+  import { Calendar, ChartNoAxesGantt, KanbanSquareIcon } from 'lucide-svelte';
   import { writable } from 'svelte/store';
   import { slide, fly, fade } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { currentUser } from '$lib/pocketbase';
   import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
+  import GantChart from '$lib/components/features/GantChart.svelte';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 
   let showPage = false;
@@ -60,6 +61,14 @@
               <KanbanSquareIcon/>
               Kanban Board
           </button>
+          <button
+            class:active={$activeTab === 'gant'}
+            on:click={() => switchTab('gant')}
+            in:fade={{ duration: 400, delay: 850 }}
+        >
+            <ChartNoAxesGantt/>
+            Gant Chart
+        </button>
       </div>
     
       <!-- Tab Panels -->
@@ -75,6 +84,11 @@
                   <TaskCalendar />
               </div>
           {/if}
+          {#if $activeTab === 'gant'}
+          <div class="tab-panel" in:fade={{ duration: 400 }}>
+              <GantChart />
+          </div>
+      {/if}
       </div>
   </main>
 </div>
@@ -94,6 +108,8 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: hidden;
 	}
   
     h1 {

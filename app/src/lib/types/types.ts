@@ -275,6 +275,7 @@ export interface Task extends RecordModel {
 		| 'archive';
 	priority: 'high' | 'medium' | 'low';
 	due_date: Date | string;
+	start_date: Date | string;
 	allocatedAgents: string[];
 	parent_task: string;
 	dependencies: {
@@ -595,6 +596,7 @@ export interface KanbanTask {
     taskDescription: string;
     creationDate: Date;
     due_date: Date | null;
+	start_date: Date | null;
     tags: string[];
     attachments: KanbanAttachment[];
     project_id?: string;
@@ -690,3 +692,21 @@ export interface UIState {
 	expandedDates: Set<string>;
 	searchQuery: string;
 }
+export interface Reminder {
+	id: string;                  
+	title: string;  
+	dueDate?: Date | null;      
+	completed: boolean;        
+	priority?: 'low' | 'medium' | 'high';  
+	notes?: string;               
+	listId?: string;          
+	createdAt?: Date;            
+	updatedAt?: Date;           
+	source: 'apple';            
+  }
+  export interface ReminderList {
+	id: string;
+	name: string;
+	color?: string; 
+	reminders: Reminder[];
+  }

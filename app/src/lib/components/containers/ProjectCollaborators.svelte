@@ -171,20 +171,67 @@ async function findUserByIdentifier(identifier: string): Promise<User | null> {
 
     try {
         console.log('Searching for user with identifier:', identifier);
-        const sanitizedIdentifier = identifier.trim().toLowerCase();
+        const sanitizedIdentifier = identifier.trim();
         
-        // Use the API endpoint to search for users
+        // First, check if this could be a user ID (typically a string of 15+ characters)
+        if (sanitizedIdentifier.length >= 15 && !sanitizedIdentifier.includes('@')) {
+            console.log('Identifier looks like a user ID, trying direct lookup first...');
+            try {
+                const response = await fetch(`/api/users/${encodeURIComponent(sanitizedIdentifier)}`);
+                if (response.ok) {
+                    const user = await response.json();
+                    console.log('Found user by direct ID lookup:', user);
+                    return user;
+                } else {
+                    console.log('Direct ID lookup failed, continuing with search...');
+                }
+            } catch (error) {
+                console.log('Error in direct ID lookup:', error);
+                // Continue with search
+            }
+        }
+        
+        // Use the search API endpoint
+        console.log('Using search API to find user...');
         const response = await fetch(`/api/users?search=${encodeURIComponent(sanitizedIdentifier)}`);
         if (!response.ok) {
             throw new Error(`Failed to search users: ${response.statusText}`);
         }
         
-        const allUsers = await response.json();
-        console.log('Total users fetched for search:', allUsers.length);
+        // The response is an array of users
+        const users = await response.json();
+        console.log('Search API response:', users);
         
-        // The rest of your logic for finding a matching user can remain the same
-        // ...
+        // Check if we have any users returned
+        if (Array.isArray(users) && users.length > 0) {
+            console.log('Total users found:', users.length);
+            
+            // If there are multiple users found, try to find the best match
+            if (users.length > 1) {
+                // First, check for exact matches on email (most unique identifier)
+                const exactEmailMatch = users.find(u => 
+                    u.email && u.email.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactEmailMatch) return exactEmailMatch;
+                
+                // Then check for exact matches on username
+                const exactUsernameMatch = users.find(u => 
+                    u.username && u.username.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactUsernameMatch) return exactUsernameMatch;
+                
+                // Then check for exact matches on name
+                const exactNameMatch = users.find(u => 
+                    u.name && u.name.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactNameMatch) return exactNameMatch;
+            }
+            
+            // Return the first matching user if no exact match was found
+            return users[0];
+        }
         
+        console.log('No users found matching the search criteria');
         return null;
     } catch (error) {
         console.error('Error finding user:', error);

@@ -65,6 +65,7 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             status: task.status,
             priority: task.priority || 'medium',
             due_date: task.due_date ? task.due_date.toISOString() : null,
+            start: task.start_date ? task.start_date.toISOString() : null,
             taggedTasks: task.tags.join(','),
             taskTags: task.tags,
             allocatedAgents: task.allocatedAgents || [],
@@ -102,6 +103,7 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             attachments: updatedAttachments,
             creationDate: new Date(savedTask.created),
             due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+            start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
             tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
         };
     } catch (err) {

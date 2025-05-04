@@ -5,7 +5,7 @@
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { CalendarClock, ChevronLeft, ChevronRight, FolderGit, GitFork, LayoutList, ListCollapse, Trash2 } from 'lucide-svelte';
+	import { ArrowRight, CalendarClock, ChevronLeft, ChevronRight, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2 } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
     import { t } from '$lib/stores/translationStore';
 
@@ -72,6 +72,7 @@
     let isEditingDescription = false;
     let isEditingTitle = false;
     let selectedDeadline: number | string | null = null;
+    let selectedStart: number | string | null = null;
     let isLoading = writable(true);
     let error = writable<string | null>(null);
 
@@ -155,6 +156,7 @@
                     taskDescription: task.taskDescription || '',
                     creationDate: new Date(task.created),
                     due_date: task.due_date ? new Date(task.due_date) : null,
+                    start_date: task.start_date ? new Date(task.start_date) : null,
                     tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
                     attachments: [],
                     project_id: task.project_id,
@@ -363,6 +365,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
             status: taskStatus,
             priority: task.priority || 'medium',
             due_date: task.due_date ? task.due_date.toISOString() : null,
+            start_date: task.start_date ? task.start_date.toISOString() : null,
             taggedTasks: task.tags.join(','),
             taskTags: task.tags,
             allocatedAgents: task.allocatedAgents || [],
@@ -406,6 +409,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
                         attachments: updatedAttachments,
                         creationDate: new Date(savedTask.created),
                         due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                        start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
                         tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : [],
                         status: savedTask.status // Make sure status is updated from the server response
                     } : t
@@ -556,6 +560,7 @@ async function deleteTask(taskId: string) {
                             taskDescription: '',
                             creationDate: new Date(),
                             due_date: null,
+                            start_date: null,
                             tags: [],
                             attachments: [],
                             project_id: currentProjectId || undefined,
@@ -566,7 +571,6 @@ async function deleteTask(taskId: string) {
                         };
                         column.tasks.push(newTask);
                         
-                        // Save to PocketBase
                         saveTask(newTask).then(savedTask => {
                             columns.update(cols => {
                                 return cols.map(col => ({
@@ -577,6 +581,7 @@ async function deleteTask(taskId: string) {
                                             id: savedTask.id,
                                             creationDate: new Date(savedTask.created),
                                             due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                                            start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
                                             tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
                                         } : t
                                     )
@@ -691,6 +696,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         isEditingTitle = false;
         isEditingDescription = false;
         selectedDeadline = null;
+        selectedStart = null;
     }
 
     function saveAndCloseModal() {
@@ -776,6 +782,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                         taskDescription: '',
                         creationDate: new Date(),
                         due_date: null,
+                        start_date: null,
                         tags: [],
                         attachments: [],
                         project_id: currentProjectId || undefined,
@@ -787,7 +794,6 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                     
                     backlogColumn.tasks.push(newTask);
                     
-                    // Save to PocketBase
                     saveTask(newTask).then(savedTask => {
                         columns.update(cols => {
                             return cols.map(col => ({
@@ -798,6 +804,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                                         id: savedTask.id,
                                         creationDate: new Date(savedTask.created),
                                         due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                                        start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
                                         tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
                                     } : t
                                 )
@@ -851,6 +858,26 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             selectedTask.due_date = deadline;
             selectedTask = { ...selectedTask };
             selectedDeadline = 'endOfWeek';
+        }
+    }
+    function setQuickStart(days: number) {
+        if (selectedTask) {
+            const start = new Date();
+            start.setDate(start.getDate() + days);
+            selectedTask.start_date = start;
+            selectedTask = { ...selectedTask };
+            selectedStart = days;
+        }
+    }
+
+    function setEndOfWeekStart() {
+        if (selectedTask) {
+            const start = new Date();
+            const daysUntilEndOfWeek = 7 - start.getDay();
+            start.setDate(start.getDate() + daysUntilEndOfWeek);
+            selectedTask.start_date = start;
+            selectedTask = { ...selectedTask };
+            selectedStart = 'endOfWeek';
         }
     }
 
@@ -921,11 +948,31 @@ $: parentTaskNames = (() => {
   return map;
 })();
 
-function getParentTaskTitle(parentId: string | undefined): string {
-  if (!parentId) return "Unknown";
-  return parentTaskNames.get(parentId) || "Unknown";
+async function getParentTaskTitle(parentId: string | undefined): Promise<string> {
+    if (!parentId) return "Unknown";
+    
+    // Check local cache first
+    if (parentTaskNames.has(parentId)) {
+        return parentTaskNames.get(parentId) || "Unknown";
+    }
+    
+    // If not in cache, fetch from API
+    try {
+        const response = await fetch(`/api/tasks/${parentId}`);
+        if (!response.ok) throw new Error('Failed to fetch parent task');
+        
+        const parentTask = await response.json();
+        const title = parentTask.title || "Unknown";
+        
+        // Update cache
+        parentTaskNames.set(parentId, title);
+        
+        return title;
+    } catch (err: unknown) {
+        console.error('Error fetching parent task:', err);
+        return "Unknown";
+    }
 }
-
 function navigateToParentTask(parentId: string, event: MouseEvent) {
     if (!parentId) return;
     
@@ -1002,29 +1049,25 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                 on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
                                 on:click={(e) => openModal(task, e)}
                             >
-                            {#if hasSubtasks(task.id)}
-                                <div class="task-badge subtasks">
-                                    {countSubtasks(task.id)} subtasks
-                                </div>
-                            {/if}
-                        
                             {#if task.parent_task}
-                                <div class="task-badge ">
-                                    {getParentTaskTitle(task.parent_task)}
+                                <div class="task-badge">
+                                    {#await getParentTaskTitle(task.parent_task) then title}
+                                        {title}
+                                    {/await}
                                 </div>
                             {/if}
                                 <h4>{task.title}</h4>
-                                
+                                {#if hasSubtasks(task.id)}
+                                <div class="task-badge subtasks">
+                                    {countSubtasks(task.id)} subtasks
+                                </div>
+                                {/if}
+                            
+
                                 <p class="description">{task.taskDescription}</p>
 
 
-                                {#if task.tags && task.tags.length > 0}
-                                <div class="tag-list">
-                                    {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
-                                        <span class="tag" style="background-color: {tag.color}">{tag.name}</span>
-                                    {/each}
-                                </div>
-                                {/if}
+
                                 {#if task.createdBy}
                                 <p class="task-creator">
 
@@ -1041,9 +1084,17 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                             {/await}
                                         </span>
                                     </span>
-                                    {#if task.due_date}
-                                    <p class="deadline"> by {task.due_date.toLocaleDateString()}</p>
-                                    {/if}
+                                    <span>
+                                        {#if task.start_date}
+                                        <p class="timeline"> {task.start_date.toLocaleDateString()}</p>
+                                        <ArrowRight/>
+                                        {/if}
+    
+                                        {#if task.due_date}
+                                        <p class="timeline"> {task.due_date.toLocaleDateString()}</p>
+                                        {/if}
+                                    </span>
+
                                 </p>
                                 
                                 {/if}
@@ -1052,7 +1103,13 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                         📎 {task.attachments.length}
                                     </div>
                                 {/if}
-
+                                {#if task.tags && task.tags.length > 0}
+                                <div class="tag-list">
+                                    {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
+                                        <span class="tag-card" style="background-color: {tag.color}">{tag.name}</span>
+                                    {/each}
+                                </div>
+                                {/if}
                             </div>
                         {/each}
                     </div>
@@ -1182,9 +1239,53 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                 </div>
             {/if}
             </div>
+            <div class="start-section">
+                <span class="timer">
+                    <p>Start:</p>
+                    {selectedTask.start_date ? selectedTask.start_date.toLocaleDateString() : 'Select task start date'}
+                </span>
+                <div class="timer-controls">
+                    <button class="play"
+                        on:click={() => setQuickStart(0)}
+                        class:selected={selectedStart === 0}
+                    >
+                        <span>
+                            <CirclePlay size="20"/>
+                            Now
+                        </span>
+                    </button>
+                    <button 
+                        on:click={() => setQuickStart(1)}
+                        class:selected={selectedStart === 1}
+                    >Tomorrow</button>
+                    <button 
+                        on:click={setEndOfWeekStart}
+                        class:selected={selectedStart === 'endOfWeek'}
+                    >End of Week</button>
+                    <button 
+                        on:click={() => setQuickStart(7)}
+                        class:selected={selectedStart === 7}
+                    >1 Week</button>
+                    <button 
+                        on:click={() => setQuickStart(14)}
+                        class:selected={selectedStart === 14}
+                    >2 Weeks</button>
+                    <button 
+                        on:click={() => setQuickStart(30)}
+                        class:selected={selectedStart === 30}
+                    >1 Month</button>
+                </div>
+            </div>
             <div class="deadline-section">
-                <p>Deadline:</p>
-                <div class="deadline-controls">
+                <span class="timer">
+                    <p>Deadline:</p>
+                    {selectedTask.due_date ? selectedTask.due_date.toLocaleDateString() : 'Select task end date'}
+                </span>
+                <div class="timer-controls">
+                    <button 
+                        on:click={() => setQuickDeadline(0)}
+                        class:selected={selectedDeadline === 0}
+                    >Today</button>
                     <button 
                         on:click={() => setQuickDeadline(1)}
                         class:selected={selectedDeadline === 1}
@@ -1370,7 +1471,10 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         align-items: flex-start;
         height: 82vh;
         width: calc(100% - 3rem);
+        backdrop-filter: blur(20px);
         padding: 1rem;
+        border-radius: 2rem;
+        border: 1px solid var(--line-color);
         transition: all 0.3s ease;
 
     }
@@ -1488,6 +1592,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         }
     }
     .title-section,
+    .start-section,
     .deadline-section,
     .attachment-section,
     .tag-section,
@@ -1537,7 +1642,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(5px) rotate(3deg);    
+        transform: scale(1.05) translateX(0) rotate(3deg);    
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
         border: 1px solid var(--line-color);
         z-index: 1;
@@ -1552,11 +1657,10 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
 
     h4 {
-        font-size: 0.9rem;
+        font-size: 1.2rem;
         padding: 0 0.5rem;
         margin: 0;
-        margin-top: 0.5rem;
-        margin-bottom: 0.5rem;
+        margin-top: 0.25rem;
     }
 
     .tag-list {
@@ -1565,31 +1669,41 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         gap: 0.5rem;
         padding: 0 0.5rem;
         margin-bottom: 0.5rem;
+
+        & .tag {
+            color: var(--text-color);
+            // opacity: 0.5;
+            border: none;
+            padding: 0.25rem;
+            opacity: 0.5;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+
+            transition: all 0.3s ease;
+            cursor: pointer;
+            &:hover {
+                opacity: 0.8;
+            }
+            &.selected {
+            opacity: 1;
+            font-weight: 800;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+            }
+        }
+        & .tag-card {
+            color: var(--text-color);
+            // opacity: 0.5;
+            border: none;
+            padding: 0.25rem;
+            opacity: 1;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
     }
 
-    .tag {
-        color: var(--text-color);
-        // opacity: 0.5;
-        border: none;
-        padding: 0.25rem;
 
-        border-radius: 1rem;
-        font-size: 0.75rem;
-
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .tag:hover {
-        opacity: 0.8;
-    }
-
-    .tag.selected {
-        opacity: 1;
-        font-weight: 800;
-        font-size: 1.5rem;
-        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
-    }
 
     .task-creator {
         display: flex;
@@ -1602,6 +1716,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         gap: 0.5rem;
         padding: 0.25rem 0.5rem;
         margin: 0;
+        margin-bottom: 0.5rem;
         font-size: 0.8rem;
         span {
             display: flex;
@@ -1630,7 +1745,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 
 
-    .deadline {
+    .timeline {
     // color: var(--text-color);
     // padding: 0.25rem 0.5rem;
     // border-bottom-left-radius: 0.5rem;
@@ -1688,13 +1803,36 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
 
 
-    .deadline-controls {
+    .timer-controls {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+        & button.play {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: auto;
+            width: auto;
+            padding: 0 0.5rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            span {
+                gap: 0.25rem;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            &:hover {
+                background: var(--primary-color);
+                span {
+                    color: var(--text-color);
+                }
+            }
+
+        }
     }
 
-    .deadline-controls input[type="date"] {
+    .timer-controls input[type="date"] {
         flex-grow: 1;
         padding: 5px;
         border-radius: 5px;
@@ -1703,19 +1841,24 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         color: white;
     }
 
-    .deadline-controls button {
-        padding: 5px 10px;
+    .timer-controls button {
+        padding:0.5rem;
         background: var(--secondary-color);
         color: var(--text-color);
         border: none;
         border-radius: 0.5rem;
         cursor: pointer;
         font-size: 0.9rem;
-        line-height: 2;
+        &:hover {
+                background: var(--primary-color);
+                span {
+                    color: var(--text-color);
+                }
+            }
 
     }
 
-    .deadline-controls button.selected {
+    .timer-controls button.selected {
         border: 2px solid var(--tertiary-color);
         background: var(--tertiary-color);
         color: var(--bg-color);
@@ -1725,7 +1868,20 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
 
 
-
+    span.timer {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+        color: var(--placeholder-color);
+        & p {
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+    }
 
     .add-tag {
         border-radius: 1rem;
@@ -1877,15 +2033,13 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         width: auto;
     color: var(--placeholder-color);
     padding: 0.25rem 0.5rem;
-    border-top-right-radius: 0.5rem;
-    border-top-left-radius: 0.5rem;
+
     font-size: 0.75rem;
     letter-spacing: 0.1rem;
     cursor: pointer;
 
     &.subtasks {
-        color: var(--placeholder-color);
-        justify-content: flex-end;
+        color: var(--tertiary-color);
     }
     &:hover {
         background: var(--tertiary-color);
@@ -2081,6 +2235,9 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             margin-right: 1rem;
             max-width: 400px;
             width: 100%;
+            height: 50vh;
+            overflow-y: scroll;
+            overflow-x: hidden;
         }
 
         .view-controls {
@@ -2110,6 +2267,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         }
 
         .title-section,
+        .start-section,
         .deadline-section,
         .attachment-section,
         .tag-section,
@@ -2145,14 +2303,14 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         padding: 1rem;
 
     }
-    .deadline-controls {
+    .timer-controls {
         display: flex;
         flex-wrap: wrap;
         gap: 5px;
         margin-top: 5px;
     }
 
-    .deadline-controls input[type="date"] {
+    .timer-controls input[type="date"] {
         flex-grow: 1;
         padding: 5px;
         border-radius: 5px;
@@ -2161,7 +2319,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         color: white;
     }
 
-    .deadline-controls button {
+    .timer-controls button {
         padding: 5px 10px;
         background: var(--secondary-color);
         color: var(--text-color);
@@ -2173,7 +2331,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     }
 
-    .deadline-controls button.selected {
+    .timer-controls button.selected {
         border: 2px solid var(--tertiary-color);
         background: var(--tertiary-color);
         color: var(--bg-color);
@@ -2262,12 +2420,12 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             background: var(--primary-color);
         }
 
-        // .deadline-controls {
+        // .timer-controls {
         //     flex-direction: column;
         // }
 
-        // .deadline-controls input[type="date"],
-        // .deadline-controls button {
+        // .timer-controls input[type="date"],
+        // .timer-controls button {
         //     width: 100%;
         // }
     }
