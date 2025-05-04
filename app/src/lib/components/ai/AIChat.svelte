@@ -2774,9 +2774,9 @@ onDestroy(() => {
 
 <div class="chat-interface" in:fly="{{ y: -200, duration: 300 }}" out:fade="{{ duration: 200 }}">
   {#if showAgentPicker}
-  <AgentPicker 
+  <!-- <AgentPicker 
     on:close={() => showAgentPicker = false}
-  />
+  /> -->
 {/if}
   <div class="chat-container" 
     transition:fly="{{ x: 300, duration: 300 }}" 
@@ -3117,12 +3117,12 @@ onDestroy(() => {
                   <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
 
                 </button>
-                <button 
+                <!-- <button 
                 class="toggle-btn"
                 on:click={() => showAgentPicker = !showAgentPicker}
               >
                 <BotIcon/>
-              </button>
+              </button> -->
               </span>
 
               {/if}
@@ -3759,19 +3759,24 @@ onDestroy(() => {
 
   // List styles
   ul {
+    margin-bottom: 0;
     margin-left: 0;
     padding-inline-start: 2rem;
     margin-top: 0;
-  list-style-type:lower-alpha ;
+    max-width: 500px;
+  list-style-type: square;
+
     li {
       background: var(--secondary-color);
       padding: 1rem;
       margin-top: 0;
       margin-bottom: 0;
       transition: all 0.3s ease;
+      border-left: 10px solid var(--bg-color);
+
       &:hover {
         background: var(--primary-color);
-        transform: translateX(1rem);
+        // transform: translateX(1rem);
         cursor: pointer;
       }
 
@@ -3787,12 +3792,13 @@ onDestroy(() => {
       block-end: 1rem;
     }
     letter-spacing: 0.1rem;
-    border-radius: var(--radius-m);
-    gap: 1rem;
-    
+    // border-radius: var(--radius-m);
+    border-radius: 0.5rem;
     li {
       margin-inline-start: 1.5rem;
       padding-inline-start: 0;
+      border-left: 10px solid var(--tertiary-color);
+
     }
     &:li {
       font-size: 1.2rem;
@@ -3806,7 +3812,7 @@ onDestroy(() => {
     display: flex;
     flex-direction: column;
     // list-style-position: outside;
-    padding: 1rem;
+    // padding: 1rem;
     padding-inline-start: 1rem;
     margin: 1rem 0;
     // border: 1px solid var(--secondary-color);
@@ -3838,31 +3844,33 @@ onDestroy(() => {
 
     li {
       display: flex;
-      flex-direction: column;
       position: relative;
       // padding: 1rem;
       margin: 0;
-      padding: 2rem;
+      // padding: 2rem;
       padding-inline-start: 1rem;
-      font-size: 1.4rem;
+      font-size: 1.1rem;
       letter-spacing: 0.2rem;
-      line-height: 2;
+      // line-height: 2;
       // border-top: 1px solid var(--placeholder-color);
       // border-bottom: 1px solid var(--placeholder-color);
+      list-style-type:lower-alpha !important;
 
-      // border-left: 1px solid var(--placeholder-color);
       // background: var(--bg-gradient-r);
       border-radius: 0;
-      border-top-left-radius: 2rem;
-      border-bottom-left-radius: 2rem;
+      // border-top-left-radius: 2rem;
+      // border-bottom-left-radius: 2rem;
 
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-      border-left: 10px solid var(--bg-color);
-      border-bottom: 3px solid var(--bg-color);
+      // border-bottom: 3px solid var(--bg-color);
       // border-bottom: 1px solid var(--placeholder-color);
+      & strong {
+        display: inline-block;
+        width: auto !important;
+      }
       &:hover {
-      transform: translateX(1rem);
-      background: var(--bg-color)
+      // transform: translateX(1rem);
+      // background: var(--bg-color)
     }
       &:first-child {
         
@@ -3897,7 +3905,7 @@ onDestroy(() => {
   }
   ol, ul {
         // margin-top: 1rem;
-        margin-bottom: 0.5rem;
+        // margin-bottom: 0.5rem;
       }
 
       // // Hover effect
@@ -3996,6 +4004,7 @@ p div {
     color: var(--text-color);
     max-width: 800px !important;
     display: flex;
+    font-size: 1rem;
   }
   code.language-json {
     display: block;
@@ -4126,7 +4135,8 @@ p div {
   span.header-btns {
       display: flex;
       flex-direction: row;
-      right: 0;
+      position: absolute;
+      right: 2rem;
       width: auto;
       margin-right: 0;
     }
@@ -6633,10 +6643,10 @@ p.selector-lable {
   position: relative;
   top: 4rem;
   bottom: 0;
-  left: 5rem;
+  left: 3rem;
   margin-left: 0;
   height: 100vh;
-  width: calc(400px - 4rem);
+  width: calc(400px - 2rem);
   transition: all 0.3s ease-in-out;
   scrollbar: {
     width: 1px;
@@ -7138,7 +7148,7 @@ p.selector-lable {
   width: 200px;
   padding: 0.5rem 1rem;
   margin: {
-    top: 2rem;
+    top: 0;
     bottom: 1rem;
     left: calc(50% - 100px);
 
@@ -7767,10 +7777,6 @@ p.selector-lable {
       position: relative;
       width: 100%;
       margin-left: 0;
-      border-top-right-radius: 0;
-      border-bottom-right-radius: 0;
-      border-bottom-left-radius: 0;
-
       margin-right: 0;
       padding: 0;
       cursor: pointer;
@@ -7787,16 +7793,15 @@ p.selector-lable {
       &.selected {
         backdrop-filter: blur(30px);
         background: var(--primary-color);
-        border-radius: 0 !important;
       }
 
   
     }
     button.card-container {
-      width: 96%;
+      width: 100%;
+      border-radius: 1rem;
       gap: 1rem;
       padding: 1rem;      
-      margin-left: 1rem;
 
 
   }
@@ -7902,17 +7907,22 @@ p.selector-lable {
     }
 
     .drawer-visible .chat-messages {
-      margin-left: 50%;
+      margin-left: calc(50% - 2rem);
     }
 
     .drawer-visible .drawer {
       margin-left: -1rem;
       transform: translateX(0);
-      margin-bottom: 3rem;
-
+      padding-bottom: 2rem;
+      top: 0;
+      padding-top: 1rem;
     }
     
+    .drawer-visible .drawer-toolbar {
+      border: none;
+      margin: 0;
 
+    }
     .drawer-visible .chat-container {
       display: flex;
       z-index: -1;
@@ -7920,7 +7930,13 @@ p.selector-lable {
       width: 100% !important;
 
     }
-
+    .drawer-visible .thread-filtered-results {
+      border: 1px solid var(--line-color);
+      padding: 1rem;
+      margin-left: 1rem;
+      margin-right: 1rem;
+      border-radius: 2rem;
+    }
     .drawer-visible .scroll-bottom-btn {
       display: none;
 

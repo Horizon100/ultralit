@@ -136,7 +136,7 @@
         display: flex;
         flex-wrap: wrap;
 		position: relative;
-		max-width: 500px;
+		max-width: 400px;
         margin: 0;
         text-align: left;
 		left: 0;

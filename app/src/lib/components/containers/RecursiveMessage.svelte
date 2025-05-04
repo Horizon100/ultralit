@@ -666,22 +666,35 @@ async function generateChildTasks({
       font-family: var(--font-family);
     }
     .message.depth-0 {
+      box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
+      border-radius: 1rem;
+
+
     }
     
     .message.depth-1 {
         margin-left: 1.5rem;
         max-width: calc(80% - 1.5rem);
+        // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+        border-radius: 1rem;
+
         
     }
     
     .message.depth-2 {
         margin-left: 1.5rem;
         max-width: calc(80% - 3rem);
+      // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+      border-radius: 1rem;
+
     }
     
     .message.depth-3, .message.depth-4, .message.depth-5 {
         margin-left: 1.5rem;
         max-width: calc(80% - 4rem);
+        // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+        border-radius: 1rem;
+
     }
     
     .deep-nested-reply {
@@ -709,7 +722,7 @@ async function generateChildTasks({
     }
     
     .highlighted {
-        box-shadow: 0 0 0 2px var(--highlight-color-secondary, #ffc107);
+      box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
     }
     
     /* Reply input styling */
@@ -1039,7 +1052,6 @@ async function generateChildTasks({
       margin-right: 3.5rem;
       margin-left: 0;
       // border-top: 2px solid var(--line-color);
-      border-radius: 0;
       max-width: 1200px;
       width: calc(100% - 2rem);
       min-width: 200px;

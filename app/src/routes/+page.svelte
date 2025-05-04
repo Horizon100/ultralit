@@ -7,7 +7,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { spring } from 'svelte/motion';
 	import { t } from '$lib/stores/translationStore';
-	import { LogIn, Bot, Mail, Send, Github } from 'lucide-svelte';
+	import { LogIn, Bot, Mail, Send, Github, CheckCircle, X } from 'lucide-svelte';
 	import TypeWriter from '$lib/components/ui/TypeWriter.svelte';
 	import FeatureCard from '$lib/components/ui/FeatureCard.svelte';
 	import NewsletterPopup from '$lib/components/subscriptions/Newsletter.svelte';
@@ -17,7 +17,12 @@
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import horizon100 from '$lib/assets/horizon100.svg';
 	import ServiceComparison from '$lib/components/containers/ServiceComparison.svelte';
-	
+	import openaiIcon from '$lib/assets/icons/providers/openai.svg';
+	import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
+	import googleIcon from '$lib/assets/icons/providers/google.svg';
+	import grokIcon from '$lib/assets/icons/providers/x.svg';
+	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg'; 
+
 	let pageReady = false;
 	let redirectedFromLogin = false;
 	let isLoading = true;
@@ -25,7 +30,14 @@
 	let showNewsletterPopup = false;
 	let navigationFlagChecked = false;
 
-
+	type PricingPlan = {
+	name: string;
+	description: string;
+	price: string;
+	month: string;
+	button: string;
+	features: string[];
+	};
 	// Animation states
 	let showContent = false;
 	let showFade = false;
@@ -86,7 +98,27 @@
 			$showAuth = false;
 		}
 	}
-
+	function handlePlanClick(planName: string, e: Event) {
+    // e.preventDefault();
+    // e.stopPropagation();
+    
+    localStorage.setItem('selectedPlan', planName.toLowerCase());
+    
+    switch(planName) {
+        case 'Basic':
+            toggleAuth(true);
+            break;
+        case 'Pro':
+            goto('/subscription/pro');
+            break;
+        case 'Enterprise':
+            goto('/subscription/enterprise');
+            break;
+        default:
+            // Fallback
+            toggleAuth(true);
+    }
+}
 	function handleSignOut() {
 		$showAuth = false;
 		// Force page reload to ensure proper state after logout
@@ -159,7 +191,7 @@
 			</div>
 		</div>
 	{:else}
-		{#if pageReady && !isLoading && !$currentUser}
+		<!-- {#if pageReady && !isLoading && !$currentUser}
 			<button 
 			class="fastlogin"
 			on:click={toggleAuth}
@@ -171,7 +203,7 @@
 				{$t('profile.login')}
 			</span>
 			</button>
-		{/if}
+		{/if} -->
 		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
 				<img
@@ -282,35 +314,68 @@
 							</div>
 						</div>
 					{/if}
-
 					{#if showButton}
-						<div id="pricing" class="section">
-							<h2>{$t('pricing.title')}</h2>
-							<div class="pricing-plans">
-								{#each $t('pricing.plans') as plan}
-									<div class="card">
-										<h3>{plan.name}</h3>
+					<div id="pricing" class="section">
+						<h2>{$t('pricing.title')}</h2>
+						<div class="pricing-plans">
+							{#each $t('pricing.plans') as plan, index}
+								<div class="card">
+									<h3>{plan.name}</h3>
+									<p class="description">{plan.description}</p>
+									<div class="list">
+										{#each plan.features as feature}
+											<span>
+												<CheckCircle/>{feature}
+											</span>
+										{/each}
+									</div>	
+									<span class="subscription">
 										<p class="price">{plan.price}</p>
-										<ul>
-											{#each plan.features as feature}
-												<li>{feature}</li>
-											{/each}
-										</ul>
-									</div>
-								{/each}
+										<p class="month">{plan.month}</p>
+									</span>
+									<button class="card-btn"
+									data-sveltekit-noscroll
+									on:click={() => handlePlanClick(plan.name)}
+									in:fly={{ y: 50, duration: 500, delay: 400 }}
+									out:fly={{ y: 50, duration: 500, delay: 400 }}
+									>
+										{plan.button}
+									</button>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+					{#if showH2}
+
+					<div id="integrations" class="section">
+						<h2>Integrations</h2>
+						<div class="card-wrapper">
+							<div class="int-card">
+								<img src={openaiIcon} alt="Integration" class="integration-logo" />
+								<h2>OpenAI</h2>
+							</div>
+							<div class="int-card">
+								<img src={anthropicIcon} alt="Integration" class="integration-logo" />
+								<h2>Anthropic</h2>
+							</div>
+							<div class="int-card">
+								<img src={deepseekIcon} alt="Integration" class="integration-logo" />
+								<h2>Deepseek</h2>
+							</div>
+							<div class="int-card">
+								<img src={grokIcon} alt="Integration" class="integration-logo" />
+								<h2>Grok</h2>
 							</div>
 						</div>
-					{/if}
-					{#if showH2}
-					<div id="integrations" class="section">
-						<ServiceComparison/>
+
 					</div>
 					{/if}
-					{#if showH2}
+					<!-- {#if showH2}
 					<div id="comparison" class="section">
 						<ServiceComparison/>
 					</div>
-					{/if}
+					{/if} -->
 				</div>
 			</div>
 		</div>
@@ -450,10 +515,12 @@
 
 	.feature-cards {
 		width: 100%;
+		max-width: 800px;
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
-		align-items: center;
+		align-items: flex-end;
+		gap: 0.1rem;
 		
 	}
 
@@ -485,7 +552,7 @@
 		flex-direction: column;
 		align-items: center;
 		width: 100%;
-
+		gap: 10rem;
 		background: radial-gradient(
 			circle at center,
 			rgba(255, 255, 255, 0.2) 0%,
@@ -502,7 +569,6 @@
 		max-width: 1200px;
 		width: 100%;
 		height: 100vh;
-
 		background: radial-gradient(
 			circle at center,
 			rgba(255, 255, 255, 0.2) 0%,
@@ -833,49 +899,144 @@
 
 	.pricing-plans {
 		display: flex;
-		justify-content: space-around;
+		justify-content: flex-start;
 		flex-wrap: wrap;
+		width: calc(100% - 2rem);
 		padding: 1rem;
-	}
+		box-sizing: border-box;
 
+	}
+	.section#pricing {
+	}
+	.section#integrations {
+	}
+	.card-wrapper {
+		gap: 1rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-wrap: wrap;
+		width: 100%;
+		gap: 1rem;
+		max-width: calc(600px + 2rem);
+
+		& .int-card {
+			background: var(--bg-gradient-r);
+			border-radius: 1rem;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			width: 300px;
+			height: 300px;
+			& h2 {
+				font-size: 1.8rem;
+			}
+
+			& .integration-logo {
+				user-select: none;
+				width: 6rem;
+				height: 6rem;
+
+			}
+		}
+	}
 	.card {
 		background: var(--bg-gradient-r);
-		border-radius: 10px;
-		margin: 1rem;
-		text-align: center;
+		border-radius: 1rem;
+		padding: 1rem;
+		text-align: left;
 		transition: all 1s cubic-bezier(0.075, 0.82, 0.165, 1);
-		width: calc(69.333% - 2rem); /* 3 cards per row on larger screens */
-		min-width: 250px; /* Minimum width for cards */
-		margin: 1rem;
 		border: 1px solid var(--bg-color);
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		align-items: center;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		flex: 1;
+		width: 100vw;
+		height: 50vh;
+		& .list {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			margin-top: 1rem;
+			padding-top: 2rem;
+			border-top: 1px solid var(--line-color);
+		}
+		span {
+			display: flex;
+			flex-direction: row;
+			gap: 0.5rem;
+			width: auto;
+			text-align: left;
+			margin-left: 1rem;
+			margin-right: 1rem;
+		}
+		span.subscription {
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: flex-end;
+			flex: 1;
+			padding: 0;
+			margin: 0;
+			width: 100%;
+			gap: 0;
+		}
+		& li {
+			color: red;
+			width: 200px;
+			
+			word-break: break-word;
+
+		}
 	}
 
 	.card:hover {
-		background: var(--secondary-color);
-		border: 1px solid var(--tertiary-color);
+		// border: 1px solid var(--tertiary-color);
+		// transform: scale(1.2) translateY(0) ;
+		// margin-right: 1rem;
+		// margin-left: 1rem;
+		// box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
+
 	}
 
 	.card h3 {
-		font-size: 1.5rem;
-		margin-bottom: 1rem;
+		font-size: 1.8rem;
+		margin: 0;
+		font-weight: 800;
+		letter-spacing: 0.2rem;
 		width: 100%;
-		text-align: center;
+
+		text-align: left;
+		font-style: normal;
 		justify-content: center;
 		align-items: center;
 	}
 
+	.description {
+		text-align: left;
+		letter-spacing: 0.1rem;
+		font-size: 1rem;
+		font-style: italic;
+		margin: 0;
+	}
+
 	.price {
-		font-size: 1.8rem;
-		color: #6fdfc4;
+		margin: 0;
+		font-size:2.5rem;
+		font-weight: 800;
+		color: var(--tertiary-color);
+		width: auto;
+
+	}
+	.month {
+		font-size: 1rem;
+		color: var(--tertiary-color);
 		margin-bottom: 1rem;
-		width: 100%;
-		text-align: center;
-		justify-content: center;
-		align-items: center;
+		margin: 0;
+		width: auto;
+
 	}
 
 	@keyframes bounce {
@@ -928,7 +1089,7 @@
 
 
 		.card {
-			width: calc(50% - 2rem); 
+			// width: calc(50% - 2rem); 
 		}
 		h2 {
 			font-size: 60px;
@@ -936,6 +1097,16 @@
 	}
 
 	@media (max-width: 767px) {
+		.feature-cards {
+			width: 100%;
+			max-width: 800px;
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			align-items: flex-start;
+			gap: 0.1rem;
+			
+		}
 		.auth-content {
 			position: fixed;
 			display: flex;
@@ -988,15 +1159,19 @@
 		}
 
 		.pricing-plans {
-			flex-direction: column;
+			flex-direction: none;
 			align-items: center;
 		}
 
 		.card {
-			width: 100%; /* 1 card per row on small screens */
+			// width: 100%; /* 1 card per row on small screens */
 		}
 		.section {
 			height: auto;
+		}
+		.section#integrations {
+			& .int-card {
+			}
 		}
 	}
 </style>

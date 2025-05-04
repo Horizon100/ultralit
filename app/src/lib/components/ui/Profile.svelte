@@ -348,25 +348,25 @@ $: displayUser = completeUserData || user;
 		<div class="settings-row">
 			<div class="btn-row">
 				<div class="btn-row" >
-					<button class="settings-button" on:click={onClose}>
+					<button class="back-button" on:click={onClose}>
 						<ChevronLeft/>
 					</button>
 					{#if isEditing}
 						<button class="settings-button" on:click={saveChanges}>
 							<span>
-								<Save/>
+								<Save size={16} />
 								{$t('profile.save')}
 							</span>
 						</button>
 					{:else}
 						<button class="settings-button" on:click={toggleEdit}>
-							<Pen/>
+							<Pen size={16} />
 							<span class="hover">{$t('profile.edit')}</span>
 						</button>
 					{/if}
 	
 					<button class="settings-button" on:click={handleLanguageChange}>
-						<Languages size={24} />
+						<Languages size={16} />
 						<span>{$t('lang.flag')}</span>
 						<span class="hover">{$t('profile.language')}</span>
 
@@ -378,7 +378,7 @@ $: displayUser = completeUserData || user;
 					>
 						<svelte:component
 							this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
-							size={24}
+							size={16}
 						/>
 						<span class="hover">{$t('profile.theme')}</span>
 
@@ -386,7 +386,7 @@ $: displayUser = completeUserData || user;
 				</div>
 				
 				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-					<LogOutIcon size={24} />
+					<LogOutIcon size={16} />
 					<span class="hover">{$t('profile.logout')}</span>
 				</button>
 			</div>
@@ -695,7 +695,7 @@ $: displayUser = completeUserData || user;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		width: 100%;
+		width: calc(100% - 2rem);
 		padding: 1rem;
 
 	}
@@ -1056,9 +1056,10 @@ $: displayUser = completeUserData || user;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
-		border-radius: 20px;
+		margin-right: 1rem;
+		border-radius: 1rem;
 		width: auto;
-		height: 60px;
+		height: 2rem;
 		background: var(--secondary-color);
 		opacity: 0.5;
 		border: 1px solid var(--border-color);
@@ -1075,9 +1076,10 @@ $: displayUser = completeUserData || user;
 			box-shadow: 0 4px 6px rgba(255, 0, 0, 0.5);
 			font-weight: bold;
 			opacity: 1;
-			width: auto;
+			width: 100%;
 			span.hover {
 				display: flex;
+				width: 5rem;
 			}
 		}
 
@@ -1089,29 +1091,48 @@ $: displayUser = completeUserData || user;
 	.settings-row {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
+		width: calc(100% - 3rem);
 		max-width: 800px;
 		gap: 1rem;
 		padding: 1rem;
+		margin-left: 3rem;
+		margin-right: 1rem;
 		margin-bottom: 1rem;
-	}
 
+	}
+	button.back-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: absolute;
+		top: 0.5rem;
+		left: 0.5rem;
+		border-radius: 50%;
+		height: 2rem;
+		width: 2rem;
+		gap: 0.2rem;
+		background: var(--primary-color);
+		border: 1px solid var(--border-color);
+		color: var(--text-color);
+		transition: all 0.2s ease;
+		opacity: 0.5;
+	}
 	button.settings-button {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		border-radius: 20px;
+		justify-content: center;
+		border-radius: 1rem;
 		width: auto;
-		height: auto;
-		background: var(--bg-gradient);
+		height: 2rem;
+		gap: 0.2rem;
+		background: var(--primary-color);
 		border: 1px solid var(--border-color);
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		opacity: 0.5;
 
 		& span.hover {
-			display: none;
+			display: flex;
 		}
 		
 		&:hover {

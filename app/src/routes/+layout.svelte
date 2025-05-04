@@ -29,7 +29,8 @@
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { t } from '$lib/stores/translationStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
-	
+	import { showAuth, toggleAuth } from '$lib/stores/authStore';
+
 	// Icons
 	import {
 	  MessageSquare,
@@ -100,7 +101,7 @@
 	let isMenuOpen = true;
 	let innerWidth: number;
 	let isNavExpanded = false;
-	let showAuth = false;
+	let showAuthModal = false;
 	let showProfile = false;
 	let showStyles = false;
 	let currentStyle = 'default';
@@ -178,26 +179,26 @@
 	function toggleAuthOrProfile() {
 	  if ($currentUser) {
 		showProfile = !showProfile;
-		showAuth = false;
+		showAuthModal = false;
 	  } else {
-		showAuth = !showAuth;
+		showAuthModal = !showAuthModal;
 		showProfile = false;
 	  }
 	}
 	
 	function handleAuthSuccess() {
-	  showAuth = false;
+	  showAuthModal = false;
 	}
 	
 	function handleLogout() {
 	  showProfile = false;
-	  showAuth = false;
 	  goto('/');
+	  showAuthModal = false;
 	}
 	
 	function handleOverlayClick(event: MouseEvent) {
 	  if (event.target === event.currentTarget) {
-		showAuth = false;
+		showAuthModal = false;
 		showProfile = false;
 		showStyles = false;
 	  }
@@ -388,20 +389,67 @@
 
 
 			<!-- {#if isNarrowScreen} -->
-				<!-- <button class="menu-button" on:click={toggleAuthOrProfile}>
-                    {#if $currentUser}
-                        <User size={24} />
-                    {:else}
-                        <LogIn size={24} />
-                    {/if}
-                </button> -->
+
+
 			<!-- {:else} -->
-			<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 				{#if currentPath === '/'}
 					{#if $currentUser}
 						
 					{:else}
-						<!-- Links for non-logged-in users on root page (with home link) -->
+					<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+
+						<button 
+							class="nav-link"
+							on:click={toggleAuth}
+							in:fly={{ y: 0, duration: 500, delay: 400 }}
+							out:fly={{ y: 50, duration: 500, delay: 400 }}
+							>
+							<LogIn/>
+							<span>
+								{$t('profile.login')}
+							</span>
+						</button>
+						<span>
+							<a
+								href="#features"
+								class="nav-link {activeSection === 'features' ? 'active' : ''}"
+								on:click|preventDefault={() => scrollToSection('features')}
+							>
+								<!-- <ComponentIcon/> -->
+								<span>
+									{$t('nav.features')}
+								</span>
+							</a>
+							<a
+								href="#pricing"
+								class="nav-link {activeSection === 'pricing' ? 'active' : ''}"
+								on:click|preventDefault={() => scrollToSection('pricing')}
+							>
+								<!-- <CircleDollarSign/> -->
+								<span>
+									{$t('nav.pricing')}
+								</span>
+							</a>
+							<a
+								href="#integrations"
+								class="nav-link {activeSection === 'integrations' ? 'active' : ''}"
+								on:click|preventDefault={() => scrollToSection('integrations')}
+							>
+								<!-- <Link/> -->
+								<span>
+									{$t('nav.integrations')}
+								</span>
+							</a>
+							<!-- <a
+								href="#comparison"
+								class="nav-link {activeSection === 'comparison' ? 'active' : ''}"
+								on:click|preventDefault={() => scrollToSection('comparison')}
+							> -->
+								<!-- <span>
+									{$t('nav.comparison')}
+								</span>
+							</a> -->
+						</span>
 						<a
 							href="#start"
 							class="nav-link home {activeSection === 'start' ? 'active' : ''}"
@@ -410,49 +458,10 @@
 							<img src={horizon100} alt="Horizon100" class="logo" />
 							<h2>vRAZUM</h2>                         
 						</a>
-						<a
-							href="#features"
-							class="nav-link {activeSection === 'features' ? 'active' : ''}"
-							on:click|preventDefault={() => scrollToSection('features')}
-						>
-							<ComponentIcon/>
-							<span>
-								{$t('nav.features')}
-							</span>
-						</a>
-						<a
-							href="#pricing"
-							class="nav-link {activeSection === 'pricing' ? 'active' : ''}"
-							on:click|preventDefault={() => scrollToSection('pricing')}
-						>
-							<CircleDollarSign/>
-							<span>
-								{$t('nav.pricing')}
-							</span>
-						</a>
-						<a
-							href="#integrations"
-							class="nav-link {activeSection === 'integrations' ? 'active' : ''}"
-							on:click|preventDefault={() => scrollToSection('integrations')}
-						>
-							<Link/>
-							<span>
-								{$t('nav.integrations')}
-							</span>
-						</a>
-						<a
-							href="#comparison"
-							class="nav-link {activeSection === 'comparison' ? 'active' : ''}"
-							on:click|preventDefault={() => scrollToSection('comparison')}
-						>
-							<Table/>
-							<span>
-								{$t('nav.comparison')}
-							</span>
-						</a>
+					</div>
+
 					{/if}
 				{/if}
-			</div>
 			<!-- {/if} -->
 
 
@@ -629,9 +638,9 @@
 				</button>
 				<button class="nav-button toggle" on:click={() => {
 					toggleNav();
-					if (showProfile || showAuth) {
+					if (showProfile || showAuthModal) {
 					  showProfile = false;
-					  showAuth = false;
+					  showAuthModal = false;
 					}
 				  }}>
 					{#if isNavExpanded}
@@ -659,7 +668,7 @@
 	</div>
 {/if}
 
-{#if showAuth}
+{#if showAuthModal}
 	<div
 		class="auth-overlay"
 		on:click={handleOverlayClick}
@@ -667,7 +676,7 @@
 	>
 		<div class="auth-content" transition:fade={{ duration: 300 }}>
 			<button
-				on:click={() => (showAuth = false)}
+				on:click={() => (showAuthModal = false)}
 				class="close-button"
 				in:fly={{ y: 50, duration: 500, delay: 400 }}
 				out:fly={{ y: 50, duration: 500, delay: 400 }}
@@ -757,15 +766,15 @@
 		<LoadingSpinner />
 	{/if}
 
-	{#if showAuth}
+	{#if showAuthModal}
 		<div
 			class="auth-overlay"
 			on:click={handleOverlayClick}
 			transition:fly={{ y: -20, duration: 300 }}
 		>
-			<div class="auth-content" transition:fly={{ y: -20, duration: 300 }}>
+			<div class="auth-content" >
 				<button
-					on:click={() => (showAuth = false)}
+					on:click={() => (showAuthModal = false)}
 					class="close-button"
 					in:fly={{ y: 50, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
@@ -953,7 +962,7 @@
 		height: 100%;
 		height: auto;
 		left: 0;
-		top: 3rem;
+		top: 0;
 		bottom: 0;
 		position: fixed;
 		display: flex;
@@ -1006,6 +1015,7 @@
 		/* margin-top: 0; */
 		/* align-items: center; */
 		height: auto;
+		z-index: 1;
 		/* padding: 5px 5px; */
 		background: var(--bg-color);
 		/* z-index: 100;; */
@@ -1181,7 +1191,7 @@
 		/* background-color: black; */
 		/* height: 80px; */
 		gap: 2rem;
-		width: auto;
+		width: 100%;
 
 		/* margin-right: 10%; */
 		/* padding: 10px; */
@@ -1221,11 +1231,22 @@
 		justify-content: center;
 		/* padding: 10px; */
 		font-family: var(--font-family);
-		max-width: 1000px;
-		width: 100%;
-		margin-left: 8rem;
-		margin-right: 8rem;
+		// max-width: 1000px;
+		width: 100vw;
 		height: 3rem;
+		& span {
+			display: flex;
+			flex-direction: row;
+			gap: 2rem;
+		}
+	}
+
+	button.nav-link {
+		width: auto;
+		display: flex;
+		background: transparent;
+
+
 	}
 
 	.nav-link {
@@ -1248,7 +1269,7 @@
 		color: var(--text-color);
 		// background: var(--bg-gradient-right);
 		padding: 0 0.5rem;
-		font-size: auto;
+		font-size: 1rem;
 		border: none;
 		border-radius: 0;
 		cursor: pointer;
@@ -1266,7 +1287,7 @@
 	}
 	.nav-link.active {
 		background: transparent;
-		color: var(--tertiary-color);
+		// color: var(--tertiary-color);
 		padding: 0 0.5rem;
 		margin: 0;
 
@@ -2177,12 +2198,19 @@
 
 	@media (max-width: 1000px) {
 	main {
+		overflow-y: hidden;
 
 	}
 
 	.nav-links {
-		max-width: 800px !important;
 		margin: 0;
+		justify-content: flex-end;
+		width: 100%;
+		span {
+			gap: 1.5rem;
+		}
+		button {
+		}
 	}
 
 	.nav-link {
@@ -2190,11 +2218,16 @@
 		padding: 0 !important;
 		margin: 0 !important;
 		width: auto;
+
+		& span {
+			gap: 1rem;
+			font-size: 1rem;
+		}
 		&.home {
 			width: 2rem !important;
-			flex: none;
+
 			& h2 {
-				display: none;
+				font-size: 1rem;
 			}
 		}
 
@@ -2221,7 +2254,9 @@
 		backdrop-filter: blur(30px);
 		border: 1px solid var(--secondary-color);
 	}
-
+		.nav-button {
+			background: transparent !important;
+		}
 		.nav-button.drawer {
 			left: 1rem;
 			bottom: 1rem;
@@ -2234,16 +2269,24 @@
 		.nav-button.info {
 			display: flex !important;
 			position: fixed !important;
+			background-color: transparent;
 			top: 0;
 			right: 0;
-
+			& .shortcut-buttons {
+				display: none;
+			}
 			
 			// display: none !important;
 			&:hover {
-				width: 20rem !important;
+				max-width: 500px;
 				border-radius: 2rem;
 				padding: 0;
-
+				&.nav-button {
+					backdrop-filter: blur(20px);
+				}
+				& .shortcut-buttons {
+					display: flex;
+				}
 				& .nav-button {
 				display: flex;
 			}
@@ -2262,7 +2305,7 @@
 			display: flex !important;
 			position: fixed !important;
 			top: 0;
-			right: 4rem;
+			right: 5rem;
 			z-index: -1;
 
 			& img.user-avatar {
@@ -2296,11 +2339,10 @@
 		}
 
 		.logo-container   {
-			width: 50%;
-			margin-left: 50%;
+			background-color: transparent;
+			box-shadow: none;
 			align-items: center;
 			justify-content: center;
-			background: red;
 		}
 
 		header {
@@ -2319,11 +2361,7 @@
 		main {
 		}
 
-		nav {
-			justify-content: flex-end;
-			width: calc(100% - 8rem);
-			margin-left: 8rem;
-		}
+
 
 		footer {
 			color: white;
@@ -2390,6 +2428,7 @@
 			display: none;
 		width: 350px;
 		justify-content: space-around;
+		background-color: red;
 		h2 {
 			display: flex;
 		}
@@ -2484,32 +2523,76 @@
 	}
 	@media (max-width: 767px) {
 		nav {
-			justify-content: flex-end;
-			width: calc(100% - 4rem);
-			margin-left: 3rem;
+			justify-content: center;
+			height: auto;
 		}
 		.nav-links {
-			max-width: auto !important;
 			margin: 0;
 			gap: 0;
-			justify-content: space-around;
+			transition: all 0.1s ease;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: flex-start;
+
+			width: calc(100% - 2rem);
+			& h2 {
+					display: flex;
+				}
+			&:hover {
+				margin-top: 1rem;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				gap: 1rem;
+				height: auto;
+				border-bottom: 1px solid var(--line-color);
+				border-bottom-left-radius: 2rem;
+				border-bottom-right-radius: 2rem;
+				// transform: translateY(50%);
+				// & h2 {
+				// 	display: none;
+				// }
+				width: 100%;
+				 span {
+						display: flex;
+						flex-direction: column;
+						justify-content: center;
+						align-items: center;
+						
+				}
+				
+
+			}
 		}
 
+		button.nav-link {
+			span {
+				display: none;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;				
+				width: 5rem;
+			}
+			&:hover {
+				span {
+					display: flex;
+				}
+			}
+		}
 		.nav-link {
 			font-size: 0.8rem;
 			padding: 0 !important;
 			margin: 0 !important;
 			flex: 0;
 			width: auto;
+			
 			& span {
 				display: none;
 			}
 			&.home {
-				width: 2rem !important;
-				flex: none;
-				& h2 {
-					display: none;
-				}
+				width: auto !important;
+				display: flex;
+
 			}
 		}
 		.modal-overlay {

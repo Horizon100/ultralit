@@ -444,7 +444,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-
+		max-width: 400px;
 		width: 100%;
 		// border-radius: 2rem;
 		// background: var(--bg-gradient);

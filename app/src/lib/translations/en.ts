@@ -235,17 +235,27 @@ export default {
 		plans: [
 			{
 				name: 'Basic',
-				price: 'Free',
+				description: 'For personal or non-commercial projects',
+				price: '$0',
+				month: '/month',
+				button: 'Try Now',
 				features: ['Up to 3000 tokens per day', 'Basic AI features']
 			},
 			{
 				name: 'Pro',
-				price: '$14.99/month',
+				description: 'For founders and teams in early stage companies',
+				price: '$14.99',
+				month: '/month',
+				button: 'Subscribe',
+
 				features: ['Access to multi-agent tools', '50GB storage']
 			},
 			{
 				name: 'Enterprise',
+				description: 'For companies looking for customized AI solutions',
 				price: 'Contact us',
+				month: '',
+				button: 'Submit',
 				features: ['Unlimited users', 'Custom AI solutions', 'Unlimited storage']
 			}
 		]
