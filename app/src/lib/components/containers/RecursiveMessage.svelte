@@ -1,6 +1,7 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { fly, fade, slide } from 'svelte/transition';
-    import { Bot, MessagesSquare, RefreshCcw, Send } from 'lucide-svelte';
+    import { Bot, MessagesSquare, RefreshCcw, Send, ChevronDown } from 'lucide-svelte';
     import Reactions from '$lib/components/common/chat/Reactions.svelte';
     import type { InternalChatMessage } from '$lib/types/types';
     import { createEventDispatcher } from 'svelte';
@@ -13,6 +14,8 @@
     import type { KanbanTask } from '$lib/types/types';
     import { 
         fetchAIResponse, 
+        fetchDualAIResponses,
+        saveSelectedResponse,
         handleStartPromptClick, 
         generateScenarios, 
         generateTaskFromMessage,
@@ -38,8 +41,16 @@
     export let aiModel: any;
     export let promptType: string | null = null;
     export let sendMessage: (text: string, parent_msg?: string, contextMessages?: any[]) => Promise<void> = async () => {};
-    
+    export let isDualResponse = false;
+    export let dualResponsePair = false;
+    export let isPrimaryDualResponse = false;
+    export let onSelectResponse: ((messageId: string) => void) | null = null;
     let currentProjectId: string | null;
+    let showScrollButton = false;
+    let isUserScrolling = false;
+    let lastScrollTop = 0;
+    let userScrollY = 0;
+    let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
     $: currentProjectId = $projectStore.currentProjectId;    
 
     const dispatch = createEventDispatcher();
@@ -63,6 +74,91 @@
         }
         hiddenReplies = new Set(hiddenReplies); 
     }
+    function scrollToBottom() {
+  console.log('Scroll button clicked in RecursiveMessage');
+  
+  // Find the main chat container (could be a parent element)
+  const chatContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
+  
+  if (chatContainer) {
+    // Use smooth scrolling for better UX
+    chatContainer.scrollTo({
+      top: chatContainer.scrollHeight,
+      behavior: 'smooth'
+    });
+    
+    // Reset state
+    showScrollButton = false;
+    isUserScrolling = false;
+  } else {
+    console.log('Scrollable container not found');
+  }
+}
+
+// Add this helper function
+function findScrollableParent(element: Element | null): HTMLElement | null {
+  if (!element) return null;
+  
+  let parent = element.parentElement;
+  while (parent) {
+    // Check if this parent is scrollable
+    const style = window.getComputedStyle(parent);
+    const overflowY = style.getPropertyValue('overflow-y');
+    
+    if (['auto', 'scroll'].includes(overflowY) && 
+        parent.scrollHeight > parent.clientHeight) {
+      return parent;
+    }
+    
+    parent = parent.parentElement;
+  }
+  
+  // If no scrollable parent found, use document.documentElement as fallback
+  return document.documentElement;
+}
+
+// Add this to handle scroll events - this should be connected to the parent scroll container
+// You can call this from an onMount lifecycle hook
+function setupScrollHandler() {
+  const scrollContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
+  
+  if (scrollContainer) {
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      
+      // Distance from bottom
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      
+      // Show button when not at bottom
+      showScrollButton = distanceFromBottom > 50;
+      
+      // Track user scrolling state
+      if (scrollTop > lastScrollTop) {
+        // Scrolling down
+        if (distanceFromBottom < 20) {
+          isUserScrolling = false;
+        }
+      } else if (scrollTop < lastScrollTop) {
+        // Scrolling up
+        isUserScrolling = true;
+      }
+      
+      lastScrollTop = scrollTop;
+    };
+    
+    // Initial check
+    handleScroll();
+    
+    // Add event listener
+    scrollContainer.addEventListener('scroll', handleScroll);
+    
+    // Clean up on destroy
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }
+}
+
 
     function handleReply() {
         showReplyInput = !showReplyInput;
@@ -433,7 +529,76 @@ async function generateChildTasks({
     return [];
   }
 }
+async function handleGenerateDualResponses(userInput: string, systemPrompts: string[]) {
+  try {
+    // Call the existing fetchDualAIResponses function
+    const result = await fetchDualAIResponses(
+      userInput,
+      aiModel,
+      userId,
+      systemPrompts
+    );
     
+    // Emit an event to the parent component with the responses
+    dispatch('dualResponsesGenerated', {
+      responses: result.responses,
+      threadId: result.threadId,
+      systemPrompts: systemPrompts,
+      userMessage: userInput
+    });
+    
+  } catch (error) {
+    console.error('Error generating dual responses:', error);
+    dispatch('notification', {
+      message: 'Failed to generate responses: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      type: 'error'
+    });
+  }
+}
+async function handleSelectResponse(event) {
+  const { messageId, content, systemPrompt } = event.detail;
+  console.log('Handling response selection:', event.detail);
+  
+  try {
+    const userMessage = isDualResponse ? allMessages.find(msg => 
+      msg.role === 'user' && (msg.id === message.parent_msg || msg.thread === message.thread)
+    ) : null;
+    
+    const userMessageContent = userMessage ? userMessage.content : "User message";
+    
+    // Use the existing sendMessage function which already knows how to properly save messages
+    await sendMessage(userMessageContent, null, [
+      { 
+        role: 'system', 
+        content: systemPrompt || '',
+        model: typeof aiModel === 'string' ? aiModel : aiModel.api_type 
+      },
+      { 
+        role: 'user', 
+        content: userMessageContent,
+        model: typeof aiModel === 'string' ? aiModel : aiModel.api_type 
+      }
+    ]);
+    
+    // Show success notification
+    dispatch('notification', {
+      message: 'Response selected and saved',
+      type: 'success'
+    });
+    
+    // Notify the parent that a selection was made so it can clean up dual response state
+    dispatch('dualResponseProcessed', {
+      selectedMessageId: messageId
+    });
+    
+  } catch (error) {
+    console.error('Error handling response selection:', error);
+    dispatch('notification', {
+      message: 'Failed to save selected response: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      type: 'error'
+    });
+  }
+}
     function cleanHtmlContent(htmlContent: string): string {
         let cleaned = htmlContent.replace(/<\/?[^>]+(>|$)/g, '');
         cleaned = cleaned.replace(/\s+/g, ' ');
@@ -489,6 +654,9 @@ async function generateChildTasks({
             cancelReply();
         }
     }
+    onMount(() => {
+  return setupScrollHandler();
+});
 </script>
   
 <div 
@@ -496,6 +664,8 @@ async function generateChildTasks({
     class:latest-message={message.id === latestMessageId}
     class:highlighted={message.isHighlighted}
     class:clickable={$showThreadList && childReplies.length > 0}
+    class:dual-response={isDualResponse}
+    class:dual-response-alt={isDualResponse && dualResponsePair}
     data-message-id={message.id}
     data-thread-id={message.thread || ''}
     in:fly="{{ y: 20, duration: 300 }}"
@@ -640,6 +810,8 @@ async function generateChildTasks({
             <Reactions 
                 message={message}
                 {userId}
+                isDualResponse={isDualResponse}
+                isPrimaryDualResponse={isPrimaryDualResponse}
                 on:update
                 on:notification
                 on:reply={() => handleReply()}
@@ -647,9 +819,21 @@ async function generateChildTasks({
                     console.log('createTask event received:', event.detail);
                     generateTask(event.detail);
                 }}
+                on:selectResponse={(event) => {
+                  console.log('selectResponse event received:', event.detail);
+                  handleSelectResponse(event);
+                }}
             />
         </div>
     {/if}
+    {#if showScrollButton}
+  <button 
+    class="scroll-bottom-btn" 
+    on:click={scrollToBottom}
+  >
+    <ChevronDown />
+  </button>
+{/if}
 </div>
   
   <style lang="scss">
@@ -958,6 +1142,13 @@ async function generateChildTasks({
       }
     }
   }
+    .message.dual-response {
+        border-left: 3px solid var(--primary-color, #3b82f6);
+        position: relative;
+    }
+    .message.was-selected-response {
+        border-left: 3px solid var(--success-color, #10b981);
+    }
     .message {
     display: flex;
     flex-direction: column;
@@ -1068,6 +1259,28 @@ async function generateChildTasks({
 
 
     }
-    
+    .scroll-bottom-btn {
+    position: fixed;
+    bottom: 10rem;
+    right: 1rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: var(--bg-color);
+    color: var(--placeholder-color);
+    border: 1px solid transparent;
+    // box-shadow: 0 2px 10px 2px rgba(0, 0, 0, 0.01);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s ease;
+    &:hover {
+      color: var(--text-color);
+    }
+  }
+
+
   }
   </style>

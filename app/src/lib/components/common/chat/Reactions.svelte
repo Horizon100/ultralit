@@ -2,12 +2,15 @@
     import { createEventDispatcher } from 'svelte';
     import { currentUser } from '$lib/pocketbase';
     import type { InternalChatMessage, Messages, User } from '$lib/types/types';
-    import { Bookmark, Copy, MessageSquare, ListTodo } from 'lucide-svelte';
+    import { Bookmark, Copy, MessageSquare, ListTodo, CheckCircle } from 'lucide-svelte';
     import type { SvelteComponentTyped } from 'svelte';
     import { MarkupFormatter } from '$lib/utils/markupFormatter';
 
     export let message: InternalChatMessage;
     export let userId: string;
+
+    export let isDualResponse: boolean = false;
+    export let isPrimaryDualResponse: boolean = false;
 
     const dispatch = createEventDispatcher();
     let showCopiedTooltip = false;
@@ -16,6 +19,8 @@
     let isBookmarkedState = false;
     let showTaskTooltip = false;
     let taskTooltipText = '';
+    let showSelectionTooltip = false;
+    let selectionTooltipText = '';
 
     // Define type for Lucide icons
     type IconComponent = SvelteComponentTyped<{
@@ -26,10 +31,12 @@
     }>;
 
     type Reaction = {
-        symbol: typeof Bookmark | typeof Copy | typeof MessageSquare | typeof ListTodo;
+        symbol: typeof Bookmark | typeof Copy | typeof MessageSquare | typeof ListTodo | typeof CheckCircle;
         action: string;
         label: string;
         isIcon: boolean;
+        showCondition?: () => boolean;
+
     };
 
     // Updated reactions array with the new task button
@@ -38,7 +45,8 @@
             symbol: Bookmark,
             action: 'bookmark',
             label: 'Bookmark',
-            isIcon: true
+            isIcon: true,
+            showCondition: () => !isDualResponse
         },
         {
             symbol: Copy,
@@ -50,13 +58,22 @@
             symbol: MessageSquare,
             action: 'reply',
             label: 'Reply to message',
-            isIcon: true
+            isIcon: true,
+            showCondition: () => !isDualResponse
         },
         {
             symbol: ListTodo,
             action: 'task',
             label: 'Create task from message',
-            isIcon: true
+            isIcon: true,
+            showCondition: () => !isDualResponse
+        },
+        {
+            symbol: CheckCircle,
+            action: 'selectResponse',
+            label: 'Select this response',
+            isIcon: true,
+            showCondition: () => isDualResponse
         }
     ];
 
@@ -152,7 +169,6 @@
                     break;
                 
                 case 'task':
-                    // Dispatch event to create a task
                     dispatch('createTask', {
                         messageId: message.id,
                         content: message.content,
@@ -164,6 +180,20 @@
                     showTaskTooltip = true;
                     setTimeout(() => {
                         showTaskTooltip = false;
+                    }, 1000);
+                    break;
+                case 'selectResponse':
+                    dispatch('selectResponse', {
+                        messageId: message.id,
+                        content: message.content,
+                        systemPrompt: message.system_prompt || '',
+                        model: message.model
+                    });
+                    
+                    selectionTooltipText = 'Selected!';
+                    showSelectionTooltip = true;
+                    setTimeout(() => {
+                        showSelectionTooltip = false;
                     }, 1000);
                     break;
             }
@@ -186,6 +216,12 @@
                 setTimeout(() => {
                     showTaskTooltip = false;
                 }, 1000);
+            } else if (action === 'selectResponse') {
+                selectionTooltipText = 'Failed to select';
+                showSelectionTooltip = true;
+                setTimeout(() => {
+                    showSelectionTooltip = false;
+                }, 1000);
             }
         }
     }
@@ -198,6 +234,7 @@
             <button
                 class="reaction-btn"
                 class:bookmarked={reaction.action === 'bookmark' && isBookmarkedState}
+                class:dual-response={isDualResponse && reaction.action === 'selectResponse'}
                 on:click={() => handleReaction(reaction.action)}
                 title={reaction.label}
             >
@@ -205,12 +242,17 @@
                     <svelte:component
                         this={reaction.symbol}
                         size={20}
-                        class={reaction.action === 'bookmark' && isBookmarkedState ? 'bookmarked-icon' : ''}
                     />
                 </div>
             </button>
         {/each}
     </div>
+    {/if}
+
+    {#if isDualResponse}
+        <div class="dual-response-badge">
+            {isPrimaryDualResponse ? 'Option A' : 'Option B'}
+        </div>
     {/if}
 
     {#if showBookmarkTooltip}
@@ -222,6 +264,9 @@
     {/if}
     {#if showTaskTooltip}
         <div class="task-tooltip">{taskTooltipText}</div>
+    {/if}
+    {#if showSelectionTooltip}
+        <div class="selection-tooltip">{selectionTooltipText}</div>
     {/if}
 </div>
 <style lang="scss">

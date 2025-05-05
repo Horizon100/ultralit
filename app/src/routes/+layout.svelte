@@ -480,79 +480,7 @@
 	>
 
 	{#if $currentUser}
-	<button
-		class="nav-button info"
-		class:expanded={isNavExpanded}
 
-		>
-		<div 
-			class="logo-container" 
-			on:click|stopPropagation={() => {
-			// Set a flag before navigating to root
-			sessionStorage.setItem('directNavigation', 'true');
-			navigateTo('/');
-			}}
-			style="cursor: pointer;"
-		>
-			<img src={horizon100} alt="Horizon100" class="logo" />
-			<h2>vRAZUM</h2>
-		</div>
-		<div class="shortcut-buttons">
-			<a
-			href="https://github.com/Horizon100/ultralit"
-			target="_blank"
-			rel="noopener noreferrer"
-		>
-			<button class="shortcut"
-			class:expanded={isNavExpanded}
-			>
-				<Github size="30" /> 
-				{#if isNavExpanded}
-					<span class="nav-text">GitHub</span>
-				{/if}
-			</button>
-			</a>
-			<button
-			class="shortcut" 
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/canvas'}
-			on:click={() => {
-				navigateTo('/canvas');
-				if (isNavExpanded) {
-				isNavExpanded = false;
-				}
-			}}			
-			>
-			<Combine />
-			
-			{#if isNavExpanded}
-			<span class="nav-text">Canvas</span>
-		{/if}
-			</button>
-			<button
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/notes'}
-				on:click={() => {
-					navigateTo('/notes');
-					if (isNavExpanded) {
-					isNavExpanded = false;
-					}
-				}}	
-				>
-				<NotebookTabs />
-				{#if isNavExpanded}
-				<span class="nav-text">Notes</span>
-				{/if}
-			</button>
-			
-
-	</div>
-		{#if isNavExpanded}
-		<!-- <h2>vRAZUM</h2> -->
-
-		{/if}
-	</button>
 		<button
 			class="nav-button drawer"
 			class:expanded={isNavExpanded}
@@ -636,6 +564,79 @@
 
 					{/if}
 				</button>
+				<button
+				class="nav-button info"
+				class:expanded={isNavExpanded}
+		
+				>
+				<div 
+					class="logo-container" 
+					on:click|stopPropagation={() => {
+					// Set a flag before navigating to root
+					sessionStorage.setItem('directNavigation', 'true');
+					navigateTo('/');
+					}}
+					style="cursor: pointer;"
+				>
+					<img src={horizon100} alt="Horizon100" class="logo" />
+					<h2>vRAZUM</h2>
+				</div>
+				<div class="shortcut-buttons">
+					<a
+					href="https://github.com/Horizon100/ultralit"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<button class="shortcut"
+					class:expanded={isNavExpanded}
+					>
+						<Github size="30" /> 
+						{#if isNavExpanded}
+							<span class="nav-text">GitHub</span>
+						{/if}
+					</button>
+					</a>
+					<button
+					class="shortcut" 
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/canvas'}
+					on:click={() => {
+						navigateTo('/canvas');
+						if (isNavExpanded) {
+						isNavExpanded = false;
+						}
+					}}			
+					>
+					<Combine />
+					
+					{#if isNavExpanded}
+					<span class="nav-text">Canvas</span>
+				{/if}
+					</button>
+					<button
+						class="shortcut"
+						class:expanded={isNavExpanded}
+						class:active={currentPath === '/notes'}
+						on:click={() => {
+							navigateTo('/notes');
+							if (isNavExpanded) {
+							isNavExpanded = false;
+							}
+						}}	
+						>
+						<NotebookTabs />
+						{#if isNavExpanded}
+						<span class="nav-text">Notes</span>
+						{/if}
+					</button>
+					
+		
+			</div>
+				{#if isNavExpanded}
+				<!-- <h2>vRAZUM</h2> -->
+		
+				{/if}
+			</button>
 				<button class="nav-button toggle" on:click={() => {
 					toggleNav();
 					if (showProfile || showAuthModal) {
@@ -905,8 +906,8 @@
 	}
 
 	.project {
-		width: calc(400px - 4rem);
-		margin-left: 4rem;
+
+		margin-left: 0;
 		top: 0;
 		// z-index: 999;
 		display: flex;
@@ -1631,11 +1632,12 @@
 		position: absolute;
 		left: 0;
 		right: 50% !important;
-		top: 0.5rem;
+		top: 4rem;
+		bottom: 1rem;
 		padding: 0 0.5rem;
 		z-index:1000;
 		width: 3rem;
-		height: calc(100% - 2rem);
+
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -1800,7 +1802,6 @@
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
-		position: absolute;
 		top: 0;
 		animation: none !important;
 		box-shadow: none !important;
@@ -1828,6 +1829,7 @@
 			flex-direction: row !important;
 			width: auto;
 			padding: 0;
+			top: 0;
 
 			&.expanded {
 				height: 3rem;
@@ -2270,8 +2272,8 @@
 			display: flex !important;
 			position: fixed !important;
 			background-color: transparent;
-			top: 0;
-			right: 0;
+			top: 0.5rem;
+			left: 0.5rem;
 			& .shortcut-buttons {
 				display: none;
 			}
@@ -2304,8 +2306,8 @@
 		.nav-button.info.user {
 			display: flex !important;
 			position: fixed !important;
-			top: 0;
-			right: 5rem;
+			top: 0.5rem;
+			left: 3.5rem;
 			z-index: -1;
 
 			& img.user-avatar {
@@ -2335,7 +2337,7 @@
 		.project {
 			position: absolute;
 			left: 0;
-			right: 4rem;
+			right: 0;
 		}
 
 		.logo-container   {

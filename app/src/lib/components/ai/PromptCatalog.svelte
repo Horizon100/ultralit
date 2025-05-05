@@ -16,15 +16,16 @@
 
 	let hoveredPrompt: PromptType | null = null;
 
-	function handlePromptSelection(promptType: PromptType) {
-		selectedPrompt = promptType;
-		const selectedOption = availablePrompts.find((option) => option.value === promptType);
-		if (selectedOption) {
-			selectedIcon = selectedOption.icon;
-		}
-		promptStore.set(promptType);
-		dispatch('select', promptType);
-	}
+	function handlePromptSelection(event) {
+  const { isDual, prompts, prompt } = event.detail;
+  
+  if (isDual && Array.isArray(prompts) && prompts.length === 2) {
+    dualResponseSystemPrompts = prompts;
+    console.log('Selected dual prompts for comparison:', prompts);
+  } else if (prompt) {
+    systemPrompt = prompt;
+  }
+}
 
 	function handleMouseEnter(value: PromptType) {
 		hoveredPrompt = value;

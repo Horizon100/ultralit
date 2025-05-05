@@ -175,7 +175,6 @@ export async function handleStartPromptClick(
 	assistantMessageId: string;
   }> {
 	try {
-	  // Create thread if needed
 	  let currentThreadId = threadId;
 	  if (!currentThreadId) {
 		const response = await fetch('/api/threads', {
@@ -197,7 +196,6 @@ export async function handleStartPromptClick(
 		currentThreadId = newThread.id;
 	  }
   
-	  // Save user message
 	  const userMessageResponse = await fetch('/api/messages', {
 		method: 'POST',
 		headers: {
@@ -217,7 +215,6 @@ export async function handleStartPromptClick(
   
 	  const userMessage = await userMessageResponse.json();
   
-	  // Get AI response
 	  const messages: AIMessage[] = [
 		{
 		  role: 'user',
@@ -292,24 +289,19 @@ export async function handleStartPromptClick(
   
 	  const response = await fetchAIResponse(messages, model, userId);
 	  
-	  // Parse the response to extract individual suggestions
 	  const suggestions = response
 		.split(/\n+/)
 		.map(line => line.trim())
 		.filter(line => line.length > 0)
-		// Remove list markers and any introductory text
 		.map(line => line.replace(/^[-*\d.]+\s*/, ''))
-		// Remove any markdown formatting like asterisks, quotes, backticks
 		.map(line => line.replace(/[\*\"`']/g, ''))
-		// Skip any line that looks like an introduction
 		.filter(line => !line.toLowerCase().includes("here are") && 
 					   !line.toLowerCase().includes("suggestions") &&
 					   !line.toLowerCase().includes("prompts to"))
 		.filter(line => line.length > 5 && line.length < 100)
-		.slice(0, 10); // Limit to max 10 suggestions
+		.slice(0, 10);
 	  
 	  if (suggestions.length === 0) {
-		// Fallback in case parsing fails
 		return [
 		  "How to optimize the project architecture?",
 		  "Ways to improve user experience in this application",
@@ -489,7 +481,6 @@ export async function generateTaskDescription(
 	userId: string
   ): Promise<string> {
 	try {
-	  // Define the system prompt for task generation
 	  const systemPrompt = {
 		role: 'system',
 		content: `Create a focused, action-oriented task description from the provided content.
@@ -503,7 +494,6 @@ export async function generateTaskDescription(
 		model: model.api_type
 	  };
   
-	  // User prompt with the content to transform
 	  const userPrompt = {
 		role: 'user',
 		content: `Transform this into a focused task description:
@@ -511,7 +501,6 @@ export async function generateTaskDescription(
 		model: model.api_type
 	  };
   
-	  // Use the existing fetchAIResponse function
 	  const taskDescription = await fetchAIResponse(
 		[systemPrompt, userPrompt],
 		model,
@@ -521,7 +510,6 @@ export async function generateTaskDescription(
 	  return taskDescription.trim();
 	} catch (error) {
 	  console.error('Error generating task description:', error);
-	  // Fall back to original content if the AI fails
 	  return content;
 	}
   }
@@ -533,19 +521,15 @@ export async function generateTaskDescription(
    * @returns A title for the task
    */
   function extractTaskTitle(taskDescription: string, maxLength: number = 50): string {
-	// Get the first sentence or phrase
 	let title = '';
 	
-	// Try to get the first sentence (ending with period)
 	const firstSentence = taskDescription.split('.')[0];
 	if (firstSentence && firstSentence.length > 5) {
 	  title = firstSentence.trim();
 	} else {
-	  // Fall back to first line
 	  title = taskDescription.split('\n')[0].trim();
 	}
 	
-	// Limit length
 	if (title.length > maxLength) {
 	  title = title.substring(0, maxLength - 3) + '...';
 	}
@@ -590,7 +574,6 @@ export async function generateTaskFromMessage(taskDetails: {
 		model: taskDetails.model.api_type
 	  };
   
-	  // User prompt with the content to transform
 	  const userPrompt = {
 		role: 'user',
 		content: `Transform this into a ${taskDetails.isParentTask ? 'task title and summary' : 'focused task description'}:
@@ -598,7 +581,6 @@ export async function generateTaskFromMessage(taskDetails: {
 		model: taskDetails.model.api_type
 	  };
   
-	  // Use the existing fetchAIResponse function
 	  const response = await fetchAIResponse(
 		[systemPrompt, userPrompt],
 		taskDetails.model,
@@ -606,32 +588,23 @@ export async function generateTaskFromMessage(taskDetails: {
 	  );
   
 	  if (taskDetails.isParentTask) {
-		// Parse the response to extract title and description for parent task
 		const lines = response.trim().split('\n');
 		let title = '';
 		let description = '';
   
-		// Check if the first line contains a title marker (not wanted but check anyway)
 		if (lines[0].toLowerCase().includes('title:')) {
-		  // Extract without the "Title:" prefix
 		  title = lines[0].replace(/^.*title:\s*/i, '').trim();
-		  // Join remaining lines as description
 		  description = lines.slice(1).join(' ').trim();
 		} else if (lines[0].length <= 70) {
-		  // First line is short enough to be the title
 		  title = lines[0].trim();
-		  // Join remaining lines as description
 		  description = lines.slice(1).join(' ').trim();
 		} else {
-		  // If first line is too long, extract a sensible title
 		  title = extractTaskTitle(lines[0]);
 		  description = response.trim();
 		}
   
-		// Clean up description - remove any "Description:" prefix
 		description = description.replace(/^.*description:\s*/i, '').trim();
   
-		// Remove any markdown formatting from title
 		title = title.replace(/\*\*/g, '').trim();
   
 		return {
@@ -639,7 +612,6 @@ export async function generateTaskFromMessage(taskDetails: {
 		  description: description || taskDetails.content.substring(0, 200)
 		};
 	  } else {
-		// For child tasks, we're just getting a description
 		const taskDescription = response.trim();
 		const title = extractTaskTitle(taskDescription);
 		
@@ -651,7 +623,6 @@ export async function generateTaskFromMessage(taskDetails: {
 	} catch (error) {
 	  console.error('Error in generateTaskFromMessage:', error);
 	  
-	  // Create a fallback title and description
 	  const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
 	  const fallbackTitle = extractTaskTitle(cleanContent);
 	  
@@ -659,5 +630,161 @@ export async function generateTaskFromMessage(taskDetails: {
 		title: fallbackTitle,
 		description: taskDetails.isParentTask ? cleanContent.substring(0, 200) : cleanContent
 	  };
+	}
+  }
+
+  export async function fetchDualAIResponses(
+	promptText: string,
+	model: AIModel,
+	userId: string,
+	systemPrompts: string[],
+	attachment: File | null = null
+  ): Promise<{ responses: string[], threadId: string | null }> {
+	try {
+	  if (systemPrompts.length !== 2) {
+		throw new Error('Exactly two system prompts must be provided');
+	  }
+  
+	  const response = await fetch('/api/threads', {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+		  title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+		  userId,
+		  temporary: true
+		})
+	  });
+  
+	  if (!response.ok) {
+		throw new Error('Failed to create a temporary thread');
+	  }
+  
+	  const newThread = await response.json();
+	  const threadId = newThread.id;
+  
+	  const responses = await Promise.all(
+		systemPrompts.map(async (systemPrompt, index) => {
+		  const messages: AIMessage[] = [
+			{
+			  role: 'system',
+			  content: systemPrompt,
+			  model: model.api_type
+			},
+			{
+			  role: 'user',
+			  content: promptText,
+			  model: model.api_type
+			}
+		  ];
+  
+		  return await fetchAIResponse(messages, model, userId, attachment);
+		})
+	  );
+  
+	  return {
+		responses,
+		threadId
+	  };
+	} catch (error) {
+	  console.error('Error in fetchDualAIResponses:', error);
+	  throw error;
+	}
+  }
+  
+  export async function saveSelectedResponse(
+	selectedResponse: string,
+	promptText: string,
+	threadId: string | null,
+	model: AIModel,
+	userId: string,
+	systemPrompt: string
+  ): Promise<{
+	threadId: string;
+	userMessageId: string;
+	assistantMessageId: string;
+  }> {
+	try {
+	  let currentThreadId = threadId;
+	  if (!currentThreadId) {
+		const response = await fetch('/api/threads', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json'
+		  },
+		  body: JSON.stringify({
+			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+			userId
+		  })
+		});
+  
+		if (!response.ok) {
+		  throw new Error('Failed to create a new thread');
+		}
+  
+		const newThread = await response.json();
+		currentThreadId = newThread.id;
+	  } else if (threadId) {
+		await fetch(`/api/threads/${threadId}`, {
+		  method: 'PATCH',
+		  headers: {
+			'Content-Type': 'application/json'
+		  },
+		  body: JSON.stringify({
+			temporary: false,
+			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+		  })
+		});
+	  }
+  
+	  const userMessageResponse = await fetch('/api/messages', {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+		  text: promptText,
+		  type: 'human',
+		  thread: currentThreadId,
+		  parent_msg: null
+		})
+	  });
+  
+	  if (!userMessageResponse.ok) {
+		throw new Error('Failed to save user message');
+	  }
+  
+	  const userMessage = await userMessageResponse.json();
+  
+	  const assistantMessageResponse = await fetch('/api/messages', {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+		  text: selectedResponse,
+		  type: 'robot',
+		  thread: currentThreadId,
+		  parent_msg: userMessage.id,
+		  model: model.api_type,
+		  system_prompt: systemPrompt
+		})
+	  });
+  
+	  if (!assistantMessageResponse.ok) {
+		throw new Error('Failed to save assistant message');
+	  }
+	  
+	  const assistantMessage = await assistantMessageResponse.json();
+  
+	  return {
+		threadId: currentThreadId,
+		userMessageId: userMessage.id,
+		assistantMessageId: assistantMessage.id
+	  };
+	} catch (error) {
+	  console.error('Error in saveSelectedResponse:', error);
+	  throw error;
 	}
   }

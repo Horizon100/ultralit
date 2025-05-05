@@ -349,7 +349,7 @@
 										{$t('profile.login')}
 									</span>
 
-									{isLoading ? '...' : '' }
+									{isLoading ? 'Logging in...' : '' }
 								</span>
 							</button>
 							<button 
@@ -370,7 +370,7 @@
 							  <span class="btn-description">
 								{$t('profile.signup')}
 							  </span>						
-							  {isLoading ? 'Signing up...' : ''}
+							  <!-- {isLoading ? 'Signing up...' : ''} -->
 							</span>
 						  </button>
 						<!-- <div class="button-login">
@@ -444,7 +444,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		max-width: 400px;
+
 		width: 100%;
 		// border-radius: 2rem;
 		// background: var(--bg-gradient);

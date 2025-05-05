@@ -37,7 +37,7 @@
   import { processMarkdown, enhanceCodeBlocks } from '$lib/scripts/markdownProcessor';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
-  import { adjustFontSize, resetTextareaHeight } from '$lib/utils/textHandlers';
+  import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur, adjustFontSize, resetTextareaHeight  } from '$lib/stores/textareaFocusStore';
   import { formatDate, formatContent, getRelativeTime } from '$lib/utils/formatters';
   import { providers, type ProviderType } from '$lib/constants/providers';
 	import ReferenceSelector from '$lib/components/features/ReferenceSelector.svelte';
@@ -53,6 +53,8 @@
     avatarUrl: string;
   }
   type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
+  
+  let documentClickListener: ((e: MouseEvent) => void) | null = null;
 
   export let message: InternalChatMessage;
   export let seedPrompt: string = '';
@@ -72,6 +74,10 @@
   let isTypingInProgress = false;
   $: isTypingInProgress = chatMessages.some(msg => msg.isTyping);
   let observer: MutationObserver | null = null;
+  let isUserScrolling = false;
+let userScrollPosition = 0;
+let scrollThreshold = 100;
+let isAtBottom = true;
 
   let textareaElement: HTMLTextAreaElement | null = null;
   let showAgentPicker = false;
@@ -136,7 +142,6 @@ let replyText = '';
   let typingMessageId: string | null = null;
   let isLoadingMessages = false;
   let initialLoadComplete = false;
-  let showScrollButton = false;
   let defaultTextareaHeight = '60px'; 
   let selected: Date = date || new Date(); 
   let showNetworkVisualization: boolean = false;
@@ -196,7 +201,6 @@ let replyText = '';
   let hiddenReplies: Set<string> = new Set();
 
 
-  import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur } from '$lib/stores/textareaFocusStore';
 
   const unsubscribeFromModel = modelStore.subscribe(state => {
   // Skip if we're already in the middle of an update
@@ -351,141 +355,7 @@ function toggleAiActive() {
     editingProjectId = null;
     editedProjectName = '';
   }
-  async function sendReply(content: string, parentMessageId: string) {
-  if (!content.trim()) return;
-  
-  try {
-    // Create a unique ID for the new message
-    const replyId = crypto.randomUUID();
-    
-    // Create the message object
-    const replyMessage: InternalChatMessage = {
-      id: replyId,
-      collectionId: 'messages',
-      collectionName: 'messages',
-      content: content,
-      text: content,
-      role: 'user',
-      type: 'human',
-      user: userId,
-      parent_msg: parentMessageId,
-      prompt_type: promptType,
-      model: aiModel.id,
-      thread: currentThreadId || undefined,
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
-    };
-    
-    // Add to the chatMessages array locally
-    chatMessages = [...chatMessages, replyMessage];
-    
-    // If we're in a thread, add the message to the thread
-    if (currentThreadId) {
-      await addMessageToThread(currentThreadId, content, userId, parentMessageId);
-    }
-    
-    // If this is a reply to an AI message, send the content to the AI
-    // to get a response
-    if (chatMessages.find(m => m.id === parentMessageId)?.role === 'assistant') {
-      // Add a thinking message as a reply to the user's reply
-      const thinkingId = crypto.randomUUID();
-      const thinkingMessage: InternalChatMessage = {
-        id: thinkingId,
-        collectionId: 'messages',
-        collectionName: 'messages',
-        content: '...',
-        text: '...',
-        role: 'thinking',
-        type: 'robot',
-        user: 'system',
-        parent_msg: replyId,
-        prompt_type: promptType,
-        model: aiModel.id,
-        thread: currentThreadId || undefined,
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
-      };
-      
-      chatMessages = [...chatMessages, thinkingMessage];
-      thinkingMessageId = thinkingId;
-      
-      // Call your AI response function here
-      try {
-        const aiResponse = await fetchAIResponse(
-          content,
-          userId,
-          aiModel.id,
-          promptType,
-          currentThreadId
-        );
-        
-        // Remove the thinking message
-        chatMessages = chatMessages.filter(m => m.id !== thinkingId);
-        thinkingMessageId = null;
-        
-        // Add the AI response as a reply to the user's reply
-        const aiReplyMessage: InternalChatMessage = {
-          id: crypto.randomUUID(),
-          collectionId: 'messages',
-          collectionName: 'messages',
-          content: aiResponse.content || 'No response',
-          text: aiResponse.content || 'No response',
-          role: 'assistant',
-          type: 'robot',
-          user: 'system',
-          parent_msg: replyId,
-          prompt_type: promptType,
-          model: aiModel.id,
-          thread: currentThreadId || undefined,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        };
-        
-        chatMessages = [...chatMessages, aiReplyMessage];
-        
-        // Add the AI response to the thread if needed
-        if (currentThreadId) {
-          await addMessageToThread(
-            currentThreadId, 
-            aiResponse.content || 'No response', 
-            'system',
-            replyId,
-            'robot',
-            aiModel.id,
-            promptType
-          );
-        }
-      } catch (error) {
-        console.error('Error getting AI response:', error);
-        // Remove the thinking message
-        chatMessages = chatMessages.filter(m => m.id !== thinkingId);
-        thinkingMessageId = null;
-        
-        // Add an error message
-        const errorMessage: InternalChatMessage = {
-          id: crypto.randomUUID(),
-          collectionId: 'messages',
-          collectionName: 'messages',
-          content: 'Failed to get a response. Please try again.',
-          text: 'Failed to get a response. Please try again.',
-          role: 'assistant',
-          type: 'robot',
-          user: 'system',
-          parent_msg: replyId,
-          prompt_type: promptType,
-          model: aiModel.id,
-          thread: currentThreadId || undefined,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        };
-        
-        chatMessages = [...chatMessages, errorMessage];
-      }
-    }
-  } catch (error) {
-    console.error('Error sending reply:', error);
-  }
-}
+
 
   function addMessage(
     role: RoleType,
@@ -534,174 +404,177 @@ function toggleAiActive() {
     };
   }
   export async function handleSendMessage(message: string = userInput) {
-  if (!message.trim() && chatMessages.length === 0 && !attachment) return;
-  ensureAuthenticated();
+    if (!message.trim() && chatMessages.length === 0 && !attachment) return;
+    ensureAuthenticated();
 
-  try {
-    userInput = '';
-    if (textareaElement) {
-      resetTextareaHeight(textareaElement);
-    }
+    try {
+      userInput = '';
+      if (textareaElement) {
+        resetTextareaHeight(textareaElement);
+        textareaElement.blur();
+        handleImmediateTextareaBlur(); 
 
-    if (!currentThreadId) {
-      console.log('No current thread ID - creating a new thread');
-      const newThread = await handleCreateNewThread();
-      if (!newThread || !newThread.id) {
-        console.error('Failed to create a new thread');
-        return;
       }
-    }
 
-    if (!currentThreadId) {
-      console.error('Still no current thread ID after attempt to create one');
-      return;
-    }
-
-    // Ensure valid model
-    if (!aiModel || !aiModel.api_type) {
-      console.log('No valid model selected, using fallback');
-      
-      const modelState = get(modelStore);
-      if (modelState.selectedModel) {
-        aiModel = modelState.selectedModel;
-        console.log('Using model from store:', aiModel);
-      } else {
-        const availableKeys = get(apiKey);
-        const providersWithKeys = Object.keys(availableKeys)
-          .filter(p => !!availableKeys[p]);
-        
-        const validProvider = 
-          providersWithKeys.length > 0 ? 
-          providersWithKeys[0] as ProviderType : 
-          'deepseek';
-        
-        aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
-        console.log(`Using default model for ${validProvider}:`, aiModel);
-        
-        if ($currentUser) {
-          modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
-            console.warn('Could not save fallback model:', err);
-          });
+      if (!currentThreadId) {
+        console.log('No current thread ID - creating a new thread');
+        const newThread = await handleCreateNewThread();
+        if (!newThread || !newThread.id) {
+          console.error('Failed to create a new thread');
+          return;
         }
       }
-    }
-    
-    if (!aiModel.provider) {
-      aiModel.provider = 'deepseek';
-    }
 
-    const currentMessage = message.trim();
-    const tempUserMsgId = `temp-user-${Date.now()}`;
-    
-    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
-    userMessageUI.tempId = tempUserMsgId;
-    chatMessages = [...chatMessages, userMessageUI];
-
-    setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
-      if (messageElement) {
-        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-
-    const userMessage = await messagesStore.saveMessage({
-      text: currentMessage,
-      type: 'human',
-      thread: currentThreadId,
-      parent_msg: quotedMessage?.id ?? null,
-      prompt_type: promptType,
-      tempId: tempUserMsgId 
-    }, currentThreadId);
-
-    chatMessages = chatMessages.map(msg => 
-      (msg.tempId === tempUserMsgId) 
-        ? { ...msg, id: userMessage.id, tempId: undefined }
-        : msg
-    );
-
-    quotedMessage = null;
-
-    if ($isAiActive) {
-      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-      thinkingMessageId = thinkingMessage.id;
-      chatMessages = [...chatMessages, thinkingMessage];
-
-      // Prepare messages for AI
-      const messagesToSend = chatMessages
-        .filter(({ role, content }) => role && content)
-        .map(({ role, content }) => ({
-          role,
-          content: role === 'user' && promptType 
-            ? `[Using ${promptType} prompt]\n${content.toString()}`
-            : content.toString(),
-          model: aiModel.api_type,
-        }));
-
-      if (!messagesToSend.length) {
-        throw new Error('No valid messages to send');
+      if (!currentThreadId) {
+        console.error('Still no current thread ID after attempt to create one');
+        return;
       }
 
-      if (promptType) {
-        messagesToSend.unshift({
-          role: 'system',
-          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-          model: aiModel.api_type,
-        });
+      // Ensure valid model
+      if (!aiModel || !aiModel.api_type) {
+        console.log('No valid model selected, using fallback');
+        
+        const modelState = get(modelStore);
+        if (modelState.selectedModel) {
+          aiModel = modelState.selectedModel;
+          console.log('Using model from store:', aiModel);
+        } else {
+          const availableKeys = get(apiKey);
+          const providersWithKeys = Object.keys(availableKeys)
+            .filter(p => !!availableKeys[p]);
+          
+          const validProvider = 
+            providersWithKeys.length > 0 ? 
+            providersWithKeys[0] as ProviderType : 
+            'deepseek';
+          
+          aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
+          console.log(`Using default model for ${validProvider}:`, aiModel);
+          
+          if ($currentUser) {
+            modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
+              console.warn('Could not save fallback model:', err);
+            });
+          }
+        }
       }
-
-      // Get AI response
-      const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
       
-      // Remove thinking message
-      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+      if (!aiModel.provider) {
+        aiModel.provider = 'deepseek';
+      }
 
-      // Create temp ID for assistant message
-      const tempAssistantMsgId = `temp-assistant-${Date.now()}`;
+      const currentMessage = message.trim();
+      const tempUserMsgId = `temp-user-${Date.now()}`;
       
-      // Save AI response to database with temp ID
-      const assistantMessage = await messagesStore.saveMessage({
-        text: aiResponse,
-        type: 'robot',
+      const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
+      userMessageUI.tempId = tempUserMsgId;
+      chatMessages = [...chatMessages, userMessageUI];
+
+      setTimeout(() => {
+        const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
+        if (messageElement) {
+          messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+
+      const userMessage = await messagesStore.saveMessage({
+        text: currentMessage,
+        type: 'human',
         thread: currentThreadId,
-        parent_msg: userMessage.id,
+        parent_msg: quotedMessage?.id ?? null,
         prompt_type: promptType,
-        model: aiModel.api_type,
-        tempId: tempAssistantMsgId // Track with temp ID
+        tempId: tempUserMsgId 
       }, currentThreadId);
 
-      // Add assistant message to UI with empty content
-      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-      newAssistantMessage.tempId = tempAssistantMsgId; // Set temp ID for tracking
-      newAssistantMessage.serverId = assistantMessage.id; // Store server ID
-      chatMessages = [...chatMessages, newAssistantMessage];
-      typingMessageId = newAssistantMessage.id;
-
-      // Type out the message
-      await typeMessage(aiResponse);
-      
-      // After typing is complete, update with final state
       chatMessages = chatMessages.map(msg => 
-        (msg.tempId === tempAssistantMsgId)
-          ? { 
-              ...msg, 
-              id: assistantMessage.id,
-              content: aiResponse, 
-              text: aiResponse, 
-              isTyping: false,
-              tempId: undefined 
-            }
+        (msg.tempId === tempUserMsgId) 
+          ? { ...msg, id: userMessage.id, tempId: undefined }
           : msg
       );
+
+      quotedMessage = null;
+
+      if ($isAiActive) {
+        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+        thinkingMessageId = thinkingMessage.id;
+        chatMessages = [...chatMessages, thinkingMessage];
+
+        // Prepare messages for AI
+        const messagesToSend = chatMessages
+          .filter(({ role, content }) => role && content)
+          .map(({ role, content }) => ({
+            role,
+            content: role === 'user' && promptType 
+              ? `[Using ${promptType} prompt]\n${content.toString()}`
+              : content.toString(),
+            model: aiModel.api_type,
+          }));
+
+        if (!messagesToSend.length) {
+          throw new Error('No valid messages to send');
+        }
+
+        if (promptType) {
+          messagesToSend.unshift({
+            role: 'system',
+            content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+            model: aiModel.api_type,
+          });
+        }
+
+        // Get AI response
+        const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+        
+        // Remove thinking message
+        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+        // Create temp ID for assistant message
+        const tempAssistantMsgId = `temp-assistant-${Date.now()}`;
+        
+        // Save AI response to database with temp ID
+        const assistantMessage = await messagesStore.saveMessage({
+          text: aiResponse,
+          type: 'robot',
+          thread: currentThreadId,
+          parent_msg: userMessage.id,
+          prompt_type: promptType,
+          model: aiModel.api_type,
+          tempId: tempAssistantMsgId // Track with temp ID
+        }, currentThreadId);
+
+        // Add assistant message to UI with empty content
+        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+        newAssistantMessage.tempId = tempAssistantMsgId; // Set temp ID for tracking
+        newAssistantMessage.serverId = assistantMessage.id; // Store server ID
+        chatMessages = [...chatMessages, newAssistantMessage];
+        typingMessageId = newAssistantMessage.id;
+
+        // Type out the message
+        await typeMessage(aiResponse);
+        
+        // After typing is complete, update with final state
+        chatMessages = chatMessages.map(msg => 
+          (msg.tempId === tempAssistantMsgId)
+            ? { 
+                ...msg, 
+                id: assistantMessage.id,
+                content: aiResponse, 
+                text: aiResponse, 
+                isTyping: false,
+                tempId: undefined 
+              }
+            : msg
+        );
+      }
+
+      await handleThreadNameUpdate(currentThreadId);
+
+    } catch (error) {
+      handleError(error);
+    } finally {
+      cleanup();
     }
-
-    await handleThreadNameUpdate(currentThreadId);
-
-  } catch (error) {
-    handleError(error);
-  } finally {
-    cleanup();
   }
-}
 
 async function replyToMessage(replyText: string, parentMessageId: string) {
     if (!replyText.trim()) return;
@@ -1555,16 +1428,7 @@ $: threads = $threadsStore.searchedThreads;
   promptStore.set(newPromptType);
   promptType = newPromptType;
 }
-function handleScrolling() {
-  setTimeout(() => {
-    if (chatMessagesDiv) {
-      const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-      if (scrollHeight - scrollTop - clientHeight < 200) {
-        scrollToBottom();
-      }
-    }
-  }, 0);
-}
+
 function cleanup() {
   isLoading = false;
   thinkingMessageId = null;
@@ -1579,6 +1443,7 @@ function handleError(error: unknown) {
 }
 export function toggleSection(section: keyof ExpandedSections): void {
   expandedSections.update(sections => {
+    // Create a new state with all sections closed
     const newSections: ExpandedSections = {
       prompts: false,
       models: false,
@@ -1586,23 +1451,45 @@ export function toggleSection(section: keyof ExpandedSections): void {
       cites: false,
     };
     
+    // If the section was previously closed, open it
     if (!sections[section]) {
       newSections[section] = true;
       
-      // Add click listener after a small delay
-      setTimeout(() => {
-        window.addEventListener('click', (e) => {
-          const target = e.target as HTMLElement;
-          if (!target.closest('.btn-ai') && !target.closest('.section-content')) {
-            expandedSections.set({
-              prompts: false,
-              models: false,
-              bookmarks: false,
-              cites: false,
-            });
+      // Remove any existing click listener
+      if (documentClickListener) {
+        window.removeEventListener('click', documentClickListener);
+      }
+      
+      // Create a new click listener
+      documentClickListener = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        // Check if the click was outside the section content and toggle buttons
+        if (!target.closest('.btn-ai') && !target.closest('.section-content') && !target.closest('.section-content-bookmark')) {
+          expandedSections.set({
+            prompts: false,
+            models: false,
+            bookmarks: false,
+            cites: false,
+          });
+          
+          // Clean up the listener after closing panels
+          if (documentClickListener) {
+            window.removeEventListener('click', documentClickListener);
+            documentClickListener = null;
           }
-        }, { once: true });
+        }
+      };
+      
+      // Add the listener after a small delay to avoid immediate triggering
+      setTimeout(() => {
+        window.addEventListener('click', documentClickListener!);
       }, 0);
+    } else {
+      // If we're closing all sections, remove the document click listener
+      if (documentClickListener) {
+        window.removeEventListener('click', documentClickListener);
+        documentClickListener = null;
+      }
     }
     
     return newSections;
@@ -2059,17 +1946,8 @@ function refreshPromptSuggestions() {
     isEditingThreadName = false;
   }
 }
-  // UI helper functions
-  const scrollToBottom = (): void => {
-  console.log('Scroll button clicked');
-  if (chatMessagesDiv) {
-    // Direct use of chatMessagesDiv, not looking for a nested element
-    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-    showScrollButton = false;
-  } else {
-    console.log('chat-messages div not found');
-  }
-};
+  
+
 
 function getAvatarUrl(user: any): string {
 	  if (!user) return '';
@@ -2274,23 +2152,42 @@ function enhanceWithCitations() {
       });
     });
   }
-
-  // const unsubscribe = currentCite.subscribe(() => {
-  //   // When citation source changes, update all links
-  //   setTimeout(enhanceWithCitations, 0);
-  // });
-
-// projectStore.subscribe((state) => {
-//   currentProjectId = state.currentProjectId;
-//   isEditingProjectName = state.isEditingProjectName;
-//   editedProjectName = state.editedProjectdName;
+  function setupReplyableHandlers() {
+  document.querySelectorAll('.replyable').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      
+      if (activeReplyMenu && activeReplyMenu.elementId === target.id) {
+        activeReplyMenu = null;
+        return;
+      }
+      
+      const rect = target.getBoundingClientRect();
+      const position = {
+        x: Math.min(rect.left + window.scrollX, window.innerWidth - 300), // Ensure menu doesn't go off-screen
+        y: Math.min(rect.bottom + window.scrollY, window.innerHeight - 200)
+      };
+      
+      activeReplyMenu = {
+        elementId: target.id,
+        position
+      };
+      
+      // Reset reply text
+      replyText = '';
+    });
+  });
   
-//   // Call your loadProjectThreads function only when the project ID changes
-//   if (currentProjectId && currentProjectId !== previousProjectId) {
-//     previousProjectId = currentProjectId;
-//     (currentProjectId);
-//   }loadProjectThreads
-// });
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (activeReplyMenu && !(e.target as HTMLElement).closest('.reply-menu') && 
+        !(e.target as HTMLElement).classList.contains('replyable')) {
+      activeReplyMenu = null;
+    }
+  });
+}
+
 $: isLoading = $threadsStore.isLoading;
   $: isUpdating = $threadsStore.isUpdating;
   $: error = $threadsStore.error;
@@ -2539,25 +2436,21 @@ $: if (chatMessages && chatMessages.length > 0) {
 onMount(async () => {
   try {
     console.log('onMount initiated');
-    // Add event listener for replyable elements
     document.addEventListener('click', handleReplyableClick);
   
-    // Check authentication
     isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       console.error('User is not logged in. Please log in.');
       showAuth = true;
-      return undefined;
+      return;
     }
     
-    // Set up user data
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       name = $currentUser.name || $currentUser.email;
     }
     
-    // Initialize models
     if ($currentUser && $currentUser.id && !modelInitialized) {
       console.log('Initializing models for user:', $currentUser.id);
       
@@ -2586,24 +2479,19 @@ onMount(async () => {
       }
     }
     
-    // Load initial thread data based on current project
     console.log('Loading initial thread data...');
     const currentProjectId = get(projectStore).currentProjectId;
     
-    // First, ensure projects are loaded
     if (get(projectStore).threads.length === 0) {
       console.log('Loading projects first...');
       await projectStore.loadProjects();
       const suggestion = get(pendingSuggestion);
       if (suggestion) {
-        // Use the suggestion
         handleSendMessage(suggestion);
-        // Clear the pending suggestion
         pendingSuggestion.set(null);
       }
     }
     
-    // Then, load threads based on project context
     if (currentProjectId) {
       console.log(`Project ${currentProjectId} selected, loading threads`);
       await loadThreads(currentProjectId);
@@ -2612,7 +2500,6 @@ onMount(async () => {
       await loadThreads(null);
     }
     
-    // Initialize thread listener if needed
     if (currentThreadId) {
       await preloadUserProfiles();
       
@@ -2621,7 +2508,6 @@ onMount(async () => {
       }
     }
     
-    // Set up textarea auto-resize
     if (textareaElement) {
       const adjustTextareaHeight = () => {
         console.log('Adjusting textarea height');
@@ -2635,24 +2521,23 @@ onMount(async () => {
     // Create MutationObserver to watch for changes to the chat messages
     if (chatMessagesDiv) {
       observer = new MutationObserver((mutations) => {
-        // Check for new messages
         mutations.forEach(mutation => {
           if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-            // Process any markdown in new messages
-            const messageContents = chatMessagesDiv.querySelectorAll('.message-content:not([data-processed="true"])');
-            messageContents.forEach(content => {
-              enhanceCodeBlocks(content);
-              content.setAttribute('data-processed', 'true');
-            });
-            
-            // Update typing status
+            if (chatMessagesDiv) { 
+              const messageContents = chatMessagesDiv.querySelectorAll('.message-content:not([data-processed="true"])');
+              messageContents.forEach(content => {
+                enhanceCodeBlocks(content);
+                content.setAttribute('data-processed', 'true');
+              });
+            }
             isTypingInProgress = chatMessages.some(msg => msg.isTyping);
             
-            // Scroll to bottom if near bottom
-            const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-            const scrollBottom = scrollTop + clientHeight;
-            if (scrollHeight - scrollBottom < 100) {
-              chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+            if (chatMessagesDiv) {
+              const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+              const scrollBottom = scrollTop + clientHeight;
+              if (scrollHeight - scrollBottom < 100) {
+                chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+              }
             }
           }
         });
@@ -2676,67 +2561,28 @@ onMount(async () => {
   unsubscribe();
 };
 });
-function setupReplyableHandlers() {
-  document.querySelectorAll('.replyable').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const target = e.currentTarget as HTMLElement;
-      
-      // Close menu if clicking the same element
-      if (activeReplyMenu && activeReplyMenu.elementId === target.id) {
-        activeReplyMenu = null;
-        return;
-      }
-      
-      // Position the menu near the clicked element
-      const rect = target.getBoundingClientRect();
-      const position = {
-        x: Math.min(rect.left + window.scrollX, window.innerWidth - 300), // Ensure menu doesn't go off-screen
-        y: Math.min(rect.bottom + window.scrollY, window.innerHeight - 200)
-      };
-      
-      activeReplyMenu = {
-        elementId: target.id,
-        position
-      };
-      
-      // Reset reply text
-      replyText = '';
-    });
-  });
-  
-  // Close menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (activeReplyMenu && !(e.target as HTMLElement).closest('.reply-menu') && 
-        !(e.target as HTMLElement).classList.contains('replyable')) {
-      activeReplyMenu = null;
-    }
-  });
-}
 
-// Update the afterUpdate lifecycle function to handle real-time updates
+
 afterUpdate(() => {
-  // enhanceWithCitations();
+  // Setup reply handlers
   if (!isTypingInProgress) {
     setTimeout(() => {
       setupReplyableHandlers();
     }, 100);
   }
-  if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
-    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  
+  // Handle scrolling behavior when messages are added
+if (chatMessagesDiv && chatMessages.length > lastMessageCount) {
+    // Check if the last message is from the user
+    const lastMessage = chatMessages[chatMessages.length - 1];
+    const isUserMessage = lastMessage && lastMessage.role === 'user';
+    
+    
     lastMessageCount = chatMessages.length;
   }
 });
-const handleScroll = (): void => {
-  if (!chatMessagesDiv) return;
-  
-  const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-  const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 20;
-  showScrollButton = !scrolledToBottom && scrollHeight > clientHeight;
-  
-  // Calculate scroll percentage for animation
-  scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
-};
+
+
 onDestroy(() => {
   messagesStore.cleanup();
   unsubscribeFromModel();
@@ -3020,7 +2866,7 @@ onDestroy(() => {
               <!-- <button class="btn-back" on:click={goBack}>
                 <ArrowLeft />
               </button> -->
-              {#if isEditingThreadName}
+              <!-- {#if isEditingThreadName}
               <input class="thread-name"
                 transition:fade={{duration: 300, easing: cubicOut}}
                 bind:value={editedThreadName}
@@ -3054,7 +2900,7 @@ onDestroy(() => {
                 <span class="save-button" on:click={submitThreadNameChange}>
                   <Save />
                 </span>
-              {:else}
+              {:else} -->
               <!-- <span class="icon">
                   /
               </span> -->
@@ -3127,7 +2973,7 @@ onDestroy(() => {
 
               {/if}
 
-              {/if}
+              <!-- {/if} -->
               {#if !isMinimized}
               {/if}
             </div>
@@ -3349,7 +3195,7 @@ onDestroy(() => {
         {#if !isTypingInProgress}
         <MessageProcessor messages={chatMessages} />
       {/if}
-        <div class="chat-messages" bind:this={chatMessagesDiv} on:scroll={handleScroll} 
+        <div class="chat-messages" bind:this={chatMessagesDiv} 
         transition:fly="{{ x: -300, duration: 300 }}">
           
         {#each groupMessagesByDate(chatMessages) as { date, messages }}
@@ -3374,20 +3220,14 @@ onDestroy(() => {
             sendMessage={replyToMessage}
             aiModel={aiModel}
             promptType={promptType}
+            
           />
         {/if}
       {/each}
       {/each}
                     <!-- style="transform: translateY({scrollPercentage * 0.5}%);" -->
 
-          {#if showScrollButton}
-            <button 
-              class="scroll-bottom-btn" 
-              on:click={scrollToBottom}
-            >
-              <ChevronDown />
-            </button>
-          {/if}
+
           </div>
           <div class="input-container" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
             {#if $isAiActive}
@@ -4824,7 +4664,7 @@ p div {
   }
 
     & .chat-content {
-      margin-left: auto;
+      margin-left:0;
       top: 0;
       margin-top: 0;
       
@@ -5180,7 +5020,7 @@ color: #6fdfc4;
     flex-direction: column;
     align-items: stretch;
     overflow-x: hidden;
-    overflow-y: scroll;
+    overflow-y: none;
     scrollbar-width:2px;
     scrollbar-color: var(--secondary-color) transparent;
     scroll-behavior: smooth;
@@ -5574,14 +5414,14 @@ color: #6fdfc4;
     // gap: 2rem;
     flex-direction: row;
     transition: all 0.2s ease;
-    border-bottom: 1px solid var(--line-color);
+    // border-bottom: 1px solid var(--line-color);
 
     & h3 {
       margin: 0;
       margin-top: auto;
       font-weight: 300;
       font-size: var(--font-size-m);    
-      text-align: center;
+      text-align: left;
       font-weight: 600;
     &.active {
       // background: var(--primary-color) !important;
@@ -5753,9 +5593,9 @@ color: #6fdfc4;
       margin-left: 0;
       position: relative;
       height: auto;
-      width: calc(100% - 2rem);
+      width: calc(100%);
       // padding: 0.75rem 1rem;
-      border-top: 1px solid var(--line-color);
+      // border-top: 1px solid var(--line-color);
 
       // border-bottom: 2px solid var(--secondary-color);
       cursor: pointer;
@@ -6236,10 +6076,10 @@ color: #6fdfc4;
     transition: all 0.3s ease;
     width: 100%;
     height: 100%;
-    margin-top: auto;
-
+    padding-top: 1rem !important;
     display: flex;
-    text-align: left;
+    text-align: center;
+
     font-size: 1.5rem;
     letter-spacing: 0.2rem;
   }
@@ -6248,13 +6088,13 @@ color: #6fdfc4;
     font-style: italic;
     color: var(--placeholder-color);
     opacity: 0.8;
-    padding: 0rem;
-    font-size: 1rem;
+    padding: 1rem;
+    font-size: 0.8rem;
     display: flex;
-    justify-content: flex-end;
-    align-items: flex-end;
+    justify-content: center;
+    align-items: flex-start;
     height: auto;
-    transform: translateY(50%);
+    // transform: translateY(50%);
 
   }
 
@@ -6646,7 +6486,7 @@ p.selector-lable {
   left: 3rem;
   margin-left: 0;
   height: 100vh;
-  width: calc(400px - 2rem);
+  width: calc(400px - 4rem);
   transition: all 0.3s ease-in-out;
   scrollbar: {
     width: 1px;
@@ -6729,7 +6569,6 @@ p.selector-lable {
     position: relative;
     flex-grow: 1;
     padding: 1rem;
-    margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
     width: 100%;
     // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -7098,30 +6937,6 @@ p.selector-lable {
 }
 
 
-.scroll-bottom-btn {
-  position: fixed;
-  bottom: 15rem !important;
-  right: 2rem;
-  background-color: #21201d;
-  color: white;
-  border: 1px solid rgba(53, 63, 63, 0.5);
-  border-radius: 50%;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  z-index: 6;
-  align-self: flex-end;
-  margin-right: 0;
-  margin-bottom: 0;
-
-  &:hover {
-    background-color: #000000;
-  }
-}
 
 
   .delete-card-container {
@@ -7511,16 +7326,19 @@ p.selector-lable {
   align-items: center !important;
   justify-content: center !important;
   left: 0;
-  
+  margin-top: 0 !important;
+
   h3 {
   }
 }
 
 .chat-header {
   border-bottom: none;
+  // justify-content: space-between;
   // background: var(--bg-color);
   box-shadow: none;
   backdrop-filter: none;
+  top: 3rem;
 
 
 }
@@ -7529,9 +7347,7 @@ p.selector-lable {
 .btn-col-left:hover {
   width: 96%;
 }
-  .scroll-bottom-btn {
-    bottom: 200px;
-  }
+
 
   .thread-toggle {
     bottom: 120px;
@@ -7670,8 +7486,10 @@ p.selector-lable {
     .chat-messages {
       width: auto;
       margin-right: 0;
+      margin-left: 0rem;
       right: 0;
-      top: 0;
+      left: 0;
+      top: 2rem;
       z-index: 0;
     }
 
@@ -7882,7 +7700,6 @@ p.selector-lable {
       margin-right:0;
       margin-left: 0;
       backdrop-filter: blur(20px);
-
       // backdrop-filter: blur(100px);
       // border-top: 1px solid var(--primary-color);
       // border-right: 1px solid var(--primary-color);
@@ -7897,7 +7714,7 @@ p.selector-lable {
       width: calc(50%);
       height: auto;
       margin-bottom: auto;
-      border-right: 1px solid var(--secondary-color);
+      // border-right: 1px solid var(--secondary-color);
       align-items: center;
       justify-content: center;
       // margin-bottom: 4rem;
@@ -7913,8 +7730,8 @@ p.selector-lable {
     .drawer-visible .drawer {
       margin-left: -1rem;
       transform: translateX(0);
-      padding-bottom: 2rem;
-      top: 0;
+      padding-bottom: 6rem;
+      top: 2rem;
       padding-top: 1rem;
     }
     
@@ -7953,9 +7770,7 @@ p.selector-lable {
       background: transparent;
     }
 
-    .chat-messages {
-      right: 0rem;
-    }
+
 
 }
 
@@ -8131,8 +7946,7 @@ p.selector-lable {
   span.header-btns {
       display: flex;
     flex-direction: row !important;
-    position: relative;
-      left: 0;
+      right: 0;
       margin-right: 0.5rem;
       margin-top: 0;
       width: auto !important;
@@ -8144,7 +7958,7 @@ p.selector-lable {
       height: auto;
     }
   .chat-header {
-    height: auto;
+    height: 4rem;
   }
 
   .chat-header-thread {
@@ -8176,11 +7990,7 @@ p.selector-lable {
   //   width: 90%;
   // }
 
-  .chat-messages {
-    margin-right: 0rem;
-    margin-left: 0rem;
 
-  }
 
   
 
@@ -8195,6 +8005,7 @@ p.selector-lable {
 
 
 @media (max-width: 450px) {
+
 
   .message {
     p {
@@ -8346,9 +8157,28 @@ p.selector-lable {
       }
 
   }
+  button.toggle-btn {
+    width: 2rem;
+    height: 2rem;
+    justify-content: center;
+    align-items: center;
+    &:hover {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+  .chat-header {
+    background: red;
+    top: 3rem;
+
+  }
   .chat-header-thread {
-    margin-top: 2rem;
+    margin-top: 0;
     margin-left: 0 !important;
+    flex-direction: column;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    
 
     & span {
       width: auto;

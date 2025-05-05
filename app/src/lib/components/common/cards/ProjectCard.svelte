@@ -1648,7 +1648,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       font-size: 1.2rem !important;
     }
     .project-content {
-      margin-top: -0.5rem !important;
+      margin-top: -0.5rem;
     }
     .tabs-navigation.project {
       gap: 0;

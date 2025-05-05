@@ -153,11 +153,7 @@ export async function fetchAllThreads(): Promise<any[]> {
     }
   }
   
-  /**
-   * Load threads based on project context and update the store
-   * @param projectId Optional project ID to filter threads by
-   * @returns Promise that resolves when threads are loaded
-   */
+
 /**
  * Load threads based on project context and update the store
  * @param projectId Optional project ID to filter threads by

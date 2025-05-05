@@ -4,7 +4,7 @@
   import { projectStore } from '$lib/stores/projectStore';
   import { loadThreads } from '$lib/clients/threadsClient'; // Updated import
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft, Asterisk } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
@@ -41,7 +41,8 @@
     threadsStore.update(state => ({
       ...state,
       currentThreadId: null,
-      threads: []
+      threads: [],
+      filteredThreads: []
     }));
 
     await projectStore.setCurrentProject(projectId);
@@ -53,8 +54,9 @@
       threadsStore.update(state => {
         const threadsForProject = projectId 
           ? state.threads.filter(thread => thread.project_id === projectId)
-          : state.threads;
-        
+          : state.threads.filter(thread => !thread.project_id);
+          console.log(`Filtered to ${threadsForProject.length} threads for project ${projectId || 'unassigned'}`);
+
         return {
           ...state,
           threads: threadsForProject,
@@ -126,7 +128,6 @@
       const success = await projectStore.deleteProject(projectId);
       
       if (success && $projectStore.currentProjectId === projectId) {
-        // If deleting the current project, reset to unassigned threads
         await handleSelectProject(null);
       }
     } catch (error) {
@@ -164,26 +165,34 @@
 
 <div class="dropdown-container" bind:this={dropdownContainer}>
   <span class="dropdown-wrapper">
-    {#if $projectStore.currentProject}
-    <span class="dropdown-trigger home">
-      <span class="trigger-display" on:click|preventDefault={() => !isLoading && handleSelectProject(null)}>
-        <span class="icon home" class:rotated={isExpanded}>
-          <ChevronLeft/> 
-          <p>Home</p>
-        </span>
-      </span>
-    </span>
-  {/if}
+
 
   <button 
     class="dropdown-trigger selector"
     on:click={() => isExpanded = !isExpanded}
     disabled={isLoading}
   >
+  
     <span class="trigger-text">
+      {#if $projectStore.currentProject}
+          <span class="icon home" class:rotated={isExpanded} on:click|preventDefault={() => !isLoading && handleSelectProject(null)}>
+            <ChevronLeft/> 
+            <!-- <p>Home</p> -->
+          </span>
+    {/if}
       <span class="trigger-display">
-        {$projectStore.currentProject?.name || 'Projects'}
-      </span>
+
+          {$projectStore.currentProject?.name || 'Projects'} 
+
+     
+      </span>    
+      <span>
+        <span class="separator">|</span>
+        <span class="trigger-drop">
+          <ChevronDown/>
+        </span>
+      </span>     
+
       <span class="icon" class:rotated={isExpanded}>/</span>
     </span>
   </button>
@@ -277,16 +286,18 @@
       justify-content: flex-start;
       align-items: flex-start;
       width: auto;
-      z-index: 1;
+      z-index: 1001;
       user-select: none;
       
     }
     .dropdown-wrapper {
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
+      flex-direction: row;
+      align-items: center;
       justify-content: center;
-      height: 3rem;
+      height: auto;
+      width: auto;
+
     }
 
     span.dropdown-trigger {
@@ -296,30 +307,36 @@
     }
     .dropdown-trigger {
       background: transparent;
+
       border: 1px solid transparent;
       // border-bottom: 1px solid var(--placeholder-color);
       margin-top: 0;
       margin: 0;
-      color: var(--text-color);
+      border-radius: 0.5rem;
+      color: var(--line-color);
       cursor: pointer;
       // padding: 0.5rem 1rem;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      justify-content: centert;
       gap: 0;
       transition: all 0.2s ease;
       height: auto;
-      width: auto;
+      width: 100%;
       &.selector {
         height: auto;
+        padding: 0.5rem;
+        box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
 
-        margin: 0;
-        padding: 0;
       }
       &.home {
         display: flex;
         justify-content: center;
+        width: auto;
+        padding: 0.5rem !important;
+        background: transparent !important;
+        border: 1px solid transparent;
+
       }
 
       & span.icon {
@@ -331,7 +348,7 @@
         font-size: 0.9rem;
         margin: 0;
         padding: 0;
-        letter-spacing: 0.2rem;
+        letter-spacing: 0;
         color: var(--tertiary-color);
         gap: 0;
         & p {
@@ -340,7 +357,13 @@
       }
 
     }
-
+    span.trigger-text {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+    }
     .trigger-text {
       display: flex;
       flex-direction: column;
@@ -351,10 +374,10 @@
       font-size: 1.3rem;
       color: var(--placeholder-color);
       letter-spacing: 0.3rem;
-      &:hover {
-        color: var(--text-color);
+      // &:hover {
+      //   color: var(--text-color);
 
-      }
+      // }
       .icon {
         transition: transform 0.2s ease;
         
@@ -367,19 +390,37 @@
     span.trigger-display {
       display: flex;
       height: auto;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
       transition: all 0.3s ease;
-
+      color: var(--line-color);
     }
-  
+    span.trigger-icon {
+      display: none;
+      color: var(--line-color);
+    }
+    span.separator {
+      color: var(--line-color);
+    }
+    span.trigger-drop {
+      display: flex;
+      color: var(--line-color);
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: var(--tertiary-color);
+      }
+    }
     .dropdown-content {
       position: absolute;
-      border-radius: 1rem;
-      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--line-color);
       padding-top: 0;
       top: 0;
       left: 0;
-      width: auto;
-      background-color: var(--bg-color);
+      width: 300px;
+      background-color: var(--primary-color);
       height: auto;
       // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
@@ -388,9 +429,10 @@
     .dropdown-header {
       display: flex;
       align-items: center;
-
-      height: 3.5rem;
-      width: auto;
+      height: 3rem;
+      margin: 0;
+      border-radius: 2rem;
+      width: calc(100% - 3rem);
       gap: 0;
       backdrop-filter: blur(10px);
       // border: 1px solid var(--secondary-color);
@@ -407,11 +449,9 @@
       // border-radius: var(--radius-l);
 
       flex: 1;
-      border-radius: 2rem;
       padding-inline-start: 0.5rem;
       color: var(--text-color);
-      padding: 0.5rem;
-      background: var(--primary-color);
+      // background: var(--primary-color);
       width: 100%;
       input {
         border: none;
@@ -424,7 +464,7 @@
         padding: 0;
         justify-content: center;
         text-align: left;
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         transition: all 0.3s ease;
         width: auto;
 
@@ -466,7 +506,7 @@
         width: auto;
         // padding: 0.5rem 1rem;
         border: none;
-        border-radius: var(--radius-s);
+        border-radius: 0.5rem;
         background: var(--bg-color);
         color: var(--text-color);
       }
@@ -477,7 +517,7 @@
         color: var(--text-color);
         cursor: pointer;
         padding: 0.25rem;
-        border-radius: var(--radius-s);
+        border-radius: 0.5rem;
   
         &:disabled {
           opacity: 0.5;
@@ -499,7 +539,7 @@
   
     .projects-list {
       height: auto;
-      width: 100% !important;
+      width: auto;
       // border: 1px solid var(--secondary-color);
       margin-right: 0;
       margin-left: 0;
@@ -509,7 +549,7 @@
       scrollbar-color: var(--secondary-color) transparent;
       padding: 1rem;
       backdrop-filter: blur(20px);
-      box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
+      // box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
 
     }
   
@@ -540,7 +580,7 @@
     }
   
     .project-name {
-      font-size: 1.5rem;
+      font-size: 1.1rem;
       letter-spacing: 0.5rem;
     }
   
@@ -557,7 +597,7 @@
       color: var(--text-color);
       cursor: pointer;
       padding: 0.25rem;
-      border-radius: var(--radius-s);
+      border-radius: 0.5rem;
   
       &:hover {
         background: var(--secondary-color);
@@ -571,39 +611,49 @@
     @media (max-width: 1000px) {
 
     .dropdown-container {
-      position: relative;
+      position: fixed;
       display: flex;
       width: auto;
       user-select: none;
-      left:0;
+      left: 6rem;
+      right: 1rem;
       margin-left: 0;
       z-index: 1000;
     }
+
+    .dropdown-content {
+        position:relative;
+        padding: 0;
+        width: 100%;
+        left: 0;
+        right: 0;
+        top: 0.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
     .dropdown-wrapper {
       display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: center;
       height: auto;
+
       font-size: 2rem;
     }
     .dropdown-header {
       display: flex;
       height: auto;
-      background: var(--bg-color);
       top: 0;
       gap: 0;
       width: 100%;
-      border-bottom: 1px solid var(--secondary-color);
+      height: 3rem;
       backdrop-filter: blur(10px);
-      border-radius: 0;
+      border-radius: 2rem;
     }
     .search-bar {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      margin-left: 0.5rem;
-      padding: 1rem;
       flex: 1;
       color: var(--text-color);
       input {
@@ -620,18 +670,7 @@
       }
     }
   
-      .dropdown-content {
-        position:fixed;
-        top: 0.5rem;
-        padding: 0;
-
-        left: 0;
-        right: 0;
-        height: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      }
       .projects-list {
-        width: 100%;
         max-height: auto;
         background: transparent;
         border: 1px solid transparent;
@@ -646,8 +685,15 @@
         margin-left: 0.5rem;
         padding: 0;
         height: auto;
+        width: auto;
+        position: fixed;
+        right: 1rem;
+        top: 0;
+        left: 6rem;
         justify-content: space-between;
         align-items: flex-start;
+        &.selector {
+        }
         & span.icon {
           display: none;
         }
@@ -710,17 +756,78 @@
     }
 
     @media (max-width: 767px) {
-      .trigger-text {
-        font-size: 2rem;
-        margin-top: 0.5rem;
-        align-items: center;
+      // .trigger-text {
+      //   font-size: 2rem;
+      //   margin-top: 0.5rem;
+      //   align-items: center;
+      // }
+      // span.trigger-display {
+      //   display: flex;
+      //   font-size: 1.2rem;
+      //   margin: 0;
+      //   letter-spacing: 0.1rem;
+      // }
+
+    }
+    @media (max-width: 450px) {
+      span.trigger-icon {
+        display: flex;
+        transition: all 0.2s ease;
+        &:hover {
+          color: var(--tertiary-color);
+        }
       }
       span.trigger-display {
-        display: flex;
-        font-size: 1.2rem;
-        margin: 0;
-        letter-spacing: 0.1rem;
+        // display: none;
       }
+      .dropdown-wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      height: auto;
 
+
+    }
+    .dropdown-content {
+        position:fixed;
+        top: 3rem;
+        padding: 0;
+        width: 100%;
+        max-width: 450px;
+        left: 0;
+        right: 0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .dropdown-trigger {
+        background: transparent;
+
+        border: 1px solid transparent;
+        // border-bottom: 1px solid var(--placeholder-color);
+        border-radius: 0.5rem;
+        color: var(--line-color);
+        cursor: pointer;
+        // padding: 0.5rem 1rem;
+        display: flex;
+        width: auto;
+        flex-direction: column;
+        gap: 0;
+        width: auto !important;
+        position: fixed;
+        right: 0;
+        top: 0;
+        transition: all 0.2s ease;
+        &.selector {
+          box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
+
+        }
+        &.home {
+          display: flex;
+        }
+      }
+      span.separator,
+      span.trigger-drop {
+        // display: none;
+      }
     }
   </style>  
