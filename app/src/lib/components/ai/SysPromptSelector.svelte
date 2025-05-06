@@ -7,6 +7,7 @@
 	import Calendar from '../ui/Calendar.svelte';
 	import { Calculator, CalendarCheck, ChevronLeft, Check, GitCompare, Pen, RefreshCcw, SplitSquareVertical, Trash2, X } from 'lucide-svelte';
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { SYSTEM_PROMPTS, availablePrompts } from '$lib/constants/prompts';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -35,11 +36,91 @@
 			isLoading = false;
 		}
 	});
-
-
-
-
-
+	function toggleDualMode() {
+		dualComparisonMode = !dualComparisonMode;
+		selectedSystemPrompts = [];
+		error = '';
+		
+		if (dualComparisonMode) {
+			const promptList = Object.values(SYSTEM_PROMPTS);
+			selectedSystemPrompts = [promptList[0], promptList[1]];
+		}
+	}
+	function toggleDualPrompt(promptText: string) {
+		if (selectedSystemPrompts.includes(promptText)) {
+			selectedSystemPrompts = selectedSystemPrompts.filter(p => p !== promptText);
+		} else {
+			if (selectedSystemPrompts.length >= 2) {
+			selectedSystemPrompts = [selectedSystemPrompts[1], promptText];
+			} else {
+			selectedSystemPrompts = [...selectedSystemPrompts, promptText];
+			}
+		}
+		
+		console.log('Selected system prompts for dual comparison:', selectedSystemPrompts);
+	}
+	async function setSysPromptPreference(promptType: string): Promise<void> {
+  try {
+    if ($currentUser?.id) {
+      await updateUser($currentUser.id, {
+        sysprompt_preference: promptType
+      });
+      
+      // Update local state
+      activeSysPrompt = promptType;
+      
+      // Reload user data bypassing cache
+      const updatedUser = await getUserById($currentUser.id, true);
+      if (updatedUser) {
+        currentUser.set(updatedUser);
+      }
+      
+      // Show success feedback
+      console.log('System prompt preference updated successfully:', promptType);
+    }
+  } catch (error) {
+    console.error('Error updating system prompt preference:', error);
+    error = error instanceof Error ? error.message : 'Failed to update system prompt preference';
+  }
+}
+	function applyDualPrompts() {
+		if (selectedSystemPrompts.length !== 2) {
+			error = 'Please select exactly two system prompts for comparison';
+			return;
+		}
+		
+		dispatch('select', { 
+			prompts: selectedSystemPrompts,
+			isDual: true
+		});
+		
+		dualComparisonMode = false;
+		selectedSystemPrompts = [];
+	}
+	function applySystemPrompt(promptText: string, promptName?: string) {
+  if (dualComparisonMode) {
+    toggleDualPrompt(promptText);
+    return;
+  }
+  
+  selectedSystemPrompt = promptText;
+  
+  // Use provided name or find the matching name from SYSTEM_PROMPTS
+  const promptType = promptName || 
+    Object.entries(SYSTEM_PROMPTS).find(([key, value]) => value === promptText)?.[0] || 'NORMAL';
+  
+  console.log('Applied system prompt:', promptText, 'with type:', promptType);
+  
+  // Save the preference to user settings
+  setSysPromptPreference(promptType);
+  
+  // Also dispatch the event for immediate use
+  dispatch('select', { 
+    prompt: promptText,
+    type: promptType,
+    isDual: false
+  });
+}
 
 	
 	async function handleSubmit() {
@@ -113,44 +194,7 @@
 		promptText = '';
 	}
 	
-	async function setPromptPreference(promptId: string): Promise<void> {
-  try {
-    if ($currentUser?.id) {
-      const currentPreferences = Array.isArray($currentUser.prompt_preference) 
-        ? [...$currentUser.prompt_preference] 
-        : ($currentUser.prompt_preference ? [$currentUser.prompt_preference] : []);
-      
-      // Check if this prompt is already in preferences
-      const existingIndex = currentPreferences.indexOf(promptId);
-      
-      if (existingIndex === -1) {
-        currentPreferences.push(promptId);
-      }
-      
-      console.log('Saving prompt preferences:', currentPreferences);
-      
-      // Update with the array of preferences
-      await updateUser($currentUser.id, {
-        prompt_preference: currentPreferences
-      });
-      
-      // Update local state
-      activePromptId = promptId;
-      
-      const updatedUser = await getUserById($currentUser.id, true);
-      if (updatedUser) {
-        // Update currentUser store with fresh data
-        currentUser.set(updatedUser);
-      }
-      
-      console.log('Prompt preferences updated successfully:', currentPreferences);
-    }
-  } catch (error) {
-    console.error('Error updating prompt preference:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Failed to update prompt preference';
-    console.error(errorMsg);
-  }
-}
+
 
 onMount(async () => {
   try {
@@ -218,95 +262,45 @@ onMount(async () => {
 <div class="prompt-container">
 	<div class="header-row">
 		<h3>
-			Your Prompts
+			System Prompts
 		</h3>
 				
 	</div>
 
-		{#if showInputForm}
-			<div class="input-form" transition:slide={{ duration: 300 }}>
-				<textarea
-					bind:value={promptText}
-					placeholder="Enter your prompt here..."
-					rows="4"
-					class="prompt-textarea"
-					disabled={isSubmitting}
-				></textarea>
-				
-				{#if error}
-					<div class="error-message">{error}</div>
-				{/if}
-				
-				<div class="button-group">
-					<button 
-						class="cancel-button" 
-						on:click={() => {
-							showInputForm = false;
-							promptText = '';
-							error = '';
-						}} 
-						disabled={isSubmitting}
-					>
-						Cancel
-					</button>
-					<button 
-						class="submit-button" 
-						on:click={handleSubmit} 
-						disabled={isSubmitting || !promptText.trim()}
-					>
-						{#if isSubmitting}
-							{editingPromptId ? 'Updating...' : 'Adding...'}
-						{:else}
-							{editingPromptId ? 'Update Prompt' : 'Add Prompt'}
-						{/if}
-					</button>
+
+		<!-- System Prompts View -->
+		<div class="prompt-list system-prompts">
+			{#each Object.entries(SYSTEM_PROMPTS) as [name, text]}
+			  <div class="prompt-item system-prompt-item" 
+				   class:selected={dualComparisonMode ? selectedSystemPrompts.includes(text) : selectedSystemPrompt === text}
+				   class:active={activeSysPrompt === name}>
+				<div class="prompt-content">
+				  <h3 class="system-prompt-name">{name}</h3>
+				  <p class="prompt-text">{text}</p>
 				</div>
-			</div>
-		{/if}
-		
-		{#if isLoading}
-			<div class="spinner-container">
-				<div class="spinner"></div>
-			</div>
-		{:else if prompts.length === 0}
-			<div class="empty-state">You haven't created any prompts yet.</div>
-		{:else}
-			<div class="prompt-list">
-				{#each prompts as prompt (prompt.id)}
-				<div class="prompt-item" transition:slide={{ duration: 300 }}>
-					<div class="prompt-content">
-					  <p class="prompt-text">{prompt.prompt}</p>
-					  
-					  <div class="prompt-meta">
-						{#if prompt.type}
-						  <span class="prompt-type-badge prompt-type-{prompt.type.toLowerCase()}">
-							{prompt.type}
-						  </span>
-						{/if}
-					  </div>
-					</div>
-					<div class="button-container">
-					  {#if activePromptId === prompt.id}
-						<span class="active-prompt-badge">
-						  <Check size={16} />
-						  Active
-						</span>
-					  {:else}
-						<button class="apply-button" on:click={() => setPromptPreference(prompt.id)}>
-						  Switch
-						</button>
-					  {/if}
-					  <button class="edit-button" on:click={() => handleEdit(prompt)}>
-						<Pen size="16"/>
-					  </button>
-					  <button class="delete-button" on:click={() => handleDelete(prompt.id)}>
-						<Trash2 size="16"/>
-					  </button>
-					</div>
-				  </div>
-				{/each}
-			</div>
-		{/if}
+				<div class="button-container">
+				  {#if dualComparisonMode}
+					<button 
+					  class={`select-button ${selectedSystemPrompts.includes(text) ? 'selected' : ''}`} 
+					  on:click={() => toggleDualPrompt(text)}
+					  disabled={!selectedSystemPrompts.includes(text) && selectedSystemPrompts.length >= 2}
+					>
+					  {selectedSystemPrompts.includes(text) ? 'Selected pair' : 'Select pair'}
+					</button>
+				  {:else if activeSysPrompt === name}
+					<span class="active-prompt-badge">
+					  <Check size={16} />
+					  Active
+					</span>
+				  {:else}
+					<button class="apply-button" on:click={() => applySystemPrompt(text, name)}>
+					  Apply & Save
+					</button>
+				  {/if}
+				</div>
+			  </div>
+			{/each}
+		  </div>
 
 </div>
 

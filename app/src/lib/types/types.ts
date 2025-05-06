@@ -29,6 +29,8 @@ export interface User extends RecordModel {
 	keys: string[];
 	selected_provider?: string;
 	model?: string;
+	prompt_preference?: string;
+	sysprompt_preference?: string;
 }
 export interface Prompt {
 	value: PromptType;
@@ -44,18 +46,15 @@ export interface PromptInput {
 	prompt: string;
 	created: string;
 	updated: string;
+	type?: PromptType;
+
 }
 
 export type PromptType =
-	| 'FLOW'
-	| 'PLANNER'
-	| 'CODER'
-	| 'RESEARCH'
-	| 'DESIGNER'
-	| 'WRITER'
-	| 'ANALYZER'
-	| 'BRAINSTORM'
-	| 'TUTOR';
+	| 'NORMAL'
+	| 'CONCISE'
+	| 'CRITICAL'
+	| 'INTERVIEW';
 
 export interface ThreadGroup {
 	group: string;
@@ -306,7 +305,7 @@ export interface Message extends RecordModel {
 		copy: string;
 	};
 	update_status: 'not_updated' | 'updated' | 'deleted';
-	prompt_type: string | null;
+	prompt_type: PromptType | null;
 	model: string;
 }
 
@@ -654,6 +653,7 @@ export interface Projects extends RecordModel {
 
 export interface ExpandedSections {
 	prompts: boolean;
+	sysprompts: boolean;
 	models: boolean;
 	bookmarks: boolean;
 	cites: boolean;

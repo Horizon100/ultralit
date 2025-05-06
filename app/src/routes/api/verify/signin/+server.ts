@@ -16,7 +16,9 @@ function sanitizeUserData(user: any): any {
         created: user.created,
         updated: user.updated,
         selected_provider: user.selected_provider,
-        model: user.model
+        model: user.model,
+        prompt_preference: user.prompt_preference,
+        sysprompt_preference: user.sysprompt_preference
     };
 }
 

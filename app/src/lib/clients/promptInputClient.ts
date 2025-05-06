@@ -1,5 +1,5 @@
 import { ensureAuthenticated } from '$lib/pocketbase';
-import type { PromptInput } from '$lib/types/types';
+import type { PromptInput, PromptType } from '$lib/types/types';
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
@@ -8,7 +8,6 @@ async function handleResponse<T>(response: Response): Promise<T> {
             console.log('Error response body:', errorData);
             throw new Error(errorData.message || `API request failed with status ${response.status}: ${response.statusText}`);
         } catch (jsonError) {
-            // If JSON parsing fails, use status text
             throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
         }
     }
@@ -40,7 +39,7 @@ export async function fetchUserPrompts(): Promise<PromptInput[]> {
     }
 }
 
-export async function createPrompt(promptText: string): Promise<PromptInput> {
+export async function createPrompt(promptText: string, promptType: PromptType = 'NORMAL'): Promise<PromptInput> {
     try {
         await ensureAuthenticated();
         console.log('Creating prompt with text:', promptText);
@@ -51,7 +50,7 @@ export async function createPrompt(promptText: string): Promise<PromptInput> {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ text: promptText }),
+            body: JSON.stringify({ text: promptText, type: promptType }),
             credentials: 'include'
         });
 
@@ -72,19 +71,22 @@ export async function createPrompt(promptText: string): Promise<PromptInput> {
     }
 }
 
-export async function updatePrompt(id: string, promptText: string): Promise<PromptInput> {
+export async function updatePrompt(id: string, promptText: string, promptType?: PromptType): Promise<PromptInput> {
     try {
         await ensureAuthenticated();
-        console.log(`Updating prompt ${id} with text:`, promptText);
+        console.log(`Updating prompt ${id} with text:`, promptText, 'and type:', promptType);
+        const updateData: { text: string; type?: PromptType } = { text: promptText };
+
+        if (promptType) {
+            updateData.type = promptType;
+        }
         
         const response = await fetch(`/api/prompts/${id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
-                text: promptText
-            }),
+            body: JSON.stringify(updateData),
             credentials: 'include'
         });
 

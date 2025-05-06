@@ -24,7 +24,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         verified: user.verified || false,
         model: user.model || null,
         selected_provider: user.selected_provider || null,
-        api_keys: {}, // Don't expose API keys
+        prompt_preference: user.prompt_preference || '',
+        sysprompt_preference: user.sysprompt_preference || '',
+        api_keys: {},
         verification_status: user.expand?.verification?.status || '',
         last_verified: user.expand?.verification?.updated || ''
       }
@@ -65,7 +67,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     // Whitelist fields that can be updated
     const allowedFields = [
       'name', 'username', 'description', 'avatar', 'email', 
-      'model', 'selected_provider', 'theme', 'language'
+      'model', 'selected_provider', 'theme', 'language', 'prompt_preference', 'sysprompt_preference'
     ];
     
     // Only copy allowed fields

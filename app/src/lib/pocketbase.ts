@@ -268,16 +268,14 @@ export async function updateUser(id: string, userData: FormData | Partial<User>)
 	}
 }
 
-export async function getUserById(id: string): Promise<User | null> {
-	// Check cache first
+export async function getUserById(id: string, bypassCache: boolean = false): Promise<User | null> {
 	const now = Date.now();
 	const cachedUser = userCache.get(id);
-	if (cachedUser && (now - cachedUser.timestamp < CACHE_DURATION)) {
-	  return cachedUser.data;
-	}
+	if (!bypassCache && cachedUser && (now - cachedUser.timestamp < CACHE_DURATION)) {
+		return cachedUser.data;
+	  }
 	
 	try {
-	  // Log the full URL we're trying to fetch
 	  const url = `/api/verify/users/${id}`;
 	  
 	  const response = await fetch(url, {
@@ -285,7 +283,6 @@ export async function getUserById(id: string): Promise<User | null> {
 		credentials: 'include'
 	  });
 	  
-	  // Check if response is ok
 	  if (!response.ok) {
 		console.error('Get user failed:', response.status, response.statusText);
 		return null;
@@ -294,7 +291,6 @@ export async function getUserById(id: string): Promise<User | null> {
 	  const data = await response.json();
 	  if (!data.success) throw new Error(data.error);
 	  
-	  // Store in cache
 	  userCache.set(id, { data: data.user, timestamp: now });
 	  
 	  return data.user;
