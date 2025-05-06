@@ -398,30 +398,6 @@ $themes: (
 	background: transparent;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes nonlinearSpin {
-    0% {
-      transform: rotate(0deg);
-    }
-    25% {
-      transform: rotate(1080deg);
-    }
-    50% {
-      transform: rotate(0deg);
-    }
-    75% {
-      transform: rotate(1080deg);
-    }
-    100% {
-      transform: rotate(2160deg);
-    }
-  }
-
 
 pre.code-block {
 	position: relative;
@@ -919,5 +895,37 @@ pre.code-block {
 		}
 		100% {
 		  transform: translateX(100%) translateY(100%) rotate(45deg);
+		}
+	  }
+	  @keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	
+	@keyframes nonlinearSpin {
+		0% {
+		  transform: rotate(0deg);
+		}
+		25% {
+		  transform: rotate(1080deg);
+		}
+		50% {
+		  transform: rotate(0deg);
+		}
+		75% {
+		  transform: rotate(1080deg);
+		}
+		100% {
+		  transform: rotate(2160deg);
+		}
+	  }
+	
+	  @keyframes blink {
+		from, to { 
+		  opacity: 0; 
+		}
+		50% { 
+		  opacity: 1; 
 		}
 	  }

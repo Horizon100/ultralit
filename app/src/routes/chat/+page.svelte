@@ -544,7 +544,7 @@
 	}
 
 	li {
-		margin-bottom: 1rem;
+		// margin-bottom: 1rem;
 		font-size: 1.2rem;
 	}
 

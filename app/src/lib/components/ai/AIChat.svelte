@@ -3045,7 +3045,7 @@ onDestroy(() => {
 
                   </div>
 
-                  <div class="input-container-start" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+                  <div class="input-container-start" class:drawer-visible={$showThreadList} transition:slide={{duration: 100, easing: cubicOut}}>
                     <div class="ai-selector">
                       <!-- {#if $expandedSections.cites}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
@@ -3706,22 +3706,30 @@ onDestroy(() => {
   }
 
   // List styles
+
   ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 0;
     margin-left: 0;
     padding-inline-start: 2rem;
     margin-top: 0;
     max-width: 500px;
-  list-style-type: square;
-
+  list-style-type: none;
+    li li {
+      background: var(--bg-color);
+      border: none !important;
+      padding: 1rem;
+    }
     li {
-      background: var(--secondary-color);
       padding: 1rem;
       margin-top: 0;
       margin-bottom: 0;
       transition: all 0.3s ease;
-      border-left: 10px solid var(--bg-color);
-
+      border-left: 10px solid var(--line-color) !important;
+      border: 1px solid var(--line-color);
+      backdrop-filter: blur(10px);
       &:hover {
         background: var(--primary-color);
         // transform: translateX(1rem);
@@ -4502,14 +4510,7 @@ p div {
     }
   }
 
-  @keyframes blink {
-    from, to { 
-      opacity: 0; 
-    }
-    50% { 
-      opacity: 1; 
-    }
-  }
+
 
   @keyframes blink-slow {
     0%, 100% { 
@@ -4822,7 +4823,7 @@ p div {
     margin-top: 0;
     height: auto;
     right: 0;
-    bottom:0;
+    bottom:1rem;
     margin-bottom: 0;
     align-items: center;
     // backdrop-filter: blur(4px);
@@ -4925,6 +4926,7 @@ p div {
     align-items: center;
     // background: var(--bg-gradient);
     z-index: 1;
+    transition: all 0.1s ease;
 
     & .combo-input {
         background: var(--primary-color);
@@ -4951,7 +4953,6 @@ p div {
     & textarea {
       border: none;
       box-shadow: none;
-      transition: all 0.3s ease;
       background: var(--bg-color);
       margin-top: 1rem !important;
       // backdrop-filter: blur(14px);
@@ -4969,10 +4970,11 @@ p div {
       // max-height: 400px;
       // margin-left: 2rem !important;
       // margin-right: 2rem !important;
+      transition: all 0.5s ease;
 
       & :focus {
       color: white;
-      animation: pulse 10.5s infinite alternate;
+      // animation: pulse 10.5s infinite alternate;
       box-shadow: none;
       overflow-y: auto !important;
       transition: all 0.3s ease;
@@ -5101,7 +5103,9 @@ color: #6fdfc4;
 }
 
 
-
+.drawer-visible .chat-messages {
+  max-width: 800px;
+}
 
 
   .chat-messages {

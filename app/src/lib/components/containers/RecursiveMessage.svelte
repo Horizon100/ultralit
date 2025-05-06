@@ -849,10 +849,11 @@ async function handleSelectResponse(event) {
       /* color: var(--text-color); */
       font-family: var(--font-family);
     }
+
+
     .message.depth-0 {
       box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
       border-radius: 1rem;
-
 
     }
     
@@ -1061,6 +1062,12 @@ async function handleSelectResponse(event) {
         padding-inline-start: 1rem;
     }
 
+    .message.typing::after {
+      content: '▋';
+      display: inline-block;
+      vertical-align: bottom;
+      animation: blink 0.7s infinite;
+    }
     .message-header {
         display: flex;
         flex-direction: row;
@@ -1261,27 +1268,50 @@ async function handleSelectResponse(event) {
 
     }
     .scroll-bottom-btn {
-    position: fixed;
-    bottom: 10rem;
-    right: 2rem;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    background-color: var(--bg-color);
-    color: var(--placeholder-color);
-    border: 1px solid transparent;
-    // box-shadow: 0 2px 10px 2px rgba(0, 0, 0, 0.01);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 100;
-    transition: all 0.2s ease;
-    &:hover {
-      color: var(--text-color);
+      position: fixed;
+      bottom: 10rem;
+      right: 6rem;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background-color: var(--bg-color);
+      color: var(--placeholder-color);
+      border: 1px solid transparent;
+      // box-shadow: 0 2px 10px 2px rgba(0, 0, 0, 0.01);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s ease;
+      &:hover {
+        color: var(--text-color);
+      }
     }
+
+
   }
-
-
+  @media (max-width: 1000px) {
+    .scroll-bottom-btn {
+      position: fixed;
+      bottom: 10rem;
+      right: 2rem !important;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background-color: var(--bg-color);
+      color: var(--placeholder-color);
+      border: 1px solid transparent;
+      // box-shadow: 0 2px 10px 2px rgba(0, 0, 0, 0.01);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s ease;
+      &:hover {
+        color: var(--text-color);
+      }
+    }
   }
   </style>
