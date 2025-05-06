@@ -398,17 +398,24 @@
 					{:else}
 					<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 
-						<button 
-							class="nav-link"
-							on:click={toggleAuth}
-							in:fly={{ y: 0, duration: 500, delay: 400 }}
-							out:fly={{ y: 50, duration: 500, delay: 400 }}
-							>
-							<LogIn/>
-							<span>
-								{$t('profile.login')}
-							</span>
-						</button>
+						<span class="auth-language">
+							<button 
+								class="nav-link login"
+								on:click={toggleAuth}
+								in:fly={{ y: 0, duration: 500, delay: 400 }}
+								out:fly={{ y: 50, duration: 500, delay: 400 }}
+								>
+								<LogIn/>
+								<span>
+									{$t('profile.login')}
+								</span>
+							</button>
+							<button class="nav-link language" on:click={handleLanguageChange}>
+								<Languages size={16} />
+								<span>{$t('lang.flag')}</span>
+								<span class="hover">{$t('profile.language')}</span>
+							</button>
+						</span>
 						<span>
 							<a
 								href="#features"
@@ -1229,16 +1236,27 @@
 		gap: 1rem;
 		// font-style: italic;
 		align-items: center;
-		justify-content: center;
+		justify-content: space-between;
 		/* padding: 10px; */
 		font-family: var(--font-family);
 		// max-width: 1000px;
-		width: 100vw;
+		width: 100%;
+		max-width: 1200px;
 		height: 3rem;
+		transition: all 0.3s ease-in;
 		& span {
 			display: flex;
 			flex-direction: row;
 			gap: 2rem;
+		}
+		& span.auth-language {
+			display: flex;
+			justify-content: space-between;
+			// background: var(--secondary-color);
+			width: auto;
+			padding: 0 1rem;
+			border-radius: 2rem;
+			gap: 0;
 		}
 	}
 
@@ -1276,10 +1294,32 @@
 		cursor: pointer;
 		width: auto;
 		height: 3rem;
+		transition: all 0.3s ease;
+		&.login {
+			width: 10rem;
+			display: flex;
+			& span {
+				display: flex;
+				width: 5rem;
+			}
+		}
+		&.language {
+			display: flex;
+			width: 2rem;
+		}
+		& span.hover {
+			transition: all 0.2s ease;
+			display: none;
+		}
 		&.home {
 			letter-spacing: 0;
+			width: auto;
+			flex: 0;
 		}
 		&:hover {
+			& span.hover {
+				// display: flex;
+			}
 			transform: none;
 			border-radius: 0;
 			color: var(--tertiary-color);
@@ -2206,8 +2246,8 @@
 
 	.nav-links {
 		margin: 0;
-		justify-content: flex-end;
-		width: 100%;
+		// justify-content: flex-end;
+		width: calc(100% - 4rem);
 		span {
 			gap: 1.5rem;
 		}
@@ -2226,7 +2266,8 @@
 			font-size: 1rem;
 		}
 		&.home {
-			width: 2rem !important;
+			width: auto;
+			justify-content: flex-end;
 
 			& h2 {
 				font-size: 1rem;
@@ -2592,7 +2633,6 @@
 				display: none;
 			}
 			&.home {
-				width: auto !important;
 				display: flex;
 
 			}

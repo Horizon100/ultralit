@@ -602,7 +602,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: var(--bg-gradient);
+		background: var(--primary-color);
 		/* padding: 2rem; */
 		width: auto;
 		border-radius: 2rem;
@@ -1085,6 +1085,9 @@
 		}
 
 		.section {
+			background-color: red;
+			margin-top: 3rem;
+			height: 100vh !important;
 		}
 
 

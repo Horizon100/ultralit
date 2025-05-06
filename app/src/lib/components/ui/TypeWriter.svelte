@@ -52,9 +52,9 @@
 	p {
 		line-height: 1.5;
 		text-align: center;
-		font-size: 1.2rem;
 		color: var(--text-color);
 		margin-top: 1rem;
+		margin-bottom: 1rem;
 		font-size: 1.7rem;
 		// width: 50%;
 		// margin-left: 25%;
