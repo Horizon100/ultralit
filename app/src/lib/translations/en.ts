@@ -366,6 +366,7 @@ export default {
 		name: 'Name',
 		username: 'Username',
 		email: 'Email',
+		password: 'Password',
 		role: 'Role',
 		created: 'Created',
 		updated: 'Updated',
@@ -375,10 +376,33 @@ export default {
 		close: 'Done',
 		logout: 'Log Out',
 		login: 'Log In',
+		loginProgress: 'Authorizing...',
 		signup: 'Sign Up',
 		clause: 'By using vRazum you automatically agree to our',
 		terms: 'Terms',
 		privacy: 'Privacy',
+		invitation: 'I have an invitation code',
+		invitationPlaceholder: 'Invitation code (12 characters)',
+		invitationSuccess: 'Invitation code accepted!',
+		invitationFailure: 'Invalid, too many attempts or already used invitation code',
+		invitationTitle: 'Please provide an invitation code',
+		invitationTitleSuccess: 'Please provide an invitation code',
+		invitationQuestion: 'Why I need invitation for registration?',
+		invitationExplanation: 'To maintain a high-quality, secure, and engaged community, we use an invitation-only registration system at the moment. Here’s why:',
+		invitationReasons: [
+			{
+				bold: 'Early Access Perk',
+				text: ' During beta or limited capacity, invitations help manage early adopters.'
+			},
+			{
+				bold: 'Controlled Growth',
+				text: 'We want to expand services sustainably to ensure server stability and a smooth user experience for all users.'
+			},
+			{
+				bold: 'Prevent Abuse',
+				text: 'Invitations help reduce spam, fake accounts, and malicious activity'
+			},
+		],
 		waitlist: 'Join the Waitlist',
 		join: 'Subscribe',
 		projects: 'Projects',

@@ -2,7 +2,7 @@
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus } from 'lucide-svelte';
+	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus, Loader2, ChevronRight, Bot } from 'lucide-svelte';
 	import Profile from '$lib/components/ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
@@ -14,6 +14,10 @@
 	import horizon100 from '$lib/assets/horizon100.svg';
 	import GoogleAuth from '$lib/components/buttons/GoogleAuth.svelte';
 	import type { User } from '$lib/types/types';
+	import InvitationForm from '../overlays/InvitationForm.svelte';
+	import Google from '$lib/assets/icons/auth/google.svg';
+	import Microsoft from '$lib/assets/icons/auth/microsoft.svg';
+	import Yandex from '$lib/assets/icons/auth/yandex.svg';
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -22,6 +26,7 @@
 	let showProfileModal: boolean = false;
 	let showTermsOverlay: boolean = false;
 	let showPrivacyOverlay: boolean = false;
+	let showInvitationOverlay: boolean = false;
 	let isWaitlistMode: boolean = false;
 	let isLoading: boolean = false;
 	let connectionChecked: boolean = false;
@@ -98,6 +103,9 @@
 	function openPrivacyOverlay(): void {
 		showPrivacyOverlay = true;
 	}
+	function openInvitationOverlay(): void {
+		showInvitationOverlay = true;
+	}
 
 	function openJoinWaitlistOverlay(): void {
 		isWaitlistMode = !isWaitlistMode;
@@ -110,9 +118,10 @@
 	function closeOverlay(): void {
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
+		showInvitationOverlay = false;
 	}
 
-	async function login(): Promise<void> {
+	export async function login(): Promise<void> {
 		if (!browser) return;
 		
 		errorMessage = '';
@@ -120,19 +129,21 @@
 		
 		try {
 			if (!email || !password) {
-				errorMessage = 'Email and password are required';
-				isLoading = false;
-				return;
+			errorMessage = 'Email and password are required';
+			isLoading = false;
+			return;
 			}
 			
 			const authData = await signIn(email, password);
 			if (authData) {
-				errorMessage = '';
-				// Wait for UI to update before dispatching the success event
-				await tick();
-				dispatch('success');
+			errorMessage = '';
+			await tick();
+			
+			dispatch('close');
+			
+			dispatch('success');
 			} else {
-				errorMessage = 'Login failed. Please check your credentials.';
+			errorMessage = 'Login failed. Please check your credentials.';
 			}
 		} catch (err) {
 			console.error('Login error:', err);
@@ -142,7 +153,7 @@
 		}
 	}
 
-	async function signUp(): Promise<void> {
+	export async function signUp(): Promise<void> {
     if (!browser) return;
     
     errorMessage = '';
@@ -314,85 +325,79 @@
 				<h2>vRAZUM</h2>							
 
 			  </span>
+			  <span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+				<input 
+					type="email" 
+					bind:value={email} 
+					placeholder={$t('profile.email')}
+					required 
+					disabled={isLoading}
+				/>
+				<button class="round-btn auth-provider">
+					<img src={Google} alt="Google" class="auth-icon" />
+				</button>
+				<button class="round-btn auth-provider">
+					<img src={Microsoft} alt="Microsoft" class="auth-icon" />
+				</button>
+				<button class="round-btn auth-provider">
+					<img src={Yandex} alt="Yandex" class="auth-icon" />
+				</button>
+			</span>
 
-					<input 
-						type="email" 
-						bind:value={email} 
-						placeholder="Email" 
-						required 
-						disabled={isLoading}
-					/>
-					
-					<!-- {#if !isWaitlistMode} -->
-						<input
-							type="password"
-							bind:value={password}
-							placeholder="Password"
-							required
-							disabled={isLoading}
-							transition:fly={{ duration: 300 }}
-						/>
-					<!-- {/if} -->
-					
-					<div class="button-group">
-						{#if !isWaitlistMode}
-							<button 
-								class="button-login" 
-								on:click|preventDefault={login}
-								type="button"
-								disabled={isLoading}
-							>
-							
-								<span>							
-									<LogIn />
-									<span class="btn-description">
-										{$t('profile.login')}
-									</span>
+			<span class="password-input" transition:fly={{ duration: 300, delay: 200 }}>
+				<input
+					type="password"
+					bind:value={password}
+					placeholder={$t('profile.password')}
+					required
+					disabled={isLoading}
+					transition:fly={{ duration: 300 }}
 
-									{isLoading ? 'Logging in...' : '' }
-								</span>
-							</button>
-							<button 
-							class="button-login" 
-							on:click={(e) => {
-							  e.preventDefault();
-							  if (email && password) {
-								signUp();
-							  } else {
-								errorMessage = 'Email and password are required';
-							  }
-							}}
-							type="button"
-							disabled={isLoading}
-						  >
-							<span>
-							  <MailPlus />	
-							  <span class="btn-description">
-								{$t('profile.signup')}
-							  </span>						
-							  <!-- {isLoading ? 'Signing up...' : ''} -->
-							</span>
-						  </button>
-						<!-- <div class="button-login">
-							<GoogleAuth/>
-							<span class="btn-description google">
-								{$t('profile.googleAuth')}
-							</span>
-						</div>  -->
-						{:else}
-							<!-- <button 
-								class="button button-waitlist" 
-								on:click|preventDefault={handleWaitlistSubmission}
-								type="button"
-								disabled={isLoading}
-							>
-								<button class="button-login">
-									<Send />
-									{isLoading ? 'Joining...' : $t('profile.join')}
-								</button>
-							</button> -->
-						{/if}
-					</div>
+				/>
+				<button 
+					class="round-btn invitation"
+					on:click={(e) => {
+						e.preventDefault();
+						if (email && password) {
+							login();
+						} else {
+							errorMessage = 'Email and password are required';
+						}
+					}}
+					type="button"
+					disabled={isLoading}
+					transition:fly={{ duration: 300 }}
+
+				>
+					{#if isLoading}
+						<div class="small-spinner-container">
+							<div class="small-spinner">
+								<Bot/>
+							</div>
+						</div>
+					{:else}
+						<span>
+							{$t('profile.login')}
+						</span>
+						<ChevronRight/>
+					{/if}
+				</button>
+			</span>
+			<div 
+				class="auth-btn" 
+				on:click={openInvitationOverlay}
+				transition:fly={{ duration: 300 }}
+
+				>
+				<span>
+					<!-- <MailPlus />	 -->
+					<span class="btn-description">
+					{$t('profile.invitation')}
+					</span>						
+					<!-- {isLoading ? 'Signing up...' : ''} -->
+				</span>
+			</div>
+
 					<!-- <button 
 					class="button button-subtle" 
 					on:click|preventDefault={openJoinWaitlistOverlay}
@@ -434,6 +439,10 @@
 	<PrivacyPolicy on:close={closeOverlay} />
 {/if}
 
+{#if showInvitationOverlay}
+	<InvitationForm on:close={closeOverlay} />
+{/if}
+
 <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 	* {
@@ -471,14 +480,15 @@
 		
 	}
 
+	.invitation,
 	.terms-privacy {
 		margin-top: 1rem;
 		font-size: 1rem;
-		color: #ffffff;
-		letter-spacing: 0.1rem;
+		color: var(--text-color);
 		gap: 0.5rem;
-		text-align: center;
-
+		text-align: left;
+		width: 100%;
+		max-width: calc(600px - 4rem);
 		user-select: none;
 	}
 
@@ -546,62 +556,7 @@
 		cursor: pointer;
 	}
 
-	.auth-form {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		width: 100%;
-		height: auto;
-		/* height: 100px; */
-		gap: 1rem;
-
-		& span {
-			display: flex;
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-		}
-		& h2 {
-			font-size: 2rem;
-		}
-		
-	}
-	.auth-form input {
-		color: var(--text-color); 
-		// padding: 1.5rem;
-		border-radius: 0.5rem;
-		display: flex;
-		width: calc(100% - 2rem) !important;
-		border: 1px solid transparent;
-		font-size: 1.5rem;
-		outline: none; 
-		margin-bottom: 0;
-		transition:
-			border-color 0.3s,
-			box-shadow 0.3s;
-		&:focus {
-			outline: none; 
-			background: var(--secondary-color) !important; 
-			color: var(--text-color);
-		}
-	}
-
-
-
-	.auth-form input::placeholder {
-		color: #95a5a6; /* Lighter color for placeholder text */
-	}
-
-	.auth-form input[type='email'],
-	.auth-form input[type='password'] {
-		background: var(--bg-color);
-		width: 50%;
-		& :focus {
-			outline: none; 
-			border-color: var(--tertiary-color);
-		}
-	}
+	
 
 	.button {
 		display: flex;
@@ -633,46 +588,7 @@
 		width: 4rem;
 		height: 4rem;
 	}
-	.button-login {
-		width: 100% !important;
-		height: 3rem;
-		background: var(--primary-color);
-		color: var(--placeholder-color);
-		display: flex;
-		justify-content: center !important;
-		align-items: center !important;
-		flex-direction: row;
-		border-radius: var(--radius-m) !important;
-		border: 1px solid transparent;
-		font-size: 1rem;
-		transition: all 0.3s ease-in;
-		&:hover {
-			color: var(--text-color);
-			background: var(--secondary-color);
-        //   box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 1px 4px rgba(0, 0, 0, .25);
-		// box-shadow: 0px 2px 2px 0px rgba(251, 245, 245, 0.2);
 
-			cursor: pointer;
-
-		}
-		& span {
-			width: auto;
-			display: flex;
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-			gap: 1rem;
-
-			&.btn-description {
-				display: flex;
-
-				& :hover {
-					display: flex;
-				}
-			}
-
-		}
-	}
 
 	.button-subtle {
 		display: flex;
