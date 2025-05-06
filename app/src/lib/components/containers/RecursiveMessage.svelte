@@ -1186,6 +1186,7 @@ async function handleSelectResponse(event) {
       align-items: center;
       text-align: center;
       justify-content: center;
+      box-shadow: none !important;
       padding: 2rem;
       width: 100%;
       height: auto;
@@ -1262,7 +1263,7 @@ async function handleSelectResponse(event) {
     .scroll-bottom-btn {
     position: fixed;
     bottom: 10rem;
-    right: 1rem;
+    right: 2rem;
     width: 3rem;
     height: 3rem;
     border-radius: 50%;

@@ -5,7 +5,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon, Braces} from 'lucide-svelte';
   import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
@@ -46,6 +46,7 @@
 	import AgentPicker from '$lib/components/overlays/AgentPicker.svelte';
   import RecursiveMessage from '$lib/components/containers/RecursiveMessage.svelte';
   import { prepareReplyContext } from '$lib/utils/handleReplyMessage';
+	import SysPromptSelector from './SysPromptSelector.svelte';
 
   interface UserProfile {
     id: string;
@@ -62,7 +63,7 @@
   export let aiModel: AIModel = defaultModel;
   export let userId: string;
   export let attachment: File | null = null;
-  export let promptType: PromptType = 'TUTOR';
+  export let promptType: PromptType = 'NORMAL';
   export let threadId: string | null = null;
   export let initialMessageId: string | null = null;
   // export let showThreadList = true;
@@ -133,6 +134,7 @@ let replyText = '';
   let isSubmissionAreaActive = false;
   let isFocused = false;
   let hideTimeout: ReturnType<typeof setTimeout>;
+  let showSysPrompt = false;
   let showPromptCatalog = false;
   let showModelSelector = false;
   let showBookmarks = false;
@@ -159,6 +161,7 @@ let replyText = '';
   // let expandedGroups: Set<string> = new Set();
   let isCleaningUp = false;
   let selectedPromptLabel = '';
+  let selectedSysPromptLabel = '';
   let selectedModelLabel = '';
   let scrollPercentage = 0;
   let threadCount = 0;
@@ -199,7 +202,8 @@ let replyText = '';
   let showUserFilter = false;
   let selectedSystemPrompt: string | null = null;
   let hiddenReplies: Set<string> = new Set();
-
+    let userPromptData = null;
+    let isLoadingPrompt = true;
 
 
   const unsubscribeFromModel = modelStore.subscribe(state => {
@@ -228,6 +232,7 @@ let replyText = '';
 
 export const expandedSections = writable<ExpandedSections>({
   prompts: false,
+  sysprompts: false,
   models: false,
   bookmarks: false,
   cites: false,
@@ -268,6 +273,7 @@ const isAiActive = writable(true);
 const onTextareaFocus = () => {
   handleTextareaFocus();
   showPromptCatalog = false;
+  showSysPrompt = false;
   showModelSelector = false;
   showBookmarks = false;
   showCites = false;
@@ -276,38 +282,39 @@ const onTextareaFocus = () => {
 
 const onTextareaBlur = () => {
   handleTextareaBlur();
-  // Handle component-specific actions in a subscription or in a reactive statement
-  // This could be in a $: block or in the setTimeout callback
 };
 
-
-// const handleTextareaFocus = () => {
-//   clearTimeout(hideTimeout);
-//   isTextareaFocused = true;
-//   showPromptCatalog = false;
-//   showModelSelector = false;
-//   showBookmarks = false;
-//   showCites = false;
-//   currentPlaceholder = getRandomQuote();
-
-// };
-// const handleTextareaBlur = () => {
-//   hideTimeout = setTimeout(() => {
-//     isTextareaFocused = false;
-//     currentPlaceholder = getRandomQuestions();
-//     currentManualPlaceholder = $t('chat.placeholder');
-
-//   }, 500); 
-// };
-// const searchedThreads = derived(threadsStore, ($store) => {
-//     const query = searchQuery.toLowerCase().trim();
-//     if (!query) return $store.threads;
+async function fetchPromptFromAPI(promptId) {
+    if (!promptId) return null;
     
-//     return $store.threads.filter(thread => 
-//         thread.name?.toLowerCase().includes(query) || 
-//         thread.last_message?.content?.toLowerCase().includes(query)
-//     );
-// });
+    try {
+      // Use API endpoint instead of direct PocketBase access
+      const response = await fetch(`/api/prompts/${promptId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch prompt: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching prompt from API:', error);
+      return null;
+    }
+  }
+  
+  // Function to load the prompt immediately
+  async function loadUserPrompt() {
+    isLoadingPrompt = true;
+    
+    if ($currentUser?.prompt_preference) {
+      userPromptData = await fetchPromptFromAPI($currentUser.prompt_preference);
+      console.log('Loaded prompt data:', userPromptData);
+    }
+    
+    isLoadingPrompt = false;
+  }
+
 function handleModelSelection(event: CustomEvent<AIModel>) {
   const selectedModel = event.detail;
   console.log('Model selected:', selectedModel);
@@ -764,7 +771,7 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
   function mapMessageToInternal(message: Messages): InternalChatMessage {
   const content = formatContent(
     message.text,
-    message.prompt_type as PromptType || 'TUTOR',
+    message.prompt_type as PromptType || 'NORMAL',
     message.type === 'human' ? 'user' : 'assistant'
   );
 
@@ -777,7 +784,7 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
     collectionName: message.collectionName,
     parent_msg: message.parent_msg,
     reactions: message.reactions,
-    prompt_type: message.prompt_type as PromptType || 'TUTOR',
+    prompt_type: message.prompt_type as PromptType || 'NORMAL',
     model: message.model,
     thread: message.thread,
     isTyping: false,
@@ -1369,6 +1376,7 @@ function handleClickOutside() {
     if (!target.closest('.btn-ai')) {
       expandedSections.set({
         prompts: false,
+        sysprompts: false,
         models: false,
         bookmarks: false,
         cites: false,
@@ -1424,10 +1432,7 @@ $: threads = $threadsStore.searchedThreads;
     avatarUrl = `${pocketbaseUrl}/api/files/users/${$currentUser.id}/${$currentUser.avatar}`;
   }
 }
-  function handlePromptSelection(newPromptType: PromptType) {
-  promptStore.set(newPromptType);
-  promptType = newPromptType;
-}
+
 
 function cleanup() {
   isLoading = false;
@@ -1446,6 +1451,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
     // Create a new state with all sections closed
     const newSections: ExpandedSections = {
       prompts: false,
+      sysprompts: false,
       models: false,
       bookmarks: false,
       cites: false,
@@ -1765,7 +1771,7 @@ async function handleLoadThread(threadId: string) {
     } catch (err) {
       console.error('Error loading messages:', err);
     }
-
+    showSysPrompt = false;
     showPromptCatalog = false;
     showModelSelector = false;
     showBookmarks = false;
@@ -1844,6 +1850,7 @@ async function handleCreateNewThread(message = '') {
    }
    
    currentThreadId = newThread.id;
+   showSysPrompt = false;
    showPromptCatalog = false;
    showModelSelector = false;
    showBookmarks = false;
@@ -2363,33 +2370,44 @@ $: {
   }
 }
 $: currentThread = threads?.find(t => t.id === currentThreadId) || null;  
-$: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
+// $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
 $: selectedIcon = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.icon : null;  
-// $: selectedModelName = $modelStore?.selectedModel?.name || '';  
-$: promptType = $promptStore;
+$: selectedModelName = $modelStore?.selectedModel?.name || '';  
+// $: promptType = $promptStore;
 $: {
   if ($expandedSections.models) {
     showModelSelector = true;
+    showSysPrompt = false;
     showPromptCatalog = false;
+    showBookmarks = false;
+    showCites = false;
+  } else if ($expandedSections.sysprompts) {
+    showSysPrompt = true;
+    showPromptCatalog = false;
+    showModelSelector = false;
     showBookmarks = false;
     showCites = false;
   } else if ($expandedSections.prompts) {
     showPromptCatalog = true;
+    showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = false;
     showCites = false;
   } else if ($expandedSections.cites) {
     showPromptCatalog = false;
+    showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = false;
     showCites = true;
   } else if ($expandedSections.bookmarks) {
     showPromptCatalog = false;
+    showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = true;
     showCites = false;
   } else {
     showModelSelector = false;
+    showSysPrompt = false;
     showPromptCatalog = false;
     showBookmarks = false;
     showCites = false;
@@ -2449,6 +2467,8 @@ onMount(async () => {
       console.log('Current user:', $currentUser);
       updateAvatarUrl();
       name = $currentUser.name || $currentUser.email;
+      loadUserPrompt();
+
     }
     
     if ($currentUser && $currentUser.id && !modelInitialized) {
@@ -2642,6 +2662,7 @@ onDestroy(() => {
                   const newThread = await handleCreateNewThread();
                   if (newThread?.id) {
                     showPromptCatalog = false;
+                    showSysPrompt = false;
                     showModelSelector = false;
                     showBookmarks = false;
                     showCites = false;
@@ -2943,14 +2964,14 @@ onDestroy(() => {
                   on:click={toggleAiActive}
                 >
                   {#if $isAiActive}
-                    <PlugZap/>
+                    <PlugZap size="20"/>
                     {#if createHovered}
                       <span class="tooltip" in:fade>
                         {$t('tooltip.pauseAi')}
                       </span>
                     {/if}
                   {:else}
-                    <ZapOff/>
+                    <ZapOff size="20"/>
                     {#if createHovered}
                       <span class="tooltip" in:fade>
                         {$t('tooltip.playAi')}
@@ -3026,13 +3047,27 @@ onDestroy(() => {
 
                   <div class="input-container-start" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
                     <div class="ai-selector">
-                      {#if $expandedSections.cites}
+                      <!-- {#if $expandedSections.cites}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                         <ReferenceSelector 
                           selectedText={activeSelection}
                           on:select={(e) => {
                             // Handle the cite selection if needed
                             console.log('Cite selected:', e.detail);
+                          }}
+                        />
+                      </div>
+                    {/if} -->
+                    {#if $expandedSections.sysprompts}
+                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                        <SysPromptSelector 
+                          on:select={(event) => {
+                            expandedSections.update(sections => ({
+                              ...sections,
+                              prompts: false
+                            }));
+                            showSysPrompt = !showSysPrompt;
+                            console.log('Parent received selection from catalog:', event.detail);
                           }}
                         />
                       </div>
@@ -3069,31 +3104,50 @@ onDestroy(() => {
                         </div>
                     {/if}
                     </div>
-                    <div class="combo-input" in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}">
-                      <textarea 
-                        bind:this={textareaElement}
-                        bind:value={userInput}
-                        class:quote-placeholder={isTextareaFocused}
-                        on:input={(e) => adjustFontSize(e.target)}
-                        on:keydown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            !isLoading && handleSendMessage();
-                          }
-                        }}      
-                        on:focus={onTextareaFocus}
-                        on:blur={onTextareaBlur}
-                        placeholder={currentPlaceholder}
-                        disabled={isLoading}
-                        rows="1"
-                      />
-
+                    <div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
+                      {#if userInput.length > MAX_VISIBLE_CHARS && !isTextareaFocused}
+                        <div class="text-preview-container">
+                          <button class="text-preview-btn" on:click={() => showTextModal = true}>
+                            View/Edit Text ({userInput.length} chars)
+                          </button>
+                          <button class="text-trash-btn" on:click={() => userInput = ''}>
+                            <TrashIcon size={16} />
+                          </button>
+                        </div>
+                      {:else}
+                        <textarea 
+                          bind:this={textareaElement}
+                          bind:value={userInput}
+                          class:quote-placeholder={isTextareaFocused}
+                          on:input={(e) => {
+                            adjustFontSize(e.target);
+                            textTooLong = e.target.value.length > MAX_VISIBLE_CHARS;
+                          }}
+                          on:keydown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              !isLoading && handleSendMessage();
+                            }
+                          }}      
+                          on:focus={onTextareaFocus}
+                          on:blur={() => {
+                            onTextareaBlur();
+                            textTooLong = userInput.length > MAX_VISIBLE_CHARS;
+                          }}
+                          placeholder={currentPlaceholder}
+                          disabled={isLoading}
+                          rows="1"
+                        />
+                      {/if}
+                      
+                      {#if $isTextareaFocused}
+        
                       <div class="btn-row"
                         transition:slide
                       >
                         <div class="submission" class:visible={isTextareaFocused} >
-                          <!-- {#if isTextareaFocused} -->
-                          <span 
+                          {#if isTextareaFocused}
+                          <!-- <span 
                             class="btn"
                             transition:slide
                             on:click={() => toggleSection('cites')}
@@ -3105,26 +3159,25 @@ onDestroy(() => {
                               <Link />
                               {/if}
                             </span>
-                          </span>
+                          </span> -->
                             <span 
                               class="btn"
                               transition:slide
                               on:click={() => toggleSection('bookmarks')}
                               >
                               <span class="icon">
-                                {#if $expandedSections.bookmarks}
+                                {#if $expandedSections.models}
                                 <BookmarkCheckIcon/>
                                 {:else}
                                 <Bookmark />
                                 {/if}
                               </span>
-
                             </span>
-                            <span class="btn" 
+                            <!-- <span class="btn" 
                               transition:slide
                             >
                               <Paperclip />
-                            </span>
+                            </span> -->
                             <span 
                               class="btn"
                               transition:slide
@@ -3132,24 +3185,46 @@ onDestroy(() => {
                             >
                               <span class="icon">
                                 {#if $expandedSections.prompts}
-                                <!-- <Command size={30} /> -->
+                                <Braces size={30} />
                                 {:else}
-                                <!-- <Command size={20} /> -->
+                                <Braces size={20} />
                                 {/if}
                               </span>
                               {#if selectedPromptLabel}
                                 {#if selectedIcon}
-                                  <div class="icon-wrapper">
-                                    <svelte:component this={selectedIcon} size={30} color="var(--text-color)" />
-                                  </div>
+                                    <svelte:component this={selectedIcon} color="var(--text-color)" />
                                 {/if}
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
-                                <!-- <p class="selector-lable">{selectedPromptLabel}</p> -->
-                              {:else}
-                                <!-- <Command size={20} /> -->
-                                <!-- <h3>{$t('chat.prompts')}</h3> -->
                               {/if}
                             </span>
+                            <span 
+                            class="btn model"
+                            transition:slide
+                            on:click={() => toggleSection('sysprompts')}
+                          >
+                          <span class="icon">
+                            {#if $expandedSections.sysprompts}
+                              <Command size={24} />
+                            {:else}
+                              <Command size={20} />
+                            {/if}
+                          </span>
+                          
+                          <div class="label-container">
+                            {#if $currentUser?.sysprompt_preference}
+                              {#if $currentUser.sysprompt_preference === 'NORMAL'}
+                                <span class="prompt-label">Normal</span>
+                              {:else if $currentUser.sysprompt_preference === 'CONCISE'}
+                                <span class="prompt-label">Concise</span>
+                              {:else if $currentUser.sysprompt_preference === 'CRITICAL'}
+                                <span class="prompt-label">Critical</span>
+                              {:else if $currentUser.sysprompt_preference === 'INTERVIEW'}
+                                <span class="prompt-label">Interview</span>
+                              {:else}
+                                <span class="prompt-label">{$currentUser.sysprompt_preference}</span>
+                              {/if}
+                            {/if}
+                          </div>
+                        </span>
                             <span 
                               class="btn model"
                               transition:slide
@@ -3162,15 +3237,11 @@ onDestroy(() => {
                                 <Brain/>
                                 {/if}
                                 {#if selectedModelLabel}
-                                <!-- <h3>{$t('chat.models')}</h3> -->
-                                <p class="selector-lable">{selectedModelLabel} </p>
-                              {:else}
-                                <!-- <p>{$t('chat.models')}</p> -->
+                                <p class="selector-lable">{selectedModelLabel}</p>
                               {/if}
                               </span>
-
                             </span>
-                            <button 
+                            <span 
                               class="btn send-btn" 
                               class:visible={isTextareaFocused}
                               transition:slide
@@ -3178,11 +3249,12 @@ onDestroy(() => {
                               disabled={isLoading}
                             >
                               <Send />
-                            </button>
-                          <!-- {/if} -->
+                            </span>
+                          {/if}
                         </div>
                       </div>
-
+                      {:else}
+                      {/if}
                     </div>
 
                   </div>   
@@ -3229,7 +3301,7 @@ onDestroy(() => {
 
 
           </div>
-          <div class="input-container" class:drawer-visible={$showThreadList} transition:slide={{duration: 300, easing: cubicOut}}>
+          <div class="input-container" class:drawer-visible={$showThreadList} transition:slide={{duration: 100, easing: cubicOut}}>
             {#if $isAiActive}
             <div class="ai-selector">
               {#if $expandedSections.cites}
@@ -3242,6 +3314,20 @@ onDestroy(() => {
                   }}
                 />
               </div>
+              {/if}
+              {#if $expandedSections.sysprompts}
+                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                  <SysPromptSelector 
+                    on:select={(event) => {
+                      expandedSections.update(sections => ({
+                        ...sections,
+                        prompts: false
+                      }));
+                      showSysPrompt = !showSysPrompt;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+                </div>
               {/if}
               {#if $expandedSections.prompts}
                 <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
@@ -3316,7 +3402,7 @@ onDestroy(() => {
               >
                 <div class="submission" class:visible={isTextareaFocused} >
                   {#if isTextareaFocused}
-                  <span 
+                  <!-- <span 
                     class="btn"
                     transition:slide
                     on:click={() => toggleSection('cites')}
@@ -3328,7 +3414,7 @@ onDestroy(() => {
                       <Link />
                       {/if}
                     </span>
-                  </span>
+                  </span> -->
                     <span 
                       class="btn"
                       transition:slide
@@ -3342,29 +3428,51 @@ onDestroy(() => {
                         {/if}
                       </span>
                     </span>
-                    <span class="btn" 
+                    <!-- <span class="btn" 
                       transition:slide
                     >
                       <Paperclip />
-                    </span>
+                    </span> -->
                     <span 
-                      class="btn"
-                      transition:slide
-                      on:click={() => toggleSection('prompts')}
-                    >
-                      <span class="icon">
-                        {#if $expandedSections.prompts}
-                        <!-- <Command size={30} /> -->
-                        {:else}
-                        <!-- <Command size={20} /> -->
-                        {/if}
-                      </span>
-                      {#if selectedPromptLabel}
-                        {#if selectedIcon}
-                            <svelte:component this={selectedIcon} color="var(--text-color)" />
-                        {/if}
+                    class="btn"
+                    transition:slide
+                    on:click={() => toggleSection('prompts')}
+                  >
+                    <span class="icon">
+                      {#if $expandedSections.prompts}
+                      <Braces size={30} />
+                      {:else}
+                      <Braces size={20} />
                       {/if}
                     </span>
+                    {#if selectedPromptLabel}
+                      {#if selectedIcon}
+                          <svelte:component this={selectedIcon} color="var(--text-color)" />
+                      {/if}
+                    {/if}
+                  </span>
+                  <span 
+                  class="btn model"
+                  transition:slide
+                  on:click={() => toggleSection('sysprompts')}
+                >
+                  <span class="icon">
+                    {#if $expandedSections.sysprompts}
+                      <Command size={30} />
+                    {:else}
+                      <Command size={20} />
+                    {/if}
+                  </span>
+                  
+                  {#if $currentUser?.sysprompt_preference}
+                    {#each availablePrompts as prompt}
+                      {#if prompt.value === $currentUser.sysprompt_preference}
+                      <p class="selector-lable"> {prompt.label}
+                      </p>
+                      {/if}
+                    {/each}
+                  {/if}
+                </span>
                     <span 
                       class="btn model"
                       transition:slide
@@ -3975,8 +4083,9 @@ p div {
   span.header-btns {
       display: flex;
       flex-direction: row;
-      position: absolute;
-      right: 2rem;
+      position: fixed;
+      right: 0.5rem;
+      top: 0.5rem;
       width: auto;
       margin-right: 0;
     }
@@ -3990,8 +4099,18 @@ p div {
       border: none;
       width: auto;
       &.model {
-        background: transparent;
         width: auto;
+        width: auto !important;
+        p.selector-lable {
+          display: none;
+        }
+        &:hover {
+          width: 10rem !important;
+          transform: translateX(-75%);
+          p.selector-lable {
+          display: flex;
+        }
+        }
 
         
 
@@ -3999,8 +4118,8 @@ p div {
 
       &.send-btn {
         background-color: var(--tertiary-color);
-        width: 3rem;
-        height: 3rem;
+        width: 2rem;
+        height: 2rem;
         border-radius: 50%;
         &:hover {
         cursor: pointer;
@@ -4559,27 +4678,27 @@ p div {
 
   .btn-row {
     display: flex;
-    flex-direction: row;
-    width: 100%;
-    margin-top: 0.5rem;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 1rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
     height: auto;
+    gap: 2rem;
+    width: 3rem !important;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
     // z-index: 8000;
     // background: var(--bg-gradient-r);
   }
   .submission {
     display: flex;
-    flex-direction: row;
-    gap: 2rem;
-    width: 100%;
+    flex-direction: column;
+    gap: 1rem !important;
+    margin: 0;
+    padding: 0;
+    width: 3rem !important;
     height: auto;
-    justify-content: flex-end;
-    margin-right: 1rem;
-    align-self: center;
+    justify-content: center;
+    align-self: flex-end;
     // padding: 0.5rem;
     transition: all 0.3s ease;
   }
@@ -4625,13 +4744,9 @@ p div {
     & .btn-row {
     display: flex;
     flex-direction: row;
-    width: 100%;
-    margin-top: 0.5rem;
     justify-content: center;
     align-items: center;
     gap: 1rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
     height: auto;
     // z-index: 8000;
     // background: var(--bg-gradient-r);
@@ -4652,12 +4767,11 @@ p div {
   }
   & .submission {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 1rem;
     width: 100%;
     height: auto;
     justify-content: flex-end;
-    margin-right: 1rem;
     align-self: center;
     // padding: 0.5rem;
     transition: all 0.3s ease;
@@ -4681,13 +4795,13 @@ p div {
       right: 0;
       margin-right: 0;
       width: auto;
-      left: auto;
-      margin-left:0;
+      left: 0;
     }
     & .chat-header-thread {
       margin-left: 0;
       left: 0;
-      justify-content: center !important;
+      letter-spacing: 0;
+      justify-content: flex-start !important;
     }
     & .thread-info {
       margin-left: 0;
@@ -4730,7 +4844,6 @@ p div {
     align-items: center;
     // backdrop-filter: blur(4px);
     justify-content: flex-end;
-
     // background: var(--bg-gradient);
     z-index:7700;
 
@@ -4744,6 +4857,10 @@ p div {
       stroke: var(--primary-color);
       fill: var(--tertiary-color);
     }
+    &.combo-input {
+      backdrop-filter: blur(1px);
+
+    }
 
     & textarea {
       font-size: 1.5rem;
@@ -4753,7 +4870,7 @@ p div {
       position: relative; 
       border-radius: var(--radius-m);
       backdrop-filter: blur(14px);
-      border: 1px solid var(--secondary-color);
+      border: 1px solid var(--line-color);
       // border-top-left-radius: var(--radius-m);
       // border-bottom-left-radius: var(--radius-m);
       // background-color: transparent;
@@ -4894,16 +5011,18 @@ p div {
 .combo-input {
   // width: 100vw;;
   border-radius: var(--radius-m);
+
   margin-bottom: 0;
   height: auto;
-  width: calc(100% - 2rem);
+  width: 100%;
   margin-left: 0;
   bottom: auto;
   left: 0;
   display: flex;
   position: relative;
+  align-items: flex-end;
   // background: var(--bg-color);
-  flex-direction: column;
+  flex-direction: row;
   // background: var(--bg-gradient);
   // backdrop-filter: blur(40px);
   transition:all 0.3s ease;
@@ -4911,12 +5030,12 @@ p div {
   & textarea {
     // max-height: 50vh;
     height: auto;
+    width: 100%;
     margin: 1rem;
     margin-top: 0;
     margin-bottom: 0;
     z-index: 1000;
     // background: var(--bg-gradient-left);
-
   &:focus {
       // box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
       // border-bottom: 1px solid var(--placeholder-color);
@@ -5419,7 +5538,6 @@ color: #6fdfc4;
     & h3 {
       margin: 0;
       margin-top: auto;
-      font-weight: 300;
       font-size: var(--font-size-m);    
       text-align: left;
       font-weight: 600;
@@ -6091,6 +6209,7 @@ color: #6fdfc4;
     padding: 1rem;
     font-size: 0.8rem;
     display: flex;
+    flex: 1;
     justify-content: center;
     align-items: flex-start;
     height: auto;
@@ -7179,7 +7298,7 @@ p.selector-lable {
     margin-top: 0;
     height: auto;
     right: 0;
-    bottom:0 !important;
+
     margin-bottom: 0;
     overflow-y: none;
     // backdrop-filter: blur(4px);
@@ -7254,7 +7373,7 @@ p.selector-lable {
 
     .btn-row {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     width: 100%;
     margin-top: 0;
     padding-top: 0;
@@ -7270,7 +7389,7 @@ p.selector-lable {
   }
   .submission {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 1rem;
     width: auto;
     height: auto;
@@ -7320,8 +7439,8 @@ p.selector-lable {
 
 
 .chat-header-thread {
-  width: 100%;
-  margin-left: 4rem !important;
+  width: auto;
+  margin-left: 0 !important;
   text-align: center;
   align-items: center !important;
   justify-content: center !important;
@@ -7329,16 +7448,22 @@ p.selector-lable {
   margin-top: 0 !important;
 
   h3 {
+    line-height: 2;
+    font-size: 0.8rem !important;
+
+    display: flex;
   }
 }
 
 .chat-header {
+  left: 14rem;
+  width: auto !important;
   border-bottom: none;
   // justify-content: space-between;
   // background: var(--bg-color);
   box-shadow: none;
   backdrop-filter: none;
-  top: 3rem;
+  top: 0;
 
 
 }
@@ -7711,7 +7836,8 @@ p.selector-lable {
       margin-right: 0;
       left: 0.5rem;
       border-radius: 0;
-      width: calc(50%);
+      width: 100%;
+      max-width: 450px;
       height: auto;
       margin-bottom: auto;
       // border-right: 1px solid var(--secondary-color);
@@ -7731,8 +7857,8 @@ p.selector-lable {
       margin-left: -1rem;
       transform: translateX(0);
       padding-bottom: 6rem;
-      top: 2rem;
-      padding-top: 1rem;
+      top: 3rem;
+      padding-top: 0;
     }
     
     .drawer-visible .drawer-toolbar {
@@ -7959,18 +8085,22 @@ p.selector-lable {
     }
   .chat-header {
     height: 4rem;
+    top: 3rem;
+    left: 0;
   }
 
   .chat-header-thread {
     margin-top: 1rem;
     margin-left: 0 !important;
-    justify-content: flex-start !important;
+    justify-content: center !important;
     gap: 1rem;
     & span {
       width: auto;
     }
   }
-
+  .drawer-visible .chat-header {
+    left: 0;
+  }
   // .logo-container {
   //   display: flex;
   // }
@@ -8158,7 +8288,7 @@ p.selector-lable {
 
   }
   button.toggle-btn {
-    width: 2rem;
+    width: rem;
     height: 2rem;
     justify-content: center;
     align-items: center;
@@ -8168,8 +8298,8 @@ p.selector-lable {
     }
   }
   .chat-header {
-    background: red;
     top: 3rem;
+    left: 0;
 
   }
   .chat-header-thread {
@@ -8379,7 +8509,7 @@ p.selector-lable {
     // padding: 20px 10px;
     // border-top-left-radius: 50px;
     // background-color: var(--bg-color);
-    top: 3rem;
+    top: 4rem;
     bottom: 0rem;
     margin-bottom: 0;
     gap: 1px;

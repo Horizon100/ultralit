@@ -2,7 +2,8 @@
   import { fade, fly, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
-  import { loadThreads } from '$lib/clients/threadsClient'; // Updated import
+  
+  import { loadThreads, threadListVisibility } from '$lib/clients/threadsClient';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
   import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft, Asterisk } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
@@ -148,7 +149,7 @@
         project.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : $projectStore.threads;
-
+    $: isThreadListVisible = $showThreadList;
   onMount(async () => {
     try {
       await projectStore.loadProjects();
@@ -169,6 +170,7 @@
 
   <button 
     class="dropdown-trigger selector"
+    class:drawer-visible={$showThreadList}
     on:click={() => isExpanded = !isExpanded}
     disabled={isLoading}
   >
@@ -180,18 +182,19 @@
             <!-- <p>Home</p> -->
           </span>
     {/if}
-      <span class="trigger-display">
+      <span class="trigger-display" class:drawer-visible={$showThreadList}
+      >
 
           {$projectStore.currentProject?.name || 'Projects'} 
 
      
       </span>    
-      <span>
+      <!-- <span>
         <span class="separator">|</span>
         <span class="trigger-drop">
           <ChevronDown/>
         </span>
-      </span>     
+      </span>      -->
 
       <span class="icon" class:rotated={isExpanded}>/</span>
     </span>
@@ -286,7 +289,7 @@
       justify-content: flex-start;
       align-items: flex-start;
       width: auto;
-      z-index: 1001;
+      z-index: 4000;
       user-select: none;
       
     }
@@ -304,6 +307,8 @@
       padding: 0 !important;
       margin: 0 !important;
       height: auto;
+      transition: all 0.2s ease;
+
     }
     .dropdown-trigger {
       background: transparent;
@@ -326,7 +331,8 @@
       &.selector {
         height: auto;
         padding: 0.5rem;
-        box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--secondary-color);
+        // box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
 
       }
       &.home {
@@ -386,15 +392,30 @@
         }
       }
     }
+    .drawer-visible.dropdown-trigger {
+      background-color: var(--primary-color);
+      width: calc(400px - 2rem);
+      & span.trigger-display {
+        font-size: 1.5rem !important;
+        padding: 0.5rem;
+        color: var(--text-color);
+
+      }
+    }
 
     span.trigger-display {
       display: flex;
       height: auto;
       width: 100%;
+      font-size: 0.8rem;
       justify-content: space-between;
       align-items: center;
       transition: all 0.3s ease;
-      color: var(--line-color);
+      color: var(--placeholder-color);
+      cursor: pointer;
+      &:hover {
+        color: var(--text-color);
+      }
     }
     span.trigger-icon {
       display: none;
@@ -413,13 +434,12 @@
       }
     }
     .dropdown-content {
-      position: absolute;
       border-radius: 0.5rem;
       border: 1px solid var(--line-color);
       padding-top: 0;
       top: 0;
       left: 0;
-      width: 300px;
+      width: calc(400px - 2rem);
       background-color: var(--primary-color);
       height: auto;
       // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -502,7 +522,7 @@
   
       input {
         flex: 1;
-        font-size: 2rem;
+        font-size: 1.5rem;
         width: auto;
         // padding: 0.5rem 1rem;
         border: none;
@@ -615,18 +635,18 @@
       display: flex;
       width: auto;
       user-select: none;
-      left: 6rem;
-      right: 1rem;
+      left: 3rem;
+      right: auto;
       margin-left: 0;
       z-index: 1000;
     }
 
     .dropdown-content {
-        position:relative;
+        position:fixed;
+        width: calc(100% - 10rem)!important;
         padding: 0;
-        width: 100%;
-        left: 0;
-        right: 0;
+        left: 6.5rem;
+
         top: 0.5rem;
         border-radius: 1rem;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -662,7 +682,7 @@
         color: var(--text-color);
         width: auto;
         outline: none;
-        font-size: var(--font-size-sm);
+        font-size: 1rem;
 
         &::placeholder {
           color: var(--placeholder-color);
@@ -679,6 +699,15 @@
         box-shadow: 0 100px 100px 4px rgba(0, 0, 0, 0.5);
 
       }
+      .drawer-visible.dropdown-trigger {
+      background-color: var(--primary-color);
+      width: calc(400px - 2rem);
+      & span.trigger-display {
+        font-size: 1.3rem !important;
+        padding: 0.5rem;
+
+      }
+    }
       .dropdown-trigger {
         margin: 0;
         margin-top: 0.5rem;
@@ -693,6 +722,9 @@
         justify-content: space-between;
         align-items: flex-start;
         &.selector {
+          width: auto;
+          height: 3rem;
+          // overflow: hidden;
         }
         & span.icon {
           display: none;
@@ -733,7 +765,6 @@
         gap: 0.5rem;
         padding: 0;
         margin: 0;
-        font-size: 1.5rem;
         color: var(--placeholder-color);
         letter-spacing: 0.5rem;
         .icon {
@@ -747,12 +778,13 @@
 
       span.trigger-display {
         display: flex;
-        font-size: 1.2rem;
+        font-size: 0.9rem;
 
         margin: 0;
 
         letter-spacing: 0.1rem;
       }
+
     }
 
     @media (max-width: 767px) {
@@ -791,43 +823,14 @@
     }
     .dropdown-content {
         position:fixed;
-        top: 3rem;
+        top: 3.5rem;
         padding: 0;
-        width: 100%;
+        width: 100% !important;
         max-width: 450px;
         left: 0;
         right: 0;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }
-      .dropdown-trigger {
-        background: transparent;
 
-        border: 1px solid transparent;
-        // border-bottom: 1px solid var(--placeholder-color);
-        border-radius: 0.5rem;
-        color: var(--line-color);
-        cursor: pointer;
-        // padding: 0.5rem 1rem;
-        display: flex;
-        width: auto;
-        flex-direction: column;
-        gap: 0;
-        width: auto !important;
-        position: fixed;
-        right: 0;
-        top: 0;
-        transition: all 0.2s ease;
-        &.selector {
-          box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
-
-        }
-        &.home {
-          display: flex;
-        }
-      }
-      span.separator,
-      span.trigger-drop {
-        // display: none;
-      }
     }
   </style>  

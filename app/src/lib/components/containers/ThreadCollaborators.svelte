@@ -519,7 +519,7 @@
         <Users/>
       </span>
     {/if} -->
-    <Users/>
+    <Users size="20"/>
         <span class="toggle-text">
           ({threadCollaborators.length})
 

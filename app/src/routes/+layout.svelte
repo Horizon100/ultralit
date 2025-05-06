@@ -2307,7 +2307,7 @@
 			display: flex !important;
 			position: fixed !important;
 			top: 0.5rem;
-			left: 3.5rem;
+			left: 4rem;
 			z-index: -1;
 
 			& img.user-avatar {
@@ -2473,7 +2473,7 @@
 		top: auto;
 		bottom: 0;
 		padding: 1rem;
-		z-index: 10;
+		z-index: 1100;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 	}
