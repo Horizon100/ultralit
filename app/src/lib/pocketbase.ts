@@ -216,57 +216,118 @@ export async function signOut(): Promise<void> {
 	}
 }
 
+// export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
+// 	try {
+// 		const url = `/api/verify/users/${id}`;
+// 		console.log('Updating user at:', url);
+		
+// 		let response;
+		
+// 		if (userData instanceof FormData) {
+// 			response = await fetch(url, {
+// 				method: 'PATCH',
+// 				body: userData,
+// 				credentials: 'include'
+// 			});
+// 		} else {
+// 			response = await fetch(url, {
+// 				method: 'PATCH',
+// 				headers: { 'Content-Type': 'application/json' },
+// 				body: JSON.stringify(userData),
+// 				credentials: 'include'
+// 			});
+// 		}
+		
+// 		if (!response.ok) {
+// 			console.error('Update user failed:', response.status, response.statusText);
+			
+// 			const errorData = await response.json().catch(() => null);
+// 			if (errorData && errorData.error) {
+// 				throw new Error(errorData.error);
+// 			}
+			
+// 			throw new Error(`Update user failed with status: ${response.status}`);
+// 		}
+		
+// 		const data = await response.json();
+// 		if (!data.success) throw new Error(data.error);
+		
+// 		// Update the current user if it's the same user
+// 		if (id === data.user.id) {
+// 			currentUser.set(data.user);
+// 		}
+		
+// 		return data.user;
+// 	} catch (error) {
+// 		console.error('Update user error:', error);
+// 		throw error;
+// 	}
+// }
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
 	try {
-		// Log the full URL we're trying to fetch
-		const url = `/api/verify/users/${id}`;
-		console.log('Updating user at:', url);
+	  // Log the full URL we're trying to fetch
+	  const url = `/api/verify/users/${id}`;
+	  console.log('Updating user at:', url);
+	  
+	  // Handle both FormData and JSON data
+	  let response;
+	  
+	  if (userData instanceof FormData) {
+		response = await fetch(url, {
+		  method: 'PATCH',
+		  body: userData,
+		  credentials: 'include'
+		  // IMPORTANT: Do NOT set Content-Type header for FormData
+		});
+	  } else {
+		response = await fetch(url, {
+		  method: 'PATCH',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify(userData),
+		  credentials: 'include'
+		});
+	  }
+	  
+	  // Check if response is ok
+	  if (!response.ok) {
+		console.error('Update user failed:', response.status, response.statusText);
 		
-		// Handle both FormData and JSON data
-		let response;
-		
-		if (userData instanceof FormData) {
-			response = await fetch(url, {
-				method: 'PATCH',
-				body: userData,
-				credentials: 'include'
-			});
-		} else {
-			response = await fetch(url, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(userData),
-				credentials: 'include'
-			});
+		// Try to get error message from response
+		try {
+		  const errorData = await response.json();
+		  if (errorData && errorData.error) {
+			throw new Error(errorData.error);
+		  }
+		} catch (jsonError) {
+		  // If response is not JSON or fails to parse
+		  throw new Error(`Update user failed with status: ${response.status}`);
 		}
 		
-		// Check if response is ok
-		if (!response.ok) {
-			console.error('Update user failed:', response.status, response.statusText);
-			
-			// Try to get error message from response
-			const errorData = await response.json().catch(() => null);
-			if (errorData && errorData.error) {
-				throw new Error(errorData.error);
-			}
-			
-			throw new Error(`Update user failed with status: ${response.status}`);
+		throw new Error(`Update user failed with status: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  if (!data.success) throw new Error(data.error || 'Unknown error');
+	  
+	  // Update the current user if it's the same user
+	  if (id === data.user.id) {
+		// If this was an avatar update, make sure avatarUrl is set
+		if (userData instanceof FormData && userData.has('avatar')) {
+		  // Set avatarUrl directly
+		  if (data.user.avatar) {
+			data.user.avatarUrl = `${pocketbaseUrl}/api/files/${data.user.collectionId || 'users'}/${data.user.id}/${data.user.avatar}`;
+		  }
 		}
 		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		// Update the current user if it's the same user
-		if (id === data.user.id) {
-			currentUser.set(data.user);
-		}
-		
-		return data.user;
+		currentUser.set(data.user);
+	  }
+	  
+	  return data.user;
 	} catch (error) {
-		console.error('Update user error:', error);
-		throw error;
+	  console.error('Update user error:', error);
+	  throw error;
 	}
-}
+  }
 
 export async function getUserById(id: string, bypassCache: boolean = false): Promise<User | null> {
 	const now = Date.now();
@@ -345,6 +406,50 @@ export async function getUserCount(): Promise<number> {
 		return 0;
 	}
 }
+
+// Updated uploadAvatar function for pocketbase.ts
+export async function uploadAvatar(userId: string, file: File): Promise<User | null> {
+	try {
+	  // Create FormData to send the file
+	  const formData = new FormData();
+	  formData.append('avatar', file);
+	  
+	  // Make the request with FormData
+	  const url = `/api/verify/users/${userId}`;
+	  const response = await fetch(url, {
+		method: 'PATCH',
+		body: formData,
+		credentials: 'include',
+		// IMPORTANT: Do NOT set Content-Type header - browser will set it with boundary
+	  });
+	  
+	  if (!response.ok) {
+		console.error('Avatar upload failed:', response.status, response.statusText);
+		throw new Error(`Upload failed with status: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  if (!data.success) throw new Error(data.error || 'Unknown error during upload');
+	  
+	  // Update user with the new avatar
+	  const updatedUser = data.user;
+	  
+	  // Update current user if it's the same user
+	  if (userId === updatedUser.id) {
+		// Update the avatarUrl
+		if (updatedUser.avatar) {
+		  updatedUser.avatarUrl = `${pocketbaseUrl}/api/files/${updatedUser.collectionId || 'users'}/${updatedUser.id}/${updatedUser.avatar}`;
+		}
+		
+		currentUser.set(updatedUser);
+	  }
+	  
+	  return updatedUser;
+	} catch (error) {
+	  console.error('Avatar upload error:', error);
+	  return null;
+	}
+  }
 
 /**
  * Request a password reset email for the specified user

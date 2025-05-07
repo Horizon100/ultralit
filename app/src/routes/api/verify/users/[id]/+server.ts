@@ -43,7 +43,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   try {
-    // Check if the user is authenticated
     if (!locals.user?.id) {
       return json({
         success: false,
@@ -51,8 +50,6 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       }, { status: 403 });
     }
     
-    // For security, users should only update their own data
-    // unless they are an admin (you could add role checks here)
     if (params.id !== locals.user.id) {
       return json({
         success: false,
@@ -60,25 +57,35 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       }, { status: 403 });
     }
 
-    const data = await request.json();
+    const contentType = request.headers.get('content-type') || '';
+    let updateData: Record<string, any> = {};
     
-    // Create update data - only include fields that are allowed to be updated
-    const updateData: Record<string, any> = {};
-    
-    // Whitelist fields that can be updated
-    const allowedFields = [
-      'name', 'username', 'description', 'avatar', 'email', 
-      'model', 'selected_provider', 'theme', 'language', 'prompt_preference', 'sysprompt_preference'
-    ];
-    
-    // Only copy allowed fields
-    for (const field of allowedFields) {
-      if (field in data) {
-        updateData[field] = data[field];
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          updateData[key] = value;
+        } else {
+          updateData[key] = value;
+        }
+      }
+    } else {
+      const data = await request.json();
+      
+      const allowedFields = [
+        'name', 'username', 'description', 'email', 
+        'model', 'selected_provider', 'theme', 'language', 
+        'prompt_preference', 'sysprompt_preference, avatar'
+      ];
+      
+      for (const field of allowedFields) {
+        if (field in data) {
+          updateData[field] = data[field];
+        }
       }
     }
     
-    // Force update timestamp
     updateData.updated = new Date().toISOString();
 
     const updated = await pb.collection('users').update(params.id, updateData);
@@ -95,6 +102,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         created: updated.created,
         updated: updated.updated,
         verified: updated.verified,
+        avatar: updated.avatar,
         model: updated.model,
         selected_provider: updated.selected_provider
       }
