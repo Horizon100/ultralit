@@ -5,7 +5,13 @@
 		TextCursorIcon, Pen, User2, UserCircle, MailCheck, 
 		Mail, KeyIcon, Cake, History, Shield, Layers, 
 		MessageCirclePlus, Group, ChevronLeft, 
-		TagsIcon
+		TagsIcon,
+
+		Settings,
+
+		SettingsIcon
+
+
 
 	} from 'lucide-svelte';
 	import { 
@@ -24,6 +30,7 @@
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import KeyStatusButton from '$lib/components/common/buttons/KeyStatusButton.svelte';
 	import TagEditor from '$lib/components/overlays/TagEditor.svelte';
+	import AvatarUploader from '$lib/components/containers/AvatarUploader.svelte';
 	$: hasApiKey = $apiKey !== '';
 
 	interface UserData {
@@ -49,6 +56,7 @@
 	let isLoading = false;
 
 	let completeUserData: UserData | null = null;
+	let showAvatarUploader = false;
 
 	let showSaveConfirmation = false;
 	let showKeyInput = false;
@@ -103,6 +111,27 @@
 
 	function toggleStyles(): void {
 		showStyles = !showStyles;
+	}
+
+	function toggleAvatarUploader(): void {
+		showAvatarUploader = !showAvatarUploader;
+	}
+	function handleAvatarUploadSuccess(): void {
+		showAvatarUploader = false;
+		if (user?.id) {
+			getUserById(user.id, true).then(refreshedUser => {
+				if (refreshedUser) {
+					user = refreshedUser;
+					if (user.avatar) {
+						user.avatarUrl = getAvatarUrl(user);
+					}
+				}
+			});
+		}
+	}
+	
+	function handleAvatarUploadError(error: string): void {
+		console.error('Avatar upload error:', error);
 	}
 
 	function handleStyleClose(): void {
@@ -193,19 +222,17 @@
 
 	$: placeholderText = getRandomQuote();
 
-	// Function to get avatar URL safely
 	function getAvatarUrl(user: any): string {
 		if (!user) return '';
 		
-		// If avatarUrl is already provided (e.g., from social login)
 		if (user.avatarUrl) return user.avatarUrl;
 		
-		// For PocketBase avatars
 		if (user.avatar) {
-		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+			if (user.id && (user.collectionId || 'users')) {
+			return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+			}
 		}
 		
-		// Fallback - no avatar
 		return '';
 	}
 
@@ -352,43 +379,63 @@ $: displayUser = completeUserData || user;
 						<ChevronLeft/>
 					</button>
 					{#if isEditing}
-						<button class="settings-button" on:click={saveChanges}>
+						<button class="settings-button done" on:click={saveChanges}>
 							<span>
 								<Save size={16} />
-								{$t('profile.save')}
+								{$t('profile.close')}
 							</span>
 						</button>
+						{:else if showAvatarUploader && user?.id}
+						<div class="avatar-uploader-modal" transition:fade={{ duration: 200 }}>
+							<div class="avatar-uploader-content" on:click|stopPropagation>
+								<div class="avatar-uploader-header">
+									<!-- <h3>{$t('profile.update')}</h3> -->
+									<button class="close-button" on:click={toggleAvatarUploader}>
+										<X size={20} />
+									</button>
+									<AvatarUploader 
+									userId={user.id} 
+									onSuccess={handleAvatarUploadSuccess}
+									onError={handleAvatarUploadError}
+								/>
+								</div>
+								
+
+							</div>
+						</div>
 					{:else}
 						<button class="settings-button" on:click={toggleEdit}>
-							<Pen size={16} />
-							<span class="hover">{$t('profile.edit')}</span>
+							<Settings size={16} />
+							<!-- <span class="hover">{$t('profile.edit')}</span> -->
+						</button>
+						<button class="settings-button" on:click={handleLanguageChange}>
+							<Languages size={16} />
+							<span>{$t('lang.flag')}</span>
+							<!-- <span class="hover">{$t('profile.language')}</span> -->
+	
+						</button>
+						<button
+							class="settings-button"
+							on:click={toggleStyles}
+							transition:fly={{ y: -200, duration: 300 }}
+						>
+							<svelte:component
+								this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
+								size={16}
+							/>
+							<!-- <span class="hover">{$t('profile.theme')}</span> -->
+	
+						</button>
+						<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+							<LogOutIcon size={16} />
+							<span class="hover">{$t('profile.logout')}</span>
 						</button>
 					{/if}
 	
-					<button class="settings-button" on:click={handleLanguageChange}>
-						<Languages size={16} />
-						<span>{$t('lang.flag')}</span>
-						<span class="hover">{$t('profile.language')}</span>
-
-					</button>
-					<button
-						class="settings-button"
-						on:click={toggleStyles}
-						transition:fly={{ y: -200, duration: 300 }}
-					>
-						<svelte:component
-							this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
-							size={16}
-						/>
-						<span class="hover">{$t('profile.theme')}</span>
-
-					</button>
+					
 				</div>
 				
-				<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-					<LogOutIcon size={16} />
-					<span class="hover">{$t('profile.logout')}</span>
-				</button>
+
 			</div>
 		</div>
 
@@ -409,105 +456,135 @@ $: displayUser = completeUserData || user;
 		{/if}
 
 		{#if user}
-			<div class="profile-header">
-				<div class="info-column">
-					<div class="header-wrapper">
-						<div class="avatar-container">
-							{#if getAvatarUrl($currentUser)}
-							<img 
-								src={getAvatarUrl($currentUser)}
-								alt="User avatar" 
-								class="avatar" 
-							/>
-							{:else}
-								<div class="default-avatar">
-									{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-								</div>
-							{/if}
-						</div>
-						<div class="info-wrapper">
-							<div class="info-row">
-								{#if isEditing}
-								  <input 
-									value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
-									on:input={(e) => editedUser.name = e.target.value}
-								  />
-								{:else}
-								  <span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
-								{/if}
-							  </div>
-							  <div class="info-row">
-								{#if isEditing}
-								  <input 
-									value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
-									on:input={(e) => editedUser.username = e.target.value}
-								  />
-								{:else}
-								  <span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
-								{/if}
-							  </div>
-						</div>
 
-					</div>
-				</div>
-				<!-- <div class="info-stats">
-					<div class="info-column">
-						<span class="stat">{$t('profile.projects')}</span>
-						343
-					</div>
-					<div class="info-column">
-						<span class="stat">{$t('profile.posts')}</span>
-						343
-					</div>							
-					<div class="info-column">
-						<span class="stat">{$t('profile.connections')}</span>
-						343
-					</div>						
-				</div>
-				<div class="button-column-wrapper">
-					<button class="small-button">
-						<MessageCirclePlus/>
-						Message
-					</button>
-					<button class="small-button">
-						<Group/>
-						Connect
-					</button>
-				</div> -->
-			</div>
 
 			<!-- Tab Navigation -->
 			<div class="tabs-container">
-				<div class="tabs-navigation">
-					<button 
-						class="tab-button {activeTab === 'profile' ? 'active' : ''}" 
-						on:click={() => switchTab('profile')}
-					>
-						<User2 size={20} />
-						<span>Profile</span>
-					</button>
-					<button 
-						class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
-						on:click={() => switchTab('stats')}
-					>
-						<Layers size={20} />
-						<span>Stats</span>
-					</button>
-					<button 
-						class="tab-button {activeTab === 'tags' ? 'active' : ''}" 
-						on:click={() => switchTab('tags')}
-					>
-						<TagsIcon size={20} />
-						<span>Tags</span>
-					</button>
+				
+				<div class="tab-header">
+					<div class="profile-header">
+						<div class="info-column">
+		
+							<div class="header-wrapper">
+		
+								<div class="avatar-container" on:click={toggleAvatarUploader} role="button" tabindex="0">
+									{#if getAvatarUrl($currentUser)}
+									<img 
+										src={getAvatarUrl($currentUser)}
+										alt="User avatar" 
+										class="avatar" 
+									/>
+									{:else}
+										<div class="default-avatar">
+											{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+										</div>
+									{/if}
+									<div class="avatar-overlay">
+										<Camera size={20} />
+									</div>
+								</div>
+		
+								<div class="info-wrapper">
+		
+									<div class="info-row">
+										{#if isEditing}
+										<input 
+											value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
+											on:input={(e) => editedUser.username = e.target.value}
+										/>
+										{:else}
+										<span class='row'>
+		
+										<span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
+										<span class="meta role">
+											{displayUser?.role || $t('profile.not_available')}
+										</span>
+									</span>
+		
+										{/if}
+									</div>
+									<div class="info-row">
+										{#if isEditing}
+										<input 
+											value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
+											on:input={(e) => editedUser.name = e.target.value}
+										/>
+										{:else}
+										<span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
+										{/if}
+									</div>
+									<div class="info-row">
+										<span class="meta">
+											{displayUser?.email || $t('profile.not_available')}
+											{#if displayUser?.verified}
+												<!-- <MailCheck size={16} class="verified-icon" /> -->
+											{/if}
+										</span>
+									</div>
+								</div>
+		
+							</div>
+		
+						</div>
+						<!-- <div class="info-stats">
+							<div class="info-column">
+								<span class="stat">{$t('profile.projects')}</span>
+								343
+							</div>
+							<div class="info-column">
+								<span class="stat">{$t('profile.posts')}</span>
+								343
+							</div>							
+							<div class="info-column">
+								<span class="stat">{$t('profile.connections')}</span>
+								343
+							</div>						
+						</div>
+						<div class="button-column-wrapper">
+							<button class="small-button">
+								<MessageCirclePlus/>
+								Message
+							</button>
+							<button class="small-button">
+								<Group/>
+								Connect
+							</button>
+						</div> -->
+					</div>
+					<div class="tabs-navigation">
+						{#if isEditing}
+						{:else}
+							<button 
+								class="tab-button {activeTab === 'profile' ? 'active' : ''}" 
+								on:click={() => switchTab('profile')}
+							>
+								<User2 size={20} />
+								<span>Profile</span>
+							</button>
+							<button 
+								class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
+								on:click={() => switchTab('stats')}
+							>
+								<Layers size={20} />
+								<span>Stats</span>
+							</button>
+							<button 
+								class="tab-button {activeTab === 'tags' ? 'active' : ''}" 
+								on:click={() => switchTab('tags')}
+							>
+								<TagsIcon size={20} />
+								<span>Tags</span>
+							</button>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Tab Content -->
 				<div class="tab-content">
 					{#if activeTab === 'profile'}
 					<div class="profile-info" transition:fade={{ duration: 200 }}>
-
 						<div class="info-row-profile">
+
 							{#if isEditing}
 							<textarea 
 							class="textarea-description"
@@ -521,6 +598,7 @@ $: displayUser = completeUserData || user;
 							  </span>
 							{/if}
 						  </div>
+
 					  
 						  <!-- <div class="selector-row">
 							<button class="selector-button">
@@ -540,35 +618,9 @@ $: displayUser = completeUserData || user;
 						  </div> -->
 					  
 						  <!-- Email -->
-						  <div class="info-column">
-							<div class="info-row">
-							  <span class="label">
-								<span class="data">{$t('profile.email')}</span>
-							  </span>
-							  <span class="meta">
-								{displayUser?.email || $t('profile.not_available')}
-								{#if displayUser?.verified}
-								  <!-- <MailCheck size={16} class="verified-icon" /> -->
-								{/if}
-							  </span>
-							</div>
-							<!-- <span class="info-avatar">
-							  <Mail size={50}/>
-							</span> -->
-						  </div>
+
 					  
-						  <!-- Role -->
-						  <div class="info-column">  
-							<div class="info-row">
-							  <span class="label">
-								<span class="data">{$t('profile.role')}</span>
-							  </span>
-							  <span class="meta">
-								{displayUser?.role || $t('profile.not_available')}
-							</span>
-							</div>
-							<!-- <KeyIcon size={50}/> -->
-						  </div>
+
 					  
 						  <!-- Created Date -->
 						  <div class="info-column">  
@@ -613,13 +665,20 @@ $: displayUser = completeUserData || user;
 						  </div>
 					  </div>
 					{:else if activeTab === 'stats'}
-						<div class="stats-tab" transition:fade={{ duration: 200 }}>
-							<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
-						</div>
+						{#if isEditing}
+						{:else}
+							<div class="stats-tab" transition:fade={{ duration: 200 }}>
+								<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+							</div>
+						{/if}
 					{:else if activeTab === 'tags'}
-					<div class="tags-tab" transition:fade={{ duration: 200 }}>
-						<TagEditor />
-					</div>
+						{#if isEditing}
+						{:else}
+							<div class="tags-tab" transition:fade={{ duration: 200 }}>
+								<TagEditor />
+							</div>
+						{/if}
+
 					{/if}
 				</div>
 			</div>
@@ -687,6 +746,7 @@ $: displayUser = completeUserData || user;
 		width: 100%;
 		gap: 1rem;
 		user-select: none;
+		margin-left: 0.5rem;
 	}
 
 	.modal-content {
@@ -696,7 +756,7 @@ $: displayUser = completeUserData || user;
 		justify-content: center;
 		align-items: center;
 		width: calc(100% - 2rem);
-		padding: 1rem;
+		padding: 0.5rem;
 
 	}
 
@@ -716,10 +776,13 @@ $: displayUser = completeUserData || user;
 
 
 	textarea {
-		width: auto !important;
 		background: var(--secondary-color) !important;
 		border: 1px solid transparent;
+		border-radius: 1rem;
 		outline: none !important;
+		width: 100% ;
+		font-size: 1rem;
+		display: flex;
 		&:focus {
 			background: var(--primary-color) !important;
 			border: 1px solid var(--secondary-color);
@@ -731,13 +794,13 @@ $: displayUser = completeUserData || user;
 		padding: 1rem;
 		font-size: 1.5rem;
 		resize: vertical;
-		width: auto;;
+		width: auto;
 		display: flex;
 		height: auto;
 		outline: none !important;
 		border: 1px solid transparent;
 		transition: all 0.3s ease;
-
+		
 		&:focus {
 			background: var(--primary-color) !important;
 			border: 1px solid var(--secondary-color);
@@ -747,12 +810,10 @@ $: displayUser = completeUserData || user;
 	.profile-header {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: flex-start;
-		width: 100%;
-		max-width: 800px;
+		width: calc(100% - 100px);
 		height: auto;
-		margin-bottom: 1rem;
 		color: white;
 
 		&.info-column {
@@ -773,8 +834,6 @@ $: displayUser = completeUserData || user;
 			font-size: 2.5rem;
 			letter-spacing: 0.1rem;
 			font-weight: 800;
-			max-width: 800px;
-			width: 100%;
 
 
 
@@ -803,10 +862,28 @@ $: displayUser = completeUserData || user;
 
 	.header-wrapper {
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
+		flex-direction: row;
+		justify-content: flex-start;
 		align-items: center;
-		min-width: 300px;
+	}
+	.info-wrapper {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin-left: 0.5rem;
+		& .info-row {
+			justify-content: flex-start;
+			align-items: center;
+
+			padding: 0;
+			& span.row {
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+			}
+		}
 	}
 
 	button.small-button {
@@ -853,6 +930,7 @@ $: displayUser = completeUserData || user;
 		border-radius: 2px;
 		opacity: 0.5;
 	}
+	
 
 	.avatar-container {
 		width: 5rem;
@@ -924,18 +1002,17 @@ $: displayUser = completeUserData || user;
 			padding:0;
 			// background: var(--primary-color);
 			border-radius: 0;
-			border-top: 1px solid var(--line-color);
 		}
 		
 		.info-row {
 			font-size: 1.2rem;
-			line-height: 1.5;
-			padding: 0;
+			padding: 0.5rem 0.25rem;
 			display: flex;
-			flex-direction: column;
-			border-radius: 0.5rem;
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
 			height: auto;
-			gap: 1rem;
+			border-top: 1px solid var(--line-color);
 		}
 		
 		.info-row-profile {
@@ -975,20 +1052,24 @@ $: displayUser = completeUserData || user;
 		font-size: 0.8rem;
 	}
 	span.name {
-		font-size: 2rem;
+		font-size: 1rem;
+		color: var(--placeholder-color);
+
 	}
 
 	span.username {
 		font-size: 1.2rem;
-		color: var(--placeholder-color);
+		color: var(--text-color);
 	}
 	
 	span.description {
-		font-size: 1rem;
+		font-size: 0.9rem;
 		line-height: 1.5;
-		letter-spacing: 0.2rem;
+		margin-top: 0.5rem;
+		letter-spacing: 0.1rem;
 		text-align: justify;
-		width: auto;
+		width: 100%;
+		display: flex;
 	}
 	
 	.info-row {
@@ -1013,18 +1094,29 @@ $: displayUser = completeUserData || user;
 		}
 	}
 	span.meta {
-		padding-inline-end: 0.5rem;
 		display: flex;
-		justify-content: flex-end;
-		margin-bottom: 0.5rem;
-
-
+		font-size: 0.8rem;
+		color: var(--placeholder-color);
+		& .not-verified {
+			color: red;
+		}
+		& .verified {
+			color: green;
+		}
+		&.role {
+			position: relative;
+			padding: 0.25rem 1rem;
+			border-radius: 1rem;
+			margin: 0;
+			left: 0.5rem;
+			background: var(--secondary-color);
+			color: var(--tertiary-color);
+		}
 	}
 	.label {
 		font-weight:300;
 		font-size: 1rem;
-		letter-spacing: 0.3rem;
-		margin-top: 0.5rem;
+		letter-spacing: 0.1rem;
 		width: auto;
 		user-select: none;
 		padding-inline-start: 1rem;
@@ -1076,7 +1168,7 @@ $: displayUser = completeUserData || user;
 			box-shadow: 0 4px 6px rgba(255, 0, 0, 0.5);
 			font-weight: bold;
 			opacity: 1;
-			width: 100%;
+			width: auto;
 			span.hover {
 				display: flex;
 				width: 5rem;
@@ -1094,10 +1186,8 @@ $: displayUser = completeUserData || user;
 		width: calc(100% - 3rem);
 		max-width: 800px;
 		gap: 1rem;
-		padding: 1rem;
-		margin-left: 3rem;
-		margin-right: 1rem;
-		margin-bottom: 1rem;
+		margin-bottom: 2rem;
+
 
 	}
 	button.back-button {
@@ -1116,7 +1206,12 @@ $: displayUser = completeUserData || user;
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		opacity: 0.5;
+		cursor: pointer;
+		&:hover {
+			background: var(--secondary-color);
+		}
 	}
+
 	button.settings-button {
 		display: flex;
 		align-items: center;
@@ -1130,6 +1225,15 @@ $: displayUser = completeUserData || user;
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		opacity: 0.5;
+		cursor: pointer;
+		&.done {
+			background: var(--primary-color);
+			border: 1px solid var(--line-color);
+			width: 100%;
+			&:hover {
+				color: var(--tertiary-color);
+			}
+		}
 
 		& span.hover {
 			display: flex;
@@ -1225,12 +1329,90 @@ $: displayUser = completeUserData || user;
 		line-height: 1.5;
 	}
 
+	.avatar-container {
+		position: relative;
+		cursor: pointer;
+		border-radius: 50%;
+		overflow: hidden;
+		width: 80px;
+		height: 80px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		
+	}
+	
+	.avatar-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+		color: white;
+		
+	}
+	
+	.avatar-container:hover .avatar-overlay {
+		opacity: 1;
+	}
+	
+	.avatar-uploader-modal {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: auto;
+		// background-color: rgba(0, 0, 0, 0.7);
+		// background-color: var(--bg-color);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		background: var(--bg-color);
+		
+	}
+	
+	.avatar-uploader-content {
+		border-radius: 8px;
+		padding: 1.5rem;
+		width: 90%;
+		max-width: 400px;
+	}
+	
+	.avatar-uploader-header {
+		display: flex;
+		flex-direction: column;
+
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1rem;
+	}
+	
+	.close-button {
+		position: absolute;
+		right: 1rem;
+		top: 0;
+		background: none;
+		border: none;
+		color: var(--color-text);
+		cursor: pointer;
+		padding: 0.25rem;
+	}
+	
+	.avatar-uploader-header h3 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
 	@media (max-width: 1000px) {
 
-		span.meta {
-			padding-inline-start: 2rem;
-			font-size: 0.9rem;
-		}
+
 		.label {
 			font-weight:300;
 			font-size: 0.9rem;
@@ -1254,11 +1436,12 @@ $: displayUser = completeUserData || user;
 		}
 		span.name {
 			font-size: 1.2rem;
+
 		}
 
 		span.username {
 			font-size: 1rem;
-			color: var(--placeholder-color);
+			
 		}
 
 		span.description {
@@ -1366,17 +1549,17 @@ $: displayUser = completeUserData || user;
 	@media (max-width: 768px) {
 
 		.avatar-container {
-		width: 3rem;
-		height:3rem;
+		width: 4rem;
+		height:4rem;
 		border-radius: 50%;
 		overflow: hidden;
 	}
 
-	.avatar {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+	// .avatar {
+	// 	width: 100%;
+	// 	height: 100%;
+	// 	object-fit: cover;
+	// }
 
 	.avatar-placeholder {
 		width: 100%;
@@ -1394,7 +1577,6 @@ $: displayUser = completeUserData || user;
 			justify-content: center;
 			flex-wrap: wrap;
 			gap: 1rem;
-			padding: 1rem;
 			margin-bottom: 1rem;
 		}
 
@@ -1418,7 +1600,30 @@ $: displayUser = completeUserData || user;
 
 			span {
 				font-size: 0.9rem;
+
 			}
 		}
+	}
+	@media (max-width: 450px) {
+		.header-wrapper {
+			gap: 0;
+		}
+		.info-wrapper {
+			gap: 0.25rem;
+		}
+		span.username {
+			line-height: 1.5;
+		}
+		span.name {
+			font-size: 0.8rem;
+			line-height: 1.5;
+
+		}
+		span.meta {
+			font-size: 0.6rem;
+			line-height: 1.5;
+
+		}
+		
 	}
 </style>

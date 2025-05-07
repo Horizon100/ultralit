@@ -1031,6 +1031,51 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         <button on:click={loadData}>Retry</button>
     </div>
 {:else}
+<div class="global-input-container">
+    <div class="view-controls">
+        <div class="tooltip-container">
+            <span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
+                Show all tasks
+            </span>
+            <span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
+                Show parent tasks only
+            </span>
+            <span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
+                Show subtasks only
+            </span>
+        </div>
+        
+        <button 
+            class:active={taskViewMode === TaskViewMode.All} 
+            on:click={() => toggleTaskView(TaskViewMode.All)}
+            on:mouseenter={() => hoveredButton = 'all'}
+            on:mouseleave={() => hoveredButton = null}
+        >
+            <ListCollapse/>
+        </button>
+        <button 
+            class:active={taskViewMode === TaskViewMode.OnlyParentTasks} 
+            on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
+            on:mouseenter={() => hoveredButton = 'parents'}
+            on:mouseleave={() => hoveredButton = null}
+        >
+            <FolderGit/>
+        </button>
+        <button 
+            class:active={taskViewMode === TaskViewMode.OnlySubtasks} 
+            on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
+            on:mouseenter={() => hoveredButton = 'subtasks'}
+            on:mouseleave={() => hoveredButton = null}
+        >
+            <GitFork/>
+        </button>
+    </div>
+    <textarea 
+        placeholder="Add a task"
+        on:keydown={(e) => addGlobalTask(e)}
+        class="global-task-input"
+    ></textarea>
+</div>
 <div class="kanban-container" transition:fade={{ duration: 150 }}
 >
     <div class="kanban-board">
@@ -1117,51 +1162,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             </div>
         {/each}
     </div>
-    <div class="global-input-container">
-        <div class="view-controls">
-            <div class="tooltip-container">
-                <span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
-                    Show all tasks
-                </span>
-                <span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
-                    Show parent tasks only
-                </span>
-                <span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
-                    Show subtasks only
-                </span>
-            </div>
-            
-            <button 
-                class:active={taskViewMode === TaskViewMode.All} 
-                on:click={() => toggleTaskView(TaskViewMode.All)}
-                on:mouseenter={() => hoveredButton = 'all'}
-                on:mouseleave={() => hoveredButton = null}
-            >
-                <ListCollapse/>
-            </button>
-            <button 
-                class:active={taskViewMode === TaskViewMode.OnlyParentTasks} 
-                on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
-                on:mouseenter={() => hoveredButton = 'parents'}
-                on:mouseleave={() => hoveredButton = null}
-            >
-                <FolderGit/>
-            </button>
-            <button 
-                class:active={taskViewMode === TaskViewMode.OnlySubtasks} 
-                on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
-                on:mouseenter={() => hoveredButton = 'subtasks'}
-                on:mouseleave={() => hoveredButton = null}
-            >
-                <GitFork/>
-            </button>
-        </div>
-        <textarea 
-            placeholder="Add a task"
-            on:keydown={(e) => addGlobalTask(e)}
-            class="global-task-input"
-        ></textarea>
-    </div>
+
 
 </div>
 {/if} 
@@ -1413,29 +1414,27 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
  
     .global-input-container {
-        width: 100%;
+        width: calc(50% - 1rem);
         padding: 0;
         margin: 0;
-        margin-top: 1rem;
-        gap: 1rem;
+        margin-left: 50%;
+        margin-right: 1rem;
         // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         display: flex;
-        justify-content: flex-start;
+        justify-content: flex-end;
         align-items: center;
         height: auto;
-        width: 100%;
-        transition: all 1s ease;
+        transition: all 0.2s ease;
         & textarea {
             display: flex;
             justify-content: center;
             align-items: center;
-            text-align: center;
+            text-align: left;
             height: auto;
-            padding: 0;
+            padding: 0 0.5rem;
             margin: 0;
-            line-height: 3rem;
+            line-height: 2;
             font-size: 1rem;
-            width: 100%;
             overflow-y: hidden;
         }
 
@@ -1443,8 +1442,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     
 
     .global-task-input {
-        width: calc(100% - 4rem);
-        height: 3rem !important;
+        width: 2rem;
+        height: 2rem !important;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -1457,6 +1456,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     
     .global-task-input:focus {
         outline: none;
+        position: absolute;
+        width: auto;
         border-color: var(--tertiary-color);
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
     }
@@ -1469,7 +1470,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
-        height: 82vh;
+        height: 92vh;
         width: calc(100% - 3rem);
         backdrop-filter: blur(20px);
         padding: 1rem;
@@ -1525,7 +1526,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         align-items: center;
         justify-content: center;
         margin-bottom: 0.5rem;
-        border-radius: 10px;
+        border-radius: 1rem;
         border: 1px solid var(--line-color);
         background-color: var(--secondary-color);
         resize:none;
@@ -1631,7 +1632,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
     .task-card {
         background: var(--secondary-color);
-        border-radius: 10px;
+        border-radius: 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -1987,7 +1988,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     .confirm-buttons {
         display: flex;
         justify-content: flex-end;
-        gap: 10px;
+        gap: 1rem;
         margin-top: 20px;
     }
     
@@ -2153,7 +2154,6 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 .view-controls button {
     display: flex;
     flex-direction: row;
-    padding: 1rem;
 
     background-color: transparent;
     border: 1px solid var(--color-border);
@@ -2177,7 +2177,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 }
 .tooltip-container {
     position: absolute;
-    top: -35px;
+    bottom: -0.5rem;
     left: 0;
     right: 0;
     display: flex;
@@ -2186,7 +2186,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 }
 
 .shared-tooltip {
-    background-color: rgba(0, 0, 0, 0.8);
+    background: var(--primary-color);
     color: white;
     padding: 4px 8px;
     border-radius: 4px;
@@ -2205,12 +2205,13 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 .shared-tooltip::after {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
     margin-left: -5px;
     border-width: 5px;
+    transform: rotate(180deg);
     border-style: solid;
-    border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+    border-color: var(--primary-color) transparent transparent transparent;
 }
 
 @keyframes flash {
@@ -2405,7 +2406,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             overflow-x: hidden;
             width: auto;
             margin-right: 2rem;
-            height: 80vh;
+            height: 90vh;
             border-radius: 2rem;
             border: 1px solid var(--line-color);
             padding: 0;
@@ -2429,18 +2430,84 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         //     width: 100%;
         // }
     }
-    @media (max-width: 450px) {
+    @media (max-width: 768px) {
         .global-input-container {
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+                justify-content: flex-start;
+                align-items: center;
+                width: 100%;
+                margin: 0;
+                gap: 1rem;
+            }
+        .global-task-input:focus {
+            outline: none;
+            position: relative;
             width: auto;
-            margin-left: 2rem;
-            margin-right: 2rem;
+            border-color: var(--tertiary-color);
+            box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
         }
         .view-controls {
-            justify-content: space-between;
-            width: 100%;
+            gap: 1rem;
         }
+        .kanban-board {
+            height: 87vh;
+        }
+        .task-card {
+        background: var(--secondary-color);
+        border-radius: 1rem;
+        margin-bottom: 0.5rem;
+        cursor: move;
+        transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+        position: relative;
+        width: calc(100% - 2rem);
+        word-break: break-all;
+        transition: all 0.3s ease;
+    }
+
+    .task-card:hover {
+        transform: scale(1.05) translateX(0) rotate(3deg);    
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        border: 1px solid var(--line-color);
+        z-index: 1;
+        & h4 {
+
+        }
+    }
+
+    .task-card:active {
+        transform: rotate(-3deg);
+    }
+
+
+    h4 {
+        font-size: 0.9rem;
+        padding: 0 0.5rem;
+        margin: 0;
+        margin-top: 0.25rem;
+    }
+    }
+    @media (max-width: 450px) {
+        
+        .global-input-container {
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin: 0;
+        }
+        .global-task-input:focus {
+            outline: none;
+            width: calc(100% - 1rem);
+            border-color: var(--tertiary-color);
+            box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
+        }
+        .view-controls {
+        }
+        .tooltip-container {
+            display: none;
+        }
+        .kanban-board {
+            height: 87vh;
+        }
+
+
     }
 </style>

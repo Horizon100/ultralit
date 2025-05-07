@@ -149,7 +149,7 @@
 		border-radius: 2rem;
         line-height: 1.5;
 		padding: 1rem;
-        animation: blink 3s ease infinite;
+        // animation: blink 3s ease infinite;
 	}
 
 	h2 {
@@ -201,7 +201,7 @@
         font-size: var(--font-size-m);
         color: var(--placeholder-color);
         line-height: 1.5;
-        animation: blink 3s ease infinite;
+        // animation: blink 1s ease infinite;
 	}
 
 	.style-button {

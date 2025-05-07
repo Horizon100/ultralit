@@ -832,7 +832,7 @@
 	button {
 		transition: all 0.3s ease;
 		&.icon {
-			background: var(--bg-gradient);
+			// background: var(--bg-gradient);
 			border: 1px solid var(--secondary-color);
 			border-radius: 50%;
 			width: 2rem;
@@ -848,12 +848,11 @@
 
 	.nav-button {
 		color: var(--text-color);
-		background: var(--bg-gradient-right);
+		// background: var(--bg-gradient-right);
 		padding: 4px;
 		font-size: 16px;
 		border: none;
 		cursor: pointer;
-		border-radius: 12px;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -925,7 +924,7 @@
 		position: relative;
 		width:auto;
 		height: 94vh;
-		max-width: 500px;
+		width: 500px;
 		top: 4rem;
 		margin-bottom: auto;
 		padding: 0;
@@ -1095,7 +1094,7 @@
 		position: relative;
 
 		user-select: none;
-		width: 10rem;
+		width: auto;
 
 		& h2 {
 			padding: 0 !important;
@@ -1715,7 +1714,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: var(--bg-gradient-right);
+    // background: var(--bg-gradient-right);
     color: var(--text-color);
     border: none;
     cursor: pointer;
@@ -1867,20 +1866,27 @@
 			position: relative;
 			justify-content: space-around;
 			flex-direction: row !important;
+			background: transparent !important;
 			width: auto;
 			padding: 0;
 			top: 0;
-
+			& .user-avatar {
+				width: 2.5rem !important;
+				height: 2.5rem;
+				border-radius: 50%;
+				object-fit: cover;
+			}
 			&.expanded {
 				height: 3rem;
-				width: 100%;
 				justify-content: space-between;
 
 			}
 
 			&:hover {
 				padding: 1rem;
-				
+
+				background: var(--secondary-color) !important;
+
 			}
 
 		}
@@ -2044,21 +2050,21 @@
 	 {
 		color: var(--text-color);
 		background: var(--bg-gradient-right);
-		padding: 4px;
 		font-size: auto;
 		border: none;
 		cursor: pointer;
-		border-radius: 50%;
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		width: 2.5rem;
 		height: 2.5rem;
 		padding: 0.25rem;
+		border-radius: 50%;
 		transition: all 0.2s ease-in-out;
 		overflow: hidden;
 		user-select: none;
 	}
+
 	
 
 	.nav-button.active {
@@ -2314,21 +2320,23 @@
 			position: fixed !important;
 			background-color: transparent;
 			top: 0.5rem;
-			left: 0.5rem;
+			left: 0;
 			& .shortcut-buttons {
 				display: none;
 			}
 			
 			// display: none !important;
 			&:hover {
-				max-width: 500px;
+				max-width: 350px;
 				border-radius: 2rem;
+				gap: 1rem;
 				padding: 0;
 				&.nav-button {
 					backdrop-filter: blur(20px);
 				}
 				& .shortcut-buttons {
 					display: flex;
+					gap: 1rem;
 				}
 				& .nav-button {
 				display: flex;
@@ -2347,27 +2355,28 @@
 		.nav-button.info.user {
 			display: flex !important;
 			position: fixed !important;
-			top: 0.5rem;
-			left: 4rem;
+			height: 2rem !important;
+			width: 2rem !important;
+
+			top: 1rem;
+			left: 3.5rem;
 			z-index: -1;
+			background: transparent !important;
 
 			& img.user-avatar {
-					width: 2rem !important;
 					height: 2rem !important;
 					padding: 0;
 
 				}
 			&:hover {
+
 				// width: 6rem !important;
 				// height: 6rem !important;
 				justify-content: center;
-				width: 4rem !important;
+				width: 2rem !important;
 				padding: 0;
 
 				& img.user-avatar {
-					width: 4rem !important;
-					height: 4rem !important;
-					padding: 0;
 
 				}
 
@@ -2418,13 +2427,14 @@
 	}
 	.nav-button.info {
 		display: flex;
-		flex-direction: row-reverse;
+		flex-direction: row;
 		justify-content: center;
 		border-radius: 1rem !important;
 		animation: none !important;
 		&.user {
 			position: relative;
 			bottom: auto;
+			
 		}
 		span.icon {
 			display: none;
@@ -2447,7 +2457,8 @@
 		}
 
 		&:hover {
-			justify-content: space-around;
+			justify-content: flex-start;
+			
 			background: var(--primary-color);
 			opacity: 1;
 
@@ -2556,6 +2567,9 @@
 	.nav-button:hover,
 	.thread-toggle:hover {
 		transform: scale(1.1);
+	}
+	.nav-button.info:hover {
+		transform: none;
 	}
 
 	.nav-button.toggle {
@@ -2684,16 +2698,20 @@
 		}
 
 		.nav-button.drawer {
+			background-color: var(--primary-color) !important;
 		}
 
 		.navigation-buttons {
 			display: flex;
-			flex-direction: column;
+			flex-direction: row;
+			// border: 1px solid var(--line-color);
 			gap: 0.5rem;
 			margin-bottom: 1rem;
-			width: 100%;
-			margin-left: 0.5rem;
-
+			width: auto;
+			margin-left: 0.5rem;	
+			// background: var(--secondary-color);
+			border-radius: 1rem;
+			padding: 0.25rem;
 			align-items: flex-start;
 		}
 

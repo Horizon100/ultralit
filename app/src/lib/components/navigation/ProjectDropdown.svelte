@@ -717,13 +717,15 @@
         width: auto;
         position: fixed;
         right: 1rem;
-        top: 0;
+        top: 0.5rem;
         left: 6rem;
         justify-content: space-between;
         align-items: flex-start;
         &.selector {
           width: auto;
-          height: 3rem;
+          max-width: 150px;
+          overflow: hidden;
+          height: 2rem;
           // overflow: hidden;
         }
         & span.icon {
@@ -830,6 +832,50 @@
         left: 0;
         right: 0;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .dropdown-trigger {
+        margin: 0;
+        margin-top: 0.5rem;
+        margin-left: 0.5rem;
+        padding: 0;
+        height: auto;
+        width: auto;
+        position: fixed;
+        right: auto;
+        top: 0;
+        left: 6rem;
+        justify-content: space-between;
+        align-items: flex-start;
+        &.selector {
+          width: auto;
+          height: 3rem;
+          // overflow: hidden;
+        }
+        & span.icon {
+          display: none;
+        }
+        & span.icon.home {
+          display: flex;
+          flex-direction: row;
+          font-size: 1rem;
+          justify-content: center;
+          align-items: center;
+          letter-spacing: 0.1rem;
+          color: var(--tertiary-color);
+          gap: 0;
+          padding: 0;
+          border-radius: 50%;
+          & p {
+            display: none;
+          }
+        }
+        & span.selector {
+          display: flex;
+          flex-direction: row;
+          font-size: 1rem;
+          letter-spacing: 0.2rem;
+      }
+
       }
 
     }

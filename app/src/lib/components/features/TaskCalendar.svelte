@@ -1489,13 +1489,13 @@ button.action-btn {
     display: flex;
     padding-inline-end: 1rem;
     padding-inline-start: 1rem;
-
-    justify-content: space-between;
+    gap: 1rem;
+    justify-content: flex-end;
     height: auto;
-
+    width: calc(50% - 2rem);
+    margin-left: 50%;
     align-items: center;
-    border-top-left-radius: 2rem;
-    border-top-right-radius: 2rem;
+
 
 }
 .calendar-controls {
@@ -1504,9 +1504,9 @@ button.action-btn {
     align-items: center;
     gap: 1rem;
     & h3 {
-        font-size: 2rem;
+        font-size: 1.2rem;
         margin: 0;
-        padding: 1rem;
+        padding: 0;
     }
 
 }
@@ -1721,13 +1721,13 @@ h2 {
 button.calendar-btn {
 		background-color: var(--primary-color) !important;
 		color: var(--text-color);
-		font-size: 1rem;
+		font-size: 0.7rem;
 
 		display: flex;
         justify-content: center;
         align-items: center;
-        width: 2rem;
-        height: 2rem;
+        width: 1.5rem;
+        height: 1.5rem;
 		padding: 0.5rem;
         border-radius: 50%;
 		border: 1px solid transparent;
@@ -1738,7 +1738,7 @@ button.calendar-btn {
             width: auto;
             padding: 0.5rem 1rem;
             border-radius: 1rem;
-            font-size: 1.2rem;
+            font-size: 0.9rem;
             letter-spacing: 0.2rem;
 
         }
@@ -1887,9 +1887,7 @@ button.calendar-btn {
     text-align: center;
 }
 .calendar-header {
-
     display: flex;
-    padding: 0.5rem;
     align-items: center;
 }
 .calendar-controls {
@@ -1902,7 +1900,7 @@ button.calendar-btn {
         padding: 0;
         margin: 0;
         width: auto;
-        font-size: 1.4rem !important;
+        font-size: 1rem;
     }
 
 }
@@ -1934,13 +1932,22 @@ button.calendar-btn {
       }
 
     }
+    @media (max-width: 768px) {
+        .calendar-header {
+            width: 100%;
+            margin: 0;
+            justify-content: center;
+        }
+    }
     @media (max-width: 450px) {
         .calendar-header {
             display: flex;
             flex-direction: row;
-            justify-content: flex-start;
+            justify-content: center;
             padding: 0.5rem;
             align-items: center;
+            width: 100%;
+            margin: 0;
         }
         .calendar-controls {
             justify-content: center;

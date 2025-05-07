@@ -7274,6 +7274,11 @@ p.selector-lable {
 
   @media (max-width: 1000px) {
     .input-container-start {
+      margin-top: 0;
+      bottom: 0;
+      // position: fixed;
+    }
+    .input-container-start {
     display: flex;
     flex-direction: column;
     position: relative;
@@ -7630,11 +7635,7 @@ p.selector-lable {
       // border-radius: var(--radius-l);
     }
 
-    .input-container-start {
-      margin-top: 0;
-      bottom: 1rem;
-      position: fixed;
-    }
+
     .drawer-toolbar {
       width:auto;
       margin-bottom: 1rem;
@@ -8374,11 +8375,14 @@ p.selector-lable {
         display: flex;
         justify-content: center;
         align-items: center;
-        border: 1px solid var(--secondary-color);      
-        border-radius: 0;
+        border: 0;
         border-top-left-radius: 2rem;
-        border-top-right-radius: 2rem;
+        border-top-right-radius: 2rem;    
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        border-top: 1px solid var(--line-color);
         width: 100%;
+        background: var(--primary-color);
         height: auto;
 
         & textarea {

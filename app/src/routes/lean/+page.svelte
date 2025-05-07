@@ -51,7 +51,9 @@
               in:fade={{ duration: 400, delay: 800 }}
           >
               <Calendar/>
-              Calendar
+              <span>
+                Schedule
+              </span>
           </button>
           <button
               class:active={$activeTab === 'kanban'}
@@ -59,7 +61,9 @@
               in:fade={{ duration: 400, delay: 850 }}
           >
               <KanbanSquareIcon/>
-              Kanban Board
+              <span>
+                Tasks
+              </span>
           </button>
           <button
             class:active={$activeTab === 'gant'}
@@ -67,7 +71,9 @@
             in:fade={{ duration: 400, delay: 850 }}
         >
             <ChartNoAxesGantt/>
-            Gant Chart
+            <span>
+              Taskflows
+            </span>
         </button>
       </div>
     
@@ -100,10 +106,8 @@
 
 	main {
 		flex-grow: 1;
-    left: 3rem;
-    padding: 1rem;
+    left: 5rem;
         position: absolute;
-		margin-left: 0 !important;
 		width: calc(100% - 4rem);
 		height: 100vh;
 		display: flex;
@@ -120,43 +124,63 @@
   
     .tabs {
       display: flex;
-      gap: 0.5rem;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
       margin-bottom: 0;
-      width: 100%;
+      width: calc(50% - 4rem);
+      margin-left: 4rem;
       user-select: none;
-      justify-content: center;
+      z-index: 1000;
     }
   
     .tabs button {
-      padding: 0.5rem 1rem;
+      // padding: 0.5rem;
+      height: 2rem;
       border: none;
+      border-radius: 0.5rem;
       background: none;
       cursor: pointer;
-      font-size: 1.3rem;
-      color: #666;
-      transition: color 0.3s, border-bottom 0.3s;
+      font-size: 1rem;
+      color: var(--line-color);
       display: flex;
       justify-content: center;
       width: auto;
       align-items: center;
       gap: 0.5rem;
-      transition: all ease-in-out 0.3s;
+      transition: all ease-in-out 0.1s;
+      & span {
+        display: none;
+        transition: all ease-in-out 0.1s;
+
+      }
 
       &:hover {
-        border-bottom: 2px solid var(--secondary-color);
-
+        background: var(--line-color);
+        & span {
+          display: flex;
+        }
         // background: var(--secondary-color);
       }
     }
   
     .tabs button.active {
-        border-bottom: 2px solid var(--tertiary-color);
-      color: var(--text-color);
+        // border-bottom: 1px solid var(--tertiary-color);
+        color: var(--text-color);
+        background: var(--secondary-color);
+        & span {
+          display: flex;
+        }
     }
   
     .tab-panels {
-      margin-top: 1rem;
+      margin-top: 0;
       display: flex;
+      position: absolute;
+      left: 2rem;
+      right: 1rem;
+      top: 0.5rem;
       justify-content: center;
       height: auto;
     }
@@ -165,7 +189,10 @@
       // border: 1px solid var(--secondary-color);
       border-radius: var(--radius-m);
       // background: var(--bg-gradient-r);
-      height: 80vh;
+      height: 8vh;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
       max-width: 1600px;
       width: 100%;
     }
@@ -206,15 +233,101 @@
 	main {
 		flex-grow: 1;
     left: 0;
-    padding: 1rem;
+    padding: 0;
         position: absolute;
 		margin-left: 0 !important;
-    margin-top: 1rem;
-		width: calc(100% - 2rem);
-		height: auto;
+    margin-top: 0.5rem;
+		width: 100%;
+		height: 95vh;
 		display: flex;
 		flex-direction: column;
     overflow-y: none;
 	}
+  .tab-panels {
+      right: 0.5rem;
+      left: 0.5rem;
+    }
+  
+  .tabs {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 1rem;
+      height: 3rem;
+      margin-top: 0;
+      margin-bottom: 0;
+      width: calc(50% - 10rem);
+      margin-left: 17rem;
+      user-select: none;
+      z-index: 1000;
+    }
+  
+    .tabs button {
+      // padding: 0.5rem;
+      height: 2rem;
+
+      & span {
+        display: none;
+        transition: all ease-in-out 0.1s;
+
+      }
+
+      &:hover {
+        background: var(--line-color);
+        & span {
+          display: none;
+        }
+        // background: var(--secondary-color);
+      }
+    }
+  
+    .tabs button.active {
+        // border-bottom: 1px solid var(--tertiary-color);
+        color: var(--text-color);
+        background: var(--secondary-color);
+        & span {
+          display: none;
+        }
+    }
+}
+@media (max-width: 768px) {
+  .tab-panels {
+    margin-top: 3rem;
+    left: 0;
+    right: 0;
+  }
+}
+@media (max-width: 450px) {
+
+  .tabs {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.5rem;
+      height: 3rem;
+      margin-top: 0;
+      margin-bottom: 0;
+      width: auto;
+      margin-left: auto;
+      user-select: none;
+      z-index: 1000;
+    }
+    .tabs button {
+      &:hover {
+        & span {
+          display: none;
+        }
+      }
+    }
+  main {
+    margin-right: 0;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    left: 0;
+    width: 100%;
+    height: 95vh;
+  }
+
+
 }
   </style>

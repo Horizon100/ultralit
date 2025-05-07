@@ -416,7 +416,9 @@ export default {
 		no: "No",
 		language: "Languages",
 		theme: "Themes",
-		googleAuth: "Google"
+		googleAuth: "Google",
+		update: "Update",
+		upload: "Upload",
 
 	},
 	thinkingPhrases: [
