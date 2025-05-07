@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { AIModel } from '$lib/types/types';
-	import { Bot, Settings, Key, CheckCircle2, XCircle } from 'lucide-svelte';
+	import { Bot, Settings, Key, CheckCircle2, XCircle, Star } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { defaultModel } from '$lib/constants/models';
 	import APIKeyInput from '$lib/components/common/keys/APIKeyInput.svelte';
@@ -11,15 +11,21 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: string = 'deepseek'; // Default to deepseek if not provided
+	export let provider: string = 'deepseek';
+	let isInitialized = false;
+	let isLoadingPreferences = true;
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
 		close: void;
 		select: AIModel;
+		toggleFavorite: { modelId: string; isFavorite: boolean };
 	}>();
 
 	let key = '';
+	let favoriteModels: AIModel[] = [];
+	let userModelPreferences: string[] = [];
+	let favoritesInitialized = false;
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -93,10 +99,9 @@
     }
 
 	async function handleModelSelection(model: AIModel) {
-		// Ensure model has provider information
 		const enrichedModel: AIModel = {
 			...model,
-			provider: currentProvider || model.provider || 'deepseek' // Default to deepseek if no provider
+			provider: currentProvider || model.provider || 'deepseek'
 		};
 		
 		console.log('Selected model with provider:', enrichedModel.provider);
@@ -125,7 +130,6 @@
             
             if (currentKey) {
                 const providerModelList = await providers[provider].fetchModels(currentKey);
-                // Ensure provider information is set for each model
                 availableProviderModels[provider] = providerModelList.map(model => ({
                     ...model,
                     provider
@@ -151,94 +155,246 @@
 			await loadProviderModels(currentProvider);
 		}
 	}
+	function updateFavoriteModels() {
+		favoriteModels = [];
+		
+		Object.entries(availableProviderModels).forEach(([providerKey, models]) => {
+			models.forEach(model => {
+				const modelKey = `${model.provider}-${model.id}`;
+				if (userModelPreferences.includes(modelKey)) {
+					favoriteModels.push(model);
+				}
+			});
+		});
+		favoritesInitialized = true;
+	}
+	async function toggleFavorite(model: AIModel, event: MouseEvent) {
+    event.stopPropagation(); 
+    
+    if (!$currentUser) return;
+    
+    const modelId = model.id;
+    const modelKey = `${model.provider}-${modelId}`;
+    const isFavorite = userModelPreferences.includes(modelKey);
+    
+    // Update local state first for responsive UI
+    if (isFavorite) {
+        userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
+    } else {
+        userModelPreferences = [...userModelPreferences, modelKey];
+    }
+    
+    // Update favorite models list
+    updateFavoriteModels();
+    
+    // Send event to parent
+    dispatch('toggleFavorite', { modelId: modelKey, isFavorite: !isFavorite });
+    
+    // Save to backend
+    try {
+        console.log(`Saving model preferences to backend: ${JSON.stringify(userModelPreferences)}`);
+        
+        const response = await fetch(`/api/users/${$currentUser.id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model_preference: userModelPreferences
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+            console.error('Failed to update model preferences:', data.error || 'Unknown error');
+            // Revert local state if save failed
+            if (isFavorite) {
+                userModelPreferences = [...userModelPreferences, modelKey];
+            } else {
+                userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
+            }
+            updateFavoriteModels();
+        } else {
+            console.log('Successfully updated model preferences');
+        }
+    } catch (error) {
+        console.error('Error saving model preference:', error);
+        // Revert local state on error
+        if (isFavorite) {
+            userModelPreferences = [...userModelPreferences, modelKey];
+        } else {
+            userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
+        }
+        updateFavoriteModels();
+    }
+}
+	
+
+
+async function loadUserModelPreferences() {
+    if (!$currentUser) {
+        favoritesInitialized = true; // Always show the section even without a user
+        isLoadingPreferences = false;
+        return;
+    }
+    
+    isLoadingPreferences = true;
+    
+    try {
+        const response = await fetch(`/api/users/${$currentUser.id}`);
+        const data = await response.json();
+        
+        if (data.success && data.user && data.user.model_preference) {
+            userModelPreferences = Array.isArray(data.user.model_preference) 
+                ? data.user.model_preference 
+                : [];
+            console.log('Loaded user model preferences:', userModelPreferences);
+        } else {
+            console.log('No model preferences found or unable to parse preferences');
+            userModelPreferences = [];
+        }
+    } catch (error) {
+        console.error('Error loading user model preferences:', error);
+        userModelPreferences = [];
+    } finally {
+        // Always mark as initialized when done, regardless of success/failure
+        favoritesInitialized = true;
+        isLoadingPreferences = false;
+    }
+}
+function loadAllAvailableProviderModels() {
+        return Promise.all(
+            Object.keys(providers).map(async (providerKey) => {
+                const provider = providerKey as ProviderType;
+                const currentKey = get(apiKey)[provider];
+                if (currentKey) {
+                    await loadProviderModels(provider);
+                }
+            })
+        );
+    }
 
 	onMount(async () => {
-    // Make an explicit call to load API keys
     if ($currentUser) {
-        console.log("Loading API keys on component mount...");
+        console.log("Loading API keys and preferences on component mount...");
+        
+        // Load preferences first
+        await loadUserModelPreferences();
+        
+        // Then load API keys
         await apiKey.loadKeys();
         
-        // Log available keys to help debug
+        // Load available models for providers with keys
         const availableKeys = get(apiKey);
-        console.log("Available API keys for providers:", Object.keys(availableKeys));
         
         // Find available providers with keys
         const availableProviders = Object.entries(availableKeys)
             .filter(([_, key]) => !!key)
             .map(([provider]) => provider);
         
-        if (availableProviders.length === 0) {
-            console.warn("No API keys found for any provider");
-            return;
+        if (availableProviders.length > 0) {
+            // Load all provider models to populate favorites
+            await Promise.all(
+                availableProviders.map(async (providerKey) => {
+                    try {
+                        await loadProviderModels(providerKey as ProviderType);
+                    } catch (error) {
+                        console.error(`Error loading models for ${providerKey}:`, error);
+                    }
+                })
+            );
+            
+            // After loading all models, update favorites list
+            updateFavoriteModels();
         }
         
-        // Set initial provider based on existing keys, selected model, or default
-        // If the selected model's provider has a key, use that provider
+        // Find and set the initial provider
         let initialProvider = selectedModel?.provider || provider || 'deepseek';
-        
-        // If the initial provider doesn't have a key, use the first available provider
         if (!availableKeys[initialProvider] && availableProviders.length > 0) {
             initialProvider = availableProviders[0];
-            console.log(`Selected provider has no key, falling back to: ${initialProvider}`);
         }
         
         currentProvider = initialProvider as ProviderType;
         
-        // If we have a key for this provider, try to load its models
-        if (availableKeys[initialProvider]) {
-            console.log(`Found key for ${initialProvider}, loading models...`);
-            try {
-                isLoadingModels = true;
-                await modelStore.setSelectedProvider($currentUser.id, initialProvider as ProviderType);
-                await loadProviderModels(initialProvider as ProviderType);
-                
-                // If no model is selected yet, select the first model from this provider
-                if (!selectedModel?.id && availableProviderModels[initialProvider as ProviderType]?.length > 0) {
-                    const firstModel = availableProviderModels[initialProvider as ProviderType][0];
-                    console.log("Auto-selecting first available model:", firstModel.name);
-                    await handleModelSelection(firstModel);
-                }
-            } catch (error) {
-                console.error(`Error loading models for ${initialProvider}:`, error);
-            } finally {
-                isLoadingModels = false;
-            }
-        } else {
-            console.log(`No API key found for ${initialProvider}`);
-        }
+        // Mark as fully initialized after everything is loaded
+        isInitialized = true;
+    } else {
+        // Even without a user, mark as initialized
+        favoritesInitialized = true;
+        isInitialized = true;
     }
 });
 </script>
+<div class="model-column">
+	{#if favoritesInitialized}
 
-<div class="selector-container">
-	<div class="providers-list">
-		{#each Object.entries(providers) as [key, provider]}
-			<div class="provider-item">
-				<button
-					class="provider-button"
-					class:provider-selected={currentProvider === key}
-					on:click={() => handleProviderClick(key)}
-				>
-					<div class="provider-info">
-						<img src={provider.icon} alt={provider.name} class="provider-icon" />
-						<span class="provider-name" class:visible={currentProvider === key}>
-							{provider.name}
-						</span>
-					</div>
-					<div class="provider-status">
-						{#if get(apiKey)[key]}
-							<div class="icon-wrapper success">
-								<CheckCircle2 />
-							</div>
-						{:else}
-							<div class="icon-wrapper error">
-								<XCircle size={35} />
-							</div>
-						{/if}
-					</div>
-				</button>
+	<div class="favorites-container">
+		<h4>Favorite Models</h4>
+		{#if favoriteModels.length > 0}
+			<div class="favorites-list">
+				{#each favoriteModels as model}
+					<button
+						class="model-button favorite-model"
+						class:model-selected={selectedModel.id === model.id}
+						on:click={() => handleModelSelection(model)}
+					>
+						<span class="model-name">{model.name}</span>
+						<span class="provider-badge">{providers[model.provider]?.name}</span>
+						<button 
+							class="star-button star-active" 
+							on:click={(e) => toggleFavorite(model, e)}
+						>
+							<Star size={16} fill="#FFD700" />
+						</button>
+					</button>
+				{/each}
 			</div>
-		{/each}
+		{:else}
+			<div class="no-favorites">
+				<div class="small-spinner-container">
+					<div class="small-spinner">
+						<Bot />
+					</div>
+
+				</div>
+				<p>Star your favorite models to see them here</p>
+
+			</div>
+		{/if}
+	</div>
+	{/if}
+
+	<div class="selector-container">
+		<div class="providers-list">
+			{#each Object.entries(providers) as [key, provider]}
+				<div class="provider-item">
+					<button
+						class="provider-button"
+						class:provider-selected={currentProvider === key}
+						on:click={() => handleProviderClick(key)}
+					>
+						<div class="provider-info">
+							<img src={provider.icon} alt={provider.name} class="provider-icon" />
+							<span class="provider-name" class:visible={currentProvider === key}>
+								{provider.name}
+							</span>
+						</div>
+						<div class="provider-status">
+							{#if get(apiKey)[key]}
+								<div class="icon-wrapper success">
+									<CheckCircle2 />
+								</div>
+							{:else}
+								<div class="icon-wrapper error">
+									<XCircle size={35} />
+								</div>
+							{/if}
+						</div>
+					</button>
+				</div>
+			{/each}
+		</div>
 	</div>
 </div>
 
@@ -261,7 +417,7 @@
 					<XCircle size={35} />
                 </button>
             </div>
-            
+
             {#if isLoadingModels}
                 <div class="spinner-container">
                     <div class="spinner"></div>
@@ -280,13 +436,23 @@
                             class:model-selected={selectedModel.id === model.id}
                             on:click={() => handleModelSelection(model)}
                         >
+						<span 
+							class="star-button" 
+							class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
+							on:click={(e) => toggleFavorite(model, e)}
+						>
+							<Star 
+								size={30} 
+							/>
+
+						</span>
                             {model.name}
                         </button>
                     {/each}
                 </div>
             {:else}
                 <div class="no-models">
-                    <p>No models available for this provider</p>
+					<p>No models available for this provider</p>
                 </div>
 				<form
 					on:submit={handleSubmit}
@@ -314,7 +480,14 @@
 	* {
 		font-family: var(--font-family);
 	}
-
+	.model-column {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: flex-end;
+		gap: 0.5rem;
+		width: 100%;
+	}
 	.selector-container {
 		display: flex;
 		position: relative;
@@ -497,7 +670,7 @@
 	}
 
 	.model-button {
-		padding: 2rem;
+		padding: 1rem;
 		background: var(--bg-gradient-left);
 		border: none !important;
 		border-radius: var(--radius-xl);
@@ -511,11 +684,21 @@
 		letter-spacing: 0.2rem;
 		text-align: left;
 		text-justify: left;
+		& span.star-icon {
+			width: 2rem;
+			height: 2rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			&:hover {
+				transform: scale(1.5);
+			}
+		}
 		
 		&:hover {
 			background: var(--primary-color);
 			color: white;
-			transform: translateX(1rem);
+			// transform: translateX(1rem);
 			opacity: 1;
 			cursor: pointer;
 
@@ -664,6 +847,79 @@ input {
 		}
 	}
 
+	.favorites-container {
+        border: 1px solid var(--line-color);
+		border-radius: 1rem;
+		background: var(--primary-color);
+		padding: 0.5rem;
+		overflow-y: auto;
+		max-width: 300px;
+		max-height: 400px;
+		& h4 {
+			margin-bottom: 0.5rem;
+			text-align: left;
+		}
+    }
+    
+    .favorites-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .favorite-model {
+        display: flex;
+        align-items: center;
+        position: relative;
+		padding: 0 0.5rem;
+		width: auto;
+		border-radius: 1rem;
+    }
+    
+    .provider-badge {
+        font-size: 0.7rem;
+        background-color: rgba(0, 0, 0, 0.2);
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 6px;
+		position: absolute;
+		right: 0;
+		top: 0;
+    }
+    
+    .star-button {
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+		width: 3rem;
+		height: 3rem;
+        right: 8px;
+        opacity: 0.25;
+        transition: opacity 0.2s ease;
+    }
+	.star-button:hover {
+        opacity: 1;
+    }
+    
+    .model-button:hover {
+        opacity: 1;
+    }
+    
+    .star-active {
+        opacity: 1;
+		background: transparent;
+    }
+    
+    .model-name {
+        flex-grow: 1;
+        text-align: left;
+		font-size: 0.8rem;
+        padding-right: 1rem;
+    }
+
 	/* Additional style to ensure password reveal icon is properly positioned */
 	:global(input[type='password']::-ms-reveal) {
 		filter: invert(1);
@@ -679,11 +935,14 @@ input {
 
 
 	@media (max-width: 768px) {
+		.model-column {
+			flex-direction: row;
+		}
 		.selector-container {
 			height: auto;
 			width: 100%;
 			height: 100%;
-			margin-bottom: 4rem;
+			margin-bottom: 0;
 			box-shadow: none !important;
 		}
 
@@ -702,19 +961,35 @@ input {
 	}
 
 	@media (max-width: 450px) {
+		.model-column {
+			
+			display: flex;
+			margin-left: 2rem;
+			margin-right: -2rem;
+		}
 		.selector-container {
 			height: 100%;
 			border-radius: 0;
-			width: 100%;
+			width: auto;
+			margin: 0;
+			justify-content: flex-end;
+			align-items: flex-end;
+		}
+
+		.favorites-container {
+			
 		}
 
 		.providers-list {
 			display: flex;
 			flex-wrap: wrap;
+			justify-content: center;
+			align-items: flex-start;
 			height: auto;
 			margin: auto;
-			width: 100%;
-			margin-right: 1rem !important;
+			width: 8rem;
+			margin: 0;
+			padding: 0;
 			backdrop-filter: blur(10px);
 			border-radius: 0;
 			overflow-x: none;
@@ -729,5 +1004,50 @@ input {
 			width: 95%;
 			max-height: 80vh;
 		}
+		.provider-button {
+		width: auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-sm);
+		padding: 0.5rem;
+		background: var(--bg-color);
+		border-radius: var(--radius-xl);
+		border: 1px solid transparent;
+		color: var(--text-color);
+		transition: all 0.2s ease;
+		letter-spacing: 0.4rem;
+		z-index: 3000;
+
+		&:hover {
+			background: var(--primary-color);
+			cursor: pointer;
+			transform: translateX(0);
+
+			.provider-name {
+				opacity: 1;
+				width: auto;
+				max-width: 200px;
+				margin-left: 1rem;
+				font-weight: 700;
+				letter-spacing: 0.5rem;
+				display: none;
+
+			}
+		}
+		
+
+		&.provider-selected {
+			background-color: var(--primary-color);
+			color: white;
+			height: 100%;
+            
+            .provider-name {
+                opacity: 1;
+                width: auto;
+				display: none;
+            }
+		}
+	}
 	}
 </style>

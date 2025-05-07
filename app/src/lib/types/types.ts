@@ -31,6 +31,7 @@ export interface User extends RecordModel {
 	model?: string;
 	prompt_preference?: string;
 	sysprompt_preference?: string;
+	model_preference?: string[];
 }
 export interface Prompt {
 	value: PromptType;

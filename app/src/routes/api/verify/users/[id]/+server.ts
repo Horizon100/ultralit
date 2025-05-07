@@ -28,7 +28,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         sysprompt_preference: user.sysprompt_preference || '',
         api_keys: {},
         verification_status: user.expand?.verification?.status || '',
-        last_verified: user.expand?.verification?.updated || ''
+        last_verified: user.expand?.verification?.updated || '',
+        model_preference: user.model_preference
       }
     });
   } catch (err) {
