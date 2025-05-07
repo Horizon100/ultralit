@@ -5265,7 +5265,6 @@ color: #6fdfc4;
       text-align: left;
       height: fit-content;
       line-height: 1.5;
-
       // margin-left: 1rem;
       // margin-right: 1rem;
       // padding-left: 1rem;
@@ -5328,7 +5327,6 @@ color: #6fdfc4;
       // background: var(--bg-gradient-r);
       margin-left: 0;
       width: fit-content;
-
       transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
     }
     &.options {
@@ -7634,7 +7632,7 @@ p.selector-lable {
 
     .input-container-start {
       margin-top: 0;
-      bottom: 5rem;
+      bottom: 1rem;
       position: fixed;
     }
     .drawer-toolbar {
@@ -8367,7 +8365,7 @@ p.selector-lable {
   }
   .input-container-start {
       
-      bottom: 3rem;
+      bottom: 0rem;
       width: 100%;
       height: auto;
 
@@ -8566,6 +8564,7 @@ p.selector-lable {
     overflow: hidden;
     padding: 0;
     margin-left: 0;
+    margin-right: 0;
     // background: var(--bg-gradient-left);
     // border-radius: var(--radius-m);
   }

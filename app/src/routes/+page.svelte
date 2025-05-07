@@ -1085,7 +1085,6 @@
 		}
 
 		.section {
-			background-color: red;
 			margin-top: 3rem;
 			height: 100vh !important;
 		}

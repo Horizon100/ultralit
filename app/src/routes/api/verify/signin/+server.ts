@@ -18,7 +18,8 @@ function sanitizeUserData(user: any): any {
         selected_provider: user.selected_provider,
         model: user.model,
         prompt_preference: user.prompt_preference,
-        sysprompt_preference: user.sysprompt_preference
+        sysprompt_preference: user.sysprompt_preference,
+        model_preference: user.model_preference
     };
 }
 

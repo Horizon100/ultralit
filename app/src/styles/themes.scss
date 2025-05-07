@@ -713,7 +713,7 @@ pre.code-block {
 		flex-direction: column;
 		justify-content: space-between;
 		align-items: center;
-		width: 100%;
+		max-width: 500px !important;
 		height: auto;
 		/* height: 100px; */
 		gap: 1rem;
@@ -786,7 +786,7 @@ pre.code-block {
     }
 	.auth-btn {
 		width: 100%;
-		max-width: calc(600px - 4rem);
+		max-width: 500px;
 		padding: 1rem;
 		background: var(--primary-color);
 		color: var(--placeholder-color);
@@ -834,8 +834,8 @@ pre.code-block {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        width: 100%;
-        max-width: calc(600px - 2rem);
+        width: 500px;
+       
         height: 4rem;
         padding: 0;
 		padding-right: 0.5rem;
@@ -849,15 +849,20 @@ pre.code-block {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 3rem;
+		width: 3rem;
         height: 3rem;
-        padding: auto;
+        padding: 1rem;
         margin: 0;
         font-size: 2rem;
         border: none;
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.1s ease;
+		&.back {
+			margin-left: 0.5rem;
+			&:hover {
+			}
+		}
         & span {
             display: none;
             font-size: 1rem;
@@ -870,13 +875,13 @@ pre.code-block {
             }
         &:hover {
 
-            width: auto;
             background: var(--tertiary-color);
             box-shadow: 0px -1px 30px 4px rgba(255, 255, 255, 0.2) !important;
 
         }
 
     }
+	button.round-btn.submit,
     button.round-btn.invitation {
             & span {
                 display: none;

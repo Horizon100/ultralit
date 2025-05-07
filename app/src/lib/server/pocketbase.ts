@@ -181,6 +181,21 @@ export async function authenticateWithGoogle() {
     }
   }
 
+  /**
+ * Request a password reset for a user
+ * @param email The email of the user requesting a password reset
+ * @returns A boolean indicating success
+ */
+export async function requestPasswordReset(email: string): Promise<boolean> {
+	try {
+	  await pb.collection('users').requestPasswordReset(email);
+	  return true;
+	} catch (error) {
+	  console.error('Server-side password reset error:', error);
+	  throw error;
+	}
+  }
+
 // ============= AI Agent Functions =============
 
 export async function createAgentWithSummary(summary: string, userId: string): Promise<AIAgent> {

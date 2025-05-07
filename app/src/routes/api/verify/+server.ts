@@ -18,7 +18,6 @@ function updateAuthCookie(cookies: any): void {
     }
 }
 
-// Helper function to sanitize user data for client
 function sanitizeUserData(user: any): any {
     if (!user) return null;
     
@@ -34,12 +33,12 @@ function sanitizeUserData(user: any): any {
         selected_provider: user.selected_provider,
         model: user.model,
         prompt_preference: user.prompt_preference,
-        sysprompt_preference: user.sysprompt_preference
+        sysprompt_preference: user.sysprompt_preference,
+        model_preference: user.model_preference
 
     };
 }
 
-// Add user count function
 async function getUserCount(): Promise<number> {
     try {
         const resultList = await pbServer.pb.collection('users').getList(1, 1, {

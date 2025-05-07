@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus, Loader2, ChevronRight, Bot } from 'lucide-svelte';
+	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl, requestPasswordReset } from '$lib/pocketbase';
+	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus, Loader2, ChevronRight, Bot, ChevronLeft } from 'lucide-svelte';
 	import Profile from '$lib/components/ui/Profile.svelte';
 	import Terms from '$lib/components/overlays/Terms.svelte';
 	import PrivacyPolicy from '$lib/components/overlays/PrivacyPolicy.svelte';
@@ -27,6 +27,7 @@
 	let showTermsOverlay: boolean = false;
 	let showPrivacyOverlay: boolean = false;
 	let showInvitationOverlay: boolean = false;
+	let showPasswordReset: boolean = false;
 	let isWaitlistMode: boolean = false;
 	let isLoading: boolean = false;
 	let connectionChecked: boolean = false;
@@ -106,7 +107,12 @@
 	function openInvitationOverlay(): void {
 		showInvitationOverlay = true;
 	}
-
+	function openPasswordReset(): void {
+		showPasswordReset = true;
+	}
+	function closePasswordReset(): void {
+		showPasswordReset = false;
+	}
 	function openJoinWaitlistOverlay(): void {
 		isWaitlistMode = !isWaitlistMode;
 		// Clear fields when switching modes
@@ -119,6 +125,7 @@
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
 		showInvitationOverlay = false;
+		showPasswordReset = false;
 	}
 
 	export async function login(): Promise<void> {
@@ -264,6 +271,45 @@
 		}
 	});
 
+	async function resetPassword(): Promise<void> {
+		if (!browser) return;
+		
+		errorMessage = '';
+		isLoading = true;
+		
+		try {
+			if (!email) {
+			errorMessage = 'Email is required';
+			isLoading = false;
+			return;
+			}
+			
+			console.log('Starting password reset for:', email);
+			
+			// Request password reset
+			const success = await requestPasswordReset(email);
+			
+			console.log('Password reset request completed, success:', success);
+			
+			if (success) {
+			// Show success message and close the form
+			closePasswordReset();
+			// You might want to show a notification here
+			dispatch('notification', { 
+				type: 'success', 
+				message: 'Password reset link sent to your email' 
+			});
+			} else {
+			errorMessage = 'Failed to send reset email. Please try again.';
+			}
+		} catch (err) {
+			console.error('Password reset error in component:', err);
+			errorMessage = err instanceof Error ? err.message : 'An error occurred during password reset';
+		} finally {
+			isLoading = false;
+		}
+	}
+
 	onMount(async () => {
 		if (!browser) return;
 		
@@ -384,7 +430,7 @@
 				</button>
 			</span>
 			<div 
-				class="auth-btn" 
+				class="auth-btn"
 				on:click={openInvitationOverlay}
 				transition:fly={{ duration: 300 }}
 
@@ -397,7 +443,57 @@
 					<!-- {isLoading ? 'Signing up...' : ''} -->
 				</span>
 			</div>
+			{#if showPasswordReset}
+			<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+				<button 
+				class="round-btn back"
+				on:click={closePasswordReset}
 
+				>
+					<ChevronLeft />
+				</button>
+				<input 
+					type="email" 
+					bind:value={email} 
+					placeholder={$t('profile.emailReset')}
+					required 
+					disabled={isLoading}
+				/>
+				<button 
+				class="round-btn submit"
+				on:click={resetPassword}
+
+				>{#if isLoading}
+				<div class="small-spinner-container">
+					<div class="small-spinner">
+						<Bot/>
+					</div>
+				</div>
+			{:else}
+				<span>
+					{$t('profile.reset')}
+				</span>
+				<ChevronRight/>
+			{/if}
+				</button>
+			</span>
+			{:else}
+			<div 
+				class="auth-btn reset" 
+				on:click={openPasswordReset}
+				transition:fly={{ duration: 300 }}
+
+				>
+				<span>
+					<!-- <MailPlus />	 -->
+					<span class="btn-description">
+					{$t('profile.passwordHelp')}
+					</span>						
+					<!-- {isLoading ? 'Signing up...' : ''} -->
+				</span>
+			</div>
+			{/if}
+			
 					<!-- <button 
 					class="button button-subtle" 
 					on:click|preventDefault={openJoinWaitlistOverlay}
@@ -454,7 +550,7 @@
 		flex-direction: column;
 		height: 100%;
 
-		width: 100%;
+		width: auto;
 		// border-radius: 2rem;
 		// background: var(--bg-gradient);
 		// border: 1px solid rgb(53, 53, 53);

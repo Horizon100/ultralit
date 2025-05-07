@@ -854,6 +854,7 @@ async function handleSelectResponse(event) {
     .message.depth-0 {
       box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
       border-radius: 1rem;
+      padding: 0;
 
     }
     
@@ -903,7 +904,7 @@ async function handleSelectResponse(event) {
         border-bottom: 1px solid var(--line-color);
         border-bottom-left-radius: 2rem;
 
-        padding-left: 0.75rem;
+        // padding-left: 0.75rem;
     }
     
     .highlighted {
@@ -1252,7 +1253,7 @@ async function handleSelectResponse(event) {
       margin-left: 0;
       // border-top: 2px solid var(--line-color);
       max-width: 1200px;
-      width: calc(100% - 2rem);
+      width: calc(100%);
       min-width: 200px;
       font-weight: 500;
       // background: var(--bg-color);
@@ -1314,4 +1315,33 @@ async function handleSelectResponse(event) {
       }
     }
   }
+  @media (max-width: 450px) {
+    .message.depth-0 {
+      font-size: 0.7rem;
+    }
+
+    .message.depth-1 {
+        margin-left: 0;
+        max-width: calc(100%);
+        // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+        border-radius: 1rem;
+    }
+       
+    .message.depth-2 {
+        margin-left:0;
+        max-width: calc(100% - 3rem);
+      // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+      border-radius: 1rem;
+
+    }
+    
+    .message.depth-3, .message.depth-4, .message.depth-5 {
+        margin-left:0;
+        max-width: calc(100% - 4rem);
+        // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
+        border-radius: 1rem;
+
+    } 
+  }
+
   </style>

@@ -346,6 +346,50 @@ export async function getUserCount(): Promise<number> {
 	}
 }
 
+/**
+ * Request a password reset email for the specified user
+ * @param email The email address of the user requesting a password reset
+ * @returns A boolean indicating whether the request was successful
+ */
+export async function requestPasswordReset(email: string): Promise<boolean> {
+	try {
+	  // Log the full URL we're trying to fetch
+	  const url = '/api/auth/reset-password';
+	  console.log('Requesting password reset at:', url, 'for email:', email);
+	  
+	  const response = await fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email })
+	  });
+	  
+	  // Log the response status
+	  console.log('Password reset response status:', response.status);
+	  
+	  // Check if response is ok
+	  if (!response.ok) {
+		console.error('Password reset request failed:', response.status, response.statusText);
+		
+		// Try to get error message from response
+		const errorData = await response.json().catch(() => null);
+		console.error('Error data:', errorData);
+		
+		if (errorData && errorData.error) {
+		  throw new Error(errorData.error);
+		}
+		
+		throw new Error(`Password reset request failed with status: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  console.log('Password reset response data:', data);
+	  
+	  return data.success;
+	} catch (error) {
+	  console.error('Password reset request error:', error instanceof Error ? error.message : String(error));
+	  throw error;
+	}
+  }
 
 
 // ============= AI Agent API Calls =============

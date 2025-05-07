@@ -359,7 +359,11 @@ export default {
 	profile: {
 		name: 'Имя',
 		email: 'Почта',
+		emailReset: 'Ваш адрес электронной почты для восстановления пароля',
+		resetEmailSent: 'Ссылка для восстановления отправлена.',
 		password: 'Пароль',
+		passwordHelp: 'Забыли пароль?',
+		reset: 'Сбросить',
 		username: 'Имя пользователя',
 		role: 'Роль',
 		created: 'Создано',
