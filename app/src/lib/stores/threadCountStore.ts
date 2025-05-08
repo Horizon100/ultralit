@@ -1,6 +1,5 @@
-// messageCountsStore.ts
+// threadCountsStore.ts
 import { writable, derived } from 'svelte/store';
-import {  } from '$lib/pocketbase';
 import type { Threads } from '$lib/types/types';
 
 interface ThreadCounts {
@@ -21,7 +20,7 @@ function createThreadCountsStore() {
 	return {
 		subscribe,
 
-		// Fetch message counts for visible threads with pagination
+		// Fetch thread counts using fetch API instead of direct pocketbase access
 		async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
 			if (isFetching) return { counts: {}, totalThreads: 0 };
 
@@ -32,14 +31,24 @@ function createThreadCountsStore() {
 				const start = (page - 1) * batchSize;
 				const batchThreads = threads.slice(start, start + batchSize);
 
+				// Use fetch API to call your API endpoints for thread counts
 				const results = await Promise.all(
 					batchThreads.map(async (thread) => {
 						try {
-							const result = await pb.collection('project_id').getList(1, 1, {
-								filter: `thread = "${thread.id}"`,
-								$autoCancel: false
+							// Use your existing API or create a new endpoint for this
+							const response = await fetch(`/api/threads/${thread.id}/count`, {
+								credentials: 'include'
 							});
-							return { threadId: thread.id, count: result.totalItems };
+							
+							if (!response.ok) {
+								throw new Error(`Failed to fetch count: ${response.status}`);
+							}
+							
+							const data = await response.json();
+							return { 
+								threadId: thread.id, 
+								count: data.count || 0 
+							};
 						} catch (error) {
 							console.error(`Error fetching count for thread ${thread.id}:`, error);
 							return { threadId: thread.id, count: 0 };
@@ -65,12 +74,17 @@ function createThreadCountsStore() {
 		// Update count for a single thread
 		async updateCount(threadId: string): Promise<number> {
 			try {
-				const result = await pb.collection('project_id').getList(1, 1, {
-					filter: `thread = "${threadId}"`,
-					$autoCancel: false
+				// Use fetch API to get the count from your API
+				const response = await fetch(`/api/threads/${threadId}/count`, {
+					credentials: 'include'
 				});
-
-				const count = result.totalItems;
+				
+				if (!response.ok) {
+					throw new Error(`Failed to fetch count: ${response.status}`);
+				}
+				
+				const data = await response.json();
+				const count = data.count || 0;
 
 				update((counts) => ({
 					...counts,
