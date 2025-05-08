@@ -8252,7 +8252,6 @@ p.selector-lable {
     position: relative;
     flex-grow: 1;
     padding: 0.5rem;
-    margin-bottom: var(--spacing-xs);
     // background-color: var(--bg-color);
     width: calc(100% - 1rem);
     // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -8286,6 +8285,7 @@ p.selector-lable {
   .chat-header {
     top: 3rem;
     left: 0;
+    // display: none;
 
   }
   .chat-header-thread {
@@ -8300,6 +8300,7 @@ p.selector-lable {
       width: auto;
     }
   }
+  
   .scroll-bottom-btn {
   position: fixed;
   bottom: 10rem !important;
@@ -8320,6 +8321,7 @@ p.selector-lable {
   padding: 0.5rem;
   margin-right: 0;
   margin-bottom: 0;
+  
 
   &:hover {
     background-color: #000000;
@@ -8333,11 +8335,23 @@ p.selector-lable {
 }
   .input-container {
     margin-bottom: 0;
+    margin-left: 0;
+    bottom: 0;
+    width: 100%;
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line-color);
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+
 
     & .combo-input textarea {
-      background: var(--primary-color);
-      &:focus {
+      padding: 0 !important;
+      margin-left: 6rem;
+      height: 2rem !important;
+      border: none;
 
+      &:focus {
+        margin-left: 0;
 
       };
     }
@@ -8504,7 +8518,7 @@ p.selector-lable {
     gap: 1px;
     // left: 64px;
     height: 100%;
-    width: auto;
+    width: 15rem;
     // height: 86%;
     // background: var(bg-gradient-r);
     // border-radius: var(--radius-l);
@@ -8541,8 +8555,19 @@ p.selector-lable {
 
 
 
-
-
+  button.card-container {
+  }
+  .card {
+    padding: 0;
+  }
+  .card-static {
+    padding: 0;
+    height: 2rem;
+    overflow: hidden;
+  }
+  .card-title {
+    font-size: 0.9rem;
+  }
 
   // .drawer-header:hover {
   //   // background-color: var(--hover-color);

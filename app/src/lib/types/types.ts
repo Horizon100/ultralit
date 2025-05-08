@@ -711,3 +711,19 @@ export interface Reminder {
 	color?: string; 
 	reminders: Reminder[];
   }
+  export interface PerkFilterCondition {
+	parameter: 'messages' | 'threads' | 'tasks' | 'tags' | 'combined';
+	operator: '=' | '>' | '>=' | '<' | '<=' | 'between';
+	value: number;
+	secondValue?: number; 
+  }
+  export interface Perk {
+	id: string;
+	created: string;
+	updated: string;
+	perkName: string;
+	perkDescription: string;
+	perkIcon: string;
+	filterConditions: PerkFilterCondition[];
+	achievedBy?: string[];
+  }

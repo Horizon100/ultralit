@@ -829,7 +829,7 @@ async function handleSelectResponse(event) {
     {#if showScrollButton}
   <button 
     class="scroll-bottom-btn" 
-    on:click={scrollToBottom}
+    on:click={scrollToBottom} 
   >
     <ChevronDown />
   </button>

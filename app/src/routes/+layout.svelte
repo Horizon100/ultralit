@@ -2653,9 +2653,21 @@
 		}
 		.modal-overlay {
 			width: 100%;
+			backdrop-filter: none;
+			background: transparent;
+
 		}
 
-		
+		.profile-overlay {
+		margin-left: 0;
+		left: 0;
+		height: auto;
+		margin-top: 3rem;
+		backdrop-filter: blur(0);
+		background: var(--bg-color);
+
+	}
+
 
 		.project {
 		margin-left: 0;
@@ -2700,6 +2712,12 @@
 		.nav-button.drawer {
 			background-color: var(--primary-color) !important;
 		}
+		.nav-button.info.user {
+			top: 0.5rem;
+		}
+		.nav-button.info {
+			top: 0;
+		}
 
 		.navigation-buttons {
 			display: flex;
@@ -2733,6 +2751,9 @@
 		.thread-toggle:hover {
 			transform: scale(1.1);
 		}
+
+
+	
 
 
 	}

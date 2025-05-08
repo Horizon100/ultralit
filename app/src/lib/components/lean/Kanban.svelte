@@ -1,7 +1,7 @@
 <script lang="ts">
     import { writable, get } from 'svelte/store';
     import { slide } from 'svelte/transition';
-    import { currentUser } from '$lib/pocketbase';
+    import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
@@ -13,6 +13,9 @@
     projectStore.subscribe(state => {
         currentProjectId = state.currentProjectId;
     });
+    let project = null;
+    let isAuthenticated = false;
+    let isAuthenticating = true;
     let isDeleteConfirmOpen = false;
     let taskToDelete: string | null = null;
     let showSubtasks = false;
@@ -75,6 +78,14 @@
     let selectedStart: number | string | null = null;
     let isLoading = writable(true);
     let error = writable<string | null>(null);
+
+    projectStore.subscribe(state => {
+        if (state.currentProjectId) {
+            project = state.threads.find(p => p.id === state.currentProjectId);
+        } else {
+            project = null;
+        }
+    });
 
     function getRandomBrightColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {
@@ -1031,6 +1042,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         <button on:click={loadData}>Retry</button>
     </div>
 {:else}
+
 <div class="global-input-container">
     <div class="view-controls">
         <div class="tooltip-container">
@@ -1536,7 +1548,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         font-size: 1.1em;
 
         &.selected {
-            background-color: red;
+            background-color: var(--line-color);
         }
     }
 
@@ -1637,7 +1649,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         cursor: move;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
-        width: calc(100% - 4rem);
+        width: calc(100% - 1rem);
         word-break: break-all;
         transition: all 0.3s ease;
     }
@@ -1658,11 +1670,23 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
 
     h4 {
-        font-size: 1.2rem;
-        padding: 0 0.5rem;
-        margin: 0;
-        margin-top: 0.25rem;
-    }
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 0.5rem;
+  text-align: l;
+  margin: 0;
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;      
+  hyphens: auto;            
+  -webkit-hyphens: auto;   
+  -ms-hyphens: auto;    
+  -webkit-line-break: normal;
+  line-break: normal;
+  text-wrap: balance;       
+}
 
     .tag-list {
         display: flex;
@@ -1708,8 +1732,9 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     .task-creator {
         display: flex;
+        flex-direction: column;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         bottom: 0;
         right: 0;
         left: 0;
@@ -2493,10 +2518,24 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             width: 100%;
             margin: 0;
         }
+        .global-task-input {
+            position: fixed;
+            background: var(--primary-color);
+            bottom: 1.2rem;
+            right: 1rem;
+            left: 6rem;
+            width: auto;
+            z-index: 1;
+
+        }
         .global-task-input:focus {
-            outline: none;
-            width: calc(100% - 1rem);
-            border-color: var(--tertiary-color);
+            position: fixed;
+            background: var(--primary-color);
+            bottom: 1.2rem;
+            right: 1rem;
+            left: 6rem;
+            width: auto;
+            z-index: 1;
             box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
         }
         .view-controls {
@@ -2505,7 +2544,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             display: none;
         }
         .kanban-board {
-            height: 87vh;
+            height: 73vh;
         }
 
 

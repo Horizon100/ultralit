@@ -533,7 +533,7 @@
         margin: 0;
         font-size: 1.25rem;
         font-weight: 600;
-        color: #111827;
+        color: var(--secondary-color);
         flex: 1;
     }
     
@@ -543,10 +543,11 @@
     
     .search-box input {
         padding: 8px 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--line-color);
         border-radius: 6px;
         font-size: 0.875rem;
         width: 200px;
+        background: var(--secondary-color);
     }
     
     .create-btn {
@@ -555,7 +556,7 @@
         gap: 6px;
         padding: 8px 12px;
         background-color: var(--secondary-color);
-        color: white;
+        color: var(--text-color);
         border: none;
         border-radius: 6px;
         font-size: 0.875rem;
@@ -564,7 +565,7 @@
     }
     
     .create-btn:hover {
-        background-color: #1d4ed8;
+        background-color: var(--tertiary-color);
     }
     
     .content {
@@ -593,7 +594,6 @@
         height: 3rem;
         border-bottom: 1px solid var(--line-color);
         cursor: pointer;
-        background: var(--secondary-color);
         width: auto;
         transition: all 0.3s ease-in;
     }
@@ -684,9 +684,11 @@
     .form-row input, .form-row textarea {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--line-color);
         border-radius: 6px;
         font-size: 0.875rem;
+        color: var(--placeholder-color);
+        background: var(--secondary-color);
     }
     
     .form-row textarea {
@@ -702,7 +704,7 @@
         height: 36px;
         border-radius: 6px;
         cursor: pointer;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--line-color);
     }
     
     .color-picker-dropdown {
@@ -711,7 +713,7 @@
         left: 0;
         margin-top: 8px;
         background: var(--bg-color);
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--line-color);
         border-radius: 6px;
         padding: 12px;
         z-index: 10;
@@ -740,8 +742,8 @@
     
     .cancel-btn {
         padding: 8px 16px;
-        background-color: #f3f4f6;
-        color: #374151;
+        background-color: var(--secondary-color);
+        color: var(--text-color);
         border: none;
         border-radius: 6px;
         font-size: 0.875rem;
@@ -750,12 +752,12 @@
     }
     
     .cancel-btn:hover {
-        background-color: #e5e7eb;
+        background-color: var(--line-color);
     }
     
     .save-btn {
         padding: 8px 16px;
-        background-color: #2563eb;
+        background-color: var(--primary-color);
         color: white;
         border: none;
         border-radius: 6px;
@@ -765,7 +767,7 @@
     }
     
     .save-btn:hover {
-        background-color: #1d4ed8;
+        background-color: var(--tertiary-color);
     }
     
     .save-btn:disabled, .cancel-btn:disabled {
@@ -840,7 +842,7 @@
     }
     
     .entity-list a {
-        color: #2563eb;
+        color: var(--tertiary-color);
         text-decoration: none;
         font-size: 0.875rem;
     }
@@ -851,20 +853,20 @@
     
     .empty-entities {
         font-size: 0.875rem;
-        color: #6b7280;
+        color: var(--placeholder-color);
         font-style: italic;
     }
     
     .loading, .empty {
         padding: 24px;
         text-align: center;
-        color: #6b7280;
+        color: var(--line-color);
     }
     
     .error-message {
         margin-top: 12px;
         padding: 12px;
-        background-color: #fee2e2;
+        background-color: var(--placeholder-color);
         color: #b91c1c;
         border-radius: 6px;
         font-size: 0.875rem;

@@ -1,41 +1,91 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Kanban from '$lib/components/lean/Kanban.svelte';
   import { Calendar, ChartNoAxesGantt, KanbanSquareIcon } from 'lucide-svelte';
   import { writable } from 'svelte/store';
   import { slide, fly, fade } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
-  import { currentUser } from '$lib/pocketbase';
+  import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
+  import Kanban from '$lib/components/lean/Kanban.svelte';
   import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
   import GantChart from '$lib/components/features/GantChart.svelte';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+  import { projectStore } from '$lib/stores/projectStore';
 
   let showPage = false;
+  let isLoading = true;
+  let authError = false;
+
+  let currentProjectId: string | null = null;
+  let hasProjectAccess = false;
+  let projectCollaborators: string[] = [];
+  let user = $currentUser;
+  
   const activeTab = writable('kanban');
   
-  // Store for tracking which tab is transitioning
   const tabTransition = writable(null);
 
-  $: user = $currentUser;
-
-  onMount(() => {
-      user = $currentUser;
-      // Short delay to ensure DOM is ready
-      setTimeout(() => {
-          showPage = true;
-      }, 50);
-  });
-  
-  // Function to handle tab switching with transitions
   function switchTab(tabName) {
-      // Set the transitioning tab
       tabTransition.set(tabName);
       
-      // After a short delay for the out transition, change the active tab
       setTimeout(() => {
           activeTab.set(tabName);
       }, 300);
   }
+
+  projectStore.subscribe(state => {
+    currentProjectId = state.currentProjectId;
+    
+    if (currentProjectId && user) {
+      const project = state.threads.find(p => p.id === currentProjectId);
+      
+      if (project) {
+        // User has access if they are the owner or a collaborator
+        const isOwner = project.owner === user.id;
+        const isCollaborator = project.collaborators?.includes(user.id) || false;
+        hasProjectAccess = isOwner || isCollaborator;
+        projectCollaborators = project.collaborators || [];
+      } else {
+        hasProjectAccess = false;
+        projectCollaborators = [];
+      }
+    } else {
+      hasProjectAccess = false;
+      projectCollaborators = [];
+    }
+  });
+  async function initializePage() {
+    isLoading = true;
+    authError = false;
+    
+    try {
+      // Ensure user is authenticated
+      const isAuthenticated = await ensureAuthenticated();
+      
+      if (!isAuthenticated) {
+        console.error('Authentication failed');
+        authError = true;
+        isLoading = false;
+        return;
+      }
+      
+      // Update user variable with the authenticated user
+      user = $currentUser;
+      
+      // Short delay to ensure DOM is ready
+      setTimeout(() => {
+        showPage = true;
+        isLoading = false;
+      }, 50);
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      authError = true;
+      isLoading = false;
+    }
+  }
+  onMount(() => {
+    initializePage();
+  });
+
 </script>
 
 {#if showPage}
@@ -143,7 +193,7 @@
       background: none;
       cursor: pointer;
       font-size: 1rem;
-      color: var(--line-color);
+      color: var(--placeholder-color);
       display: flex;
       justify-content: center;
       width: auto;
@@ -322,10 +372,10 @@
   main {
     margin-right: 0;
     margin-left: 0;
-    margin-top: 0.5rem;
+    margin-top: 0;
     left: 0;
     width: 100%;
-    height: 95vh;
+    height: 88vh;
   }
 
 

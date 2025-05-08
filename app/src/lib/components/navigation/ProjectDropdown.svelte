@@ -331,6 +331,9 @@
       &.selector {
         height: auto;
         padding: 0.5rem;
+        height: 2rem;
+        width: auto;
+        flex: 0;
         border: 1px solid var(--secondary-color);
         // box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
 
@@ -394,7 +397,7 @@
     }
     .drawer-visible.dropdown-trigger {
       background-color: var(--primary-color);
-      width: calc(400px - 2rem);
+      // width: calc(400px - 2rem);
       & span.trigger-display {
         font-size: 1.5rem !important;
         padding: 0.5rem;
@@ -825,7 +828,7 @@
     }
     .dropdown-content {
         position:fixed;
-        top: 3.5rem;
+        top: 3rem;
         padding: 0;
         width: 100% !important;
         max-width: 450px;
@@ -835,7 +838,6 @@
       }
       .dropdown-trigger {
         margin: 0;
-        margin-top: 0.5rem;
         margin-left: 0.5rem;
         padding: 0;
         height: auto;
@@ -846,6 +848,7 @@
         left: 6rem;
         justify-content: space-between;
         align-items: flex-start;
+        border: none !important;
         &.selector {
           width: auto;
           height: 3rem;

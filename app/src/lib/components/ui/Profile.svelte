@@ -70,12 +70,11 @@
 	let showStyles = false;
 	let currentStyle = 'default';
 
-	// Tab management
-	let activeTab = 'profile'; // 'profile' or 'stats'
+	let activeTab = 'profile';
 
 	let threadCount = 0;
 	let messageCount = 0;
-	let threadMessageCounts: Record<string, number> = {};
+	let taskCount = 0;
 	let tagCount = 0;
 	let timerCount: number = 0;
 	let lastActive: Date | null = null;
@@ -237,38 +236,72 @@
 	}
 
 	
-		async function loadUserStats(): Promise<void> {
-		try {
-			if (user && user.id) {
-			// Refresh user data to ensure we have the latest
-			const refreshedUser = await getUserById(user.id);
-			if (refreshedUser) {
-				// Preserve the avatar URL if it already exists
-				const existingAvatarUrl = user.avatarUrl;
+	async function loadUserStats(): Promise<void> {
+	try {
+		if (user && user.id) {
+		// Refresh user data to ensure we have the latest
+		const refreshedUser = await getUserById(user.id);
+		if (refreshedUser) {
+			// Preserve the avatar URL if it already exists
+			const existingAvatarUrl = user.avatarUrl;
+			
+			// Update user data
+			user = refreshedUser;
+			editedUser = { ...refreshedUser };
+			
+			// Restore or set avatar URL
+			if (existingAvatarUrl) {
+			user.avatarUrl = existingAvatarUrl;
+			} else if (user.avatar) {
+			user.avatarUrl = getAvatarUrl(user);
+			}
+			
+			// Fetch stats from our API endpoint
+			console.log('Fetching stats for user ID:', user.id);
+			const statsResponse = await fetch(`/api/verify/users/${user.id}/stats`, {
+			credentials: 'include'
+			});
+			
+			if (statsResponse.ok) {
+			const statsData = await statsResponse.json();
+			console.log('Received stats data:', statsData);
+			
+			if (statsData.success) {
+				// Update the stats with real data
+				threadCount = statsData.threadCount || 0;
+				messageCount = statsData.messageCount || 0;
+				taskCount = statsData.taskCount || 0;
+				tagCount = statsData.tagCount || 0;
+				timerCount = statsData.timerCount || 0;
 				
-				// Update user data
-				user = refreshedUser;
-				editedUser = { ...refreshedUser };
-				
-				// Restore or set avatar URL
-				if (existingAvatarUrl) {
-				user.avatarUrl = existingAvatarUrl;
-				} else if (user.avatar) {
-				user.avatarUrl = getAvatarUrl(user);
+				if (statsData.lastActive) {
+				lastActive = new Date(statsData.lastActive);
+				} else {
+				lastActive = user.updated ? new Date(user.updated) : new Date();
 				}
 				
-				// Set some mock stats for now
-				threadCount = 5;
-				messageCount = 42;
-				tagCount = 12;
-				timerCount = 3;
-				lastActive = user.updated ? new Date(user.updated) : new Date();
+				console.log('Updated stats values:', {
+				threadCount,
+				messageCount,
+				taskCount,
+				tagCount,
+				timerCount,
+				lastActive
+				});
+			} else {
+				console.error('Stats API returned error:', statsData.error);
+				// Keep the default values or set fallbacks
 			}
+			} else {
+			console.error('Failed to fetch stats:', statsResponse.status);
+			// Keep the default values
 			}
-		} catch (error) {
-			console.error("Error loading user data:", error);
 		}
-}
+		}
+	} catch (error) {
+		console.error("Error loading user data or stats:", error);
+	}
+	}
 
 async function fetchCompleteUserData(userId: string): Promise<UserData> {
   try {
@@ -668,7 +701,7 @@ $: displayUser = completeUserData || user;
 						{#if isEditing}
 						{:else}
 							<div class="stats-tab" transition:fade={{ duration: 200 }}>
-								<StatsContainer {threadCount} {messageCount} {tagCount} {timerCount} {lastActive} />
+								<StatsContainer {threadCount} {messageCount} {taskCount} {tagCount} {timerCount} {lastActive} />
 							</div>
 						{/if}
 					{:else if activeTab === 'tags'}
@@ -1063,8 +1096,8 @@ $: displayUser = completeUserData || user;
 	}
 	
 	span.description {
-		font-size: 0.9rem;
-		line-height: 1.5;
+		font-size: 0.7em;
+		line-height: 2;
 		margin-top: 0.5rem;
 		letter-spacing: 0.1rem;
 		text-align: justify;
