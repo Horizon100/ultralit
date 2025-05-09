@@ -22,5 +22,6 @@ export default defineConfig({
 			allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
 			credentials: true
 		}
-	}
+	},
+	
 });
