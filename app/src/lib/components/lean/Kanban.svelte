@@ -1505,7 +1505,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         transition: all 0.3s ease;
 
         &:hover {
-            border: 1px solid var(--secondary-color);
+            // border: 1px solid var(--secondary-color);
             background: var(--primary-color);
         }
 

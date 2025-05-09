@@ -20,7 +20,7 @@
 	import TimeTracker from '$lib/components/features/TimeTracker.svelte';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
-	
+
 	// Stores
 	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
@@ -81,7 +81,13 @@
 
 	  ComponentIcon,
 
-	  Home
+	  Home,
+
+	  CodeIcon,
+
+	  Code2
+
+
 
 
 
@@ -528,7 +534,17 @@
 				<span class="nav-text">Lean</span>
 			{/if}
 		</button>
-
+		<button
+			class="nav-button drawer"
+			class:expanded={isNavExpanded}
+			class:active={currentPath === '/ide'}
+			on:click={() => navigateTo('/ide')}
+		>
+			<Code2 />
+			{#if isNavExpanded}
+				<span class="nav-text">Code Editor</span>
+			{/if}
+		</button>
 				<button 
 				class="nav-button info user" 
 				class:expanded={isNavExpanded}
