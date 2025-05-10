@@ -917,6 +917,118 @@ pre.code-block {
             }
         }
 
+		.add-collaborator-form {
+
+			display: flex;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			height: auto;
+			width: auto;
+			gap: 0.75rem;
+			margin-top: 1rem;
+			margin-bottom: 1rem;
+			transition: all 0.3s ease;
+			button.add {
+				display: none;
+				margin-left: 1rem;
+				flex-direction: row;
+				justify-content: flex-end;
+				align-items: flex-end;
+				background: var(--bg-color) !important;
+				width: 3rem !important;
+				height: 3rem !important;
+			
+			}
+			& h3 {
+				font-size: 1.5rem;
+				margin-left: 1rem;
+				color: var(--placeholder-color);
+			}
+			
+			&:hover {
+				h2 {
+					display: none;
+				}
+			
+						button.add {
+							width: 5rem;
+							height: 5rem;
+							border-radius: 50%;
+							display: flex;
+							&.spinner-container {
+								background: transparent !important;
+							}
+							&.spinner {
+								background: transparent !important;
+							}
+							&:hover {
+								scale: 1.1;
+								background: var(--tertiary-color) !important;
+			
+							}
+			
+			
+						}
+			}
+			
+			
+			}
+			.input-group {
+				flex-direction: column;
+				justify-content: flex-end;
+				align-items: center;
+				height: auto;
+				width: auto !important;
+				background: var(--secondary-color);
+				position: relative;
+				background: transparent;
+				gap: 0.75rem;
+				transition: all 0.3s ease;
+		
+				button.add {
+					color: var(--text-color);
+					background: transparent;
+					height: auto;
+					width: auto;
+					display: flex;
+					
+					border-radius: 4rem;
+					justify-content: center;
+					align-items: center;
+					font-size: 1.5rem;
+				}
+				&:hover {
+						background: tertiary-color ;
+					}
+		
+				@media (min-width: 640px) {
+				}
+			}
+		    input.toggle {
+				border-radius: 1rem;
+				border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+				background-color: var(--secondary-color);
+				color: var(--text-color);
+				// flex: 1;
+				margin: 0;
+				padding: 1rem;
+				display: flex;
+				font-size: 1rem;
+				letter-spacing: 0.2rem;
+				transition: all 0.3s ease;
+				
+		
+				&:focus {
+					// padding: 1rem 0.5rem ;
+					outline: none;
+					display: flex;
+					background: var(--primary-color);
+					border-color: var(--primary-color, #6366f1);
+					// box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+				}
+		
+			}
 
 	
 		@media (max-width: 450px) {

@@ -5,7 +5,7 @@
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { ArrowRight, CalendarClock, ChevronLeft, ChevronRight, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2 } from 'lucide-svelte';
+	import { ArrowRight, ArrowDown, CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Tag, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2 } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
     import { t } from '$lib/stores/translationStore';
 
@@ -105,8 +105,11 @@
         try {
             const response = await fetch(`/api/users/${userId}`);
             if (!response.ok) throw new Error('Failed to fetch user');
+
+            const data = await response.json();
+
             
-            const userData = await response.json();
+            const userData = data.user;
             const userName = userData.name || userData.username || userData.email || "Unknown";
             
             // Cache the result for future use
@@ -1106,6 +1109,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                 on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
                                 on:click={(e) => openModal(task, e)}
                             >
+                            <h4>{task.title}</h4>
+
                             {#if task.parent_task}
                                 <div class="task-badge">
                                     {#await getParentTaskTitle(task.parent_task) then title}
@@ -1113,13 +1118,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                     {/await}
                                 </div>
                             {/if}
-                                <h4>{task.title}</h4>
-                                {#if hasSubtasks(task.id)}
-                                <div class="task-badge subtasks">
-                                    {countSubtasks(task.id)} subtasks
-                                </div>
-                                {/if}
-                            
+
 
                                 <p class="description">{task.taskDescription}</p>
 
@@ -1127,7 +1126,19 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
                                 {#if task.createdBy}
                                 <p class="task-creator">
+                                    {#if hasSubtasks(task.id)}
+                                    <div class="task-badge subtasks">
+                                        <span class="task-icon">
+                                            <ClipboardList/>
+                                        </span>
+                                        {countSubtasks(task.id)} 
 
+                                        <span>
+                                            subtasks
+                                        </span>
+                                    </div>
+                                    {/if}
+                                
                                     <span>
                                         <img 
                                         src={`/api/users/${task.createdBy}/avatar`} 
@@ -1140,18 +1151,35 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                                 {username}
                                             {/await}
                                         </span>
+                                        
                                     </span>
-                                    <span>
+                                    <span class="priority-flag {task.priority}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                                          <line x1="4" y1="22" x2="4" y2="15"></line>
+                                        </svg>
+                                        <span class="priority-name">
+                                            {task.priority}
+                                        </span>
+                                      </span>
+                                    <span class="timeline-container">
                                         {#if task.start_date}
                                         <p class="timeline"> {task.start_date.toLocaleDateString()}</p>
-                                        <ArrowRight/>
+                                        <ArrowDown/>
                                         {/if}
     
                                         {#if task.due_date}
                                         <p class="timeline"> {task.due_date.toLocaleDateString()}</p>
                                         {/if}
                                     </span>
-
+                                    {#if task.tags && task.tags.length > 0}
+                                    <div class="tag-list">
+                                        <Tag size="16"/>
+                                        {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
+                                            <span class="tag-card" style="background-color: {tag.color}">{tag.name}</span>
+                                        {/each}
+                                    </div>
+                                    {/if}
                                 </p>
                                 
                                 {/if}
@@ -1160,13 +1188,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                         📎 {task.attachments.length}
                                     </div>
                                 {/if}
-                                {#if task.tags && task.tags.length > 0}
-                                <div class="tag-list">
-                                    {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
-                                        <span class="tag-card" style="background-color: {tag.color}">{tag.name}</span>
-                                    {/each}
-                                </div>
-                                {/if}
+                                
                             </div>
                         {/each}
                     </div>
@@ -1251,6 +1273,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                     {selectedTask.taskDescription || 'Click to add a description'}
                 </div>
             {/if}
+            
             </div>
             <div class="start-section">
                 <span class="timer">
@@ -1399,7 +1422,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         opacity: 0.8;
         font-weight: 800;
         text-align: left;
-        letter-spacing: 0.3rem;
+        letter-spacing: 0.2rem;
         transition: all 0.3s ease;
 
         &.description {
@@ -1408,11 +1431,13 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             font-weight: 100;
             font-size:0.8rem;
             line-height: 1.25;
-            max-height: 1rem;
+            // max-height: 1rem;
+            max-height: 10rem;
             overflow: hidden;
             text-align: left;
             margin-bottom: 0.5rem;
             padding: 0 0.5rem;
+            display: none;
 
         }
     }
@@ -1452,9 +1477,12 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     }
     
+    .spinner-container {
+        position: fixed;
+    }
 
     .global-task-input {
-        width: 2rem;
+        width: 4rem;
         height: 2rem !important;
         display: flex;
         justify-content: center;
@@ -1468,8 +1496,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     
     .global-task-input:focus {
         outline: none;
-        position: absolute;
-        width: auto;
+        width: 100%;
         border-color: var(--tertiary-color);
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
     }
@@ -1528,7 +1555,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
         &:hover {
             color: var(--tertiary-color);
-            letter-spacing: 0.2rem;
+            letter-spacing: 0.1rem;
         }
     }
 
@@ -1604,6 +1631,20 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             font-size: 1.3rem;
         }
     }
+    .tag-section .tag-list {
+        display: flex;
+        flex-direction: row;
+        width: 100% !important;
+        
+        &:hover {
+            position: relative;
+            padding: 2rem;
+            transform: none;
+            width: auto !important;
+            background: var(--bg-color);
+            border-radius: 2rem;
+        }
+    }
     .title-section,
     .start-section,
     .deadline-section,
@@ -1655,11 +1696,22 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(0) rotate(3deg);    
+        transform: scale(1.05) translateX(0) rotate(1deg);    
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
         border: 1px solid var(--line-color);
         z-index: 1;
         & h4 {
+
+        }
+        &.description {
+            overflow: visible !important;
+            padding: 1rem;
+            max-height: auto !important;
+        }
+
+        p.description {
+            display: flex;
+            height: 100% !important;
 
         }
     }
@@ -1670,12 +1722,11 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
 
     h4 {
-  font-size: 1rem;
+  font-size: 0.8rem;
   line-height: 1.5;
-  padding: 0.5rem;
+  padding: 0.25rem 0.5rem;
   text-align: l;
   margin: 0;
-  margin-top: 0.5rem;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-wrap: break-word;
@@ -1690,11 +1741,27 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     .tag-list {
         display: flex;
+        flex-direction: row;
         flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0 0.5rem;
-        margin-bottom: 0.5rem;
+        width: 2rem !important;
+        transition: all 0.3s ease;
+        opacity: 1;
 
+        &:hover {
+            padding: 0.5rem;
+            border-radius: 1rem;
+            position: absolute;
+            width: 100% !important;
+            background-color: var(--primary-color);
+            backdrop-filter: blur(10px);
+
+            & .tag-card {
+                display: flex;
+            }
+
+        }
         & .tag {
             color: var(--text-color);
             // opacity: 0.5;
@@ -1703,7 +1770,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             opacity: 0.5;
             border-radius: 1rem;
             font-size: 0.75rem;
-
+            
             transition: all 0.3s ease;
             cursor: pointer;
             &:hover {
@@ -1717,9 +1784,11 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         }
         & .tag-card {
             color: var(--text-color);
+            letter-spacing: 0 !important;
             // opacity: 0.5;
             border: none;
             padding: 0.25rem;
+            display: none;
             opacity: 1;
             border-radius: 1rem;
             font-size: 0.75rem;
@@ -1732,24 +1801,33 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     .task-creator {
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: flex-start;
+        overflow: hidden;
+        justify-content: flex-end;
+        align-items: center;
         bottom: 0;
-        right: 0;
         left: 0;
         // border-top: 1px solid var(--line-color);
         gap: 0.5rem;
-        padding: 0.25rem 0.5rem;
+        padding: 0.25rem 0rem;
         margin: 0;
-        margin-bottom: 0.5rem;
+        width: 100%;
         font-size: 0.8rem;
+        transition: all 0.3s ease;
         span {
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: all 0.2s ease;
+
+            &:hover {
+                padding: 0.25rem;
+                & .username {
+                    display: flex;
+                }
+            }
         }
         & .username {
+            display: none;
             color: var(--placeholder-color);
             letter-spacing: 0.1rem;
         }
@@ -1770,6 +1848,27 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         text-overflow: ellipsis;
     }
 
+    .timeline-container {
+        transition: all 0.3s ease;
+
+        & p.timeline {
+            display: none;
+        }
+        &:hover {
+            flex-direction: column;
+            padding: 0.25rem 1.5rem;
+
+            & p.timeline {
+                position: relative;
+                align-items: center;
+                display: flex;
+                justify-content: center;
+                width: 8rem;
+                display: flex;
+                font-size: 0.7rem;
+            }
+        }
+    }
 
     .timeline {
     // color: var(--text-color);
@@ -2054,21 +2153,94 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         background: var(--tertiary-color);
 
     }
+
+    .priority-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.1rem;
+    & .priority-name {
+        display: none;
+    }
+    &:hover {
+        &:hover {
+            padding: 0.5rem;
+            border-radius: 1rem;
+            position: absolute;
+            width: 100% !important;
+            justify-content: center;
+            background-color: var(--primary-color);
+            backdrop-filter: blur(10px);
+
+        & .priority-name {
+            display: flex;
+        }
+    }
+}
+  }
+  
+  .priority-flag.high {
+    color: #e53935;
+    background-color: rgba(229, 57, 53, 0.1);
+  }
+  
+  .priority-flag.medium {
+    color: #fb8c00;
+    background-color: rgba(251, 140, 0, 0.1);
+  }
+  
+  .priority-flag.low {
+    color: #43a047;
+    background-color: rgba(67, 160, 71, 0.1);
+  }
     .task-badge {
         display: flex;
         width: auto;
-    color: var(--placeholder-color);
-    padding: 0.25rem 0.5rem;
+    color: var(--tertiary-color);
+    padding: 0 0.5rem;
 
     font-size: 0.75rem;
-    letter-spacing: 0.1rem;
+        
     cursor: pointer;
 
     &.subtasks {
-        color: var(--tertiary-color);
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--placeholder-color);
+        transition: all 0.2s ease;
+        & span {
+            display: none;
+            &.task-icon {
+                display: flex;
+            }
+        }
+        &:hover {
+            border-radius: 2rem;
+            padding: 0.5rem 1rem;
+            position: absolute;
+            width: calc(100% - 2rem) !important;
+            margin-left: 2rem;
+            background-color: var(--primary-color);
+            backdrop-filter: blur(10px);
+            opacity: 1;
+            & span {
+                display: flex;
+                
+                &.task-icon {
+                    display: none;
+                }
+            
+            }
+        }
     }
     &:hover {
-        background: var(--tertiary-color);
+        // background: var(--tertiary-color);
         color: var(--text-color);
     }
 }
@@ -2292,6 +2464,18 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             border-color: var(--color-primary);
         }
 
+        .task-list {
+        min-height: 100px;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: stretch;
+        align-items: stretch;
+        gap: 0.5rem;
+
+
+    }
+
         .title-section,
         .start-section,
         .deadline-section,
@@ -2481,25 +2665,39 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         border-radius: 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
+        max-width: 250px;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
-        width: calc(100% - 2rem);
+        width: auto;
         word-break: break-all;
         transition: all 0.3s ease;
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(0) rotate(3deg);    
-        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-        border: 1px solid var(--line-color);
+        transform: scale(1.05) translateX(0) rotate(2deg);    
+        box-shadow: none;
+        // box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        // border: 1px solid var(--line-color);
+        border: 1px solid transparent;
         z-index: 1;
         & h4 {
+
+        }
+        &.description {
+            overflow: visible !important;
+            padding: 1rem;
+            max-height: auto !important;
+        }
+
+        p.description {
+            display: none;
+            height: 100% !important;
 
         }
     }
 
     .task-card:active {
-        transform: rotate(-3deg);
+        transform: rotate(-1deg);
     }
 
 
@@ -2544,7 +2742,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             display: none;
         }
         .kanban-board {
-            height: 73vh;
+            height: 80vh !important;
         }
 
 

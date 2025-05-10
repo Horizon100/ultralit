@@ -104,6 +104,8 @@
 		z-index: 9999;
 	}
 
+	
+
 	.center-container {
 		display: flex;
 		justify-content: center;

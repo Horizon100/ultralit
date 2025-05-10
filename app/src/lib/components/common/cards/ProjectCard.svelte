@@ -521,6 +521,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
               {:else if projectDescription}
               {#if $showThreadList}
               {:else}
+                <div class="project-modals"  transition:slide={{ duration: 150 }}>
 
                   <div class="project-description-container"
                   class:expanded={isExpandedContent}
@@ -556,6 +557,110 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                   </p>
 
                   </div>
+                  <div class="project-description-container"
+                  class:expanded={isExpandedContent}
+                  on:click={toggleDescription}
+                  >
+                  <span class="header-btns">
+                    <h3>{$t('dashboard.projectDescription')}</h3>
+                    {#if isOwner}
+                    <span class='edit-btns'>
+                      <button class="edit-button" 
+                      on:click={() => handleEditProject('description')}
+                      on:mouseenter={() => hoveredEdit = true}
+                      on:mouseleave={() => hoveredEdit = false}
+                      >
+                      <div class="icon" in:fade>
+                        <Pen/>
+                        {#if hoveredEdit}
+                          <span class="tooltip" in:fade>
+                            {$t('tooltip.editDescription')}
+                          </span>
+                        {/if}
+                      </div> 
+                      </button>
+                    </span>
+  
+                    {/if}
+                  </span>
+
+                    <p 
+                    class="project-description" 
+                  >
+                    {projectDescription}
+                  </p>
+
+                  </div>
+                  <div class="project-description-container"
+                  class:expanded={isExpandedContent}
+                  on:click={toggleDescription}
+                  >
+                  <span class="header-btns">
+                    <h3>{$t('dashboard.projectDescription')}</h3>
+                    {#if isOwner}
+                    <span class='edit-btns'>
+                      <button class="edit-button" 
+                      on:click={() => handleEditProject('description')}
+                      on:mouseenter={() => hoveredEdit = true}
+                      on:mouseleave={() => hoveredEdit = false}
+                      >
+                      <div class="icon" in:fade>
+                        <Pen/>
+                        {#if hoveredEdit}
+                          <span class="tooltip" in:fade>
+                            {$t('tooltip.editDescription')}
+                          </span>
+                        {/if}
+                      </div> 
+                      </button>
+                    </span>
+  
+                    {/if}
+                  </span>
+
+                    <p 
+                    class="project-description" 
+                  >
+                    {projectDescription}
+                  </p>
+
+                  </div>
+                  <div class="project-description-container"
+                  class:expanded={isExpandedContent}
+                  on:click={toggleDescription}
+                  >
+                  <span class="header-btns">
+                    <h3>{$t('dashboard.projectDescription')}</h3>
+                    {#if isOwner}
+                    <span class='edit-btns'>
+                      <button class="edit-button" 
+                      on:click={() => handleEditProject('description')}
+                      on:mouseenter={() => hoveredEdit = true}
+                      on:mouseleave={() => hoveredEdit = false}
+                      >
+                      <div class="icon" in:fade>
+                        <Pen/>
+                        {#if hoveredEdit}
+                          <span class="tooltip" in:fade>
+                            {$t('tooltip.editDescription')}
+                          </span>
+                        {/if}
+                      </div> 
+                      </button>
+                    </span>
+  
+                    {/if}
+                  </span>
+
+                    <p 
+                    class="project-description" 
+                  >
+                    {projectDescription}
+                  </p>
+
+                  </div>
+                </div>
+
                   {/if}
                   <div class="project-sidenav">
 
@@ -793,7 +898,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     display: flex;
     flex-direction: row;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     & h3 {
       font-size: 1.5rem;
       margin-left: 1rem;
@@ -1073,14 +1178,16 @@ async function ensureThreadExists(projectId: string): Promise<string> {
   
 
   .tabs-navigation {
+    display: flex;
+
+    flex-direction: row;
     justify-content: center;
     align-items: flex-end;
     position: relative;
     margin-top: 0;
-    gap: 0.5rem;
-    display: flex;
+    gap: 3rem;
 
-      width: auto;
+      width: 100% !important;
       margin-top: 0;
     &.project {
       width: auto;
@@ -1098,6 +1205,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0 1rem;
+    width: auto;
 		font-size: 1rem;
 		background: transparent;
 		border: none !important;
@@ -1166,9 +1274,13 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+
     height: auto;
     // background-color: var(--secondary-color);
     width: 100%;
+    height: 100%;
+    margin-top: 2rem;
     transition: all 0.3s ease;
     &:hover {
       transition: all 0.3s ease;
@@ -1212,10 +1324,22 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         height: 80vh;
         overflow-y: auto;
         overflow-x: hidden;
-        max-width: 600px !important;
+
         width: 100%;
         scrollbar-width: thin;
         scrollbar-color: var(--line-color) transparent;
+      }
+
+      .project-modals {
+        display: flex;
+        flex-wrap: wrap;
+        height: auto;
+        justify-content: flex-start;
+        align-items: flex-start;
+        padding: 0;
+        margin: 0;
+        
+        gap: 1rem;
       }
   .project-description-container {
     display: flex;
@@ -1223,19 +1347,24 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     justify-content: flex-start;
     align-items: flex-start;
     position: relative;
-    height: 80vh;
+    height: 250px;
     // margin-top: 10rem;
-    width: 100%;
-    max-width: 800px;
+    width: 250px;
     display: flex;
     overflow-y: auto;
     overflow-x: hidden;   
     border-radius: 2rem;
-    transition: all 0.3s ease;
+    transition: cubic-bezier(0.645, 0.045, 0.355, 1);
+    border: 1px solid var(--line-color);
 
     &.expanded {
+      position: absolute !important;
+      height: 80vh;
       width: 100vw;
-
+      top: 0;
+      max-width: 100%;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
       & .project-description {
         font-size: 1.25rem;
         border: 1px solid var(--line-color);
@@ -1247,7 +1376,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         width: 100%;
         height: 100%;
         overflow-y: scroll;
-        background-color: red !important;
+
       }
 
       position: relative;
@@ -1521,38 +1650,36 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 	}
     .project-tabs-content {
       max-width: 1200px !important;
-      height: 100%;
+      height: auto;
       position: relative;
       gap: 0;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
-      align-items: flex-start;
+      height: 75vh;
       margin-top: 0;
     }
 
-
+.project-modals {
+  justify-content: flex-start;
+}
     .project-description-container {
     display: flex;
     justify-content: flex-start;
     align-items: flex-start;
     position: relative;
-    height: 8vh;
     // margin-top: 10rem;
-    width: 100%;
-    max-width: 100%;
     margin-top: 0;
-
+      width: calc(50% - 1rem);
     display: flex;
     overflow-y: auto;
     overflow-x: hidden;   
     border-radius: 2rem;
-    transition: all 0.3s ease;
-    background: var(--bg-gradient-r);
-
+      cursor: pointer;
 
     &.expanded {
-      max-height: 60vh !important;
+      max-height: 100% !important;
+      overflow-y: auto;
+
       & .project-description {
         font-size: 1rem;
         margin-top: 0;
@@ -1564,6 +1691,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       position: relative;
     }
     &:hover {
+      background-color: var(--primary-color);
       button.edit-button {
         display: flex;
       }

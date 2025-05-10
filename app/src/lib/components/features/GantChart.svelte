@@ -746,31 +746,21 @@ function handleTaskDragStart(event: MouseEvent, taskId: string, type: 'start' | 
 
       font-family: var(--font-family);
     }    .gantt-container {
+        height: auto;
         width: 100%;
-        height: 100%;
-        background: var(--primary-color);
-        border-radius: 8px;
-        overflow: hidden;
         display: flex;
+        backdrop-filter: blur(10px);
         flex-direction: column;
+        justify-content: flex-start;
+        border-radius: 2rem;
         position: relative;
     }
     
     .spinner-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
+        position: fixed;
+        height: 100vh;
     }
-    
-    .spinner {
-        border: 4px solid rgba(0, 0, 0, 0.1);
-        border-radius: 50%;
-        border-top: 4px solid #007bff;
-        width: 30px;
-        height: 30px;
-        animation: spin 1s linear infinite;
-    }
+
     
     @keyframes spin {
         0% { transform: rotate(0deg); }
@@ -784,7 +774,7 @@ function handleTaskDragStart(event: MouseEvent, taskId: string, type: 'start' | 
     
     .gantt-controls {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         padding: 10px;
         border-bottom: 1px solid #dee2e6;
     }

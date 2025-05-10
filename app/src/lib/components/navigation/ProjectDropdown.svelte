@@ -720,8 +720,8 @@
         width: auto;
         position: fixed;
         right: 1rem;
-        top: 0.5rem;
-        left: 6rem;
+        top: 0;
+        left: 2rem;
         justify-content: space-between;
         align-items: flex-start;
         &.selector {
@@ -729,6 +729,8 @@
           max-width: 150px;
           overflow: hidden;
           height: 2rem;
+          border: 1px solid transparent;
+
           // overflow: hidden;
         }
         & span.icon {
@@ -836,6 +838,9 @@
         right: 0;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }
+      .trigger-text {
+        gap: 0;
+      }
       .dropdown-trigger {
         margin: 0;
         margin-left: 0.5rem;
@@ -845,7 +850,9 @@
         position: fixed;
         right: auto;
         top: 0;
-        left: 6rem;
+        left: 2rem;
+
+        padding: 0 !important;
         justify-content: space-between;
         align-items: flex-start;
         border: none !important;

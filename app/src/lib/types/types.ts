@@ -658,6 +658,7 @@ export interface ExpandedSections {
 	models: boolean;
 	bookmarks: boolean;
 	cites: boolean;
+	collaborators: boolean;
 }
 
 export interface MessageState {

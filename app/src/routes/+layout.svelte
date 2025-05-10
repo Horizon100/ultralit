@@ -495,7 +495,7 @@
 	{#if $currentUser}
 
 		<button
-			class="nav-button drawer"
+			class="nav-button drawer reveal"
 			class:expanded={isNavExpanded}
 			class:active={currentPath === '/chat'}
 			on:click={(event) => {
@@ -2322,12 +2322,15 @@
 		.nav-button {
 			background: transparent !important;
 		}
+
+
+		
 		.nav-button.drawer {
 			left: 1rem;
 			bottom: 1rem;
 			padding: 0;
-			height: 2rem !important;
-			width: 2rem !important;
+			height: 3rem !important;
+			width: 3rem !important;
 			color: var(--placeholder-color);
 			border: 1px solid transparent !important;
 		}
@@ -2335,7 +2338,7 @@
 			display: flex !important;
 			position: fixed !important;
 			background-color: transparent;
-			top: 0.5rem;
+			top: 0;
 			left: 0;
 			& .shortcut-buttons {
 				display: none;
@@ -2370,13 +2373,12 @@
 		}
 		.nav-button.info.user {
 			display: flex !important;
-			position: fixed !important;
+			position: relative !important;
 			height: 2rem !important;
 			width: 2rem !important;
-
-			top: 1rem;
-			left: 3.5rem;
-			z-index: -1;
+			cursor: pointer;
+			top: auto;
+			left: auto;
 			background: transparent !important;
 
 			& img.user-avatar {
@@ -2385,11 +2387,12 @@
 
 				}
 			&:hover {
-
+				box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+				animation: nonlinearSpin 3.3s ease !important;
 				// width: 6rem !important;
 				// height: 6rem !important;
 				justify-content: center;
-				width: 2rem !important;
+				width: auto !important;
 				padding: 0;
 
 				& img.user-avatar {
@@ -2529,31 +2532,51 @@
 	
 	.sidenav {
 		display: flex;
-		justify-content: left;
+		justify-content: center;
 		// backdrop-filter: blur(30px);
-		height: 50px !important;
-		flex-direction: row;
+		flex-direction: column;
 		height: auto;
-		width: auto;
-		bottom: 0;
+		overflow-x: hidden;
+		overflow-y: hidden;
+		width: 3rem;
+		bottom: 1.5rem !important;
 		gap: 10px;
-		left: 0;
+		left: 1rem;
 		top: auto;
 		bottom: 0;
-		padding: 1rem;
+		padding: 0.5rem;
 		z-index: 1100;
+		overflow-x: hidden;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
+		& .nav-button.info.user,
+			& .nav-button.drawer {
+				display: none !important;
+				&.reveal {
+					display: flex !important;
+				}
+			}
+		&:hover {
+			max-width: 360px;
+			margin-left: 0;
+			left: 0.5rem;
+			background: var(--primary-color);
+		& .nav-button.info.user,
+			& .nav-button.drawer {
+				display: flex !important;
+
+			}
+		}
 	}
 
 	.navigation-buttons {
-		flex-direction: row;
+		flex-direction: column-reverse;
 		margin-bottom: 0;
-		width: auto;
+		width:auto!important;
 		right: 0;
 		left: 0;
 		align-items: center;
-		justify-content: space-around;
+		justify-content: flex-start;
 	}
 
 	.bottom-buttons {
@@ -2713,23 +2736,53 @@
 			// backdrop-filter: blur(30px);
 			background: transparent;
 			flex-direction: row;
+			align-items: center;
+			bottom: 0;
+			padding: 1rem 0;
 			height: 2rem;
-			bottom: 0;
-			gap: 10px;
-			left: 0;
+			width: 2rem !important;
+			left: 0.5rem;
 			top: auto;
-			bottom: 0;
-			padding: 0;
+			bottom: 0 !important;
 			z-index: 10;
 			border-radius: 0;
 			transition: all 0.3s ease-in;
+			overflow: hidden;
+
+			& .nav-button.info.user,
+			& .nav-button.drawer {
+				display: none !important;
+				width: 2rem !important;
+				height: 2rem !important;
+				&.reveal {
+					display: flex !important;
+				}
+			}
+
+			&:hover {
+				width: calc(100% - 1rem) !important;
+				margin-left: 0.5rem;
+				overflow-x: hidden;
+				padding: 1rem 0 !important;
+				background: var(--bg-gradient) !important;
+				border-top-left-radius: 2rem;
+				border-top-right-radius: 2rem;
+				left: 0;
+
+				& .nav-button.info.user,
+				& .nav-button.drawer {
+					display: flex !important;
+				}
+
+			}
 		}
 
 		.nav-button.drawer {
 			background-color: var(--primary-color) !important;
+			height: 3rem !important;
+			width: 3rem !important;
 		}
 		.nav-button.info.user {
-			top: 0.5rem;
 		}
 		.nav-button.info {
 			top: 0;
@@ -2740,13 +2793,13 @@
 			flex-direction: row;
 			// border: 1px solid var(--line-color);
 			gap: 0.5rem;
-			margin-bottom: 1rem;
-			width: auto;
-			margin-left: 0.5rem;	
+			width: 100% !important;
 			// background: var(--secondary-color);
 			border-radius: 1rem;
-			padding: 0.25rem;
-			align-items: flex-start;
+			align-items: stretch;
+			justify-content: space-around;
+			overflow: hidden;
+
 		}
 
 		.top-buttons {

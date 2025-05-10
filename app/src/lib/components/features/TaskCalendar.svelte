@@ -937,7 +937,10 @@ function handleDayClick(day: Day) {
     }
     
  
-    
+    .spinner-container {
+        position: fixed;
+    }
+
 
     
     @keyframes spin {
