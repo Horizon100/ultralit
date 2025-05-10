@@ -5,7 +5,7 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
-  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon, Braces} from 'lucide-svelte';
+  import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Users, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon, Braces} from 'lucide-svelte';
   import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
@@ -137,6 +137,8 @@ let replyText = '';
   let showSysPrompt = false;
   let showPromptCatalog = false;
   let showModelSelector = false;
+  let showCollaborators = false;
+
   let showBookmarks = false;
   let showCites = false;
   let thinkingPhrase: string = '';
@@ -236,6 +238,7 @@ export const expandedSections = writable<ExpandedSections>({
   models: false,
   bookmarks: false,
   cites: false,
+  collaborators: false,
 });
 const dispatch = createEventDispatcher();
 // const expandedGroups = writable<ExpandedGroups>({});
@@ -277,6 +280,7 @@ const onTextareaFocus = () => {
   showModelSelector = false;
   showBookmarks = false;
   showCites = false;
+  showCollaborators = false;
   currentPlaceholder = getRandomQuote();
 };
 
@@ -1380,6 +1384,7 @@ function handleClickOutside() {
         models: false,
         bookmarks: false,
         cites: false,
+        collaborators: false,
       });
     }
   });
@@ -1455,6 +1460,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
       models: false,
       bookmarks: false,
       cites: false,
+      collaborators: false,
     };
     
     // If the section was previously closed, open it
@@ -1476,6 +1482,7 @@ export function toggleSection(section: keyof ExpandedSections): void {
             models: false,
             bookmarks: false,
             cites: false,
+            collaborators: false,
           });
           
           // Clean up the listener after closing panels
@@ -1775,6 +1782,7 @@ async function handleLoadThread(threadId: string) {
     showPromptCatalog = false;
     showModelSelector = false;
     showBookmarks = false;
+    showCollaborators = false;
     showCites = false;
     return thread;
   } catch (error) {
@@ -1855,7 +1863,8 @@ async function handleCreateNewThread(message = '') {
    showModelSelector = false;
    showBookmarks = false;
    showCites = false;
-   
+   showCollaborators = false;
+
    threadsStore.update(state => ({
      ...state,
      currentThreadId: newThread.id,
@@ -2381,36 +2390,49 @@ $: {
     showPromptCatalog = false;
     showBookmarks = false;
     showCites = false;
+    showCollaborators = false;
+  } else if ($expandedSections.collaborators) {
+    showCollaborators = true;
+    showSysPrompt = false;
+    showPromptCatalog = false;
+    showModelSelector = false;
+    showBookmarks = false;
+    showCites = false;
   } else if ($expandedSections.sysprompts) {
     showSysPrompt = true;
     showPromptCatalog = false;
     showModelSelector = false;
     showBookmarks = false;
     showCites = false;
+    showCollaborators = false;
   } else if ($expandedSections.prompts) {
     showPromptCatalog = true;
     showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = false;
     showCites = false;
+    showCollaborators = false;
   } else if ($expandedSections.cites) {
     showPromptCatalog = false;
     showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = false;
     showCites = true;
+    showCollaborators = false;
   } else if ($expandedSections.bookmarks) {
     showPromptCatalog = false;
     showSysPrompt = false;
     showModelSelector = false;
     showBookmarks = true;
     showCites = false;
+    showCollaborators = false;
   } else {
     showModelSelector = false;
     showSysPrompt = false;
     showPromptCatalog = false;
     showBookmarks = false;
     showCites = false;
+    showCollaborators = false;
   }
 }
 $: if (seedPrompt && !hasSentSeedPrompt) {
@@ -2648,6 +2670,7 @@ onDestroy(() => {
     transition:fly="{{ x: 300, duration: 300 }}" 
     class:drawer-visible={$showThreadList}
   >
+ 
   <img src={Headmaster} alt="Notes illustration" class="illustration" />
 
     {#if $showThreadList}
@@ -2666,6 +2689,7 @@ onDestroy(() => {
                     showModelSelector = false;
                     showBookmarks = false;
                     showCites = false;
+                    showCollaborators = false;
                   }
                 } catch (error) {
                   console.error('Error creating new thread:', error);
@@ -2875,12 +2899,12 @@ onDestroy(() => {
 
       <div class="chat-content" class:drawer-visible={$showThreadList} in:fly="{{ x: 200, duration: 300 }}" out:fade="{{ duration: 200 }}" bind:this={chatMessagesDiv}>
         
-        {#if isLoadingMessages}
-          <div class="loading-overlay">
+        <!-- {#if isLoadingMessages}
+          <div class="spinner-overlay">
             <div class="spinner"></div>
             <p>{$t('chat.loading')}</p>
           </div>
-        {/if}
+        {/if} -->
         <div class="chat-header" class:minimized={isMinimized} transition:slide={{duration: 300, easing: cubicOut}}>
           {#if currentThread}
             <div class="chat-header-thread">
@@ -2955,44 +2979,7 @@ onDestroy(() => {
               </h3>
             {/if}
   
-              {#if $threadsStore.currentThreadId}
-              <span class="header-btns">
-                <button 
-                  class="toggle-btn" 
-                  on:mouseenter={() => createHovered = true}
-                  on:mouseleave={() => createHovered = false}
-                  on:click={toggleAiActive}
-                >
-                  {#if $isAiActive}
-                    <PlugZap size="20"/>
-                    {#if createHovered}
-                      <span class="tooltip" in:fade>
-                        {$t('tooltip.pauseAi')}
-                      </span>
-                    {/if}
-                  {:else}
-                    <ZapOff size="20"/>
-                    {#if createHovered}
-                      <span class="tooltip" in:fade>
-                        {$t('tooltip.playAi')}
-                      </span>
-                    {/if}
-                  {/if}
-                </button>
 
-                <button class="toggle-btn">
-                  <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
-
-                </button>
-                <!-- <button 
-                class="toggle-btn"
-                on:click={() => showAgentPicker = !showAgentPicker}
-              >
-                <BotIcon/>
-              </button> -->
-              </span>
-
-              {/if}
 
               <!-- {/if} -->
               {#if !isMinimized}
@@ -3006,7 +2993,9 @@ onDestroy(() => {
               <div class="container-row">
 
                   <div class="dashboard-items">
-                    <div class="dashboard-scroll">
+                    <div class="dashboard-scroll"
+                    class:drawer-visible={$showThreadList}
+                    >
                       {#if $projectStore.currentProjectId}
                       <ProjectCard projectId={$projectStore.currentProjectId} />
 
@@ -3058,6 +3047,7 @@ onDestroy(() => {
                         />
                       </div>
                     {/if} -->
+
                     {#if $expandedSections.sysprompts}
                       <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                         <SysPromptSelector 
@@ -3267,44 +3257,52 @@ onDestroy(() => {
         {#if !isTypingInProgress}
         <MessageProcessor messages={chatMessages} />
       {/if}
-        <div class="chat-messages" bind:this={chatMessagesDiv} 
-        transition:fly="{{ x: -300, duration: 300 }}">
-          
-        {#each groupMessagesByDate(chatMessages) as { date, messages }}
-        <div class="date-divider">
-          {formatDate(date)}
-        </div>
-        
-        {#each messages as message (message.id)}
-        {#if !message.parent_msg || !chatMessages.some(m => m.id === message.parent_msg)}
-          <RecursiveMessage
-            message={message}
-            allMessages={chatMessages}
-            {userId}
-            {currentUser}
-            name={name}
-            getUserProfile={getUserProfile}
-            getAvatarUrl={getAvatarUrl}
-            processMessageContentWithReplyable={processMessageContentWithReplyable}
-            latestMessageId={latestMessageId}
-            toggleReplies={toggleReplies}
-            hiddenReplies={hiddenReplies}
-            sendMessage={replyToMessage}
-            aiModel={aiModel}
-            promptType={promptType}
-            
-          />
-        {/if}
-      {/each}
-      {/each}
-                    <!-- style="transform: translateY({scrollPercentage * 0.5}%);" -->
 
+          <div class="chat-messages" bind:this={chatMessagesDiv} 
+              transition:fly="{{ x: -300, duration: 300 }}">
+              {#if isLoadingMessages}
+              <div class="spinner-overlay">
+                <div class="spinner"></div>
+                <p>{$t('chat.loading')}</p>
+              </div>
+              {:else}
+              {#each groupMessagesByDate(chatMessages) as { date, messages }}
+              <div class="date-divider">
+                {formatDate(date)}
+              </div>
+              
+              {#each messages as message (message.id)}
+              {#if !message.parent_msg || !chatMessages.some(m => m.id === message.parent_msg)}
+                <RecursiveMessage
+                  message={message}
+                  allMessages={chatMessages}
+                  {userId}
+                  {currentUser}
+                  name={name}
+                  getUserProfile={getUserProfile}
+                  getAvatarUrl={getAvatarUrl}
+                  processMessageContentWithReplyable={processMessageContentWithReplyable}
+                  latestMessageId={latestMessageId}
+                  toggleReplies={toggleReplies}
+                  hiddenReplies={hiddenReplies}
+                  sendMessage={replyToMessage}
+                  aiModel={aiModel}
+                  promptType={promptType}
+                  
+                />
+              {/if}
+            {/each}
+            {/each}
+            {/if}
 
+                          <!-- style="transform: translateY({scrollPercentage * 0.5}%);" -->
           </div>
+
           <div class="input-container" class:drawer-visible={$showThreadList} transition:slide={{duration: 100, easing: cubicOut}}>
             {#if $isAiActive}
             <div class="ai-selector">
-              {#if $expandedSections.cites}
+
+              <!-- {#if $expandedSections.cites}
               <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                 <ReferenceSelector 
                   selectedText={activeSelection}
@@ -3314,7 +3312,21 @@ onDestroy(() => {
                   }}
                 />
               </div>
-              {/if}
+              {/if} -->
+              {#if $expandedSections.collaborators}
+              <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                <ThreadCollaborators threadId={$threadsStore.currentThreadId}
+                    on:select={(event) => {
+                      expandedSections.update(sections => ({
+                        ...sections,
+                        prompts: false
+                      }));
+                      showCollaborators = !showCollaborators;
+                      console.log('Parent received selection from catalog:', event.detail);
+                    }}
+                  />
+              </div>
+            {/if}
               {#if $expandedSections.sysprompts}
                 <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                   <SysPromptSelector 
@@ -3415,6 +3427,58 @@ onDestroy(() => {
                       {/if}
                     </span>
                   </span> -->
+                  {#if $threadsStore.currentThreadId}
+                  <span 
+                    class="btn" 
+                    on:mouseenter={() => createHovered = true}
+                    on:mouseleave={() => createHovered = false}
+                    on:click={toggleAiActive}
+                  >
+                    {#if $isAiActive}
+                      <PlugZap size="20"/>
+                      {#if createHovered}
+                        <span class="tooltip" in:fade>
+                          {$t('tooltip.pauseAi')}
+                        </span>
+                      {/if}
+                    {:else}
+                      <ZapOff size="20"/>
+                      {#if createHovered}
+                        <span class="tooltip" in:fade>
+                          {$t('tooltip.playAi')}
+                        </span>
+                      {/if}
+                    {/if}
+                  </span>
+                  <span 
+                  class="btn"
+                  transition:slide
+                  on:click={() => toggleSection('collaborators')}
+                >
+                  <span class="icon">
+                    {#if $expandedSections.collaborators}
+                      <Users size={30} />
+                    {:else}
+                      <Users size={20} />
+                    {/if}
+                  </span>
+                  
+                </span>
+              
+                  <!-- <button class="toggle-btn collaborators" on:click={() => toggleSection('collaborators')}
+                    >
+                    
+                    <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+              
+                  </button> -->
+                  <!-- <button 
+                  class="toggle-btn"
+                  on:click={() => showAgentPicker = !showAgentPicker}
+                >
+                  <BotIcon/>
+                </button> -->
+              
+                {/if}
                     <span 
                       class="btn"
                       transition:slide
@@ -3530,19 +3594,71 @@ onDestroy(() => {
             >
               <div class="submission" class:visible={isTextareaFocused} >
                 {#if isTextareaFocused}
-                  <span 
+                {#if $threadsStore.currentThreadId}
+                <button 
+                  class="toggle-btn response" 
+                  on:mouseenter={() => createHovered = true}
+                  on:mouseleave={() => createHovered = false}
+                  on:click={toggleAiActive}
+                >
+                  {#if $isAiActive}
+                    <PlugZap size="20"/>
+                    {#if createHovered}
+                      <span class="tooltip" in:fade>
+                        {$t('tooltip.pauseAi')}
+                      </span>
+                    {/if}
+                  {:else}
+                    <ZapOff size="20"/>
+                    {#if createHovered}
+                      <span class="tooltip" in:fade>
+                        {$t('tooltip.playAi')}
+                      </span>
+                    {/if}
+                  {/if}
+                </button>
+                <!-- <span 
+                class="btn"
+                transition:slide
+                on:click={() => toggleSection('collaborators')}
+              >
+                <span class="icon">
+                  {#if $expandedSections.collaborators}
+                    <Users size={30} />
+                  {:else}
+                    <Users size={20} />
+                  {/if}
+                </span>
+                
+              </span> -->
+            
+                <!-- <button class="toggle-btn collaborators" on:click={() => toggleSection('collaborators')}
+                  >
+                  
+                  <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
+            
+                </button> -->
+                <!-- <button 
+                class="toggle-btn"
+                on:click={() => showAgentPicker = !showAgentPicker}
+              >
+                <BotIcon/>
+              </button> -->
+            
+              {/if}
+                  <!-- <span 
                     class="btn"
                     transition:slide
                     on:click={() => toggleSection('bookmarks')}
                     >
-                    <!-- <span class="icon">
+                    <span class="icon">
                       {#if $expandedSections.models}
                       <BookmarkCheckIcon/>
                       {:else}
                       <Bookmark />
                       {/if}
-                    </span> -->
-                  </span>
+                    </span>
+                  </span> -->
                   <span class="btn" 
                     transition:slide
                   >
@@ -4090,10 +4206,12 @@ p div {
 // }
   span.header-btns {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       position: fixed;
-      right: 0.5rem;
-      top: 0.5rem;
+      left: 4rem;
+      z-index: 5000;
+      bottom: 2rem;
+      margin-left: 2rem;
       width: auto;
       margin-right: 0;
     }
@@ -4169,7 +4287,7 @@ p div {
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 50vh !important;
+      height: auto !important;
       width: auto;
       margin-bottom: 0 !important;
       max-width: 800px;
@@ -4736,16 +4854,27 @@ p div {
     // background: var(--bg-gradient-r);
   }
   & .dashboard-scroll {
-    align-items: center;
-    max-width: 100%;
-    margin-left: 0;
+    justify-content: flex-start;
+    align-items: flex-end;
+    width: 100%;
     margin-bottom: 0;
   }
   & .prompts {
     display: flex;
+    align-items: flex-end;
+    & span.prompt {
+      font-size: 0.7rem;
+    }
   }
   & span.start {
-    align-items: flex-start;
+    align-items: flex-end;
+    & h3 {
+      font-size: 1.2rem;
+    }
+    & p {
+      font-size: 1rem;
+      text-align: right;
+    }
 
 
   }
@@ -4887,7 +5016,7 @@ p div {
       
       // }
       &:focus {
-          box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+          // box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
       }
     }
 
@@ -5031,7 +5160,7 @@ p div {
         // margin: 2.5rem;
         margin-top: 0.5rem;
         margin-bottom: 0;
-        background: var(--primary-color);
+        // background: var(--primary-color);
 
 
   }
@@ -5040,7 +5169,7 @@ p div {
 .combo-input-human {
   // width: 100vw;;
   border-radius: var(--radius-m);
-  margin-bottom: 3rem;
+  margin-bottom: 0;
   height: auto;
   width: 100%;
   margin-left: 0;
@@ -5053,6 +5182,25 @@ p div {
   // background: var(--bg-gradient);
   // backdrop-filter: blur(40px);
   transition:all 0.3s ease;
+  & .btn-row {
+    display: flex;
+    flex-direction: row !important;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    width: calc(100% - 8rem) !important;
+
+  }
+  & span.btn {
+    padding: auto;
+
+  }
+  & .submission {
+    flex-direction: row;
+    & .btn.send-btn {
+
+      
+    }
+  }
 
   & textarea {
     // max-height: 50vh;
@@ -5077,7 +5225,7 @@ p div {
         margin: 2.5rem;
         margin-top: 0.5rem;
         margin-bottom: 0;
-        background: var(--primary-color);
+        // background: var(--primary-color);
   }
 }
 }
@@ -5709,7 +5857,7 @@ color: #6fdfc4;
       align-items: center;
       justify-content: flex-start;
       gap: 0.5rem;
-      transition: background-color 0.2s;
+      transition: all 0.2s ease;
       // border-radius: var(--radius-m);
       display: flex;
       flex-direction: row;
@@ -6333,7 +6481,7 @@ color: #6fdfc4;
   position: relative;
   // border-top: 1px solid var(--secondary-color);
   left: 0;
-  top: 8rem;
+  top: 3rem;
   right: 0;
   gap: 0.5rem;
   width: 100%;
@@ -6351,10 +6499,12 @@ color: #6fdfc4;
   transition: all 0.3s ease;
   position: relative;
   width: 100%;
+  height: 80vh;
   // overflow-y: scroll !important;
   overflow: hidden !important;
-
 }
+
+
 .message-time {
   font-size: 0.8em;
   color: #888;
@@ -6960,7 +7110,6 @@ p.selector-lable {
   padding: 0.5rem;
   transition: all 0.3s ease-in-out;
   & p {
-    background: blue;
     flex-direction: row;
     justify-content: center;
     align-items: center;
@@ -7065,7 +7214,10 @@ p.selector-lable {
   align-items: center;
   position: relative;
   width: 200px;
-  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.05rem;
+  padding: 0.25rem 1rem;
   margin: {
     top: 0;
     bottom: 1rem;
@@ -7074,18 +7226,17 @@ p.selector-lable {
   }
   gap: 2rem;
   cursor: pointer;
-  border-bottom: 1px solid var(--secondary-color);
-  backdrop-filter: blur(100px);
-  background: var(--placeholder-color);
+  background: transparent;
   transition: all ease 0.15s;
-  color: var(--text-color);
+  color: var(--line-color);
   user-select: none;
   border-radius: var(--radius-m);
+  z-index: 1;
 
   &:hover {
-    transform: translateY(-5px) rotate(0deg);
-    background: var(--bg-gradient-left);
+    background: var(--secondary-color) !important;
     color: var(--tertiary-color);
+
   }
 
   &.bottom {
@@ -7124,8 +7275,12 @@ p.selector-lable {
     backdrop-filter: blur(20px);
   }
   
-  .loading-overlay {
-    position: absolute;
+  .spinner-overlay {
+    position: relative;
+    height: 100vh !important;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
     top: 0;
     left: 0;
     right: 0;
@@ -7135,20 +7290,11 @@ p.selector-lable {
     justify-content: center;
     align-items: center;
     color: white;
-    z-index: 10000;
     margin-bottom: 0;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px) !important;
   }
 
-  .spinner {
-    border: 4px solid var(--text-color);
-    border-top: 4px solid var(--tertiary-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 10px;
-  }
+
 
   .spinner2 {
         display: flex;
@@ -7189,7 +7335,14 @@ p.selector-lable {
       margin-right: .5rem;
     }
   }
-
+  .section-content-collaborators {
+    width: 100%;
+    height: 50vh;
+    overflow: hidden;
+    padding: 0.5rem 1rem;
+    // background: var(--bg-gradient-left);
+    // border-radius: var(--radius-m);
+  }
 
   .section-content-bookmark {
     width: 100%;
@@ -7292,26 +7445,46 @@ p.selector-lable {
     margin-bottom: 0;
     overflow-y: none;
     // backdrop-filter: blur(4px);
-    justify-content: flex-end;
-    align-items: center;
+    justify-content: flex-start;
+    align-items: flex-end;
     // background: var(--bg-gradient);
     z-index: 1;
 
     & .combo-input {
-        background: var(--primary-color);
+      background: transparent;
+        // background: var(--primary-color);
+        position: absolute;
         display: flex;
         justify-content: center;
         align-items: center;
         border: 1px solid var(--secondary-color);      
         border-radius: 2rem;
-        width: 100%;
+        bottom: 0;
+        width: calc(100% - 2rem);
         height: auto;
+        padding-inline-start: 2rem;
+        backdrop-filter: blur(10px);
+
+        & textarea {
+          padding-inline-start: 3.5rem;
+          max-height: 200px;
+          font-size: 1rem !important;
+          padding: 2rem;
+          &::placeholder {
+            color: var(--placeholder-color);
+            font-size: 0.65rem !important;
+          }
+          &:focus {
+            padding-inline-start: 4rem;
+            height: auto !important;
+            padding: 0;
+
+          }
+        }
 
     }
 
-    &::placeholder {
-      color: var(--placeholder-color);
-    }
+
     
     :global(svg) {
       color: var(--primary-color);
@@ -7343,20 +7516,20 @@ p.selector-lable {
       // margin-left: 2rem !important;
       // margin-right: 2rem !important;
 
-      & :focus {
-      color: white;
-      animation: none;
-      box-shadow: none;
-      overflow-y: auto !important;
-      transition: all 0.3s ease;
-      display: flex;
-      // background: var(--bg-gradient-left) !important;
-          // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-          // border-top: 4px solid var(--secondary-color) !important;
+      // & :focus {
+      // color: white;
+      // animation: none;
+      // box-shadow: none;
+      // overflow-y: auto !important;
+      // transition: all 0.3s ease;
+      // display: flex;
+      // // background: var(--bg-gradient-left) !important;
+      //     // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
+      //     // border-top: 4px solid var(--secondary-color) !important;
 
-      box-shadow: none !important;
+      // box-shadow: none !important;
 
-      }
+      // }
     }
 
   }
@@ -7414,7 +7587,7 @@ p.selector-lable {
     margin-top: 0 !important;
     width: 100% !important;
     margin-top: 0;
-    margin-bottom: 4rem;
+    margin-bottom: 0;
     // justify-content:space-between;
     transition: all 0.3s ease;
     gap: 0rem;
@@ -7427,34 +7600,44 @@ p.selector-lable {
 
 }
 
-
 .chat-header-thread {
-  width: auto;
+  width: auto !important;
   margin-left: 0 !important;
   text-align: center;
   align-items: center !important;
   justify-content: center !important;
   left: 0;
+  height: auto !important;
+  margin-right: 0;
   margin-top: 0 !important;
-
+  flex-grow: 1;
   h3 {
-    line-height: 2;
+    line-height: 1.2;
     font-size: 0.8rem !important;
+    letter-spacing: 0 !important;
+    font-weight: 800 !important;
+    color: var(--placeholder-color);
 
     display: flex;
   }
 }
 
 .chat-header {
-  left: 14rem;
+  left: 0 !important;
+  position: absolute;
   width: auto !important;
   border-bottom: none;
   // justify-content: space-between;
   // background: var(--bg-color);
   box-shadow: none;
   backdrop-filter: none;
-  top: 0;
+  top: 0.5rem !important;
+  padding: 0 !important;
+  & .chat-header-thread {
 
+    height: 2rem !important;
+    padding: 0 !important;
+  }
 
 }
 
@@ -7604,7 +7787,7 @@ p.selector-lable {
       margin-left: 0rem;
       right: 0;
       left: 0;
-      top: 2rem;
+      top: 3rem;
       z-index: 0;
     }
 
@@ -7746,7 +7929,7 @@ p.selector-lable {
     }
 
     .card-title {
-      font-size: 1.5rem;
+      font-size: 1rem;
       font-style: bold;
     }
 
@@ -7810,7 +7993,8 @@ p.selector-lable {
       width: auto;
       margin-right:0;
       margin-left: 0;
-      backdrop-filter: blur(20px);
+      background: var(--bg-gradient-r);
+      // backdrop-filter: blur(20px);
       // backdrop-filter: blur(100px);
       // border-top: 1px solid var(--primary-color);
       // border-right: 1px solid var(--primary-color);
@@ -7821,11 +8005,11 @@ p.selector-lable {
       top: 2rem;
       margin-right: 0;
       left: 0.5rem;
+      margin-bottom: 1rem !important;
       border-radius: 0;
       width: 100%;
       max-width: 450px;
-      height: auto;
-      margin-bottom: auto;
+      height: 87vh !important;
       // border-right: 1px solid var(--secondary-color);
       align-items: center;
       justify-content: center;
@@ -7842,7 +8026,6 @@ p.selector-lable {
     .drawer-visible .drawer {
       margin-left: -1rem;
       transform: translateX(0);
-      padding-bottom: 6rem;
       top: 3rem;
       padding-top: 0;
     }
@@ -7878,8 +8061,15 @@ p.selector-lable {
 
     .input-container {
       margin-right: 0;
+      margin-left: 4rem;
       margin-bottom: 0;
+      bottom: 0;
       background: transparent;
+      flex-grow: 0;
+    width: calc(100% - 4rem);    
+
+    align-items: center;
+    justify-content: flex-end;
     }
 
 
@@ -8055,10 +8245,12 @@ p.selector-lable {
     bottom: 1rem;
     overflow: none;
   }
+
   span.header-btns {
       display: flex;
     flex-direction: row !important;
       right: 0;
+      bottom: 0;
       margin-right: 0.5rem;
       margin-top: 0;
       width: auto !important;
@@ -8072,20 +8264,26 @@ p.selector-lable {
   .chat-header {
     height: 4rem;
     top: 3rem;
-    left: 0;
+    left: 0 !important;
   }
 
   .chat-header-thread {
     margin-top: 1rem;
-    margin-left: 0 !important;
-    justify-content: center !important;
+    margin-left: 10rem !important;
+    margin-right: 1rem;
+    justify-content: flex-end !important;
     gap: 1rem;
+    backdrop-filter: blur(10px);
     & span {
       width: auto;
     }
   }
   .drawer-visible .chat-header {
-    left: 0;
+    background-color: red;
+    justify-content: flex-end;
+    align-items: flex-end;
+    display: none;
+    
   }
   // .logo-container {
   //   display: flex;
@@ -8121,6 +8319,10 @@ p.selector-lable {
 
 
 @media (max-width: 450px) {
+  
+  .chat-messages {
+    top: 2rem;
+  }
 
 
   .message {
@@ -8283,8 +8485,10 @@ p.selector-lable {
     }
   }
   .chat-header {
-    top: 3rem;
-    left: 0;
+    top: 3rem !important;
+    left: 0 !important;
+    height: 2rem !important;
+    width: 100% !important;
     // display: none;
 
   }
@@ -8295,7 +8499,7 @@ p.selector-lable {
     justify-content: center !important;
     align-items: flex-start !important;
     
-
+    display: none !important;
     & span {
       width: auto;
     }
@@ -8337,21 +8541,26 @@ p.selector-lable {
     margin-bottom: 0;
     margin-left: 0;
     bottom: 0;
+    height: auto;
     width: 100%;
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--line-color);
     border-top-left-radius: 1rem;
     border-top-right-radius: 1rem;
+    flex-grow: 0;
 
 
     & .combo-input textarea {
       padding: 0 !important;
-      margin-left: 6rem;
+      margin-left: 2.5rem;
       height: 2rem !important;
       border: none;
 
       &:focus {
         margin-left: 0;
+        padding-inline-start: 2rem !important;
+        font-size: 0.7rem !important;
+        background: transparent !important;
 
       };
     }
@@ -8361,12 +8570,15 @@ p.selector-lable {
     color: var(--placeholder-color);
     transition: all 0.3s ease;
     width: 100%;
-    height: auto;
+    padding: 0.5rem;
+    height: 3rem !important;
+
+    line-height: 1.5;
     margin-top: auto;
     display: flex;
     text-align: left;
-    font-size: 0.8rem;
-    letter-spacing: 0.2rem;
+    font-size: 0.7rem;
+    letter-spacing: 0rem;
 
 
   }
@@ -8377,6 +8589,10 @@ p.selector-lable {
     opacity: 0.8;
     height: auto;
 
+  }
+
+  textarea {
+    font-size: 0.8rem !important;
   }
   .input-container-start {
       
@@ -8395,7 +8611,7 @@ p.selector-lable {
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
         border-top: 1px solid var(--line-color);
-        width: 100%;
+        width: calc(100% - 2rem) !important;
         background: var(--primary-color);
         height: auto;
 
@@ -8500,6 +8716,9 @@ p.selector-lable {
     
 
   }
+  .drawer-visible .dashboard-scroll {
+    display: none;
+  }
 
   .drawer {
     display: flex;
@@ -8514,11 +8733,11 @@ p.selector-lable {
     // background-color: var(--bg-color);
     top: 4rem;
     bottom: 0rem;
-    margin-bottom: 0;
+    margin-bottom: 1rem;
     gap: 1px;
     // left: 64px;
-    height: 100%;
-    width: 15rem;
+    height: 60vh;
+    width: calc(100% - 1rem);
     // height: 86%;
     // background: var(bg-gradient-r);
     // border-radius: var(--radius-l);

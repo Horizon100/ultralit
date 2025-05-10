@@ -9,7 +9,9 @@
 	import { Group, Users } from 'lucide-svelte';
 
     export let threadId: string;
-  
+    export let projectId: string;
+
+    let collaborators: User[] = [];
     let projectCollaborators: User[] = [];
     let threadCollaborators: User[] = [];
     let errorMessage: string = '';
@@ -21,7 +23,7 @@
     let isProjectCollaborator: boolean = false;
     let isLoading: boolean = false;
     let showCollaboratorsList: boolean = false;
-    let projectId: string | null = null;
+    // let projectId: string | null = null;
     let createHovered = false;
 
     // Subscribe to threadsStore to get updates for thread data
@@ -57,14 +59,7 @@
       }
     });
   
-    // Cleanup subscriptions on component destruction
-    onMount(() => {
-      return () => {
-        unsubThreads();
-        unsubProject();
-      };
-    });
-  
+
     async function loadThreadData() {
       try {
         if (!threadId) {
@@ -229,83 +224,95 @@
     }
   
     async function loadThreadCollaborators() {
-  try {
-    errorMessage = '';
-    console.log('Loading thread collaborators for thread ID:', threadId);
-    
-    if (!thread) {
-      console.log("Thread data not available, attempting to load it");
-      const threadData = await loadThreadData();
-      if (!threadData) {
-        console.log("Could not load thread data, returning empty collaborators list");
+    try {
+        errorMessage = '';
+        console.log('Loading thread collaborators for thread ID:', threadId);
+        
+        if (!thread) {
+            console.log("Thread data not available, attempting to load it");
+            const threadData = await loadThreadData();
+            if (!threadData) {
+                console.log("Could not load thread data, returning empty collaborators list");
+                threadCollaborators = [];
+                return [];
+            }
+        }
+        
+        if (!thread) {
+            console.log("Thread still not available after loadThreadData");
+            threadCollaborators = [];
+            return [];
+        }
+        
+        console.log("Thread data for collaborators:", thread);
+        
+        // Handle different types of members field
+        let memberIds: string[] = [];
+        
+        if (typeof thread.members === 'string' && thread.members.trim() !== '') {
+            // Handle string format (comma-separated values)
+            memberIds = thread.members.split(',').map(id => id.trim()).filter(id => id !== '');
+        } else if (Array.isArray(thread.members)) {
+            // Handle array format
+            memberIds = thread.members.filter((id): id is string => typeof id === 'string' && id !== '');
+        }
+        
+        console.log("Processed member IDs:", memberIds);
+        
+        if (memberIds.length > 0) {
+            try {
+                // Fetch users one by one instead of batch
+                const fetchedUsers: User[] = [];
+                
+                for (const userId of memberIds) {
+                    try {
+                        const response = await fetch(`/api/users/${userId}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            // Access the user data from the nested 'user' property or directly
+                            if (data && data.user) {
+                                fetchedUsers.push(data.user);
+                            } else if (data && data.id) {
+                                fetchedUsers.push(data);
+                            } else {
+                                console.error(`User data missing for ${userId}`);
+                            }
+                        } else {
+                            console.error(`Failed to fetch user ${userId}: ${response.status} ${response.statusText}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching user ${userId}:`, error);
+                    }
+                }
+                
+                console.log("Fetched thread collaborator users:", fetchedUsers);
+                threadCollaborators = fetchedUsers;
+            } catch (error) {
+                console.error("Error fetching users for thread members:", error);
+                threadCollaborators = [];
+            }
+        } else {
+            console.log("No valid member IDs, using empty array");
+            threadCollaborators = [];
+        }
+        
+        return threadCollaborators;
+    } catch (error) {
+        console.error('Error loading thread collaborators:', error);
+        errorMessage = 'Failed to load thread collaborators';
         threadCollaborators = [];
         return [];
-      }
     }
-    
-    if (!thread || !thread.members) {
-      console.log("Thread has no members field");
-      threadCollaborators = [];
-      return [];
-    }
-    
-    if (Array.isArray(thread.members) && thread.members.length > 0) {
-      console.log("Thread members:", thread.members);
-      
-      const memberIds = thread.members.filter((id): id is string => typeof id === 'string');
-      console.log("Filtered member IDs:", memberIds);
-      
-      if (memberIds.length > 0) {
-        try {
-          // Fetch users one by one instead of batch
-          const fetchedUsers: User[] = [];
-          
-          for (const userId of memberIds) {
-            try {
-              const response = await fetch(`/api/users/${userId}`);
-              if (response.ok) {
-                const user = await response.json();
-                fetchedUsers.push(user);
-              } else {
-                console.error(`Failed to fetch user ${userId}: ${response.status} ${response.statusText}`);
-              }
-            } catch (error) {
-              console.error(`Error fetching user ${userId}:`, error);
-            }
-          }
-          
-          console.log("Fetched thread collaborator users:", fetchedUsers);
-          threadCollaborators = fetchedUsers;
-        } catch (error) {
-          console.error("Error fetching users for thread members:", error);
-          threadCollaborators = [];
-        }
-      } else {
-        console.log("No valid member IDs, using empty array");
-        threadCollaborators = [];
-      }
-    } else {
-      console.log("Members is not an array or empty, using empty array");
-      threadCollaborators = [];
-    }
-    
-    return threadCollaborators;
-  } catch (error) {
-    console.error('Error loading thread collaborators:', error);
-    errorMessage = 'Failed to load thread collaborators';
-    threadCollaborators = [];
-    return [];
-  }
 }
   
-    async function toggleCollaborator(user: User) {
-      if (!thread) {
+async function toggleCollaborator(user: User) {
+    if (!thread) {
         console.log("Cannot toggle collaborator: missing thread data");
         errorMessage = "Thread data not available";
         return;
-      }
-      
-      try {
+    }
+    
+    try {
         errorMessage = '';
         successMessage = '';
         isLoading = true;
@@ -313,90 +320,246 @@
         const isAlreadyCollaborator = threadCollaborators.some(c => c.id === user.id);
         
         if (isAlreadyCollaborator) {
-          // Check if user can remove this collaborator
-          if (canRemoveMember(user.id)) {
-            await removeCollaborator(user.id);
-          } else {
-            errorMessage = "You don't have permission to remove this collaborator";
-            console.log("Cannot remove collaborator: insufficient permissions");
-          }
+            // Check if user can remove this collaborator
+            if (canRemoveMember(user.id)) {
+                await removeCollaborator(user.id);
+            } else {
+                errorMessage = "You don't have permission to remove this collaborator";
+                console.log("Cannot remove collaborator: insufficient permissions");
+            }
         } else {
-          // Check if user can add collaborators
-          if (canAddMembers()) {
-            await addCollaborator(user.id);
-          } else {
-            errorMessage = "You don't have permission to add collaborators";
-            console.log("Cannot add collaborator: insufficient permissions");
-          }
+            // Check if user can add collaborators
+            if (canAddMembers()) {
+                // We already have the user object, so call our internal function
+                // Get current members and ensure it's an array
+                let currentMembers: string[] = [];
+                
+                if (typeof thread.members === 'string' && thread.members.trim() !== '') {
+                    // Handle string format (comma-separated values)
+                    currentMembers = thread.members.split(',').map(id => id.trim()).filter(id => id !== '');
+                } else if (Array.isArray(thread.members)) {
+                    // Handle array format
+                    currentMembers = thread.members.filter((id): id is string => typeof id === 'string' && id !== '');
+                }
+                
+                console.log('Current thread members before adding:', currentMembers);
+                
+                // Add the new user ID to members if not already present
+                if (!currentMembers.includes(user.id)) {
+                    const updatedMembers = [...currentMembers, user.id];
+                    console.log('Updated members after adding:', updatedMembers);
+                    
+                    // Update the thread in the database using threadsStore
+                    await threadsStore.updateThread(threadId, {
+                        members: updatedMembers
+                    });
+                    
+                    // Update local thread data
+                    thread = { ...thread, members: updatedMembers };
+                    
+                    // Reload collaborators to update the UI
+                    await loadThreadCollaborators();
+                    
+                    const displayName = user.name || user.username || user.email || user.id;
+                    successMessage = `${displayName} added as collaborator successfully.`;
+                    
+                    setTimeout(() => {
+                        successMessage = '';
+                    }, 3000);
+                }
+            } else {
+                errorMessage = "You don't have permission to add collaborators";
+                console.log("Cannot add collaborator: insufficient permissions");
+            }
         }
         
         isLoading = false;
-      } catch (error) {
+    } catch (error) {
         errorMessage = 'Failed to update collaborators';
         console.error(error);
         isLoading = false;
-      }
     }
-  
-    async function addCollaborator(userId: string) {
-      try {
-        console.log("Adding collaborator:", userId);
+}
+    let newCollaboratorName: string = '';
+
+    async function findUserByIdentifier(identifier: string): Promise<User | null> {
+    if (!$currentUser) {
+        console.error('User is not authenticated.');
+        return null;
+    }
+
+    try {
+        console.log('Searching for user with identifier:', identifier);
+        const sanitizedIdentifier = identifier.trim();
         
-        if (!thread) {
-          console.error("Cannot add collaborator: Thread data not available");
-          errorMessage = "Thread data not available";
-          return;
+        // First, check if this could be a user ID (typically a string of 15+ characters)
+        if (sanitizedIdentifier.length >= 15 && !sanitizedIdentifier.includes('@')) {
+            console.log('Identifier looks like a user ID, trying direct lookup first...');
+            try {
+                const response = await fetch(`/api/users/${encodeURIComponent(sanitizedIdentifier)}`);
+                if (response.ok) {
+                    const user = await response.json();
+                    console.log('Found user by direct ID lookup:', user);
+                    return user;
+                } else {
+                    console.log('Direct ID lookup failed, continuing with search...');
+                }
+            } catch (error) {
+                console.log('Error in direct ID lookup:', error);
+                // Continue with search
+            }
         }
         
-        // Get current members
-        const currentMembers = Array.isArray(thread.members) ? thread.members : [];
-        console.log("Current members:", currentMembers);
+        // Use the search API endpoint
+        console.log('Using search API to find user...');
+        const response = await fetch(`/api/users?search=${encodeURIComponent(sanitizedIdentifier)}`);
+        if (!response.ok) {
+            throw new Error(`Failed to search users: ${response.statusText}`);
+        }
         
-        // Add the user if not already a member
-        if (!currentMembers.includes(userId)) {
-          const updatedMembers = [...currentMembers, userId];
-          console.log("Updated members:", updatedMembers);
-          
-          // Update the thread in the database
-          await threadsStore.updateThread(threadId, {
-            members: updatedMembers
-          });
-          
-          // Update local thread data
-          thread = { ...thread, members: updatedMembers };
-          
-          // Reload thread collaborators
-          await loadThreadCollaborators();
-          
-          const addedUser = projectCollaborators.find(u => u.id === userId);
-          if (addedUser) {
-            const displayName = addedUser.name || addedUser.username || addedUser.email || addedUser.id;
-            successMessage = `${displayName} added as collaborator successfully.`;
+        // The response is an array of users
+        const users = await response.json();
+        console.log('Search API response:', users);
+        
+        // Check if we have any users returned
+        if (Array.isArray(users) && users.length > 0) {
+            console.log('Total users found:', users.length);
             
-            setTimeout(() => {
-              successMessage = '';
-            }, 3000);
-          }
+            // If there are multiple users found, try to find the best match
+            if (users.length > 1) {
+                // First, check for exact matches on email (most unique identifier)
+                const exactEmailMatch = users.find(u => 
+                    u.email && u.email.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactEmailMatch) return exactEmailMatch;
+                
+                // Then check for exact matches on username
+                const exactUsernameMatch = users.find(u => 
+                    u.username && u.username.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactUsernameMatch) return exactUsernameMatch;
+                
+                // Then check for exact matches on name
+                const exactNameMatch = users.find(u => 
+                    u.name && u.name.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                );
+                if (exactNameMatch) return exactNameMatch;
+            }
+            
+            // Return the first matching user if no exact match was found
+            return users[0];
         }
-      } catch (error) {
-        errorMessage = 'Failed to add collaborator';
-        console.error(error);
-      }
+        
+        console.log('No users found matching the search criteria');
+        return null;
+    } catch (error) {
+        console.error('Error finding user:', error);
+        return null;
     }
+}
+
+async function addCollaborator() {
+    if (!$currentUser) {
+        errorMessage = 'You must be logged in to add a collaborator.';
+        return;
+    }
+
+    if (!newCollaboratorName) {
+        errorMessage = 'Please enter a username, email, or user ID.';
+        return;
+    }
+
+    try {
+        errorMessage = '';
+        successMessage = '';
+        isLoading = true;
+        
+        const user = await findUserByIdentifier(newCollaboratorName);
+        if (user) {
+            // Check if user is already a collaborator
+            const isExistingCollaborator = threadCollaborators.some(c => c.id === user.id);
+            if (isExistingCollaborator) {
+                errorMessage = 'This user is already a collaborator.';
+                isLoading = false;
+                return;
+            }
+            
+            console.log('Found user to add:', user);
+            
+            // Update the thread's members list instead of using projectStore
+            if (!thread) {
+                errorMessage = 'Thread data not available';
+                isLoading = false;
+                return;
+            }
+            
+            // Get current members and ensure it's an array
+            const currentMembers = Array.isArray(thread.members) 
+                ? thread.members 
+                : (typeof thread.members === 'string' && thread.members.trim() !== '')
+                    ? thread.members.split(',')
+                    : [];
+            
+            console.log('Current thread members before adding:', currentMembers);
+            
+            // Add the new user ID to members if not already present
+            if (!currentMembers.includes(user.id)) {
+                const updatedMembers = [...currentMembers, user.id];
+                console.log('Updated members after adding:', updatedMembers);
+                
+                // Update the thread in the database using threadsStore
+                await threadsStore.updateThread(threadId, {
+                    members: updatedMembers
+                });
+                
+                // Update local thread data
+                thread = { ...thread, members: updatedMembers };
+                
+                // Reload collaborators to update the UI
+                await loadThreadCollaborators();
+                
+                newCollaboratorName = '';
+                
+                const displayName = user.name || user.username || user.email || user.id;
+                successMessage = `${displayName} added as collaborator successfully.`;
+                
+                setTimeout(() => {
+                    successMessage = '';
+                }, 3000);
+            }
+        } else {
+            errorMessage = 'User not found. Please try a different name, email, or ID.';
+        }
+        isLoading = false;
+    } catch (error) {
+        errorMessage = 'Failed to add collaborator. Error: ' + (error instanceof Error ? error.message : String(error));
+        console.error(error);
+        isLoading = false;
+    }
+}
   
-    async function removeCollaborator(userId: string) {
-      try {
+async function removeCollaborator(userId: string) {
+    try {
         console.log("Removing collaborator:", userId);
         
         if (!thread) {
-          console.error("Cannot remove collaborator: Thread data not available");
-          errorMessage = "Thread data not available";
-          return;
+            console.error("Cannot remove collaborator: Thread data not available");
+            errorMessage = "Thread data not available";
+            return;
         }
         
-        // Get current members
-        const currentMembers = Array.isArray(thread.members) ? thread.members : [];
-        console.log("Current members:", currentMembers);
+        // Get current members and ensure it's an array
+        let currentMembers: string[] = [];
+        
+        if (typeof thread.members === 'string' && thread.members.trim() !== '') {
+            // Handle string format (comma-separated values)
+            currentMembers = thread.members.split(',').map(id => id.trim()).filter(id => id !== '');
+        } else if (Array.isArray(thread.members)) {
+            // Handle array format
+            currentMembers = thread.members.filter((id): id is string => typeof id === 'string' && id !== '');
+        }
+        
+        console.log("Current members before removal:", currentMembers);
         
         // Remove the user
         const updatedMembers = currentMembers.filter(id => id !== userId);
@@ -404,7 +567,7 @@
         
         // Update the thread in the database
         await threadsStore.updateThread(threadId, {
-          members: updatedMembers
+            members: updatedMembers
         });
         
         // Update local thread data
@@ -417,18 +580,18 @@
         await loadThreadCollaborators();
         
         if (removedUser) {
-          const displayName = removedUser.name || removedUser.username || removedUser.email || removedUser.id;
-          successMessage = `${displayName} removed successfully.`;
-          
-          setTimeout(() => {
-            successMessage = '';
-          }, 3000);
+            const displayName = removedUser.name || removedUser.username || removedUser.email || removedUser.id;
+            successMessage = `${displayName} removed successfully.`;
+            
+            setTimeout(() => {
+                successMessage = '';
+            }, 3000);
         }
-      } catch (error) {
+    } catch (error) {
         errorMessage = 'Failed to remove collaborator';
         console.error(error);
-      }
     }
+}
   
     function toggleCollaboratorsList() {
       showCollaboratorsList = !showCollaboratorsList;
@@ -472,6 +635,19 @@
           });
       }
     }
+      function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Enter') {
+          addCollaborator();
+      }
+  }
+
+      // Cleanup subscriptions on component destruction
+      onMount(() => {
+      return () => {
+        unsubThreads();
+        unsubProject();
+      };
+    });
   
     // Initial data loading
     onMount(() => {
@@ -505,7 +681,7 @@
 
   <div class="collaborators-container">
     
-    <button class="toggle-btn"                     
+    <!-- <button class="toggle-btn"                     
       on:mouseenter={() => createHovered = true}
       on:mouseleave={() => createHovered = false}
       on:click={toggleCollaboratorsList}>
@@ -514,35 +690,54 @@
           {$t('threads.shared')}
         </span>
       {/if}
-      <!-- {#if !createHovered}
-      <span class="tooltip" in:fade>
-        <Users/>
-      </span>
-    {/if} -->
+
     <Users size="20"/>
         <span class="toggle-text">
           ({threadCollaborators.length})
 
         </span>
-    </button>
+    </button> -->
     
-    {#if showCollaboratorsList}
       <div class="collaborators-panel">
-        <h3>Thread Collaborators</h3>
+        <span class="collaborator-header">
+          <h3>{$t('dashboard.projectCollaborators')}</h3>
+          <button class="add-collaborator" on:click={addCollaborator} disabled={isLoading}>
         
-        {#if errorMessage}
-          <div class="error-message">{errorMessage}</div>
-        {/if}
-        
-        {#if successMessage}
-          <div class="success-message">{successMessage}</div>
-        {/if}
+            <Users/>
+            +
+        </button>
+        </span>
+        <div class="add-collaborator-form">
+      
+          <div class="input-group">
+              <span class="input-span">
+                  <input class="toggle"
+                  type="text" 
+                  bind:value={newCollaboratorName} 
+                  placeholder="Enter username, email, or user ID" 
+                  on:keydown={handleKeyDown}
+                  disabled={isLoading}
+              />
+
+      
+          </div>
+          
+          {#if errorMessage}
+              <div class="error-message">{errorMessage}</div>
+          {/if}
+          
+          {#if successMessage}
+              <div class="success-message">{successMessage}</div>
+          {/if}
+      </div>
+
         
         {#if isLoading}
-          <div class="loading">Loading...</div>
+          <div class="spinner-container">
+            <div class="spinner"></div>
+          </div>
         {:else}
           <div class="collaborators-section">
-            <h4>Current Thread Members</h4>
             
             {#if threadCollaborators.length > 0}
               <div class="collaborators-list">
@@ -574,7 +769,6 @@
                       </span>
                     </div>
                     
-                    <div class="collaborator-right">
                       {#if thread && collaborator.id === thread.user}
                         <span class="owner-badge">Owner</span>
                       {:else if canRemoveMember(collaborator.id)}
@@ -585,7 +779,6 @@
                           {collaborator.id === $currentUser?.id ? 'Leave' : 'Remove'}
                         </button>
                       {/if}
-                    </div>
                   </div>
                 {/each}
               </div>
@@ -596,7 +789,7 @@
           
           {#if project && projectId}
             <div class="collaborators-section">
-              <h4>Available Project Collaborators</h4>
+              <!-- <h4>Available Project Collaborators</h4> -->
               
               {#if projectCollaborators.length > 0}
                 <div class="collaborators-list">
@@ -656,7 +849,6 @@
           {/if}
         {/if}
       </div>
-    {/if}
   </div>
   
   <style lang="scss">
@@ -667,16 +859,15 @@
     }
   
     .collaborators-container {
-      position: relative;
-      right: 0;
-      display: flex;
-      height: 100%;
-      flex-direction: column;
-      align-items: flex-end;
+      width: calc(100%);
+		max-width: 1200px;
+		margin-right: 0;
+		margin-left: 1rem;
+    display: flex;
+    justify-content: flex-end;
     }
 
     .collaborators-panel {
-      position: absolute;
       top: 100%;
       right: 0;
       margin-top: 0.5rem;
@@ -691,8 +882,7 @@
       
       h3 {
         margin-top: 0;
-        margin-bottom: 2rem;
-        font-size: 1.2rem;
+        font-size: 1rem;
         font-weight: 600;
       }
       
@@ -705,7 +895,7 @@
     }
   
     .collaborators-section {
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       margin-top: 1rem;
     }
   
@@ -714,7 +904,8 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      margin-top: 2rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
       gap: 0.5rem;
     }
   
@@ -754,10 +945,60 @@
       align-items: center;
       gap: 0.5rem;
     }
-  
+    span.collaborator-header {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0;
+    }
+    button {
+      border-radius: 1rem;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+
+        &.add-collaborator {
+          background: var(--bg-color);
+          top: 0;
+          right: 0;
+          &:hover {
+            background: var(--secondary-color);
+          }
+        }
+
+
+    }
+
+    .spinner-container {
+      position: relative;
+    }
+    .input-group {
+      width: 100% !important;
+
+      align-items: flex-start;
+      display: flex;
+    }
+    span.input-span {
+      width: 100%;
+    }
+
+    input.toggle {
+      width: calc(100% - 1rem) !important;
+        padding: 0.5rem;
+      margin: 0;
+      font-size: 0.8rem;
+      letter-spacing: 0.05rem;
+
+    }
+    .add-collaborator-form {
+      flex-direction: column !important;
+    }
     .user-avatar, .default-avatar {
-      width: 24px;
-      height: 24px;
+      width: 24px !important;
+      height: 24px !important;
       border-radius: 50%;
       overflow: hidden;
       display: flex;
@@ -814,30 +1055,27 @@
       }
     }
   
-    .loading {
-      padding: 1rem;
-      text-align: center;
-      color: var(--text-muted-color);
-    }
+
   
     .error-message {
-      color: var(--danger-color);
+      color: red;
       font-size: 0.875rem;
       margin: 0.5rem 0;
     }
   
     .success-message {
-      color: var(--success-color);
+      color: var(--tertiary-color);
       font-size: 0.875rem;
       margin: 0.5rem 0;
     }
   
     .no-collaborators {
-      color: var(--text-muted-color);
+      color: var(--placeholder-color);
       font-style: italic;
       font-size: 0.9rem;
       padding: 0.5rem 0;
     }
+    
     @media (max-width: 767px) {
 
     .toggle-btn {
