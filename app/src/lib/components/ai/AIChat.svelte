@@ -206,7 +206,7 @@ let replyText = '';
   let hiddenReplies: Set<string> = new Set();
     let userPromptData = null;
     let isLoadingPrompt = true;
-
+    
 
   const unsubscribeFromModel = modelStore.subscribe(state => {
   // Skip if we're already in the middle of an update
@@ -281,6 +281,8 @@ const onTextareaFocus = () => {
   showBookmarks = false;
   showCites = false;
   showCollaborators = false;
+  threadListVisibility.set(false);
+
   currentPlaceholder = getRandomQuote();
 };
 
@@ -2473,6 +2475,9 @@ $: if (chatMessages && chatMessages.length > 0) {
   dedupeChatMessages();
   preloadUserProfiles();
 }
+$: if ($isTextareaFocused && $showThreadList) {
+  threadListVisibility.set(false);
+}
 onMount(async () => {
   try {
     console.log('onMount initiated');
@@ -2670,10 +2675,11 @@ onDestroy(() => {
     transition:fly="{{ x: 300, duration: 300 }}" 
     class:drawer-visible={$showThreadList}
   >
- 
+  
   <img src={Headmaster} alt="Notes illustration" class="illustration" />
 
-    {#if $showThreadList}
+    {#if $showThreadList }
+
       <div class="drawer" transition:fly="{{ x: -300, duration: 300 }}">
         <div class="drawer-list" in:fly={{duration: 200}} out:fade={{duration: 200}}>
           <div class="drawer-toolbar" in:fade={{duration: 200}} out:fade={{duration: 200}}>
@@ -2997,8 +3003,7 @@ onDestroy(() => {
                     class:drawer-visible={$showThreadList}
                     >
                       {#if $projectStore.currentProjectId}
-                      <ProjectCard projectId={$projectStore.currentProjectId} />
-
+<ProjectCard projectId={$projectStore.currentProjectId} {handleSendMessage} />
                       {:else}
                         {#if $isTextareaFocused}
                           <!-- Hide greeting when textarea is focused -->
@@ -4914,7 +4919,7 @@ p div {
       margin-left: 0;
       left: 0;
       letter-spacing: 0;
-      justify-content: flex-start !important;
+      justify-content: center !important;
     }
     & .thread-info {
       margin-left: 0;
@@ -4947,12 +4952,12 @@ p div {
     display: flex;
     flex-direction: column;
     position: relative;
-    flex-grow: 1;
+    flex-grow: 0;
     width: calc(100%);    
     margin-top: 0;
     height: auto;
     right: 0;
-    bottom:1rem;
+    bottom:0;
     margin-bottom: 0;
     align-items: center;
     // backdrop-filter: blur(4px);
@@ -5252,12 +5257,11 @@ color: #6fdfc4;
 
 
 .drawer-visible .chat-messages {
-  max-width: 800px;
 }
 
 
   .chat-messages {
-    flex-grow: 1;
+    flex-grow: 0;
     overflow-y: auto;
     overflow-x: hidden;
     // background: var(--primary-color);
@@ -5265,14 +5269,17 @@ color: #6fdfc4;
     display: flex;
     position: relative;
     left: 1rem;
-    gap: 0;
+    gap: 1rem;
     margin-bottom: 0;
     margin-top: 0;
     // left: 25%;
-    padding: 1rem;
+    padding: 0;
+
+    padding-inline-start: 1rem;
     // backdrop-filter: blur(10px);
     flex-direction: column;
     align-items: stretch;
+    height:86vh;
     overflow-x: hidden;
     overflow-y: none;
     scrollbar-width:2px;
@@ -5690,8 +5697,9 @@ color: #6fdfc4;
   .chat-header-thread {
     width: 100%; 
     gap: auto;
-    height: 4rem;
-    font-size: 1.5rem;
+    height: 2rem;
+    padding: 0;
+    font-size: 1.3rem;
     // border-bottom: 1px solid var(--placeholder-color);
     display: flex;
     align-items: center;
@@ -6372,7 +6380,7 @@ color: #6fdfc4;
     color: #818380;
     line-height: 1.4;
     height: auto;
-    max-height: 50vh;
+    // max-height: 50vh;
     text-justify: center;
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
     overflow: scroll;
@@ -7787,6 +7795,7 @@ p.selector-lable {
       margin-left: 0rem;
       right: 0;
       left: 0;
+      padding-inline-start: 1rem;
       top: 3rem;
       z-index: 0;
     }
@@ -8067,7 +8076,7 @@ p.selector-lable {
       background: transparent;
       flex-grow: 0;
     width: calc(100% - 4rem);    
-
+      position: absolute;
     align-items: center;
     justify-content: flex-end;
     }
@@ -8279,7 +8288,6 @@ p.selector-lable {
     }
   }
   .drawer-visible .chat-header {
-    background-color: red;
     justify-content: flex-end;
     align-items: flex-end;
     display: none;

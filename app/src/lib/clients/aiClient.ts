@@ -1,4 +1,4 @@
-import type { AIModel, PromptType, AIMessage, Scenario, Task, AIAgent, Guidance } from '$lib/types/types';
+import type { AIModel, PromptType, AIMessage, Scenario, Task, AIAgent, Guidance, Projects } from '$lib/types/types';
 import { defaultModel } from '$lib/constants/models';
 import { getPrompt } from '$lib/constants/prompts';
 import { get } from 'svelte/store';
