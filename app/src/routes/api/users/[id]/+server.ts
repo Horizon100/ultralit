@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ params }) => {
     try {
         // Fetch the user
         const user = await pb.collection('users').getOne(userId, {
-            fields: 'id,name,username,email,avatar,collectionId,model_preference'
+            fields: 'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus'
         });
         
         if (!user) {
@@ -24,7 +24,20 @@ export const GET: RequestHandler = async ({ params }) => {
                 email: user.email || '',
                 avatar: user.avatar || '',
                 collectionId: user.collectionId,
-                model_preference: user.model_preference || []
+                model_preference: user.model_preference || [],
+                taskAssignments: user.taskAssignments || [],
+                userTaskStatus: user.userTaskStatus || {
+                    backlog: 0,
+                    todo: 0,
+                    focus: 0,
+                    done: 0,
+                    hold: 0,
+                    postpone: 0,
+                    cancel: 0,
+                    review: 0,
+                    delegate: 0,
+                    archive: 0
+                }
             }
         });
     } catch (err) {
@@ -53,9 +66,17 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
         // Create update data object
         const updateData: Record<string, any> = {};
         
-        // Check if model_preference is in the data
+        // Check which fields to update
         if ('model_preference' in data) {
             updateData.model_preference = data.model_preference;
+        }
+        
+        if ('taskAssignments' in data) {
+            updateData.taskAssignments = data.taskAssignments;
+        }
+        
+        if ('userTaskStatus' in data) {
+            updateData.userTaskStatus = data.userTaskStatus;
         }
         
         // Only proceed if we have data to update
@@ -73,7 +94,20 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
             success: true,
             user: {
                 id: updated.id,
-                model_preference: updated.model_preference || []
+                model_preference: updated.model_preference || [],
+                taskAssignments: updated.taskAssignments || [],
+                userTaskStatus: updated.userTaskStatus || {
+                    backlog: 0,
+                    todo: 0,
+                    focus: 0,
+                    done: 0,
+                    hold: 0,
+                    postpone: 0,
+                    cancel: 0,
+                    review: 0,
+                    delegate: 0,
+                    archive: 0
+                }
             }
         });
     } catch (err) {

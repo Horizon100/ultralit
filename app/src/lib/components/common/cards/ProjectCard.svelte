@@ -18,12 +18,12 @@
   import { goto } from '$app/navigation';
   import { modelStore } from '$lib/stores/modelStore';
   import { messagesStore } from '$lib/stores/messagesStore';
-
+import { writable } from 'svelte/store';
   import { defaultModel, availableModels } from '$lib/constants/models';
-  import handleSendMessage from '$lib/components/ai/AIChat.svelte'
   export let projectId: string | undefined = undefined;
   export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
   export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
+export let handleSendMessage: (message: string) => Promise<void>;
   let isExpanded = false;
   let isExpandedContent = false;
   let isGeneratingSuggestions = false;
@@ -322,61 +322,47 @@ async function handleProjectSuggestions() {
 }
 async function handleStartSuggestion(suggestionText: string) {
   try {
-    // First navigate to the appropriate thread or create a new one
-    const threadId = await ensureThreadExists(project.id);
+    if (!project?.id) {
+      throw new Error('No project selected');
+    }
     
-    // Store the suggestion in the store
-    pendingSuggestion.set(suggestionText);
-    
-    // Navigate to the thread view
-    goto(`/projects/${project.id}/threads/${threadId}`);
+    // Use the existing handleSendMessage function like the working prompts
+    await handleSendMessage(suggestionText);
     
   } catch (error) {
     console.error('Error handling suggestion:', error);
-    // Use console.error instead of showToast
-    console.error(`Failed to use suggestion: ${error.message}`);
-    // Optional: Display a simple alert for the user
     alert(`Could not use this suggestion: ${error.message}`);
   }
 }
-
-// Helper function to ensure a thread exists for this project
 async function ensureThreadExists(projectId: string): Promise<string> {
-  // Check if the project has any threads
-  if (project.threads && project.threads.length > 0) {
-    return project.threads[0]; // Use the first thread
-  }
-  
   try {
-    // Create a new thread
-    const response = await fetch('/api/threads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        title: `${project.name} - AI Chat`,
-        userId: $currentUser.id,
-        projectId: projectId
-      })
-    });
-
+    const response = await fetch(`/api/projects/${projectId}/threads`);
+    
     if (!response.ok) {
-      throw new Error('Failed to create a new thread');
+      throw new Error(`Failed to fetch threads: ${response.status}`);
     }
-
-    const newThread = await response.json();
     
-    // Update project's threads array locally
-    project = {
-      ...project,
-      threads: [...(project.threads || []), newThread.id]
-    };
+    const result = await response.json();
+    const threads = result.threads || result.data || [];
     
-    return newThread.id;
+    if (threads.length > 0) {
+      return threads[0].id;
+    }
+    
+    // The endpoint automatically creates a default thread if none exist
+    // So this should not happen, but we can trigger it again
+    const newResult = await fetch(`/api/projects/${projectId}/threads`);
+    const newData = await newResult.json();
+    const newThreads = newData.threads || newData.data || [];
+    
+    if (newThreads.length > 0) {
+      return newThreads[0].id;
+    }
+    
+    throw new Error('Failed to create or find thread');
   } catch (error) {
-    console.error('Error creating thread:', error);
-    throw new Error(`Could not create thread: ${error.message}`);
+    console.error('Error ensuring thread exists:', error);
+    throw error;
   }
 }
   onMount(async () => {

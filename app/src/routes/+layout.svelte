@@ -85,7 +85,10 @@
 
 	  CodeIcon,
 
-	  Code2
+	  Code2,
+
+	  SquareDashedKanban
+
 
 
 
@@ -524,12 +527,29 @@
 			{/if}
 		</button>
 		<button
-			class="nav-button drawer"
+			class="nav-button reveal"
 			class:expanded={isNavExpanded}
 			class:active={currentPath === '/lean'}
-			on:click={() => navigateTo('/lean')}
+			on:click={(event) => {
+			if (currentPath === '/lean') {
+				event.preventDefault();
+				toggleThreadList();
+				isNavExpanded = false;
+			} else {
+				navigateTo('/lean');
+				if (isNavExpanded) {
+					isNavExpanded = false;
+				}
+			}
+			}}
 		>
+		{#if currentPath === '/lean' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/lean'}
+			<SquareDashedKanban />
+			{:else}
 			<SquareKanban />
+			{/if}
 			{#if isNavExpanded}
 				<span class="nav-text">Lean</span>
 			{/if}
@@ -1683,11 +1703,10 @@
 		flex-direction: column;
 		align-items: flex-end;
 		justify-content: flex-end;
-		gap: 10px;
 		position: absolute;
 		left: 0;
 		right: 50% !important;
-		top: 4rem;
+		top: auto;
 		bottom: 1rem;
 		padding: 0 0.5rem;
 		z-index:1000;
@@ -2539,9 +2558,9 @@
 		overflow-x: hidden;
 		overflow-y: hidden;
 		width: 3rem;
-		bottom: 1.5rem !important;
+		bottom: 0.5rem !important;
 		gap: 10px;
-		left: 1rem;
+		left: 0.5rem;
 		top: auto;
 		bottom: 0;
 		padding: 0.5rem;
@@ -2553,7 +2572,7 @@
 			& .nav-button.drawer {
 				display: none !important;
 				&.reveal {
-					display: flex !important;
+					display: none !important;
 				}
 			}
 		&:hover {
@@ -2564,9 +2583,13 @@
 		& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
+				&.reveal {
+					display: flex !important;
 
+				}
 			}
 		}
+		
 	}
 
 	.navigation-buttons {
@@ -2740,7 +2763,7 @@
 			bottom: 0;
 			padding: 1rem 0;
 			height: 2rem;
-			width: 2rem !important;
+			width: 3rem !important;
 			left: 0.5rem;
 			top: auto;
 			bottom: 0 !important;
@@ -2755,7 +2778,7 @@
 				width: 2rem !important;
 				height: 2rem !important;
 				&.reveal {
-					display: flex !important;
+					display: none !important;
 				}
 			}
 
@@ -2799,6 +2822,7 @@
 			align-items: stretch;
 			justify-content: space-around;
 			overflow: hidden;
+
 
 		}
 

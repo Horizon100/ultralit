@@ -1,13 +1,24 @@
 <script lang="ts">
     import { writable, get } from 'svelte/store';
-    import { slide } from 'svelte/transition';
+    import { slide, fly, fade } from 'svelte/transition';
+      import { elasticOut, cubicIn, cubicOut, quintOut } from 'svelte/easing';
     import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { ArrowRight, ArrowDown, CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Tag, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2 } from 'lucide-svelte';
-    import { fade } from 'svelte/transition';
+	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle } from 'lucide-svelte';
     import { t } from '$lib/stores/translationStore';
+    import AssignButton from '$lib/components/buttons/AssignButton.svelte';
+    import { 
+        updateTaskStatus, 
+        bulkUpdateTaskStatus, 
+        updateTaskAssignment,
+        updateTask,
+        filterTasksByTags,
+        applyTagFilterToColumns
+    } from '$lib/clients/taskClient';
+    import TagsDropdown from '$lib/components/buttons/TagsDropdown.svelte';
+  import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 
     let currentProjectId: string | null = null;
     projectStore.subscribe(state => {
@@ -21,12 +32,23 @@
     let showSubtasks = false;
     let taskTransition = false;
     let hoveredButton: 'all' | 'parents' | 'subtasks' | null = null;
+    let showTagFilter = false;
+    let selectedTagIds: string[] = [];
+    let requireAllTags = false;
+    let allColumnsOpen = true;
+    let searchQuery = '';
+    let hoveredButtonId: number | null = null;
+let priorityViewActive = false;
 
 
     enum TaskViewMode {
         All = 'all',
         OnlySubtasks = 'subtasks',
-        OnlyParentTasks = 'parents'
+        OnlyParentTasks = 'parents',
+        LowPriority = 'low',
+        mediumPriority = 'medium',
+        highPriority = 'high'
+
     }
     let taskViewMode = TaskViewMode.All;
     let allTasksBackup: KanbanTask[] = [];
@@ -45,27 +67,40 @@
         'Backlog': 'backlog',
         'To Do': 'todo',
         'In Progress': 'inprogress',
-        'Done': 'done'
+        'Review': 'review',
+        'Done': 'done',
+        'Hold': 'hold',
+        'Postponed': 'postpone',
+        'Delegate': 'delegate',
+        'Cancelled': 'cancel',
+        'Archived': 'archive',
     };
 
     const reverseStatusMapping = {
         'backlog': ['Backlog'],
         'todo': ['To Do'],
         'inprogress': ['In Progress'],
+          'review': ['Review'],
         'done': ['Done'],
-        'hold': ['Backlog'],
-        'postpone': ['Backlog'],
-        'cancel': ['Done'],
-        'review': ['In Progress'],
-        'delegate': ['In Progress'],
-        'archive': ['Done']
+        'hold': ['Hold'],
+        'postpone': ['Postponed'],
+        'delegate': ['Delegate'],
+        'cancel': ['Cancelled'],
+        'archive': ['Archived']
     };
 
     let columns = writable<Column[]>([
         { id: 1, title: 'Backlog', status: 'backlog', tasks: [], isOpen: true },
         { id: 2, title: 'To Do', status: 'todo', tasks: [], isOpen: true },
         { id: 3, title: 'In Progress', status: 'inprogress', tasks: [], isOpen: true },
-        { id: 4, title: 'Done', status: 'done', tasks: [], isOpen: true }
+        { id: 4, title: 'Review', status: 'review', tasks: [], isOpen: true },
+        { id: 5, title: 'Done', status: 'done', tasks: [], isOpen: true },
+        { id: 6, title: 'Hold', status: 'hold', tasks: [], isOpen: true },
+        { id: 7, title: 'Postponed', status: 'postpone', tasks: [], isOpen: true },
+        { id: 8, title: 'Delegate', status: 'delegate', tasks: [], isOpen: true },
+        { id: 9, title: 'Cancelled', status: 'cancel', tasks: [], isOpen: true },
+        { id: 10, title: 'Archive', status: 'archive', tasks: [], isOpen: true }
+
     ]);
 
     let tags = writable<Tag[]>([]);
@@ -78,13 +113,22 @@
     let selectedStart: number | string | null = null;
     let isLoading = writable(true);
     let error = writable<string | null>(null);
+    let isEditingStartDate = false;
+    let isEditingDueDate = false;
+    let editingYear: number | null = null;
+    let editingMonth: number | null = null;
+    let editingDay: number | null = null;
+    let editingDateType: 'start' | 'due' | null = null;
 
-    projectStore.subscribe(state => {
-        if (state.currentProjectId) {
-            project = state.threads.find(p => p.id === state.currentProjectId);
-        } else {
-            project = null;
-        }
+    // projectStore.subscribe(state => {
+    //     if (state.currentProjectId) {
+    //         project = state.threads.find(p => p.id === state.currentProjectId);
+    //     } else {
+    //         project = null;
+    //     }
+    // });
+      projectStore.subscribe(state => {
+        currentProjectId = state.currentProjectId;
     });
 
     function getRandomBrightColor(tagName: string): string {
@@ -94,33 +138,45 @@
         const h = hash % 360;
         return `hsl(${h}, 70%, 60%)`;
     }
-    async function getUserName(userId: string | undefined): Promise<string> {
-        if (!userId) return "Unknown";
-        
-        // Check if we already have this username in cache
-        if (userNameCache.has(userId)) {
-            return userNameCache.get(userId) || "Unknown";
-        }
-        
-        try {
-            const response = await fetch(`/api/users/${userId}`);
-            if (!response.ok) throw new Error('Failed to fetch user');
-
-            const data = await response.json();
-
-            
-            const userData = data.user;
-            const userName = userData.name || userData.username || userData.email || "Unknown";
-            
-            // Cache the result for future use
-            userNameCache.set(userId, userName);
-            
-            return userName;
-        } catch (err) {
-            console.error('Error fetching user data:', err);
+async function getUserName(userId: string | undefined): Promise<string> {
+    if (!userId) return "Unassigned";
+    
+    // Check if we already have this username in cache
+    if (userNameCache.has(userId)) {
+        return userNameCache.get(userId) || "Unknown";
+    }
+    
+    try {
+        const response = await fetch(`/api/users/${userId}`);
+        if (!response.ok) {
+            console.log(`User fetch failed for ID ${userId}: ${response.status}`);
             return "Unknown";
         }
+
+        const data = await response.json();
+        
+        // Handle different response formats
+        let userData;
+        if (data.success && data.user) {
+            userData = data.user;
+        } else if (data.id) {
+            userData = data;
+        } else {
+            console.log('Unexpected user data format:', data);
+            return "Unknown";
+        }
+        
+        const userName = userData.name || userData.username || userData.email || "Unknown";
+        
+        // Cache the result for future use
+        userNameCache.set(userId, userName);
+        
+        return userName;
+    } catch (err) {
+        console.error('Error fetching user data:', err);
+        return "Unknown";
     }
+}
     // Load data from PocketBase
     async function loadData() {
         isLoading.set(true);
@@ -471,24 +527,26 @@ function cancelDelete() {
 function applyTaskViewFilter() {
     columns.update(cols => {
         return cols.map(col => {
-            // Start with all tasks
             const tasksForColumn = allTasksBackup.filter(task => {
-                // Only include tasks that belong in this column
                 const belongsInColumn = col.status === statusMapping[task.status] || 
                                        (reverseStatusMapping[task.status] && 
                                         reverseStatusMapping[task.status].includes(col.title));
                 
                 if (!belongsInColumn) return false;
                 
-                // Apply view mode filter
                 switch (taskViewMode) {
                     case TaskViewMode.All:
                         return true;
                     case TaskViewMode.OnlySubtasks:
-                        return !!task.parent_task; // Only show tasks with a parent
+                        return !!task.parent_task;
                     case TaskViewMode.OnlyParentTasks:
-                        // Show tasks that have children (are parent tasks)
                         return allTasksBackup.some(t => t.parent_task === task.id);
+                    case TaskViewMode.LowPriority:
+                        return task.priority === 'low';
+                    case TaskViewMode.mediumPriority:
+                        return task.priority === 'medium';
+                    case TaskViewMode.highPriority:
+                        return task.priority === 'high';
                     default:
                         return true;
                 }
@@ -503,6 +561,68 @@ function toggleTaskView(mode: TaskViewMode) {
     applyTaskViewFilter();
 }
 
+function handleTagsChanged(event: CustomEvent) {
+    selectedTagIds = event.detail.selectedTags;
+    applyFilters();
+}
+
+function toggleRequireAllTags() {
+    requireAllTags = !requireAllTags;
+    applyFilters();
+}
+    
+function applyFilters() {
+    if (searchQuery.trim()) {
+        searchTasks(searchQuery);
+    } else {
+        columns.update(cols => {
+            // Start with all tasks
+            let tasksToFilter = [...allTasksBackup];
+            
+            // First apply tag filtering
+            if (selectedTagIds.length > 0) {
+                tasksToFilter = filterTasksByTags(tasksToFilter, selectedTagIds, requireAllTags);
+            }
+            
+            // Then distribute to columns based on status
+            return cols.map(col => {
+                // Filter tasks for this column
+                const tasksForColumn = tasksToFilter.filter(task => {
+                    // Only include tasks that belong in this column
+                    const belongsInColumn = col.status === statusMapping[task.status] || 
+                                           (reverseStatusMapping[task.status] && 
+                                            reverseStatusMapping[task.status].includes(col.title));
+                    
+                    if (!belongsInColumn) return false;
+                    
+                    // Apply view mode filter
+                    switch (taskViewMode) {
+                        case TaskViewMode.All:
+                            return true;
+                        case TaskViewMode.OnlySubtasks:
+                            return !!task.parent_task; // Only show tasks with a parent
+                        case TaskViewMode.OnlyParentTasks:
+                            // Show tasks that have children (are parent tasks)
+                            return allTasksBackup.some(t => t.parent_task === task.id);
+                        default:
+                            return true;
+                    }
+                });
+                
+                return { ...col, tasks: tasksForColumn };
+            });
+        });
+    }
+}
+
+function toggleTagFilter() {
+    showTagFilter = !showTagFilter;
+    if (!showTagFilter) {
+        // Clear filters when hiding
+        selectedTagIds = [];
+        applyFilters();
+    }
+}
 async function deleteTask(taskId: string) {
     try {
         // Check if task is local only
@@ -623,10 +743,30 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             if (taskIndex !== -1) {
                 const task = deepCopy(fromColumn.tasks[taskIndex]);
                 
+                // First move the task in the UI for immediate feedback
                 fromColumn.tasks.splice(taskIndex, 1);
                 
-                const newStatus = statusMapping[toColumn.title] as KanbanTask['status'] || 'todo';
-                task.status = newStatus;
+                // Get the correct new status from statusMapping or use the column's status directly
+                let newStatus;
+                if (statusMapping[toColumn.title]) {
+                    newStatus = statusMapping[toColumn.title];
+                } else {
+                    // Handle case where column title doesn't map directly to a status
+                    newStatus = toColumn.status;
+                }
+                
+                console.log(`Moving task from ${fromColumn.title} to ${toColumn.title} - new status: ${newStatus}`);
+                
+                // Ensure newStatus is a valid status value
+                const validStatuses = ['backlog', 'todo', 'inprogress', 'focus', 'done', 
+                                      'hold', 'postpone', 'cancel', 'review', 'delegate', 'archive'];
+                                      
+                if (!validStatuses.includes(newStatus)) {
+                    console.error(`Invalid status: ${newStatus}, falling back to column status: ${toColumn.status}`);
+                    newStatus = toColumn.status;
+                }
+                
+                task.status = newStatus as KanbanTask['status'];
                 
                 if (!task.tags) {
                     task.tags = [];
@@ -634,35 +774,24 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                 
                 toColumn.tasks.push(task);
                 
+                // Use simple updateTask instead of updateTaskStatus to avoid user assignment issues
                 (async () => {
                     try {
-                        const response = await fetch(`/api/tasks/${taskId}`, {
-                            method: 'PATCH',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ 
-                                status: newStatus,
-                                // Explicitly include tags to make sure they're preserved
-                                taggedTasks: task.tags.join(','),
-                                taskTags: task.tags
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error('Failed to update task status');
-                        }
-                        
-                        // Optional: Full task save if needed
-                        // await saveTask(task);
+                        // Simple status update without user assignment logic
+                        await updateTask(taskId, { status: task.status });
                     } catch (err) {
+                        console.error('Error updating task status:', err);
                         error.set(`Failed to move task: ${err.message}`);
+                        
                         // Revert the move if saving fails
                         fromColumn.tasks.splice(taskIndex, 0, task);
                         const revertIndex = toColumn.tasks.findIndex(t => t.id === taskId);
                         if (revertIndex !== -1) {
                             toColumn.tasks.splice(revertIndex, 1);
                         }
+                        
+                        // Trigger UI update
+                        columns.update(c => c);
                     }
                 })();
             }
@@ -670,7 +799,6 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         return cols;
     });
 }
-
     function toggleColumn(columnId: number) {
         columns.update(cols => {
             const column = cols.find(col => col.id === columnId);
@@ -679,30 +807,98 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             }
             return cols;
         });
+        
     }
-
-    function handleDragStart(event: DragEvent, taskId: string, fromColumnId: number) {
-        if (event.dataTransfer) {
-            event.dataTransfer.setData('text/plain', JSON.stringify({ taskId, fromColumnId }));
-            event.dataTransfer.effectAllowed = 'move';
-        }
+    function toggleAllColumns() {
+    // Update the state
+    allColumnsOpen = !allColumnsOpen;
+    
+    columns.update(cols => {
+      return cols.map(col => ({
+        ...col,
+        isOpen: allColumnsOpen
+      }));
+    });
+  }
+function handleDragStart(event: DragEvent, taskId: string, fromColumnId: number) {
+    if (event.dataTransfer) {
+        event.dataTransfer.setData('text/plain', JSON.stringify({ taskId, fromColumnId }));
+        event.dataTransfer.effectAllowed = 'move';
+        
+        (event.target as HTMLElement).classList.add('dragging');
+        
+        setTimeout(() => {
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.add('drop-enabled');
+            });
+        }, 0);
     }
+}
 
-    function handleDragOver(event: DragEvent) {
-        event.preventDefault();
-        if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'move';
-        }
+function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
     }
+}
 
-    function handleDrop(event: DragEvent, toColumnId: number) {
-        event.preventDefault();
-        if (event.dataTransfer) {
-            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+function handleDrop(event: DragEvent, toColumnId: number) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+        const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+        moveTask(data.taskId, data.fromColumnId, toColumnId);
+    }
+}
+
+function handleDragEnd(event: DragEvent) {
+    (event.target as HTMLElement).classList.remove('dragging');
+    
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.classList.remove('drop-enabled', 'drag-hover');
+    });
+    hoveredButtonId = null;
+}
+
+function handleButtonDragOver(event: DragEvent, columnId: number) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+    }
+    
+    const button = event.currentTarget as HTMLElement;
+    button.classList.add('drag-hover');
+    hoveredButtonId = columnId;
+}
+
+function handleButtonDragLeave(event: DragEvent) {
+    const button = event.currentTarget as HTMLElement;
+    button.classList.remove('drag-hover');
+    
+    if (button.contains(event.relatedTarget as Node) === false) {
+        hoveredButtonId = null;
+    }
+}
+
+function handleButtonDrop(event: DragEvent, toColumnId: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const button = event.currentTarget as HTMLElement;
+    button.classList.remove('drag-hover');
+    
+    if (event.dataTransfer) {
+        const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+        
+        if (data.fromColumnId !== toColumnId) {
             moveTask(data.taskId, data.fromColumnId, toColumnId);
         }
     }
-
+    
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.classList.remove('drop-enabled', 'drag-hover');
+    });
+    hoveredButtonId = null;
+}
     function openModal(task: KanbanTask, event: MouseEvent) {
         event.stopPropagation();
         selectedTask = deepCopy(task);
@@ -713,7 +909,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
         selectedStart = null;
     }
 
-    function saveAndCloseModal() {
+function saveAndCloseModal() {
     if (selectedTask) {
         const taskToSave = { ...selectedTask };
 
@@ -734,8 +930,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
             return;
         }
         
-        // Save to PocketBase
-        saveTask(selectedTask).then(() => {
+        updateTask(taskToSave.id, taskToSave).then(() => {
             columns.update(cols => {
                 return cols.map(col => ({
                     ...col,
@@ -802,7 +997,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                         project_id: currentProjectId || undefined,
                         createdBy: get(currentUser)?.id,
                         allocatedAgents: [],
-                        status: 'todo', // Use the appropriate status for Backlog
+                        status: 'backlog',
                         priority: 'medium'
                     };
                     
@@ -1022,17 +1217,435 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 }
 
-    // Load initial data when component mounts
+async function handleTaskAssigned(detail) {
+    const { taskId, userId } = detail;
+    
+    try {
+        if (selectedTask && selectedTask.id === taskId) {
+            selectedTask.assignedTo = userId;
+            selectedTask = { ...selectedTask };
+        }
+        
+        await updateTaskAssignment(taskId, userId);
+        
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.map(task => 
+                    task.id === taskId ? { ...task, assignedTo: userId } : task
+                )
+            }));
+        });
+    } catch (error) {
+        console.error('Error handling task assignment:', error);
+    }
+}
+async function handleTaskUnassigned(taskId) {
+    try {
+        if (selectedTask && selectedTask.id === taskId) {
+            selectedTask.assignedTo = '';
+            selectedTask = { ...selectedTask }; 
+        }
+        
+        await updateTaskAssignment(taskId, '');
+        
+        // Update in columns
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.map(task => 
+                    task.id === taskId ? { ...task, assignedTo: '' } : task
+                )
+            }));
+        });
+    } catch (error) {
+        console.error('Error handling task unassignment:', error);
+    }
+}
+
+function searchTasks(query: string) {
+    if (!query.trim()) {
+        // If search is empty, restore original tasks
+        applyFilters();
+        return;
+    }
+    
+    // Normalize the search query (lowercase)
+    const normalizedQuery = query.toLowerCase().trim();
+    
+    columns.update(cols => {
+        return cols.map(col => {
+            // Start with tasks that would be shown based on other active filters
+            let filteredTasks = [...allTasksBackup];
+            
+            // Apply tag filters if active
+            if (selectedTagIds.length > 0) {
+                filteredTasks = filterTasksByTags(filteredTasks, selectedTagIds, requireAllTags);
+            }
+            
+            // Apply task view mode filters
+            switch (taskViewMode) {
+                case TaskViewMode.OnlySubtasks:
+                    filteredTasks = filteredTasks.filter(task => !!task.parent_task);
+                    break;
+                case TaskViewMode.OnlyParentTasks:
+                    filteredTasks = filteredTasks.filter(task => 
+                        allTasksBackup.some(t => t.parent_task === task.id)
+                    );
+                    break;
+            }
+            
+            // Apply search query - search in title, description, and tags
+            filteredTasks = filteredTasks.filter(task => {
+                // Check if task belongs to this column
+                const belongsInColumn = col.status === statusMapping[task.status] || 
+                                      (reverseStatusMapping[task.status] && 
+                                       reverseStatusMapping[task.status].includes(col.title));
+                
+                if (!belongsInColumn) return false;
+                
+                // Search in title
+                if (task.title.toLowerCase().includes(normalizedQuery)) return true;
+                
+                // Search in description
+                if (task.taskDescription?.toLowerCase().includes(normalizedQuery)) return true;
+                
+                // Search in tags
+                const taskTags = $tags.filter(tag => task.tags.includes(tag.id));
+                if (taskTags.some(tag => tag.name.toLowerCase().includes(normalizedQuery))) return true;
+                
+                // Search by priority
+                if (task.priority.toLowerCase().includes(normalizedQuery)) return true;
+                
+                // Search by creator or assignee name (async, but works for pre-loaded names)
+                if (userNameCache.has(task.createdBy) && 
+                    userNameCache.get(task.createdBy)?.toLowerCase().includes(normalizedQuery)) return true;
+                
+                if (task.assignedTo && userNameCache.has(task.assignedTo) && 
+                    userNameCache.get(task.assignedTo)?.toLowerCase().includes(normalizedQuery)) return true;
+                
+                return false;
+            });
+            
+            return { ...col, tasks: filteredTasks };
+        });
+    });
+}
+async function togglePriority(task: KanbanTask, event: MouseEvent) {
+    event.stopPropagation();
+    
+    const priorities = ['low', 'medium', 'high'];
+    const currentIndex = priorities.indexOf(task.priority);
+    const nextIndex = (currentIndex + 1) % priorities.length;
+    const newPriority = priorities[nextIndex];
+    
+    columns.update(cols => {
+        return cols.map(col => ({
+            ...col,
+            tasks: col.tasks.map(t => 
+                t.id === task.id ? { ...t, priority: newPriority } : t
+            )
+        }));
+    });
+    allTasksBackup = allTasksBackup.map(t => 
+    t.id === task.id ? { ...t, priority: newPriority } : t
+    );
+        if (selectedTask && selectedTask.id === task.id) {
+        selectedTask = { ...selectedTask, priority: newPriority };
+    }
+    
+    // Update in the backend
+    try {
+        await updateTask(task.id, { ...task, priority: newPriority });
+    } catch (err) {
+        console.error('Error updating task priority:', err);
+        // Revert back if the update fails
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.map(t => 
+                    t.id === task.id ? { ...t, priority: task.priority } : t
+                )
+            }));
+        });
+    }
+}
+function applyPriorityFilter() {
+    columns.update(cols => {
+        if (!cols) return cols;
+        
+        if (priorityViewActive) {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.filter(task => task.priority === 'high')
+            }));
+        } else {
+            // Reset from backup
+            return getColumnTasksFromBackup();
+        }
+    });
+}
+function getColumnTasksFromBackup() {
+    return get(columns).map(col => ({
+        ...col,
+        tasks: allTasksBackup.filter(task => {
+            const targetColumns = reverseStatusMapping[task.status] || ['Backlog'];
+            return targetColumns.includes(col.title);
+        })
+    }));
+}
+function togglePriorityView(event: MouseEvent) {
+    event.stopPropagation();
+    
+    // Ensure all columns are open when applying priority filters
+    if (taskViewMode === TaskViewMode.All) {
+        if (!allColumnsOpen) {
+            toggleAllColumns();
+        }
+    }
+    
+    switch (taskViewMode) {
+        case TaskViewMode.highPriority:
+            toggleTaskView(TaskViewMode.mediumPriority);
+            break;
+        case TaskViewMode.mediumPriority:
+            toggleTaskView(TaskViewMode.LowPriority);
+            break;
+        case TaskViewMode.LowPriority:
+            toggleTaskView(TaskViewMode.All);
+            break;
+        default:
+            toggleTaskView(TaskViewMode.highPriority);
+    }
+}
+
+// Get all tags for a specific task, with selected tags first
+function getOrderedTaskTags(task: KanbanTask, allTags: Tag[]): Tag[] {
+    if (!task.tags || task.tags.length === 0) {
+        // If no tags are selected, return all tags
+        return allTags;
+    }
+    
+    // Get tags that are selected for this task
+    const selectedTags = allTags.filter(tag => task.tags.includes(tag.id));
+    
+    // Get tags that are not selected for this task
+    const unselectedTags = allTags.filter(tag => !task.tags.includes(tag.id));
+    
+    // Return selected tags first, then unselected tags
+    return [...selectedTags, ...unselectedTags];
+}
+/**
+ * Handles date scrolling with threshold and sensitivity controls
+ * @param event The wheel event
+ * @param date The date to modify
+ * @param part Which part of the date to modify ('day', 'month', 'year')
+ * @param task The task object that will be updated
+ * @param dateType Whether this is 'start_date' or 'due_date'
+ */
+function handleDateScroll(
+    event: WheelEvent, 
+    date: Date, 
+    part: 'day' | 'month' | 'year', 
+    task: KanbanTask, 
+    dateType: 'start_date' | 'due_date'
+): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Store scroll accumulation in a closure to track between events
+    if (!task._scrollAccumulation) {
+        task._scrollAccumulation = { day: 0, month: 0, year: 0 };
+    }
+    
+    // Different sensitivity levels based on part
+    let sensitivity = 1;
+    switch (part) {
+        case 'day':
+            sensitivity = event.shiftKey ? 0.01 : 0.1;
+            break;
+        case 'month':
+            sensitivity = event.shiftKey ? 0.01 : 0.1;
+            break;
+        case 'year':
+            sensitivity = event.shiftKey ? 0.01 : 0.1;
+            break;
+    }
+    
+    // Calculate delta and add to accumulated value
+    const delta = event.deltaY > 0 ? -1 : 1;
+    task._scrollAccumulation[part] += (delta * sensitivity);
+    
+    // Check if we've crossed the threshold to actually change the date
+    if (Math.abs(task._scrollAccumulation[part]) >= 1) {
+        // Round to the nearest integer and get its sign
+        const change = Math.sign(task._scrollAccumulation[part]);
+        
+        // Apply the change to the date
+        const newDate = new Date(date);
+        switch (part) {
+            case 'day':
+                newDate.setDate(newDate.getDate() + change);
+                break;
+            case 'month':
+                newDate.setMonth(newDate.getMonth() + change);
+                break;
+            case 'year':
+                newDate.setFullYear(newDate.getFullYear() + change);
+                break;
+        }
+        
+        // Reset the accumulation to the remainder after applying
+        task._scrollAccumulation[part] %= 1;
+        
+        // Update the task with the new date
+        if (dateType === 'start_date') {
+            task.start_date = newDate;
+        } else {
+            task.due_date = newDate;
+        }
+        
+        // Update task in the UI and backend
+        columns.update(cols => {
+            return cols.map(col => ({
+                ...col,
+                tasks: col.tasks.map(t => t.id === task.id ? { ...t, [dateType]: newDate } : t)
+            }));
+        });
+        
+        // Debounce the API update to avoid too many requests
+        if (task._updateTimeout) {
+            clearTimeout(task._updateTimeout);
+        }
+        
+        task._updateTimeout = setTimeout(() => {
+            updateTask(task.id, { ...task });
+            delete task._updateTimeout;
+        }, 500);
+    }
+}
+
+// Function to start editing a date
+function startDateEditing(dateType: 'start' | 'due') {
+    editingDateType = dateType;
+    
+    // Set initial values based on current date
+    const currentDate = dateType === 'start' 
+        ? selectedTask?.start_date 
+        : selectedTask?.due_date;
+    
+    if (currentDate) {
+        editingYear = currentDate.getFullYear();
+        editingMonth = currentDate.getMonth();
+        editingDay = currentDate.getDate();
+    } else {
+        // Default to today if no date is set
+        const today = new Date();
+        editingYear = today.getFullYear();
+        editingMonth = today.getMonth();
+        editingDay = today.getDate();
+    }
+    
+    // Set the editing flag
+    if (dateType === 'start') {
+        isEditingStartDate = true;
+    } else {
+        isEditingDueDate = true;
+    }
+}
+
+// Function to save edited date
+function saveEditedDate() {
+    if (!selectedTask || !editingDateType || editingYear === null || editingMonth === null || editingDay === null) return;
+    
+    // Create new date
+    const newDate = new Date(editingYear, editingMonth, editingDay);
+    
+    // Update the task
+    if (editingDateType === 'start') {
+        selectedTask.start_date = newDate;
+        isEditingStartDate = false;
+    } else {
+        selectedTask.due_date = newDate;
+        isEditingDueDate = false;
+    }
+    
+    // Reset editing state
+    editingDateType = null;
+    editingYear = null;
+    editingMonth = null;
+    editingDay = null;
+    
+    // Force reactivity update
+    selectedTask = { ...selectedTask };
+}
+
+// Function to cancel date editing
+function cancelDateEditing() {
+    isEditingStartDate = false;
+    isEditingDueDate = false;
+    editingDateType = null;
+    editingYear = null;
+    editingMonth = null;
+    editingDay = null;
+}
+function updateBackup(taskId: string, newTags: string[]) {
+    allTasksBackup = allTasksBackup.map(task => 
+        task.id === taskId ? { ...task, tags: newTags } : task
+    );
+}
+
+function handleTagClick(event: MouseEvent, task: KanbanTask, tag: Tag) {
+    event.stopPropagation();
+    
+    const newTags = task.tags.includes(tag.id) 
+        ? task.tags.filter(id => id !== tag.id)
+        : [...task.tags, tag.id];
+    
+    // Update columns
+    columns.update(cols => {
+        return cols.map(col => ({
+            ...col,
+            tasks: col.tasks.map(t => 
+                t.id === task.id ? { ...t, tags: newTags } : t
+            )
+        }));
+    });
+    
+    // Update backup
+    updateBackup(task.id, newTags);
+    
+    // Update backend
+    updateTaskTags(task.id, newTags);
+}
+$: hasProjectContext = (selectedTask && selectedTask.project_id && selectedTask.project_id !== '') || 
+                         (currentProjectId && currentProjectId !== '');
+
     $: {
         if (currentProjectId) {
             loadData();
         } else {
-            // If no project is selected, still try to load personal tasks
             loadData();
         }
     }
 
     $: taskTags = selectedTask ? $tags.filter(tag => selectedTask.tags.includes(tag.id)) : [];
+    $: columnCounts = $columns.reduce((acc, column) => {
+    acc[column.status] = column.tasks.length;
+    return acc;
+}, {});
+
+$: totalTaskCount = allTasksBackup.length;
+
+$: parentTaskCount = allTasksBackup.filter(task => 
+    allTasksBackup.some(t => t.parent_task === task.id)
+).length;
+
+$: subtaskCount = allTasksBackup.filter(task => !!task.parent_task).length;
+
+$: highPriorityCount = allTasksBackup.filter(task => task.priority === 'high').length;
+$: mediumPriorityCount = allTasksBackup.filter(task => task.priority === 'medium').length;
+$: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').length;
 </script>
 
 {#if $isLoading}
@@ -1046,7 +1659,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     </div>
 {:else}
 
-<div class="global-input-container">
+<div class="global-input-container" 
+>
     <div class="view-controls">
         <div class="tooltip-container">
             <span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
@@ -1059,56 +1673,201 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                 Show subtasks only
             </span>
         </div>
-        
-        <button 
-            class:active={taskViewMode === TaskViewMode.All} 
-            on:click={() => toggleTaskView(TaskViewMode.All)}
-            on:mouseenter={() => hoveredButton = 'all'}
-            on:mouseleave={() => hoveredButton = null}
-        >
-            <ListCollapse/>
+<div class="search-container" >
+<input transition:fade={{ duration: 150 }}
+    type="text" 
+    bind:value={searchQuery}
+    on:input={() => {
+        searchTasks(searchQuery);
+        if (searchQuery && !allColumnsOpen) {
+            toggleAllColumns();
+        }
+    }}
+    placeholder="Search tasks..."
+    class="search-input"
+    />
+    {#if searchQuery}
+        <button class="clear-search" on:click={() => { 
+            searchQuery = ''; 
+            applyFilters(); 
+        }}>
+            ✕
         </button>
-        <button 
-            class:active={taskViewMode === TaskViewMode.OnlyParentTasks} 
-            on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
-            on:mouseenter={() => hoveredButton = 'parents'}
-            on:mouseleave={() => hoveredButton = null}
-        >
-            <FolderGit/>
-        </button>
-        <button 
-            class:active={taskViewMode === TaskViewMode.OnlySubtasks} 
-            on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
-            on:mouseenter={() => hoveredButton = 'subtasks'}
-            on:mouseleave={() => hoveredButton = null}
-        >
-            <GitFork/>
-        </button>
-    </div>
-    <textarea 
-        placeholder="Add a task"
-        on:keydown={(e) => addGlobalTask(e)}
-        class="global-task-input"
-    ></textarea>
+    {/if}
 </div>
-<div class="kanban-container" transition:fade={{ duration: 150 }}
+<button 
+    class="priority-toggle {taskViewMode === TaskViewMode.highPriority ? 'high' : 
+                          taskViewMode === TaskViewMode.mediumPriority ? 'medium' : 
+                          taskViewMode === TaskViewMode.LowPriority ? 'low' : ''}"
+    on:click={(e) => togglePriorityView(e)}
+    title="Toggle priority view"
 >
-    <div class="kanban-board">
-        {#each $columns as column}
-            <div class="kanban-column" on:dragover={handleDragOver} on:drop={(e) => handleDrop(e, column.id)}>
-                <button type="button" class="column-header" on:click={() => toggleColumn(column.id)}>
-                    {column.title}
-                </button>
+    <Flag class={[TaskViewMode.highPriority, TaskViewMode.mediumPriority, TaskViewMode.LowPriority].includes(taskViewMode) ? 'active' : ''}/>
+    {#if taskViewMode === TaskViewMode.highPriority}
+        <span></span>
+        <span class="count-badge">{highPriorityCount}</span>
+    {:else if taskViewMode === TaskViewMode.mediumPriority}
+        <span></span>
+        <span class="count-badge">{mediumPriorityCount}</span>
+    {:else if taskViewMode === TaskViewMode.LowPriority}
+        <span></span>
+        <span class="count-badge">{lowPriorityCount}</span>
+    {/if}
+</button>
+           <button 
+        class:active={taskViewMode === TaskViewMode.All} 
+        on:click={() => toggleTaskView(TaskViewMode.All)}
+        on:mouseenter={() => hoveredButton = 'all'}
+        on:mouseleave={() => hoveredButton = null}
+    >
+        <ListCollapse/>
+        <span class="count-badge">{totalTaskCount}</span>
+    </button>
+    <button 
+        class:active={taskViewMode === TaskViewMode.OnlyParentTasks} 
+        on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
+        on:mouseenter={() => hoveredButton = 'parents'}
+        on:mouseleave={() => hoveredButton = null}
+    >
+        <FolderGit/>
+        <span class="count-badge">{parentTaskCount}</span>
+    </button>
+    <button 
+        class:active={taskViewMode === TaskViewMode.OnlySubtasks} 
+        on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
+        on:mouseenter={() => hoveredButton = 'subtasks'}
+        on:mouseleave={() => hoveredButton = null}
+    >
+        <GitFork/>
+        <span class="count-badge">{subtaskCount}</span>
+    </button>
+    <button 
+        class="filter-toggle"
+        class:active={showTagFilter} 
+        on:click={toggleTagFilter}
+        title="Tags"
+    >
+        <Filter/>
+    </button>
+
+    </div>
+        {#if showTagFilter}
+        <div class="tag-filter-container" in:slide={{ duration: 150 }}>
+            <div class="tag-filter-options">
+                <TagsDropdown 
+                    bind:selectedTags={selectedTagIds}
+                    currentProjectId={currentProjectId}
+                    mode="task"
+                    isFilterMode={true}
+                    placeholder="Tags"
+                    showSelectedCount={true}
+                    on:tagsChanged={handleTagsChanged}
+                />
                 
-                {#if column.isOpen}
-                    <div class="task-list" transition:fade={{ duration: 150 }}>
-                        {#each column.tasks as task}
-                            <div 
-                                class="task-card" 
-                                draggable="true" 
-                                on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
-                                on:click={(e) => openModal(task, e)}
-                            >
+                <div class="match-options">
+                    <label class="toggle-label">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={requireAllTags}
+                            on:change={toggleRequireAllTags}
+                        />
+                        <span>Match</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Show active filters summary -->
+            {#if selectedTagIds.length > 0}
+                <div class="active-filters" transition:slide={{ duration: 150 }}>
+                    <span class="filter-label">Filtering by:</span>
+                    <div class="filter-tags">
+                        {#each $tags.filter(tag => selectedTagIds.includes(tag.id)) as tag}
+                            <span class="filter-tag" style="background-color: {tag.color}">
+                                {tag.name}
+                            </span>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </div>
+    {/if}
+    <div class="global-task-input">
+        <span>
+            <PlusCircle/>
+        </span>
+        <textarea 
+            placeholder="Add a task"
+            on:keydown={(e) => addGlobalTask(e)}
+            class="global-task-input"
+        ></textarea>
+    </div>
+</div>
+<div class="kanban-container"in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}
+>
+              {#if $showThreadList}
+
+<div class="column-view-controls">
+  <button 
+    class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
+    on:click={toggleAllColumns}
+    aria-label={allColumnsOpen ? 'Collapse all columns' : 'Expand all columns'}
+  >									
+
+    <span class="toggle-icon">
+      {#if allColumnsOpen}
+        <EyeOff size={16} />
+      {:else}
+        <Layers size={16} />
+      {/if}
+    </span>
+    <span class="toggle-label">
+      {allColumnsOpen ? $t('button.tags') :$t('button.tags')}
+    </span>
+  </button>
+  
+{#each $columns as column}
+    <button 
+        class="toggle-btn toggle-{column.status} {column.isOpen ? 'active-'+column.status : ''}"
+        on:click={() => toggleColumn(column.id)}
+        on:dragover={(e) => handleButtonDragOver(e, column.id)}
+        on:dragleave={handleButtonDragLeave}
+        on:drop={(e) => handleButtonDrop(e, column.id)}
+    >
+        <span>{column.title}</span>
+        {#if column.tasks.length > 0}
+            <span class="count-badge">{column.tasks.length}</span>
+        {/if}
+    </button>
+{/each}
+</div>
+{/if}
+<div class="kanban-board" >
+    {#each $columns as column}
+    <div class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}" 
+         on:dragover={handleDragOver} 
+        in:fly={{ x: -400, duration: 400 }} out:fly={{ x: -100,duration: 300 }}         
+        on:drop={(e) => handleDrop(e, column.id)}>            
+         <!-- <button type="button" class="column-header header-{column.status} {column.isOpen ? 'active-'+column.status : ''}" on:click={() => toggleColumn(column.id)}>
+            </button> -->
+            
+            {#if column.isOpen}
+                <div class="task-list"
+			in:slide={{ duration: 300, axis: 'x' }}
+			
+            out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
+>
+                    <span class="column-title">
+                        {column.title}
+                    </span>
+
+                    {#each column.tasks as task}
+                        <div 
+                            class="task-card status-{task.status}" 
+                            draggable="true" 
+                            on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
+                            on:dragend={handleDragEnd}
+                            on:click={(e) => openModal(task, e)}
+                        >
                             <h4>{task.title}</h4>
 
                             {#if task.parent_task}
@@ -1119,83 +1878,176 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                                 </div>
                             {/if}
 
+                            <p class="description">{task.taskDescription}</p>
 
-                                <p class="description">{task.taskDescription}</p>
-
-
-
-                                {#if task.createdBy}
-                                <p class="task-creator">
-                                    {#if hasSubtasks(task.id)}
-                                    <div class="task-badge subtasks">
-                                        <span class="task-icon">
-                                            <ClipboardList/>
-                                        </span>
-                                        {countSubtasks(task.id)} 
-
-                                        <span>
-                                            subtasks
-                                        </span>
-                                    </div>
-                                    {/if}
-                                
-                                    <span>
-                                        <img 
-                                        src={`/api/users/${task.createdBy}/avatar`} 
-                                        alt="Avatar" 
-                                        class="user-avatar"
-                                        onerror="this.style.display='none'"
-                                    />
-                                        <span class="username">
-                                            {#await getUserName(task.createdBy) then username}
-                                                {username}
-                                            {/await}
-                                        </span>
-                                        
-                                    </span>
-                                    <span class="priority-flag {task.priority}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                                          <line x1="4" y1="22" x2="4" y2="15"></line>
-                                        </svg>
-                                        <span class="priority-name">
-                                            {task.priority}
-                                        </span>
-                                      </span>
-                                    <span class="timeline-container">
-                                        {#if task.start_date}
-                                        <p class="timeline"> {task.start_date.toLocaleDateString()}</p>
-                                        <ArrowDown/>
-                                        {/if}
-    
-                                        {#if task.due_date}
-                                        <p class="timeline"> {task.due_date.toLocaleDateString()}</p>
-                                        {/if}
-                                    </span>
-                                    {#if task.tags && task.tags.length > 0}
-                                    <div class="tag-list">
-                                        <Tag size="16"/>
-                                        {#each $tags.filter(tag => task.tags.includes(tag.id)) as tag}
-                                            <span class="tag-card" style="background-color: {tag.color}">{tag.name}</span>
-                                        {/each}
-                                    </div>
-                                    {/if}
-                                </p>
-                                
-                                {/if}
-                                {#if task.attachments && task.attachments.length > 0}
-                                    <div class="attachment-indicator">
-                                        📎 {task.attachments.length}
-                                    </div>
-                                {/if}
-                                
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+<!-- Replace the existing task-creator code block in your card view -->
+{#if task.createdBy}
+    <div class="task-creator">
+        {#if hasSubtasks(task.id)}
+            <div class="task-badge subtasks">
+                <span class="task-icon">
+                    <ClipboardList/>
+                </span>
+                {countSubtasks(task.id)} 
+                <span>subtasks</span>
             </div>
-        {/each}
+        {/if}
+    
+        <span>
+            <img 
+                src={`/api/users/${task.createdBy}/avatar`} 
+                alt="Avatar" 
+                class="user-avatar"
+                onerror="this.style.display='none'"
+            />
+            <span class="username">
+                {#await getUserName(task.createdBy) then username}
+                    {username}
+                {/await}
+            </span>
+        </span>
+        
+        {#if task.assignedTo}
+            <div class="assignee">
+                <span>Assigned:</span>
+                <div class="assignee-info">
+                    <img 
+                        src="/images/default-avatar.png" 
+                        alt="Assignee" 
+                        class="avatar assignee-avatar"
+                        on:error={() => {}} 
+                    />
+                    <span class="username assignee-name">
+                        {#await getUserName(task.assignedTo) then username}
+                            {username}
+                        {/await}
+                    </span>
+                </div>
+            </div>
+        {/if}
+        
+        <!-- Priority flag with click to toggle -->
+        <span 
+            class="priority-flag {task.priority}"
+            on:click={(e) => togglePriority(task, e)}
+            title="Click to change priority"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            <span class="priority-name">
+                {task.priority}
+            </span>
+        </span>
+        
+
+<div class="tag-list" on:click={(e) => e.stopPropagation()}>
+    {#each $tags as tag}
+        <span 
+            class="tag-card {task.tags.includes(tag.id) ? 'selected' : 'unselected'}" 
+            style="background-color: {task.tags.includes(tag.id) ? tag.color : 'rgba(128,128,128,0.2)'}"
+            on:click={(e) => handleTagClick(e, task, tag)}
+        >
+            {tag.name}
+        </span>
+    {/each}
+    <TagIcon size="16"/>
+    {#if task.tags.length > 0}
+        <span class="tag-count">{task.tags.length}</span>
+    {/if}
+</div>
     </div>
+            <span class="timeline-container">
+                <span class="timeline-wrapper">
+
+            {#if task.start_date}
+                {@const daysUntilStart = Math.ceil((task.start_date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                {#if daysUntilStart < 0}
+                    <span class="date-status overdue">Postponed {Math.abs(daysUntilStart)} days</span>
+                {:else if daysUntilStart === 0}
+                    <span class="date-status due-today">Starts today</span>
+                {:else if daysUntilStart <= 30}
+                    <span class="date-status upcoming">Starts in {daysUntilStart} {daysUntilStart === 1 ? 'day' : 'days'}</span>
+                {/if}
+            {/if}
+
+            {#if task.start_date}
+                <div class="timeline">
+                    <span 
+                        class="date-part" 
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'day', task, 'start_date')}
+                        title="Scroll to change day (hold Shift for precision)"
+                    >{task.start_date.getDate()}</span>
+                    <span 
+                        class="month-part"
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'month', task, 'start_date')}
+                        title="Scroll to change month (hold Shift for precision)"
+                    >{task.start_date.toLocaleString('default', { month: 'short' })}</span>
+                    <span 
+                        class="year-part"
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'year', task, 'start_date')}
+                        title="Scroll to change year (hold Shift for precision)"
+                    >{task.start_date.getFullYear()}</span>
+                </div>
+            {/if}
+                <!-- <span class="timeline">
+                    <ArrowDown/>
+
+                </span> -->
+                </span>
+                    <span class="timeline-wrapper">
+
+
+
+
+            <!-- Display date status (overdue, due today, upcoming) -->
+            {#if task.due_date}
+                {@const daysUntilDue = Math.ceil((task.due_date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                {#if daysUntilDue < 0}
+                    <span class="date-status overdue">Hold {Math.abs(daysUntilDue)} days</span>
+                {:else if daysUntilDue === 0}
+                    <span class="date-status due-today">Due today</span>
+                {:else if daysUntilDue <= 30}
+                    <span class="date-status upcoming">Review in {daysUntilDue} {daysUntilDue === 1 ? 'day' : 'days'}</span>
+                {/if}
+            {/if}
+                {#if task.due_date}
+                <div class="timeline">
+                    <span 
+                        class="date-part"
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
+                        title="Scroll to change day (hold Shift for precision)"
+                    >{task.due_date.getDate()}</span>
+                    <span 
+                        class="month-part"
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
+                        title="Scroll to change month (hold Shift for precision)"
+                    >{task.due_date.toLocaleString('default', { month: 'short' })}</span>
+                    <span 
+                        class="year-part"
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'year', task, 'due_date')}
+                        title="Scroll to change year (hold Shift for precision)"
+                    >{task.due_date.getFullYear()}</span>
+                </div>
+            {/if}
+            </span>
+        </span>
+{/if}
+                            
+                            {#if task.attachments && task.attachments.length > 0}
+                                <div class="attachment-indicator">
+                                    📎 {task.attachments.length}
+                                </div>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </div>
+    {/each}
+</div>
+
 
 
 </div>
@@ -1235,6 +2087,21 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
                     </h1>
                 {/if}
             </div>
+            
+            <!-- Add Assignment Section after title - only if we have a valid project context -->
+            {#if hasProjectContext}
+              <div class="assignment-section">
+                  <p>Assigned to:</p>
+                  <AssignButton 
+                      taskId={selectedTask.id} 
+                      assignedTo={selectedTask.assignedTo || ''} 
+                      projectId={selectedTask.project_id || currentProjectId}
+                      on:assigned={(e) => handleTaskAssigned(e.detail)} 
+                      on:unassigned={() => handleTaskUnassigned(selectedTask.id)}
+                  />
+              </div>
+            {/if}
+            
             {#if hasSubtasks(selectedTask.id)}
             <div class="subtasks-section" on:click={() => showSubtasks = !showSubtasks}>
                 <div class="section-header">
@@ -1275,6 +2142,19 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             {/if}
             
             </div>
+                    <span 
+            class="priority-flag modal {selectedTask.priority}"
+            on:click={(e) => togglePriority(selectedTask, e)}
+            title="Click to change priority"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            <span class="priority-name">
+                {selectedTask.priority}
+            </span>
+        </span>
             <div class="start-section">
                 <span class="timer">
                     <p>Start:</p>
@@ -1387,6 +2267,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         </div>
     </div>
 {/if}
+
+
 {#if isDeleteConfirmOpen}
     <div class="confirm-delete-overlay">
         <div class="confirm-delete-modal">
@@ -1412,6 +2294,30 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
       /* font-family: 'Montserrat'; */
       /* color: var(--text-color); */
       font-family: var(--font-family);
+    }
+
+    :root {
+        --color-backlog: var(--primary-color);
+        --color-todo:  red;    
+        --color-inprogress:orange;  
+        --color-review: yellow;
+        --color-done:  green;     
+        --color-hold: #f3e5f5;        
+        --color-postpone: #ede7f6;   
+        --color-delegate: #1389bf;    
+        --color-cancel: var(--primary-color);      
+        --color-archive: var(--placeholder-color);    
+
+        
+        --column-expanded-width: 400px;
+        }
+
+    .kanban-container {
+        display: flex;
+        flex-direction: row;
+        transition: all 0.2s ease;
+        height: auto;
+        margin-left: 0rem !important;
     }
     p {
         font-size: 1.1rem;
@@ -1451,7 +2357,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
  
     .global-input-container {
-        width: calc(50% - 1rem);
+        width: auto;
+        height: 2rem !important;
         padding: 0;
         margin: 0;
         margin-left: 50%;
@@ -1468,10 +2375,9 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             align-items: center;
             text-align: left;
             height: auto;
-            padding: 0 0.5rem;
             margin: 0;
-            line-height: 2;
-            font-size: 1rem;
+            font-size: 0.9rem;
+            height: 2rem !important;
             overflow-y: hidden;
         }
 
@@ -1481,16 +2387,61 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         position: fixed;
     }
 
+
+
     .global-task-input {
-        width: 4rem;
+        width: auto;
         height: 2rem !important;
         display: flex;
         justify-content: center;
         align-items: center;
         border-radius: 2rem;
         font-size: 1.2rem;
+        margin-left: 0.5rem;
         background: var(--secondary-color);
-        textarea {
+        border-color: 1px solid var(--line-color);
+        transition: all 0.2s ease;
+        & span {
+            color: var(--placeholder-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+                            transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+        }
+
+        & textarea {
+            display: none;
+            height: 2rem !important;
+            padding: 0 ;
+            line-height:2.5;
+            padding-inline-start: 0.5rem;
+                            transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+        }
+        &:hover {
+            padding: 0.5rem;
+            & span {
+                display: none;
+            }
+& textarea {
+  display: flex;
+  transition: all 0.2s ease;
+  width: 400px;
+  margin-top: 2rem;
+  border-radius: 1rem;
+  height: 4rem !important;
+  resize: vertical;   
+  overflow-y: auto;   
+  overflow-x: hidden; 
+  white-space: pre-wrap; 
+  word-wrap: break-word;
+  line-height: 1;
+  z-index: 1;
+  padding: 0;
+  padding-inline-start: 1rem;
+  padding-top: 0.5rem;
+}
         }
     }
     
@@ -1503,18 +2454,21 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     .kanban-board {
         display: flex;
         flex-direction: row;
+        justify-content: stretch;
+        align-items: stretch;
         gap: 0.5rem;
         overflow-x: auto; 
+        overflow-y: scroll;
         scrollbar-width: thin;
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
-        height: 92vh;
-        width: calc(100% - 3rem);
-        backdrop-filter: blur(20px);
-        padding: 1rem;
+        width: 100%;
+        height: 95%;
+        margin-left: 2rem;
+        // backdrop-filter: blur(20px);
         border-radius: 2rem;
-        border: 1px solid var(--line-color);
+        // border: 1px solid var(--line-color);
         transition: all 0.3s ease;
 
     }
@@ -1524,12 +2478,13 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         flex: 0 0 auto;
         display: flex;        
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         width: calc(25%);
         transition: all 0.3s ease;
         // border: 1px solid var(--secondary-color);
-        border-radius: 1rem;
+        border-radius: 2rem;
         transition: all 0.3s ease;
+        height: 100vh;
 
         &:hover {
             // border: 1px solid var(--secondary-color);
@@ -1537,6 +2492,157 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         }
 
     }
+    .column-title {
+        padding: 0.5rem;
+        line-height: 2;
+        border-bottom: 1px solid var(--line-color) !important;
+        font-size: 0.8rem;
+        text-align: center;
+        letter-spacing: 0.2rem;
+        width: calc(100% - 2rem);
+
+        margin-top: 0;
+        margin-bottom: 0.25rem;
+
+    }
+
+
+        .column-backlog,
+    .column-todo,
+    .column-inprogress,
+    .column-done,
+    .column-review,
+    .column-hold,
+    .column-postpone,
+
+    .column-delegate,
+        .column-cancel,
+
+     .column-archive {
+
+
+        width: auto;
+    }
+
+.task-card.status-backlog {
+  border: 1px solid  var(--color-backlog);
+}
+.task-card.status-todo {
+//   border: 1px solid var(--color-todo);
+    box-shadow: 1px 1px 1px 0px var(--color-todo);
+
+}
+.task-card.status-inprogress {
+    box-shadow: 1px 1px 1px 0px var(--color-inprogress);
+}
+.task-card.status-review {
+    box-shadow: 1px 1px 1px 0px var(--color-review);
+}
+.task-card.status-done {
+    box-shadow: 1px 1px 1px 0px var(--color-done);
+}
+.task-card.status-hold {
+    box-shadow: 1px 1px 1px 0px var(--color-hold);
+}
+.task-card.status-postpone {
+    box-shadow: 1px 1px 1px 0px var(--color-postpone);
+}
+.task-card.status-delegate {
+    box-shadow: 1px 1px 1px 0px var(--color-delegate);
+}
+.task-card.status-cancel {
+    box-shadow: 1px 1px 1px 0px var(--color-cancel);
+}
+.task-card.status-archive {
+    box-shadow: 1px 1px 1px 0px var(--color-archive);
+}
+
+.active-backlog {
+  box-shadow: inset 0 -3px 0 var(--color-backlog);
+}
+.active-todo {
+  box-shadow: inset 0 -3px 0 var(--color-todo);
+}
+.active-inprogress {
+  box-shadow: inset 0 -3px 0 var(--color-inprogress);
+}
+.active-review {
+  box-shadow: inset 0 -3px 0 var(--color-review);
+}
+.active-done {
+  box-shadow: inset 0 -3px 0 var(--color-done);
+}
+.active-hold {
+  box-shadow: inset 0 -3px 0 var(--color-hold);
+}
+.active-postpone {
+  box-shadow: inset 0 -3px 0 var(--color-postpone);
+}
+.active-delegate {
+  box-shadow: inset 0 -3px 0 var(--color-delegate);
+}
+.active-cancel {
+  box-shadow: inset 0 -3px 0 var(--color-cancel);
+}
+.active-archive {
+  box-shadow: inset 0 -3px 0 var(--color-archive);
+}
+
+.kanban-column.expanded[class*="column-"] {
+  flex: 0 0 var(--column-expanded-width);
+}
+// .kanban-column.column-cancel:has(.column-header.active-cancel) {
+//   flex: 0 0 400px;
+// }
+// .kanban-column.column-archived:has(.column-header.active-archived) {
+//   flex: 0 0 400px;
+// }
+
+// .kanban-column.column-backlog {
+//   background-color: var(--color-backlog);
+// }
+// .kanban-column.column-todo {
+//   background-color: var(--color-todo);
+// }
+// .kanban-column.column-inprogress {
+//   background-color: var(--color-inprogress);
+// }
+// .kanban-column.column-review {
+//   background-color: var(--color-review);
+// }
+// .kanban-column.column-done {
+//   background-color: var(--color-done);
+// }
+// .kanban-column.column-hold {
+//   background-color: var(--color-hold);
+// }
+// .kanban-column.column-postpone {
+//   background-color: var(--color-postpone);
+// }
+// .kanban-column.column-delegate {
+//   background-color: var(--color-delegate);
+// }
+// .kanban-column.column-cancel {
+//   background-color: var(--color-cancel);
+// }
+// .kanban-column.column-archive {
+//   background-color: var(--color-archive);
+// }
+
+
+
+.kanban-column.collapsed.column-backlog,
+.kanban-column.collapsed.column-todo,
+.kanban-column.collapsed.column-inprogress,
+.kanban-column.collapsed.column-review,
+.kanban-column.collapsed.column-done,
+.kanban-column.collapsed.column-hold,
+.kanban-column.collapsed.column-postpone,
+.kanban-column.collapsed.column-delegate,
+.kanban-column.collapsed.column-cancel,
+.kanban-column.collapsed.column-archive {
+    display: none;
+}
 
 
     .kanban-column button {
@@ -1559,20 +2665,27 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         }
     }
 
+    input.search-input {
+        background-color: var(--primary-color) !important;
+        border-radius: 1rem;
+        width: auto;
+        outline: none;
+        border: 1px solid var(--line-color);
+
+    }
+
     textarea {
         width: 100%;
-        padding: 0.5rem;
+        // padding: 0.5rem;
         align-items: center;
         justify-content: center;
-        margin-bottom: 0.5rem;
         border-radius: 1rem;
         border: 1px solid var(--line-color);
         background-color: var(--secondary-color);
         resize:none;
         color: var(--text-color);
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-        height: auto;
-        font-size: 1.1em;
+        // font-size: 1.1em;
 
         &.selected {
             background-color: var(--line-color);
@@ -1581,15 +2694,21 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     textarea:hover {
         /* border: 1px solid #7cb87e; */
-        transform: scale(0.99);
+        // transform: scale(0.99);
     }
 
     .task-list {
         min-height: 100px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
+        height: 100%;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        padding: 0 0.5rem;
+        border-radius: 2rem;
+        // border: 1px solid var(--secondary-color);
 
 
 
@@ -1688,30 +2807,67 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         border-radius: 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
+        display: flex;
+        flex-direction: column;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
-        width: calc(100% - 1rem);
+        height: auto;
+        width: 100%;
         word-break: break-all;
         transition: all 0.3s ease;
-    }
 
+        & h4 {
+            max-height: 5rem;
+            overflow: hidden;
+        }
+    }
+    .task-card:active {
+    cursor: grabbing;
+        background: transparent;
+
+}
+.toggle-btn.drag-hover {
+    cursor: copy !important;
+}
+.task-card.dragging {
+    cursor: grabbing !important;
+    opacity: 0.5;
+}
+
+.toggle-btn.toggle-backlog.drag-hover, 
+.toggle-btn.toggle-todo.drag-hover, 
+.toggle-btn.toggle-inprogress.drag-hover, 
+.toggle-btn.toggle-review.drag-hover, 
+.toggle-btn.toggle-done.drag-hover, 
+.toggle-btn.toggle-hold.drag-hover, 
+.toggle-btn.toggle-postpone.drag-hover, 
+.toggle-btn.toggle-delegate.drag-hover, 
+.toggle-btn.toggle-cancel.drag-hover {
+    background: var(--tertiary-color);
+}
+.toggle-btn.toggle-archive.drag-hover {
+    background-color: #dc3545;
+    z-index: 2000;
+}
     .task-card:hover {
-        transform: scale(1.05) translateX(0) rotate(1deg);    
+        // transform: scale(1.05) translateX(0) rotate(0deg);    
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-        border: 1px solid var(--line-color);
+        padding: 0.5rem 0;
         z-index: 1;
+        cursor: grap;
         & h4 {
 
         }
         &.description {
             overflow: visible !important;
-            padding: 1rem;
-            max-height: auto !important;
+            padding: 0.5rem;
         }
 
         p.description {
             display: flex;
-            height: 100% !important;
+            height: auto !important;
+            max-height: 30px !important;
+
 
         }
     }
@@ -1742,23 +2898,28 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     .tag-list {
         display: flex;
         flex-direction: row;
+        justify-content: flex-end;
         flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0 0.5rem;
-        width: 2rem !important;
         transition: all 0.3s ease;
+        color: var(--placeholder-color);
         opacity: 1;
 
         &:hover {
             padding: 0.5rem;
             border-radius: 1rem;
-            position: absolute;
-            width: 100% !important;
+            position: relative;
+            width: calc(100% - 1rem) !important;
             background-color: var(--primary-color);
             backdrop-filter: blur(10px);
 
             & .tag-card {
                 display: flex;
+            }
+            & .tag-card.unselected {
+                opacity: 0.4;
+                border: 1px solid #ccc;
             }
 
         }
@@ -1808,8 +2969,9 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         left: 0;
         // border-top: 1px solid var(--line-color);
         gap: 0.5rem;
-        padding: 0.25rem 0rem;
+        // padding: 0.25rem 0rem;
         margin: 0;
+        margin-top: 0.5rem;
         width: 100%;
         font-size: 0.8rem;
         transition: all 0.3s ease;
@@ -1850,23 +3012,84 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     .timeline-container {
         transition: all 0.3s ease;
-
-        & p.timeline {
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-end;
+        gap: 0.25rem;
+        padding: 0.5rem !important;
+        width: auto;
+        & span {
+            display: flex;
+            flex-direction: row;
+        }
+        & .timeline {
             display: none;
         }
-        &:hover {
+        
+        & .timeline-wrapper {
+            display: flex;
+            margin-left: 1rem;
             flex-direction: column;
-            padding: 0.25rem 1.5rem;
+            justify-content: flex-end;
+            border-radius: 1rem;
+            width:auto;
+            padding: 0;
+            transition: all 0.2s ease;
+            &:hover {
+                background-color: var(--primary-color);
+                padding: 0.5rem;
+                flex-grow: 1;
+                           span {
+                width: 100% !important;
+            }
+                            & .date-part {
+                font-size: 2rem !important;
+            }
 
-            & p.timeline {
+            & .timeline {
                 position: relative;
                 align-items: center;
                 display: flex;
                 justify-content: center;
-                width: 8rem;
+                flex-direction: row;
+                // width: 8rem;
                 display: flex;
-                font-size: 0.7rem;
+
+                font-size: 1rem;
+                background-color: row;
             }
+
+            }
+        }
+        span.date-status.upcoming,
+        span.date-status.overdue,
+        span.date-status.due-today {
+            padding: 0 !important;
+            margin: 0 !important;
+            display: flex;
+            font-size: 0.7rem !important;
+            justify-content: flex-end;
+            letter-spacing: 0;
+            color: var(--line-color);
+
+        }
+        &:hover {
+            flex-direction: row;
+            width: calc(100% - 2rem);
+            margin-left: 1rem;
+            padding: 0;
+ 
+            span.date-status.upcoming,
+            span.date-status.overdue,
+            span.date-status.due-today {
+            padding: 0 !important;
+            margin: 0 !important;
+            display: flex;
+            font-size: 0.9rem !important;
+            letter-spacing: 0;
+            }
+
+        
         }
     }
 
@@ -1882,7 +3105,40 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     // left: 0;
     // bottom: 0;
     }
+.timeline-container .date-part,
+.timeline-container .month-part,
+.timeline-container .year-part {
+    cursor: ns-resize;
+    // padding: 0.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+        text-align: center;
+        display: flex;
+        justify-content: center;
 
+}
+
+.timeline-container .date-part:hover,
+.timeline-container .month-part:hover,
+.timeline-container .year-part:hover {
+        background-color: var(--tertiary-color) ;
+        // padding: 0.5rem;
+}
+
+.timeline-container .date-part {
+    min-width: 24px;
+    text-align: center;
+}
+
+.timeline-container .month-part {
+    min-width: 36px;
+    text-align: center;
+}
+
+.timeline-container .year-part {
+    min-width: 40px;
+    text-align: center;
+}
     .deadline.selected {
         color: var(--text-color);
         box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
@@ -2154,19 +3410,45 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     }
 
+    .priority-flag.modal {
+        display: flex;
+        width: auto !important;
+        padding: 0;
+    & .priority-name {
+        display: flex;
+        flex-direction: flex-start;
+        align-items: center;
+    }
+    &:hover {
+            padding: 0.5rem;
+            border-radius: 1rem;
+            position: relative;
+            width: auto !important;
+            justify-content: center;
+            background-color: var(--primary-color);
+            backdrop-filter: none;
+
+        & .priority-name {
+            display: flex;
+        }
+    }
+
     .priority-flag {
     display: inline-flex;
     align-items: center;
+    user-select: none;
     gap: 0.5rem;
     border-radius: 0.5rem;
     font-size: 0.6rem;
     letter-spacing: 0.1rem;
+                user-select: none;
+
     & .priority-name {
         display: none;
+
     }
-    &:hover {
         &:hover {
-            padding: 0.5rem;
+            padding: 1rem;
             border-radius: 1rem;
             position: absolute;
             width: 100% !important;
@@ -2176,30 +3458,50 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
         & .priority-name {
             display: flex;
+            user-select: none;
+
         }
     }
 }
   }
-  
+    .priority-flag.low,
+  .priority-flag.medium,
+  .priority-flag.high {
+    & span {
+        display: none;
+    }
+    &:hover {
+        & span {
+            display: flex;
+            user-select: none;
+
+        }
+    }
+}
+
   .priority-flag.high {
     color: #e53935;
     background-color: rgba(229, 57, 53, 0.1);
+
   }
   
   .priority-flag.medium {
     color: #fb8c00;
     background-color: rgba(251, 140, 0, 0.1);
+
   }
   
   .priority-flag.low {
     color: #43a047;
     background-color: rgba(67, 160, 71, 0.1);
+
   }
     .task-badge {
         display: flex;
         width: auto;
     color: var(--tertiary-color);
     padding: 0 0.5rem;
+    margin: 0;
 
     font-size: 0.75rem;
         
@@ -2343,7 +3645,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     display: flex;
     align-items: center;
     background-color: var(--color-bg-secondary);
-
+    gap: 0.5rem;
 }
 
 
@@ -2354,8 +3656,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 
     background-color: transparent;
     border: 1px solid var(--color-border);
-    border-radius: 4px;
-    margin-right: 8px;
+    border-radius: 0.5rem;
     cursor: pointer;
     transition: all 0.2s ease;
     color: var(--placeholder-color);
@@ -2368,9 +3669,106 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
 }
 
 .view-controls button.active {
-    background-color: var(--color-primary);
+    background-color: var(--primary-color);
     color: var(--tertiary-color);
-    border-color: var(--color-primary);
+    // border-color: var(--color-primary);
+}
+
+
+
+.priority-toggle.high {
+    color: #dc3545;
+}
+
+.priority-toggle.medium {
+    color: #fd7e14;
+}
+
+.priority-toggle.low {
+    color: #28a745;
+}
+
+.column-view-controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    font-size: 0.5rem !important;
+    margin-right: 0.5rem;
+    gap: 0.5rem;
+
+}
+
+.count-badge {
+    background:var(--secondary-color);
+    border-radius: 12px;
+    padding: 0.25rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.7rem;
+}
+.toggle-btn {
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  font-weight: 500;
+  font-size: 0.7rem;
+  width: auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &.columns {
+    display: flex;
+    flex-direction: row;
+  transition: all 0.2s ease;
+
+    & .toggle-icon {
+        color: var(--text-color);
+        opacity: 0.5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 2rem;
+    }
+    opacity: 0.5;
+    & .toggle-label {
+        display: flex;
+    }
+    &.active {
+        opacity: 1;
+    }
+  }
+  span {
+    margin: 0;
+    text-align: left;
+    width: 100%;
+  }
+  &:hover {
+    width: auto;
+    transform: translateX(1rem);
+    letter-spacing: 0.1rem;
+  }
+}
+
+.toggle-btn.active-backlog,
+.toggle-btn.active-todo,
+.toggle-btn.active-inprogress,
+.toggle-btn.active-review,
+.toggle-btn.active-done,
+.toggle-btn.active-hold,
+.toggle-btn.active-postpone,
+.toggle-btn.active-delegate,
+.toggle-btn.active-cancel,
+.toggle-btn.active-archive {
+//   transform: translateY(2px);
+//   box-shadow: 0 0 0 1x white inset;
+  border-radius: 0.5rem;
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1rem;
+  background: var(--primary-color);
+  
 }
 .tooltip-container {
     position: absolute;
@@ -2411,6 +3809,107 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     border-color: var(--primary-color) transparent transparent transparent;
 }
 
+ .assignment-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line-color);
+  }
+  
+  .assignment-section p {
+    min-width: 100px;
+    font-weight: 500;
+  }
+
+  .filter-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.375rem;
+        border: 1px solid var(--line-color);
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-toggle.active {
+        background-color: var(--bg-color);
+        border: 1px solid var(--line-color);
+        border-radius: 0;
+        border-top-left-radius: 0.5rem;
+        border-bottom-left-radius: 0.5rem;
+        color: var(--primary-color);
+        border-right: none;
+    }
+    
+    .tag-filter-container {
+        width: auto;
+        background-color: var(--bg-color);
+        border-radius: 0.5rem;
+        margin-right: 0.5rem;
+    }
+    
+    .tag-filter-options {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    
+    .match-options {
+        display: flex;
+        align-items: center;
+        background-color: red;
+        width: auto;
+        display: none;
+    }
+    
+    .toggle-label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: var(--text-color);
+    }
+    
+    .toggle-label input {
+        margin-right: 0.5rem;
+    }
+    
+    .active-filters {
+        margin-top: 0.75rem;
+        border-top: 1px dashed var(--line-color);
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .filter-label {
+        font-size: 0.75rem;
+        color: var(--placeholder-color);
+    }
+    
+    .filter-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .filter-tag {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        color: white;
+        font-weight: 500;
+    }
+
 @keyframes flash {
     0% { background-color: var(--color-bg); }
     50% { background-color: var(--color-highlight); }
@@ -2438,42 +3937,167 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             overflow-x: hidden;
         }
 
-        .view-controls {
-            padding: 0;
-            margin: 0;
-        }
-        .view-controls button {
-            display: flex;
-            flex-direction: row;
-            padding: 0.5rem;
-            background-color: transparent;
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
-            margin-right: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--placeholder-color);
-            &:hover {
-                background: var(--secondary-color);
-            }
-        }
+        // .view-controls {
+        //     padding: 0;
+        //     margin: 0;
+        // }
+        // .view-controls button {
+        //     display: flex;
+        //     flex-direction: row;
+        //     padding: 0.5rem;
+        //     background-color: transparent;
+        //     border: 1px solid var(--color-border);
+        //     border-radius: 4px;
+        //     cursor: pointer;
+        //     transition: all 0.2s ease;
+        //     color: var(--placeholder-color);
+        //     &:hover {
+        //         background: var(--secondary-color);
+        //     }
+        // }
 
-        .view-controls button.active {
-            background-color: var(--color-primary);
-            color: var(--tertiary-color);
-            border-color: var(--color-primary);
-        }
+        // .view-controls button.active {
+        //     background-color: var(--color-primary);
+        //     color: var(--tertiary-color);
+        //     border-color: var(--color-primary);
+        // }
 
-        .task-list {
-        min-height: 100px;
+    .kanban-container {
         display: flex;
         flex-direction: row;
-        flex-wrap: wrap;
+        transition: all 0.2s ease;
+        height: auto;
+    }
+
+            .kanban-column {
+        border-radius: 5px;
+        flex: 0 0 auto;
+        display: flex;        
+        flex-direction: column;
+        justify-content: center;
+        width: 100%;
+        transition: all 0.3s ease;
+        // border: 1px solid var(--secondary-color);
+        border-radius: 1rem;
+        transition: all 0.3s ease;
+
+        &:hover {
+            // border: 1px solid var(--secondary-color);
+            background: var(--secondary-color);
+        }
+
+    }
+
+        .kanban-column.expanded.column-backlog { flex: 0 0 150px; }
+.kanban-column.expanded.column-todo { flex: 0 0 150px; }
+.kanban-column.expanded.column-inprogress { flex: 0 0 150px; }
+.kanban-column.expanded.column-review { flex: 0 0 150px; }
+.kanban-column.expanded.column-done { flex: 0 0 150px; }
+.kanban-column.expanded.column-hold { flex: 0 0 150px; }
+.kanban-column.expanded.column-postpone { flex: 0 0 150px; }
+.kanban-column.expanded.column-delegate { flex: 0 0 150px; }
+.kanban-column.expanded.column-cancel { flex: 0 0 150px; }
+.kanban-column.expanded.column-archive { flex: 0 0 150px; }
+.kanban-column.column-cancel:has(.column-header.active-cancel) {
+  flex: 0 0 150px;
+}
+
+
+
+
+.kanban-column {
+    height: 100px !important;
+}
+
+.column-title {
+      position: absolute;
+      font-size: 1rem;
+      padding-inline-start: 0.5rem;
+      display: none;
+
+}
+.toggle-btn {
+    width: auto;
+    &:hover {
+        transform: none;
+        padding: 0.5rem;
+        width: auto;
+        transform:rotateY(30deg);
+        box-shadow: 0px 1px 100px 1px rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.2rem;
+    }
+}
+        .task-list {
+            height: auto;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
         justify-content: stretch;
         align-items: stretch;
+        overflow-y: hidden;
+        overflow-x: auto;
         gap: 0.5rem;
+        margin-top: 0.5rem !important;
+        width: 100% !important;
 
 
+    }
+
+.task-card {
+    background: var(--secondary-color);
+    border-radius: 1rem;
+    margin-bottom: 0.5rem;
+    cursor: move;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+    position: relative;
+    flex: 1 1 280px;
+    min-width: 280px;          
+    max-width: calc(33.33% - 0.5rem); 
+    word-break: break-word;    
+    transition: all 0.3s ease;
+    &:hover {
+        & .description-display {
+            display: none;
+        }
+        & p.description-display {
+            display: none;
+        }
+    
+    }
+    
+}
+    .task-card:hover {
+        transform: translateX(0) translateY(0);
+        padding: 0;
+        // transform: scale(1.05) translateX(0) rotate(2deg);    
+        box-shadow: none;
+        // box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+        // border: 1px solid var(--line-color);
+        border: 1px solid transparent;
+        z-index: 1;
+        & h4 {
+
+        }
+        &.description {
+            overflow: visible !important;
+            padding: 1rem;
+            max-height: auto !important;
+        }
+
+        p.description {
+            display: none;
+            height: 100% !important;
+
+        }
+    }
+    .task-creator {
+    }
+
+    .task-card:active {
+        transform: rotate(-3deg);
     }
 
         .title-section,
@@ -2613,7 +4237,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             justify-content: flex-start;
             overflow-y: scroll;
             overflow-x: hidden;
-            width: auto;
+            width: 100%;
             margin-right: 2rem;
             height: 90vh;
             border-radius: 2rem;
@@ -2622,30 +4246,22 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             margin: 0;
         }
         .kanban-column {
-            width: 100%;
-            max-width: none;
+            max-width: 100%;
             display: flex;
             flex-direction: column;
-            border: 1px solid var(--secondary-color);
-            background: var(--primary-color);
         }
 
-        // .timer-controls {
-        //     flex-direction: column;
-        // }
 
-        // .timer-controls input[type="date"],
-        // .timer-controls button {
-        //     width: 100%;
-        // }
+
+
     }
+
     @media (max-width: 768px) {
         .global-input-container {
                 justify-content: flex-start;
                 align-items: center;
                 width: 100%;
                 margin: 0;
-                gap: 1rem;
             }
         .global-task-input:focus {
             outline: none;
@@ -2654,6 +4270,14 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
             border-color: var(--tertiary-color);
             box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
         }
+
+            .kanban-container {
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s ease;
+            height: auto;
+        }
+
         .view-controls {
             gap: 1rem;
         }
@@ -2665,7 +4289,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         border-radius: 1rem;
         margin-bottom: 0.5rem;
         cursor: move;
-        max-width: 250px;
+        width: 250px;
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         position: relative;
         width: auto;
@@ -2674,7 +4298,8 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 
     .task-card:hover {
-        transform: scale(1.05) translateX(0) rotate(2deg);    
+        transform: translateX(1rem);
+        // transform: scale(1.05) translateX(0) rotate(2deg);    
         box-shadow: none;
         // box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
         // border: 1px solid var(--line-color);
@@ -2699,7 +4324,19 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     .task-card:active {
         transform: rotate(-1deg);
     }
+.column-view-controls {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-start;
+    height: auto;
+    flex-wrap: wrap;
+    width: auto !important;
+    font-size: 0.5rem !important;
+    bottom: 0;
+    
 
+}
 
     h4 {
         font-size: 0.9rem;
@@ -2710,20 +4347,46 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
     @media (max-width: 450px) {
         
-        .global-input-container {
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            margin: 0;
+        .kanban-container {
+            flex-direction: column;
         }
+
+.column-view-controls {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-start;
+    position: absolute;
+    z-index: 2000;
+    height: auto;
+    width: auto !important;
+    font-size: 0.5rem !important;
+    bottom: 0;
+    
+
+}
+
+        .global-input-container {
+            position: fixed;
+            bottom: 4rem;
+        }
+
         .global-task-input {
             position: fixed;
             background: var(--primary-color);
-            bottom: 1.2rem;
+            bottom: 1rem;
             right: 1rem;
-            left: 6rem;
+            left: 4rem;
             width: auto;
             z-index: 1;
+            & span {
+                display: none;
+            }
+
+            & textarea {
+                display: flex;
+                background-color: var(--secondary-color);
+            }
 
         }
         .global-task-input:focus {
@@ -2744,6 +4407,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
         .kanban-board {
             height: 80vh !important;
         }
+
 
 
     }

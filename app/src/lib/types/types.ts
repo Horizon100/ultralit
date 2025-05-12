@@ -32,6 +32,20 @@ export interface User extends RecordModel {
 	prompt_preference?: string;
 	sysprompt_preference?: string;
 	model_preference?: string[];
+	taskAssignments: string[];
+	projects: string[];
+	userTaskStatus: {
+		backlog: number;
+		todo: number;
+		focus: number;
+		done: number;
+		hold: number;
+		postpone: number;
+		cancel: number;
+		review: number;
+		delegate: number;
+		archive: number;
+	};
 }
 export interface Prompt {
 	value: PromptType;
@@ -265,12 +279,12 @@ export interface Task extends RecordModel {
 	status:
 		| 'backlog'
 		| 'todo'
-		| 'focus'
+		| 'inprogress'
+		| 'review'
 		| 'done'
 		| 'hold'
 		| 'postpone'
 		| 'cancel'
-		| 'review'
 		| 'delegate'
 		| 'archive';
 	priority: 'high' | 'medium' | 'low';
@@ -286,6 +300,7 @@ export interface Task extends RecordModel {
 	attachments: string;
 	taskDescription: string;
 	taskTags: string[];
+	assignedTo: string;
 	created: string;
 	updated: string;
 }
@@ -613,6 +628,9 @@ export interface KanbanTask {
         task_id: string;
     }[];
     agentMessages?: string[];
+	assignedTo?: string;
+	_scrollAccumulation?: { day: number; month: number; year: number };
+    _updateTimeout?: number;
 }
 
 export interface KanbanAttachment {

@@ -421,7 +421,9 @@ export default {
 		googleAuth: "Google",
 		update: "Update",
 		upload: "Upload",
-
+	},
+	button: {
+		tags: 'Tags'
 	},
 	thinkingPhrases: [
 		'Consulting my digital crystal ball...',

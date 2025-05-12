@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fly, fade, slide } from 'svelte/transition';
-    import { Bot, MessagesSquare, RefreshCcw, Send, ChevronDown } from 'lucide-svelte';
+    import { Bot, MessagesSquare, RefreshCcw, Send, ChevronDown, ChevronUp } from 'lucide-svelte';
     import Reactions from '$lib/components/common/chat/Reactions.svelte';
     import type { InternalChatMessage } from '$lib/types/types';
     import { createEventDispatcher } from 'svelte';
@@ -46,12 +46,14 @@
     export let isPrimaryDualResponse = false;
     export let onSelectResponse: ((messageId: string) => void) | null = null;
     let currentProjectId: string | null;
-    let showScrollButton = false;
     let isUserScrolling = false;
     let lastScrollTop = 0;
     let userScrollY = 0;
     let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+    let showScrollButtons = false;
+    let currentMessageIndex = 0;
     $: currentProjectId = $projectStore.currentProjectId;    
+    $: isClickable = $showThreadList && childReplies.length > 0;
 
     const dispatch = createEventDispatcher();
     
@@ -64,8 +66,11 @@
     let showReplyInput = false;
     let replyText = '';
     let isSubmitting = false;
-   let showTaskTooltip = false;
+    let showTaskTooltip = false;
     let taskTooltipText = '';
+    let wheelDelta = 0;
+    let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
+    const WHEEL_THRESHOLD = 100; 
     function handleToggleReplies(messageId: string) {
         if (hiddenReplies.has(messageId)) {
             hiddenReplies.delete(messageId);
@@ -74,26 +79,7 @@
         }
         hiddenReplies = new Set(hiddenReplies); 
     }
-    function scrollToBottom() {
-  console.log('Scroll button clicked in RecursiveMessage');
-  
-  // Find the main chat container (could be a parent element)
-  const chatContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
-  
-  if (chatContainer) {
-    // Use smooth scrolling for better UX
-    chatContainer.scrollTo({
-      top: chatContainer.scrollHeight,
-      behavior: 'smooth'
-    });
-    
-    // Reset state
-    showScrollButton = false;
-    isUserScrolling = false;
-  } else {
-    console.log('Scrollable container not found');
-  }
-}
+ 
 
 // Add this helper function
 function findScrollableParent(element: Element | null): HTMLElement | null {
@@ -113,51 +99,9 @@ function findScrollableParent(element: Element | null): HTMLElement | null {
     parent = parent.parentElement;
   }
   
-  // If no scrollable parent found, use document.documentElement as fallback
   return document.documentElement;
 }
 
-// Add this to handle scroll events - this should be connected to the parent scroll container
-// You can call this from an onMount lifecycle hook
-function setupScrollHandler() {
-  const scrollContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
-  
-  if (scrollContainer) {
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      
-      // Distance from bottom
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      
-      // Show button when not at bottom
-      showScrollButton = distanceFromBottom > 50;
-      
-      // Track user scrolling state
-      if (scrollTop > lastScrollTop) {
-        // Scrolling down
-        if (distanceFromBottom < 20) {
-          isUserScrolling = false;
-        }
-      } else if (scrollTop < lastScrollTop) {
-        // Scrolling up
-        isUserScrolling = true;
-      }
-      
-      lastScrollTop = scrollTop;
-    };
-    
-    // Initial check
-    handleScroll();
-    
-    // Add event listener
-    scrollContainer.addEventListener('scroll', handleScroll);
-    
-    // Clean up on destroy
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-    };
-  }
-}
 
 
     function handleReply() {
@@ -654,6 +598,155 @@ async function handleSelectResponse(event) {
             cancelReply();
         }
     }
+function getVisibleMessages() {
+  const scrollContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
+  if (!scrollContainer) return [];
+  
+  // Get only depth-0 messages (top-level messages)
+  const messageElements = Array.from(scrollContainer.querySelectorAll('[data-message-id]'))
+    .filter((el) => {
+      const rect = el.getBoundingClientRect();
+      // Check if element has depth-0 class and is visible
+      return rect.height > 0 && el.classList.contains('depth-0');
+    });
+  
+  return messageElements;
+}
+// Function to find current message index
+function findCurrentMessageIndex() {
+  const visibleMessages = getVisibleMessages();
+  const scrollContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
+  
+  if (!scrollContainer || visibleMessages.length === 0) return 0;
+  
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const containerCenter = containerRect.top + containerRect.height / 2;
+  
+  let closestIndex = 0;
+  let closestDistance = Infinity;
+  
+  visibleMessages.forEach((msgEl, index) => {
+    const rect = msgEl.getBoundingClientRect();
+    const messageCenter = rect.top + rect.height / 2;
+    const distance = Math.abs(messageCenter - containerCenter);
+    
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+  
+  return closestIndex;
+}
+
+// Function to scroll to specific message
+function scrollToMessage(direction: 'next' | 'prev') {
+  const visibleMessages = getVisibleMessages();
+  
+  if (visibleMessages.length === 0) return;
+  
+  const newIndex = direction === 'next' 
+    ? Math.min(currentMessageIndex + 1, visibleMessages.length - 1)
+    : Math.max(currentMessageIndex - 1, 0);
+  
+  const targetMessage = visibleMessages[newIndex];
+  
+  if (targetMessage) {
+    targetMessage.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    });
+    
+    currentMessageIndex = newIndex;
+    
+    // Add highlight effect
+    targetMessage.classList.add('scroll-highlight');
+    setTimeout(() => {
+      targetMessage.classList.remove('scroll-highlight');
+    }, 1500);
+  }
+}
+function setupScrollHandler() {
+  const scrollContainer = findScrollableParent(document.querySelector(`[data-message-id="${message.id}"]`));
+  
+  if (scrollContainer) {
+    const handleScroll = () => {
+      const { scrollTop } = scrollContainer;
+      
+      // Update current message index
+      currentMessageIndex = findCurrentMessageIndex();
+      
+      // Show buttons only when message is not clickable
+      showScrollButtons = !isClickable;
+      
+      // Track user scrolling state
+      if (scrollTop > lastScrollTop) {
+        isUserScrolling = true;
+      } else if (scrollTop < lastScrollTop) {
+        isUserScrolling = true;
+      }
+      
+      lastScrollTop = scrollTop;
+      
+      // Clear scrolling state after a delay
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        isUserScrolling = false;
+      }, 150);
+    };
+    
+    // Handle wheel events for depth-0 messages
+const handleWheel = (event: WheelEvent) => {
+  // Only work with Shift key pressed
+  if (!event.shiftKey || depth !== 0 || isClickable) return;
+  
+  event.preventDefault();
+  
+  // Accumulate wheel delta
+  wheelDelta += event.deltaY;
+  
+  // Clear previous timeout
+  if (wheelTimeout) clearTimeout(wheelTimeout);
+  
+  // Check if threshold is reached
+  if (Math.abs(wheelDelta) >= WHEEL_THRESHOLD) {
+    if (wheelDelta > 0) {
+      // Scroll down - next message
+      scrollToMessage('next');
+    } else {
+      // Scroll up - previous message
+      scrollToMessage('prev');
+    }
+    wheelDelta = 0; // Reset delta
+  }
+  
+  // Reset delta after timeout if no further scrolling
+  wheelTimeout = setTimeout(() => {
+    wheelDelta = 0;
+  }, 100);
+};
+    
+    // Initial check
+    handleScroll();
+    
+    // Add event listeners
+    scrollContainer.addEventListener('scroll', handleScroll);
+    
+    // Add wheel listener only for depth-0 messages
+    if (depth === 0) {
+      document.addEventListener('wheel', handleWheel, { passive: false });
+    }
+    
+    // Clean up on destroy
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      if (depth === 0) {
+        document.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }
+}
+
     onMount(() => {
   return setupScrollHandler();
 });
@@ -826,16 +919,30 @@ async function handleSelectResponse(event) {
             />
         </div>
     {/if}
-    {#if showScrollButton}
-  <button 
-    class="scroll-bottom-btn" 
-    on:click={scrollToBottom} 
-  >
-    <ChevronDown />
-  </button>
-{/if}
+
+
 </div>
-  
+  {#if depth === 0 && showScrollButtons && !isClickable}
+  <div class="navigation-buttons">
+    <button 
+      class="nav-btn scroll-prev-btn" 
+      on:click={() => scrollToMessage('prev')}
+      disabled={currentMessageIndex === 0}
+    >
+      <ChevronUp />
+    </button>
+    <span class="message-indicator">
+      {currentMessageIndex + 1} / {getVisibleMessages().length}
+    </span>
+    <button 
+      class="nav-btn scroll-next-btn" 
+      on:click={() => scrollToMessage('next')}
+      disabled={currentMessageIndex >= getVisibleMessages().length - 1}
+    >
+      <ChevronDown />
+    </button>
+  </div>
+{/if}
   <style lang="scss">
     $breakpoint-sm: 576px;
     $breakpoint-md: 1000px;
@@ -850,10 +957,81 @@ async function handleSelectResponse(event) {
       font-family: var(--font-family);
     }
 
+    .navigation-buttons {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: fixed;
+      bottom: calc(50% - 4rem);
+      height: 10rem;
+      width: 3rem;
+      right:4rem;
+      border-radius: 1rem;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      margin: 0;
+      z-index: 4000;
+      background: var(--bg-color);
+
+    }
+
+    span.message-indicator {
+      width: 6rem;
+      display: flex;
+      justify-content: center;
+      background: transparent !important;
+      z-index: 2;
+    }
+    .nav-btn {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background-color: var(--bg-color);
+      color: var(--placeholder-color);
+      border: 1px solid transparent;
+      // box-shadow: 0 2px 10px 2px rgba(0, 0, 0, 0.01);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      &:hover {
+        color: var(--text-color);
+      }
+    }
+
+    .message {
+            height: 74vh !important;
+            margin-bottom: auto !important;
+
+    }
+        .message.clickable {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 2rem;
+        height: auto !important;
+              height: 10vh !important;
+
+
+    }
+
+    .message.clickable:hover {
+        background: var(--primary-color);
+        transform: translateX(10px);
+        padding-inline-start: 1rem;
+    }
 
     .message.depth-0 {
-      box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
+      // box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
       border-radius: 1rem;
+      border-top: 1px solid var(--line-color);
+      padding-top: 1rem !important;
+      display: flex;
+      padding: 0 !important;
+      align-items: stretch;
+      flex: 1;
+      flex-grow: 1;
       padding: 0;
 
     }
@@ -1050,18 +1228,7 @@ async function handleSelectResponse(event) {
         color: var(--placeholder-color);
         font-weight: 200;
     }
-    .message.clickable {
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border-radius: 2rem;
 
-    }
-
-    .message.clickable:hover {
-        background: var(--primary-color);
-        transform: translateX(10px);
-        padding-inline-start: 1rem;
-    }
 
     .message.typing::after {
       content: '▋';
@@ -1093,6 +1260,8 @@ async function handleSelectResponse(event) {
         display: flex;
         flex-direction: column;
         width: 100%;
+        height: 66vh;
+        overflow-y: auto;
         margin-left: 0;
         &.replies-container {
             display: flex;
@@ -1108,15 +1277,18 @@ async function handleSelectResponse(event) {
         }
     }
     @keyframes highlight-fade {
-    0% { box-shadow: 0px 10px 50px 1px rgba(255, 255, 255, 0); }
-    20% { box-shadow: 0px 10px 50px 1px rgba(255, 255, 255, 0.3); }
-    80% { box-shadow: 0px 10px 50px 1px rgba(255, 255, 255, 0.3); }
-    100% { box-shadow: 0px 10px 50px 1px rgba(255, 255, 255, 0); }
+    0% { box-shadow: 0px 10px 10px 1px rgba(255, 255, 255, 0); }
+    20% { box-shadow: 0px 10px 10px 1px rgba(255, 255, 255, 0.3); }
+    80% { box-shadow: 0px 10px 10px 1px rgba(255, 255, 255, 0.3); }
+    100% { box-shadow: 0px 10px 10px 1px rgba(255, 255, 255, 0); }
 }
 
+
+
     .scroll-highlight {
-        animation: highlight-fade 1.5s ease-in-out forwards;
-        border-radius: 2rem;
+		animation: highlight-fade 1.2s cubic-bezier(0.42, 0, 0.58, 1);
+       border-radius: 2rem;
+       background-color: var(--primary-color);
     }
     @keyframes bounce {
     0%, 80%, 100% { 
@@ -1248,7 +1420,6 @@ async function handleSelectResponse(event) {
       color: var(--text-color);
       // background-color: transparent;
       // border-bottom: 1px solid var(--line-color);
-      height: auto;
       margin-right: 3.5rem;
       margin-left: 0;
       // border-top: 2px solid var(--line-color);

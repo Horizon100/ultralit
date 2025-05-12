@@ -65,6 +65,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 };
 
 // Update a task
+// Update a task
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     try {
         if (!locals.user) {
@@ -77,7 +78,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         console.log(`Updating task ${params.id}...`);
         
         const data = await request.json();
-        console.log('Update data:', data);
+        console.log('Update data:', JSON.stringify(data, null, 2));
         
         // Check if user can update this task
         try {
@@ -102,6 +103,20 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
                 }
             }
             
+            // Validate status if provided
+            const validStatuses = ['backlog', 'todo', 'inprogress', 'focus', 'done', 'hold', 'postpone', 'cancel', 'review', 'delegate', 'archive'];
+            if (data.status && !validStatuses.includes(data.status)) {
+                console.error('Invalid status value:', data.status);
+                return new Response(JSON.stringify({ 
+                    error: 'Invalid status value', 
+                    provided: data.status,
+                    validStatuses
+                }), { 
+                    status: 400, 
+                    headers: { 'Content-Type': 'application/json' } 
+                });
+            }
+            
             // Update the task
             console.log('Calling PocketBase update...');
             const updatedTask = await pb.collection('tasks').update(params.id, data);
@@ -111,10 +126,21 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
             
         } catch (err) {
             console.error(`Error updating task ${params.id}:`, err);
+            console.error('Error details:', err.data || err);
             
             if (err.status === 404) {
                 return new Response(JSON.stringify({ error: 'Task not found', details: err.message }), { 
                     status: 404, 
+                    headers: { 'Content-Type': 'application/json' } 
+                });
+            }
+            
+            if (err.data) {
+                return new Response(JSON.stringify({ 
+                    error: 'Validation error', 
+                    details: err.data 
+                }), { 
+                    status: 400, 
                     headers: { 'Content-Type': 'application/json' } 
                 });
             }

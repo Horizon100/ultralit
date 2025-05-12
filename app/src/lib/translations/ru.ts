@@ -411,6 +411,9 @@ export default {
 		theme: "Темы",
 		googleAuth: "Google"
 	},
+	button: {
+		tags: 'Тагы'
+	},
 	thinkingPhrases: [
 		'Мысль - начало всего...', // "Thought is the beginning of everything..." - Tolstoy
 		'В поисках цифровой истины...', // "Searching for digital truth..." - inspired by Dostoyevsky

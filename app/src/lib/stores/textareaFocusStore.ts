@@ -18,6 +18,8 @@ let hideTimeout: ReturnType<typeof setTimeout>;
 export function handleTextareaFocus() {
   clearTimeout(hideTimeout);
   isTextareaFocused.set(true);
+  // Add this line to the textarea-utils file
+  threadListVisibility.set(false);
 }
 
 /**

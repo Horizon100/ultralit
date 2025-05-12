@@ -1036,6 +1036,14 @@ pre.code-block {
 				margin-top: 2rem;
 			}
 		}
+			@keyframes swipey {
+		0% {
+		  transform:  translateY(-100%) rotate(20deg);
+		}
+		100% {
+		  transform: translateX(100%) translateY(100%) rotate(0deg);
+		}
+	  }
 	@keyframes swipe {
 		0% {
 		  transform: translateX(-100%) translateY(-100%) rotate(45deg);
@@ -1044,6 +1052,7 @@ pre.code-block {
 		  transform: translateX(100%) translateY(100%) rotate(45deg);
 		}
 	  }
+	  
 	  @keyframes spin {
 		to {
 			transform: rotate(360deg);
@@ -1067,6 +1076,12 @@ pre.code-block {
 		  transform: rotate(2160deg);
 		}
 	  }
+
+@keyframes flash {
+    0% { background-color: var(--bg-color); }
+    50% { background-color: var(--secondary-color); }
+    100% { background-color: var(--bg-color); }
+}
 	
 	  @keyframes blink {
 		from, to { 
