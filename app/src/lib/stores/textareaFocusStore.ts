@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+  import { threadListVisibility } from '$lib/clients/threadsClient';
 
 // Focus state management
 export const isTextareaFocused = writable(false);

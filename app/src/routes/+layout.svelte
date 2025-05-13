@@ -116,6 +116,7 @@
 	let currentStyle = 'default';
 	let activeLink = '/';
 	let activeSection = '';
+	let activeRevealButton: string | null = null;
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -496,119 +497,8 @@
 	>
 
 	{#if $currentUser}
-
-		<button
-			class="nav-button drawer reveal"
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/chat'}
-			on:click={(event) => {
-			if (currentPath === '/chat') {
-				event.preventDefault();
-				toggleThreadList();
-				isNavExpanded = false;
-			} else {
-				navigateTo('/chat');
-				if (isNavExpanded) {
-					isNavExpanded = false;
-				}
-			}
-			}}
-		>
-			{#if currentPath === '/chat' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/chat'}
-			<MessageCircleDashed />
-			{:else}
-			<MessageCircle />
-			{/if}
-			
-			{#if isNavExpanded}
-			<span class="nav-text">Chat</span>
-			{/if}
-		</button>
-		<button
-			class="nav-button reveal"
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/lean'}
-			on:click={(event) => {
-			if (currentPath === '/lean') {
-				event.preventDefault();
-				toggleThreadList();
-				isNavExpanded = false;
-			} else {
-				navigateTo('/lean');
-				if (isNavExpanded) {
-					isNavExpanded = false;
-				}
-			}
-			}}
-		>
-		{#if currentPath === '/lean' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/lean'}
-			<SquareDashedKanban />
-			{:else}
-			<SquareKanban />
-			{/if}
-			{#if isNavExpanded}
-				<span class="nav-text">Lean</span>
-			{/if}
-		</button>
-		<button
-			class="nav-button drawer"
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/ide'}
-			on:click={() => navigateTo('/ide')}
-		>
-			<Code2 />
-			{#if isNavExpanded}
-				<span class="nav-text">Code Editor</span>
-			{/if}
-		</button>
-				<button 
-				class="nav-button info user" 
-				class:expanded={isNavExpanded}
-				on:click={() => {
-				  toggleAuthOrProfile();
-				  // Only close the nav if it's expanded
-				  if (isNavExpanded) {
-					isNavExpanded = false;
-				  }
-				}}
-			  >
-				{#if getAvatarUrl($currentUser)}
-				<img 
-					src={getAvatarUrl($currentUser)}
-					alt="User avatar" 
-					class="user-avatar" 
-				/>
-				{:else}
-					<div class="default-avatar">
-						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-					</div>
-				{/if}
-				<span class="nav-text">{username}
-
-				</span>
-				<span class="icon"
-				on:click={() => {
-					logout();
-					// Only close the nav if it's expanded
-					if (isNavExpanded) {
-					  isNavExpanded = false;
-					}
-				  }}
-				on:click={logout} >
-					<LogOutIcon size={24} />
-
-				</span>
-					{#if isNavExpanded}
-
-
-					{/if}
-				</button>
 				<button
-				class="nav-button info"
+				class="nav-button info logo"
 				class:expanded={isNavExpanded}
 		
 				>
@@ -680,6 +570,123 @@
 		
 				{/if}
 			</button>
+		<button
+		class="nav-button drawer reveal"
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/chat'}
+		class:reveal-active={activeRevealButton === 'chat'}
+		on:click={(event) => {
+			if (currentPath === '/chat') {
+			event.preventDefault();
+			activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+			toggleThreadList();
+			isNavExpanded = false;
+			} else {
+			navigateTo('/chat');
+			activeRevealButton = 'chat';
+			if (isNavExpanded) {
+				isNavExpanded = false;
+			}
+			}
+		}}
+		>
+			{#if currentPath === '/chat' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/chat'}
+			<MessageCircleDashed />
+			{:else}
+			<MessageCircle />
+			{/if}
+			
+			{#if isNavExpanded}
+			<span class="nav-text">Chat</span>
+			{/if}
+		</button>
+		<button
+		class="nav-button drawer reveal"
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/lean'}
+		class:reveal-active={activeRevealButton === 'lean'}
+		on:click={(event) => {
+			if (currentPath === '/lean') {
+			event.preventDefault();
+			activeRevealButton = activeRevealButton === 'lean' ? null : 'lean';
+			toggleThreadList();
+			isNavExpanded = false;
+			} else {
+			navigateTo('/lean');
+			activeRevealButton = 'lean';
+			if (isNavExpanded) {
+				isNavExpanded = false;
+			}
+			}
+		}}
+		>
+		{#if currentPath === '/lean' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/lean'}
+			<SquareDashedKanban />
+			{:else}
+			<SquareKanban />
+			{/if}
+			{#if isNavExpanded}
+				<span class="nav-text">Lean</span>
+			{/if}
+		</button>
+		<button
+			class="nav-button drawer"
+			class:expanded={isNavExpanded}
+			class:active={currentPath === '/ide'}
+			on:click={() => navigateTo('/ide')}
+		>
+			<Code2 />
+			{#if isNavExpanded}
+				<span class="nav-text">Code Editor</span>
+			{/if}
+		</button>
+				<button 
+				class="nav-button info user" 
+				class:expanded={isNavExpanded}
+				on:click={() => {
+				  toggleAuthOrProfile();
+				  // Only close the nav if it's expanded
+				  if (isNavExpanded) {
+					isNavExpanded = false;
+				  }
+				}}
+			  >
+				{#if getAvatarUrl($currentUser)}
+				<img 
+					src={getAvatarUrl($currentUser)}
+					alt="User avatar" 
+					class="user-avatar" 
+				/>
+				{:else}
+					<div class="default-avatar">
+						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+					</div>
+				{/if}
+				<span class="nav-text">{username}
+
+				</span>
+				<span class="icon"
+				on:click={() => {
+					logout();
+					// Only close the nav if it's expanded
+					if (isNavExpanded) {
+					  isNavExpanded = false;
+					}
+				  }}
+				on:click={logout} >
+					<LogOutIcon size={24} />
+
+				</span>
+					{#if isNavExpanded}
+
+
+					{/if}
+				</button>
+
 				<button class="nav-button toggle" on:click={() => {
 					toggleNav();
 					if (showProfile || showAuthModal) {
@@ -2469,6 +2476,7 @@
 		justify-content: center;
 		border-radius: 1rem !important;
 		animation: none !important;
+		
 		&.user {
 			position: relative;
 			bottom: auto;
@@ -2548,43 +2556,48 @@
 		height: auto;
 		margin-top: 5rem;
 	}
-	
+	.nav-button.reveal {
+  &.reveal-active {
+    background: var(--primary-color);
+    // Add any other active styles you want
+  }
+}
 	.sidenav {
 		display: flex;
 		justify-content: center;
 		// backdrop-filter: blur(30px);
-		flex-direction: column;
+		flex-direction: row;
 		height: auto;
 		overflow-x: hidden;
 		overflow-y: hidden;
-		width: 3rem;
 		bottom: 0.5rem !important;
 		gap: 10px;
-		left: 0.5rem;
+			width: calc(100% - 1rem);
+			margin-left: 0.5rem;
+
+			flex: 1;
 		top: auto;
 		bottom: 0;
-		padding: 0.5rem;
+		padding: 0;
 		z-index: 1100;
 		overflow-x: hidden;
-		border-radius: 0 1rem 1rem 0;
+		border-radius: 1rem 1rem 1rem 1rem;
 		transition: all 0.3s ease-in;
 		& .nav-button.info.user,
 			& .nav-button.drawer {
-				display: none !important;
+				// display: none !important;
 				&.reveal {
-					display: none !important;
+					// display: none !important;
 				}
 			}
 		&:hover {
-			max-width: 360px;
-			margin-left: 0;
-			left: 0.5rem;
+
 			background: var(--primary-color);
 		& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
 				&.reveal {
-					display: flex !important;
+					// display: flex !important;
 
 				}
 			}
@@ -2593,13 +2606,13 @@
 	}
 
 	.navigation-buttons {
-		flex-direction: column-reverse;
+		flex-direction: row;
 		margin-bottom: 0;
-		width:auto!important;
+		width: 100%!important;
 		right: 0;
 		left: 0;
 		align-items: center;
-		justify-content: flex-start;
+		justify-content: space-around;
 	}
 
 	.bottom-buttons {
@@ -2753,7 +2766,8 @@
 			flex-grow: 1;
 			height: -webkit-fill-available; 
 
-		}		
+		}	
+
 		.sidenav {
 			display: flex;
 			// backdrop-filter: blur(30px);
@@ -2761,40 +2775,44 @@
 			flex-direction: row;
 			align-items: center;
 			bottom: 0;
-			padding: 1rem 0;
-			height: 2rem;
-			width: 3rem !important;
-			left: 0.5rem;
-			top: auto;
-			bottom: 0 !important;
+			padding: 0;
+			height: 3rem;
+			position: absolute;
+			width: 99%;
+			margin-left: 0.5%;
+			border-radius: 1rem;
+			flex: 1;
+			overflow-x: hidden !important;
+			left: 0;
+			right: 0;
 			z-index: 10;
-			border-radius: 0;
-			transition: all 0.3s ease-in;
-			overflow: hidden;
+			transition: all 0.1s ease-in;
+
+
+			.nav-button.info {
+				// display: none !important;
+			}
 
 			& .nav-button.info.user,
 			& .nav-button.drawer {
-				display: none !important;
-				width: 2rem !important;
-				height: 2rem !important;
+				display: flex !important;
+
+				// display: none !important;
+				width: 3rem !important;
+				height: 3rem !important;
 				&.reveal {
-					display: none !important;
+					display: flex !important;
 				}
 			}
 
 			&:hover {
-				width: calc(100% - 1rem) !important;
-				margin-left: 0.5rem;
-				overflow-x: hidden;
-				padding: 1rem 0 !important;
-				background: var(--bg-gradient) !important;
-				border-top-left-radius: 2rem;
-				border-top-right-radius: 2rem;
-				left: 0;
+
 
 				& .nav-button.info.user,
 				& .nav-button.drawer {
 					display: flex !important;
+					width: 3rem !important;
+					height: 3rem !important;
 				}
 
 			}
@@ -2822,6 +2840,10 @@
 			align-items: stretch;
 			justify-content: space-around;
 			overflow: hidden;
+			transition: all 0.2s ease;
+			&:hover {
+				background: var(--bg-gradient);
+			}
 
 
 		}

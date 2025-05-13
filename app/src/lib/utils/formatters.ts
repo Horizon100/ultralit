@@ -1,12 +1,13 @@
+// utils/formatters.ts - Updated version
 import type { Scenario, Task, RoleType, PromptType, NetworkData, AIAgent } from '$lib/types/types';
 import { t } from '$lib/stores/translationStore';
 import { get } from 'svelte/store';
-import { getPromptText } from '$lib/utils/promptHandlers';
+import { currentUser } from '$lib/pocketbase';
+import { fetchSystemPrompt, fetchUserPrompts } from '$lib/utils/promptUtils';
 
 type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 export function formatDate(date: string): string {
-	// Get the current value of the t store
 	const translate = get(t);
 
 	if (date === translate('threads.today') || date === translate('threads.yesterday')) {
@@ -21,13 +22,57 @@ export function formatDate(date: string): string {
 	});
 }
 
-export function formatContent(content: MessageContent, type: PromptType, role: RoleType): string {
+// Updated formatContent to work with custom prompts
+export async function formatContent(content: MessageContent, type: PromptType, role: RoleType): Promise<string> {
 	const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
-	const promptText = type ? getPromptText(type) : '';
+	
+	if (role !== 'assistant') {
+		return baseContent;
+	}
 
-	return role === 'assistant' && promptText
-		? `[Instructions: ${promptText}]\n${baseContent}`
-		: baseContent;
+	// Get user's custom prompts
+	const user = get(currentUser);
+	if (!user) return baseContent;
+
+	let customPrompts: string[] = [];
+	
+	// Get user's preferred prompts
+	if (user.prompt_preference && user.prompt_preference.length > 0) {
+		const userPrompts = await fetchUserPrompts(user.id);
+		const preferredPrompts = userPrompts.filter(p => 
+			user.prompt_preference.includes(p.id)
+		);
+		customPrompts = preferredPrompts.map(p => p.prompt);
+	}
+	
+	// Get system prompt
+	let systemPrompt: string | null = null;
+	if (user.sysprompt_preference) {
+		systemPrompt = await fetchSystemPrompt(user.sysprompt_preference);
+	}
+	
+	// Combine all prompts
+	const allPrompts = [
+		...(systemPrompt ? [systemPrompt] : []),
+		...customPrompts
+	].filter(Boolean);
+	
+	if (allPrompts.length === 0) return baseContent;
+	
+	const promptText = allPrompts.join('\n\n');
+	return `[Applied Prompts: ${promptText}]\n${baseContent}`;
+}
+
+// Synchronous version for backward compatibility
+export function formatContentSync(content: MessageContent, type: PromptType, role: RoleType): string {
+	const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
+	
+	// For assistant messages, show that custom prompts are being applied
+	if (role === 'assistant' && type) {
+		return `[Prompt: ${type}]\n${baseContent}`;
+	}
+	
+	return baseContent;
 }
 
 export function getRelativeTime(date: Date): string {

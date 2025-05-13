@@ -848,13 +848,12 @@ input {
 	}
 
 	.favorites-container {
-        border: 1px solid var(--line-color);
+        // border: 1px solid var(--line-color);
 		border-radius: 1rem;
-		background: var(--primary-color);
+		// background: var(--primary-color);
 		padding: 0.5rem;
 		overflow-y: auto;
-		max-width: 300px;
-		max-height: 400px;
+		height: auto;
 		& h4 {
 			margin-bottom: 0.5rem;
 			text-align: left;
@@ -864,6 +863,7 @@ input {
     .favorites-list {
         display: flex;
         flex-wrap: wrap;
+		justify-content: flex-end;
         gap: 0.5rem;
     }
     
@@ -872,7 +872,7 @@ input {
         align-items: center;
         position: relative;
 		padding: 0 0.5rem;
-		width: auto;
+		width: 200px !important;
 		border-radius: 1rem;
     }
     

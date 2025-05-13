@@ -76,7 +76,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       const allowedFields = [
         'name', 'username', 'description', 'email', 
         'model', 'selected_provider', 'theme', 'language', 
-        'prompt_preference', 'sysprompt_preference, avatar'
+        'prompt_preference', 'sysprompt_preference', 'avatar'
       ];
       
       for (const field of allowedFields) {
@@ -104,7 +104,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         verified: updated.verified,
         avatar: updated.avatar,
         model: updated.model,
-        selected_provider: updated.selected_provider
+        selected_provider: updated.selected_provider,
+        prompt_preference: updated.prompt_preference,
+        sysprompt_preference: updated.sysprompt_preference
       }
     });
   } catch (err) {

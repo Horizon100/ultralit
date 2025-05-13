@@ -38,7 +38,7 @@
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
   import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur, adjustFontSize, resetTextareaHeight  } from '$lib/stores/textareaFocusStore';
-  import { formatDate, formatContent, getRelativeTime } from '$lib/utils/formatters';
+  import { formatDate, formatContent, formatContentSync, getRelativeTime } from '$lib/utils/formatters';
   import { providers, type ProviderType } from '$lib/constants/providers';
 	import ReferenceSelector from '$lib/components/features/ReferenceSelector.svelte';
   import { currentCite, availableCites, type Cite } from '$lib/stores/citeStore';
@@ -370,224 +370,236 @@ function toggleAiActive() {
   }
 
 
-  function addMessage(
-    role: RoleType,
-    content: string | Scenario[] | Task[], 
-    parentMsgId: string | null = null,
-    model: string = 'default',
-    
-    ): InternalChatMessage {
-      messageIdCounter++;
+function addMessage(
+ role: RoleType,
+ content: string | Scenario[] | Task[], 
+ parentMsgId: string | null = null,
+ model: string = 'default',
+): InternalChatMessage {
+ messageIdCounter++;
+ let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
+ 
+ if (role === 'assistant') {
+   const user = get(currentUser);
+   let promptParts = [];
+   
+   if (user?.sysprompt_preference) {
+     if (['NORMAL', 'CONCISE', 'CRITICAL', 'INTERVIEW'].includes(user.sysprompt_preference)) {
+       promptParts.push(`System: ${user.sysprompt_preference}`);
+     } else {
+       promptParts.push('System: Custom');
+     }
+   }
+   
+   if (user?.prompt_preference && Array.isArray(user.prompt_preference) && user.prompt_preference.length > 0) {
+     promptParts.push('User: Custom');
+   }
+   
+   if (promptParts.length > 0) {
+     messageContent = `[Prompts: ${promptParts.join(', ')}]\n${messageContent}`;
+   }
+ }
+ 
+ const newMessageId = `msg-${messageIdCounter}`;
+ latestMessageId = newMessageId;
+ const createdDate = new Date().toISOString();
+ 
+ if (currentThreadId) {
+   messageCountsStore.increment(currentThreadId);
+ }
+ 
+ return { 
+   id: newMessageId,
+   role,
+   content: messageContent,
+   text: messageContent,
+   user: userId,
+   isTyping: role === 'assistant',
+   collectionId: '',     
+   collectionName: '',   
+   created: createdDate,
+   updated: createdDate,
+   parent_msg: parentMsgId,
+   prompt_type: null,
+   prompt_input: null,
+   model: selectedModelLabel || model,
+   reactions: {
+     upvote: 0,
+     downvote: 0,
+     bookmark: [],
+     highlight: [],
+     question: 0
+   }
+ };
+}
+export async function handleSendMessage(message: string = userInput) {
+  if (!message.trim() && chatMessages.length === 0 && !attachment) return;
+  ensureAuthenticated();
 
-    let messageContent = typeof content === 'string' ? content : JSON.stringify(content);
-    
-    // Add prompt context to assistant messages
-    if (role === 'assistant' && promptType) {
-      messageContent = `[Prompt: ${promptType}]\n${messageContent}`;
+  try {
+    userInput = '';
+    if (textareaElement) {
+      resetTextareaHeight(textareaElement);
+      textareaElement.blur();
+      handleImmediateTextareaBlur();
     }
-    
-    const newMessageId = `msg-${messageIdCounter}`;
-    latestMessageId = newMessageId;
-    const createdDate = new Date().toISOString();
 
-    if (currentThreadId) {
-        messageCountsStore.increment(currentThreadId);
-    }
-    return { 
-      id: newMessageId,
-      role,
-      content: messageContent,
-      text: messageContent,
-      user: userId,
-      isTyping: role === 'assistant',
-      collectionId: '',     
-      collectionName: '',   
-      created: createdDate,
-      updated: createdDate,
-      parent_msg: parentMsgId,
-      prompt_type: promptType,
-      model: selectedModelLabel,
-      reactions: {
-        upvote: 0,
-        downvote: 0,
-        bookmark: [],
-        highlight: [],
-        question: 0
-      }
-    };
-  }
-  export async function handleSendMessage(message: string = userInput) {
-    if (!message.trim() && chatMessages.length === 0 && !attachment) return;
-    ensureAuthenticated();
-
-    try {
-      userInput = '';
-      if (textareaElement) {
-        resetTextareaHeight(textareaElement);
-        textareaElement.blur();
-        handleImmediateTextareaBlur(); 
-
-      }
-
-      if (!currentThreadId) {
-        console.log('No current thread ID - creating a new thread');
-        const newThread = await handleCreateNewThread();
-        if (!newThread || !newThread.id) {
-          console.error('Failed to create a new thread');
-          return;
-        }
-      }
-
-      if (!currentThreadId) {
-        console.error('Still no current thread ID after attempt to create one');
+    if (!currentThreadId) {
+      console.log('No current thread ID - creating a new thread');
+      const newThread = await handleCreateNewThread();
+      if (!newThread || !newThread.id) {
+        console.error('Failed to create a new thread');
         return;
       }
+    }
 
-      // Ensure valid model
-      if (!aiModel || !aiModel.api_type) {
-        console.log('No valid model selected, using fallback');
+    // Ensure valid model
+    if (!aiModel || !aiModel.api_type) {
+      const modelState = get(modelStore);
+      if (modelState.selectedModel) {
+        aiModel = modelState.selectedModel;
+      } else {
+        const availableKeys = get(apiKey);
+        const providersWithKeys = Object.keys(availableKeys).filter(p => !!availableKeys[p]);
+        const validProvider = providersWithKeys.length > 0 ? providersWithKeys[0] : 'deepseek';
+        aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
         
-        const modelState = get(modelStore);
-        if (modelState.selectedModel) {
-          aiModel = modelState.selectedModel;
-          console.log('Using model from store:', aiModel);
-        } else {
-          const availableKeys = get(apiKey);
-          const providersWithKeys = Object.keys(availableKeys)
-            .filter(p => !!availableKeys[p]);
-          
-          const validProvider = 
-            providersWithKeys.length > 0 ? 
-            providersWithKeys[0] as ProviderType : 
-            'deepseek';
-          
-          aiModel = availableModels.find(m => m.provider === validProvider) || defaultModel;
-          console.log(`Using default model for ${validProvider}:`, aiModel);
-          
-          if ($currentUser) {
-            modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
-              console.warn('Could not save fallback model:', err);
-            });
-          }
-        }
-      }
-      
-      if (!aiModel.provider) {
-        aiModel.provider = 'deepseek';
-      }
-
-      const currentMessage = message.trim();
-      const tempUserMsgId = `temp-user-${Date.now()}`;
-      
-      const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
-      userMessageUI.tempId = tempUserMsgId;
-      chatMessages = [...chatMessages, userMessageUI];
-
-      setTimeout(() => {
-        const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
-        if (messageElement) {
-          messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-
-      const userMessage = await messagesStore.saveMessage({
-        text: currentMessage,
-        type: 'human',
-        thread: currentThreadId,
-        parent_msg: quotedMessage?.id ?? null,
-        prompt_type: promptType,
-        tempId: tempUserMsgId 
-      }, currentThreadId);
-
-      chatMessages = chatMessages.map(msg => 
-        (msg.tempId === tempUserMsgId) 
-          ? { ...msg, id: userMessage.id, tempId: undefined }
-          : msg
-      );
-
-      quotedMessage = null;
-
-      if ($isAiActive) {
-        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
-        thinkingMessageId = thinkingMessage.id;
-        chatMessages = [...chatMessages, thinkingMessage];
-
-        // Prepare messages for AI
-        const messagesToSend = chatMessages
-          .filter(({ role, content }) => role && content)
-          .map(({ role, content }) => ({
-            role,
-            content: role === 'user' && promptType 
-              ? `[Using ${promptType} prompt]\n${content.toString()}`
-              : content.toString(),
-            model: aiModel.api_type,
-          }));
-
-        if (!messagesToSend.length) {
-          throw new Error('No valid messages to send');
-        }
-
-        if (promptType) {
-          messagesToSend.unshift({
-            role: 'system',
-            content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-            model: aiModel.api_type,
+        if ($currentUser) {
+          modelStore.setSelectedModel($currentUser.id, aiModel).catch(err => {
+            console.warn('Could not save fallback model:', err);
           });
         }
-
-        // Get AI response
-        const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
-        
-        // Remove thinking message
-        chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-
-        // Create temp ID for assistant message
-        const tempAssistantMsgId = `temp-assistant-${Date.now()}`;
-        
-        // Save AI response to database with temp ID
-        const assistantMessage = await messagesStore.saveMessage({
-          text: aiResponse,
-          type: 'robot',
-          thread: currentThreadId,
-          parent_msg: userMessage.id,
-          prompt_type: promptType,
-          model: aiModel.api_type,
-          tempId: tempAssistantMsgId // Track with temp ID
-        }, currentThreadId);
-
-        // Add assistant message to UI with empty content
-        const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-        newAssistantMessage.tempId = tempAssistantMsgId; // Set temp ID for tracking
-        newAssistantMessage.serverId = assistantMessage.id; // Store server ID
-        chatMessages = [...chatMessages, newAssistantMessage];
-        typingMessageId = newAssistantMessage.id;
-
-        // Type out the message
-        await typeMessage(aiResponse);
-        
-        // After typing is complete, update with final state
-        chatMessages = chatMessages.map(msg => 
-          (msg.tempId === tempAssistantMsgId)
-            ? { 
-                ...msg, 
-                id: assistantMessage.id,
-                content: aiResponse, 
-                text: aiResponse, 
-                isTyping: false,
-                tempId: undefined 
-              }
-            : msg
-        );
       }
-
-      await handleThreadNameUpdate(currentThreadId);
-
-    } catch (error) {
-      handleError(error);
-    } finally {
-      cleanup();
     }
+    
+    if (!aiModel.provider) {
+      aiModel.provider = 'deepseek';
+    }
+
+    const currentMessage = message.trim();
+    const tempUserMsgId = `temp-user-${Date.now()}`;
+    
+    const userMessageUI = addMessage('user', currentMessage, quotedMessage?.id ?? null, aiModel.id);
+    userMessageUI.tempId = tempUserMsgId;
+    chatMessages = [...chatMessages, userMessageUI];
+
+    setTimeout(() => {
+      const messageElement = document.querySelector(`[data-message-id="${userMessageUI.id}"]`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+
+    const userMessage = await messagesStore.saveMessage({
+      text: currentMessage,
+      type: 'human',
+      thread: currentThreadId,
+      parent_msg: quotedMessage?.id ?? null,
+      prompt_type: promptType,
+      tempId: tempUserMsgId 
+    }, currentThreadId);
+
+    chatMessages = chatMessages.map(msg => 
+      (msg.tempId === tempUserMsgId) 
+        ? { ...msg, id: userMessage.id, tempId: undefined }
+        : msg
+    );
+
+    quotedMessage = null;
+
+    if ($isAiActive) {
+      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+      thinkingMessageId = thinkingMessage.id;
+      chatMessages = [...chatMessages, thinkingMessage];
+
+      const messagesToSend = chatMessages
+        .filter(({ role, content }) => role && content && role !== 'thinking')
+        .map(({ role, content }) => ({
+          role,
+          content: content.toString(),
+          model: aiModel.api_type,
+        }));
+
+      const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+      
+      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+
+      const tempAssistantMsgId = `temp-assistant-${Date.now()}`;
+      
+      // Fetch prompt input for assistant message
+      const user = get(currentUser);
+      let promptInput = null;
+      
+      if (user?.prompt_preference) {
+          let promptId: string | null = null;
+          
+          if (Array.isArray(user.prompt_preference) && user.prompt_preference.length > 0) {
+              promptId = user.prompt_preference[0];
+          } else if (typeof user.prompt_preference === 'string') {
+              promptId = user.prompt_preference;
+          }
+          
+          if (promptId) {
+              try {
+                  const response = await fetch(`/api/prompts/${promptId}`);
+                  console.log('Prompt fetch response status:', response.status);
+                  console.log('Prompt fetch response ok:', response.ok);
+                  
+                  if (response.ok) {
+                      const promptData = await response.json();
+                      console.log('Prompt fetch data:', promptData);
+                      promptInput = promptData.data?.prompt || promptData.prompt; 
+                      console.log('Set prompt_input to:', promptInput);
+                  } else {
+                      console.log('Prompt fetch failed with status:', response.status);
+                  }
+              } catch (error) {
+                  console.error('Error fetching user prompt:', error);
+              }
+          }
+      }
+      
+      const assistantMessage = await messagesStore.saveMessage({
+        text: aiResponse,
+        type: 'robot',
+        thread: currentThreadId,
+        parent_msg: userMessage.id,
+        prompt_type: promptType,
+        prompt_input: promptInput,
+        model: aiModel.api_type,
+        tempId: tempAssistantMsgId
+      }, currentThreadId);
+
+      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+      newAssistantMessage.tempId = tempAssistantMsgId;
+      newAssistantMessage.serverId = assistantMessage.id;
+      chatMessages = [...chatMessages, newAssistantMessage];
+      typingMessageId = newAssistantMessage.id;
+
+      await typeMessage(aiResponse);
+      
+      chatMessages = chatMessages.map(msg => 
+        (msg.tempId === tempAssistantMsgId)
+          ? { 
+              ...msg, 
+              id: assistantMessage.id,
+              content: aiResponse, 
+              text: aiResponse, 
+              isTyping: false,
+              tempId: undefined 
+            }
+          : msg
+      );
+    }
+
+    await handleThreadNameUpdate(currentThreadId);
+
+  } catch (error) {
+    handleError(error);
+  } finally {
+    cleanup();
   }
+}
 
 async function replyToMessage(replyText: string, parentMessageId: string) {
     if (!replyText.trim()) return;
@@ -764,42 +776,42 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
   
   return tempDiv.innerHTML;
 }
-  function getLastMessage(): Messages | null {
-    if (messages && messages.length > 0) {
-      return messages[messages.length - 1];
-    }
-    return null;
-  }
+//   function getLastMessage(): Messages | null {
+//     if (messages && messages.length > 0) {
+//       return messages[messages.length - 1];
+//     }
+//     return null;
+//   }
 
-  function getTotalMessages(): number {
-    return messages.length;
-  }
-  function mapMessageToInternal(message: Messages): InternalChatMessage {
-  const content = formatContent(
-    message.text,
-    message.prompt_type as PromptType || 'NORMAL',
-    message.type === 'human' ? 'user' : 'assistant'
-  );
+//   function getTotalMessages(): number {
+//     return messages.length;
+//   }
+//   function mapMessageToInternal(message: Messages): InternalChatMessage {
+//   const content = formatContentSync(
+//     message.text,
+//     message.prompt_type as PromptType || 'NORMAL',
+//     message.type === 'human' ? 'user' : 'assistant'
+//   );
 
-  return {
-    id: message.id,
-    content,
-    text: message.text,
-    role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
-    collectionId: message.collectionId,
-    collectionName: message.collectionName,
-    parent_msg: message.parent_msg,
-    reactions: message.reactions,
-    prompt_type: message.prompt_type as PromptType || 'NORMAL',
-    model: message.model,
-    thread: message.thread,
-    isTyping: false,
-    isHighlighted: false,
-    user: message.user,
-    created: message.created,
-    updated: message.updated
-  };
-}
+//   return {
+//     id: message.id,
+//     content,
+//     text: message.text,
+//     role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
+//     collectionId: message.collectionId,
+//     collectionName: message.collectionName,
+//     parent_msg: message.parent_msg,
+//     reactions: message.reactions,
+//     prompt_type: message.prompt_type as PromptType || 'NORMAL',
+//     model: message.model,
+//     thread: message.thread,
+//     isTyping: false,
+//     isHighlighted: false,
+//     user: message.user,
+//     created: message.created,
+//     updated: message.updated
+//   };
+// }
 
 
 function handleReplyableClick(event: MouseEvent) {
@@ -844,116 +856,116 @@ function handleReplyableDoubleClick(event: MouseEvent) {
   }
 }
 
-async function submitReply(elementId: string, text: string = '') {
-  try {
-    const element = document.getElementById(elementId);
-    if (!element) return;
+// async function submitReply(elementId: string, text: string = '') {
+//   try {
+//     const element = document.getElementById(elementId);
+//     if (!element) return;
     
-    const parentMsgId = element.getAttribute('data-parent-msg');
-    if (!parentMsgId) return;
+//     const parentMsgId = element.getAttribute('data-parent-msg');
+//     if (!parentMsgId) return;
     
-    // Find the parent message in the chat messages
-    const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
-    if (!parentMessage) return;
+//     // Find the parent message in the chat messages
+//     const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
+//     if (!parentMessage) return;
     
-    // Use the parent message's thread ID
-    const threadId = parentMessage.thread || currentThreadId;
+//     // Use the parent message's thread ID
+//     const threadId = parentMessage.thread || currentThreadId;
     
-    // Get quoted element content
-    const quotedText = element.textContent?.trim() || '';
+//     // Get quoted element content
+//     const quotedText = element.textContent?.trim() || '';
     
-    // Format the message content to include the quoted text
-    let messageContent = '';
-      if (text) {
-        // Format quoted text as a markdown blockquote
-        const formattedQuote = quotedText
-          .split('\n')
-          .map(line => `> ${line}`)
-          .join('\n');
+//     // Format the message content to include the quoted text
+//     let messageContent = '';
+//       if (text) {
+//         // Format quoted text as a markdown blockquote
+//         const formattedQuote = quotedText
+//           .split('\n')
+//           .map(line => `> ${line}`)
+//           .join('\n');
         
-        messageContent = `${formattedQuote}\n\n${text}`;
-      } else {
-        // If no text was provided (re-prompt), just use the quoted text
-        messageContent = `Re-prompt: "${quotedText}"`;
-      }
+//         messageContent = `${formattedQuote}\n\n${text}`;
+//       } else {
+//         // If no text was provided (re-prompt), just use the quoted text
+//         messageContent = `Re-prompt: "${quotedText}"`;
+//       }
     
-    // Close the menu
-    activeReplyMenu = null;
+//     // Close the menu
+//     activeReplyMenu = null;
     
-    // Create a temporary UI message
-    const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
-    chatMessages = [...chatMessages, userMessageUI];
+//     // Create a temporary UI message
+//     const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
+//     chatMessages = [...chatMessages, userMessageUI];
     
-    // Save the message using the messagesStore's saveMessage method
-    const userMessage = await messagesStore.saveMessage({
-      text: messageContent,
-      type: 'human',
-      thread: threadId, // Use the thread ID from the parent message
-      parent_msg: parentMsgId, // Set parent message ID
-      prompt_type: promptType
-    }, threadId); // Pass thread ID as second parameter
+//     // Save the message using the messagesStore's saveMessage method
+//     const userMessage = await messagesStore.saveMessage({
+//       text: messageContent,
+//       type: 'human',
+//       thread: threadId, // Use the thread ID from the parent message
+//       parent_msg: parentMsgId, // Set parent message ID
+//       prompt_type: promptType
+//     }, threadId); // Pass thread ID as second parameter
     
-    // Check if AI should respond
-    if ($isAiActive) {
-      // Show thinking indicator
-      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
-      thinkingMessageId = thinkingMessage.id;
-      chatMessages = [...chatMessages, thinkingMessage];
+//     // Check if AI should respond
+//     if ($isAiActive) {
+//       // Show thinking indicator
+//       const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
+//       thinkingMessageId = thinkingMessage.id;
+//       chatMessages = [...chatMessages, thinkingMessage];
       
-      // Get context messages for this thread
-      const contextMessages = chatMessages
-        .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
-        .filter(({ role, content }) => role && content)
-        .map(({ role, content }) => ({
-          role,
-          content: role === 'user' && promptType 
-            ? `[Using ${promptType} prompt]\n${content.toString()}`
-            : content.toString(),
-          model: aiModel.api_type,
-        }));
+//       // Get context messages for this thread
+//       const contextMessages = chatMessages
+//         .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
+//         .filter(({ role, content }) => role && content)
+//         .map(({ role, content }) => ({
+//           role,
+//           content: role === 'user' && promptType 
+//             ? `[Using ${promptType} prompt]\n${content.toString()}`
+//             : content.toString(),
+//           model: aiModel.api_type,
+//         }));
       
-      if (contextMessages.length === 0) {
-        throw new Error('No valid messages to send');
-      }
+//       if (contextMessages.length === 0) {
+//         throw new Error('No valid messages to send');
+//       }
       
-      // Add prompt type if needed
-      if (promptType) {
-        contextMessages.unshift({
-          role: 'system',
-          content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-          model: aiModel.api_type,
-        });
-      }
+//       // Add prompt type if needed
+//       if (promptType) {
+//         contextMessages.unshift({
+//           role: 'system',
+//           content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+//           model: aiModel.api_type,
+//         });
+//       }
       
-      // Fetch AI response
-      const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
+//       // Fetch AI response
+//       const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
       
-      // Remove thinking message
-      chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+//       // Remove thinking message
+//       chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
       
-      // Save AI response
-      const assistantMessage = await messagesStore.saveMessage({
-        text: aiResponse,
-        type: 'robot',
-        thread: threadId,
-        parent_msg: userMessage.id,
-        prompt_type: promptType,
-        model: aiModel.api_type,
-      }, threadId);
+//       // Save AI response
+//       const assistantMessage = await messagesStore.saveMessage({
+//         text: aiResponse,
+//         type: 'robot',
+//         thread: threadId,
+//         parent_msg: userMessage.id,
+//         prompt_type: promptType,
+//         model: aiModel.api_type,
+//       }, threadId);
       
-      // Add assistant message to UI
-      const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-      chatMessages = [...chatMessages, newAssistantMessage];
-      typingMessageId = newAssistantMessage.id;
+//       // Add assistant message to UI
+//       const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+//       chatMessages = [...chatMessages, newAssistantMessage];
+//       typingMessageId = newAssistantMessage.id;
       
-      // Type the message
-      await typeMessage(aiResponse);
-    }
-  } catch (error) {
-    console.error("Message handling error:", error);
-    // Handle error (show notification, etc.)
-  }
-}
+//       // Type the message
+//       await typeMessage(aiResponse);
+//     }
+//   } catch (error) {
+//     console.error("Message handling error:", error);
+//     // Handle error (show notification, etc.)
+//   }
+// }
 
 function toggleReplies(messageId) {
   console.log(`[toggleReplies] Starting to toggle replies for message ID: ${messageId}`);
@@ -1752,6 +1764,7 @@ async function handleLoadThread(threadId: string) {
         updated: msg.updated,
         parent_msg: msg.parent_msg,
         prompt_type: msg.prompt_type as PromptType,
+        prompt_input: msg.prompt_input,
         model: msg.model,
         collectionId: msg.collectionId || 'defaultCollectionId',
         collectionName: msg.collectionName || 'defaultCollectionName',
@@ -1771,6 +1784,7 @@ async function handleLoadThread(threadId: string) {
             updated: msg.updated,
             parent_msg: msg.parent_msg,
             prompt_type: msg.prompt_type as PromptType || null,
+            prompt_input: msg.prompt_input,
             model: msg.model,
             collectionId: msg.collectionId || 'defaultCollectionId',
             collectionName: msg.collectionName || 'defaultCollectionName',
@@ -2998,12 +3012,11 @@ onDestroy(() => {
             >     
               <div class="container-row">
 
-                  <div class="dashboard-items">
                     <div class="dashboard-scroll"
                     class:drawer-visible={$showThreadList}
                     >
                       {#if $projectStore.currentProjectId}
-<ProjectCard projectId={$projectStore.currentProjectId} {handleSendMessage} />
+                      <ProjectCard projectId={$projectStore.currentProjectId} {handleSendMessage} />
                       {:else}
                         {#if $isTextareaFocused}
                           <!-- Hide greeting when textarea is focused -->
@@ -3037,7 +3050,7 @@ onDestroy(() => {
                       {/if}
                     </div>
 
-                  </div>
+                  
 
                   <div class="input-container-start" class:drawer-visible={$showThreadList} transition:slide={{duration: 100, easing: cubicOut}}>
                     <div class="ai-selector">
@@ -3054,7 +3067,7 @@ onDestroy(() => {
                     {/if} -->
 
                     {#if $expandedSections.sysprompts}
-                      <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                      <div class="section-content-sysprompts" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                         <SysPromptSelector 
                           on:select={(event) => {
                             expandedSections.update(sections => ({
@@ -3333,7 +3346,7 @@ onDestroy(() => {
               </div>
             {/if}
               {#if $expandedSections.sysprompts}
-                <div class="section-content" in:slide={{duration: 200}} out:slide={{duration: 200}}>
+                <div class="section-content-sysprompts" in:slide={{duration: 200}} out:slide={{duration: 200}}>
                   <SysPromptSelector 
                     on:select={(event) => {
                       expandedSections.update(sections => ({
@@ -4959,9 +4972,13 @@ p div {
     right: 0;
     bottom:0;
     margin-bottom: 0;
+      border: 1px solid var(--line-color);
+    transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+      border-radius: 1rem;
     align-items: center;
     // backdrop-filter: blur(4px);
-    justify-content: flex-end;
+    justify-content: center;
     // background: var(--bg-gradient);
     z-index:7700;
 
@@ -4988,7 +5005,6 @@ p div {
       position: relative; 
       border-radius: var(--radius-m);
       backdrop-filter: blur(14px);
-      border: 1px solid var(--line-color);
       // border-top-left-radius: var(--radius-m);
       // border-bottom-left-radius: var(--radius-m);
       // background-color: transparent;
@@ -5217,7 +5233,7 @@ p div {
     padding-left: 2rem;
     font-style: normal;
     z-index: 1000;
-    background: var(--bg-color);
+    // background: var(--bg-color);
 
   &:focus {
       // box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
@@ -6507,7 +6523,8 @@ color: #6fdfc4;
   transition: all 0.3s ease;
   position: relative;
   width: 100%;
-  height: 80vh;
+  height: 100%;
+  flex: 1;
   // overflow-y: scroll !important;
   overflow: hidden !important;
 }
@@ -7343,6 +7360,18 @@ p.selector-lable {
       margin-right: .5rem;
     }
   }
+  .section-content-sysprompts {
+    // width: calc(50% - 1rem);
+    // margin-left: calc(50% - 1rem);
+    width: 100% !important;
+
+    height: auto;
+    display: flex;
+    margin-right: 0;
+    position: relative;
+    right: 0;
+    justify-content: flex-end;
+  }
   .section-content-collaborators {
     width: 100%;
     height: 50vh;
@@ -7491,8 +7520,19 @@ p.selector-lable {
         }
 
     }
-
-
+  .section-content-sysprompts {
+    // width: calc(50% - 1rem);
+    // margin-left: calc(50% - 1rem);
+    width: 100% !important;
+    max-width: 1200px;
+    height: auto;
+    display: flex;
+    margin-right: 0;
+    position: relative;
+    bottom: 4rem;
+    right: 0;
+    justify-content: flex-end;
+  }
     
     :global(svg) {
       color: var(--primary-color);
@@ -7755,6 +7795,7 @@ p.selector-lable {
     left: 0;
     right: 0;
     padding: 0;
+    background: red;
     gap: 1rem;
     width: 100%;
     margin-bottom: auto;
@@ -7927,7 +7968,6 @@ p.selector-lable {
 
   }
 
-
     .section-content {
       width: 94%;
       padding: 0;
@@ -8070,12 +8110,12 @@ p.selector-lable {
 
     .input-container {
       margin-right: 0;
-      margin-left: 4rem;
+      margin-left: 0;
       margin-bottom: 0;
-      bottom: 0;
+      bottom: 4rem !important;
       background: transparent;
       flex-grow: 0;
-    width: calc(100% - 4rem);    
+    width: 100%;    
       position: absolute;
     align-items: center;
     justify-content: flex-end;

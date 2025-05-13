@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
-import { ensureAuthenticated, currentUser } from '$lib/pocketbase'; // Client-side import
+import { ensureAuthenticated, currentUser, getUserById } from '$lib/pocketbase'; // Client-side import
 import { processMarkdown } from '$lib/scripts/markdownProcessor';
 import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 import { projectStore } from '$lib/stores/projectStore';
@@ -464,63 +464,122 @@ export async function addMessageToThread(
 ): Promise<Messages> {
     try {
         await ensureAuthenticated();
-
-        console.log('Attempting to add message:', JSON.stringify(message, null, 2));
+        let user = get(currentUser);
         
-        const processedMessage = {
-            ...message,
-            // text: processMarkdown(message.text)
-        };
-
-        const response = await fetch('/api/keys/messages', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${get(currentUser)?.token || ''}`
-            },
-            body: JSON.stringify(processedMessage)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to create message: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to create message');
-        }
-        
-        const createdMessage = data.message;
-        
-        console.log('Created message:', createdMessage);
-        
-        if (message.thread) {
-            try {
-                // Update thread timestamp via the correct API endpoint
-                await fetch(`/api/threads/${message.thread}`, {
-                    method: 'PATCH',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${get(currentUser)?.token || ''}`
-                    },
-                    body: JSON.stringify({
-                        updated: new Date().toISOString()
-                    })
-                });
-                
-                console.log(`Updated thread ${message.thread} timestamp successfully`);
-            } catch (updateError) {
-                console.error('Error updating thread timestamp:', updateError);
+        if (!user || (!user.sysprompt_preference && !user.prompt_preference)) {
+            console.log('Fetching fresh user data...');
+            if (user?.id) {
+                const freshUser = await getUserById(user.id, true);
+                if (freshUser) {
+                    currentUser.set(freshUser);
+                    user = freshUser;
+                }
             }
         }
-
-        return createdMessage;
-    } catch (error) {
-        console.error('Error adding message to thread:', error);
-        throw error;
-    }
+        
+        console.log('User sysprompt_preference:', user?.sysprompt_preference);
+        console.log('User prompt_preference:', user?.prompt_preference);
+        
+        let processedMessage = { ...message };
+        
+        if (user) {
+            if (user.sysprompt_preference) {
+                if (['NORMAL', 'CONCISE', 'CRITICAL', 'INTERVIEW'].includes(user.sysprompt_preference)) {
+                    const SYSTEM_PROMPTS = {
+                        NORMAL: "Respond naturally and conversationally with balanced detail.",
+                        CONCISE: "Provide brief responses focused on key information only.",
+                        CRITICAL: "Analyze critically, identify flaws, and suggest improvements.",
+                        INTERVIEW: "Ask probing questions to gather more information."
+                    };
+                    processedMessage.prompt_type = SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
+                }
+            }
+            
+            if (user.prompt_preference) {
+                let promptId: string | null = null;
+                
+                if (Array.isArray(user.prompt_preference) && user.prompt_preference.length > 0) {
+                    promptId = user.prompt_preference[0];
+                } else if (typeof user.prompt_preference === 'string') {
+                    promptId = user.prompt_preference;
+                }
+                
+                if (promptId) {
+                    try {
+                        const response = await fetch(`/api/prompts/${promptId}`);
+                        console.log('Prompt fetch response status:', response.status);
+                        console.log('Prompt fetch response ok:', response.ok);
+                        
+                        if (response.ok) {
+                            const promptData = await response.json();
+                            console.log('Prompt fetch data:', promptData);
+                            processedMessage.prompt_input = promptData.data?.prompt || promptData.prompt; 
+                            console.log('Set prompt_input to:', processedMessage.prompt_input);
+                        } else {
+                            console.log('Prompt fetch failed with status:', response.status);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user prompt:', error);
+                    }
+                }
+            }
+        }
+       
+       console.log('Attempting to add message:', JSON.stringify(processedMessage, null, 2));
+       console.log('Message being sent to API:', JSON.stringify(processedMessage, null, 2));
+       const response = await fetch('/api/keys/messages', {
+           method: 'POST',
+           credentials: 'include',
+           headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+           },
+           body: JSON.stringify(processedMessage)
+       });
+       
+       if (!response.ok) {
+           throw new Error(`Failed to create message: ${response.status}`);
+       }
+       
+       const data = await response.json();
+       console.log('API response:', data);
+       
+       if (!data.success) {
+           throw new Error(data.message || 'Failed to create message');
+       }
+       
+       const createdMessage = data.message;
+       console.log('Created message:', createdMessage);
+       
+       if (!createdMessage || !createdMessage.id) {
+           throw new Error('API returned invalid message without ID');
+       }
+       
+       if (message.thread) {
+           try {
+               await fetch(`/api/threads/${message.thread}`, {
+                   method: 'PATCH',
+                   credentials: 'include',
+                   headers: {
+                       'Content-Type': 'application/json',
+                       'Authorization': `Bearer ${get(currentUser)?.token || ''}`
+                   },
+                   body: JSON.stringify({
+                       updated: new Date().toISOString()
+                   })
+               });
+               
+               console.log(`Updated thread ${message.thread} timestamp successfully`);
+           } catch (updateError) {
+               console.error('Error updating thread timestamp:', updateError);
+           }
+       }
+       
+       return createdMessage;
+   } catch (error) {
+       console.error('Error adding message to thread:', error);
+       throw error;
+   }
 }
 
 // We need to create a new endpoint for thread messages

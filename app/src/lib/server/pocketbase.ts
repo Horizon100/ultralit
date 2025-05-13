@@ -437,32 +437,33 @@ export async function getMessagesByTaskId(taskId: string): Promise<Message[]> {
 	}
 }
 
-export async function createMessage(messageData: Partial<Message>): Promise<Message> {
-	try {
-		const defaultedMessageData = {
-			text: messageData.text,
-			user: messageData.user || pb.authStore.model?.id,
-			thread: messageData.thread_id,
-			task_id: messageData.task_id,
-			parent_msg_id: messageData.parent_msg_id,
-			ai_agent_id: messageData.ai_agent_id,
-			type: messageData.type || 'text',
-			sender: messageData.sender,
-			receiver: messageData.receiver,
-			attachments: messageData.attachments,
-			reactions: messageData.reactions || {},
-			update_status: messageData.update_status || 'not_updated',
-			prompt_type: messageData.prompt_type,
-			model: messageData.model
-		};
+// export async function createMessage(messageData: Partial<Message>): Promise<Message> {
+// 	try {
+// 		const defaultedMessageData = {
+// 			text: messageData.text,
+// 			user: messageData.user || pb.authStore.model?.id,
+// 			thread: messageData.thread_id,
+// 			task_id: messageData.task_id,
+// 			parent_msg_id: messageData.parent_msg_id,
+// 			ai_agent_id: messageData.ai_agent_id,
+// 			type: messageData.type || 'text',
+// 			sender: messageData.sender,
+// 			receiver: messageData.receiver,
+// 			attachments: messageData.attachments,
+// 			reactions: messageData.reactions || {},
+// 			update_status: messageData.update_status || 'not_updated',
+// 			prompt_type: messageData.prompt_type,
+// 			prompt_input: messageData.prompt_input,
+// 			model: messageData.model
+// 		};
 
-		const record = await pb.collection('messages').create<Message>(defaultedMessageData);
-		return record;
-	} catch (error) {
-		console.error('Error creating message:', error);
-		throw error;
-	}
-}
+// 		const record = await pb.collection('messages').create<Message>(defaultedMessageData);
+// 		return record;
+// 	} catch (error) {
+// 		console.error('Error creating message:', error);
+// 		throw error;
+// 	}
+// }
 
 export async function updateMessage(id: string, messageData: Partial<Message>): Promise<Message> {
 	try {

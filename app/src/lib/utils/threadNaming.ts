@@ -1,5 +1,3 @@
-// src/lib/utils/threadNaming.ts
-import { fetchAIResponse } from '$lib/clients/aiClient';
 import { ensureAuthenticated, currentUser } from '$lib/pocketbase';
 import { threadsStore } from '$lib/stores/threadsStore';
 import type { AIModel, RoleType, Messages } from '$lib/types/types';
@@ -24,19 +22,18 @@ export async function generateThreadName(
             modelId: model?.id
         });
         
-        const prompt = {
+        const messages = [{
             role: 'system' as RoleType,
             content: `Create a concise, descriptive title (max 50 chars) for a conversation starting with:
                 User: ${userMessage}
                 Assistant: ${aiResponse}
                 Return only the title, no quotes or explanation.`,
             model: model.id || model.api_type
-        };
+        }];
         
         // Ensure model has all required fields
         const modelToUse: AIModel = {
             ...model,
-            // Fill in any missing required fields
             provider: model.provider || defaultModel.provider,
             api_type: model.api_type || defaultModel.api_type,
             base_url: model.base_url || defaultModel.base_url,
@@ -44,11 +41,27 @@ export async function generateThreadName(
             api_key: model.api_key || defaultModel.api_key
         };
         
-        console.log('Sending prompt for thread name generation:', prompt);
-        const response = await fetchAIResponse([prompt], modelToUse, userId);
-        console.log('Received thread name suggestion:', response);
+        console.log('Sending prompt for thread name generation:', messages);
         
-        const cleanName = response
+        // Direct API call to bypass fetchAIResponse and prompts
+        const response = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages,
+                model: modelToUse,
+                userId
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Received thread name suggestion:', data.response);
+        
+        const cleanName = data.response
             .replace(/^["']|["']$/g, '')
             .trim()
             .slice(0, 50);

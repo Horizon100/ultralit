@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 	import { promptInputStore } from '$lib/stores/promptInputStore';
 	import { createPrompt, deletePrompt, updatePrompt } from '$lib/clients/promptInputClient';
 	import { slide } from 'svelte/transition';
@@ -8,6 +8,7 @@
 	import { Calculator, CalendarCheck, ChevronLeft, Check, GitCompare, Pen, RefreshCcw, SplitSquareVertical, Trash2, X } from 'lucide-svelte';
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { SYSTEM_PROMPTS, availablePrompts } from '$lib/constants/prompts';
+import { promptStore, syspromptStore, setSystemPrompt, initPromptStores } from '$lib/stores/promptStore';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -15,7 +16,7 @@
 	let showInputForm = false;
 	let editingPromptId: string | null = null;
 	let promptText = '';
-	let selectedPromptType: PromptType = 'NORMAL';
+let selectedPromptType: PromptType = 'NORMAL';
 	let activePromptId: string | null = null;
 	let activeSysPrompt: string | null = null;
 	let isSubmitting = false;
@@ -27,6 +28,7 @@
 	let dualResponsesMessages: InternalChatMessage[] = [];
 	let dualResponseSystemPrompts: string[] = [];
 	let dualResponsesThreadId: string | null = null;
+
 	const dispatch = createEventDispatcher();
 
 
@@ -36,6 +38,21 @@
 			isLoading = false;
 		}
 	});
+
+	const unsubscribeSysPrompt = syspromptStore.subscribe(value => {
+  console.log('syspromptStore updated:', value);
+  if (value.promptType && !value.selectedPromptId) {
+    // Built-in system prompt
+    activeSysPrompt = value.promptType;
+  }
+});
+
+const unsubscribePrompt = promptStore.subscribe(value => {
+  console.log('promptStore updated:', value);
+  if (value.selectedPromptId) {
+    activePromptId = value.selectedPromptId;
+  }
+});
 	function toggleDualMode() {
 		dualComparisonMode = !dualComparisonMode;
 		selectedSystemPrompts = [];
@@ -59,29 +76,63 @@
 		
 		console.log('Selected system prompts for dual comparison:', selectedSystemPrompts);
 	}
-	async function setSysPromptPreference(promptType: string): Promise<void> {
+// In your component
+async function setSysPromptPreference(promptType: string): Promise<void> {
+  console.log('=== STARTING setSysPromptPreference ===');
+  console.log('Input promptType:', promptType);
+  console.log('Current $currentUser:', $currentUser);
+  
   try {
     if ($currentUser?.id) {
-      await updateUser($currentUser.id, {
-        sysprompt_preference: promptType
+      console.log('Calling updateUser with:', {
+        userId: $currentUser.id,
+        data: { sysprompt_preference: promptType }
       });
       
-      // Update local state
-      activeSysPrompt = promptType;
+      const result = await updateUser($currentUser.id, {
+        sysprompt_preference: promptType
+      });
+      console.log('updateUser result:', result);
       
-      // Reload user data bypassing cache
-      const updatedUser = await getUserById($currentUser.id, true);
-      if (updatedUser) {
-        currentUser.set(updatedUser);
+      // Check what's actually in the database now
+      const freshUser = await getUserById($currentUser.id, true);
+      console.log('Fresh user data from DB:', freshUser);
+      console.log('Fresh sysprompt_preference:', freshUser?.sysprompt_preference);
+      
+      if (freshUser) {
+        currentUser.set(freshUser);
+        console.log('Updated currentUser store, new value:', $currentUser);
       }
-      
-      // Show success feedback
-      console.log('System prompt preference updated successfully:', promptType);
     }
   } catch (error) {
-    console.error('Error updating system prompt preference:', error);
-    error = error instanceof Error ? error.message : 'Failed to update system prompt preference';
+    console.error('Error in setSysPromptPreference:', error);
   }
+  console.log('=== END setSysPromptPreference ===');
+}
+
+function applySystemPrompt(promptText: string, promptName?: string) {
+  console.log('applySystemPrompt called with:', { promptText, promptName });
+  
+  if (dualComparisonMode) {
+    toggleDualPrompt(promptText);
+    return;
+  }
+  
+  selectedSystemPrompt = promptText;
+  
+  const promptType = promptName || 
+    Object.entries(SYSTEM_PROMPTS).find(([key, value]) => value === promptText)?.[0] || 'NORMAL';
+  
+  console.log('Calculated promptType:', promptType);
+  console.log('SYSTEM_PROMPTS entries:', Object.entries(SYSTEM_PROMPTS));
+  
+  setSysPromptPreference(promptType);
+  
+  dispatch('select', { 
+    prompt: promptText,
+    type: promptType,
+    isDual: false
+  });
 }
 	function applyDualPrompts() {
 		if (selectedSystemPrompts.length !== 2) {
@@ -97,135 +148,19 @@
 		dualComparisonMode = false;
 		selectedSystemPrompts = [];
 	}
-	function applySystemPrompt(promptText: string, promptName?: string) {
-  if (dualComparisonMode) {
-    toggleDualPrompt(promptText);
-    return;
-  }
-  
-  selectedSystemPrompt = promptText;
-  
-  // Use provided name or find the matching name from SYSTEM_PROMPTS
-  const promptType = promptName || 
-    Object.entries(SYSTEM_PROMPTS).find(([key, value]) => value === promptText)?.[0] || 'NORMAL';
-  
-  console.log('Applied system prompt:', promptText, 'with type:', promptType);
-  
-  // Save the preference to user settings
-  setSysPromptPreference(promptType);
-  
-  // Also dispatch the event for immediate use
-  dispatch('select', { 
-    prompt: promptText,
-    type: promptType,
-    isDual: false
-  });
-}
-
-	
-	async function handleSubmit() {
-		if (!promptText.trim()) {
-			error = 'Prompt cannot be empty';
-			return;
-		}
-		
-		isSubmitting = true;
-		error = '';
-		
-		try {
-			if (editingPromptId) {
-				// Update existing prompt
-				const updatedPrompt = await updatePrompt(editingPromptId, promptText, selectedPromptType);
-				promptInputStore.updatePrompt(editingPromptId, updatedPrompt);
-				editingPromptId = null;
-			} else {
-				// Create new prompt
-				const newPrompt = await createPrompt(promptText, selectedPromptType);
-				promptInputStore.addPrompt(newPrompt);
-			}
-			
-			promptText = '';
-			showInputForm = false;
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save prompt';
-		} finally {
-			isSubmitting = false;
-		}
-	}
-	
-	function handleEdit(prompt: PromptInputType) {
-		editingPromptId = prompt.id;
-		promptText = prompt.prompt;
-		showInputForm = true;
-		selectedPromptType = prompt.type || 'NORMAL';
-		error = '';
-	}
-	
-	async function handleDelete(id: string) {
-		if (confirm('Are you sure you want to delete this prompt?')) {
-			try {
-				// Add debug information
-				console.log(`Deleting prompt with ID: ${id}`);
-				
-				const success = await deletePrompt(id);
-				
-				if (success) {
-					promptInputStore.removePrompt(id);
-					console.log(`Successfully deleted prompt with ID: ${id}`);
-				} else {
-					throw new Error('Server returned unsuccessful status');
-				}
-			} catch (err) {
-				error = err instanceof Error ? err.message : 'Failed to delete prompt';
-				console.error(`Error in handleDelete: ${error}`);
-			}
-		}
-	}
-	
-	function clearError() {
-		error = '';
-	}
-	
-	function toggleView() {
-		viewMode = viewMode === 'user' ? 'system' : 'user';
-		// Close input form when switching views
-		showInputForm = false;
-		editingPromptId = null;
-		promptText = '';
-	}
-	
 
 
+	
 onMount(async () => {
   try {
-    // Load prompts
     await promptInputStore.loadPrompts();
     
-    // Get fresh user data (bypass cache)
     if ($currentUser?.id) {
       const userData = await getUserById($currentUser.id, true);
       console.log('Loaded user data for preferences:', userData);
       
       if (userData) {
-        // Set active prompt from user data
-        if (userData.prompt_preference) {
-          // If it's an array, use the first element
-          if (Array.isArray(userData.prompt_preference)) {
-            activePromptId = userData.prompt_preference.length > 0 
-              ? userData.prompt_preference[0] 
-              : null;
-          } else {
-            // Otherwise use it directly
-            activePromptId = userData.prompt_preference;
-          }
-          console.log('Active prompt ID set to:', activePromptId);
-        }
-        
-        // Set active system prompt from user data
-        if (userData.sysprompt_preference) {
-          activeSysPrompt = userData.sysprompt_preference;
-          console.log('Active system prompt set to:', activeSysPrompt);
-        }
+        await initPromptStores(userData);
       }
     }
     
@@ -235,7 +170,6 @@ onMount(async () => {
     isLoading = false;
   }
 });
-
 // // Add this reactive statement to track when currentUser changes
 // $: if ($currentUser && !preferencesLoaded) {
 //   console.log('Current user changed, checking preferences');
@@ -260,6 +194,8 @@ onMount(async () => {
 </script>
 
 <div class="prompt-container">
+	<div class="prompt-wrapper">
+
 	<div class="header-row">
 		<h3>
 			System Prompts
@@ -272,6 +208,7 @@ onMount(async () => {
 		<div class="prompt-list system-prompts">
 			{#each Object.entries(SYSTEM_PROMPTS) as [name, text]}
 			  <div class="prompt-item system-prompt-item" 
+			  on:click={() => applySystemPrompt(text, name)}
 				   class:selected={dualComparisonMode ? selectedSystemPrompts.includes(text) : selectedSystemPrompt === text}
 				   class:active={activeSysPrompt === name}>
 				<div class="prompt-content">
@@ -293,14 +230,15 @@ onMount(async () => {
 					  Active
 					</span>
 				  {:else}
-					<button class="apply-button" on:click={() => applySystemPrompt(text, name)}>
-					  Apply & Save
-					</button>
+					<!-- <button class="apply-button" on:click={() => applySystemPrompt(text, name)}>
+					  Use
+					</button> -->
 				  {/if}
 				</div>
 			  </div>
 			{/each}
 		  </div>
+	</div>
 
 </div>
 
@@ -311,10 +249,25 @@ onMount(async () => {
 			font-family: var(--font-family);
 		}
 	.prompt-container {
-		width: calc(100% - 2rem);
-		max-width: 1200px;
-		margin-right: 1rem;
-		margin-left: 1rem;
+		display: flex;
+		justify-content: flex-end;
+		// background-color: red;
+		right: 0;
+		top: auto;
+		bottom: auto;
+		height: auto;
+		    border-radius: 1rem;
+
+		width: 100%;
+				// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+		backdrop-filter: blur(20px);
+	}
+
+	.prompt-wrapper {
+		display: flex;
+		flex-direction: column;
+		padding: 1rem;
+		width: 100%;
 	}
 
 
@@ -329,6 +282,10 @@ onMount(async () => {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	span.active-prompt-badge {
+		color: var(--tertiary-color);
 	}
 	
 	.toggle-switch {
@@ -393,14 +350,19 @@ onMount(async () => {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 1rem;
+		cursor: pointer;
+		opacity: 0.8;
 
-		border-radius: 8px;
+		&:hover {
+			background: var(--secondary-color);
+			opacity:1;
+
+		}
 	}
 	
 	.system-prompt-name {
 		font-weight: 600;
-		margin-bottom: 0.5rem;
+		font-size: 1rem;
 	}
 	.select-button,
 	.apply-button {
@@ -568,18 +530,15 @@ onMount(async () => {
 		flex-direction: column;
 		overflow-y: auto;
 		overflow-x: hidden;
-		box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-
-
-		height: 400px;
 		width: 100%;
 		gap: 0;
-		backdrop-filter: blur(20px);
+				padding: 1rem;
+
 	}
 	
 	.prompt-item {
-		padding: 1rem;
 		// background: var(--bg-gradient);
+		padding: 0.5rem;
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
@@ -599,11 +558,11 @@ onMount(async () => {
 		flex: 1;
 	}
 	
-	.prompt-text {
-		margin: 0 0 0.5rem 0;
-		color: var(--text-color);
-		line-height: 1.5;
+	p.prompt-text {
+		margin: 0.5rem;
+		// line-height: 1.5;
 		white-space: pre-wrap;
+
 	}
 	
 	.prompt-meta {
@@ -683,4 +642,62 @@ onMount(async () => {
 			gap: 0.25rem;
 		}
 	}
+
+		@media (max-width: 450px) {
+				.prompt-container {
+		display: flex;
+		justify-content: flex-end;
+		position: fixed;
+		right: 0;
+		top: auto;
+		bottom: 7rem;
+		width: 100%;
+		max-width: 400px;
+				// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
+		backdrop-filter: blur(20px);
+	}
+
+	.prompt-wrapper {
+		max-width: 400px;
+		display: flex;
+		flex-direction: column;
+		padding: 1rem;
+	}
+
+	h3 {
+		text-align: center;
+	}
+
+		.prompt-item {
+		// background: var(--bg-gradient);
+		padding: 0.5rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		background: transparent;
+		border-radius: 0;
+		h3 {
+			text-align: left;
+		}
+		&:hover {
+			background: var(--primary-color);
+			transform: none;
+
+			& .prompt-meta {
+				display: flex;
+			}
+		}
+	}
+	
+	.prompt-content {
+		flex: 1;
+	}
+	
+	p.prompt-text {
+		line-height: 1.5;
+		white-space: pre-wrap;
+
+	}
+
+		}
 </style>

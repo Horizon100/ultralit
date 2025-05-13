@@ -2,7 +2,7 @@ import { writable, get } from 'svelte/store';
 import type { Messages } from '$lib/types/types';
 import { fetchMessagesForThread, addMessageToThread, fetchMessagesForBookmark, updateMessage } from '$lib/clients/threadsClient';
 import { threadsStore } from './threadsStore';
-import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+import { currentUser } from '$lib/pocketbase';
 
 function createMessagesStore() {
   const store = writable<{
@@ -125,51 +125,88 @@ function createMessagesStore() {
           throw error;
       }
   },
-    
   saveMessage: async (message: Partial<Messages>, threadId: string) => {
     try {
-      // Get user from store properly using get()
       const user = get(currentUser);
       if (!user || !user.id) {
         throw new Error('User not authenticated');
       }
-  
-      const userId = user.id;
-      
-      // Store the temporary ID for tracking (if provided)
+
       const tempId = message.tempId;
       
-      // Create the message object to save
+      let systemPromptText = null;
+      if (user.sysprompt_preference) {
+        if (['NORMAL', 'CONCISE', 'CRITICAL', 'INTERVIEW'].includes(user.sysprompt_preference)) {
+          const SYSTEM_PROMPTS = {
+            NORMAL: "Respond naturally and conversationally with balanced detail.",
+            CONCISE: "Provide brief responses focused on key information only.",
+            CRITICAL: "Analyze critically, identify flaws, and suggest improvements.",
+            INTERVIEW: "Ask probing questions to gather more information."
+          };
+          systemPromptText = SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
+        } else {
+          try {
+            const response = await fetch(`/api/prompts/${user.sysprompt_preference}`);
+            if (response.ok) {
+              const promptData = await response.json();
+              systemPromptText = promptData.data?.prompt || promptData.prompt;
+            }
+          } catch (error) {
+            console.error('Error fetching system prompt:', error);
+          }
+        }
+      }
+
+      let promptInput = null;
+      if (user.prompt_preference) {
+        let promptId: string | null = null;
+        
+        if (Array.isArray(user.prompt_preference) && user.prompt_preference.length > 0) {
+          promptId = user.prompt_preference[0];
+        } else if (typeof user.prompt_preference === 'string') {
+          promptId = user.prompt_preference;
+        }
+        
+        if (promptId) {
+          try {
+            const response = await fetch(`/api/prompts/${promptId}`);
+            if (response.ok) {
+              const promptData = await response.json();
+              promptInput = promptData.data?.prompt || promptData.prompt;
+            }
+          } catch (error) {
+            console.error('Error fetching user prompt:', error);
+          }
+        }
+      }
+      
       const newMessage: Omit<Messages, 'id' | 'created' | 'updated'> = {
         text: message.text || '',
-        user: userId,
+        user: user.id,
         parent_msg: message.parent_msg || null,
         task_relation: message.task_relation || null,
         agent_relation: message.agent_relation || null,
         type: message.type || 'human',
-        read_by: [userId],
+        read_by: [user.id],
         thread: threadId,
         attachments: message.attachments || '',
-        prompt_type: message.prompt_type || null,
-        model: message.model || 'fail'
+        prompt_type: systemPromptText,
+        prompt_input: promptInput,  
+        model: message.model || 'default'
       };
-  
-      // Save message to the server
+
       const savedMessage = await addMessageToThread(newMessage);
       
-      // Update our store with the saved message
       update((state) => {
-        // Check if we already have a message with this temp ID
         const existingMessageIndex = state.messages.findIndex(
           m => (tempId && m.tempId === tempId) || m.id === savedMessage.id
         );
         
         if (existingMessageIndex >= 0) {
-          // Update the existing message instead of adding a duplicate
           const updatedMessages = [...state.messages];
           updatedMessages[existingMessageIndex] = {
             ...savedMessage,
-            tempId // Keep the temp ID for tracking in the UI
+            tempId 
           };
           
           return {
@@ -177,12 +214,11 @@ function createMessagesStore() {
             messages: updatedMessages
           };
         } else {
-          // Add as a new message with the temp ID for tracking
           return {
             ...state,
             messages: [...state.messages, {
               ...savedMessage,
-              tempId // Keep temp ID for tracking
+              tempId 
             }]
           };
         }
@@ -194,7 +230,6 @@ function createMessagesStore() {
       throw error;
     }
   },
-    
     fetchBookmarkedMessages: async (messageId: string) => {
       try {
         const messages = await fetchMessagesForBookmark(messageId);

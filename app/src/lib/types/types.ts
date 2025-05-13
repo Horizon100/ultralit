@@ -29,8 +29,8 @@ export interface User extends RecordModel {
 	keys: string[];
 	selected_provider?: string;
 	model?: string;
-	prompt_preference?: string;
-	sysprompt_preference?: string;
+	prompt_preference: string[];
+	sysprompt_preference: string;
 	model_preference?: string[];
 	taskAssignments: string[];
 	projects: string[];
@@ -218,6 +218,7 @@ export interface AIMessage {
 	content: string;
 	model: string;
 	prompt_type?: PromptType;
+	prompt_input?: string;
 }
 export interface AIModel extends RecordModel {
 	id: string;
@@ -321,7 +322,8 @@ export interface Message extends RecordModel {
 		copy: string;
 	};
 	update_status: 'not_updated' | 'updated' | 'deleted';
-	prompt_type: PromptType | null;
+	prompt_type: string | null;
+	prompt_input: string | null;
 	model: string;
 }
 
@@ -504,7 +506,8 @@ export interface InternalChatMessage extends ChatMessage {
 		highlight: string[];
 		question: number;
 	};
-	prompt_type: PromptType;
+	prompt_type: string | null; 
+	prompt_input: string | null;
 	model: User['model'];
 	thread?: string;
 	role: RoleType;
@@ -523,7 +526,8 @@ export interface Messages extends RecordModel {
 	attachments: string;
 	created: string;
 	updated: string;
-	prompt_type: string | null;
+	prompt_type: PromptType | null;
+	prompt_input: string | null; 
 	model: string;
 }
 

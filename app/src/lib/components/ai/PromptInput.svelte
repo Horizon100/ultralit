@@ -14,7 +14,7 @@
 	let showInputForm = false;
 	let editingPromptId: string | null = null;
 	let promptText = '';
-	let selectedPromptType: PromptType = 'NORMAL';
+	let selectedPromptType: PromptType;
 	let activePromptId: string | null = null;
 	let activeSysPrompt: string | null = null;
 	let isSubmitting = false;
@@ -76,7 +76,7 @@
 		editingPromptId = prompt.id;
 		promptText = prompt.prompt;
 		showInputForm = true;
-		selectedPromptType = prompt.type || 'NORMAL';
+		selectedPromptType = prompt.type;
 		error = '';
 	}
 	
@@ -113,25 +113,11 @@
 		promptText = '';
 	}
 	
-	async function setPromptPreference(promptId: string): Promise<void> {
+async function setPromptPreference(promptId: string): Promise<void> {
   try {
     if ($currentUser?.id) {
-      const currentPreferences = Array.isArray($currentUser.prompt_preference) 
-        ? [...$currentUser.prompt_preference] 
-        : ($currentUser.prompt_preference ? [$currentUser.prompt_preference] : []);
-      
-      // Check if this prompt is already in preferences
-      const existingIndex = currentPreferences.indexOf(promptId);
-      
-      if (existingIndex === -1) {
-        currentPreferences.push(promptId);
-      }
-      
-      console.log('Saving prompt preferences:', currentPreferences);
-      
-      // Update with the array of preferences
       await updateUser($currentUser.id, {
-        prompt_preference: currentPreferences
+        prompt_preference: [promptId] 
       });
       
       // Update local state
@@ -139,16 +125,13 @@
       
       const updatedUser = await getUserById($currentUser.id, true);
       if (updatedUser) {
-        // Update currentUser store with fresh data
         currentUser.set(updatedUser);
       }
       
-      console.log('Prompt preferences updated successfully:', currentPreferences);
+      console.log('Prompt preferences updated successfully:', [promptId]);
     }
   } catch (error) {
     console.error('Error updating prompt preference:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Failed to update prompt preference';
-    console.error(errorMsg);
   }
 }
 
@@ -218,9 +201,19 @@ onMount(async () => {
 <div class="prompt-container">
 	<div class="header-row">
 		<h3>
-			Your Prompts
+  {showInputForm ? 'Add New Prompt' : 'Your Prompts'}
 		</h3>
-				
+		 <button 
+    class="add-button" 
+    on:click={() => { 
+      showInputForm = true; 
+      editingPromptId = null; 
+      promptText = ''; 
+      error = '';
+    }}
+  >
+  {showInputForm ? '' : 'Add Prompt'}
+  </button>		
 	</div>
 
 		{#if showInputForm}
@@ -329,6 +322,8 @@ onMount(async () => {
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-end;
+		padding: 1rem;
+
 	}
 	
 	.title-toggle-group {
@@ -574,7 +569,6 @@ onMount(async () => {
 		flex-direction: column;
 		overflow-y: auto;
 		overflow-x: hidden;
-		box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
 
 
 		height: 400px;

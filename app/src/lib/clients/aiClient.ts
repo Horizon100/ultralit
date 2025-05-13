@@ -3,7 +3,7 @@ import { defaultModel } from '$lib/constants/models';
 import { getPrompt } from '$lib/constants/prompts';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
-
+import { prepareMessagesWithCustomPrompts } from '$lib/utils/promptUtils';
 export async function fetchAIResponse(
     messages: AIMessage[],
     model: AIModel | null,
@@ -11,15 +11,18 @@ export async function fetchAIResponse(
     attachment: File | null = null
 ): Promise<string> {
     try {
-        const supportedMessages = messages
-            .filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
-            .map((msg) => ({
-                role: msg.role,
-                content: msg.prompt_type
-                    ? `${getPrompt(msg.prompt_type, '')}\n${msg.content}`
-                    : msg.content,
-                model: msg.model
-            }));
+		        const messagesWithCustomPrompts = await prepareMessagesWithCustomPrompts(messages, userId);
+
+const supportedMessages = messagesWithCustomPrompts
+    .filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
+    .filter((msg) => msg.content && msg.content.trim()) 
+    .map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        model: msg.model
+    }));
+		console.log('Sending messages to AI:', supportedMessages);
+
 
         console.log('Original model:', model);
         
@@ -86,7 +89,7 @@ export async function fetchAIResponse(
 					const fallbackProvider = availableProviders[0];
 					console.log(`Falling back to provider: ${fallbackProvider}`);
 					
-					modelTo.provider = fallbackProvider;
+					modelToUse.provider = fallbackProvider;
 					
 					if (fallbackProvider === 'openai') {
 						modelToUse.api_type = 'gpt-3.5-turbo';
@@ -129,39 +132,39 @@ export async function fetchAIResponse(
 	}
 }
 
-export async function fetchNamingResponse(
-	userMessage: string,
-	aiResponse: string,
-	model: AIModel,
-	userId: string
-): Promise<string> {
-	try {
-		const messages: AIMessage[] = [
-			{
-				role: 'assistant',
-				content:
-					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
-				model: typeof model === 'string' ? model : model.api_type
-				},
-			{
-				role: 'user',
-				content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
-				model: typeof model === 'string' ? model : model.api_type
-			}
-		];
-		const response = await fetchAIResponse(messages, model, userId);
+// export async function fetchNamingResponse(
+// 	userMessage: string,
+// 	aiResponse: string,
+// 	model: AIModel,
+// 	userId: string
+// ): Promise<string> {
+// 	try {
+// 		const messages: AIMessage[] = [
+// 			{
+// 				role: 'assistant',
+// 				content:
+// 					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
+// 				model: typeof model === 'string' ? model : model.api_type
+// 				},
+// 			{
+// 				role: 'user',
+// 				content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
+// 				model: typeof model === 'string' ? model : model.api_type
+// 			}
+// 		];
+// 		const response = await fetchAIResponse(messages, model, userId);
 
-		const threadName = response
-			.trim()
-			.replace(/^["']|["']$/g, '')
-			.slice(0, 50);
+// 		const threadName = response
+// 			.trim()
+// 			.replace(/^["']|["']$/g, '')
+// 			.slice(0, 50);
 
-		return threadName;
-	} catch (error) {
-		console.error('Error in fetchNamingResponse:', error);
-		throw error;
-	}
-}
+// 		return threadName;
+// 	} catch (error) {
+// 		console.error('Error in fetchNamingResponse:', error);
+// 		throw error;
+// 	}
+// }
 
 export async function handleStartPromptClick(
 	promptText: string,

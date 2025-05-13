@@ -79,12 +79,31 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const systemMessage = messages.find((msg) => msg.role === 'system');
-		if (!systemMessage && messages[0]?.prompt_type) {
-			messages.unshift({
-				role: 'system',
-				content: `You are an AI assistant using the ${messages[0].prompt_type} prompt. Format your responses accordingly.`,
-				model: model.api_type
-			});
+		let systemContent = '';
+
+		if (!systemMessage && messages.length > 0) {
+			const promptType = messages[0]?.prompt_type;
+			const promptInput = messages[0]?.prompt_input;
+			
+			if (promptType || promptInput) {
+				let systemParts = [];
+				
+				if (promptType) {
+					systemParts.push(`You are an AI assistant using the ${promptType} prompt style. Format your responses accordingly.`);
+				}
+				
+				if (promptInput) {
+					systemParts.push(promptInput);
+				}
+				
+				systemContent = systemParts.join('\n\n');
+				
+				messages.unshift({
+					role: 'system',
+					content: systemContent,
+					model: model.api_type
+				});
+			}
 		}
 
 		console.log('Processing with provider:', model.provider);
