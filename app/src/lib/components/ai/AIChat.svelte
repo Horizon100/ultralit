@@ -21,7 +21,7 @@
     import PromptCatalog from './PromptInput.svelte';
     import { pendingSuggestion } from '$lib/stores/suggestionStore';
 
-  import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
+  import type { ExpandedSections, ThreadGroup, MessageState, PromptState, UIState, UserProfile, AIModel, ChatMessage, InternalChatMessage, Scenario, ThreadStoreState, Projects, Task, Attachment, Guidance, RoleType, PromptType, NetworkData, AIAgent, Network, Threads, Messages } from '$lib/types/types';
   import { projectStore } from '$lib/stores/projectStore';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
   import { fetchMessagesForBookmark, fetchMessagesForThread, resetThread, createThread, loadThreads, threadListVisibility, updateThread, addMessageToThread } from '$lib/clients/threadsClient';
@@ -48,11 +48,7 @@
   import { prepareReplyContext } from '$lib/utils/handleReplyMessage';
 	import SysPromptSelector from './SysPromptSelector.svelte';
 
-  interface UserProfile {
-    id: string;
-    name: string;
-    avatarUrl: string;
-  }
+
   type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
   
   let documentClickListener: ((e: MouseEvent) => void) | null = null;
@@ -440,8 +436,12 @@ export async function handleSendMessage(message: string = userInput) {
     userInput = '';
     if (textareaElement) {
       resetTextareaHeight(textareaElement);
-      textareaElement.blur();
-      handleImmediateTextareaBlur();
+      
+      // Wrap in setTimeout to ensure proper timing
+      setTimeout(() => {
+        textareaElement.blur();
+        handleImmediateTextareaBlur();
+      }, 0);
     }
 
     if (!currentThreadId) {
@@ -508,7 +508,7 @@ export async function handleSendMessage(message: string = userInput) {
     quotedMessage = null;
 
     if ($isAiActive) {
-      const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase());
+      const thinkingMessage = addMessage('thinking');
       thinkingMessageId = thinkingMessage.id;
       chatMessages = [...chatMessages, thinkingMessage];
 
@@ -642,7 +642,7 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
       
       if ($isAiActive) {
         // Show thinking message
-        const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), userMessageUI.id);
+        const thinkingMessage = addMessage('thinking', userMessageUI.id);
         thinkingMessageId = thinkingMessage.id;
         chatMessages = [...chatMessages, thinkingMessage];
         
@@ -757,12 +757,22 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
   }
 }
 
-  function processMessageContentWithReplyable(content: string, messageId: string): string {
+
+async function processMessageContentWithReplyable(content: string, messageId: string): Promise<string> {
   if (!content || typeof content !== 'string') return content || '';
   
-  // Create a temporary element to process the content
+  // First, process markdown to HTML
+  let htmlContent: string;
+  try {
+    htmlContent = await processMarkdown(content);
+  } catch (error) {
+    console.error('Error processing markdown:', error);
+    htmlContent = content; // Fallback to original content
+  }
+  
+  // Create a temporary element to process the HTML content
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = content;
+  tempDiv.innerHTML = htmlContent;
   
   // Add data attributes to elements that can be replied to
   const replyableElements = tempDiv.querySelectorAll('p, li, ul, ol, blockquote, pre, code, strong, em');
@@ -3308,6 +3318,7 @@ onDestroy(() => {
                   promptType={promptType}
                   
                 />
+                
               {/if}
             {/each}
             {/each}
@@ -4780,8 +4791,7 @@ p div {
     // background: var(--bg-gradient);
     justify-content: flex-start;
     // align-items: center;
-    width: 60vw;
-    margin-left: 20vw;
+    width: 100%;
     height: auto;
     margin-top: 0;
     margin-right: 0;
@@ -4961,16 +4971,21 @@ p div {
     top: 0;
     height: 200px;
   }
+  .drawer-visible .input-container {
+    left: 0;    
+    right: 0.5rem;
+  }
   .input-container {
     display: flex;
     flex-direction: column;
-    position: relative;
+    max-width: 1600px;
+    position: absolute;
     flex-grow: 0;
-    width: calc(100%);    
+    left: 8rem;    
     margin-top: 0;
     height: auto;
-    right: 0;
-    bottom:0;
+    right: 2rem;
+    bottom:0.5rem;
     margin-bottom: 0;
       border: 1px solid var(--line-color);
     transition: all 0.2s ease;
@@ -5273,29 +5288,32 @@ color: #6fdfc4;
 
 
 .drawer-visible .chat-messages {
+      max-width: 1600px;
+  left: 0;
+  border: 1px solid var(--line-color);
+  padding-inline-start: 1rem;
 }
 
 
   .chat-messages {
     flex-grow: 0;
-    overflow-y: auto;
+    // overflow-y: auto;
     overflow-x: hidden;
     // background: var(--primary-color);
     /* padding: 10px; */
     display: flex;
     position: relative;
-    left: 1rem;
+    left: 3rem;
     gap: 1rem;
-    margin-bottom: 0;
+    margin-bottom: 7rem;
     margin-top: 0;
     // left: 25%;
     padding: 0;
-
-    padding-inline-start: 1rem;
+    // padding-inline-start: 1rem;
     // backdrop-filter: blur(10px);
     flex-direction: column;
     align-items: stretch;
-    height:86vh;
+    height:calc(100% - 4rem);
     overflow-x: hidden;
     overflow-y: none;
     scrollbar-width:2px;
@@ -5303,8 +5321,8 @@ color: #6fdfc4;
     scroll-behavior: smooth;
     // margin-bottom: 100px;
     // height: 100%;
-    width: calc(100% - 4rem);
-    border-radius: var(--radius-l);
+    width: 100%;
+    border-radius: 2rem;
     // padding-bottom: 40px;
     // border: 2px solid var(--bg-color);
     // background-color: var(--secondary-color);
@@ -5520,7 +5538,6 @@ color: #6fdfc4;
       // background-color: transparent;
       // border-bottom: 1px solid var(--line-color);
       height: auto;
-      margin-right: 3.5rem;
       margin-left: 0;
       // border-top: 2px solid var(--line-color);
       border-left: 2px solid var(--line-color);
@@ -7463,11 +7480,7 @@ p.selector-lable {
   }
 
   @media (max-width: 1000px) {
-    .input-container-start {
-      margin-top: 0;
-      bottom: 0;
-      // position: fixed;
-    }
+    
     .input-container-start {
     display: flex;
     flex-direction: column;
@@ -7795,7 +7808,6 @@ p.selector-lable {
     left: 0;
     right: 0;
     padding: 0;
-    background: red;
     gap: 1rem;
     width: 100%;
     margin-bottom: auto;
@@ -8058,7 +8070,7 @@ p.selector-lable {
       border-radius: 0;
       width: 100%;
       max-width: 450px;
-      height: 87vh !important;
+      height: 84vh !important;
       // border-right: 1px solid var(--secondary-color);
       align-items: center;
       justify-content: center;
@@ -8109,13 +8121,13 @@ p.selector-lable {
     }
 
     .input-container {
-      margin-right: 0;
-      margin-left: 0;
+      left: 0.5rem !important;
+      right: 0.5rem;
       margin-bottom: 0;
       bottom: 4rem !important;
       background: transparent;
       flex-grow: 0;
-    width: 100%;    
+    width: auto;    
       position: absolute;
     align-items: center;
     justify-content: flex-end;
@@ -8590,7 +8602,7 @@ p.selector-lable {
     margin-left: 0;
     bottom: 0;
     height: auto;
-    width: 100%;
+    // width: 100%;
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--line-color);
     border-top-left-radius: 1rem;

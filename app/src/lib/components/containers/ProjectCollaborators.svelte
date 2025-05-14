@@ -17,7 +17,8 @@
   let isLoading: boolean = false;
   let currentProjectId: string | null = null;
 
-  projectStore.subscribe((state) => {
+  // Subscribe to projectStore for project updates
+  const unsubscribe = projectStore.subscribe((state) => {
       currentProjectId = state.currentProjectId;
       
       if (state.currentProjectId === projectId) {
@@ -29,6 +30,12 @@
       }
   });
 
+  // Clean up subscription on component destroy
+  onMount(() => {
+    return () => {
+      unsubscribe();
+    };
+  });
 
  
   export async function loadProjectData() {
@@ -39,7 +46,13 @@
         if (projectFromStore) {
             project = projectFromStore;
         } else {
-            project = await pocketbaseUrl.collection('projects').getOne<Projects>(projectId);
+            // Use API endpoint instead of direct pb access
+            const response = await fetch(`/api/projects/${projectId}`);
+            if (response.ok) {
+                project = await response.json();
+            } else {
+                throw new Error(`Failed to fetch project: ${response.status}`);
+            }
         }
         
         if (project && $currentUser) {
@@ -50,313 +63,272 @@
         console.error('Error loading project data:', error);
         errorMessage = 'Failed to load project data.';
     }
-}
-async function loadCollaborators() {
-  try {
-    errorMessage = '';
-    console.log('Loading collaborators for project ID:', projectId);
-    
-    if (!projectId) {
-      console.error('ProjectId is invalid:', projectId);
+  }
+
+  async function loadCollaborators() {
+    try {
+      errorMessage = '';
+      console.log('Loading collaborators for project ID:', projectId);
+      
+      if (!projectId) {
+        console.error('ProjectId is invalid:', projectId);
+        return [];
+      }
+      
+      const result = await projectStore.loadCollaborators(projectId);
+      console.log('Raw collaborators result:', result);
+      
+      // Check if the result is an object with a data property
+      if (result && typeof result === 'object' && 'data' in result && Array.isArray(result.data)) {
+        collaborators = result.data;
+        console.log('Collaborators array set with length:', collaborators.length);
+      } else if (Array.isArray(result)) {
+        collaborators = result;
+        console.log('Collaborators array set with length:', collaborators.length);
+      } else {
+        console.error('Expected array but got:', typeof result, result);
+        collaborators = [];
+      }
+      
+      return collaborators;
+    } catch (error) {
+      console.error('Error loading collaborators:', error);
+      errorMessage = 'Failed to load collaborators: ' + (error instanceof Error ? error.message : String(error));
+      collaborators = [];
       return [];
     }
-    
-    const result = await projectStore.loadCollaborators(projectId);
-    console.log('Raw collaborators result:', result);
-    
-    // Check if the result is an object with a data property
-    if (result && typeof result === 'object' && 'data' in result && Array.isArray(result.data)) {
-      collaborators = result.data;
-      console.log('Collaborators array set with length:', collaborators.length);
-    } else if (Array.isArray(result)) {
-      collaborators = result;
-      console.log('Collaborators array set with length:', collaborators.length);
-    } else {
-      console.error('Expected array but got:', typeof result, result);
-      collaborators = [];
-    }
-    
-    return collaborators;
-  } catch (error) {
-    console.error('Error loading collaborators:', error);
-    errorMessage = 'Failed to load collaborators: ' + (error instanceof Error ? error.message : String(error));
-    collaborators = [];
-    return [];
   }
-}
 
-async function fetchUserByEmail(email: string): Promise<User | null> {
-    if (!$currentUser) {
-        console.error('User is not authenticated.');
-        return null;
-    }
+  // Remove these unused functions since we're using the findUserByIdentifier approach
+  // async function fetchUserByEmail(email: string): Promise<User | null> { ... }
+  // async function fetchUserByName(name: string): Promise<User | null> { ... }
 
-    try {
-        console.log('Searching for user with email:', email);
-        // Sanitize email input
-        const sanitizedEmail = email.trim();
-        
-        const allUsers = await pb.collection('users').getFullList<User>();
-        console.log('Total users fetched for manual check:', allUsers.length);
-        console.log('All users:', allUsers.map(u => ({ id: u.id, email: u.email, name: u.name })));
-        
-        let foundUser = allUsers.find(user => user.email === sanitizedEmail);
-        
-        if (!foundUser) {
-            foundUser = allUsers.find(user => {
-                if (!user || !user.email) return false;
-                return user.email.toLowerCase() === sanitizedEmail.toLowerCase();
-            });
-        }
-        
-        if (!foundUser) {
-            foundUser = allUsers.find(user => {
-                if (!user || !user.email) return false;
-                return user.email.toLowerCase().includes(sanitizedEmail.toLowerCase());
-            });
-        }
-        
-        console.log('User found by email search:', foundUser);
-        return foundUser || null;
-    } catch (error) {
-        console.error('Error fetching user by email:', error);
-        return null;
-    }
-}
+  let newCollaboratorName: string = '';
+  async function findUserByIdentifier(identifier: string): Promise<User | null> {
+      if (!$currentUser) {
+          console.error('User is not authenticated.');
+          return null;
+      }
 
-async function fetchUserByName(name: string): Promise<User | null> {
-    if (!$currentUser) {
-        console.error('User is not authenticated.');
-        return null;
-    }
+      try {
+          console.log('Searching for user with identifier:', identifier);
+          const sanitizedIdentifier = identifier.trim();
+          
+          // First, check if this could be a user ID (typically a string of 15+ characters)
+          if (sanitizedIdentifier.length >= 15 && !sanitizedIdentifier.includes('@')) {
+              console.log('Identifier looks like a user ID, trying direct lookup first...');
+              try {
+                  const response = await fetch(`/api/users/${encodeURIComponent(sanitizedIdentifier)}`);
+                  if (response.ok) {
+                      const data = await response.json();
+                      // Handle the response format properly
+                      const user = data.user || data;
+                      console.log('Found user by direct ID lookup:', user);
+                      return user;
+                  } else {
+                      console.log('Direct ID lookup failed, continuing with search...');
+                  }
+              } catch (error) {
+                  console.log('Error in direct ID lookup:', error);
+                  // Continue with search
+              }
+          }
+          
+          // Use the search API endpoint
+          console.log('Using search API to find user...');
+          const response = await fetch(`/api/users?search=${encodeURIComponent(sanitizedIdentifier)}`);
+          if (!response.ok) {
+              throw new Error(`Failed to search users: ${response.statusText}`);
+          }
+          
+          // The response is an array of users
+          const users = await response.json();
+          console.log('Search API response:', users);
+          
+          // Check if we have any users returned
+          if (Array.isArray(users) && users.length > 0) {
+              console.log('Total users found:', users.length);
+              
+              // If there are multiple users found, try to find the best match
+              if (users.length > 1) {
+                  // First, check for exact matches on email (most unique identifier)
+                  const exactEmailMatch = users.find((u: User) => 
+                      u.email && u.email.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                  );
+                  if (exactEmailMatch) return exactEmailMatch;
+                  
+                  // Then check for exact matches on username
+                  const exactUsernameMatch = users.find((u: User) => 
+                      u.username && u.username.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                  );
+                  if (exactUsernameMatch) return exactUsernameMatch;
+                  
+                  // Then check for exact matches on name
+                  const exactNameMatch = users.find((u: User) => 
+                      u.name && u.name.toLowerCase() === sanitizedIdentifier.toLowerCase()
+                  );
+                  if (exactNameMatch) return exactNameMatch;
+              }
+              
+              // Return the first matching user if no exact match was found
+              return users[0];
+          }
+          
+          console.log('No users found matching the search criteria');
+          return null;
+      } catch (error) {
+          console.error('Error finding user:', error);
+          return null;
+      }
+  }
 
-    try {
-        console.log('Searching for user with name:', name);
-        const sanitizedName = name.trim();
-        
-        const allUsers = await pb.collection('users').getFullList<User>();
-        console.log('Total users fetched for name search:', allUsers.length);
-        console.log('All users:', allUsers.map(u => ({ id: u.id, name: u.name })));
-        
-        let foundUser = allUsers.find(user => user.name === sanitizedName);
-        
-        if (!foundUser) {
-            foundUser = allUsers.find(user => {
-                if (!user || !user.name) return false;
-                return user.name.toLowerCase() === sanitizedName.toLowerCase();
-            });
-        }
-        
-        if (!foundUser) {
-            foundUser = allUsers.find(user => {
-                if (!user || !user.name) return false;
-                return user.name.toLowerCase().includes(sanitizedName.toLowerCase());
-            });
-        }
-        
-        console.log('User found by name search:', foundUser);
-        return foundUser || null;
-    } catch (error) {
-        console.error('Error fetching user by name:', error);
-        return null;
-    }
-}
+  async function addCollaborator() {
+      if (!$currentUser) {
+          errorMessage = 'You must be logged in to add a collaborator.';
+          return;
+      }
 
-let newCollaboratorName: string = '';
-async function findUserByIdentifier(identifier: string): Promise<User | null> {
-    if (!$currentUser) {
-        console.error('User is not authenticated.');
-        return null;
-    }
+      if (!newCollaboratorName) {
+          errorMessage = 'Please enter a username, email, or user ID.';
+          return;
+      }
 
-    try {
-        console.log('Searching for user with identifier:', identifier);
-        const sanitizedIdentifier = identifier.trim();
-        
-        // First, check if this could be a user ID (typically a string of 15+ characters)
-        if (sanitizedIdentifier.length >= 15 && !sanitizedIdentifier.includes('@')) {
-            console.log('Identifier looks like a user ID, trying direct lookup first...');
-            try {
-                const response = await fetch(`/api/users/${encodeURIComponent(sanitizedIdentifier)}`);
-                if (response.ok) {
-                    const user = await response.json();
-                    console.log('Found user by direct ID lookup:', user);
-                    return user;
-                } else {
-                    console.log('Direct ID lookup failed, continuing with search...');
-                }
-            } catch (error) {
-                console.log('Error in direct ID lookup:', error);
-                // Continue with search
-            }
-        }
-        
-        // Use the search API endpoint
-        console.log('Using search API to find user...');
-        const response = await fetch(`/api/users?search=${encodeURIComponent(sanitizedIdentifier)}`);
-        if (!response.ok) {
-            throw new Error(`Failed to search users: ${response.statusText}`);
-        }
-        
-        // The response is an array of users
-        const users = await response.json();
-        console.log('Search API response:', users);
-        
-        // Check if we have any users returned
-        if (Array.isArray(users) && users.length > 0) {
-            console.log('Total users found:', users.length);
-            
-            // If there are multiple users found, try to find the best match
-            if (users.length > 1) {
-                // First, check for exact matches on email (most unique identifier)
-                const exactEmailMatch = users.find(u => 
-                    u.email && u.email.toLowerCase() === sanitizedIdentifier.toLowerCase()
-                );
-                if (exactEmailMatch) return exactEmailMatch;
-                
-                // Then check for exact matches on username
-                const exactUsernameMatch = users.find(u => 
-                    u.username && u.username.toLowerCase() === sanitizedIdentifier.toLowerCase()
-                );
-                if (exactUsernameMatch) return exactUsernameMatch;
-                
-                // Then check for exact matches on name
-                const exactNameMatch = users.find(u => 
-                    u.name && u.name.toLowerCase() === sanitizedIdentifier.toLowerCase()
-                );
-                if (exactNameMatch) return exactNameMatch;
-            }
-            
-            // Return the first matching user if no exact match was found
-            return users[0];
-        }
-        
-        console.log('No users found matching the search criteria');
-        return null;
-    } catch (error) {
-        console.error('Error finding user:', error);
-        return null;
-    }
-}
-
-async function addCollaborator() {
-    if (!$currentUser) {
-        errorMessage = 'You must be logged in to add a collaborator.';
-        return;
-    }
-
-    if (!newCollaboratorName) {
-        errorMessage = 'Please enter a username, email, or user ID.';
-        return;
-    }
-
-    try {
-        errorMessage = '';
-        successMessage = '';
-        isLoading = true;
-        
-        const user = await findUserByIdentifier(newCollaboratorName);
-        if (user) {
-            // Check if user is already a collaborator
-            const isExistingCollaborator = collaborators.some(c => c.id === user.id);
-            if (isExistingCollaborator) {
-                errorMessage = 'This user is already a collaborator.';
-                isLoading = false;
-                return;
-            }
-            
-            console.log('Found user to add:', user);
-            await projectStore.addCollaborator(projectId, user.id);
-            await loadCollaborators(); 
-            newCollaboratorName = '';
-            
-            const displayName = user.name || user.username || user.email || user.id;
-            successMessage = `${displayName} added as collaborator successfully.`;
-            
-            setTimeout(() => {
-                successMessage = '';
-            }, 3000);
-        } else {
-            errorMessage = 'User not found. Please try a different name, email, or ID.';
-        }
-        isLoading = false;
-    } catch (error) {
-        errorMessage = 'Failed to add collaborator. Error: ' + (error instanceof Error ? error.message : String(error));
-        console.error(error);
-        isLoading = false;
-    }
-}
-
-  async function removeCollaborator(userId: string) {
       try {
           errorMessage = '';
           successMessage = '';
           isLoading = true;
           
-          if (!project) {
-              await loadProjectData();
-          }
-          
-          if (project && project.owner === userId) {
-              errorMessage = 'Cannot remove the project owner.';
-              isLoading = false;
-              return;
-          }
-          
-          const removedUser = collaborators.find(c => c.id === userId);
-          
-          await projectStore.removeCollaborator(projectId, userId);
-          await loadCollaborators();
-          
-          if (removedUser) {
-              successMessage = `${removedUser.email} removed successfully.`;
+          const user = await findUserByIdentifier(newCollaboratorName);
+          if (user) {
+              // Check if user is already a collaborator
+              const isExistingCollaborator = collaborators.some(c => c.id === user.id);
+              if (isExistingCollaborator) {
+                  errorMessage = 'This user is already a collaborator.';
+                  isLoading = false;
+                  return;
+              }
+              
+              console.log('Found user to add:', user);
+              await projectStore.addCollaborator(projectId, user.id);
+              await loadCollaborators(); 
+              newCollaboratorName = '';
+              
+              const displayName = user.name || user.username || user.email || user.id;
+              successMessage = `${displayName} added as collaborator successfully.`;
+              
               setTimeout(() => {
                   successMessage = '';
               }, 3000);
+          } else {
+              errorMessage = 'User not found. Please try a different name, email, or ID.';
           }
           isLoading = false;
       } catch (error) {
-          errorMessage = 'Failed to remove collaborator. Error: ' + (error instanceof Error ? error.message : String(error));
+          errorMessage = 'Failed to add collaborator. Error: ' + (error instanceof Error ? error.message : String(error));
           console.error(error);
           isLoading = false;
       }
   }
 
-  function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Enter') {
-          addCollaborator();
-      }
-  }
-  $: if ($projectStore.currentProjectId && !projectId) {
-    projectId = $projectStore.currentProjectId;
-    loadCollaborators();
-  }
-  
-  onMount(async () => {
-    isLoading = true;
-    console.log('*** Component mounting... ***');
-    console.log('ProjectId at mount time:', projectId);
-    
-    try {
-      // Check if projectId is valid
-      if (projectId) {
-        console.log('Component mounted, projectId:', projectId);
-        await loadCollaborators();
-
-      }
-      
-      // Log current user status
-      console.log('Current user at mount time:', $currentUser?.id);
-      
-      console.log('After loadProjectData - project:', project?.name);
-      isLoading = false;
-
-      // Load threads data if we have a projectId
-
-    } catch (error) {
-      console.error('Error in onMount:', error);
+    async function removeCollaborator(userId: string) {
+        try {
+            errorMessage = '';
+            successMessage = '';
+            isLoading = true;
+            
+            if (!project) {
+                await loadProjectData();
+            }
+            
+            if (project && project.owner === userId) {
+                errorMessage = 'Cannot remove the project owner.';
+                isLoading = false;
+                return;
+            }
+            
+            const removedUser = collaborators.find(c => c.id === userId);
+            
+            await projectStore.removeCollaborator(projectId, userId);
+            await loadCollaborators();
+            
+            if (removedUser) {
+                const displayName = removedUser.name || removedUser.username || removedUser.email || removedUser.id;
+                successMessage = `${displayName} removed successfully.`;
+                setTimeout(() => {
+                    successMessage = '';
+                }, 3000);
+            }
+            isLoading = false;
+        } catch (error) {
+            errorMessage = 'Failed to remove collaborator. Error: ' + (error instanceof Error ? error.message : String(error));
+            console.error(error);
+            isLoading = false;
+        }
     }
-  });
+
+    function handleKeyDown(event: KeyboardEvent) {
+        if (event.key === 'Enter') {
+            addCollaborator();
+        }
+    }
+
+    // React to changes in projectStore.currentProjectId
+    $: if ($projectStore.currentProjectId && projectId !== $projectStore.currentProjectId) {
+      projectId = $projectStore.currentProjectId;
+      console.log('ProjectId updated to:', projectId);
+      loadProjectData();
+      loadCollaborators();
+    }
+
+    // React to changes in the specific project being viewed
+    $: if (projectId && projectId === $projectStore.currentProjectId) {
+      // Check if project data changed in the store
+      const projectFromStore = $projectStore.threads.find(p => p.id === projectId);
+      if (projectFromStore && project !== projectFromStore) {
+        project = projectFromStore;
+        if ($currentUser) {
+          isOwner = project.owner === $currentUser.id;
+        }
+        console.log('Project data updated from store');
+        // Also reload collaborators when project changes
+        loadCollaborators();
+      }
+    }
+
+    // Watch for projectId prop changes
+    $: if (projectId) {
+      console.log('ProjectId prop changed to:', projectId);
+      isLoading = true;
+      loadProjectData().then(() => {
+        return loadCollaborators();
+      }).finally(() => {
+        isLoading = false;
+      });
+    }
+    
+    onMount(async () => {
+      isLoading = true;
+      console.log('*** ProjectCollaborators Component mounting... ***');
+      console.log('ProjectId at mount time:', projectId);
+      
+      try {
+        // Check if projectId is valid
+        if (projectId) {
+          console.log('Component mounted, projectId:', projectId);
+          await loadProjectData();
+          await loadCollaborators();
+        }
+        
+        // Log current user status
+        console.log('Current user at mount time:', $currentUser?.id);
+        console.log('After loadProjectData - project:', project?.name);
+        isLoading = false;
+
+      } catch (error) {
+        console.error('Error in onMount:', error);
+        isLoading = false;
+      }
+    });
 </script>
 <div class="add-collaborator-form">
     <h3>{$t('dashboard.projectCollaborators')}</h3>

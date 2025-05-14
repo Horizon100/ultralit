@@ -213,7 +213,7 @@
 		width: 100%;
 	}
 
-	.hero-container {
+	.user-container {
 		display: flex;
 		flex-direction: column;
 		overflow: auto;

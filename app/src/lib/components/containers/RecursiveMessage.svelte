@@ -11,7 +11,7 @@
     import { pocketbaseUrl } from '$lib/pocketbase';
     import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
     import { createTaskFromMessage, saveTask, getPromptFromThread, loadTasks, updateTask, deleteTask, updateTaskTags } from '$lib/clients/taskClient';
-    import type { KanbanTask } from '$lib/types/types';
+    import type { KanbanTask, UserProfile } from '$lib/types/types';
     import { 
         fetchAIResponse, 
         fetchDualAIResponses,
@@ -25,6 +25,10 @@
     import { addNotification, updateNotification, removeNotification } from '$lib/stores/taskNotificationStore';
     import { goto } from '$app/navigation';
     import { projectStore } from '$lib/stores/projectStore';
+  import { t } from '$lib/stores/translationStore';
+
+
+    
 
 
     export let message: InternalChatMessage;
@@ -32,7 +36,7 @@
     export let userId: string;
     export let name: string;
     export let depth: number = 0;
-    export let getUserProfile;
+    // export let getUserProfile;
     export let getAvatarUrl: (user: any) => string;
     export let processMessageContentWithReplyable;
     export let latestMessageId: string | null;
@@ -45,13 +49,22 @@
     export let dualResponsePair = false;
     export let isPrimaryDualResponse = false;
     export let onSelectResponse: ((messageId: string) => void) | null = null;
+    export let onScrollToMessage: ((direction: 'next' | 'prev') => void) | null = null;
+    export let currentMessageIndex = 0;
+    export let totalMessages = 0;
+  export let onGetVisibleMessages: (() => Element[]) | null = null;
+  export let onGetCurrentIndex: (() => number) | null = null;
+
     let currentProjectId: string | null;
     let isUserScrolling = false;
     let lastScrollTop = 0;
     let userScrollY = 0;
     let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
     let showScrollButtons = false;
-    let currentMessageIndex = 0;
+    let processedContent = '';
+    let isProcessingContent = true;
+    let userProfileCache: Map<string, UserProfile | null> = new Map();
+
     $: currentProjectId = $projectStore.currentProjectId;    
     $: isClickable = $showThreadList && childReplies.length > 0;
 
@@ -80,7 +93,13 @@
         hiddenReplies = new Set(hiddenReplies); 
     }
  
-
+  function getRandomThinkingPhrase(): string {
+    const thinkingPhrases = $t('extras.thinking');
+    if (!thinkingPhrases?.length) {
+      return 'Thinking...';
+    }
+    return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
+  }
 // Add this helper function
 function findScrollableParent(element: Element | null): HTMLElement | null {
   if (!element) return null;
@@ -103,7 +122,49 @@ function findScrollableParent(element: Element | null): HTMLElement | null {
 }
 
 
-
+async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  // Check if already in cache
+  if (userProfileCache.has(userId)) {
+    return userProfileCache.get(userId) || null;
+  }
+  
+  try {
+    // Use your API endpoint instead of direct PocketBase access
+    const response = await fetch(`/api/verify/users/${userId}/public`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      userProfileCache.set(userId, null);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success || !data.user) {
+      userProfileCache.set(userId, null);
+      return null;
+    }
+    
+    const userData = data.user;
+    
+    // Create profile object from user data
+    const profile: UserProfile = {
+      id: userData.id,
+      name: userData.name || userData.name || 'User',
+      avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : null
+    };
+    
+    // Store in cache
+    userProfileCache.set(userId, profile);
+    return profile;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    userProfileCache.set(userId, null);
+    return null;
+  }
+}
     function handleReply() {
         showReplyInput = !showReplyInput;
         
@@ -156,52 +217,7 @@ function findScrollableParent(element: Element | null): HTMLElement | null {
         showReplyInput = false;
     }
     
-    async function generateTaskDescription(content: string): Promise<string> {
-  try {
-    // Set up system instructions for the AI to generate a focused task description
-    const systemPrompt = `
-      Create a clear, concise task description based on the provided content. 
-      - Focus only on actionable items and deliverables
-      - Write in an imperative style (e.g., "Create a report" not "Here is a task to create a report")
-      - Do not include phrases like "here is" or other meta-commentary
-      - Be specific about requirements and acceptance criteria
-      - Keep it focused and task-oriented
-      - Format as a direct set of instructions
-      - Include only text that would be useful in a task tracking system
-    `;
-
-    // If the content is already reasonably sized, use it directly
-    if (content.length < 500) {
-      // Clean the content of HTML and other markup
-      const cleanContent = content.replace(/<\/?[^>]+(>|$)/g, '');
-      
-      // Prepare the messages for AI processing
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Transform this into a focused task description: ${cleanContent}` }
-      ];
-      
-      // Use the appropriate AI model to generate the description
-      const aiResponse = await fetchAIResponse(messages, aiModel, userId);
-      return aiResponse;
-    } else {
-      // For longer content, extract the most relevant parts
-      const summary = content.substring(0, 1000); // Take first 1000 chars as a sample
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a focused task description from this content: ${summary}` }
-      ];
-      
-      const aiResponse = await fetchAIResponse(messages, aiModel, userId);
-      return aiResponse;
-    }
-  } catch (error) {
-    console.error('Error generating task description:', error);
-    // Fall back to original content if description generation fails
-    return content;
-  }
-}
+// 
 
 async function generateTask(taskDetails: { 
   messageId: string, 
@@ -473,32 +489,7 @@ async function generateChildTasks({
     return [];
   }
 }
-async function handleGenerateDualResponses(userInput: string, systemPrompts: string[]) {
-  try {
-    // Call the existing fetchDualAIResponses function
-    const result = await fetchDualAIResponses(
-      userInput,
-      aiModel,
-      userId,
-      systemPrompts
-    );
-    
-    // Emit an event to the parent component with the responses
-    dispatch('dualResponsesGenerated', {
-      responses: result.responses,
-      threadId: result.threadId,
-      systemPrompts: systemPrompts,
-      userMessage: userInput
-    });
-    
-  } catch (error) {
-    console.error('Error generating dual responses:', error);
-    dispatch('notification', {
-      message: 'Failed to generate responses: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      type: 'error'
-    });
-  }
-}
+
 async function handleSelectResponse(event) {
   const { messageId, content, systemPrompt } = event.detail;
   console.log('Handling response selection:', event.detail);
@@ -747,8 +738,143 @@ const handleWheel = (event: WheelEvent) => {
   }
 }
 
-    onMount(() => {
-  return setupScrollHandler();
+$: if (depth === 0) {
+  onScrollToMessage = scrollToMessage;
+  onGetVisibleMessages = getVisibleMessages;
+  onGetCurrentIndex = () => currentMessageIndex;
+}
+// $: if (message?.content) {
+//     console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
+//     isProcessingContent = true;
+//       const cleanup = setupScrollHandler();
+
+//     // Check if content is a Promise
+//     if (message.content instanceof Promise) {
+//         // Wait for the Promise to resolve
+//         message.content
+//             .then((resolvedContent: string) => {
+//                 console.log('Promise resolved to:', resolvedContent);
+                
+//                 if (processMessageContentWithReplyable) {
+//                     // Pass the resolved content, not the promise
+//                     return processMessageContentWithReplyable(resolvedContent, message.id);
+//                 } else {
+//                     return resolvedContent;
+//                 }
+//             })
+//             .then((content: string) => {
+//                 console.log('Final processed content:', content);
+//                 processedContent = content;
+//                 isProcessingContent = false;
+//             })
+//             .catch((error: any) => {
+//                 console.error('Error processing message content:', error);
+//                 processedContent = 'Error loading message content';
+//                 isProcessingContent = false;
+//             });
+//     } else {
+//         // Handle regular string content (backup case)
+//         const contentToProcess = String(message.content || '');
+        
+//         if (processMessageContentWithReplyable) {
+//             processMessageContentWithReplyable(contentToProcess, message.id)
+//                 .then((content: string) => {
+//                     processedContent = content;
+//                     isProcessingContent = false;
+//                 })
+//                 .catch((error: any) => {
+//                     console.error('Error processing message content:', error);
+//                     processedContent = contentToProcess;
+//                     isProcessingContent = false;
+//                 });
+//         } else {
+//             processedContent = contentToProcess;
+//             isProcessingContent = false;
+//         }
+//     }
+// }
+$: if (message?.content) {
+    console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
+    isProcessingContent = true;
+    
+    // Check if content is a Promise
+    if (message.content instanceof Promise) {
+        // Wait for the Promise to resolve
+        message.content
+            .then((resolvedContent: string) => {
+                console.log('Promise resolved to:', resolvedContent);
+                
+                if (processMessageContentWithReplyable) {
+                    // Pass the resolved content, not the promise
+                    return processMessageContentWithReplyable(resolvedContent, message.id);
+                } else {
+                    return resolvedContent;
+                }
+            })
+            .then((content: string) => {
+                console.log('Final processed content:', content);
+                processedContent = content;
+                isProcessingContent = false;
+            })
+            .catch((error: any) => {
+                console.error('Error processing message content:', error);
+                processedContent = 'Error loading message content';
+                isProcessingContent = false;
+            });
+    } else {
+        // Handle regular string content (backup case)
+        const contentToProcess = String(message.content || '');
+        
+        if (processMessageContentWithReplyable) {
+            processMessageContentWithReplyable(contentToProcess, message.id)
+                .then((content: string) => {
+                    processedContent = content;
+                    isProcessingContent = false;
+                })
+                .catch((error: any) => {
+                    console.error('Error processing message content:', error);
+                    processedContent = contentToProcess;
+                    isProcessingContent = false;
+                });
+        } else {
+            processedContent = contentToProcess;
+            isProcessingContent = false;
+        }
+    }
+}
+
+// Keep the function export reactive statement:
+$: if (depth === 0) {
+  onScrollToMessage = scrollToMessage;
+  onGetVisibleMessages = getVisibleMessages;
+  onGetCurrentIndex = () => currentMessageIndex;
+}
+// Also add this debug logging to see what's in the message content:
+$: {
+    console.log('Message object:', message);
+    console.log('Message content:', message?.content);
+    console.log('Content type:', typeof message?.content);
+}
+//     onMount(() => {
+//   return setupScrollHandler();
+// });
+
+onMount(() => {
+  // Only set up scroll handler for depth-0 messages
+  if (depth === 0) {
+    // Wait a bit for the DOM to be ready
+    const timeoutId = setTimeout(() => {
+      const cleanup = setupScrollHandler();
+      
+      // Store cleanup function to call on destroy
+      return cleanup;
+    }, 100);
+    
+    // Return cleanup function
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }
 });
 </script>
   
@@ -765,48 +891,91 @@ const handleWheel = (event: WheelEvent) => {
     out:fade="{{ duration: 200 }}"
     on:click={handleMessageClick}
 >
-    <div class="message-header">
-        {#if message.role === 'user'}
-        <div class="user-header">
-          <div class="avatar-container">
-            {#if getAvatarUrl($currentUser)}
+
+<div class="message-header">
+    {#if message.role === 'user'}
+    <div class="user-header">
+      <div class="avatar-container">
+        {#if message.user}
+          {#await getUserProfile(message.user) then userProfile}
+            {#if userProfile && getAvatarUrl(userProfile)}
+              <img 
+                src={getAvatarUrl(userProfile)}
+                alt="User avatar" 
+                class="user-avatar" 
+              />
+            {:else}
+              <div class="default-avatar">
+                {(userProfile?.name || userProfile?.username || userProfile?.email || '?')[0]?.toUpperCase()}
+              </div>
+            {/if}
+          {/await}
+        {:else}
+          <!-- Fallback to currentUser if no message.user -->
+          {#if getAvatarUrl($currentUser)}
             <img 
               src={getAvatarUrl($currentUser)}
               alt="User avatar" 
               class="user-avatar" 
             />
-            {:else}
-              <div class="default-avatar">
-                {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-              </div>
-            {/if}
-          </div>
-          <span class="role">
-            {#if message.type === 'human' && message.user}
-              {#await getUserProfile(message.user) then userProfile}
-                {userProfile ? userProfile.name : name}
-              {/await}
-            {:else}
-              {name}
-            {/if}
-          </span>
-        </div>
-        {:else if message.role === 'assistant'}
-            <div class="avatar-container">
-                <Bot />
+          {:else}
+            <div class="default-avatar">
+              {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
             </div>
-            <div class="user-header">
-                <span class="model">{message.model}</span>
-                {#if message.prompt_type}
-                    <span class="prompt-type">{message.prompt_type}</span>
-                {/if}
-            </div>
+          {/if}
         {/if}
+      </div>
+      <span class="role">
+        {#if message.type === 'human' && message.user}
+          {#await getUserProfile(message.user) then userProfile}
+            {userProfile ? userProfile.name : name}
+          {/await}
+        {:else}
+          {name}
+        {/if}
+      </span>
+    </div>
+    {:else if message.role === 'assistant'}
+        <div class="avatar-container">
+            <Bot />
+        </div>
+        <div class="user-header">
+            <span class="model">{message.model}</span>
+            {#if message.prompt_type}
+                <span class="prompt-type">{message.prompt_type}</span>
+            {/if}
+        </div>
+    {/if}
+      <div class="navigation-buttons">
+      {#if depth === 0 && showScrollButtons && !isClickable}
+        <button 
+          class="nav-btn scroll-prev-btn" 
+          on:click={() => scrollToMessage('prev')}
+          disabled={currentMessageIndex === 0}
+        >
+          <ChevronUp />
+        </button>
+        <span class="message-indicator">
+          {currentMessageIndex + 1} / {getVisibleMessages().length}
+        </span>
+        <button 
+          class="nav-btn scroll-next-btn" 
+          on:click={() => scrollToMessage('next')}
+          disabled={currentMessageIndex >= getVisibleMessages().length - 1}
+        >
+          <ChevronDown />
+        </button>
+    {/if}
+      </div>
     </div>
     
-    <p class:typing={message.isTyping}>
-        {@html processMessageContentWithReplyable(message.content, message.id)}
-    </p>
+  <p class:typing={message.isTyping}>
+      {#if isProcessingContent}
+          <!-- <span class="processing">Processing...</span> -->
+      {:else}
+          {@html processedContent}
+      {/if}
+  </p>
     
     {#if showReplyInput}
         <div class="reply-input-container" transition:slide={{ duration: 200 }}>
@@ -879,8 +1048,20 @@ const handleWheel = (event: WheelEvent) => {
                             />
                         {:else}
                             <!-- Simplified view for deep nesting -->
-                            <div class="deep-nested-reply">
-                                <p>{reply.role}: {@html reply.content.substring(0, 100)}...</p>
+                        <div class="deep-nested-reply">
+                                <p>{reply.role}: 
+                                    {#if reply.content instanceof Promise}
+                                        {#await reply.content}
+                                            Loading...
+                                        {:then resolvedContent}
+                                            {@html resolvedContent.substring(0, 100)}...
+                                        {:catch error}
+                                            Error loading content
+                                        {/await}
+                                    {:else}
+                                        {@html String(reply.content).substring(0, 100)}...
+                                    {/if}
+                                </p>
                                 <a href="#{reply.id}" class="view-full-link">View full message</a>
                             </div>
                         {/if}
@@ -891,13 +1072,16 @@ const handleWheel = (event: WheelEvent) => {
     {/if}
     
     {#if message.role === 'thinking'}
-        <div class="thinking-animation">
-            <span><Bot color="white" /></span>
-            <span><Bot color="gray" /></span>
-            <span><Bot color="white" /></span>
-        </div>
+    <div class="loading">
+      <div class="loader">
+      </div>
+      <span>
+        {getRandomThinkingPhrase()}
+      </span>
+    </div>
     {/if}
-    
+
+
     {#if message.role === 'assistant'}
         <div class="message-footer">
             <Reactions 
@@ -922,27 +1106,8 @@ const handleWheel = (event: WheelEvent) => {
 
 
 </div>
-  {#if depth === 0 && showScrollButtons && !isClickable}
-  <div class="navigation-buttons">
-    <button 
-      class="nav-btn scroll-prev-btn" 
-      on:click={() => scrollToMessage('prev')}
-      disabled={currentMessageIndex === 0}
-    >
-      <ChevronUp />
-    </button>
-    <span class="message-indicator">
-      {currentMessageIndex + 1} / {getVisibleMessages().length}
-    </span>
-    <button 
-      class="nav-btn scroll-next-btn" 
-      on:click={() => scrollToMessage('next')}
-      disabled={currentMessageIndex >= getVisibleMessages().length - 1}
-    >
-      <ChevronDown />
-    </button>
-  </div>
-{/if}
+
+
   <style lang="scss">
     $breakpoint-sm: 576px;
     $breakpoint-md: 1000px;
@@ -956,25 +1121,28 @@ const handleWheel = (event: WheelEvent) => {
       /* color: var(--text-color); */
       font-family: var(--font-family);
     }
-
-    .navigation-buttons {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      position: fixed;
-      bottom: calc(50% - 4rem);
-      height: 10rem;
-      width: 3rem;
-      right:4rem;
-      border-radius: 1rem;
-      gap: 0.5rem;
-      padding: 0.5rem;
-      margin: 0;
-      z-index: 4000;
-      background: var(--bg-color);
-
-    }
+ :global(.navigation-buttons .nav-container) {
+    position: fixed !important;
+    bottom: 0 !important;
+    right: 4rem !important;
+    z-index: 9999 !important;
+    overflow: visible !important;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: var(--bg-color);
+    border-radius: 1rem;
+    padding: 0.5rem;
+  }
+.navigation-buttons {
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+  right: 1rem;
+  width: 12rem;
+}
 
     span.message-indicator {
       width: 6rem;
@@ -1002,8 +1170,9 @@ const handleWheel = (event: WheelEvent) => {
     }
 
     .message {
-            height: 74vh !important;
+            // height: 100% !important;
             margin-bottom: auto !important;
+            
 
     }
         .message.clickable {
@@ -1018,21 +1187,20 @@ const handleWheel = (event: WheelEvent) => {
 
     .message.clickable:hover {
         background: var(--primary-color);
-        transform: translateX(10px);
-        padding-inline-start: 1rem;
+        // transform: translateX(10px);
     }
 
     .message.depth-0 {
-      // box-shadow: 20px -20px 10px -10px var(--primary-color, 0.01);
-      border-radius: 1rem;
-      border-top: 1px solid var(--line-color);
+      box-shadow: 10px -20px 50px -15px var(--primary-color, 0.01);
+            // backdrop-filter: blur(12px);
+      padding-left: 1rem !important;
       padding-top: 1rem !important;
       display: flex;
-      padding: 0 !important;
       align-items: stretch;
       flex: 1;
       flex-grow: 1;
       padding: 0;
+      border-radius: 1rem;
 
     }
     
@@ -1042,7 +1210,7 @@ const handleWheel = (event: WheelEvent) => {
         // box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
         border-radius: 1rem;
 
-        
+
     }
     
     .message.depth-2 {
@@ -1240,6 +1408,7 @@ const handleWheel = (event: WheelEvent) => {
         display: flex;
         flex-direction: row;
         align-items: center;
+        justify-content: space-between;
         width: 100% ;
         gap: 1rem;
 
@@ -1260,8 +1429,9 @@ const handleWheel = (event: WheelEvent) => {
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 66vh;
+        height: auto;
         overflow-y: auto;
+        overflow-x: hidden;
         margin-left: 0;
         &.replies-container {
             display: flex;
@@ -1298,30 +1468,53 @@ const handleWheel = (event: WheelEvent) => {
       transform: scale(1); 
     }
   }
-    .thinking-animation {
+
+  .loading {
     display: flex;
     flex-direction: row;
-    justify-content: left;
-    align-items: left;
-    margin-top: 10px;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    width: 300px !important;
 
-    span {
-      width: 40px;
-      height: 40px;
-      margin: 0 5px;
-      padding: 10px;
-      background-color: transparent;
-      animation: bounce 1s infinite ease-in-out both;
+    & span {
+      width: auto !important;
+      display: flex;
+      line-height: 1.5;
+      font-size: 0.8rem;
+      animation: pulsate-color 5s infinite;
 
-      &:nth-child(1) {
-        animation-delay: -0.32s;
-      }
-
-      &:nth-child(2) {
-        animation-delay: -0.16s;
-      }
     }
   }
+
+.loader {
+  width: 2rem;
+  height: 0.5rem;
+  border: 1px solid;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  color: var(--tertiary-color);
+  box-shadow: 0px 0px 16px 0px rgba(251, 245, 245, 0.9);
+  animation: l2 5s infinite linear;
+}
+.loader:before,
+.loader:after {
+  content: "";
+  grid-area: 1/1;
+  border: inherit;
+  border-radius: 50%;
+  animation: inherit;
+  animation-duration: 10s;
+}
+.loader:after {
+  --s:-1;
+}
+@keyframes l2 {
+   100% {transform:rotate(calc(var(--s,1)*1turn))}
+}
+ 
+  
     .message.dual-response {
         border-left: 3px solid var(--primary-color, #3b82f6);
         position: relative;
@@ -1420,10 +1613,10 @@ const handleWheel = (event: WheelEvent) => {
       color: var(--text-color);
       // background-color: transparent;
       // border-bottom: 1px solid var(--line-color);
-      margin-right: 3.5rem;
+      // margin-right: 3.5rem;
       margin-left: 0;
       // border-top: 2px solid var(--line-color);
-      max-width: 1200px;
+      max-width: 1600px;
       width: calc(100%);
       min-width: 200px;
       font-weight: 500;
@@ -1516,3 +1709,77 @@ const handleWheel = (event: WheelEvent) => {
   }
 
   </style>
+
+      <!-- async function generateTaskDescription(content: string): Promise<string> {
+//   try {
+//     // Set up system instructions for the AI to generate a focused task description
+//     const systemPrompt = `
+//       Create a clear, concise task description based on the provided content. 
+//       - Focus only on actionable items and deliverables
+//       - Write in an imperative style (e.g., "Create a report" not "Here is a task to create a report")
+//       - Do not include phrases like "here is" or other meta-commentary
+//       - Be specific about requirements and acceptance criteria
+//       - Keep it focused and task-oriented
+//       - Format as a direct set of instructions
+//       - Include only text that would be useful in a task tracking system
+//     `;
+
+//     // If the content is already reasonably sized, use it directly
+//     if (content.length < 500) {
+//       // Clean the content of HTML and other markup
+//       const cleanContent = content.replace(/<\/?[^>]+(>|$)/g, '');
+      
+//       // Prepare the messages for AI processing
+//       const messages = [
+//         { role: 'system', content: systemPrompt },
+//         { role: 'user', content: `Transform this into a focused task description: ${cleanContent}` }
+//       ];
+      
+//       // Use the appropriate AI model to generate the description
+//       const aiResponse = await fetchAIResponse(messages, aiModel, userId);
+//       return aiResponse;
+//     } else {
+//       // For longer content, extract the most relevant parts
+//       const summary = content.substring(0, 1000); // Take first 1000 chars as a sample
+      
+//       const messages = [
+//         { role: 'system', content: systemPrompt },
+//         { role: 'user', content: `Create a focused task description from this content: ${summary}` }
+//       ];
+      
+//       const aiResponse = await fetchAIResponse(messages, aiModel, userId);
+//       return aiResponse;
+//     }
+//   } catch (error) {
+//     console.error('Error generating task description:', error);
+//     // Fall back to original content if description generation fails
+//     return content;
+//   }
+// } -->
+
+<!-- async function handleGenerateDualResponses(userInput: string, systemPrompts: string[]) {
+  try {
+    // Call the existing fetchDualAIResponses function
+    const result = await fetchDualAIResponses(
+      userInput,
+      aiModel,
+      userId,
+      systemPrompts
+    );
+    
+    // Emit an event to the parent component with the responses
+    dispatch('dualResponsesGenerated', {
+      responses: result.responses,
+      threadId: result.threadId,
+      systemPrompts: systemPrompts,
+      userMessage: userInput
+    });
+    
+  } catch (error) {
+    console.error('Error generating dual responses:', error);
+    dispatch('notification', {
+      message: 'Failed to generate responses: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      type: 'error'
+    });
+  }
+} -->
