@@ -22,3 +22,74 @@ export function resetTextareaHeight(element?: HTMLTextAreaElement | null) {
 	element.style.height = 'auto';
 	element.style.height = defaultTextareaHeight;
   }
+
+export function capitalizeFirst(str: string): string {
+	return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+export function processWordMinimize(str: string): string {
+    if (!str) return '';
+    
+const replacements = {
+    'and': '<span class="minimized-symbol">&</span>',
+    'to': '<span class="minimized-symbol">→</span>',
+    'with': '<span class="minimized-symbol">w/</span>',
+    'delete': '<span class="minimized-symbol">🗑</span>',
+    'remove': '<span class="minimized-symbol">🗑</span>',
+    'add': '<span class="minimized-symbol">+</span>',
+    'create': '<span class="minimized-symbol">+</span>',
+    'edit': '<span class="minimized-symbol">✏</span>',
+    'modify': '<span class="minimized-symbol">✏</span>',
+    'update': '<span class="minimized-symbol">⬆</span>',
+    'download': '<span class="minimized-symbol">⬇</span>',
+    'upload': '<span class="minimized-symbol">⬆</span>',
+    'save': '<span class="minimized-symbol">💾</span>',
+    'search': '<span class="minimized-symbol">🔍</span>',
+    'find': '<span class="minimized-symbol">🔍</span>',
+    'settings': '<span class="minimized-symbol">⚙</span>',
+    'config': '<span class="minimized-symbol">⚙</span>',
+    'configure': '<span class="minimized-symbol">⚙</span>',
+    'help': '<span class="minimized-symbol">❓</span>',
+    'support': '<span class="minimized-symbol">❓</span>',
+    'info': '<span class="minimized-symbol">ℹ</span>',
+    'information': '<span class="minimized-symbol">ℹ</span>',
+    'warning': '<span class="minimized-symbol">⚠</span>',
+    'error': '<span class="minimized-symbol">❌</span>',
+    'success': '<span class="minimized-symbol">✅</span>',
+    'complete': '<span class="minimized-symbol">✅</span>',
+    'finish': '<span class="minimized-symbol">✅</span>',
+    'versus': '<span class="minimized-symbol">vs</span>',
+    'against': '<span class="minimized-symbol">vs</span>',
+    'through': '<span class="minimized-symbol">thru</span>',
+    'from': '<span class="minimized-symbol">←</span>',
+    'into': '<span class="minimized-symbol">→</span>'
+};
+    
+    let result = str;
+    for (const [word, replacement] of Object.entries(replacements)) {
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        result = result.replace(regex, replacement);
+    }
+    
+    return result;
+}
+	
+
+	   export function processWordCrop(str: string, maxLength: number = 50): string {
+        if (!str) return '';
+        
+        // First process the words
+        let processed = str
+            .replace(/\band\b/gi, '&')
+            .replace(/\bto\b/gi, '→')
+            .replace(/\bwith\b/gi, 'w/');
+        
+        // Then crop if needed
+        if (processed.length > maxLength) {
+            processed = processed.substring(0, maxLength) + '...';
+        }
+        
+        return processed;
+    }
+
+

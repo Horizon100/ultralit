@@ -3,9 +3,8 @@ import { marked } from 'marked';
 
 marked.setOptions({
   gfm: true,
-  breaks: true,
-  headerIds: false,
-  mangle: false
+  breaks: true
+  // Removed 'mangle' and 'headerIds' as they don't exist in current MarkedOptions
 });
 
 /**
@@ -13,7 +12,7 @@ marked.setOptions({
  * @param value Any value to convert to a string
  * @returns A properly formatted string representation
  */
-function safeStringify(value: any): string {
+function safeStringify(value: unknown): string {
   if (value === undefined) return 'undefined';
   if (value === null) return 'null';
   
@@ -21,11 +20,11 @@ function safeStringify(value: any): string {
   if (typeof value === 'object') {
     try {
       return JSON.stringify(value, null, 2);
-    } catch (err) {
+    } catch {
       // If circular reference or other JSON error, try to get a string representation
       try {
         return Object.prototype.toString.call(value);
-      } catch (err2) {
+      } catch {
         return '[Complex Object]';
       }
     }
@@ -108,22 +107,24 @@ function highlightCode(code: string, language: string): string {
 const renderer = new marked.Renderer();
 
 // Enhance code rendering
-renderer.code = (code, language = '') => {
+renderer.code = function({ text, lang = '' }: { text: string; lang?: string }) {
   // Handle object case (happens when code is passed as an object instead of string)
+  let code = text;
   if (typeof code === 'object') {
     code = safeStringify(code);
   }
   
-  const highlightedCode = highlightCode(code, language);
-  const langClass = language ? ` language-${language}` : '';
+  const highlightedCode = highlightCode(code, lang);
+  const langClass = lang ? ` language-${lang}` : '';
   
   // Add data attributes to help with copy functionality
   return `<pre class="code-block${langClass}" data-raw-code="${encodeURIComponent(code)}"><code class="${langClass}">${highlightedCode}</code></pre>`;
 };
 
 // Properly handle inline code
-renderer.codespan = (code) => {
+renderer.codespan = function({ text }: { text: string }) {
   // Handle object case
+  let code = text;
   if (typeof code === 'object') {
     code = safeStringify(code);
   }
@@ -144,13 +145,13 @@ marked.setOptions({ renderer });
  * @param content Markdown content to process
  * @returns HTML content
  */
-export function processMarkdown(content: string): string {
+export async function processMarkdown(content: string): Promise<string> {
   try {
     // Normalize line endings
     const normalizedContent = content.replace(/\r\n/g, '\n');
     
     // Convert markdown to HTML
-    const processed = marked(normalizedContent);
+    const processed = await marked(normalizedContent);
 
     return (
       processed
@@ -223,7 +224,7 @@ export function extractPlainTextFromHtml(html: string): string {
     // Format tables for plain text
     const tables = tempElement.querySelectorAll('table');
     tables.forEach(table => {
-      formatTableForPlainText(table);
+      formatTableForPlainText(table as HTMLTableElement);
     });
     
     return tempElement.textContent || '';
@@ -275,7 +276,7 @@ export function enhanceCodeBlocks(node: HTMLElement) {
       
       // Make sure the pre element has position relative
       if (getComputedStyle(pre).position === 'static') {
-        pre.style.position = 'relative';
+        (pre as HTMLElement).style.position = 'relative';
       }
       
       // Create the copy button
