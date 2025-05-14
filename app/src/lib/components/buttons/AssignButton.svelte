@@ -4,7 +4,8 @@
   import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
   import { get } from 'svelte/store';
-  import type { User } from '$lib/types/types';
+  import type { User, Column } from '$lib/types/types';
+	import { User2, UserCheckIcon, Users } from 'lucide-svelte';
   
   export let taskId: string;
   export let assignedTo: string = '';
@@ -17,19 +18,34 @@
     assigned: { taskId: string; userId: string };
     unassigned: { taskId: string };
   }>();
-  
+  let imageLoaded = true; 
   let loading = false;
   let users: User[] = [];
   let showDropdown = false;
   let dropdownRef: HTMLDivElement;
   let canAssign = false;
   let isLoading = true;
+  let assignedUserDetails: User | null = null;
+async function loadAssignedUserDetails() {
+  if (!assignedTo) {
+    assignedUserDetails = null;
+    return;
+  }
   
-  const sizeClasses = {
-    sm: 'text-xs p-1',
-    md: 'text-sm p-2',
-    lg: 'text-base p-3'
-  };
+  try {
+    const response = await fetch(`/api/users/${assignedTo}`);
+    if (response.ok) {
+      assignedUserDetails = await response.json();
+    }
+  } catch (error) {
+    console.error('Failed to load assigned user details:', error);
+  }
+}
+
+// Watch for assignedTo changes
+$: if (assignedTo) {
+  loadAssignedUserDetails();
+}
 
   onMount(async () => {
     checkPermissions();
@@ -211,73 +227,106 @@
   // Find assigned user details
   $: assignedUser = assignedTo && users.length > 0 ? users.find(user => user?.id === assignedTo) : null;
   $: isAssignedToCurrentUser = assignedTo === get(currentUser)?.id;
-  $: buttonClass = `relative inline-flex items-center justify-center ${sizeClasses[size]} rounded-md font-medium transition-all 
-    ${(disabled || !canAssign) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'} 
-    ${assignedTo ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`;
+
 </script>
 
 <svelte:window on:click={handleClickOutside} />
-
 {#if isLoading}
-  <div class="inline-flex items-center justify-center px-3 py-1 text-sm font-medium text-gray-500 dark:text-gray-400">
-    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  <div class="loading-container">
+    <svg class="loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
     Loading...
   </div>
 {:else if canAssign}
-  <div class="relative" bind:this={dropdownRef}>
+  <div class="dropdown-container" bind:this={dropdownRef}>
     {#if compact}
       <button 
         type="button"
-        class={buttonClass}
+        class={`assign-button compact`}
         on:click={toggleDropdown}
         aria-haspopup="true"
         aria-expanded={showDropdown}
         disabled={disabled || loading}
       >
         {#if loading}
-          <span class="animate-pulse">...</span>
-        {:else if assignedTo}
-          {#if assignedUser?.username}
-            {assignedUser.username}
-          {:else}
-            {assignedTo.slice(0, 6)}...
-          {/if}
+        <div class="loading">
+          <div class="loader">
+          </div>
+        </div>        
+    {:else if assignedTo}
+          <div class="user-info compact">
+            <div class="user-avatar compact">
+              <img 
+                src={`/api/users/${assignedTo}/avatar`} 
+                alt={assignedUser?.username || 'User'} 
+                on:error={(e) => e.target.style.display = 'none'}
+              />
+              <span class="avatar-initials">
+                {assignedUser.username}
+              </span>
+            </div>
+            <span class="username">
+              {#if assignedUser?.username}
+                {assignedUser.username}
+              {:else}
+                {assignedTo.slice(0, 6)}...
+              {/if}
+            </span>
+          </div>
           <button 
-            class="ml-1 text-red-500 hover:text-red-700" 
+            class="unassign-button compact" 
             on:click|stopPropagation={unassignTask}
             disabled={disabled || loading}
           >
             ×
           </button>
         {:else}
-          Assign
+          <Users/> 
+          <span>
+            Assigned
+          </span>
         {/if}
       </button>
     {:else}
       <button 
         type="button"
-        class={buttonClass}
+        class={`assign-button`}
         on:click={toggleDropdown}
         aria-haspopup="true"
         aria-expanded={showDropdown}
         disabled={disabled || loading}
       >
         {#if loading}
-          <span class="animate-pulse">Loading...</span>
+          <span class="loading-dots">Loading...</span>
         {:else if assignedTo}
-          <span>
-            Assigned to: 
-            {#if assignedUser?.username}
-              {assignedUser.username}
-            {:else}
-              User
-            {/if}
-          </span>
+          <span class="assigned-label">Assigned to:</span>
+<div class="user-info">
+  <div class="user-avatar">
+    {#if imageLoaded}
+      <img 
+        src={`/api/users/${assignedTo}/avatar`} 
+        alt={assignedUser?.username || 'User'} 
+        on:error={() => imageLoaded = false}
+        on:load={() => imageLoaded = true}
+      />
+    {:else}
+      <span class="avatar-initials">
+        {assignedUser?.username?.charAt(0)?.toUpperCase() || assignedUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+      </span>
+    {/if}
+  </div>
+  <span class="username">
+    {#if assignedUser?.username}
+      {assignedUser.username}
+    {:else}
+      User
+    {/if}
+  </span>
+</div>
           <button 
-            class="ml-2 text-red-500 hover:text-red-700" 
+            class="unassign-button" 
             on:click|stopPropagation={unassignTask}
             disabled={disabled || loading}
           >
@@ -290,34 +339,30 @@
     {/if}
     
     {#if showDropdown}
-      <div 
-        class="absolute z-50 mt-1 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 max-h-56 overflow-y-auto"
-        style="min-width: 120px; width: max-content; right: 0;"
-      >
-        <div class="py-1">
+      <div class="dropdown-menu">
+        <div class="dropdown-content">
           {#if users.length === 0}
-            <div class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+            <div class="no-users">
               Loading users...
             </div>
           {:else}
             {#each users as user}
               {#if user}
                 <button
-                  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 
-                        {user.id === assignedTo ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100' : 'text-gray-700 dark:text-gray-300'}"
+                  class={`user-option ${user.id === assignedTo ? 'selected' : ''}`}
                   on:click={() => assignTask(user.id)}
                 >
                   {user.username || user.name || 'User ' + user.id.slice(0, 6)}
                   {#if user.id === get(currentUser)?.id}
-                    <span class="ml-1 text-xs">(you)</span>
+                    <span class="you-label">(you)</span>
                   {/if}
                 </button>
               {/if}
             {/each}
             {#if assignedTo}
-              <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+              <div class="divider"></div>
               <button
-                class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                class="unassign-option"
                 on:click={unassignTask}
               >
                 Unassign
@@ -329,3 +374,261 @@
     {/if}
   </div>
 {/if}
+
+<style lang="scss">
+  $breakpoint-sm: 576px;
+  $breakpoint-md: 1000px;
+  $breakpoint-lg: 992px;
+  $breakpoint-xl: 1200px;
+  @use "src/styles/themes.scss" as *;
+  
+  * {
+    font-family: var(--font-family);
+  }
+
+  .loading-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--placeholder-color);
+  }
+
+  .loading-spinner {
+    animation: spin 1s linear infinite;
+    margin-left: -0.25rem;
+    margin-right: 0.5rem;
+    height: 1rem;
+    width: 1rem;
+    color: var(--placeholder-color);
+  }
+
+  .spinner-circle {
+    opacity: 0.25;
+  }
+
+  .spinner-path {
+    opacity: 0.75;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .loading-dots {
+    animation: pulse 1.5s linear infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .dropdown-container {
+    position: relative;
+  }
+
+  .assign-button {
+    type: button;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    border: 1px solid transparent;
+    background-color: transparent;
+    align-items: center;
+    color: var(--text-color);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    user-select: none;
+    & span {
+      display: none;
+    }
+
+    &:hover:not(:disabled) {
+    background: var(--bg-color);
+    border: 1px solid var(--line-color);
+        & span {
+      display: flex;
+    }
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &.compact {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  .unassign-button {
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    user-select: none;
+
+    &:hover:not(:disabled) {
+      color: #b91c1c;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &.compact {
+      margin-left: 0.25rem;
+    }
+
+    &:not(.compact) {
+      margin-left: 0.5rem;
+    }
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    z-index: 50;
+    margin-top: 0.25rem;
+    border-radius: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    background: var(--bg-color);
+    border: 1px solid var(--line-color);
+    max-height: 14rem;
+    overflow-y: auto;
+    min-width: 7.5rem;
+    width: max-content;
+    left: 0;
+  }
+
+  .dropdown-content {
+    padding: 0.25rem 0;
+  }
+
+  .no-users {
+    padding: 1rem;
+    font-size: 0.875rem;
+    color: var(--placeholder-color);
+  }
+
+  .user-option {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-color);
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: var(--bg-gradient);
+    }
+
+    &.selected {
+      background: var(--primary-color);
+      color: white;
+    }
+  }
+
+  .you-label {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.8;
+  }
+
+  .divider {
+    border-top: 1px solid var(--line-color);
+    margin: 0.25rem 0;
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .unassign-option {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: #dc2626;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: var(--bg-gradient);
+    }
+  }
+  .user-avatar {
+    width: 3;
+    height: 3rem;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &.compact {
+      width: 2rem;
+      height: 2rem;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+		  .loading {
+
+    gap: 0;
+    width: auto !important;
+
+    & span {
+      display: none;
+      width: auto !important;
+      display: flex;
+      line-height: 1.5;
+      font-size: 0.8rem;
+      animation: pulsate-color 5s infinite;
+
+    }
+  }
+
+.loader {
+  width: 2rem;
+  height: 0.5rem;
+  border: 1px solid;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  color: var(--tertiary-color);
+  box-shadow: 0px 0px 16px 0px rgba(251, 245, 245, 0.9);
+  animation: l2 5s infinite linear;
+}
+</style>

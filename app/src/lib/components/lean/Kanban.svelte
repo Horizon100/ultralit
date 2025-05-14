@@ -4,9 +4,9 @@
       import { elasticOut, cubicIn, cubicOut, quintOut } from 'svelte/easing';
     import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
-    import type { KanbanTask, KanbanAttachment, Tag, User} from '$lib/types/types';
+    import type { KanbanTask, KanbanAttachment, Column, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle } from 'lucide-svelte';
+	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle, Tags } from 'lucide-svelte';
     import { t } from '$lib/stores/translationStore';
     import AssignButton from '$lib/components/buttons/AssignButton.svelte';
     import { 
@@ -19,7 +19,8 @@
     } from '$lib/clients/taskClient';
     import TagsDropdown from '$lib/components/buttons/TagsDropdown.svelte';
   import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
-
+    import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
+import { assign } from 'lodash-es';
     let currentProjectId: string | null = null;
     projectStore.subscribe(state => {
         currentProjectId = state.currentProjectId;
@@ -38,8 +39,9 @@
     let allColumnsOpen = true;
     let searchQuery = '';
     let hoveredButtonId: number | null = null;
-let priorityViewActive = false;
-
+    let priorityViewActive = false;
+    let showAddTag = false;
+    let addTagInput;
 
     enum TaskViewMode {
         All = 'all',
@@ -54,13 +56,7 @@ let priorityViewActive = false;
     let allTasksBackup: KanbanTask[] = [];
 
 
-    interface Column {
-        id: number;
-        title: string;
-        status: KanbanTask['status'] | 'backlog' | 'inprogress';
-        tasks: KanbanTask[];
-        isOpen: boolean;
-    }
+
     const userNameCache = new Map<string, string>();
 
     const statusMapping = {
@@ -231,6 +227,7 @@ async function getUserName(userId: string | undefined): Promise<string> {
                     attachments: [],
                     project_id: task.project_id,
                     createdBy: task.createdBy,
+                    assignedTo: task.assignedTo,
                     parent_task: task.parent_task || undefined,
                     allocatedAgents: task.allocatedAgents || [],
                     status: task.status,
@@ -431,6 +428,7 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
             taskDescription: task.taskDescription,
             project_id: currentProjectId || '',
             createdBy: get(currentUser)?.id,
+            assignedTo: task.assignedTo || '',
             parent_task: task.parent_task || '',
             status: taskStatus,
             priority: task.priority || 'medium',
@@ -948,6 +946,17 @@ function saveAndCloseModal() {
         isModalOpen = false;
     }
 }
+function toggleAddTag() {
+        showAddTag = !showAddTag;
+        if (showAddTag) {
+            // Focus the input when it becomes visible
+            setTimeout(() => addTagInput?.focus(), 0);
+        }
+    }
+    
+    function handleInputBlur() {
+        showAddTag = false;
+    }
 
     async function addTag() {
         if (newTagName.trim()) {
@@ -964,9 +973,10 @@ function saveAndCloseModal() {
             tags.update(t => [...t, newTag]);
             newTagName = '';
             
-            // Save tag to PocketBase
             try {
                 await saveTag(newTag);
+                showAddTag = false;
+
             } catch (err) {
                 error.set(`Failed to save tag: ${err.message}`);
             }
@@ -1594,7 +1604,13 @@ function updateBackup(taskId: string, newTags: string[]) {
         task.id === taskId ? { ...task, tags: newTags } : task
     );
 }
-
+function handleTaskListScroll(e: WheelEvent) {
+    if (e.shiftKey) {
+        e.preventDefault();
+        const taskList = e.currentTarget as HTMLElement;
+        taskList.scrollLeft += e.deltaY;
+    }
+}
 function handleTagClick(event: MouseEvent, task: KanbanTask, tag: Tag) {
     event.stopPropagation();
     
@@ -1802,7 +1818,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         ></textarea>
     </div>
 </div>
-<div class="kanban-container"in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}
+<div class="kanban-container" in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}
 >
               {#if $showThreadList}
 
@@ -1846,16 +1862,18 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     <div class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}" 
          on:dragover={handleDragOver} 
         in:fly={{ x: -400, duration: 400 }} out:fly={{ x: -100,duration: 300 }}         
-        on:drop={(e) => handleDrop(e, column.id)}>            
+        on:drop={(e) => handleDrop(e, column.id)}
+
+        >            
          <!-- <button type="button" class="column-header header-{column.status} {column.isOpen ? 'active-'+column.status : ''}" on:click={() => toggleColumn(column.id)}>
             </button> -->
             
             {#if column.isOpen}
                 <div class="task-list"
-			in:slide={{ duration: 300, axis: 'x' }}
-			
-            out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
->
+                    in:slide={{ duration: 300, axis: 'x' }}
+                    out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
+
+                >
                     <span class="column-title">
                         {column.title}
                     </span>
@@ -1868,7 +1886,9 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                             on:dragend={handleDragEnd}
                             on:click={(e) => openModal(task, e)}
                         >
-                            <h4>{task.title}</h4>
+                            <h4>
+                                {processWordCrop(task.title)}
+                            </h4>
 
                             {#if task.parent_task}
                                 <div class="task-badge">
@@ -1907,24 +1927,28 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             </span>
         </span>
         
-        {#if task.assignedTo}
-            <div class="assignee">
-                <span>Assigned:</span>
-                <div class="assignee-info">
-                    <img 
-                        src="/images/default-avatar.png" 
-                        alt="Assignee" 
-                        class="avatar assignee-avatar"
-                        on:error={() => {}} 
-                    />
-                    <span class="username assignee-name">
-                        {#await getUserName(task.assignedTo) then username}
-                            {username}
-                        {/await}
-                    </span>
-                </div>
-            </div>
-        {/if}
+        <span>
+    {#if task.assignedTo}
+        <img 
+            src={`/api/users/${task.assignedTo}/avatar`} 
+            alt="Avatar" 
+            class="user-avatar"
+            on:error={(e) => e.target.style.display = 'none'}
+        />
+        <span class="avatar-initials" style="display: none;">
+            {#await getUserName(task.assignedTo) then username}
+                {username?.charAt(0)?.toUpperCase() || 'U'}
+            {/await}
+        </span>
+        <span class="username">
+            {#await getUserName(task.assignedTo) then username}
+                {username || 'Assigned User'}
+            {/await}
+        </span>
+    {:else}
+        <span class="no-assignment">Not assigned</span>
+    {/if}
+</span>
         
         <!-- Priority flag with click to toggle -->
         <span 
@@ -2057,7 +2081,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         <div class="modal-content"     
             class:task-changing={taskTransition}
             on:click|stopPropagation 
-            transition:fade={{ duration: 150 }}
+             in:slide={{ duration: 300, axis: 'x' }}
+             out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
         >
             {#if selectedTask && selectedTask.parent_task}
                 <div class="parent-task-section">
@@ -2070,37 +2095,108 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                     <p>{getParentTaskTitle(selectedTask.parent_task)}</p>
                 </div>
             {/if}
+
+
             <div class="title-section">
-                <p>Title:</p>
-                {#if isEditingTitle}
-                    <textarea
-                        type="text"
-                        bind:value={selectedTask.title}
-                        on:blur={() => isEditingTitle = false}
-                        on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
-                        autoFocus
-                        class="title-input"
-                    />
-                {:else}
-                    <h1 on:click={() => isEditingTitle = true}>
-                        {selectedTask.title}
-                    </h1>
-                {/if}
+
+                    {#if isEditingTitle}
+                        <textarea
+                            type="text"
+                            bind:value={selectedTask.title}
+                            on:blur={() => isEditingTitle = false}
+                            on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
+                            autoFocus
+                            class="title-input"
+                        />
+                    {:else}
+                        <h1 on:click={() => isEditingTitle = true}>
+                                {@html processWordMinimize(selectedTask.title)}
+
+                        </h1>
+                    {/if}
+
+
             </div>
-            
+                        <div class="modal-header">
+                <div class="assignment-section">
+                    <AssignButton 
+                        taskId={selectedTask.id} 
+                        assignedTo={selectedTask.assignedTo || ''} 
+                        projectId={selectedTask.project_id || currentProjectId}
+                        on:assigned={(e) => handleTaskAssigned(e.detail)} 
+                        on:unassigned={() => handleTaskUnassigned(selectedTask.id)}
+                    />
+                </div>
+                <span 
+                    class="priority-flag modal {selectedTask.priority}"
+                    on:click={(e) => togglePriority(selectedTask, e)}
+                    title="Click to change priority"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                    <line x1="4" y1="22" x2="4" y2="15"></line>
+                    </svg>
+                    <span class="priority-name">
+                        {selectedTask.priority}
+                    </span>
+                </span>
+            </div>
+                            <div class="tag-section">
+                    <div class="tag-list">
+                        {#each $tags as tag}
+                            <button 
+                                class="tag" 
+                                class:selected={selectedTask.tags.includes(tag.id)}
+                                on:click={() => toggleTag(tag.id)}
+                                style="background-color: {tag.color}"
+                                data-color={tag.color}
+
+                            >
+                                {tag.name}
+                            </button>
+                        {/each}
+                    </div>
+                    <div class="add-tag">
+                        {#if showAddTag}
+                            <input 
+                                type="text" 
+                                bind:value={newTagName} 
+                                bind:this={addTagInput}
+                                placeholder="Add tag"
+                                on:blur={handleInputBlur}
+                                on:keydown={(e) => e.key === 'Enter' && addTag()}
+                            >
+                        {/if}
+                        <button on:click={showAddTag ? addTag : toggleAddTag}>
+                            {#if showAddTag}
+                            <ChevronLeft/>
+                            {:else}
+                                <Tags/> +
+
+                            {/if}
+                        </button>
+                    </div>
+            </div>
+                <div class="description-section">
+                    {#if isEditingDescription}
+                    <textarea
+                        bind:value={selectedTask.taskDescription}
+                        on:blur={() => isEditingDescription = false}
+                        autoFocus
+                    ></textarea>
+                {:else}
+                    <div 
+                        class="description-display"
+                        on:click={() => isEditingDescription = true}
+                    >
+                         {capitalizeFirst(selectedTask.taskDescription || 'Click to add a description')}
+                    </div>
+                {/if}
+                
+                </div>
             <!-- Add Assignment Section after title - only if we have a valid project context -->
-            {#if hasProjectContext}
-              <div class="assignment-section">
-                  <p>Assigned to:</p>
-                  <AssignButton 
-                      taskId={selectedTask.id} 
-                      assignedTo={selectedTask.assignedTo || ''} 
-                      projectId={selectedTask.project_id || currentProjectId}
-                      on:assigned={(e) => handleTaskAssigned(e.detail)} 
-                      on:unassigned={() => handleTaskUnassigned(selectedTask.id)}
-                  />
-              </div>
-            {/if}
+
+
             
             {#if hasSubtasks(selectedTask.id)}
             <div class="subtasks-section" on:click={() => showSubtasks = !showSubtasks}>
@@ -2115,7 +2211,9 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                     <div class="subtasks-list" transition:slide={{ duration: 150 }}>
                         {#each getSubtasks(selectedTask.id) as subtask}
                             <div class="subtask-item" on:click={(e) => openModal(subtask, e)}>
-                                <div class="subtask-title">{subtask.title}</div>
+                                <div class="subtask-title">
+                                    {processWordCrop(subtask.title)}
+                                </div>
                                 <div class="subtask-status">{subtask.status}</div>
                                     <ChevronRight size="16"/>
                             </div>
@@ -2124,37 +2222,16 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 {/if}
             </div>
         {/if}
-            <div class="description-section">
-                <p>Description:</p>
-                {#if isEditingDescription}
-                <textarea
-                    bind:value={selectedTask.taskDescription}
-                    on:blur={() => isEditingDescription = false}
-                    autoFocus
-                ></textarea>
-            {:else}
-                <div 
-                    class="description-display"
-                    on:click={() => isEditingDescription = true}
-                >
-                    {selectedTask.taskDescription || 'Click to add a description'}
+            <div class="attachment-section">
+                <p>Attachments</p>
+                <input type="file" on:change={handleFileUpload} multiple>
+                <div class="attachment-list">
+                    {#each selectedTask.attachments as attachment}
+                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.name}</a>
+                    {/each}
                 </div>
-            {/if}
-            
             </div>
-                    <span 
-            class="priority-flag modal {selectedTask.priority}"
-            on:click={(e) => togglePriority(selectedTask, e)}
-            title="Click to change priority"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-              <line x1="4" y1="22" x2="4" y2="15"></line>
-            </svg>
-            <span class="priority-name">
-                {selectedTask.priority}
-            </span>
-        </span>
+
             <div class="start-section">
                 <span class="timer">
                     <p>Start:</p>
@@ -2224,36 +2301,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                     >1 Month</button>
                 </div>
             </div>
-            <div class="tag-section">
-                <p>Tags</p>
-                <div class="tag-list">
-                    {#each $tags as tag}
-                        <button 
-                            class="tag" 
-                            class:selected={selectedTask.tags.includes(tag.id)}
-                            on:click={() => toggleTag(tag.id)}
-                            style="background-color: {tag.color}"
-                            data-color={tag.color}
 
-                        >
-                            {tag.name}
-                        </button>
-                    {/each}
-                </div>
-                <div class="add-tag">
-                    <input type="text" bind:value={newTagName} placeholder="New tag name">
-                    <button on:click={addTag}>Add Tag</button>
-                </div>
-            </div>
-            <div class="attachment-section">
-                <p>Attachments</p>
-                <input type="file" on:change={handleFileUpload} multiple>
-                <div class="attachment-list">
-                    {#each selectedTask.attachments as attachment}
-                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.name}</a>
-                    {/each}
-                </div>
-            </div>
+
             <div class="submit-section">
                 <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
                 <div class="button-group">
@@ -2472,7 +2521,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         transition: all 0.3s ease;
 
     }
-
+:global(.minimized-symbol) {
+    color: var(--tertiary-color) !important;
+    font-weight: bold;
+    font-size: 0.9em;
+    opacity: 0.8;
+    // or any other styles you want just for the symbols
+}
     .kanban-column {
         border-radius: 5px;
         flex: 0 0 auto;
@@ -2590,6 +2645,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
 .kanban-column.expanded[class*="column-"] {
   flex: 0 0 var(--column-expanded-width);
+  
 }
 // .kanban-column.column-cancel:has(.column-header.active-cancel) {
 //   flex: 0 0 400px;
@@ -2715,21 +2771,30 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     }
 
     .title-section {
+
         textarea.title-input {
             background: var(--primary-color);
-            width: auto;
-            height: 100px;
+            font-size: 1.2rem;
+            // padding: 0.5rem;
+            // border: 1px solid var(--line-color);
+            border-radius: 1rem;
+            color: var(--text-color);
+            text-align: left;
+            margin: 0;
+            height: 2rem;
+            line-height: 1.5;
+            padding: 0.5rem;
+
         }
 
         h1 {
-            font-size: 1.2rem;
-            padding: 0.5rem;
-            border: 1px solid var(--line-color);
+            font-size: 1.8rem;
+            // border: 1px solid var(--line-color);
             border-radius: 1rem;
-            color: var(--tertiary-color);
+            color: var(--text-color);
             text-align: left;
-            line-height: 2;
             margin: 0;
+            text-transform: capitalize;
         }
     }
 
@@ -2750,10 +2815,16 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             font-size: 1.3rem;
         }
     }
-    .tag-section .tag-list {
+    .tag-section {
+    display: flex;
+    flex-direction: row !important;
+    justify-content: space-between;
+    margin: 0 !important;
+    & .tag-list {
         display: flex;
         flex-direction: row;
-        width: 100% !important;
+        justify-content: flex-start;
+        width: auto !important;
         
         &:hover {
             position: relative;
@@ -2764,6 +2835,16 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             border-radius: 2rem;
         }
     }
+}
+
+.attachment-section {
+    border-radius: 1rem;
+    border: 1px solid var(--line-color);
+    padding: 1rem;
+    width: auto !important;
+    display: flex;
+}
+
     .title-section,
     .start-section,
     .deadline-section,
@@ -2775,8 +2856,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     .description-section {
         display: flex;
         flex-direction: column;
-        margin-bottom: 1rem;
-        max-width: 450px;
         width: 100%;
         transition: all 0.2s ease;
         & textarea {
@@ -2797,9 +2876,10 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         overflow-x: hidden;
         height: 80px;
         font-size: 1.1rem;
-        border: 1px solid var(--line-color);
+        // border: 1px solid var(--line-color);
         border-radius: 1rem;
-        padding: 1rem;
+        line-height: 1.5;
+        // padding: 1rem;
 
     }
     .task-card {
@@ -2815,6 +2895,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         width: 100%;
         word-break: break-all;
         transition: all 0.3s ease;
+        cursor: pointer;
 
         & h4 {
             max-height: 5rem;
@@ -2822,15 +2903,15 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         }
     }
     .task-card:active {
-    cursor: grabbing;
+    cursor: grabbing !important;
         background: transparent;
 
 }
 .toggle-btn.drag-hover {
-    cursor: copy !important;
+    cursor: pointer !important;
 }
 .task-card.dragging {
-    cursor: grabbing !important;
+    cursor: grab !important;
     opacity: 0.5;
 }
 
@@ -2854,7 +2935,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
         padding: 0.5rem 0;
         z-index: 1;
-        cursor: grap;
         & h4 {
 
         }
@@ -2883,16 +2963,17 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
   padding: 0.25rem 0.5rem;
   text-align: l;
   margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  word-break: normal;      
-  hyphens: auto;            
-  -webkit-hyphens: auto;   
-  -ms-hyphens: auto;    
-  -webkit-line-break: normal;
-  line-break: normal;
-  text-wrap: balance;       
+  text-transform: capitalize;
+//   white-space: pre-wrap;
+//   overflow-wrap: break-word;
+//   word-wrap: break-word;
+//   word-break: normal;      
+//   hyphens: auto;            
+//   -webkit-hyphens: auto;   
+//   -ms-hyphens: auto;    
+//   -webkit-line-break: normal;
+//   line-break: normal;
+//   text-wrap: balance;       
 }
 
     .tag-list {
@@ -2958,7 +3039,9 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         }
     }
 
-
+    span.no-assignment {
+        display: none !important;
+    }
 
     .task-creator {
         display: flex;
@@ -3152,6 +3235,14 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         font-size: 0.8em;
     }
 
+    .modal-header {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+    }
+
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -3165,20 +3256,25 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     }
 
     .modal-content {
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(60px);
         color: var(--text-color);
         padding: 2rem;
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        border-radius: 2rem;
+        justify-content: flex-start;
+        align-items: stretch;
+        border-radius: 1rem 0 0 1rem;
+        border: 1px solid var(--line-color);
+        border-right: none !important;
         max-width: 600px;
         width: 100%;
+        right: 0;
+        top: 3rem;
+        bottom: 1rem;
         height: auto;
-        position: relative;
-        border: 1px solid var(--line-color);
+        gap: 1rem;
+        position: absolute;
 
     }
 
@@ -3266,32 +3362,46 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
     .add-tag {
         border-radius: 1rem;
-        margin-top: 1rem;
         display: flex;
-        gap: 10px;
+        gap: 0.5rem;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        width: auto;
+        
+        transition: all 0.2s ease;
     }
 
     .add-tag input[type="text"] {
         flex-grow: 1;
-        padding: 5px;
+        padding:0.5rem;
         border-radius:2rem;
         padding-inline-start: 1rem;
-    border: none;
+         border: none;
         background-color: #3a3e3c;
         color: white;
-        font-size: 1.2rem;
+        font-size: 1rem;
+         transition: all 0.2s ease;
+
 
     }
 
     .add-tag button {
         padding:0.5rem;
-        width: 200px;
+        width: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
         font-size: 1.2rem;
         background: var(--secondary-color);
         color: white;
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        transition: all 0.2s ease;
+
         &:hover {
             box-shadow: 0px 1px 45px 1px rgba(255, 255, 255, 0.4);
             background: var(--tertiary-color);
@@ -3412,18 +3522,28 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
     .priority-flag.modal {
         display: flex;
-        width: auto !important;
-        padding: 0;
+        justify-content: center;
+        width: 6rem !important;
+        margin: 0;
+        padding: 0.25rem;
+        border-radius: 1rem;
+        top: 0;
+        right: 0;
+        gap: 0.5rem;
+        cursor: pointer;
     & .priority-name {
         display: flex;
         flex-direction: flex-start;
         align-items: center;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 0.2rem;
+        font-size: 0.6rem;
     }
     &:hover {
-            padding: 0.5rem;
+        padding: 0.25rem;
             border-radius: 1rem;
             position: relative;
-            width: auto !important;
             justify-content: center;
             background-color: var(--primary-color);
             backdrop-filter: none;
@@ -3554,8 +3674,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100vw;
-    max-width: 450px;
+    width: 100%;
+    user-select: none;
     &:hover {
             cursor: pointer;
             p {
@@ -3566,7 +3686,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
 .subtasks-list {
     width: 100%;
-    max-width: 450px;
     display: flex;
     flex-direction: column;
 }
@@ -3576,7 +3695,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
-    width: auto;
+    width: 100% !important;
     background: var(--primary-color);
     border-radius: 4px;
     margin-bottom: 5px;
@@ -3812,10 +3931,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
  .assignment-section {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 10px 0;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line-color);
   }
   
   .assignment-section p {
@@ -3928,11 +4043,10 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             align-items: center;
         }
         .modal-content {
-            margin-left: 1rem;
-            margin-right: 1rem;
-            max-width: 400px;
-            width: 100%;
-            height: 50vh;
+
+            right: -1rem;
+            max-width: 350px;
+            bottom: 5rem;
             overflow-y: scroll;
             overflow-x: hidden;
         }
@@ -4007,6 +4121,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
 .kanban-column {
     height: 100px !important;
+            overflow-x: scroll;
+
 }
 
 .column-title {
@@ -4035,7 +4151,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         justify-content: stretch;
         align-items: stretch;
         overflow-y: hidden;
-        overflow-x: auto;
         gap: 0.5rem;
         margin-top: 0.5rem !important;
         width: 100% !important;
@@ -4054,8 +4169,9 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
     position: relative;
     flex: 1 1 280px;
-    min-width: 280px;          
-    max-width: calc(33.33% - 0.5rem); 
+    min-width: 200px;
+    max-width: 250px; 
+    //width may break horizontal shift scroll
     word-break: break-word;    
     transition: all 0.3s ease;
     &:hover {
@@ -4100,6 +4216,17 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         transform: rotate(-3deg);
     }
 
+    .title-section {
+        h1 {
+            font-size: 1.4rem;
+            // border: 1px solid var(--line-color);
+            border-radius: 1rem;
+            color: var(--text-color);
+            text-align: left;
+            margin: 0;
+            text-transform: capitalize;
+        }
+    }
         .title-section,
         .start-section,
         .deadline-section,
@@ -4111,9 +4238,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         .description-section {
             display: flex;
             flex-direction: column;
-            margin-bottom: 1rem;
             max-width: 450px;
-            width: 100% !important;
+            width: auto !important;
             & textarea {
                 background: var(--primary-color);
                 height: 300px;
@@ -4132,7 +4258,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         overflow-y: auto;
         height: 80px;
         font-size: 0.9rem;
-        border: 1px solid var(--line-color);
+        // border: 1px solid var(--line-color);
         border-radius: 1rem;
         padding: 1rem;
 
@@ -4197,9 +4323,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
     }
 
+
     .add-tag button {
         padding:0.5rem;
-        width: 200px;
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        width: auto;
         font-size: 0.9rem;
         background: var(--secondary-color);
         color: white;
@@ -4212,7 +4342,12 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             color: var(--bg-color);
         }
     }
-    
+
+    .tag-section {
+        flex-direction: column !important;
+    }
+
+
     input[type="file"] {
     display: flex;
     border-radius: 1rem;
@@ -4257,6 +4392,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     }
 
     @media (max-width: 768px) {
+
+
         .global-input-container {
                 justify-content: flex-start;
                 align-items: center;
@@ -4350,7 +4487,30 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         .kanban-container {
             flex-direction: column;
         }
+    .modal-content {
+        backdrop-filter: blur(60px);
+        color: var(--text-color);
+        padding: 2rem;
+        box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: stretch;
+        border-radius: 1rem;
+        border: 1px solid var(--line-color);
+        border-right: 1px solid var(--line-color) !important;
+        max-width: auto !important;
+        width: auto;
+        right: 0rem;
+        left: 0rem;
+        overflow: hidden;
+        top: 7rem;
+        bottom: 23rem;
+        height: auto;
+        gap: 1rem;
+        position: absolute;
 
+    }
 .column-view-controls {
     display: flex;
     flex-direction: row;
