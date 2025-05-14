@@ -6,9 +6,8 @@ export const GET: RequestHandler = async ({ params }) => {
     const userId = params.id;
     
     try {
-        // Fetch the user
         const user = await pb.collection('users').getOne(userId, {
-            fields: 'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus'
+            fields: 'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus,hero'
         });
         
         if (!user) {
@@ -26,6 +25,7 @@ export const GET: RequestHandler = async ({ params }) => {
                 collectionId: user.collectionId,
                 model_preference: user.model_preference || [],
                 taskAssignments: user.taskAssignments || [],
+                hero: user.hero || '',
                 userTaskStatus: user.userTaskStatus || {
                     backlog: 0,
                     todo: 0,
@@ -50,7 +50,6 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     const userId = params.id;
     
     try {
-        // Ensure user exists
         const user = await pb.collection('users').getOne(userId);
         
         if (!user) {
@@ -60,13 +59,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
             }, { status: 404 });
         }
         
-        // Get data from request
         const data = await request.json();
         
-        // Create update data object
         const updateData: Record<string, any> = {};
         
-        // Check which fields to update
         if ('model_preference' in data) {
             updateData.model_preference = data.model_preference;
         }
@@ -74,12 +70,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
         if ('taskAssignments' in data) {
             updateData.taskAssignments = data.taskAssignments;
         }
+
+        if ('hero' in data) {
+            updateData.hero = data.hero;
+        }
         
         if ('userTaskStatus' in data) {
             updateData.userTaskStatus = data.userTaskStatus;
         }
         
-        // Only proceed if we have data to update
         if (Object.keys(updateData).length === 0) {
             return json({
                 success: false,
@@ -87,7 +86,6 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
             }, { status: 400 });
         }
         
-        // Update the user
         const updated = await pb.collection('users').update(userId, updateData);
         
         return json({
