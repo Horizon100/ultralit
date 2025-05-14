@@ -226,7 +226,7 @@ onMount(async () => {
 					</button>
 				  {:else if activeSysPrompt === name}
 					<span class="active-prompt-badge">
-					  <Check size={16} />
+					  <Check size={20} />
 					  Active
 					</span>
 				  {:else}
@@ -286,6 +286,11 @@ onMount(async () => {
 
 	span.active-prompt-badge {
 		color: var(--tertiary-color);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		margin: 0;
 	}
 	
 	.toggle-switch {
@@ -356,10 +361,10 @@ onMount(async () => {
 		&:hover {
 			background: var(--secondary-color);
 			opacity:1;
-
 		}
+
 	}
-	
+
 	.system-prompt-name {
 		font-weight: 600;
 		font-size: 1rem;
@@ -544,6 +549,12 @@ onMount(async () => {
 		align-items: flex-start;
 		background: transparent;
 		border-radius: 0;
+					border-radius: 1rem;
+
+		&.system-prompt-item.active {
+			background: var(--primary-color);
+			color: var(--tertiary-color);
+		}
 		&:hover {
 			background: var(--primary-color);
 			transform: none;
@@ -615,6 +626,59 @@ onMount(async () => {
 	opacity: 0.5;
 	cursor: not-allowed;
 	}
+
+	@media (max-width: 1000px) {
+		.prompt-wrapper {
+			max-width: auto;
+			width: calc(100% - 5rem);
+			display: flex;
+			flex-direction: column;
+			padding: 0;
+			margin-top: 1rem;
+		}
+	}
+	.prompt-list {
+		list-style-type: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+		overflow-x: hidden;
+		width: 100%;
+		gap: 0;
+		padding: 0;
+
+	}
+	
+	.system-prompts {
+		display: flex;
+		flex-wrap: wrap;
+		width: auto;
+		gap: 0.5rem;
+	}
+	
+	.system-prompt-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		cursor: pointer;
+		opacity: 0.8;
+		width: auto;
+
+		&:hover {
+			background: var(--secondary-color);
+			opacity:1;
+
+		}
+	}
+	
+	.system-prompt-name {
+		font-weight: 600;
+		font-size: 1rem;
+	}
+
+
 	
 	@media (max-width: 768px) {
 		.header-row {
