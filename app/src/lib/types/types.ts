@@ -34,6 +34,7 @@ export interface User extends RecordModel {
 	model_preference?: string[];
 	taskAssignments: string[];
 	projects: string[];
+	hero: string;
 	userTaskStatus: {
 		backlog: number;
 		todo: number;
@@ -47,6 +48,14 @@ export interface User extends RecordModel {
 		archive: number;
 	};
 }
+
+export interface UserProfile {
+    id: string;
+    name: string;
+    avatarUrl: string;
+}
+
+
 export interface Prompt {
 	value: PromptType;
 	label: string;
@@ -608,6 +617,14 @@ export type NoteRecord = Notes & {
 	collectionId: string;
 	collectionName: 'notes';
 };
+
+export interface Column {
+	id: number;
+	title: string;
+	status: KanbanTask['status'] | 'backlog' | 'inprogress';
+	tasks: KanbanTask[];
+	isOpen: boolean;
+}
 
 export interface KanbanTask {
     id: string;

@@ -87,7 +87,13 @@
 
 	  Code2,
 
-	  SquareDashedKanban
+	  SquareDashedKanban,
+
+	  Gamepad,
+
+	  Gamepad2
+
+
 
 
 
@@ -631,6 +637,37 @@
 			{/if}
 			{#if isNavExpanded}
 				<span class="nav-text">Lean</span>
+			{/if}
+		</button>
+				<button
+		class="nav-button drawer reveal"
+		class:expanded={isNavExpanded}
+		class:active={currentPath === '/game'}
+		class:reveal-active={activeRevealButton === 'game'}
+		on:click={(event) => {
+			if (currentPath === '/game') {
+			event.preventDefault();
+			activeRevealButton = activeRevealButton === 'game' ? null : 'game';
+			toggleThreadList();
+			isNavExpanded = false;
+			} else {
+			navigateTo('/game');
+			activeRevealButton = 'game';
+			if (isNavExpanded) {
+				isNavExpanded = false;
+			}
+			}
+		}}
+		>
+		{#if currentPath === '/game' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/game'}
+			<Gamepad />
+			{:else}
+			<Gamepad2 />
+			{/if}
+			{#if isNavExpanded}
+				<span class="nav-text">Game</span>
 			{/if}
 		</button>
 		<button

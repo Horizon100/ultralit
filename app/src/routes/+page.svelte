@@ -204,7 +204,7 @@
 			</span>
 			</button>
 		{/if} -->
-		<div class="hero-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
+		<div class="user-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
 				<img
 					src={Headmaster}
@@ -528,7 +528,7 @@
 		width: 100%;
 	}
 
-	.hero-container {
+	.user-container {
 		display: flex;
 		flex-direction: column;
 		overflow: auto;
@@ -1054,7 +1054,7 @@
 
 	@media (max-width: 1000px) {
 
-		.hero-container {
+		.user-container {
 			display: flex;
 			flex-direction: column;
 			overflow: auto;
