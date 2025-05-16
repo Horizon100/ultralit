@@ -20,6 +20,7 @@
 	import TimeTracker from '$lib/components/features/TimeTracker.svelte';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
+	import SearchEngine from '$lib/components/common/inputs/SearchEngine.svelte';
 
 	// Stores
 	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
@@ -106,7 +107,8 @@
 	
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
-	
+	export let isOpen = false; 
+  	export let isSearchFocused = false;
 	// Local state
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
@@ -123,6 +125,8 @@
 	let activeLink = '/';
 	let activeSection = '';
 	let activeRevealButton: string | null = null;
+	let isDropdownOpen = false;
+
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -382,11 +386,7 @@
   </script>
 
 <svelte:window bind:innerWidth />
-	{#if $currentUser}
-		<div class="project">
-			<ProjectDropdown/>
-		</div>
-	{/if}
+
 <div class="app-container {$currentTheme}">
 	<TaskNotification 
   notifications={$taskNotifications} 
@@ -394,6 +394,54 @@
   on:linkClick={handleLinkClick}
 />
 	<header>
+		  {#if $currentUser}
+		  		<span class="header-auth">
+				</span>
+		{:else}
+		<span class="header-auth">
+			<button 
+				class="nav-link login"
+				on:click={toggleAuth}
+				in:fly={{ y: 0, duration: 500, delay: 400 }}
+				out:fly={{ y: 50, duration: 500, delay: 400 }}
+				>
+				<LogIn/>
+				<span>
+					{$t('profile.login')}
+				</span>
+			</button>
+					<span class="auth-language">
+
+			<button class="nav-link language" on:click={handleLanguageChange}>
+				<Languages size={16} />
+				<span>{$t('lang.flag')}</span>
+				<span class="hover">{$t('profile.language')}</span>
+			</button>
+			</span>
+		</span>
+		{/if}
+
+<span class="search-wrapper" class:dropdown-open={isDropdownOpen} class:search-open={isSearchFocused}>
+  {#if $currentUser}
+    <div class="project">
+      {#if !isSearchFocused}
+        <ProjectDropdown bind:isOpen={isDropdownOpen} />
+      {/if}
+    </div>
+  {/if}
+  {#if !isDropdownOpen}
+    <SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
+  {/if}
+</span>
+		<a
+			href="#start"
+			class="nav-link home {activeSection === 'start' ? 'active' : ''}"
+			on:click|preventDefault={() => scrollToSection('start')}
+		>
+			<img src={horizon100} alt="Horizon100" class="logo" />
+			<h2>vRAZUM</h2>                         
+		</a>
+	</header>
 		<nav style="z-index: 1000;">
 			<!-- <TimeTracker /> -->
 			<!-- <button class="nav-button" on:click={handleLanguageChange}> -->
@@ -412,33 +460,15 @@
 					{#if $currentUser}
 						
 					{:else}
-					<div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
+					<!-- <div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
 
-						<span class="auth-language">
-							<button 
-								class="nav-link login"
-								on:click={toggleAuth}
-								in:fly={{ y: 0, duration: 500, delay: 400 }}
-								out:fly={{ y: 50, duration: 500, delay: 400 }}
-								>
-								<LogIn/>
-								<span>
-									{$t('profile.login')}
-								</span>
-							</button>
-							<button class="nav-link language" on:click={handleLanguageChange}>
-								<Languages size={16} />
-								<span>{$t('lang.flag')}</span>
-								<span class="hover">{$t('profile.language')}</span>
-							</button>
-						</span>
+						
 						<span>
 							<a
 								href="#features"
 								class="nav-link {activeSection === 'features' ? 'active' : ''}"
 								on:click|preventDefault={() => scrollToSection('features')}
 							>
-								<!-- <ComponentIcon/> -->
 								<span>
 									{$t('nav.features')}
 								</span>
@@ -448,7 +478,6 @@
 								class="nav-link {activeSection === 'pricing' ? 'active' : ''}"
 								on:click|preventDefault={() => scrollToSection('pricing')}
 							>
-								<!-- <CircleDollarSign/> -->
 								<span>
 									{$t('nav.pricing')}
 								</span>
@@ -458,20 +487,11 @@
 								class="nav-link {activeSection === 'integrations' ? 'active' : ''}"
 								on:click|preventDefault={() => scrollToSection('integrations')}
 							>
-								<!-- <Link/> -->
 								<span>
 									{$t('nav.integrations')}
 								</span>
 							</a>
-							<!-- <a
-								href="#comparison"
-								class="nav-link {activeSection === 'comparison' ? 'active' : ''}"
-								on:click|preventDefault={() => scrollToSection('comparison')}
-							> -->
-								<!-- <span>
-									{$t('nav.comparison')}
-								</span>
-							</a> -->
+
 						</span>
 						<a
 							href="#start"
@@ -481,7 +501,7 @@
 							<img src={horizon100} alt="Horizon100" class="logo" />
 							<h2>vRAZUM</h2>                         
 						</a>
-					</div>
+					</div> -->
 
 					{/if}
 				{/if}
@@ -489,8 +509,6 @@
 
 
 		</nav>
-	</header>
-
 	<div class="sidenav" 
 	class:expanded={isNavExpanded} 
 	transition:slide={{ duration: 300 }}
@@ -992,7 +1010,9 @@
 	}
 
 	.project {
-
+		width: auto !important;
+		justify-content: center;
+		align-items: center;
 		margin-left: 0;
 		top: 0;
 		// z-index: 999;
@@ -1049,7 +1069,7 @@
 		height: 100%;
 		height: auto;
 		left: 0;
-		top: 0;
+		top: 3rem;
 		bottom: 0;
 		position: fixed;
 		display: flex;
@@ -1097,16 +1117,18 @@
 		top: 0;
 		left: 0;
 		width: 100%;
-		justify-content: center;
+		justify-content: space-between;
+		align-items: center;
 		/* height: 80px; */
 		/* margin-top: 0; */
 		/* align-items: center; */
-		height: auto;
+		height: 3rem;
+		border-bottom: 1px solid var(--line-color);
 		z-index: 1;
 		/* padding: 5px 5px; */
-		background: var(--bg-color);
 		/* z-index: 100;; */
 		transition: all 0.3s ease;
+		background: var(--bg-color);
 		/* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
 		/* background: linear-gradient(to bottom, #3f4b4b, #333333); */
 
@@ -1135,6 +1157,10 @@
       ); */
 		/* backdrop-filter: blur(3px); */
 		/* padding: 1rem 0; */
+		& .header-auth {
+			display: flex;
+			flex-direction: row;
+		}
 	}
 
 	.header-logo {
@@ -1268,6 +1294,34 @@
 		overflow: auto;
 	}
 
+	span.search-wrapper {
+		background: var(--secondary-color);
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		position: relative;
+		width: 600px;
+		height: 2rem;
+		padding: 0 0.5rem;
+		border-radius: 1rem;
+		border: 1px solid var(--line-color);
+		&.search-open {
+			height: 2rem;
+			padding: 0;
+			flex-direction: column;
+			align-items: flex-start;
+			justify-content: flex-start;
+			background: var(--bg-color);
+		}
+		&.dropdown-open {
+			height: auto !important; 
+			min-height: 2rem;
+			flex-direction: column;
+			align-items: stretch;
+			padding: 0;
+		}
+	}
+
 	nav {
 		display: flex;
 		justify-content: center;
@@ -1350,7 +1404,7 @@
 	.nav-link {
 		display: flex;
 		flex-direction: row;
-		flex: 1;
+		flex: 0;
 		gap: 0.5rem;
 		font-weight: 400;
 		letter-spacing: 0.2rem;
@@ -1372,10 +1426,11 @@
 		border-radius: 0;
 		cursor: pointer;
 		width: auto;
-		height: 3rem;
+		height: 2rem;
 		transition: all 0.3s ease;
+		
 		&.login {
-			width: 10rem;
+			width: auto;
 			display: flex;
 			& span {
 				display: flex;
@@ -1942,7 +1997,7 @@
 			font-size: 1.2rem;
 		}
 		&.user {
-			position: relative;
+			position: fixed;
 			justify-content: space-around;
 			flex-direction: row !important;
 			background: transparent !important;
@@ -2328,7 +2383,19 @@
 		overflow-y: hidden;
 
 	}
+	a {
+		img {
+			display: none;
+		}
+		h2 {
+			display: none !important;
 
+		}
+	}
+.search-wrapper {
+	width: 450px !important;
+
+}
 	.nav-links {
 		margin: 0;
 		// justify-content: flex-end;
@@ -2467,7 +2534,6 @@
 
 
 		.project {
-			position: absolute;
 			left: 0;
 			right: 0;
 		}

@@ -5,13 +5,15 @@
   
   import { loadThreads, threadListVisibility } from '$lib/clients/threadsClient';
   import { fetchProjects, resetProject, fetchThreadsForProject, updateProject, removeThreadFromProject, addThreadToProject} from '$lib/clients/projectClient';
-  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft, Asterisk } from 'lucide-svelte';
+  import { Box, MessageCircleMore, ArrowLeft, ChevronDown, PackagePlus, Check, Search, Pen, Trash2, Plus, Book, Home, Stamp, Layers2, Layers, ChevronLeft, Asterisk, PackageOpen, Package } from 'lucide-svelte';
   import type { Projects } from '$lib/types/types';
   import { onMount } from 'svelte';
   import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
   import { t } from '$lib/stores/translationStore';
   import { goto } from '$app/navigation';
   import { get } from 'svelte/store';
+
+  export let isOpen = false;
 
   let dropdownContainer: HTMLElement;
   let isExpanded = false;
@@ -150,6 +152,8 @@
       )
     : $projectStore.threads;
     $: isThreadListVisible = $showThreadList;
+    $: isOpen = isExpanded;
+
   onMount(async () => {
     try {
       await projectStore.loadProjects();
@@ -171,6 +175,7 @@
   <button 
     class="dropdown-trigger selector"
     class:drawer-visible={$showThreadList}
+    class:active={isExpanded}
     on:click={() => isExpanded = !isExpanded}
     disabled={isLoading}
   >
@@ -185,8 +190,17 @@
       <span class="trigger-display" class:drawer-visible={$showThreadList}
       >
 
-          {$projectStore.currentProject?.name || 'Projects'} 
+    {#if $projectStore.currentProject}
+          <span class="active">
+          <PackageOpen size={16} />
 
+          </span>
+      {:else}
+        <Package size={16} />
+      {/if}
+      <span>
+        {$projectStore.currentProject?.name || 'Projects'}
+      </span>
      
       </span>    
       <!-- <span>
@@ -288,6 +302,7 @@
       flex-direction: row;
       justify-content: flex-start;
       align-items: flex-start;
+      height: 2rem;
       width: auto;
       z-index: 4000;
       user-select: none;
@@ -299,7 +314,7 @@
       align-items: center;
       justify-content: center;
       height: auto;
-      width: auto;
+
 
     }
 
@@ -334,8 +349,10 @@
         height: 2rem;
         width: auto;
         flex: 0;
-        border: 1px solid var(--secondary-color);
         // box-shadow: 1px 2px 5px 2px rgba(255, 255, 255, 0.1);
+        &.active {
+          display: none;
+        }
 
       }
       &.home {
@@ -372,6 +389,8 @@
       width: 100%;
       justify-content: space-between;
       align-items: center;
+      
+      
     }
     .trigger-text {
       display: flex;
@@ -380,13 +399,9 @@
       justify-content: flex-end;
       height: 100%;
       gap: 0;
-      font-size: 1.3rem;
       color: var(--placeholder-color);
-      letter-spacing: 0.3rem;
-      // &:hover {
-      //   color: var(--text-color);
+      letter-spacing: 0.1rem;
 
-      // }
       .icon {
         transition: transform 0.2s ease;
         
@@ -396,30 +411,54 @@
       }
     }
     .drawer-visible.dropdown-trigger {
-      background-color: var(--primary-color);
       // width: calc(400px - 2rem);
       & span.trigger-display {
-        font-size: 1.5rem !important;
+        font-size: 1rem !important;
         padding: 0.5rem;
         color: var(--text-color);
+        transition: 0.2s ease all;
+        & span {
+          display: none;
+          transition: 0.2s ease all;
+        }
+        &:hover {
+          padding: 1rem;
+
+          & span {
+            display: flex;
+          }
+        }
 
       }
     }
 
-    span.trigger-display {
-      display: flex;
-      height: auto;
-      width: 100%;
-      font-size: 0.8rem;
-      justify-content: space-between;
-      align-items: center;
-      transition: all 0.3s ease;
-      color: var(--placeholder-color);
-      cursor: pointer;
-      &:hover {
+      span.trigger-display {
+        font-size: 0.8rem !important;
+        padding: 0.5rem;
         color: var(--text-color);
+        gap: 0.5rem;
+        transition: 0.2s ease all;
+        border-radius: 1rem;
+        height: 2rem;
+          span.active {
+            display: flex !important;
+            color: var(--tertiary-color);
+          }
+        & span {
+          display: none;
+          transition: 0.2s ease all;
+
+        }
+        &:hover {
+          padding: 0 0.5rem !important;
+          background: var(--primary-color);
+
+          & span {
+            display: flex;
+          }
+        }
+
       }
-    }
     span.trigger-icon {
       display: none;
       color: var(--line-color);
@@ -439,11 +478,16 @@
     .dropdown-content {
       border-radius: 0.5rem;
       border: 1px solid var(--line-color);
+      
       padding-top: 0;
-      top: 0;
-      left: 0;
-      width: calc(400px - 2rem);
-      background-color: var(--primary-color);
+      top: auto !important;
+      display: flex;
+      flex-direction: column;
+      margin-top: 0;
+      align-items: center;
+      position: relative;
+      width: 100%;
+      background-color: var(--secondary-color);
       height: auto;
       // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 
@@ -452,12 +496,13 @@
     .dropdown-header {
       display: flex;
       align-items: center;
-      height: 3rem;
+      height: 2rem;
       margin: 0;
       border-radius: 2rem;
-      width: calc(100% - 3rem);
+      width: calc(100%);
       gap: 0;
       backdrop-filter: blur(10px);
+      
       // border: 1px solid var(--secondary-color);
       // border-bottom: 1px solid var(--secondary-color);
       // border-radius: 2rem;
@@ -478,9 +523,8 @@
       width: 100%;
       input {
         border: none;
-        border-radius: var(--radius-m);
         color: var(--text-color);
-        background: var(--primary-color);
+        background: transparent;
         outline: none;
         line-height: 1;
         height: auto;
@@ -562,15 +606,20 @@
   
     .projects-list {
       height: auto;
-      width: auto;
+      
+      width: 600px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       // border: 1px solid var(--secondary-color);
       margin-right: 0;
       margin-left: 0;
+     padding: 0.5rem;
+      background: var(--secondary-color);
       border-bottom-left-radius: var(--radius-m);
       border-bottom-right-radius: var(--radius-m);
       overflow-y: auto;
       scrollbar-color: var(--secondary-color) transparent;
-      padding: 1rem;
       backdrop-filter: blur(20px);
       // box-shadow: 0 50px 100px 4px rgba(255, 255, 255, 0.2);
 
@@ -631,169 +680,22 @@
       }
     }
 
+    .icon.home {
+      border-radius: 50%;
+      transition: all 0.2s ease;
+      &:hover {
+        background: var(--primary-color);
+        padding: 0.25rem !important;
+
+      }
+    }
     @media (max-width: 1000px) {
 
-    .dropdown-container {
-      position: fixed;
-      display: flex;
-      width: auto;
-      user-select: none;
-      left: 3rem;
-      right: auto;
-      margin-left: 0;
-      z-index: 1000;
-    }
-
-    .dropdown-content {
-        position:fixed;
-        width: calc(100% - 10rem)!important;
-        padding: 0;
-        left: 6.5rem;
-
-        top: 0.5rem;
-        border-radius: 1rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      }
-    .dropdown-wrapper {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
+    .projects-list {
       height: auto;
-
-      font-size: 2rem;
+      width: 450px;
     }
-    .dropdown-header {
-      display: flex;
-      height: auto;
-      top: 0;
-      gap: 0;
-      width: 100%;
-      height: 3rem;
-      backdrop-filter: blur(10px);
-      border-radius: 2rem;
-    }
-    .search-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex: 1;
-      color: var(--text-color);
-      input {
-        background: transparent;
-        border: none;
-        color: var(--text-color);
-        width: auto;
-        outline: none;
-        font-size: 1rem;
-
-        &::placeholder {
-          color: var(--placeholder-color);
-        }
-      }
-    }
-  
-      .projects-list {
-        max-height: auto;
-        background: transparent;
-        border: 1px solid transparent;
-        margin-right: 0;
-        margin-left: 0;
-        box-shadow: 0 100px 100px 4px rgba(0, 0, 0, 0.5);
-
-      }
-      .drawer-visible.dropdown-trigger {
-      background-color: var(--primary-color);
-      width: calc(400px - 2rem);
-      & span.trigger-display {
-        font-size: 1.3rem !important;
-        padding: 0.5rem;
-
-      }
-    }
-      .dropdown-trigger {
-        margin: 0;
-        margin-top: 0.5rem;
-        margin-left: 0.5rem;
-        padding: 0;
-        height: auto;
-        width: auto;
-        position: fixed;
-        right: 1rem;
-        top: 0;
-        left: 2rem;
-        justify-content: space-between;
-        align-items: flex-start;
-        &.selector {
-          width: auto;
-          max-width: 150px;
-          overflow: hidden;
-          height: 2rem;
-          border: 1px solid transparent;
-
-          // overflow: hidden;
-        }
-        & span.icon {
-          display: none;
-        }
-        & span.icon.home {
-          display: flex;
-          flex-direction: row;
-          font-size: 1rem;
-          justify-content: center;
-          align-items: center;
-          letter-spacing: 0.1rem;
-          color: var(--tertiary-color);
-          gap: 0;
-          padding: 0;
-          border-radius: 50%;
-          & p {
-            display: none;
-          }
-        }
-        & span.selector {
-          display: flex;
-          flex-direction: row;
-          font-size: 1rem;
-          letter-spacing: 0.2rem;
-      }
-
-      }
-      .project-item {
-        border: 1px solid transparent;
-
-      }
-
-      .trigger-text {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.5rem;
-        padding: 0;
-        margin: 0;
-        color: var(--placeholder-color);
-        letter-spacing: 0.5rem;
-        .icon {
-          transition: transform 0.2s ease;
-          
-          &.rotated {
-            transform: rotate(180deg);
-          }
-        }
-      }
-
-      span.trigger-display {
-        display: flex;
-        font-size: 0.9rem;
-
-        margin: 0;
-
-        letter-spacing: 0.1rem;
-      }
-
-    }
-
+  }
     @media (max-width: 767px) {
       // .trigger-text {
       //   font-size: 2rem;

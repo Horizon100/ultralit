@@ -1,36 +1,26 @@
-// src/routes/api/messages/search/+server.ts
-import { json } from '@sveltejs/kit';
+// src/routes/api/keys/messages/search/+server.ts
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
-  console.log('🔍 Message search endpoint called');
+export const GET: RequestHandler = async ({ url, locals }) => {
+  console.log('🔍 Message search endpoint called (keys)');
+  
+  // Check authentication using locals.user like your other keys endpoints
+  if (!locals.user) {
+    console.error('API keys/messages/search: User not authenticated');
+    throw error(401, 'Authentication required');
+  }
+  
+  const currentUserId = locals.user.id;
+  console.log('Authenticated user:', currentUserId);
   
   try {
-    // Ensure user is authenticated (matching your /api/messages pattern)
-    const authCookie = cookies.get('pb_auth');
-    if (!authCookie) {
-      return json({
-        success: false,
-        error: 'Not authenticated'
-      }, { status: 401 });
-    }
-
-    pb.authStore.loadFromCookie(authCookie);
-
-    if (!pb.authStore.isValid) {
-      return json({
-        success: false,
-        error: 'Invalid authentication'
-      }, { status: 401 });
-    }
-
     const query = url.searchParams.get('q');
     const limit = url.searchParams.get('limit') || '10';
     const projectId = url.searchParams.get('project');
-    const userId = pb.authStore.model?.id;
     
-    console.log('Search params:', { query, limit, projectId, userId });
+    console.log('Search params:', { query, limit, projectId });
     
     if (!query || query.trim().length === 0) {
       return json({
@@ -39,11 +29,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       });
     }
     
-    // Build filter to only get user's accessible messages
-    let filter = `text ~ "${query}"`;
-    
-    // Add user filter to only get messages user has created
-    filter += ` && user = "${userId}"`;
+    // Build filter to search user's messages
+    let filter = `text ~ "${query}" && user = "${currentUserId}"`;
     
     if (projectId) {
       filter += ` && thread.project_id = "${projectId}"`;
@@ -76,11 +63,15 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       total: messages.totalItems
     });
     
-  } catch (error) {
-    console.error('❌ Error in message search:', error);
-    return json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to search messages'
-    }, { status: 500 });
+  } catch (err) {
+    console.error('API keys/messages/search: Error:', err);
+    
+    const statusCode = err.status || 500;
+    const message = err.message || 'Failed to search messages';
+    
+    return json({ 
+      success: false, 
+      message: message
+    }, { status: statusCode });
   }
 };
