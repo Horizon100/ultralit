@@ -169,10 +169,103 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 		name: 'Grok',
 		icon: grokIcon,
 		validateApiKey: async (apiKey: string): Promise<boolean> => {
-			return false;
+			try {
+				const response = await fetch('https://api.x.ai/v1/models', {
+					headers: { Authorization: `Bearer ${apiKey}` }
+				});
+				// Accept 200 or 429 as valid (429 means key is valid but rate limited)
+				return response.status === 200 || response.status === 429;
+			} catch {
+				return false;
+			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			return [];
+			try {
+				const response = await fetch('https://api.x.ai/v1/models', {
+					headers: { Authorization: `Bearer ${apiKey}` }
+				});
+
+				if (response.status === 429) {
+					// Rate limited - return hardcoded models instead of failing
+					console.warn('Grok API rate limited, returning default models');
+					return [
+						{
+							id: 'grok-grok-1',
+							name: 'Grok-1',
+							provider: 'grok' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.x.ai/v1',
+							api_type: 'grok-1',
+							api_version: '',
+							description: 'Grok-1 model by X.AI',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						},
+						{
+							id: 'grok-grok-beta',
+							name: 'Grok Beta',
+							provider: 'grok' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.x.ai/v1',
+							api_type: 'grok-beta',
+							api_version: '',
+							description: 'Grok Beta model by X.AI',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						}
+					];
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const data = await response.json();
+				return data.data.map((model: any) => ({
+					id: `grok-${model.id}`,
+					name: model.id,
+					provider: 'grok' as ProviderType,
+					api_key: apiKey,
+					base_url: 'https://api.x.ai/v1',
+					api_type: model.id,
+					api_version: '',
+					description: `Grok ${model.id} model`,
+					user: [],
+					created: new Date(model.created * 1000).toISOString(),
+					updated: new Date().toISOString(),
+					collectionId: 'models',
+					collectionName: 'models'
+				}));
+			} catch (error) {
+				// If we get rate limited or any error, return fallback models
+				if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+					console.warn('Grok API rate limited, returning default models');
+					return [
+						{
+							id: 'grok-grok-1',
+							name: 'Grok-1',
+							provider: 'grok' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.x.ai/v1',
+							api_type: 'grok-1',
+							api_version: '',
+							description: 'Grok-1 model by X.AI',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						}
+					];
+				}
+				throw handleFetchError('Grok')(error);
+			}
 		}
 	},
 	deepseek: {

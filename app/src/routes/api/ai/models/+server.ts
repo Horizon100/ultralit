@@ -1,8 +1,10 @@
-import { json } from '@sveltejs/kit';
+// src/routes/api/ai/models/+server.ts - CORRECTED VERSION
+import { json, error } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
-import type { AIModel } from '$lib/types/types';
+import type { AIMessage, AIModel } from '$lib/types/types';
 import type { RequestHandler } from './$types';
 import { providers } from '$lib/constants/providers';
+import { CryptoService } from '$lib/utils/crypto';
 
 // Helper function to extract endpoint from path
 function extractEndpoint(url: URL): { command: string; params: Record<string, string> } {
@@ -46,14 +48,20 @@ function sanitizeModelData(model: AIModel): AIModel {
     return sanitized;
 }
 
-// Helper function to get API key for a provider from user's saved keys
+// CORRECTED: Helper function to get API key for a provider from user's saved keys
 async function getApiKeyForProvider(userId: string, provider: string): Promise<string | null> {
     try {
-        // Get user record to access keys
+        // Get user record to access encrypted keys
         const user = await pb.collection('users').getOne(userId);
         
-        // Extract the API key for the provider
-        const keys = user.api_keys || {};
+        if (!user.api_keys) {
+            return null;
+        }
+        
+        // Decrypt the keys using your CryptoService
+        const decryptedKeys = await CryptoService.decrypt(user.api_keys, userId);
+        const keys = JSON.parse(decryptedKeys);
+        
         return keys[provider] || null;
     } catch (error) {
         console.error(`Error getting API key for provider ${provider}:`, error);
@@ -76,6 +84,12 @@ export const GET: RequestHandler = async ({ url, request, locals }) => {
         if (params.id && !command.includes('/')) {
             try {
                 const model = await pb.collection('models').getOne<AIModel>(params.id);
+                
+                // Verify user owns this model or has access
+                if (!model.user.includes(locals.user.id)) {
+                    return json({ success: false, error: 'Unauthorized access to model' }, { status: 403 });
+                }
+                
                 return json({ success: true, model: sanitizeModelData(model) });
             } catch (error) {
                 console.error(`Error fetching model ${params.id}:`, error);
@@ -88,6 +102,11 @@ export const GET: RequestHandler = async ({ url, request, locals }) => {
         
         // Handle provider models for a user
         if (command.startsWith('provider') && params.provider && params.userId) {
+            // Verify user can access these models
+            if (params.userId !== locals.user.id) {
+                return json({ success: false, error: 'Unauthorized access to user models' }, { status: 403 });
+            }
+            
             const models = await pb.collection('models').getFullList<AIModel>({
                 filter: `provider = "${params.provider}" && user ~ "${params.userId}"`,
                 sort: '-created'
@@ -106,13 +125,21 @@ export const GET: RequestHandler = async ({ url, request, locals }) => {
         const userId = params.userId || url.searchParams.get('userId');
         const provider = params.provider || url.searchParams.get('provider');
         
+        // Default to current user if no userId specified
+        const targetUserId = userId || locals.user.id;
+        
+        // Verify user can access these models
+        if (targetUserId !== locals.user.id) {
+            return json({ success: false, error: 'Unauthorized access to user models' }, { status: 403 });
+        }
+        
         let filter = '';
         
         // Build filter based on params
-        if (userId && provider) {
-            filter = `provider = "${provider}" && user ~ "${userId}"`;
-        } else if (userId) {
-            filter = `user ~ "${userId}"`;
+        if (targetUserId && provider) {
+            filter = `provider = "${provider}" && user ~ "${targetUserId}"`;
+        } else if (targetUserId) {
+            filter = `user ~ "${targetUserId}"`;
         } else if (provider) {
             filter = `provider = "${provider}"`;
         }
@@ -156,6 +183,11 @@ export const POST: RequestHandler = async ({ url, request, locals }) => {
         const model = body.model || body;
         const userId = body.userId || locals.user.id;
         
+        // Verify user can create models for this userId
+        if (userId !== locals.user.id) {
+            return json({ success: false, error: 'Unauthorized to create models for other users' }, { status: 403 });
+        }
+        
         if (!model || !userId) {
             return json({ success: false, error: 'Missing model or userId' }, { status: 400 });
         }
@@ -165,9 +197,6 @@ export const POST: RequestHandler = async ({ url, request, locals }) => {
             filter: `api_type = "${model.api_type}" && provider = "${model.provider}" && user ~ "${userId}"`
         });
         
-        // Get the API key from the user's saved keys instead of storing it with the model
-        const apiKey = await getApiKeyForProvider(userId, model.provider);
-        
         let savedModel: AIModel;
         
         // Set base URL from providers if available
@@ -175,8 +204,12 @@ export const POST: RequestHandler = async ({ url, request, locals }) => {
                        (providers[model.provider] ? providers[model.provider].baseUrl : '');
         
         if (existingModels.length > 0) {
-            // Update existing model
+            // Update existing model if user owns it
             const existingModel = existingModels[0];
+            if (!existingModel.user.includes(userId)) {
+                return json({ success: false, error: 'Unauthorized to update this model' }, { status: 403 });
+            }
+            
             savedModel = await pb.collection('models').update(existingModel.id, {
                 name: model.name,
                 api_type: model.api_type,
@@ -231,6 +264,12 @@ export const PATCH: RequestHandler = async ({ url, request, locals }) => {
             return json({ success: false, error: 'Missing model ID' }, { status: 400 });
         }
         
+        // Verify user owns this model
+        const existingModel = await pb.collection('models').getOne<AIModel>(params.id);
+        if (!existingModel.user.includes(locals.user.id)) {
+            return json({ success: false, error: 'Unauthorized to update this model' }, { status: 403 });
+        }
+        
         const modelData = await request.json();
         
         // Remove API key from data to be updated
@@ -266,6 +305,12 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
         
         // Delete a specific model by ID
         if (params.id && !command.includes('/')) {
+            // Verify user owns this model
+            const existingModel = await pb.collection('models').getOne<AIModel>(params.id);
+            if (!existingModel.user.includes(locals.user.id)) {
+                return json({ success: false, error: 'Unauthorized to delete this model' }, { status: 403 });
+            }
+            
             await pb.collection('models').delete(params.id);
             
             return json({
@@ -276,17 +321,18 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
         
         // Delete all models for a specific provider and user
         if (command.startsWith('provider') && params.provider) {
-            const userId = params.userId || url.searchParams.get('userId');
+            const userId = params.userId || url.searchParams.get('userId') || locals.user.id;
             
-            if (!userId) {
-                return json({ success: false, error: 'Missing userId' }, { status: 400 });
+            // Verify user can delete these models
+            if (userId !== locals.user.id) {
+                return json({ success: false, error: 'Unauthorized to delete models for other users' }, { status: 403 });
             }
             
             const modelsToDelete = await pb.collection('models').getFullList<AIModel>({
                 filter: `provider = "${params.provider}" && user ~ "${userId}"`
             });
             
-            // Delete each model
+            // Delete each model (they're already filtered by user)
             await Promise.all(modelsToDelete.map(model => 
                 pb.collection('models').delete(model.id)
             ));

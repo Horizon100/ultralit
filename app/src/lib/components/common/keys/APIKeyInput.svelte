@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
+	import { get } from 'svelte/store';
 	import { X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
+	import { providers, type ProviderType } from '$lib/constants/providers';
+	import { modelStore } from '$lib/stores/modelStore';
+	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: string;
+	export let provider: ProviderType; 
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
@@ -40,8 +44,7 @@
 				<input
 					type="password"
 					bind:value={key}
-					class="w-full px-4 py-2 rounded-lg bg-secondary"
-					placeholder="Enter your API key"
+					placeholder="Enter API key for {providers[provider].name}"
 					autofocus
 				/>
 			</div>
@@ -51,18 +54,19 @@
 </div>
 
 <style lang="scss">
+	@use 'src/styles/themes.scss' as *;
 
+	* {
+		font-family: var(--font-family);
+	}
 	.overlay {
-		background-color: blue;
 		bottom: 200px;
 		z-index: 3000;
 		width: 400px;
 	}
 	.input-wrapper {
 		position: relative;
-
 		width: auto;
-		background-color: red;
 	}
 
 	input {

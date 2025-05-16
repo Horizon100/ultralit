@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { AIModel } from '$lib/types/types';
-	import { Bot, Settings, Key, CheckCircle2, XCircle, Star } from 'lucide-svelte';
+	import { Bot, Settings, Key, CheckCircle2, XCircle, Star, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { defaultModel } from '$lib/constants/models';
 	import APIKeyInput from '$lib/components/common/keys/APIKeyInput.svelte';
@@ -11,9 +11,28 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: string = 'deepseek';
+	export let provider: string;
+
+	export let expandedModelList: ProviderType | null = null;
+
+	export let selectedModel: AIModel = defaultModel;
 	let isInitialized = false;
 	let isLoadingPreferences = true;
+    let isLoadingModels = false;
+	let key = '';
+	let favoriteModels: AIModel[] = [];
+	let userModelPreferences: string[] = [];
+	let favoritesInitialized = false;
+	let currentProvider: ProviderType | null = null;
+	let showAPIKeyInput = false;
+	let isOffline = false;
+	let availableProviderModels: Record<ProviderType, AIModel[]> = {
+		openai: [],
+		anthropic: [],
+		google: [],
+		grok: [],
+		deepseek: []
+	};
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
@@ -21,11 +40,9 @@
 		select: AIModel;
 		toggleFavorite: { modelId: string; isFavorite: boolean };
 	}>();
-
-	let key = '';
-	let favoriteModels: AIModel[] = [];
-	let userModelPreferences: string[] = [];
-	let favoritesInitialized = false;
+	modelStore.subscribe((state) => {
+		isOffline = state.isOffline;
+	});
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -41,29 +58,34 @@
 			expandedModelList = null;
 		}
 	}
-	let isOffline = false;
 
-	let expandedModelList: ProviderType | null = null;
-    let isLoadingModels = false;
-
-	modelStore.subscribe((state) => {
-		isOffline = state.isOffline;
-	});
-
-	export let selectedModel: AIModel = defaultModel;
-
-	let currentProvider: ProviderType | null = null;
-	let showAPIKeyInput = false;
-	let availableProviderModels: Record<ProviderType, AIModel[]> = {
-		openai: [],
-		anthropic: [],
-		google: [],
-		grok: [],
-		deepseek: []
-	};
-
-
-
+async function handleDeleteAPIKey(provider: ProviderType) {
+    if (!$currentUser) return;
+    
+    try {
+        console.log(`Deleting API key for ${provider}`);
+        
+        const confirmed = confirm(`Are you sure you want to delete your ${providers[provider].name} API key?`);
+        if (!confirmed) return;
+        
+        await apiKey.deleteKey(provider);
+        
+        availableProviderModels[provider] = [];
+        
+        if (expandedModelList === provider) {
+            expandedModelList = null;
+            currentProvider = null;
+            showAPIKeyInput = false;
+        }
+        
+        updateFavoriteModels();
+        
+        console.log(`Successfully deleted API key for ${provider}`);
+    } catch (error) {
+        console.error(`Error deleting API key for ${provider}:`, error);
+        alert(`Failed to delete API key: ${error.message}`);
+    }
+}
 	async function handleProviderClick(key: string) {
         const provider = key as ProviderType;
         const currentKey = get(apiKey)[provider];
@@ -98,29 +120,37 @@
         }
     }
 
-	async function handleModelSelection(model: AIModel) {
-		const enrichedModel: AIModel = {
-			...model,
-			provider: currentProvider || model.provider || 'deepseek'
-		};
-		
-		console.log('Selected model with provider:', enrichedModel.provider);
-		
-		if ($currentUser) {
-			try {
-				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
-				if (success) {
-					selectedModel = enrichedModel;
-					console.log('Saved model selection to model store');
-				}
-			} catch (error) {
-				console.warn('Error selecting model:', error);
-			}
-		}
-		expandedModelList = null;
-		currentProvider = null; 
-		dispatch('select', enrichedModel);
-	}
+
+async function handleModelSelection(model: AIModel) {
+    const enrichedModel: AIModel = {
+        ...model,
+        provider: model.provider
+    };
+    
+    console.log('Selected model with provider:', enrichedModel.provider);
+    
+    if ($currentUser) {
+        try {
+            const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
+            if (success) {
+                selectedModel = enrichedModel;
+                console.log('Saved model selection to model store');
+                
+                currentProvider = model.provider as ProviderType;
+            }
+        } catch (error) {
+            console.warn('Error selecting model:', error);
+        }
+    } else {
+        selectedModel = enrichedModel;
+        currentProvider = model.provider as ProviderType;
+    }
+    
+    expandedModelList = null;
+    
+    // Dispatch the selection event
+    dispatch('select', enrichedModel);
+}
 
 	async function loadProviderModels(provider: ProviderType) {
         isLoadingModels = true;
@@ -155,6 +185,7 @@
 			await loadProviderModels(currentProvider);
 		}
 	}
+
 	function updateFavoriteModels() {
 		favoriteModels = [];
 		
@@ -162,11 +193,17 @@
 			models.forEach(model => {
 				const modelKey = `${model.provider}-${model.id}`;
 				if (userModelPreferences.includes(modelKey)) {
-					favoriteModels.push(model);
+					const favoriteModel = {
+						...model,
+						provider: providerKey as ProviderType
+					};
+					favoriteModels.push(favoriteModel);
 				}
 			});
 		});
 		favoritesInitialized = true;
+		
+		console.log('Updated favorite models:', favoriteModels.map(m => `${m.provider}:${m.name}`));
 	}
 	async function toggleFavorite(model: AIModel, event: MouseEvent) {
     event.stopPropagation(); 
@@ -234,7 +271,7 @@
 
 async function loadUserModelPreferences() {
     if (!$currentUser) {
-        favoritesInitialized = true; // Always show the section even without a user
+        favoritesInitialized = true; 
         isLoadingPreferences = false;
         return;
     }
@@ -332,24 +369,24 @@ function loadAllAvailableProviderModels() {
 	<div class="favorites-container">
 		<h4>Favorite Models</h4>
 		{#if favoriteModels.length > 0}
-			<div class="favorites-list">
-				{#each favoriteModels as model}
-					<button
-						class="model-button favorite-model"
-						class:model-selected={selectedModel.id === model.id}
-						on:click={() => handleModelSelection(model)}
+		<div class="favorites-list">
+			{#each favoriteModels as model}
+				<button
+					class="model-button favorite-model"
+					class:model-selected={selectedModel && selectedModel.id === model.id && selectedModel.provider === model.provider}
+					on:click={() => handleModelSelection(model)}
+				>
+					<span class="model-name">{model.name}</span>
+					<span class="provider-badge">{providers[model.provider]?.name}</span>
+					<button 
+						class="star-button star-active" 
+						on:click={(e) => toggleFavorite(model, e)}
 					>
-						<span class="model-name">{model.name}</span>
-						<span class="provider-badge">{providers[model.provider]?.name}</span>
-						<button 
-							class="star-button star-active" 
-							on:click={(e) => toggleFavorite(model, e)}
-						>
-							<Star size={16} fill="#FFD700" />
-						</button>
+						<Star size={16} fill="#FFD700" />
 					</button>
-				{/each}
-			</div>
+				</button>
+			{/each}
+		</div>
 		{:else}
 			<div class="no-favorites">
 				<div class="small-spinner-container">
@@ -390,6 +427,7 @@ function loadAllAvailableProviderModels() {
 									<XCircle size={35} />
 								</div>
 							{/if}
+
 						</div>
 					</button>
 				</div>
@@ -413,9 +451,23 @@ function loadAllAvailableProviderModels() {
         <div class="model-list-container">
             <div class="model-header">
                 <h3>{providers[expandedModelList].name} Models {isLoadingModels ? '' : `(${availableProviderModels[expandedModelList]?.length || 0})`}</h3>
-                <button class="close-btn" on:click={() => (expandedModelList = null)}>
-					<XCircle size={35} />
-                </button>
+   
+				<div class="header-actions">
+					{#if get(apiKey)[expandedModelList]}
+						<button 
+							class="delete-key-button"
+							on:click|stopPropagation={() => handleDeleteAPIKey(expandedModelList)}
+							title="Delete {providers[expandedModelList].name} API key"
+						>
+							<Trash2 size={20}  />
+						</button>
+					{/if}
+					
+					<!-- Close button -->
+					<button class="close-btn" on:click={() => (expandedModelList = null)}>
+						<XCircle size={35} />
+					</button>
+				</div>
             </div>
 
             {#if isLoadingModels}
@@ -426,10 +478,11 @@ function loadAllAvailableProviderModels() {
             {:else if showAPIKeyInput}
                 <div class="api-key-container">
                     <h4>Enter {providers[expandedModelList].name} API Key</h4>
-                    <APIKeyInput on:submit={handleAPIKeySubmit} />
+						<APIKeyInput provider={expandedModelList} on:submit={handleAPIKeySubmit} />
                 </div>
             {:else if availableProviderModels[expandedModelList]?.length > 0}
                 <div class="model-list">
+					
                     {#each availableProviderModels[expandedModelList] as model}
                         <button
                             class="model-button"
@@ -454,7 +507,7 @@ function loadAllAvailableProviderModels() {
                 <div class="no-models">
 					<p>No models available for this provider</p>
                 </div>
-				<form
+				<!-- <form
 					on:submit={handleSubmit}
 					transition:fly={{ y: 20, duration: 200 }}
 				>
@@ -468,7 +521,7 @@ function loadAllAvailableProviderModels() {
 						/>
 					</div>
 					<button type="submit" class="submit-button"> Save Key </button>
-				</form>
+				</form> -->
             {/if}
         </div>
     </div>
@@ -642,7 +695,10 @@ function loadAllAvailableProviderModels() {
 		align-items: center;
 		padding: 1rem 2rem;
 		border-bottom: 1px solid var(--primary-color);
-		
+		& .header-actions {
+			display: flex;
+			flex-direction: row;
+		}
 		h3 {
 			margin: 0;
 			font-size: 1.5rem;
@@ -769,6 +825,13 @@ function loadAllAvailableProviderModels() {
     color: var(--placeholder-color);
 }
 
+.api-key-container {
+	display: flex;
+	justify-content: center;
+	flex-direction: column;
+	align-items: center;
+	width: 100%;
+}
 input {
 		width: 100%;
 		padding: 1.5rem;
