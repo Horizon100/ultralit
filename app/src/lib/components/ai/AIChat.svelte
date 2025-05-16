@@ -3754,6 +3754,8 @@ onDestroy(() => {
     
   // }
 
+  
+
   :global {
   // Table styles
   .language-table {
@@ -4766,14 +4768,14 @@ p div {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    position: fixed;
+    position: absolute;
     transition: all 0.3s ease-in-out;
     overflow-y: hidden;
     overflow-x: hidden;
     // /* left: 20%; */
     width: 100%;
     // background: rgba(0, 0, 0, 0.2);
-    top: 0;
+    top: auto;
     left: 0;
     right: 1rem;
     padding: 0;
@@ -4985,7 +4987,7 @@ p div {
     margin-top: 0;
     height: auto;
     right: 2rem;
-    bottom:0.5rem;
+    bottom:3.5rem;
     margin-bottom: 0;
       border: 1px solid var(--line-color);
     transition: all 0.2s ease;
@@ -8303,7 +8305,7 @@ p.selector-lable {
   width: 100%;
   }
   .input-container {
-    bottom: 1rem;
+    bottom: 7rem !important;
     overflow: none;
   }
 
@@ -8600,7 +8602,7 @@ p.selector-lable {
   .input-container {
     margin-bottom: 0;
     margin-left: 0;
-    bottom: 0;
+    bottom: 4rem !important;
     height: auto;
     // width: 100%;
     backdrop-filter: blur(10px);

@@ -41,7 +41,7 @@ import { assign } from 'lodash-es';
     let hoveredButtonId: number | null = null;
     let priorityViewActive = false;
     let showAddTag = false;
-    let addTagInput;
+    let addTagInput = false;
 
     enum TaskViewMode {
         All = 'all',
@@ -1680,13 +1680,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     <div class="view-controls">
         <div class="tooltip-container">
             <span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
-                Show all tasks
+                {$t('generic.show')} {$t('generic.all')} {$t('tasks.tasks')}
             </span>
             <span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
-                Show parent tasks only
+                {$t('generic.show')} {$t('tasks.parent')} {$t('tasks.tasks')} {$t('generic.only')}
             </span>
             <span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
-                Show subtasks only
+                {$t('generic.show')} {$t('tasks.subtasks')} {$t('dates.days')}
             </span>
         </div>
 <div class="search-container" >
@@ -1787,7 +1787,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                             bind:checked={requireAllTags}
                             on:change={toggleRequireAllTags}
                         />
-                        <span>Match</span>
+                        <span>{$t('generic.match')}</span>
                     </label>
                 </div>
             </div>
@@ -1795,7 +1795,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             <!-- Show active filters summary -->
             {#if selectedTagIds.length > 0}
                 <div class="active-filters" transition:slide={{ duration: 150 }}>
-                    <span class="filter-label">Filtering by:</span>
+                    <span class="filter-label">{$t('generic.filter')}</span>
                     <div class="filter-tags">
                         {#each $tags.filter(tag => selectedTagIds.includes(tag.id)) as tag}
                             <span class="filter-tag" style="background-color: {tag.color}">
@@ -1909,7 +1909,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                     <ClipboardList/>
                 </span>
                 {countSubtasks(task.id)} 
-                <span>subtasks</span>
+                <span>{$t('tasks.subtasks')}</span>
             </div>
         {/if}
     
@@ -1988,11 +1988,11 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             {#if task.start_date}
                 {@const daysUntilStart = Math.ceil((task.start_date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
                 {#if daysUntilStart < 0}
-                    <span class="date-status overdue">Postponed {Math.abs(daysUntilStart)} days</span>
+                    <span class="date-status overdue">{$t('tasks.postponed')} {Math.abs(daysUntilStart)} {$t('dates.days')}</span>
                 {:else if daysUntilStart === 0}
-                    <span class="date-status due-today">Starts today</span>
+                    <span class="date-status due-today">{$t('tasks.start')} {$t('dates.today')}</span>
                 {:else if daysUntilStart <= 30}
-                    <span class="date-status upcoming">Starts in {daysUntilStart} {daysUntilStart === 1 ? 'day' : 'days'}</span>
+                    <span class="date-status upcoming">Starts in {daysUntilStart} {daysUntilStart === 1 ? $t('dates.day') : $t('dates.days')}</span>
                 {/if}
             {/if}
 
@@ -2000,17 +2000,17 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 <div class="timeline">
                     <span 
                         class="date-part" 
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'day', task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.day'), task, 'start_date')}
                         title="Scroll to change day (hold Shift for precision)"
                     >{task.start_date.getDate()}</span>
                     <span 
                         class="month-part"
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'month', task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.month'), task, 'start_date')}
                         title="Scroll to change month (hold Shift for precision)"
                     >{task.start_date.toLocaleString('default', { month: 'short' })}</span>
                     <span 
                         class="year-part"
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'year', task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.year'), task, 'start_date')}
                         title="Scroll to change year (hold Shift for precision)"
                     >{task.start_date.getFullYear()}</span>
                 </div>
@@ -2029,28 +2029,28 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             {#if task.due_date}
                 {@const daysUntilDue = Math.ceil((task.due_date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
                 {#if daysUntilDue < 0}
-                    <span class="date-status overdue">Hold {Math.abs(daysUntilDue)} days</span>
+                    <span class="date-status overdue">{$t('tasks.hold')} {Math.abs(daysUntilDue)} {$t('dates.days')}</span>
                 {:else if daysUntilDue === 0}
-                    <span class="date-status due-today">Due today</span>
+                    <span class="date-status due-today">{$t('tasks.due')} {$t('dates.today')}</span>
                 {:else if daysUntilDue <= 30}
-                    <span class="date-status upcoming">Review in {daysUntilDue} {daysUntilDue === 1 ? 'day' : 'days'}</span>
+                    <span class="date-status upcoming">Review in {daysUntilDue} {daysUntilDue === 1 ?$t('dates.day'): $t('dates.days')}</span>
                 {/if}
             {/if}
                 {#if task.due_date}
                 <div class="timeline">
                     <span 
                         class="date-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, $t('dates.day'), task, 'due_date')}
                         title="Scroll to change day (hold Shift for precision)"
                     >{task.due_date.getDate()}</span>
                     <span 
                         class="month-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, $t('dates.month'), task, 'due_date')}
                         title="Scroll to change month (hold Shift for precision)"
                     >{task.due_date.toLocaleString('default', { month: 'short' })}</span>
                     <span 
                         class="year-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'year', task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date,$t('dates.year'), task, 'due_date')}
                         title="Scroll to change year (hold Shift for precision)"
                     >{task.due_date.getFullYear()}</span>
                 </div>
@@ -2189,7 +2189,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                         class="description-display"
                         on:click={() => isEditingDescription = true}
                     >
-                         {capitalizeFirst(selectedTask.taskDescription || 'Click to add a description')}
+                         {capitalizeFirst(selectedTask.taskDescription || $t('tasks.addDescription'))}
                     </div>
                 {/if}
                 
@@ -2223,7 +2223,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             </div>
         {/if}
             <div class="attachment-section">
-                <p>Attachments</p>
+                <p>{$t('generic.attachments')}:</p>
                 <input type="file" on:change={handleFileUpload} multiple>
                 <div class="attachment-list">
                     {#each selectedTask.attachments as attachment}
@@ -2234,8 +2234,8 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
             <div class="start-section">
                 <span class="timer">
-                    <p>Start:</p>
-                    {selectedTask.start_date ? selectedTask.start_date.toLocaleDateString() : 'Select task start date'}
+                    <p>{$t('tasks.start')}:</p>
+                    {selectedTask.start_date ? selectedTask.start_date.toLocaleDateString() : $t('tasks.selectStart')}
                 </span>
                 <div class="timer-controls">
                     <button class="play"
@@ -2244,72 +2244,73 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                     >
                         <span>
                             <CirclePlay size="20"/>
-                            Now
+                            {$t('dates.now')}
                         </span>
                     </button>
                     <button 
                         on:click={() => setQuickStart(1)}
                         class:selected={selectedStart === 1}
-                    >Tomorrow</button>
+                    >{$t('dates.today')}</button>
                     <button 
                         on:click={setEndOfWeekStart}
                         class:selected={selectedStart === 'endOfWeek'}
-                    >End of Week</button>
+                    >{$t('dates.endWeek')}</button>
                     <button 
                         on:click={() => setQuickStart(7)}
                         class:selected={selectedStart === 7}
-                    >1 Week</button>
+                    >1 {$t('dates.week')}</button>
                     <button 
                         on:click={() => setQuickStart(14)}
                         class:selected={selectedStart === 14}
-                    >2 Weeks</button>
+                    >2 {$t('dates.weeks')}</button>
                     <button 
                         on:click={() => setQuickStart(30)}
                         class:selected={selectedStart === 30}
-                    >1 Month</button>
+                    >1 {$t('dates.months')}</button>
                 </div>
             </div>
             <div class="deadline-section">
                 <span class="timer">
-                    <p>Deadline:</p>
-                    {selectedTask.due_date ? selectedTask.due_date.toLocaleDateString() : 'Select task end date'}
+                    <p>{$t('tasks.deadline')}</p>
+                    {selectedTask.due_date ? selectedTask.due_date.toLocaleDateString() : $t('tasks.selectEnd')}
                 </span>
                 <div class="timer-controls">
                     <button 
                         on:click={() => setQuickDeadline(0)}
                         class:selected={selectedDeadline === 0}
-                    >Today</button>
+                    >{$t('dates.today')}</button>
                     <button 
                         on:click={() => setQuickDeadline(1)}
                         class:selected={selectedDeadline === 1}
-                    >Tomorrow</button>
+                    >{$t('dates.tomorrow')}</button>
                     <button 
                         on:click={setEndOfWeekDeadline}
                         class:selected={selectedDeadline === 'endOfWeek'}
-                    >End of Week</button>
+                    >{$t('dates.endWeek')}</button>
                     <button 
                         on:click={() => setQuickDeadline(7)}
                         class:selected={selectedDeadline === 7}
-                    >1 Week</button>
+                    >1 {$t('dates.week')}</button>
                     <button 
                         on:click={() => setQuickDeadline(14)}
                         class:selected={selectedDeadline === 14}
-                    >2 Weeks</button>
+                    >2 {$t('dates.weeks')}</button>
                     <button 
                         on:click={() => setQuickDeadline(30)}
                         class:selected={selectedDeadline === 30}
-                    >1 Month</button>
+                    >1 {$t('dates.month')}</button>
                 </div>
             </div>
 
 
             <div class="submit-section">
-                <p>Created: {selectedTask.creationDate.toLocaleDateString()}</p>
+
+                <p>{$t('generic.created')}: {selectedTask.creationDate.toLocaleDateString()}</p>
                 <div class="button-group">
-                    <button class="done-button" on:click={saveAndCloseModal}>Done</button>
+                    <button class="done-button" on:click={saveAndCloseModal}>{$t('tasks.done')}</button>
                     <button class="delete-task-btn" on:click={(e) => openDeleteConfirm(selectedTask.id, e)}>
                         <Trash2 /> 
-                        <span>Delete</span>
+                        <span>{$t('generic.delete')}</span>
                     </button>
                 </div>    
             </div>
@@ -2321,12 +2322,12 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 {#if isDeleteConfirmOpen}
     <div class="confirm-delete-overlay">
         <div class="confirm-delete-modal">
-            <h3>Delete Task</h3>
-            <p>Are you sure you want to delete this task? This action cannot be undone.</p>
+            <h3>{$t('generic.delete')} {$t('tasks.task')}</h3>
+            <p>{$t('generic.deleteQuestion')} {$t('generic.deleteWarning')}</p>
             
             <div class="confirm-buttons">
-                <button class="cancel-btn" on:click={cancelDelete}>Cancel</button>
-                <button class="confirm-btn" on:click={confirmDelete}>Delete</button>
+                <button class="cancel-btn" on:click={cancelDelete}>{$t('generic.cancel')}</button>
+                <button class="confirm-btn" on:click={confirmDelete}>{$t('generic.delete')}</button>
             </div>
         </div>
     </div>

@@ -320,6 +320,68 @@ export default {
 			}
 		]
 	},
+	dates: {
+		day: 'day',
+		days: 'days',
+		dayAgo: 'day ago',
+		daysAgo: 'days ago',
+		monthAgo: "month ago",
+		monthsAgo: "months ago",
+		yearAgo: "year ago",
+		yearsAgo: "years ago",
+		today: "Today",
+		tomorrow: "Tomorrow",
+		endWeek: "End of Week",
+		week: "week",
+		weeks: "weeks",
+		month: "month",
+		months: "months",
+		now: "Now",
+	},
+	generic: {
+		created: "Created",
+		updated: "Updated",
+		delete: "Delete",
+		cancel: "Cancel",
+		loading: "Loading...",
+		deleteQuestion: "Are you sure you want to delete this?",
+		deleteWarning: "This action cannot be undone.",
+		attachments: "Attachments",
+		show: "Show",
+		only: "only",
+		all: "all",
+		filter: "Filter",
+		sort: "Sort"
+	},
+
+	tasks: {
+		title: 'Tasks',
+		task: 'task',
+		tasks: 'tasks',
+		status: 'Status',
+		addDescription: 'Click to add a description',
+		priorityLow: "Low",
+		priorityMedium: "Medium",
+		priorityHight: "High",
+		deadline: "Deadline",
+		start: "Start",
+		subtasks: "Subtasks",
+		backlog: "Backlog",
+		todo: "To-Do",
+		inprogress: "In Progress",
+		review: "Review",
+		done: "Ready",
+		hold: "Delayed",
+		postpone: "Postpone",
+		postponed: "Postponed",
+		delegate: "Delegate",
+		cancelled: "Cancelled",
+		archive: "Archive",
+		selectStart: "Set start date",
+		selectEnd: "Set end date",
+		due: "Due",
+		parent: "parent"
+	},
 
 	dashboard: {
 		title: 'Reports',
@@ -421,6 +483,7 @@ export default {
 		googleAuth: "Google",
 		update: "Update",
 		upload: "Upload",
+		not_available: "Not available"
 	},
 	button: {
 		tags: 'Tags'
