@@ -18,8 +18,9 @@
   import { goto } from '$app/navigation';
   import { modelStore } from '$lib/stores/modelStore';
   import { messagesStore } from '$lib/stores/messagesStore';
-import { writable } from 'svelte/store';
+  import { writable } from 'svelte/store';
   import { defaultModel, availableModels } from '$lib/constants/models';
+  import ProjectDeadlines from '$lib/components/common/cards/ProjectDeadlines.svelte';
   export let projectId: string | undefined = undefined;
   export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
   export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
@@ -447,7 +448,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
           <span>
             <InfoIcon/>
             <p>
-              {$t('dashboard.projectInfo')}
+              <!-- {$t('dashboard.projectInfo')} -->
             </p>
           </span>
         </button>
@@ -577,40 +578,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                   </p>
 
                   </div>
-                  <div class="project-description-container"
-                  class:expanded={isExpandedContent}
-                  on:click={toggleDescription}
-                  >
-                  <span class="header-btns">
-                    <h3>{$t('dashboard.projectDescription')}</h3>
-                    {#if isOwner}
-                    <span class='edit-btns'>
-                      <button class="edit-button" 
-                      on:click={() => handleEditProject('description')}
-                      on:mouseenter={() => hoveredEdit = true}
-                      on:mouseleave={() => hoveredEdit = false}
-                      >
-                      <div class="icon" in:fade>
-                        <Pen/>
-                        {#if hoveredEdit}
-                          <span class="tooltip" in:fade>
-                            {$t('tooltip.editDescription')}
-                          </span>
-                        {/if}
-                      </div> 
-                      </button>
-                    </span>
-  
-                    {/if}
-                  </span>
 
-                    <p 
-                    class="project-description" 
-                  >
-                    {projectDescription}
-                  </p>
-
-                  </div>
                   <div class="project-description-container"
                   class:expanded={isExpandedContent}
                   on:click={toggleDescription}
@@ -649,10 +617,46 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 
                   {/if}
                   <div class="project-sidenav">
+                                      <div class="project-description-container"
+                  class:expanded={isExpandedContent}
+                  on:click={toggleDescription}
+                  >
+                  <span class="header-btns">
+                    <!-- <h3>{$t('dashboard.projectDescription')}</h3> -->
+                    {#if isOwner}
+                    <span class='edit-btns'>
+                      <button class="edit-button" 
+                      on:click={() => handleEditProject('description')}
+                      on:mouseenter={() => hoveredEdit = true}
+                      on:mouseleave={() => hoveredEdit = false}
+                      >
+                      <div class="icon" in:fade>
+                        <Pen/>
+                        {#if hoveredEdit}
+                          <span class="tooltip" in:fade>
+                            {$t('tooltip.editDescription')}
+                          </span>
+                        {/if}
+                      </div> 
+                      </button>
+                    </span>
+  
+                    {/if}
+                  </span>
 
+                    <p 
+                    class="project-description" 
+                  >
+                    {projectDescription}
+                  </p>
+
+                  </div>
+                    <div class="project-deadlines-list">
+                      <ProjectDeadlines projectId={$projectStore.currentProjectId}/>
+                    </div>
                     <ProjectCollaborators projectId={$projectStore.currentProjectId}/>
 
-                    <div class="project-details">
+                    <!-- <div class="project-details">
                       <h3>{$t('dashboard.projectActivity')}</h3>
 
                       <div class="detail-row">
@@ -675,7 +679,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
                         <span class="detail-label">Updated:</span>
                         <span class="detail-value">{updatedDate}</span>
                       </div>
-                    </div>
+                    </div> -->
                     <span class="header-btns">
                       <h3>{$t('dashboard.projectSuggestions')}</h3>
                       {#if isOwner}
@@ -1032,6 +1036,16 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       }
     }
 
+    .project-deadlines-list {
+      max-height: 30vh;
+      display: flex;
+      width: auto;
+
+      overflow-y: auto;
+          border-top: 1px solid var(--line-color);
+    border-bottom: 1px solid var(--line-color);
+    }
+
     span {
         display: flex;
         justify-content: center;
@@ -1202,6 +1216,10 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     border-radius: 1rem;
 		&.active {
 			opacity: 1;
+      		padding: 0 1rem;
+      height: 100%;
+      justify-content: center;
+      align-items: center;
 			font-weight: 600;
       color: var(--tertiary-color);
 
@@ -1320,11 +1338,11 @@ async function ensureThreadExists(projectId: string): Promise<string> {
         display: flex;
         flex-wrap: wrap;
         height: auto;
+        max-width: 500px;
         justify-content: flex-start;
         align-items: flex-start;
         padding: 0;
         margin: 0;
-        
         gap: 1rem;
       }
   .project-description-container {
@@ -1335,13 +1353,13 @@ async function ensureThreadExists(projectId: string): Promise<string> {
     position: relative;
     height: 250px;
     // margin-top: 10rem;
-    width: 250px;
+    width: 100%;
     display: flex;
     overflow-y: auto;
     overflow-x: hidden;   
     border-radius: 2rem;
     transition: cubic-bezier(0.645, 0.045, 0.355, 1);
-    border: 1px solid var(--line-color);
+    // border: 1px solid var(--line-color);
 
     &.expanded {
       position: absolute !important;
@@ -1552,12 +1570,13 @@ async function ensureThreadExists(projectId: string): Promise<string> {
 
   }
   .ai-suggestions {
-    margin-top: 1rem;
+    display: flex;
   }
   
   .suggestions-list {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.5rem;
     margin-top: 0.5rem;
   }
@@ -1565,15 +1584,17 @@ async function ensureThreadExists(projectId: string): Promise<string> {
   .suggestion-item {
     background-color: var(--primary-color-light);
     color: var(--text-color);
-    padding: 0.5rem 0.75rem;
-    border-radius: 1rem;
-    line-height: 1.5;
-    font-size: 1.2rem;
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    line-height:1.5;
+    font-size: 0.8rem;
     font-style: italic;
     background: var(--primary-color);
     border: 1px solid var(--secondary-color);
+    display: flex;
+    width: auto !important;
+    max-width: calc(50% - 1rem);
 
-    letter-spacing: 0.1rem;
     cursor: pointer;
     transition: background-color 0.2s ease;
     user-select: none;

@@ -210,7 +210,9 @@
 	}
 
 	.chat {
-		width: 100%;
+		position: fixed !important;
+		display: flex;
+		left: 10rem !important;
 	}
 
 	.user-container {

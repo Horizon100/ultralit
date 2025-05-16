@@ -319,7 +319,55 @@ export async function deleteTask(taskId: string): Promise<void> {
         throw err;
     }
 }
-
+/**
+ * Loads tasks for a specific project
+ * @param projectId The project ID to filter tasks by
+ * @returns Promise with the loaded tasks
+ */
+export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]> {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/tasks`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch tasks for project: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if the response has the tasks in different possible locations
+        const tasks = data.tasks || data.items || data.data || [];
+        
+        // Transform the tasks to match KanbanTask interface
+        return tasks.map((task: any): KanbanTask => ({
+            id: task.id,
+            title: task.title,
+            taskDescription: task.taskDescription || '',
+            creationDate: new Date(task.created),
+            due_date: task.due_date ? new Date(task.due_date) : null,
+            start_date: task.start_date ? new Date(task.start_date) : null,
+            tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+            attachments: task.attachments || [],
+            project_id: task.project_id,
+            createdBy: task.createdBy,
+            assignedTo: task.assignedTo || '',
+            parent_task: task.parent_task || undefined,
+            allocatedAgents: task.allocatedAgents || [],
+            status: task.status,
+            priority: task.priority || 'medium',
+            prompt: task.prompt || '',
+            context: task.context || '',
+            task_outcome: task.task_outcome || '',
+            dependencies: task.dependencies || [],
+            agentMessages: task.agentMessages || []
+        }));
+    } catch (err) {
+        console.error('Error loading project tasks:', err);
+        throw err;
+    }
+}
 /**
  * Loads tasks for the current user or project
  * @param projectId Optional project ID to filter tasks

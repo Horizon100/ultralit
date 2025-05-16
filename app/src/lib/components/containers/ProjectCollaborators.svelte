@@ -614,10 +614,28 @@
 
     }
 
-    
-    .collaborator-info {
+            .user-avatar-project {
+            width: 3rem !important;
+            height: 3rem !important;
+            border-radius: 50%;
+            object-fit: cover;
 
-        letter-spacing: 0.3rem;
+        }
+
+        .default-avatar-project {
+            width: 3rem !important;
+            height: 3rem !important;
+            background-color: var(--primary-color, #6366f1);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 50%;
+
+        }
+    .collaborator-info {
+        font-size: 0.7rem;
         color: var(--text-color);
         margin-top: 0.5rem;
     }

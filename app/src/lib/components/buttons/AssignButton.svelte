@@ -26,6 +26,7 @@
   let canAssign = false;
   let isLoading = true;
   let assignedUserDetails: User | null = null;
+
 async function loadAssignedUserDetails() {
   if (!assignedTo) {
     assignedUserDetails = null;
@@ -224,9 +225,22 @@ $: if (assignedTo) {
     }
   }
   
-  // Find assigned user details
-  $: assignedUser = assignedTo && users.length > 0 ? users.find(user => user?.id === assignedTo) : null;
+  // Find assigned user details with safe fallbacks
+  $: assignedUser = assignedTo && users.length > 0 ? users.find(user => user?.id === assignedTo) : (assignedUserDetails || null);
   $: isAssignedToCurrentUser = assignedTo === get(currentUser)?.id;
+  
+  // Helper function to get user display name safely
+  function getUserDisplayName(user: User | null): string {
+    if (!user) return 'User';
+    return user.username || user.name || 'User';
+  }
+  
+  // Helper function to get user initials safely
+  function getUserInitials(user: User | null): string {
+    if (!user) return 'U';
+    const username = user.username || user.name || 'User';
+    return username.charAt(0).toUpperCase();
+  }
 
 </script>
 
@@ -260,19 +274,15 @@ $: if (assignedTo) {
             <div class="user-avatar compact">
               <img 
                 src={`/api/users/${assignedTo}/avatar`} 
-                alt={assignedUser?.username || 'User'} 
+                alt={getUserDisplayName(assignedUser)} 
                 on:error={(e) => e.target.style.display = 'none'}
               />
               <span class="avatar-initials">
-                {assignedUser.username}
+                {getUserInitials(assignedUser)}
               </span>
             </div>
             <span class="username">
-              {#if assignedUser?.username}
-                {assignedUser.username}
-              {:else}
-                {assignedTo.slice(0, 6)}...
-              {/if}
+              {getUserDisplayName(assignedUser)}
             </span>
           </div>
           <button 
@@ -285,7 +295,7 @@ $: if (assignedTo) {
         {:else}
           <Users/> 
           <span>
-            Assigned
+            Assign
           </span>
         {/if}
       </button>
@@ -307,22 +317,18 @@ $: if (assignedTo) {
     {#if imageLoaded}
       <img 
         src={`/api/users/${assignedTo}/avatar`} 
-        alt={assignedUser?.username || 'User'} 
+        alt={getUserDisplayName(assignedUser)} 
         on:error={() => imageLoaded = false}
         on:load={() => imageLoaded = true}
       />
     {:else}
       <span class="avatar-initials">
-        {assignedUser?.username?.charAt(0)?.toUpperCase() || assignedUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+        {getUserInitials(assignedUser)}
       </span>
     {/if}
   </div>
   <span class="username">
-    {#if assignedUser?.username}
-      {assignedUser.username}
-    {:else}
-      User
-    {/if}
+    {getUserDisplayName(assignedUser)}
   </span>
 </div>
           <button 
@@ -352,7 +358,7 @@ $: if (assignedTo) {
                   class={`user-option ${user.id === assignedTo ? 'selected' : ''}`}
                   on:click={() => assignTask(user.id)}
                 >
-                  {user.username || user.name || 'User ' + user.id.slice(0, 6)}
+                  {getUserDisplayName(user)}
                   {#if user.id === get(currentUser)?.id}
                     <span class="you-label">(you)</span>
                   {/if}
