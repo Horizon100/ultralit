@@ -228,46 +228,64 @@ addComment: async (parentId: string, content: string, attachments?: File[] | Fil
     },
 
 sharePost: async (postId: string) => {
-    const user = get(currentUser);
-    if (!user?.id) {
-        throw new Error('User not authenticated');
-    }
-
     try {
         update(state => ({ ...state, loading: true, error: null }));
+        
+        const user = get(currentUser);
+        
+        // If user is logged in, update server records
+        if (user?.id) {
+            const response = await fetch(`/api/posts/${postId}/share`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
 
-        const response = await fetch(`/api/posts/${postId}/share`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include'
-        });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to share post');
+            }
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 'Failed to share post');
+            const data = await response.json();
+
+            // Update the local store
+            update(state => ({
+                ...state,
+                posts: state.posts.map(post => 
+                    post.id === postId 
+                        ? { 
+                            ...post, 
+                            shareCount: data.shareCount,
+                            sharedBy: data.sharedBy,
+                            share: true 
+                        }
+                        : post
+                ),
+                loading: false
+            }));
+
+            // Copy URL to clipboard
+            const postUrl = `${window.location.origin}/posts/${postId}`;
+            await navigator.clipboard.writeText(postUrl);
+            
+            return data;
+        } 
+        // For guest users, just copy the URL
+        else {
+            // Get post URL and copy to clipboard
+            const postUrl = `${window.location.origin}/posts/${postId}`;
+            await navigator.clipboard.writeText(postUrl);
+            
+            // Update UI state but don't increment actual server counts
+            update(state => ({
+                ...state,
+                loading: false
+            }));
+            
+            return { success: true, message: 'Link copied to clipboard' };
         }
-
-        const data = await response.json();
-
-        // Update the local store
-        update(state => ({
-            ...state,
-            posts: state.posts.map(post => 
-                post.id === postId 
-                    ? { 
-                        ...post, 
-                        shareCount: data.shareCount,
-                        sharedBy: data.sharedBy,
-                        share: true 
-                    }
-                    : post
-            ),
-            loading: false
-        }));
-
-        return data;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to share post';
         update(state => ({ ...state, error: errorMessage, loading: false }));

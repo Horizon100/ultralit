@@ -55,16 +55,18 @@
     }
   }
 
-  async function handlePostInteraction(event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share'}>) {
+async function handlePostInteraction(event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share'}>) {
     const { postId, action } = event.detail;
     
-    if (!$currentUser) {
-      // Redirect to login or show login prompt
-      alert('Please sign in to interact with posts');
-      return;
-    }
-    
     try {
+        // Actions that require authentication
+        if ((action === 'upvote' || action === 'repost' || action === 'read') && !$currentUser) {
+            // Redirect to login or show login prompt
+            alert('Please sign in to interact with posts');
+            return;
+        }
+        
+        // Process the actions
         if (action === 'upvote') {
             await postStore.toggleUpvote(postId);
         } else if (action === 'repost') {
@@ -72,13 +74,13 @@
         } else if (action === 'read') {
             await postStore.markAsRead(postId);
         } else if (action === 'share') {
+            // Share works for both logged-in and guest users
             await postStore.sharePost(postId);
         }
-        
     } catch (err) {
         console.error(`Error ${action}ing post:`, err);
     }
-  }
+}
 
   // Handle opening comment modal (from PostCard)
   function handleComment(event: CustomEvent<{ postId: string }>) {
@@ -289,7 +291,7 @@
   .main-content {
     flex: 1;
     padding: 0.5rem;
-    max-width: 600px;
+    max-width: 800px;
     width: 100%;
     overflow-y: auto;
     margin-bottom: 2rem;
@@ -298,7 +300,7 @@
   }
 
   .main-wrapper {
-    max-width: 680px;
+    max-width: calc(100% - 2rem);
     margin: 0 auto;
   }
 

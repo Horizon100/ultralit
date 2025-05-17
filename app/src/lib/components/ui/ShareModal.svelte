@@ -3,6 +3,7 @@
   import { fade, scale } from 'svelte/transition';
   import { Link, Quote, X } from 'lucide-svelte';
   import type { PostWithInteractions } from '$lib/types/types.posts';
+  import { currentUser } from '$lib/pocketbase'; // Import the current user store
   
   export let isOpen: boolean = false;
   export let post: PostWithInteractions | null = null;
@@ -70,15 +71,17 @@
           </div>
         </button>
         
-        <button class="share-option" on:click={handleQuote}>
-          <div class="option-icon">
-            <Quote size={20} />
-          </div>
-          <div class="option-text">
-            <div class="option-title">Quote post</div>
-            <div class="option-description">Add your thoughts and share</div>
-          </div>
-        </button>
+        {#if $currentUser}
+          <button class="share-option" on:click={handleQuote}>
+            <div class="option-icon">
+              <Quote size={20} />
+            </div>
+            <div class="option-text">
+              <div class="option-title">Quote post</div>
+              <div class="option-description">Add your thoughts and share</div>
+            </div>
+          </button>
+        {/if}
       </div>
     </div>
   </div>

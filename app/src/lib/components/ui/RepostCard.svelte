@@ -96,6 +96,7 @@
   
   .repost-wrapper :global(.post-card) {
     margin-bottom: 0;
+    margin-left: 3rem;
     border-radius: 1rem;
     border-top: none;
 

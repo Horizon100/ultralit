@@ -292,9 +292,11 @@
   /* Layout styles */
   .post-detail-container {
     display: flex;
-    width: 100%;
+    justify-content: center;
     min-height: 100vh;
-    background-color: var(--bg-color);
+    width: 100%;
+    background-color: var(--primary-color);
+
   }
 
   .post-detail-container.hide-left-sidebar .post-content-wrapper {

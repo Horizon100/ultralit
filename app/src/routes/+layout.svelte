@@ -407,7 +407,7 @@
 		<span class="header-auth">
 			<button 
 				class="nav-link login"
-				on:click={toggleAuth}
+    			on:click={() => toggleAuthOrProfile()}
 				in:fly={{ y: 0, duration: 500, delay: 400 }}
 				out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
@@ -435,9 +435,12 @@
       {/if}
     </div>
   {/if}
-  {#if !isDropdownOpen}
-    <SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
-  {/if}
+	<span>
+		{#if !isDropdownOpen}
+			<SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
+		{/if}
+	</span>
+
 </span>
 		<a
 			href="#start"
@@ -1007,7 +1010,6 @@
 	}
 
 	.auth-overlay {
-
 		top: 0;
 		left: 0;
 		width: 100%;
@@ -1022,16 +1024,21 @@
 
 
 	.auth-content {
-		position: relative;
-		top: 0;
+		position: absolute;
+		top: 25% !important;
+		left: 25%;
+		right: 25% !important;
 		/* background-color: #2b2a2a; */
 		/* padding: 2rem; */
-		width: auto;
+		width: 50% !important;
 		/* max-width: 500px; */
 		height: auto;
 		overflow-y: auto;
 		transition: all 0.3s ease;
-
+		/* background-color: #2b2a2a; */
+		/* padding: 2rem; */
+		/* max-width: 500px; */
+		height: auto;
 	}
 	.profile-overlay {
 		position: fixed;
@@ -1138,16 +1145,7 @@
 	}
 
 
-	.auth-content {
-		position: fixed;
-		top: 0;
-		/* background-color: #2b2a2a; */
-		/* padding: 2rem; */
-		width: 100%;
-		/* max-width: 500px; */
-		height: auto;
-		overflow-y: auto;
-	}
+
 
 	header {
 		display: flex;
@@ -1350,7 +1348,7 @@
 			flex-direction: column;
 			align-items: flex-start;
 			justify-content: flex-start;
-			background: var(--bg-color);
+			background: var(--primary-color);
 		}
 		&.dropdown-open {
 			height: auto !important; 
@@ -1945,17 +1943,6 @@
 
 
 
-	.auth-content {
-		position: fixed;
-		top: 0;
-		/* background-color: #2b2a2a; */
-		/* padding: 2rem; */
-		width: 100%;
-		/* max-width: 500px; */
-		height: auto;
-		overflow-y: auto;
-	}
-
 
 
 
@@ -2421,6 +2408,25 @@
 	main {
 		overflow-y: hidden;
 
+	}
+	.auth-content {
+		position: fixed;
+		overflow: hidden;
+		display: flex;
+		top: 10rem;
+		left: auto;
+		right: auto !important;
+		/* background-color: #2b2a2a; */
+		/* padding: 2rem; */
+		width: 100% !important;
+		max-width: 600px;
+		/* max-width: 500px; */
+		overflow-y: auto;
+		transition: all 0.3s ease;
+		/* background-color: #2b2a2a; */
+		/* padding: 2rem; */
+		/* max-width: 500px; */
+		height: auto;
 	}
 	a {
 		img {

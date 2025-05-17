@@ -81,7 +81,7 @@ async function fetchUserData() {
   async function handlePostInteraction(event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share'}>) {
     const { postId, action } = event.detail;
     
-    if (!$currentUser) {
+    if (!$currentUser && action !== 'share') {
       // Redirect to login or show login prompt
       alert('Please sign in to interact with posts');
       return;
@@ -354,9 +354,11 @@ async function fetchUserData() {
   /* New layout styles */
   .profile-page-container {
     display: flex;
-    width: 100%;
+    justify-content: center;
     min-height: 100vh;
-    background-color: var(--bg-color);
+    width: 100%;
+    background-color: var(--primary-color);
+
   }
 
   .profile-page-container.hide-left-sidebar .profile-content-wrapper {
@@ -375,6 +377,7 @@ async function fetchUserData() {
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
+    max-width: 800px;
 
 
   }
@@ -386,7 +389,6 @@ async function fetchUserData() {
     z-index: 10;
     height: 3rem;
     width: 100%;
-    max-width: 600px;
     display: flex;
     align-items: center;
     background: var(--primary-color);
@@ -453,10 +455,9 @@ async function fetchUserData() {
   
   .main-wrapper {
     background: var(--bg-color);
-    border: 1px solid var(--line-color);
     /* border-radius: 0.75rem; */
     overflow-y: auto;
-    width: 600px;
+    width: 100%;
     margin-top: 0;
   }
   .profile-header {

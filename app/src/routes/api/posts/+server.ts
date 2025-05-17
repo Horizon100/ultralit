@@ -12,14 +12,9 @@ interface TimelinePost extends PostWithInteractions {
 }
 export const GET: RequestHandler = async ({ url, locals }) => {
   try {
-    // Check authentication
-    if (!locals.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, 
-        headers: { 'Content-Type': 'application/json' } 
-      });
-    }
-
+    // Modified: Allow both authenticated and guest users to view posts
+    const isAuthenticated = !!locals.user;
+    
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const parent = url.searchParams.get('parent');
@@ -79,15 +74,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     }
 
     // Transform posts and add interaction status
-        const postsWithInteractions: PostWithInteractions[] = postsResult.items.map((post: any) => {
+    const postsWithInteractions: PostWithInteractions[] = postsResult.items.map((post: any) => {
       const userData = usersMap.get(post.user);
       const attachments = attachmentsMap.get(post.id) || [];
 
-      // Check if user has interacted with this post
-      const upvote = post.upvotedBy?.includes(locals.user!.id) || false;
-      const downvote = post.downvotedBy?.includes(locals.user!.id) || false;
-      const repost = post.repostedBy?.includes(locals.user!.id) || false;
-      const hasRead = post.readBy?.includes(locals.user!.id) || false;
+      // Check if user has interacted with this post (only if authenticated)
+      const upvote = isAuthenticated ? post.upvotedBy?.includes(locals.user!.id) || false : false;
+      const downvote = isAuthenticated ? post.downvotedBy?.includes(locals.user!.id) || false : false;
+      const repost = isAuthenticated ? post.repostedBy?.includes(locals.user!.id) || false : false;
+      const hasRead = isAuthenticated ? post.readBy?.includes(locals.user!.id) || false : false;
 
       return {
         ...post,
@@ -103,7 +98,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
 
     // OPTIONAL: Add separate repost entries to the timeline
-const timelineWithReposts: TimelinePost[] = [];
+    const timelineWithReposts: TimelinePost[] = [];
     
     postsWithInteractions.forEach(post => {
       // Add the original post
