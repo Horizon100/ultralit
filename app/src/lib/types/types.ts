@@ -55,7 +55,6 @@ export interface UserProfile {
     avatarUrl: string;
 }
 
-
 export interface Prompt {
 	value: PromptType;
 	label: string;

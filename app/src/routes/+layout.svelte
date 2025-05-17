@@ -31,6 +31,7 @@
 	import { t } from '$lib/stores/translationStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
 	import { showAuth, toggleAuth } from '$lib/stores/authStore';
+	import { sidenavStore, showSidenav } from '$lib/stores/sidenavStore';
 
 	// Icons
 	import {
@@ -92,7 +93,10 @@
 
 	  Gamepad,
 
-	  Gamepad2
+	  Gamepad2,
+
+	  HomeIcon
+
 
 
 
@@ -161,7 +165,9 @@
 	  const quotes = $t('extras.quotes');
 	  return quotes[Math.floor(Math.random() * quotes.length)];
 	}
-	
+	function toggleSidenav() {
+		sidenavStore.toggle();
+	}
 	function toggleThreadList() {
 	  threadListVisibility.toggle();
 	  dispatch('threadListToggle');
@@ -594,6 +600,39 @@
 		
 				{/if}
 			</button>
+
+			<button
+				class="nav-button drawer"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/home'}
+				class:reveal-active={activeRevealButton === 'home'}
+				on:click={(event) => {
+					if (currentPath === '/home') {
+					event.preventDefault();
+					activeRevealButton = activeRevealButton === 'home' ? null : 'home';
+					toggleSidenav();
+					isNavExpanded = false;
+					} else {
+					navigateTo('/home');
+					activeRevealButton = 'home';
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+					}
+				}}
+			>
+			{#if currentPath === '/home' && showThreadList}
+			<PanelLeftClose />
+			{:else if currentPath === '/home'}
+			<HomeIcon />
+			{:else}
+			<HomeIcon />
+			{/if}
+			
+			{#if isNavExpanded}
+			<span class="nav-text">Home</span>
+			{/if}
+		</button>	
 		<button
 		class="nav-button drawer reveal"
 		class:expanded={isNavExpanded}
