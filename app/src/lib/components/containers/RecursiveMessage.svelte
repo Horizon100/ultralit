@@ -26,6 +26,7 @@
     import { goto } from '$app/navigation';
     import { projectStore } from '$lib/stores/projectStore';
   import { t } from '$lib/stores/translationStore';
+  import { getUserProfile, clearUserProfileCache, removeUserFromCache, getProfileCacheSize } from '$lib/clients/profileClient';
 
 
     
@@ -63,7 +64,6 @@
     let showScrollButtons = false;
     let processedContent = '';
     let isProcessingContent = true;
-    let userProfileCache: Map<string, UserProfile | null> = new Map();
 
     $: currentProjectId = $projectStore.currentProjectId;    
     $: isClickable = $showThreadList && childReplies.length > 0;
@@ -122,49 +122,7 @@ function findScrollableParent(element: Element | null): HTMLElement | null {
 }
 
 
-async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  // Check if already in cache
-  if (userProfileCache.has(userId)) {
-    return userProfileCache.get(userId) || null;
-  }
-  
-  try {
-    // Use your API endpoint instead of direct PocketBase access
-    const response = await fetch(`/api/verify/users/${userId}/public`, {
-      method: 'GET',
-      credentials: 'include'
-    });
-    
-    if (!response.ok) {
-      userProfileCache.set(userId, null);
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success || !data.user) {
-      userProfileCache.set(userId, null);
-      return null;
-    }
-    
-    const userData = data.user;
-    
-    // Create profile object from user data
-    const profile: UserProfile = {
-      id: userData.id,
-      name: userData.name || userData.name || 'User',
-      avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : null
-    };
-    
-    // Store in cache
-    userProfileCache.set(userId, profile);
-    return profile;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    userProfileCache.set(userId, null);
-    return null;
-  }
-}
+
     function handleReply() {
         showReplyInput = !showReplyInput;
         
