@@ -23,7 +23,7 @@
 			setTimeout(typeNextCharacter, delay);
 		} else {
 			isTypingComplete = true;
-			showCursor = true; // Ensure cursor is visible when typing is complete
+			showCursor = false; 
 		}
 	}
 
@@ -41,7 +41,7 @@
 </script>
 
 <p>
-	{displayText}{#if !isTypingComplete}<span class:blink={!showCursor}>|</span>{/if}
+	<span class="text-container">{displayText}<span class:blink={!showCursor} class="cursor">|</span></span>
 </p>
 
 <style lang="scss">
@@ -56,10 +56,15 @@
 		margin-top: 1rem;
 		margin-bottom: 1rem;
 		font-size: 1.7rem;
-		// width: 50%;
-		// margin-left: 25%;
-		display: flex;
 		width: 100%;
+	}
+
+	.text-container {
+		display: inline-block;
+	}
+
+	.cursor {
+		display: inline-block;
 	}
 
 	.blink {
@@ -67,16 +72,17 @@
 		transition: opacity 0.1s;
 	}
 
-	// @media (max-width: 1199px) {
-	//     p {
-	//         width: 90%;
-	//         margin-left: 5%;
-	//     }
-	// }
-
 	@media (max-width: 767px) {
 		p {
 			font-size: 1.5rem;
+		}
+	}
+		@media (max-width: 450px) {
+		p {
+			font-size: 0.9rem;
+			line-height: 1.5;
+			margin: 1rem;
+			text-align: left;
 		}
 	}
 </style>

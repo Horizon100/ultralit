@@ -281,6 +281,7 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
     justify-content: center;
     min-height: 100vh;
     width: 100%;
+    padding-bottom: 3rem;
     background-color: var(--primary-color);
   }
 

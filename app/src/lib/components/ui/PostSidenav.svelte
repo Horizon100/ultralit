@@ -43,7 +43,7 @@
         </ul>
       </nav>
       
-      <div class="productivity-stats">
+      <!-- <div class="productivity-stats">
         <h4>Today's Progress</h4>
         <div class="stats-grid">
           <div class="stat-item">
@@ -59,7 +59,7 @@
             <span class="stat-label">Focus Time</span>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </aside>
 {/if}

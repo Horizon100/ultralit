@@ -74,6 +74,7 @@
 	.error-container {
 		display: flex;
 		min-height: 100vh;
+		width: 100%;
 		align-items: center;
 		justify-content: center;
 		background-color: var(--bg-color);

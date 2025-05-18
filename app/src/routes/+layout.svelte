@@ -218,7 +218,7 @@
 	
 	function handleLogout() {
 	  showProfile = false;
-	  goto('/');
+	  goto('/welcome');
 	  showAuthModal = false;
 	}
 	
@@ -308,7 +308,7 @@
 	  try {
 		await signOut();
 		showProfile = false;
-		goto('/');
+		goto('/welcome');
 	  } catch (error) {
 		console.error('Error during logout:', error);
 	  }
@@ -401,8 +401,48 @@
 />
 	<header>
 		  {#if $currentUser}
-		  		<span class="header-auth">
+			<button 
+				class="nav-button info user" 
+				class:expanded={isNavExpanded}
+				on:click={() => {
+				  toggleAuthOrProfile();
+				  // Only close the nav if it's expanded
+				  if (isNavExpanded) {
+					isNavExpanded = false;
+				  }
+				}}
+			  >
+				{#if getAvatarUrl($currentUser)}
+				<img 
+					src={getAvatarUrl($currentUser)}
+					alt="User avatar" 
+					class="user-avatar" 
+				/>
+				{:else}
+					<div class="default-avatar">
+						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+					</div>
+				{/if}
+				<span class="nav-text">{username}
+
 				</span>
+				<span class="icon"
+				on:click={() => {
+					logout();
+					// Only close the nav if it's expanded
+					if (isNavExpanded) {
+					  isNavExpanded = false;
+					}
+				  }}
+				on:click={logout} >
+					<LogOutIcon size={24} />
+
+				</span>
+					{#if isNavExpanded}
+
+
+					{/if}
+		</button>
 		{:else}
 		<span class="header-auth">
 			<button 
@@ -411,7 +451,7 @@
 				in:fly={{ y: 0, duration: 500, delay: 400 }}
 				out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-				<LogIn/>
+				<LogIn size="16"/>
 				<span>
 					{$t('profile.login')}
 				</span>
@@ -421,35 +461,101 @@
 			<button class="nav-link language" on:click={handleLanguageChange}>
 				<Languages size={16} />
 				<span>{$t('lang.flag')}</span>
-				<span class="hover">{$t('profile.language')}</span>
+				<!-- <span class="hover">{$t('profile.language')}</span> -->
 			</button>
 			</span>
 		</span>
 		{/if}
-
-<span class="search-wrapper" class:dropdown-open={isDropdownOpen} class:search-open={isSearchFocused}>
-  {#if $currentUser}
-    <div class="project">
-      {#if !isSearchFocused}
-        <ProjectDropdown bind:isOpen={isDropdownOpen} />
-      {/if}
-    </div>
-  {/if}
-	<span>
-		{#if !isDropdownOpen}
-			<SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
+		{#if $currentUser}
+			<div class="project">
+			{#if !isSearchFocused}
+				<ProjectDropdown bind:isOpen={isDropdownOpen} />
+			{/if}
+			</div>
 		{/if}
-	</span>
+		<span class="search-wrapper" class:dropdown-open={isDropdownOpen} class:search-open={isSearchFocused}>
 
-</span>
-		<a
-			href="#start"
-			class="nav-link home {activeSection === 'start' ? 'active' : ''}"
-			on:click|preventDefault={() => scrollToSection('start')}
-		>
-			<img src={horizon100} alt="Horizon100" class="logo" />
-			<h2>vRAZUM</h2>                         
-		</a>
+			<span>
+				{#if !isDropdownOpen}
+					<SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
+				{/if}
+			</span>
+
+		</span>
+		<button
+			class="nav-button info logo"
+			class:expanded={isNavExpanded}
+
+			>
+			<div 
+				class="logo-container" 
+				on:click|stopPropagation={() => {
+				// Set a flag before navigating to root
+				sessionStorage.setItem('directNavigation', 'true');
+				navigateTo('/');
+				}}
+				style="cursor: pointer;"
+			>
+				<img src={horizon100} alt="Horizon100" class="logo" />
+				<h2>vRAZUM</h2>
+			</div>
+			<div class="shortcut-buttons">
+				<a
+				href="https://github.com/Horizon100/ultralit"
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<button class="shortcut"
+				class:expanded={isNavExpanded}
+				>
+					<Github size="30" /> 
+					{#if isNavExpanded}
+						<span class="nav-text">GitHub</span>
+					{/if}
+				</button>
+				</a>
+				<button
+				class="shortcut" 
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/canvas'}
+				on:click={() => {
+					navigateTo('/canvas');
+					if (isNavExpanded) {
+					isNavExpanded = false;
+					}
+				}}			
+				>
+				<Combine />
+				
+				{#if isNavExpanded}
+				<span class="nav-text">Canvas</span>
+			{/if}
+				</button>
+				<button
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/notes'}
+					on:click={() => {
+						navigateTo('/notes');
+						if (isNavExpanded) {
+						isNavExpanded = false;
+						}
+					}}	
+					>
+					<NotebookTabs />
+					{#if isNavExpanded}
+					<span class="nav-text">Notes</span>
+					{/if}
+				</button>
+				
+
+		</div>
+			{#if isNavExpanded}
+			<!-- <h2>vRAZUM</h2> -->
+
+			{/if}
+		</button>				
+
 	</header>
 		<nav style="z-index: 1000;">
 			<!-- <TimeTracker /> -->
@@ -530,79 +636,7 @@
 	>
 
 	{#if $currentUser}
-				<button
-				class="nav-button info logo"
-				class:expanded={isNavExpanded}
-		
-				>
-				<div 
-					class="logo-container" 
-					on:click|stopPropagation={() => {
-					// Set a flag before navigating to root
-					sessionStorage.setItem('directNavigation', 'true');
-					navigateTo('/');
-					}}
-					style="cursor: pointer;"
-				>
-					<img src={horizon100} alt="Horizon100" class="logo" />
-					<h2>vRAZUM</h2>
-				</div>
-				<div class="shortcut-buttons">
-					<a
-					href="https://github.com/Horizon100/ultralit"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<button class="shortcut"
-					class:expanded={isNavExpanded}
-					>
-						<Github size="30" /> 
-						{#if isNavExpanded}
-							<span class="nav-text">GitHub</span>
-						{/if}
-					</button>
-					</a>
-					<button
-					class="shortcut" 
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/canvas'}
-					on:click={() => {
-						navigateTo('/canvas');
-						if (isNavExpanded) {
-						isNavExpanded = false;
-						}
-					}}			
-					>
-					<Combine />
-					
-					{#if isNavExpanded}
-					<span class="nav-text">Canvas</span>
-				{/if}
-					</button>
-					<button
-						class="shortcut"
-						class:expanded={isNavExpanded}
-						class:active={currentPath === '/notes'}
-						on:click={() => {
-							navigateTo('/notes');
-							if (isNavExpanded) {
-							isNavExpanded = false;
-							}
-						}}	
-						>
-						<NotebookTabs />
-						{#if isNavExpanded}
-						<span class="nav-text">Notes</span>
-						{/if}
-					</button>
-					
-		
-			</div>
-				{#if isNavExpanded}
-				<!-- <h2>vRAZUM</h2> -->
-		
-				{/if}
-			</button>
+
 
 			<button
 				class="nav-button drawer"
@@ -741,48 +775,7 @@
 				<span class="nav-text">Code Editor</span>
 			{/if}
 		</button>
-				<button 
-				class="nav-button info user" 
-				class:expanded={isNavExpanded}
-				on:click={() => {
-				  toggleAuthOrProfile();
-				  // Only close the nav if it's expanded
-				  if (isNavExpanded) {
-					isNavExpanded = false;
-				  }
-				}}
-			  >
-				{#if getAvatarUrl($currentUser)}
-				<img 
-					src={getAvatarUrl($currentUser)}
-					alt="User avatar" 
-					class="user-avatar" 
-				/>
-				{:else}
-					<div class="default-avatar">
-						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-					</div>
-				{/if}
-				<span class="nav-text">{username}
 
-				</span>
-				<span class="icon"
-				on:click={() => {
-					logout();
-					// Only close the nav if it's expanded
-					if (isNavExpanded) {
-					  isNavExpanded = false;
-					}
-				  }}
-				on:click={logout} >
-					<LogOutIcon size={24} />
-
-				</span>
-					{#if isNavExpanded}
-
-
-					{/if}
-				</button>
 
 				<button class="nav-button toggle" on:click={() => {
 					toggleNav();
@@ -989,7 +982,6 @@
 	.nav-button {
 		color: var(--text-color);
 		// background: var(--bg-gradient-right);
-		padding: 4px;
 		font-size: 16px;
 		border: none;
 		cursor: pointer;
@@ -1002,11 +994,34 @@
 		transition: all 0.2s ease-in-out;
 		overflow: hidden;
 		user-select: none;
+		&.info.logo {
+			padding: 0;
+			width: 3rem;
+			position: absolute !important;
+			right: 0;
+			gap: 1.5rem;
+			background: transparent;
+			&.shortcut-buttons {
+				display: none;
+				flex-direction: row;
+				gap: 0.5rem;
+			}
+			&:hover {
+				backdrop-filter: blur(10px);
+				border: 1px solid var(--line-color);
+				.shortcut-buttons {
+					display: flex;
+				}
 
-		& img.logo {
-			width: 2rem;
-			height: 2rem;
+			}
+			& img.logo {
+				width: 2rem;
+				height: 2rem;
+				position: relative;
 		}
+		}
+
+
 	}
 
 	.auth-overlay {
@@ -1154,7 +1169,7 @@
 		top: 0;
 		left: 0;
 		width: 100%;
-		justify-content: space-between;
+		justify-content: center;
 		align-items: center;
 		/* height: 80px; */
 		/* margin-top: 0; */
@@ -1197,6 +1212,12 @@
 		& .header-auth {
 			display: flex;
 			flex-direction: row;
+			position: absolute;
+			left: 0.5rem;
+		}
+		& .nav-link.home {
+			position: absolute;
+			right: 0;
 		}
 	}
 
@@ -1221,23 +1242,22 @@
 		font-size: 16px;
 	}
 
-	.header-logo:hover {
-		background-color: rgba(255, 255, 255, 0.1);
-		transform: translateY(-2px);
-	}
+
 
 	.logo-container {
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
-		height: 3rem;
-
-		gap: 0.5rem;
+		height: auto;
+		width: auto;
+		gap: 1rem;
 		position: relative;
-
 		user-select: none;
 		width: auto;
+		&:hover {
+
+		}
 
 		& h2 {
 			padding: 0 !important;
@@ -1245,20 +1265,11 @@
 			margin: 0;
 			font-style: normal;
 		}
-		&:hover {
-			h2 {
-				// font-size: 1rem;
-			}
-			}
 
 		}
 	
 
-	.logo {
-		width: 2rem;
-		height: auto;
 
-	}
 
 	a.logo-link {
 		display: flex;
@@ -1427,6 +1438,7 @@
 			padding: 0 1rem;
 			border-radius: 2rem;
 			gap: 0;
+			
 		}
 	}
 
@@ -1471,7 +1483,9 @@
 			display: flex;
 			& span {
 				display: flex;
-				width: 5rem;
+				font-size: 0.7rem;
+				width: auto;
+
 			}
 		}
 		&.language {
@@ -1847,7 +1861,6 @@
 		padding: 0 0.5rem;
 		z-index:1000;
 		width: 3rem;
-
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -1874,6 +1887,7 @@
     width: 100%;
 	justify-content: left;
 	align-items: left;
+	backdrop-filter: blur(5px);
 
 	& .hidden {
 		display: none;
@@ -1992,11 +2006,7 @@
 	}
 
 
-	.shortcut-buttons {
-			display: flex;
-			flex-direction: row;
-			gap: 0.5rem;
-		}
+
 	.nav-button.info {
 		display: flex;
 		justify-content: flex-start;
@@ -2007,6 +2017,7 @@
 		border-radius: 1rem !important;
 		transition: all 0.3s ease;
 		height: 3rem;
+
 		& button.shortcut {
 			background: var(--primary-color);
 			display: flex;
@@ -2023,13 +2034,20 @@
 			font-size: 1.2rem;
 		}
 		&.user {
+
+		}
+		&.user,
+		.logo {
 			position: fixed;
-			justify-content: space-around;
 			flex-direction: row !important;
 			background: transparent !important;
 			width: auto;
 			padding: 0;
 			top: 0;
+			left: 0.5rem;
+			&:hover {
+				padding: 0;
+			}
 			& .user-avatar {
 				width: 2.5rem !important;
 				height: 2.5rem;
@@ -2043,9 +2061,9 @@
 			}
 
 			&:hover {
-				padding: 1rem;
-
-				background: var(--secondary-color) !important;
+				padding: 0.5rem !important;
+			 	max-width: 180px;
+				background: var(--primary-color) !important;
 
 			}
 
@@ -2410,11 +2428,11 @@
 
 	}
 	.auth-content {
-		position: fixed;
+		position: absolute;
 		overflow: hidden;
 		display: flex;
 		top: 10rem;
-		left: auto;
+		left: 0;
 		right: auto !important;
 		/* background-color: #2b2a2a; */
 		/* padding: 2rem; */
@@ -2428,6 +2446,9 @@
 		/* max-width: 500px; */
 		height: auto;
 	}
+	.header-auth {
+		position: relative !important;
+	}
 	a {
 		img {
 			display: none;
@@ -2437,10 +2458,35 @@
 
 		}
 	}
-.search-wrapper {
-	width: 450px !important;
-
-}
+	span.search-wrapper {
+		background: var(--secondary-color);
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		position: relative;
+		width: calc(100% - 9rem);
+		height: 2rem;
+		padding: 0 0.5rem;
+		border-radius: 1rem;
+		border: 1px solid var(--line-color);
+		&.search-open {
+			height: 2rem;
+			width: 100% !important;
+			padding: 0;
+			margin-left: 0 !important;
+			flex-direction: column;
+			align-items: flex-start;
+			justify-content: flex-start;
+			background: var(--primary-color);
+		}
+		&.dropdown-open {
+			height: auto !important; 
+			min-height: 2rem;
+			flex-direction: column;
+			align-items: stretch;
+			padding: 0;
+		}
+	}
 	.nav-links {
 		margin: 0;
 		// justify-content: flex-end;
@@ -2546,6 +2592,9 @@
 				}
 			}
 		}
+		.nav-button.info.logo {
+			position: relative !important;
+		}
 		.nav-button.info.user {
 			display: flex !important;
 			position: relative !important;
@@ -2555,7 +2604,7 @@
 			top: auto;
 			left: auto;
 			background: transparent !important;
-
+			
 			& img.user-avatar {
 					height: 2rem !important;
 					padding: 0;
@@ -2568,7 +2617,7 @@
 				// height: 6rem !important;
 				justify-content: center;
 				width: auto !important;
-				padding: 0;
+				padding: 0 !important;
 
 				& img.user-avatar {
 
@@ -2591,6 +2640,8 @@
 		}
 
 		header {
+			gap: 0;
+			justify-content: space-between;
 			// justify-content: center;
 		}
 
@@ -2624,6 +2675,7 @@
 		justify-content: center;
 		border-radius: 1rem !important;
 		animation: none !important;
+
 		
 		&.user {
 			position: relative;
@@ -2653,7 +2705,6 @@
 		&:hover {
 			justify-content: flex-start;
 			
-			background: var(--primary-color);
 			opacity: 1;
 
 			border-radius: 2rem;
@@ -2676,7 +2727,6 @@
 			display: none;
 		width: 350px;
 		justify-content: space-around;
-		background-color: red;
 		h2 {
 			display: flex;
 		}
@@ -2718,18 +2768,18 @@
 		height: auto;
 		overflow-x: hidden;
 		overflow-y: hidden;
-		bottom: 0.5rem !important;
+		bottom: 0 !important;
+		border-radius: 0 !important;
+		border-top: 1px solid var(--line-color);
 		gap: 10px;
-			width: calc(100% - 1rem);
-			margin-left: 0.5rem;
-
-			flex: 1;
+		width: calc(100% - 0.5rem);
+		margin-left: 0.25rem;
+		flex: 1;
 		top: auto;
 		bottom: 0;
 		padding: 0;
 		z-index: 1100;
-		overflow-x: hidden;
-		border-radius: 1rem 1rem 1rem 1rem;
+		border-radius: 0;
 		transition: all 0.3s ease-in;
 		& .nav-button.info.user,
 			& .nav-button.drawer {
@@ -2740,7 +2790,6 @@
 			}
 		&:hover {
 
-			background: var(--primary-color);
 		& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
@@ -2916,6 +2965,38 @@
 
 		}	
 
+		span.search-wrapper {
+			background: var(--secondary-color);
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			position: relative;
+			width: 200px !important;
+			height: 2rem;
+			padding: 0 0.5rem;
+			border-radius: 1rem;
+			border: 1px solid var(--line-color);
+			&.search-open {
+				height: 2rem;
+				padding: 0;
+				flex-direction: column;
+				align-items: flex-start;
+				justify-content: flex-start;
+				background: var(--primary-color);
+			}
+			&.dropdown-open {
+				height: auto !important; 
+				min-height: 2rem;
+				flex-direction: column;
+				align-items: stretch;
+				padding: 0;
+			}
+		}
+		.nav-link.login {
+			span {
+				display: none;
+			}
+		}
 		.sidenav {
 			display: flex;
 			// backdrop-filter: blur(30px);
@@ -2928,14 +3009,13 @@
 			position: absolute;
 			width: 99%;
 			margin-left: 0.5%;
-			border-radius: 1rem;
+			border-radius:0;
 			flex: 1;
 			overflow-x: hidden !important;
 			left: 0;
 			right: 0;
 			z-index: 10;
 			transition: all 0.1s ease-in;
-
 
 			.nav-button.info {
 				// display: none !important;
@@ -2944,10 +3024,17 @@
 			& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
-
 				// display: none !important;
-				width: 3rem !important;
-				height: 3rem !important;
+				width: 2.5rem !important;
+				height: 2.5rem !important;
+				&:hover {
+					& .nav-button.info.user,
+					& .nav-button.drawer {
+						display: flex !important;
+						width: 3rem !important;
+						height: 3rem !important;
+					}
+				}
 				&.reveal {
 					display: flex !important;
 				}
@@ -2956,12 +3043,7 @@
 			&:hover {
 
 
-				& .nav-button.info.user,
-				& .nav-button.drawer {
-					display: flex !important;
-					width: 3rem !important;
-					height: 3rem !important;
-				}
+
 
 			}
 		}
@@ -2983,14 +3065,15 @@
 			// border: 1px solid var(--line-color);
 			gap: 0.5rem;
 			width: 100% !important;
+			height: 4rem;
 			// background: var(--secondary-color);
-			border-radius: 1rem;
-			align-items: stretch;
+			border-radius: 0;
+			align-items: center;
 			justify-content: space-around;
 			overflow: hidden;
 			transition: all 0.2s ease;
 			&:hover {
-				background: var(--bg-gradient);
+				// background: var(--bg-gradient);
 			}
 
 

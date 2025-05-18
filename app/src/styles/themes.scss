@@ -716,9 +716,9 @@ pre.code-block {
 
 	.auth-content {
 		background: var(--primary-color);
-		padding: 2rem;
+		padding: 0;
 		border-radius: 1rem;
-		max-width: 80%;
+		max-width: 100%;
 		max-height: 80%;
 		overflow-y: auto;
 		& 	h2 {
@@ -849,22 +849,7 @@ pre.code-block {
 		}
 	}
 
-    span.email-input,
-    span.password-input,
-    span.invitation-input {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        width: 500px;
-       
-        height: 4rem;
-        padding: 0;
-		padding-right: 0.5rem;
-        gap: 1rem;
-        background: var(--bg-color);
-        border-radius: 2rem;
-    }
+    
     button.round-btn {
         background-color: var(--secondary-color);
         color: var(--text-color);

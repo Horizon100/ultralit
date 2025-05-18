@@ -126,7 +126,7 @@
 	}
 	$: if (browser && $currentUser && pageReady && !isLoading && !redirectedFromLogin && !navigationFlagChecked) {
 		redirectedFromLogin = true;
-		goto('/chat');
+		goto('/welcome');
 	}
 	onMount(async () => {
 		try {
@@ -140,7 +140,7 @@
 				
 				if (!directNavigation) {
 					setTimeout(() => {
-						goto('/chat');
+						goto('/home');
 					}, 100);
 					return; 
 				}
@@ -1174,6 +1174,29 @@
 		.section#integrations {
 			& .int-card {
 			}
+		}
+	}
+	@media (max-width: 450px) {
+	
+		h1 {
+			font-size: 1.5rem;
+			width: auto;
+		}
+		.section {
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			align-items: center;
+			padding: 0;
+			text-align: center;
+			max-width: 1200px;
+			width: 100%;
+			height: 100vh;
+			background: radial-gradient(
+				circle at center,
+				rgba(255, 255, 255, 0.2) 0%,
+				rgba(255, 255, 255, 0) 50%
+			);
 		}
 	}
 </style>

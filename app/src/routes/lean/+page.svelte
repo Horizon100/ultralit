@@ -59,14 +59,14 @@
     
     try {
       // Ensure user is authenticated
-      const isAuthenticated = await ensureAuthenticated();
+      // const isAuthenticated = await ensureAuthenticated();
       
-      if (!isAuthenticated) {
-        console.error('Authentication failed');
-        authError = true;
-        isLoading = false;
-        return;
-      }
+      // if (!isAuthenticated) {
+      //   console.error('Authentication failed');
+      //   authError = true;
+      //   isLoading = false;
+      //   return;
+      // }
       
       // Update user variable with the authenticated user
       user = $currentUser;
@@ -179,8 +179,9 @@
       gap: 1rem;
       margin-top: 0.5rem;
       margin-bottom: 0;
-      width: calc(50% - 4rem);
-      margin-left: 10rem;
+      width: auto;
+      max-width: 300px;
+      margin-left: 0;
       user-select: none;
       z-index: 1000;
     }
@@ -304,10 +305,9 @@
       align-items: center;
       gap: 1rem;
       height: 2rem;
-      margin-top: 0;
+      margin-top: 0.5rem;
       margin-bottom: 0;
       width: calc(50% - 10rem);
-      margin-left: 12rem;
       user-select: none;
       z-index: 1000;
     }
@@ -325,7 +325,7 @@
       &:hover {
         background: var(--line-color);
         & span {
-          display: none;
+          display: flex;
         }
         // background: var(--secondary-color);
       }
@@ -336,7 +336,7 @@
         color: var(--text-color);
         background: var(--secondary-color);
         & span {
-          display: none;
+          display: flex;
         }
     }
 }

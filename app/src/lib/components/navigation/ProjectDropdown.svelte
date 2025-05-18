@@ -187,17 +187,15 @@
             <!-- <p>Home</p> -->
           </span>
     {/if}
-      <span class="trigger-display" class:drawer-visible={$showThreadList}
-      >
+      <span class="trigger-display" class:drawer-visible={$showThreadList}>
+      {#if $projectStore.currentProject}
+            <span class="active">
+            <PackageOpen size={16} />
 
-    {#if $projectStore.currentProject}
-          <span class="active">
-          <PackageOpen size={16} />
-
-          </span>
-      {:else}
-        <Package size={16} />
-      {/if}
+            </span>
+        {:else}
+          <Package size={16} />
+        {/if}
       <span>
         {$projectStore.currentProject?.name || 'Projects'}
       </span>
@@ -345,7 +343,7 @@
       width: 100%;
       &.selector {
         height: auto;
-        padding: 0.5rem;
+        padding: 0;
         height: 2rem;
         width: auto;
         flex: 0;
@@ -386,7 +384,7 @@
     span.trigger-text {
       display: flex;
       flex-direction: row;
-      width: 100%;
+      width: auto;
       justify-content: space-between;
       align-items: center;
       
@@ -414,7 +412,7 @@
       // width: calc(400px - 2rem);
       & span.trigger-display {
         font-size: 1rem !important;
-        padding: 0.5rem;
+        padding: 0.25rem;
         color: var(--text-color);
         transition: 0.2s ease all;
         & span {
@@ -434,12 +432,12 @@
 
       span.trigger-display {
         font-size: 0.8rem !important;
-        padding: 0.5rem;
+        padding: 0.25rem;
         color: var(--text-color);
         gap: 0.5rem;
         transition: 0.2s ease all;
         border-radius: 1rem;
-        height: 2rem;
+        height: 1.5rem;
           span.active {
             display: flex !important;
             color: var(--tertiary-color);
@@ -734,9 +732,9 @@
         position:fixed;
         top: 3rem;
         padding: 0;
-        width: 100% !important;
-        max-width: 450px;
-        left: 0;
+        width: auto;
+        max-width: auto;
+        left: 5rem;
         right: 0;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       }
@@ -751,16 +749,18 @@
         width: auto;
         position: fixed;
         right: auto;
-        top: 0;
-        left: 2rem;
+        top: 0.5rem;
+        left: 3rem;
 
         padding: 0 !important;
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
         border: none !important;
         &.selector {
           width: auto;
-          height: 3rem;
+          height: 2rem;
+          position: fixed;
+          left: auto;
           // overflow: hidden;
         }
         & span.icon {

@@ -6,7 +6,7 @@
     import { projectStore } from '$lib/stores/projectStore';
     import type { KanbanTask, KanbanAttachment, Column, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/components/containers/UserDisplay.svelte';
-	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle, Tags } from 'lucide-svelte';
+	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle, Tags, Search } from 'lucide-svelte';
     import { t } from '$lib/stores/translationStore';
     import AssignButton from '$lib/components/buttons/AssignButton.svelte';
     import { 
@@ -1689,28 +1689,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 {$t('generic.show')} {$t('tasks.subtasks')} {$t('dates.days')}
             </span>
         </div>
-<div class="search-container" >
-<input transition:fade={{ duration: 150 }}
-    type="text" 
-    bind:value={searchQuery}
-    on:input={() => {
-        searchTasks(searchQuery);
-        if (searchQuery && !allColumnsOpen) {
-            toggleAllColumns();
-        }
-    }}
-    placeholder="Search tasks..."
-    class="search-input"
-    />
-    {#if searchQuery}
-        <button class="clear-search" on:click={() => { 
-            searchQuery = ''; 
-            applyFilters(); 
-        }}>
-            ✕
-        </button>
-    {/if}
-</div>
+
 <button 
     class="priority-toggle {taskViewMode === TaskViewMode.highPriority ? 'high' : 
                           taskViewMode === TaskViewMode.mediumPriority ? 'medium' : 
@@ -1807,7 +1786,33 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             {/if}
         </div>
     {/if}
+
     <div class="global-task-input">
+        <span>
+            <Search/>
+        </span>
+        <input transition:fade={{ duration: 150 }}
+            type="text" 
+            bind:value={searchQuery}
+            on:input={() => {
+                searchTasks(searchQuery);
+                if (searchQuery && !allColumnsOpen) {
+                    toggleAllColumns();
+                }
+            }}
+            placeholder="Search tasks..."
+            class="search-input"
+            />
+            {#if searchQuery}
+                <button class="clear-search" on:click={() => { 
+                    searchQuery = ''; 
+                    applyFilters(); 
+                }}>
+                    ✕
+                </button>
+            {/if}
+    </div>
+        <div class="global-task-input">
         <span>
             <PlusCircle/>
         </span>
@@ -2407,12 +2412,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     }
  
     .global-input-container {
-        width: auto;
+        width: calc(100% - 300px);
         height: 2rem !important;
         padding: 0;
         margin: 0;
-        margin-left: 50%;
+        margin-left: auto;
         margin-right: 1rem;
+        gap: 0.5rem;
         // box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         display: flex;
         justify-content: flex-end;
@@ -2459,39 +2465,67 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                             transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 
         }
-
+        & input {
+            display: none;
+            height: 2rem !important;
+            padding: 0 ;
+            line-height:2.5;
+            padding-inline-start: 0.5rem;
+            transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+            outline: none;
+            border: 1px solid var(--line-color);
+        }
         & textarea {
             display: none;
             height: 2rem !important;
             padding: 0 ;
             line-height:2.5;
             padding-inline-start: 0.5rem;
-                            transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-
+            transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+            outline: none;
+            border: 1px solid var(--line-color);
         }
         &:hover {
             padding: 0.5rem;
+            background: transparent;
+            border-color: 1px solid transparent;
             & span {
                 display: none;
             }
-& textarea {
-  display: flex;
-  transition: all 0.2s ease;
-  width: 400px;
-  margin-top: 2rem;
-  border-radius: 1rem;
-  height: 4rem !important;
-  resize: vertical;   
-  overflow-y: auto;   
-  overflow-x: hidden; 
-  white-space: pre-wrap; 
-  word-wrap: break-word;
-  line-height: 1;
-  z-index: 1;
-  padding: 0;
-  padding-inline-start: 1rem;
-  padding-top: 0.5rem;
-}
+            & textarea {
+                display: flex;
+                transition: all 0.2s ease;
+                width: 350px;
+                margin-top: 0;
+                border-radius: 1rem;
+                height: 2rem !important;
+                background: var(--primary-color);
+                resize: vertical;   
+                overflow-y: auto;   
+                overflow-x: hidden; 
+                white-space: pre-wrap; 
+                word-wrap: break-word;
+                line-height: 1;
+                z-index: 1;
+                padding: 0;
+                padding-inline-start: 1rem;
+                padding-top: 0.5rem;
+            }
+            & input {
+                display: flex;
+                transition: all 0.2s ease;
+                width: 350px;
+                margin-top: 0;
+                border-radius: 1rem;
+                height: 2rem !important;
+                background: var(--primary-color);
+                overflow-y: auto;   
+                overflow-x: hidden; 
+                line-height: 1;
+                z-index: 1;
+                padding: 0;
+                padding-inline-start: 1rem;
+            }
         }
     }
     
@@ -2722,24 +2756,15 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         }
     }
 
-    input.search-input {
-        background-color: var(--primary-color) !important;
-        border-radius: 1rem;
-        width: auto;
-        outline: none;
-        border: 1px solid var(--line-color);
-
-    }
-
     textarea {
         width: 100%;
         // padding: 0.5rem;
         align-items: center;
         justify-content: center;
         border-radius: 1rem;
-        border: 1px solid var(--line-color);
+        border: 1px solid var(--line-color) !important;
         background-color: var(--secondary-color);
-        resize:none;
+        resize:none !important;
         color: var(--text-color);
         transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
         // font-size: 1.1em;
@@ -3764,6 +3789,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
     position: relative;
     display: flex;
     align-items: center;
+    width: auto;
     background-color: var(--color-bg-secondary);
     gap: 0.5rem;
 }

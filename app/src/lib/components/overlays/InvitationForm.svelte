@@ -189,12 +189,12 @@
 							<button class="round-btn auth-provider">
 								<img src={Google} alt="Google" class="auth-icon" />
 							</button>
-							<button class="round-btn auth-provider">
+							<!-- <button class="round-btn auth-provider">
 								<img src={Microsoft} alt="Microsoft" class="auth-icon" />
 							</button>
 							<button class="round-btn auth-provider">
 								<img src={Yandex} alt="Yandex" class="auth-icon" />
-							</button>
+							</button> -->
 						</span>
 
 						<span class="password-input" transition:fly={{ duration: 300, delay: 200 }}>

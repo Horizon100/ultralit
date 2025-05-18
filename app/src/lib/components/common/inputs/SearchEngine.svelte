@@ -3,7 +3,7 @@
   import { fade, slide } from 'svelte/transition';
   import { currentUser } from '$lib/pocketbase';
   import { get } from 'svelte/store';
-  import { Search, ArrowRight, Book, MessageCircle, CheckSquare, Layers } from 'lucide-svelte';
+  import { Search, ArrowRight, Book, MessageCircle, CheckSquare, Layers, MessagesSquare } from 'lucide-svelte';
   import { projectStore } from '$lib/stores/projectStore';
   import { threadsStore } from '$lib/stores/threadsStore';
   import { messagesStore } from '$lib/stores/messagesStore';
@@ -586,7 +586,7 @@ onMount(() => {
 >
   <div class="search-input-container" bind:this={dropdownContainer}>
     <div class="input-wrapper" class:expanded={isExpanded}>
-      <Search class="search-icon" size={size === 'small' ? 16 : size === 'large' ? 20 : 20} />
+      <!-- <Search class="search-icon" size={size === 'small' ? 16 : size === 'large' ? 20 : 20} /> -->
       <input
         bind:this={searchInput}
         bind:value={searchQuery}
@@ -631,7 +631,7 @@ onMount(() => {
           on:click|stopPropagation={() => setActiveTab('threads')}
           on:mousedown|stopPropagation={() => {}}
         >
-          <MessageCircle size={16} />
+          <MessagesSquare size={16} />
           <span>Threads ({threadResults.length})</span>
         </button>
       {/if}
@@ -930,8 +930,8 @@ onMount(() => {
   .search-engine {
     position: absolute;
     top: 0;
-    left: auto;
-    margin-left: 0.5rem;
+    left: 0;
+    margin-left: 0;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -957,7 +957,7 @@ onMount(() => {
     height: 2rem;
     padding: 0;
     transition:cubic-bezier(0.55, 0.085, 0.68, 0.53);
-    margin-left: auto;
+    margin-left: 2rem;
 
       &.expanded {
         width: 600px;
@@ -969,7 +969,6 @@ onMount(() => {
     flex-direction: row;
     padding: 0 !important;
     font-size: 0.9rem !important;
-    margin-left: 0.5rem;
     // padding: 0.75rem 2.75rem 0.75rem 2.75rem;
     border: 1px solid transparent;
     border-radius: 8px;
@@ -1108,7 +1107,7 @@ onMount(() => {
     background: var(--primary-color);
     border: 1px solid var(--line-color);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    margin-top: 4px;
+    margin-top: 0;
     max-height: 70vh;
     z-index: 100;
     border-top: none;
@@ -1203,7 +1202,151 @@ onMount(() => {
   }
       @media (max-width: 1000px) {
           .search-results {
-            width: 450px !important;
+            width: 100% !important;
+            position: fixed;
           }
+          .search-engine {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin-left: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            width: auto !important;
+              &.expanded {
+                width: 50%;
+                margin-left: 10rem !important;
+                
+              }
+            & .input-wrapper {
+              position: relative;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              width: auto;
+              margin-left: 0 !important;
+              // margin-left: 5rem ;
+              height: 2rem;
+              padding: 0;
+              transition:cubic-bezier(0.55, 0.085, 0.68, 0.53);
+              margin-left: auto;
+
+
+            }
+            .tab-navigation {
+              display: flex;
+              overflow-x: auto;
+              position: fixed;
+              width: 100%;
+              padding: 0.5rem;
+              background-color: var(--bg-gradient-left);
+              border-bottom: 1px solid var(--line-color);
+              border-top-left-radius: 8px;
+              border-top-right-radius: 8px;
+              overflow-y: hidden;
+              backdrop-filter: blur(2px);
+
+            }
+            .tab-button {
+              font-size: 0.7rem;
+              font-weight: 500;
+              transition: all 0.2s ease;
+              white-space: nowrap;
+              span {
+                display: none;
+                
+              }
+            }
+            .tab-button:hover {
+              color: var(--tertiary-color);
+            }
+            .tab-button.active {
+              color: var(--text-color);
+              background: var(--secondary-color);
+              border-bottom: 2px solid var(--primary-color);
+              & span {
+                display: flex;
+              }
+            }
+            & .search-input-container {
+              position: relative;
+              width: auto;
+              top: auto;
+              left: 0;
+              justify-content: flex-start;
+              border-radius: 1rem;
+              padding: 0;
+              gap: 0;
+
+
+          }
+        }
+      }
+
+      @media (max-width: 450px) {
+        .search-engine {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin-left: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            width: auto !important;
+            & .input-wrapper {
+              position: relative;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              width: auto;
+              margin-left: 0 !important;
+              // margin-left: 5rem ;
+              height: 2rem;
+              padding: 0;
+              transition:cubic-bezier(0.55, 0.085, 0.68, 0.53);
+              margin-left: 0;
+
+              &.expanded {
+              width: 100%;
+              margin-left: 1rem !important;
+              
+              }
+              
+            }
+            & .search-input-container {
+              margin-left: 0 !important;
+              left: 0 !important;
+              & .search-input {
+                font-size: 0.8rem !important;
+                margin-left: 2.5rem;
+              }
+            }
+            &  .search-results {
+              position: fixed;
+              left: 0;
+              right: 0;
+              padding: 0;
+              background: var(--primary-color);
+              border: 1px solid var(--line-color);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+              margin-top: 0;
+              max-height: 70vh;
+              z-index: 100;
+              border-top: none;
+              border-radius: 0 0 0.5rem 0.5rem;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+              max-height: 400px;
+              width: 100%;
+              overflow: hidden;
+              // width: 600px !important;
+              // max-height: 600px;
+                  overflow-y: auto;
+
+            }
+          }
+
       }
 </style>
