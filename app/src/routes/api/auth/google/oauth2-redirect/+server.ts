@@ -35,27 +35,14 @@ export const GET: RequestHandler = async ({ url }) => {
     if (!authUrl.searchParams.has('redirect_uri')) {
       console.log('redirect_uri is missing, setting it manually');
       
-      // Set the production redirect URI
-      authUrl.searchParams.set('redirect_uri', 'http://172.104.188.44:80/api/_/oauth2-redirect');
-    }
-    
-    // If using Google OAuth, ensure these required parameters are set
-    if (!authUrl.searchParams.has('client_id')) {
-      console.error('client_id is missing from the auth URL!');
-      return json({
-        success: false,
-        error: 'OAuth configuration is incomplete (missing client_id)'
-      }, { status: 500 });
-    }
-    
-    if (!authUrl.searchParams.has('scope')) {
-      // Set default scope if missing
-      authUrl.searchParams.set('scope', 'email profile');
-    }
-    
-    if (!authUrl.searchParams.has('response_type')) {
-      // For OAuth 2.0, code is typically used
-      authUrl.searchParams.set('response_type', 'code');
+      
+      // For development on localhost
+      if (url.hostname === 'localhost') {
+        authUrl.searchParams.set('redirect_uri', 'http://127.0.0.1:8090/api/oauth2-redirect');
+      } else {
+        // For production
+        authUrl.searchParams.set('redirect_uri', 'https://vrazum.com/api/oauth2-redirect');
+      }
     }
     
     // Log the final URL for debugging
@@ -64,8 +51,7 @@ export const GET: RequestHandler = async ({ url }) => {
     // Return the modified authorization URL
     return json({
       success: true,
-      authUrl: authUrl.toString(),
-      originalProvider: googleProvider  // Include this for debugging
+      authUrl: authUrl.toString()
     });
   } catch (error) {
     console.error('Google authentication error:', error);

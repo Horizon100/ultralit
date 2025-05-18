@@ -1,98 +1,98 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { currentUser } from '$lib/pocketbase';
+  import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+  import Google from '$lib/assets/icons/auth/google.svg';
+  import { authenticateWithGoogleOAuth } from '$lib/pocketbase';
   
   let loading = false;
   let error: string | null = null;
-  let debugInfo = null;
   
-  async function handleSignIn() {
+ async function handleSignIn() {
     loading = true;
     error = null;
     
     try {
-      console.log('Starting Google auth process...');
-      
-      // Call your server API endpoint to get the Google auth URL
-      const response = await fetch('/api/auth/google', {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      // Get full response text for debugging
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-      
-      // Try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', e);
-        throw new Error('Invalid server response');
-      }
-      
-      if (!response.ok) {
-        console.error('Server returned error:', data);
-        throw new Error(data.error || 'Failed to start authentication');
-      }
-      
-      console.log('Auth response:', data);
-      
-      if (data.success && data.authUrl) {
-        // Log before redirect
-        console.log('Redirecting to:', data.authUrl);
-        
-        // Redirect to the Google auth URL
-        window.location.href = data.authUrl;
-      } else {
-        throw new Error(data.error || 'Failed to start authentication');
-      }
+      await authenticateWithGoogleOAuth();
+      // This code won't be reached due to the redirect
     } catch (err) {
-      console.error('Failed to start Google auth:', err);
+      console.error('Google sign-in error:', err);
       error = err instanceof Error ? err.message : 'Authentication failed';
+    } finally {
       loading = false;
     }
   }
 </script>
-  
-<button 
-  type="button" 
-  class="auth-button" 
-  on:click={handleSignIn} 
-  disabled={loading}
->    
-  {#if loading}
-    <div class="spinner-container">
-      <div class="spinner">
+
+<div class="button-expand">
+  <button 
+    type="button" 
+    class="round-btn"
+    on:click={handleSignIn} 
+    disabled={loading}
+  >    
+    {#if loading}
+      <div class="button-expand">
+        <div class="spinner">
+        </div>
       </div>
-    </div>
-  {:else}
-    <!-- Sign in with Google -->
-  {/if}
-</button>
-  
+    {:else}
+      <img src={Google} alt="Google" class="auth-icon" />
+      <span> Sign In with Google</span>
+    {/if}
+  </button>
+</div>
+
+<!-- {#if popupBlocked}
+  <div class="popup-blocked-message">
+    <p>Popup window was blocked. Please either:</p>
+    <ol>
+      <li>Allow popups for this site in your browser settings and try again</li>
+      <li>
+        <button on:click={handleDirectSignIn} class="direct-signin-btn">
+          Continue with redirect instead
+        </button>
+      </li>
+    </ol>
+  </div>
+{/if} -->
+
 {#if error}
   <p class="error">{error}</p>
 {/if}
+
+
 
   <style lang="scss">
 	@use 'src/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}    
-    .auth-button {
-          font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
-          background-image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNMTcuNiA5LjJsLS4xLTEuOEg5djMuNGg0LjhDMTMuNiAxMiAxMyAxMyAxMiAxMy42djIuMmgzYTguOCA4LjggMCAwIDAgMi42LTYuNnoiIGZpbGw9IiM0Mjg1RjQiIGZpbGwtcnVsZT0ibm9uemVybyIvPjxwYXRoIGQ9Ik05IDE4YzIuNCAwIDQuNS0uOCA2LTIuMmwtMy0yLjJhNS40IDUuNCAwIDAgMS04LTIuOUgxVjEzYTkgOSAwIDAgMCA4IDV6IiBmaWxsPSIjMzRBODUzIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNNCAxMC43YTUuNCA1LjQgMCAwIDEgMC0zLjRWNUgxYTkgOSAwIDAgMCAwIDhsMy0yLjN6IiBmaWxsPSIjRkJCQzA1IiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNOSAzLjZjMS4zIDAgMi41LjQgMy40IDEuM0wxNSAyLjNBOSA5IDAgMCAwIDEgNWwzIDIuNGE1LjQgNS40IDAgMCAxIDUtMy43eiIgZmlsbD0iI0VBNDMzNSIgZmlsbC1ydWxlPSJub256ZXJvIi8+PHBhdGggZD0iTTAgMGgxOHYxOEgweiIvPjwvZz48L3N2Zz4=);
-          background-repeat: no-repeat;
-          background-position: 1rem 1rem;
-          background-size: 2rem 2rem; /* Adjust this value to make the image bigger */
-          width: 4rem;
-          display: flex;
-          height: auto;
-          font-size: 1.2rem;
-          border-radius: 1rem;
-          border: none;
+  .button-expand button {
+    span {
+      display: none;
+    }
+    &:hover {
+      width: auto !important;
+      border-radius: 1rem !important;
+      span {
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+    .button {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        // padding: 10px;
+        border: none;
+        cursor: pointer;
+        background: transparent;
+        transition: background-color 0.3s;
+      
       
       &:hover {
           box-shadow: 0 -1px 0 rgba(0, 0, 0, .04), 0 10px 4px rgba(0, 0, 0, .25);
@@ -118,4 +118,39 @@
           cursor: not-allowed;
       }
       }
+        .popup-blocked-message {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid #ffcc00;
+    background-color: #fffbe6;
+    border-radius: 0.5rem;
+    
+    p {
+      margin-top: 0;
+      font-weight: bold;
+    }
+    
+    ol {
+      margin-bottom: 0;
+    }
+  }
+  
+  .direct-signin-btn {
+    background-color: transparent;
+    border: none;
+    color: #4285f4;
+    font-weight: bold;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    
+    &:hover {
+      color: #3367d6;
+    }
+  }
+  
+  .error {
+    color: red;
+    margin-top: 1rem;
+  }
     </style>

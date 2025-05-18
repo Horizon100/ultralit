@@ -1,9 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
+import type { User } from '$lib/types/types';
+import type { Cookies } from '@sveltejs/kit';
 
 // Helper function to update auth cookie
-function updateAuthCookie(cookies: any): void {
+function updateAuthCookie(cookies: Cookies): void {
     if (pbServer.pb.authStore.isValid) {
         cookies.set('pb_auth', JSON.stringify({
             token: pbServer.pb.authStore.token,
@@ -18,7 +20,7 @@ function updateAuthCookie(cookies: any): void {
     }
 }
 
-function sanitizeUserData(user: any): any {
+function sanitizeUserData(user: User | null): Partial<User> | null {
     if (!user) return null;
     
     return {
@@ -52,7 +54,7 @@ async function getUserCount(): Promise<number> {
 }
 
 // Handle GET requests
-export const GET: RequestHandler = async ({ url, cookies, request }) => {
+export const GET: RequestHandler = async ({ url, cookies }) => {
     console.log('GET request to', url.pathname);
     
     // Support query param based check endpoints
@@ -111,26 +113,61 @@ export const GET: RequestHandler = async ({ url, cookies, request }) => {
     }
     
     // Auth check endpoint
-    if (endpoint === 'auth-check') {
-        try {
-            const isAuthenticated = await pbServer.ensureAuthenticated();
-            
-            if (isAuthenticated) {
-                // Update the cookie
-                updateAuthCookie(cookies);
-                
-                return json({ 
-                    success: true, 
-                    user: sanitizeUserData(pbServer.pb.authStore.model)
-                });
-            } else {
-                return json({ success: false, error: 'Authentication failed' }, { status: 401 });
-            }
-        } catch (error) {
-            console.error('Auth check error:', error);
-            return json({ success: false, error: 'Authentication check failed' }, { status: 500 });
-        }
+if (endpoint === 'auth-check') {
+    console.log('=== AUTH CHECK ===');
+    console.log('Auth cookie exists:', !!authCookie);
+    console.log('Auth store valid before check:', pbServer.pb.authStore.isValid);
+    
+    if (!authCookie) {
+        console.log('No auth cookie found');
+        return json({ success: false, error: 'No authentication cookie found' }, { status: 401 });
     }
+    
+    try {
+        // Try to parse and check the auth data structure before auth check
+        try {
+            const authData = JSON.parse(authCookie);
+            if (!authData.token || !authData.model) {
+                console.log('Invalid auth data structure in cookie');
+                return json({ success: false, error: 'Invalid auth data' }, { status: 401 });
+            }
+            
+            // Clear and reload auth to ensure we're using the cookie data
+            pbServer.pb.authStore.clear();
+            pbServer.pb.authStore.save(authData.token, authData.model);
+            
+            console.log('Auth data loaded from cookie, valid:', pbServer.pb.authStore.isValid);
+        } catch (parseError) {
+            console.error('Error parsing auth cookie:', parseError);
+            cookies.delete('pb_auth', { path: '/' });
+            return json({ success: false, error: 'Invalid auth cookie format' }, { status: 401 });
+        }
+        
+        // Now check authentication
+        const isAuthenticated = await pbServer.ensureAuthenticated();
+        console.log('ensureAuthenticated result:', isAuthenticated);
+        
+        if (isAuthenticated) {
+            // Update the cookie with refreshed token if needed
+            updateAuthCookie(cookies);
+            
+            // Return user data
+            return json({ 
+                success: true, 
+                user: sanitizeUserData(pbServer.pb.authStore.model)
+            });
+        } else {
+            // Clear invalid cookie
+            cookies.delete('pb_auth', { path: '/' });
+            return json({ success: false, error: 'Authentication failed' }, { status: 401 });
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        // Clear potentially corrupted cookie
+        cookies.delete('pb_auth', { path: '/' });
+        return json({ success: false, error: 'Authentication check failed' }, { status: 500 });
+    }
+}
     
     // User count endpoint
     if (endpoint === 'users/count') {

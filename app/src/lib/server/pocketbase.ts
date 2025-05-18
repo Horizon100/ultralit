@@ -48,32 +48,56 @@ export async function checkPocketBaseConnection() {
 }
 
 export async function ensureAuthenticated(): Promise<boolean> {
-	console.log('Checking authentication...');
-	const now = Date.now();
-	if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && pb.authStore.isValid) {
+    console.log('Checking authentication...');
+    const now = Date.now();
+    
+    // Log auth state for debugging
+    console.log('Current auth model:', pb.authStore.model ? 'exists' : 'null');
+    console.log('Is auth valid?', pb.authStore.isValid);
+    
+    // If auth is valid and we've checked recently, return true
+    if (pb.authStore.isValid && now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
+        console.log('Auth is valid and checked recently, returning true');
         return true;
     }
-	lastAuthCheck = now;    
-	console.log('Current auth model:', pb.authStore.model);
-	console.log('Is auth valid?', pb.authStore.isValid);
-	if (!pb.authStore.isValid) {
-		console.log('Auth token is invalid. Attempting to refresh...');
-
-		try {
-			const authData = await pb.collection('users').authRefresh();
-			console.log('Auth token refreshed successfully');
-			console.log('New auth model:', pb.authStore.model);
-			console.log('Auth refreshed:', authData);
-			return true;
-		} catch (error) {
-			console.error('Failed to refresh auth token:', error);
-			pb.authStore.clear();
-			return false;
-		}
-	}
-	return true;
+    
+    lastAuthCheck = now;
+    
+    // Check if we have a token
+    if (!pb.authStore.token) {
+        console.log('No token available, authentication fails');
+        return false;
+    }
+    
+    // If auth is invalid or we need to refresh, try to refresh
+    try {
+        console.log('Attempting to refresh auth token...');
+        // Use a try/catch block for the refresh operation
+        try {
+            const authData = await pb.collection('users').authRefresh();
+            console.log('Auth token refreshed successfully');
+            return pb.authStore.isValid;
+        } catch (error) {
+            // Check if this is an invalid/expired token error
+            if (error instanceof ClientResponseError) {
+                if (error.status === 401) {
+                    console.log('Token refresh failed: Token invalid or expired');
+                    pb.authStore.clear();
+                    return false;
+                }
+            }
+            
+            // For other errors, we might still be authenticated
+            console.error('Error during token refresh:', error);
+            // Check if auth is still valid despite the error
+            return pb.authStore.isValid;
+        }
+    } catch (outerError) {
+        // Catch any unexpected errors in the outer try block
+        console.error('Unexpected error during authentication check:', outerError);
+        return false;
+    }
 }
-
 export async function signUp(email: string, password: string): Promise<User | null> {
 	try {
 		const user = await pb.collection('users').create<User>({

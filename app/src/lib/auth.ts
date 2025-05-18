@@ -30,32 +30,32 @@ currentUser.subscribe((user) => {
     }
 });
 
-// Client-side auth check
-export async function checkAuth(): Promise<boolean> {
-    try {
-        const response = await fetch('/api/verify/auth-check', {
-            credentials: 'include'
-        });
+// // Client-side auth check
+// export async function checkAuth(): Promise<boolean> {
+//     try {
+//         const response = await fetch('/api/verify/auth-check', {
+//             credentials: 'include'
+//         });
         
-        if (!response.ok) {
-            currentUser.set(null);
-            return false;
-        }
+//         if (!response.ok) {
+//             currentUser.set(null);
+//             return false;
+//         }
 
-        const data = await response.json();
-        if (data.success && data.user) {
-            currentUser.set(data.user);
-            return true;
-        }
+//         const data = await response.json();
+//         if (data.success && data.user) {
+//             currentUser.set(data.user);
+//             return true;
+//         }
         
-        currentUser.set(null);
-        return false;
-    } catch (error) {
-        console.error('Auth check error:', error);
-        currentUser.set(null);
-        return false;
-    }
-}
+//         currentUser.set(null);
+//         return false;
+//     } catch (error) {
+//         console.error('Auth check error:', error);
+//         currentUser.set(null);
+//         return false;
+//     }
+// }
 
 // Initialize when loaded
 initialize();

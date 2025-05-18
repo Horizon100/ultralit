@@ -156,7 +156,9 @@
 			console.error('Login error:', err);
 			errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
 		} finally {
+			goto('/home');
 			isLoading = false;
+			
 		}
 	}
 
@@ -379,15 +381,14 @@
 					required 
 					disabled={isLoading}
 				/>
-				<button class="round-btn auth-provider">
-					<img src={Google} alt="Google" class="auth-icon" />
-				</button>
-				<button class="round-btn auth-provider">
+					<GoogleAuth/>
+
+				<!-- <button class="round-btn auth-provider">
 					<img src={Microsoft} alt="Microsoft" class="auth-icon" />
 				</button>
 				<button class="round-btn auth-provider">
 					<img src={Yandex} alt="Yandex" class="auth-icon" />
-				</button>
+				</button> -->
 			</span>
 
 			<span class="password-input" transition:fly={{ duration: 300, delay: 200 }}>
@@ -544,7 +545,22 @@
 	* {
 		font-family: var(--font-family);
 	}
-
+span.email-input,
+    span.password-input,
+    span.invitation-input {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+       
+        height: 4rem;
+        padding: 0;
+		padding-right: 0.5rem;
+        gap: 1rem;
+        background: var(--bg-color);
+        border-radius: 2rem;
+    }
 	.auth-container {
 		display: flex;
 		flex-direction: column;
@@ -652,7 +668,6 @@
 		cursor: pointer;
 	}
 
-	
 
 	.button {
 		display: flex;
@@ -684,6 +699,7 @@
 		width: 4rem;
 		height: 4rem;
 	}
+
 
 
 	.button-subtle {
@@ -852,4 +868,11 @@
 			width: auto;
 		}
 	}
+		@media (max-width: 450px) {
+		.auth-container {
+
+		}
+
+
+		}
 </style>

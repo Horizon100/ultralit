@@ -1,5 +1,7 @@
 import { writable } from 'svelte/store';
+import { get } from 'svelte/store';
 import type { AuthModel } from 'pocketbase';
+  import PocketBase from 'pocketbase';
 import type {
 	User,
 	AIAgent,
@@ -20,7 +22,9 @@ import type {
 
 let authCheckInProgress: Promise<boolean> | null = null;
 const userCache = new Map<string, { data: User, timestamp: number }>();
-const CACHE_DURATION = 60000; // 1 minute cache
+const CACHE_DURATION = 60000; 
+let lastAuthCheck = 0;
+const AUTH_CHECK_COOLDOWN = 5000;
 
 // Export PocketBase URL for UI components (avatar display, etc.)
 export const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL;
@@ -83,26 +87,45 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 
 
 export async function ensureAuthenticated(): Promise<boolean> {
+    // If there's already an auth check in progress, return that promise
     if (authCheckInProgress) {
         return authCheckInProgress;
     }
 
+    // Check if we've recently validated and have a user
+    const now = Date.now();
+    const currentUserValue = get(currentUser);
+	
+    if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && currentUserValue && currentUserValue.id) {
+        return true;
+    }
+
+    lastAuthCheck = now;
+
+    // Start a new authentication check
     authCheckInProgress = (async () => {
         try {
+            // Make the server request
             const url = '/api/verify/auth-check';
+            console.log('Checking authentication with server...');
+            
             const response = await fetch(url, {
                 method: 'GET',
-                credentials: 'include'
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
 
             if (!response.ok) {
-                currentUser.set(null);
                 console.warn('Authentication check failed: server returned', response.status);
+                currentUser.set(null);
                 return false;
             }
 
             const data = await response.json();
             if (data.success && data.user) {
+                console.log('Authentication confirmed by server');
                 currentUser.set(data.user);
                 return true;
             }
@@ -172,7 +195,9 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email, password })
+			body: JSON.stringify({ email, password }),
+			// Add credentials to include cookies in the request
+			credentials: 'include'
 		});
 		
 		// Check if response is ok
@@ -189,9 +214,19 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 		}
 		
 		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
+		if (!data.success) throw new Error(data.error || 'Unknown error');
 		
+		// Update the current user store
 		currentUser.set(data.user);
+		
+		// Initialize local PocketBase session with the token
+		// This ensures PocketBase's client-side auth store is updated
+		if (typeof window !== 'undefined' && data.authData && data.authData.token) {
+			const pb = new PocketBase(pocketbaseUrl);
+			pb.authStore.save(data.authData.token, data.user);
+			console.log('Local PocketBase auth store updated');
+		}
+		
 		return data.authData;
 	} catch (error) {
 		console.error('Sign-in error:', error instanceof Error ? error.message : String(error));
@@ -200,20 +235,34 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 }
 
 export async function signOut(): Promise<void> {
-	try {
-		// Log the full URL we're trying to fetch
-		const url = '/api/verify/signout';
-		console.log('Signing out at:', url);
-		
-		await fetch(url, {
-			method: 'POST',
-			credentials: 'include'
-		});
-		
-		currentUser.set(null);
-	} catch (error) {
-		console.error('Sign-out error:', error);
-	}
+  try {
+    // Clear client-side PocketBase auth store
+    const pb = new PocketBase(pocketbaseUrl);
+    pb.authStore.clear();
+    
+    // Log the full URL we're trying to fetch
+    const url = '/api/verify/signout';
+    console.log('Signing out at:', url);
+    
+    // Call server to clear server-side auth
+    await fetch(url, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    // Clear client-side user store
+    currentUser.set(null);
+    
+    // Clear any stored auth data in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('pocketbase_auth');
+      localStorage.removeItem('currentUser');
+    }
+    
+    console.log('Sign-out completed successfully');
+  } catch (error) {
+    console.error('Sign-out error:', error);
+  }
 }
 
 // export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
@@ -405,6 +454,39 @@ export async function getUserCount(): Promise<number> {
 		console.error('Error fetching user count:', error);
 		return 0;
 	}
+}
+
+
+export async function authenticateWithGoogleOAuth() {
+  try {
+    console.log('Starting Google OAuth with PocketBase...');
+    
+    // Create a temporary PocketBase instance for auth only
+const authPb = new PocketBase('https://vrazum.com');
+    
+    // Use PocketBase's built-in OAuth2 method WITHOUT specifying a redirectUrl
+    // This will use the correct PocketBase redirect URL format:
+    // http://yourdomain.com/api/oauth2-redirect
+    const authData = await authPb.collection('users').authWithOAuth2({
+      provider: 'google',
+      // Do NOT specify redirectUrl - let PocketBase handle it
+      createData: {
+        // Optional: You can set default data for new users here
+      }
+    });
+    
+    console.log('Google OAuth completed successfully:', authData);
+    
+    // Update the current user store
+    if (authData && authData.record) {
+      currentUser.set(authData.record);
+    }
+    
+    return authData;
+  } catch (error) {
+    console.error('Google authentication error:', error);
+    throw error;
+  }
 }
 
 // Updated uploadAvatar function for pocketbase.ts
