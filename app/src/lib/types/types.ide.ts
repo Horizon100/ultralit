@@ -13,19 +13,6 @@ export interface Repository {
 	updated: string;
 }
 
-export interface Repository {
-	id: string;
-	repoName: string;
-	repoDescription: string;
-	createdBy: User | string;
-    repoCollaborators: string[];
-	project: Projects | string;
-    defaultBranch: string;
-    isPublic: boolean;
-	created: string;
-	updated: string;
-}
-
 export interface CodeFolders {
 	id: string;
 	name: string;

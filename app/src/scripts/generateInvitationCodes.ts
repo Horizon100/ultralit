@@ -1,25 +1,52 @@
 import PocketBase from 'pocketbase';
 import { nanoid } from 'nanoid';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import readline from 'readline';
 
 // Configuration
-const POCKETBASE_URL = process.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
-const ADMIN_EMAIL = process.env.VITE_POCKETBASE_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.VITE_POCKETBASE_ADMIN_PASSWORD;
-
-// Configuration for invitation codes
 const CODE_LENGTH = 12;
+const COUNT = process.argv[2] ? parseInt(process.argv[2]) : 10;
 
-if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-  console.error('Admin credentials not found in environment variables');
-  process.exit(1);
+/**
+ * Create readline interface for user input
+ */
+function createPrompt() {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
 }
 
-// Number of codes to generate
-const COUNT = process.argv[2] ? parseInt(process.argv[2]) : 10;
+/**
+ * Prompt for PocketBase URL
+ */
+async function getPocketBaseUrl(): Promise<string> {
+  const defaultUrl = process.env.VITE_POCKETBASE_URL || 'http://172.104.188.44:80';
+  const rl = createPrompt();
+  
+  return new Promise((resolve) => {
+    rl.question(`PocketBase URL [${defaultUrl}]: `, (input) => {
+      rl.close();
+      resolve(input.trim() || defaultUrl);
+    });
+  });
+}
+
+/**
+ * Prompt for user credentials with admin role
+ */
+async function getUserCredentials(): Promise<{ email: string; password: string }> {
+  const rl = createPrompt();
+  
+  console.log('Enter credentials for a user with admin role:');
+  return new Promise((resolve) => {
+    rl.question('Email: ', (email) => {
+      rl.question('Password: ', (password) => {
+        rl.close();
+        resolve({ email, password });
+      });
+    });
+  });
+}
 
 /**
  * Generate a secure invitation code
@@ -61,22 +88,60 @@ async function createInvitationCodes(pb: PocketBase, count: number) {
 
 async function main() {
   try {
+    // Get PocketBase URL
+    const baseUrl = await getPocketBaseUrl();
+    console.log(`Using PocketBase URL: ${baseUrl}`);
+    
     // Initialize PocketBase
-    const pb = new PocketBase(POCKETBASE_URL);
+    const pb = new PocketBase(baseUrl);
     
-    // Authenticate as admin
-    await pb.admins.authWithPassword(ADMIN_EMAIL, ADMIN_PASSWORD);
+    // Get user credentials (user with admin role)
+    const { email, password } = await getUserCredentials();
     
-    console.log(`Generating ${COUNT} invitation codes...`);
+    if (!email || !password) {
+      console.error('User credentials are required');
+      process.exit(1);
+    }
+    
+    // Authenticate as a user (not as PocketBase admin)
+    try {
+      console.log('Authenticating as user with admin role...');
+      await pb.collection('users').authWithPassword(email, password);
+      
+      // Check if user has admin role
+      const user = pb.authStore.model;
+      if (!user || user.role !== 'admin') {
+        console.error('The authenticated user does not have admin role. Access will be denied.');
+        console.error('Current user role:', user?.role || 'unknown');
+        process.exit(1);
+      }
+      
+      console.log('Authentication successful. User has admin role.');
+    } catch (error) {
+      console.error('Authentication failed:', error.message);
+      if (error.status === 400) {
+        console.error('Invalid credentials or user does not exist.');
+      }
+      process.exit(1);
+    }
     
     // Generate and store invitation codes
+    console.log(`Generating ${COUNT} invitation codes...`);
     const { codes, results } = await createInvitationCodes(pb, COUNT);
+    
+    if (results.length === 0) {
+      console.error('Failed to create any invitation codes. Check permissions.');
+      process.exit(1);
+    }
     
     console.log('Generated invitation codes:');
     codes.forEach(code => console.log(` - ${code}`));
     console.log(`\n${results.length} codes have been saved to the database.`);
   } catch (error) {
-    console.error('Error generating invitation codes:', error);
+    console.error('Error generating invitation codes:', error.message);
+    if (error.data) {
+      console.error('Error details:', error.data);
+    }
     process.exit(1);
   }
 }

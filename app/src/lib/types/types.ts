@@ -48,7 +48,34 @@ export interface User extends RecordModel {
 		archive: number;
 	};
 }
-
+export interface PublicUserProfile {
+    id: string;
+    username: string;
+    name: string;
+    avatar: string;
+    avatarUrl: string | null; 
+    verified: boolean;
+    description: string;
+    role: string;
+    last_login: Date;
+    perks: string[]; 
+    taskAssignments: string[];
+    userTaskStatus: {
+        backlog: number;
+        todo: number;
+        focus: number;
+        done: number;
+        hold: number;
+        postpone: number;
+        cancel: number;
+        review: number;
+        delegate: number;
+        archive: number;
+    };
+    userProjects: string[];
+    hero: string;
+    created: string;
+}
 export interface UserProfile {
     id: string;
     name: string;
@@ -70,6 +97,7 @@ export interface PromptInput {
 	created: string;
 	updated: string;
 	type?: PromptType;
+	project?: Projects;
 
 }
 
@@ -137,23 +165,39 @@ export interface Tag extends RecordModel {
 	color: string;
 	thread_id: string[];
 	user: string;
+	
 }
+export type RoleType =
+	| 'system'
+	| 'human'
+	| 'user'
+	| 'assistant'
+	| 'proxy'
+	| 'hub'
+	| 'moderator'
+	| 'thinking';
 
 export interface PartialAIAgent {
 	id?: string;
-	user_id?: string;
 	name?: string;
+	owner?: string;
+	editors?: string[];
+	viewers?: string[];
+	activityLog?: string [];
+	currentUsers?: string [];
+	currentProjects?: string[];
+	currentThreads?: string[];
+	currentMessages?: string[];
+	currentPosts?: string[];
+	currentTasks?: string[];
 	description?: string;
+	avatar?: string;
+	role?: RoleType;
 	max_attempts?: number;
 	user_input?: 'end' | 'never' | 'always';
 	prompt?: string;
 	model?: string[]; 
 	actions?: string[];
-	owner?: string;
-	editors?: string[];
-	viewers?: string[];
-	avatar?: string;
-	role?: RoleType;
 	capabilities?: string[];
 	tasks?: string[];
 	status?: 'active' | 'inactive' | 'maintenance' | 'paused';
@@ -184,17 +228,22 @@ export interface PartialAIAgent {
 }
 export interface AIAgent extends RecordModel {
 	id: string;
-	user_id: string;
 	name: string;
 	description: string;
+	owner: string; 
+	editors: string[];
+	activityLog: string [];
+	currentUsers: string [];
+	currentProjects: string[];
+	currentThreads: string[];
+	currentMessages: string[];
+	currentPosts: string[];
+	currentTasks: string[];
 	max_attempts: number;
 	user_input: 'end' | 'never' | 'always';
 	prompt: string;
 	model: string[];
 	actions: string[]; 
-	owner: string; 
-	editors: string[];
-	viewers: string[];
 	avatar: string;
 	role: RoleType;
 	capabilities: string[];
@@ -464,10 +513,13 @@ export interface Actions {
 
 export interface Workflows {
 	id: string;
-	user_id: string;
+	createdBy: string;
 	name: string;
 	description: string;
 	summary: string[];
+	project?: Projects;
+	workshop: Workshops[];
+	workspace: Workspaces;
 	created: string;
 	updated: string;
 }
@@ -476,8 +528,11 @@ export interface Workspaces {
 	id: string;
 	name: string;
 	description: string;
-	created_by: string;
+	createdBy: string;
 	collaborators: string[];
+	project?: Projects;
+	workshops: Workshops[];
+	workflows: Workflows[];
 	created: string;
 	updated: string;
 	avatar: string;
@@ -487,9 +542,11 @@ export interface Workspaces {
 export interface Workshops {
 	id: string;
 	name: string;
+	createdBy: string;
 	description: string;
-	workspace: string;
-	workflow: string;
+	workspace: Workspaces;
+	workflow: Workflows[];
+	project?: Projects;
 	prompt: string;
 	replies: string[];
 	created: string;
@@ -539,15 +596,6 @@ export interface Messages extends RecordModel {
 	model: string;
 }
 
-export type RoleType =
-	| 'system'
-	| 'human'
-	| 'user'
-	| 'assistant'
-	| 'proxy'
-	| 'hub'
-	| 'moderator'
-	| 'thinking';
 
 export interface ChatMessage extends RecordModel {
 	text: string;
@@ -569,6 +617,7 @@ export interface Tag {
 	taggedTasks?: string;
 	color: string;
 	createdBy: string;
+	project?: Projects;
 	selected: boolean;
 
 }
@@ -580,6 +629,7 @@ export type Folders = {
 	updated_at: string;
 	order: number;
 	parentId: string | null;
+	notes: Notes[];
 };
 
 export interface Attachment {
@@ -598,6 +648,7 @@ export interface Attachment {
 
 export type Notes = {
 	id: string;
+	createdBy: User;
 	title: string;
 	content: string;
 	folder: string;
@@ -605,16 +656,17 @@ export type Notes = {
 	updated_at: string;
 	attachments?: Attachment[];
 	order: number;
-};
-
-export type FolderRecord = Folders & {
-	collectionId: string;
-	collectionName: 'folders';
+	project?: Projects;
 };
 
 export type NoteRecord = Notes & {
 	collectionId: string;
 	collectionName: 'notes';
+};
+
+export type FolderRecord = Folders & {
+	collectionId: string;
+	collectionName: 'folders';
 };
 
 export interface Column {

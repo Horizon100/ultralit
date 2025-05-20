@@ -1892,7 +1892,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                             on:click={(e) => openModal(task, e)}
                         >
                             <h4>
-                                {processWordCrop(task.title)}
+                                {@html processWordMinimize(task.title)}
                             </h4>
 
                             {#if task.parent_task}
@@ -2373,6 +2373,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         transition: all 0.2s ease;
         height: auto;
         margin-left: 0rem !important;
+        overflow-x: auto;
     }
     p {
         font-size: 1.1rem;
@@ -2541,13 +2542,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         justify-content: stretch;
         align-items: stretch;
         gap: 0.5rem;
-        overflow-x: auto; 
+        overflow-x: scroll; 
         overflow-y: scroll;
         scrollbar-width: thin;
         scroll-behavior: smooth;
         scrollbar-color: var(--secondary-color) transparent;
         align-items: flex-start;
-        width: 100%;
+        width: 90vw;
         height: 95%;
         margin-left: 2rem;
         // backdrop-filter: blur(20px);
@@ -2557,6 +2558,13 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
     }
 :global(.minimized-symbol) {
+    color: var(--placeholder-color) !important;
+    font-weight: bold;
+    font-size: 0.9em;
+    opacity: 0.8;
+    // or any other styles you want just for the symbols
+}
+:global(.styled-word) {
     color: var(--tertiary-color) !important;
     font-weight: bold;
     font-size: 0.9em;

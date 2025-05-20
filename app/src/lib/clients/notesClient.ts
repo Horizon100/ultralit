@@ -3,19 +3,19 @@ import type { Folders, Notes, Attachment } from '$lib/types/types';
 
 export const notesClient = {
 	async getFolders(): Promise<Folders[]> {
-		return await pb.collection('folders').getFullList<Folders>();
+		return await pb.collection('notes_folders').getFullList<Folders>();
 	},
 
 	async createFolder(folderData: Partial<Folders>): Promise<Folders> {
-		return await pb.collection('folders').create<Folders>(folderData);
+		return await pb.collection('notes_folders').create<Folders>(folderData);
 	},
 
 	async updateFolder(id: string, parentIdData: Partial<Folders>): Promise<Folders> {
-		return await pb.collection('folders').update<Folders>(id, parentIdData);
+		return await pb.collection('notes_folders').update<Folders>(id, parentIdData);
 	},
 
 	async deleteFolder(id: string): Promise<boolean> {
-		await pb.collection('folders').delete(id);
+		await pb.collection('notes_folders').delete(id);
 		return true;
 	},
 

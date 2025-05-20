@@ -290,9 +290,7 @@ async function fetchUserData() {
               <button class="tab">Likes</button>
             </nav>
           </div>
-          
-          <!-- Posts Feed -->
-          <section class="posts-section">
+                    <!-- <section class="posts-section">
             {#if $postStore.posts.length > 0}
               {#each $postStore.posts as post (post.id)}
                 {#if post.isRepost}
@@ -336,7 +334,90 @@ async function fetchUserData() {
                 <p>No posts yet</p>
               </div>
             {/if}
-          </section>
+          </section> -->
+          <!-- Posts Feed -->
+        <section class="posts-section">
+          {#if $currentUser}
+            <!-- Full post list for authenticated users -->
+            {#if $postStore.posts.length > 0}
+              {#each $postStore.posts as post (post.id)}
+                {#if post.isRepost}
+                  <RepostCard 
+                    {post}
+                    repostedBy={{
+                      id: post.repostedBy_id || user.id,
+                      username: post.repostedBy_username || user.username,
+                      name: post.repostedBy_name || user.name,
+                      avatar: post.repostedBy_avatar || user.avatar
+                    }}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                  />
+                {:else if post.quotedPost}
+                  <PostQuoteCard 
+                    {post}
+                    quotedBy={{
+                      id: post.user,
+                      username: post.author_username,
+                      name: post.author_name,
+                      avatar: post.author_avatar
+                    }}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                  />
+                {:else}
+                  <PostCard 
+                    {post}
+                    isRepost={false}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                  />
+                {/if}
+              {/each}
+            {:else}
+              <div class="empty-state">
+                <p>No posts yet</p>
+              </div>
+            {/if}
+          {:else}
+            <!-- Limited preview for non-authenticated users -->
+            <div class="auth-required-posts">
+              {#if $postStore.posts.length > 0}
+                <!-- Show just 2 posts as a preview -->
+                {#each $postStore.posts.slice(0, 2) as post (post.id)}
+                  <PostCard 
+                    {post}
+                    isRepost={false}
+                    isPreview={true}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                  />
+                {/each}
+                
+                <!-- Authentication wall -->
+                <div class="auth-wall">
+                  <div class="blur-overlay"></div>
+                  <div class="auth-prompt">
+                    <h3>See all {totalPosts} posts from {user.name || user.username}</h3>
+                    <p>Sign in to browse this user's complete post history</p>
+                    <div class="auth-buttons">
+                      <a href="/signup?ref=profile&username={username}" class="btn btn-primary">Sign Up</a>
+                      <a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">Log In</a>
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <div class="empty-state">
+                  <p>No posts yet</p>
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </section>
         </main>
       </div>
     {/if}

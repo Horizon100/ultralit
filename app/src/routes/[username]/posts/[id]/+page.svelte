@@ -26,7 +26,9 @@
   let user: any = null;
   let showComposer = false;
   let innerWidth = 0;
-  
+  let showAuthModal = false;
+  let authAction = '';
+
   // Get params from URL
   $: username = $page.params.username;
   $: postId = $page.params.id;
@@ -223,16 +225,18 @@
           </div>
           
           <div class="post-actions">
-            <button class="action-button comment" on:click={() => {
-              if (!$currentUser) {
-                alert('Please sign in to comment');
-                return;
-              }
-              showComposer = !showComposer;
-            }}>
-              <MessageSquare size={20} />
-              <span>{comments.length} {comments.length === 1 ? 'Reply' : 'Replies'}</span>
-            </button>
+              <button class="action-button comment" on:click={() => {
+                if (!$currentUser) {
+                  // Update to show auth modal instead of alert
+                  showAuthModal = true; 
+                  authAction = 'comment';
+                  return;
+                }
+                showComposer = !showComposer;
+              }}>
+                <MessageSquare size={20} />
+                <span>{comments.length} {comments.length === 1 ? 'Reply' : 'Replies'}</span>
+              </button>
             
             <button class="action-button repost" on:click={() => handlePostInteraction(new CustomEvent('interact', { detail: { postId: post.id, action: 'repost' } }))}>
               <Repeat size={20} />
@@ -287,7 +291,19 @@
     </div>
   {/if}
 </div>
-
+{#if showAuthModal}
+  <div class="auth-modal">
+    <div class="auth-modal-content">
+      <button class="close-button" on:click={() => showAuthModal = false}>×</button>
+      <h3>Join the conversation</h3>
+      <p>Sign in to {authAction === 'comment' ? 'comment on' : 'interact with'} this post</p>
+      <div class="auth-buttons">
+        <a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary">Log In</a>
+        <a href="/signup?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">Sign Up</a>
+      </div>
+    </div>
+  </div>
+{/if}
 <style>
   /* Layout styles */
   .post-detail-container {
@@ -564,6 +580,53 @@
     margin-bottom: 1.5rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--line-color);
+  }
+
+   .auth-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .auth-modal-content {
+    background-color: var(--bg-color);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+  }
+  
+  .close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-color);
+  }
+  
+  .auth-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+  
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
   }
 
   /* Mobile responsive */

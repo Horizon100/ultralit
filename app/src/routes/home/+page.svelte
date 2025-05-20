@@ -5,10 +5,10 @@
   import { sidenavStore, showSidenav } from '$lib/stores/sidenavStore';
   import { t } from '$lib/stores/translationStore';
   import { fade } from 'svelte/transition';
-  import type { User, UserProfile, Threads, Messages } from '$lib/types/types'
+  import type { User, UserProfile, Threads, Messages, PublicUserProfile } from '$lib/types/types'
   import { postStore } from '$lib/stores/postStore';
   import type { PostWithInteractions } from '$lib/types/types.posts';
-  import { getUserProfile } from '$lib/clients/profileClient';
+  import { getPublicUserProfile, getPublicUserProfiles } from '$lib/clients/profileClient';
   import { pocketbaseUrl } from '$lib/pocketbase';
   import PostComposer from '$lib/components/ui/PostComposer.svelte';
   import PostCard from '$lib/components/ui/PostCard.svelte';
@@ -18,16 +18,38 @@
   import PostSidenav from '$lib/components/ui/PostSidenav.svelte';
   import PostTrends from '$lib/components/ui/PostTrends.svelte';
   
-  // State variables
   let isCommentModalOpen = false;
   let selectedPost: PostWithInteractions | null = null;
   let innerWidth = 0;
   
-  // Subscribe to post store
+  let userProfilesMap: Map<string, PublicUserProfile | null> = new Map();
+
   $: posts = $postStore.posts;
   $: loading = $postStore.loading;
   $: error = $postStore.error;
-  
+
+  $: userIds = [...new Set(posts.flatMap(post => {
+    const ids = [post.user];
+    if (post.repostedBy && Array.isArray(post.repostedBy)) {
+      ids.push(...post.repostedBy);
+    }
+    return ids;
+  }))];
+  $: enhancedPosts = posts.map(post => {
+    const authorProfile = userProfilesMap.get(post.user);
+    
+    if (authorProfile) {
+      return {
+        ...post,
+        authorProfile,
+        author_name: authorProfile.name || post.author_name,
+        author_username: authorProfile.username || post.author_username,
+        author_avatar: authorProfile.avatar || post.author_avatar,
+      };
+    }
+    
+    return post;
+  });
   function formatTimestamp(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
@@ -41,7 +63,15 @@
     if (hours < 24) return `${hours}h`;
     return `${days}d`;
   }
-
+  async function getUserProfile(userId: string): Promise<PublicUserProfile | null> {
+    if (userProfilesMap.has(userId)) {
+      return userProfilesMap.get(userId);
+    }
+    
+    const profile = await getPublicUserProfile(userId);
+    userProfilesMap.set(userId, profile);
+    return profile;
+  }
   // Handle creating a new post
   async function handlePostSubmit(event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>) {
     try {
@@ -143,9 +173,13 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
     selectedPost = null;
   }
 
-  function handleFollowUser(event) {
-    console.log('Follow user action:', event.detail.userId);
-    // You can implement additional follow logic here if needed
+  async function handleFollowUser(event) {
+    const { userId } = event.detail;
+    console.log('Follow user action:', userId);
+    
+    const userProfile = await getPublicUserProfile(userId);
+    console.log('Following user profile:', userProfile);
+    
   }
 
   onMount(async () => {
@@ -159,7 +193,48 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
         console.error('Error fetching posts:', err);
       }
     }
+    
+    // Load user profiles for all post authors in a batch
+    if (userIds.length > 0) {
+      try {
+        const profiles = await getPublicUserProfiles(userIds);
+        
+        // Update profiles map
+        userIds.forEach((id, index) => {
+          if (profiles[index]) {
+            userProfilesMap.set(id, profiles[index]);
+          }
+        });
+        
+        // Force component update
+        userProfilesMap = new Map(userProfilesMap);
+      } catch (err) {
+        console.error('Error fetching user profiles:', err);
+      }
+    }
   });
+  
+  // When posts change, load any missing user profiles
+  $: if (posts.length > 0 && userIds.length > 0) {
+    const missingUserIds = userIds.filter(id => !userProfilesMap.has(id));
+    
+    if (missingUserIds.length > 0) {
+      getPublicUserProfiles(missingUserIds)
+        .then(profiles => {
+          missingUserIds.forEach((id, index) => {
+            if (profiles[index]) {
+              userProfilesMap.set(id, profiles[index]);
+            }
+          });
+          
+          // Force component update
+          userProfilesMap = new Map(userProfilesMap);
+        })
+        .catch(err => {
+          console.error('Error fetching user profiles:', err);
+        });
+    }
+  }
   
   // Reactive statements for debugging
   $: console.log('Sidenav visibility changed:', $showSidenav);
@@ -207,36 +282,39 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
       <!-- Posts Feed -->
       <section class="posts-feed">
         <h2 class="feed-title">Latest Updates</h2>
-        {#each posts as post (post.id)}
+        {#each enhancedPosts as post (post.id)}
           {#if post.isRepost}
             <RepostCard 
-              {post}
+              post={post}
               repostedBy={{
                 id: post.repostedBy_id || $currentUser?.id,
                 username: post.repostedBy_username || $currentUser?.username,
                 name: post.repostedBy_name || $currentUser?.name,
                 avatar: post.repostedBy_avatar || $currentUser?.avatar
               }}
+              authorProfile={post.authorProfile || null}
               on:interact={handlePostInteraction}
               on:comment={handleComment}
               on:quote={handleQuote}
             />
           {:else if post.quotedPost}
             <PostQuoteCard 
-              {post}
+              post={post}
               quotedBy={{
                 id: post.user,
                 username: post.author_username,
                 name: post.author_name,
                 avatar: post.author_avatar
               }}
+              authorProfile={post.authorProfile || null}
               on:interact={handlePostInteraction}
               on:comment={handleComment}
               on:quote={handleQuote}
             />
           {:else}
             <PostCard 
-              {post}
+              post={post}
+              authorProfile={post.authorProfile || null}
               on:interact={handlePostInteraction}
               on:comment={handleComment}
               on:quote={handleQuote}
@@ -255,7 +333,10 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
 
   <!-- Right Sidebar Component -->
   {#if innerWidth > 1200}
-    <PostTrends on:followUser={handleFollowUser} />
+    <PostTrends 
+      userProfiles={Array.from(userProfilesMap.values()).filter(Boolean)}
+      on:followUser={handleFollowUser} 
+    />
   {/if}
 </div>
 
