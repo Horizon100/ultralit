@@ -87,8 +87,8 @@ $letter-spacing: (
 // Helper mixins
 @mixin text-style($size) {
 	@if map-has-key($type-scale, $size) {
-		font-size: map-get(map-get($type-scale, $size), 'size');
-		line-height: map-get(map-get($type-scale, $size), 'line-height');
+		font-size: map.get(map.get($type-scale, $size), 'size');
+		line-height: map.get(map.get($type-scale, $size), 'line-height');
 	}
 }
 

@@ -5,11 +5,12 @@
   import { slide, fly, fade } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
-  import Kanban from '$lib/components/lean/Kanban.svelte';
-  import TaskCalendar from '$lib/components/features/TaskCalendar.svelte';
-  import GantChart from '$lib/components/features/GantChart.svelte';
+  import Kanban from '$lib/features/tasks/Kanban.svelte';
+  import TaskCalendar from '$lib/features/tasks/TaskCalendar.svelte';
+  import GantChart from '$lib/components/charts/GantChart.svelte';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { projectStore } from '$lib/stores/projectStore';
+  import { t } from '$lib/stores/translationStore';
 
   let showPage = false;
   let isLoading = true;
@@ -102,7 +103,7 @@
           >
               <Calendar/>
               <span>
-                Schedule
+                {$t('tasks.schedule')} 
               </span>
           </button>
           <button
@@ -112,7 +113,7 @@
           >
               <KanbanSquareIcon/>
               <span>
-                Tasks
+                {$t('tasks.title')} 
               </span>
           </button>
           <button
@@ -122,7 +123,7 @@
         >
             <ChartNoAxesGantt/>
             <span>
-              Taskflows
+                {$t('tasks.gantt')} 
             </span>
         </button>
       </div>

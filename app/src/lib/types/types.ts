@@ -1,5 +1,5 @@
 import type { RecordModel } from 'pocketbase';
-import { type ProviderType } from '$lib/constants/providers';
+import { type ProviderType } from '$lib/features/ai/utils/providers';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
 export interface User extends RecordModel {
 	username: string;

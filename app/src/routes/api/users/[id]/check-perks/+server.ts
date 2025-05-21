@@ -3,7 +3,7 @@ import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { Perk } from '$lib/types/types';
-import { PERKS } from '$lib/data/perks';
+import { PERKS } from '$lib/features/users/utils/perks';
 
 export const POST: RequestHandler = async ({ params, request }) => {
     const userId = params.id;

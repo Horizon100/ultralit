@@ -3,6 +3,10 @@ import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
 export default {
 	nav: {
 		home: 'Главная',
+		chat: 'Чат',
+		tasks: 'Задачи',
+		game: 'Игра',
+		canvas: 'Холст',
 		ask: 'Спросить',
 		build: 'Создать',
 		notes: 'Заметки',
@@ -14,10 +18,80 @@ export default {
 		help: 'Помощь',
 		docs: 'Документы',
 		themes: 'Сменить тему',
+		search: 'Поиск',
+		searchEverything: 'Искать все...',
 		searchProjects: 'Поиск проектов...',
-		welcome: 'Welcome to Vrazum',
-		signup: 'New user? Create an account'
-
+		welcome: 'Добро пожаловать',
+		signup: 'Новый пользователь? Создайте учетную запись',
+		quickAccess: 'Быстрый доступ'
+	},
+	generic: {
+		created: "Создано",
+		updated: "Обновлено",
+		delete: "Удалить",
+		loading: "Загрузка...",
+		back: "Назад",
+		deleteQuestion: "Вы уверены, что хотите удалить эту?",
+		deleteWarning: "Это действие нельзя отменить.",
+		attachments: "Вложения",
+		show: "Показать",
+		only: "только",
+		all: "все",
+		match: "Совпадение",
+		filter: "Фильтр",
+		sort: "Сортировать",
+		share: "Делиться",
+		copy: "Копировать",
+		copyLink: "Копировать ссылку",
+		copiedLink: "Ссылка скопирована!",
+		returnHome: "Вернуться домой",
+		signInTo: "Войдите, чтобы",
+		this: "этот",
+		userNotLoggedIn: "Пользователь не вошел в систему",
+		noResults: "Результатов не найдено",
+		in: "в",
+		by: "от",
+		collapse: 'Свернуть',
+		collapseAll: 'Свернуть все',
+		expand: 'Развернуть',
+		expandAll: 'Развернуть все'
+	},
+	posts: {
+		loginPrompt: 'Пожалуйста, войдите, чтобы создать запись.',
+		loadingPosts: 'Загрузка записей...',
+		latestUpdates: 'Последние обновления',
+		noPosts: 'Пока нет записей. Будьте первым, кто поделится чем-то!',
+		repost: 'Репост',
+		reposted: 'репост',
+		repostedBy: 'Репост от',
+		youReposted: 'Вы сделали репост',
+		post: 'запись',
+		posts: 'Посты', 
+		postsFrom: 'посты от',
+		postRead: 'прочитано',
+		postUpvote: 'Лайк',
+		quote: 'Цитата',
+		quoteDescription: 'Добавьте свои мысли и поделитесь',
+		quoteNotAvailable: 'Цитируемое сообщение недоступно',
+		quotedBy: 'Цитируется',
+		shareLink: 'Поделиться ссылкой',
+		copyLink: "Скопировать ссылку на запись",
+		textareaPlaceholder: 'О чем вы думаете?',
+		postButton: 'Опубликовать',
+		posting: 'Публикация...',
+		errorExpression: 'Упс!',
+		errorComment: 'Ошибка при отправке комментария:',  
+		addingComment: 'Добавление комментария:',  
+		followUser: 'Подписаться на пользователя',  
+		reply: 'Ответить',  
+		replies: 'Ответы',  
+		replyToThis: 'Ответить на эту запись...',  
+		noReplies: 'Нет ответов',
+		interactPrompt: 'Войдите, чтобы взаимодействовать с записями',
+		media: 'Медиа',
+		likes: 'Лайки',
+		historySignin: 'Войдите, чтобы просмотреть полную историю сообщений этого пользователя',
+		seeAll: 'Просмотреть все',
 
 	},
 	lang: {
@@ -156,8 +230,34 @@ export default {
 			'Подключаюсь к коллективному разуму ИИ...'
 		]
 	},
-
+	appFeatures: {  
+		items: [  
+			{  
+				title: 'AI-чаты',  
+				description: 'Общайтесь с нашей интеллектуальной системой'  
+			},  
+			{  
+				title: 'Совместная работа',  
+				description: 'Создавайте проекты и приглашайте команду'  
+			},  
+			{  
+				title: 'Управление задачами',  
+				description: 'Эффективно организуйте и отслеживайте работу'  
+			},  
+			{  
+				title: 'Сеть знаний',  
+				description: 'Связывайте идеи в визуальной сети'  
+			},  
+			{  
+				title: 'Система заметок',  
+				description: 'Храните мысли в порядке и под рукой'  
+			}  
+		]  
+	},
 	features: {
+		homeIntro: {
+			title: 'Основные характеристики',
+		},
 		title: 'Особенности',
 		cards: [
 			{
@@ -333,27 +433,13 @@ export default {
 		months: "месяцев",
 		now: "Сейчас",
 	},
-	generic: {
-		created: "Создано",
-		updated: "Обновлено",
-		delete: "Удалить",
-		loading: "Загрузка...",
-		deleteQuestion: "Вы уверены, что хотите удалить эту?",
-		deleteWarning: "Это действие нельзя отменить.",
-		attachments: "Вложения",
-		show: "Показать",
-		only: "только",
-		all: "все",
-		match: "Совпадение",
-		filter: "Фильтр",
-		sort: "Сортировать"
-	},
 	tasks: {
-		title: 'Задачи',
+		title: 'Задач',
 		status: 'Статус',
 		task: 'задачи',
-		tasks: 'tasks',
+		tasks: 'задачи',
 		addDescription: 'Нажмите, чтобы добавить описание',
+		changePriority: 'Нажмите, чтобы изменить приоритет',
 		priorityLow: "Низкий",
 		priorityMedium: "Средний",
 		priorityHight: "Высокий",
@@ -374,7 +460,12 @@ export default {
 		selectStart: "Установить дату начала",
 		selectEnd: "Установить дату окончания",
 		due: "Срок",
-		parent: "родительская"
+		parent: "родительская",
+		assigned: 'Назначено',
+		notAssigned: '«Не назначено',
+		schedule: 'Расписание',
+		gantt: 'Потоки задач',
+		add: 'Добавить задачу',
 	},
 	dashboard: {
 		title: 'Отчеты',
@@ -406,15 +497,19 @@ export default {
 		older: 'Старше',
 		threadHeader: 'Дискуссии',
 		updated: 'Обновлено',
-		shared: 'Люди'
+		shared: 'Люди',
+		thread: 'Поток',
+		threads: 'Потоки'
 	},
 
 	chat: {
 		placeholder: 'Расследовать Вразум',
 		manualPlaceholder: 'Отправить сообщение...',
 		loading: 'Загрузка сообщений...',
+		message: 'Сообщение',
+		messages: 'Сообщений',
 		messagecount: 'сообщений',
-		prompts: 'Ассистенты',
+		prompts: 'Подсказки',
 		models: 'Моделы'
 	},
 
@@ -462,6 +557,7 @@ export default {
 		],
 		waitlist: 'Присоединяйтесь к списку ожидания',
 		join: 'Подписаться',
+		joined: 'Присоединился',
 		projects: 'Проекты',
 		posts: 'Публикации',
 		connections: 'Связи',
@@ -472,7 +568,10 @@ export default {
 		googleAuth: "Google",
 		update: "Обновить",
 		upload: "Загрузить",
-		not_available: "Недоступно"
+		not_available: "Недоступно",
+		followers: 'Подписчики',
+		following: 'Подписан',
+		follow: 'Подписаться',
 	},
 	button: {
 		tags: 'Тагы'

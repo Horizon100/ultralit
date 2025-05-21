@@ -1,4 +1,3 @@
-<!-- src/routes/game/+layout.svelte -->
 <script lang="ts">
     import { get } from 'svelte/store';
     import { onMount } from 'svelte';
@@ -8,7 +7,7 @@
     import type { GameState } from '$lib/types/types.game';
     import { gameService } from '$lib/stores/gameStore';
     import { goto } from '$app/navigation';
-    import GameInstructions from './GameInstructions.svelte';
+    import GameInstructions from '$lib/features/game/components/GameInstructions.svelte';
 
   export let data;
   

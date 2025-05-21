@@ -3,14 +3,15 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
-  import PostCard from '$lib/components/ui/PostCard.svelte';
-  import RepostCard from '$lib/components/ui/RepostCard.svelte';
-  import PostQuoteCard from '$lib/components/ui/PostQuoteCard.svelte';
+  import PostCard from '$lib/components/cards/PostCard.svelte';
+  import RepostCard from '$lib/components/cards/RepostCard.svelte';
+  import PostQuoteCard from '$lib/components/cards/PostQuoteCard.svelte';
   import { postStore } from '$lib/stores/postStore';
-  import PostSidenav from '$lib/components/ui/PostSidenav.svelte';
-  import PostTrends from '$lib/components/ui/PostTrends.svelte';
+  import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
+  import PostTrends from '$lib/features/content/components/PostTrends.svelte';
   import { showSidenav } from '$lib/stores/sidenavStore';
-  
+  import { t } from '$lib/stores/translationStore';
+
   import { 
     Calendar, 
     MapPin, 
@@ -125,16 +126,16 @@ async function fetchUserData() {
   function handleComment(event: CustomEvent<{ postId: string }>) {
     if (!$currentUser) {
       // Redirect to login or show login prompt
-      alert('Please sign in to comment on posts');
+      alert($t('generic.interactPrompt'));
       return;
     }
     
-    console.log('Comment on post:', event.detail.postId);
+    console.log($t('posts.addingComment'), event.detail.postId);
     // Implement comment handling here
   }
   
   function handleFollowUser(event) {
-    console.log('Follow user action:', event.detail.userId);
+    console.log($t('posts.followUser'), event.detail.userId);
     // You can implement additional logic here if needed
   }
   
@@ -168,14 +169,14 @@ async function fetchUserData() {
     {#if loading}
       <div class="loading-container">
         <Loader2 class="loading-spinner" size={32} />
-        <p>Loading profile...</p>
+        <p> {$t('generic.loading')}</p>
       </div>
     {:else if error}
       <div class="error-container">
-        <h1>Oops!</h1>
+        <h1>{$t('posts.errorExpression')} </h1>
         <p>{error}</p>
         <button class="btn btn-primary" on:click={() => goto('/')}>
-          Go Back Home
+          {$t('generic.back')} 
         </button>
       </div>
     {:else if user}
@@ -186,7 +187,7 @@ async function fetchUserData() {
         </button>
         <div class="header-username">
           <span class="username-text">{user.name || user.username}</span>
-          <span class="post-count">{totalPosts} posts</span>
+          <span class="post-count">{totalPosts} {$t('posts.posts')} </span>
         </div>
       </div>
 
@@ -214,7 +215,7 @@ async function fetchUserData() {
               <div class="user-meta">
                 <div class="meta-item">
                   <Calendar size={16} />
-                  <span>Joined {formatJoinDate(user.created)}</span>
+                  <span>{$t('profile.joined')}  {formatJoinDate(user.created)}</span>
                 </div>
                 
                 {#if profile?.location}
@@ -237,20 +238,20 @@ async function fetchUserData() {
               <div class="user-stats">
                 <div class="stat">
                   <span class="stat-number">{totalPosts}</span>
-                  <span class="stat-label">Posts</span>
+                  <span class="stat-label">{$t('posts.posts')} </span>
                 </div>
                 
                 {#if profile?.follower_count !== undefined}
                   <div class="stat">
                     <span class="stat-number">{profile.follower_count}</span>
-                    <span class="stat-label">Followers</span>
+                    <span class="stat-label">{$t('profile.followers')} </span>
                   </div>
                 {/if}
                 
                 {#if profile?.following_count !== undefined}
                   <div class="stat">
                     <span class="stat-number">{profile.following_count}</span>
-                    <span class="stat-label">Following</span>
+                    <span class="stat-label">{$t('profile.following')}</span>
                   </div>
                 {/if}
               </div>
@@ -259,12 +260,12 @@ async function fetchUserData() {
             {#if $currentUser}
               <button class="btn btn-primary">
                 <MessageSquare size={16} />
-                Message
+                {$t('chat.message')}
               </button>
               
               <button class="btn btn-secondary">
                 <User size={16} />
-                Follow
+                {$t('profile.follow')}
               </button>
               
               <button class="btn btn-outline">
@@ -273,7 +274,7 @@ async function fetchUserData() {
             {:else}
               <button class="btn btn-primary" on:click={() => goto('/login')}>
                 <User size={16} />
-                Sign In to Interact
+                {$t('generic.signin')}
               </button>
             {/if}
           </div>
@@ -285,9 +286,9 @@ async function fetchUserData() {
         <main class="profile-content">
           <div class="content-nav">
             <nav class="tab-nav">
-              <button class="tab active">Posts</button>
-              <button class="tab">Media</button>
-              <button class="tab">Likes</button>
+              <button class="tab active"> {$t('posts.posts')}</button>
+              <button class="tab"> {$t('posts.media')}</button>
+              <button class="tab"> {$t('posts.likes')}</button>
             </nav>
           </div>
                     <!-- <section class="posts-section">
@@ -379,7 +380,7 @@ async function fetchUserData() {
               {/each}
             {:else}
               <div class="empty-state">
-                <p>No posts yet</p>
+                <p>{$t('posts.noPosts')}</p>
               </div>
             {/if}
           {:else}
@@ -402,8 +403,8 @@ async function fetchUserData() {
                 <div class="auth-wall">
                   <div class="blur-overlay"></div>
                   <div class="auth-prompt">
-                    <h3>See all {totalPosts} posts from {user.name || user.username}</h3>
-                    <p>Sign in to browse this user's complete post history</p>
+                    <h3>{$t('posts.seeAll')} {totalPosts} {$t('posts.postsFrom')} {user.name || user.username}</h3>
+                    <p>{$t('posts.historySignin')}</p>
                     <div class="auth-buttons">
                       <a href="/signup?ref=profile&username={username}" class="btn btn-primary">Sign Up</a>
                       <a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">Log In</a>
@@ -412,7 +413,7 @@ async function fetchUserData() {
                 </div>
               {:else}
                 <div class="empty-state">
-                  <p>No posts yet</p>
+                  <p>{$t('posts.noPosts')}</p>
                 </div>
               {/if}
             </div>

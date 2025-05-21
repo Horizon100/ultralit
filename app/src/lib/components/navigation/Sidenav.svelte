@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import {onMount} from 'svelte'
 	import { get } from 'svelte/store';
-	import Kanban from '$lib/components/lean/Kanban.svelte';
+	import Kanban from '$lib/features/tasks/Kanban.svelte';
 	import {
 		MessageSquare,
 		X,
@@ -25,51 +25,31 @@
 		Gauge,
 		Component,
 		Bone,
-
 		SquareKanban,
-
 		MapPin,
-
 		Combine,
-
 		MessageCircleDashed,
-
 		MessageCircle,
-
 		ChevronLeft,
-
 		HelpCircle,
-
 		InfoIcon,
-
 		Settings2,
-
 		Settings
-
-
-
-
-
-
-
-
-
-
 	} from 'lucide-svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import { currentLanguage, setLanguage, languages } from '$lib/stores/languageStore';
-	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
-	import PromptSelector from '$lib/components/ai/PromptSelector.svelte';
+	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
+	import PromptSelector from '$lib/features/ai/components/prompts/PromptSelector.svelte';
 	import { threadsStore } from '$lib/stores/threadsStore';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { fly, fade, slide } from 'svelte/transition';
 	import { t } from '$lib/stores/translationStore';
 	import { tick } from 'svelte';
-	import Profile from '$lib/components/ui/Profile.svelte';
-	import Auth from '$lib/components/auth/Auth.svelte';
-	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
+	import Profile from '$lib/features/users/components/Profile.svelte';
+	import Auth from '$lib/features/auth/components/Auth.svelte';
+	import StyleSwitcher from '$lib/features/users/components/StyleSwitcher.svelte';
 	import type { SlideParams } from 'svelte/transition';
 
 	let showLanguageNotification = false;

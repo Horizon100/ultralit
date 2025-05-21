@@ -1,6 +1,7 @@
 @use '../variables/spacing' as spacing;
 @use '../variables/typography' as type;
 @use '../mixins/responsive' as *;
+@use 'sass:map';
 
 @mixin large-screen-styles {
 	// Layout

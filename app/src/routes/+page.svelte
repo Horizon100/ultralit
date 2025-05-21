@@ -8,9 +8,9 @@
 	import { spring } from 'svelte/motion';
 	import { t } from '$lib/stores/translationStore';
 
-	import Auth from '$lib/components/auth/Auth.svelte';
+	import Auth from '$lib/features/auth/components/Auth.svelte';
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
-	import horizon100 from '$lib/assets/horizon100.svg';
+	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 
 	let pageReady = false;
 	let redirectedFromLogin = false;

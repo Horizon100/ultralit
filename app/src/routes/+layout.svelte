@@ -5,22 +5,22 @@
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { fly, fade, slide } from 'svelte/transition';
-	import horizon100 from '$lib/assets/horizon100.svg';
+	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import type { ThreadStoreState } from '$lib/types/types';
-	import TaskNotification from '$lib/components/common/containers/TaskNotification.svelte';
+	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
 	import { taskNotifications } from '$lib/stores/taskNotificationStore';
 	// Components
-	import Kanban from '$lib/components/lean/Kanban.svelte';
-	import ModelSelector from '$lib/components/ai/ModelSelector.svelte';
-	import PromptSelector from '$lib/components/ai/PromptSelector.svelte';
-	import Profile from '$lib/components/ui/Profile.svelte';
-	import Auth from '$lib/components/auth/Auth.svelte';
-	import StyleSwitcher from '$lib/components/ui/StyleSwitcher.svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-	import TimeTracker from '$lib/components/features/TimeTracker.svelte';
+	import Kanban from '$lib/features/tasks/Kanban.svelte';
+	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
+	import PromptSelector from '$lib/features/ai/components/prompts/PromptSelector.svelte';
+	import Profile from '$lib/features/users/components/Profile.svelte';
+	import Auth from '$lib/features/auth/components/Auth.svelte';
+	import StyleSwitcher from '$lib/features/users/components/StyleSwitcher.svelte';
+	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
+	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
 	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
-	import ProjectDropdown from '$lib/components/navigation/ProjectDropdown.svelte';
-	import SearchEngine from '$lib/components/common/inputs/SearchEngine.svelte';
+	import ProjectDropdown from '$lib/components/buttons/ProjectDropdown.svelte';
+	import SearchEngine from '$lib/components/navigation/SearchEngine.svelte';
 
 	// Stores
 	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
@@ -477,7 +477,7 @@
 
 			<span>
 				{#if !isDropdownOpen}
-					<SearchEngine size="large" placeholder="Search everything..." bind:isFocused={isSearchFocused} />
+					<SearchEngine size="large" placeholder={$t('nav.searchEverything')} bind:isFocused={isSearchFocused} />
 				{/if}
 			</span>
 
@@ -528,7 +528,7 @@
 				<Combine />
 				
 				{#if isNavExpanded}
-				<span class="nav-text">Canvas</span>
+				<span class="nav-text">{$t('nav.canvas')}</span>
 			{/if}
 				</button>
 				<button
@@ -544,7 +544,7 @@
 					>
 					<NotebookTabs />
 					{#if isNavExpanded}
-					<span class="nav-text">Notes</span>
+					<span class="nav-text">{$t('nav.notes')}</span>
 					{/if}
 				</button>
 				
@@ -667,7 +667,7 @@
 			{/if}
 			
 			{#if isNavExpanded}
-			<span class="nav-text">Home</span>
+			<span class="nav-text">{$t('nav.home')}</span>
 			{/if}
 		</button>	
 		<button
@@ -699,7 +699,7 @@
 			{/if}
 			
 			{#if isNavExpanded}
-			<span class="nav-text">Chat</span>
+			<span class="nav-text">{$t('tasks.gantt')}</span>
 			{/if}
 		</button>
 		<button
@@ -730,7 +730,7 @@
 			<SquareKanban />
 			{/if}
 			{#if isNavExpanded}
-				<span class="nav-text">Lean</span>
+				<span class="nav-text">{$t('nav.tasks')}</span>
 			{/if}
 		</button>
 				<button
@@ -761,7 +761,7 @@
 			<Gamepad2 />
 			{/if}
 			{#if isNavExpanded}
-				<span class="nav-text">Game</span>
+				<span class="nav-text">{$t('nav.game')}</span>
 			{/if}
 		</button>
 		<button
@@ -772,7 +772,7 @@
 		>
 			<Code2 />
 			{#if isNavExpanded}
-				<span class="nav-text">Code Editor</span>
+				<span class="nav-text">IDE</span>
 			{/if}
 		</button>
 
@@ -1866,9 +1866,12 @@
 		border: 0px solid transparent;
 		border-right: 1px solid transparent;
 		&.expanded {
-			width: 380px;
-			backdrop-filter: blur(30px);
-			border-right: 1px solid var(--bg-color);
+			width: 350px;
+			backdrop-filter: blur(10px);
+
+			height: 78%;
+			// backdrop-filter: blur(30px);
+			// border-right: 1px solid var(--bg-color);
 		}
 	}
 
@@ -1911,7 +1914,7 @@
       background: var(--tertiary-color);
       box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
 	  &.expanded {
-		width: 380px;
+		width: 350px;
 		justify-content: flex-start;
 		padding: 0.5rem 1rem;
 		border-radius: var(--radius-s);
@@ -1928,7 +1931,7 @@
     }
 
 	&.expanded {
-      width: 380px;
+      width: 350px;
       justify-content: flex-start;
       padding: 0.5rem 1rem;
 	  border-radius: var(--radius-s);
@@ -2033,8 +2036,19 @@
 		& h2 {
 			font-size: 1.2rem;
 		}
-		&.user {
+		&.logo {
+			&.expanded {
+				height: auto;
+				max-width: 350px;
+				width: 100%;
+				justify-content: flex-start;
+				z-index: 10;
+				left: 0;
+				top: 3rem;
+				padding-top: 1rem;
+				backdrop-filter: blur(10px);
 
+			}
 		}
 		&.user,
 		.logo {
@@ -2056,7 +2070,10 @@
 			}
 			&.expanded {
 				height: 3rem;
-				justify-content: space-between;
+				max-width: 350px;
+				justify-content: flex-start;
+				z-index: 10;
+				left: 0;
 
 			}
 
@@ -2109,11 +2126,10 @@
 			}
 		}
 		&.expanded {
-		width: 100%;
+		// width: 100%;
 		height: auto;
 		flex-direction: column;
 		justify-content: space-around;
-
 		&:hover {
 			background: transparent;
 		}
@@ -2130,6 +2146,9 @@
 			height: 3rem;
 			justify-content: flex-start;
 			padding-inline-start: 1rem;
+			&.expanded {
+				max-width: 350px;
+			}
 		}
 		& a {
 			width: 100%;

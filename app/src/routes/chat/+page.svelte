@@ -4,7 +4,7 @@
 	import { currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import AIChat from '$lib/components/ai/AIChat.svelte';
+	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { Bot } from 'lucide-svelte';
 	
 	let isLoading = true;

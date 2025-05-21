@@ -1,6 +1,6 @@
 // src/lib/stores/taskNotificationStore.ts
 import { writable } from 'svelte/store';
-import type { TaskNotification } from '$lib/components/common/containers/TaskNotification.svelte';
+import type { TaskNotification } from '$lib/components/feedback/TaskNotification.svelte';
 
 export const taskNotifications = writable<TaskNotification[]>([]);
 

@@ -1,11 +1,12 @@
-@use 'variables/typography' as type;
-@use 'variables/spacing' as *;
-@use 'mixins/typography' as type-mixins;
-@use 'mixins/responsive' as *;
-@use 'devices/mobile';
-@use 'devices/tablet';
-@use 'devices/desktop';
-@use 'devices/large-screen';
+// @use 'variables/typography' as type;
+// @use 'variables/spacing' as *;
+// @use 'mixins/typography' as type-mixins;
+// @use 'mixins/responsive' as *;
+// @use 'devices/mobile';
+// @use 'devices/tablet';
+// @use 'devices/desktop';
+// @use 'devices/large-screen';
+@use 'sass:map';
 
 // Import fonts
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Montserrat:wght@400;700&family=Merriweather:wght@400;700&display=swap');
@@ -157,10 +158,10 @@ $themes: (
 @mixin theme-styles {
 	@each $theme, $colors in $themes {
 		&.#{$theme} {
-			background: map-get($colors, bg-gradient);
-			color: map-get($colors, text-color);
-			font-family: map-get($colors, font-family);
-			background-image: map-get($colors, bg-gradient);
+			background: map.get($colors, bg-gradient);
+			color: map.get($colors, text-color);
+			font-family: map.get($colors, font-family);
+			background-image: map.get($colors, bg-gradient);
 		}
 	}
 }
@@ -174,18 +175,18 @@ $themes: (
 :root {
 	@each $theme, $colors in $themes {
 		&.#{$theme} {
-			--bg-color: #{map-get($colors, bg-color)};
-			--bg-gradient: #{map-get($colors, bg-gradient)};
-			--bg-gradient-r: #{map-get($colors, bg-gradient-r)};
-			--bg-gradient-left: #{map-get($colors, bg-gradient-left)};
-			--bg-gradient-right: #{map-get($colors, bg-gradient-right)};
-			--text-color: #{map-get($colors, text-color)};
-			--placeholder-color: #{map-get($colors, placeholder-color)};
-			--font-family: #{map-get($colors, font-family)};
-			--primary-color: #{map-get($colors, primary-color)};
-			--secondary-color: #{map-get($colors, secondary-color)};
-			--tertiary-color: #{map-get($colors, tertiary-color)};
-			--line-color: #{map-get($colors, line-color)};
+			--bg-color: #{map.get($colors, bg-color)};
+			--bg-gradient: #{map.get($colors, bg-gradient)};
+			--bg-gradient-r: #{map.get($colors, bg-gradient-r)};
+			--bg-gradient-left: #{map.get($colors, bg-gradient-left)};
+			--bg-gradient-right: #{map.get($colors, bg-gradient-right)};
+			--text-color: #{map.get($colors, text-color)};
+			--placeholder-color: #{map.get($colors, placeholder-color)};
+			--font-family: #{map.get($colors, font-family)};
+			--primary-color: #{map.get($colors, primary-color)};
+			--secondary-color: #{map.get($colors, secondary-color)};
+			--tertiary-color: #{map.get($colors, tertiary-color)};
+			--line-color: #{map.get($colors, line-color)};
 
 			// Typography
 			--font-size-xss: 0.5rem;
@@ -225,20 +226,19 @@ $themes: (
 	}
 }
 
-@include mobile.mobile-styles;
+// @include mobile.mobile-styles;
 
-@include respond-to('tablet') {
-	@include tablet.tablet-styles;
-}
+// @include respond-to('tablet') {
+// 	@include tablet.tablet-styles;
+// }
 
-@include respond-to('desktop') {
-	@include desktop.desktop-styles;
-}
+// @include respond-to('desktop') {
+// 	@include desktop.desktop-styles;
+// }
 
-@include respond-to('large') {
-	@include large-screen.large-screen-styles;
-}
-
+// @include respond-to('large') {
+// 	@include large-screen.large-screen-styles;
+// }
 .user-avatar {
 	width: 2rem;
 	height: 2rem;
@@ -867,8 +867,6 @@ pre.code-block {
         transition: all 0.1s ease;
 		&.back {
 			margin-left: 0.5rem;
-			&:hover {
-			}
 		}
         & span {
             display: none;
@@ -881,12 +879,9 @@ pre.code-block {
                 display: flex;
             }
         &:hover {
-
             background: var(--tertiary-color);
             box-shadow: 0px -1px 30px 4px rgba(255, 255, 255, 0.2) !important;
-
         }
-
     }
 	button.round-btn.submit,
     button.round-btn.invitation {

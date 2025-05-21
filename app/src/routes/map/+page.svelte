@@ -12,8 +12,8 @@
 		Drill,
 		NotebookTabs
 	} from 'lucide-svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-	import GamePlay from '$lib/components/features/GamePlay.svelte';
+	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
+	import GamePlay from '$lib/features/game/components/GamePlay.svelte';
 
 	onMount(() => {
 		// Commented out code removed as it wasn't being used

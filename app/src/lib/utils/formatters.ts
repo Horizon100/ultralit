@@ -3,7 +3,7 @@ import type { Scenario, Task, RoleType, PromptType, NetworkData, AIAgent } from 
 import { t } from '$lib/stores/translationStore';
 import { get } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
-import { fetchSystemPrompt, fetchUserPrompts } from '$lib/utils/promptUtils';
+import { fetchSystemPrompt, fetchUserPrompts } from '$lib/features/ai/utils/promptUtils';
 
 type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 

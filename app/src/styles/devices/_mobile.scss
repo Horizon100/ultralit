@@ -1,27 +1,27 @@
 // _mobile.scss
-
 @use '../variables/spacing' as spacing;
 @use '../variables/typography' as type;
 @use '../mixins/responsive' as *;
+@use 'sass:map';
 
 @mixin mobile-styles {
 	// Layout
 	.container {
 		max-width: 100%;
-		padding: 0 map-get(spacing.$container-padding, 'mobile');
+		padding: 0 map.get(spacing.$container-padding, 'mobile');
 		overflow-x: hidden;
 	}
 
 	// Typography adjustments
 	body {
-		font-size: map-get(type.$type-scale, 'base', 'size');
-		line-height: map-get(type.$type-scale, 'base', 'line-height');
+		font-size: map.get(type.$type-scale, 'base', 'size');
+		line-height: map.get(type.$type-scale, 'base', 'line-height');
 	}
 
 	// Navigation
 	.nav {
 		&-container {
-			padding: map-get(spacing.$spacing, 'xs') 0;
+			padding: map.get(spacing.$spacing, 'xs') 0;
 		}
 
 		&-menu {
@@ -43,13 +43,13 @@
 	// Grid adjustments
 	.grid {
 		grid-template-columns: 1fr;
-		gap: map-get(spacing.$gap, 'md');
+		gap: map.get(spacing.$gap, 'md');
 	}
 
 	// Card layouts
 	.card-grid {
 		grid-template-columns: 1fr;
-		gap: map-get(spacing.$gap, 'sm');
+		gap: map.get(spacing.$gap, 'sm');
 	}
 
 	// Form elements
@@ -57,14 +57,14 @@
 	select,
 	textarea {
 		width: 100%;
-		padding: map-get(spacing.$spacing, 'xs');
+		padding: map.get(spacing.$spacing, 'xs');
 	}
 
 	// Modals
 	.modal {
 		width: 90%;
-		margin: map-get(spacing.$spacing, 'sm');
-		padding: map-get(spacing.$spacing, 'md');
+		margin: map.get(spacing.$spacing, 'sm');
+		padding: map.get(spacing.$spacing, 'md');
 	}
 
 	// Hide desktop elements

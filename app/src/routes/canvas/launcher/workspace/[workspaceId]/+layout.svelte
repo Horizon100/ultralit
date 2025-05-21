@@ -15,10 +15,10 @@
 	import { fade, slide, fly } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { Plus, ArrowLeft, List, Box, X, Trash2, Edit2, Hammer, Users, Bot } from 'lucide-svelte';
-	import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';
+	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
 	import { spring } from 'svelte/motion';
 	import { currentUser } from '$lib/pocketbase';
-	import AgentsList from '$lib/components/overlays/AgentsList.svelte';
+	import AgentsList from '$lib/features/agents/components/AgentsList.svelte';
 
 	let currentWorkspace: Workspaces | null = null;
 	let workshops: Workshops[] = [];

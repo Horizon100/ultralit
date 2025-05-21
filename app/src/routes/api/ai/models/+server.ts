@@ -3,7 +3,7 @@ import { json, error } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { AIMessage, AIModel } from '$lib/types/types';
 import type { RequestHandler } from './$types';
-import { providers } from '$lib/constants/providers';
+import { providers } from '$lib/features/ai/utils/providers';
 import { CryptoService } from '$lib/utils/crypto';
 
 // Helper function to extract endpoint from path

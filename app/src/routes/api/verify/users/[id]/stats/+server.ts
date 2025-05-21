@@ -1,7 +1,7 @@
 import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { checkEligiblePerks, updateUserPerks } from '$lib/utils/perkChecker';
+import { checkEligiblePerks, updateUserPerks } from '$lib/features/users/utils/perkChecker';
 
 export const GET: RequestHandler = async ({ params, locals, url }) => {
     const userId = params.id;

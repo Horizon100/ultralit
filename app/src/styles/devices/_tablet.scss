@@ -1,66 +1,65 @@
-// _tablet.scss
-
 @use '../variables/spacing' as spacing;
 @use '../variables/typography' as type;
 @use '../mixins/responsive' as *;
+@use 'sass:map';
 
 @mixin tablet-styles {
 	// Layout
 	.container {
 		max-width: 720px;
 		margin: 0 auto;
-		padding: 0 map-get(spacing.$container-padding, 'tablet');
+		padding: 0 map.get(spacing.$container-padding, 'tablet');
 	}
 
 	// Grid layouts
 	.grid {
 		grid-template-columns: repeat(8, 1fr);
-		gap: map-get(spacing.$gap, 'md');
+		gap: map.get(spacing.$gap, 'md');
 	}
 
 	// Navigation
 	.nav {
 		&-container {
-			padding: map-get(spacing.$spacing, 'sm') 0;
+			padding: map.get(spacing.$spacing, 'sm') 0;
 		}
 
 		&-menu {
 			display: flex;
-			gap: map-get(spacing.$gap, 'sm');
+			gap: map.get(spacing.$gap, 'sm');
 		}
 	}
 
 	// Card grids
 	.card-grid {
 		grid-template-columns: repeat(2, 1fr);
-		gap: map-get(spacing.$gap, 'md');
+		gap: map.get(spacing.$gap, 'md');
 	}
 
 	// Sidebar layouts
 	.with-sidebar {
 		display: grid;
 		grid-template-columns: 220px 1fr;
-		gap: map-get(spacing.$gap, 'lg');
+		gap: map.get(spacing.$gap, 'lg');
 	}
 
 	// Forms
 	.form-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: map-get(spacing.$gap, 'md');
+		gap: map.get(spacing.$gap, 'md');
 	}
 
 	// Modal dialogs
 	.modal {
 		max-width: 500px;
-		padding: map-get(spacing.$spacing, 'lg');
+		padding: map.get(spacing.$spacing, 'lg');
 	}
 
 	// Lists
 	.list-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: map-get(spacing.$gap, 'md');
+		gap: map.get(spacing.$gap, 'md');
 	}
 
 	// Hide mobile elements

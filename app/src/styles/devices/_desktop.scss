@@ -1,20 +1,19 @@
-// _desktop.scss
-
 @use '../variables/spacing' as spacing;
 @use '../variables/typography' as type;
 @use '../mixins/responsive' as *;
+@use 'sass:map';
 
 @mixin desktop-styles {
 	// Layout
 	.container {
 		max-width: 960px;
-		padding: 0 map-get(spacing.$container-padding, 'desktop');
+		padding: 0 map.get(spacing.$container-padding, 'desktop');
 	}
 
 	// Grid layouts
 	.grid {
 		grid-template-columns: repeat(12, 1fr);
-		gap: map-get(spacing.$gap, 'lg');
+		gap: map.get(spacing.$gap, 'lg');
 	}
 
 	// Typography adjustments
@@ -25,12 +24,12 @@
 	// Navigation
 	.nav {
 		&-container {
-			padding: map-get(spacing.$spacing, 'md') 0;
+			padding: map.get(spacing.$spacing, 'md') 0;
 		}
 
 		&-menu {
 			display: flex;
-			gap: map-get(spacing.$gap, 'md');
+			gap: map.get(spacing.$gap, 'md');
 		}
 	}
 
@@ -38,7 +37,7 @@
 	.with-sidebar {
 		display: grid;
 		grid-template-columns: 280px 1fr;
-		gap: map-get(spacing.$gap, 'xl');
+		gap: map.get(spacing.$gap, 'xl');
 	}
 
 	// Card grids
@@ -49,6 +48,6 @@
 	// Modal dialogs
 	.modal {
 		max-width: 600px;
-		padding: map-get(spacing.$spacing, 'xl');
+		padding: map.get(spacing.$spacing, 'xl');
 	}
 }

@@ -3,7 +3,7 @@
 	import { get } from 'svelte/store';
 	import { elasticOut, elasticIn } from 'svelte/easing';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import {
@@ -23,19 +23,19 @@
 		Check,
 		LayoutGrid
 	} from 'lucide-svelte';
-	import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';
-	import AgentsConfig from '$lib/components/overlays/AgentsConfig.svelte';
-	import ModelsConfig from '$lib/components/overlays/ModelsConfig.svelte';
-	import ActionsConfig from '$lib/components/overlays/ActionsConfig.svelte';
-	import FlowsConfig from '$lib/components/overlays/FlowsConfig.svelte';
-	import ObjectivesConfig from '$lib/components/overlays/ObjectivesConfig.svelte';
+	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
+	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
+	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
+	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
+	import FlowsConfig from '$lib/features/canvas/components/FlowsConfig.svelte';
+	import ObjectivesConfig from '$lib/features/canvas/components/ObjectivesConfig.svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { workspaceStore } from '$lib/stores/workspaceStore';
 	import { agentStore } from '$lib/stores/agentStore';
 	import { workshopStore } from '$lib/stores/workshopStore';
-	import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
-	import GenericOverlay from '$lib/components/overlays/GenericOverlay.svelte';
+	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
+	import GenericOverlay from '$lib/components/modals/GenericOverlay.svelte';
 	import type { Workspaces, Workshops } from '$lib/types/types';
 	import {
 		getWorkshops,
@@ -45,8 +45,8 @@
 	} from '$lib/clients/workshopClient';
 	import {  } from '$lib/pocketbase';
 
-	import Builder from '$lib/components/ui/Builder.svelte';
-	import DefaultAvatar from '$lib/components/ui//DefaultAvatar.svelte';
+	import Builder from '$lib/components/features/canvas/components/Builder.svelte';
+	import DefaultAvatar from '$lib/components/features/users/components/DefaultAvatar.svelte';
 
 	import Space from '$lib/assets/icons/launcher/space.svg';
 	import Add from '$lib/assets/icons/launcher/add.svg';
@@ -60,7 +60,7 @@
 	import Chatlinks from '$lib/assets/icons/ai/chatlinks.svg';
 	import { Chat } from 'openai/resources/index.mjs';
 	import { quotes } from '$lib/translations/quotes';
-	import WorkspaceCreator from '$lib/components/ui/WorkspaceCreator.svelte';
+	import WorkspaceCreator from '$lib/features/canvas/components/WorkspaceCreator.svelte';
 	import itImage from '$lib/assets/illustrations/italian.jpeg';
 	import greekImage from '$lib/assets/illustrations/greek.png';
 

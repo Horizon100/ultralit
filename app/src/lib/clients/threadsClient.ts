@@ -1,10 +1,10 @@
 import { get } from 'svelte/store';
 import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
 import { ensureAuthenticated, currentUser, getUserById } from '$lib/pocketbase'; // Client-side import
-import { processMarkdown } from '$lib/scripts/markdownProcessor';
+import { processMarkdown } from '$lib/features/ai/utils/markdownProcessor';
 import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 import { projectStore } from '$lib/stores/projectStore';
-import { updateThreadNameIfNeeded } from '$lib/utils/threadNaming';
+import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
 
 // Throttling variables

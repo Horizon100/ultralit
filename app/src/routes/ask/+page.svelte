@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { threadsStore } from '$lib/stores/threadsStore';
-	import AIChat from '$lib/components/ai/AIChat.svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
+	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { Bot } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import type { AIModel, User } from '$lib/types/types';

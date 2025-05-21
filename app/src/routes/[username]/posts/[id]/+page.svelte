@@ -3,12 +3,12 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
-  import PostCard from '$lib/components/ui/PostCard.svelte';
-  import PostComposer from '$lib/components/ui/PostComposer.svelte';
-  import PostSidenav from '$lib/components/ui/PostSidenav.svelte';
-  import PostTrends from '$lib/components/ui/PostTrends.svelte';
+  import PostCard from '$lib/components/cards/PostCard.svelte';
+  import PostComposer from '$lib/features/content/components/PostComposer.svelte';
+  import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
+  import PostTrends from '$lib/features/content/components/PostTrends.svelte';
   import { showSidenav } from '$lib/stores/sidenavStore';
-  
+  import { t } from '$lib/stores/translationStore';
   import { 
     ArrowLeft,
     MessageSquare,
@@ -88,7 +88,7 @@
   async function handlePostInteraction(event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share'}>) {
     if (!$currentUser) {
       // Redirect to login or show login prompt
-      alert('Please sign in to interact with posts');
+      alert($t('posts.interactPrompt'));
       return;
     }
     
@@ -98,24 +98,24 @@
   // Handle comment submission
   async function handleCommentSubmit(event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>) {
     if (!$currentUser) {
-      console.error('User not logged in');
+      console.error($t('generic.userNotLoggedIn'));
       return;
     }
     
     try {
       // Add comment logic here - you might want to use your postStore
-      console.log('Adding comment:', event.detail);
+      console.log($t('posts.addingComment'), event.detail);
       
       // Refresh comments after adding
       await fetchPostData();
       showComposer = false;
     } catch (error) {
-      console.error('Error posting comment:', error);
+      console.error($t('posts.errorComment'), error);
     }
   }
   
   function handleFollowUser(event) {
-    console.log('Follow user action:', event.detail.userId);
+    console.log($t('posts.followUser'), event.detail.userId);
     // You can implement additional logic here if needed
   }
   
@@ -150,7 +150,7 @@
     <header class="post-header">
       <button class="back-button" on:click={goBack}>
         <ArrowLeft size={20} />
-        <span>Back</span>
+        <span>{$t('generic.back')} </span>
       </button>
       
       {#if user}
@@ -168,14 +168,14 @@
     {#if loading}
       <div class="loading-container">
         <Loader2 class="loading-spinner" size={32} />
-        <p>Loading post...</p>
+        <p>{$t('posts.loadingPosts')}</p>
       </div>
     {:else if error}
       <div class="error-container">
-        <h1>Oops!</h1>
+        <h1>{$t('posts.errorExpression')}</h1>
         <p>{error}</p>
         <button class="btn btn-primary" on:click={() => goto('/')}>
-          Go Back Home
+          {$t('generic.returnHome')}
         </button>
       </div>
     {:else if post}
@@ -235,7 +235,7 @@
                 showComposer = !showComposer;
               }}>
                 <MessageSquare size={20} />
-                <span>{comments.length} {comments.length === 1 ? 'Reply' : 'Replies'}</span>
+                <span>{comments.length} {comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}</span>
               </button>
             
             <button class="action-button repost" on:click={() => handlePostInteraction(new CustomEvent('interact', { detail: { postId: post.id, action: 'repost' } }))}>
@@ -259,7 +259,7 @@
           <div class="comment-composer">
             <PostComposer 
               parentId={post.id}
-              placeholder="Reply to this post..."
+              placeholder={$t('posts.replyToThis')} 
               on:submit={handleCommentSubmit}
             />
           </div>
@@ -268,7 +268,7 @@
         <!-- Comments Section -->
         <section class="comments-section">
           <h3 class="comments-title">
-            {comments.length > 0 ? `${comments.length} ${comments.length === 1 ? 'Reply' : 'Replies'}` : 'No replies yet'}
+            {comments.length > 0 ? `${comments.length} ${comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}` : $t('posts.noReplies')}
           </h3>
           
           {#each comments as comment (comment.id)}
@@ -295,11 +295,12 @@
   <div class="auth-modal">
     <div class="auth-modal-content">
       <button class="close-button" on:click={() => showAuthModal = false}>×</button>
-      <h3>Join the conversation</h3>
-      <p>Sign in to {authAction === 'comment' ? 'comment on' : 'interact with'} this post</p>
+
+      <h3>{$t('posts.joinConversation')}</h3>
+      <p>{$t('generic.signInTo')} {authAction === 'comment' ? 'comment on' : 'interact with'} {$t('generic.this')} {$t('posts.post')}</p>
       <div class="auth-buttons">
-        <a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary">Log In</a>
-        <a href="/signup?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">Sign Up</a>
+        <a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary">{$t('profile.login')}</a>
+        <a href="/signup?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">{$t('profile.signup')}</a>
       </div>
     </div>
   </div>

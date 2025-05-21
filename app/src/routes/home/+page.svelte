@@ -10,14 +10,18 @@
   import type { PostWithInteractions } from '$lib/types/types.posts';
   import { getPublicUserProfile, getPublicUserProfiles } from '$lib/clients/profileClient';
   import { pocketbaseUrl } from '$lib/pocketbase';
-  import PostComposer from '$lib/components/ui/PostComposer.svelte';
-  import PostCard from '$lib/components/ui/PostCard.svelte';
-  import PostCommentModal from '$lib/components/ui/PostCommentModal.svelte';
-  import RepostCard from '$lib/components/ui/RepostCard.svelte';
-  import PostQuoteCard from '$lib/components/ui/PostQuoteCard.svelte';
-  import PostSidenav from '$lib/components/ui/PostSidenav.svelte';
-  import PostTrends from '$lib/components/ui/PostTrends.svelte';
   
+  import PostComposer from '$lib/features/content/components/PostComposer.svelte';
+  import PostCard from '$lib/components/cards/PostCard.svelte';
+  import PostCommentModal from '$lib/features/content/components/PostCommentModal.svelte';
+  import RepostCard from '$lib/components/cards/RepostCard.svelte';
+  import PostQuoteCard from '$lib/components/cards/PostQuoteCard.svelte';
+  import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
+  import PostTrends from '$lib/features/content/components/PostTrends.svelte';
+  import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+  import Greek from '$lib/assets/illustrations/greek.png';
+  import Italian from '$lib/assets/illustrations/italian.jpeg';
+
   let isCommentModalOpen = false;
   let selectedPost: PostWithInteractions | null = null;
   let innerWidth = 0;
@@ -251,6 +255,9 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
   
   <!-- Main Content -->
   <main class="main-content">
+        <img src={Greek} alt="Notes illustration" class="illustration left" />
+        <img src={Headmaster} alt="Notes illustration" class="illustration center" />
+        <img src={Italian} alt="Notes illustration" class="illustration right" />
     <div class="main-wrapper">
       <!-- Create Post Section -->
       <section class="create-post">
@@ -260,7 +267,9 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
           />
         {:else}
           <div class="login-prompt">
-            <p>Please <a href="/login">sign in</a> to create a post.</p>
+              
+
+            <p> <a href="/login">{$t('posts.loginPrompt')}</a></p>
           </div>
         {/if}
       </section>
@@ -275,13 +284,13 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
       <!-- Loading State -->
       {#if loading && posts.length === 0}
         <div class="loading-state">
-          <p>Loading posts...</p>
+          <p>{$t('posts.loadingPosts')}</p>
         </div>
       {/if}
       
       <!-- Posts Feed -->
       <section class="posts-feed">
-        <h2 class="feed-title">Latest Updates</h2>
+        <h2 class="feed-title">{$t('posts.latestUpdates')}</h2>
         {#each enhancedPosts as post (post.id)}
           {#if post.isRepost}
             <RepostCard 
@@ -324,7 +333,7 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
         
         {#if posts.length === 0 && !loading}
           <div class="empty-state">
-            <p>No posts yet. Be the first to share something!</p>
+            <p>{$t('posts.noPosts')}</p>
           </div>
         {/if}
       </section>
@@ -363,7 +372,6 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
     min-height: 100vh;
     width: 100%;
     padding-bottom: 3rem;
-    background-color: var(--primary-color);
   }
 
   .home-container.hide-left-sidebar .main-content {
@@ -377,7 +385,7 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
     width: 100%;
     overflow-y: auto;
     margin-bottom: 2rem;
-        background: var(--bg-color);
+    background: rgba(0, 0, 0, 0.2);
 
   }
 
@@ -388,6 +396,7 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
 
   .create-post {
     margin-bottom: 2rem;
+
   }
 
   .feed-title {
@@ -445,6 +454,38 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
   .login-prompt a:hover {
     text-decoration: underline;
   }
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+  	.illustration {
+		position: absolute;
+		opacity: 0.03;
+    width: 100%;
+    height: auto;
+    user-select: none;
+		// transform: scale(1) translateX(-50%) translateY(0%);
+    z-index: -1;
+    &.left {
+      		transform: scale(1) translateX(-70%) translateY(-5%);
+
+    }
+    &.center {
+      transform: scale(0.5) translateX(-50%) translateY(-50%);
+      display: none;
+    }
+    &.right {
+      // opacity: 1;
+      transform: scale(-1, 1) translateX(-10%) translateY(0%) ;
+    }
+	}
   @media (max-width: 768px) {
     .main-content {
       padding: 1rem;

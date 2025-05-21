@@ -12,10 +12,10 @@
 	import type { Workspaces, Workshops } from '$lib/types/types';
 	import { wormhole } from '$lib/transitions/wormhole';
 	import { Hammer, Edit2, Trash2 } from 'lucide-svelte';
-	import WorkshopOverlay from '$lib/components/overlays/WorkshopOverlay.svelte';
+	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { isLoading, showLoading, hideLoading } from '$lib/stores/loadingStore';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
 	let currentWorkspace: Workspaces | null = null;
 	let workshops: Workshops[] = [];

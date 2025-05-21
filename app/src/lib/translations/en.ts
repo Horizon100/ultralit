@@ -3,6 +3,10 @@ import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
 export default {
 	nav: {
 		home: 'Home',
+		chat: 'Chat',
+		tasks: 'Tasks',
+		game: 'Game',
+		canvas: 'Canvas',
 		ask: 'Ask',
 		build: 'Build',
 		notes: 'Notes',
@@ -14,12 +18,81 @@ export default {
 		help: 'Help',
 		docs: 'Docs',
 		themes: 'Switch themes',
+		search: 'Search',
+		searchEverything: 'Search everything...',
 		searchProjects: 'Search projects...',
-		welcome: 'Welcome to Vrazum',
-		signup: 'Sign Up'
-
+		welcome: 'Welcome',
+		signup: 'Sign Up',
+		quickAccess: 'Quick Access'
 	},
-
+	generic: {
+		created: "Created",
+		updated: "Updated",
+		delete: "Delete",
+		cancel: "Cancel",
+		back: "Back",
+		loading: "Loading...",
+		deleteQuestion: "Are you sure you want to delete this?",
+		deleteWarning: "This action cannot be undone.",
+		attachments: "Attachments",
+		show: "Show",
+		only: "only",
+		all: "all",
+		filter: "Filter",
+		sort: "Sort",
+		share: "Share",
+		copy: "Copy",
+		copyLink: "Copy link",
+		copiedLink: "Link copied!",
+		returnHome: "Return home",
+		signInTo: "Sign in to",
+		this: "this",
+		userNotLoggedIn: "User not logged in",
+		noResults: "No results found for",
+		in: "in",
+		by: "by",
+		collapse: 'Collapse',
+		collapseAll: 'Collapse all',
+		expand: 'Expand',
+		expandAll: 'Expand all'
+	},
+	posts: {
+		loginPrompt: 'Please sign in to create a post.',
+		loadingPosts: 'Loading posts...',
+		latestUpdates: 'Latest Updates',
+		noPosts: 'No posts yet.',
+		repost: 'Repost',
+		reposted: 'reposted',
+		repostedBy: 'Reposted by',
+		youReposted: 'You reposted this',
+		post: 'post', 
+		posts: 'Posts', 
+		postsFrom: 'posts from',
+		postRead: 'read',
+		postUpvote: 'Like',
+		quote: 'Quote',
+		quoteDescription: 'Add your thoughts and share',
+		quoteNotAvailable: 'Quoted post not available',
+		quotedBy: 'Quoted by',
+		shareLink: 'Share with a link',
+		copyLink: "Copy link to post",
+		textareaPlaceholder: 'What´s on your mind?',
+		postButton: 'Post',
+		posting: 'Posting...',
+		errorExpression: 'Oops!',
+		errorComment: 'Error posting comment:',
+		addingComment: 'Adding comment:',
+		followUser: 'Follow user',
+		reply: 'Reply',
+		replies: 'Replies',
+		replyToThis: 'Reply to this post...',
+		noReplies: 'No replies',
+		interactPrompt: 'Please sign in to interact with posts',
+		media: 'media',
+		likes: 'Likes',
+		historySignin: 'Sign in to browse this user`s complete post history',
+		seeAll: 'See all',
+	},
 	lang: {
 		notification: 'Language: English',
 		flag: '🇬🇧'
@@ -106,8 +179,34 @@ export default {
 		],
 		textplaceholder: "What's on your mind?"
 	},
-
+	appFeatures: {
+		items: [
+		{
+			title: 'AI Conversations',
+			description: 'Start intelligent chats with our AI system'
+		},
+		{
+			title: 'Project Collaboration',
+			description: 'Create projects and invite teammates'
+		},
+		{
+			title: 'Task Management',
+			description: 'Organize and track your work efficiently'
+		},
+		{
+			title: 'Knowledge Network',
+			description: 'Connect your ideas in a visual network'
+		},
+		{
+			title: 'Notes System',
+			description: 'Keep your thoughts organized and accessible'
+		}
+		]
+	},
 	features: {
+		homeIntro: {
+			title: 'Key Features',
+		},
 		title: 'Features',
 		cards: [
 			{
@@ -338,21 +437,6 @@ export default {
 		months: "months",
 		now: "Now",
 	},
-	generic: {
-		created: "Created",
-		updated: "Updated",
-		delete: "Delete",
-		cancel: "Cancel",
-		loading: "Loading...",
-		deleteQuestion: "Are you sure you want to delete this?",
-		deleteWarning: "This action cannot be undone.",
-		attachments: "Attachments",
-		show: "Show",
-		only: "only",
-		all: "all",
-		filter: "Filter",
-		sort: "Sort"
-	},
 
 	tasks: {
 		title: 'Tasks',
@@ -360,6 +444,7 @@ export default {
 		tasks: 'tasks',
 		status: 'Status',
 		addDescription: 'Click to add a description',
+		changePriority: 'Click to change priority',
 		priorityLow: "Low",
 		priorityMedium: "Medium",
 		priorityHight: "High",
@@ -380,7 +465,12 @@ export default {
 		selectStart: "Set start date",
 		selectEnd: "Set end date",
 		due: "Due",
-		parent: "parent"
+		parent: "parent",
+		assigned: 'Assigned',
+		notAssigned: 'Not assigned',
+		schedule: 'Schedule',
+		gantt: 'Taskflows',
+		add: 'Add a task',
 	},
 
 	dashboard: {
@@ -415,12 +505,16 @@ export default {
 		threadHeader: 'Discussions',
 		updated: 'Updated',
 		shared: 'People',
+		thread: 'Thread',
+		threads: 'Threads'
 	},
 
 	chat: {
 		placeholder: 'Message Vrazum',
 		manualPlaceholder: 'Send message...',
 		loading: 'Loading messages...',
+		message: 'Message',
+		messages: 'Messages',
 		messagecount: 'messages',
 		prompts: 'Prompts',
 		models: 'Models'
@@ -473,6 +567,7 @@ export default {
 		],
 		waitlist: 'Join the Waitlist',
 		join: 'Subscribe',
+		joined: 'Joined',
 		projects: 'Projects',
 		posts: "Posts",
 		connections: "Connections",
@@ -483,7 +578,10 @@ export default {
 		googleAuth: "Google",
 		update: "Update",
 		upload: "Upload",
-		not_available: "Not available"
+		not_available: "Not available",
+		followers: 'Followers',
+		following: 'Following',
+		follow: 'Follow',
 	},
 	button: {
 		tags: 'Tags'

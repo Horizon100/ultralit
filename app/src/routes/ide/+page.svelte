@@ -22,7 +22,7 @@
 		updateFile
 	} from '$lib/clients/ideClient';
 	import { ideNotifications } from '$lib/stores/ideNotificationStore';
-	import IdeNotification from '$lib/components/common/containers/IdeNotification.svelte';
+	import IdeNotification from '$lib/components/feedback/IdeNotification.svelte';
 	import { setupKeyboardShortcuts } from './services/keyboardShortcuts';
 	import { saveFile } from './services/file-service';
 	import { getLanguageHighlighting } from './themes/highlighting';

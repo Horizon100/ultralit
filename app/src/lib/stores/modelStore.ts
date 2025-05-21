@@ -1,8 +1,8 @@
 import { writable, get } from 'svelte/store';
 import type { AIModel } from '$lib/types/types';
-import type { ProviderType } from '$lib/constants/providers';
+import type { ProviderType } from '$lib/features/ai/utils/providers';
 import { currentUser } from '$lib/pocketbase';
-import { defaultModel, availableModels } from '$lib/constants/models';
+import { defaultModel, availableModels } from '$lib/features/ai/utils/models';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
 export interface ModelState {

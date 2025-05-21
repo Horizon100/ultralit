@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import type { PromptType, AIMessage } from '$lib/types/types';
 import { fetchUserPrompts } from '$lib/clients/promptInputClient';
 import { currentUser } from '$lib/pocketbase';
-import { fetchSystemPrompt } from '$lib/utils/promptUtils';
+import { fetchSystemPrompt } from '$lib/features/ai/utils/promptUtils';
 
 let manualUpdate = false;
 

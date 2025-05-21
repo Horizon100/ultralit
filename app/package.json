@@ -19,13 +19,16 @@
 		"check:all": "npm run check:svelte && npm run check:ts",
 		"lint": "prettier --check . && eslint .",
 		"lint:fix": "eslint . --fix",
-		"lint:comments": "eslint . --quiet --rule 'no-inline-comments:error' --rule 'line-comment-position:error' --fix"
+		"lint:comments": "eslint . --quiet --rule 'no-inline-comments:error' --rule 'line-comment-position:error' --fix",
+		"audit:env": "node src/scripts/audit-env.ts"
 	},
 	"devDependencies": {
+		"@erbelion/vite-plugin-sveltekit-purgecss": "^0.1.0",
 		"@playwright/test": "^1.28.1",
 		"@skeletonlabs/skeleton": "2.10.2",
 		"@skeletonlabs/tw-plugin": "0.4.0",
 		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/adapter-node": "^5.2.12",
 		"@sveltejs/kit": "^2.5.20",
 		"@sveltejs/vite-plugin-svelte": "^3.1.2",
 		"@tailwindcss/forms": "0.5.7",

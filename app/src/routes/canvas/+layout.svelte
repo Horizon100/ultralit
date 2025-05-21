@@ -4,19 +4,19 @@
 	import { cubicOut } from 'svelte/easing';
 	import {fly, fade} from 'svelte/transition'
 	import { currentUser } from '$lib/pocketbase';
-	import CursorEffect from '$lib/components/canvas/CursorEffect.svelte';
-	import ConfigWrapper from '$lib/components/agents/ConfigWrapper.svelte';
-	import FileContainer from '$lib/components/canvas/FileContainer.svelte';
-	import ImportDocs from '$lib/components/features/importDocs.svelte';
+	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
+	import ConfigWrapper from '$lib/features/agents/components/ConfigWrapper.svelte';
+	import FileContainer from '$lib/features/canvas/components/FileContainer.svelte';
+	import ImportDocs from '$lib/features/canvas/components/ImportDocs.svelte';
 	import * as fileHandlers from '$lib/utils/fileHandlers';
-	import LeftSideMenu from '$lib/components/ui/LeftSideMenu.svelte';
-	import RightSideMenu from '$lib/components/ui/RightSideMenu.svelte';
+	import LeftSideMenu from '$lib/components/navigation/LeftSideMenu.svelte';
+	import RightSideMenu from '$lib/components/navigation/RightSideMenu.svelte';
 	import { writable } from 'svelte/store';
-	import Assets from '$lib/components/canvas/Assets.svelte';
+	import Assets from '$lib/features/canvas/components/Assets.svelte';
 	import type { Shape, AIAgent } from '$lib/types/types'; // Import Shape from your types file
 	import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
-	import Connector from '$lib/components/canvas/Connector.svelte';
+	import Connector from '$lib/features/canvas/components/Connector.svelte';
 	import { BrainCog, ChevronRight, Maximize, X } from 'lucide-svelte';
 
 	let svgElement: SVGSVGElement;
