@@ -34,9 +34,9 @@ export async function prepareMessagesWithCustomPrompts(
     if (!user) return originalMessages;
 
     const messages = [...originalMessages];
-    let systemMessageIndex = messages.findIndex(msg => msg.role === 'system');
+    const systemMessageIndex = messages.findIndex(msg => msg.role === 'system');
     
-    let allPrompts: string[] = [];
+    const allPrompts: string[] = [];
     
     // Handle system prompt (built-in or custom)
     if (user.sysprompt_preference) {

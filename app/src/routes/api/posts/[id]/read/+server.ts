@@ -20,7 +20,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
       // Get current post
       const post = await pb.collection('posts').getOne(postId);
       
-      let readBy = post.readBy || [];
+      const readBy = post.readBy || [];
       let hasRead = false;
 
       // Add user to readBy if not already present

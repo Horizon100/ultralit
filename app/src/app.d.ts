@@ -22,9 +22,11 @@ declare global {
 		user: import('$lib/types/types').User | null;
 	  }
 	  
-	  // interface PageData {}
-	  // interface Error {}
-	  // interface Platform {}
+	  /*
+	   * interface PageData {}
+	   * interface Error {}
+	   * interface Platform {}
+	   */
 	}
   
 	interface ImportMetaEnv {

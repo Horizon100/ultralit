@@ -19,8 +19,10 @@ function createMessagesStore() {
   
   const { subscribe, set, update } = store;
 
-  // This is a placeholder since real-time subscriptions should be handled differently
-  // without direct access to the PocketBase instance
+  /*
+   * This is a placeholder since real-time subscriptions should be handled differently
+   * without direct access to the PocketBase instance
+   */
   const subscribeToThread = async (threadId: string) => {
     if (activeSubscriptions[threadId]) {
       try {
@@ -35,8 +37,10 @@ function createMessagesStore() {
     
     console.log(`Setting up alternative for real-time updates for thread ${threadId}`);
     
-    // In a real implementation, you might set up a WebSocket connection or use SSE
-    // For now, we'll use a polling mechanism as a fallback
+    /*
+     * In a real implementation, you might set up a WebSocket connection or use SSE
+     * For now, we'll use a polling mechanism as a fallback
+     */
     const pollInterval = setInterval(async () => {
       try {
         const messages = await fetchMessagesForThread(threadId);

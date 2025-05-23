@@ -9,8 +9,10 @@ import { threadListVisibility } from '$lib/clients/threadsClient';
 marked.setOptions({
 	gfm: true,
 	breaks: true,
-	// headerIds: false,
-	// mangle: false
+	/*
+	 * headerIds: false,
+	 * mangle: false
+	 */
 });
 
 async function handleResponse<T>(response: Response): Promise<T> {

@@ -116,13 +116,15 @@
     let editingDay: number | null = null;
     let editingDateType: 'start' | 'due' | null = null;
 
-    // projectStore.subscribe(state => {
-    //     if (state.currentProjectId) {
-    //         project = state.threads.find(p => p.id === state.currentProjectId);
-    //     } else {
-    //         project = null;
-    //     }
-    // });
+    /*
+     * projectStore.subscribe(state => {
+     *     if (state.currentProjectId) {
+     *         project = state.threads.find(p => p.id === state.currentProjectId);
+     *     } else {
+     *         project = null;
+     *     }
+     * });
+     */
       projectStore.subscribe(state => {
         currentProjectId = state.currentProjectId;
     });
@@ -188,7 +190,7 @@ async function getUserName(userId: string | undefined): Promise<string> {
             isLoading.set(false);
         } catch (err) {
             console.error('Error loading data:', err);
-            error.set(err.message || 'Failed to load data');
+            error.set(err instanceof Error ? err.message : 'Failed to load data');
             isLoading.set(false);
         }
     }
@@ -416,8 +418,10 @@ async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?
             return att;
         });
         
-        // Use the task's current status directly instead of trying to determine it from columns
-        // This fixes the issue where status gets overridden during drag operations
+        /*
+         * Use the task's current status directly instead of trying to determine it from columns
+         * This fixes the issue where status gets overridden during drag operations
+         */
         const taskStatus = task.status;
         
         // Prepare attachment IDs as a comma-separated string
@@ -779,9 +783,8 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                         await updateTask(taskId, { status: task.status });
                     } catch (err) {
                         console.error('Error updating task status:', err);
-                        error.set(`Failed to move task: ${err.message}`);
+                        error.set(err instanceof Error ? err.message : 'Failed to move tasks');
                         
-                        // Revert the move if saving fails
                         fromColumn.tasks.splice(taskIndex, 0, task);
                         const revertIndex = toColumn.tasks.findIndex(t => t.id === taskId);
                         if (revertIndex !== -1) {
@@ -978,7 +981,7 @@ function toggleAddTag() {
                 showAddTag = false;
 
             } catch (err) {
-                error.set(`Failed to save tag: ${err.message}`);
+            error.set(err instanceof Error ? err.message : 'Failed to save tag');
             }
         }
     }
@@ -1108,7 +1111,7 @@ function toggleAddTag() {
         } else {
             selectedTask.tags = selectedTask.tags.filter(id => id !== tagId);
         }
-        selectedTask = { ...selectedTask };  // Trigger reactivity
+        selectedTask = { ...selectedTask }; // Trigger reactivity
         
         // If task is already saved to PocketBase, update the tags relation
         if (selectedTask.id && !selectedTask.id.startsWith('local_')) {
@@ -1133,7 +1136,7 @@ function toggleAddTag() {
             } else {
                 selectedTask.allocatedAgents = selectedTask.allocatedAgents.filter(id => id !== agentId);
             }
-            selectedTask = { ...selectedTask };  // Trigger reactivity
+            selectedTask = { ...selectedTask }; // Trigger reactivity
         }
     }
  // Update these helper functions to check allTasksBackup instead of just visible tasks
@@ -1831,7 +1834,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
   <button 
     class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
     on:click={toggleAllColumns}
-    aria-label={allColumnsOpen ? $t('generic.collapseAll') :  $t('generic.expandAll')}
+    aria-label={allColumnsOpen ? $t('generic.collapseAll') : $t('generic.expandAll')}
   >									
 
     <span class="toggle-icon">

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Container, Hammer, Settings, ChevronDown } from 'lucide-svelte';
 	import { slide, fade } from 'svelte/transition';
-	import Auth from '$lib/components/auth/Auth.svelte';
+	import Auth from '$lib/features/auth/components/Auth.svelte';
 	import { workspaceStore } from '$lib/stores/workspaceStore';
 	import { workshopStore } from '$lib/stores/workshopStore';
 	import {

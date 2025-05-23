@@ -67,7 +67,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     console.error('API keys/messages/search: Error:', err);
     
     const statusCode = err.status || 500;
-    const message = err.message || 'Failed to search messages';
+    const message = (err as Error).message || 'Failed to search messages';
     
     return json({ 
       success: false, 

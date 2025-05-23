@@ -10,12 +10,10 @@ import type {
 	CursorPosition,
 	User,
 	AIModel,
-	Actions,
 	Workflows,
 	Workspaces,
 	Threads,
 	Messages,
-	Projects
 } from '$lib/types/types';
 
 // Setup
@@ -206,10 +204,10 @@ export async function authenticateWithGoogle() {
   }
 
   /**
- * Request a password reset for a user
- * @param email The email of the user requesting a password reset
- * @returns A boolean indicating success
- */
+   * Request a password reset for a user
+   * @param email The email of the user requesting a password reset
+   * @returns A boolean indicating success
+   */
 export async function requestPasswordReset(email: string): Promise<boolean> {
 	try {
 	  await pb.collection('users').requestPasswordReset(email);
@@ -461,33 +459,37 @@ export async function getMessagesByTaskId(taskId: string): Promise<Message[]> {
 	}
 }
 
-// export async function createMessage(messageData: Partial<Message>): Promise<Message> {
-// 	try {
-// 		const defaultedMessageData = {
-// 			text: messageData.text,
-// 			user: messageData.user || pb.authStore.model?.id,
-// 			thread: messageData.thread_id,
-// 			task_id: messageData.task_id,
-// 			parent_msg_id: messageData.parent_msg_id,
-// 			ai_agent_id: messageData.ai_agent_id,
-// 			type: messageData.type || 'text',
-// 			sender: messageData.sender,
-// 			receiver: messageData.receiver,
-// 			attachments: messageData.attachments,
-// 			reactions: messageData.reactions || {},
-// 			update_status: messageData.update_status || 'not_updated',
-// 			prompt_type: messageData.prompt_type,
-// 			prompt_input: messageData.prompt_input,
-// 			model: messageData.model
-// 		};
+/*
+ * export async function createMessage(messageData: Partial<Message>): Promise<Message> {
+ * 	try {
+ * 		const defaultedMessageData = {
+ * 			text: messageData.text,
+ * 			user: messageData.user || pb.authStore.model?.id,
+ * 			thread: messageData.thread_id,
+ * 			task_id: messageData.task_id,
+ * 			parent_msg_id: messageData.parent_msg_id,
+ * 			ai_agent_id: messageData.ai_agent_id,
+ * 			type: messageData.type || 'text',
+ * 			sender: messageData.sender,
+ * 			receiver: messageData.receiver,
+ * 			attachments: messageData.attachments,
+ * 			reactions: messageData.reactions || {},
+ * 			update_status: messageData.update_status || 'not_updated',
+ * 			prompt_type: messageData.prompt_type,
+ * 			prompt_input: messageData.prompt_input,
+ * 			model: messageData.model
+ * 		};
+ */
 
-// 		const record = await pb.collection('messages').create<Message>(defaultedMessageData);
-// 		return record;
-// 	} catch (error) {
-// 		console.error('Error creating message:', error);
-// 		throw error;
-// 	}
-// }
+/*
+ * 		const record = await pb.collection('messages').create<Message>(defaultedMessageData);
+ * 		return record;
+ * 	} catch (error) {
+ * 		console.error('Error creating message:', error);
+ * 		throw error;
+ * 	}
+ * }
+ */
 
 export async function updateMessage(id: string, messageData: Partial<Message>): Promise<Message> {
 	try {
@@ -650,29 +652,6 @@ export function getDefaultModelPreferences() {
 	};
 }
 
-export async function fetchUserActions(userId: string): Promise<Actions[]> {
-	try {
-		console.log('Fetching actions for user:', userId);
-
-		const allRecords = await pb.collection('actions').getFullList();
-		console.log('All actions:', allRecords);
-
-		if (allRecords.length > 0) {
-			console.log('Structure of first action:', JSON.stringify(allRecords[0], null, 2));
-		}
-
-		const userActions = allRecords.filter((record) => {
-			console.log(`Checking action ${record.id}:`, record);
-			return record.user === userId || (Array.isArray(record.user) && record.user.includes(userId));
-		});
-		console.log('Filtered user actions:', userActions);
-
-		return userActions as Actions[];
-	} catch (error) {
-		console.error('Error fetching user actions:', error);
-		throw error;
-	}
-}
 
 export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	try {
@@ -686,88 +665,88 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	}
 }
 
-export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]> {
-	try {
-		const records = await pb.collection('workspaces').getFullList({
-			filter: `created_by = "${userId}" || collaborators ?~ "${userId}"`,
-			sort: '-created'
-		});
 
-		return records.map((record) => ({
-			id: record.id,
-			name: record.name,
-			description: record.description,
-			created_by: record.created_by,
-			collaborators: record.collaborators || [],
-			created: record.created,
-			updated: record.updated
-		}));
-	} catch (error) {
-		console.error('Error fetching user workspaces:', error);
-		return [];
-	}
-}
 
 // ============= Thread & Project Functions =============
 
-// export async function fetchThreads(): Promise<Threads[]> {
-// 	try {
-// 	  await ensureAuthenticated();
-// 	  const currentUserId = pb.authStore.model?.id;
+/*
+ * export async function fetchThreads(): Promise<Threads[]> {
+ * 	try {
+ * 	  await ensureAuthenticated();
+ * 	  const currentUserId = pb.authStore.model?.id;
+ */
 	  
-// 	  if (!currentUserId) {
-// 		throw new Error('User not authenticated');
-// 	  }
+/*
+ * 	  if (!currentUserId) {
+ * 		throw new Error('User not authenticated');
+ * 	  }
+ */
 	  
-// 	  const userThreads = await pb.collection('threads').getFullList<Threads>({
-// 		sort: '-created',
-// 		filter: `user = "${currentUserId}"`,
-// 		expand: 'project,op,members',
-// 		$autoCancel: false
-// 	  });
+/*
+ * 	  const userThreads = await pb.collection('threads').getFullList<Threads>({
+ * 		sort: '-created',
+ * 		filter: `user = "${currentUserId}"`,
+ * 		expand: 'project,op,members',
+ * 		$autoCancel: false
+ * 	  });
+ */
 	  
-// 	  const opThreads = await pb.collection('threads').getFullList<Threads>({
-// 		sort: '-created',
-// 		filter: `op = "${currentUserId}"`,
-// 		expand: 'project,op,members',
-// 		$autoCancel: false
-// 	  });
+/*
+ * 	  const opThreads = await pb.collection('threads').getFullList<Threads>({
+ * 		sort: '-created',
+ * 		filter: `op = "${currentUserId}"`,
+ * 		expand: 'project,op,members',
+ * 		$autoCancel: false
+ * 	  });
+ */
 	  
-// 	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
-// 		sort: '-created',
-// 		filter: `members ~ "${currentUserId}"`,
-// 		expand: 'project,op,members',
-// 		$autoCancel: false
-// 	  });
+/*
+ * 	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
+ * 		sort: '-created',
+ * 		filter: `members ~ "${currentUserId}"`,
+ * 		expand: 'project,op,members',
+ * 		$autoCancel: false
+ * 	  });
+ */
 	  
-// 	  // Combine the results, removing duplicates by ID
-// 	  const combinedThreads = [...userThreads];
+/*
+ * 	  // Combine the results, removing duplicates by ID
+ * 	  const combinedThreads = [...userThreads];
+ */
 	  
-// 	  // Add op threads if not already included
-// 	  opThreads.forEach(thread => {
-// 		if (!combinedThreads.some(t => t.id === thread.id)) {
-// 		  combinedThreads.push(thread);
-// 		}
-// 	  });
+/*
+ * 	  // Add op threads if not already included
+ * 	  opThreads.forEach(thread => {
+ * 		if (!combinedThreads.some(t => t.id === thread.id)) {
+ * 		  combinedThreads.push(thread);
+ * 		}
+ * 	  });
+ */
 	  
-// 	  // Add member threads if not already included
-// 	  memberThreads.forEach(thread => {
-// 		if (!combinedThreads.some(t => t.id === thread.id)) {
-// 		  combinedThreads.push(thread);
-// 		}
-// 	  });
+/*
+ * 	  // Add member threads if not already included
+ * 	  memberThreads.forEach(thread => {
+ * 		if (!combinedThreads.some(t => t.id === thread.id)) {
+ * 		  combinedThreads.push(thread);
+ * 		}
+ * 	  });
+ */
 	  
-// 	  // Sort by created date (newest first)
-// 	  combinedThreads.sort((a, b) => 
-// 		new Date(b.created).getTime() - new Date(a.created).getTime()
-// 	  );
+/*
+ * 	  // Sort by created date (newest first)
+ * 	  combinedThreads.sort((a, b) => 
+ * 		new Date(b.created).getTime() - new Date(a.created).getTime()
+ * 	  );
+ */
 	  
-// 	  return combinedThreads;
-// 	} catch (error) {
-// 	  console.error('Error fetching threads:', error);
-// 	  throw error;
-// 	}
-// }
+/*
+ * 	  return combinedThreads;
+ * 	} catch (error) {
+ * 	  console.error('Error fetching threads:', error);
+ * 	  throw error;
+ * 	}
+ * }
+ */
 
 
 

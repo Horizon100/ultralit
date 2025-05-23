@@ -84,7 +84,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         console.error('API keys/messages: Error fetching message:', err);
         
         const statusCode = err.status || 400;
-        const message = err.message || 'Failed to fetch message';
+        const message = (err as Error).message || 'Failed to fetch message';
         
         return json({ 
             success: false, 
@@ -144,7 +144,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         console.error('API keys/messages: Error updating message:', err);
         
         const statusCode = err.status || 400;
-        const message = err.message || 'Failed to update message';
+        const message = (err as Error).message || 'Failed to update message';
         
         return json({ 
             success: false, 
@@ -200,7 +200,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         console.error('API keys/messages: Error deleting message:', err);
         
         const statusCode = err.status || 400;
-        const message = err.message || 'Failed to delete message';
+        const message = (err as Error).message || 'Failed to delete message';
         
         return json({ 
             success: false, 

@@ -785,7 +785,7 @@
 					}
 				  }}>
 					{#if isNavExpanded}
-					<PanelLeftClose  />
+					<PanelLeftClose />
 					{:else}
 					<PanelLeftOpen />
 					{/if}

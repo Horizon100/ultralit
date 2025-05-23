@@ -88,13 +88,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
       // Get the parent post to update its children array
       const parentPost = await pb.collection('posts').getOne(postId);
-      let children = parentPost.children || [];
+      const children = parentPost.children || [];
       if (!children.includes(comment.id)) {
         children.push(comment.id);
       }
 
       // Update parent post with comment info
-      let commentedBy = parentPost.commentedBy || [];
+      const commentedBy = parentPost.commentedBy || [];
       if (!commentedBy.includes(locals.user.id)) {
         commentedBy.push(locals.user.id);
       }

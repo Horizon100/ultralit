@@ -73,7 +73,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         console.error('API: Error fetching messages:', err);
         
         const statusCode = err.status || 400;
-        const message = err.message || 'Failed to fetch messages';
+        const message = (err as Error).message || 'Failed to fetch messages';
         
         return json({ 
             success: false, 
@@ -134,7 +134,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         console.error('API: Error creating message:', err);
         
         const statusCode = err.status || 400;
-        const message = err.message || 'Failed to create message';
+        const message = (err as Error).message || 'Failed to create message';
         
         return json({ 
             success: false, 

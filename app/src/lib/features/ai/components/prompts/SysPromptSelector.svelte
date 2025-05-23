@@ -184,13 +184,17 @@ onMount(async () => {
 //     console.log('Updated active prompt ID from reactive statement:', activePromptId);
 //   }
   
-//   if ($currentUser.sysprompt_preference) {
-//     activeSysPrompt = $currentUser.sysprompt_preference;
-//     console.log('Updated active system prompt from reactive statement:', activeSysPrompt);
-//   }
+/*
+ *   if ($currentUser.sysprompt_preference) {
+ *     activeSysPrompt = $currentUser.sysprompt_preference;
+ *     console.log('Updated active system prompt from reactive statement:', activeSysPrompt);
+ *   }
+ */
   
-//   preferencesLoaded = true;
-// }
+/*
+ *   preferencesLoaded = true;
+ * }
+ */
 </script>
 
 <div class="prompt-container">

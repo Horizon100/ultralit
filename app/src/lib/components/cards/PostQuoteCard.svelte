@@ -31,8 +31,10 @@
     }
     
     try {
-      // Use the postStore to fetch the specific post
-      // This is simpler than creating a new endpoint
+      /*
+       * Use the postStore to fetch the specific post
+       * This is simpler than creating a new endpoint
+       */
       const response = await fetch('/api/posts', {
         method: 'GET',
         headers: {

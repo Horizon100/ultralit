@@ -5,7 +5,8 @@
 	import type { Actions } from '$lib/types/types';
 	import { actionStore } from '$lib/stores/actionStore';
 	import { currentUser } from '$lib/pocketbase';
-	import { createAction, updateAction, deleteAction } from '$lib/clients/actionClient';
+	import { createAction, updateAction, deleteAction, fetchActions } from '$lib/clients/actionClient';
+	import { browser } from '$app/environment';
 
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
@@ -21,11 +22,17 @@
 	let actionsDescription = '';
 	let actionsCode = '';
 
-	onMount(async () => {
-		showLoading();
-		if ($currentUser && $currentUser.id) {
-			await actionStore.loadActions($currentUser.id);
+	function debugCookies() {
+		if (browser) {
+			console.log('Document cookies:', document.cookie);
+			console.log('Current user:', $currentUser);
 		}
+	}
+	onMount(async () => {
+		debugCookies(); 
+		showLoading();
+		await actionStore.loadActions(); 
+
 		isLoading = false;
 	});
 
@@ -64,29 +71,29 @@
 		resetForm();
 	}
 
-	async function handleSubmit() {
-		const actionData: Partial<Actions> = {
-			name: actionsName,
-			description: actionsDescription,
-			code: actionsCode
-		};
+async function handleSubmit() {
+	const actionData: Partial<Actions> = {
+		name: actionsName,
+		description: actionsDescription,
+		code: actionsCode
+	};
 
-		try {
-			if (selectedAction) {
-				const updatedAction = await updateAction(selectedAction.id, actionData);
-				actionStore.updateAction(selectedAction.id, updatedAction);
-			} else {
-				const newAction = await createAction(actionData);
-				actionStore.addAction(newAction);
-			}
-			showCreateForm = false;
-			selectedAction = null;
-			resetForm();
-		} catch (error) {
-			console.error('Error saving action:', error);
-			updateStatus = 'Error saving action. Please try again.';
+	try {
+		if (selectedAction) {
+			// Use the store method (it handles both API and store update)
+			await actionStore.updateAction(selectedAction.id, actionData);
+		} else {
+			// Use the store method (it handles both API and store update)
+			await actionStore.addAction(actionData);
 		}
+		showCreateForm = false;
+		selectedAction = null;
+		resetForm();
+	} catch (error) {
+		console.error('Error saving action:', error);
+		updateStatus = 'Error saving action. Please try again.';
 	}
+}
 
 	async function handleDelete(action: Actions) {
 		if (confirm(`Are you sure you want to delete ${action.name}?`)) {
@@ -182,7 +189,15 @@
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+    $breakpoint-sm: 576px;
+    $breakpoint-md: 1000px;
+    $breakpoint-lg: 992px;
+    $breakpoint-xl: 1200px;
+    @use "src/styles/themes.scss" as *;
+    * {
+      font-family: var(--font-family);
+    }   	
 	.actions-config {
 		display: flex;
 		gap: 0;
@@ -191,6 +206,7 @@
 		z-index: 1000;
 		width: 100%;
 		backdrop-filter: blur(20px);
+;
 	}
 
 	.column {

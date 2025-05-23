@@ -56,7 +56,7 @@
             isLoading = false;
         } catch (err) {
             console.error('Error loading tags:', err);
-            error = err.message || 'Failed to load tags';
+            error = (err as Error).message || 'Failed to load tags';
             isLoading = false;
         }
     }
@@ -193,7 +193,7 @@
             isSaving = false;
         } catch (err) {
             console.error('Error saving tag:', err);
-            error = err.message || 'Failed to save tag';
+            error = (err as Error).message || 'Failed to save tag';
             isSaving = false;
         }
     }
@@ -224,7 +224,7 @@
             isSaving = false;
         } catch (err) {
             console.error('Error deleting tag:', err);
-            error = err.message || 'Failed to delete tag';
+            error = (err as Error).message || 'Failed to delete tag';
             isSaving = false;
         }
     }
@@ -274,7 +274,7 @@
             isSaving = false;
         } catch (err) {
             console.error('Error creating tag:', err);
-            error = err.message || 'Failed to create tag';
+            error = (err as Error).message || 'Failed to create tag';
             isSaving = false;
         }
     }

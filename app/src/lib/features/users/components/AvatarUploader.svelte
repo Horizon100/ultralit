@@ -3,8 +3,10 @@
     import { uploadAvatar } from '$lib/pocketbase';
     import { Camera, XCircle } from 'lucide-svelte';
     
-    // Let's not use the translation store directly since it's causing errors
-    // We'll use fallback texts instead
+    /*
+     * Let's not use the translation store directly since it's causing errors
+     * We'll use fallback texts instead
+     */
     
     export let userId: string;
     export let onSuccess: () => void = () => {};

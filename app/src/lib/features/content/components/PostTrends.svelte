@@ -29,23 +29,27 @@
     }
   ];
   
-  // Getting started steps
-  // export let gettingStarted = [
-  //   { step: $t('getting_started.create_project', 'Create your first project'), completed: false },
-  //   { step: $t('getting_started.start_thread', 'Start a conversation thread'), completed: false },
-  //   { step: $t('getting_started.try_prompts', 'Try out different prompt types'), completed: false },
-  //   { step: $t('getting_started.explore_canvas', 'Explore the canvas feature'), completed: false },
-  //   { step: $t('getting_started.invite_members', 'Invite team members'), completed: false }
-  // ];
+  /*
+   * Getting started steps
+   * export let gettingStarted = [
+   *   { step: $t('getting_started.create_project', 'Create your first project'), completed: false },
+   *   { step: $t('getting_started.start_thread', 'Start a conversation thread'), completed: false },
+   *   { step: $t('getting_started.try_prompts', 'Try out different prompt types'), completed: false },
+   *   { step: $t('getting_started.explore_canvas', 'Explore the canvas feature'), completed: false },
+   *   { step: $t('getting_started.invite_members', 'Invite team members'), completed: false }
+   * ];
+   */
   
-  // Sample trending topics - replace with real data later
-  // export let trendingTopics = [
-  //   { topic: '#AIRevolution', posts: '125K' },
-  //   { topic: '#TechInnovation', posts: '89K' },
-  //   { topic: '#MachineLearning', posts: '67K' },
-  //   { topic: '#DigitalTransformation', posts: '45K' },
-  //   { topic: '#FutureOfWork', posts: '34K' }
-  // ];
+  /*
+   * Sample trending topics - replace with real data later
+   * export let trendingTopics = [
+   *   { topic: '#AIRevolution', posts: '125K' },
+   *   { topic: '#TechInnovation', posts: '89K' },
+   *   { topic: '#MachineLearning', posts: '67K' },
+   *   { topic: '#DigitalTransformation', posts: '45K' },
+   *   { topic: '#FutureOfWork', posts: '34K' }
+   * ];
+   */
   
   // Sample suggested users - replace with real data later
   export let suggestedUsers = [

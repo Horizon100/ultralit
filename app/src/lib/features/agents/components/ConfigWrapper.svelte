@@ -43,7 +43,7 @@
 		deleteWorkshop,
 		updateWorkshop
 	} from '$lib/clients/workshopClient';
-	import {  } from '$lib/pocketbase';
+	import { } from '$lib/pocketbase';
 
 	import Builder from '$lib/features/canvas/components/Builder.svelte';
 	import DefaultAvatar from '$lib/features/users/components/DefaultAvatar.svelte';
@@ -518,7 +518,8 @@
 		align-items: center;
 		margin-left: auto;
 		margin-right: auto;
-		width: 50vw;
+		width: 100%;
+		max-width: 800px;
 		left: 4rem;
 		bottom: 0;
 		height: auto;

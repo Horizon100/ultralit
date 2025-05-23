@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
    } catch (err) {
        console.error('API keys/messages: Error creating message:', err);
        const statusCode = err.status || 400;
-       const message = err.message || 'Failed to create message';
+       const message = (err as Error).message || 'Failed to create message';
        return json({ success: false, message }, { status: statusCode });
    }
 };

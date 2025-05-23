@@ -224,7 +224,7 @@ export function createThreadsStore() {
     searchedThreads,
     selectedUserIds,
     availableUsers,
-    showThreadList,  // Export the dedicated derived store
+    showThreadList, // Export the dedicated derived store
     
     toggleThreadList: () => {
       update((state) => {

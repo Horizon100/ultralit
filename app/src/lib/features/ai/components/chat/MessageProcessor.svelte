@@ -18,8 +18,10 @@
 
   // Process a message to automatically wrap important terms in <strong> tags
   function processMessageContent(content: string): string {
-    // This is a simplified example. You might want to use more sophisticated methods
-    // like NLP to identify important terms in the message
+    /*
+     * This is a simplified example. You might want to use more sophisticated methods
+     * like NLP to identify important terms in the message
+     */
     
     // Example: Wrap words with initial capital letters that are likely to be important terms
     return content.replace(/\b([A-Z][a-z]{2,})\b/g, '<strong>$1</strong>');

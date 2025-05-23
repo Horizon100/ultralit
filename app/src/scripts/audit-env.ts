@@ -9,13 +9,13 @@ const rootDir = path.join(__dirname, '../..');
 
 // Improved patterns to match SvelteKit's env usage patterns
 const ENV_PATTERNS = [
-  /import\.meta\.env\.([A-Za-z0-9_]+)/g,        // import.meta.env.VITE_*
-  /process\.env\.([A-Za-z0-9_]+)/g,              // process.env.*
-  /\$env\/([a-z]+)\/([A-Za-z0-9_]+)/g,           // $env/*/VARIABLE
-  /env\.([A-Za-z0-9_]+)/g,                       // env.VARIABLE (if using an env object)
-  /PUBLIC_([A-Za-z0-9_]+)/g,                     // PUBLIC_* variables
-  /VITE_([A-Za-z0-9_]+)/g,                       // VITE_* variables
-  /env:([A-Za-z0-9_]+)/g,                        // env:VARIABLE (in YAML or similar)
+  /import\.meta\.env\.([A-Za-z0-9_]+)/g, // import.meta.env.VITE_*
+  /process\.env\.([A-Za-z0-9_]+)/g, // process.env.*
+  /\$env\/([a-z]+)\/([A-Za-z0-9_]+)/g, // $env/*/VARIABLE
+  /env\.([A-Za-z0-9_]+)/g, // env.VARIABLE (if using an env object)
+  /PUBLIC_([A-Za-z0-9_]+)/g, // PUBLIC_* variables
+  /VITE_([A-Za-z0-9_]+)/g, // VITE_* variables
+  /env:([A-Za-z0-9_]+)/g, // env:VARIABLE (in YAML or similar)
   /["']?([A-Za-z0-9_]+)["']?\s*:\s*process\.env\.([A-Za-z0-9_]+)/g // { API_KEY: process.env.API_KEY }
 ];
 

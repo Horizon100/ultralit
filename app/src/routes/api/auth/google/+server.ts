@@ -65,7 +65,7 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({
       success: true,
       authUrl: authUrl.toString(),
-      originalProvider: googleProvider  // Include this for debugging
+      originalProvider: googleProvider // Include this for debugging
     });
   } catch (error) {
     console.error('Google authentication error:', error);

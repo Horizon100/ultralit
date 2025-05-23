@@ -350,8 +350,10 @@ async function ensureThreadExists(projectId: string): Promise<string> {
       return threads[0].id;
     }
     
-    // The endpoint automatically creates a default thread if none exist
-    // So this should not happen, but we can trigger it again
+    /*
+     * The endpoint automatically creates a default thread if none exist
+     * So this should not happen, but we can trigger it again
+     */
     const newResult = await fetch(`/api/projects/${projectId}/threads`);
     const newData = await newResult.json();
     const newThreads = newData.threads || newData.data || [];
@@ -508,7 +510,7 @@ async function ensureThreadExists(projectId: string): Promise<string> {
               {:else if projectDescription}
               {#if $showThreadList}
               {:else}
-                <div class="project-modals"  transition:slide={{ duration: 150 }}>
+                <div class="project-modals" transition:slide={{ duration: 150 }}>
 
                   <div class="project-description-container"
                   class:expanded={isExpandedContent}

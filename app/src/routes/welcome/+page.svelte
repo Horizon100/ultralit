@@ -99,8 +99,10 @@
 		}
 	}
 	function handlePlanClick(planName: string, e: Event) {
-    // e.preventDefault();
-    // e.stopPropagation();
+    /*
+     * e.preventDefault();
+     * e.stopPropagation();
+     */
     
     localStorage.setItem('selectedPlan', planName.toLowerCase());
     

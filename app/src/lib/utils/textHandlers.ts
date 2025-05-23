@@ -71,7 +71,7 @@ export function processWordMinimize(str: string): string {
         'into': '<span class="minimized-symbol">→</span>'
     };
     
-    let result = [];
+    const result = [];
     let applyStyleToNext = false;
     
     for (let i = 0; i < parts.length; i++) {

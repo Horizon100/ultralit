@@ -22,11 +22,12 @@
 		ArrowLeft
 	} from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
-	import type { AIAgent, AIModel, Actions } from '$lib/types/types';
+	import type { AIAgent, AIModel, Actions, ProviderType } from '$lib/types/types';
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
-	import { currentUser } from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl, getFileUrl} from '$lib/pocketbase';
+	import PocketBase from 'pocketbase';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
 	import { goto } from '$app/navigation';
@@ -44,6 +45,7 @@
 
 	let availableModels: AIModel[] = [];
 	let availableActions: Actions[] = [];
+	let selectedProvider: ProviderType | null = null;
 
 	// Form fields
 	let agentName = '';
@@ -62,6 +64,7 @@
 	let selectedTags: string[] = [];
 	let showFilters = false;
 	let selectedAIModel: AIModel = 'gpt-3.5-turbo'; // Set a default value
+const pb = new PocketBase(pocketbaseUrl);
 
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
@@ -94,6 +97,33 @@
 		assistant: HeadphonesIcon,
 		moderator: AlertCircle
 	};
+
+	$: modelsByProvider = availableModels.reduce((acc, model) => {
+		if (!acc[model.provider]) {
+			acc[model.provider] = [];
+		}
+		acc[model.provider].push(model);
+		return acc;
+	}, {} as Record<ProviderType, AIModel[]>);
+	
+	// Get available providers
+	$: providers = Object.keys(modelsByProvider) as ProviderType[];
+	
+	// Set initial provider if none selected
+	$: if (!selectedProvider && providers.length > 0) {
+		selectedProvider = providers[0];
+	}
+	function toggleModel(modelId: string) {
+		if (agentModel.includes(modelId)) {
+			agentModel = agentModel.filter(id => id !== modelId);
+		} else {
+			agentModel = [...agentModel, modelId];
+		}
+	}
+	
+	function selectProvider(provider: ProviderType) {
+		selectedProvider = provider;
+	}
 
 	function toggleFilters() {
 		showFilters = !showFilters;
@@ -229,14 +259,14 @@
 		agentActions = [];
 	}
 
-	function toggleModel(modelId: string) {
-		const index = agentModel.indexOf(modelId);
-		if (index === -1) {
-			agentModel = [...agentModel, modelId];
-		} else {
-			agentModel = agentModel.filter((id) => id !== modelId);
-		}
-	}
+	// function toggleModel(modelId: string) {
+	// 	const index = agentModel.indexOf(modelId);
+	// 	if (index === -1) {
+	// 		agentModel = [...agentModel, modelId];
+	// 	} else {
+	// 		agentModel = agentModel.filter((id) => id !== modelId);
+	// 	}
+	// }
 
 	function toggleAction(actionId: string) {
 		const index = agentActions.indexOf(actionId);
@@ -299,7 +329,7 @@
 
 	function getAvatarUrl(agent: AIAgent): string {
 		if (agent.avatar) {
-			return pb.getFileUrl(agent, agent.avatar);
+			return getFileUrl(agent, agent.avatar, 'ai_agents');
 		}
 		return '';
 	}
@@ -316,63 +346,70 @@
 		if (uploadInput) uploadInput.click();
 	}
 
-	async function handleSubmit() {
-		if (!agentName || !selectedRole) {
-			updateStatus = 'Please fill in all required fields.';
-			return;
+
+async function handleSubmit() {
+	if (!agentName || !selectedRole) {
+		updateStatus = 'Please fill in all required fields.';
+		return;
+	}
+
+	const agentData: Partial<AIAgent> = {
+		name: agentName,
+		description: agentDescription,
+		max_attempts: agentMaxAttempts,
+		user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
+		prompt: agentPrompt,
+		model: agentModel,
+		actions: agentActions,
+		role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+		status: 'inactive',
+		tags: selectedTags
+	};
+
+	try {
+		console.log('Submitting agent data:', agentData);
+		if (selectedAgent) {
+			// For updates, use the updateAgent function from agentClient
+			const updatedAgent = await updateAgent(selectedAgent.id, avatarFile ? 
+				(() => {
+					const formData = new FormData();
+					if (avatarFile) formData.append('avatar', avatarFile);
+					for (const [key, value] of Object.entries(agentData)) {
+						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+					}
+					return formData;
+				})() : agentData
+			);
+			agentStore.updateAgent(selectedAgent.id, updatedAgent);
+		} else {
+			// For creation, use the createAgent function from agentClient
+			const newAgent = await createAgent(avatarFile ? 
+				(() => {
+					const formData = new FormData();
+					if (avatarFile) formData.append('avatar', avatarFile);
+					for (const [key, value] of Object.entries(agentData)) {
+						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+					}
+					return formData;
+				})() : agentData
+			);
+			agentStore.addAgent(newAgent);
 		}
-
-		const agentData: Partial<AIAgent> = {
-			name: agentName,
-			description: agentDescription,
-			max_attempts: agentMaxAttempts,
-			user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
-			prompt: agentPrompt,
-			model: agentModel,
-			actions: agentActions,
-			role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
-			status: 'inactive',
-			tags: selectedTags
-		};
-
-		try {
-			console.log('Submitting agent data:', agentData);
-			if (selectedAgent) {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				await updateAgent(selectedAgent.id, formData);
-			} else {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				const newAgent = await createAgent(formData);
-				agentStore.addAgent(newAgent);
-			}
-			showCreateForm = false;
-			selectedAgent = null;
-			resetForm();
-			avatarFile = null;
-			await loadAgents();
-		} catch (error) {
-			console.error('Error saving agent:', error);
-			if (error instanceof ClientResponseError) {
-				console.error('Response data:', error.data);
-				console.error('Status code:', error.status);
-			} else if (error instanceof Error) {
-				console.error('Error message:', error.message);
-			}
+		showCreateForm = false;
+		selectedAgent = null;
+		resetForm();
+		avatarFile = null;
+		await loadAgents();
+	} catch (error) {
+		console.error('Error saving agent:', error);
+		if (error instanceof Error) {
+			updateStatus = `Error saving agent: ${error.message}`;
+		} else {
 			updateStatus = 'Error saving agent. Please try again.';
 		}
 	}
+}
+
 
 	function showRoleInfo() {
 		// Implement role info modal or tooltip
@@ -449,6 +486,13 @@
 				<div class="filter-container">
 					<div class="filter-group">
 						<div class="filter-row">
+							<button
+								class="filter-button"
+								class:active={!selectedRole}
+								on:click={() => (selectedRole = null)}
+							>
+								Reset roles
+							</button>
 							{#each roles as role}
 								<button
 									class="filter-button"
@@ -459,18 +503,19 @@
 									<span>{role}</span>
 								</button>
 							{/each}
-							<button
-								class="filter-button"
-								class:active={!selectedRole}
-								on:click={() => (selectedRole = null)}
-							>
-								Reset roles
-							</button>
+
 						</div>
 					</div>
 
 					<div class="filter-group">
 						<div class="filter-row">
+							<button
+								class="filter-button"
+								class:active={!selectedStatus}
+								on:click={() => (selectedStatus = null)}
+							>
+								Reset
+							</button>
 							{#each statuses as status}
 								<button
 									class="filter-button status-{status}"
@@ -483,13 +528,7 @@
 									{/if}
 								</button>
 							{/each}
-							<button
-								class="filter-button"
-								class:active={!selectedStatus}
-								on:click={() => (selectedStatus = null)}
-							>
-								Reset
-							</button>
+
 						</div>
 					</div>
 
@@ -545,6 +584,7 @@
 		<div class="column form-column" transition:fly={{ x: 300, duration: 300 }}>
 			<div class="form-content">
 				<div class="form-group header-row">
+					<h3>{selectedAgent ? 'Edit Agent' : 'Create New Agent'}</h3>
 					<div class="avatar-upload" on:click={triggerAvatarUpload}>
 						<div class="avatar-preview">
 							{#if avatarFile}
@@ -566,16 +606,15 @@
 							style="display: none;"
 						/>
 					</div>
-					<h3>{selectedAgent ? 'Edit Agent' : 'Create New Agent'}</h3>
 				</div>
-
-				<div class="form-group">
+				
+				<div class="form-group input">
 					<label for="agentPrompt">PROMPT</label>
 					<textarea id="agentPrompt" bind:value={agentPrompt} placeholder="Enter agent prompt..."
 					></textarea>
 				</div>
 				<hr />
-				<div class="form-group">
+				<div class="form-group input">
 					<label for="agentName">NAME</label>
 					<input
 						type="text"
@@ -585,7 +624,7 @@
 					/>
 				</div>
 
-				<div class="form-group">
+				<div class="form-group input">
 					<label for="agentDescription">DESCRIPTION</label>
 					<textarea
 						id="agentDescription"
@@ -594,7 +633,7 @@
 					></textarea>
 				</div>
 
-				<div class="form-group">
+				<div class="form-group input">
 					<label for="agentMaxAttempts">MAX ATTEMPTS {agentMaxAttempts}</label>
 					<input
 						type="range"
@@ -614,22 +653,42 @@
 					</select>
 				</div>
 
-				<div class="form-group">
+				<div class="form-group models">
 					<label>MODEL</label>
-					<div class="checkbox-group">
-						{#each availableModels as model (model.id)}
-							<label>
-								<input
-									type="checkbox"
-									checked={agentModel.includes(model.id)}
-									on:change={() => toggleModel(model.id)}
-								/>
-								{model.name}
-							</label>
+					
+					<!-- Provider Tabs -->
+					<div class="provider-tabs">
+						{#each providers as provider (provider)}
+							<button
+								type="button"
+								class="provider-tab"
+								class:active={selectedProvider === provider}
+								on:click={() => selectProvider(provider)}
+							>
+								{provider.charAt(0).toUpperCase() + provider.slice(1)}
+							</button>
 						{/each}
 					</div>
+					
+					<!-- Models for Selected Provider -->
+					{#if selectedProvider && modelsByProvider[selectedProvider]}
+						<div class="models-grid">
+							{#each modelsByProvider[selectedProvider] as model (model.id)}
+								<button
+									type="button"
+									class="model-button"
+									class:selected={agentModel.includes(model.id)}
+									on:click={() => toggleModel(model.id)}
+								>
+									<span class="model-name">{model.name}</span>
+									{#if model.description}
+										<span class="model-description">{model.description}</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
-
 				<div class="form-group">
 					<label>ACTIONS</label>
 					<div class="action-grid">
@@ -639,7 +698,11 @@
 								class:selected={agentActions.includes(action.id)}
 								on:click={() => toggleAction(action.id)}
 							>
-								{action.name}
+								<h4>
+									{action.name}
+								</h4>
+								{action.description}
+
 							</button>
 						{/each}
 					</div>
@@ -782,19 +845,24 @@
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+    $breakpoint-sm: 576px;
+    $breakpoint-md: 1000px;
+    $breakpoint-lg: 992px;
+    $breakpoint-xl: 1200px;
+    @use "src/styles/themes.scss" as *;
+    * {
+      font-family: var(--font-family);
+    }   	
 	.agents-config {
 		display: flex;
 		gap: 0;
-		overflow: hidden;
-		height: 92vh;
 		z-index: 1000;
 		width: 100%;
 		backdrop-filter: blur(20px);
 	}
 
 	.column {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
 		/* width: 500px; */
@@ -807,36 +875,45 @@
 		flex-direction: column;
 		/* align-items: flex-start; */
 		height: 100%;
+		width: 100%;
 		overflow-y: auto;
 		overflow-x: hidden;
 		scrollbar-width: thin;
-		scrollbar-color: gray transparent;
+		scrollbar-color: var(--secondary-color) transparent;
 	}
 
 	.form-column {
 		display: flex;
 		flex-direction: column;
+		justify-content: flex-start;
+		position: absolute;
 		/* padding: 20px; */
-		height: 99%;
+		height: calc(100% - 6rem);
+		width: calc(100% - 3rem);
+		top: 0;
+		left: 2rem;
+		background: var(--bg-gradient-r);
+		overflow-y: hidden;
+		border-radius: 2rem;
+		border: 1px solid var(--line-color);
 		/* width: auto; */
 
 		/* width: 70vh; */
 	}
 
 	.form-content {
-		flex-grow: 1;
-		overflow: hidden;
+
 		/* background: linear-gradient(to bottom, #2c3e50, #4ca1af);  */
 		/* background: linear-gradient(to bottom, #e6f3ff, #759ca2); */
-		padding: 20px;
 		background-color: transparent;
-		border-radius: 20px;
+
 		/* border-left: 3px solid #323232;
 		border-bottom: 3px solid #323232;
 		border-top: 3px solid #323232; */
 		/* height: 80vh; */
-		margin-top: 10px;
-		width: 100%;
+		display: flex;
+		flex-direction: column;
+		width: 90%;
 	}
 
 	.generator-content {
@@ -857,65 +934,203 @@
 	}
 
 	.form-group {
-		margin-bottom: 20px;
-		padding: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		z-index: 1000;
+	}
+	.form-group.input {
+		display: flex;
+		flex-direction: row !important;
+		width: 100%;
+		& input {
+			width: 100%;
+
+		}
+		& label {
+			position: absolute;
+			transform: translateY(-0.75rem);
+			color: var(--placeholder-color);
+
+
+		}
+	}
+	.form-group.models {
+		flex-direction: column !important;
+
+
+	}
+	.form-group label {
+		display: flex;
+		width: auto !important;
+		max-width: 200px;
+		margin: 0;
+		padding: 0;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		font-size: 0.7rem;
+		color: var(--text-color);
 	}
 
+	.provider-tabs {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: stretch;
+		gap: 0.5rem;
+	}
+	
+		.provider-tab {
+			display: flex;
+					flex-grow: 1;
+
+			flex-direction: row;
+			width: auto;
+		padding: 0.5rem 1rem;
+		background: var(--secondary-color);
+		border: 1px solid var(--line-color);
+		border-radius: 1rem;
+		color: var(--placeholder-color);
+		opacity: 0.5;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+	
+	.provider-tab:hover {
+		background: var(--secondary-color);
+		border-color: var(--primary-color);
+	}
+	
+	.provider-tab.active {
+		background: var(--primary-color);
+		border-color: var(--primary-color);
+		color: white;
+				opacity: 1;
+
+	}
+	.models-grid {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+		align-items: stretch;
+		gap: 0.5rem;
+		max-height: 200px;
+		overflow-x: auto;
+	}
+	
+	.model-button {
+		padding: 0.5rem;
+		background: var(--bg-color);
+		border: 1px solid var(--line-color);
+		border-radius: 0.5rem;
+		color: var(--text-color);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		text-align: left;
+		display: flex;
+		flex-grow: 1;
+			justify-content: flex-start;
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.25rem;
+		width: 100px;
+	}
+	
+	.model-button:hover {
+		background: var(--secondary-color);
+		border-color: var(--primary-color);
+		transform: translateY(-1px);
+	}
+	
+	.model-button.selected {
+		background: var(--primary-color);
+		border-color: var(--primary-color);
+		color: white;
+	}
+	
+	.model-name {
+		font-weight: 600;
+		font-size: 0.875rem;
+	}
+	
+	.model-description {
+		font-size: 0.75rem;
+		opacity: 0.8;
+		line-height: 1.3;
+	}
+	
+	.model-button.selected .model-description {
+		opacity: 0.9;
+	}
 	label {
 		display: flex;
 		justify-content: space-between;
 		font-weight: bold;
-		margin-bottom: 5px;
-		color: #4d4d4d;
-		font-size: 16px;
+		color: var(--placeholder-color);
+		font-size: 0.9rem;
 	}
 
 	input[type='text'],
 	input[type='password'] {
 		width: 100%;
-		padding: 10px;
+		padding: 0.5rem;
 		border: none;
-		border-radius: 50px;
-		font-size: 20px;
-		background-color: transparent;
+		border-radius: 1rem;
+		font-size: 1rem;
+		color: var(--text-color);
+		background-color: var(--primary-color);
 	}
 
-	select {
-		/* width: 100%; */
-		padding: 20px;
-		background-color: #323232;
-		border-radius: 14px;
-		font-size: 16px;
-		width: 100%;
-		color: gray;
-		border: none;
-	}
+    @supports (-webkit-appearance: none) {
+
+    select {
+        -webkit-appearance: none;
+        background: var(--secondary-color);
+        background-size: 1.25rem !important;
+
+    }
+    }
+    select {
+        padding: 0.5rem;
+        border: 1px solid var(--line-color);
+        background: var(--bg-color);
+        color: var(--text-color);
+        font-size: 1rem;
+        width: auto;
+		height: 3rem;
+        border-radius: 1rem;
+        transition: all 0.3s ease-in;
+        &:hover {
+            background: var(--secondary-color);
+            cursor: pointer;
+        }
+        }
 
 	textarea {
 		/* height: 100px; */
 		width: 100%;
-		padding: 10px;
+		padding: 0.5rem;
 		border: none;
-		font-size: 20px;
-		background: radial-gradient(
-			circle at left,
-			rgba(255, 255, 255, 0.2) 0%,
-			rgba(255, 255, 255, 0) 90%
-		);
+		font-size: 1rem;
+		background: var(--primary-color);
 		resize: none;
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-		border-radius: 14px;
+		border-radius: 1rem;
+		color: var(--text-color);
 	}
 
 	.button-grid {
-		display: grid;
-		grid-template-columns: repeat(
-			auto-fill,
-			minmax(140px, 1fr)
-		); /* Smaller min size for better responsiveness */
-		grid-template-rows: repeat(4, 1fr); /* Creates two equal-height rows */
-		gap: 20px;
-		padding: 10px;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: flex-start;
+		height: 90vh;
+		width: 100%;
+		gap: 0.5rem;
+		padding: 0.5rem;
 		/* border-radius: 12px; */
 		/* max-width: 300px; */
 		/* background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 90%); */
@@ -923,7 +1138,6 @@
 		overflow-y: auto;
 		overflow-x: hidden;
 		background-color: #333333;
-		width: 50%;
 
 		/* max-height: 80vh; Limits the height to prevent excessive scrolling */
 	}
@@ -932,12 +1146,12 @@
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;
-		position: fixed;
-		bottom: 40px;
+		position: relative;
+		bottom: 0;
 		gap: 10px;
 		/* margin-top: 20px; */
 		width: 100%;
-		z-index: 2000;
+		z-index: 0;
 	}
 
 	button {
@@ -971,7 +1185,6 @@
 		border-radius: 50%;
 		display: flex;
 		/* position: fixed; */
-		margin-bottom: 100px;
 		/* bottom: calc(20% + 64px); */
 		/* left: calc(26% - 35px); */
 	}
@@ -993,8 +1206,6 @@
 		height: 70px;
 		border-radius: 50%;
 		display: flex;
-		position: fixed;
-		margin-right: 40px;
 		right: 0;
 	}
 
@@ -1004,25 +1215,26 @@
 	}
 
 	.create-button {
-		background-color: #4caf50;
-		color: white;
+		background-color: var(--secondary-color);
+		color: var(--tertiary-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 20px;
+		border-radius: 50%;
 		border: none; /* Optional */
-		padding: 10px;
+		padding: 0.5rem;
+		width: 3rem;
+		height: 3rem;
 		cursor: pointer;
 	}
 
 	.create-button:hover {
-		background-color: #45a049;
+		background: var(--primary-color);
 	}
 
 	.container-row {
 		display: flex;
 		flex-direction: row;
-		margin-top: 20px;
 		justify-content: space-between;
 		/* margin-right: 50px; */
 		align-items: flex-start;
@@ -1042,7 +1254,7 @@
 		font-size: 16px;
 		padding: 5px;
 		width: 70%;
-		border: 1px solid #4b4b4b;
+		border: 1px solid var(--line-color);
 		border-radius: 14px;
 	}
 
@@ -1058,13 +1270,15 @@
 	.agent-item {
 		display: flex;
 		flex-direction: column;
+		min-width: 100px;
+		max-width: 150px;
 		/* height: 340px; */
 		justify-content: space-between;
 		align-items: center;
 		/* border-bottom: 2px solid rgb(84, 84, 84); */
-		background-color: #282828;
-		border: 1px solid #4b4b4b;
-		border-radius: 14px;
+		background-color: var(--primary-color);
+		border: 1px solid var(--line-color);
+		border-radius: 1rem;
 		/* height: 200px; */
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 		/* padding: 20px; */
@@ -1079,7 +1293,35 @@
 		cursor: pointer;
 		opacity: 1;
 	}
+	.action-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		& .action-button {
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			align-items: flex-start;
+			padding: 0.5rem;
+			margin: 0;
+			width: 100%;
+			height: auto;
+			text-align: left;
+			background: var(--bg-color);
+			&:hover {
+				background: var(--primary-color);
+			}
 
+			& h4 {
+				color: var(--tertiary-color);
+				margin: 0;
+				padding: 0;
+				width: 100%;
+
+			}
+			
+		}
+	}
 	.delete-button,
 	.mini-button {
 		background-color: transparent;
@@ -1118,14 +1360,16 @@
 
 	hr {
 		border: 0;
-		border-top: 2px solid rgb(108, 108, 108);
 		margin: 0;
 	}
 
 	.header-row {
 		display: flex;
+		flex-direction: row;
 		align-items: center;
-		gap: 20px;
+		justify-content: space-between;
+		margin: 0;
+		padding: 0;
 	}
 
 	.avatar-container {
@@ -1227,7 +1471,7 @@
 		display: flex;
 		bottom: 180px;
 		left: 30%;
-		color: gray;
+		color: var(--text-color);
 		/* width: calc(100vh - 40px); */
 		/* height: 50px; */
 		display: flex;
@@ -1235,26 +1479,31 @@
 		gap: 1rem;
 		padding: 10px;
 		border-radius: 20px;
-		background-color: #1f1f1f;
+		background: var(--primary-color);
 		z-index: 1002;
 		background-color: rgb(58, 50, 50);
 		width: 100%;
-		background-image: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
 	}
 
 	.sort-container {
 		display: flex;
+		height: 3rem;
+		padding: 0;
+		margin: 0;
 		/* align-items: center; */
 		/* margin-bottom: 10px; */
 		/* width: 50%;; */
 	}
 
+
 	.options {
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
-		gap: 10px;
+		align-items: center;
+		gap: 0.5rem;
 		width: 100%;
+		height: auto;
 	}
 
 	.filter-section {
@@ -1264,7 +1513,6 @@
 		left: 0;
 		bottom: 5rem;
 		position: absolute;
-		background-color: red;
 		width: calc(50% - 80px);
 		/* padding: 20px; */
 	}
@@ -1276,48 +1524,58 @@
 
 	.filter-container {
 		display: flex;
-		flex-direction: row;
-		gap: 10px;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0;
 	}
 
 	.filter-row {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		margin-bottom: 15px;
+		justify-content: flex-start;
+		align-items: flex-start;
+		padding: 0.5rem;
+
 	}
+
+
 
 	.filter-button,
 	.tag-button {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 5px;
-		width: auto;
-		padding: 10px 10px;
-		color: #707070;
+		gap: 0.5rem;
+		width: auto !important;
+		padding: 0.25rem;
+		margin-left: 0.25rem;
+		margin-right: 0.25rem;
 		cursor: pointer;
 		transition: all 0.3s ease;
-		color: gray;
+		color: var(--placeholder-color);
 		user-select: none;
+		font-size: 0.8rem;
 
-		background-color: #323232;
+		background-color: var(--bg-color);
 		border: none;
-		border-radius: 14px;
+		border-radius: 0.5rem;
 		cursor: pointer;
-		transition: background-color 0.3s;
+		transition: all 0.3s ease;
 		/* width: 50%; */
 	}
 
 	.filter-button:hover,
 	.tag-button:hover {
-		background-color: #616161;
+		background-color: var(--primary-color);
+		color: var(--text-color);
 	}
 
 	.filter-button.active,
 	.tag-button.active {
-		background-color: #1f1f1f;
-		color: white;
+		background-color: var(--secondary-color);
+		color: var(--tertiary-color);
 	}
 
 	.status-active {
@@ -1361,12 +1619,7 @@
 	}
 
 	.tag-input {
-		margin-bottom: 10px;
-		background: radial-gradient(
-			circle at left,
-			rgba(255, 255, 255, 0.2) 0%,
-			rgba(255, 255, 255, 0) 90%
-		);
+
 	}
 
 	.tag-list {
@@ -1387,8 +1640,8 @@
 
 	.avatar-upload {
 		position: relative;
-		width: 80px;
-		height: 80px;
+		width: 3rem;
+		height: 3rem;
 		cursor: pointer;
 	}
 
@@ -1493,11 +1746,12 @@
 		/* display: flex; */
 		/* align-items: center; */
 		gap: 5px;
-		padding: 8px 12px;
-		background-color: #323232;
-		color: gray;
+		padding: 0.5rem;
+		background-color: var(--bg-color);
+		color: var(--placeholder-color);
 		border: none;
-		border-radius: 14px;
+		border-radius: 0.5rem;
+		height: 3rem;
 		cursor: pointer;
 		transition: background-color 0.3s;
 		width: 100px;
@@ -1513,22 +1767,26 @@
 
 	.filter-group {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		justify-content: center;
-		gap: 10px;
+		gap: 0.5rem;
 		/* border-left: 1px solid #4b4b4b; */
-		padding: 10px;
-		background-image: linear-gradient(to bottom, rgba(254, 254, 254, 0.9), rgba(0, 0, 0, 0));
-		border-radius: 10px;
+		flex: 0;
+		backdrop-filter: blur(10px);
+
 	}
 
 	.filter-row,
 	.tag-filter {
 		display: flex;
-		flex-direction: column;
-		/* flex-wrap: wrap; */
-		justify-content: center;
-		gap: 10px;
+		flex-direction: row;
+		width: auto;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+		align-items: stretch;
+		gap: 0.5rem;
+		background: var(--secondary-color);
+		border-radius: 1rem;
 	}
 
 	p {
@@ -1552,7 +1810,6 @@
 
 		.agent-item {
 			width: 70px;
-			height: 100%;
 			/* border-radius: 50%; */
 		}
 
@@ -1576,12 +1833,7 @@
 		}
 
 		.button-grid {
-			display: grid;
-			grid-template-columns: repeat(
-				auto-fill,
-				minmax(140px, 1fr)
-			); /* Smaller min size for better responsiveness */
-			grid-auto-rows: 1fr;
+
 			gap: 20px;
 			/* padding: 20px; */
 			border-radius: 12px;

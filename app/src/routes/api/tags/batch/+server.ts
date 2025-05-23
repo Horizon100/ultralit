@@ -29,8 +29,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
             return json({ items: [] });
         }
         
-        // Fetch tasks by ID with access control
-        // First, get all tasks by ID
+        /*
+         * Fetch tasks by ID with access control
+         * First, get all tasks by ID
+         */
         const tasks = await pb.collection('tasks').getList(1, idArray.length, {
             filter: idArray.map(id => `id="${id}"`).join(' || '),
             expand: 'project_id'

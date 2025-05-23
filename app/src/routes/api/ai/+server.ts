@@ -129,7 +129,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             const promptInput = messages[0]?.prompt_input;
             
             if (promptType || promptInput) {
-                let systemParts = [];
+                const systemParts = [];
                 
                 if (promptType) {
                     systemParts.push(`You are an AI assistant using the ${promptType} prompt style. Format your responses accordingly.`);

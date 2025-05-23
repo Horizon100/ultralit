@@ -1,4 +1,4 @@
-import {  } from '../pocketbase';
+import { } from '../pocketbase';
 import type { Folders, Notes, Attachment } from '$lib/types/types';
 
 export const notesClient = {

@@ -56,7 +56,6 @@
 	$: user = $currentUser;
 	$: folders = $notesStore.folders;
 	$: currentFolder = $notesStore.currentFolder;
-	$: currentNote = $notesStore.currentNote;
 	$: notes = $currentFolderNotes;
 	$: unassignedNotes = $notesStore.notes[''] || [];
 
@@ -151,10 +150,13 @@
 
 		if (prompt) {
 			try {
-				// Assuming you have a default AIModel object or a way to get the current AIModel
-				const currentAIModel: AIModel = getCurrentAIModel(); // You need to implement this function
+				const currentAIModel: AIModel = getCurrentAIModel();
 				const response = await fetchAIResponse(
-					[{ role: 'user', content: prompt }],
+					[{ 
+						role: 'user', 
+						content: prompt,
+						model: currentAIModel.id
+					}],
 					currentAIModel,
 					'user123'
 				);
@@ -315,7 +317,6 @@
 	}
 
 	function getCurrentAIModel(): AIModel {
-		// This is just a placeholder. You should implement the logic to get the current AIModel.
 		return {
 			id: 'default-model',
 			name: 'Default Model',
@@ -411,27 +412,29 @@
 		}
 	}
 
-	// async function handleDrop(event: DragEvent, targetFolder: Folders) {
-	// 	event.preventDefault();
-	// 	if (draggedItem) {
-	// 		if (draggedItem.isFolder) {
-	// 			const draggedFolder = draggedItem.item as Folders;
-	// 			if (draggedFolder.id !== targetFolder.id && !isDescendant(targetFolder, draggedFolder)) {
-	// 				await notesStore.updateFolder(draggedFolder.id, { parentId: targetFolder.id });
-	// 			}
-	// 		} else {
-	// 			const draggedNote = draggedItem.item as Notes;
-	// 			if (draggedNote.folder !== targetFolder.id) {
-	// 				await notesStore.updateNote(draggedNote.id, { folder: targetFolder.id });
-	// 				// Refresh the notes for both the source and target folders
-	// 				await notesStore.loadNotes(draggedNote.folder);
-	// 				await notesStore.loadNotes(targetFolder.id);
-	// 			}
-	// 		}
-	// 	}
-	// 	dragOverFolder = null;
-	// 	draggedItem = null;
-	// }
+	/*
+	 * async function handleDrop(event: DragEvent, targetFolder: Folders) {
+	 * 	event.preventDefault();
+	 * 	if (draggedItem) {
+	 * 		if (draggedItem.isFolder) {
+	 * 			const draggedFolder = draggedItem.item as Folders;
+	 * 			if (draggedFolder.id !== targetFolder.id && !isDescendant(targetFolder, draggedFolder)) {
+	 * 				await notesStore.updateFolder(draggedFolder.id, { parentId: targetFolder.id });
+	 * 			}
+	 * 		} else {
+	 * 			const draggedNote = draggedItem.item as Notes;
+	 * 			if (draggedNote.folder !== targetFolder.id) {
+	 * 				await notesStore.updateNote(draggedNote.id, { folder: targetFolder.id });
+	 * 				// Refresh the notes for both the source and target folders
+	 * 				await notesStore.loadNotes(draggedNote.folder);
+	 * 				await notesStore.loadNotes(targetFolder.id);
+	 * 			}
+	 * 		}
+	 * 	}
+	 * 	dragOverFolder = null;
+	 * 	draggedItem = null;
+	 * }
+	 */
 
 	function isDescendant(potentialParent: Folders, folder: Folders): boolean {
 		let current = folder;
@@ -456,11 +459,13 @@
 		contextMenuPosition = { x: event.clientX, y: event.clientY };
 	}
 
-	// function hideContextMenu() {
-	// 	contextMenuFolder = null;
-	// 	contextMenuNote = null;
-	// 	contextMenuPosition = null;
-	// }
+	/*
+	 * function hideContextMenu() {
+	 * 	contextMenuFolder = null;
+	 * 	contextMenuNote = null;
+	 * 	contextMenuPosition = null;
+	 * }
+	 */
 
 	function handleFolderContextMenuAction(action: 'add' | 'rename' | 'delete') {
 		if (!contextMenuFolder) return;

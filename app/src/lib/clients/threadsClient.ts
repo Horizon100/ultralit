@@ -480,7 +480,7 @@ export async function addMessageToThread(
         console.log('User sysprompt_preference:', user?.sysprompt_preference);
         console.log('User prompt_preference:', user?.prompt_preference);
         
-        let processedMessage = { ...message };
+        const processedMessage = { ...message };
         
         if (user) {
             if (user.sysprompt_preference) {

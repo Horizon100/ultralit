@@ -99,9 +99,11 @@
     }
   }
 
-  // Remove these unused functions since we're using the findUserByIdentifier approach
-  // async function fetchUserByEmail(email: string): Promise<User | null> { ... }
-  // async function fetchUserByName(name: string): Promise<User | null> { ... }
+  /*
+   * Remove these unused functions since we're using the findUserByIdentifier approach
+   * async function fetchUserByEmail(email: string): Promise<User | null> { ... }
+   * async function fetchUserByName(name: string): Promise<User | null> { ... }
+   */
 
   let newCollaboratorName: string = '';
   async function findUserByIdentifier(identifier: string): Promise<User | null> {

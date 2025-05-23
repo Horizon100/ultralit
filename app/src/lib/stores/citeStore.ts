@@ -108,9 +108,11 @@ function createCiteStore() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Failed to save cite:', errorData.error || response.statusText);
-          // Optionally revert the local change if server update fails
-          // const currentState = get(store);
-          // applyCites(currentState.cite);
+          /*
+           * Optionally revert the local change if server update fails
+           * const currentState = get(store);
+           * applyCites(currentState.cite);
+           */
         }
       } catch (err) {
         console.error('Network error saving cite:', err);

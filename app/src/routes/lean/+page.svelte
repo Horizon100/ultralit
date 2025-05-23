@@ -59,15 +59,19 @@
     authError = false;
     
     try {
-      // Ensure user is authenticated
-      // const isAuthenticated = await ensureAuthenticated();
+      /*
+       * Ensure user is authenticated
+       * const isAuthenticated = await ensureAuthenticated();
+       */
       
-      // if (!isAuthenticated) {
-      //   console.error('Authentication failed');
-      //   authError = true;
-      //   isLoading = false;
-      //   return;
-      // }
+      /*
+       * if (!isAuthenticated) {
+       *   console.error('Authentication failed');
+       *   authError = true;
+       *   isLoading = false;
+       *   return;
+       * }
+       */
       
       // Update user variable with the authenticated user
       user = $currentUser;

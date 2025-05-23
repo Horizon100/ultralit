@@ -18,8 +18,10 @@ export async function initializePerksCollection() {
     
     if (!perksCollectionExists) {
       console.log('Creating perks collection');
-      // This would normally be done in PocketBase Admin UI
-      // For demo purposes, if you need to create via API:
+      /*
+       * This would normally be done in PocketBase Admin UI
+       * For demo purposes, if you need to create via API:
+       */
       await pb.collections.create({
         name: 'perks',
         schema: [

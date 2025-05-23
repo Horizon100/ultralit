@@ -459,7 +459,7 @@ function loadAllAvailableProviderModels() {
 							on:click|stopPropagation={() => handleDeleteAPIKey(expandedModelList)}
 							title="Delete {providers[expandedModelList].name} API key"
 						>
-							<Trash2 size={20}  />
+							<Trash2 size={20} />
 						</button>
 					{/if}
 					

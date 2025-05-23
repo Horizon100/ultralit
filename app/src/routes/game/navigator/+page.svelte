@@ -18,7 +18,7 @@
   
   // Grid configuration
   const GRID_SIZE = 64; // Size of each grid cell in pixels
-  const MAP_WIDTH = 50;  // Number of grid columns
+  const MAP_WIDTH = 50; // Number of grid columns
   const MAP_HEIGHT = 50; // Number of grid rows
   
   // Track if we're inside a building

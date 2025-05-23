@@ -89,7 +89,7 @@ function formatDateDisplay(date: Date | null): string {
             isLoading.set(false);
         } catch (err: any) {
             console.error('Error loading data:', err);
-            error.set(err.message || 'Failed to load data');
+            error.set(err instanceof Error ? err.message : 'Failed to load data');
             isLoading.set(false);
         }
     }
@@ -243,8 +243,10 @@ function updateMonthGroups() {
     // Get last day of month
     const lastDay = new Date(year, month + 1, 0);
     
-    // Get day of week of first day (0 = Sunday, 6 = Saturday)
-    // Convert to Monday = 0, Sunday = 6 format
+    /*
+     * Get day of week of first day (0 = Sunday, 6 = Saturday)
+     * Convert to Monday = 0, Sunday = 6 format
+     */
     const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
     
     // Create array of days

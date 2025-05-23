@@ -73,7 +73,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             throw error(404, 'Thread not found');
         }
         
-        const message = err.message || 'Failed to fetch thread';
+        const message = (err as Error).message || 'Failed to fetch thread';
         throw error(400, message);
     }
 };

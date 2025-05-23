@@ -4,10 +4,12 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
   try {
-    // Allow fetching user profile even without authentication
-    // This is important for model initialization which needs the user preferences
+    /*
+     * Allow fetching user profile even without authentication
+     * This is important for model initialization which needs the user preferences
+     */
     const user = await pb.collection('users').getOne(params.id, {
-      expand: 'verification'  // If you have related data
+      expand: 'verification' // If you have related data
     });
 
     return json({
@@ -58,7 +60,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const contentType = request.headers.get('content-type') || '';
-    let updateData: Record<string, any> = {};
+    const updateData: Record<string, any> = {};
     
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();

@@ -153,11 +153,13 @@ export interface Threads extends RecordModel {
 	project?: string | null;
 
 
-	// currentThread: Threads | null;
-	// filteredThreads: Threads[];
-	// isEditingThreadName: boolean;
-	// editedThreadName: string;
-	// isNaming: boolean; 
+	/*
+	 * currentThread: Threads | null;
+	 * filteredThreads: Threads[];
+	 * isEditingThreadName: boolean;
+	 * editedThreadName: string;
+	 * isNaming: boolean; 
+	 */
 }
 export interface Tag extends RecordModel {
 	id: string;
@@ -277,6 +279,9 @@ export interface AIMessage {
 	prompt_type?: PromptType;
 	prompt_input?: string;
 }
+
+export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek';
+
 export interface AIModel extends RecordModel {
 	id: string;
 	name: string;
@@ -292,6 +297,10 @@ export interface AIModel extends RecordModel {
 	collectionId: string;
 	collectionName: string;
 }
+
+export interface AIResponse {
+	response: string;
+}
 export interface UserModelPreferences {
 	id: string;
 	user: string;
@@ -300,9 +309,7 @@ export interface UserModelPreferences {
 	created: string;
 	updated: string;
 }
-export interface AIResponse {
-	response: string;
-}
+
 export interface NodeConfig {
 	maxTokens: number;
 	temperature: number;
@@ -507,6 +514,7 @@ export interface Actions {
 	name: string;
 	description: string;
 	code: string;
+	createdBy: User;
 	created: string;
 	updated: string;
 }

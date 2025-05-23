@@ -275,8 +275,10 @@ setCurrentProject: async (id: string | null) => {
 		// Continue even if collaborator loading fails
 	  }
 	  
-	  // IMPORTANT: Load the threads for this project
-	  // This is the key fix to ensure threads are loaded when a project is selected
+	  /*
+	   * IMPORTANT: Load the threads for this project
+	   * This is the key fix to ensure threads are loaded when a project is selected
+	   */
 	  try {
 		console.log(`Loading threads for selected project ${id}`);
 		// Use window.threadsclient if it exists, otherwise try to import it
@@ -421,8 +423,10 @@ setCurrentProject: async (id: string | null) => {
 					throw new Error('Project not found');
 				}
 				
-				// Only the owner should be able to remove collaborators
-				// Or users can remove themselves
+				/*
+				 * Only the owner should be able to remove collaborators
+				 * Or users can remove themselves
+				 */
 				if (project.owner !== user.id && userId !== user.id) {
 					throw new Error('Only the project owner can remove collaborators');
 				}

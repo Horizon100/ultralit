@@ -56,7 +56,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         return new Response(JSON.stringify({ 
             error: 'Internal server error', 
             message: error.message,
-            stack: error.stack
+            stack: error instanceof Error ? error.stack : undefined
         }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
@@ -64,8 +64,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     }
 };
 
-// Update a task
-// Update a task
+/*
+ * Update a task
+ * Update a task
+ */
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     try {
         if (!locals.user) {
@@ -152,7 +154,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         return new Response(JSON.stringify({ 
             error: 'Internal server error', 
             message: error.message,
-            stack: error.stack
+            stack: error instanceof Error ? error.stack : undefined
         }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
@@ -216,7 +218,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         return new Response(JSON.stringify({ 
             error: 'Internal server error', 
             message: error.message,
-            stack: error.stack
+            stack: error instanceof Error ? error.stack : undefined
         }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 

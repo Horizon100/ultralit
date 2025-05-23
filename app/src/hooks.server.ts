@@ -1,5 +1,6 @@
 // src/hooks.server.ts
 import { pb } from '$lib/server/pocketbase';
+import type { User } from '$lib/types/types';
 import type { Handle } from '@sveltejs/kit';
 
 // Only refresh auth token if it will expire soon
@@ -33,8 +34,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // Add pb and user to locals
   event.locals.pb = pb;
-  event.locals.user = pb.authStore.model ? structuredClone(pb.authStore.model) : null;
-  
+  event.locals.user = pb.authStore.model ? structuredClone(pb.authStore.model) as User : null;
+
   // Log authentication status for debugging
   console.log(`Request to ${event.url.pathname} - Auth status: ${pb.authStore.isValid ? 'Authenticated' : 'Not authenticated'}`);
   if (pb.authStore.isValid) {

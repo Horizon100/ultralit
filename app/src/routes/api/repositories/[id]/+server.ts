@@ -92,8 +92,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
             return json({ error: 'Only the repository owner can delete it' }, { status: 403 });
         }
         
-        // Delete related resources first (folders, files, commits)
-        // Fetch all folders in this repository
+        /*
+         * Delete related resources first (folders, files, commits)
+         * Fetch all folders in this repository
+         */
         const folders = await pb.collection('code_folders').getList(1, 1000, {
             filter: `repository="${id}"`
         });

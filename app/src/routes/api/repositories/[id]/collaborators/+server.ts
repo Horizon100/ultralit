@@ -80,7 +80,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
         
         // Add collaborator if not already added
-        let collaborators = repository.repoCollaborators || [];
+        const collaborators = repository.repoCollaborators || [];
         if (!collaborators.includes(data.userId)) {
             collaborators.push(data.userId);
             

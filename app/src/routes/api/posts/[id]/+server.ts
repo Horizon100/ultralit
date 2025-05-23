@@ -64,7 +64,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
 
     try {
       // Fetch the post using admin API
-      let post = await pb.collection('posts').getOne(postId);
+      const post = await pb.collection('posts').getOne(postId);
       
       // Initialize arrays if they don't exist
       let upvotedBy = post.upvotedBy || [];

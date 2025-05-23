@@ -225,8 +225,10 @@ const createModelStore = () => {
 			
 			const user = userData.user;
 			
-			// 3. Extract provider and model preferences
-			// If no selected_provider is found, keep it null instead of defaulting to 'openai'
+			/*
+			 * 3. Extract provider and model preferences
+			 * If no selected_provider is found, keep it null instead of defaulting to 'openai'
+			 */
 			const selectedProvider = user.selected_provider as ProviderType || null;
 			const selectedModelId = user.model || null;
 			

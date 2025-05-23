@@ -146,15 +146,19 @@
 		isNavExpanded = !isNavExpanded;
 	}
 
-	// function setActiveLink(path: string) {
-	// 	goto(path);
-	// 	setactiveLink = path;
-	// }
+	/*
+	 * function setActiveLink(path: string) {
+	 * 	goto(path);
+	 * 	setactiveLink = path;
+	 * }
+	 */
 
-	// function handleLogoClick(event: MouseEvent) {
-	// 	event.preventDefault();
-	// 	setActiveLink('/');
-	// }
+	/*
+	 * function handleLogoClick(event: MouseEvent) {
+	 * 	event.preventDefault();
+	 * 	setActiveLink('/');
+	 * }
+	 */
 	function toggleAuthOrProfile() {
 		if ($currentUser) {
 			showProfile = !showProfile;

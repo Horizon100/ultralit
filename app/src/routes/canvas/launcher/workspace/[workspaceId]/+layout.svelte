@@ -293,7 +293,7 @@
 		height: auto;
 		/* height: 89vh; */
 		width: 98%;
-		left: 1%;
+		left: 0%;
 		/* top: 130px; */
 		top: 0;
 		justify-content: center;

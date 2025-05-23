@@ -386,8 +386,16 @@ async function handlePostInteraction(event: CustomEvent<{ postId: string; action
     overflow-y: auto;
     margin-bottom: 2rem;
     background: rgba(0, 0, 0, 0.2);
+    &::-webkit-scrollbar {
+        width: 0.5rem;
+        background-color: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: var(--secondary-color);
+        border-radius: 1rem;
+    }
 
-  }
+}
 
   .main-wrapper {
     max-width: calc(100% - 2rem);

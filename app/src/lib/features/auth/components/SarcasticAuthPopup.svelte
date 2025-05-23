@@ -35,7 +35,7 @@
 			dispatch('success');
 		} catch (err) {
 			console.error('Login error:', err);
-			errorMessage = err.message || 'An error occurred during login';
+			errorMessage = (err as Error).message || 'An error occurred during login';
 		}
 	}
 
@@ -51,7 +51,7 @@
 			await login();
 		} catch (err) {
 			console.error('Signup error:', err);
-			errorMessage = err.message || 'An error occurred during signup';
+			errorMessage = (err as Error).message || 'An error occurred during signup';
 		}
 	}
 

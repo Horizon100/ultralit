@@ -330,8 +330,10 @@ async function toggleCollaborator(user: User) {
         } else {
             // Check if user can add collaborators
             if (canAddMembers()) {
-                // We already have the user object, so call our internal function
-                // Get current members and ensure it's an array
+                /*
+                 * We already have the user object, so call our internal function
+                 * Get current members and ensure it's an array
+                 */
                 let currentMembers: string[] = [];
                 
                 if (typeof thread.members === 'string' && thread.members.trim() !== '') {

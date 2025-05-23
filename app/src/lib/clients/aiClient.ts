@@ -1,4 +1,4 @@
-import type { AIModel, PromptType, AIMessage, Scenario, Task, AIAgent, Guidance, Projects } from '$lib/types/types';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent } from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
 import { getPrompt } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
@@ -132,39 +132,45 @@ const supportedMessages = messagesWithCustomPrompts
 	}
 }
 
-// export async function fetchNamingResponse(
-// 	userMessage: string,
-// 	aiResponse: string,
-// 	model: AIModel,
-// 	userId: string
-// ): Promise<string> {
-// 	try {
-// 		const messages: AIMessage[] = [
-// 			{
-// 				role: 'assistant',
-// 				content:
-// 					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
-// 				model: typeof model === 'string' ? model : model.api_type
-// 				},
-// 			{
-// 				role: 'user',
-// 				content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
-// 				model: typeof model === 'string' ? model : model.api_type
-// 			}
-// 		];
-// 		const response = await fetchAIResponse(messages, model, userId);
+/*
+ * export async function fetchNamingResponse(
+ * 	userMessage: string,
+ * 	aiResponse: string,
+ * 	model: AIModel,
+ * 	userId: string
+ * ): Promise<string> {
+ * 	try {
+ * 		const messages: AIMessage[] = [
+ * 			{
+ * 				role: 'assistant',
+ * 				content:
+ * 					'Create a concise, descriptive title (max 5 words) for this conversation based on the user message and AI response. Focus on the main topic or question being discussed.',
+ * 				model: typeof model === 'string' ? model : model.api_type
+ * 				},
+ * 			{
+ * 				role: 'user',
+ * 				content: `User message: "${userMessage}"\nAI response: "${aiResponse}"\nGenerate title:`,
+ * 				model: typeof model === 'string' ? model : model.api_type
+ * 			}
+ * 		];
+ * 		const response = await fetchAIResponse(messages, model, userId);
+ */
 
-// 		const threadName = response
-// 			.trim()
-// 			.replace(/^["']|["']$/g, '')
-// 			.slice(0, 50);
+/*
+ * 		const threadName = response
+ * 			.trim()
+ * 			.replace(/^["']|["']$/g, '')
+ * 			.slice(0, 50);
+ */
 
-// 		return threadName;
-// 	} catch (error) {
-// 		console.error('Error in fetchNamingResponse:', error);
-// 		throw error;
-// 	}
-// }
+/*
+ * 		return threadName;
+ * 	} catch (error) {
+ * 		console.error('Error in fetchNamingResponse:', error);
+ * 		throw error;
+ * 	}
+ * }
+ */
 
 export async function handleStartPromptClick(
 	promptText: string,
@@ -173,7 +179,7 @@ export async function handleStartPromptClick(
 	userId: string
   ): Promise<{
 	response: string;
-	threadId: string;
+	threadId: string | null;
 	userMessageId: string;
 	assistantMessageId: string;
   }> {
@@ -297,7 +303,7 @@ export async function handleStartPromptClick(
 		.map(line => line.trim())
 		.filter(line => line.length > 0)
 		.map(line => line.replace(/^[-*\d.]+\s*/, ''))
-		.map(line => line.replace(/[\*\"`']/g, ''))
+		.map(line => line.replace(/[*"`']/g, ''))
 		.filter(line => !line.toLowerCase().includes("here are") && 
 					   !line.toLowerCase().includes("suggestions") &&
 					   !line.toLowerCase().includes("prompts to"))
@@ -320,66 +326,9 @@ export async function handleStartPromptClick(
 	  throw error;
 	}
   }
-export async function generateGuidance(
-	context: { type: string; description: string },
-	model: AIModel,
-	userId: string
-): Promise<Guidance> {
-	const messages: AIMessage[] = [
-		{
-			role: 'assistant',
-			content: getPrompt('BRAINSTORM', ''),
-			model: model.api_type
-		},
-		{
-			role: 'user',
-			content: JSON.stringify(context),
-			model: model.api_type
-		}
-	];
 
-	const response = await fetchAIResponse(messages, model, userId);
 
-	return {
-		type: context.type,
-		content: response
-	};
-}
 
-export async function generateScenarios(
-	seedPrompt: string,
-	model: AIModel,
-	userId: string
-): Promise<Scenario[]> {
-	const messages: AIMessage[] = [
-		{
-			role: 'assistant',
-			content: getPrompt('FLOW', ''),
-			model: model.api_type
-		},
-		{
-			role: 'user',
-			content: seedPrompt,
-			model: model.api_type
-		}
-	];
-
-	const response = await fetchAIResponse(messages, model, userId);
-
-	const scenarios: Scenario[] = response
-		.split('\n')
-		.filter(Boolean)
-		.map((desc, index) => ({
-			id: `scenario-${index + 1}`,
-			description: desc.trim(),
-			collectionId: '',
-			collectionName: '',
-			created: '',
-			updated: ''
-		}));
-
-	return scenarios;
-}
 
 export async function generateTasks(
 	scenario: Scenario,
@@ -389,7 +338,7 @@ export async function generateTasks(
 	const messages: AIMessage[] = [
 		{
 			role: 'assistant',
-			content: getPrompt('PLANNER', ''),
+			content: getPrompt('CONCISE', ''),
 			model: model.api_type
 		},
 		{ role: 'user', content: scenario.description, model: model.api_type }
@@ -448,7 +397,7 @@ export async function createAIAgent(
 	const messages: AIMessage[] = [
 		{
 			role: 'assistant',
-			content: getPrompt('CODER', context),
+			content: getPrompt('NORMAL', context),
 			model: model.api_type
 		}
 	];

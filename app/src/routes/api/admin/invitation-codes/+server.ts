@@ -11,8 +11,10 @@ export const GET: RequestHandler = async ({ url, request, locals }) => {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  // Verify admin token (implement proper admin validation)
-  // This is a placeholder - implement your actual admin validation
+  /*
+   * Verify admin token (implement proper admin validation)
+   * This is a placeholder - implement your actual admin validation
+   */
   const token = authHeader.split('Bearer ')[1];
   const isAdmin = await validateAdminToken(token);
   
@@ -46,8 +48,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  // Verify admin token (implement proper admin validation)
-  // This is a placeholder - implement your actual admin validation
+  /*
+   * Verify admin token (implement proper admin validation)
+   * This is a placeholder - implement your actual admin validation
+   */
   const token = authHeader.split('Bearer ')[1];
   const isAdmin = await validateAdminToken(token);
   
@@ -77,17 +81,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 };
 
-// Helper function to validate admin token
-// Replace this with your actual admin validation logic
+/*
+ * Helper function to validate admin token
+ * Replace this with your actual admin validation logic
+ */
 async function validateAdminToken(token: string): Promise<boolean> {
   try {
-    // This is a placeholder - implement your actual admin validation
-    // For example, verify the token against your admin authentication system
-    // or check if the user has admin role in your database
+    /*
+     * This is a placeholder - implement your actual admin validation
+     * For example, verify the token against your admin authentication system
+     * or check if the user has admin role in your database
+     */
     
-    // Example implementation:
-    // const result = await pb.admins.authWithToken(token);
-    // return !!result;
+    /*
+     * Example implementation:
+     * const result = await pb.admins.authWithToken(token);
+     * return !!result;
+     */
     
     // For now, just return false to be safe
     return false;

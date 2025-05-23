@@ -43,7 +43,7 @@
 		deleteWorkshop,
 		updateWorkshop
 	} from '$lib/clients/workshopClient';
-	import {  } from '$lib/pocketbase';
+	import { } from '$lib/pocketbase';
 
 	import Builder from '$lib/components/features/canvas/components/Builder.svelte';
 	import DefaultAvatar from '$lib/components/features/users/components/DefaultAvatar.svelte';
@@ -603,8 +603,6 @@
 		border-bottom-right-radius: 10px;
 		height: 100%;
 		margin-top: 0;
-		width: 100%;
-
 		overflow: hidden;
 		position: relative;
 		left: auto;
@@ -747,6 +745,7 @@
 		flex-direction: column;
 		justify-content: flex-end;
 	}
+
 
 	.overlay-handle {
 		display: flex;

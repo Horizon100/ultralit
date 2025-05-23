@@ -85,6 +85,10 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 	}
 }
 
+export function getFileUrl(record: any, filename: string, collection: string = 'ai_agents'): string {
+	if (!filename) return '';
+	return `${pocketbaseUrl}/api/files/${collection}/${record.id}/${filename}`;
+}
 
 export async function ensureAuthenticated(): Promise<boolean> {
     // If there's already an auth check in progress, return that promise
@@ -219,8 +223,10 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 		// Update the current user store
 		currentUser.set(data.user);
 		
-		// Initialize local PocketBase session with the token
-		// This ensures PocketBase's client-side auth store is updated
+		/*
+		 * Initialize local PocketBase session with the token
+		 * This ensures PocketBase's client-side auth store is updated
+		 */
 		if (typeof window !== 'undefined' && data.authData && data.authData.token) {
 			const pb = new PocketBase(pocketbaseUrl);
 			pb.authStore.save(data.authData.token, data.user);
@@ -265,53 +271,69 @@ export async function signOut(): Promise<void> {
   }
 }
 
-// export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
-// 	try {
-// 		const url = `/api/verify/users/${id}`;
-// 		console.log('Updating user at:', url);
+/*
+ * export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
+ * 	try {
+ * 		const url = `/api/verify/users/${id}`;
+ * 		console.log('Updating user at:', url);
+ */
 		
 // 		let response;
 		
-// 		if (userData instanceof FormData) {
-// 			response = await fetch(url, {
-// 				method: 'PATCH',
-// 				body: userData,
-// 				credentials: 'include'
-// 			});
-// 		} else {
-// 			response = await fetch(url, {
-// 				method: 'PATCH',
-// 				headers: { 'Content-Type': 'application/json' },
-// 				body: JSON.stringify(userData),
-// 				credentials: 'include'
-// 			});
-// 		}
+/*
+ * 		if (userData instanceof FormData) {
+ * 			response = await fetch(url, {
+ * 				method: 'PATCH',
+ * 				body: userData,
+ * 				credentials: 'include'
+ * 			});
+ * 		} else {
+ * 			response = await fetch(url, {
+ * 				method: 'PATCH',
+ * 				headers: { 'Content-Type': 'application/json' },
+ * 				body: JSON.stringify(userData),
+ * 				credentials: 'include'
+ * 			});
+ * 		}
+ */
 		
-// 		if (!response.ok) {
-// 			console.error('Update user failed:', response.status, response.statusText);
+/*
+ * 		if (!response.ok) {
+ * 			console.error('Update user failed:', response.status, response.statusText);
+ */
 			
-// 			const errorData = await response.json().catch(() => null);
-// 			if (errorData && errorData.error) {
-// 				throw new Error(errorData.error);
-// 			}
+/*
+ * 			const errorData = await response.json().catch(() => null);
+ * 			if (errorData && errorData.error) {
+ * 				throw new Error(errorData.error);
+ * 			}
+ */
 			
-// 			throw new Error(`Update user failed with status: ${response.status}`);
-// 		}
+/*
+ * 			throw new Error(`Update user failed with status: ${response.status}`);
+ * 		}
+ */
 		
-// 		const data = await response.json();
-// 		if (!data.success) throw new Error(data.error);
+/*
+ * 		const data = await response.json();
+ * 		if (!data.success) throw new Error(data.error);
+ */
 		
-// 		// Update the current user if it's the same user
-// 		if (id === data.user.id) {
-// 			currentUser.set(data.user);
-// 		}
+/*
+ * 		// Update the current user if it's the same user
+ * 		if (id === data.user.id) {
+ * 			currentUser.set(data.user);
+ * 		}
+ */
 		
-// 		return data.user;
-// 	} catch (error) {
-// 		console.error('Update user error:', error);
-// 		throw error;
-// 	}
-// }
+/*
+ * 		return data.user;
+ * 	} catch (error) {
+ * 		console.error('Update user error:', error);
+ * 		throw error;
+ * 	}
+ * }
+ */
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
 	try {
 	  // Log the full URL we're trying to fetch
@@ -464,9 +486,11 @@ export async function authenticateWithGoogleOAuth() {
     // Create a temporary PocketBase instance for auth only
 const authPb = new PocketBase('https://vrazum.com');
     
-    // Use PocketBase's built-in OAuth2 method WITHOUT specifying a redirectUrl
-    // This will use the correct PocketBase redirect URL format:
-    // http://yourdomain.com/api/oauth2-redirect
+    /*
+     * Use PocketBase's built-in OAuth2 method WITHOUT specifying a redirectUrl
+     * This will use the correct PocketBase redirect URL format:
+     * http://yourdomain.com/api/oauth2-redirect
+     */
     const authData = await authPb.collection('users').authWithOAuth2({
       provider: 'google',
       // Do NOT specify redirectUrl - let PocketBase handle it
@@ -924,8 +948,10 @@ export async function deleteMessage(id: string): Promise<boolean> {
 
 // ============= Cursor API Calls =============
 
-// Cursor position is a special case that might require direct PocketBase usage
-// on the client for real-time updates
+/*
+ * Cursor position is a special case that might require direct PocketBase usage
+ * on the client for real-time updates
+ */
 export interface CursorChangeCallback {
 	(data: { action: string; record: CursorPosition }): void;
 }
@@ -937,8 +963,10 @@ export async function subscribeToCursorChanges(callback: CursorChangeCallback): 
 			credentials: 'include'
 		});
 		
-		// This is a placeholder since WebSockets can't be handled through REST
-		// You'll need to implement a WebSocket connection directly
+		/*
+		 * This is a placeholder since WebSockets can't be handled through REST
+		 * You'll need to implement a WebSocket connection directly
+		 */
 		console.warn('Cursor subscription through REST API is not fully implemented');
 		
 		// Return a dummy unsubscribe function
@@ -1045,22 +1073,7 @@ export function getDefaultModelPreferences() {
 
 // ============= Workspace & Thread API Calls =============
 
-export async function fetchUserActions(userId: string): Promise<Actions[]> {
-	try {
-		const response = await fetch(`/api/keys/users/${userId}/actions`, {
-			method: 'GET',
-			credentials: 'include'
-		});
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		return data.actions;
-	} catch (error) {
-		console.error('Error fetching user actions:', error);
-		throw error;
-	}
-}
+
 
 export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	try {
@@ -1079,22 +1092,6 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	}
 }
 
-export async function fetchUserWorkspaces(userId: string): Promise<Workspaces[]> {
-	try {
-		const response = await fetch(`/api/keys/users/${userId}/workspaces`, {
-			method: 'GET',
-			credentials: 'include'
-		});
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		return data.workspaces;
-	} catch (error) {
-		console.error('Error fetching user workspaces:', error);
-		return [];
-	}
-}
 
 
 

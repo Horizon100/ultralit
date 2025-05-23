@@ -221,8 +221,10 @@ class GameClient {
    * Check if hero position is blocked by buildings
    */
   async isPositionBlocked(position: GamePosition): Promise<boolean> {
-    // This could query local state or make a quick API call
-    // For now, assume no blocking - you can implement this based on your map data
+    /*
+     * This could query local state or make a quick API call
+     * For now, assume no blocking - you can implement this based on your map data
+     */
     return false;
   }
   

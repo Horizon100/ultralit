@@ -432,17 +432,19 @@ function openFile(filename: string) {
 		isAiPanelOpen = false;
 	}
 
-// 	async function fetchRepositories() {
-//     try {
-//       const response = await fetch('/api/repositories');
-//       if (response.ok) {
-//         const data = await response.json();
-//         repositories = data.items || [];
-//       }
-//     } catch (error) {
-//       console.error('Error fetching repositories:', error);
-//     }
-//   }
+/*
+ * 	async function fetchRepositories() {
+ *     try {
+ *       const response = await fetch('/api/repositories');
+ *       if (response.ok) {
+ *         const data = await response.json();
+ *         repositories = data.items || [];
+ *       }
+ *     } catch (error) {
+ *       console.error('Error fetching repositories:', error);
+ *     }
+ *   }
+ */
 
   async function createNewRepository() {
     const repoName = prompt('Enter new repository name:');
@@ -543,8 +545,10 @@ function openFile(filename: string) {
     if (!selectedRepo) return;
     
     try {
-      // In a real app, you'd fetch branches from your API
-      // For now, we'll just use the default branch and add 'main' as a sample
+      /*
+       * In a real app, you'd fetch branches from your API
+       * For now, we'll just use the default branch and add 'main' as a sample
+       */
       branches = [selectedRepo.defaultBranch, 'main'];
     } catch (error) {
       console.error('Error fetching branches:', error);

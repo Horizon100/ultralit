@@ -1,4 +1,4 @@
-import type { AIModel } from '$lib/types/types';
+import type { AIModel, ProviderType } from '$lib/types/types';
 import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
@@ -12,7 +12,6 @@ export interface ProviderConfig {
 	validateApiKey: (apiKey: string) => Promise<boolean>;
 }
 
-export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek';
 
 const handleFetchError = (provider: string) => (error: any) => {
 	if (error.response?.status === 401) {
@@ -242,30 +241,33 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					collectionId: 'models',
 					collectionName: 'models'
 				}));
-			} catch (error) {
-				// If we get rate limited or any error, return fallback models
-				if (error.message?.includes('429') || error.message?.includes('rate limit')) {
-					console.warn('Grok API rate limited, returning default models');
-					return [
-						{
-							id: 'grok-grok-1',
-							name: 'Grok-1',
-							provider: 'grok' as ProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.x.ai/v1',
-							api_type: 'grok-1',
-							api_version: '',
-							description: 'Grok-1 model by X.AI',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						}
-					];
+				} catch (error) {
+					// Type guard to check if error is an Error object
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					
+					// If we get rate limited or any error, return fallback models
+					if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+						console.warn('Grok API rate limited, returning default models');
+						return [
+							{
+								id: 'grok-grok-1',
+								name: 'Grok-1',
+								provider: 'grok' as ProviderType,
+								api_key: apiKey,
+								base_url: 'https://api.x.ai/v1',
+								api_type: 'grok-1',
+								api_version: '',
+								description: 'Grok-1 model by X.AI',
+								user: [],
+								created: new Date().toISOString(),
+								updated: new Date().toISOString(),
+								collectionId: 'models',
+								collectionName: 'models'
+							}
+						];
+					}
+					throw handleFetchError('Grok')(error);
 				}
-				throw handleFetchError('Grok')(error);
-			}
 		}
 	},
 	deepseek: {

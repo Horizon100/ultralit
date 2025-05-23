@@ -110,7 +110,7 @@ async function checkGameMapsExist(projectId: string): Promise<boolean> {
     needsInitialization = false;
     
 const actualProjectId = currentProject?.id || projectId!;
-const hasHero = await checkHeroExists(user.id, actualProjectId);    if (!hasHero) {
+const hasHero = await checkHeroExists(user.id, actualProjectId); if (!hasHero) {
       needsHero = true;
       isChecking = false;
       return;

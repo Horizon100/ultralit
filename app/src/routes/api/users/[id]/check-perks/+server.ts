@@ -88,8 +88,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
             // Try to update user schema if perks field doesn't exist
             try {
                 console.log('DEBUG: Attempting to add perks field to user');
-                // This is usually done in the admin UI, but we'll try programmatically
-                // Note: This requires admin access
+                /*
+                 * This is usually done in the admin UI, but we'll try programmatically
+                 * Note: This requires admin access
+                 */
                 await pb.collection('users').update(userId, {
                     "perks": []
                 });

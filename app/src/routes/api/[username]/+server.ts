@@ -41,7 +41,7 @@ export const GET: RequestHandler = async ({ params }) => {
     console.log('Reposted posts:', repostedPosts.totalItems);
 
     // Create a combined array with proper flags
-    let allPosts = [];
+    const allPosts = [];
 
     // Add original posts (but check if they were also reposted by the user)
     originalPosts.items.forEach(post => {

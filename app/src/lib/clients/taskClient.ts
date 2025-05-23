@@ -1,7 +1,30 @@
 // src/lib/clients/taskClient.ts
 import { get } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
-import type { KanbanTask, KanbanAttachment, Task, InternalChatMessage, User } from '$lib/types/types';
+import type { KanbanTask, Task, InternalChatMessage } from '$lib/types/types';
+interface RawTaskData {
+    id: string;
+    title: string;
+    taskDescription?: string;
+    created: string;
+    due_date?: string;
+    start_date?: string;
+    taskTags?: string[];
+    taggedTasks?: string;
+    attachments?: any[];
+    project_id: string;
+    createdBy: string;
+    assignedTo?: string;
+    parent_task?: string;
+    allocatedAgents?: string[];
+    status: string;
+    priority?: string;
+    prompt?: string;
+    context?: string;
+    task_outcome?: string;
+    dependencies?: string[];
+    agentMessages?: string[];
+}
 
 /**
  * Saves a task to the database
@@ -15,10 +38,18 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
             .filter(att => att.file)
             .map(async (att) => {
                 const formData = new FormData();
-                formData.append('file', att.file);
+                
+                // Add null checks
+                if (att.file) {
+                    formData.append('file', att.file);
+                }
                 formData.append('fileName', att.fileName);
                 if (att.note) formData.append('note', att.note);
-                formData.append('createdBy', get(currentUser)?.id);
+                
+                const currentUserValue = get(currentUser)?.id;
+                if (currentUserValue) {
+                    formData.append('createdBy', currentUserValue);
+                }
                 
                 if (task.id && !task.id.startsWith('local_')) {
                     formData.append('attachedTasks', task.id);
@@ -250,8 +281,12 @@ export async function updateTaskTags(
     taskDescription?: string
 ): Promise<Task> {
     try {
-        // Prepare the update data
-        const updateData: any = {
+        // Replace 'any' with proper interface
+        const updateData: {
+            taggedTasks: string;
+            taskTags: string[];
+            taskDescription?: string;
+        } = {
             taggedTasks: tagIds.join(','),
             taskTags: tagIds
         };
@@ -302,8 +337,8 @@ export async function deleteTask(taskId: string): Promise<void> {
         if (taskResponse.ok) {
             task = await taskResponse.json();
             
-            // If task is assigned to a user, remove it from their assignments
-            if (task.assignedTo) {
+            // Add null check before accessing task properties
+            if (task && task.assignedTo) {
                 await removeTaskFromUser(task.assignedTo, taskId, task.status);
             }
         }
@@ -338,10 +373,10 @@ export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]>
         const data = await response.json();
         
         // Check if the response has the tasks in different possible locations
-        const tasks = data.tasks || data.items || data.data || [];
+        const tasks: RawTaskData[] = data.tasks || data.items || data.data || [];
         
         // Transform the tasks to match KanbanTask interface
-        return tasks.map((task: any): KanbanTask => ({
+        return tasks.map((task: RawTaskData): KanbanTask => ({
             id: task.id,
             title: task.title,
             taskDescription: task.taskDescription || '',
@@ -355,12 +390,16 @@ export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]>
             assignedTo: task.assignedTo || '',
             parent_task: task.parent_task || undefined,
             allocatedAgents: task.allocatedAgents || [],
-            status: task.status,
-            priority: task.priority || 'medium',
+            status: task.status as Task['status'],
+            priority: (task.priority || 'medium') as 'low' | 'medium' | 'high', 
             prompt: task.prompt || '',
             context: task.context || '',
             task_outcome: task.task_outcome || '',
-            dependencies: task.dependencies || [],
+            dependencies: (task.dependencies || []).map(dep => 
+                typeof dep === 'string' 
+                    ? { type: 'dependency' as const, task_id: dep }
+                    : dep
+            ),            
             agentMessages: task.agentMessages || []
         }));
     } catch (err) {
@@ -437,11 +476,7 @@ export async function loadTasks() {
             });
             return cols;
         });
-        
-        // Initial application of task view filtering
-        if (taskViewMode !== TaskViewMode.All) {
-            applyTaskViewFilter();
-        }
+
     } catch (err) {
         console.error('Error loading tasks:', err);
         throw err;

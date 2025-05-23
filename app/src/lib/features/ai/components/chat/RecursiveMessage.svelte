@@ -8,25 +8,17 @@
     import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
     import { threadListVisibility } from '$lib/clients/threadsClient';
     import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
-    import { pocketbaseUrl } from '$lib/pocketbase';
-    import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
-    import { createTaskFromMessage, saveTask, getPromptFromThread, loadTasks, updateTask, deleteTask, updateTaskTags } from '$lib/clients/taskClient';
-    import type { KanbanTask, UserProfile } from '$lib/types/types';
+    import { currentUser } from '$lib/pocketbase';
+    import { saveTask, getPromptFromThread } from '$lib/clients/taskClient';
+    import type { KanbanTask } from '$lib/types/types';
     import { 
         fetchAIResponse, 
-        fetchDualAIResponses,
-        saveSelectedResponse,
-        handleStartPromptClick, 
-        generateScenarios, 
-        generateTaskFromMessage,
-        createAIAgent, 
-        generateGuidance 
+        generateTaskFromMessage
     } from '$lib/clients/aiClient';
-    import { addNotification, updateNotification, removeNotification } from '$lib/stores/taskNotificationStore';
-    import { goto } from '$app/navigation';
+    import { addNotification, updateNotification } from '$lib/stores/taskNotificationStore';
     import { projectStore } from '$lib/stores/projectStore';
   import { t } from '$lib/stores/translationStore';
-  import { getUserProfile, clearUserProfileCache, removeUserFromCache, getProfileCacheSize } from '$lib/clients/profileClient';
+  import { getUserProfile } from '$lib/clients/profileClient';
 
 
     
@@ -226,8 +218,8 @@ async function generateTask(taskDetails: {
       createdBy: $currentUser?.id || '',
       parent_task: undefined,
       allocatedAgents: [],
-      status: 'backlog' as 'backlog',
-      priority: 'medium' as 'medium', 
+      status: 'backlog' as const,
+      priority: 'medium' as const, 
       prompt: getPromptFromThread(threadId, allMessages), 
       context: '',
       task_outcome: '',
@@ -268,11 +260,13 @@ async function generateTask(taskDetails: {
       type: 'success'
     });
     
-    // taskTooltipText = `Task created with ${childTasks.length} subtasks`;
-    // showTaskTooltip = true;
-    // setTimeout(() => {
-    //   showTaskTooltip = false;
-    // }, 2000);
+    /*
+     * taskTooltipText = `Task created with ${childTasks.length} subtasks`;
+     * showTaskTooltip = true;
+     * setTimeout(() => {
+     *   showTaskTooltip = false;
+     * }, 2000);
+     */
     
     return {
       parentTask: savedParentTask,
@@ -412,8 +406,8 @@ async function generateChildTasks({
         createdBy: $currentUser?.id || '',
         parent_task: parentTaskId,
         allocatedAgents: [],
-        status: 'backlog' as 'backlog',
-        priority: 'medium' as 'medium',
+        status: 'backlog' as const,
+        priority: 'medium' as const,
         prompt: "",
         context: "",
         task_outcome: "",
@@ -701,56 +695,64 @@ $: if (depth === 0) {
   onGetVisibleMessages = getVisibleMessages;
   onGetCurrentIndex = () => currentMessageIndex;
 }
-// $: if (message?.content) {
-//     console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
-//     isProcessingContent = true;
-//       const cleanup = setupScrollHandler();
+/*
+ * $: if (message?.content) {
+ *     console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
+ *     isProcessingContent = true;
+ *       const cleanup = setupScrollHandler();
+ */
 
-//     // Check if content is a Promise
-//     if (message.content instanceof Promise) {
-//         // Wait for the Promise to resolve
-//         message.content
-//             .then((resolvedContent: string) => {
-//                 console.log('Promise resolved to:', resolvedContent);
+/*
+ *     // Check if content is a Promise
+ *     if (message.content instanceof Promise) {
+ *         // Wait for the Promise to resolve
+ *         message.content
+ *             .then((resolvedContent: string) => {
+ *                 console.log('Promise resolved to:', resolvedContent);
+ */
                 
-//                 if (processMessageContentWithReplyable) {
-//                     // Pass the resolved content, not the promise
-//                     return processMessageContentWithReplyable(resolvedContent, message.id);
-//                 } else {
-//                     return resolvedContent;
-//                 }
-//             })
-//             .then((content: string) => {
-//                 console.log('Final processed content:', content);
-//                 processedContent = content;
-//                 isProcessingContent = false;
-//             })
-//             .catch((error: any) => {
-//                 console.error('Error processing message content:', error);
-//                 processedContent = 'Error loading message content';
-//                 isProcessingContent = false;
-//             });
-//     } else {
-//         // Handle regular string content (backup case)
-//         const contentToProcess = String(message.content || '');
+/*
+ *                 if (processMessageContentWithReplyable) {
+ *                     // Pass the resolved content, not the promise
+ *                     return processMessageContentWithReplyable(resolvedContent, message.id);
+ *                 } else {
+ *                     return resolvedContent;
+ *                 }
+ *             })
+ *             .then((content: string) => {
+ *                 console.log('Final processed content:', content);
+ *                 processedContent = content;
+ *                 isProcessingContent = false;
+ *             })
+ *             .catch((error: any) => {
+ *                 console.error('Error processing message content:', error);
+ *                 processedContent = 'Error loading message content';
+ *                 isProcessingContent = false;
+ *             });
+ *     } else {
+ *         // Handle regular string content (backup case)
+ *         const contentToProcess = String(message.content || '');
+ */
         
-//         if (processMessageContentWithReplyable) {
-//             processMessageContentWithReplyable(contentToProcess, message.id)
-//                 .then((content: string) => {
-//                     processedContent = content;
-//                     isProcessingContent = false;
-//                 })
-//                 .catch((error: any) => {
-//                     console.error('Error processing message content:', error);
-//                     processedContent = contentToProcess;
-//                     isProcessingContent = false;
-//                 });
-//         } else {
-//             processedContent = contentToProcess;
-//             isProcessingContent = false;
-//         }
-//     }
-// }
+/*
+ *         if (processMessageContentWithReplyable) {
+ *             processMessageContentWithReplyable(contentToProcess, message.id)
+ *                 .then((content: string) => {
+ *                     processedContent = content;
+ *                     isProcessingContent = false;
+ *                 })
+ *                 .catch((error: any) => {
+ *                     console.error('Error processing message content:', error);
+ *                     processedContent = contentToProcess;
+ *                     isProcessingContent = false;
+ *                 });
+ *         } else {
+ *             processedContent = contentToProcess;
+ *             isProcessingContent = false;
+ *         }
+ *     }
+ * }
+ */
 $: if (message?.content) {
     console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
     isProcessingContent = true;
@@ -813,9 +815,11 @@ $: {
     console.log('Message content:', message?.content);
     console.log('Content type:', typeof message?.content);
 }
-//     onMount(() => {
-//   return setupScrollHandler();
-// });
+/*
+ *     onMount(() => {
+ *   return setupScrollHandler();
+ * });
+ */
 
 onMount(() => {
   // Only set up scroll handler for depth-0 messages

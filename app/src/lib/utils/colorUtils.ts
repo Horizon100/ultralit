@@ -48,8 +48,10 @@ export function isLightColor(color: string): boolean {
         const g = (rgb >> 8) & 0xff;
         const b = (rgb >> 0) & 0xff;
         
-        // Calculate relative luminance using the formula
-        // 0.299 * R + 0.587 * G + 0.114 * B
+        /*
+         * Calculate relative luminance using the formula
+         * 0.299 * R + 0.587 * G + 0.114 * B
+         */
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         return luminance > 0.65;
     }

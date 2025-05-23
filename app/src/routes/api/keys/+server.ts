@@ -1,6 +1,7 @@
 // src/routes/api/keys/+server.ts - UPDATED VERSION
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import type { Cookies } from '@sveltejs/kit';
 import * as pbServer from '$lib/server/pocketbase';
 import { CryptoService } from '$lib/utils/crypto';
 
@@ -35,15 +36,15 @@ async function getUserKeys(userId: string): Promise<ApiKeys> {
 }
 
 // Helper function to restore authentication from cookies
-function restoreAuth(cookies: any) {
+function restoreAuth(cookies: Cookies): boolean {
     const authCookie = cookies.get('pb_auth');
     if (authCookie) {
         try {
             const authData = JSON.parse(authCookie);
             pbServer.pb.authStore.save(authData.token, authData.model);
             return true;
-        } catch (e) {
-            console.error('Error parsing auth cookie:', e);
+        } catch (_) {
+            console.error('Error parsing auth cookie');
             return false;
         }
     }
@@ -51,7 +52,7 @@ function restoreAuth(cookies: any) {
 }
 
 // GET endpoint to fetch API keys for the authenticated user
-export const GET: RequestHandler = async ({ request, cookies }) => {
+export const GET: RequestHandler = async ({ cookies }) => {
     // Restore auth from cookies
     restoreAuth(cookies);
 
@@ -62,6 +63,9 @@ export const GET: RequestHandler = async ({ request, cookies }) => {
         }
 
         const user = pbServer.pb.authStore.model;
+        if (!user) {
+            return json({ error: 'User not found' }, { status: 401 });
+        }
         
         // Use the helper function to get keys
         const userKeys = await getUserKeys(user.id);
@@ -91,6 +95,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         }
 
         const user = pbServer.pb.authStore.model;
+        if (!user) {
+            return json({ error: 'User not found' }, { status: 401 });
+        }
         
         const data = await request.json();
         const { service, key } = data;
@@ -109,7 +116,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         let currentKeys: ApiKeys = {};
         try {
             currentKeys = await getUserKeys(user.id);
-        } catch (error) {
+        } catch (_) {
             // If keys don't exist yet, we'll create them with an empty object
             console.warn('No existing keys found, creating new key storage');
         }
@@ -143,7 +150,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 };
 
 // DELETE endpoint to remove an API key
-export const DELETE: RequestHandler = async ({ request, cookies, url }) => {
+export const DELETE: RequestHandler = async ({ cookies, url }) => {
     // Restore auth from cookies
     restoreAuth(cookies);
 
@@ -154,6 +161,9 @@ export const DELETE: RequestHandler = async ({ request, cookies, url }) => {
         }
 
         const user = pbServer.pb.authStore.model;
+        if (!user) {
+            return json({ error: 'User not found' }, { status: 401 });
+        }
         
         // Get service from URL parameter
         const service = url.searchParams.get('service');
@@ -166,7 +176,7 @@ export const DELETE: RequestHandler = async ({ request, cookies, url }) => {
         let currentKeys: ApiKeys = {};
         try {
             currentKeys = await getUserKeys(user.id);
-        } catch (error) {
+        } catch (_) {
             return json({ error: 'No API keys found to delete' }, { status: 404 });
         }
         

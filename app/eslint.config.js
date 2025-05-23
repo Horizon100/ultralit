@@ -37,8 +37,10 @@ export default [
 				{ terms: ['todo', 'fixme', '@ts-ignore'], location: 'anywhere' }
 			],
 			'multiline-comment-style': ['error', 'starred-block'],
-			// 'line-comment-position': ['error', { position: 'beside' }],
-			// 'no-inline-comments': 'error',
+			/*
+			 * 'line-comment-position': ['error', { position: 'beside' }],
+			 * 'no-inline-comments': 'error',
+			 */
 			'spaced-comment': ['error', 'always'],
 			'no-multi-spaces': 'error'
 		}

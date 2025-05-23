@@ -1,12 +1,12 @@
 <script lang="ts">
-  import {  currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
+  import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
   import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
   import { get, writable, derived } from 'svelte/store';
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
   import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
   import { Send, Paperclip, Bot, Menu, Reply, Smile, Plus, X, FilePenLine, Save, Check, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, Edit2, Pen, Trash, MessageCirclePlus, Search, Trash2, Users, Brain, Command, Calendar, ArrowLeft, ListTree, Box, PackagePlus, MessageCircleMore, RefreshCcw, CalendarClock, MessageSquareText, Bookmark, BookmarkMinus, BookmarkX, BookmarkCheckIcon, Quote, Filter, SquarePlay, Play, PlugZap, ZapOff, Link, Unlink, MessageSquare, MessagesSquare, TrashIcon, PlusCircle, BotIcon, Braces} from 'lucide-svelte';
-  import { fetchAIResponse, handleStartPromptClick, generateScenarios, generateTasks as generateTasksAPI, createAIAgent, generateGuidance } from '$lib/clients/aiClient';
+  import { fetchAIResponse, generateTasks as generateTasksAPI, createAIAgent } from '$lib/clients/aiClient';
   import Headmaster from '$lib/assets/illustrations/headmaster2.png';
   import { apiKey } from '$lib/stores/apiKeyStore';
   import { pocketbaseUrl } from '$lib/pocketbase';
@@ -37,7 +37,7 @@
   import { processMarkdown, enhanceCodeBlocks } from '$lib/features/ai/utils/markdownProcessor';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte'
 	import { hy } from 'date-fns/locale'
-  import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur, adjustFontSize, resetTextareaHeight  } from '$lib/stores/textareaFocusStore';
+  import { isTextareaFocused, handleTextareaFocus, handleTextareaBlur, handleImmediateTextareaBlur, adjustFontSize, resetTextareaHeight } from '$lib/stores/textareaFocusStore';
   import { formatDate, formatContent, formatContentSync, getRelativeTime } from '$lib/utils/formatters';
   import { providers, type ProviderType } from '$lib/features/ai/utils/providers';
 	import ReferenceSelector from '$lib/features/ai/components/chat/ReferenceSelector.svelte';
@@ -92,8 +92,10 @@ let replyText = '';
   let messageSubscription: any = null;
 	let date = new Date()
 	let locale = localeFromDateFnsLocale(hy)
-  // let deg = 0;
-  // Chat-related state
+  /*
+   * let deg = 0;
+   * Chat-related state
+   */
   let isUpdatingModel = false;
   let showTextModal = false;
   let textTooLong = false;
@@ -125,8 +127,10 @@ let replyText = '';
   let isExpanded = false;
   let bookmarkId = '';
   
-  // let isLoading: boolean = false;
-  // let isTextareaFocused = false;
+  /*
+   * let isLoading: boolean = false;
+   * let isTextareaFocused = false;
+   */
   let isSubmissionAreaActive = false;
   let isFocused = false;
   let hideTimeout: ReturnType<typeof setTimeout>;
@@ -623,8 +627,10 @@ async function replyToMessage(replyText: string, parentMessageId: string) {
       // Ensure we have a valid model
       if (!aiModel || !aiModel.api_type) {
         console.log('No valid model selected, using fallback');
-        // Use same fallback logic you have in handleSendMessage
-        // (Including this logic would make this example too long)
+        /*
+         * Use same fallback logic you have in handleSendMessage
+         * (Including this logic would make this example too long)
+         */
       }
       
       // Add the user reply message to UI
@@ -786,42 +792,48 @@ async function processMessageContentWithReplyable(content: string, messageId: st
   
   return tempDiv.innerHTML;
 }
-//   function getLastMessage(): Messages | null {
-//     if (messages && messages.length > 0) {
-//       return messages[messages.length - 1];
-//     }
-//     return null;
-//   }
+/*
+ *   function getLastMessage(): Messages | null {
+ *     if (messages && messages.length > 0) {
+ *       return messages[messages.length - 1];
+ *     }
+ *     return null;
+ *   }
+ */
 
-//   function getTotalMessages(): number {
-//     return messages.length;
-//   }
-//   function mapMessageToInternal(message: Messages): InternalChatMessage {
-//   const content = formatContentSync(
-//     message.text,
-//     message.prompt_type as PromptType || 'NORMAL',
-//     message.type === 'human' ? 'user' : 'assistant'
-//   );
+/*
+ *   function getTotalMessages(): number {
+ *     return messages.length;
+ *   }
+ *   function mapMessageToInternal(message: Messages): InternalChatMessage {
+ *   const content = formatContentSync(
+ *     message.text,
+ *     message.prompt_type as PromptType || 'NORMAL',
+ *     message.type === 'human' ? 'user' : 'assistant'
+ *   );
+ */
 
-//   return {
-//     id: message.id,
-//     content,
-//     text: message.text,
-//     role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
-//     collectionId: message.collectionId,
-//     collectionName: message.collectionName,
-//     parent_msg: message.parent_msg,
-//     reactions: message.reactions,
-//     prompt_type: message.prompt_type as PromptType || 'NORMAL',
-//     model: message.model,
-//     thread: message.thread,
-//     isTyping: false,
-//     isHighlighted: false,
-//     user: message.user,
-//     created: message.created,
-//     updated: message.updated
-//   };
-// }
+/*
+ *   return {
+ *     id: message.id,
+ *     content,
+ *     text: message.text,
+ *     role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
+ *     collectionId: message.collectionId,
+ *     collectionName: message.collectionName,
+ *     parent_msg: message.parent_msg,
+ *     reactions: message.reactions,
+ *     prompt_type: message.prompt_type as PromptType || 'NORMAL',
+ *     model: message.model,
+ *     thread: message.thread,
+ *     isTyping: false,
+ *     isHighlighted: false,
+ *     user: message.user,
+ *     created: message.created,
+ *     updated: message.updated
+ *   };
+ * }
+ */
 
 
 function handleReplyableClick(event: MouseEvent) {
@@ -866,116 +878,154 @@ function handleReplyableDoubleClick(event: MouseEvent) {
   }
 }
 
-// async function submitReply(elementId: string, text: string = '') {
-//   try {
-//     const element = document.getElementById(elementId);
-//     if (!element) return;
+/*
+ * async function submitReply(elementId: string, text: string = '') {
+ *   try {
+ *     const element = document.getElementById(elementId);
+ *     if (!element) return;
+ */
     
-//     const parentMsgId = element.getAttribute('data-parent-msg');
-//     if (!parentMsgId) return;
+/*
+ *     const parentMsgId = element.getAttribute('data-parent-msg');
+ *     if (!parentMsgId) return;
+ */
     
-//     // Find the parent message in the chat messages
-//     const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
-//     if (!parentMessage) return;
+/*
+ *     // Find the parent message in the chat messages
+ *     const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
+ *     if (!parentMessage) return;
+ */
     
-//     // Use the parent message's thread ID
-//     const threadId = parentMessage.thread || currentThreadId;
+/*
+ *     // Use the parent message's thread ID
+ *     const threadId = parentMessage.thread || currentThreadId;
+ */
     
-//     // Get quoted element content
-//     const quotedText = element.textContent?.trim() || '';
+/*
+ *     // Get quoted element content
+ *     const quotedText = element.textContent?.trim() || '';
+ */
     
-//     // Format the message content to include the quoted text
-//     let messageContent = '';
-//       if (text) {
-//         // Format quoted text as a markdown blockquote
-//         const formattedQuote = quotedText
-//           .split('\n')
-//           .map(line => `> ${line}`)
-//           .join('\n');
+/*
+ *     // Format the message content to include the quoted text
+ *     let messageContent = '';
+ *       if (text) {
+ *         // Format quoted text as a markdown blockquote
+ *         const formattedQuote = quotedText
+ *           .split('\n')
+ *           .map(line => `> ${line}`)
+ *           .join('\n');
+ */
         
-//         messageContent = `${formattedQuote}\n\n${text}`;
-//       } else {
-//         // If no text was provided (re-prompt), just use the quoted text
-//         messageContent = `Re-prompt: "${quotedText}"`;
-//       }
+/*
+ *         messageContent = `${formattedQuote}\n\n${text}`;
+ *       } else {
+ *         // If no text was provided (re-prompt), just use the quoted text
+ *         messageContent = `Re-prompt: "${quotedText}"`;
+ *       }
+ */
     
-//     // Close the menu
-//     activeReplyMenu = null;
+/*
+ *     // Close the menu
+ *     activeReplyMenu = null;
+ */
     
-//     // Create a temporary UI message
-//     const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
-//     chatMessages = [...chatMessages, userMessageUI];
+/*
+ *     // Create a temporary UI message
+ *     const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
+ *     chatMessages = [...chatMessages, userMessageUI];
+ */
     
-//     // Save the message using the messagesStore's saveMessage method
-//     const userMessage = await messagesStore.saveMessage({
-//       text: messageContent,
-//       type: 'human',
-//       thread: threadId, // Use the thread ID from the parent message
-//       parent_msg: parentMsgId, // Set parent message ID
-//       prompt_type: promptType
-//     }, threadId); // Pass thread ID as second parameter
+/*
+ *     // Save the message using the messagesStore's saveMessage method
+ *     const userMessage = await messagesStore.saveMessage({
+ *       text: messageContent,
+ *       type: 'human',
+ *       thread: threadId, // Use the thread ID from the parent message
+ *       parent_msg: parentMsgId, // Set parent message ID
+ *       prompt_type: promptType
+ *     }, threadId); // Pass thread ID as second parameter
+ */
     
-//     // Check if AI should respond
-//     if ($isAiActive) {
-//       // Show thinking indicator
-//       const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
-//       thinkingMessageId = thinkingMessage.id;
-//       chatMessages = [...chatMessages, thinkingMessage];
+/*
+ *     // Check if AI should respond
+ *     if ($isAiActive) {
+ *       // Show thinking indicator
+ *       const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
+ *       thinkingMessageId = thinkingMessage.id;
+ *       chatMessages = [...chatMessages, thinkingMessage];
+ */
       
-//       // Get context messages for this thread
-//       const contextMessages = chatMessages
-//         .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
-//         .filter(({ role, content }) => role && content)
-//         .map(({ role, content }) => ({
-//           role,
-//           content: role === 'user' && promptType 
-//             ? `[Using ${promptType} prompt]\n${content.toString()}`
-//             : content.toString(),
-//           model: aiModel.api_type,
-//         }));
+/*
+ *       // Get context messages for this thread
+ *       const contextMessages = chatMessages
+ *         .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
+ *         .filter(({ role, content }) => role && content)
+ *         .map(({ role, content }) => ({
+ *           role,
+ *           content: role === 'user' && promptType 
+ *             ? `[Using ${promptType} prompt]\n${content.toString()}`
+ *             : content.toString(),
+ *           model: aiModel.api_type,
+ *         }));
+ */
       
-//       if (contextMessages.length === 0) {
-//         throw new Error('No valid messages to send');
-//       }
+/*
+ *       if (contextMessages.length === 0) {
+ *         throw new Error('No valid messages to send');
+ *       }
+ */
       
-//       // Add prompt type if needed
-//       if (promptType) {
-//         contextMessages.unshift({
-//           role: 'system',
-//           content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-//           model: aiModel.api_type,
-//         });
-//       }
+/*
+ *       // Add prompt type if needed
+ *       if (promptType) {
+ *         contextMessages.unshift({
+ *           role: 'system',
+ *           content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
+ *           model: aiModel.api_type,
+ *         });
+ *       }
+ */
       
-//       // Fetch AI response
-//       const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
+/*
+ *       // Fetch AI response
+ *       const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
+ */
       
-//       // Remove thinking message
-//       chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+/*
+ *       // Remove thinking message
+ *       chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
+ */
       
-//       // Save AI response
-//       const assistantMessage = await messagesStore.saveMessage({
-//         text: aiResponse,
-//         type: 'robot',
-//         thread: threadId,
-//         parent_msg: userMessage.id,
-//         prompt_type: promptType,
-//         model: aiModel.api_type,
-//       }, threadId);
+/*
+ *       // Save AI response
+ *       const assistantMessage = await messagesStore.saveMessage({
+ *         text: aiResponse,
+ *         type: 'robot',
+ *         thread: threadId,
+ *         parent_msg: userMessage.id,
+ *         prompt_type: promptType,
+ *         model: aiModel.api_type,
+ *       }, threadId);
+ */
       
-//       // Add assistant message to UI
-//       const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-//       chatMessages = [...chatMessages, newAssistantMessage];
-//       typingMessageId = newAssistantMessage.id;
+/*
+ *       // Add assistant message to UI
+ *       const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+ *       chatMessages = [...chatMessages, newAssistantMessage];
+ *       typingMessageId = newAssistantMessage.id;
+ */
       
-//       // Type the message
-//       await typeMessage(aiResponse);
-//     }
-//   } catch (error) {
-//     console.error("Message handling error:", error);
-//     // Handle error (show notification, etc.)
-//   }
-// }
+/*
+ *       // Type the message
+ *       await typeMessage(aiResponse);
+ *     }
+ *   } catch (error) {
+ *     console.error("Message handling error:", error);
+ *     // Handle error (show notification, etc.)
+ *   }
+ * }
+ */
 
 function toggleReplies(messageId) {
   console.log(`[toggleReplies] Starting to toggle replies for message ID: ${messageId}`);
@@ -1157,7 +1207,7 @@ function updateToggleButtonState(messageId, isHidden) {
                 searchedThreads: filteredThreads, // Store filtered threads
                 isThreadsLoaded: true,
                 showThreadList: true,
-                currentProjectId: projectId || null  // Set to null when loading all threads
+                currentProjectId: projectId || null // Set to null when loading all threads
             };
         });
 
@@ -1811,18 +1861,18 @@ async function handleLoadThread(threadId: string) {
     showCollaborators = false;
     showCites = false;
     return thread;
-  } catch (error) {
-    console.error(`Error loading thread ${threadId}:`, error);
-    if (error.message && error.message.includes('Unauthorized')) {
-      await threadsStore.setCurrentThread(null);
-      chatMessages = [];
-      currentThreadId = null;
-      currentThread = null;
+    } catch (error) {
+        console.error(`Error loading thread ${threadId}:`, error);
+        if (error instanceof Error && error.message && error.message.includes('Unauthorized')) {
+            await threadsStore.setCurrentThread(null);
+            chatMessages = [];
+            currentThreadId = null;
+            currentThread = null;
+        }
+        return null;
+    } finally {
+        isLoadingMessages = false;
     }
-    return null;
-  } finally {
-    isLoadingMessages = false;
-  }
 }
 async function handleCreateNewThread(message = '') {
  if (isCreatingThread) return null;
@@ -2140,8 +2190,10 @@ function enhanceWithCitations() {
     messageElements.forEach(element => {
       const html = element.innerHTML;
       
-      // Process content to identify important terms (simple approach)
-      // For a real implementation, you might want to use NLP or more sophisticated methods
+      /*
+       * Process content to identify important terms (simple approach)
+       * For a real implementation, you might want to use NLP or more sophisticated methods
+       */
       const processed = html.replace(
         /(<strong>.*?<\/strong>)|(\b[A-Z][a-z]{2,}\b)/g, 
         (match, strongTag, word) => {
@@ -2258,20 +2310,22 @@ $: {
     namingThreadId = storeState.namingThreadId;
   }
 }
-// $: {
-//   if (namingThreadId) {
-//     if (currentThreadId === namingThreadId) {
-//       currentThread = threads?.find(t => t.id === currentThreadId) || null;
-//       if (currentThread) {
-//         threadsStore.update(state => ({
-//           ...state,
-//           isEditingThreadName: false,
-//           namingThreadId: null
-//         }));
-//       }
-//     }
-//   }
-// }
+/*
+ * $: {
+ *   if (namingThreadId) {
+ *     if (currentThreadId === namingThreadId) {
+ *       currentThread = threads?.find(t => t.id === currentThreadId) || null;
+ *       if (currentThread) {
+ *         threadsStore.update(state => ({
+ *           ...state,
+ *           isEditingThreadName: false,
+ *           namingThreadId: null
+ *         }));
+ *       }
+ *     }
+ *   }
+ * }
+ */
 $: {
   if (namingThreadId) {
     if (currentThreadId === namingThreadId) {
@@ -2378,18 +2432,20 @@ projectStore.subscribe((state) => {
   isEditingProjectName = state.isEditingProjectName;
   editedProjectName = state.editedProjectdName;
 });
-// $: {
-//   if ($threadsStore.threads) {
-//     // Update local threads array whenever store changes
-//     threads = $threadsStore.threads.filter(thread => {
-//       // Apply any filters you need here
-//       if (searchQuery) {
-//         return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
-//       }
-//       return true;
-//     });
-//   }
-// }
+/*
+ * $: {
+ *   if ($threadsStore.threads) {
+ *     // Update local threads array whenever store changes
+ *     threads = $threadsStore.threads.filter(thread => {
+ *       // Apply any filters you need here
+ *       if (searchQuery) {
+ *         return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
+ *       }
+ *       return true;
+ *     });
+ *   }
+ * }
+ */
 $: {
   if ($threadsStore.threads) {
     // Only update if we're not displaying non-project threads
@@ -2484,17 +2540,19 @@ $: if ($currentUser?.avatar) {
 $: if (date) {
         messagesStore.setSelectedDate(date.toISOString());
     }
-// $: {
-//     if (currentThread?.name) {
-//         orderedGroupedThreads = groupThreadsByDate(
-//             $threadsStore.threads.map(thread => 
-//                 thread.id === currentThread?.id 
-//                     ? { ...thread, name: currentThread.name }
-//                     : thread
-//             )
-//         );
-//     }
-// }
+/*
+ * $: {
+ *     if (currentThread?.name) {
+ *         orderedGroupedThreads = groupThreadsByDate(
+ *             $threadsStore.threads.map(thread => 
+ *                 thread.id === currentThread?.id 
+ *                     ? { ...thread, name: currentThread.name }
+ *                     : thread
+ *             )
+ *         );
+ *     }
+ * }
+ */
 $: if (chatMessages && chatMessages.length > 0) {
   dedupeChatMessages();
   preloadUserProfiles();
@@ -2508,11 +2566,13 @@ onMount(async () => {
     document.addEventListener('click', handleReplyableClick);
   
     isAuthenticated = await ensureAuthenticated();
-    // if (!isAuthenticated) {
-    //   console.error('User is not logged in. Please log in.');
-    //   showAuth = true;
-    //   return;
-    // }
+    /*
+     * if (!isAuthenticated) {
+     *   console.error('User is not logged in. Please log in.');
+     *   showAuth = true;
+     *   return;
+     * }
+     */
     
     if ($currentUser && $currentUser.id) {
       console.log('Current user:', $currentUser);
@@ -2675,15 +2735,17 @@ onDestroy(() => {
   window.history.replaceState({}, '', url);
 });
 
-// Lifecycle hooks
-// onMount(() => {
-// 		const interval = setInterval(() => {
-// 			deg += 2;
-// 			if (deg >= 360) deg = 0;
-// 			document.body.style.setProperty('--deg', deg);
-// 		}, 60);
-// 		return () => clearInterval(interval);
-// 	});
+/*
+ * Lifecycle hooks
+ * onMount(() => {
+ * 		const interval = setInterval(() => {
+ * 			deg += 2;
+ * 			if (deg >= 360) deg = 0;
+ * 			document.body.style.setProperty('--deg', deg);
+ * 		}, 60);
+ * 		return () => clearInterval(interval);
+ * 	});
+ */
 
 </script>
 
@@ -2815,7 +2877,7 @@ onDestroy(() => {
                   <svelte:component this={option.icon} />
                   <span>{option.label}</span>
                   {#if $sortOptionInfo.value === option.value}
-                    <Check  class="check-icon" />
+                    <Check class="check-icon" />
                     
                   {/if}
                 </button>
@@ -5873,9 +5935,9 @@ color: #6fdfc4;
     scrollbar-width: thin;
     scroll-behavior: smooth;
     overflow: {
-    x: hidden;
-    y: auto;
-  }
+      x: hidden;
+      y: auto;
+    }
   }
 
   .project-section {
@@ -6767,6 +6829,7 @@ p.selector-lable {
     scrollbar-width:thin;
     scrollbar-color: var(--bg-color) transparent;
     scroll-behavior: smooth;
+    
 
   }
   .drawer {
@@ -6776,6 +6839,7 @@ p.selector-lable {
   align-items: center;
   // background: var(--bg-gradient-right);
   // z-index: 11;
+  
   overflow: {
     x: hidden;
     y: auto;
@@ -8230,6 +8294,7 @@ p.selector-lable {
       transform: translateX(-100%);
       transition: transform 0.3s ease-in-out;
       /* z-index: 1000; */
+      
     }
 
     .drawer-visible .chat-messages {

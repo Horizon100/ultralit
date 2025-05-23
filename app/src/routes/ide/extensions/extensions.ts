@@ -61,8 +61,10 @@ export function getLanguageExtension(filename: string): Extension {
 
 // Function to create basic extensions
 export function createBasicExtensions(isDarkMode: boolean, languageExtension: Extension): Extension[] {
-  // Get file name from languageExtension if available
-  // This is a simplification; in practice, you'd need to find a way to get the filename
+  /*
+   * Get file name from languageExtension if available
+   * This is a simplification; in practice, you'd need to find a way to get the filename
+   */
   const filename = 'example.ts'; // Default
   
   // Get the theme highlighting based on filename and dark mode

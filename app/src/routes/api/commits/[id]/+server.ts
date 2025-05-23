@@ -36,5 +36,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 };
 
-// No PATCH/PUT for commits as they should be immutable
-// DELETE is uncommon for commits but could be implemented if needed for special cases
+/*
+ * No PATCH/PUT for commits as they should be immutable
+ * DELETE is uncommon for commits but could be implemented if needed for special cases
+ */

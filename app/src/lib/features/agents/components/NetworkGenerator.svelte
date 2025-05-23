@@ -11,13 +11,15 @@
 
 	let networkData: NetworkData | null = null;
 
-	// onMount(async () => {
-	// 	try {
-	// 		networkData = await generateNetwork(summary, aiModel, userId);
-	// 	} catch (error) {
-	// 		console.error('Error generating network:', error);
-	// 	}
-	// });
+	/*
+	 * onMount(async () => {
+	 * 	try {
+	 * 		networkData = await generateNetwork(summary, aiModel, userId);
+	 * 	} catch (error) {
+	 * 		console.error('Error generating network:', error);
+	 * 	}
+	 * });
+	 */
 </script>
 
 {#if networkData}

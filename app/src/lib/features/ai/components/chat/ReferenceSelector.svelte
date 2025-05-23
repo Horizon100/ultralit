@@ -27,8 +27,10 @@
       reddit: 'Reddit',
     };
   
-    // Remove the duplicate currentCite declaration and subscription
-    // The store is already properly initialized in citeStore.ts
+    /*
+     * Remove the duplicate currentCite declaration and subscription
+     * The store is already properly initialized in citeStore.ts
+     */
   
     async function openReference(cite: Cite) {
       if (!selectedText) return;

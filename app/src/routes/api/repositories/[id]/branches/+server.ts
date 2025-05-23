@@ -24,8 +24,10 @@ export const GET: RequestHandler = async ({ params }) => {
             return json({ error: 'Access denied' }, { status: 403 });
         }
         
-        // Get a unique list of branches from the repository
-        // Since we don't have a dedicated branches collection, we'll aggregate from folders and files
+        /*
+         * Get a unique list of branches from the repository
+         * Since we don't have a dedicated branches collection, we'll aggregate from folders and files
+         */
         const folderBranches = await pb.collection('code_folders').getList(1, 1000, {
             filter: `repository="${id}"`,
             fields: 'branch'

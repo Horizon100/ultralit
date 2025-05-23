@@ -24,7 +24,6 @@
 	} from 'lucide-svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import type { AIAgent, AIModel, Actions } from '$lib/types/types';
-	import { workspaceStore } from '$lib/stores/workspaceStore';
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
@@ -65,7 +64,7 @@
 	let selectedStatus: string | null = null;
 	let selectedTags: string[] = [];
 	let showFilters = false;
-	let selectedAIModel: AIModel = 'gpt-3.5-turbo'; // Set a default value
+	let selectedAIModel: AIModel;
 	let filteredAgents: AIAgent[] = [];
 	let appliedFiltersCount = 0;
 
@@ -122,44 +121,7 @@
 	const roles = ['hub', 'proxy', 'assistant', 'moderator'];
 	const statuses = ['active', 'inactive', 'maintenance', 'paused'];
 
-	async function getParentAgentIdForWorkspace(workspaceId: string): Promise<string | null> {
-		try {
-			const workspace = await pb.collection('workspaces').getOne(workspaceId);
-			return workspace.parent_agent_id || null;
-		} catch (error) {
-			console.error('Error fetching parent agent ID for workspace:', error);
-			return null;
-		}
-	}
 
-	async function loadAgents(workspaceId: string) {
-		showLoading();
-		try {
-			const parentAgentId = await getParentAgentIdForWorkspace(workspaceId);
-			if (!parentAgentId) {
-				console.error('No parent agent found for this workspace');
-				agents = [];
-				return;
-			}
-
-			const parentAgent = await pb.collection('ai_agents').getOne(parentAgentId);
-			if (!parentAgent.child_agents || parentAgent.child_agents.length === 0) {
-				agents = [];
-				return;
-			}
-
-			const childAgents = await pb.collection('ai_agents').getList(1, 50, {
-				filter: `id in "${parentAgent.child_agents.join('","')}"`
-			});
-
-			agents = childAgents.items;
-		} catch (error) {
-			console.error('Error loading agents:', error);
-			agents = [];
-		} finally {
-			hideLoading();
-		}
-	}
 
 	$: filteredAgents = agents
 		.filter(
@@ -207,25 +169,19 @@
 			return;
 		}
 
-		showLoading();
-		try {
-			await workspaceStore.loadWorkspaces($currentUser.id);
-
-			if ($workspaceStore.currentWorkspaceId) {
-				await agentStore.loadAgents($workspaceStore.currentWorkspaceId);
-			} else {
-				console.error('No workspace selected');
-				// Handle the case when no workspace is selected, e.g., show a message to the user
-			}
-
-			await modelStore.loadModels($currentUser.id);
-			await actionStore.loadActions($currentUser.id);
-		} finally {
-			hideLoading();
-			isLoading = false;
-		}
-	});
-
+	showLoading();
+	try {
+		// Load agents for the current user (no workspace needed)
+		await agentStore.loadAgents($currentUser.id);
+		
+		// Load models and actions for the current user
+		await modelStore.loadModels($currentUser.id);
+		await actionStore.loadActions($currentUser.id);
+	} finally {
+		hideLoading();
+		isLoading = false;
+	}
+});
 	const unsubscribeAgent = agentStore.subscribe((state) => {
 		agents = state.agents || [];
 		updateStatus = state.updateStatus;
@@ -340,8 +296,7 @@
 	async function handleDelete(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
 			try {
-				await deleteAgent(agent.id);
-				agentStore.removeAgent(agent.id);
+				await agentStore.deleteAgent(agent.id);
 			} catch (error) {
 				console.error('Error deleting agent:', error);
 				updateStatus = 'Error deleting agent. Please try again.';
@@ -388,32 +343,40 @@
 		};
 
 		try {
-			console.log('Submitting agent data:', agentData);
-			if (selectedAgent) {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				await updateAgent(selectedAgent.id, formData);
-			} else {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				const newAgent = await createAgent(formData);
-				agentStore.addAgent(newAgent);
-			}
-			showCreateForm = false;
-			selectedAgent = null;
-			resetForm();
-			avatarFile = null;
-			await loadAgents();
+    console.log('Submitting agent data:', agentData);
+    if (selectedAgent) {
+        // Update existing agent
+        const formData = new FormData();
+        if (avatarFile) {
+            formData.append('avatar', avatarFile);
+        }
+        for (const [key, value] of Object.entries(agentData)) {
+            if (value !== undefined && value !== null) {
+                formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+            }
+        }
+        await agentStore.updateAgentAPI(selectedAgent.id, formData);
+    } else {
+        // Create new agent
+        const formData = new FormData();
+        if (avatarFile) {
+            formData.append('avatar', avatarFile);
+        }
+        for (const [key, value] of Object.entries(agentData)) {
+            if (value !== undefined && value !== null) {
+                formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+            }
+        }
+        await agentStore.createAgent(formData);
+    }
+    
+    showCreateForm = false;
+    selectedAgent = null;
+    resetForm();
+    avatarFile = null;
+    
+    // Reload agents to get the latest data
+    await agentStore.loadAgents($currentUser.id);
 		} catch (error) {
 			console.error('Error saving agent:', error);
 			if (error instanceof ClientResponseError) {

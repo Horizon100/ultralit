@@ -24,8 +24,10 @@ export function setupKeyboardShortcuts(
       }
     }
     
-    // Add more shortcuts as needed
-    // For example: Ctrl+Shift+F for formatting
+    /*
+     * Add more shortcuts as needed
+     * For example: Ctrl+Shift+F for formatting
+     */
     if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'f') {
       event.preventDefault();
       

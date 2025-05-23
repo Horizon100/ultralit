@@ -24,8 +24,10 @@ export const GET: RequestHandler = async ({ params }) => {
             return json({ error: 'Access denied' }, { status: 403 });
         }
         
-        // Get branch details
-        // Check if branch exists by finding at least one folder
+        /*
+         * Get branch details
+         * Check if branch exists by finding at least one folder
+         */
         const branchFolders = await pb.collection('code_folders').getList(1, 1, {
             filter: `repository="${id}" && branch="${branch}"`
         });

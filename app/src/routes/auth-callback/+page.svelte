@@ -45,7 +45,7 @@
         'google',
         code,
         state,
-        redirectUrl  // Use our domain-based redirect URL here
+        redirectUrl // Use our domain-based redirect URL here
       );
       
       console.log('Auth successful:', authData);

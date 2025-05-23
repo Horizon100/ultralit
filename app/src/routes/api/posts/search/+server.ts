@@ -13,8 +13,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       return json({ posts: [], total: 0 });
     }
     
-    // Build filter conditions
-    // This will search in the post content
+    /*
+     * Build filter conditions
+     * This will search in the post content
+     */
     const filter = `content ~ "${query}"`;
     
     // Fetch posts with the search filter

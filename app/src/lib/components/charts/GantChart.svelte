@@ -23,20 +23,24 @@
     const tasks = writable<KanbanTask[]>([]);
     // const expandedTasks = writable<Set<string>>(new Set());
     
-    // function toggleTaskExpansion(taskId: string) {
-    //     expandedTasks.update(expanded => {
-    //         const newExpanded = new Set(expanded);
-    //         if (newExpanded.has(taskId)) {
-    //             newExpanded.delete(taskId);
-    //         } else {
-    //             newExpanded.add(taskId);
-    //         }
-    //         return newExpanded;
-    //     });
+    /*
+     * function toggleTaskExpansion(taskId: string) {
+     *     expandedTasks.update(expanded => {
+     *         const newExpanded = new Set(expanded);
+     *         if (newExpanded.has(taskId)) {
+     *             newExpanded.delete(taskId);
+     *         } else {
+     *             newExpanded.add(taskId);
+     *         }
+     *         return newExpanded;
+     *     });
+     */
         
-    //     // Force a refresh of the grid
-    //     tasks.update(currentTasks => [...currentTasks]);
-    // }
+    /*
+     *     // Force a refresh of the grid
+     *     tasks.update(currentTasks => [...currentTasks]);
+     * }
+     */
     
     
     // Store for the visible date range
@@ -157,7 +161,7 @@
             isLoading.set(false);
         } catch (err) {
             console.error('Error loading tasks:', err);
-            error.set(err.message || 'Failed to load tasks');
+            error.set(err instanceof Error ? err.message : 'Failed to load data');
             isLoading.set(false);
         }
     }
@@ -195,7 +199,7 @@
             });
         } catch (err) {
             console.error('Error updating task dates:', err);
-            error.set(`Failed to update task: ${err.message}`);
+        error.set(err instanceof Error ? err.message : 'Failed to update task');
         }
     }
 
@@ -299,8 +303,10 @@
         return days;
     }
 
-    // Handle various dragging operations on task bars
-// Change this part in handleTaskDragStart function:
+    /*
+     * Handle various dragging operations on task bars
+     * Change this part in handleTaskDragStart function:
+     */
 function handleTaskDragStart(event: MouseEvent, taskId: string, type: 'start' | 'end' | 'move') {
     event.preventDefault();
     event.stopPropagation(); // Stop event propagation to prevent conflicts
@@ -557,9 +563,11 @@ function handleTaskDragStart(event: MouseEvent, taskId: string, type: 'start' | 
                                     "
                                     on:click={() => {
                                             handleTaskClick(task);
-                                        // if (taskHasDependencies(task.id)) {
-                                        //     toggleTaskExpansion(task.id);
-                                        // }
+                                        /*
+                                         * if (taskHasDependencies(task.id)) {
+                                         *     toggleTaskExpansion(task.id);
+                                         * }
+                                         */
                                     }}
                                     draggable="false" 
                                     on:mousedown={(e) => {
