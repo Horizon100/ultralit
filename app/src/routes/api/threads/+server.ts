@@ -74,7 +74,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         return json({
             success: false,
             message: 'Failed to fetch threads',
-            error: err.message || String(err)
+            error: err instanceof Error ? err.message : String(err)
         }, { status: 500 });
     }
 };
@@ -92,7 +92,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const userId = locals.user.id;
         
         // Prepare thread data with required fields
-        const threadData = {
+        const threadData: Record<string, unknown> = {
             name: data.name || 'New Thread',
             user: userId,
             op: data.op || userId,
@@ -130,7 +130,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         console.error('API threads: Error creating thread:', err);
         return json({
             success: false,
-            message: String(err.message || 'Failed to create thread'),
+            message: err instanceof Error ? err.message : 'Failed to create thread',
             error: err
         }, { status: 400 });
     }

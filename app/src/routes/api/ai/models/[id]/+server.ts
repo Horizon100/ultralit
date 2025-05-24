@@ -4,17 +4,15 @@ import type { AIModel } from '$lib/types/types';
 import type { RequestHandler } from './$types';
 
 // Helper function to sanitize model data before sending to client
-function sanitizeModelData(model: AIModel): AIModel {
-    // Create a shallow copy of the model
-    const sanitized = { ...model };
-    
-    // Remove API key completely - we'll retrieve it from user's keys when needed
-    delete sanitized.api_key;
-    
+function sanitizeModelData(model: AIModel): Omit<AIModel, 'api_key'> {
+    const { api_key, ...sanitized } = model;
     return sanitized;
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
+    if (!locals.user) {
+        return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
     try {
         if (!params.id) {
             return json({ success: false, error: 'Missing model ID' }, { status: 400 });

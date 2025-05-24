@@ -49,12 +49,17 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     console.log('Search successful, found:', messages.items.length, 'messages');
     
     // Transform the results
-    const messagesWithContext = messages.items.map((message: any) => ({
-      ...message,
+    const messagesWithContext = messages.items.map((message) => ({
+      id: message.id,
+      text: message.text,
+      user: message.user,
+      thread: message.thread,
+      created: message.created,
+      updated: message.updated,
       threadName: message.expand?.thread?.name || 'Unknown Thread',
       threadId: message.thread,
       userName: message.expand?.user?.name || 'Unknown User',
-      projectId: message.expand?.thread?.project_id || null
+      projectId: message.expand?.thread?.project_id || null,
     }));
     
     return json({
@@ -63,15 +68,23 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       total: messages.totalItems
     });
     
-  } catch (err) {
-    console.error('API keys/messages/search: Error:', err);
-    
-    const statusCode = err.status || 500;
-    const message = (err as Error).message || 'Failed to search messages';
-    
-    return json({ 
-      success: false, 
-      message: message
-    }, { status: statusCode });
+} catch (err: unknown) {
+  console.error('API keys/messages/search: Error:', err);
+  
+  let statusCode = 500;
+  let message = 'Failed to search messages';
+  
+  if (typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number') {
+    statusCode = err.status;
   }
+  
+  if (err instanceof Error) {
+    message = err.message;
+  }
+  
+  return json({ 
+    success: false, 
+    message
+  }, { status: statusCode });
+}
 };

@@ -21,18 +21,18 @@
   let projectCollaborators: string[] = [];
   let user = $currentUser;
   
-  const activeTab = writable('kanban');
-  
-  const tabTransition = writable(null);
+  // const activeTab = writable('kanban');
+  const activeTab = writable<string | null>(null);
 
-  function switchTab(tabName) {
+  const tabTransition = writable<string | null>(null);
+
+  function switchTab(tabName: string | null) {
       tabTransition.set(tabName);
       
       setTimeout(() => {
           activeTab.set(tabName);
       }, 300);
   }
-
   projectStore.subscribe(state => {
     currentProjectId = state.currentProjectId;
     

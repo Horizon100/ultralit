@@ -1,5 +1,4 @@
-import type { AIModel } from '$lib/types/types';
-import type { ProviderType } from '$lib/features/ai/utils/providers';
+import type { AIModel, ProviderType } from '$lib/types/types';
 
 /**
  * Creates a new AI model via API

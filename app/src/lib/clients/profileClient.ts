@@ -40,7 +40,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     const profile: UserProfile = {
       id: userData.id,
       name: userData.name || userData.name || 'User',
-      avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : null
+      avatarUrl: userData.avatar ? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}` : ''
     };
     
     // Store in cache
@@ -61,7 +61,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile | null> {
   // Check if already in cache
   if (publicUserProfileCache.has(userId)) {
-    return publicUserProfileCache.get(userId);
+    return publicUserProfileCache.get(userId) ?? null;
   }
   
   try {
@@ -120,7 +120,7 @@ export async function getPublicUserProfiles(userIds: string[]): Promise<(PublicU
         const profiles = await response.json();
         
         // Process and cache each profile
-        profiles.forEach(profile => {
+        profiles.forEach((profile: PublicUserProfile & { avatar?: string }) => {
           // Process avatar URL if needed
           if (profile.avatar) {
             profile.avatarUrl = `${pocketbaseUrl}/api/files/users/${profile.id}/${profile.avatar}`;

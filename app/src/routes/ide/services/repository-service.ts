@@ -171,7 +171,7 @@ export async function getFolders(repositoryId: string, branch?: string, parentId
             params.append('parentId', parentId);
         }
         
-        const response = await fetch(`/api/folders?${params.toString()}`);
+        const response = await fetch(`/api/ide/folders?${params.toString()}`);
         if (!response.ok) {
             throw new Error('Failed to fetch folders');
         }
@@ -186,7 +186,7 @@ export async function getFolders(repositoryId: string, branch?: string, parentId
 
 export async function createFolder(data: Partial<CodeFolders>): Promise<CodeFolders> {
     try {
-        const response = await fetch('/api/folders', {
+        const response = await fetch('/api/ide/folders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -207,7 +207,7 @@ export async function createFolder(data: Partial<CodeFolders>): Promise<CodeFold
 
 export async function updateFolder(id: string, data: Partial<CodeFolders>): Promise<CodeFolders> {
     try {
-        const response = await fetch(`/api/folders/${id}`, {
+        const response = await fetch(`/api/ide/folders/${id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json'
@@ -228,7 +228,7 @@ export async function updateFolder(id: string, data: Partial<CodeFolders>): Prom
 
 export async function deleteFolder(id: string): Promise<void> {
     try {
-        const response = await fetch(`/api/folders/${id}`, {
+        const response = await fetch(`/api/ide/folders/${id}`, {
             method: 'DELETE'
         });
         

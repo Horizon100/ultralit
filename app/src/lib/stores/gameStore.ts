@@ -9,6 +9,12 @@ import type {
   GameDialog,
   GameRoad
 } from '$lib/types/types.game';
+interface DialogData {
+  type: 'table' | 'private' | 'room';
+  participants: string[];
+  tableId?: string;
+  roomId?: string;
+}
 
 // Create the main game store
 export const gameStore = writable<GameState>({
@@ -98,7 +104,7 @@ class GameService {
       return response.hero;
     } catch (error) {
       console.log(`[GAME SERVICE] Hero not found, creating new one...`);
-      if (error.message.includes('404')) {
+      if (error instanceof Error && error.message.includes('404')) {
         if (!projectId) {
           throw new Error('Project ID required to create hero');
         }
@@ -251,13 +257,13 @@ class GameService {
   
   // Start a dialog session
   async startDialog(
-    participants: string[], 
+    participants: string[],
     type: 'table' | 'private' | 'room',
     tableId?: string,
     roomId?: string
   ): Promise<GameDialog> {
     try {
-      const dialogData: any = {
+      const dialogData: DialogData = {
         type,
         participants,
         tableId,
@@ -283,7 +289,7 @@ class GameService {
       throw error;
     }
   }
-  
+    
   // Leave current location (room, table, or building)
   async leaveCurrentLocation(userId: string) {
     try {

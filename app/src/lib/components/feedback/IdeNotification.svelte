@@ -1,24 +1,8 @@
 <script lang="ts">
     import { fade, fly } from 'svelte/transition';
     import { createEventDispatcher, onMount } from 'svelte';
-    import { RefreshCcw, X, AlertCircle, CheckCircle, File, Save } from 'lucide-svelte';
-    
-    // Define notification type
-     type NotificationType = 'loading' | 'success' | 'error' | 'info';
-    
-    // Define notification interface
-     interface IdeNotification {
-      id: string;
-      message: string;
-      type: NotificationType;
-      timestamp: number;
-      autoClose?: boolean;
-      action?: {
-        label: string;
-        icon?: typeof Save;
-        onClick: () => void;
-      };
-    }
+    import { RefreshCcw, X, AlertCircle, CheckCircle } from 'lucide-svelte';
+    import type { NotificationType, IdeNotification } from '$lib/types/types.notifications';
     
     // Props
     export let notifications: IdeNotification[] = [];

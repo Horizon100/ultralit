@@ -5,6 +5,11 @@ import { pb } from '$lib/server/pocketbase';
 export const GET: RequestHandler = async ({ params }) => {
   const { username, id } = params;
 
+  // Check if id is provided
+  if (!id) {
+    return json({ error: 'Post ID is required' }, { status: 400 });
+  }
+
   try {
     // First verify the user exists and get their ID
     const users = await pb.collection('users').getList(1, 1, {

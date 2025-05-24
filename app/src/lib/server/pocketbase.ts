@@ -11,7 +11,6 @@ import type {
 	User,
 	AIModel,
 	Workflows,
-	Workspaces,
 	Threads,
 	Messages,
 } from '$lib/types/types';
@@ -72,7 +71,7 @@ export async function ensureAuthenticated(): Promise<boolean> {
         console.log('Attempting to refresh auth token...');
         // Use a try/catch block for the refresh operation
         try {
-            const authData = await pb.collection('users').authRefresh();
+            await pb.collection('users').authRefresh();
             console.log('Auth token refreshed successfully');
             return pb.authStore.isValid;
         } catch (error) {
@@ -110,16 +109,15 @@ export async function signUp(email: string, password: string): Promise<User | nu
 	}
 }
 
-export async function signIn(email: string, password: string): Promise<any> {
+export async function signIn(email: string, password: string): Promise<User | null> {
 	try {
 		const authData = await pb.collection('users').authWithPassword<User>(email, password);
-		return authData;
+		return authData.record;
 	} catch (error) {
 		console.error('Sign-in error:', error instanceof Error ? error.message : String(error));
 		return null;
 	}
 }
-
 export function signOut() {
 	pb.authStore.clear();
 }
@@ -589,9 +587,6 @@ export async function publishCursorPosition(
 	}, 100); // Debounce for 100ms
 }
 
-export function unsubscribeFromChanges(unsubscribe: () => void): void {
-	unsubscribe();
-}
 
 // ============= User Related Functions =============
 

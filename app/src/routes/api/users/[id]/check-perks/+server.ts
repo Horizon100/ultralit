@@ -1,6 +1,6 @@
 // src/routes/api/users/[id]/check-perks/+server.ts
 import { pb } from '$lib/server/pocketbase';
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { Perk } from '$lib/types/types';
 import { PERKS } from '$lib/features/users/utils/perks';
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
                         achievedBy: []
                     });
                     
-                    dbPerks.push(createdPerk);
+                    dbPerks.push(createdPerk as Perk);
                 }
             } else {
                 console.log(`DEBUG: Found ${perksResult.totalItems} perks in database`);

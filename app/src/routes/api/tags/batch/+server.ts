@@ -41,15 +41,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         // Filter tasks to only include those the user has access to
         const accessibleTasks = tasks.items.filter(task => {
             // User is the creator
-            if (task.createdBy === locals.user.id) return true;
+            if (task.createdBy === locals.user!.id) return true;
             
             // Check project access if task belongs to a project
             if (task.project_id && task.expand?.project_id) {
                 const project = task.expand.project_id;
-                return project.owner === locals.user.id || 
-                    (project.collaborators && project.collaborators.includes(locals.user.id));
+                return project.owner === locals.user!.id || 
+                    (project.collaborators && project.collaborators.includes(locals.user!.id));
             }
-            
+                    
             return false;
         });
         
@@ -58,8 +58,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
             items: accessibleTasks
         });
     } catch (error) {
-        console.error('Error fetching tasks batch:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        return new Response(JSON.stringify({ 
+            error: error instanceof Error ? error.message : 'Internal server error' 
+        }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

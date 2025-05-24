@@ -1,7 +1,8 @@
 // src/routes/api/test/+server.ts
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
-export async function GET({ locals }) {
+export const GET: RequestHandler = async ({ locals }) => {
   console.log('Test endpoint called');
   console.log('Auth status:', locals.user ? 'Authenticated' : 'Not authenticated');
   

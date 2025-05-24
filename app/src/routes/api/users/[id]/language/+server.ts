@@ -14,7 +14,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       language: user.language_preference || 'en'
     });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to load language';
+    throw error(400, errorMessage);
   }
 };
 
@@ -33,6 +34,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       language: updated.language_preference
     });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to change language';
+    throw error(400, errorMessage);
   }
 };

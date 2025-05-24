@@ -30,9 +30,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         });
 
         return json(tags);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error fetching project tags:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        const message = error instanceof Error ? error.message : 'Failed to fetch project tags';
+        return new Response(JSON.stringify({ error: message }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });
@@ -71,9 +72,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const tag = await pb.collection('tags').create(data);
         
         return json(tag);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error creating project tag:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        const message = error instanceof Error ? error.message : 'Failed to create project tag';
+        return new Response(JSON.stringify({ error: message }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

@@ -6,7 +6,7 @@ import type { GamePosition } from '$lib/types/types.game';
 class GameClient {
   private pendingPosition: GamePosition | null = null;
   private lastSentPosition: GamePosition | null = null;
-  private syncTimeout: number | null = null;
+  private syncTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly syncDelay = 500; // ms - delay before syncing to server
   private readonly moveThreshold = 32; // minimum distance to trigger server sync (half grid cell)
   private isOnline = true;

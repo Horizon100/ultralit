@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPBInstance } from '$lib/server/pocketbase';
+import { pb } from '$lib/server/pocketbase';
 
 // GET: Fetch a specific repository by ID
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -10,7 +10,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id } = params;
         
         // Fetch repository with expand
@@ -30,7 +29,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         return json(repository);
     } catch (error) {
         console.error('Error fetching repository:', error);
-        return json({ error: 'Failed to fetch repository' }, { status: 500 });
+        return json({ 
+            error: error instanceof Error ? error.message : 'Failed to fetch repository' 
+        }, { status: 500 });
     }
 };
 
@@ -42,7 +43,6 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id } = params;
         const data = await request.json();
         
@@ -69,7 +69,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         return json(updatedRepository);
     } catch (error) {
         console.error('Error updating repository:', error);
-        return json({ error: 'Failed to update repository' }, { status: 500 });
+        return json({ 
+            error: error instanceof Error ? error.message : 'Failed to update repository' 
+        }, { status: 500 });
     }
 };
 
@@ -81,7 +83,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id } = params;
         
         // Fetch current repository
@@ -131,6 +132,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         return json({ success: true });
     } catch (error) {
         console.error('Error deleting repository:', error);
-        return json({ error: 'Failed to delete repository' }, { status: 500 });
+        return json({ 
+            error: error instanceof Error ? error.message : 'Failed to delete repository' 
+        }, { status: 500 });
     }
 };

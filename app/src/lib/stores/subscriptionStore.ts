@@ -1,8 +1,11 @@
 // stores/subscriptionStore.ts
 import { writable } from 'svelte/store';
-import { } from '$lib/pocketbase';
-import type { Feature } from '$lib/types/types.features';
-import type { PaymentMethod } from '$lib/types/types.transactions';
+import PocketBase from 'pocketbase';
+import { pocketbaseUrl } from '$lib/pocketbase';
+import type { Subscription } from '$lib/types/types.subscriptions';
+
+// Create PocketBase instance
+const pb = new PocketBase(pocketbaseUrl);
 
 export interface SubscriptionPreferences {
 	newsletter: boolean;
@@ -10,27 +13,11 @@ export interface SubscriptionPreferences {
 	premium: boolean;
 }
 
-export interface Subscription {
-	id: string;
-	user: string;
-	tier: 'tier1' | 'tier2' | 'tier3';
-	status: 'active' | 'canceled' | 'expired' | 'pending';
-	start_date: string;
-	end_date: string;
-	auto_renew: boolean;
-	monthly_tokens: number;
-	features: Feature[];
-	metadata: {
-		last_renewal?: string;
-		cancel_reason?: string;
-		payment_method: PaymentMethod;
-		payment_reference?: string;
-		email?: string;
-		verificationToken?: string;
-		unsubscribeToken?: string;
-		verified?: boolean;
-	};
-}
+const TIER_FEATURES = {
+	tier1: [], // Define your tier1 features
+	tier2: [], // Define your tier2 features  
+	tier3: []  // Define your tier3 features
+};
 
 function generateToken(): string {
 	return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -42,11 +29,11 @@ async function sendVerificationEmail(email: string, token: string) {
 }
 
 function createSubscriptionStore() {
-	const { subscribe, set, update } = writable<Subscription[]>([]);
+	const { subscribe, update } = writable<Subscription[]>([]);
 
 	return {
 		subscribe,
-		async subscribe(email: string, preferences: SubscriptionPreferences) {
+		async createSubscription(email: string, preferences: SubscriptionPreferences) {
 			try {
 				const subscription: Subscription = await pb.collection('subscriptions').create({
 					user: '', // Will be populated when user completes registration
@@ -92,7 +79,7 @@ function createSubscriptionStore() {
 						verified: true,
 						verificationToken: null
 					}
-				});
+				}) as Subscription;
 
 				update((subs) => subs.map((sub) => (sub.id === updated.id ? updated : sub)));
 
@@ -118,7 +105,7 @@ function createSubscriptionStore() {
 						...subscription.metadata,
 						cancel_reason: 'User unsubscribed'
 					}
-				});
+				}) as Subscription;
 
 				update((subs) => subs.map((sub) => (sub.id === updated.id ? updated : sub)));
 

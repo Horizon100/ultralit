@@ -1,11 +1,9 @@
 import { get } from 'svelte/store';
-import type { Messages, Threads, AIModel, Projects } from '$lib/types/types';
+import type { Messages, Threads, AIModel } from '$lib/types/types';
 import { ensureAuthenticated, currentUser, getUserById } from '$lib/pocketbase'; // Client-side import
 import { processMarkdown } from '$lib/features/ai/utils/markdownProcessor';
 import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
-import { projectStore } from '$lib/stores/projectStore';
 import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
-import { fetchThreadsForProject } from '$lib/clients/projectClient';
 
 // Throttling variables
 let isLoadingAllThreads = false;
@@ -42,7 +40,7 @@ export const threadListVisibility = {
  * @param projectId Optional project ID to filter threads
  * @returns Promise<any[]> Array of thread objects
  */
-export async function fetchThreads(projectId: string | null = null): Promise<any[]> {
+export async function fetchThreads(projectId: string | null = null): Promise<Threads[]> {
     try {
       // Skip ensureAuthenticated since it's causing issues
       const user = get(currentUser);
@@ -93,7 +91,7 @@ export async function fetchThreads(projectId: string | null = null): Promise<any
    * @param projectId Project ID
    * @returns Promise with thread array
    */
-  export async function fetchProjectThreads(projectId: string): Promise<any[]> {
+  export async function fetchProjectThreads(projectId: string): Promise<Threads[]> {
     return fetchThreads(projectId);
   }
   
@@ -101,7 +99,7 @@ export async function fetchThreads(projectId: string | null = null): Promise<any
    * Fetch unassigned threads (not belonging to any project)
    * @returns Promise with thread array
    */
-  export async function fetchUnassignedThreads(): Promise<any[]> {
+  export async function fetchUnassignedThreads(): Promise<Threads[]> {
     return fetchThreads(null);
   }
   
@@ -111,7 +109,7 @@ export async function fetchThreads(projectId: string | null = null): Promise<any
  * Special function to get ALL threads across all projects
  * @returns Promise with thread array
  */
-export async function fetchAllThreads(): Promise<any[]> {
+export async function fetchAllThreads(): Promise<Threads[]> {
     try {
       // Don't call ensureAuthenticated() here since it's throwing an error
       const user = get(currentUser);
@@ -393,13 +391,15 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
 
         if (changes.project_id || changes.project) {
             const projectId = changes.project_id || changes.project;
-            changes = {
-                ...changes,
-                project: projectId,
-                project_id: projectId
-            };
+            // Only assign if projectId is not null
+            if (projectId !== null) {
+                changes = {
+                    ...changes,
+                    project: projectId,
+                    project_id: projectId
+                };
+            }
         }
-
         const response = await fetch(`/api/threads/${id}`, {
             method: 'PATCH',
             credentials: 'include',

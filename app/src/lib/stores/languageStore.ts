@@ -53,7 +53,9 @@ export async function initializeLanguage() {
 
   // 3. Fallback to browser language or English
   const browserLang = browser ? navigator.language.slice(0, 2) : 'en';
-  const validLang = languages.some(l => l.code === browserLang) ? browserLang : 'en';
+  const validLang: LanguageCode = languages.some(l => l.code === browserLang) 
+    ? browserLang as LanguageCode 
+    : 'en';
   applyLanguage(validLang);
 }
 

@@ -39,18 +39,21 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             
             return json(task);
             
-} catch (err) {
-    console.error(`Error fetching task ${params.id}:`, err);
-    
-    if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-        return new Response(JSON.stringify({ error: 'Task not found', details: (err as any).message }), { 
-            status: 404, 
-            headers: { 'Content-Type': 'application/json' } 
-        });
+    } catch (err) {
+        console.error(`Error fetching task ${params.id}:`, err);
+        
+        if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+            return new Response(JSON.stringify({ 
+                error: 'Task not found', 
+                details: err instanceof Error ? err.message : 'Unknown error'
+            }), { 
+                status: 404, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
+        }
+        
+        throw err;
     }
-    
-    throw err;
-}
     } catch (error) {
         console.error('Error in GET task handler:', error);
         return new Response(JSON.stringify({ 
@@ -109,28 +112,35 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
             
             return json(updatedTask);
             
-        } catch (err) {
-            console.error(`Error updating task ${params.id}:`, err);
-            
-            if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-                return new Response(JSON.stringify({ error: 'Task not found', details: err.message }), { 
-                    status: 404, 
-                    headers: { 'Content-Type': 'application/json' } 
-                });
-            }
-            
-            throw err;
+    } catch (err) {
+        console.error(`Error updating task ${params.id}:`, err);
+        
+        if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+            return new Response(JSON.stringify({ 
+                error: 'Task not found', 
+                details: err instanceof Error ? err.message : 'Unknown error'
+            }), { 
+                status: 404, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
         }
-    } catch (error) {
-        console.error('Error in PATCH task handler:', error);
-        return new Response(JSON.stringify({ 
-            error: 'Internal server error', 
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined
-        }), { 
-            status: 500, 
-            headers: { 'Content-Type': 'application/json' } 
-        });
+        
+        throw err;
+    }
+    } catch (err) {
+        console.error(`Error deleting task ${params.id}:`, err);
+        
+        if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+            return new Response(JSON.stringify({ 
+                error: 'Task not found', 
+                details: err instanceof Error ? err.message : 'Unknown error'
+            }), { 
+                status: 404, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
+        }
+        
+        throw err;
     }
 };
 

@@ -1,17 +1,29 @@
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { tags as t } from '@lezer/highlight';
+import { tags as t, Tag } from '@lezer/highlight';
 import { EditorView } from '@codemirror/view';
 
-// Helper function to safely define tag styles
-function safeTagStyle(tag, style) {
-  // Check if the tag is defined before using it
-  if (tag === undefined) return null;
+interface StyleObject {
+  color?: string;
+  fontStyle?: string;
+  fontWeight?: string;
+  textDecoration?: string;
+}
+
+interface TagStyle {
+  tag: Tag;
+  color?: string;
+  fontStyle?: string;
+  fontWeight?: string;
+  textDecoration?: string;
+}
+
+function safeTagStyle(tag: Tag | null, style: StyleObject): TagStyle | null {
+  if (tag === undefined || tag === null) return null;
   return { tag, ...style };
 }
 
-// Filter out null values from style definitions
-function createHighlightStyle(styles) {
-  return HighlightStyle.define(styles.filter(style => style !== null));
+function createHighlightStyle(styles: (TagStyle | null)[]): HighlightStyle {
+  return HighlightStyle.define(styles.filter((style): style is TagStyle => style !== null));
 }
 
 /**
@@ -22,21 +34,21 @@ export const darkHighlightStyle = createHighlightStyle([
   safeTagStyle(t.comment, { color: '#7f848e', fontStyle: 'italic' }),
   safeTagStyle(t.string, { color: '#98c379' }),
   safeTagStyle(t.number, { color: '#d19a66' }),
-  safeTagStyle(t.boolean, { color: '#d19a66' }),
+  safeTagStyle(t.literal, { color: '#d19a66' }),
   safeTagStyle(t.regexp, { color: '#e06c75' }),
   safeTagStyle(t.operator, { color: '#56b6c2' }),
   safeTagStyle(t.variableName, { color: '#e06c75' }),
   safeTagStyle(t.definitionKeyword, { color: '#c678dd' }),
   safeTagStyle(t.className, { color: '#e5c07b' }),
   safeTagStyle(t.propertyName, { color: '#61afef' }),
-  safeTagStyle(t.function && t.variableName ? t.function(t.variableName) : null, { color: '#61afef' }),
+  safeTagStyle(t.function(t.variableName), { color: '#61afef' }),
   safeTagStyle(t.typeName, { color: '#e5c07b' }),
   safeTagStyle(t.tagName, { color: '#e06c75' }),
   safeTagStyle(t.attributeName, { color: '#d19a66' }),
   safeTagStyle(t.heading, { color: '#61afef', fontWeight: 'bold' }),
   safeTagStyle(t.link, { color: '#98c379', textDecoration: 'underline' }),
   safeTagStyle(t.processingInstruction, { color: '#56b6c2' }),
-  safeTagStyle(t.definition && t.name ? t.definition(t.name) : null, { color: '#e06c75' }),
+  safeTagStyle(t.definition(t.name), { color: '#e06c75' }),
 ]);
 
 /**
@@ -47,21 +59,21 @@ export const lightHighlightStyle = createHighlightStyle([
   safeTagStyle(t.comment, { color: '#8e908c', fontStyle: 'italic' }),
   safeTagStyle(t.string, { color: '#718c00' }),
   safeTagStyle(t.number, { color: '#f5871f' }),
-  safeTagStyle(t.boolean, { color: '#f5871f' }),
+  safeTagStyle(t.literal, { color: '#f5871f' }),
   safeTagStyle(t.regexp, { color: '#c82829' }),
   safeTagStyle(t.operator, { color: '#3e999f' }),
   safeTagStyle(t.variableName, { color: '#c82829' }),
   safeTagStyle(t.definitionKeyword, { color: '#8959a8' }),
   safeTagStyle(t.className, { color: '#eab700' }),
   safeTagStyle(t.propertyName, { color: '#4271ae' }),
-  safeTagStyle(t.function && t.variableName ? t.function(t.variableName) : null, { color: '#4271ae' }),
+  safeTagStyle(t.function(t.variableName), { color: '#4271ae' }),
   safeTagStyle(t.typeName, { color: '#eab700' }),
   safeTagStyle(t.tagName, { color: '#c82829' }),
   safeTagStyle(t.attributeName, { color: '#f5871f' }),
   safeTagStyle(t.heading, { color: '#4271ae', fontWeight: 'bold' }),
   safeTagStyle(t.link, { color: '#718c00', textDecoration: 'underline' }),
   safeTagStyle(t.processingInstruction, { color: '#3e999f' }),
-  safeTagStyle(t.definition && t.name ? t.definition(t.name) : null, { color: '#c82829' }),
+  safeTagStyle(t.definition(t.name), { color: '#c82829' }),
 ]);
 
 // Dark theme extension including syntax highlighting
@@ -156,7 +168,7 @@ export const basicHighlightStyle = createHighlightStyle([
 /**
  * Get syntax highlighting for a specific language
  */
-export function getLanguageHighlighting(filename: string, isDarkMode: boolean) {
+export function getLanguageHighlighting(filename: string, isDarkMode: boolean): unknown[] {
   const fileExtension = filename.split('.').pop()?.toLowerCase();
   
   try {
@@ -172,14 +184,20 @@ export function getLanguageHighlighting(filename: string, isDarkMode: boolean) {
     // Specialized theme extensions based on file type
     if (fileExtension === 'tsx' || fileExtension === 'jsx') {
       try {
-        // Create React style only with available tags
-        const reactStyle = createHighlightStyle([
-          // Use basic highlighting as fallback
-          ...basicHighlightStyle.specs,
-          // JSX specific that we know exist
-          safeTagStyle(t.tagName, { color: '#61afef' }),
-          safeTagStyle(t.attributeName, { color: '#d19a66' }),
-        ]);
+        // Create React style only with safe tags
+        const reactStyles = [
+          safeTagStyle(t.keyword, { color: isDarkMode ? '#c678dd' : '#8959a8' }),
+          safeTagStyle(t.comment, { color: isDarkMode ? '#7f848e' : '#8e908c', fontStyle: 'italic' }),
+          safeTagStyle(t.string, { color: isDarkMode ? '#98c379' : '#718c00' }),
+          safeTagStyle(t.number, { color: isDarkMode ? '#d19a66' : '#f5871f' }),
+          safeTagStyle(t.operator, { color: isDarkMode ? '#56b6c2' : '#3e999f' }),
+          safeTagStyle(t.variableName, { color: isDarkMode ? '#e06c75' : '#c82829' }),
+          safeTagStyle(t.propertyName, { color: isDarkMode ? '#61afef' : '#4271ae' }),
+          safeTagStyle(t.tagName, { color: isDarkMode ? '#e06c75' : '#c82829' }),
+          safeTagStyle(t.attributeName, { color: isDarkMode ? '#d19a66' : '#f5871f' }),
+        ].filter(style => style !== null);
+        
+        const reactStyle = createHighlightStyle(reactStyles);
         
         return [
           baseTheme[0],
@@ -191,13 +209,19 @@ export function getLanguageHighlighting(filename: string, isDarkMode: boolean) {
       }
     } else if (fileExtension === 'ts') {
       try {
-        // Create TypeScript style only with available tags
-        const tsStyle = createHighlightStyle([
-          // Use basic highlighting as fallback
-          ...basicHighlightStyle.specs,
-          // TypeScript specific
-          safeTagStyle(t.typeName, { color: '#e5c07b' }),
-        ]);
+        // Create TypeScript style with safe tags
+        const tsStyles = [
+          safeTagStyle(t.keyword, { color: isDarkMode ? '#c678dd' : '#8959a8' }),
+          safeTagStyle(t.comment, { color: isDarkMode ? '#7f848e' : '#8e908c', fontStyle: 'italic' }),
+          safeTagStyle(t.string, { color: isDarkMode ? '#98c379' : '#718c00' }),
+          safeTagStyle(t.number, { color: isDarkMode ? '#d19a66' : '#f5871f' }),
+          safeTagStyle(t.operator, { color: isDarkMode ? '#56b6c2' : '#3e999f' }),
+          safeTagStyle(t.variableName, { color: isDarkMode ? '#e06c75' : '#c82829' }),
+          safeTagStyle(t.propertyName, { color: isDarkMode ? '#61afef' : '#4271ae' }),
+          safeTagStyle(t.typeName, { color: isDarkMode ? '#e5c07b' : '#eab700' }),
+        ].filter(style => style !== null);
+        
+        const tsStyle = createHighlightStyle(tsStyles);
         
         return [
           baseTheme[0],

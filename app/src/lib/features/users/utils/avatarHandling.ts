@@ -1,7 +1,8 @@
-
+import { pocketbaseUrl } from "$lib/pocketbase";
+import type { User } from "$lib/types/types";
 const avatarUrlCache = new Map<string, string>();
 
-export function getAvatarUrl(user: any): string {
+export function getAvatarUrl(user: User): string {
   if (!user) return '';
   
   const cacheKey = `${user.id}-${user.avatar}`;

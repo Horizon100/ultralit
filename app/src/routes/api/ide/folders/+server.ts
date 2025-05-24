@@ -1,4 +1,4 @@
-// src/routes/api/folders/+server.ts
+// src/routes/api/ide/folders/+server.ts
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';

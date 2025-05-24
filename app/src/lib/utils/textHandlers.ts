@@ -98,9 +98,8 @@ export function processWordMinimize(str: string): string {
             continue;
         }
         
-        // Apply regular replacements
-        if (replacements[lowerPart]) {
-            result.push(replacements[lowerPart]);
+        if (lowerPart in replacements) {
+            result.push(replacements[lowerPart as keyof typeof replacements]);
         } else {
             result.push(part);
         }

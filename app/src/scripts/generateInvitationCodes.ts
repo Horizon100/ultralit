@@ -79,7 +79,7 @@ async function createInvitationCodes(pb: PocketBase, count: number) {
       
       results.push(data);
     } catch (error) {
-      console.error('Error creating invitation code:', error);
+      console.error('Error creating invitation code:', error instanceof Error ? error.message : error);
     }
   }
   
@@ -118,8 +118,8 @@ async function main() {
       
       console.log('Authentication successful. User has admin role.');
     } catch (error) {
-      console.error('Authentication failed:', error.message);
-      if (error.status === 400) {
+      console.error('Authentication failed:', error instanceof Error ? error.message : String(error));
+      if (error && typeof error === 'object' && 'status' in error && (error).status === 400) {
         console.error('Invalid credentials or user does not exist.');
       }
       process.exit(1);
@@ -138,9 +138,9 @@ async function main() {
     codes.forEach(code => console.log(` - ${code}`));
     console.log(`\n${results.length} codes have been saved to the database.`);
   } catch (error) {
-    console.error('Error generating invitation codes:', error.message);
-    if (error.data) {
-      console.error('Error details:', error.data);
+    console.error('Error generating invitation codes:', error instanceof Error ? error.message : String(error));
+    if (error && typeof error === 'object' && 'data' in error) {
+      console.error('Error details:', (error).data);
     }
     process.exit(1);
   }

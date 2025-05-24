@@ -27,12 +27,12 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
       // Toggle upvote
       if (upvotedBy.includes(userId)) {
         // Remove upvote
-        upvotedBy = upvotedBy.filter(id => id !== userId);
+        upvotedBy = upvotedBy.filter((id: string) => id !== userId);
       } else {
         // Add upvote and remove downvote if exists
         upvotedBy.push(userId);
         upvoted = true;
-        downvotedBy = downvotedBy.filter(id => id !== userId);
+        downvotedBy = downvotedBy.filter((id: string) => id !== userId);
       }
 
       // Update post with new arrays and counts
@@ -54,7 +54,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
     } catch (err) {
       console.error(`Error toggling upvote for post ${postId}:`, err);
       
-      if (err.status === 404) {
+      if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
         return new Response(JSON.stringify({ error: 'Post not found' }), { 
           status: 404, 
           headers: { 'Content-Type': 'application/json' } 
@@ -67,7 +67,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
     console.error('Error in upvote handler:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 

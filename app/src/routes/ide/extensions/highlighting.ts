@@ -10,7 +10,7 @@ export const darkHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: '#7f848e', fontStyle: 'italic' },
   { tag: t.string, color: '#98c379' },
   { tag: t.number, color: '#d19a66' },
-  { tag: t.boolean, color: '#d19a66' },
+  { tag: t.literal, color: '#d19a66' },
   { tag: t.regexp, color: '#e06c75' },
   { tag: t.operator, color: '#56b6c2' },
   { tag: t.variableName, color: '#e06c75' },
@@ -35,7 +35,7 @@ export const lightHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: '#8e908c', fontStyle: 'italic' },
   { tag: t.string, color: '#718c00' },
   { tag: t.number, color: '#f5871f' },
-  { tag: t.boolean, color: '#f5871f' },
+  { tag: t.literal, color: '#f5871f' },
   { tag: t.regexp, color: '#c82829' },
   { tag: t.operator, color: '#3e999f' },
   { tag: t.variableName, color: '#c82829' },
@@ -161,7 +161,7 @@ export const pythonHighlightStyle = HighlightStyle.define([
   ...darkHighlightStyle.specs,
   // Python specific
   { tag: t.self, color: '#e06c75' },
-  { tag: t.definition(t.function), color: '#61afef' },
+  { tag: t.definition(t.variableName), color: '#61afef' },
   { tag: t.className, color: '#e5c07b' }
 ]);
 

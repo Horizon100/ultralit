@@ -14,6 +14,8 @@ export const POST: RequestHandler = async ({ request }) => {
         return json({ success: true });
     } catch (error) {
         console.error('Error updating bookmarks:', error);
-        return json({ success: false, error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return json({ success: false, error: errorMessage }, { status: 500 });
     }
 };
+

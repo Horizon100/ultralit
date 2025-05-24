@@ -11,8 +11,16 @@ import {
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
 
 import { browser } from '$app/environment';
-import { ArrowDown, ArrowUp, CalendarDays, MessageSquare, SortAsc, SortDesc, User as UserIcon, UserCircle } from 'lucide-svelte';
-
+import { ArrowDown, CalendarDays, MessageSquare, SortAsc, SortDesc, User as UserIcon, UserCircle } from 'lucide-svelte';
+import type { ComponentType } from 'svelte';
+import type { SvelteComponent } from 'svelte';
+import type { IconProps } from 'lucide-svelte';
+type LucideIcon = ComponentType<SvelteComponent<IconProps>>;
+export interface SortOptionInfo {
+  value: ThreadSortOption;
+  label: string;
+  icon: LucideIcon;
+}
 export enum ThreadSortOption {
   NewestFirst = 'newest',
   OldestFirst = 'oldest',
@@ -23,13 +31,6 @@ export enum ThreadSortOption {
   UserCountAsc = 'users_asc',
   UserCountDesc = 'users_desc'
 }
-  
-export interface SortOptionInfo {
-  value: ThreadSortOption;
-  label: string;
-  icon: typeof import('lucide-svelte').LucideIcon;
-}
-
 // Helper function to handle fetch API responses
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -134,7 +135,7 @@ export function createThreadsStore() {
     currentThread: null,
     filteredThreads: [],
     isNaming: false,
-    project_id: undefined
+    project_id: ''
   });
   const { subscribe, update } = store;
   const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
@@ -184,25 +185,29 @@ export function createThreadsStore() {
         case ThreadSortOption.AlphabeticalDesc:
           return (b.name || '').localeCompare(a.name || '');
         
-        case ThreadSortOption.MessageCountHigh:
+        case ThreadSortOption.MessageCountHigh: {
           const aCount = a.message_count || 0;
           const bCount = b.message_count || 0;
           return bCount - aCount;
+        }
         
-        case ThreadSortOption.MessageCountLow:
+        case ThreadSortOption.MessageCountLow: {
           const aCountLow = a.message_count || 0;
           const bCountLow = b.message_count || 0;
           return aCountLow - bCountLow;
+        }
         
-        case ThreadSortOption.UserCountAsc:
+        case ThreadSortOption.UserCountAsc: {
           const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
           const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
           return aUsers - bUsers;
+        }
         
-        case ThreadSortOption.UserCountDesc:
+        case ThreadSortOption.UserCountDesc: {
           const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
           const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
           return bUsersDesc - aUsersDesc;
+        }
         
         default:
           return 0;
@@ -263,26 +268,26 @@ export function createThreadsStore() {
           case ThreadSortOption.AlphabeticalDesc:
             return (b.name || '').localeCompare(a.name || '');
           
-          case ThreadSortOption.MessageCountHigh:
+          case ThreadSortOption.MessageCountHigh: {
             const aCount = a.message_count || 0;
             const bCount = b.message_count || 0;
             return bCount - aCount;
-          
-          case ThreadSortOption.MessageCountLow:
+          }
+          case ThreadSortOption.MessageCountLow: {
             const aCountLow = a.message_count || 0;
             const bCountLow = b.message_count || 0;
             return aCountLow - bCountLow;
-          
-          case ThreadSortOption.UserCountAsc:
+          }
+          case ThreadSortOption.UserCountAsc: {
             const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
             const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
             return aUsers - bUsers;
-          
-          case ThreadSortOption.UserCountDesc:
+          }
+          case ThreadSortOption.UserCountDesc: {
             const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
             const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
             return bUsersDesc - aUsersDesc;
-          
+          }
           default:
             return 0;
         }
@@ -846,26 +851,26 @@ export function createThreadsStore() {
           case ThreadSortOption.AlphabeticalDesc:
             return (b.name || '').localeCompare(a.name || '');
           
-          case ThreadSortOption.MessageCountHigh:
+          case ThreadSortOption.MessageCountHigh: {
             const aCount = a.message_count || 0;
             const bCount = b.message_count || 0;
             return bCount - aCount;
-          
-          case ThreadSortOption.MessageCountLow:
+          }
+          case ThreadSortOption.MessageCountLow: {
             const aCountLow = a.message_count || 0;
             const bCountLow = b.message_count || 0;
             return aCountLow - bCountLow;
-          
-          case ThreadSortOption.UserCountAsc:
-			const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
+          }
+          case ThreadSortOption.UserCountAsc: {
+			      const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
             const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
             return aUsers - bUsers;
-          
-          case ThreadSortOption.UserCountDesc:
+          }
+          case ThreadSortOption.UserCountDesc: {
             const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
             const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
             return bUsersDesc - aUsersDesc;
-          
+          }
           default:
             return 0;
         }

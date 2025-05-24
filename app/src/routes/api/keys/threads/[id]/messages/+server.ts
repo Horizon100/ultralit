@@ -69,15 +69,23 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             success: true,
             messages: messages
         });
-    } catch (err) {
+    } catch (err: unknown) {
         console.error('API: Error fetching messages:', err);
         
-        const statusCode = err.status || 400;
-        const message = (err as Error).message || 'Failed to fetch messages';
+        let statusCode = 400;
+        let message = 'Failed to fetch messages';
+        
+        if (typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number') {
+            statusCode = err.status;
+        }
+        
+        if (err instanceof Error) {
+            message = err.message;
+        }
         
         return json({ 
             success: false, 
-            message: message
+            message
         }, { status: statusCode });
     }
 };
@@ -130,15 +138,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             success: true,
             message: message
         });
-    } catch (err) {
+    } catch (err: unknown) {
         console.error('API: Error creating message:', err);
         
-        const statusCode = err.status || 400;
-        const message = (err as Error).message || 'Failed to create message';
+        let statusCode = 400;
+        let message = 'Failed to create message';
+        
+        if (typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number') {
+            statusCode = err.status;
+        }
+        
+        if (err instanceof Error) {
+            message = err.message;
+        }
         
         return json({ 
             success: false, 
-            message: message
+            message
         }, { status: statusCode });
     }
 };

@@ -1,5 +1,4 @@
-import type { AIModel } from '$lib/types/types';
-import type { ProviderType } from './providers';
+import type { AIModel, ProviderType } from '$lib/types/types';
 
 export const availableModels: AIModel[] = [
 	{

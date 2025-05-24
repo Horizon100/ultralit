@@ -41,8 +41,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
             throw error(403, 'Only project owner can remove collaborators');
         }
         
-        // Remove the collaborator
-        const updatedCollaborators = project.collaborators?.filter(id => id !== params.userId) || [];
+        const updatedCollaborators = project.collaborators?.filter((id: string) => id !== params.userId) || [];
         const updated = await pb.collection('projects').update(params.id, {
             collaborators: updatedCollaborators
         });

@@ -43,8 +43,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
                                 break;
                             }
                         }
-                    } catch (err) {
-                        console.warn(`Could not check task ${taskId}: ${err.message}`);
+                    } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Unknown error';
+                        console.warn(`Could not check task ${taskId}: ${message}`);
                     }
                 }
             }
@@ -62,8 +63,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
                             hasAccess = true;
                             break;
                         }
-                    } catch (err) {
-                        console.warn(`Could not check project ${projectId}: ${err.message}`);
+                    } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Unknown error';
+                        console.warn(`Could not check project ${projectId}: ${message}`);
                     }
                 }
             }
@@ -80,9 +82,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         await pb.collection('attachments').delete(params.id);
         
         return json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error deleting attachment:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return new Response(JSON.stringify({ error: message }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

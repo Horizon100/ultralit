@@ -25,7 +25,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 		try {
 			const records = await pb.collection('actions').getList(1, 50, {
 				filter: `createdBy = "${user.id}"`,
-				sort: '-created'
+				sort: '-created',
+				expand: 'createdBy' 
+
 			});
 
 			console.log('PocketBase query successful, records:', records.items.length);
@@ -36,7 +38,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 				description: record.description,
 				code: record.code,
 				created: record.created,
-				updated: record.updated
+				updated: record.updated,
+				createdBy: record.expand?.createdBy || user
 			}));
 
 			console.log('Returning actions:', actions.length);
@@ -83,7 +86,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			description: record.description,
 			code: record.code,
 			created: record.created,
-			updated: record.updated
+			updated: record.updated,
+			createdBy: record.expand?.createdBy || user
 		};
 
 		return json({ success: true, action });
@@ -118,15 +122,17 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Update action in PocketBase
-		const record = await pb.collection('actions').update(id, updateData);
-
+		const record = await pb.collection('actions').update(id, updateData, {
+			expand: 'createdBy' 
+		});
 		const action: Actions = {
 			id: record.id,
 			name: record.name,
 			description: record.description,
 			code: record.code,
 			created: record.created,
-			updated: record.updated
+			updated: record.updated,
+			createdBy: record.expand?.createdBy || user
 		};
 
 		return json({ success: true, action });

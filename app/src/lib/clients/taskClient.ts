@@ -1,7 +1,8 @@
 // src/lib/clients/taskClient.ts
 import { get } from 'svelte/store';
+import type { Writable } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
-import type { KanbanTask, Task, InternalChatMessage } from '$lib/types/types';
+import type { KanbanTask, KanbanColumn, Task, InternalChatMessage } from '$lib/types/types';
 interface RawTaskData {
     id: string;
     title: string;
@@ -11,19 +12,39 @@ interface RawTaskData {
     start_date?: string;
     taskTags?: string[];
     taggedTasks?: string;
-    attachments?: any[];
+    attachments?: Array<{
+        id: string;
+        fileName: string;
+        url?: string;
+        note?: string;
+    }>;     
     project_id: string;
     createdBy: string;
     assignedTo?: string;
     parent_task?: string;
     allocatedAgents?: string[];
-    status: string;
-    priority?: string;
+    status: 'backlog' | 'todo' | 'inprogress' | 'review' | 'done' | 'hold' | 'postpone' | 'delegate' | 'cancel' | 'archive';
+    priority?: 'high' | 'medium' | 'low';
     prompt?: string;
     context?: string;
     task_outcome?: string;
-    dependencies?: string[];
+    dependencies?: Array<string | {
+        type: 'dependency' | 'subtask' | 'resource' | 'precedence';
+        task_id: string;
+    }>;    
     agentMessages?: string[];
+}
+let currentProjectId: string | null = null;
+let columns: Writable<KanbanColumn[]>;
+
+
+
+export function setCurrentProjectId(projectId: string | null) {
+    currentProjectId = projectId;
+}
+
+export function setColumnsStore(columnsStore: Writable<KanbanColumn[]>) {
+    columns = columnsStore;
 }
 
 /**
@@ -384,7 +405,12 @@ export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]>
             due_date: task.due_date ? new Date(task.due_date) : null,
             start_date: task.start_date ? new Date(task.start_date) : null,
             tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-            attachments: task.attachments || [],
+            attachments: (task.attachments || []).map(att => ({
+                id: att.id || '',
+                fileName: att.fileName || '',
+                url: att.url || '',
+                note: att.note
+            })),            
             project_id: task.project_id,
             createdBy: task.createdBy,
             assignedTo: task.assignedTo || '',
@@ -412,8 +438,15 @@ export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]>
  * @param projectId Optional project ID to filter tasks
  * @returns Promise with the loaded tasks
  */
-export async function loadTasks() {
+export async function loadTasks(columnsStore?: Writable<KanbanColumn[]>) {
     try {
+        // Use the passed columns store if provided
+        const activeColumns = columnsStore || columns;
+        
+        if (!activeColumns) {
+            throw new Error('No columns store available');
+        }
+        
         let url = '/api/tasks';
         if (currentProjectId) {
             url = `/api/projects/${currentProjectId}/tasks`;
@@ -423,19 +456,21 @@ export async function loadTasks() {
         if (!response.ok) throw new Error('Failed to fetch tasks');
         
         const data = await response.json();
-        console.log("Task data from API:", data.items.map(t => ({ id: t.id, title: t.title, assignedTo: t.assignedTo })));
+        console.log("Task data from API:", data.items.map((t: RawTaskData) => ({ id: t.id, title: t.title, assignedTo: t.assignedTo })));
         
         // Reset all columns tasks
-        columns.update(cols => {
-            return cols.map(col => ({...col, tasks: []}));
+        activeColumns.update((cols: KanbanColumn[]) => {
+            return cols.map((col: KanbanColumn) => ({...col, tasks: []}));
         });
         
+        let allTasksBackup: KanbanTask[] = [];
+
         // Store all tasks for filtering purposes
         allTasksBackup = [];
         
         // Distribute tasks to appropriate columns
-        columns.update(cols => {
-            data.items.forEach(task => {
+        activeColumns.update((cols: KanbanColumn[]) => {
+            data.items.forEach((task: RawTaskData) => {
                 const taskObj: KanbanTask = {
                     id: task.id,
                     title: task.title,
@@ -444,7 +479,12 @@ export async function loadTasks() {
                     due_date: task.due_date ? new Date(task.due_date) : null,
                     start_date: task.start_date ? new Date(task.start_date) : null,
                     tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-                    attachments: [],
+                    attachments: (task.attachments || []).map(att => ({
+                        id: att.id || '',
+                        fileName: att.fileName || '',
+                        url: att.url || '',
+                        note: att.note
+                    })),                     
                     project_id: task.project_id,
                     createdBy: task.createdBy,
                     assignedTo: task.assignedTo || '', 
@@ -455,7 +495,11 @@ export async function loadTasks() {
                     prompt: task.prompt || '',
                     context: task.context || '',
                     task_outcome: task.task_outcome || '',
-                    dependencies: task.dependencies || [],
+                    dependencies: (task.dependencies || []).map(dep => 
+                        typeof dep === 'string' 
+                            ? { type: 'dependency' as const, task_id: dep }
+                            : dep
+                    ),                    
                     agentMessages: task.agentMessages || []
                 };
                 
@@ -463,14 +507,13 @@ export async function loadTasks() {
                 allTasksBackup.push(taskObj);
                 
                 // Find the appropriate column based on status
-                const targetColumns = reverseStatusMapping[task.status] || ['Backlog'];
-                const targetColumn = cols.find(col => targetColumns.includes(col.title));
+                const targetColumn = cols.find((col: KanbanColumn) => col.status === task.status);
                 
                 if (targetColumn) {
                     targetColumn.tasks.push(taskObj);
                 } else {
                     // If we can't find a matching column, default to Backlog
-                    const backlog = cols.find(col => col.title === 'Backlog');
+                    const backlog = cols.find((col: KanbanColumn) => col.status === 'backlog');
                     if (backlog) backlog.tasks.push(taskObj);
                 }
             });
@@ -627,7 +670,7 @@ async function removeTaskFromUser(
         
         // Remove task from assignments
         const taskAssignments = (userData.taskAssignments || []).filter(
-            id => id !== taskId
+            (id: string) => id !== taskId
         );
         
         // Update status counts
@@ -888,18 +931,18 @@ export function filterTasksByTags(
  * @param statusMapping Map of column titles to status values
  */
 export function applyTagFilterToColumns(
-    columns: any[], 
+    columns: KanbanColumn[],
     allTasks: KanbanTask[],
     selectedTagIds: string[],
     requireAllTags: boolean = false,
     statusMapping: Record<string, string>
-): any[] {
+): KanbanColumn[] {
     // If no tags selected, just return columns with all tasks
     if (!selectedTagIds.length) {
         return columns.map(col => {
             const tasksForColumn = allTasks.filter(task => {
-                return col.status === statusMapping[task.status] || 
-                       (task.status === col.status);
+                return col.status === statusMapping[task.status] ||
+                        (task.status === col.status);
             });
             
             return { ...col, tasks: tasksForColumn };
@@ -912,8 +955,8 @@ export function applyTagFilterToColumns(
     // Distribute filtered tasks to appropriate columns
     return columns.map(col => {
         const tasksForColumn = filteredTasks.filter(task => {
-            return col.status === statusMapping[task.status] || 
-                   (task.status === col.status);
+            return col.status === statusMapping[task.status] ||
+                    (task.status === col.status);
         });
         
         return { ...col, tasks: tasksForColumn };

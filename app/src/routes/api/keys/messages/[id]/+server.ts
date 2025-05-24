@@ -60,8 +60,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                     throw error(403, 'You do not have permission to access this message');
                 }
             } catch (err) {
-                if (err.status === 404) {
-                    // If thread not found, only allow message creator to access
+                if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
                     if (message.user !== currentUserId) {
                         throw error(403, 'You do not have permission to access this message');
                     }
@@ -70,7 +69,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                 }
             }
         } else if (message.user !== currentUserId) {
-            // If message doesn't belong to a thread, only allow message creator to access
             throw error(403, 'You do not have permission to access this message');
         }
         
@@ -83,7 +81,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     } catch (err) {
         console.error('API keys/messages: Error fetching message:', err);
         
-        const statusCode = err.status || 400;
+        const statusCode = (err && typeof err === 'object' && 'status' in err && typeof err.status === 'number') ? err.status : 400;
         const message = (err as Error).message || 'Failed to fetch message';
         
         return json({ 
@@ -91,6 +89,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             message: message
         }, { status: statusCode });
     }
+
 };
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
@@ -143,14 +142,15 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     } catch (err) {
         console.error('API keys/messages: Error updating message:', err);
         
-        const statusCode = err.status || 400;
-        const message = (err as Error).message || 'Failed to update message';
+        const statusCode = (err && typeof err === 'object' && 'status' in err && typeof err.status === 'number') ? err.status : 400;
+        const message = err instanceof Error ? err.message : 'Failed to update message';
         
         return json({ 
             success: false, 
             message: message
         }, { status: statusCode });
     }
+
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
@@ -199,8 +199,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     } catch (err) {
         console.error('API keys/messages: Error deleting message:', err);
         
-        const statusCode = err.status || 400;
-        const message = (err as Error).message || 'Failed to delete message';
+        const statusCode = (err && typeof err === 'object' && 'status' in err && typeof err.status === 'number') ? err.status : 400;
+        const message = err instanceof Error ? err.message : 'Failed to delete message';
         
         return json({ 
             success: false, 

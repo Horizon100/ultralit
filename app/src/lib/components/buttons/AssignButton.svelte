@@ -4,7 +4,7 @@
   import { currentUser } from '$lib/pocketbase';
   import { projectStore } from '$lib/stores/projectStore';
   import { get } from 'svelte/store';
-  import type { User, Column } from '$lib/types/types';
+  import type { User, KanbanColumn } from '$lib/types/types';
 	import { User2, UserCheckIcon, Users } from 'lucide-svelte';
   
   export let taskId: string;
@@ -13,7 +13,10 @@
   export let compact: boolean = true;
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let projectId: string = '';
-  
+interface ApiResponse {
+  data?: User[];
+  items?: User[];
+}
   const dispatch = createEventDispatcher<{
     assigned: { taskId: string; userId: string };
     unassigned: { taskId: string };
@@ -36,7 +39,7 @@ async function loadAssignedUserDetails() {
   try {
     const response = await fetch(`/api/users/${assignedTo}`);
     if (response.ok) {
-      assignedUserDetails = await response.json();
+      assignedUserDetails = await response.json() as User;
     }
   } catch (error) {
     console.error('Failed to load assigned user details:', error);
@@ -104,56 +107,60 @@ $: if (assignedTo) {
       
       loading = true;
       
-      // Use direct API approach similar to ProjectCollaborators.svelte
-      let apiUsers = [];
+    let apiUsers: User[] = [];
       
-      if (projectId) {
-        // Use the project collaborators API endpoint
-        try {
-          const result = await projectStore.loadCollaborators(projectId);
-          if (Array.isArray(result)) {
-            apiUsers = result;
-          } else if (result && typeof result === 'object' && 'data' in result && Array.isArray(result.data)) {
-            apiUsers = result.data;
+if (projectId) {
+      // Use the project collaborators API endpoint
+      try {
+        const result = await projectStore.loadCollaborators(projectId);
+        if (Array.isArray(result)) {
+          apiUsers = result;
+        } else if (result && typeof result === 'object') {
+          const apiResult = result as ApiResponse;
+          if (apiResult.data && Array.isArray(apiResult.data)) {
+            apiUsers = apiResult.data;
+          } else if (apiResult.items && Array.isArray(apiResult.items)) {
+            apiUsers = apiResult.items;
           }
-          console.log('Loaded collaborators for task assignment:', apiUsers.length);
-        } catch (collabError) {
-          console.error('Failed to load project collaborators:', collabError);
         }
+        console.log('Loaded collaborators for task assignment:', apiUsers.length);
+      } catch (collabError) {
+        console.error('Failed to load project collaborators:', collabError);
+      }
         
         // If we failed to get collaborators, try a different approach
-        if (apiUsers.length === 0) {
-          const state = get(projectStore);
-          const project = state.threads.find(p => p.id === projectId);
-          
-          if (project) {
-            // Get the owner user
-            try {
-              const ownerResponse = await fetch(`/api/users/${project.owner}`);
-              if (ownerResponse.ok) {
-                const ownerUser = await ownerResponse.json();
-                apiUsers.push(ownerUser);
-              }
-            } catch (ownerError) {
-              console.error('Failed to load project owner:', ownerError);
+         if (apiUsers.length === 0) {
+        const state = get(projectStore);
+        const project = state.threads.find(p => p.id === projectId);
+        
+        if (project) {
+          // Get the owner user
+          try {
+            const ownerResponse = await fetch(`/api/users/${project.owner}`);
+            if (ownerResponse.ok) {
+              const ownerUser = await ownerResponse.json() as User;
+              apiUsers.push(ownerUser);
             }
+          } catch (ownerError) {
+            console.error('Failed to load project owner:', ownerError);
+          }
             
             // Get collaborators if needed
-            if (Array.isArray(project.collaborators) && project.collaborators.length > 0) {
-              for (const collabId of project.collaborators) {
-                try {
-                  const collabResponse = await fetch(`/api/users/${collabId}`);
-                  if (collabResponse.ok) {
-                    const collabUser = await collabResponse.json();
-                    apiUsers.push(collabUser);
+          if (Array.isArray(project.collaborators) && project.collaborators.length > 0) {
+                      for (const collabId of project.collaborators) {
+                        try {
+                          const collabResponse = await fetch(`/api/users/${collabId}`);
+                          if (collabResponse.ok) {
+                            const collabUser = await collabResponse.json() as User;
+                            apiUsers.push(collabUser);
+                          }
+                        } catch (collabError) {
+                          console.error(`Failed to load collaborator ${collabId}:`, collabError);
+                        }
+                      }
+                    }
                   }
-                } catch (collabError) {
-                  console.error(`Failed to load collaborator ${collabId}:`, collabError);
                 }
-              }
-            }
-          }
-        }
       } else {
         // No project ID, get all users
         const response = await fetch('/api/users');
@@ -226,21 +233,26 @@ $: if (assignedTo) {
   }
   
   // Find assigned user details with safe fallbacks
-  $: assignedUser = assignedTo && users.length > 0 ? users.find(user => user?.id === assignedTo) : (assignedUserDetails || null);
+$: assignedUser = assignedTo && users.length > 0 
+  ? users.find(user => user?.id === assignedTo) || null 
+  : (assignedUserDetails || null);  
   $: isAssignedToCurrentUser = assignedTo === get(currentUser)?.id;
   
   // Helper function to get user display name safely
-  function getUserDisplayName(user: User | null): string {
+  function getUserDisplayName(user: User | null | undefined): string {
     if (!user) return 'User';
     return user.username || user.name || 'User';
   }
-  
   // Helper function to get user initials safely
-  function getUserInitials(user: User | null): string {
-    if (!user) return 'U';
-    const username = user.username || user.name || 'User';
-    return username.charAt(0).toUpperCase();
-  }
+function getUserInitials(user: User | null | undefined): string {
+  if (!user) return 'U';
+  const username = user.username || user.name || 'User';
+  return username.charAt(0).toUpperCase();
+}
+  function handleImageError(e: Event) {
+  const target = e.target as HTMLImageElement;
+  target.style.display = 'none';
+}
 
 </script>
 
@@ -275,7 +287,7 @@ $: if (assignedTo) {
               <img 
                 src={`/api/users/${assignedTo}/avatar`} 
                 alt={getUserDisplayName(assignedUser)} 
-                on:error={(e) => e.target.style.display = 'none'}
+                on:error={handleImageError}
               />
               <span class="avatar-initials">
                 {getUserInitials(assignedUser)}
@@ -446,7 +458,6 @@ $: if (assignedTo) {
   }
 
   .assign-button {
-    type: button;
     display: flex;
     flex-direction: row;
     justify-content: center;

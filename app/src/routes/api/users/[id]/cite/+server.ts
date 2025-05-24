@@ -23,7 +23,7 @@ export const PATCH: RequestHandler = async ({ request, params }) => {
   } catch (err) {
     console.error('Error updating cite:', err);
     return json({ 
-      error: err.message || 'Failed to update cite' 
+       error: err instanceof Error ? err.message : 'Failed to update cite'
     }, { status: 400 });
   }
 };

@@ -1,66 +1,31 @@
 <script lang="ts">
 	import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
 	import { get } from 'svelte/store';
-	import { elasticOut, elasticIn } from 'svelte/easing';
+	import { elasticOut, elasticIn, quintOut } from 'svelte/easing';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { quintOut } from 'svelte/easing';
 	import {
 		X,
 		Bot,
 		Wrench,
-		Workflow,
 		Target,
 		Settings2,
-		ArrowLeft,
-		Plus,
-		Menu,
 		SquareMenu,
-		List,
-		Box,
-		Trash2,
-		Check,
-		LayoutGrid
 	} from 'lucide-svelte';
 	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
 	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
-	import FlowsConfig from '$lib/features/canvas/components/FlowsConfig.svelte';
 	import ObjectivesConfig from '$lib/features/canvas/components/ObjectivesConfig.svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { workspaceStore } from '$lib/stores/workspaceStore';
 	import { agentStore } from '$lib/stores/agentStore';
-	import { workshopStore } from '$lib/stores/workshopStore';
 	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
 	import GenericOverlay from '$lib/components/modals/GenericOverlay.svelte';
 	import type { Workspaces, Workshops } from '$lib/types/types';
-	import {
-		getWorkshops,
-		createWorkshop,
-		deleteWorkshop,
-		updateWorkshop
-	} from '$lib/clients/workshopClient';
-	import { } from '$lib/pocketbase';
-
-	import Builder from '$lib/features/canvas/components/Builder.svelte';
-	import DefaultAvatar from '$lib/features/users/components/DefaultAvatar.svelte';
-
-	import Space from '$lib/assets/icons/launcher/space.svg';
-	import Add from '$lib/assets/icons/launcher/add.svg';
-	import {
-		createWorkspace,
-		getWorkspaces,
-		deleteWorkspace,
-		updateWorkspace
-	} from '$lib/clients/workSpaceClient';
 	import { currentUser } from '$lib/pocketbase';
-	import Chatlinks from '$lib/assets/icons/ai/chatlinks.svg';
-	import { Chat } from 'openai/resources/index.mjs';
 	import { quotes } from '$lib/translations/quotes';
-	import WorkspaceCreator from '$lib/features/canvas/components/WorkspaceCreator.svelte';
 	import itImage from '$lib/assets/illustrations/italian.jpeg';
 	import greekImage from '$lib/assets/illustrations/greek.png';
 
@@ -91,19 +56,8 @@
 
 
 	$: user = $currentUser;
-
 	$: isNarrowScreen = innerWidth <= 700;
 
-	$: {
-		const workspaceId = $page.params.workspaceId;
-		workspaceStore.subscribe((state) => {
-			currentWorkspace = state.workspaces.find((w: Workspaces) => w.id === workspaceId) || null;
-		});
-
-		workshopStore.subscribe((workshops) => {
-			workshopCount = workshops.filter((w) => w.workspace === workspaceId).length;
-		});
-	}
 
 	$: if ($page.params.workspaceId !== currentWorkspaceId) {
 		currentWorkspaceId = $page.params.workspaceId;
@@ -118,82 +72,6 @@
 		setTimeout(() => (showH2 = true), 50);
 	});
 
-	onMount(async () => {
-		if ($currentUser && $currentUser.id) {
-			try {
-				const workspaceId = $page.params.workspaceId;
-
-				workspaceStore.subscribe((state) => {
-					workspaces = state.workspaces;
-					currentWorkspace = workspaces.find((w) => w.id === workspaceId) || null;
-				});
-
-				await workspaceStore.loadWorkspaces($currentUser.id);
-				if (workspaceId) {
-					await agentStore.loadAgents(workspaceId);
-				}
-			} catch (error) {
-				console.error('Error fetching workspaces:', error);
-			}
-		}
-
-		if (textareaElement) {
-			const adjustTextareaHeight = () => {
-				if (textareaElement) {
-					textareaElement.style.height = 'auto';
-					textareaElement.style.height = `${Math.min(textareaElement.scrollHeight, 300)}px`;
-				}
-			};
-
-			textareaElement.addEventListener('input', adjustTextareaHeight);
-			adjustTextareaHeight();
-		}
-	});
-
-	afterUpdate(() => {
-		if ($page.params.workspaceId) {
-			workspaceStore.setCurrentWorkspace($page.params.workspaceId);
-		}
-	});
-
-	async function selectWorkspace(workspaceId: string) {
-		isLoading = true;
-		try {
-			await goto(`/launcher/workspace/${workspaceId}`);
-			workspaceStore.setCurrentWorkspace(workspaceId);
-			if ($currentUser && $currentUser.id) {
-				await agentStore.loadAgents(workspaceId);
-			}
-		} catch (error) {
-			console.error('Error selecting workspace:', error);
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	function toggleBuilder() {
-		showBuilder = !showBuilder;
-	}
-
-	async function addNewWorkspace() {
-		if ($currentUser && $currentUser.id) {
-			const newWorkspace: Partial<Workspaces> = {
-				name: `New Workspace ${workspaces.length + 1}`,
-				description: 'A new workspace',
-				created_by: $currentUser.id,
-				collaborators: [$currentUser.id]
-			};
-
-			try {
-				const createdWorkspace = await createWorkspace(newWorkspace);
-				workspaceStore.addWorkspace(createdWorkspace);
-				showConfirmation('New workspace created successfully');
-			} catch (error) {
-				console.error('Error creating new workspace:', error);
-				showConfirmation('Error creating new workspace', true);
-			}
-		}
-	}
 
 	function handleMouseDown(e: MouseEvent) {
 		isScrolling = true;
@@ -230,38 +108,6 @@
 		}
 	}
 
-	async function handleDeleteWorkspace(workspaceId: string) {
-		if (confirm('Are you sure you want to delete this workspace?')) {
-			try {
-				await deleteWorkspace(workspaceId);
-				workspaceStore.removeWorkspace(workspaceId);
-				showConfirmation('Workspace deleted successfully');
-			} catch (error) {
-				console.error('Error deleting workspace:', error);
-				showConfirmation('Error deleting workspace', true);
-			}
-		}
-	}
-
-	function startEditingWorkspace(workspace: Workspaces) {
-		editingWorkspace = workspace.id;
-		editedName = workspace.name;
-	}
-
-	async function saveEditedWorkspace(workspace: Workspaces) {
-		if (editedName.trim() !== '' && editedName !== workspace.name) {
-			try {
-				const updatedWorkspace = await updateWorkspace(workspace.id, { name: editedName });
-				workspaceStore.updateWorkspace(updatedWorkspace);
-				showConfirmation('Workspace name updated successfully');
-			} catch (error) {
-				console.error('Error updating workspace name:', error);
-				showConfirmation('Error updating workspace name', true);
-			}
-		}
-		editingWorkspace = null;
-	}
-
 	function showConfirmation(message: string, isError: boolean = false) {
 		confirmationMessage = message;
 		setTimeout(() => {
@@ -295,28 +141,6 @@
 		}
 	}
 
-	function goBack() {
-		// goto('/launcher/');
-	}
-
-	async function createNewWorkshop() {
-		if (currentWorkspace) {
-			try {
-				const newWorkshop: Partial<Workshops> = {
-					name: `New Workshop ${workshopCount + 1}`,
-					description: 'A new workshop',
-					workspace: currentWorkspace.id,
-					workflow: '',
-					prompt: '',
-					replies: []
-				};
-				const createdWorkshop = await createWorkshop(newWorkshop);
-				workshopStore.addWorkshop(createdWorkshop);
-			} catch (error) {
-				console.error('Error creating new workshop:', error);
-			}
-		}
-	}
 
 	function toggleNav() {
 		isNavExpanded = !isNavExpanded;
@@ -327,12 +151,7 @@
 		genericOverlayContent = '';
 	}
 
-	function getAvatarUrl(workspace: Workspaces): string | null {
-		if (workspace.avatar) {
-			return pb.getFileUrl(workspace, workspace.avatar);
-		}
-		return null;
-	}
+
 </script>
 
 <svelte:window bind:innerWidth />
@@ -361,12 +180,7 @@
 	>
 		<Wrench size={24} class="nav-icon" />
 	</button>
-	<button
-		class={overlayContent === 'Flows' ? 'active' : ''}
-		on:click={() => toggleOverlay('Flows')}
-	>
-		<Workflow size={24} class="nav-icon" />
-	</button>
+
 	<button
 		class={overlayContent === 'Objectives' ? 'active' : ''}
 		on:click={() => toggleOverlay('Objectives')}
@@ -383,32 +197,6 @@
 				<LoadingSpinner />
 			</div>
 		{/if}
-
-		<!-- <div class="workspace-container">
-			<div
-				class="workspace-selector"
-				on:mousedown={handleMouseDown}
-				on:mouseleave={handleMouseLeave}
-				on:mouseup={handleMouseUp}
-				on:mousemove={handleMouseMove}
-				style="cursor: grab;"
-			>
-				{#each workspaces as workspace (workspace.id)}
-					<button class="workspace-button" on:click={() => selectWorkspace(workspace.id)}>
-						{#if getAvatarUrl(workspace)}
-							<img src={getAvatarUrl(workspace)} alt={workspace.name} class="workspace-avatar" />
-						{:else}
-							<DefaultAvatar name={workspace.name} size={40} />
-						{/if}
-						<span>{workspace.name}</span>
-					</button>
-				{/each}
-			</div>
-			{#if currentWorkspace}
-				<div class="workspace-name">{currentWorkspace.name}</div>
-			{/if}
-		</div> -->
-
 
 
 		<CursorEffect />
@@ -438,8 +226,6 @@
 								<ModelsConfig />
 							{:else if overlayContent === 'Actions'}
 								<ActionsConfig />
-							{:else if overlayContent === 'Flows'}
-								<FlowsConfig />
 							{:else if overlayContent === 'Objectives'}
 								<ObjectivesConfig />
 							{/if}
@@ -449,64 +235,11 @@
 			</div>
 		{/if}
 
-		{#if showWorkspaceList}
-			<div
-				class="overlay"
-				on:click={closeWorkspaceList}
-				transition:slide={{ duration: 300, easing: quintOut }}
-			>
-				<div class="overlay-handle">
-					<h1>Workspaces</h1>
-					<button class="menu-button" on:click={closeWorkspaceList}>
-						<X size={40} />
-					</button>
-				</div>
-				<div class="lists-container">
-					<div class="workspace-list">
-						{#each workspaces as workspace (workspace.id)}
-							<div class="workspace-list-item">
-								{#if editingWorkspace === workspace.id}
-									<input
-										type="text"
-										bind:value={editedName}
-										on:keydown={(e) => e.key === 'Enter' && saveEditedWorkspace(workspace)}
-										on:blur={() => saveEditedWorkspace(workspace)}
-									/>
-									<button class="check-button" on:click={() => saveEditedWorkspace(workspace)}>
-										<Check size={30} />
-									</button>
-								{:else}
-									<Box size={30} />
-									<p on:click={() => startEditingWorkspace(workspace)}>
-										{workspace.name}
-									</p>
-									<div class="spacer">
-										<button
-											class="icon-button"
-											on:click={() => handleDeleteWorkspace(workspace.id)}
-										>
-											<Trash2 size={30} />
-										</button>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-					<div class="workspace-list">
-						<button class="workspace-list-item" on:click={addNewWorkspace}>
-							<Plus size={30} />
-							<p>Add New Workspace Group</p>
-						</button>
-					</div>
-				</div>
-			</div>
-		{/if}
 	</div>
 {/if}
 
 {#if showGenericOverlay}
 	<GenericOverlay on:close={closeGenericOverlay} title={genericOverlayContent}>
-		<Builder />
 		<p>This is the content for {genericOverlayContent}</p>
 	</GenericOverlay>
 {/if}

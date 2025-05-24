@@ -17,43 +17,7 @@ function createMessagesStore() {
   
   let activeSubscriptions: Record<string, () => void> = {};
   
-  const { subscribe, set, update } = store;
-
-  /*
-   * This is a placeholder since real-time subscriptions should be handled differently
-   * without direct access to the PocketBase instance
-   */
-  const subscribeToThread = async (threadId: string) => {
-    if (activeSubscriptions[threadId]) {
-      try {
-        if (typeof activeSubscriptions[threadId] === 'function') {
-          activeSubscriptions[threadId]();
-        }
-        delete activeSubscriptions[threadId];
-      } catch (err) {
-        console.error('Error unsubscribing from thread:', err);
-      }
-    }
-    
-    console.log(`Setting up alternative for real-time updates for thread ${threadId}`);
-    
-    /*
-     * In a real implementation, you might set up a WebSocket connection or use SSE
-     * For now, we'll use a polling mechanism as a fallback
-     */
-    const pollInterval = setInterval(async () => {
-      try {
-        const messages = await fetchMessagesForThread(threadId);
-        update(state => ({ ...state, messages }));
-      } catch (err) {
-        console.error('Error polling for messages:', err);
-      }
-    }, 10000); // Poll every 10 seconds
-    
-    // Return a function to clear the interval when unsubscribing
-    activeSubscriptions[threadId] = () => clearInterval(pollInterval);
-    return activeSubscriptions[threadId];
-  };
+  const { subscribe, update } = store;
 
   return {
     subscribe,
@@ -129,6 +93,7 @@ function createMessagesStore() {
           throw error;
       }
   },
+
   saveMessage: async (message: Partial<Messages>, threadId: string) => {
     try {
       const user = get(currentUser);
@@ -234,6 +199,7 @@ function createMessagesStore() {
       throw error;
     }
   },
+
     fetchBookmarkedMessages: async (messageId: string) => {
       try {
         const messages = await fetchMessagesForBookmark(messageId);
@@ -289,4 +255,3 @@ function createMessagesStore() {
 }
 
 export const messagesStore = createMessagesStore();
-

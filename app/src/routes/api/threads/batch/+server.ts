@@ -35,16 +35,18 @@ export const GET: RequestHandler = async ({ url, locals }) => {
             expand: 'project_id'
         });
         
+        const userId = locals.user.id;
+
         // Filter threads to only include those the user has access to
         const accessibleThreads = threads.items.filter(thread => {
             // User is the creator/owner
-            if (thread.user === locals.user.id) return true;
+            if (thread.user === userId) return true;
             
             // Check project access if thread belongs to a project
             if (thread.project_id && thread.expand?.project_id) {
                 const project = thread.expand.project_id;
-                return project.owner === locals.user.id || 
-                    (project.collaborators && project.collaborators.includes(locals.user.id));
+                return project.owner === userId ||
+                    (project.collaborators && project.collaborators.includes(userId));
             }
             
             return false;
@@ -56,7 +58,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         });
     } catch (error) {
         console.error('Error fetching threads batch:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return new Response(JSON.stringify({ error: errorMessage }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

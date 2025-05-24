@@ -1,5 +1,5 @@
 // src/routes/api/tasks/[id]/attachments/+server.ts
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
 
@@ -51,11 +51,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             ...attachments,
             items
         });
-    } catch (error) {
-        console.error('Error fetching task attachments:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
-            status: 500, 
-            headers: { 'Content-Type': 'application/json' } 
-        });
+    } catch (err) {
+        console.error('Error fetching task attachments:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch task attachments';
+        throw error(500, errorMessage);
     }
 };

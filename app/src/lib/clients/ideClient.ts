@@ -1,17 +1,10 @@
 // src/lib/clients/ideClient.ts
 import { get } from 'svelte/store';
 import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
-import type { Repository, CodeFolders, CodeFiles, CodeCommits } from '$lib/types/types.ide';
-import type { Projects, User } from '$lib/types/types';
-import type { RecordModel } from 'pocketbase';
+import type { Repository, CodeFolders, CodeFiles } from '$lib/types/types.ide';
 import { projectStore } from '$lib/stores/projectStore';
 
-interface CreateRepositoryParams {
-    repoName: string;
-    repoDescription?: string;
-    isPublic?: boolean;
-    defaultBranch?: string;
-}
+
 /**
  * Fetches repositories accessible to the current user
  * @param projectId Optional project ID to filter repositories
@@ -94,7 +87,7 @@ export async function createBranch(
     repositoryId: string,
     branchName: string,
     sourceBranch: string = 'main'
-): Promise<{ success: boolean; branch?: any; error?: string }> {
+): Promise<{ success: boolean; branch?: string; error?: string }> {
     try {
         const user = get(currentUser);
         if (!user) {
@@ -151,14 +144,14 @@ export async function createFolder(
     repositoryId: string,
     branchName: string,
     folderName: string,
-    parentFolderId?: string
+    parentFolder?: { path: string; id: string }
 ): Promise<CodeFolders> {
     try {
-        const path = parentFolderId ? 
-            `${parentFolderId.path}/${folderName}` : 
+        const path = parentFolder ? 
+            `${parentFolder.path}/${folderName}` : 
             `/${folderName}`;
         
-        const response = await fetch('/api/folders', {
+        const response = await fetch('/api/ide/folders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -169,7 +162,7 @@ export async function createFolder(
                 repository: repositoryId,
                 branch: branchName,
                 createdBy: get(currentUser)?.id,
-                parent: parentFolderId || null
+                parent: parentFolder || null
             })
         });
         
@@ -185,7 +178,7 @@ export async function createFolder(
 export async function fetchFolders(repositoryId: string, branch: string) {
     try {
         const response = await fetch(
-            `/api/folders?repository=${repositoryId}&branch=${branch}`
+            `/api/ide/folders?repository=${repositoryId}&branch=${branch}`
         );
         
         if (!response.ok) {

@@ -41,7 +41,8 @@ export const GET: RequestHandler = async ({ params }) => {
     console.log('Reposted posts:', repostedPosts.totalItems);
 
     // Create a combined array with proper flags
-    const allPosts = [];
+const allPosts = [] as any[];
+
 
     // Add original posts (but check if they were also reposted by the user)
     originalPosts.items.forEach(post => {
@@ -111,7 +112,7 @@ export const GET: RequestHandler = async ({ params }) => {
         filter: `user = "${user.id}"`
       });
       profile = profileResult.items[0] || null;
-    } catch (err) {
+    } catch {
       console.log('No profile found for user');
     }
 

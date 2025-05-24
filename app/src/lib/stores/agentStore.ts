@@ -2,10 +2,7 @@ import { writable } from 'svelte/store';
 import type { AIAgent } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import { browser } from '$app/environment';
-import { apiKey } from '$lib/stores/apiKeyStore';
-import { get } from 'svelte/store';
 
-// Define types for API responses
 interface ApiResponse<T> {
 	success: boolean;
 	data: T;
@@ -20,8 +17,6 @@ interface AgentStoreState {
 	isLoading: boolean;
 }
 
-type StoreUpdater = (state: AgentStoreState) => AgentStoreState;
-type StoreSetter = (state: AgentStoreState) => void;
 
 async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
@@ -215,7 +210,7 @@ const debouncedUpdateAgent: (id: string, changes: Partial<AIAgent>) => void = de
 					credentials: 'include'
 				});
 
-				const result = await handleResponse<void>(response);
+        		const result = await handleResponse<{ success: boolean; error?: string }>(response);
 				
 				if (result.success) {
 					update((state) => ({

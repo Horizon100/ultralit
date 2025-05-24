@@ -2,7 +2,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
-import type { Threads } from '$lib/types/types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
     console.log(`API keys/threads: Fetching thread ${params.id}`);
@@ -68,12 +67,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     } catch (err) {
         console.error('API keys/threads: Error fetching thread:', err);
         
-        // Check if 404 Not Found
-        if (err.status === 404) {
+        if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
             throw error(404, 'Thread not found');
         }
         
-        const message = (err as Error).message || 'Failed to fetch thread';
+        const message = err instanceof Error ? err.message : 'Failed to fetch thread';
         throw error(400, message);
     }
 };
@@ -119,7 +117,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         });
     } catch (err) {
         console.error('Error updating thread:', err);
-        throw error(400, err.message || 'Failed to update thread');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update thread';
+        throw error(400, errorMessage);
     }
 };
 
@@ -160,6 +159,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         });
     } catch (err) {
         console.error('Error deleting thread:', err);
-        throw error(400, err.message || 'Failed to delete thread');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to delete thread';
+            throw error(400, errorMessage);
     }
 };

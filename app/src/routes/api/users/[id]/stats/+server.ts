@@ -2,12 +2,10 @@ import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params }) => {
     const userId = params.id;
     
     try {
-        // Use locals.pb if available, otherwise use pb
-        
         const user = await pb.collection('users').getOne(userId);
         
         if (!user) {
@@ -19,7 +17,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         let taskCount = 0;
         let tagCount = 0;
         let timerCount = 0;
-        let lastActive = null;
+        let lastActive: Date | null = null;
         
         console.log('Fetching stats for user:', userId);
         
@@ -29,35 +27,26 @@ export const GET: RequestHandler = async ({ params, locals }) => {
             
             const threadsResult = await pb.collection('threads').getList(1, 1, {
                 filter: threadFilter
-                
             });
             
             threadCount = threadsResult.totalItems;
             console.log('Thread count:', threadCount);
-            
-
         } catch (e) {
             console.error('Error counting threads:', e);
-            
-
         }
+
         try {
             const taskFilter = `createdBy="${userId}"`;
             console.log('Using task filter:', taskFilter);
             
             const taskResults = await pb.collection('tasks').getList(1, 1, {
                 filter: taskFilter
-                
             });
             
             taskCount = taskResults.totalItems;
             console.log('Task count:', taskCount);
-            
-
         } catch (e) {
             console.error('Error counting tasks:', e);
-            
-
         }
         
         try {
@@ -79,7 +68,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                 
                 if (latestMessage.items.length > 0 && latestMessage.items[0].created) {
                     const messageDate = new Date(latestMessage.items[0].created);
-                    if (!lastActive || messageDate > lastActive) {
+                    if (!lastActive || messageDate > (lastActive as Date)) {
                         lastActive = messageDate;
                     }
                 }
@@ -92,17 +81,12 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                 
                 const taskResults = await pb.collection('threads').getList(1, 1, {
                     filter: taskFilter
-                    
                 });
                 
                 taskCount = taskResults.totalItems;
                 console.log('Thread count:', taskCount);
-                
-    
             } catch (e) {
                 console.error('Error counting threads:', e);
-                
-    
             }
             
             try {
@@ -124,7 +108,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                             console.log('Message count with alternative filter:', messageCount);
                             break;
                         }
-                    } catch (innerErr) {
+                    } catch {
+                        // Fix: Remove unused variable and empty block
+                        console.log('Alternative filter failed, trying next...');
                     }
                 }
             } catch (fallbackErr) {
@@ -157,7 +143,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
                     
                     tagCount += result.totalItems;
                     console.log(`${collection} count:`, result.totalItems);
-                } catch (collErr) {
+                } catch {
+                    // Fix: Remove unused variable and empty block
+                    console.log(`Failed to count ${collection}`);
                 }
             }
         }

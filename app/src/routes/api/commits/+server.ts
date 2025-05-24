@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { pb, ensureAuthenticated } from '$lib/pocketbase';
+import { pb, ensureAuthenticated } from '$lib/server/pocketbase';
 import { v4 as uuidv4 } from 'uuid';
 
 // GET: Fetch commits, optionally filtered by repository and branch

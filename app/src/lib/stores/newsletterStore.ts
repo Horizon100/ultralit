@@ -1,7 +1,11 @@
 // stores/newsletterStore.ts
 import { writable } from 'svelte/store';
-import { } from '$lib/pocketbase';
+import PocketBase from 'pocketbase';
+import { pocketbaseUrl } from '$lib/pocketbase';
 import type { NewsletterSubscription, NewsletterPreferences } from '$lib/types/types.subscriptions';
+
+// Create PocketBase instance
+const pb = new PocketBase(pocketbaseUrl);
 
 function createNewsletterStore() {
 	const { subscribe: storeSubscribe, update } = writable<NewsletterSubscription[]>([]);

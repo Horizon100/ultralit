@@ -1,7 +1,8 @@
 import { pb } from '$lib/server/pocketbase';
 import { redirect } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
-export const GET = async ({ url, cookies, request }) => {
+export const GET: RequestHandler = async ({ url, cookies }) => {
   try {
     // Extract OAuth params from URL
     const code = url.searchParams.get('code');
@@ -15,7 +16,7 @@ export const GET = async ({ url, cookies, request }) => {
     const redirectUrl = `${url.origin}/api/auth/callback/google`;
     
     // Complete the OAuth flow using the correct method
-    const authData = await pb.collection('users').authWithOAuth2({
+    await pb.collection('users').authWithOAuth2({
       provider: 'google',
       code: code,
       state: state,
@@ -31,10 +32,11 @@ export const GET = async ({ url, cookies, request }) => {
     });
     
     // Redirect to dashboard after successful auth
-    return redirect(303, '/dashboard');
+    return redirect(303, '/home');
   } catch (error) {
     console.error('OAuth callback error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     // Redirect to login page with error
-    return redirect(303, '/login?error=auth_failed&details=' + encodeURIComponent(error.message));
+    return redirect(303, '/login?error=auth_failed&details=' + encodeURIComponent(errorMessage));
   }
 };

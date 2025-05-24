@@ -9,7 +9,11 @@ export interface UserStats {
   taskCount: number;
   tagCount: number;
 }
-
+export interface PerkCondition {
+  parameter: 'messages' | 'threads' | 'tasks' | 'tags';
+  operator: '=' | '>' | '>=' | '<' | '<=';
+  value: number;
+}
 export async function initializePerksCollection() {
   try {
     // Check if perks collection exists
@@ -78,11 +82,11 @@ export async function initializePerksCollection() {
   }
 }
 
-export async function checkEligiblePerks(stats: UserStats): Promise<Perk[]> {
+export async function checkEligiblePerks(stats: UserStats): Promise<Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'>[]> {
   try {
     // Get all perks from the definition
     return PERKS.filter(perk => {
-      return perk.filterConditions.every(condition => {
+      return perk.filterConditions.every((condition: PerkCondition) => {
         let userValue = 0;
         
         // Get appropriate stat value
@@ -110,7 +114,7 @@ export async function checkEligiblePerks(stats: UserStats): Promise<Perk[]> {
   }
 }
 
-export async function updateUserPerks(userId: string, eligiblePerks: Perk[]): Promise<string[]> {
+export async function updateUserPerks(userId: string, eligiblePerks: Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'>[]): Promise<string[]> {
   try {
     // Get stored perks from database to have access to their IDs
     await initializePerksCollection();

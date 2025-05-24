@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPBInstance } from '$lib/server/pocketbase';
+import { pb } from '$lib/server/pocketbase';
 
 // GET: Get all collaborators for a repository
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -10,7 +10,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id } = params;
         
         // Check if user has access to this repository
@@ -58,7 +57,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id } = params;
         const data = await request.json();
         
@@ -75,7 +73,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         // Check if user exists
         try {
             await pb.collection('users').getOne(data.userId);
-        } catch (err) {
+        } catch {
             return json({ error: 'User not found' }, { status: 404 });
         }
         

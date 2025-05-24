@@ -1,19 +1,19 @@
-// src/routes/api/ai/+server.ts - UPDATED WITH GROK SUPPORT
+// src/routes/api/ai/+server.ts 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIMessage, AIModel } from '$lib/types/types';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import type { TextBlock } from '@anthropic-ai/sdk/resources/messages';
 import * as pbServer from '$lib/server/pocketbase';
 import { CryptoService } from '$lib/utils/crypto';
 
-// Helper function to fetch and decrypt user API keys (using your existing crypto system)
 async function getUserKeys(userId: string) {
     try {
         const userData = await pbServer.pb.collection('users').getOne(userId);
         if (!userData.api_keys) {
-            return {}; // Return empty object if no keys found
+            return {}; 
         }
 
         const decryptedKeys = await CryptoService.decrypt(userData.api_keys, userId);
@@ -24,8 +24,7 @@ async function getUserKeys(userId: string) {
     }
 }
 
-// Helper function to restore authentication from cookies
-function restoreAuth(cookies: any) {
+function restoreAuth(cookies: Parameters<RequestHandler>[0]['cookies']) {
     const authCookie = cookies.get('pb_auth');
     if (authCookie) {
         try {
@@ -42,15 +41,17 @@ function restoreAuth(cookies: any) {
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
     try {
-        // Restore auth from cookies
         restoreAuth(cookies);
 
-        // Check if user is authenticated
         if (!pbServer.pb.authStore.isValid) {
             throw error(401, 'User not authenticated');
         }
 
         const user = pbServer.pb.authStore.model;
+        
+        if (!user || !user.id) {
+            throw error(401, 'Invalid user session');
+        }
 
         let messages: AIMessage[];
         let attachment: File | null = null;
@@ -102,7 +103,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             });
         }
 
-        // Verify the user making the request matches the userId
         if (userId !== user.id) {
             throw error(403, 'Unauthorized: User ID mismatch');
         }
@@ -114,7 +114,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             throw error(400, 'Missing or invalid model information');
         }
 
-        // Get user's API keys using your existing encryption system
         const userKeys = await getUserKeys(user.id);
         const apiKey = userKeys[model.provider];
         
@@ -177,7 +176,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         } else if (model.provider === 'deepseek') {
             console.log('Sending request to Deepseek API');
             
-            // Create Deepseek client with user's API key
             const deepseek = new OpenAI({
                 apiKey,
                 baseURL: 'https://api.deepseek.com/v1'
@@ -207,7 +205,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         } else if (model.provider === 'grok') {
             console.log('Sending request to Grok/X.AI API');
             
-            // Create Grok client with user's API key (uses OpenAI SDK since Grok is OpenAI-compatible)
             const grok = new OpenAI({
                 apiKey,
                 baseURL: 'https://api.x.ai/v1'
@@ -237,41 +234,39 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         } else if (model.provider === 'anthropic') {
             console.log('Sending request to Anthropic API');
             
-            // Create Anthropic client with user's API key
             const anthropic = new Anthropic({ apiKey });
             
             try {
-                // Extract system message content if available
                 const systemMsg = messages.find(msg => msg.role === 'system');
                 const systemContent = systemMsg ? systemMsg.content : '';
                 
-                // Filter messages to only include user and assistant messages
                 const anthropicMessages = messages
                     .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                     .map(msg => ({
-                        role: msg.role,
+                        role: msg.role as 'user' | 'assistant',
                         content: msg.content
                     }));
                 
-                // Create request payload with system message if it exists
-                const requestPayload: any = {
+                const requestPayload = {
                     model: model.api_type || 'claude-3-sonnet-20240229',
                     messages: anthropicMessages,
                     max_tokens: 1500,
-                    temperature: 0.7
+                    temperature: 0.7,
+                    ...(systemContent && { system: systemContent })
                 };
-                
-                // Only add system parameter if there's system content
-                if (systemContent) {
-                    requestPayload.system = systemContent;
-                }
                 
                 const completion = await anthropic.messages.create(requestPayload);
                 
-                if (!completion.content || completion.content.length === 0 || !completion.content[0].text) {
+                if (!completion.content || completion.content.length === 0) {
                     throw error(500, 'Invalid response format from Anthropic');
                 }
-                response = completion.content[0].text;
+                
+                const textBlock = completion.content[0];
+                if (textBlock.type === 'text') {
+                    response = (textBlock as TextBlock).text;
+                } else {
+                    throw error(500, 'Invalid response content type from Anthropic');
+                }
             } catch (anthropicError) {
                 console.error('Anthropic API error:', anthropicError);
                 throw error(500, `Anthropic API error: ${anthropicError instanceof Error ? anthropicError.message : 'Unknown error'}`);
@@ -282,18 +277,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
         console.log('API response successfully generated');
         return json({ response, success: true });
-    } catch (err) {
-        if (err.status) {
-            // This is already a SvelteKit error, rethrow it
+    } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'status' in err) {
             throw err;
         }
         
         console.error('Error in AI API:', err instanceof Error ? err.message : 'Unknown error');
         console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace available');
         
-        throw error(500, {
-            message: 'Internal Error',
-            details: err instanceof Error ? err.message : 'Unknown error'
-        });
+        throw error(500, 'Internal Error');
     }
 };

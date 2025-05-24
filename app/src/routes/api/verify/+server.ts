@@ -19,8 +19,22 @@ function updateAuthCookie(cookies: Cookies): void {
         });
     }
 }
-
-function sanitizeUserData(user: User | null): Partial<User> | null {
+interface AuthModelData {
+    id?: string;
+    email?: string;
+    username?: string;
+    name?: string;
+    avatar?: string;
+    collectionId?: string;
+    created?: string;
+    updated?: string;
+    selected_provider?: string;
+    model?: string;
+    prompt_preference?: string[];
+    sysprompt_preference?: string;
+    model_preference?: string[];
+}
+function sanitizeUserData(user: AuthModelData | null): Partial<User> | null {
     if (!user) return null;
     
     return {
@@ -37,10 +51,8 @@ function sanitizeUserData(user: User | null): Partial<User> | null {
         prompt_preference: user.prompt_preference,
         sysprompt_preference: user.sysprompt_preference,
         model_preference: user.model_preference
-
     };
 }
-
 async function getUserCount(): Promise<number> {
     try {
         const resultList = await pbServer.pb.collection('users').getList(1, 1, {
@@ -152,10 +164,11 @@ if (endpoint === 'auth-check') {
             updateAuthCookie(cookies);
             
             // Return user data
-            return json({ 
-                success: true, 
-                user: sanitizeUserData(pbServer.pb.authStore.model)
-            });
+        return json({ 
+            success: true, 
+            user: sanitizeUserData(pbServer.pb.authStore.model),
+        token: pbServer.pb.authStore.token
+        });
         } else {
             // Clear invalid cookie
             cookies.delete('pb_auth', { path: '/' });
@@ -274,7 +287,7 @@ export const POST: RequestHandler = async ({ request, url, cookies }) => {
             
             const authData = await pbServer.signIn(email, password);
             if (!authData) {
-                return json({ success: false, error: 'Authentication failed' }, { status: 401 });
+            return json({ success: false, error: 'Authentication failed' }, { status: 401 });
             }
             
             // Save auth to cookies
@@ -282,7 +295,7 @@ export const POST: RequestHandler = async ({ request, url, cookies }) => {
             
             return json({ 
                 success: true, 
-                user: sanitizeUserData(pbServer.pb.authStore.model),
+                user: sanitizeUserData(pbServer.pb.authStore.model as User),
                 authData
             });
         } catch (error) {

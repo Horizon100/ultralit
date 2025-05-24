@@ -1,10 +1,11 @@
 <script lang="ts">
     import { writable, get } from 'svelte/store';
+    import { onMount, onDestroy } from 'svelte';
     import { slide, fly, fade } from 'svelte/transition';
       import { elasticOut, cubicIn, cubicOut, quintOut } from 'svelte/easing';
     import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
     import { projectStore } from '$lib/stores/projectStore';
-    import type { KanbanTask, KanbanAttachment, Column, Tag, User} from '$lib/types/types';
+    import type { KanbanTask, KanbanAttachment, KanbanColumn, Task, Tag, User} from '$lib/types/types';
     import UserDisplay from '$lib/features/users/components/UserDisplay.svelte';
 	import { ArrowRight, ArrowDown, EyeOff, Layers, Flag, CalendarClock, ChevronLeft, ChevronRight, Filter, ListFilter, ClipboardList, TagIcon, CirclePlay, FolderGit, GitFork, LayoutList, ListCollapse, PlayCircleIcon, Trash2, PlusCircle, Tags, Search } from 'lucide-svelte';
     import { t } from '$lib/stores/translationStore';
@@ -41,7 +42,7 @@
     let hoveredButtonId: number | null = null;
     let priorityViewActive = false;
     let showAddTag = false;
-    let addTagInput = false;
+    let addTagInput: HTMLInputElement;
 
     enum TaskViewMode {
         All = 'all',
@@ -85,17 +86,17 @@
         'archive': ['Archived']
     };
 
-    let columns = writable<Column[]>([
-        { id: 1, title: $t('tasks.backlog'), status: 'backlog', tasks: [], isOpen: true },
-        { id: 2, title: $t('tasks.todo'), status: 'todo', tasks: [], isOpen: true },
-        { id: 3, title: $t('tasks.inprogress'), status: 'inprogress', tasks: [], isOpen: true },
-        { id: 4, title: $t('tasks.review'), status: 'review', tasks: [], isOpen: true },
-        { id: 5, title: $t('tasks.done'), status: 'done', tasks: [], isOpen: true },
-        { id: 6, title: $t('tasks.hold'), status: 'hold', tasks: [], isOpen: true },
-        { id: 7, title: $t('tasks.postponed'), status: 'postpone', tasks: [], isOpen: true },
-        { id: 8, title: $t('tasks.delegate'), status: 'delegate', tasks: [], isOpen: true },
-        { id: 9, title: $t('tasks.cancelled'), status: 'cancel', tasks: [], isOpen: true },
-        { id: 10, title: $t('tasks.archive'), status: 'archive', tasks: [], isOpen: true }
+    let columns = writable<KanbanColumn[]>([
+        { id: 1, title: $t('tasks.backlog') as string, status: 'backlog', tasks: [], isOpen: true },
+        { id: 2, title: $t('tasks.todo') as string, status: 'todo', tasks: [], isOpen: true },
+        { id: 3, title: $t('tasks.inprogress') as string, status: 'inprogress', tasks: [], isOpen: true },
+        { id: 4, title: $t('tasks.review') as string, status: 'review', tasks: [], isOpen: true },
+        { id: 5, title: $t('tasks.done') as string, status: 'done', tasks: [], isOpen: true },
+        { id: 6, title: $t('tasks.hold') as string, status: 'hold', tasks: [], isOpen: true },
+        { id: 7, title: $t('tasks.postponed') as string, status: 'postpone', tasks: [], isOpen: true },
+        { id: 8, title: $t('tasks.delegate') as string, status: 'delegate', tasks: [], isOpen: true },
+        { id: 9, title: $t('tasks.cancelled') as string, status: 'cancel', tasks: [], isOpen: true },
+        { id: 10, title: $t('tasks.archive') as string, status: 'archive', tasks: [], isOpen: true }
 
     ]);
 
@@ -125,9 +126,11 @@
      *     }
      * });
      */
-      projectStore.subscribe(state => {
-        currentProjectId = state.currentProjectId;
-    });
+  const unsubscribe = projectStore.subscribe(store => {
+    currentProjectId = store.currentProjectId;
+    loadData(currentProjectId); // Reload data when project changes
+  });
+
 
     function getRandomBrightColor(tagName: string): string {
         const hash = tagName.split('').reduce((acc, char) => {
@@ -176,107 +179,129 @@ async function getUserName(userId: string | undefined): Promise<string> {
     }
 }
     // Load data from PocketBase
-    async function loadData() {
-        isLoading.set(true);
-        error.set(null);
-        
+
+async function loadTasks(projectId: string | null) {
         try {
-            // Load tasks
-            await loadTasks();
+            let url = '/api/tasks';
+            if (projectId) {
+                url = `/api/projects/${projectId}/tasks`;
+            }
             
-            // Load tags
-            await loadTags();
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch tasks');
             
-            isLoading.set(false);
-        } catch (err) {
-            console.error('Error loading data:', err);
-            error.set(err instanceof Error ? err.message : 'Failed to load data');
-            isLoading.set(false);
-        }
-    }
+            const data: { items: TaskResponse[] } = await response.json();
+            
+            // Define the response type we expect from the API
+            interface TaskResponse {
+                id: string;
+                title: string;
+                taskDescription?: string;
+                created: string;
+                due_date?: string;
+                start_date?: string;
+                taskTags?: string[];
+                taggedTasks?: string;
+                project_id?: string;
+                createdBy?: string;
+                assignedTo?: string;
+                parent_task?: string;
+                allocatedAgents?: string[];
+                status: KanbanTask['status'];
+                priority?: 'high' | 'medium' | 'low';
+                prompt?: string;
+                context?: string;
+                task_outcome?: string;
+                dependencies?: {
+                    type: 'subtask' | 'dependency' | 'resource' | 'precedence';
+                    task_id: string;
+                }[];
+                agentMessages?: string[];
+            }
 
-    async function loadTasks() {
-    try {
-        let url = '/api/tasks';
-        if (currentProjectId) {
-            url = `/api/projects/${currentProjectId}/tasks`;
-        }
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-        
-        const data = await response.json();
-        
-        // Reset all columns tasks
-        columns.update(cols => {
-            return cols.map(col => ({...col, tasks: []}));
-        });
-        
-        // Store all tasks for filtering purposes
-        allTasksBackup = [];
-        
-        // Distribute tasks to appropriate columns
-        columns.update(cols => {
-            data.items.forEach(task => {
-                const taskObj: KanbanTask = {
-                    id: task.id,
-                    title: task.title,
-                    taskDescription: task.taskDescription || '',
-                    creationDate: new Date(task.created),
-                    due_date: task.due_date ? new Date(task.due_date) : null,
-                    start_date: task.start_date ? new Date(task.start_date) : null,
-                    tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-                    attachments: [],
-                    project_id: task.project_id,
-                    createdBy: task.createdBy,
-                    assignedTo: task.assignedTo,
-                    parent_task: task.parent_task || undefined,
-                    allocatedAgents: task.allocatedAgents || [],
-                    status: task.status,
-                    priority: task.priority || 'medium',
-                    prompt: task.prompt || '',
-                    context: task.context || '',
-                    task_outcome: task.task_outcome || '',
-                    dependencies: task.dependencies || [],
-                    agentMessages: task.agentMessages || []
-                };
-                
-                // Add to our backup of all tasks
-                allTasksBackup.push(taskObj);
-                
-                // Find the appropriate column based on status
-                const targetColumns = reverseStatusMapping[task.status] || ['Backlog'];
-                const targetColumn = cols.find(col => targetColumns.includes(col.title));
-                
-                if (targetColumn) {
-                    targetColumn.tasks.push(taskObj);
-                } else {
-                    // If we can't find a matching column, default to Backlog
-                    const backlog = cols.find(col => col.title === 'Backlog');
-                    if (backlog) backlog.tasks.push(taskObj);
-                }
+            // Reset all columns tasks
+            columns.update(cols => {
+                return cols.map(col => ({...col, tasks: []}));
             });
-            return cols;
-        });
-        
-        // Initial application of task view filtering
-        if (taskViewMode !== TaskViewMode.All) {
-            applyTaskViewFilter();
+            
+            // Store all tasks for filtering purposes
+            allTasksBackup = [];
+            
+            // Distribute tasks to appropriate columns
+            columns.update(cols => {
+                data.items.forEach((task: TaskResponse) => {
+                    const taskObj: KanbanTask = {
+                        id: task.id,
+                        title: task.title,
+                        taskDescription: task.taskDescription || '',
+                        creationDate: new Date(task.created),
+                        due_date: task.due_date ? new Date(task.due_date) : null,
+                        start_date: task.start_date ? new Date(task.start_date) : null,
+                        tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+                        attachments: [],
+                        project_id: task.project_id,
+                        createdBy: task.createdBy,
+                        assignedTo: task.assignedTo,
+                        parent_task: task.parent_task || undefined,
+                        allocatedAgents: task.allocatedAgents || [],
+                        status: task.status,
+                        priority: task.priority || 'medium',
+                        prompt: task.prompt || '',
+                        context: task.context || '',
+                        task_outcome: task.task_outcome || '',
+                        dependencies: task.dependencies || [],
+                        agentMessages: task.agentMessages || []
+                    };
+                    
+                    // Add to our backup of all tasks
+                    allTasksBackup.push(taskObj);
+                    
+                    // Find the appropriate column based on status
+                    const targetColumns = reverseStatusMapping[task.status as keyof typeof reverseStatusMapping] || ['Backlog'];
+                    const targetColumn = cols.find(col => targetColumns.includes(col.title));
+                    
+                    if (targetColumn) {
+                        targetColumn.tasks.push(taskObj);
+                    } else {
+                        // If we can't find a matching column, default to Backlog
+                        const backlog = cols.find(col => col.title === 'Backlog');
+                        if (backlog) backlog.tasks.push(taskObj);
+                    }
+                });
+                return cols;
+            });
+            
+            // Initial application of task view filtering
+            if (taskViewMode !== TaskViewMode.All) {
+                applyTaskViewFilter();
+            }
+            
+        } catch (err) {
+            console.error('Error loading tasks:', err);
+            throw err;
         }
-        
-        // Rest of your loadTasks function...
-    } catch (err) {
-        console.error('Error loading tasks:', err);
-        throw err;
     }
+async function loadData(projectId: string | null) {
+  isLoading.set(true);
+  error.set(null);
+
+  try {
+    
+    await loadTasks(projectId);
+    await loadTags(projectId);
+    
+    isLoading.set(false);
+  } catch (err) {
+    console.error('Error loading data:', err);
+    error.set(err instanceof Error ? err.message : 'Failed to load data');
+    isLoading.set(false);
+  }
 }
-
-
-    async function loadTags() {
+    async function loadTags(projectId: string | null) {
         try {
             let url = '/api/tags';
-            if (currentProjectId) {
-                url = `/api/projects/${currentProjectId}/tags`;
+            if (projectId) {
+                url = `/api/projects/${projectId}/tags`;
             }
             
             const response = await fetch(url);
@@ -290,321 +315,301 @@ async function getUserName(userId: string | undefined): Promise<string> {
         }
     }
 
-    // Save a tag to PocketBase
     async function saveTag(tag: Tag) {
-    try {
-        const tagData = {
-            name: tag.name,
-            tagDescription: tag.tagDescription || '',
-            color: tag.color,
-            createdBy: get(currentUser)?.id,
-            selected: tag.selected || false
-        };
-        
-        // Update taggedProjects field if we have a current project
-        if (currentProjectId) {
-            tagData['taggedProjects'] = currentProjectId;
-        }
-        
-        const response = await fetch('/api/tags', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(tagData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to save tag');
-        
-        const savedTag = await response.json();
-        tags.update(t => {
-            // Remove the local version and add the saved version
-            const filtered = t.filter(existingTag => existingTag.id !== tag.id);
-            return [...filtered, savedTag];
-        });
-        
-        return savedTag;
-    } catch (err) {
-        console.error('Error saving tag:', err);
-        throw err;
-    }
-}
-async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?: string) {
-    try {
-        console.log(`Updating tags for task ${taskId} with:`, tagIds);
-        
-        // Prepare the update data
-        const updateData: any = {
-            taggedTasks: tagIds.join(','),
-            taskTags: tagIds
-        };
-        
-        // If taskDescription is provided, update it as well
-        if (taskDescription !== undefined) {
-            updateData.taskDescription = taskDescription;
-        }
-        
-        console.log('Update data:', updateData);
-        
-        // Update the task directly
-        const updateResponse = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!updateResponse.ok) {
-            const errorText = await updateResponse.text();
-            console.error(`Server error (${updateResponse.status}):`, errorText);
-            throw new Error(`Failed to update task tags: ${updateResponse.status} ${updateResponse.statusText}`);
-        }
-        
-        return await updateResponse.json();
-    } catch (err) {
-        console.error('Error updating task tags:', err);
-        throw err;
-    }
-}
+        try {
+            type TagPayload = {
+                name: string;
+                color: string;
+                thread_id?: string[];
+                user?: string;
+                tagDescription?: string;
+                createdBy?: string;
+                selected?: boolean;
+                taggedProjects?: string;
+            };
 
-    // Save a task to PocketBase
+            const payload: TagPayload = {
+                name: tag.name,
+                color: tag.color,
+                thread_id: tag.thread_id,
+                user: tag.user,
+                tagDescription: tag.tagDescription || '',
+                createdBy: get(currentUser)?.id,
+                selected: tag.selected || false
+            };
+
+            if (currentProjectId) {
+                payload.taggedProjects = currentProjectId;
+            }
+
+            const response = await fetch('/api/tags', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Failed to save tag');
+
+            const savedTag = await response.json();
+            tags.update(currentTags => {
+                const filtered = currentTags.filter(t => t.id !== tag.id);
+                return [...filtered, savedTag];
+            });
+
+            return savedTag;
+        } catch (err) {
+            console.error('Error saving tag:', err);
+            throw err;
+        }
+    }
+    async function updateTaskTags(taskId: string, tagIds: string[], taskDescription?: string) {
+        try {
+            console.log(`Updating tags for task ${taskId} with:`, tagIds);
+            
+            // Prepare the update data
+            const updateData: any = {
+                taggedTasks: tagIds.join(','),
+                taskTags: tagIds
+            };
+            
+            // If taskDescription is provided, update it as well
+            if (taskDescription !== undefined) {
+                updateData.taskDescription = taskDescription;
+            }
+            
+            console.log('Update data:', updateData);
+            
+            // Update the task directly
+            const updateResponse = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            if (!updateResponse.ok) {
+                const errorText = await updateResponse.text();
+                console.error(`Server error (${updateResponse.status}):`, errorText);
+                throw new Error(`Failed to update task tags: ${updateResponse.status} ${updateResponse.statusText}`);
+            }
+            
+            return await updateResponse.json();
+        } catch (err) {
+            console.error('Error updating task tags:', err);
+            throw err;
+        }
+    }
+
     async function saveTask(task: KanbanTask) {
-    try {
-        // First, handle file uploads for any new attachments
-        const attachmentPromises = task.attachments
-            .filter(att => att.file)
-            .map(async (att) => {
-                const formData = new FormData();
-                formData.append('file', att.file);
-                formData.append('fileName', att.fileName);
-                if (att.note) formData.append('note', att.note);
-                formData.append('createdBy', get(currentUser)?.id);
-                
-                // If we have a task ID (for updates), link the attachment to the task
-                if (task.id && !task.id.startsWith('local_')) {
-                    formData.append('attachedTasks', task.id);
-                }
-                
-                // If we have a project ID, link the attachment to the project
-                if (task.project_id) {
-                    formData.append('attachedProjects', task.project_id);
-                }
-                
-                const response = await fetch('/api/attachments', {
-                    method: 'POST',
-                    body: formData
+        try {
+            const attachmentPromises = task.attachments
+                .filter((att): att is KanbanAttachment & { file: File } => !!att.file)
+                .map(async (att) => {
+                    const formData = new FormData();
+                    formData.append('file', att.file);
+                    formData.append('fileName', att.fileName);
+                    if (att.note) formData.append('note', att.note);
+                    formData.append('createdBy', get(currentUser)?.id ?? '');
+                    
+                    if (task.id && !task.id.startsWith('local_')) {
+                        formData.append('attachedTasks', task.id);
+                    }
+                    
+                    if (task.project_id) {
+                        formData.append('attachedProjects', task.project_id);
+                    }
+                    
+                    const response = await fetch('/api/attachments', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to upload attachment');
+                    
+                    const savedAttachment = await response.json();
+                    return {
+                        id: savedAttachment.id,
+                        fileName: att.fileName,
+                        url: savedAttachment.url || '',
+                        note: att.note
+                    } as const;
                 });
                 
-                if (!response.ok) throw new Error('Failed to upload attachment');
-                
-                const savedAttachment = await response.json();
-                return {
-                    id: savedAttachment.id,
-                    fileName: att.fileName,
-                    url: savedAttachment.url || '',
-                    note: att.note
-                };
-            });
+            const savedAttachments = await Promise.all(attachmentPromises);
             
-        const savedAttachments = await Promise.all(attachmentPromises);
-        
-        // Replace file attachments with saved ones
-        const updatedAttachments = task.attachments.map(att => {
-            if (att.file) {
-                const savedAtt = savedAttachments.find(sa => sa.fileName === att.fileName);
-                return savedAtt || att;
-            }
-            return att;
-        });
-        
-        /*
-         * Use the task's current status directly instead of trying to determine it from columns
-         * This fixes the issue where status gets overridden during drag operations
-         */
-        const taskStatus = task.status;
-        
-        // Prepare attachment IDs as a comma-separated string
-        const attachmentIds = updatedAttachments.map(att => att.id).join(',');
-        
-        const taskData = {
-            title: task.title,
-            taskDescription: task.taskDescription,
-            project_id: currentProjectId || '',
-            createdBy: get(currentUser)?.id,
-            assignedTo: task.assignedTo || '',
-            parent_task: task.parent_task || '',
-            status: taskStatus,
-            priority: task.priority || 'medium',
-            due_date: task.due_date ? task.due_date.toISOString() : null,
-            start_date: task.start_date ? task.start_date.toISOString() : null,
-            taggedTasks: task.tags.join(','),
-            taskTags: task.tags,
-            allocatedAgents: task.allocatedAgents || [],
-            attachments: attachmentIds,
-            prompt: task.prompt || '',
-            context: task.context || '',
-            task_outcome: task.task_outcome || '',
-            dependencies: task.dependencies || [],
-            agentMessages: task.agentMessages || []
-        };
-        
-        let url = '/api/tasks';
-        let method = 'POST';
-        
-        // If task has an ID that's not auto-generated locally, it's an update
-        if (task.id && !task.id.startsWith('local_')) {
-            url = `/api/tasks/${task.id}`;
-            method = 'PATCH';
-        }
-        
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(taskData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to save task');
-        
-        const savedTask = await response.json();
-        
-        // Update the task in the columns
-        columns.update(cols => {
-            return cols.map(col => ({
-                ...col,
-                tasks: col.tasks.map(t => 
-                    t.id === task.id ? {
-                        ...savedTask,
-                        id: savedTask.id,
-                        attachments: updatedAttachments,
-                        creationDate: new Date(savedTask.created),
-                        due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
-                        start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
-                        tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : [],
-                        status: savedTask.status // Make sure status is updated from the server response
-                    } : t
-                )
-            }));
-        });
-        
-        return savedTask;
-    } catch (err) {
-        console.error('Error saving task:', err);
-        throw err;
-    }
-}
-
-function openDeleteConfirm(taskId: string, event: MouseEvent) {
-    event.stopPropagation(); 
-    taskToDelete = taskId;
-    isDeleteConfirmOpen = true;
-}
-
-function confirmDelete() {
-    if (taskToDelete) {
-        // If the task to delete is currently open in the modal, close it first
-        if (selectedTask && selectedTask.id === taskToDelete) {
-            isModalOpen = false;
-            selectedTask = null;
-        }
-        
-        // Then delete the task
-        deleteTask(taskToDelete).then(() => {
-            isDeleteConfirmOpen = false;
-            taskToDelete = null;
-        }).catch(err => {
-            error.set(`Failed to delete task: ${err.message}`);
-            isDeleteConfirmOpen = false;
-            taskToDelete = null;
-        });
-    }
-}
-
-function cancelDelete() {
-    isDeleteConfirmOpen = false;
-    taskToDelete = null;
-}
-function applyTaskViewFilter() {
-    columns.update(cols => {
-        return cols.map(col => {
-            const tasksForColumn = allTasksBackup.filter(task => {
-                const belongsInColumn = col.status === statusMapping[task.status] || 
-                                       (reverseStatusMapping[task.status] && 
-                                        reverseStatusMapping[task.status].includes(col.title));
-                
-                if (!belongsInColumn) return false;
-                
-                switch (taskViewMode) {
-                    case TaskViewMode.All:
-                        return true;
-                    case TaskViewMode.OnlySubtasks:
-                        return !!task.parent_task;
-                    case TaskViewMode.OnlyParentTasks:
-                        return allTasksBackup.some(t => t.parent_task === task.id);
-                    case TaskViewMode.LowPriority:
-                        return task.priority === 'low';
-                    case TaskViewMode.mediumPriority:
-                        return task.priority === 'medium';
-                    case TaskViewMode.highPriority:
-                        return task.priority === 'high';
-                    default:
-                        return true;
+            const updatedAttachments = task.attachments.map(att => {
+                if (att.file) {
+                    const savedAtt = savedAttachments.find(sa => sa.fileName === att.fileName);
+                    return savedAtt || att;
                 }
+                return att;
             });
             
-            return { ...col, tasks: tasksForColumn };
+            /*
+            * Use the task's current status directly instead of trying to determine it from columns
+            * This fixes the issue where status gets overridden during drag operations
+            */
+            const taskStatus = task.status;
+            
+            // Prepare attachment IDs as a comma-separated string
+            const attachmentIds = updatedAttachments.map(att => att.id).join(',');
+            
+            const taskData = {
+                title: task.title,
+                taskDescription: task.taskDescription,
+                project_id: currentProjectId || '',
+                createdBy: get(currentUser)?.id || '',
+                assignedTo: task.assignedTo || '',
+                parent_task: task.parent_task || '',
+                status: taskStatus,
+                priority: task.priority || 'medium',
+                due_date: task.due_date ? task.due_date.toISOString() : null,
+                start_date: task.start_date ? task.start_date.toISOString() : null,
+                taggedTasks: task.tags.join(','),
+                taskTags: task.tags,
+                allocatedAgents: task.allocatedAgents || [],
+                attachments: attachmentIds,
+                prompt: task.prompt || '',
+                context: task.context || '',
+                task_outcome: task.task_outcome || '',
+                dependencies: task.dependencies || [],
+                agentMessages: task.agentMessages || []
+            };
+            
+            let url = '/api/tasks';
+            let method: 'POST' | 'PATCH' = 'POST';
+            
+            // If task has an ID that's not auto-generated locally, it's an update
+            if (task.id && !task.id.startsWith('local_')) {
+                url = `/api/tasks/${task.id}`;
+                method = 'PATCH';
+            }
+            
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(taskData)
+            });
+            
+            if (!response.ok) throw new Error('Failed to save task');
+            
+            const savedTask = await response.json();
+            
+            // Update the task in the columns
+            columns.update(cols => {
+                return cols.map(col => ({
+                    ...col,
+                    tasks: col.tasks.map(t => 
+                        t.id === task.id ? {
+                            ...savedTask,
+                            id: savedTask.id,
+                            attachments: updatedAttachments,
+                            creationDate: new Date(savedTask.created),
+                            due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+                            start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
+                            tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : [],
+                            status: savedTask.status // Make sure status is updated from the server response
+                        } : t
+                    )
+                }));
+            });
+            
+            return savedTask;
+        } catch (err) {
+            console.error('Error saving task:', err);
+            throw err;
+        }
+    }
+
+    function openDeleteConfirm(taskId: string, event: MouseEvent) {
+        event.stopPropagation(); 
+        taskToDelete = taskId;
+        isDeleteConfirmOpen = true;
+    }
+
+    function confirmDelete() {
+        if (taskToDelete) {
+            // If the task to delete is currently open in the modal, close it first
+            if (selectedTask && selectedTask.id === taskToDelete) {
+                isModalOpen = false;
+                selectedTask = null;
+            }
+            
+            // Then delete the task
+            deleteTask(taskToDelete).then(() => {
+                isDeleteConfirmOpen = false;
+                taskToDelete = null;
+            }).catch(err => {
+                error.set(`Failed to delete task: ${err.message}`);
+                isDeleteConfirmOpen = false;
+                taskToDelete = null;
+            });
+        }
+    }
+
+    function cancelDelete() {
+        isDeleteConfirmOpen = false;
+        taskToDelete = null;
+    }
+    function applyTaskViewFilter() {
+        columns.update(cols => {
+            return cols.map(col => {
+                const tasksForColumn = allTasksBackup.filter(task => {
+                    const belongsInColumn = col.status === task.status;
+                    
+                    if (!belongsInColumn) return false;
+                    
+                    switch (taskViewMode) {
+                        case TaskViewMode.All:
+                            return true;
+                        case TaskViewMode.OnlySubtasks:
+                            return !!task.parent_task;
+                        case TaskViewMode.OnlyParentTasks:
+                            return allTasksBackup.some(t => t.parent_task === task.id);
+                        case TaskViewMode.LowPriority:
+                            return task.priority === 'low';
+                        case TaskViewMode.mediumPriority:
+                            return task.priority === 'medium';
+                        case TaskViewMode.highPriority:
+                            return task.priority === 'high';
+                        default:
+                            return true;
+                    }
+                });
+                
+                return { ...col, tasks: tasksForColumn };
+            });
         });
-    });
-}
-function toggleTaskView(mode: TaskViewMode) {
-    taskViewMode = mode;
-    applyTaskViewFilter();
-}
+    }
 
-function handleTagsChanged(event: CustomEvent) {
-    selectedTagIds = event.detail.selectedTags;
-    applyFilters();
-}
-
-function toggleRequireAllTags() {
-    requireAllTags = !requireAllTags;
-    applyFilters();
-}
-    
 function applyFilters() {
     if (searchQuery.trim()) {
         searchTasks(searchQuery);
     } else {
         columns.update(cols => {
-            // Start with all tasks
             let tasksToFilter = [...allTasksBackup];
             
-            // First apply tag filtering
             if (selectedTagIds.length > 0) {
                 tasksToFilter = filterTasksByTags(tasksToFilter, selectedTagIds, requireAllTags);
             }
             
-            // Then distribute to columns based on status
             return cols.map(col => {
-                // Filter tasks for this column
                 const tasksForColumn = tasksToFilter.filter(task => {
-                    // Only include tasks that belong in this column
-                    const belongsInColumn = col.status === statusMapping[task.status] || 
-                                           (reverseStatusMapping[task.status] && 
-                                            reverseStatusMapping[task.status].includes(col.title));
+                    const belongsInColumn = col.status === task.status;
                     
                     if (!belongsInColumn) return false;
                     
-                    // Apply view mode filter
                     switch (taskViewMode) {
                         case TaskViewMode.All:
                             return true;
                         case TaskViewMode.OnlySubtasks:
-                            return !!task.parent_task; // Only show tasks with a parent
+                            return !!task.parent_task; 
                         case TaskViewMode.OnlyParentTasks:
-                            // Show tasks that have children (are parent tasks)
                             return allTasksBackup.some(t => t.parent_task === task.id);
                         default:
                             return true;
@@ -616,18 +621,31 @@ function applyFilters() {
         });
     }
 }
+    function toggleTaskView(mode: TaskViewMode) {
+        taskViewMode = mode;
+        applyTaskViewFilter();
+    }
+
+    function handleTagsChanged(event: CustomEvent) {
+        selectedTagIds = event.detail.selectedTags;
+        applyFilters();
+    }
+
+    function toggleRequireAllTags() {
+        requireAllTags = !requireAllTags;
+        applyFilters();
+    }
+    
 
 function toggleTagFilter() {
     showTagFilter = !showTagFilter;
     if (!showTagFilter) {
-        // Clear filters when hiding
         selectedTagIds = [];
         applyFilters();
     }
 }
 async function deleteTask(taskId: string) {
     try {
-        // Check if task is local only
         if (taskId.startsWith('local_')) {
             columns.update(cols => {
                 return cols.map(col => ({
@@ -680,59 +698,6 @@ async function deleteTask(taskId: string) {
         throw new Error(`Unable to copy obj! Its type isn't supported.`);
     }
 
-    function addTask(columnId: number, event: KeyboardEvent) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            const input = event.target as HTMLTextAreaElement;
-            const title = input.value.trim();
-            if (title) {
-                columns.update(cols => {
-                    const column = cols.find(col => col.id === columnId);
-                    if (column) {
-                        const localId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                        const newTask: KanbanTask = {
-                            id: localId,
-                            title,
-                            taskDescription: '',
-                            creationDate: new Date(),
-                            due_date: null,
-                            start_date: null,
-                            tags: [],
-                            attachments: [],
-                            project_id: currentProjectId || undefined,
-                            createdBy: get(currentUser)?.id,
-                            allocatedAgents: [],
-                            status: statusMapping[column.title] as KanbanTask['status'] || 'todo',
-                            priority: 'medium'
-                        };
-                        column.tasks.push(newTask);
-                        
-                        saveTask(newTask).then(savedTask => {
-                            columns.update(cols => {
-                                return cols.map(col => ({
-                                    ...col,
-                                    tasks: col.tasks.map(t => 
-                                        t.id === localId ? {
-                                            ...savedTask,
-                                            id: savedTask.id,
-                                            creationDate: new Date(savedTask.created),
-                                            due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
-                                            start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
-                                            tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
-                                        } : t
-                                    )
-                                }));
-                            });
-                        }).catch(err => {
-                            error.set(`Failed to save task: ${err.message}`);
-                        });
-                    }
-                    return cols;
-                });
-                input.value = '';
-            }
-        }
-    }
 
 function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
     columns.update(cols => {
@@ -748,10 +713,26 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                 // First move the task in the UI for immediate feedback
                 fromColumn.tasks.splice(taskIndex, 1);
                 
-                // Get the correct new status from statusMapping or use the column's status directly
-                let newStatus;
-                if (statusMapping[toColumn.title]) {
-                    newStatus = statusMapping[toColumn.title];
+                // Define statusMapping with proper typing
+                const statusMapping: Record<string, KanbanTask['status']> = {
+                    'Backlog': 'backlog',
+                    'To Do': 'todo',
+                    'In Progress': 'inprogress',
+                    'Review': 'review',
+                    'Done': 'done',
+                    'Hold': 'hold',
+                    'Postponed': 'postpone',
+                    'Delegate': 'delegate',
+                    'Cancelled': 'cancel',
+                    'Archived': 'archive'
+                };
+
+                // Get the correct new status with type safety
+                let newStatus: KanbanTask['status'];
+                const columnTitle = toColumn.title as keyof typeof statusMapping;
+                
+                if (columnTitle in statusMapping) {
+                    newStatus = statusMapping[columnTitle];
                 } else {
                     // Handle case where column title doesn't map directly to a status
                     newStatus = toColumn.status;
@@ -760,15 +741,17 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                 console.log(`Moving task from ${fromColumn.title} to ${toColumn.title} - new status: ${newStatus}`);
                 
                 // Ensure newStatus is a valid status value
-                const validStatuses = ['backlog', 'todo', 'inprogress', 'focus', 'done', 
-                                      'hold', 'postpone', 'cancel', 'review', 'delegate', 'archive'];
+                const validStatuses: KanbanTask['status'][] = [
+                    'backlog', 'todo', 'inprogress', 'done', 
+                    'hold', 'postpone', 'cancel', 'review', 'delegate', 'archive'
+                ];
                                       
                 if (!validStatuses.includes(newStatus)) {
                     console.error(`Invalid status: ${newStatus}, falling back to column status: ${toColumn.status}`);
                     newStatus = toColumn.status;
                 }
                 
-                task.status = newStatus as KanbanTask['status'];
+                task.status = newStatus;
                 
                 if (!task.tags) {
                     task.tags = [];
@@ -785,6 +768,7 @@ function moveTask(taskId: string, fromColumnId: number, toColumnId: number) {
                         console.error('Error updating task status:', err);
                         error.set(err instanceof Error ? err.message : 'Failed to move tasks');
                         
+                        // Revert the UI changes
                         fromColumn.tasks.splice(taskIndex, 0, task);
                         const revertIndex = toColumn.tasks.findIndex(t => t.id === taskId);
                         if (revertIndex !== -1) {
@@ -910,7 +894,7 @@ function handleButtonDrop(event: DragEvent, toColumnId: number) {
         selectedStart = null;
     }
 
-function saveAndCloseModal() {
+function saveAndCloseModal(task?: KanbanTask) {
     if (selectedTask) {
         const taskToSave = { ...selectedTask };
 
@@ -930,8 +914,15 @@ function saveAndCloseModal() {
             isModalOpen = false;
             return;
         }
-        
-        updateTask(taskToSave.id, taskToSave).then(() => {
+        const taskForUpdate = {
+            ...taskToSave,
+            due_date: taskToSave.due_date || undefined,
+            start_date: taskToSave.start_date || undefined,
+            attachments: JSON.stringify(taskToSave.attachments)
+
+        };
+
+        updateTask(taskToSave.id, taskForUpdate).then(() => {
             columns.update(cols => {
                 return cols.map(col => ({
                     ...col,
@@ -961,30 +952,37 @@ function toggleAddTag() {
         showAddTag = false;
     }
 
-    async function addTag() {
-        if (newTagName.trim()) {
-            const tagColor = getRandomBrightColor(newTagName.trim());
-            const newTag: Tag = {
-                id: `local_tag_${Date.now()}`,
-                name: newTagName.trim(),
-                tagDescription: '',
-                color: tagColor,
-                createdBy: get(currentUser)?.id,
-                selected: false
-            };
-            
-            tags.update(t => [...t, newTag]);
-            newTagName = '';
-            
-            try {
-                await saveTag(newTag);
-                showAddTag = false;
-
-            } catch (err) {
+async function addTag() {
+    if (newTagName.trim()) {
+        const currentUserId = get(currentUser)?.id;
+        
+        // Handle case where user is not available
+        if (!currentUserId) {
+            error.set('User not authenticated');
+            return;
+        }
+        
+        const tagColor = getRandomBrightColor(newTagName.trim());
+        const newTag: Partial<Tag> = {
+            id: `local_tag_${Date.now()}`,
+            name: newTagName.trim(),
+            tagDescription: '',
+            color: tagColor,
+            createdBy: currentUserId, 
+            selected: false
+        };
+        
+        tags.update(t => [...t, newTag as Tag]);
+        newTagName = '';
+        
+        try {
+            await saveTag(newTag as Tag);
+            showAddTag = false;
+        } catch (err) {
             error.set(err instanceof Error ? err.message : 'Failed to save tag');
-            }
         }
     }
+}
     function addGlobalTask(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -1230,7 +1228,7 @@ function navigateToParentTask(parentId: string, event: MouseEvent) {
     }
 }
 
-async function handleTaskAssigned(detail) {
+async function handleTaskAssigned(detail: { taskId: string; userId: string }) {
     const { taskId, userId } = detail;
     
     try {
@@ -1253,7 +1251,7 @@ async function handleTaskAssigned(detail) {
         console.error('Error handling task assignment:', error);
     }
 }
-async function handleTaskUnassigned(taskId) {
+async function handleTaskUnassigned(taskId: string) {
     try {
         if (selectedTask && selectedTask.id === taskId) {
             selectedTask.assignedTo = '';
@@ -1311,10 +1309,8 @@ function searchTasks(query: string) {
             // Apply search query - search in title, description, and tags
             filteredTasks = filteredTasks.filter(task => {
                 // Check if task belongs to this column
-                const belongsInColumn = col.status === statusMapping[task.status] || 
-                                      (reverseStatusMapping[task.status] && 
-                                       reverseStatusMapping[task.status].includes(col.title));
-                
+                const belongsInColumn = col.status === task.status;
+
                 if (!belongsInColumn) return false;
                 
                 // Search in title
@@ -1331,12 +1327,11 @@ function searchTasks(query: string) {
                 if (task.priority.toLowerCase().includes(normalizedQuery)) return true;
                 
                 // Search by creator or assignee name (async, but works for pre-loaded names)
-                if (userNameCache.has(task.createdBy) && 
+                if (task.createdBy && userNameCache.has(task.createdBy) && 
                     userNameCache.get(task.createdBy)?.toLowerCase().includes(normalizedQuery)) return true;
                 
                 if (task.assignedTo && userNameCache.has(task.assignedTo) && 
                     userNameCache.get(task.assignedTo)?.toLowerCase().includes(normalizedQuery)) return true;
-                
                 return false;
             });
             
@@ -1347,7 +1342,7 @@ function searchTasks(query: string) {
 async function togglePriority(task: KanbanTask, event: MouseEvent) {
     event.stopPropagation();
     
-    const priorities = ['low', 'medium', 'high'];
+    const priorities: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
     const currentIndex = priorities.indexOf(task.priority);
     const nextIndex = (currentIndex + 1) % priorities.length;
     const newPriority = priorities[nextIndex];
@@ -1360,16 +1355,41 @@ async function togglePriority(task: KanbanTask, event: MouseEvent) {
             )
         }));
     });
+    
     allTasksBackup = allTasksBackup.map(t => 
-    t.id === task.id ? { ...t, priority: newPriority } : t
+        t.id === task.id ? { ...t, priority: newPriority } : t
     );
-        if (selectedTask && selectedTask.id === task.id) {
+    
+    if (selectedTask && selectedTask.id === task.id) {
         selectedTask = { ...selectedTask, priority: newPriority };
     }
     
     // Update in the backend
     try {
-        await updateTask(task.id, { ...task, priority: newPriority });
+        // Fix: Create a proper Task object for updateTask, only include Task-compatible fields
+        const taskUpdate: Partial<Task> = {
+            id: task.id,
+            title: task.title,
+            priority: newPriority,
+            status: task.status,
+            due_date: task.due_date || undefined,
+            start_date: task.start_date || undefined,
+            taskDescription: task.taskDescription,
+            project_id: task.project_id,
+            createdBy: task.createdBy,
+            parent_task: task.parent_task,
+            assignedTo: task.assignedTo,
+            attachments: Array.isArray(task.attachments) ? JSON.stringify(task.attachments) : task.attachments,
+            prompt: task.prompt,
+            context: task.context,
+            task_outcome: task.task_outcome,
+            dependencies: task.dependencies,
+            agentMessages: task.agentMessages,
+            allocatedAgents: task.allocatedAgents,
+            taskTags: task.tags
+        };
+        
+        await updateTask(task.id, taskUpdate);
     } catch (err) {
         console.error('Error updating task priority:', err);
         // Revert back if the update fails
@@ -1381,6 +1401,15 @@ async function togglePriority(task: KanbanTask, event: MouseEvent) {
                 )
             }));
         });
+        
+        // Also revert the backup
+        allTasksBackup = allTasksBackup.map(t => 
+            t.id === task.id ? { ...t, priority: task.priority } : t
+        );
+        
+        if (selectedTask && selectedTask.id === task.id) {
+            selectedTask = { ...selectedTask, priority: task.priority };
+        }
     }
 }
 function applyPriorityFilter() {
@@ -1456,13 +1485,17 @@ function getOrderedTaskTags(task: KanbanTask, allTags: Tag[]): Tag[] {
  * @param task The task object that will be updated
  * @param dateType Whether this is 'start_date' or 'due_date'
  */
+
+ 
 function handleDateScroll(
     event: WheelEvent, 
-    date: Date, 
+    date: Date | null, 
     part: 'day' | 'month' | 'year', 
     task: KanbanTask, 
     dateType: 'start_date' | 'due_date'
 ): void {
+
+    if (!date) return;
     event.preventDefault();
     event.stopPropagation();
     
@@ -1532,88 +1565,39 @@ function handleDateScroll(
         }
         
         task._updateTimeout = setTimeout(() => {
-            updateTask(task.id, { ...task });
+            const updateData: Partial<Task> = {
+                ...task,
+                attachments: JSON.stringify(task.attachments),
+                due_date: task.due_date ? task.due_date.toISOString() : undefined,
+                start_date: task.start_date ? task.start_date.toISOString() : undefined,
+                _scrollAccumulation: undefined,
+                _updateTimeout: undefined
+            };
+            
+            updateTask(task.id, updateData);
             delete task._updateTimeout;
-        }, 500);
+        }, 500) as unknown as number;
+    }
+}
+function handleImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+  }
+function handleAvatarError(event: Event) {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+        target.style.display = 'none';
     }
 }
 
-// Function to start editing a date
-function startDateEditing(dateType: 'start' | 'due') {
-    editingDateType = dateType;
-    
-    // Set initial values based on current date
-    const currentDate = dateType === 'start' 
-        ? selectedTask?.start_date 
-        : selectedTask?.due_date;
-    
-    if (currentDate) {
-        editingYear = currentDate.getFullYear();
-        editingMonth = currentDate.getMonth();
-        editingDay = currentDate.getDate();
-    } else {
-        // Default to today if no date is set
-        const today = new Date();
-        editingYear = today.getFullYear();
-        editingMonth = today.getMonth();
-        editingDay = today.getDate();
-    }
-    
-    // Set the editing flag
-    if (dateType === 'start') {
-        isEditingStartDate = true;
-    } else {
-        isEditingDueDate = true;
-    }
-}
 
-// Function to save edited date
-function saveEditedDate() {
-    if (!selectedTask || !editingDateType || editingYear === null || editingMonth === null || editingDay === null) return;
-    
-    // Create new date
-    const newDate = new Date(editingYear, editingMonth, editingDay);
-    
-    // Update the task
-    if (editingDateType === 'start') {
-        selectedTask.start_date = newDate;
-        isEditingStartDate = false;
-    } else {
-        selectedTask.due_date = newDate;
-        isEditingDueDate = false;
-    }
-    
-    // Reset editing state
-    editingDateType = null;
-    editingYear = null;
-    editingMonth = null;
-    editingDay = null;
-    
-    // Force reactivity update
-    selectedTask = { ...selectedTask };
-}
 
-// Function to cancel date editing
-function cancelDateEditing() {
-    isEditingStartDate = false;
-    isEditingDueDate = false;
-    editingDateType = null;
-    editingYear = null;
-    editingMonth = null;
-    editingDay = null;
-}
 function updateBackup(taskId: string, newTags: string[]) {
     allTasksBackup = allTasksBackup.map(task => 
         task.id === taskId ? { ...task, tags: newTags } : task
     );
 }
-function handleTaskListScroll(e: WheelEvent) {
-    if (e.shiftKey) {
-        e.preventDefault();
-        const taskList = e.currentTarget as HTMLElement;
-        taskList.scrollLeft += e.deltaY;
-    }
-}
+
 function handleTagClick(event: MouseEvent, task: KanbanTask, tag: Tag) {
     event.stopPropagation();
     
@@ -1637,22 +1621,26 @@ function handleTagClick(event: MouseEvent, task: KanbanTask, tag: Tag) {
     // Update backend
     updateTaskTags(task.id, newTags);
 }
-$: hasProjectContext = (selectedTask && selectedTask.project_id && selectedTask.project_id !== '') || 
-                         (currentProjectId && currentProjectId !== '');
+    $: hasProjectContext = (selectedTask?.project_id && selectedTask.project_id !== '') || 
+                          (currentProjectId && currentProjectId !== '');
 
+    // Reactive statement for conditional loading
     $: {
         if (currentProjectId) {
-            loadData();
+            loadData(currentProjectId);
         } else {
-            loadData();
+            loadData(currentProjectId);
         }
     }
 
-    $: taskTags = selectedTask ? $tags.filter(tag => selectedTask.tags.includes(tag.id)) : [];
+    // Reactive statement for taskTags with null check
+$: taskTags = selectedTask ? $tags.filter(tag => selectedTask?.tags?.includes(tag.id)) : [];
+
+    // Reactive statement for columnCounts
     $: columnCounts = $columns.reduce((acc, column) => {
-    acc[column.status] = column.tasks.length;
-    return acc;
-}, {});
+        acc[column.status] = column.tasks.length;
+        return acc;
+    }, {} as Record<string, number>);
 
 $: totalTaskCount = allTasksBackup.length;
 
@@ -1665,6 +1653,10 @@ $: subtaskCount = allTasksBackup.filter(task => !!task.parent_task).length;
 $: highPriorityCount = allTasksBackup.filter(task => task.priority === 'high').length;
 $: mediumPriorityCount = allTasksBackup.filter(task => task.priority === 'medium').length;
 $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').length;
+$: assignedToValue = selectedTask?.assignedTo ?? '';
+$: projectIdValue = selectedTask?.project_id ?? currentProjectId;
+  onDestroy(unsubscribe);
+
 </script>
 
 {#if $isLoading}
@@ -1674,7 +1666,9 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 {:else if $error}
     <div class="error-message">
         <p>Error: {$error}</p>
-        <button on:click={loadData}>Retry</button>
+        <button on:click={() => loadData(get(projectStore).currentProjectId)}>
+            Retry
+        </button>    
     </div>
 {:else}
 
@@ -1926,7 +1920,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 src={`/api/users/${task.createdBy}/avatar`} 
                 alt="Avatar" 
                 class="user-avatar"
-                onerror="this.style.display='none'"
+                on:error={handleImageError}
             />
             <span class="username">
                 {#await getUserName(task.createdBy) then username}
@@ -1941,7 +1935,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             src={`/api/users/${task.assignedTo}/avatar`} 
             alt="Avatar" 
             class="user-avatar"
-            on:error={(e) => e.target.style.display = 'none'}
+            on:error={handleAvatarError}
         />
         <span class="avatar-initials" style="display: none;">
             {#await getUserName(task.assignedTo) then username}
@@ -2008,17 +2002,17 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 <div class="timeline">
                     <span 
                         class="date-part" 
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.day'), task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'day', task, 'start_date')}
                         title="Scroll to change day (hold Shift for precision)"
                     >{task.start_date.getDate()}</span>
                     <span 
                         class="month-part"
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.month'), task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'month', task, 'start_date')}
                         title="Scroll to change month (hold Shift for precision)"
                     >{task.start_date.toLocaleString('default', { month: 'short' })}</span>
                     <span 
                         class="year-part"
-                        on:wheel={(e) => handleDateScroll(e, task.start_date, $t('dates.year'), task, 'start_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.start_date, 'year', task, 'start_date')}
                         title="Scroll to change year (hold Shift for precision)"
                     >{task.start_date.getFullYear()}</span>
                 </div>
@@ -2048,17 +2042,17 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 <div class="timeline">
                     <span 
                         class="date-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date, $t('dates.day'), task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
                         title="Scroll to change day (hold Shift for precision)"
                     >{task.due_date.getDate()}</span>
                     <span 
                         class="month-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date, $t('dates.month'), task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
                         title="Scroll to change month (hold Shift for precision)"
                     >{task.due_date.toLocaleString('default', { month: 'short' })}</span>
                     <span 
                         class="year-part"
-                        on:wheel={(e) => handleDateScroll(e, task.due_date,$t('dates.year'), task, 'due_date')}
+                        on:wheel={(e) => handleDateScroll(e, task.due_date,'year', task, 'due_date')}
                         title="Scroll to change year (hold Shift for precision)"
                     >{task.due_date.getFullYear()}</span>
                 </div>
@@ -2085,31 +2079,30 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 </div>
 {/if} 
 {#if isModalOpen && selectedTask}
-    <div class="modal-overlay" on:click={saveAndCloseModal}>
+    <div class="modal-overlay" on:click={() => selectedTask && saveAndCloseModal(selectedTask)}>
         <div class="modal-content"     
             class:task-changing={taskTransition}
             on:click|stopPropagation 
              in:slide={{ duration: 300, axis: 'x' }}
              out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
         >
-            {#if selectedTask && selectedTask.parent_task}
-                <div class="parent-task-section">
-                    <button 
-                        class="tasknav-btn" 
-                        on:click={(e) => navigateToParentTask(selectedTask.parent_task || '', e)}
-                    >
-                        <ChevronLeft size="16"/>
-                    </button>
-                    <p>{getParentTaskTitle(selectedTask.parent_task)}</p>
-                </div>
-            {/if}
+        {#if selectedTask?.parent_task}
+            <div class="parent-task-section">
+                <button 
+                    class="tasknav-btn" 
+                    on:click={(e) => selectedTask?.parent_task && navigateToParentTask(selectedTask.parent_task, e)}
+                >
+                    <ChevronLeft size="16"/>
+                </button>
+                <p>{selectedTask?.parent_task ? getParentTaskTitle(selectedTask.parent_task) : ''}</p>
+            </div>
+        {/if}
 
 
             <div class="title-section">
 
                     {#if isEditingTitle}
                         <textarea
-                            type="text"
                             bind:value={selectedTask.title}
                             on:blur={() => isEditingTitle = false}
                             on:keydown={(e) => e.key === 'Enter' && (isEditingTitle = false)}
@@ -2125,31 +2118,34 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
 
             </div>
-                        <div class="modal-header">
-                <div class="assignment-section">
-                    <AssignButton 
-                        taskId={selectedTask.id} 
-                        assignedTo={selectedTask.assignedTo || ''} 
-                        projectId={selectedTask.project_id || currentProjectId}
-                        on:assigned={(e) => handleTaskAssigned(e.detail)} 
-                        on:unassigned={() => handleTaskUnassigned(selectedTask.id)}
-                    />
-                </div>
-                <span 
-                    class="priority-flag modal {selectedTask.priority}"
-                    on:click={(e) => togglePriority(selectedTask, e)}
-                    title="Click to change priority"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                    <line x1="4" y1="22" x2="4" y2="15"></line>
-                    </svg>
-                    <span class="priority-name">
-                        {selectedTask.priority}
+            <div class="modal-header">
+                {#if selectedTask}
+                    <div class="assignment-section">
+                        <AssignButton 
+                            taskId={selectedTask.id} 
+                            assignedTo={assignedToValue ?? ''} 
+                            projectId={projectIdValue ?? undefined}
+                            on:assigned={(e) => handleTaskAssigned(e.detail)} 
+                            on:unassigned={() => selectedTask && handleTaskUnassigned(selectedTask.id)}
+                        />
+                    </div>
+                    <span 
+                        class="priority-flag modal {selectedTask.priority}"
+                        on:click={(e) => selectedTask && togglePriority(selectedTask, e)}
+                        title="Click to change priority"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                        <line x1="4" y1="22" x2="4" y2="15"></line>
+                        </svg>
+                        <span class="priority-name">
+                            {selectedTask.priority}
+                        </span>
                     </span>
-                </span>
+                {/if}
             </div>
-                            <div class="tag-section">
+
+                <div class="tag-section">
                     <div class="tag-list">
                         {#each $tags as tag}
                             <button 
@@ -2207,7 +2203,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
             
             {#if hasSubtasks(selectedTask.id)}
-            <div class="subtasks-section" on:click={() => showSubtasks = !showSubtasks}>
+            <div class="subtasks-section" on:click|self={() => showSubtasks = !showSubtasks}>
                 <div class="section-header">
                     <p>Subtasks ({countSubtasks(selectedTask.id)})</p>
                     <!-- <button class="toggle-btn" on:click={() => showSubtasks = !showSubtasks}>
@@ -2235,7 +2231,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
                 <input type="file" on:change={handleFileUpload} multiple>
                 <div class="attachment-list">
                     {#each selectedTask.attachments as attachment}
-                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.name}</a>
+                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.fileName}</a>
                     {/each}
                 </div>
             </div>
@@ -2315,11 +2311,11 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
                 <p>{$t('generic.created')}: {selectedTask.creationDate.toLocaleDateString()}</p>
                 <div class="button-group">
-                    <button class="done-button" on:click={saveAndCloseModal}>{$t('tasks.done')}</button>
-                    <button class="delete-task-btn" on:click={(e) => openDeleteConfirm(selectedTask.id, e)}>
-                        <Trash2 /> 
-                        <span>{$t('generic.delete')}</span>
-                    </button>
+                <button class="done-button" on:click={() => selectedTask && saveAndCloseModal(selectedTask)}>{$t('tasks.done')}</button>
+                <button class="delete-task-btn" on:click={(e) => selectedTask && openDeleteConfirm(selectedTask.id, e)}>
+                    <Trash2 /> 
+                    <span>{$t('generic.delete')}</span>
+                </button>
                 </div>    
             </div>
         </div>
@@ -2785,11 +2781,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         }
     }
 
-    textarea:hover {
-        /* border: 1px solid #7cb87e; */
-        // transform: scale(0.99);
-    }
-
     .task-list {
         min-height: 100px;
         display: flex;
@@ -2972,9 +2963,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
         padding: 0.5rem 0;
         z-index: 1;
-        & h4 {
 
-        }
         &.description {
             overflow: visible !important;
             padding: 0.5rem;
@@ -3454,8 +3443,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
   
 }
-    .attachment-list {
-    }
 
     .attachment-list a {
         display: block;
@@ -4232,9 +4219,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         // border: 1px solid var(--line-color);
         border: 1px solid transparent;
         z-index: 1;
-        & h4 {
-
-        }
         &.description {
             overflow: visible !important;
             padding: 1rem;
@@ -4247,8 +4231,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
 
         }
     }
-    .task-creator {
-    }
+
 
     .task-card:active {
         transform: rotate(-3deg);
@@ -4480,9 +4463,7 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
         // border: 1px solid var(--line-color);
         border: 1px solid transparent;
         z-index: 1;
-        & h4 {
 
-        }
         &.description {
             overflow: visible !important;
             padding: 1rem;
@@ -4596,8 +4577,6 @@ $: lowPriorityCount = allTasksBackup.filter(task => task.priority === 'low').len
             width: auto;
             z-index: 1;
             box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
-        }
-        .view-controls {
         }
         .tooltip-container {
             display: none;

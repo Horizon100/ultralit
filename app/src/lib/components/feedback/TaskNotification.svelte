@@ -1,38 +1,20 @@
-<!-- src/lib/components/common/TaskNotification.svelte -->
 <script lang="ts">
     import { fade, fly } from 'svelte/transition';
     import { createEventDispatcher, onMount } from 'svelte';
     import { RefreshCcw, X, AlertCircle, CheckCircle, File } from 'lucide-svelte';
-    
-    // Define notification type
-    type NotificationType = 'loading' | 'success' | 'error';
-    
-    // Define notification interface
-    export interface TaskNotification {
-      id: string;
-      message: string;
-      type: NotificationType;
-      timestamp: number;
-      autoClose?: boolean;
-      link?: {
-        url: string;
-        text: string;
-      };
-    }
-    
+    import type { NotificationType, TaskNotification } from '$lib/types/types.notifications';
+
     // Props
     export let notifications: TaskNotification[] = [];
-    export let autoCloseDelay = 5000; // Default to 5 seconds
+    export let autoCloseDelay = 5000;
     
     const dispatch = createEventDispatcher();
     
-    // Function to remove a notification
     function removeNotification(id: string) {
       notifications = notifications.filter(n => n.id !== id);
       dispatch('remove', id);
     }
     
-    // Auto-close notifications after specified delay
     $: {
       notifications.forEach(notification => {
         if (notification.autoClose !== false) {
@@ -44,8 +26,6 @@
         }
       });
     }
-    
-    // Handle clicking on the notification link
     function handleLinkClick(notification: TaskNotification) {
       dispatch('linkClick', notification);
       if (notification.autoClose !== false) {
@@ -102,10 +82,10 @@
       bottom: 20px;
       right: 20px;
       display: flex;
-      flex-direction: column-reverse; /* Stack newest on bottom */
+      flex-direction: column-reverse;
       gap: 8px;
       z-index: 9999;
-      pointer-events: none; /* Container doesn't block clicks */
+      pointer-events: none; 
     }
     
     .notification {
@@ -117,7 +97,7 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       width: 300px;
       max-width: 90vw;
-      pointer-events: auto; /* Allow interaction with notification */
+      pointer-events: auto; 
       position: relative;
     }
     

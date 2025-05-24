@@ -111,7 +111,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
                             break;
                         }
                     } catch (err) {
-                        console.warn(`Could not check project ${projectId}: ${err.message}`);
+                        console.warn(`Could not check project ${projectId}: ${err instanceof Error ? err.message : 'Unknown error'}`);
                     }
                 }
                 
@@ -135,7 +135,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         return json({ success: true });
     } catch (error) {
         console.error('Error deleting tag:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        return new Response(JSON.stringify({ 
+            error: error instanceof Error ? error.message : 'Internal server error' 
+        }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

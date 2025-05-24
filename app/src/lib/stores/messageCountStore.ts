@@ -1,7 +1,11 @@
 // messageCountsStore.ts
 import { writable, derived } from 'svelte/store';
-import { } from '$lib/pocketbase';
+import PocketBase from 'pocketbase';
+import { pocketbaseUrl } from '$lib/pocketbase'; 
 import type { Threads } from '$lib/types/types';
+
+// Create PocketBase instance
+const pb = new PocketBase(pocketbaseUrl);
 
 interface MessageCounts {
 	[threadId: string]: number;
@@ -116,8 +120,7 @@ export const messageCountsStore = createMessageCountsStore();
 export function getCountColor(count: number): string {
 	// Define min and max counts for scaling
 	const minCount = 2;
-	const maxCount = 50; // Adjust based on your expected maximum
-
+	const maxCount = 50; 
 	// Normalize the count between 0 and 1
 	const normalized =
 		Math.min(Math.max(count - minCount, 0), maxCount - minCount) / (maxCount - minCount);
@@ -129,9 +132,9 @@ export function getCountColor(count: number): string {
 	 */
 	const hue = 120 * (1 - normalized);
 
-	return `hsl(${hue}, 70%, 45%)`; // Adjusted saturation and lightness for better visibility
+	return `hsl(${hue}, 70%, 45%)`; 
 }
-// Optional: Create a derived store for easy access to counts
+
 export const messageCounts = derived(messageCountsStore, ($counts) => {
 	const maxCount = Math.max(...Object.values($counts), 50); // Default to 50 if no counts
 	return {

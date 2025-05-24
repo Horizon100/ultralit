@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPBInstance } from '$lib/server/pocketbase';
+import { pb } from '$lib/server/pocketbase';
 
 // DELETE: Remove a collaborator from the repository
 export const DELETE: RequestHandler = async ({ params, locals }) => {
@@ -10,7 +10,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     }
     
     try {
-        const pb = getPBInstance();
         const { id, userId } = params;
         
         // Check if user is repository owner
@@ -31,7 +30,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
         
         // Remove collaborator
         let collaborators = repository.repoCollaborators || [];
-        collaborators = collaborators.filter(id => id !== userId);
+        collaborators = collaborators.filter((id: string) => id !== userId);
         
         // Update repository
         const updatedRepository = await pb.collection('repositories').update(id, {

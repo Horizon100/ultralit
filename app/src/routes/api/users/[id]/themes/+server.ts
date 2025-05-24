@@ -40,7 +40,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     });
   } catch (err) {
     console.error('Theme GET error:', err);
-    throw error(400, err.message || 'Failed to fetch theme');
+    const errorMessage = err instanceof Error ? err.message : 'Failed to fetch theme';
+    throw error(400, errorMessage);
   }
 };
 
@@ -67,6 +68,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     });
   } catch (err) {
     console.error('Theme PATCH error:', err);
-    throw error(400, err.message || 'Failed to update theme');
+    const errorMessage = err instanceof Error ? err.message : 'Failed to update theme';
+    throw error(400, errorMessage);
   }
 };

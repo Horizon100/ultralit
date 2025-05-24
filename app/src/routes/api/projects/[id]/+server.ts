@@ -19,7 +19,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     
     return json({ success: true, data: project });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to load project';
+    throw error(400, errorMessage);
   }
 };
 
@@ -38,7 +39,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     const updated = await pb.collection('projects').update(params.id, data);
     return json({ success: true, data: updated });
   } catch (err) {
-    throw error(400, err.message);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update project';
+    throw error(400, errorMessage);
   }
 };
 
@@ -56,6 +58,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     await pb.collection('projects').delete(params.id);
     return json({ success: true });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to delete project';
+    throw error(400, errorMessage);
   }
 };

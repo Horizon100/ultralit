@@ -1,20 +1,6 @@
 // src/lib/stores/ideNotificationStore.ts
 import { writable } from 'svelte/store';
-
-// Define notification type
-export type NotificationType = 'loading' | 'success' | 'error';
-
-export interface TaskNotification {
-  id: string;
-  message: string;
-  type: NotificationType;
-  timestamp: number;
-  autoClose?: boolean;
-  link?: {
-    url: string;
-    text: string;
-  };
-}
+import type { NotificationType, TaskNotification } from '$lib/types/types.notifications';
 
 export const ideNotifications = writable<TaskNotification[]>([]);
 

@@ -1,9 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
+import type { User } from '$lib/types/types';
+
 
 // Helper function to sanitize user data for client
-function sanitizeUserData(user: any): any {
+function sanitizeUserData(user: User | null): Partial<User> | null {
     if (!user) return null;
     
     return {
@@ -55,7 +57,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         
         return json({ 
             success: true, 
-            user: sanitizeUserData(pbServer.pb.authStore.model),
+            user: sanitizeUserData(pbServer.pb.authStore.model as User),
             authData
         });
     } catch (error) {

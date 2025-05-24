@@ -49,25 +49,26 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
           readCount: post.readCount
         });
       }
-    } catch (err) {
-      console.error(`Error marking post ${postId} as read:`, err);
-      
-      if (err.status === 404) {
-        return new Response(JSON.stringify({ error: 'Post not found' }), { 
-          status: 404, 
-          headers: { 'Content-Type': 'application/json' } 
-        });
-      }
-      
-      throw err;
+  } catch (err) {
+    console.error(`Error marking post ${postId} as read:`, err);
+    
+    // Check if it's a PocketBase error with status property
+    if (typeof err === 'object' && err !== null && 'status' in err && (err).status === 404) {
+      return new Response(JSON.stringify({ error: 'Post not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+  
+  throw err;
     }
   } catch (error) {
     console.error('Error in read handler:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     }), { 
-      status: 500, 
+      status: 500,
       headers: { 'Content-Type': 'application/json' } 
     });
   }

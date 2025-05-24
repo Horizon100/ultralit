@@ -45,12 +45,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         });
 
         return json(repo);
-    } catch (err) {
-        return json(
-            { error: 'Failed to create repository', details: err.message },
-            { status: 500 }
-        );
-    }
+        } catch (err) {
+            return json(
+                { 
+                    error: 'Failed to create repository', 
+                    details: err instanceof Error ? err.message : 'Unknown error' 
+                },
+                { status: 500 }
+            );
+        }
 };
 
 // Get all repositories accessible to the user

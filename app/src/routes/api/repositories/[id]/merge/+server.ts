@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { pb, ensureAuthenticated } from '$lib/pocketbase';
+import { pb, ensureAuthenticated } from '$lib/server/pocketbase';
 
 // POST: Merge a source branch into a target branch
 export const POST: RequestHandler = async ({ params, request }) => {

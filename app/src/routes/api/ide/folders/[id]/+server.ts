@@ -1,39 +1,47 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import { ensureAuthenticated } from '$lib/pocketbase';
 
 // GET: Fetch a specific folder by ID
 export const GET: RequestHandler = async ({ params, locals }) => {
-    // Check if user is authenticated
-    const isAuthenticated = await ensureAuthenticated();
-    if (!isAuthenticated || !pb.authStore.model) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
+    if (!locals.user) {
+        return json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     try {
         const { id } = params;
-        const userId = pb.authStore.model.id;
         
-        // Fetch folder
-        const folder = await pb.collection('code_folders').getOne(id, {
-            expand: 'createdBy,parent,repository'
-        });
-        
-        // Check if user has access to the repository
-        const repository = folder.expand?.repository || await pb.collection('repositories').getOne(folder.repository);
-        const isOwner = repository.createdBy === userId;
-        const isCollaborator = repository.repoCollaborators?.includes(userId);
-        const isPublic = repository.isPublic;
-        
-        if (!isOwner && !isCollaborator && !isPublic) {
-            return json({ error: 'Access denied' }, { status: 403 });
+        if (!id) {
+            return json(
+                { success: false, error: 'Note ID is required' },
+                { status: 400 }
+            );
         }
-        
-        return json(folder);
-    } catch (error) {
-        console.error('Error fetching folder:', error);
-        return json({ error: 'Failed to fetch folder' }, { status: 500 });
+
+        // Fetch note with expanded relations
+        const note = await pb.collection('notes').getOne(id, {
+            expand: 'createdBy,attachments'
+        });
+
+        // Verify ownership
+        if (note.createdBy !== locals.user.id) {
+            return json({ success: false, error: 'Access denied' }, { status: 403 });
+        }
+
+        return json({ success: true, note });
+    } catch (error: unknown) {
+        console.error('Error fetching note:', error);
+        if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+            return json(
+                { success: false, error: 'Note not found' },
+                { status: 404 }
+            );
+        }
+        return json(
+            { success: false, error: 'Failed to fetch note' },
+            { status: 500 }
+        );
     }
 };
 
@@ -46,7 +54,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     }
     
     try {
-        const { id } = params;
+const { id } = params;
+        if (!id) {
+            return json({ error: 'Folder ID is required' }, { status: 400 });
+        }        
         const data = await request.json();
         const userId = pb.authStore.model.id;
         
@@ -97,8 +108,10 @@ export const DELETE: RequestHandler = async ({ params }) => {
     
     try {
         const { id } = params;
+        if (!id) {
+            return json({ error: 'Folder ID is required' }, { status: 400 });
+        }        
         const userId = pb.authStore.model.id;
-        
         // Fetch folder
         const folder = await pb.collection('code_folders').getOne(id);
         

@@ -483,7 +483,7 @@ function openFile(filename: string) {
 
     try {
       // Create root folder for new branch
-      const response = await fetch('/api/folders', {
+      const response = await fetch('/api/ide/folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -517,7 +517,7 @@ function openFile(filename: string) {
     if (!folderName) return;
 
     try {
-      const response = await fetch('/api/folders', {
+      const response = await fetch('/api/ide/folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -559,7 +559,7 @@ function openFile(filename: string) {
     if (!selectedRepo || !selectedBranch) return;
     
     try {
-      const foldersResponse = await fetch(`/api/folders?repository=${selectedRepo.id}&branch=${selectedBranch}`);
+      const foldersResponse = await fetch(`/api/ide/folders?repository=${selectedRepo.id}&branch=${selectedBranch}`);
       if (foldersResponse.ok) {
         const foldersData = await foldersResponse.json();
         folders = foldersData.items || [];

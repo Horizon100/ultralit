@@ -14,16 +14,20 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       throw error(403, 'Forbidden');
     }
     
+    if (!project.collaborators || project.collaborators.length === 0) {
+      return json({ success: true, data: [] });
+    }
+    
     const collaborators = await pb.collection('users').getFullList({
-      filter: project.collaborators.map(id => `id = "${id}"`).join(' || ')
+      filter: project.collaborators.map((id: string) => `id = "${id}"`).join(' || ')
     });
     
     return json({ success: true, data: collaborators });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to load collaborators';
+    throw error(400, errorMessage);
   }
 };
-
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
   
@@ -42,6 +46,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     
     return json({ success: true, data: updated });
   } catch (err) {
-    throw error(400, err.message);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to add collaborators';
+    throw error(400, errorMessage);
   }
 };

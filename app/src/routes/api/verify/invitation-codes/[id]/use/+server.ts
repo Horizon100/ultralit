@@ -50,21 +50,36 @@ export const POST: RequestHandler = async ({ params, request }) => {
         message: 'Invitation code marked as used',
         result: result
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error marking invitation code as used:', error);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
+      
+      let message = 'Failed to mark invitation code as used';
+      const status = 500;
+      
+      if (error instanceof Error) {
+        message += ': ' + error.message;
       }
+      
+      // Type checking for PocketBase error response
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+      console.error('Response data:', (error as { response?: { data?: unknown } }).response?.data);
+    }
       return json({
         success: false,
-        message: 'Failed to mark invitation code as used: ' + (error.message || String(error))
-      }, { status: error.status || 500 });
+        message
+      }, { status });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Server error marking invitation code as used:', error);
+    
+    let message = 'Server error processing invitation code';
+    if (error instanceof Error) {
+      message += ': ' + error.message;
+    }
+    
     return json({
       success: false,
-      message: 'Server error processing invitation code'
+      message
     }, { status: 500 });
   }
 };

@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { get } from 'svelte/store';
 import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';
 
 export const showLanguageNotification = writable(false);

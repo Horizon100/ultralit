@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
+import type { RequestHandler } from './$types';
 
-export async function POST({ request }) {
+export const POST: RequestHandler = async ({ request }) => {
   try {
     const { token, password, passwordConfirm } = await request.json();
     

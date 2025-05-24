@@ -1,6 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Projects, ProjectStoreState, User } from '$lib/types/types';
-import { debounce } from 'lodash-es';
+import type { Projects, ProjectStoreState } from '$lib/types/types';
 import {
 	fetchProjects,
 	createProject,
@@ -279,22 +278,13 @@ setCurrentProject: async (id: string | null) => {
 	   * IMPORTANT: Load the threads for this project
 	   * This is the key fix to ensure threads are loaded when a project is selected
 	   */
-	  try {
+		try {
 		console.log(`Loading threads for selected project ${id}`);
-		// Use window.threadsclient if it exists, otherwise try to import it
-		if (typeof window !== 'undefined' && window.threadsclient?.loadThreads) {
-		  await window.threadsclient.loadThreads(id);
-		} else {
-		  try {
-			const { loadThreads } = await import('$lib/clients/threadsClient');
-			await loadThreads(id);
-		  } catch (e) {
-			console.error('Failed to import threadsClient:', e);
-		  }
-		}
-	  } catch (threadErr) {
+		const { loadThreads } = await import('$lib/clients/threadsClient');
+		await loadThreads(id);
+		} catch (threadErr) {
 		console.error('Failed to load threads for project:', threadErr);
-	  }
+		}
 	  
 	} catch (error) {
 	  console.error('Error setting current project:', error);

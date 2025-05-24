@@ -14,7 +14,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     const postId = params.id;
     const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
 
     console.log(`Fetching comments for post ${postId}`);
 
@@ -40,15 +39,16 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
         totalPages: commentsResult.totalPages,
         totalItems: commentsResult.totalItems
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error fetching comments for post ${postId}:`, err);
-      throw err;
+      throw err instanceof Error ? err : new Error('Unknown error');
     }
-  } catch (error) {
-    console.error('Error in GET comments handler:', error);
+  } catch (err: unknown) {
+    console.error('Error in GET comment handler:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message
+      message
     }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 
@@ -123,11 +123,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       console.error(`Error creating comment for post ${postId}:`, err);
       throw err;
     }
-  } catch (error) {
-    console.error('Error in POST comment handler:', error);
+  } catch (err: unknown) {
+    console.error('Error in POST comment handler:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message
+      message
     }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 

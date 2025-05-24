@@ -12,12 +12,9 @@ import type {
 	NetworkData,
 	CursorPosition,
 	AIModel,
-	Actions,
 	Workflows,
-	Workspaces,
 	Threads,
 	Messages,
-	Projects
 } from '$lib/types/types';
 
 let authCheckInProgress: Promise<boolean> | null = null;
@@ -503,7 +500,9 @@ const authPb = new PocketBase('https://vrazum.com');
     
     // Update the current user store
     if (authData && authData.record) {
-      currentUser.set(authData.record);
+		const user = authData.record as User;
+		currentUser.set(user);
+    //   currentUser.set(authData.record);
     }
     
     return authData;
@@ -601,6 +600,9 @@ export async function requestPasswordReset(email: string): Promise<boolean> {
 	  throw error;
 	}
   }
+export function unsubscribeFromChanges(unsubscribe: () => void): void {
+	unsubscribe();
+}
 
 
 // ============= AI Agent API Calls =============
@@ -1070,32 +1072,6 @@ export function getDefaultModelPreferences() {
 		model: 'gpt-3.5-turbo'
 	};
 }
-
-// ============= Workspace & Thread API Calls =============
-
-
-
-export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
-	try {
-		const response = await fetch(`/api/keys/users/${userId}/flows`, {
-			method: 'GET',
-			credentials: 'include'
-		});
-		
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-		
-		return data.flows;
-	} catch (error) {
-		console.error('Error fetching user flows:', error);
-		throw error;
-	}
-}
-
-
-
-
-
 
 
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {

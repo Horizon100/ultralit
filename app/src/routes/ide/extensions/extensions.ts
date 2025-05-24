@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { lintKeymap } from '@codemirror/lint';
-import { indentUnit, syntaxHighlighting, HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { indentUnit } from '@codemirror/language';
 import { getLanguageHighlighting } from '../themes/highlighting';
 import { javascript } from '@codemirror/lang-javascript';
 import { html } from '@codemirror/lang-html';
@@ -15,7 +15,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 
 // Function to create autosave extension
-export function createAutosaveExtension(saveCallback: (content: string) => void, debounceTime = 1000) {
+export function createAutosaveExtension(saveCallback: (content: string) => void, debounceTime = 1000): Extension {
   let timer: ReturnType<typeof setTimeout>;
   
   return EditorState.transactionExtender.of((tr) => {
@@ -26,7 +26,7 @@ export function createAutosaveExtension(saveCallback: (content: string) => void,
       }, debounceTime);
     }
     return null;
-  });
+  }) as Extension;
 }
 
 // Function to get language extension based on file type
@@ -35,40 +35,43 @@ export function getLanguageExtension(filename: string): Extension {
   
   switch (fileExtension) {
     case 'js':
-      return javascript();
+      return javascript() as Extension;
     case 'jsx':
-      return javascript({ jsx: true });
+      return javascript({ jsx: true }) as Extension;
     case 'ts':
-      return javascript({ typescript: true });
+      return javascript({ typescript: true }) as Extension;
     case 'tsx':
-      return javascript({ jsx: true, typescript: true });
+      return javascript({ jsx: true, typescript: true }) as Extension;
     case 'html':
-    case 'svelte': // Simplified support for Svelte files
-      return html();
+    case 'svelte':
+      return html() as Extension;
     case 'css':
-      return css();
+      return css() as Extension;
     case 'json':
-      return json();
+      return json() as Extension;
     case 'md':
-      return markdown();
+      return markdown() as Extension;
     case 'py':
-      return python();
+      return python() as Extension;
     default:
-      // Fallback to JavaScript for unknown file types
-      return javascript();
+      return javascript() as Extension;
   }
 }
 
 // Function to create basic extensions
 export function createBasicExtensions(isDarkMode: boolean, languageExtension: Extension): Extension[] {
-  /*
-   * Get file name from languageExtension if available
-   * This is a simplification; in practice, you'd need to find a way to get the filename
-   */
-  const filename = 'example.ts'; // Default
+  const filename = 'example.ts';
+  const themeHighlighting = getLanguageHighlighting(filename, isDarkMode) as Extension[];
   
-  // Get the theme highlighting based on filename and dark mode
-  const themeHighlighting = getLanguageHighlighting(filename, isDarkMode);
+  // Combine keymaps safely
+  const allKeymaps = [
+    ...defaultKeymap,
+    ...searchKeymap,
+    ...historyKeymap,
+    ...completionKeymap,
+    ...closeBracketsKeymap,
+    ...lintKeymap
+  ];
   
   return [
     lineNumbers(),
@@ -77,18 +80,11 @@ export function createBasicExtensions(isDarkMode: boolean, languageExtension: Ex
     history(),
     drawSelection(),
     dropCursor(),
-    EditorState.allowMultipleSelections.of(true),
-    indentUnit.of('  '), // 2 spaces indentation
+    EditorState.allowMultipleSelections.of(true) as Extension,
+    indentUnit.of('  ') as Extension,
     highlightActiveLine(),
     highlightSelectionMatches(),
-    keymap.of([
-      ...defaultKeymap,
-      ...searchKeymap,
-      ...historyKeymap,
-      ...completionKeymap,
-      ...closeBracketsKeymap,
-      ...lintKeymap
-    ]),
+    keymap.of(allKeymaps) as Extension,
     rectangularSelection(),
     crosshairCursor(),
     closeBrackets(),

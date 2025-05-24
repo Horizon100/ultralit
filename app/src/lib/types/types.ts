@@ -1,6 +1,7 @@
 import type { RecordModel } from 'pocketbase';
-import { type ProviderType } from '$lib/features/ai/utils/providers';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
+
+
 export interface User extends RecordModel {
 	username: string;
 	description: string;
@@ -142,13 +143,13 @@ export interface Threads extends RecordModel {
 	id: string;
 	name: string;
 	op: string;
-	members: string;
+	members?: string | string[];	
 	created: string;
 	updated: string;
 	last_message?: Messages;
 	current_thread: string;
 	messageCount?: number;
-	project_id: string;
+	project_id: string | null;
 	agents: string[];
 	project?: string | null;
 
@@ -332,63 +333,6 @@ export interface AIPreferences extends RecordModel {
 	ai_interaction_style: string;
 	privacy_level: string;
 	learning_rate: number;
-}
-export interface Task extends RecordModel {
-	id: string;
-	project_id: string;
-	createdBy: User | string;
-	title: string;
-	prompt: string;
-	context: string;
-	task_outcome: string;
-	status:
-		| 'backlog'
-		| 'todo'
-		| 'inprogress'
-		| 'review'
-		| 'done'
-		| 'hold'
-		| 'postpone'
-		| 'cancel'
-		| 'delegate'
-		| 'archive';
-	priority: 'high' | 'medium' | 'low';
-	due_date: Date | string;
-	start_date: Date | string;
-	allocatedAgents: string[];
-	parent_task: string;
-	dependencies: {
-		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
-		task_id: string; 
-	}[];
-	agentMessages: string[];
-	attachments: string;
-	taskDescription: string;
-	taskTags: string[];
-	assignedTo: string;
-	created: string;
-	updated: string;
-}
-
-export interface Message extends RecordModel {
-	text: string;
-	user: string;
-	parent_msg: string | null;
-	task_relation: string | null;
-	agent_relation: string | null;
-	type: 'text' | 'img' | 'video' | 'audio' | 'file' | 'link' | 'network';
-	read_by: string[];
-	sender: string;
-	receiver: string;
-	attachments: string;
-	reactions: {
-		bookmark: string[];
-		copy: string;
-	};
-	update_status: 'not_updated' | 'updated' | 'deleted';
-	prompt_type: string | null;
-	prompt_input: string | null;
-	model: string;
 }
 
 export interface CursorPosition extends RecordModel {
@@ -589,7 +533,6 @@ export interface Messages extends RecordModel {
 	id: string;
 	text: string;
 	user: string;
-
 	parent_msg: string | null;
 	task_relation: string | null;
 	agent_relation: string | null;
@@ -601,6 +544,37 @@ export interface Messages extends RecordModel {
 	updated: string;
 	prompt_type: PromptType | null;
 	prompt_input: string | null; 
+	model: string;
+}
+export interface MessageState {
+	messages: Messages[];
+	chatMessages: InternalChatMessage[];
+	userInput: string;
+	messageIdCounter: number;
+	latestMessageId: string | null;
+	thinkingMessageId: string | null;
+	typingMessageId: string | null;
+	quotedMessage: Messages | null;
+}
+
+export interface Message extends RecordModel {
+	text: string;
+	user: string;
+	parent_msg: string | null;
+	task_relation: string | null;
+	agent_relation: string | null;
+	type: 'text' | 'img' | 'video' | 'audio' | 'file' | 'link' | 'network';
+	read_by: string[];
+	sender: string;
+	receiver: string;
+	attachments: string;
+	reactions: {
+		bookmark: string[];
+		copy: string;
+	};
+	update_status: 'not_updated' | 'updated' | 'deleted';
+	prompt_type: string | null;
+	prompt_input: string | null;
 	model: string;
 }
 
@@ -677,12 +651,48 @@ export type FolderRecord = Folders & {
 	collectionName: 'folders';
 };
 
-export interface Column {
+export interface KanbanColumn {
 	id: number;
 	title: string;
 	status: KanbanTask['status'] | 'backlog' | 'inprogress';
 	tasks: KanbanTask[];
 	isOpen: boolean;
+}
+export interface Task extends RecordModel {
+	id: string;
+	project_id: string;
+	createdBy: User | string;
+	title: string;
+	prompt: string;
+	context: string;
+	task_outcome: string;
+	status:
+		| 'backlog'
+		| 'todo'
+		| 'inprogress'
+		| 'review'
+		| 'done'
+		| 'hold'
+		| 'postpone'
+		| 'cancel'
+		| 'delegate'
+		| 'archive';
+	priority: 'high' | 'medium' | 'low';
+	due_date: Date | string | null;
+	start_date: Date | string | null;
+	allocatedAgents: string[];
+	parent_task: string;
+	dependencies: {
+		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
+		task_id: string; 
+	}[];
+	agentMessages: string[];
+	attachments: string;
+	taskDescription: string;
+	taskTags: string[];
+	assignedTo: string;
+	created: string;
+	updated: string;
 }
 
 export interface KanbanTask {
@@ -710,7 +720,7 @@ export interface KanbanTask {
     agentMessages?: string[];
 	assignedTo?: string;
 	_scrollAccumulation?: { day: number; month: number; year: number };
-    _updateTimeout?: number;
+    _updateTimeout?: number | ReturnType<typeof setTimeout>;
 }
 
 export interface KanbanAttachment {
@@ -759,16 +769,6 @@ export interface ExpandedSections {
 	collaborators: boolean;
 }
 
-export interface MessageState {
-	messages: Messages[];
-	chatMessages: InternalChatMessage[];
-	userInput: string;
-	messageIdCounter: number;
-	latestMessageId: string | null;
-	thinkingMessageId: string | null;
-	typingMessageId: string | null;
-	quotedMessage: Messages | null;
-}
 
 export interface PromptState {
 	promptType: PromptType;
@@ -816,7 +816,7 @@ export interface Reminder {
 	value: number;
 	secondValue?: number; 
   }
-  export interface Perk {
+  export interface Perk extends RecordModel {
 	id: string;
 	created: string;
 	updated: string;

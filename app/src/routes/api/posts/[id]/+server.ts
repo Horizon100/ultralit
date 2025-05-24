@@ -74,12 +74,12 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
       // Toggle upvote
       if (upvotedBy.includes(userId)) {
         // Remove upvote
-        upvotedBy = upvotedBy.filter(id => id !== userId);
+      upvotedBy = upvotedBy.filter((id: string) => id !== userId);
       } else {
         // Add upvote and remove downvote if exists
         upvotedBy.push(userId);
         upvoted = true;
-        downvotedBy = downvotedBy.filter(id => id !== userId);
+      downvotedBy = downvotedBy.filter((id: string) => id !== userId);
       }
       
       // Update the post using admin API, bypassing PocketBase permissions
@@ -103,7 +103,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
     } catch (err) {
       console.error(`Error upvoting post ${postId}:`, err);
       
-      if (err.status === 404) {
+      if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
         return json({ error: 'Post not found' }, { status: 404 });
       }
       
@@ -113,7 +113,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
     console.error('Error in upvote handler:', error);
     return json({ 
       error: 'Internal server error',
-      message: error.message || 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 };
@@ -148,7 +148,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
           await pb.collection('post_attachments').delete(attachment.id);
         }
       } catch (attachmentError) {
-        console.log('No attachments to delete or attachments collection not found');
+        console.log('No attachments to delete or attachments collection not found:', attachmentError);
       }
 
       try {
@@ -167,19 +167,19 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
       console.log(`Post ${params.id} deleted successfully`);
       return json({ success: true });
-    } catch (err: any) {
-      console.error(`Error deleting post ${params.id}:`, err);
-      
-      if (err.status === 404) {
-        return new Response(JSON.stringify({ error: 'Post not found', details: err.message }), { 
-          status: 404, 
-          headers: { 'Content-Type': 'application/json' } 
-        });
-      }
-      
-      throw err;
+    } catch (err: unknown) {
+    console.error(`Error deleting post ${params.id}:`, err);
+    
+    if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+      return new Response(JSON.stringify({ error: 'Post not found', details: err instanceof Error ? err.message : 'Unknown error' }), { 
+        status: 404, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
     }
-  } catch (error: any) {
+    
+    throw err;
+  }
+  } catch (error: unknown) {
     console.error('Error in DELETE post handler:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',

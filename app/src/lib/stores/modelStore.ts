@@ -1,7 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { AIModel } from '$lib/types/types';
-import type { ProviderType } from '$lib/features/ai/utils/providers';
-import { currentUser } from '$lib/pocketbase';
+import type { AIModel, ProviderType } from '$lib/types/types';
 import { defaultModel, availableModels } from '$lib/features/ai/utils/models';
 import { apiKey } from '$lib/stores/apiKeyStore';
 
@@ -259,7 +257,7 @@ const createModelStore = () => {
 			
 			// 5. Find and initialize a valid model
 			let validModel: AIModel | null = null;
-			const currentState = get({ subscribe });
+			// const currentState = get({ subscribe });
 			
 			// If we have a model ID, try to fetch it
 			if (selectedModelId) {

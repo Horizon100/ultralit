@@ -1,9 +1,10 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent } from '$lib/types/types';
+import type { AIModel, AIMessage, Scenario, Task, AIAgent, RoleType, ProviderType } from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
 import { getPrompt } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
 import { prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/promptUtils';
+
 export async function fetchAIResponse(
     messages: AIMessage[],
     model: AIModel | null,
@@ -11,16 +12,16 @@ export async function fetchAIResponse(
     attachment: File | null = null
 ): Promise<string> {
     try {
-		        const messagesWithCustomPrompts = await prepareMessagesWithCustomPrompts(messages, userId);
+		const messagesWithCustomPrompts = await prepareMessagesWithCustomPrompts(messages, userId);
 
-const supportedMessages = messagesWithCustomPrompts
-    .filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
-    .filter((msg) => msg.content && msg.content.trim()) 
-    .map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-        model: msg.model
-    }));
+		const supportedMessages = messagesWithCustomPrompts
+			.filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
+			.filter((msg) => msg.content && msg.content.trim()) 
+			.map((msg) => ({
+				role: msg.role,
+				content: msg.content,
+				model: msg.model
+		}));
 		console.log('Sending messages to AI:', supportedMessages);
 
 
@@ -83,8 +84,10 @@ const supportedMessages = messagesWithCustomPrompts
 			} else {
 				const availableProviders = Object.entries(refreshedKeys)
 					.filter(([_, keyValue]) => !!keyValue)
-					.map(([providerName]) => providerName);
-				
+					.map(([providerName]) => providerName as ProviderType)
+					.filter((providerName): providerName is ProviderType => 
+						['openai', 'anthropic', 'google', 'grok', 'deepseek'].includes(providerName)
+					);
 				if (availableProviders.length > 0) {
 					const fallbackProvider = availableProviders[0];
 					console.log(`Falling back to provider: ${fallbackProvider}`);
@@ -337,11 +340,15 @@ export async function generateTasks(
 ): Promise<Task[]> {
 	const messages: AIMessage[] = [
 		{
-			role: 'assistant',
+			role: 'assistant' as RoleType,
 			content: getPrompt('CONCISE', ''),
 			model: model.api_type
 		},
-		{ role: 'user', content: scenario.description, model: model.api_type }
+		{ 
+			role: 'user' as RoleType, 
+			content: scenario.description, 
+			model: model.api_type 
+		}
 	];
 
 	const response = await fetchAIResponse(messages, model, userId);
@@ -353,9 +360,13 @@ export async function generateTasks(
 			id: `task-${index + 1}`,
 			title: `Task ${index + 1}`,
 			taskDescription: desc.trim(),
-			status: 'todo',
-			priority: 'medium',
+			status: 'todo' as const,
+			priority: 'medium' as const,
 			due_date: new Date(),
+			start_date: new Date(),
+			parent_task: '',
+			taskTags: [], 
+			assignedTo: '', 
 			createdBy: userId,
 			assigned_to: '',
 			ai_agents: '',
@@ -379,7 +390,7 @@ export async function generateTasks(
 			created: '',
 			updated: '',
 			task_outcome: '',
-			allocatedAgents: '',
+			allocatedAgents: [],
 			dependencies: [],
 			agentMessages: []
 		}));
@@ -408,15 +419,48 @@ export async function createAIAgent(
 		id: 'ai-agent-' + Date.now(),
 		name: `Agent for ${scenario.description.slice(0, 20)}...`,
 		description: response,
-		role: 'assistant', 
+		role: 'assistant' as RoleType,
 		model: [model.api_type],
 		user: userId,
+		owner: userId, 
+		editors: [], 
+		activityLog: [], 
+		currentUsers: [],
+		currentProjects: [], 
+		currentThreads: [], 
+		currentMessages: [], 
+		currentPosts: [], 
+		currentTasks: [], 
+		max_attempts: 3, 
+		user_input: 'end' as const, 
+		prompt: '', 
+		actions: [], 
+		avatar: '', 
+		capabilities: [], 
+		tasks: [], 
+		status: 'active' as const, 
+		messages: [], 
+		tags: [], 
+		performance: 0, 
+		version: '1.0.0', 
+		last_activity: new Date(), 
+		parent_agent: undefined, 
 		child_agents: [],
+		base_priority: 0, 
+		adaptive_priority: 0, 
+		weight_altruism: 0, 
+		weight_survival: 0, 
+		weight_exploration: 0, 
+		weight_aspiration: 0, 
+		weight_surrogate: 0, 
+		weight_selfdev: 0, 
+		label: undefined,  
 		position: { x: 0, y: 0 },
+		expanded: false, 
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
-		collectionId: '',
-		collectionName: ''
+		collectionId: '', 
+		collectionName: '' 
 	};
 }
 
@@ -433,8 +477,8 @@ export async function generateTaskDescription(
 	userId: string
   ): Promise<string> {
 	try {
-	  const systemPrompt = {
-		role: 'system',
+	const systemPrompt: AIMessage = {
+    	role: 'system' as RoleType,
 		content: `Create a focused, action-oriented task description from the provided content.
   - Write in imperative style (e.g., "Develop API documentation" not "Here's a task to develop API documentation")
   - Be specific about requirements and acceptance criteria
@@ -446,8 +490,8 @@ export async function generateTaskDescription(
 		model: model.api_type
 	  };
   
-	  const userPrompt = {
-		role: 'user',
+	const userPrompt: AIMessage = {
+		role: 'user' as RoleType,
 		content: `Transform this into a focused task description:
   ${content}`,
 		model: model.api_type
@@ -506,7 +550,7 @@ export async function generateTaskFromMessage(taskDetails: {
 	description: string
   }> {
 	try {
-	  const systemPrompt = {
+		const systemPrompt: AIMessage = {
 		role: 'system',
 		content: taskDetails.isParentTask 
 		  ? `Create a concise title and short summary for a task based on the provided content.
@@ -526,8 +570,8 @@ export async function generateTaskFromMessage(taskDetails: {
 		model: taskDetails.model.api_type
 	  };
   
-	  const userPrompt = {
-		role: 'user',
+	  const userPrompt: AIMessage = {
+		role: 'user' as RoleType,
 		content: `Transform this into a ${taskDetails.isParentTask ? 'task title and summary' : 'focused task description'}:
 		  ${taskDetails.content}`,
 		model: taskDetails.model.api_type
@@ -617,7 +661,7 @@ export async function generateTaskFromMessage(taskDetails: {
 	  const threadId = newThread.id;
   
 	  const responses = await Promise.all(
-		systemPrompts.map(async (systemPrompt, index) => {
+		systemPrompts.map(async (systemPrompt) => {
 		  const messages: AIMessage[] = [
 			{
 			  role: 'system',
@@ -645,98 +689,100 @@ export async function generateTaskFromMessage(taskDetails: {
 	}
   }
   
-  export async function saveSelectedResponse(
+export async function saveSelectedResponse(
 	selectedResponse: string,
 	promptText: string,
 	threadId: string | null,
 	model: AIModel,
 	userId: string,
 	systemPrompt: string
-  ): Promise<{
+): Promise<{
 	threadId: string;
 	userMessageId: string;
 	assistantMessageId: string;
-  }> {
+}> {
 	try {
-	  let currentThreadId = threadId;
-	  if (!currentThreadId) {
-		const response = await fetch('/api/threads', {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json'
-		  },
-		  body: JSON.stringify({
-			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-			userId
-		  })
-		});
-  
-		if (!response.ok) {
-		  throw new Error('Failed to create a new thread');
+		let currentThreadId: string; 
+		if (!threadId) {
+			const response = await fetch('/api/threads', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+					userId
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to create a new thread');
+			}
+
+			const newThread = await response.json();
+			currentThreadId = newThread.id;
+		} else {
+			currentThreadId = threadId;
+			
+			await fetch(`/api/threads/${threadId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					temporary: false,
+					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+				})
+			});
 		}
   
-		const newThread = await response.json();
-		currentThreadId = newThread.id;
-	  } else if (threadId) {
-		await fetch(`/api/threads/${threadId}`, {
-		  method: 'PATCH',
-		  headers: {
-			'Content-Type': 'application/json'
-		  },
-		  body: JSON.stringify({
-			temporary: false,
-			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
-		  })
+	const userMessageResponse = await fetch('/api/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				text: promptText,
+				type: 'human',
+				thread: currentThreadId,
+				parent_msg: null
+			})
 		});
-	  }
-  
-	  const userMessageResponse = await fetch('/api/messages', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-		  text: promptText,
-		  type: 'human',
-		  thread: currentThreadId,
-		  parent_msg: null
-		})
-	  });
-  
-	  if (!userMessageResponse.ok) {
-		throw new Error('Failed to save user message');
-	  }
-  
-	  const userMessage = await userMessageResponse.json();
-  
-	  const assistantMessageResponse = await fetch('/api/messages', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-		  text: selectedResponse,
-		  type: 'robot',
-		  thread: currentThreadId,
-		  parent_msg: userMessage.id,
-		  model: model.api_type,
-		  system_prompt: systemPrompt
-		})
-	  });
-  
-	  if (!assistantMessageResponse.ok) {
-		throw new Error('Failed to save assistant message');
-	  }
-	  
-	  const assistantMessage = await assistantMessageResponse.json();
-  
-	  return {
-		threadId: currentThreadId,
-		userMessageId: userMessage.id,
-		assistantMessageId: assistantMessage.id
-	  };
+
+		if (!userMessageResponse.ok) {
+			throw new Error('Failed to save user message');
+		}
+
+		const userMessage = await userMessageResponse.json();
+
+		const assistantMessageResponse = await fetch('/api/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				text: selectedResponse,
+				type: 'robot',
+				thread: currentThreadId,
+				parent_msg: userMessage.id,
+				model: model.api_type,
+				system_prompt: systemPrompt
+			})
+		});
+
+		if (!assistantMessageResponse.ok) {
+			throw new Error('Failed to save assistant message');
+		}
+		
+		const assistantMessage = await assistantMessageResponse.json();
+
+		return {
+			threadId: currentThreadId, // Now guaranteed to be string
+			userMessageId: userMessage.id,
+			assistantMessageId: assistantMessage.id
+		};
 	} catch (error) {
-	  console.error('Error in saveSelectedResponse:', error);
-	  throw error;
+		console.error('Error in saveSelectedResponse:', error);
+		throw error;
 	}
-  }
+}

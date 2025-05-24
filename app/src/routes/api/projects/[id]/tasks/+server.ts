@@ -33,9 +33,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         return json(tasks);
     } catch (error) {
         console.error('Error fetching project tasks:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        return new Response(JSON.stringify({ 
+            error: error instanceof Error ? error.message : 'Failed to fetch project tasks'
+        }), { 
             status: 500,
-
             headers: { 'Content-Type': 'application/json' } 
         });
     }
@@ -79,7 +80,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         return json(task);
     } catch (error) {
         console.error('Error creating project task:', error);
-        return new Response(JSON.stringify({ error: error.message }), { 
+        return new Response(JSON.stringify({ 
+            error: error instanceof Error ? error.message : 'Failed to create project task'
+        }), { 
             status: 500, 
             headers: { 'Content-Type': 'application/json' } 
         });

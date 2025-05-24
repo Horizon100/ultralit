@@ -2,35 +2,31 @@ import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { checkEligiblePerks, updateUserPerks } from '$lib/features/users/utils/perkChecker';
+import type { Perk } from '$lib/types/types'
 
-export const GET: RequestHandler = async ({ params, locals, url }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
     const userId = params.id;
-    const projectId = url.searchParams.get('projectId');
 
     try {
         // Use locals.pb if available, otherwise use pb
         const pocketBase = locals?.pb || pb;
         
-        // First check if user exists
         const user = await pocketBase.collection('users').getOne(userId);
         
         if (!user) {
             throw error(404, 'User not found');
         }
         
-        // Initialize counters with default values
         let threadCount = 0;
         let messageCount = 0;
         let taskCount = 0;
         let tagCount = 0;
         let timerCount = 0;
-        let lastActive = null;
+        let lastActive: Date | null = null;
         
         console.log('Fetching stats for user:', userId);
         
-        // Try to get thread count - based on your tags and tasks API pattern
         try {
-            // This pattern matches your tags API filter style
             const threadFilter = `op="${userId}"`;
             console.log('Using thread filter:', threadFilter);
             
@@ -67,9 +63,7 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
           
 
       }
-        // Try to get message count
         try {
-            // Based on your tags pattern
             const messageFilter = `user="${userId}"`;
             console.log('Using message filter:', messageFilter);
             
@@ -80,25 +74,22 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
             messageCount = messagesResult.totalItems;
             console.log('Message count:', messageCount);
             
-            // Try to get last activity time from the most recent message
             if (messageCount > 0) {
                 const latestMessage = await pocketBase.collection('messages').getList(1, 1, {
                     filter: messageFilter,
                     sort: '-created'
                 });
-                
-                if (latestMessage.items.length > 0 && latestMessage.items[0].created) {
-                    const messageDate = new Date(latestMessage.items[0].created);
-                    if (!lastActive || messageDate > lastActive) {
-                        lastActive = messageDate;
-                    }
+            if (latestMessage.items.length > 0 && latestMessage.items[0].created) {
+                const messageDate = new Date(latestMessage.items[0].created);
+                if (!lastActive || messageDate > (lastActive as Date)) {
+                    lastActive = messageDate;
                 }
+            }
             }
         } catch (e) {
             console.error('Error counting messages:', e);
             
             try {
-                // Try alternative filter styles
                 const alternativeFilters = [
                     `user="${userId}"`,
                     `owner="${userId}"`,
@@ -117,8 +108,8 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
                             console.log('Message count with alternative filter:', messageCount);
                             break;
                         }
-                    } catch (innerErr) {
-                        // Continue to next filter
+                    } catch {
+                        // Continues to next filter
                     }
                 }
             } catch (fallbackErr) {
@@ -126,7 +117,6 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
             }
         }
         
-        // Get tag count - directly using the pattern from your tags API
         try {
             const tagFilter = `createdBy="${userId}"`;
             console.log('Using tag filter:', tagFilter);
@@ -140,7 +130,6 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
         } catch (e) {
             console.error('Error counting tags:', e);
             
-            // Try with other collections that might contain tag-like data
             const alternativeCollections = ['bookmarks', 'prompts'];
             for (const collection of alternativeCollections) {
                 try {
@@ -153,13 +142,12 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
                     
                     tagCount += result.totalItems;
                     console.log(`${collection} count:`, result.totalItems);
-                } catch (collErr) {
-                    // Just continue to the next collection
+                } catch {
+                    //  To the next collection
                 }
             }
         }
         
-        // Get timer count - try to find a collection with time tracking data
         const timerCollections = ['timer_entries', 'timers', 'time_entries', 'time_tracking'];
         for (const collection of timerCollections) {
             try {
@@ -173,12 +161,10 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
                 console.log(`${collection} entries:`, entries.length);
                 
                 if (entries.length > 0) {
-                    // Log the first entry to see its structure
                     if (entries[0]) {
                         console.log(`Sample ${collection} entry:`, entries[0]);
                     }
                     
-                    // Try different field names for duration
                     const possibleFields = ['duration_seconds', 'duration', 'seconds', 'time', 'elapsed', 'timeValue'];
                     
                     for (const entry of entries) {
@@ -194,10 +180,8 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
                         }
                         
                         if (!foundDuration) {
-                            // If we couldn't find a duration field, check all fields
                             console.log('Timer entry fields:', Object.keys(entry));
                             
-                            // Try to find a numeric field that could be duration
                             for (const field of Object.keys(entry)) {
                                 if (typeof entry[field] === 'number' && 
                                     field !== 'id' && 
@@ -214,19 +198,16 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
                     }
                 }
                 
-                // If we found timer entries, break out of the loop
                 if (entries.length > 0) {
                     break;
                 }
             } catch (e) {
-                // If this collection doesn't exist, just continue to the next one
                 console.error(`Error with ${collection}:`, e);
             }
         }
         
         console.log('Final counts:', { threadCount, messageCount, taskCount, tagCount, timerCount });
         
-        // If no activity found, use the user's updated or created date
         if (!lastActive) {
             if (user.updated) {
                 lastActive = new Date(user.updated);
@@ -239,18 +220,17 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
         
         console.log(`User ${userId} is eligible for ${eligiblePerks.length} perks`);
         
-        const perkIds = await updateUserPerks(userId, eligiblePerks);
+        await updateUserPerks(userId, eligiblePerks);
         
-        let perks = [];
+        let perks: Perk[] = [];
         try {
-            // Get user's existing perks
             if (user.perks && user.perks.length > 0) {
-                const filter = user.perks.map(id => `id="${id}"`).join(' || ');
+                const filter = user.perks.map((id: string) => `id="${id}"`).join(' || ');
                 const perksResult = await pocketBase.collection('perks').getList(1, 100, {
                     filter: filter
                 });
                 
-                perks = perksResult.items;
+                perks = perksResult.items as Perk[];
             }
         } catch (e) {
             console.error('Error fetching perks:', e);

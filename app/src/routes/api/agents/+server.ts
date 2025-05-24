@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import { error } from '@sveltejs/kit';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async ({ cookies }) => {
 	console.log('=== AGENTS API GET REQUEST START ===');
 	
 	try {
@@ -61,19 +61,31 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			data: agents.items
 		});
 
-	} catch (err: any) {
+		} catch (err) {
 		console.log('=== ERROR IN AGENTS API ===');
-		console.log('Error type:', err.constructor.name);
-		console.log('Error message:', err.message);
-		console.log('Error status:', err.status);
-		console.log('Full error:', err);
 		
+		let errorMessage = 'Something went wrong while processing your request.';
+		let statusCode = 500;
+		
+		if (err instanceof Error) {
+			console.log('Error type:', err.constructor.name);
+			console.log('Error message:', err.message);
+			errorMessage = err.message;
+			
+			if ('status' in err && typeof err.status === 'number') {
+				console.log('Error status:', err.status);
+				statusCode = err.status;
+			}
+		}
+		
+		console.log('Full error:', err);
+		 
 		return json(
 			{
 				success: false,
-				error: err.message || 'Something went wrong while processing your request.'
+				error: errorMessage
 			},
-			{ status: err.status || 500 }
+			{ status: statusCode }
 		);
 	}
 };
