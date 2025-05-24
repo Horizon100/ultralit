@@ -1,22 +1,23 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+	import type { FeaturePlan, PricingPlan } from '$lib/types/types.features';
 
 	export let title = '';
-	export let features: string[] = []; 
+	export let features: string[] = [];
 	export let isPro = false;
-	export let cardId: number | string; 
-	
+	export let cardId: number | string;
+
 	let isOpen = false;
-	
+
 	function openOverlay() {
 		isOpen = true;
 	}
-	
+
 	function closeOverlay() {
 		isOpen = false;
 	}
-	
+
 	function handleOverlayClick(event: MouseEvent) {
 		// Close only if the click was on the overlay background, not the card content
 		if ((event.target as HTMLElement).classList.contains('overlay')) {
@@ -25,9 +26,9 @@
 	}
 </script>
 
-<div class="card-container" >
+<div class="card-container">
 	<div class="card {isPro ? 'pro-title' : 'free-title'}" on:click={openOverlay}>
-		<h3 class="{isPro ? 'pro-title' : 'free-title'}">{title}</h3>
+		<h3 class={isPro ? 'pro-title' : 'free-title'}>{title}</h3>
 		<span class="plan-type {isPro ? 'pro-plan' : 'free-plan'}">{isPro ? 'Pro' : 'Free'}</span>
 	</div>
 </div>
@@ -37,8 +38,10 @@
 		<div class="overlay-content" transition:slide={{ duration: 300 }}>
 			<img src={Headmaster} alt="Notes illustration" class="illustration" />
 
-			<h2 >{title}</h2>
-			<span class="plan-type-overlay {isPro ? 'pro-plan' : 'free-plan'}">{isPro ? 'Pro' : 'Free'}</span>
+			<h2>{title}</h2>
+			<span class="plan-type-overlay {isPro ? 'pro-plan' : 'free-plan'}"
+				>{isPro ? 'Pro' : 'Free'}</span
+			>
 			<div class="content">
 				{#each features as feature}
 					<li>{feature}</li>
@@ -49,8 +52,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -58,7 +60,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		vertical-align: top;
-
 	}
 
 	.card {
@@ -100,7 +101,6 @@
 		&.free-title {
 			color: var(--text-color);
 			margin: 1rem;
-
 		}
 	}
 
@@ -124,11 +124,9 @@
 		&.free-plan {
 			background: var(--tertiary-color);
 			color: var(--primary-color);
-
 		}
 		&.pro-plan {
 			background: var(--placeholder-color);
-
 		}
 	}
 
@@ -144,7 +142,7 @@
 		align-items: center;
 		z-index: 100;
 	}
-	
+
 	.overlay-content {
 		background: var(--bg-gradient);
 		width: 80%;
@@ -156,18 +154,18 @@
 		position: relative;
 		border: 1px solid var(--tertiary-color);
 	}
-	
+
 	.overlay-content h2 {
 		font-size: 2rem;
 		text-align: left;
 		margin-bottom: 1.5rem;
 		color: var(--text-color);
 	}
-	
+
 	.content {
 		margin-top: 1rem;
 	}
-	
+
 	.content li {
 		color: var(--text-color);
 		text-align: left;
@@ -177,10 +175,7 @@
 		margin-bottom: 0.75rem;
 	}
 
-	@media (max-width: 1000px) {
-		.card-container {
-		}
-	}
+
 
 	@media (max-width: 767px) {
 		.card-container {

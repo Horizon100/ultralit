@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
 	import { Plus, Check, Trash, Pen } from 'lucide-svelte';
-	import { } from '$lib/pocketbase';
+	import {} from '$lib/pocketbase';
 	import type { Tag } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
 	import { threadsStore } from '$lib/stores/threadsStore';

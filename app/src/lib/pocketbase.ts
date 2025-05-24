@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import type { AuthModel } from 'pocketbase';
-  import PocketBase from 'pocketbase';
+import PocketBase from 'pocketbase';
 import type {
 	User,
 	AIAgent,
@@ -14,12 +14,12 @@ import type {
 	AIModel,
 	Workflows,
 	Threads,
-	Messages,
+	Messages
 } from '$lib/types/types';
 
 let authCheckInProgress: Promise<boolean> | null = null;
-const userCache = new Map<string, { data: User, timestamp: number }>();
-const CACHE_DURATION = 60000; 
+const userCache = new Map<string, { data: User; timestamp: number }>();
+const CACHE_DURATION = 60000;
 let lastAuthCheck = 0;
 const AUTH_CHECK_COOLDOWN = 5000;
 
@@ -59,21 +59,21 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 		// Log the full URL we're trying to fetch
 		const url = '/api/verify/health';
 		console.log('Checking PocketBase connection at:', url);
-		
+
 		const response = await fetch(url);
-		
+
 		// Check if response is ok
 		if (!response.ok) {
 			console.error('PocketBase health check failed:', response.status, response.statusText);
 			return false;
 		}
-		
+
 		const contentType = response.headers.get('content-type');
 		if (!contentType || !contentType.includes('application/json')) {
 			console.error('Unexpected content type:', contentType);
 			return false;
 		}
-		
+
 		const data = await response.json();
 		return data.success;
 	} catch (error) {
@@ -82,117 +82,121 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 	}
 }
 
-export function getFileUrl(record: any, filename: string, collection: string = 'ai_agents'): string {
+export function getFileUrl(
+	record: any,
+	filename: string,
+	collection: string = 'ai_agents'
+): string {
 	if (!filename) return '';
 	return `${pocketbaseUrl}/api/files/${collection}/${record.id}/${filename}`;
 }
 
 export async function ensureAuthenticated(): Promise<boolean> {
-    // If there's already an auth check in progress, return that promise
-    if (authCheckInProgress) {
-        return authCheckInProgress;
-    }
+	// If there's already an auth check in progress, return that promise
+	if (authCheckInProgress) {
+		return authCheckInProgress;
+	}
 
-    // Check if we've recently validated and have a user
-    const now = Date.now();
-    const currentUserValue = get(currentUser);
-	
-    if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && currentUserValue && currentUserValue.id) {
-        return true;
-    }
+	// Check if we've recently validated and have a user
+	const now = Date.now();
+	const currentUserValue = get(currentUser);
 
-    lastAuthCheck = now;
+	if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && currentUserValue && currentUserValue.id) {
+		return true;
+	}
 
-    // Start a new authentication check
-    authCheckInProgress = (async () => {
-        try {
-            // Make the server request
-            const url = '/api/verify/auth-check';
-            console.log('Checking authentication with server...');
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
+	lastAuthCheck = now;
 
-            if (!response.ok) {
-                console.warn('Authentication check failed: server returned', response.status);
-                currentUser.set(null);
-                return false;
-            }
+	// Start a new authentication check
+	authCheckInProgress = (async () => {
+		try {
+			// Make the server request
+			const url = '/api/verify/auth-check';
+			console.log('Checking authentication with server...');
 
-            const data = await response.json();
-            if (data.success && data.user) {
-                console.log('Authentication confirmed by server');
-                currentUser.set(data.user);
-                return true;
-            }
+			const response = await fetch(url, {
+				method: 'GET',
+				credentials: 'include',
+				headers: {
+					Accept: 'application/json'
+				}
+			});
 
-            console.warn('Authentication check failed: invalid user data', data);
-            currentUser.set(null);
-            return false;
-        } catch (error) {
-            console.error('Auth check error:', error);
-            currentUser.set(null);
-            return false;
-        } finally {
-            authCheckInProgress = null;
-        }
-    })();
+			if (!response.ok) {
+				console.warn('Authentication check failed: server returned', response.status);
+				currentUser.set(null);
+				return false;
+			}
 
-    return authCheckInProgress;
+			const data = await response.json();
+			if (data.success && data.user) {
+				console.log('Authentication confirmed by server');
+				currentUser.set(data.user);
+				return true;
+			}
+
+			console.warn('Authentication check failed: invalid user data', data);
+			currentUser.set(null);
+			return false;
+		} catch (error) {
+			console.error('Auth check error:', error);
+			currentUser.set(null);
+			return false;
+		} finally {
+			authCheckInProgress = null;
+		}
+	})();
+
+	return authCheckInProgress;
 }
 export async function withAuth<T>(fn: () => Promise<T>): Promise<T | null> {
-    const isAuthenticated = await ensureAuthenticated();
-    if (!isAuthenticated) return null;
-    return fn();
+	const isAuthenticated = await ensureAuthenticated();
+	if (!isAuthenticated) return null;
+	return fn();
 }
 
 export async function signUp(email: string, password: string): Promise<User | null> {
-    try {
-        // Log the full URL we're trying to fetch (like in your signIn function)
-        const url = '/api/verify/signup';
-        console.log('Signing up at:', url);
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        
-        // Check if response is ok
-        if (!response.ok) {
-            console.error('Sign-up failed:', response.status, response.statusText);
-            
-            // Try to get error message from response
-            const errorData = await response.json().catch(() => null);
-            if (errorData && errorData.error) {
-                throw new Error(errorData.error);
-            }
-            
-            throw new Error(`Sign-up failed with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || 'Unknown error during sign-up');
-        
-        currentUser.set(data.user);
-        return data.user;
-    } catch (error) {
-        console.error('Sign-up error:', error instanceof Error ? error.message : String(error));
-        // Return null instead of rethrowing, just like in signIn
-        return null;
-    }
+	try {
+		// Log the full URL we're trying to fetch (like in your signIn function)
+		const url = '/api/verify/signup';
+		console.log('Signing up at:', url);
+
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, password })
+		});
+
+		// Check if response is ok
+		if (!response.ok) {
+			console.error('Sign-up failed:', response.status, response.statusText);
+
+			// Try to get error message from response
+			const errorData = await response.json().catch(() => null);
+			if (errorData && errorData.error) {
+				throw new Error(errorData.error);
+			}
+
+			throw new Error(`Sign-up failed with status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		if (!data.success) throw new Error(data.error || 'Unknown error during sign-up');
+
+		currentUser.set(data.user);
+		return data.user;
+	} catch (error) {
+		console.error('Sign-up error:', error instanceof Error ? error.message : String(error));
+		// Return null instead of rethrowing, just like in signIn
+		return null;
+	}
 }
 export async function signIn(email: string, password: string): Promise<AuthModel | null> {
 	try {
 		// Log the full URL we're trying to fetch
 		const url = '/api/verify/signin';
 		console.log('Signing in at:', url);
-		
+
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -200,26 +204,26 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 			// Add credentials to include cookies in the request
 			credentials: 'include'
 		});
-		
+
 		// Check if response is ok
 		if (!response.ok) {
 			console.error('Sign-in failed:', response.status, response.statusText);
-			
+
 			// Try to get error message from response
 			const errorData = await response.json().catch(() => null);
 			if (errorData && errorData.error) {
 				throw new Error(errorData.error);
 			}
-			
+
 			throw new Error(`Sign-in failed with status: ${response.status}`);
 		}
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error || 'Unknown error');
-		
+
 		// Update the current user store
 		currentUser.set(data.user);
-		
+
 		/*
 		 * Initialize local PocketBase session with the token
 		 * This ensures PocketBase's client-side auth store is updated
@@ -229,7 +233,7 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 			pb.authStore.save(data.authData.token, data.user);
 			console.log('Local PocketBase auth store updated');
 		}
-		
+
 		return data.authData;
 	} catch (error) {
 		console.error('Sign-in error:', error instanceof Error ? error.message : String(error));
@@ -238,34 +242,34 @@ export async function signIn(email: string, password: string): Promise<AuthModel
 }
 
 export async function signOut(): Promise<void> {
-  try {
-    // Clear client-side PocketBase auth store
-    const pb = new PocketBase(pocketbaseUrl);
-    pb.authStore.clear();
-    
-    // Log the full URL we're trying to fetch
-    const url = '/api/verify/signout';
-    console.log('Signing out at:', url);
-    
-    // Call server to clear server-side auth
-    await fetch(url, {
-      method: 'POST',
-      credentials: 'include'
-    });
-    
-    // Clear client-side user store
-    currentUser.set(null);
-    
-    // Clear any stored auth data in localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('pocketbase_auth');
-      localStorage.removeItem('currentUser');
-    }
-    
-    console.log('Sign-out completed successfully');
-  } catch (error) {
-    console.error('Sign-out error:', error);
-  }
+	try {
+		// Clear client-side PocketBase auth store
+		const pb = new PocketBase(pocketbaseUrl);
+		pb.authStore.clear();
+
+		// Log the full URL we're trying to fetch
+		const url = '/api/verify/signout';
+		console.log('Signing out at:', url);
+
+		// Call server to clear server-side auth
+		await fetch(url, {
+			method: 'POST',
+			credentials: 'include'
+		});
+
+		// Clear client-side user store
+		currentUser.set(null);
+
+		// Clear any stored auth data in localStorage
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem('pocketbase_auth');
+			localStorage.removeItem('currentUser');
+		}
+
+		console.log('Sign-out completed successfully');
+	} catch (error) {
+		console.error('Sign-out error:', error);
+	}
 }
 
 /*
@@ -274,9 +278,9 @@ export async function signOut(): Promise<void> {
  * 		const url = `/api/verify/users/${id}`;
  * 		console.log('Updating user at:', url);
  */
-		
+
 // 		let response;
-		
+
 /*
  * 		if (userData instanceof FormData) {
  * 			response = await fetch(url, {
@@ -293,36 +297,36 @@ export async function signOut(): Promise<void> {
  * 			});
  * 		}
  */
-		
+
 /*
  * 		if (!response.ok) {
  * 			console.error('Update user failed:', response.status, response.statusText);
  */
-			
+
 /*
  * 			const errorData = await response.json().catch(() => null);
  * 			if (errorData && errorData.error) {
  * 				throw new Error(errorData.error);
  * 			}
  */
-			
+
 /*
  * 			throw new Error(`Update user failed with status: ${response.status}`);
  * 		}
  */
-		
+
 /*
  * 		const data = await response.json();
  * 		if (!data.success) throw new Error(data.error);
  */
-		
+
 /*
  * 		// Update the current user if it's the same user
  * 		if (id === data.user.id) {
  * 			currentUser.set(data.user);
  * 		}
  */
-		
+
 /*
  * 		return data.user;
  * 	} catch (error) {
@@ -333,118 +337,118 @@ export async function signOut(): Promise<void> {
  */
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
 	try {
-	  // Log the full URL we're trying to fetch
-	  const url = `/api/verify/users/${id}`;
-	  console.log('Updating user at:', url);
-	  
-	  // Handle both FormData and JSON data
-	  let response;
-	  
-	  if (userData instanceof FormData) {
-		response = await fetch(url, {
-		  method: 'PATCH',
-		  body: userData,
-		  credentials: 'include'
-		  // IMPORTANT: Do NOT set Content-Type header for FormData
-		});
-	  } else {
-		response = await fetch(url, {
-		  method: 'PATCH',
-		  headers: { 'Content-Type': 'application/json' },
-		  body: JSON.stringify(userData),
-		  credentials: 'include'
-		});
-	  }
-	  
-	  // Check if response is ok
-	  if (!response.ok) {
-		console.error('Update user failed:', response.status, response.statusText);
-		
-		// Try to get error message from response
-		try {
-		  const errorData = await response.json();
-		  if (errorData && errorData.error) {
-			throw new Error(errorData.error);
-		  }
-		} catch (jsonError) {
-		  // If response is not JSON or fails to parse
-		  throw new Error(`Update user failed with status: ${response.status}`);
+		// Log the full URL we're trying to fetch
+		const url = `/api/verify/users/${id}`;
+		console.log('Updating user at:', url);
+
+		// Handle both FormData and JSON data
+		let response;
+
+		if (userData instanceof FormData) {
+			response = await fetch(url, {
+				method: 'PATCH',
+				body: userData,
+				credentials: 'include'
+				// IMPORTANT: Do NOT set Content-Type header for FormData
+			});
+		} else {
+			response = await fetch(url, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(userData),
+				credentials: 'include'
+			});
 		}
-		
-		throw new Error(`Update user failed with status: ${response.status}`);
-	  }
-	  
-	  const data = await response.json();
-	  if (!data.success) throw new Error(data.error || 'Unknown error');
-	  
-	  // Update the current user if it's the same user
-	  if (id === data.user.id) {
-		// If this was an avatar update, make sure avatarUrl is set
-		if (userData instanceof FormData && userData.has('avatar')) {
-		  // Set avatarUrl directly
-		  if (data.user.avatar) {
-			data.user.avatarUrl = `${pocketbaseUrl}/api/files/${data.user.collectionId || 'users'}/${data.user.id}/${data.user.avatar}`;
-		  }
+
+		// Check if response is ok
+		if (!response.ok) {
+			console.error('Update user failed:', response.status, response.statusText);
+
+			// Try to get error message from response
+			try {
+				const errorData = await response.json();
+				if (errorData && errorData.error) {
+					throw new Error(errorData.error);
+				}
+			} catch (jsonError) {
+				// If response is not JSON or fails to parse
+				throw new Error(`Update user failed with status: ${response.status}`);
+			}
+
+			throw new Error(`Update user failed with status: ${response.status}`);
 		}
-		
-		currentUser.set(data.user);
-	  }
-	  
-	  return data.user;
+
+		const data = await response.json();
+		if (!data.success) throw new Error(data.error || 'Unknown error');
+
+		// Update the current user if it's the same user
+		if (id === data.user.id) {
+			// If this was an avatar update, make sure avatarUrl is set
+			if (userData instanceof FormData && userData.has('avatar')) {
+				// Set avatarUrl directly
+				if (data.user.avatar) {
+					data.user.avatarUrl = `${pocketbaseUrl}/api/files/${data.user.collectionId || 'users'}/${data.user.id}/${data.user.avatar}`;
+				}
+			}
+
+			currentUser.set(data.user);
+		}
+
+		return data.user;
 	} catch (error) {
-	  console.error('Update user error:', error);
-	  throw error;
+		console.error('Update user error:', error);
+		throw error;
 	}
-  }
+}
 
 export async function getUserById(id: string, bypassCache: boolean = false): Promise<User | null> {
 	const now = Date.now();
 	const cachedUser = userCache.get(id);
-	if (!bypassCache && cachedUser && (now - cachedUser.timestamp < CACHE_DURATION)) {
+	if (!bypassCache && cachedUser && now - cachedUser.timestamp < CACHE_DURATION) {
 		return cachedUser.data;
-	  }
-	
-	try {
-	  const url = `/api/verify/users/${id}`;
-	  
-	  const response = await fetch(url, {
-		method: 'GET',
-		credentials: 'include'
-	  });
-	  
-	  if (!response.ok) {
-		console.error('Get user failed:', response.status, response.statusText);
-		return null;
-	  }
-	  
-	  const data = await response.json();
-	  if (!data.success) throw new Error(data.error);
-	  
-	  userCache.set(id, { data: data.user, timestamp: now });
-	  
-	  return data.user;
-	} catch (error) {
-	  console.error('Get user error:', error);
-	  return null;
 	}
-  }
+
+	try {
+		const url = `/api/verify/users/${id}`;
+
+		const response = await fetch(url, {
+			method: 'GET',
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			console.error('Get user failed:', response.status, response.statusText);
+			return null;
+		}
+
+		const data = await response.json();
+		if (!data.success) throw new Error(data.error);
+
+		userCache.set(id, { data: data.user, timestamp: now });
+
+		return data.user;
+	} catch (error) {
+		console.error('Get user error:', error);
+		return null;
+	}
+}
 
 export async function getPublicUserData(userId: string): Promise<Partial<User> | null> {
 	try {
 		// Log the full URL we're trying to fetch
 		const url = `/api/verify/users/${userId}/public`;
 		console.log('Getting public user data at:', url);
-		
+
 		const response = await fetch(url);
-		
+
 		// Check if response is ok
 		if (!response.ok) {
 			console.error('Get public user data failed:', response.status, response.statusText);
 			return null;
 		}
-		
+
 		const data = await response.json();
-		
+
 		if (!data.success) throw new Error(data.error);
 		return data.user;
 	} catch (error) {
@@ -458,15 +462,15 @@ export async function getUserCount(): Promise<number> {
 		// Log the full URL we're trying to fetch
 		const url = '/api/verify/users/count';
 		console.log('Getting user count at:', url);
-		
+
 		const response = await fetch(url);
-		
+
 		// Check if response is ok
 		if (!response.ok) {
 			console.error('Get user count failed:', response.status, response.statusText);
 			return 0;
 		}
-		
+
 		const data = await response.json();
 		return data.success ? data.count : 0;
 	} catch (error) {
@@ -475,86 +479,85 @@ export async function getUserCount(): Promise<number> {
 	}
 }
 
-
 export async function authenticateWithGoogleOAuth() {
-  try {
-    console.log('Starting Google OAuth with PocketBase...');
-    
-    // Create a temporary PocketBase instance for auth only
-const authPb = new PocketBase('https://vrazum.com');
-    
-    /*
-     * Use PocketBase's built-in OAuth2 method WITHOUT specifying a redirectUrl
-     * This will use the correct PocketBase redirect URL format:
-     * http://yourdomain.com/api/oauth2-redirect
-     */
-    const authData = await authPb.collection('users').authWithOAuth2({
-      provider: 'google',
-      // Do NOT specify redirectUrl - let PocketBase handle it
-      createData: {
-        // Optional: You can set default data for new users here
-      }
-    });
-    
-    console.log('Google OAuth completed successfully:', authData);
-    
-    // Update the current user store
-    if (authData && authData.record) {
-		const user = authData.record as User;
-		currentUser.set(user);
-    //   currentUser.set(authData.record);
-    }
-    
-    return authData;
-  } catch (error) {
-    console.error('Google authentication error:', error);
-    throw error;
-  }
+	try {
+		console.log('Starting Google OAuth with PocketBase...');
+
+		// Create a temporary PocketBase instance for auth only
+		const authPb = new PocketBase('https://vrazum.com');
+
+		/*
+		 * Use PocketBase's built-in OAuth2 method WITHOUT specifying a redirectUrl
+		 * This will use the correct PocketBase redirect URL format:
+		 * http://yourdomain.com/api/oauth2-redirect
+		 */
+		const authData = await authPb.collection('users').authWithOAuth2({
+			provider: 'google',
+			// Do NOT specify redirectUrl - let PocketBase handle it
+			createData: {
+				// Optional: You can set default data for new users here
+			}
+		});
+
+		console.log('Google OAuth completed successfully:', authData);
+
+		// Update the current user store
+		if (authData && authData.record) {
+			const user = authData.record as User;
+			currentUser.set(user);
+			//   currentUser.set(authData.record);
+		}
+
+		return authData;
+	} catch (error) {
+		console.error('Google authentication error:', error);
+		throw error;
+	}
 }
 
 // Updated uploadAvatar function for pocketbase.ts
 export async function uploadAvatar(userId: string, file: File): Promise<User | null> {
 	try {
-	  // Create FormData to send the file
-	  const formData = new FormData();
-	  formData.append('avatar', file);
-	  
-	  // Make the request with FormData
-	  const url = `/api/verify/users/${userId}`;
-	  const response = await fetch(url, {
-		method: 'PATCH',
-		body: formData,
-		credentials: 'include',
-		// IMPORTANT: Do NOT set Content-Type header - browser will set it with boundary
-	  });
-	  
-	  if (!response.ok) {
-		console.error('Avatar upload failed:', response.status, response.statusText);
-		throw new Error(`Upload failed with status: ${response.status}`);
-	  }
-	  
-	  const data = await response.json();
-	  if (!data.success) throw new Error(data.error || 'Unknown error during upload');
-	  
-	  // Update user with the new avatar
-	  const updatedUser = data.user;
-	  
-	  // Update current user if it's the same user
-	  if (userId === updatedUser.id) {
-		// Update the avatarUrl
-		if (updatedUser.avatar) {
-		  updatedUser.avatarUrl = `${pocketbaseUrl}/api/files/${updatedUser.collectionId || 'users'}/${updatedUser.id}/${updatedUser.avatar}`;
+		// Create FormData to send the file
+		const formData = new FormData();
+		formData.append('avatar', file);
+
+		// Make the request with FormData
+		const url = `/api/verify/users/${userId}`;
+		const response = await fetch(url, {
+			method: 'PATCH',
+			body: formData,
+			credentials: 'include'
+			// IMPORTANT: Do NOT set Content-Type header - browser will set it with boundary
+		});
+
+		if (!response.ok) {
+			console.error('Avatar upload failed:', response.status, response.statusText);
+			throw new Error(`Upload failed with status: ${response.status}`);
 		}
-		
-		currentUser.set(updatedUser);
-	  }
-	  
-	  return updatedUser;
+
+		const data = await response.json();
+		if (!data.success) throw new Error(data.error || 'Unknown error during upload');
+
+		// Update user with the new avatar
+		const updatedUser = data.user;
+
+		// Update current user if it's the same user
+		if (userId === updatedUser.id) {
+			// Update the avatarUrl
+			if (updatedUser.avatar) {
+				updatedUser.avatarUrl = `${pocketbaseUrl}/api/files/${updatedUser.collectionId || 'users'}/${updatedUser.id}/${updatedUser.avatar}`;
+			}
+
+			currentUser.set(updatedUser);
+		}
+
+		return updatedUser;
 	} catch (error) {
-	  console.error('Avatar upload error:', error);
-	  return null;
+		console.error('Avatar upload error:', error);
+		return null;
 	}
-  }
+}
 
 /**
  * Request a password reset email for the specified user
@@ -563,47 +566,49 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
  */
 export async function requestPasswordReset(email: string): Promise<boolean> {
 	try {
-	  // Log the full URL we're trying to fetch
-	  const url = '/api/auth/reset-password';
-	  console.log('Requesting password reset at:', url, 'for email:', email);
-	  
-	  const response = await fetch(url, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ email })
-	  });
-	  
-	  // Log the response status
-	  console.log('Password reset response status:', response.status);
-	  
-	  // Check if response is ok
-	  if (!response.ok) {
-		console.error('Password reset request failed:', response.status, response.statusText);
-		
-		// Try to get error message from response
-		const errorData = await response.json().catch(() => null);
-		console.error('Error data:', errorData);
-		
-		if (errorData && errorData.error) {
-		  throw new Error(errorData.error);
+		// Log the full URL we're trying to fetch
+		const url = '/api/auth/reset-password';
+		console.log('Requesting password reset at:', url, 'for email:', email);
+
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email })
+		});
+
+		// Log the response status
+		console.log('Password reset response status:', response.status);
+
+		// Check if response is ok
+		if (!response.ok) {
+			console.error('Password reset request failed:', response.status, response.statusText);
+
+			// Try to get error message from response
+			const errorData = await response.json().catch(() => null);
+			console.error('Error data:', errorData);
+
+			if (errorData && errorData.error) {
+				throw new Error(errorData.error);
+			}
+
+			throw new Error(`Password reset request failed with status: ${response.status}`);
 		}
-		
-		throw new Error(`Password reset request failed with status: ${response.status}`);
-	  }
-	  
-	  const data = await response.json();
-	  console.log('Password reset response data:', data);
-	  
-	  return data.success;
+
+		const data = await response.json();
+		console.log('Password reset response data:', data);
+
+		return data.success;
 	} catch (error) {
-	  console.error('Password reset request error:', error instanceof Error ? error.message : String(error));
-	  throw error;
+		console.error(
+			'Password reset request error:',
+			error instanceof Error ? error.message : String(error)
+		);
+		throw error;
 	}
-  }
+}
 export function unsubscribeFromChanges(unsubscribe: () => void): void {
 	unsubscribe();
 }
-
 
 // ============= AI Agent API Calls =============
 
@@ -615,10 +620,10 @@ export async function createAgentWithSummary(summary: string, userId: string): P
 			credentials: 'include',
 			body: JSON.stringify({ summary, userId })
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.agent;
 	} catch (error) {
 		console.error('Error creating agent with summary:', error);
@@ -634,10 +639,10 @@ export async function updateAIAgent(id: string, agentData: Partial<AIAgent>): Pr
 			credentials: 'include',
 			body: JSON.stringify(agentData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.agent;
 	} catch (error) {
 		console.error('Error updating AI agent:', error);
@@ -651,10 +656,10 @@ export async function getAgentById(id: string): Promise<AIAgent | null> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.agent;
 	} catch (error) {
 		console.error('Error fetching agent:', error);
@@ -668,10 +673,10 @@ export async function fetchUserAgents(userId: string): Promise<AIAgent[]> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.agents;
 	} catch (error) {
 		console.error('Error fetching user agents:', error);
@@ -689,10 +694,10 @@ export async function createNetwork(networkData: Partial<Network>): Promise<Netw
 			credentials: 'include',
 			body: JSON.stringify(networkData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.network;
 	} catch (error) {
 		console.error('Error creating network:', error);
@@ -708,10 +713,10 @@ export async function updateNetwork(id: string, networkData: Partial<Network>): 
 			credentials: 'include',
 			body: JSON.stringify(networkData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.network;
 	} catch (error) {
 		console.error('Error updating network:', error);
@@ -727,10 +732,10 @@ export async function saveNetworkLayout(networkData: NetworkData): Promise<Netwo
 			credentials: 'include',
 			body: JSON.stringify(networkData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.layout;
 	} catch (error) {
 		console.error('Error saving network layout:', error);
@@ -748,10 +753,10 @@ export async function saveAIPreferences(preferences: AIPreferences): Promise<AIP
 			credentials: 'include',
 			body: JSON.stringify(preferences)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.preferences;
 	} catch (error) {
 		console.error('Error saving AI preferences:', error);
@@ -765,10 +770,10 @@ export async function getAIPreferencesByUserId(userId: string): Promise<AIPrefer
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.preferences;
 	} catch (error) {
 		console.error('Error fetching AI preferences:', error);
@@ -787,10 +792,10 @@ export async function updateAIPreferences(
 			credentials: 'include',
 			body: JSON.stringify(preferences)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.preferences;
 	} catch (error) {
 		console.error('Error updating AI preferences:', error);
@@ -808,10 +813,10 @@ export async function createTask(taskData: Partial<Task>): Promise<Task> {
 			credentials: 'include',
 			body: JSON.stringify(taskData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.task;
 	} catch (error) {
 		console.error('Error creating task:', error);
@@ -827,10 +832,10 @@ export async function saveTasksForAgent(tasks: Task[], agentId: string): Promise
 			credentials: 'include',
 			body: JSON.stringify({ tasks })
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.tasks;
 	} catch (error) {
 		console.error('Error saving tasks for agent:', error);
@@ -846,10 +851,10 @@ export async function updateTask(id: string, task: Partial<Task>): Promise<Task>
 			credentials: 'include',
 			body: JSON.stringify(task)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.task;
 	} catch (error) {
 		console.error('Error updating task:', error);
@@ -863,10 +868,10 @@ export async function getTaskById(id: string): Promise<Task | null> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.task;
 	} catch (error) {
 		console.error('Error fetching task:', error);
@@ -882,10 +887,10 @@ export async function getMessagesByTaskId(taskId: string): Promise<Message[]> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.messages;
 	} catch (error) {
 		console.error('Error fetching messages:', error);
@@ -901,10 +906,10 @@ export async function createMessage(messageData: Partial<Message>): Promise<Mess
 			credentials: 'include',
 			body: JSON.stringify(messageData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.message;
 	} catch (error) {
 		console.error('Error creating message:', error);
@@ -920,10 +925,10 @@ export async function updateMessage(id: string, messageData: Partial<Message>): 
 			credentials: 'include',
 			body: JSON.stringify(messageData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.message;
 	} catch (error) {
 		console.error('Error updating message:', error);
@@ -937,10 +942,10 @@ export async function deleteMessage(id: string): Promise<boolean> {
 			method: 'DELETE',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return true;
 	} catch (error) {
 		console.error('Error deleting message:', error);
@@ -958,25 +963,27 @@ export interface CursorChangeCallback {
 	(data: { action: string; record: CursorPosition }): void;
 }
 
-export async function subscribeToCursorChanges(callback: CursorChangeCallback): Promise<() => void> {
+export async function subscribeToCursorChanges(
+	callback: CursorChangeCallback
+): Promise<() => void> {
 	try {
 		const response = await fetch('/api/network/cursor-subscribe', {
 			method: 'POST',
 			credentials: 'include'
 		});
-		
+
 		/*
 		 * This is a placeholder since WebSockets can't be handled through REST
 		 * You'll need to implement a WebSocket connection directly
 		 */
 		console.warn('Cursor subscription through REST API is not fully implemented');
-		
+
 		// Return a dummy unsubscribe function
 		return () => {
 			fetch('/api/network/cursor-unsubscribe', {
 				method: 'POST',
 				credentials: 'include'
-			}).catch(err => console.error('Error unsubscribing from cursor changes:', err));
+			}).catch((err) => console.error('Error unsubscribing from cursor changes:', err));
 		};
 	} catch (error) {
 		console.error('Error subscribing to cursor changes:', error);
@@ -1010,10 +1017,10 @@ export async function fetchUserModels(userId: string): Promise<AIModel[]> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.models;
 	} catch (error) {
 		console.error('Error fetching user models:', error);
@@ -1029,10 +1036,10 @@ export async function fetchUserModelPreferences(
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.preferences;
 	} catch (error) {
 		console.error('Error fetching user model preferences:', error);
@@ -1055,10 +1062,10 @@ export async function updateUserModelPreferences(
 			credentials: 'include',
 			body: JSON.stringify({ provider, model })
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.user;
 	} catch (error) {
 		console.error('Error updating user model preferences:', error);
@@ -1073,7 +1080,6 @@ export function getDefaultModelPreferences() {
 	};
 }
 
-
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
 	try {
 		const response = await fetch('/api/keys/threads', {
@@ -1082,10 +1088,10 @@ export async function createThread(threadData: Partial<Threads>): Promise<Thread
 			credentials: 'include',
 			body: JSON.stringify(threadData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.thread;
 	} catch (error) {
 		console.error('Error creating thread:', error);
@@ -1101,10 +1107,10 @@ export async function updateThread(id: string, threadData: Partial<Threads>): Pr
 			credentials: 'include',
 			body: JSON.stringify(threadData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.thread;
 	} catch (error) {
 		console.error('Error updating thread:', error);
@@ -1118,10 +1124,10 @@ export async function deleteThread(id: string): Promise<boolean> {
 			method: 'DELETE',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return true;
 	} catch (error) {
 		console.error('Error deleting thread:', error);
@@ -1135,10 +1141,10 @@ export async function fetchMessagesForThread(threadId: string): Promise<Messages
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.messages;
 	} catch (error) {
 		console.error('Error fetching messages for thread:', error);
@@ -1156,10 +1162,10 @@ export async function createAIAgent(agentData: Partial<AIAgent>): Promise<AIAgen
 			credentials: 'include',
 			body: JSON.stringify(agentData)
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.agent;
 	} catch (error) {
 		console.error('Error creating AI agent:', error);
@@ -1180,10 +1186,10 @@ export async function createAgentAndTask(
 			credentials: 'include',
 			body: JSON.stringify({ summary, userId, taskTitle, taskDescription })
 		});
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.result;
 	} catch (error) {
 		console.error('Error creating agent and task:', error);

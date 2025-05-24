@@ -5,14 +5,7 @@
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import {
-		X,
-		Bot,
-		Wrench,
-		Target,
-		Settings2,
-		SquareMenu,
-	} from 'lucide-svelte';
+	import { X, Bot, Wrench, Target, Settings2, SquareMenu } from 'lucide-svelte';
 	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
@@ -54,10 +47,8 @@
 	let showFade = false;
 	let showH2 = false;
 
-
 	$: user = $currentUser;
 	$: isNarrowScreen = innerWidth <= 700;
-
 
 	$: if ($page.params.workspaceId !== currentWorkspaceId) {
 		currentWorkspaceId = $page.params.workspaceId;
@@ -71,7 +62,6 @@
 		setTimeout(() => (showFade = true), 50);
 		setTimeout(() => (showH2 = true), 50);
 	});
-
 
 	function handleMouseDown(e: MouseEvent) {
 		isScrolling = true;
@@ -141,7 +131,6 @@
 		}
 	}
 
-
 	function toggleNav() {
 		isNavExpanded = !isNavExpanded;
 	}
@@ -150,8 +139,6 @@
 		showGenericOverlay = false;
 		genericOverlayContent = '';
 	}
-
-
 </script>
 
 <svelte:window bind:innerWidth />
@@ -198,7 +185,6 @@
 			</div>
 		{/if}
 
-
 		<CursorEffect />
 
 		<main>
@@ -234,7 +220,6 @@
 				</div>
 			</div>
 		{/if}
-
 	</div>
 {/if}
 
@@ -298,7 +283,6 @@
 
 	.config-selector.expanded {
 		width: 80%;
-		
 	}
 
 	.config-selector button {
@@ -322,8 +306,6 @@
 	.toggle-nav {
 		display: none;
 	}
-
-
 
 	.close-button {
 		position: absolute;
@@ -429,8 +411,6 @@
 		transition: opacity 0.3s ease;
 	}
 
-
-
 	.overlay-content {
 		border-top-right-radius: 10px;
 		border-bottom-right-radius: 10px;
@@ -441,7 +421,6 @@
 		overflow: hidden;
 		position: relative;
 		left: auto;
-
 	}
 
 	.overlay {
@@ -456,7 +435,6 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		border-top-right-radius: var(--radius-m);
-
 	}
 
 	.overlay-handle {
@@ -552,25 +530,24 @@
 			width: 60px !important;
 			position: fixed;
 			left: 1rem;
-			padding: 1rem;			
+			padding: 1rem;
 			border-radius: 0;
 		}
 
 		.overlay {
-		position: fixed;
-		bottom: 3rem;
-		left: 3rem;
-		right: 0;
-		top: 0;
-		height: 100vh;
-		width: 100vw;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-end;
-		border-top-right-radius: var(--radius-m);
-
-	}
+			position: fixed;
+			bottom: 3rem;
+			left: 3rem;
+			right: 0;
+			top: 0;
+			height: 100vh;
+			width: 100vw;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
+			border-top-right-radius: var(--radius-m);
+		}
 		.config-selector.expanded {
 			width: 80%;
 			flex-wrap: wrap;

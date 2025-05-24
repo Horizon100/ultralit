@@ -23,7 +23,7 @@ export interface Subscription {
 		verified?: boolean;
 	};
 	created: string;
-    upadete: string;
+	upadete: string;
 }
 
 export interface NewsletterSubscription {
@@ -36,8 +36,8 @@ export interface NewsletterSubscription {
 	unsubscribeToken?: string;
 	preferences: string[];
 	user: User;
-    created: string;
-    upadete: string;
+	created: string;
+	upadete: string;
 }
 
 export interface NewsletterPreferences {

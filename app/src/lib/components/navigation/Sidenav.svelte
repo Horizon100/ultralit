@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import {onMount} from 'svelte'
+	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import Kanban from '$lib/features/tasks/Kanban.svelte';
 	import {
@@ -195,89 +195,83 @@
 		dispatch('promptSelect', event.detail);
 	}
 	onMount(async () => {
-  try {
-    console.log('onMount initiated');
+		try {
+			console.log('onMount initiated');
 
-
-    // Set up user info
-    if ($currentUser && $currentUser.id) {
-      console.log('Current user:', $currentUser);
-      username = $currentUser.username || $currentUser.email;
-    }
-  } catch (error) {
-    console.error('Error during onMount:', error);
-  }
-});
-
+			// Set up user info
+			if ($currentUser && $currentUser.id) {
+				console.log('Current user:', $currentUser);
+				username = $currentUser.username || $currentUser.email;
+			}
+		} catch (error) {
+			console.error('Error during onMount:', error);
+		}
+	});
 </script>
 
-<div class="sidenav" 
-	class:expanded={isNavExpanded} 
-	transition:slide={{ duration: 300 }}
-	>
+<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
 	<div
 		class="navigation-buttons"
 		class:hidden={isNarrowScreen}
 		in:fly={{ x: -200, duration: 300 }}
 		out:fly={{ x: 200, duration: 300 }}
 	>
-	{#if $currentUser}
-    <button 
-        class="nav-button user" 
-        class:expanded={isNavExpanded}
-        on:click={toggleAuthOrProfile}
-    >
-    {#if $currentUser?.avatar}
-        <img 
-            src={`${pb.baseUrl}/api/files/${$currentUser.collectionId}/${$currentUser.id}/${$currentUser.avatar}`}
-            alt="User avatar" 
-            class="user-avatar" 
-        />
-    {:else}
-        <div class="default-avatar">
-            {($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-        </div>
-    {/if}
-		{#if isNavExpanded}
-			<span class="nav-text">{username} </span>
-		{/if}
-		</button>
-		<button
-			class="nav-button"
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/'}
-			on:click={(event) => {
-			if (currentPath === '/') {
-				event.preventDefault();
-				toggleThreadList();
-				isNavExpanded = false;
-			} else {
-				navigateTo('/');
-			}
-			}}
-		>
-			{#if currentPath === '/' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/'}
-			<MessageCircleDashed />
-			{:else}
-			<MessageCircle />
-			{/if}
-			
-			{#if isNavExpanded}
-			<span class="nav-text">Chat</span>
-			{/if}
-		</button>
+		{#if $currentUser}
+			<button class="nav-button user" class:expanded={isNavExpanded} on:click={toggleAuthOrProfile}>
+				{#if $currentUser?.avatar}
+					<img
+						src={`${pb.baseUrl}/api/files/${$currentUser.collectionId}/${$currentUser.id}/${$currentUser.avatar}`}
+						alt="User avatar"
+						class="user-avatar"
+					/>
+				{:else}
+					<div class="default-avatar">
+						{($currentUser?.name ||
+							$currentUser?.username ||
+							$currentUser?.email ||
+							'?')[0]?.toUpperCase()}
+					</div>
+				{/if}
+				{#if isNavExpanded}
+					<span class="nav-text">{username} </span>
+				{/if}
+			</button>
 			<button
-				class="nav-button" 
+				class="nav-button"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/'}
+				on:click={(event) => {
+					if (currentPath === '/') {
+						event.preventDefault();
+						toggleThreadList();
+						isNavExpanded = false;
+					} else {
+						navigateTo('/');
+					}
+				}}
+			>
+				{#if currentPath === '/' && showThreadList}
+					<PanelLeftClose />
+				{:else if currentPath === '/'}
+					<MessageCircleDashed />
+				{:else}
+					<MessageCircle />
+				{/if}
+
+				{#if isNavExpanded}
+					<span class="nav-text">Chat</span>
+				{/if}
+			</button>
+			<button
+				class="nav-button"
 				class:expanded={isNavExpanded}
 				class:active={currentPath === '/canvas'}
 				on:click={() => navigateTo('/canvas')}
 			>
 				<Combine />
 				{#if isNavExpanded}
-				<span class="nav-text">Canvas</span>
-			  {/if}
+					<span class="nav-text">Canvas</span>
+				{/if}
 			</button>
 			<button
 				class="nav-button"
@@ -287,7 +281,7 @@
 			>
 				<NotebookTabs />
 				{#if isNavExpanded}
-				  <span class="nav-text">Notes</span>
+					<span class="nav-text">Notes</span>
 				{/if}
 			</button>
 			<button
@@ -328,9 +322,9 @@
 
 			<button class="nav-button toggle" on:click={toggleNav}>
 				{#if isNavExpanded}
-				<PanelLeftClose size={24} />
+					<PanelLeftClose size={24} />
 				{:else}
-				<PanelLeftOpen size={24} />
+					<PanelLeftOpen size={24} />
 				{/if}
 			</button>
 		{:else}
@@ -358,12 +352,9 @@
     </button> -->
 			<!-- <ModelSelector /> -->
 			<!-- <PromptSelector on:select={handlePromptSelect} /> -->
-
 		{/if}
 	</div>
 </div>
-
-
 
 {#if showLanguageNotification}
 	<div class="language-notification" transition:fade={{ duration: 300 }}>
@@ -446,8 +437,7 @@
 <svelte:window bind:innerWidth />
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		//   font-family: 'Source Code Pro', monospace;
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
@@ -463,7 +453,7 @@
 		top: 0;
 		bottom: 0;
 		padding: 0.5rem 1rem;
-		z-index:1000;
+		z-index: 1000;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -475,80 +465,75 @@
 		}
 	}
 
-
 	// .sidenav:hover {
 	//   /* backdrop-filter: blur(10px); */
 	// }
 
 	.navigation-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-	justify-content: space-between;
-	align-items: center;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+		justify-content: space-between;
+		align-items: center;
 
-	& .hidden {
-		display: none;
-	}
-  }
-
-  .nav-button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: var(--bg-gradient-right);
-    color: var(--text-color);
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    width: auto;
-
-    &.active {
-      background: var(--tertiary-color);
-      box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
-	  &.expanded {
-		width: 380px;
-		justify-content: flex-start;
-		padding: 0.5rem 1rem;
-		border-radius: var(--radius-s);
-		background: var(--primary-color);
-		opacity: 1 !important;
-
+		& .hidden {
+			display: none;
 		}
-    }
+	}
 
-    &:hover {
-      background: var(--secondary-color);
-    }
+	.nav-button {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: var(--bg-gradient-right);
+		color: var(--text-color);
+		border: none;
+		cursor: pointer;
+		transition: all 0.2s ease-in-out;
+		width: auto;
 
-	&.expanded {
-      width: 380px;
-      justify-content: flex-start;
-      padding: 0.5rem 1rem;
-	  border-radius: var(--radius-s);
-	  opacity: 0.5;
-	  animation: none !important;
-	  border-radius: 2rem !important;
+		&.active {
+			background: var(--tertiary-color);
+			box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+			&.expanded {
+				width: 380px;
+				justify-content: flex-start;
+				padding: 0.5rem 1rem;
+				border-radius: var(--radius-s);
+				background: var(--primary-color);
+				opacity: 1 !important;
+			}
+		}
 
-    }
+		&:hover {
+			background: var(--secondary-color);
+		}
 
-    &.toggle {
-      margin-top: auto;
-    }
+		&.expanded {
+			width: 380px;
+			justify-content: flex-start;
+			padding: 0.5rem 1rem;
+			border-radius: var(--radius-s);
+			opacity: 0.5;
+			animation: none !important;
+			border-radius: 2rem !important;
+		}
 
-    &.profile {
-      margin-top: auto;
-    }
-  }
+		&.toggle {
+			margin-top: auto;
+		}
 
-  .nav-text {
-    font-size: 1rem;
-    white-space: nowrap;
-  }
+		&.profile {
+			margin-top: auto;
+		}
+	}
 
-
+	.nav-text {
+		font-size: 1rem;
+		white-space: nowrap;
+	}
 
 	.auth-overlay {
 		position: fixed;
@@ -619,7 +604,6 @@
 		transition: all 0.3s ease;
 	}
 
-
 	.user-button {
 		background-color: #3c3c3c;
 		color: white;
@@ -672,10 +656,9 @@
 	}
 
 	.nav-button.config {
-
 		bottom: 3rem;
 		left: 1rem;
-		right: 1rem ;
+		right: 1rem;
 		z-index: 5000;
 	}
 
@@ -740,8 +723,7 @@
 
 	.nav-button,
 	.thread-toggle,
-	.close-button
-	 {
+	.close-button {
 		color: var(--text-color);
 		background: var(--bg-gradient-right);
 		padding: 4px;
@@ -759,7 +741,6 @@
 		overflow: hidden;
 		user-select: none;
 	}
-	
 
 	.nav-button.active {
 		border: 1px solid var(--tertiary-color);
@@ -780,22 +761,22 @@
 		animation: nonlinearSpin 3.3s ease;
 	}
 	@keyframes nonlinearSpin {
-    0% {
-      transform: rotate(0deg);
-    }
-    25% {
-      transform: rotate(1080deg);
-    }
-    50% {
-      transform: rotate(0deg);
-    }
-    75% {
-      transform: rotate(1080deg);
-    }
-    100% {
-      transform: rotate(2160deg);
-    }
-  }
+		0% {
+			transform: rotate(0deg);
+		}
+		25% {
+			transform: rotate(1080deg);
+		}
+		50% {
+			transform: rotate(0deg);
+		}
+		75% {
+			transform: rotate(1080deg);
+		}
+		100% {
+			transform: rotate(2160deg);
+		}
+	}
 
 	:global(.sidenav .nav-button svg),
 	:global(.sidenav .thread-toggle svg) {
@@ -935,17 +916,13 @@
 		}
 	}
 
-
 	@media (max-width: 1000px) {
-		
-
-
 		.profile-overlay {
 			margin-left: 0;
 			left: 0;
 			height: 100%;
 		}
-		
+
 		.sidenav {
 			display: flex;
 			justify-content: center;
@@ -1006,14 +983,9 @@
 		.nav-button.toggle {
 			display: none;
 		}
-
-
 	}
 
 	@media (max-width: 450px) {
-
-
-
 		.top-buttons {
 			flex-direction: row;
 			margin: 0;
@@ -1032,7 +1004,5 @@
 		.thread-toggle:hover {
 			transform: scale(1.1);
 		}
-
-
 	}
 </style>

@@ -7,14 +7,14 @@ export const notesClient = {
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 			if (!data.success) throw new Error(data.error);
-			
+
 			return data.folders;
 		} catch (error) {
 			console.error('Error fetching folders:', error);
@@ -99,14 +99,14 @@ export const notesClient = {
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 			if (!data.success) throw new Error(data.error);
-			
+
 			return data.notes;
 		} catch (error) {
 			console.error('Error fetching notes:', error);
@@ -120,14 +120,14 @@ export const notesClient = {
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 			if (!data.success) throw new Error(data.error);
-			
+
 			return data.note;
 		} catch (error) {
 			console.error('Error fetching note:', error);
@@ -212,14 +212,14 @@ export const notesClient = {
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 			if (!data.success) throw new Error(data.error);
-			
+
 			return data.notes;
 		} catch (error) {
 			console.error('Error searching notes:', error);
@@ -266,14 +266,14 @@ export const notesClient = {
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
-			
+
 			const data = await response.json();
 			if (!data.success) throw new Error(data.error);
-			
+
 			return data.attachments;
 		} catch (error) {
 			console.error('Error fetching attachments:', error);

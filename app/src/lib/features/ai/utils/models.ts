@@ -49,4 +49,5 @@ export const availableModels: AIModel[] = [
 	}
 ];
 
-export const defaultModel: AIModel = availableModels.find((model) => model.provider === 'deepseek') || availableModels[0];
+export const defaultModel: AIModel =
+	availableModels.find((model) => model.provider === 'deepseek') || availableModels[0];

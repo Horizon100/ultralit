@@ -14,7 +14,7 @@
 		SquareMenu,
 		Box,
 		Trash2,
-		Check,
+		Check
 	} from 'lucide-svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
@@ -58,7 +58,6 @@
 
 	$: isNarrowScreen = innerWidth <= 700;
 
-
 	$: if ($page.params.workspaceId !== currentWorkspaceId) {
 		currentWorkspaceId = $page.params.workspaceId;
 		if (currentWorkspaceId && $currentUser && $currentUser.id) {
@@ -71,9 +70,6 @@
 		setTimeout(() => (showFade = true), 50);
 		setTimeout(() => (showH2 = true), 50);
 	});
-
-
-
 
 	function showConfirmation(message: string, isError: boolean = false) {
 		confirmationMessage = message;
@@ -112,7 +108,6 @@
 		// goto('/launcher/');
 	}
 
-
 	function toggleNav() {
 		isNavExpanded = !isNavExpanded;
 	}
@@ -121,8 +116,6 @@
 		showGenericOverlay = false;
 		genericOverlayContent = '';
 	}
-
-
 </script>
 
 <svelte:window bind:innerWidth />
@@ -211,7 +204,6 @@
 				</div>
 			</div>
 		{/if}
-
 	</div>
 {/if}
 
@@ -317,7 +309,6 @@
 		overflow: hidden;
 		position: relative;
 		left: auto;
-
 	}
 
 	.close-button {
@@ -457,7 +448,6 @@
 		flex-direction: column;
 		justify-content: flex-end;
 	}
-
 
 	.overlay-handle {
 		display: flex;

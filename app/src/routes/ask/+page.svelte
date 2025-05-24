@@ -75,8 +75,7 @@
 </main>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	:global(.loading-spinner) {
 		position: fixed;
 		top: 0;

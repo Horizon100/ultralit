@@ -23,7 +23,7 @@
 			setTimeout(typeNextCharacter, delay);
 		} else {
 			isTypingComplete = true;
-			showCursor = false; 
+			showCursor = false;
 		}
 	}
 
@@ -41,12 +41,13 @@
 </script>
 
 <p>
-	<span class="text-container">{displayText}<span class:blink={!showCursor} class="cursor">|</span></span>
+	<span class="text-container"
+		>{displayText}<span class:blink={!showCursor} class="cursor">|</span></span
+	>
 </p>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 	}
 	p {
@@ -77,7 +78,7 @@
 			font-size: 1.5rem;
 		}
 	}
-		@media (max-width: 450px) {
+	@media (max-width: 450px) {
 		p {
 			font-size: 0.9rem;
 			line-height: 1.5;

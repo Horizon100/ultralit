@@ -7,7 +7,7 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: ProviderType; 
+	export let provider: ProviderType;
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
@@ -32,30 +32,23 @@
 	}
 </script>
 
-<div class="overlay"
-	on:click={handleClickOutside}
-	transition:fly={{ y: -20, duration: 200 }}
->
-	<form
-		on:submit={handleSubmit}
-		transition:fly={{ y: 20, duration: 200 }}
-	>
-			<div class="input-wrapper">
-				<input
-					type="password"
-					bind:value={key}
-					placeholder="Enter API key for {providers[provider].name}"
-					autofocus
-				/>
-			</div>
+<div class="overlay" on:click={handleClickOutside} transition:fly={{ y: -20, duration: 200 }}>
+	<form on:submit={handleSubmit} transition:fly={{ y: 20, duration: 200 }}>
+		<div class="input-wrapper">
+			<input
+				type="password"
+				bind:value={key}
+				placeholder="Enter API key for {providers[provider].name}"
+				autofocus
+			/>
+		</div>
 
-			<button type="submit" class="submit-button"> Save Key </button>
+		<button type="submit" class="submit-button"> Save Key </button>
 	</form>
 </div>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 	}

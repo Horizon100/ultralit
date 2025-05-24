@@ -1,136 +1,136 @@
 <script lang="ts">
-  import { TrendingUp, Users, Star, Compass, Share2 } from 'lucide-svelte';
-  import { createEventDispatcher } from 'svelte';
-  import { t } from '$lib/stores/translationStore';
+	import { TrendingUp, Users, Star, Compass, Share2 } from 'lucide-svelte';
+	import { createEventDispatcher } from 'svelte';
+	import { t } from '$lib/stores/translationStore';
 
-  const dispatch = createEventDispatcher();
-  
-  // App features to highlight
-  $: appFeatures = [
-    { 
-      title: $t('appFeatures.items.0.title'), 
-      description: $t('appFeatures.items.0.description') 
-    },
-    { 
-      title: $t('appFeatures.items.1.title'), 
-      description: $t('appFeatures.items.1.description') 
-    },
-    { 
-      title: $t('appFeatures.items.2.title'), 
-      description: $t('appFeatures.items.2.description') 
-    },
-    { 
-      title: $t('appFeatures.items.3.title'), 
-      description: $t('appFeatures.items.3.description') 
-    },
-    { 
-      title: $t('appFeatures.items.4.title'), 
-      description: $t('appFeatures.items.4.description') 
-    }
-  ];
-  
-  /*
-   * Getting started steps
-   * export let gettingStarted = [
-   *   { step: $t('getting_started.create_project', 'Create your first project'), completed: false },
-   *   { step: $t('getting_started.start_thread', 'Start a conversation thread'), completed: false },
-   *   { step: $t('getting_started.try_prompts', 'Try out different prompt types'), completed: false },
-   *   { step: $t('getting_started.explore_canvas', 'Explore the canvas feature'), completed: false },
-   *   { step: $t('getting_started.invite_members', 'Invite team members'), completed: false }
-   * ];
-   */
-  
-  /*
-   * Sample trending topics - replace with real data later
-   * export let trendingTopics = [
-   *   { topic: '#AIRevolution', posts: '125K' },
-   *   { topic: '#TechInnovation', posts: '89K' },
-   *   { topic: '#MachineLearning', posts: '67K' },
-   *   { topic: '#DigitalTransformation', posts: '45K' },
-   *   { topic: '#FutureOfWork', posts: '34K' }
-   * ];
-   */
-  
-  // Sample suggested users - replace with real data later
-  export let suggestedUsers = [
-    {
-      id: 1,
-      username: 'ai_pioneer',
-      name: 'Dr. Sarah Chen',
-      avatar: '/api/placeholder/40/40',
-      bio: 'AI Researcher at MIT | Building the future of machine learning',
-      following: false
-    },
-    {
-      id: 2,
-      username: 'tech_visionary',
-      name: 'Marcus Rodriguez',
-      avatar: '/api/placeholder/40/40',
-      bio: 'Founder & CEO | Transforming industries with AI',
-      following: false
-    },
-    {
-      id: 3,
-      username: 'data_scientist',
-      name: 'Emily Parker',
-      avatar: '/api/placeholder/40/40',
-      bio: 'Senior Data Scientist | Turning data into insights',
-      following: true
-    }
-  ];
-  
-  function followUser(userId: number) {
-    suggestedUsers = suggestedUsers.map(user => {
-      if (user.id === userId) {
-        return { ...user, following: !user.following };
-      }
-      return user;
-    });
-    
-    dispatch('followUser', { userId });
-  }
-  
-  function markStepCompleted(index: number) {
-    gettingStarted = gettingStarted.map((step, i) => {
-      if (i === index) {
-        return { ...step, completed: !step.completed };
-      }
-      return step;
-    });
-    
-    dispatch('stepCompleted', { index });
-  }
-  
-  function shareInvite() {
-    dispatch('shareInvite');
-  }
+	const dispatch = createEventDispatcher();
+
+	// App features to highlight
+	$: appFeatures = [
+		{
+			title: $t('appFeatures.items.0.title'),
+			description: $t('appFeatures.items.0.description')
+		},
+		{
+			title: $t('appFeatures.items.1.title'),
+			description: $t('appFeatures.items.1.description')
+		},
+		{
+			title: $t('appFeatures.items.2.title'),
+			description: $t('appFeatures.items.2.description')
+		},
+		{
+			title: $t('appFeatures.items.3.title'),
+			description: $t('appFeatures.items.3.description')
+		},
+		{
+			title: $t('appFeatures.items.4.title'),
+			description: $t('appFeatures.items.4.description')
+		}
+	];
+
+	/*
+	 * Getting started steps
+	 * export let gettingStarted = [
+	 *   { step: $t('getting_started.create_project', 'Create your first project'), completed: false },
+	 *   { step: $t('getting_started.start_thread', 'Start a conversation thread'), completed: false },
+	 *   { step: $t('getting_started.try_prompts', 'Try out different prompt types'), completed: false },
+	 *   { step: $t('getting_started.explore_canvas', 'Explore the canvas feature'), completed: false },
+	 *   { step: $t('getting_started.invite_members', 'Invite team members'), completed: false }
+	 * ];
+	 */
+
+	/*
+	 * Sample trending topics - replace with real data later
+	 * export let trendingTopics = [
+	 *   { topic: '#AIRevolution', posts: '125K' },
+	 *   { topic: '#TechInnovation', posts: '89K' },
+	 *   { topic: '#MachineLearning', posts: '67K' },
+	 *   { topic: '#DigitalTransformation', posts: '45K' },
+	 *   { topic: '#FutureOfWork', posts: '34K' }
+	 * ];
+	 */
+
+	// Sample suggested users - replace with real data later
+	export let suggestedUsers = [
+		{
+			id: 1,
+			username: 'ai_pioneer',
+			name: 'Dr. Sarah Chen',
+			avatar: '/api/placeholder/40/40',
+			bio: 'AI Researcher at MIT | Building the future of machine learning',
+			following: false
+		},
+		{
+			id: 2,
+			username: 'tech_visionary',
+			name: 'Marcus Rodriguez',
+			avatar: '/api/placeholder/40/40',
+			bio: 'Founder & CEO | Transforming industries with AI',
+			following: false
+		},
+		{
+			id: 3,
+			username: 'data_scientist',
+			name: 'Emily Parker',
+			avatar: '/api/placeholder/40/40',
+			bio: 'Senior Data Scientist | Turning data into insights',
+			following: true
+		}
+	];
+
+	function followUser(userId: number) {
+		suggestedUsers = suggestedUsers.map((user) => {
+			if (user.id === userId) {
+				return { ...user, following: !user.following };
+			}
+			return user;
+		});
+
+		dispatch('followUser', { userId });
+	}
+
+	function markStepCompleted(index: number) {
+		gettingStarted = gettingStarted.map((step, i) => {
+			if (i === index) {
+				return { ...step, completed: !step.completed };
+			}
+			return step;
+		});
+
+		dispatch('stepCompleted', { index });
+	}
+
+	function shareInvite() {
+		dispatch('shareInvite');
+	}
 </script>
 
 <aside class="right-sidebar">
-  <div class="sidebar-content">
-    <!-- App Features Highlight -->
-    <section class="features-section">
-      <h3>
-        <Star size={20} />
-        {$t('features.homeIntro.title')}
-      </h3>
-      <ul class="features-list">
-        {#each appFeatures as feature}
-          <li class="feature-item">
-            <div class="feature-title">{feature.title}</div>
-            <div class="feature-description">{feature.description}</div>
-          </li>
-        {/each}
-      </ul>
-    </section>
-    
-    <!-- Getting Started Guide -->
-    <!-- <section class="getting-started-section">
+	<div class="sidebar-content">
+		<!-- App Features Highlight -->
+		<section class="features-section">
+			<h3>
+				<Star size={20} />
+				{$t('features.homeIntro.title')}
+			</h3>
+			<ul class="features-list">
+				{#each appFeatures as feature}
+					<li class="feature-item">
+						<div class="feature-title">{feature.title}</div>
+						<div class="feature-description">{feature.description}</div>
+					</li>
+				{/each}
+			</ul>
+		</section>
+
+		<!-- Getting Started Guide -->
+		<!-- <section class="getting-started-section">
       <h3>
         <Compass size={20} />
         {$t('sidebar.getting_started', 'Getting Started')}
       </h3> -->
-      <!-- <ul class="getting-started-list">
+		<!-- <ul class="getting-started-list">
         {#each gettingStarted as step, index}
           <li class="getting-started-item">
             <label class="step-checkbox">
@@ -144,9 +144,9 @@
           </li>
         {/each}
       </ul> -->
-      
-      <!-- Invite Section -->
-      <!-- <div class="invite-section">
+
+		<!-- Invite Section -->
+		<!-- <div class="invite-section">
         <h4>
           <Share2 size={16} />
           {$t('sidebar.grow_network', 'Grow Your Network')}
@@ -157,9 +157,9 @@
         </button>
       </div>
     </section> -->
-    
-    <!-- Trending Topics -->
-    <!-- <section class="trending-section">
+
+		<!-- Trending Topics -->
+		<!-- <section class="trending-section">
       <h3>
         <TrendingUp size={20} />
         {$t('sidebar.trending', 'Trending')}
@@ -173,9 +173,9 @@
         {/each}
       </ul>
     </section> -->
-    
-    <!-- Suggested Users -->
-    <!-- <section class="suggestions-section">
+
+		<!-- Suggested Users -->
+		<!-- <section class="suggestions-section">
       <h3>
         <Users size={20} />
         {$t('sidebar.suggested_for_you', 'Suggested for you')}
@@ -200,210 +200,209 @@
         {/each}
       </ul>
     </section> -->
-  </div>
+	</div>
 </aside>
 
 <style lang="scss">
-    $breakpoint-sm: 576px;
-    $breakpoint-md: 1000px;
-    $breakpoint-lg: 992px;
-    $breakpoint-xl: 1200px;
-    @use "src/styles/themes.scss" as *;
-    * {
-      font-family: var(--font-family);
-    }   
-  .right-sidebar {
-    width: 320px;
-    height: 100vh;
-    position: sticky;
-    top: 0;
-    overflow-y: auto;
-    border-left: 1px solid var(--line-color);
-    // background: var(--bg-gradient-left);
-  }
+	$breakpoint-sm: 576px;
+	$breakpoint-md: 1000px;
+	$breakpoint-lg: 992px;
+	$breakpoint-xl: 1200px;
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}
+	.right-sidebar {
+		width: 320px;
+		height: 100vh;
+		position: sticky;
+		top: 0;
+		overflow-y: auto;
+		border-left: 1px solid var(--line-color);
+		// background: var(--bg-gradient-left);
+	}
 
-  .sidebar-content {
-    padding: 1.5rem 1rem;
-  }
+	.sidebar-content {
+		padding: 1.5rem 1rem;
+	}
 
-  .features-section,
-  .getting-started-section,
-  .trending-section,
-  .suggestions-section {
-    margin-bottom: 2rem;
-  }
+	.features-section,
+	.getting-started-section,
+	.trending-section,
+	.suggestions-section {
+		margin-bottom: 2rem;
+	}
 
-  h3 {
-    display: flex;
-    align-items: center;
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--text-color);
-  }
+	h3 {
+		display: flex;
+		align-items: center;
+		font-size: 1.2rem;
+		font-weight: 600;
+		margin-bottom: 1rem;
+		color: var(--text-color);
+	}
 
-  h4 {
-    display: flex;
-    align-items: center;
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text-color);
-  }
+	h4 {
+		display: flex;
+		align-items: center;
+		font-size: 1rem;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+		color: var(--text-color);
+	}
 
-  h3 :global(svg),
-  h4 :global(svg) {
-    margin-right: 0.5rem;
-  }
+	h3 :global(svg),
+	h4 :global(svg) {
+		margin-right: 0.5rem;
+	}
 
-  .features-list,
-  .getting-started-list,
-  .trending-list,
-  .suggestions-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
+	.features-list,
+	.getting-started-list,
+	.trending-list,
+	.suggestions-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
 
-  .feature-item,
-  .trending-item {
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-    transition: background-color 0.2s ease;
-  }
+	.feature-item,
+	.trending-item {
+		padding: 0.75rem;
+		border-radius: 8px;
+		margin-bottom: 0.5rem;
+		transition: background-color 0.2s ease;
+	}
 
-  .feature-item:hover,
-  .trending-item:hover {
-    background-color: rgba(var(--primary-color), 0.1);
-  }
+	.feature-item:hover,
+	.trending-item:hover {
+		background-color: rgba(var(--primary-color), 0.1);
+	}
 
-  .feature-title,
-  .trend-topic {
-    font-weight: 600;
-    color: var(--text-color);
-  }
+	.feature-title,
+	.trend-topic {
+		font-weight: 600;
+		color: var(--text-color);
+	}
 
-  .feature-description,
-  .trend-posts {
-    font-size: 0.85rem;
-    color: var(--text-color);
-    opacity: 0.7;
-    line-height: 1.4;
-  }
+	.feature-description,
+	.trend-posts {
+		font-size: 0.85rem;
+		color: var(--text-color);
+		opacity: 0.7;
+		line-height: 1.4;
+	}
 
-  .getting-started-item {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--line-color);
-  }
+	.getting-started-item {
+		padding: 0.5rem 0;
+		border-bottom: 1px solid var(--line-color);
+	}
 
-  .getting-started-item:last-child {
-    border-bottom: none;
-  }
+	.getting-started-item:last-child {
+		border-bottom: none;
+	}
 
-  .step-checkbox {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-  }
+	.step-checkbox {
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+	}
 
-  .step-label {
-    margin-left: 0.5rem;
-    color: var(--text-color);
-    font-size: 0.9rem;
-  }
+	.step-label {
+		margin-left: 0.5rem;
+		color: var(--text-color);
+		font-size: 0.9rem;
+	}
 
-  .invite-section {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    border-radius: 8px;
-    background-color: rgba(var(--primary-color), 0.1);
-  }
+	.invite-section {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		border-radius: 8px;
+		background-color: rgba(var(--primary-color), 0.1);
+	}
 
-  .invite-text {
-    font-size: 0.85rem;
-    color: var(--text-color);
-    margin-bottom: 1rem;
-  }
+	.invite-text {
+		font-size: 0.85rem;
+		color: var(--text-color);
+		margin-bottom: 1rem;
+	}
 
-  .invite-button {
-    padding: 0.5rem 1rem;
-    border-radius: 50px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: var(--primary-color);
-    color: white;
-    border: 1px solid var(--primary-color);
-    width: 100%;
-  }
+	.invite-button {
+		padding: 0.5rem 1rem;
+		border-radius: 50px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		background-color: var(--primary-color);
+		color: white;
+		border: 1px solid var(--primary-color);
+		width: 100%;
+	}
 
-  .invite-button:hover {
-    opacity: 0.9;
-  }
+	.invite-button:hover {
+		opacity: 0.9;
+	}
 
-  .suggestion-item {
-    display: flex;
-    align-items: start;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    transition: background-color 0.2s ease;
-  }
+	.suggestion-item {
+		display: flex;
+		align-items: start;
+		padding: 1rem;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		transition: background-color 0.2s ease;
+	}
 
-  .suggestion-item:hover {
-    background-color: rgba(var(--primary-color), 0.1);
-  }
+	.suggestion-item:hover {
+		background-color: rgba(var(--primary-color), 0.1);
+	}
 
-  .suggestion-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 0.75rem;
-  }
+	.suggestion-avatar {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		margin-right: 0.75rem;
+	}
 
-  .suggestion-info {
-    flex: 1;
-  }
+	.suggestion-info {
+		flex: 1;
+	}
 
-  .suggestion-name {
-    font-weight: 600;
-    color: var(--text-color);
-  }
+	.suggestion-name {
+		font-weight: 600;
+		color: var(--text-color);
+	}
 
-  .suggestion-username {
-    font-size: 0.85rem;
-    color: var(--text-color);
-    opacity: 0.7;
-    margin-bottom: 0.25rem;
-  }
+	.suggestion-username {
+		font-size: 0.85rem;
+		color: var(--text-color);
+		opacity: 0.7;
+		margin-bottom: 0.25rem;
+	}
 
-  .suggestion-bio {
-    font-size: 0.85rem;
-    color: var(--text-color);
-    margin-bottom: 0.5rem;
-    line-height: 1.4;
-  }
+	.suggestion-bio {
+		font-size: 0.85rem;
+		color: var(--text-color);
+		margin-bottom: 0.5rem;
+		line-height: 1.4;
+	}
 
-  .follow-button {
-    padding: 0.5rem 1rem;
-    border-radius: 50px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: var(--primary-color);
-    color: white;
-    border: 1px solid var(--primary-color);
-  }
+	.follow-button {
+		padding: 0.5rem 1rem;
+		border-radius: 50px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		background-color: var(--primary-color);
+		color: white;
+		border: 1px solid var(--primary-color);
+	}
 
-  .follow-button.following {
-    background-color: transparent;
-    color: var(--primary-color);
-  }
+	.follow-button.following {
+		background-color: transparent;
+		color: var(--primary-color);
+	}
 
-  .follow-button:hover {
-    opacity: 0.9;
-  }
+	.follow-button:hover {
+		opacity: 0.9;
+	}
 </style>

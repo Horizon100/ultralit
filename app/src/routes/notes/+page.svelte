@@ -40,7 +40,6 @@
 	let contextMenuNote: Notes | null = null;
 	// let contextMenuPosition: { x: number; y: number } | null = null;
 
-
 	let contextMenuVisible = false;
 	let contextMenuPosition = { x: 0, y: 0 };
 	let selectedText = '';
@@ -70,7 +69,6 @@
 		: [];
 
 	$: rootFolders = folders.filter((folder) => !folder.parentId);
-
 
 	function closeTab(note: Notes) {
 		notesStore.removeOpenTab(note);
@@ -152,11 +150,13 @@
 			try {
 				const currentAIModel: AIModel = getCurrentAIModel();
 				const response = await fetchAIResponse(
-					[{ 
-						role: 'user', 
-						content: prompt,
-						model: currentAIModel.id
-					}],
+					[
+						{
+							role: 'user',
+							content: prompt,
+							model: currentAIModel.id
+						}
+					],
 					currentAIModel,
 					'user123'
 				);
@@ -185,9 +185,6 @@
 			isDragging = false;
 		}
 	}
-
-
-
 
 	function insertTextAtCursorWithAnimation(text: string, isAnalysis = false) {
 		const selection = window.getSelection();
@@ -524,7 +521,6 @@
 </script>
 
 <div class="container" on:click={hideContextMenu}>
-
 	<div class="explorer">
 		<div class="explorer-header">
 			<span class:active={activeSection === 'folders'} on:click={() => (activeSection = 'folders')}>
@@ -639,58 +635,27 @@
 			<span>⚙️</span>
 		</div>
 	</div>
-
-
 </div>
 {#if showH2}
-<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-	<div class="tab-row">
-		<button class="new-tab" on:click={createNewNote}>
-			<Plus size={24} />
-		</button>
-		{#each openTabs as tab (tab.id)}
-			<div
-				class="tab"
-				class:active={currentNote && currentNote.id === tab.id}
-				transition:fly={{ x: 100, duration: 200 }}
-			>
-				<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
-				<button class="close-tab" on:click={() => closeTab(tab)}>
-					<X size={24} />
-				</button>
-			</div>
-		{/each}
-	</div>
+	<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+		<div class="tab-row">
+			<button class="new-tab" on:click={createNewNote}>
+				<Plus size={24} />
+			</button>
+			{#each openTabs as tab (tab.id)}
+				<div
+					class="tab"
+					class:active={currentNote && currentNote.id === tab.id}
+					transition:fly={{ x: 100, duration: 200 }}
+				>
+					<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
+					<button class="close-tab" on:click={() => closeTab(tab)}>
+						<X size={24} />
+					</button>
+				</div>
+			{/each}
+		</div>
 
-	<input
-		type="file"
-		accept="image/*"
-		style="display: none"
-		on:change={(e) => onFileSelected(e, updateNoteContent)}
-		bind:this={fileInput}
-	/>
-
-	{#if currentNote}
-		<input
-			type="text"
-			bind:value={currentNote.title}
-			on:input={handleNoteTitleChange}
-			placeholder="Note title"
-			class="note-title"
-		/>
-		<div
-			contenteditable="true"
-			on:input={handleNoteContentChange}
-			on:contextmenu={handleContextMenu}
-			on:click={showTooltip}
-			on:dragenter={handleDragEnter}
-			on:dragleave={handleDragLeave}
-			on:dragover={handleDragOver}
-			on:drop={handleDrop}
-			class="note-content"
-			class:dragging={isDragging}
-			bind:innerHTML={currentNote.content}
-		></div>
 		<input
 			type="file"
 			accept="image/*"
@@ -698,63 +663,92 @@
 			on:change={(e) => onFileSelected(e, updateNoteContent)}
 			bind:this={fileInput}
 		/>
-		<div class="attachments-toggle" on:click={toggleAttachments}>
-			Attachments ({currentNote.attachments?.length || 0})
-		</div>
-		{#if attachmentsVisible}
-			<div class="attachments-container" transition:slide>
-				{#each currentNote.attachments || [] as attachment}
-					<div class="attachment">
-						<FileIcon />
-						<span>{attachment.name}</span>
-					</div>
-				{/each}
+
+		{#if currentNote}
+			<input
+				type="text"
+				bind:value={currentNote.title}
+				on:input={handleNoteTitleChange}
+				placeholder="Note title"
+				class="note-title"
+			/>
+			<div
+				contenteditable="true"
+				on:input={handleNoteContentChange}
+				on:contextmenu={handleContextMenu}
+				on:click={showTooltip}
+				on:dragenter={handleDragEnter}
+				on:dragleave={handleDragLeave}
+				on:dragover={handleDragOver}
+				on:drop={handleDrop}
+				class="note-content"
+				class:dragging={isDragging}
+				bind:innerHTML={currentNote.content}
+			></div>
+			<input
+				type="file"
+				accept="image/*"
+				style="display: none"
+				on:change={(e) => onFileSelected(e, updateNoteContent)}
+				bind:this={fileInput}
+			/>
+			<div class="attachments-toggle" on:click={toggleAttachments}>
+				Attachments ({currentNote.attachments?.length || 0})
 			</div>
-		{/if}
-	{:else}
-		<!-- <div class="no-document">
+			{#if attachmentsVisible}
+				<div class="attachments-container" transition:slide>
+					{#each currentNote.attachments || [] as attachment}
+						<div class="attachment">
+							<FileIcon />
+							<span>{attachment.name}</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{:else}
+			<!-- <div class="no-document">
 			<h1>No documents</h1>
 			<button on:click={createNewNote}>
 				<Plus size={16} />
 				Create new note
 			</button>
 		</div> -->
-	{/if}
+		{/if}
 
-	{#if contextMenuVisible}
-		<div
-			class="context-menu"
-			style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
-			on:mouseleave={hideContextMenu}
-		>
-			<button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
-			<button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
-			{#if selectedText}
-				<button on:click={() => handleContextMenuOption('summarize')}
-					>Summarize selected text</button
-				>
-				<button on:click={() => handleContextMenuOption('criticize')}
-					>Criticize selected text</button
-				>
-			{/if}
-			<button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
-			<button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
-			<button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
-			<button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
-		</div>
-	{/if}
+		{#if contextMenuVisible}
+			<div
+				class="context-menu"
+				style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px;"
+				on:mouseleave={hideContextMenu}
+			>
+				<button on:click={() => handleContextMenuOption('joke')}>Tell a joke</button>
+				<button on:click={() => handleContextMenuOption('fact')}>Tell an interesting fact</button>
+				{#if selectedText}
+					<button on:click={() => handleContextMenuOption('summarize')}
+						>Summarize selected text</button
+					>
+					<button on:click={() => handleContextMenuOption('criticize')}
+						>Criticize selected text</button
+					>
+				{/if}
+				<button on:click={() => handleContextMenuOption('uploadImage')}>Upload Image</button>
+				<button on:click={() => handleContextMenuOption('alignLeft')}>Align Left</button>
+				<button on:click={() => handleContextMenuOption('alignCenter')}>Align Center</button>
+				<button on:click={() => handleContextMenuOption('alignRight')}>Align Right</button>
+			</div>
+		{/if}
 
-	{#if attachmentsVisible && currentNote?.attachments}
-		<div class="attachments-container" transition:slide>
-			{#each currentNote.attachments as attachment (attachment.id)}
-				<div class="attachment">
-					<FileIcon />
-					<span>{attachment.fileName}</span>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</div>
+		{#if attachmentsVisible && currentNote?.attachments}
+			<div class="attachments-container" transition:slide>
+				{#each currentNote.attachments as attachment (attachment.id)}
+					<div class="attachment">
+						<FileIcon />
+						<span>{attachment.fileName}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
 {/if}
 {#if (contextMenuFolder || contextMenuNote) && contextMenuPosition}
 	<div class="context-menu" style="top: {contextMenuPosition.y}px; left: {contextMenuPosition.x}px">
@@ -775,16 +769,13 @@
 	</div>
 {/if}
 
-
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
-	}	
+	}
 
-
-.container {
+	.container {
 		display: flex;
 		flex-direction: row;
 		position: absolute;
@@ -806,8 +797,6 @@
 		animation: pulsate 1.5s infinite alternate;
 	}
 
-
-
 	.explorer {
 		width: 400px;
 		/* height: 99%; */
@@ -816,7 +805,6 @@
 		position: relative;
 		/* justify-content: space-between; */
 		background-color: var(--primary-color);
-
 
 		padding: 10px;
 	}
@@ -911,7 +899,6 @@
 		flex-grow: 1;
 		width: 100%;
 		text-align: left;
-
 
 		/* background-color: #1e1e1e; */
 	}
@@ -1266,11 +1253,8 @@
 		border-bottom: 1px solid #4a4a4a;
 		background-color: var(--primary-color) !important;
 
-
 		outline: none;
 	}
-
-
 
 	.no-document {
 		display: flex;
@@ -1346,7 +1330,6 @@
 		margin-top: 20px;
 		margin-bottom: 10px;
 	}
-
 
 	.note-content {
 		height: calc(100% - 120px);

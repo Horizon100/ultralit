@@ -1,14 +1,13 @@
 import type { Projects, Threads, User } from '$lib/types/types';
-import { ensureAuthenticated, currentUser} from '$lib/pocketbase';
+import { ensureAuthenticated, currentUser } from '$lib/pocketbase';
 import { marked } from 'marked';
 import { get } from 'svelte/store';
 import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 import { threadListVisibility } from '$lib/clients/threadsClient';
 
-
 marked.setOptions({
 	gfm: true,
-	breaks: true,
+	breaks: true
 	/*
 	 * headerIds: false,
 	 * mangle: false
@@ -25,65 +24,65 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export async function fetchProjects(): Promise<Projects[]> {
 	try {
-	  const response = await fetch('/api/projects', {
-		method: 'GET',
-		credentials: 'include',
-		headers: {
-		  'Content-Type': 'application/json',
-		}
-	  });
-	  
-	  const data = await handleResponse<{ success: boolean; data: Projects[] }>(response);
-	  return data.data;
+		const response = await fetch('/api/projects', {
+			method: 'GET',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+
+		const data = await handleResponse<{ success: boolean; data: Projects[] }>(response);
+		return data.data;
 	} catch (error) {
-	  console.error('Error fetching projects:', error);
-	  throw error;
+		console.error('Error fetching projects:', error);
+		throw error;
 	}
 }
 
 export async function fetchThreadsForProject(projectId: string): Promise<Threads[]> {
-    try {
-        await ensureAuthenticated();
-            
-        const endpoint = `/api/projects/${projectId}/threads`;
-        console.log(`Fetching threads from endpoint: ${endpoint}`);
+	try {
+		await ensureAuthenticated();
 
-        const response = await fetch(endpoint, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${get(currentUser)?.token}`
-            },
-        });
+		const endpoint = `/api/projects/${projectId}/threads`;
+		console.log(`Fetching threads from endpoint: ${endpoint}`);
 
-        if (!response.ok) {
-            const errorMessage = `Failed to fetch threads for project ${projectId}: ${response.status}`;
-            throw new Error(errorMessage);
-        }
+		const response = await fetch(endpoint, {
+			method: 'GET',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${get(currentUser)?.token}`
+			}
+		});
 
-        const rawData = await response.json();
-        console.log('Raw API response:', rawData);
+		if (!response.ok) {
+			const errorMessage = `Failed to fetch threads for project ${projectId}: ${response.status}`;
+			throw new Error(errorMessage);
+		}
 
-        let threads: Threads[] = [];
-        
-        if (rawData.threads && Array.isArray(rawData.threads)) {
-            threads = [...threads, ...rawData.threads];
-        }
-        
-        if (rawData.data && Array.isArray(rawData.data)) {
-            const dataThreads = rawData.data.filter((dataThread: Threads) => 
-                !threads.some(thread => thread.id === dataThread.id)
-            );
-            threads = [...threads, ...dataThreads];
-        }
-        
-        if (Array.isArray(rawData)) {
-            threads = [...threads, ...rawData];
-        }
+		const rawData = await response.json();
+		console.log('Raw API response:', rawData);
+
+		let threads: Threads[] = [];
+
+		if (rawData.threads && Array.isArray(rawData.threads)) {
+			threads = [...threads, ...rawData.threads];
+		}
+
+		if (rawData.data && Array.isArray(rawData.data)) {
+			const dataThreads = rawData.data.filter(
+				(dataThread: Threads) => !threads.some((thread) => thread.id === dataThread.id)
+			);
+			threads = [...threads, ...dataThreads];
+		}
+
+		if (Array.isArray(rawData)) {
+			threads = [...threads, ...rawData];
+		}
 
 		if (threads.length > 0) {
-			threadsStore.update(state => ({
+			threadsStore.update((state) => ({
 				...state,
 				threads: threads,
 				filteredThreads: threads,
@@ -91,18 +90,18 @@ export async function fetchThreadsForProject(projectId: string): Promise<Threads
 			}));
 		}
 
-        console.log(`Found ${threads.length} threads for project ${projectId}`);
-        return threads;
-    } catch (error) {
-        console.error(`Error fetching threads for project ${projectId}:`, error);
-        return [];
-    }
+		console.log(`Found ${threads.length} threads for project ${projectId}`);
+		return threads;
+	} catch (error) {
+		console.error(`Error fetching threads for project ${projectId}:`, error);
+		return [];
+	}
 }
 
 export async function createProject(projectData: Partial<Projects>): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch('/api/projects', {
 			method: 'POST',
 			headers: {
@@ -115,13 +114,15 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 				// The backend will handle setting owner, collaborators, and timestamps
 			})
 		});
-		
-		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-		
+
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(
+			response
+		);
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to create project');
 		}
-		
+
 		console.log('Project created:', data.data);
 		return data.data;
 	} catch (error) {
@@ -133,7 +134,7 @@ export async function createProject(projectData: Partial<Projects>): Promise<Pro
 export async function updateProject(id: string, changes: Partial<Projects>): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${id}`, {
 			method: 'PATCH',
 			headers: {
@@ -142,13 +143,15 @@ export async function updateProject(id: string, changes: Partial<Projects>): Pro
 			credentials: 'include',
 			body: JSON.stringify(changes)
 		});
-		
-		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-		
+
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(
+			response
+		);
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to update project');
 		}
-		
+
 		return data.data;
 	} catch (error) {
 		console.error('Error updating project:', error);
@@ -164,14 +167,14 @@ export async function updateProject(id: string, changes: Partial<Projects>): Pro
 export async function deleteProject(id: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${id}`, {
 			method: 'DELETE',
 			credentials: 'include'
 		});
-		
+
 		const data = await handleResponse<{ success: boolean; error?: string }>(response);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to delete project');
 		}
@@ -187,7 +190,7 @@ export async function resetProject(projectId: string): Promise<void> {
 		if (!projectId) {
 			throw new Error('Project ID is required');
 		}
-		
+
 		const response = await fetch(`/api/projects/${projectId}`, {
 			method: 'PATCH',
 			headers: {
@@ -198,9 +201,9 @@ export async function resetProject(projectId: string): Promise<void> {
 				selected: false
 			})
 		});
-		
+
 		const data = await handleResponse<{ success: boolean; error?: string }>(response);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to reset project');
 		}
@@ -213,14 +216,14 @@ export async function resetProject(projectId: string): Promise<void> {
 export async function removeThreadFromProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${projectId}/threads/${threadId}`, {
 			method: 'DELETE',
 			credentials: 'include'
 		});
-		
+
 		const data = await handleResponse<{ success: boolean; error?: string }>(response);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to remove thread from project');
 		}
@@ -233,7 +236,7 @@ export async function removeThreadFromProject(threadId: string, projectId: strin
 export async function addThreadToProject(threadId: string, projectId: string): Promise<void> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${projectId}/threads`, {
 			method: 'POST',
 			headers: {
@@ -242,9 +245,9 @@ export async function addThreadToProject(threadId: string, projectId: string): P
 			credentials: 'include',
 			body: JSON.stringify({ threadId })
 		});
-		
+
 		const data = await handleResponse<{ success: boolean; error?: string }>(response);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to add thread to project');
 		}
@@ -254,10 +257,13 @@ export async function addThreadToProject(threadId: string, projectId: string): P
 	}
 }
 
-export async function addCollaboratorToProject(projectId: string, userId: string): Promise<Projects> {
+export async function addCollaboratorToProject(
+	projectId: string,
+	userId: string
+): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${projectId}/collaborators`, {
 			method: 'POST',
 			headers: {
@@ -266,13 +272,15 @@ export async function addCollaboratorToProject(projectId: string, userId: string
 			credentials: 'include',
 			body: JSON.stringify({ userId })
 		});
-		
-		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-		
+
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(
+			response
+		);
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to add collaborator to project');
 		}
-		
+
 		return data.data;
 	} catch (error) {
 		console.error('Error adding collaborator to project:', error);
@@ -283,43 +291,47 @@ export async function addCollaboratorToProject(projectId: string, userId: string
 export async function fetchProjectCollaborators(projectId: string): Promise<User[]> {
 	try {
 		ensureAuthenticated();
-		
+
 		console.log('Fetching collaborators for project ID:', projectId);
-		
+
 		const response = await fetch(`/api/projects/${projectId}/collaborators`, {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		const data = await handleResponse<{ success: boolean; data: User[]; error?: string }>(response);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to fetch project collaborators');
 		}
-		
+
 		console.log('Total users found:', data.data.length);
 		return data.data;
 	} catch (error) {
 		console.error('Error in fetchProjectCollaborators:', error);
-		return []; 
+		return [];
 	}
 }
 
 export async function isUserCollaborator(projectId: string, userId: string): Promise<boolean> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${projectId}/collaborators/${userId}`, {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
-		const data = await handleResponse<{ success: boolean; isCollaborator: boolean; error?: string }>(response);
-		
+
+		const data = await handleResponse<{
+			success: boolean;
+			isCollaborator: boolean;
+			error?: string;
+		}>(response);
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to check if user is a collaborator');
 		}
-		
+
 		return data.isCollaborator;
 	} catch (error) {
 		console.error('Error checking if user is a collaborator:', error);
@@ -327,21 +339,26 @@ export async function isUserCollaborator(projectId: string, userId: string): Pro
 	}
 }
 
-export async function removeCollaboratorFromProject(projectId: string, userId: string): Promise<Projects> {
+export async function removeCollaboratorFromProject(
+	projectId: string,
+	userId: string
+): Promise<Projects> {
 	try {
 		ensureAuthenticated();
-		
+
 		const response = await fetch(`/api/projects/${projectId}/collaborators/${userId}`, {
 			method: 'DELETE',
 			credentials: 'include'
 		});
-		
-		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-		
+
+		const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(
+			response
+		);
+
 		if (!data.success) {
 			throw new Error(data.error || 'Failed to remove collaborator from project');
 		}
-		
+
 		return data.data;
 	} catch (error) {
 		console.error('Error removing collaborator from project:', error);

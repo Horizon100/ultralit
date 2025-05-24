@@ -17,15 +17,15 @@
 	let hoveredPrompt: PromptType | null = null;
 
 	function handlePromptSelection(event) {
-  const { isDual, prompts, prompt } = event.detail;
-  
-  if (isDual && Array.isArray(prompts) && prompts.length === 2) {
-    dualResponseSystemPrompts = prompts;
-    console.log('Selected dual prompts for comparison:', prompts);
-  } else if (prompt) {
-    systemPrompt = prompt;
-  }
-}
+		const { isDual, prompts, prompt } = event.detail;
+
+		if (isDual && Array.isArray(prompts) && prompts.length === 2) {
+			dualResponseSystemPrompts = prompts;
+			console.log('Selected dual prompts for comparison:', prompts);
+		} else if (prompt) {
+			systemPrompt = prompt;
+		}
+	}
 
 	function handleMouseEnter(value: PromptType) {
 		hoveredPrompt = value;
@@ -58,17 +58,18 @@
 				<div class="content-header"></div>
 
 				{#if selectedPrompt === value || hoveredPrompt === value}
-				<!-- <div class="icon-wrapper-big">
+					<!-- <div class="icon-wrapper-big">
 					<Icon color="var(--text-color)" size={100} />
 				</div> -->
-					<p class="description" 
+					<p
+						class="description"
 						class:hovered={hoveredPrompt === value}
-						transition:fly={{ y: 20, duration: 300 }}>
+						transition:fly={{ y: 20, duration: 300 }}
+					>
 						{description}
 					</p>
 					{#if youtubeUrl}
-						<div class="video-container" class:hovered={hoveredPrompt === value}
-						transition:slide>
+						<div class="video-container" class:hovered={hoveredPrompt === value} transition:slide>
 							<iframe
 								transition:fly={{ y: 20, duration: 300 }}
 								width="560"
@@ -88,8 +89,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		/* font-family: 'Merriweather', serif; */
 		/* font-family: 'Roboto', sans-serif; */
 		/* font-family: 'Montserrat'; */
@@ -109,7 +109,6 @@
 		// backdrop-filter: blur(100px);
 		border-radius: var(--radius-m);
 		background: var(--bg-gradient);
-
 	}
 
 	.prompt-grid-container {
@@ -143,10 +142,7 @@
 			background: transparent;
 			h3 {
 				font-size: 1.4rem !important;
-
 			}
-
-			
 		}
 
 		&:hover {
@@ -168,7 +164,6 @@
 				fill: var(--tertiary-color);
 			}
 		}
-
 	}
 	.icon-wrapper-big {
 		display: flex;
@@ -184,7 +179,7 @@
 		color: var(--primary-color);
 		stroke: var(--primary-color);
 		fill: var(--primary-color);
-		width: 4rem; 
+		width: 4rem;
 		height: 4rem;
 	}
 	.content-wrapper {
@@ -193,7 +188,7 @@
 		position: absolute;
 		right: 0;
 		top: 0;
-		left:calc(200px + 2rem);
+		left: calc(200px + 2rem);
 		width: 100%;
 
 		&.hovered {
@@ -204,9 +199,7 @@
 			margin-left: 0;
 			margin-top: 0;
 			margin-right: 4rem;
-
 		}
-
 	}
 
 	.content-header {
@@ -237,12 +230,6 @@
 		height: auto;
 		color: text-color;
 		letter-spacing: 0.1rem;
-
-
-
-
-
-	
 	}
 
 	.video-container {

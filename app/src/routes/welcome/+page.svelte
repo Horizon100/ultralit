@@ -16,13 +16,13 @@
 	import Auth from '$lib/features/auth/components/Auth.svelte';
 	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
-	import ServiceComparison from '$lib/features/users/components/ServiceComparison.svelte';
 	import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 	import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 	import googleIcon from '$lib/assets/icons/providers/google.svg';
 	import grokIcon from '$lib/assets/icons/providers/x.svg';
-	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg'; 
-
+	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
+	import type { FeaturePlan, PricingPlan  } from '$lib/types/types.features';
+	
 	let pageReady = false;
 	let redirectedFromLogin = false;
 	let isLoading = true;
@@ -31,12 +31,12 @@
 	let navigationFlagChecked = false;
 
 	type PricingPlan = {
-	name: string;
-	description: string;
-	price: string;
-	month: string;
-	button: string;
-	features: string[];
+		name: string;
+		description: string;
+		price: string;
+		month: string;
+		button: string;
+		features: string[];
 	};
 	// Animation states
 	let showContent = false;
@@ -48,136 +48,147 @@
 	let showButton = false;
 	let showTypeWriter = false;
 	let placeholderText = '';
-	
+
 	let logoSize = spring(80);
 	let logoMargin = spring(0);
-	
+
 	let userCount = 0;
 	let showTermsOverlay = false;
 	let showPrivacyOverlay = false;
 	let currentTip = '';
 
 	function getRandomTip() {
-		const tips = $t('landing.productivityTips');
+		const tips = $t('landing.productivityTips') as string[];
 		return tips[Math.floor(Math.random() * tips.length)];
 	}
 
 	function getRandomGuidance() {
 		const guidanceCategories = ['productivity', 'aiPowerTips', 'projectMastery', 'timeSaving'];
-		const randomCategory = guidanceCategories[Math.floor(Math.random() * guidanceCategories.length)];
-		const categoryItems = $t(`guidance.${randomCategory}`);
+		const randomCategory =
+			guidanceCategories[Math.floor(Math.random() * guidanceCategories.length)];
+		const categoryItems = $t(`guidance.${randomCategory}`) as string[];
 		return {
-			hook: categoryItems[0],      
-			question: categoryItems[1],   
-			hint: categoryItems[2]       
+			hook: categoryItems[0],
+			question: categoryItems[1],
+			hint: categoryItems[2]
 		};
 	}
 	const guidance = getRandomGuidance();
 
 	$: placeholderText = getRandomTip();
-	
+
 	function subscribeToNewsletter() {
 		showNewsletterPopup = true;
 	}
-	
+
 	function openTermsOverlay() {
 		showTermsOverlay = true;
 	}
-	
+
 	function openPrivacyOverlay() {
 		showPrivacyOverlay = true;
 	}
-	
+
 	function closeOverlay() {
 		showTermsOverlay = false;
 		showPrivacyOverlay = false;
 	}
-	
+
 	function handleOverlayClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {
 			$showAuth = false;
 		}
 	}
 	function handlePlanClick(planName: string, e: Event) {
-    /*
-     * e.preventDefault();
-     * e.stopPropagation();
-     */
-    
-    localStorage.setItem('selectedPlan', planName.toLowerCase());
-    
-    switch(planName) {
-        case 'Basic':
-            toggleAuth(true);
-            break;
-        case 'Pro':
-            goto('/subscription/pro');
-            break;
-        case 'Enterprise':
-            goto('/subscription/enterprise');
-            break;
-        default:
-            // Fallback
-            toggleAuth(true);
-    }
-}
+		/*
+		 * e.preventDefault();
+		 * e.stopPropagation();
+		 */
+
+		localStorage.setItem('selectedPlan', planName.toLowerCase());
+
+		switch (planName) {
+			case 'Basic':
+				toggleAuth(true);
+				break;
+			case 'Pro':
+				goto('/subscription/pro');
+				break;
+			case 'Enterprise':
+				goto('/subscription/enterprise');
+				break;
+			default:
+				// Fallback
+				toggleAuth(true);
+		}
+	}
 	function handleSignOut() {
 		$showAuth = false;
 		// Force page reload to ensure proper state after logout
 		setTimeout(() => window.location.reload(), 100);
 	}
-	$: if (browser && $currentUser && pageReady && !isLoading && !redirectedFromLogin && !navigationFlagChecked) {
+	$: featureCards = $t('features.cards') as any[];
+	$: pricingPlans = $t('pricing.plans') as any[];
+	$: introText = $t('landing.introText') as string;
+
+	$: if (
+		browser &&
+		$currentUser &&
+		pageReady &&
+		!isLoading &&
+		!redirectedFromLogin &&
+		!navigationFlagChecked
+	) {
 		redirectedFromLogin = true;
 		goto('/welcome');
 	}
 	onMount(async () => {
 		try {
 			isLoading = true;
-			
+
 			// Check for logged-in user and let the page appear before redirecting
 			if ($currentUser) {
 				// Use a flag or localStorage to check if the user deliberately navigated here
 				const directNavigation = sessionStorage.getItem('directNavigation') === 'true';
 				navigationFlagChecked = true; // Mark that we've checked the flag
-				
+
 				if (!directNavigation) {
 					setTimeout(() => {
 						goto('/home');
 					}, 100);
-					return; 
+					return;
 				}
-				
+
 				// Clear the flag after using it
 				sessionStorage.removeItem('directNavigation');
 			}
-			
+
 			pageReady = true;
-			
+
 			// Only run landing page animations if we're staying on this page
 			setTimeout(() => (showFade = true), 200);
 			setTimeout(() => {
-			showLogo = true;
-			setTimeout(() => {
-				logoSize.set(0);
-				logoMargin.set(0);
-			}, 300);
+				showLogo = true;
+				setTimeout(() => {
+					logoSize.set(0);
+					logoMargin.set(0);
+				}, 300);
 			}, 150);
-			
+
 			setTimeout(() => (showH1 = true), 600);
 			setTimeout(() => (showH2 = true), 700);
 			setTimeout(() => (showH3 = true), 800);
 			setTimeout(() => (showTypeWriter = true), 900);
 			setTimeout(() => (showButton = true), 1000);
-			
+
 			currentTip = getRandomTip();
-			
 		} catch (e) {
 			error = 'Failed to load page. Please try again.';
 			console.error(e);
 		} finally {
 			const minimumLoadingTime = 800;
 			setTimeout(() => {
-			isLoading = false;
+				isLoading = false;
 			}, minimumLoadingTime);
 		}
 	});
@@ -234,10 +245,10 @@
 									{$t('landing.h1')}
 								</h1>
 							{/if}
-							
+
 							{#if showTypeWriter}
 								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-									<TypeWriter text={$t('landing.introText')} minSpeed={1} maxSpeed={10} />
+									<TypeWriter text={introText} minSpeed={1} maxSpeed={10} />
 								</div>
 							{/if}
 						{:else}
@@ -246,16 +257,16 @@
 									{guidance.hook}
 								</h1>
 							{/if}
-							
+
 							{#if showTypeWriter}
 								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
 									<TypeWriter text={guidance.question} minSpeed={1} maxSpeed={10} />
 								</div>
 							{/if}
 							{#if showTypeWriter}
-							<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-								<TypeWriter text={guidance.hint} minSpeed={1} maxSpeed={20} />
-							</div>
+								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+									<TypeWriter text={guidance.hint} minSpeed={1} maxSpeed={20} />
+								</div>
 							{/if}
 						{/if}
 						{#if showButton}
@@ -290,10 +301,10 @@
 										</button>
 									</a> -->
 									<a
-
 										href="https://github.com/Horizon100/ultralit"
 										target="_blank"
-										rel="noopener noreferrer">
+										rel="noopener noreferrer"
+									>
 										<button>
 											<Github size="30" />
 											GitHub
@@ -310,74 +321,73 @@
 						<div id="features" class="section">
 							<h2>{$t('features.title')}</h2>
 							<div class="feature-cards">
-								{#each $t('features.cards') as card}
-									<FeatureCard title={card.title} features={card.features} isPro={card.isPro} />
-								{/each}
+							{#each featureCards as card, index}
+								<FeatureCard 
+									title={card.title} 
+									features={card.features} 
+									isPro={card.isPro} 
+									cardId={index}
+								/>
+							{/each}
 							</div>
 						</div>
 					{/if}
 					{#if showButton}
-					<div id="pricing" class="section">
-						<h2>{$t('pricing.title')}</h2>
-						<div class="pricing-plans">
-							{#each $t('pricing.plans') as plan, index}
+						<div id="pricing" class="section">
+							<h2>{$t('pricing.title')}</h2>
+							<div class="pricing-plans">
+							{#each pricingPlans as plan, index}
 								<div class="card">
 									<h3>{plan.name}</h3>
 									<p class="description">{plan.description}</p>
 									<div class="list">
 										{#each plan.features as feature}
 											<span>
-												<CheckCircle/>{feature}
+												<CheckCircle />{feature}
 											</span>
 										{/each}
-									</div>	
+									</div>
 									<span class="subscription">
 										<p class="price">{plan.price}</p>
 										<p class="month">{plan.month}</p>
 									</span>
-									<button class="card-btn"
-									data-sveltekit-noscroll
-									on:click={() => handlePlanClick(plan.name)}
-									in:fly={{ y: 50, duration: 500, delay: 400 }}
-									out:fly={{ y: 50, duration: 500, delay: 400 }}
+									<button
+										class="card-btn"
+										data-sveltekit-noscroll
+										on:click={(e) => handlePlanClick(plan.name, e)}
+										in:fly={{ y: 50, duration: 500, delay: 400 }}
+										out:fly={{ y: 50, duration: 500, delay: 400 }}
 									>
 										{plan.button}
 									</button>
 								</div>
 							{/each}
-						</div>
-					</div>
-				{/if}
-					{#if showH2}
-
-					<div id="integrations" class="section">
-						<h2>Integrations</h2>
-						<div class="card-wrapper">
-							<div class="int-card">
-								<img src={openaiIcon} alt="Integration" class="integration-logo" />
-								<h2>OpenAI</h2>
-							</div>
-							<div class="int-card">
-								<img src={anthropicIcon} alt="Integration" class="integration-logo" />
-								<h2>Anthropic</h2>
-							</div>
-							<div class="int-card">
-								<img src={deepseekIcon} alt="Integration" class="integration-logo" />
-								<h2>Deepseek</h2>
-							</div>
-							<div class="int-card">
-								<img src={grokIcon} alt="Integration" class="integration-logo" />
-								<h2>Grok</h2>
 							</div>
 						</div>
-
-					</div>
 					{/if}
-					<!-- {#if showH2}
-					<div id="comparison" class="section">
-						<ServiceComparison/>
-					</div>
-					{/if} -->
+					{#if showH2}
+						<div id="integrations" class="section">
+							<h2>Integrations</h2>
+							<div class="card-wrapper">
+								<div class="int-card">
+									<img src={openaiIcon} alt="Integration" class="integration-logo" />
+									<h2>OpenAI</h2>
+								</div>
+								<div class="int-card">
+									<img src={anthropicIcon} alt="Integration" class="integration-logo" />
+									<h2>Anthropic</h2>
+								</div>
+								<div class="int-card">
+									<img src={deepseekIcon} alt="Integration" class="integration-logo" />
+									<h2>Deepseek</h2>
+								</div>
+								<div class="int-card">
+									<img src={grokIcon} alt="Integration" class="integration-logo" />
+									<h2>Grok</h2>
+								</div>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -393,11 +403,7 @@
 {/if}
 
 {#if $showAuth}
-	<div
-		class="auth-overlay"
-		on:click={handleOverlayClick}
-		transition:fade={{ duration: 300 }}
-	>
+	<div class="auth-overlay" on:click={handleOverlayClick} transition:fade={{ duration: 300 }}>
 		<div class="auth-content" transition:fade={{ duration: 300 }}>
 			<Auth
 				on:close={() => {
@@ -410,8 +416,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -512,9 +517,6 @@
 		}
 	}
 
-
-
-
 	.feature-cards {
 		width: 100%;
 		max-width: 800px;
@@ -523,7 +525,6 @@
 		justify-content: center;
 		align-items: flex-end;
 		gap: 0.1rem;
-		
 	}
 
 	.chat {
@@ -596,7 +597,6 @@
 		align-items: center;
 		z-index: 1000;
 		transition: all 0.3s ease;
-
 	}
 
 	.auth-content {
@@ -614,7 +614,6 @@
 		overflow-y: auto;
 		box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
 		transition: all 0.3s ease-in;
-
 	}
 
 	.close-button {
@@ -674,7 +673,7 @@
 		font-weight: 500;
 		color: var(--text-color);
 		margin-bottom: 2rem;
-		width: 100%;	
+		width: 100%;
 	}
 
 	h3 {
@@ -682,7 +681,7 @@
 		color: var(--text-color);
 		margin-bottom: 2rem;
 		font-weight: 300;
-		width: 100%;		
+		width: 100%;
 		font-style: italic;
 	}
 
@@ -691,7 +690,7 @@
 		color: var(--text-color);
 		line-height: 1.5;
 		text-align: justify;
-		width: 100%;	
+		width: 100%;
 		max-width: 1000px;
 	}
 
@@ -725,7 +724,6 @@
 			left: 1rem;
 			background: none;
 			margin-top: 0;
-
 		}
 	}
 
@@ -771,7 +769,7 @@
 	.footer-container {
 		display: flex;
 		flex-direction: column;
-		width:100%;
+		width: 100%;
 		max-width: 1000px;
 		overflow: hidden;
 		justify-content: center;
@@ -839,7 +837,6 @@
 		& button {
 			height: 3rem !important;
 			margin: 0;
-			
 		}
 	}
 
@@ -861,7 +858,6 @@
 		transform: scale(0.9);
 		background-color: var(--tertiary-color);
 		filter: drop-shadow(0 0 4px var(--tertiary-color));
-
 	}
 
 	.arrow-overlay {
@@ -898,7 +894,6 @@
 		font-size: 1.2rem;
 	}
 
-
 	.pricing-plans {
 		display: flex;
 		justify-content: flex-start;
@@ -906,12 +901,8 @@
 		width: calc(100% - 2rem);
 		padding: 1rem;
 		box-sizing: border-box;
+	}
 
-	}
-	.section#pricing {
-	}
-	.section#integrations {
-	}
 	.card-wrapper {
 		gap: 1rem;
 		display: flex;
@@ -939,7 +930,6 @@
 				user-select: none;
 				width: 6rem;
 				height: 6rem;
-
 			}
 		}
 	}
@@ -988,20 +978,11 @@
 		& li {
 			color: red;
 			width: 200px;
-			
-			word-break: break-word;
 
+			word-break: break-word;
 		}
 	}
 
-	.card:hover {
-		// border: 1px solid var(--tertiary-color);
-		// transform: scale(1.2) translateY(0) ;
-		// margin-right: 1rem;
-		// margin-left: 1rem;
-		// box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
-
-	}
 
 	.card h3 {
 		font-size: 1.8rem;
@@ -1026,11 +1007,10 @@
 
 	.price {
 		margin: 0;
-		font-size:2.5rem;
+		font-size: 2.5rem;
 		font-weight: 800;
 		color: var(--tertiary-color);
 		width: auto;
-
 	}
 	.month {
 		font-size: 1rem;
@@ -1038,7 +1018,6 @@
 		margin-bottom: 1rem;
 		margin: 0;
 		width: auto;
-
 	}
 
 	@keyframes bounce {
@@ -1051,11 +1030,9 @@
 		}
 	}
 	@media (max-width: 767px) {
-
 	}
 
 	@media (max-width: 1000px) {
-
 		.user-container {
 			display: flex;
 			flex-direction: column;
@@ -1092,9 +1069,6 @@
 		}
 
 
-		.card {
-			// width: calc(50% - 2rem); 
-		}
 		h2 {
 			font-size: 60px;
 		}
@@ -1109,7 +1083,6 @@
 			justify-content: center;
 			align-items: flex-start;
 			gap: 0.1rem;
-			
 		}
 		.auth-content {
 			position: fixed;
@@ -1126,7 +1099,6 @@
 			overflow: hidden;
 			box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
 			transition: all 0.3s ease-in;
-
 		}
 		.fastlogin {
 			display: flex;
@@ -1167,19 +1139,12 @@
 			align-items: center;
 		}
 
-		.card {
-			// width: 100%; /* 1 card per row on small screens */
-		}
 		.section {
 			height: auto;
 		}
-		.section#integrations {
-			& .int-card {
-			}
-		}
+
 	}
 	@media (max-width: 450px) {
-	
 		h1 {
 			font-size: 1.5rem;
 			width: auto;

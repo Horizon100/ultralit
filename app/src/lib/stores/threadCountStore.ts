@@ -39,15 +39,15 @@ function createThreadCountsStore() {
 							const response = await fetch(`/api/threads/${thread.id}/count`, {
 								credentials: 'include'
 							});
-							
+
 							if (!response.ok) {
 								throw new Error(`Failed to fetch count: ${response.status}`);
 							}
-							
+
 							const data = await response.json();
-							return { 
-								threadId: thread.id, 
-								count: data.count || 0 
+							return {
+								threadId: thread.id,
+								count: data.count || 0
 							};
 						} catch (error) {
 							console.error(`Error fetching count for thread ${thread.id}:`, error);
@@ -78,11 +78,11 @@ function createThreadCountsStore() {
 				const response = await fetch(`/api/threads/${threadId}/count`, {
 					credentials: 'include'
 				});
-				
+
 				if (!response.ok) {
 					throw new Error(`Failed to fetch count: ${response.status}`);
 				}
-				
+
 				const data = await response.json();
 				const count = data.count || 0;
 

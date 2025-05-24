@@ -15,8 +15,8 @@ export interface SubscriptionPreferences {
 
 const TIER_FEATURES = {
 	tier1: [], // Define your tier1 features
-	tier2: [], // Define your tier2 features  
-	tier3: []  // Define your tier3 features
+	tier2: [], // Define your tier2 features
+	tier3: [] // Define your tier3 features
 };
 
 function generateToken(): string {
@@ -72,14 +72,14 @@ function createSubscriptionStore() {
 					throw new Error('Invalid verification token');
 				}
 
-				const updated = await pb.collection('subscriptions').update(subscription.id, {
+				const updated = (await pb.collection('subscriptions').update(subscription.id, {
 					status: 'active',
 					metadata: {
 						...subscription.metadata,
 						verified: true,
 						verificationToken: null
 					}
-				}) as Subscription;
+				})) as Subscription;
 
 				update((subs) => subs.map((sub) => (sub.id === updated.id ? updated : sub)));
 
@@ -99,13 +99,13 @@ function createSubscriptionStore() {
 					throw new Error('Invalid unsubscribe token');
 				}
 
-				const updated = await pb.collection('subscriptions').update(subscription.id, {
+				const updated = (await pb.collection('subscriptions').update(subscription.id, {
 					status: 'canceled',
 					metadata: {
 						...subscription.metadata,
 						cancel_reason: 'User unsubscribed'
 					}
-				}) as Subscription;
+				})) as Subscription;
 
 				update((subs) => subs.map((sub) => (sub.id === updated.id ? updated : sub)));
 

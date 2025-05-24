@@ -21,7 +21,7 @@
 		if (browser) {
 			try {
 				const user = $currentUser;
-				
+
 				if (user) {
 					await goto('/home');
 				} else {
@@ -53,24 +53,20 @@
 		<div class="error-content">
 			<h2>Authentication Error</h2>
 			<p>{error}</p>
-			<button class="error-button" on:click={() => goto('/welcome')}>
-				Go to Welcome
-			</button>
+			<button class="error-button" on:click={() => goto('/welcome')}> Go to Welcome </button>
 		</div>
 	</div>
 {/if}
 
 <style lang="scss">
-  $breakpoint-sm: 576px;
-  $breakpoint-md: 1000px;
-  $breakpoint-lg: 992px;
-  $breakpoint-xl: 1200px;
-	@use "src/styles/themes.scss" as *;
-  * {
-
-    font-family: var(--font-family);
-  }  	
-  .loading-container,
+	$breakpoint-sm: 576px;
+	$breakpoint-md: 1000px;
+	$breakpoint-lg: 992px;
+	$breakpoint-xl: 1200px;
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}
+	.loading-container,
 	.error-container {
 		display: flex;
 		min-height: 100vh;

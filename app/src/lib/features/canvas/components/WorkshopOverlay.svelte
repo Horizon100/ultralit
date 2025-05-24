@@ -11,7 +11,7 @@
 	} from 'lucide-svelte';
 	import type { Workshops, User } from '$lib/types/types';
 	import { onMount } from 'svelte';
-	import { } from '$lib/pocketbase';
+	import {} from '$lib/pocketbase';
 
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';

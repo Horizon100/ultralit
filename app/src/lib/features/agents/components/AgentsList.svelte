@@ -121,8 +121,6 @@
 	const roles = ['hub', 'proxy', 'assistant', 'moderator'];
 	const statuses = ['active', 'inactive', 'maintenance', 'paused'];
 
-
-
 	$: filteredAgents = agents
 		.filter(
 			(agent) =>
@@ -169,19 +167,19 @@
 			return;
 		}
 
-	showLoading();
-	try {
-		// Load agents for the current user (no workspace needed)
-		await agentStore.loadAgents($currentUser.id);
-		
-		// Load models and actions for the current user
-		await modelStore.loadModels($currentUser.id);
-		await actionStore.loadActions($currentUser.id);
-	} finally {
-		hideLoading();
-		isLoading = false;
-	}
-});
+		showLoading();
+		try {
+			// Load agents for the current user (no workspace needed)
+			await agentStore.loadAgents($currentUser.id);
+
+			// Load models and actions for the current user
+			await modelStore.loadModels($currentUser.id);
+			await actionStore.loadActions($currentUser.id);
+		} finally {
+			hideLoading();
+			isLoading = false;
+		}
+	});
 	const unsubscribeAgent = agentStore.subscribe((state) => {
 		agents = state.agents || [];
 		updateStatus = state.updateStatus;
@@ -343,40 +341,40 @@
 		};
 
 		try {
-    console.log('Submitting agent data:', agentData);
-    if (selectedAgent) {
-        // Update existing agent
-        const formData = new FormData();
-        if (avatarFile) {
-            formData.append('avatar', avatarFile);
-        }
-        for (const [key, value] of Object.entries(agentData)) {
-            if (value !== undefined && value !== null) {
-                formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
-            }
-        }
-        await agentStore.updateAgentAPI(selectedAgent.id, formData);
-    } else {
-        // Create new agent
-        const formData = new FormData();
-        if (avatarFile) {
-            formData.append('avatar', avatarFile);
-        }
-        for (const [key, value] of Object.entries(agentData)) {
-            if (value !== undefined && value !== null) {
-                formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
-            }
-        }
-        await agentStore.createAgent(formData);
-    }
-    
-    showCreateForm = false;
-    selectedAgent = null;
-    resetForm();
-    avatarFile = null;
-    
-    // Reload agents to get the latest data
-    await agentStore.loadAgents($currentUser.id);
+			console.log('Submitting agent data:', agentData);
+			if (selectedAgent) {
+				// Update existing agent
+				const formData = new FormData();
+				if (avatarFile) {
+					formData.append('avatar', avatarFile);
+				}
+				for (const [key, value] of Object.entries(agentData)) {
+					if (value !== undefined && value !== null) {
+						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+					}
+				}
+				await agentStore.updateAgentAPI(selectedAgent.id, formData);
+			} else {
+				// Create new agent
+				const formData = new FormData();
+				if (avatarFile) {
+					formData.append('avatar', avatarFile);
+				}
+				for (const [key, value] of Object.entries(agentData)) {
+					if (value !== undefined && value !== null) {
+						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+					}
+				}
+				await agentStore.createAgent(formData);
+			}
+
+			showCreateForm = false;
+			selectedAgent = null;
+			resetForm();
+			avatarFile = null;
+
+			// Reload agents to get the latest data
+			await agentStore.loadAgents($currentUser.id);
 		} catch (error) {
 			console.error('Error saving agent:', error);
 			if (error instanceof ClientResponseError) {
@@ -788,8 +786,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 		color: var(--text-color);
@@ -1056,7 +1053,6 @@
 		/* margin-right: 50px; */
 		align-items: flex-start;
 		margin-right: 5rem;
-
 	}
 
 	.item {

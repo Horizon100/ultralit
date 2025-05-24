@@ -4,47 +4,58 @@ import type { Writable } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
 import type { KanbanTask, KanbanColumn, Task, InternalChatMessage } from '$lib/types/types';
 interface RawTaskData {
-    id: string;
-    title: string;
-    taskDescription?: string;
-    created: string;
-    due_date?: string;
-    start_date?: string;
-    taskTags?: string[];
-    taggedTasks?: string;
-    attachments?: Array<{
-        id: string;
-        fileName: string;
-        url?: string;
-        note?: string;
-    }>;     
-    project_id: string;
-    createdBy: string;
-    assignedTo?: string;
-    parent_task?: string;
-    allocatedAgents?: string[];
-    status: 'backlog' | 'todo' | 'inprogress' | 'review' | 'done' | 'hold' | 'postpone' | 'delegate' | 'cancel' | 'archive';
-    priority?: 'high' | 'medium' | 'low';
-    prompt?: string;
-    context?: string;
-    task_outcome?: string;
-    dependencies?: Array<string | {
-        type: 'dependency' | 'subtask' | 'resource' | 'precedence';
-        task_id: string;
-    }>;    
-    agentMessages?: string[];
+	id: string;
+	title: string;
+	taskDescription?: string;
+	created: string;
+	due_date?: string;
+	start_date?: string;
+	taskTags?: string[];
+	taggedTasks?: string;
+	attachments?: Array<{
+		id: string;
+		fileName: string;
+		url?: string;
+		note?: string;
+	}>;
+	project_id: string;
+	createdBy: string;
+	assignedTo?: string;
+	parent_task?: string;
+	allocatedAgents?: string[];
+	status:
+		| 'backlog'
+		| 'todo'
+		| 'inprogress'
+		| 'review'
+		| 'done'
+		| 'hold'
+		| 'postpone'
+		| 'delegate'
+		| 'cancel'
+		| 'archive';
+	priority?: 'high' | 'medium' | 'low';
+	prompt?: string;
+	context?: string;
+	task_outcome?: string;
+	dependencies?: Array<
+		| string
+		| {
+				type: 'dependency' | 'subtask' | 'resource' | 'precedence';
+				task_id: string;
+		  }
+	>;
+	agentMessages?: string[];
 }
 let currentProjectId: string | null = null;
 let columns: Writable<KanbanColumn[]>;
 
-
-
 export function setCurrentProjectId(projectId: string | null) {
-    currentProjectId = projectId;
+	currentProjectId = projectId;
 }
 
 export function setColumnsStore(columnsStore: Writable<KanbanColumn[]>) {
-    columns = columnsStore;
+	columns = columnsStore;
 }
 
 /**
@@ -53,121 +64,121 @@ export function setColumnsStore(columnsStore: Writable<KanbanColumn[]>) {
  * @returns Promise with the saved task data
  */
 export async function saveTask(task: KanbanTask): Promise<Task> {
-    try {
-        // Handle file attachments first if the task has any
-        const attachmentPromises = task.attachments
-            .filter(att => att.file)
-            .map(async (att) => {
-                const formData = new FormData();
-                
-                // Add null checks
-                if (att.file) {
-                    formData.append('file', att.file);
-                }
-                formData.append('fileName', att.fileName);
-                if (att.note) formData.append('note', att.note);
-                
-                const currentUserValue = get(currentUser)?.id;
-                if (currentUserValue) {
-                    formData.append('createdBy', currentUserValue);
-                }
-                
-                if (task.id && !task.id.startsWith('local_')) {
-                    formData.append('attachedTasks', task.id);
-                }
-                
-                if (task.project_id) {
-                    formData.append('attachedProjects', task.project_id);
-                }
-                
-                const response = await fetch('/api/attachments', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!response.ok) throw new Error('Failed to upload attachment');
-                
-                const savedAttachment = await response.json();
-                return {
-                    id: savedAttachment.id,
-                    fileName: att.fileName,
-                    url: savedAttachment.url || '',
-                    note: att.note
-                };
-            });
-            
-        const savedAttachments = await Promise.all(attachmentPromises);
-        
-        const updatedAttachments = task.attachments.map(att => {
-            if (att.file) {
-                const savedAtt = savedAttachments.find(sa => sa.fileName === att.fileName);
-                return savedAtt || att;
-            }
-            return att;
-        });
-        
-        const attachmentIds = updatedAttachments.map(att => att.id).join(',');
-        
-        const taskData = {
-            title: task.title,
-            taskDescription: task.taskDescription,
-            project_id: task.project_id || '',
-            createdBy: get(currentUser)?.id,
-            parent_task: task.parent_task || '',
-            status: task.status,
-            priority: task.priority || 'medium',
-            due_date: task.due_date ? task.due_date.toISOString() : null,
-            start_date: task.start_date ? task.start_date.toISOString() : null,
-            taggedTasks: task.tags.join(','),
-            taskTags: task.tags,
-            allocatedAgents: task.allocatedAgents || [],
-            attachments: attachmentIds,
-            prompt: task.prompt || '',
-            context: task.context || '',
-            task_outcome: task.task_outcome || '',
-            dependencies: task.dependencies || [],
-            agentMessages: task.agentMessages || [],
-            assignedTo: task.assignedTo || ''
-        };
-        
-        let url = '/api/tasks';
-        let method = 'POST';
-        
-        if (task.id && !task.id.startsWith('local_')) {
-            url = `/api/tasks/${task.id}`;
-            method = 'PATCH';
-        }
-        
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(taskData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to save task');
-        
-        const savedTask = await response.json();
-        
-        // If task is assigned to a user, update the user's task assignments
-        if (savedTask.assignedTo) {
-            await updateUserTaskAssignment(savedTask.assignedTo, savedTask.id, savedTask.status);
-        }
-        
-        return {
-            ...savedTask,
-            id: savedTask.id,
-            attachments: updatedAttachments,
-            creationDate: new Date(savedTask.created),
-            due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
-            start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
-            tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
-        };
-    } catch (err) {
-        console.error('Error saving task:', err);
-        throw err;
-    }
+	try {
+		// Handle file attachments first if the task has any
+		const attachmentPromises = task.attachments
+			.filter((att) => att.file)
+			.map(async (att) => {
+				const formData = new FormData();
+
+				// Add null checks
+				if (att.file) {
+					formData.append('file', att.file);
+				}
+				formData.append('fileName', att.fileName);
+				if (att.note) formData.append('note', att.note);
+
+				const currentUserValue = get(currentUser)?.id;
+				if (currentUserValue) {
+					formData.append('createdBy', currentUserValue);
+				}
+
+				if (task.id && !task.id.startsWith('local_')) {
+					formData.append('attachedTasks', task.id);
+				}
+
+				if (task.project_id) {
+					formData.append('attachedProjects', task.project_id);
+				}
+
+				const response = await fetch('/api/attachments', {
+					method: 'POST',
+					body: formData
+				});
+
+				if (!response.ok) throw new Error('Failed to upload attachment');
+
+				const savedAttachment = await response.json();
+				return {
+					id: savedAttachment.id,
+					fileName: att.fileName,
+					url: savedAttachment.url || '',
+					note: att.note
+				};
+			});
+
+		const savedAttachments = await Promise.all(attachmentPromises);
+
+		const updatedAttachments = task.attachments.map((att) => {
+			if (att.file) {
+				const savedAtt = savedAttachments.find((sa) => sa.fileName === att.fileName);
+				return savedAtt || att;
+			}
+			return att;
+		});
+
+		const attachmentIds = updatedAttachments.map((att) => att.id).join(',');
+
+		const taskData = {
+			title: task.title,
+			taskDescription: task.taskDescription,
+			project_id: task.project_id || '',
+			createdBy: get(currentUser)?.id,
+			parent_task: task.parent_task || '',
+			status: task.status,
+			priority: task.priority || 'medium',
+			due_date: task.due_date ? task.due_date.toISOString() : null,
+			start_date: task.start_date ? task.start_date.toISOString() : null,
+			taggedTasks: task.tags.join(','),
+			taskTags: task.tags,
+			allocatedAgents: task.allocatedAgents || [],
+			attachments: attachmentIds,
+			prompt: task.prompt || '',
+			context: task.context || '',
+			task_outcome: task.task_outcome || '',
+			dependencies: task.dependencies || [],
+			agentMessages: task.agentMessages || [],
+			assignedTo: task.assignedTo || ''
+		};
+
+		let url = '/api/tasks';
+		let method = 'POST';
+
+		if (task.id && !task.id.startsWith('local_')) {
+			url = `/api/tasks/${task.id}`;
+			method = 'PATCH';
+		}
+
+		const response = await fetch(url, {
+			method,
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(taskData)
+		});
+
+		if (!response.ok) throw new Error('Failed to save task');
+
+		const savedTask = await response.json();
+
+		// If task is assigned to a user, update the user's task assignments
+		if (savedTask.assignedTo) {
+			await updateUserTaskAssignment(savedTask.assignedTo, savedTask.id, savedTask.status);
+		}
+
+		return {
+			...savedTask,
+			id: savedTask.id,
+			attachments: updatedAttachments,
+			creationDate: new Date(savedTask.created),
+			due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
+			start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
+			tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
+		};
+	} catch (err) {
+		console.error('Error saving task:', err);
+		throw err;
+	}
 }
 
 /**
@@ -178,45 +189,45 @@ export async function saveTask(task: KanbanTask): Promise<Task> {
  * @returns Promise with the created task
  */
 export async function createTaskFromMessage(
-    message: InternalChatMessage,
-    promptMessage?: InternalChatMessage | null,
-    projectId?: string
+	message: InternalChatMessage,
+	promptMessage?: InternalChatMessage | null,
+	projectId?: string
 ): Promise<Task> {
-    try {
-        // Extract title from first sentence, limiting to 50 characters
-        let title = message.content.split('.')[0].trim();
-        if (title.length > 50) {
-            title = title.substring(0, 47) + '...';
-        }
-        
-        // Create a task object
-        const newTask: KanbanTask = {
-            id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-            title,
-            taskDescription: message.content,
-            creationDate: new Date(),
-            due_date: null,
-            start_date: null,
-            tags: [],
-            attachments: [],
-            project_id: projectId || '',
-            createdBy: get(currentUser)?.id,
-            allocatedAgents: [],
-            status: 'todo',
-            priority: 'medium',
-            prompt: promptMessage?.content || '',
-            context: '',
-            task_outcome: '',
-            dependencies: [],
-            agentMessages: [message.id],
-            assignedTo: ''
-        };
-        
-        return await saveTask(newTask);
-    } catch (error) {
-        console.error('Error creating task from message:', error);
-        throw error;
-    }
+	try {
+		// Extract title from first sentence, limiting to 50 characters
+		let title = message.content.split('.')[0].trim();
+		if (title.length > 50) {
+			title = title.substring(0, 47) + '...';
+		}
+
+		// Create a task object
+		const newTask: KanbanTask = {
+			id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+			title,
+			taskDescription: message.content,
+			creationDate: new Date(),
+			due_date: null,
+			start_date: null,
+			tags: [],
+			attachments: [],
+			project_id: projectId || '',
+			createdBy: get(currentUser)?.id,
+			allocatedAgents: [],
+			status: 'todo',
+			priority: 'medium',
+			prompt: promptMessage?.content || '',
+			context: '',
+			task_outcome: '',
+			dependencies: [],
+			agentMessages: [message.id],
+			assignedTo: ''
+		};
+
+		return await saveTask(newTask);
+	} catch (error) {
+		console.error('Error creating task from message:', error);
+		throw error;
+	}
 }
 
 /**
@@ -226,67 +237,64 @@ export async function createTaskFromMessage(
  * @returns Promise with the updated task
  */
 export async function updateTask(taskId: string, updateData: Partial<Task>): Promise<Task> {
-    try {
-        // Get the current task to track changes
-        const taskResponse = await fetch(`/api/tasks/${taskId}`);
-        if (!taskResponse.ok) throw new Error('Failed to fetch task data');
-        
-        const oldTask = await taskResponse.json();
-        
-        // Make the update request
-        const response = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to update task');
-        
-        const updatedTask = await response.json();
-        
-        // Handle assignment changes
-        if (updateData.assignedTo !== undefined && updateData.assignedTo !== oldTask.assignedTo) {
-            // If previously assigned to someone else, remove from old user
-            if (oldTask.assignedTo) {
-                await removeTaskFromUser(oldTask.assignedTo, taskId, oldTask.status);
-            }
-            
-            // If now assigned to someone new, add to new user
-            if (updateData.assignedTo) {
-                await updateUserTaskAssignment(
-                    updateData.assignedTo, 
-                    taskId, 
-                    updateData.status || oldTask.status
-                );
-            }
-        }
-        
-        // Handle status changes for assigned tasks
-        if (updateData.status !== undefined && 
-            updateData.status !== oldTask.status &&
-            (oldTask.assignedTo || updateData.assignedTo)) {
-            
-            // Use the assigned user, prioritizing the new assignee if changed
-            const userId = updateData.assignedTo !== undefined ? updateData.assignedTo : oldTask.assignedTo;
-            
-            // Only update if there's a user assigned
-            if (userId) {
-                await updateUserTaskStatus(
-                    userId, 
-                    oldTask.status, 
-                    updateData.status, 
-                    taskId
-                );
-            }
-        }
-        
-        return updatedTask;
-    } catch (err) {
-        console.error('Error updating task:', err);
-        throw err;
-    }
+	try {
+		// Get the current task to track changes
+		const taskResponse = await fetch(`/api/tasks/${taskId}`);
+		if (!taskResponse.ok) throw new Error('Failed to fetch task data');
+
+		const oldTask = await taskResponse.json();
+
+		// Make the update request
+		const response = await fetch(`/api/tasks/${taskId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(updateData)
+		});
+
+		if (!response.ok) throw new Error('Failed to update task');
+
+		const updatedTask = await response.json();
+
+		// Handle assignment changes
+		if (updateData.assignedTo !== undefined && updateData.assignedTo !== oldTask.assignedTo) {
+			// If previously assigned to someone else, remove from old user
+			if (oldTask.assignedTo) {
+				await removeTaskFromUser(oldTask.assignedTo, taskId, oldTask.status);
+			}
+
+			// If now assigned to someone new, add to new user
+			if (updateData.assignedTo) {
+				await updateUserTaskAssignment(
+					updateData.assignedTo,
+					taskId,
+					updateData.status || oldTask.status
+				);
+			}
+		}
+
+		// Handle status changes for assigned tasks
+		if (
+			updateData.status !== undefined &&
+			updateData.status !== oldTask.status &&
+			(oldTask.assignedTo || updateData.assignedTo)
+		) {
+			// Use the assigned user, prioritizing the new assignee if changed
+			const userId =
+				updateData.assignedTo !== undefined ? updateData.assignedTo : oldTask.assignedTo;
+
+			// Only update if there's a user assigned
+			if (userId) {
+				await updateUserTaskStatus(userId, oldTask.status, updateData.status, taskId);
+			}
+		}
+
+		return updatedTask;
+	} catch (err) {
+		console.error('Error updating task:', err);
+		throw err;
+	}
 }
 
 /**
@@ -297,46 +305,46 @@ export async function updateTask(taskId: string, updateData: Partial<Task>): Pro
  * @returns Promise with the updated task
  */
 export async function updateTaskTags(
-    taskId: string, 
-    tagIds: string[], 
-    taskDescription?: string
+	taskId: string,
+	tagIds: string[],
+	taskDescription?: string
 ): Promise<Task> {
-    try {
-        // Replace 'any' with proper interface
-        const updateData: {
-            taggedTasks: string;
-            taskTags: string[];
-            taskDescription?: string;
-        } = {
-            taggedTasks: tagIds.join(','),
-            taskTags: tagIds
-        };
-        
-        // If taskDescription is provided, update it as well
-        if (taskDescription !== undefined) {
-            updateData.taskDescription = taskDescription;
-        }
-        
-        // Update the task
-        const response = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Server error (${response.status}):`, errorText);
-            throw new Error(`Failed to update task tags: ${response.status} ${response.statusText}`);
-        }
-        
-        return await response.json();
-    } catch (err) {
-        console.error('Error updating task tags:', err);
-        throw err;
-    }
+	try {
+		// Replace 'any' with proper interface
+		const updateData: {
+			taggedTasks: string;
+			taskTags: string[];
+			taskDescription?: string;
+		} = {
+			taggedTasks: tagIds.join(','),
+			taskTags: tagIds
+		};
+
+		// If taskDescription is provided, update it as well
+		if (taskDescription !== undefined) {
+			updateData.taskDescription = taskDescription;
+		}
+
+		// Update the task
+		const response = await fetch(`/api/tasks/${taskId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(updateData)
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error(`Server error (${response.status}):`, errorText);
+			throw new Error(`Failed to update task tags: ${response.status} ${response.statusText}`);
+		}
+
+		return await response.json();
+	} catch (err) {
+		console.error('Error updating task tags:', err);
+		throw err;
+	}
 }
 
 /**
@@ -345,35 +353,34 @@ export async function updateTaskTags(
  * @returns Promise that resolves when the task is deleted
  */
 export async function deleteTask(taskId: string): Promise<void> {
-    try {
-        // Check if task is local only
-        if (taskId.startsWith('local_')) {
-            return;
-        }
-        
-        // Get the current task to check for assignments
-        const taskResponse = await fetch(`/api/tasks/${taskId}`);
-        let task: Task | null = null;
-        
-        if (taskResponse.ok) {
-            task = await taskResponse.json();
-            
-            // Add null check before accessing task properties
-            if (task && task.assignedTo) {
-                await removeTaskFromUser(task.assignedTo, taskId, task.status);
-            }
-        }
-        
-        const response = await fetch(`/api/tasks/${taskId}`, {
-            method: 'DELETE'
-        });
-        
-        if (!response.ok) throw new Error('Failed to delete task');
-        
-    } catch (err) {
-        console.error('Error deleting task:', err);
-        throw err;
-    }
+	try {
+		// Check if task is local only
+		if (taskId.startsWith('local_')) {
+			return;
+		}
+
+		// Get the current task to check for assignments
+		const taskResponse = await fetch(`/api/tasks/${taskId}`);
+		let task: Task | null = null;
+
+		if (taskResponse.ok) {
+			task = await taskResponse.json();
+
+			// Add null check before accessing task properties
+			if (task && task.assignedTo) {
+				await removeTaskFromUser(task.assignedTo, taskId, task.status);
+			}
+		}
+
+		const response = await fetch(`/api/tasks/${taskId}`, {
+			method: 'DELETE'
+		});
+
+		if (!response.ok) throw new Error('Failed to delete task');
+	} catch (err) {
+		console.error('Error deleting task:', err);
+		throw err;
+	}
 }
 /**
  * Loads tasks for a specific project
@@ -381,57 +388,57 @@ export async function deleteTask(taskId: string): Promise<void> {
  * @returns Promise with the loaded tasks
  */
 export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]> {
-    try {
-        const response = await fetch(`/api/projects/${projectId}/tasks`, {
-            method: 'GET',
-            credentials: 'include'
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch tasks for project: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Check if the response has the tasks in different possible locations
-        const tasks: RawTaskData[] = data.tasks || data.items || data.data || [];
-        
-        // Transform the tasks to match KanbanTask interface
-        return tasks.map((task: RawTaskData): KanbanTask => ({
-            id: task.id,
-            title: task.title,
-            taskDescription: task.taskDescription || '',
-            creationDate: new Date(task.created),
-            due_date: task.due_date ? new Date(task.due_date) : null,
-            start_date: task.start_date ? new Date(task.start_date) : null,
-            tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-            attachments: (task.attachments || []).map(att => ({
-                id: att.id || '',
-                fileName: att.fileName || '',
-                url: att.url || '',
-                note: att.note
-            })),            
-            project_id: task.project_id,
-            createdBy: task.createdBy,
-            assignedTo: task.assignedTo || '',
-            parent_task: task.parent_task || undefined,
-            allocatedAgents: task.allocatedAgents || [],
-            status: task.status as Task['status'],
-            priority: (task.priority || 'medium') as 'low' | 'medium' | 'high', 
-            prompt: task.prompt || '',
-            context: task.context || '',
-            task_outcome: task.task_outcome || '',
-            dependencies: (task.dependencies || []).map(dep => 
-                typeof dep === 'string' 
-                    ? { type: 'dependency' as const, task_id: dep }
-                    : dep
-            ),            
-            agentMessages: task.agentMessages || []
-        }));
-    } catch (err) {
-        console.error('Error loading project tasks:', err);
-        throw err;
-    }
+	try {
+		const response = await fetch(`/api/projects/${projectId}/tasks`, {
+			method: 'GET',
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch tasks for project: ${response.status}`);
+		}
+
+		const data = await response.json();
+
+		// Check if the response has the tasks in different possible locations
+		const tasks: RawTaskData[] = data.tasks || data.items || data.data || [];
+
+		// Transform the tasks to match KanbanTask interface
+		return tasks.map(
+			(task: RawTaskData): KanbanTask => ({
+				id: task.id,
+				title: task.title,
+				taskDescription: task.taskDescription || '',
+				creationDate: new Date(task.created),
+				due_date: task.due_date ? new Date(task.due_date) : null,
+				start_date: task.start_date ? new Date(task.start_date) : null,
+				tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+				attachments: (task.attachments || []).map((att) => ({
+					id: att.id || '',
+					fileName: att.fileName || '',
+					url: att.url || '',
+					note: att.note
+				})),
+				project_id: task.project_id,
+				createdBy: task.createdBy,
+				assignedTo: task.assignedTo || '',
+				parent_task: task.parent_task || undefined,
+				allocatedAgents: task.allocatedAgents || [],
+				status: task.status as Task['status'],
+				priority: (task.priority || 'medium') as 'low' | 'medium' | 'high',
+				prompt: task.prompt || '',
+				context: task.context || '',
+				task_outcome: task.task_outcome || '',
+				dependencies: (task.dependencies || []).map((dep) =>
+					typeof dep === 'string' ? { type: 'dependency' as const, task_id: dep } : dep
+				),
+				agentMessages: task.agentMessages || []
+			})
+		);
+	} catch (err) {
+		console.error('Error loading project tasks:', err);
+		throw err;
+	}
 }
 /**
  * Loads tasks for the current user or project
@@ -439,91 +446,91 @@ export async function loadProjectTasks(projectId: string): Promise<KanbanTask[]>
  * @returns Promise with the loaded tasks
  */
 export async function loadTasks(columnsStore?: Writable<KanbanColumn[]>) {
-    try {
-        // Use the passed columns store if provided
-        const activeColumns = columnsStore || columns;
-        
-        if (!activeColumns) {
-            throw new Error('No columns store available');
-        }
-        
-        let url = '/api/tasks';
-        if (currentProjectId) {
-            url = `/api/projects/${currentProjectId}/tasks`;
-        }
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-        
-        const data = await response.json();
-        console.log("Task data from API:", data.items.map((t: RawTaskData) => ({ id: t.id, title: t.title, assignedTo: t.assignedTo })));
-        
-        // Reset all columns tasks
-        activeColumns.update((cols: KanbanColumn[]) => {
-            return cols.map((col: KanbanColumn) => ({...col, tasks: []}));
-        });
-        
-        let allTasksBackup: KanbanTask[] = [];
+	try {
+		// Use the passed columns store if provided
+		const activeColumns = columnsStore || columns;
 
-        // Store all tasks for filtering purposes
-        allTasksBackup = [];
-        
-        // Distribute tasks to appropriate columns
-        activeColumns.update((cols: KanbanColumn[]) => {
-            data.items.forEach((task: RawTaskData) => {
-                const taskObj: KanbanTask = {
-                    id: task.id,
-                    title: task.title,
-                    taskDescription: task.taskDescription || '',
-                    creationDate: new Date(task.created),
-                    due_date: task.due_date ? new Date(task.due_date) : null,
-                    start_date: task.start_date ? new Date(task.start_date) : null,
-                    tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-                    attachments: (task.attachments || []).map(att => ({
-                        id: att.id || '',
-                        fileName: att.fileName || '',
-                        url: att.url || '',
-                        note: att.note
-                    })),                     
-                    project_id: task.project_id,
-                    createdBy: task.createdBy,
-                    assignedTo: task.assignedTo || '', 
-                    parent_task: task.parent_task || undefined,
-                    allocatedAgents: task.allocatedAgents || [],
-                    status: task.status,
-                    priority: task.priority || 'medium',
-                    prompt: task.prompt || '',
-                    context: task.context || '',
-                    task_outcome: task.task_outcome || '',
-                    dependencies: (task.dependencies || []).map(dep => 
-                        typeof dep === 'string' 
-                            ? { type: 'dependency' as const, task_id: dep }
-                            : dep
-                    ),                    
-                    agentMessages: task.agentMessages || []
-                };
-                
-                // Add to our backup of all tasks
-                allTasksBackup.push(taskObj);
-                
-                // Find the appropriate column based on status
-                const targetColumn = cols.find((col: KanbanColumn) => col.status === task.status);
-                
-                if (targetColumn) {
-                    targetColumn.tasks.push(taskObj);
-                } else {
-                    // If we can't find a matching column, default to Backlog
-                    const backlog = cols.find((col: KanbanColumn) => col.status === 'backlog');
-                    if (backlog) backlog.tasks.push(taskObj);
-                }
-            });
-            return cols;
-        });
+		if (!activeColumns) {
+			throw new Error('No columns store available');
+		}
 
-    } catch (err) {
-        console.error('Error loading tasks:', err);
-        throw err;
-    }
+		let url = '/api/tasks';
+		if (currentProjectId) {
+			url = `/api/projects/${currentProjectId}/tasks`;
+		}
+
+		const response = await fetch(url);
+		if (!response.ok) throw new Error('Failed to fetch tasks');
+
+		const data = await response.json();
+		console.log(
+			'Task data from API:',
+			data.items.map((t: RawTaskData) => ({ id: t.id, title: t.title, assignedTo: t.assignedTo }))
+		);
+
+		// Reset all columns tasks
+		activeColumns.update((cols: KanbanColumn[]) => {
+			return cols.map((col: KanbanColumn) => ({ ...col, tasks: [] }));
+		});
+
+		let allTasksBackup: KanbanTask[] = [];
+
+		// Store all tasks for filtering purposes
+		allTasksBackup = [];
+
+		// Distribute tasks to appropriate columns
+		activeColumns.update((cols: KanbanColumn[]) => {
+			data.items.forEach((task: RawTaskData) => {
+				const taskObj: KanbanTask = {
+					id: task.id,
+					title: task.title,
+					taskDescription: task.taskDescription || '',
+					creationDate: new Date(task.created),
+					due_date: task.due_date ? new Date(task.due_date) : null,
+					start_date: task.start_date ? new Date(task.start_date) : null,
+					tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+					attachments: (task.attachments || []).map((att) => ({
+						id: att.id || '',
+						fileName: att.fileName || '',
+						url: att.url || '',
+						note: att.note
+					})),
+					project_id: task.project_id,
+					createdBy: task.createdBy,
+					assignedTo: task.assignedTo || '',
+					parent_task: task.parent_task || undefined,
+					allocatedAgents: task.allocatedAgents || [],
+					status: task.status,
+					priority: task.priority || 'medium',
+					prompt: task.prompt || '',
+					context: task.context || '',
+					task_outcome: task.task_outcome || '',
+					dependencies: (task.dependencies || []).map((dep) =>
+						typeof dep === 'string' ? { type: 'dependency' as const, task_id: dep } : dep
+					),
+					agentMessages: task.agentMessages || []
+				};
+
+				// Add to our backup of all tasks
+				allTasksBackup.push(taskObj);
+
+				// Find the appropriate column based on status
+				const targetColumn = cols.find((col: KanbanColumn) => col.status === task.status);
+
+				if (targetColumn) {
+					targetColumn.tasks.push(taskObj);
+				} else {
+					// If we can't find a matching column, default to Backlog
+					const backlog = cols.find((col: KanbanColumn) => col.status === 'backlog');
+					if (backlog) backlog.tasks.push(taskObj);
+				}
+			});
+			return cols;
+		});
+	} catch (err) {
+		console.error('Error loading tasks:', err);
+		throw err;
+	}
 }
 
 /**
@@ -532,21 +539,16 @@ export async function loadTasks(columnsStore?: Writable<KanbanColumn[]>) {
  * @param allMessages Array of all messages to search
  * @returns The content of the first user message in the thread or empty string
  */
-export function getPromptFromThread(
-    threadId: string,
-    allMessages: InternalChatMessage[]
-): string {
-    if (!threadId) return '';
-    
-    // Find the first user message in the thread
-    const firstUserMessage = allMessages.find(msg => 
-        msg.thread === threadId && 
-        msg.role === 'user'
-    );
-    
-    return firstUserMessage ? firstUserMessage.content : '';
-}
+export function getPromptFromThread(threadId: string, allMessages: InternalChatMessage[]): string {
+	if (!threadId) return '';
 
+	// Find the first user message in the thread
+	const firstUserMessage = allMessages.find(
+		(msg) => msg.thread === threadId && msg.role === 'user'
+	);
+
+	return firstUserMessage ? firstUserMessage.content : '';
+}
 
 /**
  * Gets tasks assigned to a specific user
@@ -554,16 +556,16 @@ export function getPromptFromThread(
  * @returns Promise with the loaded tasks
  */
 export async function loadUserTasks(userId: string): Promise<Task[]> {
-    try {
-        const response = await fetch(`/api/users/${userId}/tasks`);
-        if (!response.ok) throw new Error('Failed to fetch user tasks');
-        
-        const data = await response.json();
-        return data.items;
-    } catch (err) {
-        console.error('Error loading user tasks:', err);
-        throw err;
-    }
+	try {
+		const response = await fetch(`/api/users/${userId}/tasks`);
+		if (!response.ok) throw new Error('Failed to fetch user tasks');
+
+		const data = await response.json();
+		return data.items;
+	} catch (err) {
+		console.error('Error loading user tasks:', err);
+		throw err;
+	}
 }
 
 /**
@@ -573,9 +575,8 @@ export async function loadUserTasks(userId: string): Promise<Task[]> {
  * @returns Promise with the updated task
  */
 export async function assignTask(taskId: string, userId: string): Promise<Task> {
-    return await updateTask(taskId, { assignedTo: userId });
+	return await updateTask(taskId, { assignedTo: userId });
 }
-
 
 /**
  * Updates a user's task assignments and status counts
@@ -584,65 +585,67 @@ export async function assignTask(taskId: string, userId: string): Promise<Task> 
  * @param taskStatus Status of the task being assigned
  */
 async function updateUserTaskAssignment(
-    userId: string,
-    taskId: string,
-    taskStatus: Task['status']
+	userId: string,
+	taskId: string,
+	taskStatus: Task['status']
 ): Promise<void> {
-    try {
-        // Get current user data
-        const userResponse = await fetch(`/api/users/${userId}`);
-        if (!userResponse.ok) throw new Error('Failed to fetch user data');
-        
-        const responseData = await userResponse.json();
-        const userData = responseData.success ? responseData.user : responseData;
-        
-        if (!userData || !userData.id) {
-            throw new Error('Invalid user data returned from API');
-        }
-        
-        // Prepare updated assignments
-        const taskAssignments = [...(userData.taskAssignments || [])];
-        if (!taskAssignments.includes(taskId)) {
-            taskAssignments.push(taskId);
-        }
-        
-        // Prepare updated status counts
-        const userTaskStatus = userData.userTaskStatus || {
-            backlog: 0,
-            todo: 0,
-            focus: 0,
-            done: 0,
-            hold: 0,
-            postpone: 0,
-            cancel: 0,
-            review: 0,
-            delegate: 0,
-            archive: 0
-        };
-        
-        // Increment the count for this status
-        userTaskStatus[taskStatus] = (userTaskStatus[taskStatus] || 0) + 1;
-        
-        // Update the user
-        const updateResponse = await fetch(`/api/users/${userId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                taskAssignments,
-                userTaskStatus
-            })
-        });
-        
-        if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`);
-        }
-    } catch (err) {
-        console.error('Error updating user task assignments:', err);
-        throw err;
-    }
+	try {
+		// Get current user data
+		const userResponse = await fetch(`/api/users/${userId}`);
+		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+
+		const responseData = await userResponse.json();
+		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!userData || !userData.id) {
+			throw new Error('Invalid user data returned from API');
+		}
+
+		// Prepare updated assignments
+		const taskAssignments = [...(userData.taskAssignments || [])];
+		if (!taskAssignments.includes(taskId)) {
+			taskAssignments.push(taskId);
+		}
+
+		// Prepare updated status counts
+		const userTaskStatus = userData.userTaskStatus || {
+			backlog: 0,
+			todo: 0,
+			focus: 0,
+			done: 0,
+			hold: 0,
+			postpone: 0,
+			cancel: 0,
+			review: 0,
+			delegate: 0,
+			archive: 0
+		};
+
+		// Increment the count for this status
+		userTaskStatus[taskStatus] = (userTaskStatus[taskStatus] || 0) + 1;
+
+		// Update the user
+		const updateResponse = await fetch(`/api/users/${userId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				taskAssignments,
+				userTaskStatus
+			})
+		});
+
+		if (!updateResponse.ok) {
+			const errorData = await updateResponse.json();
+			throw new Error(
+				`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`
+			);
+		}
+	} catch (err) {
+		console.error('Error updating user task assignments:', err);
+		throw err;
+	}
 }
 
 /**
@@ -652,64 +655,64 @@ async function updateUserTaskAssignment(
  * @param taskStatus Current status of the task
  */
 async function removeTaskFromUser(
-    userId: string,
-    taskId: string,
-    taskStatus: Task['status']
+	userId: string,
+	taskId: string,
+	taskStatus: Task['status']
 ): Promise<void> {
-    try {
-        // Get current user data
-        const userResponse = await fetch(`/api/users/${userId}`);
-        if (!userResponse.ok) throw new Error('Failed to fetch user data');
-        
-        const responseData = await userResponse.json();
-        const userData = responseData.success ? responseData.user : responseData;
-        
-        if (!userData || !userData.id) {
-            throw new Error('Invalid user data returned from API');
-        }
-        
-        // Remove task from assignments
-        const taskAssignments = (userData.taskAssignments || []).filter(
-            (id: string) => id !== taskId
-        );
-        
-        // Update status counts
-        const userTaskStatus = userData.userTaskStatus || {
-            backlog: 0,
-            todo: 0,
-            focus: 0,
-            done: 0,
-            hold: 0,
-            postpone: 0,
-            cancel: 0,
-            review: 0,
-            delegate: 0,
-            archive: 0
-        };
-        
-        // Decrement the count for this status (ensure it doesn't go below 0)
-        userTaskStatus[taskStatus] = Math.max(0, (userTaskStatus[taskStatus] || 0) - 1);
-        
-        // Update the user
-        const updateResponse = await fetch(`/api/users/${userId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                taskAssignments,
-                userTaskStatus
-            })
-        });
-        
-        if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`);
-        }
-    } catch (err) {
-        console.error('Error removing task from user:', err);
-        throw err;
-    }
+	try {
+		// Get current user data
+		const userResponse = await fetch(`/api/users/${userId}`);
+		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+
+		const responseData = await userResponse.json();
+		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!userData || !userData.id) {
+			throw new Error('Invalid user data returned from API');
+		}
+
+		// Remove task from assignments
+		const taskAssignments = (userData.taskAssignments || []).filter((id: string) => id !== taskId);
+
+		// Update status counts
+		const userTaskStatus = userData.userTaskStatus || {
+			backlog: 0,
+			todo: 0,
+			focus: 0,
+			done: 0,
+			hold: 0,
+			postpone: 0,
+			cancel: 0,
+			review: 0,
+			delegate: 0,
+			archive: 0
+		};
+
+		// Decrement the count for this status (ensure it doesn't go below 0)
+		userTaskStatus[taskStatus] = Math.max(0, (userTaskStatus[taskStatus] || 0) - 1);
+
+		// Update the user
+		const updateResponse = await fetch(`/api/users/${userId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				taskAssignments,
+				userTaskStatus
+			})
+		});
+
+		if (!updateResponse.ok) {
+			const errorData = await updateResponse.json();
+			throw new Error(
+				`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`
+			);
+		}
+	} catch (err) {
+		console.error('Error removing task from user:', err);
+		throw err;
+	}
 }
 
 /**
@@ -720,67 +723,69 @@ async function removeTaskFromUser(
  * @param taskId Task ID that changed status
  */
 async function updateUserTaskStatus(
-    userId: string,
-    oldStatus: Task['status'],
-    newStatus: Task['status'],
-    taskId: string
+	userId: string,
+	oldStatus: Task['status'],
+	newStatus: Task['status'],
+	taskId: string
 ): Promise<void> {
-    try {
-        // Get current user data
-        const userResponse = await fetch(`/api/users/${userId}`);
-        if (!userResponse.ok) throw new Error('Failed to fetch user data');
-        
-        const responseData = await userResponse.json();
-        const userData = responseData.success ? responseData.user : responseData;
-        
-        if (!userData || !userData.id) {
-            throw new Error('Invalid user data returned from API');
-        }
-        
-        // Ensure user still has this task assigned
-        if (!userData.taskAssignments || !userData.taskAssignments.includes(taskId)) {
-            return;
-        }
-        
-        // Update status counts
-        const userTaskStatus = userData.userTaskStatus || {
-            backlog: 0,
-            todo: 0,
-            focus: 0,
-            done: 0,
-            hold: 0,
-            postpone: 0,
-            cancel: 0,
-            review: 0,
-            delegate: 0,
-            archive: 0
-        };
-        
-        // Decrement old status count (ensure it doesn't go below 0)
-        userTaskStatus[oldStatus] = Math.max(0, (userTaskStatus[oldStatus] || 0) - 1);
-        
-        // Increment new status count
-        userTaskStatus[newStatus] = (userTaskStatus[newStatus] || 0) + 1;
-        
-        // Update the user
-        const updateResponse = await fetch(`/api/users/${userId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userTaskStatus
-            })
-        });
-        
-        if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(`Failed to update user task status counts: ${errorData.error || updateResponse.statusText}`);
-        }
-    } catch (err) {
-        console.error('Error updating user task status counts:', err);
-        throw err;
-    }
+	try {
+		// Get current user data
+		const userResponse = await fetch(`/api/users/${userId}`);
+		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+
+		const responseData = await userResponse.json();
+		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!userData || !userData.id) {
+			throw new Error('Invalid user data returned from API');
+		}
+
+		// Ensure user still has this task assigned
+		if (!userData.taskAssignments || !userData.taskAssignments.includes(taskId)) {
+			return;
+		}
+
+		// Update status counts
+		const userTaskStatus = userData.userTaskStatus || {
+			backlog: 0,
+			todo: 0,
+			focus: 0,
+			done: 0,
+			hold: 0,
+			postpone: 0,
+			cancel: 0,
+			review: 0,
+			delegate: 0,
+			archive: 0
+		};
+
+		// Decrement old status count (ensure it doesn't go below 0)
+		userTaskStatus[oldStatus] = Math.max(0, (userTaskStatus[oldStatus] || 0) - 1);
+
+		// Increment new status count
+		userTaskStatus[newStatus] = (userTaskStatus[newStatus] || 0) + 1;
+
+		// Update the user
+		const updateResponse = await fetch(`/api/users/${userId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				userTaskStatus
+			})
+		});
+
+		if (!updateResponse.ok) {
+			const errorData = await updateResponse.json();
+			throw new Error(
+				`Failed to update user task status counts: ${errorData.error || updateResponse.statusText}`
+			);
+		}
+	} catch (err) {
+		console.error('Error updating user task status counts:', err);
+		throw err;
+	}
 }
 /**
  * Updates a task's status and updates associated user task status counts
@@ -789,38 +794,38 @@ async function updateUserTaskStatus(
  * @returns Promise with the updated task
  */
 export async function updateTaskStatus(taskId: string, newStatus: Task['status']): Promise<Task> {
-    try {
-        // Get the current task to check for assignment and current status
-        const taskResponse = await fetch(`/api/tasks/${taskId}`);
-        if (!taskResponse.ok) throw new Error('Failed to fetch task data');
-        
-        const task = await taskResponse.json();
-        const oldStatus = task.status;
-        
-        // Update the task status
-        const updateData = { status: newStatus };
-        const response = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to update task status');
-        
-        const updatedTask = await response.json();
-        
-        // If the task is assigned to a user, update their task status counts
-        if (task.assignedTo) {
-            await updateUserTaskStatus(task.assignedTo, oldStatus, newStatus, taskId);
-        }
-        
-        return updatedTask;
-    } catch (err) {
-        console.error('Error updating task status:', err);
-        throw err;
-    }
+	try {
+		// Get the current task to check for assignment and current status
+		const taskResponse = await fetch(`/api/tasks/${taskId}`);
+		if (!taskResponse.ok) throw new Error('Failed to fetch task data');
+
+		const task = await taskResponse.json();
+		const oldStatus = task.status;
+
+		// Update the task status
+		const updateData = { status: newStatus };
+		const response = await fetch(`/api/tasks/${taskId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(updateData)
+		});
+
+		if (!response.ok) throw new Error('Failed to update task status');
+
+		const updatedTask = await response.json();
+
+		// If the task is assigned to a user, update their task status counts
+		if (task.assignedTo) {
+			await updateUserTaskStatus(task.assignedTo, oldStatus, newStatus, taskId);
+		}
+
+		return updatedTask;
+	} catch (err) {
+		console.error('Error updating task status:', err);
+		throw err;
+	}
 }
 
 /**
@@ -830,18 +835,18 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
  * @returns Promise that resolves when all tasks are updated
  */
 export async function bulkUpdateTaskStatus(
-    taskIds: string[], 
-    newStatus: Task['status']
+	taskIds: string[],
+	newStatus: Task['status']
 ): Promise<void> {
-    try {
-        // Process each task sequentially to ensure proper status tracking
-        for (const taskId of taskIds) {
-            await updateTaskStatus(taskId, newStatus);
-        }
-    } catch (err) {
-        console.error('Error bulk updating task status:', err);
-        throw err;
-    }
+	try {
+		// Process each task sequentially to ensure proper status tracking
+		for (const taskId of taskIds) {
+			await updateTaskStatus(taskId, newStatus);
+		}
+	} catch (err) {
+		console.error('Error bulk updating task status:', err);
+		throw err;
+	}
 }
 
 /**
@@ -851,46 +856,46 @@ export async function bulkUpdateTaskStatus(
  * @returns Promise with the updated task
  */
 export async function updateTaskAssignment(taskId: string, userId: string): Promise<Task> {
-    try {
-        // Get the current task to check for existing assignment
-        const taskResponse = await fetch(`/api/tasks/${taskId}`);
-        if (!taskResponse.ok) throw new Error('Failed to fetch task data');
-        
-        const task = await taskResponse.json();
-        const oldAssignedTo = task.assignedTo;
-        const currentStatus = task.status;
-        
-        // Update the task's assignedTo field
-        const updateData = { assignedTo: userId };
-        const response = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (!response.ok) throw new Error('Failed to update task assignment');
-        
-        const updatedTask = await response.json();
-        
-        // Handle changes to user task assignments
-        
-        // If previously assigned to someone else, remove from old user
-        if (oldAssignedTo && oldAssignedTo !== userId) {
-            await removeTaskFromUser(oldAssignedTo, taskId, currentStatus);
-        }
-        
-        // If now assigned to someone new, add to new user
-        if (userId) {
-            await updateUserTaskAssignment(userId, taskId, currentStatus);
-        }
-        
-        return updatedTask;
-    } catch (err) {
-        console.error('Error updating task assignment:', err);
-        throw err;
-    }
+	try {
+		// Get the current task to check for existing assignment
+		const taskResponse = await fetch(`/api/tasks/${taskId}`);
+		if (!taskResponse.ok) throw new Error('Failed to fetch task data');
+
+		const task = await taskResponse.json();
+		const oldAssignedTo = task.assignedTo;
+		const currentStatus = task.status;
+
+		// Update the task's assignedTo field
+		const updateData = { assignedTo: userId };
+		const response = await fetch(`/api/tasks/${taskId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(updateData)
+		});
+
+		if (!response.ok) throw new Error('Failed to update task assignment');
+
+		const updatedTask = await response.json();
+
+		// Handle changes to user task assignments
+
+		// If previously assigned to someone else, remove from old user
+		if (oldAssignedTo && oldAssignedTo !== userId) {
+			await removeTaskFromUser(oldAssignedTo, taskId, currentStatus);
+		}
+
+		// If now assigned to someone new, add to new user
+		if (userId) {
+			await updateUserTaskAssignment(userId, taskId, currentStatus);
+		}
+
+		return updatedTask;
+	} catch (err) {
+		console.error('Error updating task assignment:', err);
+		throw err;
+	}
 }
 
 /**
@@ -901,25 +906,25 @@ export async function updateTaskAssignment(taskId: string, userId: string): Prom
  * @returns Filtered array of tasks
  */
 export function filterTasksByTags(
-    tasks: KanbanTask[], 
-    selectedTagIds: string[],
-    requireAllTags: boolean = false
+	tasks: KanbanTask[],
+	selectedTagIds: string[],
+	requireAllTags: boolean = false
 ): KanbanTask[] {
-    if (!selectedTagIds.length) {
-        return tasks; // Return all tasks if no tags selected
-    }
-    
-    return tasks.filter(task => {
-        const taskTags = task.tags || [];
-        
-        if (requireAllTags) {
-            // Task must have ALL selected tags
-            return selectedTagIds.every(tagId => taskTags.includes(tagId));
-        } else {
-            // Task must have ANY of the selected tags
-            return selectedTagIds.some(tagId => taskTags.includes(tagId));
-        }
-    });
+	if (!selectedTagIds.length) {
+		return tasks; // Return all tasks if no tags selected
+	}
+
+	return tasks.filter((task) => {
+		const taskTags = task.tags || [];
+
+		if (requireAllTags) {
+			// Task must have ALL selected tags
+			return selectedTagIds.every((tagId) => taskTags.includes(tagId));
+		} else {
+			// Task must have ANY of the selected tags
+			return selectedTagIds.some((tagId) => taskTags.includes(tagId));
+		}
+	});
 }
 
 /**
@@ -931,34 +936,32 @@ export function filterTasksByTags(
  * @param statusMapping Map of column titles to status values
  */
 export function applyTagFilterToColumns(
-    columns: KanbanColumn[],
-    allTasks: KanbanTask[],
-    selectedTagIds: string[],
-    requireAllTags: boolean = false,
-    statusMapping: Record<string, string>
+	columns: KanbanColumn[],
+	allTasks: KanbanTask[],
+	selectedTagIds: string[],
+	requireAllTags: boolean = false,
+	statusMapping: Record<string, string>
 ): KanbanColumn[] {
-    // If no tags selected, just return columns with all tasks
-    if (!selectedTagIds.length) {
-        return columns.map(col => {
-            const tasksForColumn = allTasks.filter(task => {
-                return col.status === statusMapping[task.status] ||
-                        (task.status === col.status);
-            });
-            
-            return { ...col, tasks: tasksForColumn };
-        });
-    }
-    
-    // Filter tasks by tags
-    const filteredTasks = filterTasksByTags(allTasks, selectedTagIds, requireAllTags);
-    
-    // Distribute filtered tasks to appropriate columns
-    return columns.map(col => {
-        const tasksForColumn = filteredTasks.filter(task => {
-            return col.status === statusMapping[task.status] ||
-                    (task.status === col.status);
-        });
-        
-        return { ...col, tasks: tasksForColumn };
-    });
+	// If no tags selected, just return columns with all tasks
+	if (!selectedTagIds.length) {
+		return columns.map((col) => {
+			const tasksForColumn = allTasks.filter((task) => {
+				return col.status === statusMapping[task.status] || task.status === col.status;
+			});
+
+			return { ...col, tasks: tasksForColumn };
+		});
+	}
+
+	// Filter tasks by tags
+	const filteredTasks = filterTasksByTags(allTasks, selectedTagIds, requireAllTags);
+
+	// Distribute filtered tasks to appropriate columns
+	return columns.map((col) => {
+		const tasksForColumn = filteredTasks.filter((task) => {
+			return col.status === statusMapping[task.status] || task.status === col.status;
+		});
+
+		return { ...col, tasks: tasksForColumn };
+	});
 }

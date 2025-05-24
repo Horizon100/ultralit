@@ -12,7 +12,7 @@ import type {
 	AIModel,
 	Workflows,
 	Threads,
-	Messages,
+	Messages
 } from '$lib/types/types';
 
 // Setup
@@ -45,55 +45,55 @@ export async function checkPocketBaseConnection() {
 }
 
 export async function ensureAuthenticated(): Promise<boolean> {
-    console.log('Checking authentication...');
-    const now = Date.now();
-    
-    // Log auth state for debugging
-    console.log('Current auth model:', pb.authStore.model ? 'exists' : 'null');
-    console.log('Is auth valid?', pb.authStore.isValid);
-    
-    // If auth is valid and we've checked recently, return true
-    if (pb.authStore.isValid && now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
-        console.log('Auth is valid and checked recently, returning true');
-        return true;
-    }
-    
-    lastAuthCheck = now;
-    
-    // Check if we have a token
-    if (!pb.authStore.token) {
-        console.log('No token available, authentication fails');
-        return false;
-    }
-    
-    // If auth is invalid or we need to refresh, try to refresh
-    try {
-        console.log('Attempting to refresh auth token...');
-        // Use a try/catch block for the refresh operation
-        try {
-            await pb.collection('users').authRefresh();
-            console.log('Auth token refreshed successfully');
-            return pb.authStore.isValid;
-        } catch (error) {
-            // Check if this is an invalid/expired token error
-            if (error instanceof ClientResponseError) {
-                if (error.status === 401) {
-                    console.log('Token refresh failed: Token invalid or expired');
-                    pb.authStore.clear();
-                    return false;
-                }
-            }
-            
-            // For other errors, we might still be authenticated
-            console.error('Error during token refresh:', error);
-            // Check if auth is still valid despite the error
-            return pb.authStore.isValid;
-        }
-    } catch (outerError) {
-        // Catch any unexpected errors in the outer try block
-        console.error('Unexpected error during authentication check:', outerError);
-        return false;
-    }
+	console.log('Checking authentication...');
+	const now = Date.now();
+
+	// Log auth state for debugging
+	console.log('Current auth model:', pb.authStore.model ? 'exists' : 'null');
+	console.log('Is auth valid?', pb.authStore.isValid);
+
+	// If auth is valid and we've checked recently, return true
+	if (pb.authStore.isValid && now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
+		console.log('Auth is valid and checked recently, returning true');
+		return true;
+	}
+
+	lastAuthCheck = now;
+
+	// Check if we have a token
+	if (!pb.authStore.token) {
+		console.log('No token available, authentication fails');
+		return false;
+	}
+
+	// If auth is invalid or we need to refresh, try to refresh
+	try {
+		console.log('Attempting to refresh auth token...');
+		// Use a try/catch block for the refresh operation
+		try {
+			await pb.collection('users').authRefresh();
+			console.log('Auth token refreshed successfully');
+			return pb.authStore.isValid;
+		} catch (error) {
+			// Check if this is an invalid/expired token error
+			if (error instanceof ClientResponseError) {
+				if (error.status === 401) {
+					console.log('Token refresh failed: Token invalid or expired');
+					pb.authStore.clear();
+					return false;
+				}
+			}
+
+			// For other errors, we might still be authenticated
+			console.error('Error during token refresh:', error);
+			// Check if auth is still valid despite the error
+			return pb.authStore.isValid;
+		}
+	} catch (outerError) {
+		// Catch any unexpected errors in the outer try block
+		console.error('Unexpected error during authentication check:', outerError);
+		return false;
+	}
 }
 export async function signUp(email: string, password: string): Promise<User | null> {
 	try {
@@ -124,12 +124,12 @@ export function signOut() {
 
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
 	const currentUserId = pb.authStore.model?.id;
-	
+
 	// Check if user is trying to update their own profile
 	if (!currentUserId || id !== currentUserId) {
-	  throw new Error('Unauthorized: You can only update your own profile');
+		throw new Error('Unauthorized: You can only update your own profile');
 	}
-	
+
 	// Proceed with the update
 	const record = await pb.collection('users').update(id, userData);
 	return record as User;
@@ -137,84 +137,83 @@ export async function updateUser(id: string, userData: FormData | Partial<User>)
 
 export async function getUserById(id: string): Promise<User | null> {
 	try {
-	  const currentUserId = pb.authStore.model?.id;
-	  
-	  // Basic authentication check
-	  if (!currentUserId) {
-		throw new Error('Unauthorized: You must be logged in');
-	  }
-	  
-	  // Get the user record
-	  const record = await pb.collection('users').getOne(id);
-	  
-	  // If requesting user is the same as the requested profile, return full profile
-	  if (id === currentUserId) {
-		return record as User;
-	  }
-	  
-	  // Otherwise return only public fields
-	  const publicUser = {
-		id: record.id,
-		username: record.username,
-		name: record.name,
-		avatar: record.avatar,
-		created: record.created,
-		updated: record.updated
-		// Add other fields that should be public here
-	  };
-	  
-	  return publicUser as User;
+		const currentUserId = pb.authStore.model?.id;
+
+		// Basic authentication check
+		if (!currentUserId) {
+			throw new Error('Unauthorized: You must be logged in');
+		}
+
+		// Get the user record
+		const record = await pb.collection('users').getOne(id);
+
+		// If requesting user is the same as the requested profile, return full profile
+		if (id === currentUserId) {
+			return record as User;
+		}
+
+		// Otherwise return only public fields
+		const publicUser = {
+			id: record.id,
+			username: record.username,
+			name: record.name,
+			avatar: record.avatar,
+			created: record.created,
+			updated: record.updated
+			// Add other fields that should be public here
+		};
+
+		return publicUser as User;
 	} catch (error) {
-	  console.error('Error fetching user:', error);
-	  return null;
+		console.error('Error fetching user:', error);
+		return null;
 	}
 }
 
 export async function getPublicUserData(userId: string): Promise<Partial<User> | null> {
 	try {
-	  const record = await pb.collection('users').getOne(userId);
-	  
-	  return {
-		id: record.id,
-		username: record.username,
-		name: record.name,
-		avatar: record.avatar
-	  };
+		const record = await pb.collection('users').getOne(userId);
+
+		return {
+			id: record.id,
+			username: record.username,
+			name: record.name,
+			avatar: record.avatar
+		};
 	} catch (error) {
-	  console.error('Error fetching public user data:', error);
-	  return null;
+		console.error('Error fetching public user data:', error);
+		return null;
 	}
 }
 
 export async function authenticateWithGoogle() {
-    try {
-      const authData = await pb.collection('users').authWithOAuth2({
-        provider: 'google',
-        createData: {
-        }
-      });
-      
-      return authData;
-    } catch (error) {
-      console.error('Google authentication error:', error);
-      throw error;
-    }
-  }
+	try {
+		const authData = await pb.collection('users').authWithOAuth2({
+			provider: 'google',
+			createData: {}
+		});
 
-  /**
-   * Request a password reset for a user
-   * @param email The email of the user requesting a password reset
-   * @returns A boolean indicating success
-   */
+		return authData;
+	} catch (error) {
+		console.error('Google authentication error:', error);
+		throw error;
+	}
+}
+
+/**
+ * Request a password reset for a user
+ * @param email The email of the user requesting a password reset
+ * @returns A boolean indicating success
+ */
 export async function requestPasswordReset(email: string): Promise<boolean> {
 	try {
-	  await pb.collection('users').requestPasswordReset(email);
-	  return true;
+		await pb.collection('users').requestPasswordReset(email);
+		return true;
 	} catch (error) {
-	  console.error('Server-side password reset error:', error);
-	  throw error;
+		console.error('Server-side password reset error:', error);
+		throw error;
 	}
-  }
+}
 
 // ============= AI Agent Functions =============
 
@@ -364,17 +363,17 @@ export async function saveAIPreferences(preferences: AIPreferences): Promise<AIP
 
 export async function getAIPreferencesByUserId(userId: string): Promise<AIPreferences | null> {
 	try {
-	  const currentUserId = pb.authStore.model?.id;
-	  
-	  if (!currentUserId || userId !== currentUserId) {
-		throw new Error('Unauthorized: You can only access your own AI preferences');
-	  }
-	  
-	  const record = await pb.collection('ai_preferences').getFirstListItem(`user_id="${userId}"`);
-	  return record as AIPreferences;
+		const currentUserId = pb.authStore.model?.id;
+
+		if (!currentUserId || userId !== currentUserId) {
+			throw new Error('Unauthorized: You can only access your own AI preferences');
+		}
+
+		const record = await pb.collection('ai_preferences').getFirstListItem(`user_id="${userId}"`);
+		return record as AIPreferences;
 	} catch (error) {
-	  console.error('Error fetching AI preferences:', error);
-	  return null;
+		console.error('Error fetching AI preferences:', error);
+		return null;
 	}
 }
 
@@ -383,19 +382,19 @@ export async function updateAIPreferences(
 	preferences: Partial<AIPreferences>
 ): Promise<AIPreferences> {
 	const currentUserId = pb.authStore.model?.id;
-	
+
 	try {
-	  const existingPreference = await pb.collection('ai_preferences').getOne(id);
-	  
-	  if (!currentUserId || existingPreference.user_id !== currentUserId) {
-		throw new Error('Unauthorized: You can only update your own AI preferences');
-	  }
-	  
-	  const record = await pb.collection('ai_preferences').update(id, preferences);
-	  return record as AIPreferences;
+		const existingPreference = await pb.collection('ai_preferences').getOne(id);
+
+		if (!currentUserId || existingPreference.user_id !== currentUserId) {
+			throw new Error('Unauthorized: You can only update your own AI preferences');
+		}
+
+		const record = await pb.collection('ai_preferences').update(id, preferences);
+		return record as AIPreferences;
 	} catch (error) {
-	  console.error('Error updating AI preferences:', error);
-	  throw error;
+		console.error('Error updating AI preferences:', error);
+		throw error;
 	}
 }
 
@@ -587,7 +586,6 @@ export async function publishCursorPosition(
 	}, 100); // Debounce for 100ms
 }
 
-
 // ============= User Related Functions =============
 
 export async function fetchUserModels(userId: string): Promise<AIModel[]> {
@@ -643,10 +641,9 @@ export async function updateUserModelPreferences(
 export function getDefaultModelPreferences() {
 	return {
 		provider: 'openai',
-		model: 'gpt-3.5-turbo' 
+		model: 'gpt-3.5-turbo'
 	};
 }
-
 
 export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	try {
@@ -660,8 +657,6 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
 	}
 }
 
-
-
 // ============= Thread & Project Functions =============
 
 /*
@@ -670,13 +665,13 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 	  await ensureAuthenticated();
  * 	  const currentUserId = pb.authStore.model?.id;
  */
-	  
+
 /*
  * 	  if (!currentUserId) {
  * 		throw new Error('User not authenticated');
  * 	  }
  */
-	  
+
 /*
  * 	  const userThreads = await pb.collection('threads').getFullList<Threads>({
  * 		sort: '-created',
@@ -685,7 +680,7 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 		$autoCancel: false
  * 	  });
  */
-	  
+
 /*
  * 	  const opThreads = await pb.collection('threads').getFullList<Threads>({
  * 		sort: '-created',
@@ -694,7 +689,7 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 		$autoCancel: false
  * 	  });
  */
-	  
+
 /*
  * 	  const memberThreads = await pb.collection('threads').getFullList<Threads>({
  * 		sort: '-created',
@@ -703,12 +698,12 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 		$autoCancel: false
  * 	  });
  */
-	  
+
 /*
  * 	  // Combine the results, removing duplicates by ID
  * 	  const combinedThreads = [...userThreads];
  */
-	  
+
 /*
  * 	  // Add op threads if not already included
  * 	  opThreads.forEach(thread => {
@@ -717,7 +712,7 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 		}
  * 	  });
  */
-	  
+
 /*
  * 	  // Add member threads if not already included
  * 	  memberThreads.forEach(thread => {
@@ -726,14 +721,14 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * 		}
  * 	  });
  */
-	  
+
 /*
  * 	  // Sort by created date (newest first)
- * 	  combinedThreads.sort((a, b) => 
+ * 	  combinedThreads.sort((a, b) =>
  * 		new Date(b.created).getTime() - new Date(a.created).getTime()
  * 	  );
  */
-	  
+
 /*
  * 	  return combinedThreads;
  * 	} catch (error) {
@@ -743,47 +738,47 @@ export async function fetchUserFlows(userId: string): Promise<Workflows[]> {
  * }
  */
 
-
-
 export async function createThread(threadData: Partial<Threads>): Promise<Threads> {
 	try {
-	  await ensureAuthenticated();
-	  const currentUserId = pb.authStore.model?.id;
-	  
-	  if (!currentUserId) {
-		throw new Error('User not authenticated');
-	  }
-	  
-	  // Ensure the current user has appropriate permissions
-	  if (threadData.project) {
-		// Check if user has access to this project
-		const project = await pb.collection('projects').getOne(threadData.project, {
-		  $autoCancel: false
-		});
-		
-		if (project.owner !== currentUserId && 
-			!(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId))) {
-		  throw new Error('Unauthorized to create threads in this project');
+		await ensureAuthenticated();
+		const currentUserId = pb.authStore.model?.id;
+
+		if (!currentUserId) {
+			throw new Error('User not authenticated');
 		}
-	  }
-	  
-	  // Set default values if not provided
-	  const defaultedThreadData = {
-		...threadData,
-		user: threadData.user || currentUserId,
-		members: threadData.members || [currentUserId],
-		created: threadData.created || new Date().toISOString(),
-		updated: threadData.updated || new Date().toISOString()
-	  };
-	  
-	  console.log('Creating thread with data:', defaultedThreadData);
-	  const record = await pb.collection('threads').create<Threads>(defaultedThreadData);
-	  console.log('Thread created successfully:', record);
-	  
-	  return record;
+
+		// Ensure the current user has appropriate permissions
+		if (threadData.project) {
+			// Check if user has access to this project
+			const project = await pb.collection('projects').getOne(threadData.project, {
+				$autoCancel: false
+			});
+
+			if (
+				project.owner !== currentUserId &&
+				!(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId))
+			) {
+				throw new Error('Unauthorized to create threads in this project');
+			}
+		}
+
+		// Set default values if not provided
+		const defaultedThreadData = {
+			...threadData,
+			user: threadData.user || currentUserId,
+			members: threadData.members || [currentUserId],
+			created: threadData.created || new Date().toISOString(),
+			updated: threadData.updated || new Date().toISOString()
+		};
+
+		console.log('Creating thread with data:', defaultedThreadData);
+		const record = await pb.collection('threads').create<Threads>(defaultedThreadData);
+		console.log('Thread created successfully:', record);
+
+		return record;
 	} catch (error) {
-	  console.error('Error creating thread:', error);
-	  throw error;
+		console.error('Error creating thread:', error);
+		throw error;
 	}
 }
 

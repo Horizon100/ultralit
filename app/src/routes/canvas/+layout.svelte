@@ -2,7 +2,7 @@
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import {fly, fade} from 'svelte/transition'
+	import { fly, fade } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
 	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
 	import ConfigWrapper from '$lib/features/agents/components/ConfigWrapper.svelte';
@@ -128,7 +128,6 @@
 		leftMenuOpenedByToggle.set(true);
 		selectedShape = shape;
 	}
-
 
 	function handleRightSideMenuLeave() {
 		if (showRightSideMenu && !$rightMenuOpenedByToggle) {
@@ -261,7 +260,6 @@
 			y: shape.y
 		}));
 	}
-
 
 	// Shape handling
 	async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
@@ -440,7 +438,6 @@
 		}
 	}
 
-
 	async function createAgentInDatabase(x: number, y: number) {
 		try {
 			const agentData: Partial<AIAgent> = {
@@ -560,7 +557,6 @@
 		showImportDocs = false;
 	}
 
-
 	onMount(() => {
 		updateDimensions();
 		window.addEventListener('resize', updateDimensions);
@@ -586,8 +582,9 @@
 		}
 	});
 </script>
-<ConfigWrapper/>
-<div 
+
+<ConfigWrapper />
+<div
 	bind:this={containerDiv}
 	class="layout-container"
 	on:click={handleCanvasClick}
@@ -712,20 +709,20 @@
 			<span>{$zoomLevel.toFixed(0)}%</span>
 			<button on:click={zoomIn}>+</button>
 			<button on:click={resetZoom}>
-				<Maximize/>
+				<Maximize />
 			</button>
 		</span>
 		<button on:click={toggleRightSideMenu}>
 			<span class="open-button">
 				{#if showRightSideMenu}
-				<BrainCog />
+					<BrainCog />
 
 					Agents
 					<X />
 				{:else}
-				  <BrainCog />
+					<BrainCog />
 				{/if}
-			  </span>
+			</span>
 		</button>
 	</div>
 
@@ -750,11 +747,10 @@
 </div>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
-	}	
+	}
 	.layout-container {
 		display: flex;
 		/* flex-direction: column; */
@@ -776,7 +772,6 @@
 		width: 100%;
 		height: 100%; /* Fill the height of the wrapper */
 	}
-	
 
 	.map {
 		/* width: 100%; */
@@ -849,7 +844,7 @@
 		right: 0;
 		display: flex;
 		align-items: center;
-		justify-content:flex-end;
+		justify-content: flex-end;
 		z-index: 1;
 		border-top-left-radius: 20px;
 		border-top-right-radius: 20px;
@@ -910,12 +905,8 @@
 			justify-content: center;
 			align-items: center;
 			gap: 0.5rem;
-
-
 		}
-
 	}
-
 
 	span.zoom-controls {
 		bottom: 1rem;
@@ -933,8 +924,6 @@
 			transform 0.1s;
 		font-weight: bold;
 		padding: 8px 15px;
-
-		
 	}
 
 	span {
@@ -942,7 +931,6 @@
 		min-width: 50px;
 		text-align: center;
 		color: white;
-
 	}
 
 	/* 

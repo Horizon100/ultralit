@@ -5,7 +5,12 @@
 	import type { Actions } from '$lib/types/types';
 	import { actionStore } from '$lib/stores/actionStore';
 	import { currentUser } from '$lib/pocketbase';
-	import { createAction, updateAction, deleteAction, fetchActions } from '$lib/clients/actionClient';
+	import {
+		createAction,
+		updateAction,
+		deleteAction,
+		fetchActions
+	} from '$lib/clients/actionClient';
 	import { browser } from '$app/environment';
 
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
@@ -29,9 +34,9 @@
 		}
 	}
 	onMount(async () => {
-		debugCookies(); 
+		debugCookies();
 		showLoading();
-		await actionStore.loadActions(); 
+		await actionStore.loadActions();
 
 		isLoading = false;
 	});
@@ -71,29 +76,29 @@
 		resetForm();
 	}
 
-async function handleSubmit() {
-	const actionData: Partial<Actions> = {
-		name: actionsName,
-		description: actionsDescription,
-		code: actionsCode
-	};
+	async function handleSubmit() {
+		const actionData: Partial<Actions> = {
+			name: actionsName,
+			description: actionsDescription,
+			code: actionsCode
+		};
 
-	try {
-		if (selectedAction) {
-			// Use the store method (it handles both API and store update)
-			await actionStore.updateAction(selectedAction.id, actionData);
-		} else {
-			// Use the store method (it handles both API and store update)
-			await actionStore.addAction(actionData);
+		try {
+			if (selectedAction) {
+				// Use the store method (it handles both API and store update)
+				await actionStore.updateAction(selectedAction.id, actionData);
+			} else {
+				// Use the store method (it handles both API and store update)
+				await actionStore.addAction(actionData);
+			}
+			showCreateForm = false;
+			selectedAction = null;
+			resetForm();
+		} catch (error) {
+			console.error('Error saving action:', error);
+			updateStatus = 'Error saving action. Please try again.';
 		}
-		showCreateForm = false;
-		selectedAction = null;
-		resetForm();
-	} catch (error) {
-		console.error('Error saving action:', error);
-		updateStatus = 'Error saving action. Please try again.';
 	}
-}
 
 	async function handleDelete(action: Actions) {
 		if (confirm(`Are you sure you want to delete ${action.name}?`)) {
@@ -190,14 +195,13 @@ async function handleSubmit() {
 {/if}
 
 <style lang="scss">
-    $breakpoint-sm: 576px;
-    $breakpoint-md: 1000px;
-    $breakpoint-lg: 992px;
-    $breakpoint-xl: 1200px;
-    @use "src/styles/themes.scss" as *;
-    * {
-      font-family: var(--font-family);
-    }   	
+	$breakpoint-sm: 576px;
+	$breakpoint-md: 1000px;
+	$breakpoint-lg: 992px;
+	$breakpoint-xl: 1200px;
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}
 	.actions-config {
 		display: flex;
 		gap: 0;
@@ -206,7 +210,6 @@ async function handleSubmit() {
 		z-index: 1000;
 		width: 100%;
 		backdrop-filter: blur(20px);
-;
 	}
 
 	.column {
@@ -342,7 +345,6 @@ async function handleSubmit() {
 		justify-content: space-between;
 		align-items: center;
 		margin-right: 5rem;
-
 	}
 
 	.item {

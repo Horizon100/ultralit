@@ -23,9 +23,13 @@ export function formatDate(date: string): string {
 }
 
 // Updated formatContent to work with custom prompts
-export async function formatContent(content: MessageContent, type: PromptType, role: RoleType): Promise<string> {
+export async function formatContent(
+	content: MessageContent,
+	type: PromptType,
+	role: RoleType
+): Promise<string> {
 	const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
-	
+
 	if (role !== 'assistant') {
 		return baseContent;
 	}
@@ -35,43 +39,42 @@ export async function formatContent(content: MessageContent, type: PromptType, r
 	if (!user) return baseContent;
 
 	let customPrompts: string[] = [];
-	
+
 	// Get user's preferred prompts
 	if (user.prompt_preference && user.prompt_preference.length > 0) {
 		const userPrompts = await fetchUserPrompts(user.id);
-		const preferredPrompts = userPrompts.filter(p => 
-			user.prompt_preference.includes(p.id)
-		);
-		customPrompts = preferredPrompts.map(p => p.prompt);
+		const preferredPrompts = userPrompts.filter((p) => user.prompt_preference.includes(p.id));
+		customPrompts = preferredPrompts.map((p) => p.prompt);
 	}
-	
+
 	// Get system prompt
 	let systemPrompt: string | null = null;
 	if (user.sysprompt_preference) {
 		systemPrompt = await fetchSystemPrompt(user.sysprompt_preference);
 	}
-	
+
 	// Combine all prompts
-	const allPrompts = [
-		...(systemPrompt ? [systemPrompt] : []),
-		...customPrompts
-	].filter(Boolean);
-	
+	const allPrompts = [...(systemPrompt ? [systemPrompt] : []), ...customPrompts].filter(Boolean);
+
 	if (allPrompts.length === 0) return baseContent;
-	
+
 	const promptText = allPrompts.join('\n\n');
 	return `[Applied Prompts: ${promptText}]\n${baseContent}`;
 }
 
 // Synchronous version for backward compatibility
-export function formatContentSync(content: MessageContent, type: PromptType, role: RoleType): string {
+export function formatContentSync(
+	content: MessageContent,
+	type: PromptType,
+	role: RoleType
+): string {
 	const baseContent = typeof content === 'string' ? content : JSON.stringify(content);
-	
+
 	// For assistant messages, show that custom prompts are being applied
 	if (role === 'assistant' && type) {
 		return `[Prompt: ${type}]\n${baseContent}`;
 	}
-	
+
 	return baseContent;
 }
 

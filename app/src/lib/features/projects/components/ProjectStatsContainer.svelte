@@ -12,8 +12,6 @@
 	let lastActive: Date | null = null;
 	let isLoading: boolean = false;
 
-
-
 	function formatDate(date: string): string {
 		if (date === 'Today' || date === 'Yesterday') return date;
 		return new Date(date).toLocaleDateString('en-US', {
@@ -55,21 +53,21 @@
 		try {
 			isLoading = true;
 			console.log('Fetching stats for project:', id);
-			
+
 			// Reset stats first
 			messageCount = 0;
 			collaboratorCount = 0;
 			documentCount = 0;
 			completionPercentage = 0;
 			lastActive = null;
-			
+
 			// Fetch each stat individually
 			messageCount = await fetchCount('messages', `project = "${id}"`);
 			documentCount = await fetchCount('documents', `project = "${id}"`);
-			
+
 			// Get collaborator count
 			collaboratorCount = $projectStore.collaborators?.length || 0;
-			
+
 			// Get last active time
 			try {
 				const lastMessageResult = await pb.collection('messages').getList(1, 1, {
@@ -83,12 +81,13 @@
 			} catch (error) {
 				console.error('Error fetching last active time:', error);
 			}
-			
+
 			// Calculate completion percentage
 			const projectTasks = await fetchCount('tasks', `project = "${id}"`);
 			const completedTasks = await fetchCount('tasks', `project = "${id}" && status = "completed"`);
-			completionPercentage = projectTasks > 0 ? calculatePercentage(completedTasks, projectTasks) : 0;
-			
+			completionPercentage =
+				projectTasks > 0 ? calculatePercentage(completedTasks, projectTasks) : 0;
+
 			console.log('Stats fetched successfully:', {
 				messageCount,
 				documentCount,
@@ -105,7 +104,7 @@
 	// Track when store values change
 	$: projectId = $projectStore.currentProjectId;
 	$: project = $projectStore.currentProject;
-	
+
 	// When projectId changes, fetch new stats
 	$: if (projectId) {
 		console.log('ProjectStatsContainer: projectId changed to', projectId);
@@ -120,50 +119,50 @@
 </script>
 
 {#if isLoading}
-<div class="spinner-container">
-	<div class="spinner"></div>
-</div>
+	<div class="spinner-container">
+		<div class="spinner"></div>
+	</div>
 {:else if project}
-<div class="stats-container">
-	<!-- <div class="title">
+	<div class="stats-container">
+		<!-- <div class="title">
 		<h2>{project?.name || $t('dashboard.projectStats')}</h2>
 	</div> -->
-	<div class="stat-item" style="--progress: {calculatePercentage(messageCount, 100)}%">
-		<span>{messageCount} {$t('dashboard.nameMessages')}</span>
-		<span class="target">100 ✰</span>
-	</div>
+		<div class="stat-item" style="--progress: {calculatePercentage(messageCount, 100)}%">
+			<span>{messageCount} {$t('dashboard.nameMessages')}</span>
+			<span class="target">100 ✰</span>
+		</div>
 
-	<div class="stat-item" style="--progress: {calculatePercentage(collaboratorCount, 10)}%">
-		<span>{collaboratorCount} {$t('dashboard.nameCollaborators')}</span>
-		<span class="target">10 ✰</span>
-	</div>
+		<div class="stat-item" style="--progress: {calculatePercentage(collaboratorCount, 10)}%">
+			<span>{collaboratorCount} {$t('dashboard.nameCollaborators')}</span>
+			<span class="target">10 ✰</span>
+		</div>
 
-	<div class="stat-item" style="--progress: {calculatePercentage(documentCount, 50)}%">
-		<span>{documentCount} {$t('dashboard.nameDocuments')}</span>
-		<span class="target">50 ✰</span>
-	</div>
+		<div class="stat-item" style="--progress: {calculatePercentage(documentCount, 50)}%">
+			<span>{documentCount} {$t('dashboard.nameDocuments')}</span>
+			<span class="target">50 ✰</span>
+		</div>
 
-	<div class="stat-item" style="--progress: {completionPercentage}%">
-		<span>{completionPercentage}% {$t('dashboard.nameCompletion')}</span>
-		<span class="target">100% ✰</span>
-	</div>
+		<div class="stat-item" style="--progress: {completionPercentage}%">
+			<span>{completionPercentage}% {$t('dashboard.nameCompletion')}</span>
+			<span class="target">100% ✰</span>
+		</div>
 
-	<div class="last-active">
-		{$t('dashboard.nameActive')}
-		{lastActive ? formatDate(lastActive.toString()) : 'Never'}
+		<div class="last-active">
+			{$t('dashboard.nameActive')}
+			{lastActive ? formatDate(lastActive.toString()) : 'Never'}
+		</div>
 	</div>
-</div>
 {:else}
-<div class="stats-container empty-state">
-	<p>{$t('dashboard.noProjectSelected')}</p>
-</div>
+	<div class="stats-container empty-state">
+		<p>{$t('dashboard.noProjectSelected')}</p>
+	</div>
 {/if}
 
 <style lang="scss">
 	* {
-      font-family: var(--font-family);
-    }
-	
+		font-family: var(--font-family);
+	}
+
 	.stats-container {
 		backdrop-filter: blur(10px);
 		display: flex;
@@ -177,8 +176,9 @@
 		position: relative;
 		overflow: hidden;
 	}
-	
-	.empty-state, .loading {
+
+	.empty-state,
+	.loading {
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -209,7 +209,7 @@
 	.title {
 		display: flex;
 	}
-	
+
 	.stats-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
 		opacity: 1;

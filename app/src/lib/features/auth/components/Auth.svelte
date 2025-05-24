@@ -1,8 +1,29 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { currentUser, checkPocketBaseConnection, updateUser, signIn, signUp as registerUser, signOut, pocketbaseUrl, requestPasswordReset } from '$lib/pocketbase';
-	import { Camera, LogIn, UserPlus, LogOut, Send, SignalHigh, MailPlus, Loader2, ChevronRight, Bot, ChevronLeft } from 'lucide-svelte';
+	import {
+		currentUser,
+		checkPocketBaseConnection,
+		updateUser,
+		signIn,
+		signUp as registerUser,
+		signOut,
+		pocketbaseUrl,
+		requestPasswordReset
+	} from '$lib/pocketbase';
+	import {
+		Camera,
+		LogIn,
+		UserPlus,
+		LogOut,
+		Send,
+		SignalHigh,
+		MailPlus,
+		Loader2,
+		ChevronRight,
+		Bot,
+		ChevronLeft
+	} from 'lucide-svelte';
 	import Profile from '$lib/features/users/components/Profile.svelte';
 	import Terms from '$lib/features/legal/components/Terms.svelte';
 	import PrivacyPolicy from '$lib/features/legal/components/PrivacyPolicy.svelte';
@@ -47,7 +68,7 @@
 
 	function handleTouchStart(event: TouchEvent): void {
 		if (!browser) return;
-		
+
 		// Only initiate drag if touch starts in the top portion of the container
 		const touch = event.touches[0];
 		const element = event.currentTarget as HTMLElement;
@@ -130,27 +151,27 @@
 
 	export async function login(): Promise<void> {
 		if (!browser) return;
-		
+
 		errorMessage = '';
 		isLoading = true;
-		
+
 		try {
 			if (!email || !password) {
-			errorMessage = 'Email and password are required';
-			isLoading = false;
-			return;
+				errorMessage = 'Email and password are required';
+				isLoading = false;
+				return;
 			}
-			
+
 			const authData = await signIn(email, password);
 			if (authData) {
-			errorMessage = '';
-			await tick();
-			
-			dispatch('close');
-			
-			dispatch('success');
+				errorMessage = '';
+				await tick();
+
+				dispatch('close');
+
+				dispatch('success');
 			} else {
-			errorMessage = 'Login failed. Please check your credentials.';
+				errorMessage = 'Login failed. Please check your credentials.';
 			}
 		} catch (err) {
 			console.error('Login error:', err);
@@ -158,55 +179,59 @@
 		} finally {
 			goto('/home');
 			isLoading = false;
-			
 		}
 	}
 
 	export async function signUp(): Promise<void> {
-    if (!browser) return;
-    
-    errorMessage = '';
-    isLoading = true;
-    
-    try {
-        if (!email || !password) {
-            errorMessage = 'Email and password are required';
-            isLoading = false;
-            return;
-        }
-        
-        console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
-        
-        const createdUser = await registerUser(email, password);
-        if (createdUser) {
-            // Login with the newly created credentials
-            await login();
-        } else {
-            // Handle null return from registerUser like you do in login
-            errorMessage = 'Signup failed. Please try again.';
-        }
-    } catch (err) {
-        // This catch should now only trigger for unexpected errors
-        console.error('Unexpected signup error:', err);
-        errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
-    } finally {
-        isLoading = false;
-    }
-}
+		if (!browser) return;
+
+		errorMessage = '';
+		isLoading = true;
+
+		try {
+			if (!email || !password) {
+				errorMessage = 'Email and password are required';
+				isLoading = false;
+				return;
+			}
+
+			console.log(
+				'Attempting signup with:',
+				email,
+				password ? '(password provided)' : '(no password)'
+			);
+
+			const createdUser = await registerUser(email, password);
+			if (createdUser) {
+				// Login with the newly created credentials
+				await login();
+			} else {
+				// Handle null return from registerUser like you do in login
+				errorMessage = 'Signup failed. Please try again.';
+			}
+		} catch (err) {
+			// This catch should now only trigger for unexpected errors
+			console.error('Unexpected signup error:', err);
+			errorMessage =
+				err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	async function handleWaitlistSubmission(): Promise<void> {
 		if (!browser) return;
-		
+
 		errorMessage = '';
 		isLoading = true;
-		
+
 		try {
 			if (!email) {
 				errorMessage = 'Email is required';
 				isLoading = false;
 				return;
 			}
-			
+
 			// Implementation for waitlist submission
 			const response = await fetch('/api/verify/waitlist', {
 				method: 'POST',
@@ -215,7 +240,7 @@
 				},
 				body: JSON.stringify({ email })
 			});
-			
+
 			if (response.ok) {
 				dispatch('waitlist-success', { email });
 				isWaitlistMode = false;
@@ -231,7 +256,8 @@
 			}
 		} catch (err) {
 			console.error('Waitlist submission error:', err);
-			errorMessage = err instanceof Error ? err.message : 'An error occurred while joining the waitlist';
+			errorMessage =
+				err instanceof Error ? err.message : 'An error occurred while joining the waitlist';
 		} finally {
 			isLoading = false;
 		}
@@ -239,7 +265,7 @@
 
 	async function logout(): Promise<void> {
 		if (!browser) return;
-		
+
 		try {
 			await signOut();
 			showProfileModal = false;
@@ -275,34 +301,34 @@
 
 	async function resetPassword(): Promise<void> {
 		if (!browser) return;
-		
+
 		errorMessage = '';
 		isLoading = true;
-		
+
 		try {
 			if (!email) {
-			errorMessage = 'Email is required';
-			isLoading = false;
-			return;
+				errorMessage = 'Email is required';
+				isLoading = false;
+				return;
 			}
-			
+
 			console.log('Starting password reset for:', email);
-			
+
 			// Request password reset
 			const success = await requestPasswordReset(email);
-			
+
 			console.log('Password reset request completed, success:', success);
-			
+
 			if (success) {
-			// Show success message and close the form
-			closePasswordReset();
-			// You might want to show a notification here
-			dispatch('notification', { 
-				type: 'success', 
-				message: 'Password reset link sent to your email' 
-			});
+				// Show success message and close the form
+				closePasswordReset();
+				// You might want to show a notification here
+				dispatch('notification', {
+					type: 'success',
+					message: 'Password reset link sent to your email'
+				});
 			} else {
-			errorMessage = 'Failed to send reset email. Please try again.';
+				errorMessage = 'Failed to send reset email. Please try again.';
 			}
 		} catch (err) {
 			console.error('Password reset error in component:', err);
@@ -314,16 +340,16 @@
 
 	onMount(async () => {
 		if (!browser) return;
-		
+
 		try {
 			const isConnected = await checkPocketBaseConnection();
 			connectionChecked = true;
-			
+
 			if (!isConnected) {
 				errorMessage = 'Unable to connect to the server. Please try again later.';
 				return;
 			}
-			
+
 			const user = get(currentUser);
 			if (user && user.id) {
 				updateAvatarUrl();
@@ -361,140 +387,124 @@
 	{:else}
 		<div class="login-container">
 			<div class="credentials">
-				<form 
-				on:submit|preventDefault={(e) => {
-				  e.preventDefault();
-				  // This ensures the form never handles the signup
-				}} 
-				class="auth-form"
-			  >
-			  <span>
-				<img src={horizon100} alt="Horizon100" class="logo" />
-				<h2>vRAZUM</h2>							
+				<form
+					on:submit|preventDefault={(e) => {
+						e.preventDefault();
+						// This ensures the form never handles the signup
+					}}
+					class="auth-form"
+				>
+					<span>
+						<img src={horizon100} alt="Horizon100" class="logo" />
+						<h2>vRAZUM</h2>
+					</span>
+					<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+						<input
+							type="email"
+							bind:value={email}
+							placeholder={$t('profile.email')}
+							required
+							disabled={isLoading}
+						/>
+						<GoogleAuth />
 
-			  </span>
-			  <span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
-				<input 
-					type="email" 
-					bind:value={email} 
-					placeholder={$t('profile.email')}
-					required 
-					disabled={isLoading}
-				/>
-					<GoogleAuth/>
-
-				<!-- <button class="round-btn auth-provider">
+						<!-- <button class="round-btn auth-provider">
 					<img src={Microsoft} alt="Microsoft" class="auth-icon" />
 				</button>
 				<button class="round-btn auth-provider">
 					<img src={Yandex} alt="Yandex" class="auth-icon" />
 				</button> -->
-			</span>
+					</span>
 
-			<span class="password-input" transition:fly={{ duration: 300, delay: 200 }}>
-				<input
-					type="password"
-					bind:value={password}
-					placeholder={$t('profile.password')}
-					required
-					disabled={isLoading}
-					transition:fly={{ duration: 300 }}
-
-				/>
-				<button 
-					class="round-btn invitation"
-					on:click={(e) => {
-						e.preventDefault();
-						if (email && password) {
-							login();
-						} else {
-							errorMessage = 'Email and password are required';
-						}
-					}}
-					type="button"
-					disabled={isLoading}
-					transition:fly={{ duration: 300 }}
-
-				>
-					{#if isLoading}
-						<div class="small-spinner-container">
-							<div class="small-spinner">
-								<Bot/>
-							</div>
-						</div>
-					{:else}
+					<span class="password-input" transition:fly={{ duration: 300, delay: 200 }}>
+						<input
+							type="password"
+							bind:value={password}
+							placeholder={$t('profile.password')}
+							required
+							disabled={isLoading}
+							transition:fly={{ duration: 300 }}
+						/>
+						<button
+							class="round-btn invitation"
+							on:click={(e) => {
+								e.preventDefault();
+								if (email && password) {
+									login();
+								} else {
+									errorMessage = 'Email and password are required';
+								}
+							}}
+							type="button"
+							disabled={isLoading}
+							transition:fly={{ duration: 300 }}
+						>
+							{#if isLoading}
+								<div class="small-spinner-container">
+									<div class="small-spinner">
+										<Bot />
+									</div>
+								</div>
+							{:else}
+								<span>
+									{$t('profile.login')}
+								</span>
+								<ChevronRight />
+							{/if}
+						</button>
+					</span>
+					<div class="auth-btn" on:click={openInvitationOverlay} transition:fly={{ duration: 300 }}>
 						<span>
-							{$t('profile.login')}
+							<!-- <MailPlus />	 -->
+							<span class="btn-description">
+								{$t('profile.invitation')}
+							</span>
+							<!-- {isLoading ? 'Signing up...' : ''} -->
 						</span>
-						<ChevronRight/>
-					{/if}
-				</button>
-			</span>
-			<div 
-				class="auth-btn"
-				on:click={openInvitationOverlay}
-				transition:fly={{ duration: 300 }}
-
-				>
-				<span>
-					<!-- <MailPlus />	 -->
-					<span class="btn-description">
-					{$t('profile.invitation')}
-					</span>						
-					<!-- {isLoading ? 'Signing up...' : ''} -->
-				</span>
-			</div>
-			{#if showPasswordReset}
-			<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
-				<button 
-				class="round-btn back"
-				on:click={closePasswordReset}
-
-				>
-					<ChevronLeft />
-				</button>
-				<input 
-					type="email" 
-					bind:value={email} 
-					placeholder={$t('profile.emailReset')}
-					required 
-					disabled={isLoading}
-				/>
-				<button 
-				class="round-btn submit"
-				on:click={resetPassword}
-
-				>{#if isLoading}
-				<div class="small-spinner-container">
-					<div class="small-spinner">
-						<Bot/>
 					</div>
-				</div>
-			{:else}
-				<span>
-					{$t('profile.reset')}
-				</span>
-				<ChevronRight/>
-			{/if}
-				</button>
-			</span>
-			{:else}
-			<div 
-				class="auth-btn reset" 
-				on:click={openPasswordReset}
-				transition:fly={{ duration: 300 }}
+					{#if showPasswordReset}
+						<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+							<button class="round-btn back" on:click={closePasswordReset}>
+								<ChevronLeft />
+							</button>
+							<input
+								type="email"
+								bind:value={email}
+								placeholder={$t('profile.emailReset')}
+								required
+								disabled={isLoading}
+							/>
+							<button class="round-btn submit" on:click={resetPassword}
+								>{#if isLoading}
+									<div class="small-spinner-container">
+										<div class="small-spinner">
+											<Bot />
+										</div>
+									</div>
+								{:else}
+									<span>
+										{$t('profile.reset')}
+									</span>
+									<ChevronRight />
+								{/if}
+							</button>
+						</span>
+					{:else}
+						<div
+							class="auth-btn reset"
+							on:click={openPasswordReset}
+							transition:fly={{ duration: 300 }}
+						>
+							<span>
+								<!-- <MailPlus />	 -->
+								<span class="btn-description">
+									{$t('profile.passwordHelp')}
+								</span>
+								<!-- {isLoading ? 'Signing up...' : ''} -->
+							</span>
+						</div>
+					{/if}
 
-				>
-				<span>
-					<!-- <MailPlus />	 -->
-					<span class="btn-description">
-					{$t('profile.passwordHelp')}
-					</span>						
-					<!-- {isLoading ? 'Signing up...' : ''} -->
-				</span>
-			</div>
-			{/if}
-			
 					<!-- <button 
 					class="button button-subtle" 
 					on:click|preventDefault={openJoinWaitlistOverlay}
@@ -505,7 +515,7 @@
 				</button> -->
 				</form>
 			</div>
-		
+
 			<div class="terms-privacy">
 				<span>{$t('profile.clause')}</span>
 				<button on:click={openTermsOverlay}>{$t('profile.terms')}</button>
@@ -541,26 +551,25 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 	}
-span.email-input,
-    span.password-input,
-    span.invitation-input {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-       
-        height: 4rem;
-        padding: 0;
+	span.email-input,
+	span.password-input,
+	span.invitation-input {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+
+		height: 4rem;
+		padding: 0;
 		padding-right: 0.5rem;
-        gap: 1rem;
-        background: var(--bg-color);
-        border-radius: 2rem;
-    }
+		gap: 1rem;
+		background: var(--bg-color);
+		border-radius: 2rem;
+	}
 	.auth-container {
 		display: flex;
 		flex-direction: column;
@@ -583,13 +592,11 @@ span.email-input,
 		/* width: 100%; */
 		/* width: 300px; */
 		/* height: 40px; */
-
 	}
 
 	.login-container {
 		display: flex;
 		flex-direction: column;
-		
 	}
 
 	.invitation,
@@ -658,7 +665,7 @@ span.email-input,
 		flex-direction: column;
 		h2 {
 			display: flex;
-			justify-content:center;
+			justify-content: center;
 			width: 100%;
 			margin: 0;
 			padding: 0;
@@ -667,7 +674,6 @@ span.email-input,
 	.welcome-message {
 		cursor: pointer;
 	}
-
 
 	.button {
 		display: flex;
@@ -683,7 +689,7 @@ span.email-input,
 	}
 
 	.button-signup {
-		background-color:transparent;
+		background-color: transparent;
 		justify-content: left;
 		color: var(--tertiary-color);
 		font-size: 1rem;
@@ -699,8 +705,6 @@ span.email-input,
 		width: 4rem;
 		height: 4rem;
 	}
-
-
 
 	.button-subtle {
 		display: flex;
@@ -718,7 +722,6 @@ span.email-input,
 			background: transparent;
 			color: var(--text-color);
 			cursor: pointer;
-
 		}
 	}
 
@@ -763,8 +766,6 @@ span.email-input,
 		/* margin-top: 10px; */
 		/* width: 100%; */
 	}
-
-
 
 	/* Hover effects for buttons */
 	// .button-group .button:hover {
@@ -822,9 +823,7 @@ span.email-input,
 			width: 100%;
 		}
 
-
 		.button-group {
-
 		}
 
 		.button-group .button {
@@ -868,11 +867,8 @@ span.email-input,
 			width: auto;
 		}
 	}
-		@media (max-width: 450px) {
+	@media (max-width: 450px) {
 		.auth-container {
-
 		}
-
-
-		}
+	}
 </style>

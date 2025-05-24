@@ -26,31 +26,31 @@ export default {
 		quickAccess: 'Quick Access'
 	},
 	generic: {
-		created: "Created",
-		updated: "Updated",
-		delete: "Delete",
-		cancel: "Cancel",
-		back: "Back",
-		loading: "Loading...",
-		deleteQuestion: "Are you sure you want to delete this?",
-		deleteWarning: "This action cannot be undone.",
-		attachments: "Attachments",
-		show: "Show",
-		only: "only",
-		all: "all",
-		filter: "Filter",
-		sort: "Sort",
-		share: "Share",
-		copy: "Copy",
-		copyLink: "Copy link",
-		copiedLink: "Link copied!",
-		returnHome: "Return home",
-		signInTo: "Sign in to",
-		this: "this",
-		userNotLoggedIn: "User not logged in",
-		noResults: "No results found for",
-		in: "in",
-		by: "by",
+		created: 'Created',
+		updated: 'Updated',
+		delete: 'Delete',
+		cancel: 'Cancel',
+		back: 'Back',
+		loading: 'Loading...',
+		deleteQuestion: 'Are you sure you want to delete this?',
+		deleteWarning: 'This action cannot be undone.',
+		attachments: 'Attachments',
+		show: 'Show',
+		only: 'only',
+		all: 'all',
+		filter: 'Filter',
+		sort: 'Sort',
+		share: 'Share',
+		copy: 'Copy',
+		copyLink: 'Copy link',
+		copiedLink: 'Link copied!',
+		returnHome: 'Return home',
+		signInTo: 'Sign in to',
+		this: 'this',
+		userNotLoggedIn: 'User not logged in',
+		noResults: 'No results found for',
+		in: 'in',
+		by: 'by',
 		collapse: 'Collapse',
 		collapseAll: 'Collapse all',
 		expand: 'Expand',
@@ -65,8 +65,8 @@ export default {
 		reposted: 'reposted',
 		repostedBy: 'Reposted by',
 		youReposted: 'You reposted this',
-		post: 'post', 
-		posts: 'Posts', 
+		post: 'post',
+		posts: 'Posts',
 		postsFrom: 'posts from',
 		postRead: 'read',
 		postUpvote: 'Like',
@@ -75,7 +75,7 @@ export default {
 		quoteNotAvailable: 'Quoted post not available',
 		quotedBy: 'Quoted by',
 		shareLink: 'Share with a link',
-		copyLink: "Copy link to post",
+		copyLink: 'Copy link to post',
 		textareaPlaceholder: 'What´s on your mind?',
 		postButton: 'Post',
 		posting: 'Posting...',
@@ -91,60 +91,60 @@ export default {
 		media: 'media',
 		likes: 'Likes',
 		historySignin: 'Sign in to browse this user`s complete post history',
-		seeAll: 'See all',
+		seeAll: 'See all'
 	},
 	lang: {
 		notification: 'Language: English',
 		flag: '🇬🇧'
 	},
 	guidance: {
-        productivity: [
-            "🚀 Unlock 10x productivity with AI-powered task generation!",
-            "🤔 Did you know AI can automatically create kanban boards from your conversations?",
-            "💡 Pro tip: Connect your calendar to AI agents for seamless task scheduling"
-        ],
-        aiPowerTips: [
-            "🎯 This one weird trick will revolutionize your workflow instantly!",
-            "🧐 Did you know you can toggle AI responses on/off mid-conversation?",
-            "✨ Hint: Control AI response frequency to match your work style perfectly"
-        ],
-        projectMastery: [
-            "🔥 Nobody tells you about this hidden feature until it's too late!",
-            "🤯 Did you know each project unlocks exclusive AI agent capabilities?",
-            "💫 Secret: Use project workspaces to create hyper-specialized AI assistants"
-        ],
-        timeSaving: [
-            "⏰ Save 40+ hours a week with these bookmarking hacks!",
-            "🎨 Did you know you can theme your workspace for maximum focus?",
-            "🚄 Game changer: Use prompt shortcuts to eliminate repetitive typing"
-        ]
-    },
+		productivity: [
+			'🚀 Unlock 10x productivity with AI-powered task generation!',
+			'🤔 Did you know AI can automatically create kanban boards from your conversations?',
+			'💡 Pro tip: Connect your calendar to AI agents for seamless task scheduling'
+		],
+		aiPowerTips: [
+			'🎯 This one weird trick will revolutionize your workflow instantly!',
+			'🧐 Did you know you can toggle AI responses on/off mid-conversation?',
+			'✨ Hint: Control AI response frequency to match your work style perfectly'
+		],
+		projectMastery: [
+			"🔥 Nobody tells you about this hidden feature until it's too late!",
+			'🤯 Did you know each project unlocks exclusive AI agent capabilities?',
+			'💫 Secret: Use project workspaces to create hyper-specialized AI assistants'
+		],
+		timeSaving: [
+			'⏰ Save 40+ hours a week with these bookmarking hacks!',
+			'🎨 Did you know you can theme your workspace for maximum focus?',
+			'🚄 Game changer: Use prompt shortcuts to eliminate repetitive typing'
+		]
+	},
 	tooltip: {
 		newProject: 'Create project',
 		newThread: 'Create discussion',
 		findThread: 'Find discussion',
-		pauseAi: "AI responses off",
-		playAi: "AI responses on",
-		edit: "Edit",
-		editDescription: "Edit description",
-		generateHints: "Generate/refresh AI tips",
-		done: "Done"
+		pauseAi: 'AI responses off',
+		playAi: 'AI responses on',
+		edit: 'Edit',
+		editDescription: 'Edit description',
+		generateHints: 'Generate/refresh AI tips',
+		done: 'Done'
 	},
 	drawer: {
 		project: 'Projects',
 		thread: 'Discussions',
 		sort: [
 			{
-			newest: 'Newest',
-			oldest: 'Oldest',
-			alpha_asc: 'Sort A to Z',
-			alpha_desc: 'Sort Z to A',
-			count_high: 'Most Messages',
-			count_low: 'Least Messages',
-			users_asc: 'Most Members',
-			users_desc: 'Least Members'
+				newest: 'Newest',
+				oldest: 'Oldest',
+				alpha_asc: 'Sort A to Z',
+				alpha_desc: 'Sort Z to A',
+				count_high: 'Most Messages',
+				count_low: 'Least Messages',
+				users_asc: 'Most Members',
+				users_desc: 'Least Members'
 			}
-		],
+		]
 	},
 
 	landing: {
@@ -181,31 +181,31 @@ export default {
 	},
 	appFeatures: {
 		items: [
-		{
-			title: 'AI Conversations',
-			description: 'Start intelligent chats with our AI system'
-		},
-		{
-			title: 'Project Collaboration',
-			description: 'Create projects and invite teammates'
-		},
-		{
-			title: 'Task Management',
-			description: 'Organize and track your work efficiently'
-		},
-		{
-			title: 'Knowledge Network',
-			description: 'Connect your ideas in a visual network'
-		},
-		{
-			title: 'Notes System',
-			description: 'Keep your thoughts organized and accessible'
-		}
+			{
+				title: 'AI Conversations',
+				description: 'Start intelligent chats with our AI system'
+			},
+			{
+				title: 'Project Collaboration',
+				description: 'Create projects and invite teammates'
+			},
+			{
+				title: 'Task Management',
+				description: 'Organize and track your work efficiently'
+			},
+			{
+				title: 'Knowledge Network',
+				description: 'Connect your ideas in a visual network'
+			},
+			{
+				title: 'Notes System',
+				description: 'Keep your thoughts organized and accessible'
+			}
 		]
 	},
 	features: {
 		homeIntro: {
-			title: 'Key Features',
+			title: 'Key Features'
 		},
 		title: 'Features',
 		cards: [
@@ -280,28 +280,28 @@ export default {
 
 	extras: {
 		greetings: [
-			"Hello",
-			"Hey",
-			"Hi",
-			"Greetings",
-			"Welcome back",
-			"Good to see you",
-			"Nice to have you here",
-			"Howdy",
-			"Salutations",
-			"Hi there",
+			'Hello',
+			'Hey',
+			'Hi',
+			'Greetings',
+			'Welcome back',
+			'Good to see you',
+			'Nice to have you here',
+			'Howdy',
+			'Salutations',
+			'Hi there'
 		],
 		questions: [
 			"What's on your mind?",
-			"How can I help?",
-			"What’s new with you?",
-			"Ready to dive in?",
-			"What’s the plan today?",
-			"What’s inspiring you right now?",
-			"How’s your day going?",
-			"What’s your thought of the hour?",
-			"Need a digital sidekick today?",
-			"What’s cooking in your world?",
+			'How can I help?',
+			'What’s new with you?',
+			'Ready to dive in?',
+			'What’s the plan today?',
+			'What’s inspiring you right now?',
+			'How’s your day going?',
+			'What’s your thought of the hour?',
+			'Need a digital sidekick today?',
+			'What’s cooking in your world?'
 		],
 		quotes: [
 			'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra',
@@ -424,18 +424,18 @@ export default {
 		days: 'days',
 		dayAgo: 'day ago',
 		daysAgo: 'days ago',
-		monthAgo: "month ago",
-		monthsAgo: "months ago",
-		yearAgo: "year ago",
-		yearsAgo: "years ago",
-		today: "Today",
-		tomorrow: "Tomorrow",
-		endWeek: "End of Week",
-		week: "week",
-		weeks: "weeks",
-		month: "month",
-		months: "months",
-		now: "Now",
+		monthAgo: 'month ago',
+		monthsAgo: 'months ago',
+		yearAgo: 'year ago',
+		yearsAgo: 'years ago',
+		today: 'Today',
+		tomorrow: 'Tomorrow',
+		endWeek: 'End of Week',
+		week: 'week',
+		weeks: 'weeks',
+		month: 'month',
+		months: 'months',
+		now: 'Now'
 	},
 
 	tasks: {
@@ -445,32 +445,32 @@ export default {
 		status: 'Status',
 		addDescription: 'Click to add a description',
 		changePriority: 'Click to change priority',
-		priorityLow: "Low",
-		priorityMedium: "Medium",
-		priorityHight: "High",
-		deadline: "Deadline",
-		start: "Start",
-		subtasks: "Subtasks",
-		backlog: "Backlog",
-		todo: "To-Do",
-		inprogress: "In Progress",
-		review: "Review",
-		done: "Ready",
-		hold: "Delayed",
-		postpone: "Postpone",
-		postponed: "Postponed",
-		delegate: "Delegate",
-		cancelled: "Cancelled",
-		archive: "Archive",
-		selectStart: "Set start date",
-		selectEnd: "Set end date",
-		due: "Due",
-		parent: "parent",
+		priorityLow: 'Low',
+		priorityMedium: 'Medium',
+		priorityHight: 'High',
+		deadline: 'Deadline',
+		start: 'Start',
+		subtasks: 'Subtasks',
+		backlog: 'Backlog',
+		todo: 'To-Do',
+		inprogress: 'In Progress',
+		review: 'Review',
+		done: 'Ready',
+		hold: 'Delayed',
+		postpone: 'Postpone',
+		postponed: 'Postponed',
+		delegate: 'Delegate',
+		cancelled: 'Cancelled',
+		archive: 'Archive',
+		selectStart: 'Set start date',
+		selectEnd: 'Set end date',
+		due: 'Due',
+		parent: 'parent',
 		assigned: 'Assigned',
 		notAssigned: 'Not assigned',
 		schedule: 'Schedule',
 		gantt: 'Taskflows',
-		add: 'Add a task',
+		add: 'Add a task'
 	},
 
 	dashboard: {
@@ -550,7 +550,8 @@ export default {
 		invitationTitle: 'Please provide an invitation code',
 		invitationTitleSuccess: 'Please provide an invitation code',
 		invitationQuestion: 'Why I need invitation for registration?',
-		invitationExplanation: 'To maintain a high-quality, secure, and engaged community, we use an invitation-only registration system at the moment. Here’s why:',
+		invitationExplanation:
+			'To maintain a high-quality, secure, and engaged community, we use an invitation-only registration system at the moment. Here’s why:',
 		invitationReasons: [
 			{
 				bold: 'Early Access Perk',
@@ -563,25 +564,25 @@ export default {
 			{
 				bold: 'Prevent Abuse',
 				text: 'Invitations help reduce spam, fake accounts, and malicious activity'
-			},
+			}
 		],
 		waitlist: 'Join the Waitlist',
 		join: 'Subscribe',
 		joined: 'Joined',
 		projects: 'Projects',
-		posts: "Posts",
-		connections: "Connections",
-		yes: "Yes",
-		no: "No",
-		language: "Languages",
-		theme: "Themes",
-		googleAuth: "Google",
-		update: "Update",
-		upload: "Upload",
-		not_available: "Not available",
+		posts: 'Posts',
+		connections: 'Connections',
+		yes: 'Yes',
+		no: 'No',
+		language: 'Languages',
+		theme: 'Themes',
+		googleAuth: 'Google',
+		update: 'Update',
+		upload: 'Upload',
+		not_available: 'Not available',
 		followers: 'Followers',
 		following: 'Following',
-		follow: 'Follow',
+		follow: 'Follow'
 	},
 	button: {
 		tags: 'Tags'

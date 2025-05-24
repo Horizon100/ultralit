@@ -26,7 +26,7 @@
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
-	import { currentUser, pocketbaseUrl, getFileUrl} from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl, getFileUrl } from '$lib/pocketbase';
 	import PocketBase from 'pocketbase';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
@@ -64,7 +64,7 @@
 	let selectedTags: string[] = [];
 	let showFilters = false;
 	let selectedAIModel: AIModel = 'gpt-3.5-turbo'; // Set a default value
-const pb = new PocketBase(pocketbaseUrl);
+	const pb = new PocketBase(pocketbaseUrl);
 
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
@@ -98,29 +98,32 @@ const pb = new PocketBase(pocketbaseUrl);
 		moderator: AlertCircle
 	};
 
-	$: modelsByProvider = availableModels.reduce((acc, model) => {
-		if (!acc[model.provider]) {
-			acc[model.provider] = [];
-		}
-		acc[model.provider].push(model);
-		return acc;
-	}, {} as Record<ProviderType, AIModel[]>);
-	
+	$: modelsByProvider = availableModels.reduce(
+		(acc, model) => {
+			if (!acc[model.provider]) {
+				acc[model.provider] = [];
+			}
+			acc[model.provider].push(model);
+			return acc;
+		},
+		{} as Record<ProviderType, AIModel[]>
+	);
+
 	// Get available providers
 	$: providers = Object.keys(modelsByProvider) as ProviderType[];
-	
+
 	// Set initial provider if none selected
 	$: if (!selectedProvider && providers.length > 0) {
 		selectedProvider = providers[0];
 	}
 	function toggleModel(modelId: string) {
 		if (agentModel.includes(modelId)) {
-			agentModel = agentModel.filter(id => id !== modelId);
+			agentModel = agentModel.filter((id) => id !== modelId);
 		} else {
 			agentModel = [...agentModel, modelId];
 		}
 	}
-	
+
 	function selectProvider(provider: ProviderType) {
 		selectedProvider = provider;
 	}
@@ -259,14 +262,16 @@ const pb = new PocketBase(pocketbaseUrl);
 		agentActions = [];
 	}
 
-	// function toggleModel(modelId: string) {
-	// 	const index = agentModel.indexOf(modelId);
-	// 	if (index === -1) {
-	// 		agentModel = [...agentModel, modelId];
-	// 	} else {
-	// 		agentModel = agentModel.filter((id) => id !== modelId);
-	// 	}
-	// }
+	/*
+	 * function toggleModel(modelId: string) {
+	 * 	const index = agentModel.indexOf(modelId);
+	 * 	if (index === -1) {
+	 * 		agentModel = [...agentModel, modelId];
+	 * 	} else {
+	 * 		agentModel = agentModel.filter((id) => id !== modelId);
+	 * 	}
+	 * }
+	 */
 
 	function toggleAction(actionId: string) {
 		const index = agentActions.indexOf(actionId);
@@ -346,70 +351,79 @@ const pb = new PocketBase(pocketbaseUrl);
 		if (uploadInput) uploadInput.click();
 	}
 
-
-async function handleSubmit() {
-	if (!agentName || !selectedRole) {
-		updateStatus = 'Please fill in all required fields.';
-		return;
-	}
-
-	const agentData: Partial<AIAgent> = {
-		name: agentName,
-		description: agentDescription,
-		max_attempts: agentMaxAttempts,
-		user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
-		prompt: agentPrompt,
-		model: agentModel,
-		actions: agentActions,
-		role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
-		status: 'inactive',
-		tags: selectedTags
-	};
-
-	try {
-		console.log('Submitting agent data:', agentData);
-		if (selectedAgent) {
-			// For updates, use the updateAgent function from agentClient
-			const updatedAgent = await updateAgent(selectedAgent.id, avatarFile ? 
-				(() => {
-					const formData = new FormData();
-					if (avatarFile) formData.append('avatar', avatarFile);
-					for (const [key, value] of Object.entries(agentData)) {
-						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
-					}
-					return formData;
-				})() : agentData
-			);
-			agentStore.updateAgent(selectedAgent.id, updatedAgent);
-		} else {
-			// For creation, use the createAgent function from agentClient
-			const newAgent = await createAgent(avatarFile ? 
-				(() => {
-					const formData = new FormData();
-					if (avatarFile) formData.append('avatar', avatarFile);
-					for (const [key, value] of Object.entries(agentData)) {
-						formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
-					}
-					return formData;
-				})() : agentData
-			);
-			agentStore.addAgent(newAgent);
+	async function handleSubmit() {
+		if (!agentName || !selectedRole) {
+			updateStatus = 'Please fill in all required fields.';
+			return;
 		}
-		showCreateForm = false;
-		selectedAgent = null;
-		resetForm();
-		avatarFile = null;
-		await loadAgents();
-	} catch (error) {
-		console.error('Error saving agent:', error);
-		if (error instanceof Error) {
-			updateStatus = `Error saving agent: ${error.message}`;
-		} else {
-			updateStatus = 'Error saving agent. Please try again.';
+
+		const agentData: Partial<AIAgent> = {
+			name: agentName,
+			description: agentDescription,
+			max_attempts: agentMaxAttempts,
+			user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
+			prompt: agentPrompt,
+			model: agentModel,
+			actions: agentActions,
+			role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+			status: 'inactive',
+			tags: selectedTags
+		};
+
+		try {
+			console.log('Submitting agent data:', agentData);
+			if (selectedAgent) {
+				// For updates, use the updateAgent function from agentClient
+				const updatedAgent = await updateAgent(
+					selectedAgent.id,
+					avatarFile
+						? (() => {
+								const formData = new FormData();
+								if (avatarFile) formData.append('avatar', avatarFile);
+								for (const [key, value] of Object.entries(agentData)) {
+									formData.append(
+										key,
+										Array.isArray(value) ? JSON.stringify(value) : String(value)
+									);
+								}
+								return formData;
+							})()
+						: agentData
+				);
+				agentStore.updateAgent(selectedAgent.id, updatedAgent);
+			} else {
+				// For creation, use the createAgent function from agentClient
+				const newAgent = await createAgent(
+					avatarFile
+						? (() => {
+								const formData = new FormData();
+								if (avatarFile) formData.append('avatar', avatarFile);
+								for (const [key, value] of Object.entries(agentData)) {
+									formData.append(
+										key,
+										Array.isArray(value) ? JSON.stringify(value) : String(value)
+									);
+								}
+								return formData;
+							})()
+						: agentData
+				);
+				agentStore.addAgent(newAgent);
+			}
+			showCreateForm = false;
+			selectedAgent = null;
+			resetForm();
+			avatarFile = null;
+			await loadAgents();
+		} catch (error) {
+			console.error('Error saving agent:', error);
+			if (error instanceof Error) {
+				updateStatus = `Error saving agent: ${error.message}`;
+			} else {
+				updateStatus = 'Error saving agent. Please try again.';
+			}
 		}
 	}
-}
-
 
 	function showRoleInfo() {
 		// Implement role info modal or tooltip
@@ -503,7 +517,6 @@ async function handleSubmit() {
 									<span>{role}</span>
 								</button>
 							{/each}
-
 						</div>
 					</div>
 
@@ -528,7 +541,6 @@ async function handleSubmit() {
 									{/if}
 								</button>
 							{/each}
-
 						</div>
 					</div>
 
@@ -607,7 +619,7 @@ async function handleSubmit() {
 						/>
 					</div>
 				</div>
-				
+
 				<div class="form-group input">
 					<label for="agentPrompt">PROMPT</label>
 					<textarea id="agentPrompt" bind:value={agentPrompt} placeholder="Enter agent prompt..."
@@ -655,7 +667,7 @@ async function handleSubmit() {
 
 				<div class="form-group models">
 					<label>MODEL</label>
-					
+
 					<!-- Provider Tabs -->
 					<div class="provider-tabs">
 						{#each providers as provider (provider)}
@@ -669,7 +681,7 @@ async function handleSubmit() {
 							</button>
 						{/each}
 					</div>
-					
+
 					<!-- Models for Selected Provider -->
 					{#if selectedProvider && modelsByProvider[selectedProvider]}
 						<div class="models-grid">
@@ -702,7 +714,6 @@ async function handleSubmit() {
 									{action.name}
 								</h4>
 								{action.description}
-
 							</button>
 						{/each}
 					</div>
@@ -846,14 +857,13 @@ async function handleSubmit() {
 {/if}
 
 <style lang="scss">
-    $breakpoint-sm: 576px;
-    $breakpoint-md: 1000px;
-    $breakpoint-lg: 992px;
-    $breakpoint-xl: 1200px;
-    @use "src/styles/themes.scss" as *;
-    * {
-      font-family: var(--font-family);
-    }   	
+	$breakpoint-sm: 576px;
+	$breakpoint-md: 1000px;
+	$breakpoint-lg: 992px;
+	$breakpoint-xl: 1200px;
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}
 	.agents-config {
 		display: flex;
 		gap: 0;
@@ -902,7 +912,6 @@ async function handleSubmit() {
 	}
 
 	.form-content {
-
 		/* background: linear-gradient(to bottom, #2c3e50, #4ca1af);  */
 		/* background: linear-gradient(to bottom, #e6f3ff, #759ca2); */
 		background-color: transparent;
@@ -946,20 +955,15 @@ async function handleSubmit() {
 		width: 100%;
 		& input {
 			width: 100%;
-
 		}
 		& label {
 			position: absolute;
 			transform: translateY(-0.75rem);
 			color: var(--placeholder-color);
-
-
 		}
 	}
 	.form-group.models {
 		flex-direction: column !important;
-
-
 	}
 	.form-group label {
 		display: flex;
@@ -980,13 +984,13 @@ async function handleSubmit() {
 		align-items: stretch;
 		gap: 0.5rem;
 	}
-	
-		.provider-tab {
-			display: flex;
-					flex-grow: 1;
 
-			flex-direction: row;
-			width: auto;
+	.provider-tab {
+		display: flex;
+		flex-grow: 1;
+
+		flex-direction: row;
+		width: auto;
 		padding: 0.5rem 1rem;
 		background: var(--secondary-color);
 		border: 1px solid var(--line-color);
@@ -998,18 +1002,17 @@ async function handleSubmit() {
 		font-size: 0.875rem;
 		font-weight: 500;
 	}
-	
+
 	.provider-tab:hover {
 		background: var(--secondary-color);
 		border-color: var(--primary-color);
 	}
-	
+
 	.provider-tab.active {
 		background: var(--primary-color);
 		border-color: var(--primary-color);
 		color: white;
-				opacity: 1;
-
+		opacity: 1;
 	}
 	.models-grid {
 		display: flex;
@@ -1020,7 +1023,7 @@ async function handleSubmit() {
 		max-height: 200px;
 		overflow-x: auto;
 	}
-	
+
 	.model-button {
 		padding: 0.5rem;
 		background: var(--bg-color);
@@ -1032,36 +1035,36 @@ async function handleSubmit() {
 		text-align: left;
 		display: flex;
 		flex-grow: 1;
-			justify-content: flex-start;
+		justify-content: flex-start;
 		align-items: flex-start;
 		flex-direction: column;
 		gap: 0.25rem;
 		width: 100px;
 	}
-	
+
 	.model-button:hover {
 		background: var(--secondary-color);
 		border-color: var(--primary-color);
 		transform: translateY(-1px);
 	}
-	
+
 	.model-button.selected {
 		background: var(--primary-color);
 		border-color: var(--primary-color);
 		color: white;
 	}
-	
+
 	.model-name {
 		font-weight: 600;
 		font-size: 0.875rem;
 	}
-	
+
 	.model-description {
 		font-size: 0.75rem;
 		opacity: 0.8;
 		line-height: 1.3;
 	}
-	
+
 	.model-button.selected .model-description {
 		opacity: 0.9;
 	}
@@ -1084,30 +1087,28 @@ async function handleSubmit() {
 		background-color: var(--primary-color);
 	}
 
-    @supports (-webkit-appearance: none) {
-
-    select {
-        -webkit-appearance: none;
-        background: var(--secondary-color);
-        background-size: 1.25rem !important;
-
-    }
-    }
-    select {
-        padding: 0.5rem;
-        border: 1px solid var(--line-color);
-        background: var(--bg-color);
-        color: var(--text-color);
-        font-size: 1rem;
-        width: auto;
+	@supports (-webkit-appearance: none) {
+		select {
+			-webkit-appearance: none;
+			background: var(--secondary-color);
+			background-size: 1.25rem !important;
+		}
+	}
+	select {
+		padding: 0.5rem;
+		border: 1px solid var(--line-color);
+		background: var(--bg-color);
+		color: var(--text-color);
+		font-size: 1rem;
+		width: auto;
 		height: 3rem;
-        border-radius: 1rem;
-        transition: all 0.3s ease-in;
-        &:hover {
-            background: var(--secondary-color);
-            cursor: pointer;
-        }
-        }
+		border-radius: 1rem;
+		transition: all 0.3s ease-in;
+		&:hover {
+			background: var(--secondary-color);
+			cursor: pointer;
+		}
+	}
 
 	textarea {
 		/* height: 100px; */
@@ -1239,7 +1240,6 @@ async function handleSubmit() {
 		/* margin-right: 50px; */
 		align-items: flex-start;
 		margin-right: 5rem;
-
 	}
 
 	.item {
@@ -1317,9 +1317,7 @@ async function handleSubmit() {
 				margin: 0;
 				padding: 0;
 				width: 100%;
-
 			}
-			
 		}
 	}
 	.delete-button,
@@ -1495,7 +1493,6 @@ async function handleSubmit() {
 		/* width: 50%;; */
 	}
 
-
 	.options {
 		display: flex;
 		flex-direction: row;
@@ -1537,10 +1534,7 @@ async function handleSubmit() {
 		justify-content: flex-start;
 		align-items: flex-start;
 		padding: 0.5rem;
-
 	}
-
-
 
 	.filter-button,
 	.tag-button {
@@ -1619,7 +1613,6 @@ async function handleSubmit() {
 	}
 
 	.tag-input {
-
 	}
 
 	.tag-list {
@@ -1704,7 +1697,7 @@ async function handleSubmit() {
 		flex-direction: row;
 		position: absolute;
 		justify-content: center;
-		
+
 		left: 0;
 		bottom: 0;
 		align-items: center;
@@ -1773,7 +1766,6 @@ async function handleSubmit() {
 		/* border-left: 1px solid #4b4b4b; */
 		flex: 0;
 		backdrop-filter: blur(10px);
-
 	}
 
 	.filter-row,
@@ -1806,8 +1798,6 @@ async function handleSubmit() {
 	}
 
 	@media (max-width: 750px) {
-
-
 		.agent-item {
 			width: 70px;
 			/* border-radius: 50%; */
@@ -1833,7 +1823,6 @@ async function handleSubmit() {
 		}
 
 		.button-grid {
-
 			gap: 20px;
 			/* padding: 20px; */
 			border-radius: 12px;

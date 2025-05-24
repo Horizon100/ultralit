@@ -14,20 +14,25 @@ export const translations: Translations = {
 };
 
 export const t = derived(currentLanguage, ($currentLanguage) => {
-  return (key: string): string => {
-    const keys = key.split('.');
-    let current: any = translations[$currentLanguage]; // eslint-disable-line @typescript-eslint/no-explicit-any
-    
-    for (const k of keys) {
-      if (current === undefined || current === null) break;
-      current = current[k];
-    }
+    return (key: string): unknown => {
+        const keys = key.split('.');
+        let current: unknown = translations[$currentLanguage];
 
-    if (typeof current !== 'string') {
-      console.warn(`Translation key "${key}" not found for language "${$currentLanguage}"`);
-      return key;
-    }
+        for (const k of keys) {
+            if (current === undefined || current === null) break;
+            if (typeof current === 'object' && !Array.isArray(current) && current !== null) {
+                current = (current as Record<string, unknown>)[k];
+            } else {
+                current = undefined;
+                break;
+            }
+        }
 
-    return current;
-  };
+        if (current === undefined || current === null) {
+            console.warn(`Translation key "${key}" not found for language "${$currentLanguage}"`);
+            return key;
+        }
+
+        return current;
+    };
 });

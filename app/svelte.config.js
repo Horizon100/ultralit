@@ -8,15 +8,14 @@ const config = {
 		vitePreprocess(),
 		sveltePreprocess({
 			scss: {
-				prependData: `@use "src/styles/themes.scss" as *;`
 			}
 		})
 	],
 	kit: {
 		adapter: adapter({
 			out: 'build',
-			precompress: true,
-		}),
+			precompress: true
+		})
 	}
 };
 

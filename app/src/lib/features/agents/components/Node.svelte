@@ -115,7 +115,7 @@
 		<div class="content">
 			{#if activeContent === 'chat'}
 				<NodeChat />
-			<!-- {:else if activeContent === 'info'}
+				<!-- {:else if activeContent === 'info'}
 				<Kanban /> -->
 			{:else if activeContent === 'settings'}
 				<p>Node settings here</p>

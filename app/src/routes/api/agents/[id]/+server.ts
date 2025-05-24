@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
 		}
 
 		const expand = url.searchParams.get('expand') || '';
-		
+
 		const queryOptions: { expand?: string } = {};
 		if (expand) {
 			queryOptions.expand = expand;
@@ -48,12 +48,12 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
 			success: true,
 			data: agent
 		});
-
 	} catch (err) {
 		console.error('Error fetching agent:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to fetch agent';
-		const statusCode = (err && typeof err === 'object' && 'status' in err) ? (err as any).status : 500;
-		
+		const statusCode =
+			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
+
 		return json(
 			{
 				success: false,
@@ -111,12 +111,12 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			success: true,
 			data: updatedAgent
 		});
-
 	} catch (err) {
 		console.error('Error updating agent:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to update agent';
-		const statusCode = (err && typeof err === 'object' && 'status' in err) ? (err as any).status : 500;
-		
+		const statusCode =
+			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
+
 		return json(
 			{
 				success: false,
@@ -164,12 +164,12 @@ export const DELETE: RequestHandler = async ({ params, cookies }) => {
 		return json({
 			success: true
 		});
-
 	} catch (err) {
 		console.error('Error deleting agent:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to delete agent';
-		const statusCode = (err && typeof err === 'object' && 'status' in err) ? (err as any).status : 500;
-		
+		const statusCode =
+			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
+
 		return json(
 			{
 				success: false,

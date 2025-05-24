@@ -34,6 +34,7 @@ export enum Feature {
 
 export type FeatureCategory = 'chat' | 'mas' | 'advanced' | 'common' | 'analytics' | 'storage';
 
+
 export const FEATURE_CATEGORIES: Record<Feature, FeatureCategory> = {
 	// Chat Features
 	[Feature.CHAT_BASIC]: 'chat',
@@ -102,3 +103,19 @@ export const TIER_FEATURES = {
 	tier2: TIER2_FEATURES,
 	tier3: TIER3_FEATURES
 } as const;
+
+export type FeaturePlan = {
+	title: string;
+	features: string[];
+	isPro: boolean;
+	cardId: string | number;
+};
+
+export type PricingPlan = {
+	name: string;
+	description: string;
+	price: string;
+	month: string;
+	button: string;
+	features: string[];
+};

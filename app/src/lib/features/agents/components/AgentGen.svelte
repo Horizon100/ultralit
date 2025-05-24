@@ -5,7 +5,7 @@
 	import { ArrowRight, Plus, Trash2, Edit2, Check } from 'lucide-svelte';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
-	import { erpAgentTemplates } from '$lib/features/agents/utils/erp'; 
+	import { erpAgentTemplates } from '$lib/features/agents/utils/erp';
 	import { agentStore } from '$lib/stores/agentStore';
 	import CircularAgentView from '$lib/features/agents/components/CircularAgentView.svelte';
 	import { isLoading, showLoading, hideLoading } from '$lib/stores/loadingStore';

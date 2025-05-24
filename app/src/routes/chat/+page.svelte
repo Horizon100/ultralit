@@ -6,11 +6,11 @@
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { Bot } from 'lucide-svelte';
-	
+
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-	
+
 	// Default AI model configuration (copy from your root component)
 	const defaultAIModel = {
 		id: 'default',
@@ -26,29 +26,29 @@
 		collectionId: '',
 		collectionName: ''
 	};
-	
+
 	let userId: string;
 	let aiModel = defaultAIModel;
 	let threadId: string | null = null;
 	let messageId: string | null = null;
-	
+
 	onMount(async () => {
 		try {
 			isLoading = true;
-			
+
 			// Check if user is logged in
 			if (!$currentUser) {
 				// Redirect to root if not logged in
 				goto('/');
 				return;
 			}
-			
+
 			userId = $currentUser.id;
-			
+
 			// Get URL parameters
 			threadId = $page.url.searchParams.get('threadId');
 			messageId = $page.url.searchParams.get('messageId');
-			
+
 			pageReady = true;
 		} catch (e) {
 			error = 'Failed to load chat. Please try again.';
@@ -60,7 +60,7 @@
 			}, minimumLoadingTime);
 		}
 	});
-	
+
 	$: userId = $currentUser?.id;
 </script>
 
@@ -75,16 +75,13 @@
 		</div>
 	{:else}
 		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat {threadId} initialMessageId={messageId} aiModel={aiModel} userId={userId} />
+			<AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} />
 		</div>
 	{/if}
 {/if}
 
-
-
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 
@@ -103,8 +100,6 @@
 		align-items: center;
 		z-index: 9999;
 	}
-
-	
 
 	.center-container {
 		display: flex;
@@ -198,15 +193,12 @@
 		width: 100%;
 	}
 
-
-
 	.feature-cards {
 		width: 100%;
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
 		align-items: center;
-		
 	}
 
 	.chat {
@@ -267,7 +259,6 @@
 		align-items: center;
 		z-index: 1000;
 		transition: all 0.3s ease;
-
 	}
 
 	.auth-content {
@@ -284,7 +275,6 @@
 		overflow-y: auto;
 		box-shadow: -20px -1px 200px 4px rgba(255, 255, 255, 1) !important;
 		transition: all 0.3s ease-in;
-
 	}
 
 	.close-button {
@@ -552,7 +542,6 @@
 		font-size: 1.2rem;
 	}
 
-
 	.pricing-plans {
 		display: flex;
 		justify-content: space-around;
@@ -647,7 +636,6 @@
 	}
 
 	@media (max-width: 767px) {
-
 		.fastlogin {
 			display: flex;
 		}

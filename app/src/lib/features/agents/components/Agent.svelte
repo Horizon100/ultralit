@@ -267,7 +267,7 @@
 		<div class="content" transition:fade={{ duration: 300 }}>
 			{#if activeContent === 'chat'}
 				<CircleMap />
-			<!-- {:else if activeContent === 'info'}
+				<!-- {:else if activeContent === 'info'}
 				<Kanban /> -->
 			{:else if activeContent === 'settings'}
 				<p>Agent settings here</p>

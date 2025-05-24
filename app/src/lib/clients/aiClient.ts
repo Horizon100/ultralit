@@ -1,4 +1,12 @@
-import type { AIModel, AIMessage, Scenario, Task, AIAgent, RoleType, ProviderType } from '$lib/types/types';
+import type {
+	AIModel,
+	AIMessage,
+	Scenario,
+	Task,
+	AIAgent,
+	RoleType,
+	ProviderType
+} from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
 import { getPrompt } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
@@ -6,53 +14,52 @@ import { apiKey } from '$lib/stores/apiKeyStore';
 import { prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/promptUtils';
 
 export async function fetchAIResponse(
-    messages: AIMessage[],
-    model: AIModel | null,
-    userId: string,
-    attachment: File | null = null
+	messages: AIMessage[],
+	model: AIModel | null,
+	userId: string,
+	attachment: File | null = null
 ): Promise<string> {
-    try {
+	try {
 		const messagesWithCustomPrompts = await prepareMessagesWithCustomPrompts(messages, userId);
 
 		const supportedMessages = messagesWithCustomPrompts
 			.filter((msg) => ['system', 'assistant', 'user', 'function', 'tool'].includes(msg.role))
-			.filter((msg) => msg.content && msg.content.trim()) 
+			.filter((msg) => msg.content && msg.content.trim())
 			.map((msg) => ({
 				role: msg.role,
 				content: msg.content,
 				model: msg.model
-		}));
+			}));
 		console.log('Sending messages to AI:', supportedMessages);
 
+		console.log('Original model:', model);
 
-        console.log('Original model:', model);
-        
-        let modelToUse: AIModel;
-        if (!model || typeof model === 'string') {
-            console.log('Using default model due to invalid model data');
-            modelToUse = { ...defaultModel };
-        } else {
-            modelToUse = {
-                ...model,
-                provider: model.provider || defaultModel.provider,
-                api_type: model.api_type || defaultModel.api_type,
-                base_url: model.base_url || defaultModel.base_url,
-                api_version: model.api_version || defaultModel.api_version,
-                api_key: model.api_key || defaultModel.api_key
-            };
-        }
-        
-        console.log('Using model:', modelToUse);
+		let modelToUse: AIModel;
+		if (!model || typeof model === 'string') {
+			console.log('Using default model due to invalid model data');
+			modelToUse = { ...defaultModel };
+		} else {
+			modelToUse = {
+				...model,
+				provider: model.provider || defaultModel.provider,
+				api_type: model.api_type || defaultModel.api_type,
+				base_url: model.base_url || defaultModel.base_url,
+				api_version: model.api_version || defaultModel.api_version,
+				api_key: model.api_key || defaultModel.api_key
+			};
+		}
 
-        let requestBody: FormData | string;
-        
-        const modelData = {
-            id: modelToUse.id || 'default-model',
-            provider: modelToUse.provider,
-            api_type: modelToUse.api_type || modelToUse.name,
-            name: modelToUse.name || 'Default Model'
-        };
-		
+		console.log('Using model:', modelToUse);
+
+		let requestBody: FormData | string;
+
+		const modelData = {
+			id: modelToUse.id || 'default-model',
+			provider: modelToUse.provider,
+			api_type: modelToUse.api_type || modelToUse.name,
+			name: modelToUse.name || 'Default Model'
+		};
+
 		if (attachment) {
 			const formData = new FormData();
 			formData.append('messages', JSON.stringify(supportedMessages));
@@ -68,32 +75,32 @@ export async function fetchAIResponse(
 			});
 		}
 
-        const provider = modelToUse.provider || 'openai';
+		const provider = modelToUse.provider || 'openai';
 		console.log('Provider:', provider);
-		
+
 		const userApiKey = get(apiKey)[provider] || '';
 
 		if (!userApiKey) {
 			console.log(`No API key found for provider: ${provider}, checking alternatives...`);
-			
-			await apiKey.loadKeys();
+
+			await apiKey.ensureLoaded();
 			const refreshedKeys = get(apiKey);
-			
+
 			if (refreshedKeys[provider]) {
 				console.log(`Found key for ${provider} after refresh`);
 			} else {
 				const availableProviders = Object.entries(refreshedKeys)
 					.filter(([_, keyValue]) => !!keyValue)
 					.map(([providerName]) => providerName as ProviderType)
-					.filter((providerName): providerName is ProviderType => 
+					.filter((providerName): providerName is ProviderType =>
 						['openai', 'anthropic', 'google', 'grok', 'deepseek'].includes(providerName)
 					);
 				if (availableProviders.length > 0) {
 					const fallbackProvider = availableProviders[0];
 					console.log(`Falling back to provider: ${fallbackProvider}`);
-					
+
 					modelToUse.provider = fallbackProvider;
-					
+
 					if (fallbackProvider === 'openai') {
 						modelToUse.api_type = 'gpt-3.5-turbo';
 					} else if (fallbackProvider === 'anthropic') {
@@ -180,158 +187,159 @@ export async function handleStartPromptClick(
 	threadId: string | null,
 	aiModel: AIModel,
 	userId: string
-  ): Promise<{
+): Promise<{
 	response: string;
 	threadId: string | null;
 	userMessageId: string;
 	assistantMessageId: string;
-  }> {
+}> {
 	try {
-	  let currentThreadId = threadId;
-	  if (!currentThreadId) {
-		const response = await fetch('/api/threads', {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json'
-		  },
-		  body: JSON.stringify({
-			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-			userId
-		  })
+		let currentThreadId = threadId;
+		if (!currentThreadId) {
+			const response = await fetch('/api/threads', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+					userId
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to create a new thread');
+			}
+
+			const newThread = await response.json();
+			currentThreadId = newThread.id;
+		}
+
+		const userMessageResponse = await fetch('/api/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				text: promptText,
+				type: 'human',
+				thread: currentThreadId,
+				parent_msg: null
+			})
 		});
-  
-		if (!response.ok) {
-		  throw new Error('Failed to create a new thread');
+
+		if (!userMessageResponse.ok) {
+			throw new Error('Failed to save user message');
 		}
-  
-		const newThread = await response.json();
-		currentThreadId = newThread.id;
-	  }
-  
-	  const userMessageResponse = await fetch('/api/messages', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-		  text: promptText,
-		  type: 'human',
-		  thread: currentThreadId,
-		  parent_msg: null
-		})
-	  });
-  
-	  if (!userMessageResponse.ok) {
-		throw new Error('Failed to save user message');
-	  }
-  
-	  const userMessage = await userMessageResponse.json();
-  
-	  const messages: AIMessage[] = [
-		{
-		  role: 'user',
-		  content: promptText,
-		  model: aiModel.api_type
-		}
-	  ];
-  
-	  const aiResponseText = await fetchAIResponse(
-		messages,
-		aiModel,
-		userId
-	  );
-  
-	  const assistantMessageResponse = await fetch('/api/messages', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-		  text: aiResponseText,
-		  type: 'robot',
-		  thread: currentThreadId,
-		  parent_msg: userMessage.id,
-		  model: aiModel.api_type
-		})
-	  });
-  
-	  if (!assistantMessageResponse.ok) {
-		throw new Error('Failed to save assistant message');
-	  }
-	  
-	  const assistantMessage = await assistantMessageResponse.json();
-  
-	  if (!threadId) {
-		await fetch(`/api/threads/${currentThreadId}`, {
-		  method: 'PATCH',
-		  headers: {
-			'Content-Type': 'application/json'
-		  },
-		  body: JSON.stringify({
-			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
-		  })
-		});
-	  }
-  
-	  return {
-		response: aiResponseText,
-		threadId: currentThreadId,
-		userMessageId: userMessage.id,
-		assistantMessageId: assistantMessage.id
-	  };
-	} catch (error) {
-	  console.error('Error in handlePromptClick:', error);
-	  throw error;
-	}
-  }
-  export async function generateAISuggestions(projectDescription: string, model: AIModel, userId: string): Promise<string[]> {
-	try {
-	  const messages: AIMessage[] = [
-		{
-		  role: 'system',
-		  content: 'You are an AI assistant helping generate useful prompts based on a project description. Generate exactly 10 relevant prompt suggestions that would help the user explore or develop their project further. Each suggestion should be concise (under 15 words), actionable, and directly usable as a prompt. Do not include any introduction, numbering, or formatting characters like asterisks. Return just a plain list of prompts, one per line.',
-		  model: model.api_type
-		},
-		{
-		  role: 'user',
-		  content: `Project Description: "${projectDescription}"\n\nGenerate a list of 10 helpful prompts related to this project that I could ask an AI assistant.`,
-		  model: model.api_type
-		}
-	  ];
-  
-	  const response = await fetchAIResponse(messages, model, userId);
-	  
-	  const suggestions = response
-		.split(/\n+/)
-		.map(line => line.trim())
-		.filter(line => line.length > 0)
-		.map(line => line.replace(/^[-*\d.]+\s*/, ''))
-		.map(line => line.replace(/[*"`']/g, ''))
-		.filter(line => !line.toLowerCase().includes("here are") && 
-					   !line.toLowerCase().includes("suggestions") &&
-					   !line.toLowerCase().includes("prompts to"))
-		.filter(line => line.length > 5 && line.length < 100)
-		.slice(0, 10);
-	  
-	  if (suggestions.length === 0) {
-		return [
-		  "How to optimize the project architecture?",
-		  "Ways to improve user experience in this application",
-		  "Suggest performance optimizations for this project",
-		  "Best practices for securing this application",
-		  "Ideas for new features to add to this project"
+
+		const userMessage = await userMessageResponse.json();
+
+		const messages: AIMessage[] = [
+			{
+				role: 'user',
+				content: promptText,
+				model: aiModel.api_type
+			}
 		];
-	  }
-	  
-	  return suggestions;
+
+		const aiResponseText = await fetchAIResponse(messages, aiModel, userId);
+
+		const assistantMessageResponse = await fetch('/api/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				text: aiResponseText,
+				type: 'robot',
+				thread: currentThreadId,
+				parent_msg: userMessage.id,
+				model: aiModel.api_type
+			})
+		});
+
+		if (!assistantMessageResponse.ok) {
+			throw new Error('Failed to save assistant message');
+		}
+
+		const assistantMessage = await assistantMessageResponse.json();
+
+		if (!threadId) {
+			await fetch(`/api/threads/${currentThreadId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+				})
+			});
+		}
+
+		return {
+			response: aiResponseText,
+			threadId: currentThreadId,
+			userMessageId: userMessage.id,
+			assistantMessageId: assistantMessage.id
+		};
 	} catch (error) {
-	  console.error('Error generating AI suggestions:', error);
-	  throw error;
+		console.error('Error in handlePromptClick:', error);
+		throw error;
 	}
-  }
+}
+export async function generateAISuggestions(
+	projectDescription: string,
+	model: AIModel,
+	userId: string
+): Promise<string[]> {
+	try {
+		const messages: AIMessage[] = [
+			{
+				role: 'system',
+				content:
+					'You are an AI assistant helping generate useful prompts based on a project description. Generate exactly 10 relevant prompt suggestions that would help the user explore or develop their project further. Each suggestion should be concise (under 15 words), actionable, and directly usable as a prompt. Do not include any introduction, numbering, or formatting characters like asterisks. Return just a plain list of prompts, one per line.',
+				model: model.api_type
+			},
+			{
+				role: 'user',
+				content: `Project Description: "${projectDescription}"\n\nGenerate a list of 10 helpful prompts related to this project that I could ask an AI assistant.`,
+				model: model.api_type
+			}
+		];
 
+		const response = await fetchAIResponse(messages, model, userId);
 
+		const suggestions = response
+			.split(/\n+/)
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0)
+			.map((line) => line.replace(/^[-*\d.]+\s*/, ''))
+			.map((line) => line.replace(/[*"`']/g, ''))
+			.filter(
+				(line) =>
+					!line.toLowerCase().includes('here are') &&
+					!line.toLowerCase().includes('suggestions') &&
+					!line.toLowerCase().includes('prompts to')
+			)
+			.filter((line) => line.length > 5 && line.length < 100)
+			.slice(0, 10);
 
+		if (suggestions.length === 0) {
+			return [
+				'How to optimize the project architecture?',
+				'Ways to improve user experience in this application',
+				'Suggest performance optimizations for this project',
+				'Best practices for securing this application',
+				'Ideas for new features to add to this project'
+			];
+		}
+
+		return suggestions;
+	} catch (error) {
+		console.error('Error generating AI suggestions:', error);
+		throw error;
+	}
+}
 
 export async function generateTasks(
 	scenario: Scenario,
@@ -344,10 +352,10 @@ export async function generateTasks(
 			content: getPrompt('CONCISE', ''),
 			model: model.api_type
 		},
-		{ 
-			role: 'user' as RoleType, 
-			content: scenario.description, 
-			model: model.api_type 
+		{
+			role: 'user' as RoleType,
+			content: scenario.description,
+			model: model.api_type
 		}
 	];
 
@@ -365,8 +373,8 @@ export async function generateTasks(
 			due_date: new Date(),
 			start_date: new Date(),
 			parent_task: '',
-			taskTags: [], 
-			assignedTo: '', 
+			taskTags: [],
+			assignedTo: '',
 			createdBy: userId,
 			assigned_to: '',
 			ai_agents: '',
@@ -414,7 +422,7 @@ export async function createAIAgent(
 	];
 
 	const response = await fetchAIResponse(messages, model, userId);
-	
+
 	return {
 		id: 'ai-agent-' + Date.now(),
 		name: `Agent for ${scenario.description.slice(0, 20)}...`,
@@ -422,45 +430,45 @@ export async function createAIAgent(
 		role: 'assistant' as RoleType,
 		model: [model.api_type],
 		user: userId,
-		owner: userId, 
-		editors: [], 
-		activityLog: [], 
+		owner: userId,
+		editors: [],
+		activityLog: [],
 		currentUsers: [],
-		currentProjects: [], 
-		currentThreads: [], 
-		currentMessages: [], 
-		currentPosts: [], 
-		currentTasks: [], 
-		max_attempts: 3, 
-		user_input: 'end' as const, 
-		prompt: '', 
-		actions: [], 
-		avatar: '', 
-		capabilities: [], 
-		tasks: [], 
-		status: 'active' as const, 
-		messages: [], 
-		tags: [], 
-		performance: 0, 
-		version: '1.0.0', 
-		last_activity: new Date(), 
-		parent_agent: undefined, 
+		currentProjects: [],
+		currentThreads: [],
+		currentMessages: [],
+		currentPosts: [],
+		currentTasks: [],
+		max_attempts: 3,
+		user_input: 'end' as const,
+		prompt: '',
+		actions: [],
+		avatar: '',
+		capabilities: [],
+		tasks: [],
+		status: 'active' as const,
+		messages: [],
+		tags: [],
+		performance: 0,
+		version: '1.0.0',
+		last_activity: new Date(),
+		parent_agent: undefined,
 		child_agents: [],
-		base_priority: 0, 
-		adaptive_priority: 0, 
-		weight_altruism: 0, 
-		weight_survival: 0, 
-		weight_exploration: 0, 
-		weight_aspiration: 0, 
-		weight_surrogate: 0, 
-		weight_selfdev: 0, 
-		label: undefined,  
+		base_priority: 0,
+		adaptive_priority: 0,
+		weight_altruism: 0,
+		weight_survival: 0,
+		weight_exploration: 0,
+		weight_aspiration: 0,
+		weight_surrogate: 0,
+		weight_selfdev: 0,
+		label: undefined,
 		position: { x: 0, y: 0 },
-		expanded: false, 
+		expanded: false,
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
-		collectionId: '', 
-		collectionName: '' 
+		collectionId: '',
+		collectionName: ''
 	};
 }
 
@@ -472,14 +480,14 @@ export async function createAIAgent(
  * @returns Promise with a focused task description
  */
 export async function generateTaskDescription(
-	content: string, 
+	content: string,
 	model: AIModel,
 	userId: string
-  ): Promise<string> {
+): Promise<string> {
 	try {
-	const systemPrompt: AIMessage = {
-    	role: 'system' as RoleType,
-		content: `Create a focused, action-oriented task description from the provided content.
+		const systemPrompt: AIMessage = {
+			role: 'system' as RoleType,
+			content: `Create a focused, action-oriented task description from the provided content.
   - Write in imperative style (e.g., "Develop API documentation" not "Here's a task to develop API documentation")
   - Be specific about requirements and acceptance criteria
   - Omit any phrases like "here is" or meta-commentary
@@ -487,208 +495,204 @@ export async function generateTaskDescription(
   - Format as direct instructions
   - Be concise but complete
   - Include only text that would be useful in a task tracking system`,
-		model: model.api_type
-	  };
-  
-	const userPrompt: AIMessage = {
-		role: 'user' as RoleType,
-		content: `Transform this into a focused task description:
+			model: model.api_type
+		};
+
+		const userPrompt: AIMessage = {
+			role: 'user' as RoleType,
+			content: `Transform this into a focused task description:
   ${content}`,
-		model: model.api_type
-	  };
-  
-	  const taskDescription = await fetchAIResponse(
-		[systemPrompt, userPrompt],
-		model,
-		userId
-	  );
-  
-	  return taskDescription.trim();
+			model: model.api_type
+		};
+
+		const taskDescription = await fetchAIResponse([systemPrompt, userPrompt], model, userId);
+
+		return taskDescription.trim();
 	} catch (error) {
-	  console.error('Error generating task description:', error);
-	  return content;
+		console.error('Error generating task description:', error);
+		return content;
 	}
-  }
-  
-  /**
-   * Extracts a suitable title from a task description
-   * @param taskDescription The full task description
-   * @param maxLength Maximum length for the title (default: 50)
-   * @returns A title for the task
-   */
-  function extractTaskTitle(taskDescription: string, maxLength: number = 50): string {
+}
+
+/**
+ * Extracts a suitable title from a task description
+ * @param taskDescription The full task description
+ * @param maxLength Maximum length for the title (default: 50)
+ * @returns A title for the task
+ */
+function extractTaskTitle(taskDescription: string, maxLength: number = 50): string {
 	let title = '';
-	
+
 	const firstSentence = taskDescription.split('.')[0];
 	if (firstSentence && firstSentence.length > 5) {
-	  title = firstSentence.trim();
+		title = firstSentence.trim();
 	} else {
-	  title = taskDescription.split('\n')[0].trim();
+		title = taskDescription.split('\n')[0].trim();
 	}
-	
+
 	if (title.length > maxLength) {
-	  title = title.substring(0, maxLength - 3) + '...';
+		title = title.substring(0, maxLength - 3) + '...';
 	}
-	
+
 	return title;
-  }
-  
+}
+
 /**
  * Generates a complete task object from message content
  * @param taskDetails Object containing message details
  * @returns Promise with the task description and title
  */
 export async function generateTaskFromMessage(taskDetails: {
-	content: string,
-	messageId?: string,
-	model: AIModel,
-	userId: string,
-	threadId?: string,
-	isParentTask?: boolean 
-  }): Promise<{
-	title: string,
-	description: string
-  }> {
+	content: string;
+	messageId?: string;
+	model: AIModel;
+	userId: string;
+	threadId?: string;
+	isParentTask?: boolean;
+}): Promise<{
+	title: string;
+	description: string;
+}> {
 	try {
 		const systemPrompt: AIMessage = {
-		role: 'system',
-		content: taskDetails.isParentTask 
-		  ? `Create a concise title and short summary for a task based on the provided content.
+			role: 'system',
+			content: taskDetails.isParentTask
+				? `Create a concise title and short summary for a task based on the provided content.
 			 The title should be clear, specific, and under 50 characters.
 			 The summary should be 2-3 sentences explaining the overall goal and purpose.
 			 Format your response with just the title on the first line (no 'Title:' prefix),
 			 followed by the summary description.
 			DO NOT include "Title:" or any other labels or markdown formatting.
 			 DO NOT include numbered steps, bullet points, or detailed subtasks - those will be handled separately.`
-		  : `Create a focused, action-oriented task description from the provided content.
+				: `Create a focused, action-oriented task description from the provided content.
 			 - Write in imperative style
 			 - Be specific about requirements and acceptance criteria
 			 - Omit any phrases like "here is" or meta-commentary
 			 - Focus only on actionable items and deliverables
 			 - Format as direct instructions
 			 - Be concise but complete`,
-		model: taskDetails.model.api_type
-	  };
-  
-	  const userPrompt: AIMessage = {
-		role: 'user' as RoleType,
-		content: `Transform this into a ${taskDetails.isParentTask ? 'task title and summary' : 'focused task description'}:
-		  ${taskDetails.content}`,
-		model: taskDetails.model.api_type
-	  };
-  
-	  const response = await fetchAIResponse(
-		[systemPrompt, userPrompt],
-		taskDetails.model,
-		taskDetails.userId
-	  );
-  
-	  if (taskDetails.isParentTask) {
-		const lines = response.trim().split('\n');
-		let title = '';
-		let description = '';
-  
-		if (lines[0].toLowerCase().includes('title:')) {
-		  title = lines[0].replace(/^.*title:\s*/i, '').trim();
-		  description = lines.slice(1).join(' ').trim();
-		} else if (lines[0].length <= 70) {
-		  title = lines[0].trim();
-		  description = lines.slice(1).join(' ').trim();
-		} else {
-		  title = extractTaskTitle(lines[0]);
-		  description = response.trim();
-		}
-  
-		description = description.replace(/^.*description:\s*/i, '').trim();
-  
-		title = title.replace(/\*\*/g, '').trim();
-  
-		return {
-		  title: title || extractTaskTitle(taskDetails.content),
-		  description: description || taskDetails.content.substring(0, 200)
+			model: taskDetails.model.api_type
 		};
-	  } else {
-		const taskDescription = response.trim();
-		const title = extractTaskTitle(taskDescription);
-		
-		return {
-		  title,
-		  description: taskDescription
-		};
-	  }
-	} catch (error) {
-	  console.error('Error in generateTaskFromMessage:', error);
-	  
-	  const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
-	  const fallbackTitle = extractTaskTitle(cleanContent);
-	  
-	  return {
-		title: fallbackTitle,
-		description: taskDetails.isParentTask ? cleanContent.substring(0, 200) : cleanContent
-	  };
-	}
-  }
 
-  export async function fetchDualAIResponses(
+		const userPrompt: AIMessage = {
+			role: 'user' as RoleType,
+			content: `Transform this into a ${taskDetails.isParentTask ? 'task title and summary' : 'focused task description'}:
+		  ${taskDetails.content}`,
+			model: taskDetails.model.api_type
+		};
+
+		const response = await fetchAIResponse(
+			[systemPrompt, userPrompt],
+			taskDetails.model,
+			taskDetails.userId
+		);
+
+		if (taskDetails.isParentTask) {
+			const lines = response.trim().split('\n');
+			let title = '';
+			let description = '';
+
+			if (lines[0].toLowerCase().includes('title:')) {
+				title = lines[0].replace(/^.*title:\s*/i, '').trim();
+				description = lines.slice(1).join(' ').trim();
+			} else if (lines[0].length <= 70) {
+				title = lines[0].trim();
+				description = lines.slice(1).join(' ').trim();
+			} else {
+				title = extractTaskTitle(lines[0]);
+				description = response.trim();
+			}
+
+			description = description.replace(/^.*description:\s*/i, '').trim();
+
+			title = title.replace(/\*\*/g, '').trim();
+
+			return {
+				title: title || extractTaskTitle(taskDetails.content),
+				description: description || taskDetails.content.substring(0, 200)
+			};
+		} else {
+			const taskDescription = response.trim();
+			const title = extractTaskTitle(taskDescription);
+
+			return {
+				title,
+				description: taskDescription
+			};
+		}
+	} catch (error) {
+		console.error('Error in generateTaskFromMessage:', error);
+
+		const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
+		const fallbackTitle = extractTaskTitle(cleanContent);
+
+		return {
+			title: fallbackTitle,
+			description: taskDetails.isParentTask ? cleanContent.substring(0, 200) : cleanContent
+		};
+	}
+}
+
+export async function fetchDualAIResponses(
 	promptText: string,
 	model: AIModel,
 	userId: string,
 	systemPrompts: string[],
 	attachment: File | null = null
-  ): Promise<{ responses: string[], threadId: string | null }> {
+): Promise<{ responses: string[]; threadId: string | null }> {
 	try {
-	  if (systemPrompts.length !== 2) {
-		throw new Error('Exactly two system prompts must be provided');
-	  }
-  
-	  const response = await fetch('/api/threads', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-		  title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-		  userId,
-		  temporary: true
-		})
-	  });
-  
-	  if (!response.ok) {
-		throw new Error('Failed to create a temporary thread');
-	  }
-  
-	  const newThread = await response.json();
-	  const threadId = newThread.id;
-  
-	  const responses = await Promise.all(
-		systemPrompts.map(async (systemPrompt) => {
-		  const messages: AIMessage[] = [
-			{
-			  role: 'system',
-			  content: systemPrompt,
-			  model: model.api_type
+		if (systemPrompts.length !== 2) {
+			throw new Error('Exactly two system prompts must be provided');
+		}
+
+		const response = await fetch('/api/threads', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
 			},
-			{
-			  role: 'user',
-			  content: promptText,
-			  model: model.api_type
-			}
-		  ];
-  
-		  return await fetchAIResponse(messages, model, userId, attachment);
-		})
-	  );
-  
-	  return {
-		responses,
-		threadId
-	  };
+			body: JSON.stringify({
+				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+				userId,
+				temporary: true
+			})
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to create a temporary thread');
+		}
+
+		const newThread = await response.json();
+		const threadId = newThread.id;
+
+		const responses = await Promise.all(
+			systemPrompts.map(async (systemPrompt) => {
+				const messages: AIMessage[] = [
+					{
+						role: 'system',
+						content: systemPrompt,
+						model: model.api_type
+					},
+					{
+						role: 'user',
+						content: promptText,
+						model: model.api_type
+					}
+				];
+
+				return await fetchAIResponse(messages, model, userId, attachment);
+			})
+		);
+
+		return {
+			responses,
+			threadId
+		};
 	} catch (error) {
-	  console.error('Error in fetchDualAIResponses:', error);
-	  throw error;
+		console.error('Error in fetchDualAIResponses:', error);
+		throw error;
 	}
-  }
-  
+}
+
 export async function saveSelectedResponse(
 	selectedResponse: string,
 	promptText: string,
@@ -702,7 +706,7 @@ export async function saveSelectedResponse(
 	assistantMessageId: string;
 }> {
 	try {
-		let currentThreadId: string; 
+		let currentThreadId: string;
 		if (!threadId) {
 			const response = await fetch('/api/threads', {
 				method: 'POST',
@@ -723,7 +727,7 @@ export async function saveSelectedResponse(
 			currentThreadId = newThread.id;
 		} else {
 			currentThreadId = threadId;
-			
+
 			await fetch(`/api/threads/${threadId}`, {
 				method: 'PATCH',
 				headers: {
@@ -735,8 +739,8 @@ export async function saveSelectedResponse(
 				})
 			});
 		}
-  
-	const userMessageResponse = await fetch('/api/messages', {
+
+		const userMessageResponse = await fetch('/api/messages', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -773,7 +777,7 @@ export async function saveSelectedResponse(
 		if (!assistantMessageResponse.ok) {
 			throw new Error('Failed to save assistant message');
 		}
-		
+
 		const assistantMessage = await assistantMessageResponse.json();
 
 		return {

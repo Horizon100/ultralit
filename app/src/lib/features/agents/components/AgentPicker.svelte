@@ -1034,7 +1034,6 @@
 		/* margin-right: 50px; */
 		align-items: flex-start;
 		margin-right: 5rem;
-
 	}
 
 	.item {
@@ -1459,7 +1458,7 @@
 		flex-direction: row;
 		position: absolute;
 		justify-content: center;
-		
+
 		left: 0;
 		bottom: 0;
 		align-items: center;
@@ -1545,19 +1544,8 @@
 		padding: 20px;
 	}
 
-	@media (max-width: 1700px) {
-	}
-
-	@media (max-width: 1000px) {
-		.button-grid {
-			/* width: 99%; */
-			/* grid-template-columns: repeat(4, 1fr);  */
-		}
-	}
 
 	@media (max-width: 750px) {
-
-
 		.agent-item {
 			width: 70px;
 			height: 100%;

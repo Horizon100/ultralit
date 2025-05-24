@@ -25,7 +25,12 @@
 	// Stores
 	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
-	import { currentLanguage, setLanguage, languages, initializeLanguage } from '$lib/stores/languageStore';
+	import {
+		currentLanguage,
+		setLanguage,
+		languages,
+		initializeLanguage
+	} from '$lib/stores/languageStore';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { t } from '$lib/stores/translationStore';
@@ -35,84 +40,62 @@
 
 	// Icons
 	import {
-	  MessageSquare,
-	  X,
-	  PanelLeftClose,
-	  PanelLeftOpen,
-	  Drill,
-	  NotebookTabs,
-	  Sun,
-	  Moon,
-	  Languages,
-	  Camera,
-	  Plus,
-	  LogIn,
-	  LogOut,
-	  User,
-	  Sunrise,
-	  Sunset,
-	  Focus,
-	  Bold,
-	  Gauge,
-	  Component,
-	  Bone,
-	  SquareKanban,
-	  MapPin,
-	  Combine,
-	  MessageCircleDashed,
-	  MessageCircle,
-	  ChevronLeft,
-	  HelpCircle,
-	  InfoIcon,
-	  Settings2,
-	  Settings,
-	  Brain,
-	  Menu,
-	  Code,
-	  KanbanSquare,
-	  Box,
-	  ChevronDown,
-	  LogOutIcon,
-	  Github,
-
-	  CircleDollarSign,
-
-	  Link,
-
-	  Table,
-
-	  ComponentIcon,
-
-	  Home,
-
-	  CodeIcon,
-
-	  Code2,
-
-	  SquareDashedKanban,
-
-	  Gamepad,
-
-	  Gamepad2,
-
-	  HomeIcon
-
-
-
-
-
-
-
-
-
-
-
+		MessageSquare,
+		X,
+		PanelLeftClose,
+		PanelLeftOpen,
+		Drill,
+		NotebookTabs,
+		Sun,
+		Moon,
+		Languages,
+		Camera,
+		Plus,
+		LogIn,
+		LogOut,
+		User,
+		Sunrise,
+		Sunset,
+		Focus,
+		Bold,
+		Gauge,
+		Component,
+		Bone,
+		SquareKanban,
+		MapPin,
+		Combine,
+		MessageCircleDashed,
+		MessageCircle,
+		ChevronLeft,
+		HelpCircle,
+		InfoIcon,
+		Settings2,
+		Settings,
+		Brain,
+		Menu,
+		Code,
+		KanbanSquare,
+		Box,
+		ChevronDown,
+		LogOutIcon,
+		Github,
+		CircleDollarSign,
+		Link,
+		Table,
+		ComponentIcon,
+		Home,
+		CodeIcon,
+		Code2,
+		SquareDashedKanban,
+		Gamepad,
+		Gamepad2,
+		HomeIcon
 	} from 'lucide-svelte';
-	
+
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
-	export let isOpen = false; 
-  	export let isSearchFocused = false;
+	export let isOpen = false;
+	export let isSearchFocused = false;
 	// Local state
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
@@ -131,7 +114,6 @@
 	let activeRevealButton: string | null = null;
 	let isDropdownOpen = false;
 
-
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
 	$: isThreadListVisible = $showThreadList;
@@ -139,112 +121,117 @@
 	$: showBottomButtons = currentPath === '/';
 	$: isNarrowScreen = innerWidth <= 1000;
 	$: user = $currentUser;
-	
+
 	// Event handling
 	const dispatch = createEventDispatcher<{
-	  promptSelect: any;
-	  promptAuxclick: any;
-	  threadListToggle: void;
+		promptSelect: any;
+		promptAuxclick: any;
+		threadListToggle: void;
 	}>();
-	
+
 	// Styles configuration
 	const styles = [
-	  { name: 'Daylight Delight', value: 'default', icon: Sun },
-	  { name: 'Midnight Madness', value: 'dark', icon: Moon },
-	  { name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-	  { name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-	  { name: 'Laser Focus', value: 'focus', icon: Focus },
-	  { name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-	  { name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-	  { name: 'Bone Tone', value: 'bone', icon: Bone },
-	  { name: 'Ivory Tower', value: 'ivoryx', icon: Component }
+		{ name: 'Daylight Delight', value: 'default', icon: Sun },
+		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
+		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
+		{ name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
+		{ name: 'Laser Focus', value: 'focus', icon: Focus },
+		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
+		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
+		{ name: 'Bone Tone', value: 'bone', icon: Bone },
+		{ name: 'Ivory Tower', value: 'ivoryx', icon: Component }
 	];
-	
+
 	// Functions
-	function getRandomQuote() {
-	  const quotes = $t('extras.quotes');
-	  return quotes[Math.floor(Math.random() * quotes.length)];
+	function getRandomQuote(): string {
+		const quotes = $t('extras.quotes');
+		
+		if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+			return quotes[Math.floor(Math.random() * quotes.length)];
+		}
+		
+		return 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
 	}
 	function toggleSidenav() {
 		sidenavStore.toggle();
 	}
 	function toggleThreadList() {
-	  threadListVisibility.toggle();
-	  dispatch('threadListToggle');
+		threadListVisibility.toggle();
+		dispatch('threadListToggle');
 	}
-	
+
 	function toggleStyles() {
-	  showStyles = !showStyles;
+		showStyles = !showStyles;
 	}
-	
+
 	function handleStyleClick() {
-	  showStyles = !showStyles;
+		showStyles = !showStyles;
 	}
-	
+
 	function handleStyleClose() {
-	  showStyles = false;
+		showStyles = false;
 	}
 	function handleLinkClick(event: CustomEvent) {
 		const notification = event.detail;
 		if (notification.link?.url) {
-		goto(notification.link.url);
+			goto(notification.link.url);
 		}
 	}
 	async function handleStyleChange(event: CustomEvent) {
-	  const { style } = event.detail;
-	  await currentTheme.set(style);
-	  showStyles = false;
+		const { style } = event.detail;
+		await currentTheme.set(style);
+		showStyles = false;
 	}
 	function updateActiveSection(sectionId: string) {
-	activeSection = sectionId;
+		activeSection = sectionId;
 	}
 	function toggleNav() {
-	  isNavExpanded = !isNavExpanded;
+		isNavExpanded = !isNavExpanded;
 	}
-	
+
 	function toggleAuthOrProfile() {
-	  if ($currentUser) {
-		showProfile = !showProfile;
-		showAuthModal = false;
-	  } else {
-		showAuthModal = !showAuthModal;
-		showProfile = false;
-	  }
+		if ($currentUser) {
+			showProfile = !showProfile;
+			showAuthModal = false;
+		} else {
+			showAuthModal = !showAuthModal;
+			showProfile = false;
+		}
 	}
-	
+
 	function handleAuthSuccess() {
-	  showAuthModal = false;
-	}
-	
-	function handleLogout() {
-	  showProfile = false;
-	  goto('/welcome');
-	  showAuthModal = false;
-	}
-	
-	function handleOverlayClick(event: MouseEvent) {
-	  if (event.target === event.currentTarget) {
 		showAuthModal = false;
+	}
+
+	function handleLogout() {
 		showProfile = false;
-		showStyles = false;
-	  }
+		goto('/welcome');
+		showAuthModal = false;
 	}
-	
+
+	function handleOverlayClick(event: MouseEvent) {
+		if (event.target === event.currentTarget) {
+			showAuthModal = false;
+			showProfile = false;
+			showStyles = false;
+		}
+	}
+
 	function navigateTo(path: string) {
-	  goto(path);
-	  showProfile = false;
+		goto(path);
+		showProfile = false;
 	}
-	
+
 	function setActiveLink(path: string) {
-	  goto(path);
-	  activeLink = path;
+		goto(path);
+		activeLink = path;
 	}
-	
+
 	function handleLogoClick(event: MouseEvent) {
-	  event.preventDefault();
-	  setActiveLink('/');
+		event.preventDefault();
+		setActiveLink('/');
 	}
-	
+
 	function scrollToSection(sectionId: string) {
 		const section = document.getElementById(sectionId);
 		if (section) {
@@ -252,606 +239,479 @@
 			updateActiveSection(sectionId);
 		}
 	}
-	
+
 	function handlePromptSelect(event: CustomEvent) {
-	  dispatch('promptSelect', event.detail);
-	  console.log('Layout: Received promptSelect:', event.detail);
+		dispatch('promptSelect', event.detail);
+		console.log('Layout: Received promptSelect:', event.detail);
 	}
-	
+
 	function handlePromptAuxclick(event: CustomEvent) {
-	  console.log('Layout: Received promptAuxclick:', event.detail);
-	  dispatch('promptAuxclick', event.detail);
-	  handlePromptSelect(event);
+		console.log('Layout: Received promptAuxclick:', event.detail);
+		dispatch('promptAuxclick', event.detail);
+		handlePromptSelect(event);
 	}
-	
+
 	function handleThreadListToggle() {
-	  toggleThreadList();
+		toggleThreadList();
 	}
-	
+
 	function getAvatarUrl(user: any): string {
-	  if (!user) return '';
-	  
-	  // If avatarUrl is already provided (e.g., from social login)
-	  if (user.avatarUrl) return user.avatarUrl;
-	  
-	  // For PocketBase avatars
-	  if (user.avatar) {
-		return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
-	  }
-	  
-	  // Fallback - no avatar
-	  return '';
+		if (!user) return '';
+
+		// If avatarUrl is already provided (e.g., from social login)
+		if (user.avatarUrl) return user.avatarUrl;
+
+		// For PocketBase avatars
+		if (user.avatar) {
+			return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+		}
+
+		// Fallback - no avatar
+		return '';
 	}
-	
+
 	async function handleLanguageChange() {
-	  showLanguageNotification = true;
-	  
-	  const currentLang = $currentLanguage;
-	  const currentIndex = languages.findIndex((lang) => lang.code === currentLang);
-	  const nextIndex = (currentIndex + 1) % languages.length;
-	  const nextLanguage = languages[nextIndex];
-	  
-	  await setLanguage(nextLanguage.code);
-	  selectedLanguageName = nextLanguage.name;
-	  
-	  await tick();
-	  
-	  setTimeout(() => {
 		showLanguageNotification = true;
-	  }, 0);
-	  setTimeout(() => {
-		showLanguageNotification = false;
-	  }, 600);
+
+		const currentLang = $currentLanguage;
+		const currentIndex = languages.findIndex((lang) => lang.code === currentLang);
+		const nextIndex = (currentIndex + 1) % languages.length;
+		const nextLanguage = languages[nextIndex];
+
+		await setLanguage(nextLanguage.code);
+		selectedLanguageName = nextLanguage.name;
+
+		await tick();
+
+		setTimeout(() => {
+			showLanguageNotification = true;
+		}, 0);
+		setTimeout(() => {
+			showLanguageNotification = false;
+		}, 600);
 	}
-  
+
 	async function logout() {
-	  try {
-		await signOut();
-		showProfile = false;
-		goto('/welcome');
-	  } catch (error) {
-		console.error('Error during logout:', error);
-	  }
-	}
-	
-	// Lifecycle hooks
-	onMount(async () => {
 		try {
-			console.log('onMount initiated');
+			await signOut();
+			showProfile = false;
+			goto('/welcome');
+		} catch (error) {
+			console.error('Error during logout:', error);
+		}
+	}
+	$: searchPlaceholder = $t('nav.searchEverything') as string;
+
+	// Lifecycle hooks
+onMount(() => {
+	let unsubscribe: (() => void) | undefined;
+	let themeUnsubscribe: (() => void) | undefined;
+
+	const initialize = async () => {
+		try {
+			console.log('Layout onMount initiated');
 			
-			// Initialize theme and language
+			// Initialize theme and language (global)
 			currentTheme.initialize();
 			await initializeLanguage();
-			
-			// Set up user info
+
+			// Set up user info (global)
 			if ($currentUser && $currentUser.id) {
-			console.log('Current user:', $currentUser);
-			username = $currentUser.username || $currentUser.email;
+				console.log('Current user:', $currentUser);
+				username = $currentUser.username || $currentUser.email;
 			}
-			
-			// Set up navigation tracking
-			const unsubscribe = navigating.subscribe((navigationData) => {
-			if (navigationData) {
-				isNavigating.set(true);
-			} else {
-				setTimeout(() => {
-				isNavigating.set(false);
-				}, 300);
-			}
-			});
-			
-			// Set up theme tracker
-			const themeUnsubscribe = currentTheme.subscribe((theme) => {
-			document.documentElement.className = theme;
-			});
-			
-			// Define function to update active section
-			function updateActiveSection(sectionId: string) {
-			activeSection = sectionId;
-			}
-			
-			// Add IntersectionObserver for active section tracking
-			const observerOptions = {
-			root: null, // Use the viewport
-			rootMargin: '0px',
-			threshold: 0.5 // Consider section visible when 50% visible
-			};
-			
-			const sectionObserver = new IntersectionObserver((entries) => {
-			entries.forEach(entry => {
-				if (entry.isIntersecting) {
-				updateActiveSection(entry.target.id);
-				}
-			});
-			}, observerOptions);
-			
-			// Observe all sections with IDs including specific divs
-			const sections = document.querySelectorAll('section[id], div[id="start"], div[id="features"], div[id="pricing"], div[id="integrations"], div[id="comparison"]');
-			sections.forEach(section => {
-			sectionObserver.observe(section);
-			});
-			
-			// Add hash change listener
-			const handleHashChange = () => {
-			activeSection = window.location.hash.slice(1);
-			};
-			window.addEventListener('hashchange', handleHashChange);
-			handleHashChange(); // Initial check
-			
-			// Return cleanup function
-			return () => {
-			unsubscribe();
-			themeUnsubscribe();
-			sectionObserver.disconnect();
-			window.removeEventListener('hashchange', handleHashChange);
-			};
 		} catch (error) {
-			console.error('Error during onMount:', error);
+			console.error('Error during layout onMount:', error);
+		}
+	};
+
+	// Set up navigation tracking (global)
+	unsubscribe = navigating.subscribe((navigationData) => {
+		if (navigationData) {
+			isNavigating.set(true);
+		} else {
+			setTimeout(() => {
+				isNavigating.set(false);
+			}, 300);
 		}
 	});
-  </script>
+
+	// Set up theme tracker (global)
+	themeUnsubscribe = currentTheme.subscribe((theme) => {
+		document.documentElement.className = theme;
+	});
+
+	// Initialize async operations
+	initialize();
+
+	// Return cleanup function synchronously
+	return () => {
+		unsubscribe?.();
+		themeUnsubscribe?.();
+	};
+});
+</script>
 
 <svelte:window bind:innerWidth />
 
 <div class="app-container {$currentTheme}">
-	<TaskNotification 
-  notifications={$taskNotifications} 
-  on:remove 
-  on:linkClick={handleLinkClick}
-/>
+	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
 	<header>
-		  {#if $currentUser}
-			<button 
-				class="nav-button info user" 
+		{#if $currentUser}
+			<button
+				class="nav-button info user"
 				class:expanded={isNavExpanded}
 				on:click={() => {
-				  toggleAuthOrProfile();
-				  // Only close the nav if it's expanded
-				  if (isNavExpanded) {
-					isNavExpanded = false;
-				  }
-				}}
-			  >
-				{#if getAvatarUrl($currentUser)}
-				<img 
-					src={getAvatarUrl($currentUser)}
-					alt="User avatar" 
-					class="user-avatar" 
-				/>
-				{:else}
-					<div class="default-avatar">
-						{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
-					</div>
-				{/if}
-				<span class="nav-text">{username}
-
-				</span>
-				<span class="icon"
-				on:click={() => {
-					logout();
+					toggleAuthOrProfile();
 					// Only close the nav if it's expanded
 					if (isNavExpanded) {
-					  isNavExpanded = false;
+						isNavExpanded = false;
 					}
-				  }}
-				on:click={logout} >
-					<LogOutIcon size={24} />
-
-				</span>
-					{#if isNavExpanded}
-
-
-					{/if}
-		</button>
-		{:else}
-		<span class="header-auth">
-			<button 
-				class="nav-link login"
-    			on:click={() => toggleAuthOrProfile()}
-				in:fly={{ y: 0, duration: 500, delay: 400 }}
-				out:fly={{ y: 50, duration: 500, delay: 400 }}
+				}}
+			>
+				{#if getAvatarUrl($currentUser)}
+					<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
+				{:else}
+					<div class="default-avatar">
+						{($currentUser?.name ||
+							$currentUser?.username ||
+							$currentUser?.email ||
+							'?')[0]?.toUpperCase()}
+					</div>
+				{/if}
+				<span class="nav-text">{username} </span>
+				<span
+					class="icon"
+					on:click={() => {
+						logout();
+						// Only close the nav if it's expanded
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}}
+					on:click={logout}
 				>
-				<LogIn size="16"/>
-				<span>
-					{$t('profile.login')}
+					<LogOutIcon size={24} />
 				</span>
 			</button>
-					<span class="auth-language">
-
-			<button class="nav-link language" on:click={handleLanguageChange}>
-				<Languages size={16} />
-				<span>{$t('lang.flag')}</span>
-				<!-- <span class="hover">{$t('profile.language')}</span> -->
-			</button>
+		{:else}
+			<span class="header-auth">
+				<button
+					class="nav-link login"
+					on:click={() => toggleAuthOrProfile()}
+					in:fly={{ y: 0, duration: 500, delay: 400 }}
+					out:fly={{ y: 50, duration: 500, delay: 400 }}
+				>
+					<LogIn size="16" />
+					<span>
+						{$t('profile.login')}
+					</span>
+				</button>
+				<span class="auth-language">
+					<button class="nav-link language" on:click={handleLanguageChange}>
+						<Languages size={16} />
+						<span>{$t('lang.flag')}</span>
+						<!-- <span class="hover">{$t('profile.language')}</span> -->
+					</button>
+				</span>
 			</span>
-		</span>
 		{/if}
 		{#if $currentUser}
 			<div class="project">
-			{#if !isSearchFocused}
-				<ProjectDropdown bind:isOpen={isDropdownOpen} />
-			{/if}
+				{#if !isSearchFocused}
+					<ProjectDropdown bind:isOpen={isDropdownOpen} />
+				{/if}
 			</div>
 		{/if}
-		<span class="search-wrapper" class:dropdown-open={isDropdownOpen} class:search-open={isSearchFocused}>
-
+		<span
+			class="search-wrapper"
+			class:dropdown-open={isDropdownOpen}
+			class:search-open={isSearchFocused}
+		>
 			<span>
 				{#if !isDropdownOpen}
-					<SearchEngine size="large" placeholder={$t('nav.searchEverything')} bind:isFocused={isSearchFocused} />
+					<SearchEngine
+						size="large"
+						placeholder={searchPlaceholder}
+						bind:isFocused={isSearchFocused}
+					/>
 				{/if}
 			</span>
-
 		</span>
-		<button
-			class="nav-button info logo"
-			class:expanded={isNavExpanded}
-
-			>
-			<div 
-				class="logo-container" 
+		<button class="nav-button info logo" class:expanded={isNavExpanded}>
+			<div
+				class="logo-container"
 				on:click|stopPropagation={() => {
-				// Set a flag before navigating to root
-				sessionStorage.setItem('directNavigation', 'true');
-				navigateTo('/');
+					// Set a flag before navigating to root
+					sessionStorage.setItem('directNavigation', 'true');
+					navigateTo('/');
 				}}
 				style="cursor: pointer;"
 			>
 				<img src={horizon100} alt="Horizon100" class="logo" />
 				<h2>vRAZUM</h2>
 			</div>
-			<div class="shortcut-buttons">
-				<a
-				href="https://github.com/Horizon100/ultralit"
-				target="_blank"
-				rel="noopener noreferrer"
-			>
-				<button class="shortcut"
-				class:expanded={isNavExpanded}
-				>
-					<Github size="30" /> 
-					{#if isNavExpanded}
-						<span class="nav-text">GitHub</span>
-					{/if}
-				</button>
+				<a href="https://github.com/Horizon100/ultralit" target="_blank" rel="noopener noreferrer" class:expanded={isNavExpanded}>
+						<Github size="30" />
+						{#if isNavExpanded}
+							<span class="nav-text">GitHub</span>
+						{/if}
 				</a>
-				<button
-				class="shortcut" 
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/canvas'}
-				on:click={() => {
-					navigateTo('/canvas');
-					if (isNavExpanded) {
-					isNavExpanded = false;
-					}
-				}}			
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/canvas'}
+					on:click={() => {
+						navigateTo('/canvas');
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}}
 				>
-				<Combine />
-				
-				{#if isNavExpanded}
-				<span class="nav-text">{$t('nav.canvas')}</span>
-			{/if}
-				</button>
-				<button
+					<Combine />
+
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.canvas')}</span>
+					{/if}
+				</a>
+				<a
 					class="shortcut"
 					class:expanded={isNavExpanded}
 					class:active={currentPath === '/notes'}
 					on:click={() => {
 						navigateTo('/notes');
 						if (isNavExpanded) {
-						isNavExpanded = false;
+							isNavExpanded = false;
 						}
-					}}	
-					>
+					}}
+				>
 					<NotebookTabs />
 					{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.notes')}</span>
+						<span class="nav-text">{$t('nav.notes')}</span>
+					{/if}
+				</a>
+			{#if isNavExpanded}
+				<!-- <h2>vRAZUM</h2> -->
+			{/if}
+		</button>
+	</header>
+	<nav style="z-index: 1000;">
+	</nav>
+	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
+		<div
+			class="navigation-buttons"
+			class:hidden={isNarrowScreen}
+			in:fly={{ x: -200, duration: 300 }}
+			out:fly={{ x: 200, duration: 300 }}
+		>
+			{#if $currentUser}
+				<button
+					class="nav-button drawer"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/home'}
+					class:reveal-active={activeRevealButton === 'home'}
+					on:click={(event) => {
+						if (currentPath === '/home') {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'home' ? null : 'home';
+							toggleSidenav();
+							isNavExpanded = false;
+						} else {
+							navigateTo('/home');
+							activeRevealButton = 'home';
+							if (isNavExpanded) {
+								isNavExpanded = false;
+							}
+						}
+					}}
+				>
+					{#if currentPath === '/home' && showThreadList}
+						<PanelLeftClose />
+					{:else if currentPath === '/home'}
+						<HomeIcon />
+					{:else}
+						<HomeIcon />
+					{/if}
+
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.home')}</span>
 					{/if}
 				</button>
-				
-
-		</div>
-			{#if isNavExpanded}
-			<!-- <h2>vRAZUM</h2> -->
-
-			{/if}
-		</button>				
-
-	</header>
-		<nav style="z-index: 1000;">
-			<!-- <TimeTracker /> -->
-			<!-- <button class="nav-button" on:click={handleLanguageChange}> -->
-			<!-- <Languages size={24} /> -->
-			<!-- <span class="language-code">{$currentLanguage.toUpperCase()}</span> -->
-			<!-- <span>{$t('lang.flag')}</span>
-		
-			  </button> -->
-
-
-			<!-- {#if isNarrowScreen} -->
-
-
-			<!-- {:else} -->
-				{#if currentPath === '/'}
-					{#if $currentUser}
-						
-					{:else}
-					<!-- <div class="nav-links" transition:fly={{ y: -200, duration: 300 }}>
-
-						
-						<span>
-							<a
-								href="#features"
-								class="nav-link {activeSection === 'features' ? 'active' : ''}"
-								on:click|preventDefault={() => scrollToSection('features')}
-							>
-								<span>
-									{$t('nav.features')}
-								</span>
-							</a>
-							<a
-								href="#pricing"
-								class="nav-link {activeSection === 'pricing' ? 'active' : ''}"
-								on:click|preventDefault={() => scrollToSection('pricing')}
-							>
-								<span>
-									{$t('nav.pricing')}
-								</span>
-							</a>
-							<a
-								href="#integrations"
-								class="nav-link {activeSection === 'integrations' ? 'active' : ''}"
-								on:click|preventDefault={() => scrollToSection('integrations')}
-							>
-								<span>
-									{$t('nav.integrations')}
-								</span>
-							</a>
-
-						</span>
-						<a
-							href="#start"
-							class="nav-link home {activeSection === 'start' ? 'active' : ''}"
-							on:click|preventDefault={() => scrollToSection('start')}
-						>
-							<img src={horizon100} alt="Horizon100" class="logo" />
-							<h2>vRAZUM</h2>                         
-						</a>
-					</div> -->
-
-					{/if}
-				{/if}
-			<!-- {/if} -->
-
-
-		</nav>
-	<div class="sidenav" 
-	class:expanded={isNavExpanded} 
-	transition:slide={{ duration: 300 }}
-	>
-	<div
-		class="navigation-buttons"
-		class:hidden={isNarrowScreen}
-		in:fly={{ x: -200, duration: 300 }}
-		out:fly={{ x: 200, duration: 300 }}
-	>
-
-	{#if $currentUser}
-
-
-			<button
-				class="nav-button drawer"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/home'}
-				class:reveal-active={activeRevealButton === 'home'}
-				on:click={(event) => {
-					if (currentPath === '/home') {
-					event.preventDefault();
-					activeRevealButton = activeRevealButton === 'home' ? null : 'home';
-					toggleSidenav();
-					isNavExpanded = false;
-					} else {
-					navigateTo('/home');
-					activeRevealButton = 'home';
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-					}
-				}}
-			>
-			{#if currentPath === '/home' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/home'}
-			<HomeIcon />
-			{:else}
-			<HomeIcon />
-			{/if}
-			
-			{#if isNavExpanded}
-			<span class="nav-text">{$t('nav.home')}</span>
-			{/if}
-		</button>	
-		<button
-		class="nav-button drawer reveal"
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/chat'}
-		class:reveal-active={activeRevealButton === 'chat'}
-		on:click={(event) => {
-			if (currentPath === '/chat') {
-			event.preventDefault();
-			activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
-			toggleThreadList();
-			isNavExpanded = false;
-			} else {
-			navigateTo('/chat');
-			activeRevealButton = 'chat';
-			if (isNavExpanded) {
-				isNavExpanded = false;
-			}
-			}
-		}}
-		>
-			{#if currentPath === '/chat' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/chat'}
-			<MessageCircleDashed />
-			{:else}
-			<MessageCircle />
-			{/if}
-			
-			{#if isNavExpanded}
-			<span class="nav-text">{$t('tasks.gantt')}</span>
-			{/if}
-		</button>
-		<button
-		class="nav-button drawer reveal"
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/lean'}
-		class:reveal-active={activeRevealButton === 'lean'}
-		on:click={(event) => {
-			if (currentPath === '/lean') {
-			event.preventDefault();
-			activeRevealButton = activeRevealButton === 'lean' ? null : 'lean';
-			toggleThreadList();
-			isNavExpanded = false;
-			} else {
-			navigateTo('/lean');
-			activeRevealButton = 'lean';
-			if (isNavExpanded) {
-				isNavExpanded = false;
-			}
-			}
-		}}
-		>
-		{#if currentPath === '/lean' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/lean'}
-			<SquareDashedKanban />
-			{:else}
-			<SquareKanban />
-			{/if}
-			{#if isNavExpanded}
-				<span class="nav-text">{$t('nav.tasks')}</span>
-			{/if}
-		</button>
 				<button
-		class="nav-button drawer reveal"
-		class:expanded={isNavExpanded}
-		class:active={currentPath === '/game'}
-		class:reveal-active={activeRevealButton === 'game'}
-		on:click={(event) => {
-			if (currentPath === '/game') {
-			event.preventDefault();
-			activeRevealButton = activeRevealButton === 'game' ? null : 'game';
-			toggleThreadList();
-			isNavExpanded = false;
-			} else {
-			navigateTo('/game');
-			activeRevealButton = 'game';
-			if (isNavExpanded) {
-				isNavExpanded = false;
-			}
-			}
-		}}
-		>
-		{#if currentPath === '/game' && showThreadList}
-			<PanelLeftClose />
-			{:else if currentPath === '/game'}
-			<Gamepad />
-			{:else}
-			<Gamepad2 />
-			{/if}
-			{#if isNavExpanded}
-				<span class="nav-text">{$t('nav.game')}</span>
-			{/if}
-		</button>
-		<button
-			class="nav-button drawer"
-			class:expanded={isNavExpanded}
-			class:active={currentPath === '/ide'}
-			on:click={() => navigateTo('/ide')}
-		>
-			<Code2 />
-			{#if isNavExpanded}
-				<span class="nav-text">IDE</span>
-			{/if}
-		</button>
-
-
-				<button class="nav-button toggle" on:click={() => {
-					toggleNav();
-					if (showProfile || showAuthModal) {
-					  showProfile = false;
-					  showAuthModal = false;
-					}
-				  }}>
-					{#if isNavExpanded}
-					<PanelLeftClose />
+					class="nav-button drawer reveal"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/chat'}
+					class:reveal-active={activeRevealButton === 'chat'}
+					on:click={(event) => {
+						if (currentPath === '/chat') {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+							toggleThreadList();
+							isNavExpanded = false;
+						} else {
+							navigateTo('/chat');
+							activeRevealButton = 'chat';
+							if (isNavExpanded) {
+								isNavExpanded = false;
+							}
+						}
+					}}
+				>
+					{#if currentPath === '/chat' && showThreadList}
+						<PanelLeftClose />
+					{:else if currentPath === '/chat'}
+						<MessageCircleDashed />
 					{:else}
-					<PanelLeftOpen />
+						<MessageCircle />
 					{/if}
-				  </button>
 
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('tasks.gantt')}</span>
+					{/if}
+				</button>
+				<button
+					class="nav-button drawer reveal"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/lean'}
+					class:reveal-active={activeRevealButton === 'lean'}
+					on:click={(event) => {
+						if (currentPath === '/lean') {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'lean' ? null : 'lean';
+							toggleThreadList();
+							isNavExpanded = false;
+						} else {
+							navigateTo('/lean');
+							activeRevealButton = 'lean';
+							if (isNavExpanded) {
+								isNavExpanded = false;
+							}
+						}
+					}}
+				>
+					{#if currentPath === '/lean' && showThreadList}
+						<PanelLeftClose />
+					{:else if currentPath === '/lean'}
+						<SquareDashedKanban />
+					{:else}
+						<SquareKanban />
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.tasks')}</span>
+					{/if}
+				</button>
+				<button
+					class="nav-button drawer reveal"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/game'}
+					class:reveal-active={activeRevealButton === 'game'}
+					on:click={(event) => {
+						if (currentPath === '/game') {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'game' ? null : 'game';
+							toggleThreadList();
+							isNavExpanded = false;
+						} else {
+							navigateTo('/game');
+							activeRevealButton = 'game';
+							if (isNavExpanded) {
+								isNavExpanded = false;
+							}
+						}
+					}}
+				>
+					{#if currentPath === '/game' && showThreadList}
+						<PanelLeftClose />
+					{:else if currentPath === '/game'}
+						<Gamepad />
+					{:else}
+						<Gamepad2 />
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.game')}</span>
+					{/if}
+				</button>
+				<button
+					class="nav-button drawer"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/ide'}
+					on:click={() => navigateTo('/ide')}
+				>
+					<Code2 />
+					{#if isNavExpanded}
+						<span class="nav-text">IDE</span>
+					{/if}
+				</button>
 
-		{:else}
-			<!-- <LogIn /> -->
-		{/if}
-	</div>
-
-	<!-- Navigation Buttons -->
-
-</div>
-
-
-
-{#if showLanguageNotification}
-	<div class="language-notification" transition:fade={{ duration: 300 }}>
-		{$t('lang.notification')}
-	</div>
-{/if}
-
-{#if showAuthModal}
-	<div
-		class="auth-overlay"
-		on:click={handleOverlayClick}
-		transition:fade={{ duration: 300 }}
-	>
-		<div class="auth-content" transition:fade={{ duration: 300 }}>
-			<button
-				on:click={() => (showAuthModal = false)}
-				class="close-button"
-				in:fly={{ y: 50, duration: 500, delay: 400 }}
-				out:fly={{ y: 50, duration: 500, delay: 400 }}
-			>
-				<X size={24} />
-			</button>
-			<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+				<button
+					class="nav-button toggle"
+					on:click={() => {
+						toggleNav();
+						if (showProfile || showAuthModal) {
+							showProfile = false;
+							showAuthModal = false;
+						}
+					}}
+				>
+					{#if isNavExpanded}
+						<PanelLeftClose />
+					{:else}
+						<PanelLeftOpen />
+					{/if}
+				</button>
+			{:else}
+				<!-- <LogIn /> -->
+			{/if}
 		</div>
-	</div>
-{/if}
 
-{#if showProfile}
-	<div
-		class="profile-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ y: -200, duration: 300 }}
-	>
-		<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-			<!-- <button
+		<!-- Navigation Buttons -->
+	</div>
+
+	{#if showLanguageNotification}
+		<div class="language-notification" transition:fade={{ duration: 300 }}>
+			{$t('lang.notification')}
+		</div>
+	{/if}
+
+	{#if showAuthModal}
+		<div class="auth-overlay" on:click={handleOverlayClick} transition:fade={{ duration: 300 }}>
+			<div class="auth-content" transition:fade={{ duration: 300 }}>
+				<button
+					on:click={() => (showAuthModal = false)}
+					class="close-button"
+					in:fly={{ y: 50, duration: 500, delay: 400 }}
+					out:fly={{ y: 50, duration: 500, delay: 400 }}
+				>
+					<X size={24} />
+				</button>
+				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+			</div>
+		</div>
+	{/if}
+
+	{#if showProfile}
+		<div
+			class="profile-overlay"
+			on:click={handleOverlayClick}
+			transition:fly={{ y: -200, duration: 300 }}
+		>
+			<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+				<!-- <button
 				class="close-button"
 				transition:fly={{ y: -200, duration: 300 }}
 				on:click={() => (showProfile = false)}
 			>
 				<ChevronLeft size={24} />
 			</button> -->
-			<Profile
-				user={$currentUser}
-				onClose={() => (showProfile = false)}
-				onStyleClick={handleStyleClick}
-			/>
+				<Profile
+					user={$currentUser}
+					onClose={() => (showProfile = false)}
+					onStyleClick={handleStyleClick}
+				/>
+			</div>
 		</div>
-	</div>
-{/if}
-<!-- {#if showProfile}
+	{/if}
+	<!-- {#if showProfile}
 <div
 	class="profile-overlay"
 	on:click={handleOverlayClick}
@@ -873,35 +733,35 @@
 	</div>
 </div>
 {/if} -->
-{#if showLanguageNotification}
-	<div class="language-overlay" transition:fade={{ duration: 300 }}>
-		<div class="language-notification" transition:fade={{ duration: 300 }}>
-			{$t('lang.notification')}
-			<div class="quote">
-				{placeholderText}
+	{#if showLanguageNotification}
+		<div class="language-overlay" transition:fade={{ duration: 300 }}>
+			<div class="language-notification" transition:fade={{ duration: 300 }}>
+				{$t('lang.notification')}
+				<div class="quote">
+					{placeholderText}
+				</div>
 			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
 
-{#if showStyles}
-	<div
-		class="style-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ x: -200, duration: 300 }}
-	>
-		<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
+	{#if showStyles}
+		<div
+			class="style-overlay"
+			on:click={handleOverlayClick}
+			transition:fly={{ x: -200, duration: 300 }}
+		>
+			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
         <X size={24} />
     </button> -->
-		<div
-			class="style-content"
-			on:click={handleOverlayClick}
-			transition:fly={{ x: -20, duration: 300 }}
-		>
-			<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+			<div
+				class="style-content"
+				on:click={handleOverlayClick}
+				transition:fly={{ x: -20, duration: 300 }}
+			>
+				<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
 
 	{#if $isNavigating}
 		<LoadingSpinner />
@@ -913,7 +773,7 @@
 			on:click={handleOverlayClick}
 			transition:fly={{ y: -20, duration: 300 }}
 		>
-			<div class="auth-content" >
+			<div class="auth-content">
 				<button
 					on:click={() => (showAuthModal = false)}
 					class="close-button"
@@ -927,7 +787,6 @@
 		</div>
 	{/if}
 
-
 	<main>
 		<slot />
 	</main>
@@ -938,7 +797,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
+    @use "../../src/lib/styles/themes.scss" as *;
 	* {
 		//   font-family: 'Source Code Pro', monospace;
 		font-family: var(--font-family);
@@ -956,10 +815,8 @@
 		bottom: 1rem;
 		padding: 0;
 		width: auto;
-		gap: 1rem; 
+		gap: 1rem;
 		margin-bottom: 0;
-		
-
 	}
 
 	button {
@@ -973,10 +830,7 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-
-
 		}
-
 	}
 
 	.nav-button {
@@ -1012,16 +866,13 @@
 				.shortcut-buttons {
 					display: flex;
 				}
-
 			}
 			& img.logo {
 				width: 2rem;
 				height: 2rem;
 				position: relative;
+			}
 		}
-		}
-
-
 	}
 
 	.auth-overlay {
@@ -1035,8 +886,6 @@
 		align-items: center;
 		z-index: 1000;
 	}
-
-
 
 	.auth-content {
 		position: absolute;
@@ -1078,12 +927,12 @@
 		top: 0;
 		// z-index: 999;
 		display: flex;
-		// overflow: visible; 
+		// overflow: visible;
 	}
 
 	.profile-content {
 		position: relative;
-		width:auto;
+		width: auto;
 		height: 94vh;
 		width: 500px;
 		top: 4rem;
@@ -1158,9 +1007,6 @@
 		/* height: 100vh; */
 		//   /* width: 100vw;; */;
 	}
-
-
-
 
 	header {
 		display: flex;
@@ -1242,8 +1088,6 @@
 		font-size: 16px;
 	}
 
-
-
 	.logo-container {
 		display: flex;
 		flex-direction: row;
@@ -1255,9 +1099,6 @@
 		position: relative;
 		user-select: none;
 		width: auto;
-		&:hover {
-
-		}
 
 		& h2 {
 			padding: 0 !important;
@@ -1265,11 +1106,7 @@
 			margin: 0;
 			font-style: normal;
 		}
-
-		}
-	
-
-
+	}
 
 	a.logo-link {
 		display: flex;
@@ -1285,9 +1122,7 @@
 		z-index: 6000;
 		& h2 {
 			display: flex;
-
 		}
-
 	}
 
 	.h1 {
@@ -1317,7 +1152,6 @@
 			padding: 1rem;
 		}
 	}
-
 
 	.style-overlay {
 		position: fixed;
@@ -1362,7 +1196,7 @@
 			background: var(--primary-color);
 		}
 		&.dropdown-open {
-			height: auto !important; 
+			height: auto !important;
 			min-height: 2rem;
 			flex-direction: column;
 			align-items: stretch;
@@ -1398,16 +1232,18 @@
 		color: var(--text-color);
 	}
 
-
 	a {
 		display: flex;
 		justify-content: center;
+		color: var(--placeholder-color);
 		width: auto !important;
 		align-items: center;
 		/* padding: 20px; */
 		text-decoration: none;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-
+		&:hover {
+			color: var(--tertiary-color);
+		}
 	}
 
 	.nav-links {
@@ -1438,7 +1274,6 @@
 			padding: 0 1rem;
 			border-radius: 2rem;
 			gap: 0;
-			
 		}
 	}
 
@@ -1446,8 +1281,6 @@
 		width: auto;
 		display: flex;
 		background: transparent;
-
-
 	}
 
 	.nav-link {
@@ -1477,7 +1310,7 @@
 		width: auto;
 		height: 2rem;
 		transition: all 0.3s ease;
-		
+
 		&.login {
 			width: auto;
 			display: flex;
@@ -1485,7 +1318,6 @@
 				display: flex;
 				font-size: 0.7rem;
 				width: auto;
-
 			}
 		}
 		&.language {
@@ -1502,14 +1334,10 @@
 			flex: 0;
 		}
 		&:hover {
-			& span.hover {
-				// display: flex;
-			}
 			transform: none;
 			border-radius: 0;
 			color: var(--tertiary-color);
 		}
-
 	}
 	.nav-link.active {
 		background: transparent;
@@ -1741,8 +1569,6 @@
 		cursor: pointer;
 	}
 
-
-
 	footer {
 		/* background-color: #1d2026; */
 		color: white;
@@ -1776,9 +1602,6 @@
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
 		transition: all 0.3s ease;
 	}
-
-
-
 
 	.user-button {
 		background-color: #3c3c3c;
@@ -1859,7 +1682,7 @@
 		top: auto;
 		bottom: 1rem;
 		padding: 0 0.5rem;
-		z-index:1000;
+		z-index: 1000;
 		width: 3rem;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
@@ -1875,94 +1698,79 @@
 		}
 	}
 
-
-
-
-
 	// .sidenav:hover {
 	//   /* backdrop-filter: blur(10px); */
 	// }
 
 	.navigation-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-	justify-content: left;
-	align-items: left;
-	backdrop-filter: blur(5px);
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+		justify-content: left;
+		align-items: left;
+		backdrop-filter: blur(5px);
 
-	& .hidden {
-		display: none;
+		& .hidden {
+			display: none;
+		}
 	}
-  }
 
-  .nav-button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    // background: var(--bg-gradient-right);
-    color: var(--text-color);
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    width: auto;
-
-
-    &.active {
-      background: var(--tertiary-color);
-      box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
-	  &.expanded {
-		width: 350px;
-		justify-content: flex-start;
+	.nav-button {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		padding: 0.5rem 1rem;
-		border-radius: var(--radius-s);
-		opacity: 1 !important;
+		// background: var(--bg-gradient-right);
+		color: var(--text-color);
+		border: none;
+		cursor: pointer;
+		transition: all 0.2s ease-in-out;
+		width: auto;
+
+		&.active {
+			background: var(--tertiary-color);
+			box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+			&.expanded {
+				width: 350px;
+				justify-content: flex-start;
+				padding: 0.5rem 1rem;
+				border-radius: var(--radius-s);
+				opacity: 1 !important;
+
+				&:hover {
+					box-shadow: none !important;
+				}
+			}
+		}
 
 		&:hover {
-		box-shadow: none !important;
-	}
+			background: var(--secondary-color);
 		}
-    }
 
-    &:hover {
-      background: var(--secondary-color);
-    }
+		&.expanded {
+			width: 350px;
+			justify-content: flex-start;
+			padding: 0.5rem 1rem;
+			border-radius: var(--radius-s);
+			opacity: 1;
+			animation: none !important;
+			border-radius: 2rem !important;
+		}
 
-	&.expanded {
-      width: 350px;
-      justify-content: flex-start;
-      padding: 0.5rem 1rem;
-	  border-radius: var(--radius-s);
-	  opacity: 1;
-	  animation: none !important;
-	  border-radius: 2rem !important;
+		&.toggle {
+			margin-top: auto;
+		}
 
-    }
+		&.profile {
+			margin-top: auto;
+		}
+	}
 
-    &.toggle {
-      margin-top: auto;
-
-	  &:hover {
-	  }
-    }
-
-    &.profile {
-      margin-top: auto;
-    }
-  }
-
-  .nav-text {
-    font-size: 1rem;
-    white-space: nowrap;
-  }
-
-
-
-
-
-
+	.nav-text {
+		font-size: 1rem;
+		white-space: nowrap;
+	}
 
 	.user-button {
 		background-color: #3c3c3c;
@@ -2008,8 +1816,6 @@
 		overflow: auto;
 	}
 
-
-
 	.nav-button.info {
 		display: flex;
 		justify-content: flex-start;
@@ -2047,7 +1853,6 @@
 				top: 3rem;
 				padding-top: 1rem;
 				backdrop-filter: blur(10px);
-
 			}
 		}
 		&.user,
@@ -2074,16 +1879,13 @@
 				justify-content: flex-start;
 				z-index: 10;
 				left: 0;
-
 			}
 
 			&:hover {
 				padding: 0.5rem !important;
-			 	max-width: 180px;
+				max-width: 180px;
 				background: var(--primary-color) !important;
-
 			}
-
 		}
 		span.icon {
 			display: none;
@@ -2126,59 +1928,57 @@
 			}
 		}
 		&.expanded {
-		// width: 100%;
-		height: auto;
-		flex-direction: column;
-		justify-content: space-around;
-		&:hover {
-			background: transparent;
-		}
-		& .shortcut-buttons {
-					display: flex;
-					flex-direction: column;
-					gap: 0.5rem;
-					width: 100%;
-				}
-		& button.shortcut {
-			width: 100%;
-			border-radius: 2rem;
-			gap: 0.5rem;
-			height: 3rem;
-			justify-content: flex-start;
-			padding-inline-start: 1rem;
-			&.expanded {
-				max-width: 350px;
+			// width: 100%;
+			height: auto;
+			flex-direction: column;
+			justify-content: space-around;
+			&:hover {
+				background: transparent;
 			}
-		}
-		& a {
-			width: 100%;
-			justify-content: flex-start;
-			& button.icon {
+			& .shortcut-buttons {
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
 				width: 100%;
-				border-radius: 2rem;;
 			}
-		}
-		h2 {
-			display: flex;
-		}
-		a {
-			display: flex;
-		}
-		& .nav-text {
+			& button.shortcut {
+				width: 100%;
+				border-radius: 2rem;
+				gap: 0.5rem;
+				height: 3rem;
+				justify-content: flex-start;
+				padding-inline-start: 1rem;
+				&.expanded {
+					max-width: 350px;
+				}
+			}
+			& a {
+				width: 100%;
+				justify-content: flex-start;
+				& button.icon {
+					width: 100%;
+					border-radius: 2rem;
+				}
+			}
+			h2 {
 				display: flex;
 			}
-		span.icon {
+			a {
 				display: flex;
 			}
-
+			& .nav-text {
+				display: flex;
+			}
+			span.icon {
+				display: flex;
+			}
 		}
 	}
 
 	.nav-button.config {
-
 		bottom: 3rem;
 		left: 1rem;
-		right: 1rem ;
+		right: 1rem;
 		z-index: 5000;
 	}
 
@@ -2243,8 +2043,7 @@
 
 	.nav-button,
 	.thread-toggle,
-	.close-button
-	 {
+	.close-button {
 		color: var(--text-color);
 		background: var(--bg-gradient-right);
 		font-size: auto;
@@ -2261,8 +2060,6 @@
 		overflow: hidden;
 		user-select: none;
 	}
-
-	
 
 	.nav-button.active {
 		border: 1px solid var(--secondary-color);
@@ -2286,22 +2083,22 @@
 		animation: nonlinearSpin 3.3s ease;
 	}
 	@keyframes nonlinearSpin {
-    0% {
-      transform: rotate(0deg);
-    }
-    25% {
-      transform: rotate(1080deg);
-    }
-    50% {
-      transform: rotate(0deg);
-    }
-    75% {
-      transform: rotate(1080deg);
-    }
-    100% {
-      transform: rotate(2160deg);
-    }
-  }
+		0% {
+			transform: rotate(0deg);
+		}
+		25% {
+			transform: rotate(1080deg);
+		}
+		50% {
+			transform: rotate(0deg);
+		}
+		75% {
+			transform: rotate(1080deg);
+		}
+		100% {
+			transform: rotate(2160deg);
+		}
+	}
 
 	:global(.sidenav .nav-button svg),
 	:global(.sidenav .thread-toggle svg) {
@@ -2442,129 +2239,123 @@
 	}
 
 	@media (max-width: 1000px) {
-	main {
-		overflow-y: hidden;
-
-	}
-	.auth-content {
-		position: absolute;
-		overflow: hidden;
-		display: flex;
-		top: 10rem;
-		left: 0;
-		right: auto !important;
-		/* background-color: #2b2a2a; */
-		/* padding: 2rem; */
-		width: 100% !important;
-		max-width: 600px;
-		/* max-width: 500px; */
-		overflow-y: auto;
-		transition: all 0.3s ease;
-		/* background-color: #2b2a2a; */
-		/* padding: 2rem; */
-		/* max-width: 500px; */
-		height: auto;
-	}
-	.header-auth {
-		position: relative !important;
-	}
-	a {
-		img {
-			display: none;
+		main {
+			overflow-y: hidden;
 		}
-		h2 {
-			display: none !important;
-
-		}
-	}
-	span.search-wrapper {
-		background: var(--secondary-color);
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		position: relative;
-		width: calc(100% - 9rem);
-		height: 2rem;
-		padding: 0 0.5rem;
-		border-radius: 1rem;
-		border: 1px solid var(--line-color);
-		&.search-open {
-			height: 2rem;
+		.auth-content {
+			position: absolute;
+			overflow: hidden;
+			display: flex;
+			top: 10rem;
+			left: 0;
+			right: auto !important;
+			/* background-color: #2b2a2a; */
+			/* padding: 2rem; */
 			width: 100% !important;
-			padding: 0;
-			margin-left: 0 !important;
-			flex-direction: column;
-			align-items: flex-start;
-			justify-content: flex-start;
-			background: var(--primary-color);
+			max-width: 600px;
+			/* max-width: 500px; */
+			overflow-y: auto;
+			transition: all 0.3s ease;
+			/* background-color: #2b2a2a; */
+			/* padding: 2rem; */
+			/* max-width: 500px; */
+			height: auto;
 		}
-		&.dropdown-open {
-			height: auto !important; 
-			min-height: 2rem;
-			flex-direction: column;
-			align-items: stretch;
-			padding: 0;
+		.header-auth {
+			position: relative !important;
 		}
-	}
-	.nav-links {
-		margin: 0;
-		// justify-content: flex-end;
-		width: calc(100% - 4rem);
-		span {
-			gap: 1.5rem;
-		}
-		button {
-		}
-	}
-
-	.nav-link {
-		font-size: 1rem;
-		padding: 0 !important;
-		margin: 0 !important;
-		width: auto;
-
-		& span {
-			gap: 1rem;
-			font-size: 1rem;
-		}
-		&.home {
-			width: auto;
-			justify-content: flex-end;
-
-			& h2 {
-				font-size: 1rem;
+		a {
+			img {
+				display: none;
+			}
+			h2 {
+				display: none !important;
 			}
 		}
+		span.search-wrapper {
+			background: var(--secondary-color);
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			position: relative;
+			width: calc(100% - 9rem);
+			height: 2rem;
+			padding: 0 0.5rem;
+			border-radius: 1rem;
+			border: 1px solid var(--line-color);
+			&.search-open {
+				height: 2rem;
+				width: 100% !important;
+				padding: 0;
+				margin-left: 0 !important;
+				flex-direction: column;
+				align-items: flex-start;
+				justify-content: flex-start;
+				background: var(--primary-color);
+			}
+			&.dropdown-open {
+				height: auto !important;
+				min-height: 2rem;
+				flex-direction: column;
+				align-items: stretch;
+				padding: 0;
+			}
+		}
+		.nav-links {
+			margin: 0;
+			// justify-content: flex-end;
+			width: calc(100% - 4rem);
+			span {
+				gap: 1.5rem;
+			}
 
-	}
+		}
+
+		.nav-link {
+			font-size: 1rem;
+			padding: 0 !important;
+			margin: 0 !important;
+			width: auto;
+
+			& span {
+				gap: 1rem;
+				font-size: 1rem;
+			}
+			&.home {
+				width: auto;
+				justify-content: flex-end;
+
+				& h2 {
+					font-size: 1rem;
+				}
+			}
+		}
 		h1 {
 			display: none;
 		}
 
 		.profile-content {
-		position: relative;
-		width: 100%;
-		top: 1rem;
-		bottom: auto;
-		padding: 0;
-		margin: 0;
-		/* right: 0; */
-		/* background-color: #2b2a2a; */
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		border-radius: 2rem;
-		/* max-width: 500px; */
-		/* max-height: 90vh; */
-		overflow: none;
-		transition: all 0.3s ease;
-		backdrop-filter: blur(30px);
-		border: 1px solid var(--secondary-color);
-	}
+			position: relative;
+			width: 100%;
+			top: 1rem;
+			bottom: auto;
+			padding: 0;
+			margin: 0;
+			/* right: 0; */
+			/* background-color: #2b2a2a; */
+			/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+			border-radius: 2rem;
+			/* max-width: 500px; */
+			/* max-height: 90vh; */
+			overflow: none;
+			transition: all 0.3s ease;
+			backdrop-filter: blur(30px);
+			border: 1px solid var(--secondary-color);
+		}
 		.nav-button {
 			background: transparent !important;
 		}
 
-
-		
 		.nav-button.drawer {
 			left: 1rem;
 			bottom: 1rem;
@@ -2583,7 +2374,7 @@
 			& .shortcut-buttons {
 				display: none;
 			}
-			
+
 			// display: none !important;
 			&:hover {
 				max-width: 350px;
@@ -2598,16 +2389,16 @@
 					gap: 1rem;
 				}
 				& .nav-button {
-				display: flex;
-			}
+					display: flex;
+				}
 			}
 			&:first-child {
-			display: flex;
+				display: flex;
 			}
 			& .nav-button {
 				display: none;
 				&:first-child {
-				display: flex;
+					display: flex;
 				}
 			}
 		}
@@ -2623,12 +2414,11 @@
 			top: auto;
 			left: auto;
 			background: transparent !important;
-			
-			& img.user-avatar {
-					height: 2rem !important;
-					padding: 0;
 
-				}
+			& img.user-avatar {
+				height: 2rem !important;
+				padding: 0;
+			}
 			&:hover {
 				box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
 				animation: nonlinearSpin 3.3s ease !important;
@@ -2638,20 +2428,16 @@
 				width: auto !important;
 				padding: 0 !important;
 
-				& img.user-avatar {
-
-				}
 
 			}
 		}
-
 
 		.project {
 			left: 0;
 			right: 0;
 		}
 
-		.logo-container   {
+		.logo-container {
 			background-color: transparent;
 			box-shadow: none;
 			align-items: center;
@@ -2673,10 +2459,6 @@
 			right: 2rem;
 		}
 
-		main {
-		}
-
-
 
 		footer {
 			color: white;
@@ -2686,188 +2468,170 @@
 		}
 
 		.project {
-		margin-left: 0;
-	}
-	.nav-button.info {
-		display: flex;
-		flex-direction: row;
-		justify-content: center;
-		border-radius: 1rem !important;
-		animation: none !important;
-
-		
-		&.user {
-			position: relative;
-			bottom: auto;
-			
+			margin-left: 0;
 		}
-		span.icon {
-			display: none;
-			padding: 1rem;
-			border-radius: 50%;
-			&:hover {
-				background: red;
-				padding: 1rem;
-			}
-		}
-		h2 {
-			display: none;
-		}
+		.nav-button.info {
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			border-radius: 1rem !important;
+			animation: none !important;
 
-		a {
-			display: none;
-		}
-		& .nav-text {
-			display: none;
-		}
-
-		&:hover {
-			justify-content: flex-start;
-			
-			opacity: 1;
-
-			border-radius: 2rem;
-			padding: 0;
-
-			& .nav-text {
-				display: none;
-			}
-			& h2 {
-				display: none;
-			}
-			& a {
-				display: flex;
+			&.user {
+				position: relative;
+				bottom: auto;
 			}
 			span.icon {
 				display: none;
+				padding: 1rem;
+				border-radius: 50%;
+				&:hover {
+					background: red;
+					padding: 1rem;
+				}
+			}
+			h2 {
+				display: none;
+			}
+
+			a {
+				display: none;
+			}
+			& .nav-text {
+				display: none;
+			}
+
+			&:hover {
+				justify-content: flex-start;
+
+				opacity: 1;
+
+				border-radius: 2rem;
+				padding: 0;
+
+				& .nav-text {
+					display: none;
+				}
+				& h2 {
+					display: none;
+				}
+				& a {
+					display: flex;
+				}
+				span.icon {
+					display: none;
+				}
+			}
+			&.expanded {
+				display: none;
+				width: 350px;
+				justify-content: space-around;
+				h2 {
+					display: flex;
+				}
+				a {
+					display: flex;
+				}
+				& .nav-text {
+					display: flex;
+				}
+				span.icon {
+					display: flex;
+				}
 			}
 		}
-		&.expanded {
+
+		.nav-button.toggle {
 			display: none;
-		width: 350px;
-		justify-content: space-around;
-		h2 {
+		}
+
+		.profile-overlay {
+			margin-left: 0;
+			left: 0;
+			height: auto;
+			margin-top: 5rem;
+		}
+		.nav-button.reveal {
+			&.reveal-active {
+				background: var(--primary-color);
+				// Add any other active styles you want
+			}
+		}
+		.sidenav {
 			display: flex;
-		}
-		a {
-			display: flex;
-		}
-		& .nav-text {
-				display: flex;
-			}
-		span.icon {
-				display: flex;
-			}
-
-		}
-	}
-
-	.nav-button.toggle {
-		display: none;
-	}
-	
-
-	.profile-overlay {
-		margin-left: 0;
-		left: 0;
-		height: auto;
-		margin-top: 5rem;
-	}
-	.nav-button.reveal {
-  &.reveal-active {
-    background: var(--primary-color);
-    // Add any other active styles you want
-  }
-}
-	.sidenav {
-		display: flex;
-		justify-content: center;
-		// backdrop-filter: blur(30px);
-		flex-direction: row;
-		height: auto;
-		overflow-x: hidden;
-		overflow-y: hidden;
-		bottom: 0 !important;
-		border-radius: 0 !important;
-		border-top: 1px solid var(--line-color);
-		gap: 10px;
-		width: calc(100% - 0.5rem);
-		margin-left: 0.25rem;
-		flex: 1;
-		top: auto;
-		bottom: 0;
-		padding: 0;
-		z-index: 1100;
-		border-radius: 0;
-		transition: all 0.3s ease-in;
-		& .nav-button.info.user,
-			& .nav-button.drawer {
-				// display: none !important;
-				&.reveal {
-					// display: none !important;
-				}
-			}
-		&:hover {
-
-		& .nav-button.info.user,
-			& .nav-button.drawer {
-				display: flex !important;
-				&.reveal {
-					// display: flex !important;
+			justify-content: center;
+			// backdrop-filter: blur(30px);
+			flex-direction: row;
+			height: auto;
+			overflow-x: hidden;
+			overflow-y: hidden;
+			bottom: 0 !important;
+			border-radius: 0 !important;
+			border-top: 1px solid var(--line-color);
+			gap: 10px;
+			width: calc(100% - 0.5rem);
+			margin-left: 0.25rem;
+			flex: 1;
+			top: auto;
+			bottom: 0;
+			padding: 0;
+			z-index: 1100;
+			border-radius: 0;
+			transition: all 0.3s ease-in;
+			&:hover {
+				& .nav-button.info.user,
+				& .nav-button.drawer {
+					display: flex !important;
 
 				}
 			}
 		}
-		
-	}
 
-	.navigation-buttons {
-		flex-direction: row;
-		margin-bottom: 0;
-		width: 100%!important;
-		right: 0;
-		left: 0;
-		align-items: center;
-		justify-content: space-around;
-	}
+		.navigation-buttons {
+			flex-direction: row;
+			margin-bottom: 0;
+			width: 100% !important;
+			right: 0;
+			left: 0;
+			align-items: center;
+			justify-content: space-around;
+		}
 
-	.bottom-buttons {
-		flex-direction: row;
-		margin: 0;
-		left: auto;
-		width: 7rem;
-		gap: 2rem;
-		height: 97vh;
-	}
+		.bottom-buttons {
+			flex-direction: row;
+			margin: 0;
+			left: auto;
+			width: 7rem;
+			gap: 2rem;
+			height: 97vh;
+		}
 
-	.top-buttons {
-		flex-direction: row;
-		margin: 0;
-		gap: 8px;
-	}
+		.top-buttons {
+			flex-direction: row;
+			margin: 0;
+			gap: 8px;
+		}
 
-	.nav-button,
-	.thread-toggle,
-	.avatar-container {
-		width: 40px;
-		height: 40px;
-		padding: 0.3rem;
-		border-radius: 50% !important;
-	}
+		.nav-button,
+		.thread-toggle,
+		.avatar-container {
+			width: 40px;
+			height: 40px;
+			padding: 0.3rem;
+			border-radius: 50% !important;
+		}
 
-	.nav-button:hover,
-	.thread-toggle:hover {
-		transform: scale(1.1);
-	}
-	.nav-button.info:hover {
-		transform: none;
-	}
+		.nav-button:hover,
+		.thread-toggle:hover {
+			transform: scale(1.1);
+		}
+		.nav-button.info:hover {
+			transform: none;
+		}
 
-	.nav-button.toggle {
-		display: none;
-	}
-
-
+		.nav-button.toggle {
+			display: none;
+		}
 	}
 	@media (max-width: 767px) {
 		nav {
@@ -2884,8 +2648,8 @@
 
 			width: calc(100% - 2rem);
 			& h2 {
-					display: flex;
-				}
+				display: flex;
+			}
 			&:hover {
 				margin-top: 1rem;
 				flex-direction: column;
@@ -2901,15 +2665,12 @@
 				// 	display: none;
 				// }
 				width: 100%;
-				 span {
-						display: flex;
-						flex-direction: column;
-						justify-content: center;
-						align-items: center;
-						
+				span {
+					display: flex;
+					flex-direction: column;
+					justify-content: center;
+					align-items: center;
 				}
-				
-
 			}
 		}
 
@@ -2918,7 +2679,7 @@
 				display: none;
 				flex-direction: column;
 				justify-content: center;
-				align-items: center;				
+				align-items: center;
 				width: 5rem;
 			}
 			&:hover {
@@ -2933,37 +2694,33 @@
 			margin: 0 !important;
 			flex: 0;
 			width: auto;
-			
+
 			& span {
 				display: none;
 			}
 			&.home {
 				display: flex;
-
 			}
 		}
 		.modal-overlay {
 			width: 100%;
 			backdrop-filter: none;
 			background: transparent;
-
 		}
 
 		.profile-overlay {
-		margin-left: 0;
-		left: 0;
-		height: auto;
-		margin-top: 3rem;
-		backdrop-filter: blur(0);
-		background: var(--bg-color);
-
-	}
-
+			margin-left: 0;
+			left: 0;
+			height: auto;
+			margin-top: 3rem;
+			backdrop-filter: blur(0);
+			background: var(--bg-color);
+		}
 
 		.project {
-		margin-left: 0;
-	}
-	.logo-container a {
+			margin-left: 0;
+		}
+		.logo-container a {
 			display: none;
 		}
 	}
@@ -2980,9 +2737,8 @@
 			overflow: auto;
 			display: flex;
 			flex-grow: 1;
-			height: -webkit-fill-available; 
-
-		}	
+			height: -webkit-fill-available;
+		}
 
 		span.search-wrapper {
 			background: var(--secondary-color);
@@ -3004,7 +2760,7 @@
 				background: var(--primary-color);
 			}
 			&.dropdown-open {
-				height: auto !important; 
+				height: auto !important;
 				min-height: 2rem;
 				flex-direction: column;
 				align-items: stretch;
@@ -3028,7 +2784,7 @@
 			position: absolute;
 			width: 99%;
 			margin-left: 0.5%;
-			border-radius:0;
+			border-radius: 0;
 			flex: 1;
 			overflow-x: hidden !important;
 			left: 0;
@@ -3036,9 +2792,6 @@
 			z-index: 10;
 			transition: all 0.1s ease-in;
 
-			.nav-button.info {
-				// display: none !important;
-			}
 
 			& .nav-button.info.user,
 			& .nav-button.drawer {
@@ -3059,12 +2812,7 @@
 				}
 			}
 
-			&:hover {
 
-
-
-
-			}
 		}
 
 		.nav-button.drawer {
@@ -3072,8 +2820,7 @@
 			height: 3rem !important;
 			width: 3rem !important;
 		}
-		.nav-button.info.user {
-		}
+
 		.nav-button.info {
 			top: 0;
 		}
@@ -3091,10 +2838,6 @@
 			justify-content: space-around;
 			overflow: hidden;
 			transition: all 0.2s ease;
-			&:hover {
-				// background: var(--bg-gradient);
-			}
-
 
 		}
 
@@ -3116,10 +2859,5 @@
 		.thread-toggle:hover {
 			transform: scale(1.1);
 		}
-
-
-	
-
-
 	}
 </style>

@@ -6,14 +6,14 @@ export async function fetchActions(): Promise<Actions[]> {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-		
+
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
-		
+
 		return data.actions;
 	} catch (error) {
 		console.error('Error fetching actions:', error);

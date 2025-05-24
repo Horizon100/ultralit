@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type { AIModel } from '$lib/types/types';
+	import type { AIModel, ProviderType } from '$lib/types/types';
 	import { Bot, Settings, Key, CheckCircle2, XCircle, Star, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 	import APIKeyInput from '$lib/features/ai/components/models/APIKeyInput.svelte';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import { get } from 'svelte/store';
-	import { providers, type ProviderType } from '$lib/features/ai/utils/providers';
+	import { providers} from '$lib/features/ai/utils/providers';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
@@ -18,7 +18,7 @@
 	export let selectedModel: AIModel = defaultModel;
 	let isInitialized = false;
 	let isLoadingPreferences = true;
-    let isLoadingModels = false;
+	let isLoadingModels = false;
 	let key = '';
 	let favoriteModels: AIModel[] = [];
 	let userModelPreferences: string[] = [];
@@ -59,124 +59,126 @@
 		}
 	}
 
-async function handleDeleteAPIKey(provider: ProviderType) {
-    if (!$currentUser) return;
-    
-    try {
-        console.log(`Deleting API key for ${provider}`);
-        
-        const confirmed = confirm(`Are you sure you want to delete your ${providers[provider].name} API key?`);
-        if (!confirmed) return;
-        
-        await apiKey.deleteKey(provider);
-        
-        availableProviderModels[provider] = [];
-        
-        if (expandedModelList === provider) {
-            expandedModelList = null;
-            currentProvider = null;
-            showAPIKeyInput = false;
-        }
-        
-        updateFavoriteModels();
-        
-        console.log(`Successfully deleted API key for ${provider}`);
-    } catch (error) {
-        console.error(`Error deleting API key for ${provider}:`, error);
-        alert(`Failed to delete API key: ${error.message}`);
-    }
-}
+	async function handleDeleteAPIKey(provider: ProviderType) {
+		if (!$currentUser) return;
+
+		try {
+			console.log(`Deleting API key for ${provider}`);
+
+			const confirmed = confirm(
+				`Are you sure you want to delete your ${providers[provider].name} API key?`
+			);
+			if (!confirmed) return;
+
+			await apiKey.deleteKey(provider);
+
+			availableProviderModels[provider] = [];
+
+			if (expandedModelList === provider) {
+				expandedModelList = null;
+				currentProvider = null;
+				showAPIKeyInput = false;
+			}
+
+			updateFavoriteModels();
+
+			console.log(`Successfully deleted API key for ${provider}`);
+		} catch (error) {
+			console.error(`Error deleting API key for ${provider}:`, error);
+			alert(`Failed to delete API key: ${error.message}`);
+		}
+	}
 	async function handleProviderClick(key: string) {
-        const provider = key as ProviderType;
-        const currentKey = get(apiKey)[provider];
-        
-        console.log(`Clicked provider: ${provider}, has key: ${Boolean(currentKey)}`);
+		const provider = key as ProviderType;
+		const currentKey = get(apiKey)[provider];
 
-        if (currentProvider === provider) {
-            currentProvider = null;
-            expandedModelList = null; 
-            return;
-        }
+		console.log(`Clicked provider: ${provider}, has key: ${Boolean(currentKey)}`);
 
-        currentProvider = provider;
-        expandedModelList = provider;
+		if (currentProvider === provider) {
+			currentProvider = null;
+			expandedModelList = null;
+			return;
+		}
 
-        if (!currentKey) {
-            console.log(`No API key found for ${provider}, showing input form`);
-            showAPIKeyInput = true;
-        } else {
-            if ($currentUser) {
-                try {
-                    isLoadingModels = true;
-                    await modelStore.setSelectedProvider($currentUser.id, provider);
-                    await loadProviderModels(provider);
-                    showAPIKeyInput = false;
-                } catch (error) {
-                    console.warn('Error setting provider:', error);
-                } finally {
-                    isLoadingModels = false;
-                }
-            }
-        }
-    }
+		currentProvider = provider;
+		expandedModelList = provider;
 
+		if (!currentKey) {
+			console.log(`No API key found for ${provider}, showing input form`);
+			showAPIKeyInput = true;
+		} else {
+			if ($currentUser) {
+				try {
+					isLoadingModels = true;
+					await modelStore.setSelectedProvider($currentUser.id, provider);
+					await loadProviderModels(provider);
+					showAPIKeyInput = false;
+				} catch (error) {
+					console.warn('Error setting provider:', error);
+				} finally {
+					isLoadingModels = false;
+				}
+			}
+		}
+	}
 
-async function handleModelSelection(model: AIModel) {
-    const enrichedModel: AIModel = {
-        ...model,
-        provider: model.provider
-    };
-    
-    console.log('Selected model with provider:', enrichedModel.provider);
-    
-    if ($currentUser) {
-        try {
-            const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
-            if (success) {
-                selectedModel = enrichedModel;
-                console.log('Saved model selection to model store');
-                
-                currentProvider = model.provider as ProviderType;
-            }
-        } catch (error) {
-            console.warn('Error selecting model:', error);
-        }
-    } else {
-        selectedModel = enrichedModel;
-        currentProvider = model.provider as ProviderType;
-    }
-    
-    expandedModelList = null;
-    
-    // Dispatch the selection event
-    dispatch('select', enrichedModel);
-}
+	async function handleModelSelection(model: AIModel) {
+		const enrichedModel: AIModel = {
+			...model,
+			provider: model.provider
+		};
+
+		console.log('Selected model with provider:', enrichedModel.provider);
+
+		if ($currentUser) {
+			try {
+				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
+				if (success) {
+					selectedModel = enrichedModel;
+					console.log('Saved model selection to model store');
+
+					currentProvider = model.provider as ProviderType;
+				}
+			} catch (error) {
+				console.warn('Error selecting model:', error);
+			}
+		} else {
+			selectedModel = enrichedModel;
+			currentProvider = model.provider as ProviderType;
+		}
+
+		expandedModelList = null;
+
+		// Dispatch the selection event
+		dispatch('select', enrichedModel);
+	}
 
 	async function loadProviderModels(provider: ProviderType) {
-        isLoadingModels = true;
-        try {
-            const currentKey = get(apiKey)[provider];
-            console.log(`Loading models for ${provider}, has key: ${Boolean(currentKey)}`);
-            
-            if (currentKey) {
-                const providerModelList = await providers[provider].fetchModels(currentKey);
-                availableProviderModels[provider] = providerModelList.map(model => ({
-                    ...model,
-                    provider
-                })) || [];
-                console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
-            } else {
-                availableProviderModels[provider] = [];
-                console.warn(`No API key available for ${provider}`);
-            }
-        } catch (error) {
-            console.error(`Error fetching models for ${provider}:`, error);
-            availableProviderModels[provider] = [];
-        } finally {
-            isLoadingModels = false;
-        }
-    }
-	
+		isLoadingModels = true;
+		try {
+			const currentKey = get(apiKey)[provider];
+			console.log(`Loading models for ${provider}, has key: ${Boolean(currentKey)}`);
+
+			if (currentKey) {
+				const providerModelList = await providers[provider].fetchModels(currentKey);
+				availableProviderModels[provider] =
+					providerModelList.map((model) => ({
+						...model,
+						provider
+					})) || [];
+				console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
+			} else {
+				availableProviderModels[provider] = [];
+				console.warn(`No API key available for ${provider}`);
+			}
+		} catch (error) {
+			console.error(`Error fetching models for ${provider}:`, error);
+			availableProviderModels[provider] = [];
+		} finally {
+			isLoadingModels = false;
+		}
+	}
+
 	async function handleAPIKeySubmit(event: CustomEvent<string>) {
 		if (currentProvider) {
 			console.log(`Saving new API key for ${currentProvider}`);
@@ -188,9 +190,9 @@ async function handleModelSelection(model: AIModel) {
 
 	function updateFavoriteModels() {
 		favoriteModels = [];
-		
+
 		Object.entries(availableProviderModels).forEach(([providerKey, models]) => {
-			models.forEach(model => {
+			models.forEach((model) => {
 				const modelKey = `${model.provider}-${model.id}`;
 				if (userModelPreferences.includes(modelKey)) {
 					const favoriteModel = {
@@ -202,204 +204,202 @@ async function handleModelSelection(model: AIModel) {
 			});
 		});
 		favoritesInitialized = true;
-		
-		console.log('Updated favorite models:', favoriteModels.map(m => `${m.provider}:${m.name}`));
+
+		console.log(
+			'Updated favorite models:',
+			favoriteModels.map((m) => `${m.provider}:${m.name}`)
+		);
 	}
 	async function toggleFavorite(model: AIModel, event: MouseEvent) {
-    event.stopPropagation(); 
-    
-    if (!$currentUser) return;
-    
-    const modelId = model.id;
-    const modelKey = `${model.provider}-${modelId}`;
-    const isFavorite = userModelPreferences.includes(modelKey);
-    
-    // Update local state first for responsive UI
-    if (isFavorite) {
-        userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
-    } else {
-        userModelPreferences = [...userModelPreferences, modelKey];
-    }
-    
-    // Update favorite models list
-    updateFavoriteModels();
-    
-    // Send event to parent
-    dispatch('toggleFavorite', { modelId: modelKey, isFavorite: !isFavorite });
-    
-    // Save to backend
-    try {
-        console.log(`Saving model preferences to backend: ${JSON.stringify(userModelPreferences)}`);
-        
-        const response = await fetch(`/api/users/${$currentUser.id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model_preference: userModelPreferences
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok || !data.success) {
-            console.error('Failed to update model preferences:', data.error || 'Unknown error');
-            // Revert local state if save failed
-            if (isFavorite) {
-                userModelPreferences = [...userModelPreferences, modelKey];
-            } else {
-                userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
-            }
-            updateFavoriteModels();
-        } else {
-            console.log('Successfully updated model preferences');
-        }
-    } catch (error) {
-        console.error('Error saving model preference:', error);
-        // Revert local state on error
-        if (isFavorite) {
-            userModelPreferences = [...userModelPreferences, modelKey];
-        } else {
-            userModelPreferences = userModelPreferences.filter(id => id !== modelKey);
-        }
-        updateFavoriteModels();
-    }
-}
-	
+		event.stopPropagation();
 
+		if (!$currentUser) return;
 
-async function loadUserModelPreferences() {
-    if (!$currentUser) {
-        favoritesInitialized = true; 
-        isLoadingPreferences = false;
-        return;
-    }
-    
-    isLoadingPreferences = true;
-    
-    try {
-        const response = await fetch(`/api/users/${$currentUser.id}`);
-        const data = await response.json();
-        
-        if (data.success && data.user && data.user.model_preference) {
-            userModelPreferences = Array.isArray(data.user.model_preference) 
-                ? data.user.model_preference 
-                : [];
-            console.log('Loaded user model preferences:', userModelPreferences);
-        } else {
-            console.log('No model preferences found or unable to parse preferences');
-            userModelPreferences = [];
-        }
-    } catch (error) {
-        console.error('Error loading user model preferences:', error);
-        userModelPreferences = [];
-    } finally {
-        // Always mark as initialized when done, regardless of success/failure
-        favoritesInitialized = true;
-        isLoadingPreferences = false;
-    }
-}
-function loadAllAvailableProviderModels() {
-        return Promise.all(
-            Object.keys(providers).map(async (providerKey) => {
-                const provider = providerKey as ProviderType;
-                const currentKey = get(apiKey)[provider];
-                if (currentKey) {
-                    await loadProviderModels(provider);
-                }
-            })
-        );
-    }
+		const modelId = model.id;
+		const modelKey = `${model.provider}-${modelId}`;
+		const isFavorite = userModelPreferences.includes(modelKey);
+
+		// Update local state first for responsive UI
+		if (isFavorite) {
+			userModelPreferences = userModelPreferences.filter((id) => id !== modelKey);
+		} else {
+			userModelPreferences = [...userModelPreferences, modelKey];
+		}
+
+		// Update favorite models list
+		updateFavoriteModels();
+
+		// Send event to parent
+		dispatch('toggleFavorite', { modelId: modelKey, isFavorite: !isFavorite });
+
+		// Save to backend
+		try {
+			console.log(`Saving model preferences to backend: ${JSON.stringify(userModelPreferences)}`);
+
+			const response = await fetch(`/api/users/${$currentUser.id}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					model_preference: userModelPreferences
+				})
+			});
+
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				console.error('Failed to update model preferences:', data.error || 'Unknown error');
+				// Revert local state if save failed
+				if (isFavorite) {
+					userModelPreferences = [...userModelPreferences, modelKey];
+				} else {
+					userModelPreferences = userModelPreferences.filter((id) => id !== modelKey);
+				}
+				updateFavoriteModels();
+			} else {
+				console.log('Successfully updated model preferences');
+			}
+		} catch (error) {
+			console.error('Error saving model preference:', error);
+			// Revert local state on error
+			if (isFavorite) {
+				userModelPreferences = [...userModelPreferences, modelKey];
+			} else {
+				userModelPreferences = userModelPreferences.filter((id) => id !== modelKey);
+			}
+			updateFavoriteModels();
+		}
+	}
+
+	async function loadUserModelPreferences() {
+		if (!$currentUser) {
+			favoritesInitialized = true;
+			isLoadingPreferences = false;
+			return;
+		}
+
+		isLoadingPreferences = true;
+
+		try {
+			const response = await fetch(`/api/users/${$currentUser.id}`);
+			const data = await response.json();
+
+			if (data.success && data.user && data.user.model_preference) {
+				userModelPreferences = Array.isArray(data.user.model_preference)
+					? data.user.model_preference
+					: [];
+				console.log('Loaded user model preferences:', userModelPreferences);
+			} else {
+				console.log('No model preferences found or unable to parse preferences');
+				userModelPreferences = [];
+			}
+		} catch (error) {
+			console.error('Error loading user model preferences:', error);
+			userModelPreferences = [];
+		} finally {
+			// Always mark as initialized when done, regardless of success/failure
+			favoritesInitialized = true;
+			isLoadingPreferences = false;
+		}
+	}
+	function loadAllAvailableProviderModels() {
+		return Promise.all(
+			Object.keys(providers).map(async (providerKey) => {
+				const provider = providerKey as ProviderType;
+				const currentKey = get(apiKey)[provider];
+				if (currentKey) {
+					await loadProviderModels(provider);
+				}
+			})
+		);
+	}
 
 	onMount(async () => {
-    if ($currentUser) {
-        console.log("Loading API keys and preferences on component mount...");
-        
-        // Load preferences first
-        await loadUserModelPreferences();
-        
-        // Then load API keys
-        await apiKey.loadKeys();
-        
-        // Load available models for providers with keys
-        const availableKeys = get(apiKey);
-        
-        // Find available providers with keys
-        const availableProviders = Object.entries(availableKeys)
-            .filter(([_, key]) => !!key)
-            .map(([provider]) => provider);
-        
-        if (availableProviders.length > 0) {
-            // Load all provider models to populate favorites
-            await Promise.all(
-                availableProviders.map(async (providerKey) => {
-                    try {
-                        await loadProviderModels(providerKey as ProviderType);
-                    } catch (error) {
-                        console.error(`Error loading models for ${providerKey}:`, error);
-                    }
-                })
-            );
-            
-            // After loading all models, update favorites list
-            updateFavoriteModels();
-        }
-        
-        // Find and set the initial provider
-        let initialProvider = selectedModel?.provider || provider || 'deepseek';
-        if (!availableKeys[initialProvider] && availableProviders.length > 0) {
-            initialProvider = availableProviders[0];
-        }
-        
-        currentProvider = initialProvider as ProviderType;
-        
-        // Mark as fully initialized after everything is loaded
-        isInitialized = true;
-    } else {
-        // Even without a user, mark as initialized
-        favoritesInitialized = true;
-        isInitialized = true;
-    }
-});
+		if ($currentUser) {
+			console.log('Loading API keys and preferences on component mount...');
+
+			// Load preferences first
+			await loadUserModelPreferences();
+
+			// Then load API keys
+			await apiKey.ensureLoaded();
+
+			// Load available models for providers with keys
+			const availableKeys = get(apiKey);
+
+			// Find available providers with keys
+			const availableProviders = Object.entries(availableKeys)
+				.filter(([_, key]) => !!key)
+				.map(([provider]) => provider);
+
+			if (availableProviders.length > 0) {
+				// Load all provider models to populate favorites
+				await Promise.all(
+					availableProviders.map(async (providerKey) => {
+						try {
+							await loadProviderModels(providerKey as ProviderType);
+						} catch (error) {
+							console.error(`Error loading models for ${providerKey}:`, error);
+						}
+					})
+				);
+
+				// After loading all models, update favorites list
+				updateFavoriteModels();
+			}
+
+			// Find and set the initial provider
+			let initialProvider = selectedModel?.provider || provider || 'deepseek';
+			if (!availableKeys[initialProvider] && availableProviders.length > 0) {
+				initialProvider = availableProviders[0];
+			}
+
+			currentProvider = initialProvider as ProviderType;
+
+			// Mark as fully initialized after everything is loaded
+			isInitialized = true;
+		} else {
+			// Even without a user, mark as initialized
+			favoritesInitialized = true;
+			isInitialized = true;
+		}
+	});
 </script>
+
 <div class="model-column">
 	{#if favoritesInitialized}
-
-	<div class="favorites-container">
-		<h4>Favorite Models</h4>
-		{#if favoriteModels.length > 0}
-		<div class="favorites-list">
-			{#each favoriteModels as model}
-				<button
-					class="model-button favorite-model"
-					class:model-selected={selectedModel && selectedModel.id === model.id && selectedModel.provider === model.provider}
-					on:click={() => handleModelSelection(model)}
-				>
-					<span class="model-name">{model.name}</span>
-					<span class="provider-badge">{providers[model.provider]?.name}</span>
-					<button 
-						class="star-button star-active" 
-						on:click={(e) => toggleFavorite(model, e)}
-					>
-						<Star size={16} fill="#FFD700" />
-					</button>
-				</button>
-			{/each}
-		</div>
-		{:else}
-			<div class="no-favorites">
-				<div class="small-spinner-container">
-					<div class="small-spinner">
-						<Bot />
-					</div>
-
+		<div class="favorites-container">
+			<h4>Favorite Models</h4>
+			{#if favoriteModels.length > 0}
+				<div class="favorites-list">
+					{#each favoriteModels as model}
+						<button
+							class="model-button favorite-model"
+							class:model-selected={selectedModel &&
+								selectedModel.id === model.id &&
+								selectedModel.provider === model.provider}
+							on:click={() => handleModelSelection(model)}
+						>
+							<span class="model-name">{model.name}</span>
+							<span class="provider-badge">{providers[model.provider]?.name}</span>
+							<button class="star-button star-active" on:click={(e) => toggleFavorite(model, e)}>
+								<Star size={16} fill="#FFD700" />
+							</button>
+						</button>
+					{/each}
 				</div>
-				<p>Star your favorite models to see them here</p>
-
-			</div>
-		{/if}
-	</div>
+			{:else}
+				<div class="no-favorites">
+					<div class="small-spinner-container">
+						<div class="small-spinner">
+							<Bot />
+						</div>
+					</div>
+					<p>Star your favorite models to see them here</p>
+				</div>
+			{/if}
+		</div>
 	{/if}
 
 	<div class="selector-container">
@@ -427,7 +427,6 @@ function loadAllAvailableProviderModels() {
 									<XCircle size={35} />
 								</div>
 							{/if}
-
 						</div>
 					</button>
 				</div>
@@ -444,17 +443,22 @@ function loadAllAvailableProviderModels() {
 {/if}
 
 {#if expandedModelList}
-    <div class="model-overlay"
-	on:click={handleClickOutside}
-	transition:fly={{ y: -20, duration: 200 }}
+	<div
+		class="model-overlay"
+		on:click={handleClickOutside}
+		transition:fly={{ y: -20, duration: 200 }}
 	>
-        <div class="model-list-container">
-            <div class="model-header">
-                <h3>{providers[expandedModelList].name} Models {isLoadingModels ? '' : `(${availableProviderModels[expandedModelList]?.length || 0})`}</h3>
-   
+		<div class="model-list-container">
+			<div class="model-header">
+				<h3>
+					{providers[expandedModelList].name} Models {isLoadingModels
+						? ''
+						: `(${availableProviderModels[expandedModelList]?.length || 0})`}
+				</h3>
+
 				<div class="header-actions">
 					{#if get(apiKey)[expandedModelList]}
-						<button 
+						<button
 							class="delete-key-button"
 							on:click|stopPropagation={() => handleDeleteAPIKey(expandedModelList)}
 							title="Delete {providers[expandedModelList].name} API key"
@@ -462,51 +466,47 @@ function loadAllAvailableProviderModels() {
 							<Trash2 size={20} />
 						</button>
 					{/if}
-					
+
 					<!-- Close button -->
 					<button class="close-btn" on:click={() => (expandedModelList = null)}>
 						<XCircle size={35} />
 					</button>
 				</div>
-            </div>
+			</div>
 
-            {#if isLoadingModels}
-                <div class="spinner-container">
-                    <div class="spinner"></div>
-                    <p>Loading models...</p>
-                </div>
-            {:else if showAPIKeyInput}
-                <div class="api-key-container">
-                    <h4>Enter {providers[expandedModelList].name} API Key</h4>
-						<APIKeyInput provider={expandedModelList} on:submit={handleAPIKeySubmit} />
-                </div>
-            {:else if availableProviderModels[expandedModelList]?.length > 0}
-                <div class="model-list">
-					
-                    {#each availableProviderModels[expandedModelList] as model}
-                        <button
-                            class="model-button"
-                            class:model-selected={selectedModel.id === model.id}
-                            on:click={() => handleModelSelection(model)}
-                        >
-						<span 
-							class="star-button" 
-							class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
-							on:click={(e) => toggleFavorite(model, e)}
+			{#if isLoadingModels}
+				<div class="spinner-container">
+					<div class="spinner"></div>
+					<p>Loading models...</p>
+				</div>
+			{:else if showAPIKeyInput}
+				<div class="api-key-container">
+					<h4>Enter {providers[expandedModelList].name} API Key</h4>
+					<APIKeyInput provider={expandedModelList} on:submit={handleAPIKeySubmit} />
+				</div>
+			{:else if availableProviderModels[expandedModelList]?.length > 0}
+				<div class="model-list">
+					{#each availableProviderModels[expandedModelList] as model}
+						<button
+							class="model-button"
+							class:model-selected={selectedModel.id === model.id}
+							on:click={() => handleModelSelection(model)}
 						>
-							<Star 
-								size={30} 
-							/>
-
-						</span>
-                            {model.name}
-                        </button>
-                    {/each}
-                </div>
-            {:else}
-                <div class="no-models">
+							<span
+								class="star-button"
+								class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
+								on:click={(e) => toggleFavorite(model, e)}
+							>
+								<Star size={30} />
+							</span>
+							{model.name}
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<div class="no-models">
 					<p>No models available for this provider</p>
-                </div>
+				</div>
 				<!-- <form
 					on:submit={handleSubmit}
 					transition:fly={{ y: 20, duration: 200 }}
@@ -522,14 +522,13 @@ function loadAllAvailableProviderModels() {
 					</div>
 					<button type="submit" class="submit-button"> Save Key </button>
 				</form> -->
-            {/if}
-        </div>
-    </div>
+			{/if}
+		</div>
+	</div>
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -613,7 +612,6 @@ function loadAllAvailableProviderModels() {
 				margin-left: 1rem;
 				font-weight: 700;
 				letter-spacing: 0.5rem;
-
 			}
 		}
 
@@ -622,13 +620,13 @@ function loadAllAvailableProviderModels() {
 			color: white;
 			width: 100% !important;
 			height: 100%;
-            
-            .provider-name {
-                opacity: 1;
-                width: auto;
-                max-width: 200px;
-                margin-left: 1rem;
-            }
+
+			.provider-name {
+				opacity: 1;
+				width: auto;
+				max-width: 200px;
+				margin-left: 1rem;
+			}
 		}
 	}
 
@@ -654,7 +652,7 @@ function loadAllAvailableProviderModels() {
 		white-space: nowrap;
 		transition: all 0.3s ease;
 		user-select: none;
-		
+
 		&.visible {
 			opacity: 1;
 			width: auto;
@@ -704,7 +702,7 @@ function loadAllAvailableProviderModels() {
 			font-size: 1.5rem;
 			color: var(--text-color);
 		}
-		
+
 		.close-btn {
 			width: 4rem;
 			height: 4rem;
@@ -750,14 +748,13 @@ function loadAllAvailableProviderModels() {
 				transform: scale(1.5);
 			}
 		}
-		
+
 		&:hover {
 			background: var(--primary-color);
 			color: white;
 			// transform: translateX(1rem);
 			opacity: 1;
 			cursor: pointer;
-
 		}
 
 		&.model-selected {
@@ -795,7 +792,7 @@ function loadAllAvailableProviderModels() {
 			&.success :global(svg) {
 				color: rgb(0, 200, 0);
 				stroke: var(--bg-color);
-				background-color:rgb(0, 200, 0);
+				background-color: rgb(0, 200, 0);
 				border-radius: 50%;
 				fill: none;
 				height: 1.7rem;
@@ -806,7 +803,7 @@ function loadAllAvailableProviderModels() {
 				color: rgb(255, 0, 0);
 				stroke: var(--bg-color);
 				border-radius: 50%;
-				background-color:rgb(255, 0, 0);
+				background-color: rgb(255, 0, 0);
 
 				fill: none;
 				height: 1.7rem;
@@ -815,24 +812,22 @@ function loadAllAvailableProviderModels() {
 		}
 	}
 
+	.no-models {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 2rem;
+		color: var(--placeholder-color);
+	}
 
-
-.no-models {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    color: var(--placeholder-color);
-}
-
-.api-key-container {
-	display: flex;
-	justify-content: center;
-	flex-direction: column;
-	align-items: center;
-	width: 100%;
-}
-input {
+	.api-key-container {
+		display: flex;
+		justify-content: center;
+		flex-direction: column;
+		align-items: center;
+		width: 100%;
+	}
+	input {
 		width: 100%;
 		padding: 1.5rem;
 		padding-right: 3rem;
@@ -911,7 +906,7 @@ input {
 	}
 
 	.favorites-container {
-        // border: 1px solid var(--line-color);
+		// border: 1px solid var(--line-color);
 		border-radius: 1rem;
 		// background: var(--primary-color);
 		padding: 0.5rem;
@@ -921,67 +916,67 @@ input {
 			margin-bottom: 0.5rem;
 			text-align: left;
 		}
-    }
-    
-    .favorites-list {
-        display: flex;
-        flex-wrap: wrap;
+	}
+
+	.favorites-list {
+		display: flex;
+		flex-wrap: wrap;
 		justify-content: flex-end;
-        gap: 0.5rem;
-    }
-    
-    .favorite-model {
-        display: flex;
-        align-items: center;
-        position: relative;
+		gap: 0.5rem;
+	}
+
+	.favorite-model {
+		display: flex;
+		align-items: center;
+		position: relative;
 		padding: 0 0.5rem;
 		width: 200px !important;
 		border-radius: 1rem;
-    }
-    
-    .provider-badge {
-        font-size: 0.7rem;
-        background-color: rgba(0, 0, 0, 0.2);
-        padding: 2px 6px;
-        border-radius: 10px;
-        margin-left: 6px;
+	}
+
+	.provider-badge {
+		font-size: 0.7rem;
+		background-color: rgba(0, 0, 0, 0.2);
+		padding: 2px 6px;
+		border-radius: 10px;
+		margin-left: 6px;
 		position: absolute;
 		right: 0;
 		top: 0;
-    }
-    
-    .star-button {
-        border: none;
-        cursor: pointer;
-        padding: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+	}
+
+	.star-button {
+		border: none;
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 3rem;
 		height: 3rem;
-        right: 8px;
-        opacity: 0.25;
-        transition: opacity 0.2s ease;
-    }
+		right: 8px;
+		opacity: 0.25;
+		transition: opacity 0.2s ease;
+	}
 	.star-button:hover {
-        opacity: 1;
-    }
-    
-    .model-button:hover {
-        opacity: 1;
-    }
-    
-    .star-active {
-        opacity: 1;
+		opacity: 1;
+	}
+
+	.model-button:hover {
+		opacity: 1;
+	}
+
+	.star-active {
+		opacity: 1;
 		background: transparent;
-    }
-    
-    .model-name {
-        flex-grow: 1;
-        text-align: left;
+	}
+
+	.model-name {
+		flex-grow: 1;
+		text-align: left;
 		font-size: 0.8rem;
-        padding-right: 1rem;
-    }
+		padding-right: 1rem;
+	}
 
 	/* Additional style to ensure password reveal icon is properly positioned */
 	:global(input[type='password']::-ms-reveal) {
@@ -993,9 +988,6 @@ input {
 		filter: invert(1);
 		margin-right: 8px;
 	}
-
-
-
 
 	@media (max-width: 768px) {
 		.model-column {
@@ -1025,7 +1017,6 @@ input {
 
 	@media (max-width: 450px) {
 		.model-column {
-			
 			display: flex;
 			margin-left: 2rem;
 			margin-right: -2rem;
@@ -1039,9 +1030,6 @@ input {
 			align-items: flex-end;
 		}
 
-		.favorites-container {
-			
-		}
 
 		.providers-list {
 			display: flex;
@@ -1068,49 +1056,47 @@ input {
 			max-height: 80vh;
 		}
 		.provider-button {
-		width: auto;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-sm);
-		padding: 0.5rem;
-		background: var(--bg-color);
-		border-radius: var(--radius-xl);
-		border: 1px solid transparent;
-		color: var(--text-color);
-		transition: all 0.2s ease;
-		letter-spacing: 0.4rem;
-		z-index: 3000;
+			width: auto;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--spacing-sm);
+			padding: 0.5rem;
+			background: var(--bg-color);
+			border-radius: var(--radius-xl);
+			border: 1px solid transparent;
+			color: var(--text-color);
+			transition: all 0.2s ease;
+			letter-spacing: 0.4rem;
+			z-index: 3000;
 
-		&:hover {
-			background: var(--primary-color);
-			cursor: pointer;
-			transform: translateX(0);
+			&:hover {
+				background: var(--primary-color);
+				cursor: pointer;
+				transform: translateX(0);
 
-			.provider-name {
-				opacity: 1;
-				width: auto;
-				max-width: 200px;
-				margin-left: 1rem;
-				font-weight: 700;
-				letter-spacing: 0.5rem;
-				display: none;
+				.provider-name {
+					opacity: 1;
+					width: auto;
+					max-width: 200px;
+					margin-left: 1rem;
+					font-weight: 700;
+					letter-spacing: 0.5rem;
+					display: none;
+				}
+			}
 
+			&.provider-selected {
+				background-color: var(--primary-color);
+				color: white;
+				height: 100%;
+
+				.provider-name {
+					opacity: 1;
+					width: auto;
+					display: none;
+				}
 			}
 		}
-		
-
-		&.provider-selected {
-			background-color: var(--primary-color);
-			color: white;
-			height: 100%;
-            
-            .provider-name {
-                opacity: 1;
-                width: auto;
-				display: none;
-            }
-		}
-	}
 	}
 </style>

@@ -83,7 +83,7 @@
 	async function changeStyle(style: string) {
 		// Use the theme store's set method which already handles everything
 		await currentTheme.set(style);
-		
+
 		// Dispatch events
 		dispatch('styleChange', { style });
 		dispatch('close');
@@ -126,34 +126,32 @@
 		{/each}
 	</div>
 </div>
-<style lang="scss">
-	@use 'src/styles/themes.scss' as *;
 
-	* {
-	}
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;
+
 
 	.style-switcher {
-        display: flex;
-        flex-wrap: wrap;
+		display: flex;
+		flex-wrap: wrap;
 		position: relative;
 		max-width: 400px;
-        margin: 0;
-        text-align: left;
+		margin: 0;
+		text-align: left;
 		left: 0;
 		gap: 0;
-        justify-content: center;
-        align-items: center;
-        font-size: var(--font-size-m);
-        color: var(--placeholder-color);
+		justify-content: center;
+		align-items: center;
+		font-size: var(--font-size-m);
+		color: var(--placeholder-color);
 		// background: var(--bg-gradient-r);
 		border-radius: 2rem;
-        line-height: 1.5;
+		line-height: 1.5;
 		padding: 1rem;
-        // animation: blink 3s ease infinite;
+		// animation: blink 3s ease infinite;
 	}
 
 	h2 {
-
 		margin-left: 2rem;
 		padding: 1rem 0;
 		font-size: 1.5rem;
@@ -162,7 +160,6 @@
 		border-top-right-radius: 2rem;
 
 		user-select: none;
-		
 	}
 	.current-style {
 		display: flex;
@@ -190,18 +187,18 @@
 	}
 
 	.style-list {
-        display: flex;
-        flex-wrap: wrap;
-        margin: 0;
+		display: flex;
+		flex-wrap: wrap;
+		margin: 0;
 		gap: 0;
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-        align-items: center;
-        font-size: var(--font-size-m);
-        color: var(--placeholder-color);
-        line-height: 1.5;
-        // animation: blink 1s ease infinite;
+		width: 100%;
+		text-align: center;
+		justify-content: center;
+		align-items: center;
+		font-size: var(--font-size-m);
+		color: var(--placeholder-color);
+		line-height: 1.5;
+		// animation: blink 1s ease infinite;
 	}
 
 	.style-button {
@@ -214,7 +211,7 @@
 		border-radius: 2rem;
 		cursor: pointer;
 		transition: all ease 0.3s;
-		width:auto;
+		width: auto;
 		min-width: 100px;
 		height: 50px;
 
@@ -264,7 +261,6 @@
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
-
 
 		&:hover,
 		&.active {

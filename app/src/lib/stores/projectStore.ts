@@ -43,35 +43,37 @@ function createProjectStore() {
 	const storeObj = {
 		subscribe,
 		update,
-		
+
 		loadProjects: async (): Promise<Projects[]> => {
 			try {
 				const user = get(currentUser);
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				const projects = await fetchProjects();
-				
+
 				// Filter projects based on permissions
-				const filteredProjects = projects.filter(project => {
-					return project.owner === user.id || 
-						(Array.isArray(project.collaborators) && project.collaborators.includes(user.id));
+				const filteredProjects = projects.filter((project) => {
+					return (
+						project.owner === user.id ||
+						(Array.isArray(project.collaborators) && project.collaborators.includes(user.id))
+					);
 				});
-				
+
 				store.update((state) => ({
 					...state,
 					threads: filteredProjects,
 					isProjectLoaded: true,
 					updateStatus: 'Projects loaded successfully'
 				}));
-				
+
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return filteredProjects;
 			} catch (error) {
 				console.error('Error loading projects:', error);
-				store.update((state) => ({ 
-					...state, 
+				store.update((state) => ({
+					...state,
 					updateStatus: 'Failed to load projects',
 					isProjectLoaded: false
 				}));
@@ -86,23 +88,23 @@ function createProjectStore() {
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				// Ensure owner is set to current user if not specified
 				const dataWithOwner: Partial<Projects> = {
 					...projectData,
-					owner: user.id, // Always set owner to current user
+					owner: user.id // Always set owner to current user
 				};
-				
+
 				const newProject = await createProject(dataWithOwner);
-				
+
 				// Reload projects using storeObj reference instead of this
 				await storeObj.loadProjects();
-				
+
 				store.update((state) => ({
 					...state,
 					updateStatus: 'Project added successfully'
 				}));
-				
+
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return newProject;
 			} catch (error) {
@@ -119,13 +121,13 @@ function createProjectStore() {
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				// Get the current project to check permissions
-				const project = get(store).threads.find(p => p.id === projectId);
+				const project = get(store).threads.find((p) => p.id === projectId);
 				if (!project) {
 					throw new Error('Project not found');
 				}
-				
+
 				// Add debugging
 				console.log('Deleting project:', {
 					projectId,
@@ -133,32 +135,35 @@ function createProjectStore() {
 					projectOwner: project.owner,
 					isOwner: user.id === project.owner
 				});
-				
+
 				// Verify user has permission to delete the project (owner only)
 				if (user.id !== project.owner) {
-					throw new Error('Unauthorized to delete this project: only the owner can delete projects');
+					throw new Error(
+						'Unauthorized to delete this project: only the owner can delete projects'
+					);
 				}
-				
+
 				// Delete the project
 				await deleteProject(projectId);
-				
+
 				// Update the store by removing the deleted project
 				store.update((state) => ({
 					...state,
-					threads: state.threads.filter(p => p.id !== projectId),
+					threads: state.threads.filter((p) => p.id !== projectId),
 					// If the deleted project was the current project, reset current project
 					currentProjectId: state.currentProjectId === projectId ? null : state.currentProjectId,
 					currentProject: state.currentProjectId === projectId ? null : state.currentProject,
 					updateStatus: 'Project deleted successfully'
 				}));
-				
+
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return true;
 			} catch (error) {
 				console.error('Failed to delete project:', error);
-				store.update((state) => ({ 
-					...state, 
-					updateStatus: 'Failed to delete project: ' + (error instanceof Error ? error.message : String(error))
+				store.update((state) => ({
+					...state,
+					updateStatus:
+						'Failed to delete project: ' + (error instanceof Error ? error.message : String(error))
 				}));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return false;
@@ -171,26 +176,28 @@ function createProjectStore() {
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				// Get the current project to check permissions
-				const project = get(store).threads.find(p => p.id === id);
+				const project = get(store).threads.find((p) => p.id === id);
 				if (!project) {
 					throw new Error('Project not found');
 				}
-				
+
 				// Verify user has permission to update the project
-				if (project.owner !== user.id && 
-					!(Array.isArray(project.collaborators) && project.collaborators.includes(user.id))) {
+				if (
+					project.owner !== user.id &&
+					!(Array.isArray(project.collaborators) && project.collaborators.includes(user.id))
+				) {
 					throw new Error('Unauthorized to update this project');
 				}
-				
+
 				const updatedProject = await updateProject(id, changes);
 				store.update((state) => ({
 					...state,
 					threads: state.threads.map((t) => (t.id === id ? { ...t, ...updatedProject } : t)),
 					updateStatus: 'Project updated successfully'
 				}));
-				
+
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return updatedProject;
 			} catch (error) {
@@ -201,143 +208,147 @@ function createProjectStore() {
 			}
 		},
 
-
-setCurrentProject: async (id: string | null) => {
-	try {
-	  if (!id) {
-		store.update((state) => ({
-		  ...state,
-		  currentProjectId: null,
-		  currentProject: null,
-		  collaborators: []
-		}));
-		return;
-	  }
-	  
-	  const user = get(currentUser);
-	  if (!user) {
-		throw new Error('User not authenticated');
-	  }
-	  
-	  const project = get(store).threads.find(p => p.id === id);
-	  
-	  let currentProject = project;
-	  if (!currentProject) {
-		try {
-		  const response = await fetch(`/api/projects/${id}`, {
-			method: 'GET',
-			credentials: 'include'
-		  });
-		  
-		  const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(response);
-		  
-		  if (!data.success) {
-			throw new Error(data.error || 'Failed to fetch project');
-		  }
-		  
-		  const fetchedProject = data.data;
-		  
-		  // Verify user has permission to access this project
-		  const isOwner = fetchedProject.owner === user.id;
-		  const isCollaborator = Array.isArray(fetchedProject.collaborators) && 
-			  fetchedProject.collaborators.includes(user.id);
-		  
-		  if (!isOwner && !isCollaborator) {
-			throw new Error('Unauthorized to access this project');
-		  }
-		  
-		  currentProject = fetchedProject;
-		  
-		  // Add the fetched project to the store
-		  store.update(state => ({
-			...state,
-			threads: [...state.threads.filter(p => p.id !== id), fetchedProject]
-		  }));
-		} catch (error) {
-		  console.error('Failed to fetch project:', error);
-		  throw new Error('Project not found or unauthorized');
-		}
-	  }
-	  
-	  store.update((state) => ({
-		...state,
-		currentProjectId: id,
-		currentProject,
-		updateStatus: ''
-	  }));
-	  
-	  // Load collaborators
-	  try {
-		await storeObj.loadCollaborators(id);
-	  } catch (err) {
-		console.error('Failed to load collaborators:', err);
-		// Continue even if collaborator loading fails
-	  }
-	  
-	  /*
-	   * IMPORTANT: Load the threads for this project
-	   * This is the key fix to ensure threads are loaded when a project is selected
-	   */
-		try {
-		console.log(`Loading threads for selected project ${id}`);
-		const { loadThreads } = await import('$lib/clients/threadsClient');
-		await loadThreads(id);
-		} catch (threadErr) {
-		console.error('Failed to load threads for project:', threadErr);
-		}
-	  
-	} catch (error) {
-	  console.error('Error setting current project:', error);
-	  store.update((state) => ({
-		...state,
-		currentProjectId: null,
-		currentProject: null,
-		collaborators: [],
-		updateStatus: error instanceof Error ? error.message : 'Failed to set current project'
-	  }));
-	  setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-	  throw error;
-	}
-  },
-		
-		loadCollaborators: async (projectId: string) => {
+		setCurrentProject: async (id: string | null) => {
 			try {
-				if (!projectId) return [];
-				
+				if (!id) {
+					store.update((state) => ({
+						...state,
+						currentProjectId: null,
+						currentProject: null,
+						collaborators: []
+					}));
+					return;
+				}
+
 				const user = get(currentUser);
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
-				store.update(state => ({
+
+				const project = get(store).threads.find((p) => p.id === id);
+
+				let currentProject = project;
+				if (!currentProject) {
+					try {
+						const response = await fetch(`/api/projects/${id}`, {
+							method: 'GET',
+							credentials: 'include'
+						});
+
+						const data = await handleResponse<{ success: boolean; data: Projects; error?: string }>(
+							response
+						);
+
+						if (!data.success) {
+							throw new Error(data.error || 'Failed to fetch project');
+						}
+
+						const fetchedProject = data.data;
+
+						// Verify user has permission to access this project
+						const isOwner = fetchedProject.owner === user.id;
+						const isCollaborator =
+							Array.isArray(fetchedProject.collaborators) &&
+							fetchedProject.collaborators.includes(user.id);
+
+						if (!isOwner && !isCollaborator) {
+							throw new Error('Unauthorized to access this project');
+						}
+
+						currentProject = fetchedProject;
+
+						// Add the fetched project to the store
+						store.update((state) => ({
+							...state,
+							threads: [...state.threads.filter((p) => p.id !== id), fetchedProject]
+						}));
+					} catch (error) {
+						console.error('Failed to fetch project:', error);
+						throw new Error('Project not found or unauthorized');
+					}
+				}
+
+				store.update((state) => ({
+					...state,
+					currentProjectId: id,
+					currentProject,
+					updateStatus: ''
+				}));
+
+				// Load collaborators
+				try {
+					await storeObj.loadCollaborators(id);
+				} catch (err) {
+					console.error('Failed to load collaborators:', err);
+					// Continue even if collaborator loading fails
+				}
+
+				/*
+				 * IMPORTANT: Load the threads for this project
+				 * This is the key fix to ensure threads are loaded when a project is selected
+				 */
+				try {
+					console.log(`Loading threads for selected project ${id}`);
+					const { loadThreads } = await import('$lib/clients/threadsClient');
+					await loadThreads(id);
+				} catch (threadErr) {
+					console.error('Failed to load threads for project:', threadErr);
+				}
+			} catch (error) {
+				console.error('Error setting current project:', error);
+				store.update((state) => ({
+					...state,
+					currentProjectId: null,
+					currentProject: null,
+					collaborators: [],
+					updateStatus: error instanceof Error ? error.message : 'Failed to set current project'
+				}));
+				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+				throw error;
+			}
+		},
+
+		loadCollaborators: async (projectId: string) => {
+			try {
+				if (!projectId) return [];
+
+				const user = get(currentUser);
+				if (!user) {
+					throw new Error('User not authenticated');
+				}
+
+				store.update((state) => ({
 					...state,
 					updateStatus: 'Loading collaborators...'
 				}));
-				
+
 				let collaborators = await fetchProjectCollaborators(projectId);
-				
+
 				console.log('Loaded collaborators:', collaborators);
-				
+
 				if (!Array.isArray(collaborators)) {
 					console.error('Expected array of collaborators but got:', collaborators);
 					collaborators = [];
 				}
-				
+
 				store.update((state) => ({
 					...state,
 					collaborators,
-					updateStatus: collaborators.length > 0 
-						? 'Collaborators loaded successfully' 
-						: 'No collaborators found'
+					updateStatus:
+						collaborators.length > 0
+							? 'Collaborators loaded successfully'
+							: 'No collaborators found'
 				}));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return collaborators;
 			} catch (error) {
 				console.error('Error loading collaborators:', error);
-				store.update((state) => ({ 
-					...state, 
+				store.update((state) => ({
+					...state,
 					collaborators: [],
-					updateStatus: 'Failed to load collaborators: ' + (error instanceof Error ? error.message : String(error))
+					updateStatus:
+						'Failed to load collaborators: ' +
+						(error instanceof Error ? error.message : String(error))
 				}));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return [];
@@ -362,28 +373,28 @@ setCurrentProject: async (id: string | null) => {
 				collaborators: []
 			}));
 		},
-		
+
 		addCollaborator: async (projectId: string, userId: string) => {
 			try {
 				const user = get(currentUser);
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				// Get the current project to check permissions
-				const project = get(store).threads.find(p => p.id === projectId);
+				const project = get(store).threads.find((p) => p.id === projectId);
 				if (!project) {
 					throw new Error('Project not found');
 				}
-				
+
 				// Only the owner should be able to add collaborators
 				if (project.owner !== user.id) {
 					throw new Error('Only the project owner can add collaborators');
 				}
-				
+
 				const updatedProject = await addCollaboratorToProject(projectId, userId);
 				const collaborators = await fetchProjectCollaborators(projectId);
-				
+
 				store.update((state) => ({
 					...state,
 					collaborators,
@@ -406,13 +417,13 @@ setCurrentProject: async (id: string | null) => {
 				if (!user) {
 					throw new Error('User not authenticated');
 				}
-				
+
 				// Get the current project to check permissions
-				const project = get(store).threads.find(p => p.id === projectId);
+				const project = get(store).threads.find((p) => p.id === projectId);
 				if (!project) {
 					throw new Error('Project not found');
 				}
-				
+
 				/*
 				 * Only the owner should be able to remove collaborators
 				 * Or users can remove themselves
@@ -420,10 +431,10 @@ setCurrentProject: async (id: string | null) => {
 				if (project.owner !== user.id && userId !== user.id) {
 					throw new Error('Only the project owner can remove collaborators');
 				}
-				
+
 				const updatedProject = await removeCollaboratorFromProject(projectId, userId);
 				const collaborators = await fetchProjectCollaborators(projectId);
-				
+
 				store.update((state) => ({
 					...state,
 					collaborators,
@@ -439,10 +450,11 @@ setCurrentProject: async (id: string | null) => {
 				throw error;
 			}
 		},
-		
+
 		getCurrentProject: derived(
 			store,
-			($store) => $store.threads.find((p) => p.id === $store.currentProjectId) || $store.currentProject
+			($store) =>
+				$store.threads.find((p) => p.id === $store.currentProjectId) || $store.currentProject
 		),
 
 		getSearchedProjects: derived(store, ($store) => {

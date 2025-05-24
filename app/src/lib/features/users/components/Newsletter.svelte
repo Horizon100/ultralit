@@ -79,8 +79,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	.overlay {
 		position: fixed;
 		inset: 0;

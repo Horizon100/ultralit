@@ -1,7 +1,6 @@
 import type { RecordModel } from 'pocketbase';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
 
-
 export interface User extends RecordModel {
 	username: string;
 	description: string;
@@ -50,37 +49,37 @@ export interface User extends RecordModel {
 	};
 }
 export interface PublicUserProfile {
-    id: string;
-    username: string;
-    name: string;
-    avatar: string;
-    avatarUrl: string | null; 
-    verified: boolean;
-    description: string;
-    role: string;
-    last_login: Date;
-    perks: string[]; 
-    taskAssignments: string[];
-    userTaskStatus: {
-        backlog: number;
-        todo: number;
-        focus: number;
-        done: number;
-        hold: number;
-        postpone: number;
-        cancel: number;
-        review: number;
-        delegate: number;
-        archive: number;
-    };
-    userProjects: string[];
-    hero: string;
-    created: string;
+	id: string;
+	username: string;
+	name: string;
+	avatar: string;
+	avatarUrl: string | null;
+	verified: boolean;
+	description: string;
+	role: string;
+	last_login: Date;
+	perks: string[];
+	taskAssignments: string[];
+	userTaskStatus: {
+		backlog: number;
+		todo: number;
+		focus: number;
+		done: number;
+		hold: number;
+		postpone: number;
+		cancel: number;
+		review: number;
+		delegate: number;
+		archive: number;
+	};
+	userProjects: string[];
+	hero: string;
+	created: string;
 }
 export interface UserProfile {
-    id: string;
-    name: string;
-    avatarUrl: string;
+	id: string;
+	name: string;
+	avatarUrl: string;
 }
 
 export interface Prompt {
@@ -99,14 +98,9 @@ export interface PromptInput {
 	updated: string;
 	type?: PromptType;
 	project?: Projects;
-
 }
 
-export type PromptType =
-	| 'NORMAL'
-	| 'CONCISE'
-	| 'CRITICAL'
-	| 'INTERVIEW';
+export type PromptType = 'NORMAL' | 'CONCISE' | 'CRITICAL' | 'INTERVIEW';
 
 export interface ThreadGroup {
 	group: string;
@@ -136,14 +130,13 @@ export interface ThreadStoreState {
 	isUpdating: boolean;
 	error: string | null;
 	currentProjectId?: string | null;
-
 }
 
 export interface Threads extends RecordModel {
 	id: string;
 	name: string;
 	op: string;
-	members?: string | string[];	
+	members?: string | string[];
 	created: string;
 	updated: string;
 	last_message?: Messages;
@@ -153,13 +146,12 @@ export interface Threads extends RecordModel {
 	agents: string[];
 	project?: string | null;
 
-
 	/*
 	 * currentThread: Threads | null;
 	 * filteredThreads: Threads[];
 	 * isEditingThreadName: boolean;
 	 * editedThreadName: string;
-	 * isNaming: boolean; 
+	 * isNaming: boolean;
 	 */
 }
 export interface Tag extends RecordModel {
@@ -168,7 +160,6 @@ export interface Tag extends RecordModel {
 	color: string;
 	thread_id: string[];
 	user: string;
-	
 }
 export type RoleType =
 	| 'system'
@@ -186,8 +177,8 @@ export interface PartialAIAgent {
 	owner?: string;
 	editors?: string[];
 	viewers?: string[];
-	activityLog?: string [];
-	currentUsers?: string [];
+	activityLog?: string[];
+	currentUsers?: string[];
 	currentProjects?: string[];
 	currentThreads?: string[];
 	currentMessages?: string[];
@@ -199,7 +190,7 @@ export interface PartialAIAgent {
 	max_attempts?: number;
 	user_input?: 'end' | 'never' | 'always';
 	prompt?: string;
-	model?: string[]; 
+	model?: string[];
 	actions?: string[];
 	capabilities?: string[];
 	tasks?: string[];
@@ -233,10 +224,10 @@ export interface AIAgent extends RecordModel {
 	id: string;
 	name: string;
 	description: string;
-	owner: string; 
+	owner: string;
 	editors: string[];
-	activityLog: string [];
-	currentUsers: string [];
+	activityLog: string[];
+	currentUsers: string[];
 	currentProjects: string[];
 	currentThreads: string[];
 	currentMessages: string[];
@@ -246,7 +237,7 @@ export interface AIAgent extends RecordModel {
 	user_input: 'end' | 'never' | 'always';
 	prompt: string;
 	model: string[];
-	actions: string[]; 
+	actions: string[];
 	avatar: string;
 	role: RoleType;
 	capabilities: string[];
@@ -365,7 +356,6 @@ export interface Scenario extends RecordModel {
 	id: string;
 	description: string;
 }
-
 
 export interface Network extends RecordModel {
 	id: string;
@@ -523,7 +513,7 @@ export interface InternalChatMessage extends ChatMessage {
 		highlight: string[];
 		question: number;
 	};
-	prompt_type: string | null; 
+	prompt_type: string | null;
 	prompt_input: string | null;
 	model: User['model'];
 	thread?: string;
@@ -543,7 +533,7 @@ export interface Messages extends RecordModel {
 	created: string;
 	updated: string;
 	prompt_type: PromptType | null;
-	prompt_input: string | null; 
+	prompt_input: string | null;
 	model: string;
 }
 export interface MessageState {
@@ -578,7 +568,6 @@ export interface Message extends RecordModel {
 	model: string;
 }
 
-
 export interface ChatMessage extends RecordModel {
 	text: string;
 	role: RoleType;
@@ -601,7 +590,6 @@ export interface Tag {
 	createdBy: string;
 	project?: Projects;
 	selected: boolean;
-
 }
 
 export type Folders = {
@@ -684,7 +672,7 @@ export interface Task extends RecordModel {
 	parent_task: string;
 	dependencies: {
 		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
-		task_id: string; 
+		task_id: string;
 	}[];
 	agentMessages: string[];
 	attachments: string;
@@ -696,39 +684,39 @@ export interface Task extends RecordModel {
 }
 
 export interface KanbanTask {
-    id: string;
-    title: string;
-    taskDescription: string;
-    creationDate: Date;
-    due_date: Date | null;
+	id: string;
+	title: string;
+	taskDescription: string;
+	creationDate: Date;
+	due_date: Date | null;
 	start_date: Date | null;
-    tags: string[];
-    attachments: KanbanAttachment[];
-    project_id?: string;
-    createdBy?: string;
+	tags: string[];
+	attachments: KanbanAttachment[];
+	project_id?: string;
+	createdBy?: string;
 	parent_task?: string;
-    allocatedAgents: string[];
-    status: Task['status'];
-    priority: 'high' | 'medium' | 'low';
-    prompt?: string;
-    context?: string;
-    task_outcome?: string;
-    dependencies?: {
-        type: 'subtask' | 'dependency' | 'resource' | 'precedence';
-        task_id: string;
-    }[];
-    agentMessages?: string[];
+	allocatedAgents: string[];
+	status: Task['status'];
+	priority: 'high' | 'medium' | 'low';
+	prompt?: string;
+	context?: string;
+	task_outcome?: string;
+	dependencies?: {
+		type: 'subtask' | 'dependency' | 'resource' | 'precedence';
+		task_id: string;
+	}[];
+	agentMessages?: string[];
 	assignedTo?: string;
 	_scrollAccumulation?: { day: number; month: number; year: number };
-    _updateTimeout?: number | ReturnType<typeof setTimeout>;
+	_updateTimeout?: number | ReturnType<typeof setTimeout>;
 }
 
 export interface KanbanAttachment {
-    id: string;
-    fileName: string;
-    url: string;
-    file?: File;
-    note?: string;
+	id: string;
+	fileName: string;
+	url: string;
+	file?: File;
+	note?: string;
 }
 
 export interface ProjectStoreState {
@@ -769,7 +757,6 @@ export interface ExpandedSections {
 	collaborators: boolean;
 }
 
-
 export interface PromptState {
 	promptType: PromptType;
 	currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
@@ -793,30 +780,30 @@ export interface UIState {
 	searchQuery: string;
 }
 export interface Reminder {
-	id: string;                  
-	title: string;  
-	dueDate?: Date | null;      
-	completed: boolean;        
-	priority?: 'low' | 'medium' | 'high';  
-	notes?: string;               
-	listId?: string;          
-	createdAt?: Date;            
-	updatedAt?: Date;           
-	source: 'apple';            
-  }
-  export interface ReminderList {
+	id: string;
+	title: string;
+	dueDate?: Date | null;
+	completed: boolean;
+	priority?: 'low' | 'medium' | 'high';
+	notes?: string;
+	listId?: string;
+	createdAt?: Date;
+	updatedAt?: Date;
+	source: 'apple';
+}
+export interface ReminderList {
 	id: string;
 	name: string;
-	color?: string; 
+	color?: string;
 	reminders: Reminder[];
-  }
-  export interface PerkFilterCondition {
+}
+export interface PerkFilterCondition {
 	parameter: 'messages' | 'threads' | 'tasks' | 'tags' | 'combined';
 	operator: '=' | '>' | '>=' | '<' | '<=' | 'between';
 	value: number;
-	secondValue?: number; 
-  }
-  export interface Perk extends RecordModel {
+	secondValue?: number;
+}
+export interface Perk extends RecordModel {
 	id: string;
 	created: string;
 	updated: string;
@@ -825,4 +812,4 @@ export interface Reminder {
 	perkIcon: string;
 	filterConditions: PerkFilterCondition[];
 	achievedBy?: string[];
-  }
+}

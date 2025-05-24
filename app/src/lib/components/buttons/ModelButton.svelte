@@ -33,8 +33,7 @@
 </button>
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-
+	@use "src/lib/styles/themes.scss" as *;
 	.settings-button {
 		display: flex;
 		align-items: center;

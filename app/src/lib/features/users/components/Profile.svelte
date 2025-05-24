@@ -1,22 +1,33 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
-	import { 
-		Camera, LogOutIcon, Languages, Palette, X, Bone, Save, 
-		TextCursorIcon, Pen, User2, UserCircle, MailCheck, 
-		Mail, KeyIcon, Cake, History, Shield, Layers, 
-		MessageCirclePlus, Group, ChevronLeft, 
+	import { page } from '$app/stores';
+	import {
+		Camera,
+		LogOutIcon,
+		Languages,
+		Palette,
+		X,
+		Bone,
+		Save,
+		TextCursorIcon,
+		Pen,
+		User2,
+		UserCircle,
+		MailCheck,
+		Mail,
+		KeyIcon,
+		Cake,
+		History,
+		Shield,
+		Layers,
+		MessageCirclePlus,
+		Group,
+		ChevronLeft,
 		TagsIcon,
-
 		Settings,
-
 		SettingsIcon
-
-
-
 	} from 'lucide-svelte';
-	import { 
-		Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key 
-	} from 'lucide-svelte';
+	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
@@ -31,25 +42,23 @@
 	import KeyStatusButton from '$lib/components/buttons/KeyStatusButton.svelte';
 	import TagEditor from '$lib/features/users/components/TagEditor.svelte';
 	import AvatarUploader from '$lib/features/users/components/AvatarUploader.svelte';
-	$: hasApiKey = $apiKey !== '';
+	import type { ProviderType } from '$lib/types/types';
 
 	interface UserData {
-    id: string;
-    avatarUrl?: string;
-    email?: string;
-	name?: string;
-	username?: string;
-    description?: string;
-    role?: string;
-    created?: string;
-    updated?: string;
-    verified?: boolean;
-    // Add other fields you expect from the API
-  }
-  
-	export let user: any;
+		id: string;
+		avatarUrl?: string;
+		email?: string;
+		name?: string;
+		username?: string;
+		description?: string;
+		role?: string;
+		created?: string;
+		updated?: string;
+		verified?: boolean;
+		// Add other fields you expect from the API
+	}
 
-	
+	export let user: any;
 
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
@@ -99,6 +108,17 @@
 
 	const dispatch = createEventDispatcher();
 
+	$: chatRelatedPages = ['/chat', '/canvas', '/ide']; // Add other pages that need API keys
+	$: needsApiKey = chatRelatedPages.some(path => $page.url.pathname.startsWith(path));
+	$: hasApiKey = needsApiKey ? hasAnyApiKey($apiKey) : true;
+
+	function hasAnyApiKey(apiKeys: any): boolean {
+		if (!apiKeys || typeof apiKeys !== 'object') return false;
+		return Object.values(apiKeys).some(key => 
+			typeof key === 'string' && key.trim() !== ''
+		);
+	}
+
 	function getRandomQuote(): string {
 		const quotes = $t('extras.quotes') as string[];
 		return quotes[Math.floor(Math.random() * quotes.length)];
@@ -118,7 +138,7 @@
 	function handleAvatarUploadSuccess(): void {
 		showAvatarUploader = false;
 		if (user?.id) {
-			getUserById(user.id, true).then(refreshedUser => {
+			getUserById(user.id, true).then((refreshedUser) => {
 				if (refreshedUser) {
 					user = refreshedUser;
 					if (user.avatar) {
@@ -128,7 +148,7 @@
 			});
 		}
 	}
-	
+
 	function handleAvatarUploadError(error: string): void {
 		console.error('Avatar upload error:', error);
 	}
@@ -142,32 +162,32 @@
 	}
 
 	async function saveChanges(): Promise<void> {
-  try {
-    if (user?.id) {
-      const updatedUser = await updateUser(user.id, {
-        name: editedUser.name,
-        username: editedUser.username,
-        description: editedUser.description
-      });
-      
-      // Update both user and completeUserData
-      user = { ...user, ...updatedUser };
-      completeUserData = { 
-        ...completeUserData, 
-        ...updatedUser,
-        name: updatedUser.name || completeUserData?.name || '',
-        username: updatedUser.username || completeUserData?.username || '',
-        description: updatedUser.description || completeUserData?.description || ''
-      };
-      
-      isEditing = false;
-      showSaveConfirmation = true;
-      setTimeout(() => showSaveConfirmation = false, 2000);
-    }
-  } catch (error) {
-    console.error('Error updating user:', error);
-  }
-}
+		try {
+			if (user?.id) {
+				const updatedUser = await updateUser(user.id, {
+					name: editedUser.name,
+					username: editedUser.username,
+					description: editedUser.description
+				});
+
+				// Update both user and completeUserData
+				user = { ...user, ...updatedUser };
+				completeUserData = {
+					...completeUserData,
+					...updatedUser,
+					name: updatedUser.name || completeUserData?.name || '',
+					username: updatedUser.username || completeUserData?.username || '',
+					description: updatedUser.description || completeUserData?.description || ''
+				};
+
+				isEditing = false;
+				showSaveConfirmation = true;
+				setTimeout(() => (showSaveConfirmation = false), 2000);
+			}
+		} catch (error) {
+			console.error('Error updating user:', error);
+		}
+	}
 
 	function handleOutsideClick(event: MouseEvent): void {
 		if (event.target === event.currentTarget) {
@@ -223,180 +243,185 @@
 
 	function getAvatarUrl(user: any): string {
 		if (!user) return '';
-		
+
 		if (user.avatarUrl) return user.avatarUrl;
-		
+
 		if (user.avatar) {
 			if (user.id && (user.collectionId || 'users')) {
-			return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
+				return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
 			}
 		}
-		
+
 		return '';
 	}
 
-	
 	async function loadUserStats(): Promise<void> {
-	try {
-		if (user && user.id) {
-		// Refresh user data to ensure we have the latest
-		const refreshedUser = await getUserById(user.id);
-		if (refreshedUser) {
-			// Preserve the avatar URL if it already exists
-			const existingAvatarUrl = user.avatarUrl;
-			
-			// Update user data
-			user = refreshedUser;
-			editedUser = { ...refreshedUser };
-			
-			// Restore or set avatar URL
-			if (existingAvatarUrl) {
-			user.avatarUrl = existingAvatarUrl;
-			} else if (user.avatar) {
-			user.avatarUrl = getAvatarUrl(user);
-			}
-			
-			// Fetch stats from our API endpoint
-			console.log('Fetching stats for user ID:', user.id);
-			const statsResponse = await fetch(`/api/verify/users/${user.id}/stats`, {
-			credentials: 'include'
-			});
-			
-			if (statsResponse.ok) {
-			const statsData = await statsResponse.json();
-			console.log('Received stats data:', statsData);
-			
-			if (statsData.success) {
-				// Update the stats with real data
-				threadCount = statsData.threadCount || 0;
-				messageCount = statsData.messageCount || 0;
-				taskCount = statsData.taskCount || 0;
-				tagCount = statsData.tagCount || 0;
-				timerCount = statsData.timerCount || 0;
-				
-				if (statsData.lastActive) {
-				lastActive = new Date(statsData.lastActive);
-				} else {
-				lastActive = user.updated ? new Date(user.updated) : new Date();
+		try {
+			if (user && user.id) {
+				// Refresh user data to ensure we have the latest
+				const refreshedUser = await getUserById(user.id);
+				if (refreshedUser) {
+					// Preserve the avatar URL if it already exists
+					const existingAvatarUrl = user.avatarUrl;
+
+					// Update user data
+					user = refreshedUser;
+					editedUser = { ...refreshedUser };
+
+					// Restore or set avatar URL
+					if (existingAvatarUrl) {
+						user.avatarUrl = existingAvatarUrl;
+					} else if (user.avatar) {
+						user.avatarUrl = getAvatarUrl(user);
+					}
+
+					// Fetch stats from our API endpoint
+					console.log('Fetching stats for user ID:', user.id);
+					const statsResponse = await fetch(`/api/verify/users/${user.id}/stats`, {
+						credentials: 'include'
+					});
+
+					if (statsResponse.ok) {
+						const statsData = await statsResponse.json();
+						console.log('Received stats data:', statsData);
+
+						if (statsData.success) {
+							// Update the stats with real data
+							threadCount = statsData.threadCount || 0;
+							messageCount = statsData.messageCount || 0;
+							taskCount = statsData.taskCount || 0;
+							tagCount = statsData.tagCount || 0;
+							timerCount = statsData.timerCount || 0;
+
+							if (statsData.lastActive) {
+								lastActive = new Date(statsData.lastActive);
+							} else {
+								lastActive = user.updated ? new Date(user.updated) : new Date();
+							}
+
+							console.log('Updated stats values:', {
+								threadCount,
+								messageCount,
+								taskCount,
+								tagCount,
+								timerCount,
+								lastActive
+							});
+						} else {
+							console.error('Stats API returned error:', statsData.error);
+							// Keep the default values or set fallbacks
+						}
+					} else {
+						console.error('Failed to fetch stats:', statsResponse.status);
+						// Keep the default values
+					}
 				}
-				
-				console.log('Updated stats values:', {
-				threadCount,
-				messageCount,
-				taskCount,
-				tagCount,
-				timerCount,
-				lastActive
-				});
-			} else {
-				console.error('Stats API returned error:', statsData.error);
-				// Keep the default values or set fallbacks
 			}
-			} else {
-			console.error('Failed to fetch stats:', statsResponse.status);
-			// Keep the default values
-			}
+		} catch (error) {
+			console.error('Error loading user data or stats:', error);
 		}
-		}
-	} catch (error) {
-		console.error("Error loading user data or stats:", error);
-	}
 	}
 
-async function fetchCompleteUserData(userId: string): Promise<UserData> {
-  try {
-    isLoading = true;
-    const response = await fetch(`/api/verify/users/${userId}`);
-    if (!response.ok) throw new Error('Failed to fetch user data');
-    const data = await response.json();
-    
-    // Merge with basic user data
-    const completeUser = await getUserById(userId);
-    
-    return {
-      ...completeUser,
-      ...data.user,
-      // Ensure critical fields are always set
-      name: data.user?.name || completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
-      username: data.user?.username || completeUser?.username || completeUser?.email?.split('@')[0] || '',
-      description: data.user?.description || completeUser?.description || ''
-    };
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-    return {
-      id: userId,
-      name: '',
-      username: '',
-      description: ''
-    };
-  } finally {
-    isLoading = false;
-  }
-}
+	async function fetchCompleteUserData(userId: string): Promise<UserData> {
+		try {
+			isLoading = true;
+			const response = await fetch(`/api/verify/users/${userId}`);
+			if (!response.ok) throw new Error('Failed to fetch user data');
+			const data = await response.json();
 
-$: if (user?.id) {
-  isLoading = true;
-  fetchCompleteUserData(user.id).then(data => {
-    completeUserData = data;
-    editedUser = {
-      name: data.name,
-      username: data.username,
-      description: data.description
-    };
-    isLoading = false;
-  });
-}
+			// Merge with basic user data
+			const completeUser = await getUserById(userId);
 
-$: displayUser = completeUserData || user;
-  
-  // Helper function to safely format dates
-  function formatDate(dateString?: string): string {
-    if (!dateString) return 'Not available';
-    
-    try {
-      return new Date(dateString).toLocaleString();
-    } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return 'Invalid date';
-    }
-  }
-  onMount(async () => {
-  if (user?.id) {
-    try {
-      isLoading = true;
-      
-      // Fetch complete user data in parallel
-      const [completeUser, verifiedData] = await Promise.all([
-        getUserById(user.id),
-        fetchCompleteUserData(user.id)
-      ]);
+			return {
+				...completeUser,
+				...data.user,
+				// Ensure critical fields are always set
+				name:
+					data.user?.name ||
+					completeUser?.name ||
+					completeUser?.fullName ||
+					completeUser?.displayName ||
+					'',
+				username:
+					data.user?.username || completeUser?.username || completeUser?.email?.split('@')[0] || '',
+				description: data.user?.description || completeUser?.description || ''
+			};
+		} catch (error) {
+			console.error('Error fetching user data:', error);
+			return {
+				id: userId,
+				name: '',
+				username: '',
+				description: ''
+			};
+		} finally {
+			isLoading = false;
+		}
+	}
 
-      // Merge all data sources
-      user = {
-        ...user,
-        ...completeUser,
-        ...verifiedData?.user || {},
-        name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
-        username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
-        description: completeUser?.description || ''
-      };
+	$: if (user?.id) {
+		isLoading = true;
+		fetchCompleteUserData(user.id).then((data) => {
+			completeUserData = data;
+			editedUser = {
+				name: data.name,
+				username: data.username,
+				description: data.description
+			};
+			isLoading = false;
+		});
+	}
 
-      // Initialize editedUser
-      editedUser = {
-        name: user.name,
-        username: user.username,
-        description: user.description
-      };
+	$: displayUser = completeUserData || user;
 
-      currentTheme.initialize();
-      await loadUserStats();
-    } catch (err) {
-      console.error("Failed to load user data:", err);
-    } finally {
-      isLoading = false;
-    }
-  }
-});
+	// Helper function to safely format dates
+	function formatDate(dateString?: string): string {
+		if (!dateString) return 'Not available';
+
+		try {
+			return new Date(dateString).toLocaleString();
+		} catch (error) {
+			console.error('Error formatting date:', dateString, error);
+			return 'Invalid date';
+		}
+	}
+	onMount(async () => {
+		if (user?.id) {
+			try {
+				isLoading = true;
+
+				// Fetch complete user data in parallel
+				const [completeUser, verifiedData] = await Promise.all([
+					getUserById(user.id),
+					fetchCompleteUserData(user.id)
+				]);
+
+				// Merge all data sources
+				user = {
+					...user,
+					...completeUser,
+					...(verifiedData?.user || {}),
+					name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
+					username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
+					description: completeUser?.description || ''
+				};
+
+				// Initialize editedUser
+				editedUser = {
+					name: user.name,
+					username: user.username,
+					description: user.description
+				};
+
+				currentTheme.initialize();
+				await loadUserStats();
+			} catch (err) {
+				console.error('Failed to load user data:', err);
+			} finally {
+				isLoading = false;
+			}
+		}
+	});
 </script>
 
 <div
@@ -407,9 +432,9 @@ $: displayUser = completeUserData || user;
 	<div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 300 }}>
 		<div class="settings-row">
 			<div class="btn-row">
-				<div class="btn-row" >
+				<div class="btn-row">
 					<button class="back-button" on:click={onClose}>
-						<ChevronLeft/>
+						<ChevronLeft />
 					</button>
 					{#if isEditing}
 						<button class="settings-button done" on:click={saveChanges}>
@@ -418,7 +443,7 @@ $: displayUser = completeUserData || user;
 								{$t('profile.close')}
 							</span>
 						</button>
-						{:else if showAvatarUploader && user?.id}
+					{:else if showAvatarUploader && user?.id}
 						<div class="avatar-uploader-modal" transition:fade={{ duration: 200 }}>
 							<div class="avatar-uploader-content" on:click|stopPropagation>
 								<div class="avatar-uploader-header">
@@ -426,14 +451,12 @@ $: displayUser = completeUserData || user;
 									<button class="close-button" on:click={toggleAvatarUploader}>
 										<X size={20} />
 									</button>
-									<AvatarUploader 
-									userId={user.id} 
-									onSuccess={handleAvatarUploadSuccess}
-									onError={handleAvatarUploadError}
-								/>
+									<AvatarUploader
+										userId={user.id}
+										onSuccess={handleAvatarUploadSuccess}
+										onError={handleAvatarUploadError}
+									/>
 								</div>
-								
-
 							</div>
 						</div>
 					{:else}
@@ -445,7 +468,6 @@ $: displayUser = completeUserData || user;
 							<Languages size={16} />
 							<span>{$t('lang.flag')}</span>
 							<!-- <span class="hover">{$t('profile.language')}</span> -->
-	
 						</button>
 						<button
 							class="settings-button"
@@ -457,93 +479,91 @@ $: displayUser = completeUserData || user;
 								size={16}
 							/>
 							<!-- <span class="hover">{$t('profile.theme')}</span> -->
-	
 						</button>
 						<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 							<LogOutIcon size={16} />
 							<span class="hover">{$t('profile.logout')}</span>
 						</button>
 					{/if}
-	
-					
 				</div>
-				
-
 			</div>
 		</div>
 
 		{#if showStyles}
-		<div
-			class="style-overlay"
-			on:click={handleOverlayClick}
-			transition:fly={{ x: -200, duration: 300 }}
-		>
 			<div
-				class="style-content"
-				on:click|stopPropagation
-				transition:fly={{ x: -20, duration: 300 }}
+				class="style-overlay"
+				on:click={handleOverlayClick}
+				transition:fly={{ x: -200, duration: 300 }}
 			>
-				<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+				<div
+					class="style-content"
+					on:click|stopPropagation
+					transition:fly={{ x: -20, duration: 300 }}
+				>
+					<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+				</div>
 			</div>
-		</div>
 		{/if}
 
 		{#if user}
-
-
 			<!-- Tab Navigation -->
 			<div class="tabs-container">
-				
 				<div class="tab-header">
 					<div class="profile-header">
 						<div class="info-column">
-		
 							<div class="header-wrapper">
-		
-								<div class="avatar-container" on:click={toggleAvatarUploader} role="button" tabindex="0">
+								<div
+									class="avatar-container"
+									on:click={toggleAvatarUploader}
+									role="button"
+									tabindex="0"
+								>
 									{#if getAvatarUrl($currentUser)}
-									<img 
-										src={getAvatarUrl($currentUser)}
-										alt="User avatar" 
-										class="avatar" 
-									/>
+										<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
 									{:else}
 										<div class="default-avatar">
-											{($currentUser?.name || $currentUser?.username || $currentUser?.email || '?')[0]?.toUpperCase()}
+											{($currentUser?.name ||
+												$currentUser?.username ||
+												$currentUser?.email ||
+												'?')[0]?.toUpperCase()}
 										</div>
 									{/if}
 									<div class="avatar-overlay">
 										<Camera size={20} />
 									</div>
 								</div>
-		
+
 								<div class="info-wrapper">
-		
 									<div class="info-row">
 										{#if isEditing}
-										<input 
-											value={editedUser.username || editedUser.email?.split('@')[0] || ''} 
-											on:input={(e) => editedUser.username = e.target.value}
-										/>
+											<input
+												value={editedUser.username || editedUser.email?.split('@')[0] || ''}
+												on:input={(e) => (editedUser.username = e.target.value)}
+											/>
 										{:else}
-										<span class='row'>
-		
-										<span class="username">{user?.username || user?.email?.split('@')[0] || 'Not set'}</span>
-										<span class="meta role">
-											{displayUser?.role || $t('profile.not_available')}
-										</span>
-									</span>
-		
+											<span class="row">
+												<span class="username"
+													>{user?.username || user?.email?.split('@')[0] || 'Not set'}</span
+												>
+												<span class="meta role">
+													{displayUser?.role || $t('profile.not_available')}
+												</span>
+											</span>
 										{/if}
 									</div>
 									<div class="info-row">
 										{#if isEditing}
-										<input 
-											value={editedUser.name || editedUser.fullName || editedUser.displayName || ''} 
-											on:input={(e) => editedUser.name = e.target.value}
-										/>
+											<input
+												value={editedUser.name ||
+													editedUser.fullName ||
+													editedUser.displayName ||
+													''}
+												on:input={(e) => (editedUser.name = e.target.value)}
+											/>
 										{:else}
-										<span class="name">{user?.name || user?.fullName || user?.displayName || 'Not set'}</span>
+											<span class="name"
+												>{user?.name || user?.fullName || user?.displayName || 'Not set'}</span
+											>
 										{/if}
 									</div>
 									<div class="info-row">
@@ -555,9 +575,7 @@ $: displayUser = completeUserData || user;
 										</span>
 									</div>
 								</div>
-		
 							</div>
-		
 						</div>
 						<!-- <div class="info-stats">
 							<div class="info-column">
@@ -585,24 +603,23 @@ $: displayUser = completeUserData || user;
 						</div> -->
 					</div>
 					<div class="tabs-navigation">
-						{#if isEditing}
-						{:else}
-							<button 
-								class="tab-button {activeTab === 'profile' ? 'active' : ''}" 
+						{#if isEditing}{:else}
+							<button
+								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
 								on:click={() => switchTab('profile')}
 							>
 								<User2 size={20} />
 								<span>Profile</span>
 							</button>
-							<button 
-								class="tab-button {activeTab === 'stats' ? 'active' : ''}" 
+							<button
+								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
 								on:click={() => switchTab('stats')}
 							>
 								<Layers size={20} />
 								<span>Stats</span>
 							</button>
-							<button 
-								class="tab-button {activeTab === 'tags' ? 'active' : ''}" 
+							<button
+								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
 								on:click={() => switchTab('tags')}
 							>
 								<TagsIcon size={20} />
@@ -615,25 +632,23 @@ $: displayUser = completeUserData || user;
 				<!-- Tab Content -->
 				<div class="tab-content">
 					{#if activeTab === 'profile'}
-					<div class="profile-info" transition:fade={{ duration: 200 }}>
-						<div class="info-row-profile">
+						<div class="profile-info" transition:fade={{ duration: 200 }}>
+							<div class="info-row-profile">
+								{#if isEditing}
+									<textarea
+										class="textarea-description"
+										value={editedUser.description}
+										on:input={(e) => (editedUser.description = e.target.value)}
+										placeholder="Enter your description"
+									></textarea>
+								{:else}
+									<span class="description">
+										{displayUser?.description || $t('profile.not_set')}
+									</span>
+								{/if}
+							</div>
 
-							{#if isEditing}
-							<textarea 
-							class="textarea-description"
-							value={editedUser.description}
-							on:input={(e) => editedUser.description = e.target.value}
-							placeholder="Enter your description"
-						  ></textarea>
-							{:else}
-							  <span class="description">
-								{displayUser?.description || $t('profile.not_set')}
-							  </span>
-							{/if}
-						  </div>
-
-					  
-						  <!-- <div class="selector-row">
+							<!-- <div class="selector-row">
 							<button class="selector-button">
 							  <MessageCirclePlus/>
 							  {$t('profile.message')}
@@ -649,69 +664,71 @@ $: displayUser = completeUserData || user;
 							  <Mail/>
 							</button>
 						  </div> -->
-					  
-						  <!-- Email -->
 
-					  
+							<!-- Email -->
 
-					  
-						  <!-- Created Date -->
-						  <div class="info-column">  
-							<div class="info-row">
-							  <span class="label">
-								<span class="data">{$t('profile.created')}</span>
-							  </span>
-							  <span class="meta">
-								{displayUser?.created ? formatDate(displayUser.created) : $t('profile.not_available')}
-							  </span>
+							<!-- Created Date -->
+							<div class="info-column">
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.created')}</span>
+									</span>
+									<span class="meta">
+										{displayUser?.created
+											? formatDate(displayUser.created)
+											: $t('profile.not_available')}
+									</span>
+								</div>
+								<!-- <Cake size={50}/> -->
 							</div>
-							<!-- <Cake size={50}/> -->
-						  </div>
-					  
-						  <!-- Updated Date -->
-						  <div class="info-column">  
-							<div class="info-row">
-							  <span class="label">
-								<span class="data">{$t('profile.updated')}</span>
-							  </span>
-							  <span class="meta">
-								{user?.updated ? formatDate(user.updated) : $t('profile.not_available')}
-							  </span>
-							</div>
-							<!-- <History size={50}/> -->
-						  </div>
-					  
-						  <!-- Verified Status -->
-						  <div class="info-column">  
-							<div class="info-row">
-							  <span class="label">
-								<span class="data">{$t('profile.verified')}</span>
-							  </span>
-							  <span class="meta">
-								<span class={displayUser?.verified ? 'verified' : 'not-verified'}>
-									{displayUser?.verified ? $t('profile.yes') : $t('profile.no')}
-								  </span>
-							  </span>
 
+							<!-- Updated Date -->
+							<div class="info-column">
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.updated')}</span>
+									</span>
+									<span class="meta">
+										{user?.updated ? formatDate(user.updated) : $t('profile.not_available')}
+									</span>
+								</div>
+								<!-- <History size={50}/> -->
 							</div>
-							<!-- <Shield size={50}/> -->
-						  </div>
-					  </div>
+
+							<!-- Verified Status -->
+							<div class="info-column">
+								<div class="info-row">
+									<span class="label">
+										<span class="data">{$t('profile.verified')}</span>
+									</span>
+									<span class="meta">
+										<span class={displayUser?.verified ? 'verified' : 'not-verified'}>
+											{displayUser?.verified ? $t('profile.yes') : $t('profile.no')}
+										</span>
+									</span>
+								</div>
+								<!-- <Shield size={50}/> -->
+							</div>
+						</div>
 					{:else if activeTab === 'stats'}
-						{#if isEditing}
-						{:else}
+						{#if isEditing}{:else}
 							<div class="stats-tab" transition:fade={{ duration: 200 }}>
-								<StatsContainer {threadCount} {messageCount} {taskCount} {tagCount} {timerCount} {lastActive} />
+								<StatsContainer
+									{threadCount}
+									{messageCount}
+									{taskCount}
+									{tagCount}
+									{timerCount}
+									{lastActive}
+								/>
 							</div>
 						{/if}
 					{:else if activeTab === 'tags'}
-						{#if isEditing}
-						{:else}
+						{#if isEditing}{:else}
 							<div class="tags-tab" transition:fade={{ duration: 200 }}>
 								<TagEditor />
 							</div>
 						{/if}
-
 					{/if}
 				</div>
 			</div>
@@ -720,11 +737,9 @@ $: displayUser = completeUserData || user;
 				<p>No user information available.</p>
 			</div>
 		{/if}
-		
+
 		{#if showSaveConfirmation}
-			<div class="save-confirmation" 
-				in:fly={{ y: 20, duration: 300 }} 
-				out:fade={{ duration: 200 }}>
+			<div class="save-confirmation" in:fly={{ y: 20, duration: 300 }} out:fade={{ duration: 200 }}>
 				Saved!
 			</div>
 		{/if}
@@ -752,8 +767,7 @@ $: displayUser = completeUserData || user;
 {/if}
 
 <style lang="scss">
-	@use 'src/styles/themes.scss' as *;
-	* {
+	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 		color: var(--text-color);
 	}
@@ -790,9 +804,7 @@ $: displayUser = completeUserData || user;
 		align-items: center;
 		width: calc(100% - 2rem);
 		padding: 0.5rem;
-
 	}
-
 
 	.key-overlay {
 		position: fixed;
@@ -807,13 +819,12 @@ $: displayUser = completeUserData || user;
 		z-index: 1000;
 	}
 
-
 	textarea {
 		background: var(--secondary-color) !important;
 		border: 1px solid transparent;
 		border-radius: 1rem;
 		outline: none !important;
-		width: 100% ;
+		width: 100%;
 		font-size: 1rem;
 		display: flex;
 		&:focus {
@@ -833,11 +844,10 @@ $: displayUser = completeUserData || user;
 		outline: none !important;
 		border: 1px solid transparent;
 		transition: all 0.3s ease;
-		
+
 		&:focus {
 			background: var(--primary-color) !important;
 			border: 1px solid var(--secondary-color);
-
 		}
 	}
 	.profile-header {
@@ -867,10 +877,6 @@ $: displayUser = completeUserData || user;
 			font-size: 2.5rem;
 			letter-spacing: 0.1rem;
 			font-weight: 800;
-
-
-
-			
 		}
 		.info-stats {
 			display: flex;
@@ -938,7 +944,7 @@ $: displayUser = completeUserData || user;
 		&:hover {
 			transform: translateX(-1rem);
 			background: var(--bg-color);
-		};
+		}
 	}
 
 	.button-column-wrapper {
@@ -963,7 +969,6 @@ $: displayUser = completeUserData || user;
 		border-radius: 2px;
 		opacity: 0.5;
 	}
-	
 
 	.avatar-container {
 		width: 5rem;
@@ -1024,7 +1029,7 @@ $: displayUser = completeUserData || user;
 		gap: 0.5rem;
 		display: flex;
 		flex-direction: column;
-		
+
 		.info-column {
 			display: flex;
 			flex-direction: row;
@@ -1032,11 +1037,11 @@ $: displayUser = completeUserData || user;
 			align-items: center;
 			height: 100%;
 			width: 100%;
-			padding:0;
+			padding: 0;
 			// background: var(--primary-color);
 			border-radius: 0;
 		}
-		
+
 		.info-row {
 			font-size: 1.2rem;
 			padding: 0.5rem 0.25rem;
@@ -1047,7 +1052,7 @@ $: displayUser = completeUserData || user;
 			height: auto;
 			border-top: 1px solid var(--line-color);
 		}
-		
+
 		.info-row-profile {
 			font-size: 1.2rem;
 			line-height: 1.5;
@@ -1057,7 +1062,7 @@ $: displayUser = completeUserData || user;
 			border-radius: 0.5rem;
 			gap: 1rem;
 		}
-		
+
 		.textarea-description {
 			font-size: 1rem;
 			width: 100%;
@@ -1075,8 +1080,6 @@ $: displayUser = completeUserData || user;
 		}
 	}
 
-
-
 	span.info-avatar {
 		font-size: 3rem;
 	}
@@ -1087,14 +1090,13 @@ $: displayUser = completeUserData || user;
 	span.name {
 		font-size: 1rem;
 		color: var(--placeholder-color);
-
 	}
 
 	span.username {
 		font-size: 1.2rem;
 		color: var(--text-color);
 	}
-	
+
 	span.description {
 		font-size: 0.7em;
 		line-height: 2;
@@ -1104,7 +1106,7 @@ $: displayUser = completeUserData || user;
 		width: 100%;
 		display: flex;
 	}
-	
+
 	.info-row {
 		display: flex;
 		height: auto;
@@ -1147,20 +1149,17 @@ $: displayUser = completeUserData || user;
 		}
 	}
 	.label {
-		font-weight:300;
+		font-weight: 300;
 		font-size: 1rem;
 		letter-spacing: 0.1rem;
 		width: auto;
 		user-select: none;
 		padding-inline-start: 1rem;
 
-
-
 		& span.data {
 			color: var(--placeholder-color);
 		}
 	}
-
 
 	.save-confirmation {
 		position: fixed;
@@ -1193,7 +1192,6 @@ $: displayUser = completeUserData || user;
 
 		span.hover {
 			display: none;
-			
 		}
 
 		&:hover {
@@ -1220,8 +1218,6 @@ $: displayUser = completeUserData || user;
 		max-width: 800px;
 		gap: 1rem;
 		margin-bottom: 2rem;
-
-
 	}
 	button.back-button {
 		display: flex;
@@ -1271,7 +1267,7 @@ $: displayUser = completeUserData || user;
 		& span.hover {
 			display: flex;
 		}
-		
+
 		&:hover {
 			// transform: translateY(-4px);
 			box-shadow: 0 4px 6px rgba(255, 255, 255, 0.2);
@@ -1288,7 +1284,6 @@ $: displayUser = completeUserData || user;
 				margin: 0;
 				color: var(--tertiary-color);
 				padding: 0;
-
 			}
 		}
 
@@ -1300,7 +1295,6 @@ $: displayUser = completeUserData || user;
 			gap: 0.5rem;
 			margin: 0;
 			padding: 0;
-
 		}
 	}
 
@@ -1372,9 +1366,8 @@ $: displayUser = completeUserData || user;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		
 	}
-	
+
 	.avatar-overlay {
 		position: absolute;
 		top: 0;
@@ -1388,13 +1381,12 @@ $: displayUser = completeUserData || user;
 		opacity: 0;
 		transition: opacity 0.2s ease;
 		color: white;
-		
 	}
-	
+
 	.avatar-container:hover .avatar-overlay {
 		opacity: 1;
 	}
-	
+
 	.avatar-uploader-modal {
 		position: absolute;
 		top: 0;
@@ -1408,16 +1400,15 @@ $: displayUser = completeUserData || user;
 		justify-content: center;
 		z-index: 1000;
 		background: var(--bg-color);
-		
 	}
-	
+
 	.avatar-uploader-content {
 		border-radius: 8px;
 		padding: 1.5rem;
 		width: 90%;
 		max-width: 400px;
 	}
-	
+
 	.avatar-uploader-header {
 		display: flex;
 		flex-direction: column;
@@ -1426,7 +1417,7 @@ $: displayUser = completeUserData || user;
 		align-items: center;
 		margin-bottom: 1rem;
 	}
-	
+
 	.close-button {
 		position: absolute;
 		right: 1rem;
@@ -1437,24 +1428,20 @@ $: displayUser = completeUserData || user;
 		cursor: pointer;
 		padding: 0.25rem;
 	}
-	
+
 	.avatar-uploader-header h3 {
 		margin: 0;
 		font-size: 1.25rem;
 	}
 
 	@media (max-width: 1000px) {
-
-
 		.label {
-			font-weight:300;
+			font-weight: 300;
 			font-size: 0.9rem;
 			letter-spacing: 0.3rem;
 			width: auto;
 			user-select: none;
 			padding-inline-start: 1rem;
-
-
 
 			& span.data {
 				color: var(--placeholder-color);
@@ -1469,12 +1456,10 @@ $: displayUser = completeUserData || user;
 		}
 		span.name {
 			font-size: 1.2rem;
-
 		}
 
 		span.username {
 			font-size: 1rem;
-			
 		}
 
 		span.description {
@@ -1491,66 +1476,61 @@ $: displayUser = completeUserData || user;
 			justify-content: flex-start;
 			align-items: center;
 			gap: 0.5rem;
-			
 		}
 
 		.profile-header {
-		display: flex;
-		flex-direction: row;
-		justify-content: flex-start;
-		align-items: flex-start;
-		width: 100%;
-		max-width: 800px;
-		height: auto;
-		margin-bottom: 1rem;
-		color: white;
-
-		&.info-column {
 			display: flex;
 			flex-direction: row;
-			justify-content: space-between;
-			align-items: center;
-			height: 100%;
-			width: auto;
-			padding: 1rem;
-			border-radius: 1rem;
-		}
-		.info-row {
-			display: flex;
-			justify-content: center;
-			height: auto;
-			padding: 0;
-			font-size: 2.5rem;
-			letter-spacing: 0.1rem;
-			font-weight: 800;
+			justify-content: flex-start;
+			align-items: flex-start;
+			width: 100%;
 			max-width: 800px;
-			width: auto;
-
-
-
-			
-		}
-		.info-stats {
-			display: flex;
-			flex-direction: row;
-
-			align-items: center;
 			height: auto;
-			padding: 0.5rem;
-			font-size: 2rem;
-			letter-spacing: 0.1rem;
-			font-weight: 800;
-			max-width: 800px;
-			width: auto;
-			&.activity {
+			margin-bottom: 1rem;
+			color: white;
+
+			&.info-column {
 				display: flex;
-				flex-direction: column;
-				justify-content: center;
+				flex-direction: row;
+				justify-content: space-between;
 				align-items: center;
+				height: 100%;
+				width: auto;
+				padding: 1rem;
+				border-radius: 1rem;
+			}
+			.info-row {
+				display: flex;
+				justify-content: center;
+				height: auto;
+				padding: 0;
+				font-size: 2.5rem;
+				letter-spacing: 0.1rem;
+				font-weight: 800;
+				max-width: 800px;
+				width: auto;
+			}
+			.info-stats {
+				display: flex;
+				flex-direction: row;
+
+				align-items: center;
+				height: auto;
+				padding: 0.5rem;
+				font-size: 2rem;
+				letter-spacing: 0.1rem;
+				font-weight: 800;
+				max-width: 800px;
+				width: auto;
+				&.activity {
+					display: flex;
+					flex-direction: column;
+					justify-content: center;
+					align-items: center;
+				}
 			}
 		}
-	}
-		
+
 		.style-overlay {
 			top: auto;
 			left: auto;
@@ -1569,7 +1549,7 @@ $: displayUser = completeUserData || user;
 			height: 100%;
 			overflow: auto;
 		}
-		
+
 		.tabs-navigation {
 			justify-content: flex-start;
 
@@ -1580,29 +1560,28 @@ $: displayUser = completeUserData || user;
 	}
 
 	@media (max-width: 768px) {
-
 		.avatar-container {
-		width: 4rem;
-		height:4rem;
-		border-radius: 50%;
-		overflow: hidden;
-	}
+			width: 4rem;
+			height: 4rem;
+			border-radius: 50%;
+			overflow: hidden;
+		}
 
-	// .avatar {
-	// 	width: 100%;
-	// 	height: 100%;
-	// 	object-fit: cover;
-	// }
+		// .avatar {
+		// 	width: 100%;
+		// 	height: 100%;
+		// 	object-fit: cover;
+		// }
 
-	.avatar-placeholder {
-		width: 100%;
-		height: 100%;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		background-color: #e0e0e0;
-		color: #757575;
-	}
+		.avatar-placeholder {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background-color: #e0e0e0;
+			color: #757575;
+		}
 
 		.settings-row {
 			display: flex;
@@ -1633,7 +1612,6 @@ $: displayUser = completeUserData || user;
 
 			span {
 				font-size: 0.9rem;
-
 			}
 		}
 	}
@@ -1650,13 +1628,10 @@ $: displayUser = completeUserData || user;
 		span.name {
 			font-size: 0.8rem;
 			line-height: 1.5;
-
 		}
 		span.meta {
 			font-size: 0.6rem;
 			line-height: 1.5;
-
 		}
-		
 	}
 </style>
