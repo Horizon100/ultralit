@@ -7,9 +7,10 @@ export const GET: RequestHandler = async ({ params }) => {
 	const { username } = params;
 
 	try {
-		// Find user by username
+		// Find user by username - only fetch public fields
 		const users = await pb.collection('users').getList(1, 1, {
-			filter: `username = "${username}"`
+			filter: `username = "${username}"`,
+			fields: 'id,username,name,avatar,created,updated' // Only public fields
 		});
 
 		if (users.items.length === 0) {
@@ -108,6 +109,8 @@ export const GET: RequestHandler = async ({ params }) => {
 				});
 			}
 		});
+
+		// Add author information from expanded user data
 		allPosts.forEach((post) => {
 			if (post.expand?.user) {
 				post.author_name = post.expand.user.name;
@@ -116,6 +119,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			}
 		});
 
+		// Sort by creation date
 		allPosts.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 
 		console.log('=== FINAL RESULTS ===');
@@ -130,7 +134,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			}))
 		);
 
-		// Get user profile if exists
+		// Get user profile if exists (optional, might fail for public access)
 		let profile = null;
 		try {
 			const profileResult = await pb.collection('user_profiles').getList(1, 1, {
@@ -138,7 +142,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			});
 			profile = profileResult.items[0] || null;
 		} catch (err) {
-			console.log('No profile found for user');
+			console.log('No profile found for user or profile collection not accessible');
 		}
 
 		return json({
@@ -146,7 +150,6 @@ export const GET: RequestHandler = async ({ params }) => {
 				id: user.id,
 				username: user.username,
 				name: user.name,
-				email: user.email,
 				avatar: user.avatar,
 				created: user.created,
 				updated: user.updated
@@ -157,6 +160,12 @@ export const GET: RequestHandler = async ({ params }) => {
 		});
 	} catch (error) {
 		console.error('Error fetching user:', error);
+		
+		// Provide more specific error messages
+		if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+			return json({ error: 'User not found' }, { status: 404 });
+		}
+		
 		return json({ error: 'Failed to fetch user' }, { status: 500 });
 	}
 };

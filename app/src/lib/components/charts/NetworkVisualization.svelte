@@ -80,7 +80,11 @@
 
 <svg width="800" height="600"></svg>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	svg {
 		border: 1px solid #ccc;
 	}

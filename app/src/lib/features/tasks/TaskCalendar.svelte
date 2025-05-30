@@ -349,13 +349,13 @@
 			selectedDayTasks = day.tasks;
 			isTaskListModalOpen = true;
 		} else {
-			// For empty days, keep existing behavior - create a new task
 			selectedTask = {
 				id: `local_${Date.now()}`,
 				title: 'New Task',
 				taskDescription: '',
 				creationDate: new Date(),
-				due_date: new Date(day.date), // Clone the date object
+				start_date: new Date(day.date),
+				due_date: new Date(day.date), 
 				tags: [],
 				attachments: [],
 				project_id: currentProjectId || undefined,
@@ -507,6 +507,7 @@
 			title: 'New Task',
 			taskDescription: '',
 			creationDate: new Date(),
+			start_date: null,
 			due_date: today,
 			tags: [],
 			attachments: [],
@@ -514,7 +515,7 @@
 			createdBy: get(currentUser)?.id,
 			allocatedAgents: [],
 			status: 'todo',
-			priority: 'medium'
+			priority: 'medium',
 		};
 
 		selectedTask = newTask;
@@ -758,8 +759,10 @@
 							type="date"
 							value={selectedTask.due_date ? formatDateForInput(selectedTask.due_date) : ''}
 							on:change={(e) => {
-								selectedTask.due_date = e.target.value ? new Date(e.target.value) : null;
-								selectedTask = selectedTask;
+								if (selectedTask && e.target instanceof HTMLInputElement) {
+									selectedTask.due_date = e.target.value ? new Date(e.target.value) : null;
+									selectedTask = selectedTask;
+								}
 							}}
 						/>
 					</div>
@@ -792,15 +795,17 @@
 								class="tag-modal"
 								class:selected={selectedTask.tags.includes(tag.id)}
 								on:click={() => {
-									if (selectedTask.tags.includes(tag.id)) {
-										selectedTask.tags = selectedTask.tags.filter((id) => id !== tag.id);
-									} else {
-										selectedTask.tags = [...selectedTask.tags, tag.id];
+									if (selectedTask?.tags) {
+										if (selectedTask.tags.includes(tag.id)) {
+											selectedTask.tags = selectedTask.tags.filter((id) => id !== tag.id);
+										} else {
+											selectedTask.tags = [...selectedTask.tags, tag.id];
+										}
+										selectedTask = { ...selectedTask };
 									}
-									selectedTask = { ...selectedTask }; // Trigger reactivity
 								}}
 								style="background-color: {tag.color}"
-							>
+											>
 								{tag.name}
 							</button>
 						{/each}
@@ -904,7 +909,8 @@
 							title: 'New Task',
 							taskDescription: '',
 							creationDate: new Date(),
-							due_date: new Date(selectedDay.date),
+							start_date: selectedDay ? new Date(selectedDay.date) : new Date(),
+							due_date: selectedDay ? new Date(selectedDay.date) : new Date(),
 							tags: [],
 							attachments: [],
 							project_id: currentProjectId || undefined,
@@ -928,15 +934,8 @@
 {/if}
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: 'Roboto', sans-serif; */
-		/* font-family: 'Montserrat'; */
-		/* color: var(--text-color); */
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
 	}
 	.task-calendar-container {
@@ -1052,6 +1051,7 @@
 		text-overflow: ellipsis;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 	}
 
@@ -1402,12 +1402,11 @@
 		font-size: 1.3rem;
 		width: auto;
 
-		& svg {
-		}
 	}
 	@supports (-webkit-appearance: none) {
 		select {
 			-webkit-appearance: none;
+			appearance: none;
 			background: var(--secondary-color);
 			background-size: 1.25rem !important;
 			padding-right: 2.5rem;
@@ -1626,9 +1625,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.day-task.active {
-		// box-shadow: 0 0 0 2px var(--accent-color);
-	}
 	.day-tasks.modal {
 		padding: 0;
 		gap: 0;
@@ -1690,8 +1686,7 @@
 		cursor: pointer;
 		color: var(--text-color);
 		transition: all 0.3s ease;
-		&:hover {
-		}
+
 	}
 
 	.task-list-item .task-list-actions {

@@ -205,8 +205,10 @@
 			}
 		} catch (error) {
 			console.error('Error handling reaction:', error);
+			console.error('Error handling reaction:', error);
+			const errorMessage = error instanceof Error ? error.message : 'Failed to process request';
 			dispatch('notification', {
-				message: error.message || 'Failed to process request',
+				message: errorMessage,
 				type: 'error'
 			});
 

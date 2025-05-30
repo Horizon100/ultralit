@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	// import {  } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { projectStore } from '$lib/stores/projectStore';
 
@@ -12,9 +11,10 @@
 	let lastActive: Date | null = null;
 	let isLoading: boolean = false;
 
-	function formatDate(date: string): string {
+	function formatDate(date: string | Date): string {
 		if (date === 'Today' || date === 'Yesterday') return date;
-		return new Date(date).toLocaleDateString('en-US', {
+		const dateObj = typeof date === 'string' ? new Date(date) : date;
+		return dateObj.toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'long',
 			day: 'numeric'
@@ -25,28 +25,9 @@
 		return Math.min(Math.round((count / target) * 100), 100);
 	}
 
-	async function fetchCount(collection: string, filter: string): Promise<number> {
-		if (!pb.authStore.isValid) {
-			console.error('User is not authenticated');
-			return 0;
-		}
-
-		try {
-			const resultList = await pb.collection(collection).getList(1, 1, {
-				sort: '-created',
-				filter: filter,
-				$autoCancel: false
-			});
-			return resultList.totalItems;
-		} catch (error) {
-			console.error(`Error fetching ${collection} count:`, error);
-			return 0;
-		}
-	}
-
 	export async function fetchProjectStats(id: string) {
-		if (!pb.authStore.isValid || !id) {
-			console.error('User is not authenticated or no project selected');
+		if (!id) {
+			console.error('No project ID provided');
 			return;
 		}
 
@@ -61,46 +42,53 @@
 			completionPercentage = 0;
 			lastActive = null;
 
-			// Fetch each stat individually
-			messageCount = await fetchCount('messages', `project = "${id}"`);
-			documentCount = await fetchCount('documents', `project = "${id}"`);
-
-			// Get collaborator count
-			collaboratorCount = $projectStore.collaborators?.length || 0;
-
-			// Get last active time
-			try {
-				const lastMessageResult = await pb.collection('messages').getList(1, 1, {
-					filter: `project = "${id}"`,
-					sort: '-created',
-					$autoCancel: false
-				});
-				if (lastMessageResult.items.length > 0) {
-					lastActive = new Date(lastMessageResult.items[0].created);
+			const response = await fetch(`/api/projects/${id}/stats`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
 				}
-			} catch (error) {
-				console.error('Error fetching last active time:', error);
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
 			}
 
-			// Calculate completion percentage
-			const projectTasks = await fetchCount('tasks', `project = "${id}"`);
-			const completedTasks = await fetchCount('tasks', `project = "${id}" && status = "completed"`);
-			completionPercentage =
-				projectTasks > 0 ? calculatePercentage(completedTasks, projectTasks) : 0;
+			const result = await response.json();
+			
+			if (result.success && result.data) {
+				const stats = result.data;
+				
+				messageCount = stats.messageCount || 0;
+				documentCount = stats.documentCount || 0;
+				collaboratorCount = stats.collaboratorCount || 0;
+				completionPercentage = stats.completionPercentage || 0;
+				lastActive = stats.lastActive ? new Date(stats.lastActive) : null;
 
-			console.log('Stats fetched successfully:', {
-				messageCount,
-				documentCount,
-				collaboratorCount,
-				completionPercentage,
-				lastActive
-			});
+				console.log('Stats fetched successfully:', {
+					messageCount,
+					documentCount,
+					collaboratorCount,
+					completionPercentage,
+					lastActive
+				});
+			} else {
+				throw new Error('Invalid response format');
+			}
+
 		} catch (error) {
 			console.error('Error fetching project stats:', error);
+			// Reset stats on error
+			messageCount = 0;
+			collaboratorCount = 0;
+			documentCount = 0;
+			completionPercentage = 0;
+			lastActive = null;
 		} finally {
 			isLoading = false;
 		}
 	}
+
 	// Track when store values change
 	$: projectId = $projectStore.currentProjectId;
 	$: project = $projectStore.currentProject;
@@ -110,6 +98,12 @@
 		console.log('ProjectStatsContainer: projectId changed to', projectId);
 		fetchProjectStats(projectId);
 	}
+	$: messageLabel = ($t('dashboard.nameMessages') ?? 'Messages') as string;
+	$: collaboratorLabel = ($t('dashboard.nameCollaborators') ?? 'Collaborators') as string;
+	$: documentLabel = ($t('dashboard.nameDocuments') ?? 'Documents') as string;
+	$: completionLabel = ($t('dashboard.nameCompletion') ?? 'Completion') as string;
+	$: activeLabel = ($t('dashboard.nameActive') ?? 'Last Active') as string;
+	$: noProjectLabel = ($t('dashboard.noProjectSelected') ?? 'No project selected') as string;
 	onMount(() => {
 		if (projectId) {
 			console.log('Component mounted, projectId:', projectId);
@@ -124,40 +118,36 @@
 	</div>
 {:else if project}
 	<div class="stats-container">
-		<!-- <div class="title">
-		<h2>{project?.name || $t('dashboard.projectStats')}</h2>
-	</div> -->
 		<div class="stat-item" style="--progress: {calculatePercentage(messageCount, 100)}%">
-			<span>{messageCount} {$t('dashboard.nameMessages')}</span>
+			<span>{messageCount} {messageLabel}</span>
 			<span class="target">100 ✰</span>
 		</div>
 
 		<div class="stat-item" style="--progress: {calculatePercentage(collaboratorCount, 10)}%">
-			<span>{collaboratorCount} {$t('dashboard.nameCollaborators')}</span>
+			<span>{collaboratorCount} {collaboratorLabel}</span>
 			<span class="target">10 ✰</span>
 		</div>
 
 		<div class="stat-item" style="--progress: {calculatePercentage(documentCount, 50)}%">
-			<span>{documentCount} {$t('dashboard.nameDocuments')}</span>
+			<span>{documentCount} {documentLabel}</span>
 			<span class="target">50 ✰</span>
 		</div>
 
 		<div class="stat-item" style="--progress: {completionPercentage}%">
-			<span>{completionPercentage}% {$t('dashboard.nameCompletion')}</span>
+			<span>{completionPercentage}% {completionLabel}</span>
 			<span class="target">100% ✰</span>
 		</div>
 
 		<div class="last-active">
-			{$t('dashboard.nameActive')}
-			{lastActive ? formatDate(lastActive.toString()) : 'Never'}
+			{activeLabel}: {lastActive ? formatDate(lastActive) : 'Never'}
+			{lastActive ? formatDate(lastActive) : 'Never'}
 		</div>
 	</div>
 {:else}
 	<div class="stats-container empty-state">
-		<p>{$t('dashboard.noProjectSelected')}</p>
+		<p>{noProjectLabel}</p>
 	</div>
 {/if}
-
 <style lang="scss">
 	* {
 		font-family: var(--font-family);
@@ -177,8 +167,7 @@
 		overflow: hidden;
 	}
 
-	.empty-state,
-	.loading {
+	.empty-state {
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -206,9 +195,6 @@
 		pointer-events: none;
 	}
 
-	.title {
-		display: flex;
-	}
 
 	.stats-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
@@ -222,12 +208,6 @@
 		100% {
 			transform: translateX(100%) translateY(100%) rotate(45deg);
 		}
-	}
-
-	.stats-container h2 {
-		display: flex;
-		justify-content: right;
-		color: white;
 	}
 
 	.stat-item {

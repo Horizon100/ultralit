@@ -3,14 +3,15 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
-	import PostCard from '$lib/components/cards/PostCard.svelte';
+	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+	import PostCard from '$lib/features/content/components/PostCard.svelte';
+	import PostQuoteCard from '$lib/features/content/components/PostQuoteCard.svelte';
 	import PostComposer from '$lib/features/content/components/PostComposer.svelte';
 	import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
 	import PostTrends from '$lib/features/content/components/PostTrends.svelte';
 	import { showSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
-	import { ArrowLeft, MessageSquare, Heart, Repeat, Share, Loader2 } from 'lucide-svelte';
-
+	import { ArrowLeft, Loader2 } from 'lucide-svelte';
 	// State
 	let loading = true;
 	let error = '';
@@ -58,17 +59,6 @@
 		}
 	}
 
-	function formatTimestamp(timestamp: string): string {
-		const date = new Date(timestamp);
-		return date.toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
 	function goBack() {
 		if (window.history.length > 1) {
 			window.history.back();
@@ -77,17 +67,159 @@
 		}
 	}
 
-	// Handle post interactions
+	// Handle post interactions - unified for all posts/comments
 	async function handlePostInteraction(
 		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
 	) {
 		if (!$currentUser) {
-			// Redirect to login or show login prompt
 			alert($t('posts.interactPrompt'));
 			return;
 		}
 
+		const { postId, action } = event.detail;
 		console.log('Post interaction:', event.detail);
+
+		try {
+			let response;
+			
+			switch (action) {
+				case 'upvote':
+					response = await fetch(`/api/posts/${postId}/upvote`, {
+						method: 'PATCH',
+						credentials: 'include'
+					});
+					break;
+				case 'repost':
+					response = await fetch(`/api/posts/${postId}/repost`, {
+						method: 'POST',
+						credentials: 'include'
+					});
+					break;
+				case 'share':
+					response = await fetch(`/api/posts/${postId}/share`, {
+						method: 'POST',
+						credentials: 'include'
+					});
+					break;
+				case 'read':
+					response = await fetch(`/api/posts/${postId}/read`, {
+						method: 'PATCH',
+						credentials: 'include'
+					});
+					break;
+			}
+
+			if (!response || !response.ok) {
+				const errorData = await response?.json().catch(() => ({}));
+				throw new Error(errorData.message || `Failed to ${action} post`);
+			}
+
+			const result = await response.json();
+
+			// Update local state based on the action
+			if (action === 'upvote') {
+				if (postId === post.id) {
+					post.upvote = result.upvoted;
+					post.upvoteCount = result.upvoteCount;
+					post.downvoteCount = result.downvoteCount;
+				} else {
+					comments = comments.map(comment => {
+						if (comment.id === postId) {
+							return {
+								...comment,
+								upvote: result.upvoted,
+								upvoteCount: result.upvoteCount,
+								downvoteCount: result.downvoteCount
+							};
+						}
+						return comment;
+					});
+				}
+			} else if (action === 'repost') {
+				if (postId === post.id) {
+					post.repost = result.reposted;
+					post.repostCount = result.repostCount;
+				} else {
+					comments = comments.map(comment => {
+						if (comment.id === postId) {
+							return {
+								...comment,
+								repost: result.reposted,
+								repostCount: result.repostCount
+							};
+						}
+						return comment;
+					});
+				}
+			}
+
+			console.log(`${action} successful for post ${postId}`);
+
+		} catch (error) {
+			console.error(`Error ${action}ing post:`, error);
+			alert(`Failed to ${action} post: ` + (error instanceof Error ? error.message : 'Unknown error'));
+		}
+	}
+
+	// Handle comment button clicks
+	function handleComment(event: CustomEvent<{ postId: string }>) {
+		const { postId } = event.detail;
+		
+		if (!$currentUser) {
+			showAuthModal = true;
+			authAction = 'comment';
+			return;
+		}
+
+		// If it's the main post, show composer
+		if (postId === post.id) {
+			showComposer = !showComposer;
+		} else {
+			// For comments, you could navigate to that comment or show a modal
+			console.log('Comment on comment:', postId);
+		}
+	}
+
+	// Handle quote submissions
+	async function handleQuote(
+		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
+	) {
+		if (!$currentUser) {
+			alert($t('posts.interactPrompt'));
+			return;
+		}
+
+		try {
+			console.log('Creating quote post:', event.detail);
+
+			const formData = new FormData();
+			formData.append('content', event.detail.content);
+			
+			event.detail.attachments.forEach((file, index) => {
+				formData.append(`attachment_${index}`, file);
+			});
+
+			const response = await fetch(`/api/posts/${event.detail.quotedPostId}/quote`, {
+				method: 'POST',
+				body: formData,
+				credentials: 'include'
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.message || 'Failed to quote post');
+			}
+
+			const result = await response.json();
+			console.log('Quote post created successfully:', result);
+			
+			// Optionally refresh or navigate
+			// await fetchPostData();
+			
+		} catch (error) {
+			console.error('Error quoting post:', error);
+			alert('Failed to quote post: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		}
 	}
 
 	// Handle comment submission
@@ -100,27 +232,52 @@
 		}
 
 		try {
-			// Add comment logic here - you might want to use your postStore
-			console.log($t('posts.addingComment'), event.detail);
+			const response = await fetch(`/api/posts/${post.id}/comments`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					content: event.detail.content,
+					user: $currentUser.id
+				}),
+				credentials: 'include'
+			});
 
-			// Refresh comments after adding
-			await fetchPostData();
-			showComposer = false;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.message || 'Failed to create comment');
+			}
+
+			const result = await response.json();
+			
+			if (result.success && result.comment) {
+				comments = [...comments, result.comment];
+				
+				if (post) {
+					post.commentCount = (post.commentCount || 0) + 1;
+				}
+				
+				showComposer = false;
+				console.log('Comment added successfully');
+			}
+
 		} catch (error) {
 			console.error($t('posts.errorComment'), error);
+			alert('Failed to add comment: ' + (error instanceof Error ? error.message : 'Unknown error'));
 		}
 	}
 
-	function handleFollowUser(event) {
+	function handleFollowUser(event: CustomEvent) {
 		console.log($t('posts.followUser'), event.detail.userId);
-		// You can implement additional logic here if needed
 	}
+
+	$: replyPlaceholder = $t('posts.replyToThis') as string;
 
 	onMount(() => {
 		fetchPostData();
 	});
 
-	// Refetch data when params change
 	$: if (username && postId) {
 		fetchPostData();
 	}
@@ -147,7 +304,7 @@
 		<header class="post-header">
 			<button class="back-button" on:click={goBack}>
 				<ArrowLeft size={20} />
-				<span>{$t('generic.back')} </span>
+				<span>{$t('generic.back')}</span>
 			</button>
 
 			{#if user}
@@ -179,106 +336,30 @@
 			</div>
 		{:else if post}
 			<main class="post-detail-main">
-				<!-- Main Post -->
-				<article class="main-post">
-					<div class="post-author">
-						<a href="/{user.username}" class="author-link">
-							<img
-								src={user.avatar
-									? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
-									: '/api/placeholder/48/48'}
-								alt="{user.name || user.username}'s avatar"
-								class="author-avatar"
-							/>
-							<div class="author-info">
-								<div class="author-name">{user.name || user.username}</div>
-								<div class="author-username">@{user.username}</div>
-							</div>
-						</a>
-					</div>
-
-					<div class="post-content">
-						<p>{post.content}</p>
-
-						{#if post.attachments && post.attachments.length > 0}
-							<div class="post-attachments">
-								{#each post.attachments as attachment}
-									<div class="attachment">
-										{#if attachment.file_type === 'image'}
-											<img
-												src="/api/files/posts/{attachment.id}/{attachment.file_path}"
-												alt={attachment.original_name}
-												class="attachment-image"
-											/>
-										{:else}
-											<div class="attachment-file">
-												<span>{attachment.original_name}</span>
-											</div>
-										{/if}
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
-
-					<div class="post-metadata">
-						<span class="post-time">{formatTimestamp(post.created)}</span>
-					</div>
-
-					<div class="post-actions">
-						<button
-							class="action-button comment"
-							on:click={() => {
-								if (!$currentUser) {
-									// Update to show auth modal instead of alert
-									showAuthModal = true;
-									authAction = 'comment';
-									return;
-								}
-								showComposer = !showComposer;
-							}}
-						>
-							<MessageSquare size={20} />
-							<span
-								>{comments.length}
-								{comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}</span
-							>
-						</button>
-
-						<button
-							class="action-button repost"
-							on:click={() =>
-								handlePostInteraction(
-									new CustomEvent('interact', { detail: { postId: post.id, action: 'repost' } })
-								)}
-						>
-							<Repeat size={20} />
-							<span>{post.repostCount || 0}</span>
-						</button>
-
-						<button
-							class="action-button upvote"
-							on:click={() =>
-								handlePostInteraction(
-									new CustomEvent('interact', { detail: { postId: post.id, action: 'upvote' } })
-								)}
-						>
-							<Heart size={20} />
-							<span>{post.upvoteCount || 0}</span>
-						</button>
-
-						<button class="action-button share">
-							<Share size={20} />
-						</button>
-					</div>
-				</article>
+				{#if post.quotedPost}
+					<PostQuoteCard
+						{post}
+						on:interact={handlePostInteraction}
+						on:comment={handleComment}
+						on:quote={handleQuote}
+					/>
+				{:else}
+					<PostCard
+						{post}
+						showActions={true}
+						isPreview={false}
+						on:interact={handlePostInteraction}
+						on:comment={handleComment}
+						on:quote={handleQuote}
+					/>
+				{/if}
 
 				<!-- Comment Composer -->
 				{#if showComposer && $currentUser}
 					<div class="comment-composer">
 						<PostComposer
 							parentId={post.id}
-							placeholder={$t('posts.replyToThis')}
+							placeholder={replyPlaceholder}
 							on:submit={handleCommentSubmit}
 						/>
 					</div>
@@ -293,12 +374,25 @@
 					</h3>
 
 					{#each comments as comment (comment.id)}
-						<PostCard
-							post={comment}
-							showActions={true}
-							isComment={true}
-							on:interact={handlePostInteraction}
-						/>
+						{#if comment.quotedPost}
+							<!-- This comment is a quote post -->
+							<PostQuoteCard
+								post={comment}
+								on:interact={handlePostInteraction}
+								on:comment={handleComment}
+								on:quote={handleQuote}
+							/>
+						{:else}
+							<!-- Regular comment -->
+							<PostCard
+								post={comment}
+								showActions={true}
+								isComment={true}
+								on:interact={handlePostInteraction}
+								on:comment={handleComment}
+								on:quote={handleQuote}
+							/>
+						{/if}
 					{/each}
 				</section>
 			</main>
@@ -312,6 +406,7 @@
 		</div>
 	{/if}
 </div>
+
 {#if showAuthModal}
 	<div class="auth-modal">
 		<div class="auth-modal-content">
@@ -325,19 +420,22 @@
 				{$t('posts.post')}
 			</p>
 			<div class="auth-buttons">
-				<a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary"
-					>{$t('profile.login')}</a
-				>
-				<a
-					href="/signup?redirect={encodeURIComponent($page.url.pathname)}"
-					class="btn btn-secondary">{$t('profile.signup')}</a
-				>
+				<a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary">
+					{$t('profile.login')}
+				</a>
+				<a href="/signup?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">
+					{$t('profile.signup')}
+				</a>
 			</div>
 		</div>
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	/* Layout styles */
 	.post-detail-container {
 		display: flex;
@@ -433,11 +531,7 @@
 		padding: 2rem;
 	}
 
-	.loading-spinner {
-		animation: spin 1s linear infinite;
-		color: var(--primary-color);
-		margin-bottom: 1rem;
-	}
+
 
 	@keyframes spin {
 		from {
@@ -532,27 +626,6 @@
 		margin-bottom: 1rem;
 	}
 
-	.post-attachments {
-		margin-top: 1rem;
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 0.5rem;
-	}
-
-	.attachment-image {
-		width: 100%;
-		border-radius: 8px;
-		object-fit: cover;
-	}
-
-	.attachment-file {
-		padding: 1rem;
-		background-color: rgba(var(--primary-color), 0.1);
-		border-radius: 8px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
 
 	.post-metadata {
 		margin-top: 1rem;

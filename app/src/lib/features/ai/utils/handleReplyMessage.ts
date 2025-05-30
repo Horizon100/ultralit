@@ -1,5 +1,5 @@
 // src/lib/utils/handleReplyMessage.ts
-import type { InternalChatMessage } from '$lib/types/types';
+import type { InternalChatMessage, AIModel } from '$lib/types/types';
 
 /**
  * Prepares a message payload with proper context for replies
@@ -14,7 +14,7 @@ export function prepareReplyContext(
 	message: string,
 	parentMessageId: string,
 	allMessages: InternalChatMessage[],
-	aiModel: any,
+	aiModel: AIModel,
 	promptType: string | null = null
 ) {
 	// Find the parent message

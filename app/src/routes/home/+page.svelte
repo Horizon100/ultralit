@@ -1,32 +1,32 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { currentUser } from '$lib/pocketbase';
 	import { sidenavStore, showSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
-	import type { User, UserProfile, Threads, Messages, PublicUserProfile } from '$lib/types/types';
+	import type { User, UserProfile, Threads, Messages } from '$lib/types/types'; // Removed PublicUserProfile
 	import { postStore } from '$lib/stores/postStore';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
-	import { getPublicUserProfile, getPublicUserProfiles } from '$lib/clients/profileClient';
-	import { pocketbaseUrl } from '$lib/pocketbase';
-
+	// Removed: import { getPublicUserProfile, getPublicUserProfiles } from '$lib/clients/profileClient';
+	import { pocketbaseUrl, getPublicUserData, currentUser } from '$lib/pocketbase';
+	import { goto } from '$app/navigation';
 	import PostComposer from '$lib/features/content/components/PostComposer.svelte';
-	import PostCard from '$lib/components/cards/PostCard.svelte';
+	import PostCard from '$lib/features/content/components/PostCard.svelte';
 	import PostCommentModal from '$lib/features/content/components/PostCommentModal.svelte';
-	import RepostCard from '$lib/components/cards/RepostCard.svelte';
-	import PostQuoteCard from '$lib/components/cards/PostQuoteCard.svelte';
+	import RepostCard from '$lib/features/content/components/RepostCard.svelte';
+	import PostQuoteCard from '$lib/features/content/components/PostQuoteCard.svelte';
 	import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
 	import PostTrends from '$lib/features/content/components/PostTrends.svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
-	import Greek from '$lib/assets/illustrations/greek.png';
-	import Italian from '$lib/assets/illustrations/italian.jpeg';
-
+	import { X } from 'lucide-svelte';
+	import { threadsStore, ThreadSortOption, showThreadList } from '$lib/stores/threadsStore';
+	import { slide, fly } from 'svelte/transition';
+	
+	let showPostModal = false;
 	let isCommentModalOpen = false;
 	let selectedPost: PostWithInteractions | null = null;
 	let innerWidth = 0;
 
-	let userProfilesMap: Map<string, PublicUserProfile | null> = new Map();
+	let userProfilesMap: Map<string, Partial<User> | null> = new Map();
 
 	$: posts = $postStore.posts;
 	$: loading = $postStore.loading;
@@ -43,6 +43,7 @@
 			})
 		)
 	];
+
 	$: enhancedPosts = posts.map((post) => {
 		const authorProfile = userProfilesMap.get(post.user);
 
@@ -58,28 +59,42 @@
 
 		return post;
 	});
-	function formatTimestamp(timestamp: string): string {
-		const date = new Date(timestamp);
-		const now = new Date();
-		const diff = now.getTime() - date.getTime();
 
-		const minutes = Math.floor(diff / 60000);
-		const hours = Math.floor(diff / 3600000);
-		const days = Math.floor(diff / 86400000);
+	// Helper function to batch fetch user profiles using your existing function
+	async function fetchUserProfiles(userIds: string[]): Promise<void> {
+		const fetchPromises = userIds.map(async (userId) => {
+			try {
+				const profile = await getPublicUserData(userId);
+				userProfilesMap.set(userId, profile);
+			} catch (err) {
+				console.error(`Error fetching profile for user ${userId}:`, err);
+				userProfilesMap.set(userId, null);
+			}
+		});
 
-		if (minutes < 60) return `${minutes}m`;
-		if (hours < 24) return `${hours}h`;
-		return `${days}d`;
-	}
-	async function getUserProfile(userId: string): Promise<PublicUserProfile | null> {
-		if (userProfilesMap.has(userId)) {
-			return userProfilesMap.get(userId);
+		// Process in batches of 5 to avoid overwhelming the server
+		const batchSize = 5;
+		for (let i = 0; i < fetchPromises.length; i += batchSize) {
+			const batch = fetchPromises.slice(i, i + batchSize);
+			await Promise.all(batch);
 		}
 
-		const profile = await getPublicUserProfile(userId);
-		userProfilesMap.set(userId, profile);
-		return profile;
+		// Force reactivity update
+		userProfilesMap = new Map(userProfilesMap);
 	}
+
+	function openPostModal() {
+		if (!$currentUser) {
+			goto('/login');
+			return;
+		}
+		showPostModal = true;
+	}
+
+	function closePostModal() {
+		showPostModal = false;
+	}
+
 	// Handle creating a new post
 	async function handlePostSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
@@ -164,7 +179,7 @@
 		}
 	}
 
-	async function handleQuote(event) {
+	async function handleQuote(event: CustomEvent) {
 		if (!$currentUser) {
 			// Redirect to login or show login prompt
 			alert('Please sign in to quote posts');
@@ -175,10 +190,8 @@
 
 		try {
 			await postStore.quotePost(quotedPostId, content, attachments);
-			// Optionally show success message or redirect
 		} catch (error) {
 			console.error('Failed to quote post:', error);
-			// Handle error (show toast, etc.)
 		}
 	}
 
@@ -187,11 +200,11 @@
 		selectedPost = null;
 	}
 
-	async function handleFollowUser(event) {
+	async function handleFollowUser(event: CustomEvent) {
 		const { userId } = event.detail;
 		console.log('Follow user action:', userId);
 
-		const userProfile = await getPublicUserProfile(userId);
+		const userProfile = await getPublicUserData(userId);
 		console.log('Following user profile:', userProfile);
 	}
 
@@ -206,25 +219,6 @@
 				console.error('Error fetching posts:', err);
 			}
 		}
-
-		// Load user profiles for all post authors in a batch
-		if (userIds.length > 0) {
-			try {
-				const profiles = await getPublicUserProfiles(userIds);
-
-				// Update profiles map
-				userIds.forEach((id, index) => {
-					if (profiles[index]) {
-						userProfilesMap.set(id, profiles[index]);
-					}
-				});
-
-				// Force component update
-				userProfilesMap = new Map(userProfilesMap);
-			} catch (err) {
-				console.error('Error fetching user profiles:', err);
-			}
-		}
 	});
 
 	// When posts change, load any missing user profiles
@@ -232,20 +226,9 @@
 		const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
 
 		if (missingUserIds.length > 0) {
-			getPublicUserProfiles(missingUserIds)
-				.then((profiles) => {
-					missingUserIds.forEach((id, index) => {
-						if (profiles[index]) {
-							userProfilesMap.set(id, profiles[index]);
-						}
-					});
-
-					// Force component update
-					userProfilesMap = new Map(userProfilesMap);
-				})
-				.catch((err) => {
-					console.error('Error fetching user profiles:', err);
-				});
+			fetchUserProfiles(missingUserIds).catch((err) => {
+				console.error('Error fetching user profiles:', err);
+			});
 		}
 	}
 
@@ -258,26 +241,20 @@
 
 <svelte:window bind:innerWidth />
 
-<div class="home-container" class:hide-left-sidebar={!$showSidenav}>
+<div class="home-container" 
+	class:hide-left-sidebar={!$showSidenav}
+	class:drawer-visible={$showSidenav}
+
+>
 	<!-- Left Sidebar Component -->
 	<PostSidenav {innerWidth} />
 
 	<!-- Main Content -->
 	<main class="main-content">
-		<img src={Greek} alt="Notes illustration" class="illustration left" />
+		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
-		<img src={Italian} alt="Notes illustration" class="illustration right" />
+		<img src={Italian} alt="Notes illustration" class="illustration right" /> -->
 		<div class="main-wrapper">
-			<!-- Create Post Section -->
-			<section class="create-post">
-				{#if $currentUser}
-					<PostComposer on:submit={handlePostSubmit} />
-				{:else}
-					<div class="login-prompt">
-						<p><a href="/login">{$t('posts.loginPrompt')}</a></p>
-					</div>
-				{/if}
-			</section>
 
 			<!-- Error Display -->
 			{#if error}
@@ -297,16 +274,15 @@
 			<section class="posts-feed">
 				<h2 class="feed-title">{$t('posts.latestUpdates')}</h2>
 				{#each enhancedPosts as post (post.id)}
-					{#if post.isRepost}
+					{#if post.repost}
 						<RepostCard
 							{post}
 							repostedBy={{
-								id: post.repostedBy_id || $currentUser?.id,
-								username: post.repostedBy_username || $currentUser?.username,
-								name: post.repostedBy_name || $currentUser?.name,
-								avatar: post.repostedBy_avatar || $currentUser?.avatar
+								id: $currentUser?.id,
+								username: $currentUser?.username,
+								name: $currentUser?.name,
+								avatar: $currentUser?.avatar
 							}}
-							authorProfile={post.authorProfile || null}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}
@@ -320,7 +296,6 @@
 								name: post.author_name,
 								avatar: post.author_avatar
 							}}
-							authorProfile={post.authorProfile || null}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}
@@ -328,7 +303,6 @@
 					{:else}
 						<PostCard
 							{post}
-							authorProfile={post.authorProfile || null}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}
@@ -342,17 +316,27 @@
 					</div>
 				{/if}
 			</section>
+			{#if $showSidenav && $currentUser}
+				<div class="composer-overlay">
+					<div class="composer-body" 			
+						in:fly={{ y: 200, duration: 300 }}
+						out:fly={{ y: 200, duration: 300 }}
+					>
+
+						<PostComposer on:submit={handlePostSubmit} />
+					</div>
+				</div>
+			{/if}
 		</div>
 	</main>
 
 	<!-- Right Sidebar Component -->
 	{#if innerWidth > 1200}
 		<PostTrends
-			userProfiles={Array.from(userProfilesMap.values()).filter(Boolean)}
-			on:followUser={handleFollowUser}
 		/>
 	{/if}
 </div>
+
 
 <PostCommentModal
 	isOpen={isCommentModalOpen && $currentUser !== null}
@@ -362,26 +346,33 @@
 />
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-    @use "../../../src//lib/styles/themes.scss" as *;
+
+	@use "src/lib/styles/themes.scss" as *;	
 	* {
 		font-family: var(--font-family);
 	}
 	.home-container {
 		display: flex;
 		justify-content: center;
-		min-height: 100vh;
+		height: 100vh;
 		width: 100%;
+		margin-bottom: 2rem;
 		padding-bottom: 3rem;
+		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
+
+		
 	}
 
-	.home-container.hide-left-sidebar .main-content {
-		margin-left: 0;
-	}
+	.drawer-visible.home-container {
+		justify-content: space-between;
+		
 
+	}
+	main {
+		width: 100%;
+		display: flex;
+		
+	}
 	.main-content {
 		flex: 1;
 		padding: 0.5rem;
@@ -389,7 +380,7 @@
 		width: 100%;
 		overflow-y: auto;
 		margin-bottom: 2rem;
-		background: var(--bg-gradient-r);
+
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -401,8 +392,10 @@
 	}
 
 	.main-wrapper {
-		max-width: calc(100% - 2rem);
+		width: 100%;
+		max-width: 600px;
 		margin: 0 auto;
+
 	}
 
 	.create-post {
@@ -469,7 +462,6 @@
 		-khtml-user-drag: none;
 		-moz-user-drag: none;
 		-o-user-drag: none;
-		user-drag: none;
 		user-select: none;
 		-webkit-user-select: none;
 		-moz-user-select: none;
@@ -495,9 +487,127 @@
 			transform: scale(-1, 1) translateX(-10%) translateY(0%);
 		}
 	}
+	.create-post-button {
+		width: 100%;
+		background: white;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
+		padding: 1rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		margin-bottom: 1rem;
+	}
+
+	.create-post-button:hover {
+		border-color: #3b82f6;
+		box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+	}
+
+	.button-content {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.button-avatar {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.button-text {
+		color: #6b7280;
+		font-size: 1rem;
+		text-align: left;
+		flex: 1;
+	}
+
+
+
+
+
+	.close-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 6px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #6b7280;
+		transition: background-color 0.2s;
+	}
+
+	.close-button:hover {
+		background: #f3f4f6;
+		color: #374151;
+	}
+	.composer-overlay {
+	position: absolute;
+	bottom: 3rem;
+	left: 0;
+	width: 100%;
+	height: auto;
+	// background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	// padding: 1rem;
+	
+	}
+	.composer-body {
+		padding: 0;
+		overflow-y: auto;
+		flex: 1;
+		position: relative;
+		max-width: 600px;
+		width: 100%;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		border-radius: 2rem;
+		border: 2px solid var(--line-color);
+		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.5);
+
+	}
+
+	.login-prompt {
+		background: white;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
+		padding: 2rem;
+		text-align: center;
+		margin-bottom: 1rem;
+	}
+
+	.login-prompt p {
+		margin: 0;
+		color: #6b7280;
+	}
+
+	.login-prompt a {
+		color: #3b82f6;
+		text-decoration: none;
+		font-weight: 500;
+	}
+
+	.login-prompt a:hover {
+		text-decoration: underline;
+	}
+
+	/* Mobile responsiveness */
+	@media (max-width: 640px) {
+
+	}
 	@media (max-width: 768px) {
-		.main-content {
-			padding: 1rem;
-		}
+	main {
+		width: 100%;
+		display: flex;
+
+	}
+
 	}
 </style>

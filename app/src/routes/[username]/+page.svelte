@@ -2,10 +2,16 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
-	import PostCard from '$lib/components/cards/PostCard.svelte';
-	import RepostCard from '$lib/components/cards/RepostCard.svelte';
-	import PostQuoteCard from '$lib/components/cards/PostQuoteCard.svelte';
+	import { 
+		pocketbaseUrl, 
+		currentUser, 
+		getPublicUserData,
+		getPublicUserByUsername,  // Add this import
+		getPublicUsersBatch       // Add this import
+	} from '$lib/pocketbase';
+	import PostCard from '$lib/features/content/components/PostCard.svelte';
+	import RepostCard from '$lib/features/content/components/RepostCard.svelte';
+	import PostQuoteCard from '$lib/features/content/components/PostQuoteCard.svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
 	import PostTrends from '$lib/features/content/components/PostTrends.svelte';
@@ -29,12 +35,60 @@
 	let error = '';
 	let user: any = null;
 	let profile: any = null;
-	let posts: any[] = [];
+	let userPosts: any[] = [];
 	let totalPosts = 0;
 	let innerWidth = 0;
+	let userProfilesMap: Map<string, any> = new Map();
 
 	// Get username from URL
 	$: username = $page.params.username;
+
+	// Helper function to fetch user profiles (same as home page)
+	async function fetchUserProfiles(userIds: string[]): Promise<void> {
+		try {
+			// Use batch endpoint for better performance
+			const profiles = await getPublicUsersBatch(userIds);
+			
+			// Map profiles to userProfilesMap
+			profiles.forEach((profile) => {
+				if (profile && profile.id) {
+					userProfilesMap.set(profile.id, profile);
+				}
+			});
+
+			// For any missing profiles, mark as null
+			userIds.forEach(id => {
+				if (!userProfilesMap.has(id)) {
+					userProfilesMap.set(id, null);
+				}
+			});
+
+			// Force reactivity update
+			userProfilesMap = new Map(userProfilesMap);
+		} catch (error) {
+			console.error('Error fetching user profiles:', error);
+			
+			// Fallback to individual requests if batch fails
+			const fetchPromises = userIds.map(async (userId) => {
+				try {
+					const profile = await getPublicUserData(userId);
+					userProfilesMap.set(userId, profile);
+				} catch (err) {
+					console.error(`Error fetching profile for user ${userId}:`, err);
+					userProfilesMap.set(userId, null);
+				}
+			});
+
+			// Process in batches of 5
+			const batchSize = 5;
+			for (let i = 0; i < fetchPromises.length; i += batchSize) {
+				const batch = fetchPromises.slice(i, i + batchSize);
+				await Promise.all(batch);
+			}
+
+			userProfilesMap = new Map(userProfilesMap);
+		}
+	}
 
 	async function fetchUserData() {
 		if (!username) return;
@@ -43,24 +97,59 @@
 		error = '';
 
 		try {
-			const response = await fetch(`/api/users/username/${username}`);
-			const data = await response.json();
-
-			if (!response.ok) {
-				if (response.status === 404) {
-					error = 'User not found';
-				} else {
-					error = data.error || 'Failed to load user data';
-				}
+			// Use getPublicUserByUsername instead of getPublicUserData for username lookup
+			const userData = await getPublicUserByUsername(username);
+			
+			if (!userData) {
+				error = 'User not found';
 				return;
 			}
 
-			user = data.user;
-			profile = data.profile;
-			totalPosts = data.totalPosts;
+			user = userData;
+			
+			// Now fetch posts using the posts API, filtering by this user
+			const response = await fetch(`/api/posts?limit=50&offset=0&user=${user.id}`);
+			const data = await response.json();
 
-			// Set posts in the store instead of local state
-			postStore.setPosts(data.posts);
+			if (!response.ok) {
+				error = data.error || 'Failed to load posts';
+				return;
+			}
+
+			userPosts = data.posts || [];
+			totalPosts = userPosts.length;
+
+			// Get unique user IDs from posts for profile enhancement
+			const userIds = [...new Set(userPosts.flatMap((post) => {
+				const ids = [post.user];
+				if (post.repostedBy && Array.isArray(post.repostedBy)) {
+					ids.push(...post.repostedBy);
+				}
+				return ids;
+			}))];
+
+			// Fetch user profiles for enhancement
+			if (userIds.length > 0) {
+				await fetchUserProfiles(userIds);
+			}
+
+			// Enhance posts with user profile data (same as home page)
+			userPosts = userPosts.map((post) => {
+				const authorProfile = userProfilesMap.get(post.user);
+
+				if (authorProfile) {
+					return {
+						...post,
+						authorProfile,
+						author_name: authorProfile.name || post.author_name,
+						author_username: authorProfile.username || post.author_username,
+						author_avatar: authorProfile.avatar || post.author_avatar
+					};
+				}
+
+				return post;
+			});
+
 		} catch (err) {
 			console.error('Error fetching user data:', err);
 			error = 'Failed to load user data';
@@ -77,14 +166,13 @@
 		});
 	}
 
-	// Handle post interactions
+	// Handle post interactions (same as home page)
 	async function handlePostInteraction(
 		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
 	) {
 		const { postId, action } = event.detail;
 
 		if (!$currentUser && action !== 'share') {
-			// Redirect to login or show login prompt
 			alert('Please sign in to interact with posts');
 			return;
 		}
@@ -108,7 +196,6 @@
 		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
 	) {
 		if (!$currentUser) {
-			// Redirect to login or show login prompt
 			alert('Please sign in to quote posts');
 			return;
 		}
@@ -121,14 +208,12 @@
 			await fetchUserData();
 		} catch (error) {
 			console.error('Failed to quote post:', error);
-			// Handle error (show toast, etc.)
 		}
 	}
 
 	// Handle post comments
 	function handleComment(event: CustomEvent<{ postId: string }>) {
 		if (!$currentUser) {
-			// Redirect to login or show login prompt
 			alert($t('generic.interactPrompt'));
 			return;
 		}
@@ -137,9 +222,8 @@
 		// Implement comment handling here
 	}
 
-	function handleFollowUser(event) {
+	function handleFollowUser(event: CustomEvent<{ userId: string }>) {
 		console.log($t('posts.followUser'), event.detail.userId);
-		// You can implement additional logic here if needed
 	}
 
 	onMount(() => {
@@ -177,7 +261,10 @@
 		{:else if error}
 			<div class="error-container">
 				<h1>{$t('posts.errorExpression')}</h1>
-				<p>{error}</p>
+				<!-- <p>{error}</p> -->
+				 <p>
+					{$t('posts.historySignin')}
+				 </p>
 				<button class="btn btn-primary" on:click={() => goto('/')}>
 					{$t('generic.back')}
 				</button>
@@ -347,15 +434,16 @@
 							<!-- Full post list for authenticated users -->
 							{#if $postStore.posts.length > 0}
 								{#each $postStore.posts as post (post.id)}
-									{#if post.isRepost}
+									{#if post.repost}
 										<RepostCard
 											{post}
 											repostedBy={{
-												id: post.repostedBy_id || user.id,
-												username: post.repostedBy_username || user.username,
-												name: post.repostedBy_name || user.name,
-												avatar: post.repostedBy_avatar || user.avatar
+												id: $currentUser?.id,
+												username: $currentUser?.username,
+												name: $currentUser?.name,
+												avatar: $currentUser?.avatar
 											}}
+											
 											on:interact={handlePostInteraction}
 											on:comment={handleComment}
 											on:quote={handleQuote}
@@ -447,7 +535,11 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	/* New layout styles */
 	.profile-page-container {
 		display: flex;
@@ -526,10 +618,7 @@
 		color: var(--placeholder-color);
 	}
 
-	.loading-spinner {
-		animation: spin 1s linear infinite;
-		color: var(--primary-color);
-	}
+
 
 	@keyframes spin {
 		from {
@@ -554,9 +643,22 @@
 	.main-wrapper {
 		background: var(--bg-color);
 		/* border-radius: 0.75rem; */
-		overflow-y: auto;
 		width: 100%;
 		margin-top: 0;
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--placeholder-color);
+			border-radius: 1rem;
+		}
 	}
 	.profile-header {
 		background: var(--bg-color);
@@ -739,18 +841,6 @@
 		text-align: center;
 		padding: 60px 20px;
 		color: var(--placeholder-color);
-	}
-	.repost-indicator {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		color: var(--secondary-color);
-		font-size: 0.85rem;
-		margin-bottom: 12px;
-		padding: 6px 12px;
-		background: rgba(var(--secondary-color-rgb), 0.1);
-		border-radius: 8px;
-		border-left: 3px solid var(--secondary-color);
 	}
 	.loading-container,
 	.error-container {

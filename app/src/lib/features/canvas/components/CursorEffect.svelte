@@ -70,7 +70,11 @@
 	style="transform: translate({trailingMouseX}px, {trailingMouseY}px);"
 ></div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.cursor-trail {
 		position: fixed;
 		top: 0;

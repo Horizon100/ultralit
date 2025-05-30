@@ -2,43 +2,84 @@
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
+	import type { AIModel, InternalChatMessage } from '$lib/types/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { Bot } from 'lucide-svelte';
+	import { getWallpaperSrc, parseWallpaperPreference } from '$lib/utils/wallpapers';
+	import type { WallpaperPreference } from '$lib/utils/wallpapers';
 
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-
-	// Default AI model configuration (copy from your root component)
-	const defaultAIModel = {
+	let wallpaperPreference: WallpaperPreference = { wallpaperId: null, isActive: false };
+	let wallpaperSrc: string | null = null;
+	// Default AI model configuration
+	const defaultAIModel: AIModel = {
 		id: 'default',
 		name: 'Default Model',
-		api_key: 'default_key',
+		api_key: '',
 		base_url: 'https://api.openai.com/v1',
 		api_type: 'gpt-3.5-turbo',
 		api_version: 'v1',
-		description: 'Default OpenAI Model',
+		description: 'Default AI Model',
 		user: [],
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
+		provider: 'openai',
 		collectionId: '',
 		collectionName: ''
 	};
 
-	let userId: string;
+	// Declare variables first
+	let userId: string = '';
 	let aiModel = defaultAIModel;
 	let threadId: string | null = null;
 	let messageId: string | null = null;
+	let initialMessage: InternalChatMessage | null = null;
+
+	// Create reactive default message after variables are declared
+	$: defaultMessage = {
+		id: '',
+		text: '',
+		content: '',
+		user: userId,
+		role: 'user' as const,
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: '',
+		collectionName: 'messages',
+		parent_msg: null,
+		prompt_type: null,
+		prompt_input: null,
+		model: aiModel.id,
+		thread: threadId,
+		isTyping: false,
+		isHighlighted: false,
+		reactions: {
+			upvote: 0,
+			downvote: 0,
+			bookmark: [],
+			highlight: [],
+			question: 0
+		}
+	} as InternalChatMessage;
+
+	$: if ($currentUser?.wallpaper_preference) {
+    wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+  } else if (!$currentUser) {
+    // Default wallpaper when not logged in
+    wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
+  } else {
+    wallpaperPreference = { wallpaperId: null, isActive: false };
+  }
 
 	onMount(async () => {
 		try {
 			isLoading = true;
 
-			// Check if user is logged in
 			if (!$currentUser) {
-				// Redirect to root if not logged in
 				goto('/');
 				return;
 			}
@@ -61,9 +102,16 @@
 		}
 	});
 
-	$: userId = $currentUser?.id;
+	$: userId = $currentUser?.id ?? '';
 </script>
-
+<!-- {#if wallpaperSrc}
+  <img
+    src={wallpaperSrc}
+    alt="Background illustration"
+    class="illustration"
+    in:fade={{ duration: 1000, delay: 200 }}
+  />
+{/if} -->
 {#if pageReady}
 	{#if isLoading}
 		<div class="center-container" transition:fade={{ duration: 300 }}>
@@ -75,7 +123,13 @@
 		</div>
 	{:else}
 		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat {threadId} initialMessageId={messageId} {aiModel} {userId} />
+			<AIChat 
+				message={defaultMessage}
+				{threadId} 
+				initialMessageId={messageId} 
+				{aiModel} 
+				{userId} 
+			/>
 		</div>
 	{/if}
 {/if}

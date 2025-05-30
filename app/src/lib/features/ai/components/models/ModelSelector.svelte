@@ -85,7 +85,15 @@
 			console.log(`Successfully deleted API key for ${provider}`);
 		} catch (error) {
 			console.error(`Error deleting API key for ${provider}:`, error);
-			alert(`Failed to delete API key: ${error.message}`);
+			let errorMessage = 'Unknown error occurred';
+			
+			if (error instanceof Error) {
+				errorMessage = error.message;
+			} else if (typeof error === 'string') {
+				errorMessage = error;
+			}
+			
+			alert(`Failed to delete API key: ${errorMessage}`);
 		}
 	}
 	async function handleProviderClick(key: string) {
@@ -319,22 +327,17 @@
 		if ($currentUser) {
 			console.log('Loading API keys and preferences on component mount...');
 
-			// Load preferences first
 			await loadUserModelPreferences();
 
-			// Then load API keys
 			await apiKey.ensureLoaded();
 
-			// Load available models for providers with keys
 			const availableKeys = get(apiKey);
 
-			// Find available providers with keys
 			const availableProviders = Object.entries(availableKeys)
 				.filter(([_, key]) => !!key)
 				.map(([provider]) => provider);
 
 			if (availableProviders.length > 0) {
-				// Load all provider models to populate favorites
 				await Promise.all(
 					availableProviders.map(async (providerKey) => {
 						try {
@@ -345,22 +348,18 @@
 					})
 				);
 
-				// After loading all models, update favorites list
 				updateFavoriteModels();
 			}
 
-			// Find and set the initial provider
-			let initialProvider = selectedModel?.provider || provider || 'deepseek';
+		let initialProvider: string = selectedModel?.provider || provider || 'deepseek';
 			if (!availableKeys[initialProvider] && availableProviders.length > 0) {
 				initialProvider = availableProviders[0];
 			}
 
 			currentProvider = initialProvider as ProviderType;
 
-			// Mark as fully initialized after everything is loaded
 			isInitialized = true;
 		} else {
-			// Even without a user, mark as initialized
 			favoritesInitialized = true;
 			isInitialized = true;
 		}
@@ -448,31 +447,31 @@
 		on:click={handleClickOutside}
 		transition:fly={{ y: -20, duration: 200 }}
 	>
-		<div class="model-list-container">
-			<div class="model-header">
-				<h3>
-					{providers[expandedModelList].name} Models {isLoadingModels
-						? ''
-						: `(${availableProviderModels[expandedModelList]?.length || 0})`}
-				</h3>
+			<div class="model-list-container">
+				<div class="model-header">
+					<h3>
+						{expandedModelList ? providers[expandedModelList].name : ''} Models {isLoadingModels
+							? ''
+							: `(${expandedModelList ? availableProviderModels[expandedModelList]?.length || 0 : 0})`}
+					</h3>
 
-				<div class="header-actions">
-					{#if get(apiKey)[expandedModelList]}
-						<button
-							class="delete-key-button"
-							on:click|stopPropagation={() => handleDeleteAPIKey(expandedModelList)}
-							title="Delete {providers[expandedModelList].name} API key"
-						>
-							<Trash2 size={20} />
+					<div class="header-actions">
+						{#if expandedModelList && get(apiKey)[expandedModelList]}
+							<button
+								class="delete-key-button"
+								on:click|stopPropagation={() => expandedModelList && handleDeleteAPIKey(expandedModelList)}
+								title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
+							>
+								<Trash2 size={20} />
+							</button>
+						{/if}
+
+						<!-- Close button -->
+						<button class="close-btn" on:click={() => (expandedModelList = null)}>
+							<XCircle size={35} />
 						</button>
-					{/if}
-
-					<!-- Close button -->
-					<button class="close-btn" on:click={() => (expandedModelList = null)}>
-						<XCircle size={35} />
-					</button>
+					</div>
 				</div>
-			</div>
 
 			{#if isLoadingModels}
 				<div class="spinner-container">

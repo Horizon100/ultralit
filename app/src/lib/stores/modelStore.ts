@@ -189,6 +189,48 @@ const createModelStore = () => {
 		setSelectedModel,
 		setSelectedProvider,
 		reset,
+		
+		// Add these missing methods:
+		updateModel(id: string, updatedModel: Partial<AIModel>) {
+			update(state => ({
+				...state,
+				models: state.models.map(model => 
+					model.id === id ? { ...model, ...updatedModel } : model
+				),
+				selectedModel: state.selectedModel?.id === id 
+					? { ...state.selectedModel, ...updatedModel } 
+					: state.selectedModel
+			}));
+		},
+
+		addModel(newModel: AIModel) {
+			update(state => ({
+				...state,
+				models: [...state.models, newModel]
+			}));
+		},
+
+		removeModel(id: string) {
+			update(state => ({
+				...state,
+				models: state.models.filter(model => model.id !== id),
+				selectedModel: state.selectedModel?.id === id ? null : state.selectedModel
+			}));
+		},
+
+		setUpdateStatus(status: string) {
+			update(state => ({
+				...state,
+				updateStatus: status
+			}));
+		},
+
+		clearUpdateStatus() {
+			update(state => ({
+				...state,
+				updateStatus: ''
+			}));
+		},
 
 		// Updated initialize method using fetch API
 		async initialize(userId: string) {

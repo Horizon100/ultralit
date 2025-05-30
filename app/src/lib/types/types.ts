@@ -1,6 +1,34 @@
 import type { RecordModel } from 'pocketbase';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
 
+export interface TimerSession {
+	date: string;
+	startTime: string;
+	endTime: string;
+	duration: number;
+	path: string;
+}
+export interface TimerSessionSummary {
+	date: string;
+	totalDuration: number;
+	sessions: TimerSession[]; 
+}
+export interface HierarchyData {
+    name: string;
+    value?: number;
+    children?: HierarchyData[];
+    taskId?: string;
+    taskData?: {
+        title: string;
+        description?: string;
+        status?: string;
+        priority?: string;
+        assignedTo?: string;
+        due_date?: string;
+        start_date?: string;
+    };
+}
+
 export interface User extends RecordModel {
 	username: string;
 	description: string;
@@ -15,12 +43,13 @@ export interface User extends RecordModel {
 	messages: string[];
 	last_login: Date;
 	bookmarks: string[];
-	timer_sessions: string[];
+	timer_sessions: TimerSessionSummary[];
 	token_balance: number;
 	lifetime_tokens: number;
 	current_subscription?: string;
 	activated_features: string[];
 	theme_preference?: string;
+	wallpaper_preference?: string;
 	created: string;
 	updated: string;
 	id: string;
@@ -52,6 +81,7 @@ export interface PublicUserProfile {
 	id: string;
 	username: string;
 	name: string;
+	email: string;
 	avatar: string;
 	avatarUrl: string | null;
 	verified: boolean;
@@ -79,6 +109,8 @@ export interface PublicUserProfile {
 export interface UserProfile {
 	id: string;
 	name: string;
+	username: string;
+	email: string;
 	avatarUrl: string;
 }
 
@@ -96,7 +128,7 @@ export interface PromptInput {
 	prompt: string;
 	created: string;
 	updated: string;
-	type?: PromptType;
+	selectedInputPrompt: string;
 	project?: Projects;
 }
 
@@ -125,6 +157,7 @@ export interface ThreadStoreState {
 	project_id: string | null;
 	sortOption: ThreadSortOption;
 	selectedUserIds: Set<string>;
+	selectedTagIds: Set<string>;
 	availableUsers: { id: string; name: string }[];
 	isLoading: boolean;
 	isUpdating: boolean;
@@ -798,7 +831,7 @@ export interface ReminderList {
 	reminders: Reminder[];
 }
 export interface PerkFilterCondition {
-	parameter: 'messages' | 'threads' | 'tasks' | 'tags' | 'combined';
+	parameter: 'messages' | 'threads' | 'tasks' | 'tags' | 'combined' | 'timer';
 	operator: '=' | '>' | '>=' | '<' | '<=' | 'between';
 	value: number;
 	secondValue?: number;

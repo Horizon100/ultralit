@@ -40,6 +40,8 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		const profile: UserProfile = {
 			id: userData.id,
 			name: userData.name || userData.name || 'User',
+			username: userData.username,
+			email: userData.email,
 			avatarUrl: userData.avatar
 				? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
 				: ''

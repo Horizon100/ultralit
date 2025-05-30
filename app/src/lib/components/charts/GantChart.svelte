@@ -15,7 +15,7 @@
 		X
 	} from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
-	import { loadTasks, updateTask } from '$lib/clients/taskClient';
+	import { loadTasksForGantt, updateTask } from '$lib/clients/taskClient';
 
 	// Project ID from store
 	let currentProjectId: string | null = null;
@@ -29,31 +29,11 @@
 		parentId?: string;
 	}
 	const tasks = writable<KanbanTask[]>([]);
-	// const expandedTasks = writable<Set<string>>(new Set());
 
-	/*
-	 * function toggleTaskExpansion(taskId: string) {
-	 *     expandedTasks.update(expanded => {
-	 *         const newExpanded = new Set(expanded);
-	 *         if (newExpanded.has(taskId)) {
-	 *             newExpanded.delete(taskId);
-	 *         } else {
-	 *             newExpanded.add(taskId);
-	 *         }
-	 *         return newExpanded;
-	 *     });
-	 */
 
-	/*
-	 *     // Force a refresh of the grid
-	 *     tasks.update(currentTasks => [...currentTasks]);
-	 * }
-	 */
-
-	// Store for the visible date range
 	const dateRange = writable({
 		start: new Date(),
-		end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default to 30 days from now
+		end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 	});
 
 	// UI state
@@ -99,6 +79,12 @@
 	// Helper function to get cached usernames
 	const userNameCache = new Map<string, string>();
 
+	let imageError = false;
+    
+    function handleImageError() {
+        imageError = true;
+    }
+
 	async function getUserName(userId: string | undefined): Promise<string> {
 		if (!userId) return 'Unknown';
 
@@ -130,10 +116,15 @@
 		error.set(null);
 
 		try {
-			const fetchedTasks = await loadTasks(currentProjectId || undefined);
+			const fetchedTasks = await loadTasksForGantt(currentProjectId || undefined);
 
-			const processedTasks = fetchedTasks.map((task) => {
-				// Convert dates
+			// Type guard to ensure we have an array
+			if (!fetchedTasks || !Array.isArray(fetchedTasks)) {
+				throw new Error('Invalid tasks data received from API');
+			}
+
+			const processedTasks: KanbanTask[] = fetchedTasks.map((task: Task) => {
+				// Convert dates with proper null handling
 				const due = task.due_date ? new Date(task.due_date) : null;
 				const start = task.start_date ? new Date(task.start_date) : new Date(task.created);
 
@@ -168,7 +159,8 @@
 			isLoading.set(false);
 		} catch (err) {
 			console.error('Error loading tasks:', err);
-			error.set(err instanceof Error ? err.message : 'Failed to load data');
+			const errorMessage = err instanceof Error ? err.message : 'Failed to load tasks';
+			error.set(errorMessage);
 			isLoading.set(false);
 		}
 	}
@@ -748,7 +740,7 @@
 										src={`/api/users/${selectedTask.createdBy}/avatar`}
 										alt="Avatar"
 										class="user-avatar"
-										onerror="this.style.display='none'"
+										on:error={handleImageError}
 									/>
 									<span class="username">
 										{#await getUserName(selectedTask.createdBy) then username}

@@ -6,7 +6,7 @@
 	import { promptStore } from '$lib/stores/promptStore';
 
 	let selectedPrompt: PromptType;
-	$: selectedPrompt = $promptStore;
+	$: selectedPrompt = $promptStore?.promptType || 'NORMAL';
 
 	let selectedIcon = availablePrompts.find((option) => option.value === selectedPrompt)?.icon;
 	let isOpen = false;
@@ -71,23 +71,14 @@
 
 	function handlePromptSelection(promptType: PromptType) {
 		selectedPrompt = promptType;
-		promptStore.set(promptType);
+		promptStore.update(store => ({
+			...store,
+			promptType: promptType
+		}));
 		selectedIcon = availablePrompts.find((option) => option.value === promptType)?.icon;
 		isOpen = false;
 		dispatch('select', promptType);
 	}
-
-	// Watch for changes in store
-	$: {
-		if ($promptStore) {
-			selectedIcon = availablePrompts.find((option) => option.value === $promptStore)?.icon;
-			console.log('Prompt selector updated from store:', {
-				prompt: $promptStore,
-				icon: selectedIcon ? 'Icon updated' : 'No icon'
-			});
-		}
-	}
-
 	function toggleDropdown() {
 		isOpen = !isOpen;
 		console.log('Dropdown toggled, isOpen:', isOpen);
@@ -101,10 +92,23 @@
 	 * }
 	 */
 
+	// Watch for changes in store
+	$: {
+		if ($promptStore?.promptType) {
+			selectedIcon = availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon;
+			console.log('Prompt selector updated from store:', {
+				prompt: $promptStore.promptType,
+				icon: selectedIcon ? 'Icon updated' : 'No icon'
+			});
+		}
+	}
+
+
+
 	// Watch for changes in selectedPrompt
 	$: {
-		if ($promptStore) {
-			selectedIcon = availablePrompts.find((option) => option.value === $promptStore)?.icon;
+		if ($promptStore?.promptType) {
+			selectedIcon = availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon;
 		}
 	}
 

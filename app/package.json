@@ -15,7 +15,7 @@
 		"format:css": "prettier --write \"src/**/*.{css,scss}\"",
 		"test:integration": "playwright test",
 		"test:unit": "vitest",
-		"ck": "svelte-check",
+    	"ck": "svelte-check --tsconfig ./tsconfig.json --threshold error",
 		"check:ts": "tsc --noEmit",
 		"check:all": "yarn check && yarn check:ts",
 		"lint": "prettier --check . && eslint .",

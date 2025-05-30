@@ -1,43 +1,60 @@
 import type { RecordModel } from 'pocketbase';
-import type { User, Messages, Projects } from '$lib/types/types';
+import type { User } from '$lib/types/types';
 
 export interface GamePosition {
 	x: number;
 	y: number;
 }
 
-export interface GameMap extends RecordModel {
+export interface GameTile {
+	width: number;
+	height: number;
+}
+
+
+export interface GameOrganization extends RecordModel {
 	id: string;
 	name: string;
-	type: 'office' | 'factory' | 'logistics' | 'support';
-	project: Projects;
-	position: GamePosition;
 	description: string;
+	createdBy: User;
+	isPublic: boolean;
 	isActive: boolean;
+	buildings: string[];
+	members: string[];
 	rooms: string[];
+	tables: string[];
+	roads: string[];
 	created: string;
 	updated: string;
 }
-
+export interface GameBuilding extends RecordModel {
+	id: string;
+	name: string;
+	description: string;
+	organization: string;
+	rooms: string[];
+	tables: string[];
+	position: GamePosition;
+	size: GameTile;
+	isPublic: boolean;
+	isActive: boolean;
+	buildingType: string;
+	created: string;
+	updated: string;
+}
 export interface GameRoom extends RecordModel {
 	id: string;
 	name: string;
-	type:
-		| 'hr'
-		| 'library'
-		| 'manufacturing'
-		| 'assembly'
-		| 'qa'
-		| 'inbound'
-		| 'outbound'
-		| 'support_desk';
-	project: string;
-	mapContainer: string;
+	description: string;
+	organization: string;
+	building: string;
 	tables: string[];
 	position: GamePosition;
-	description: string;
+	size: GameTile;
+	isPublic: boolean;
+	isActive: boolean;
 	capacity: number;
-	currentUsers: string[];
+	activeMembers: string[];
 	created: string;
 	updated: string;
 }
@@ -45,28 +62,41 @@ export interface GameRoom extends RecordModel {
 export interface GameTable extends RecordModel {
 	id: string;
 	name: string;
-	project: string;
-	map: string;
+	organization: string;
+	building: string;
 	room: string;
+	dialog: string[];
 	position: GamePosition;
-	maxUsers: number;
-	currentUsers: string[];
-	currentThread: string | null;
-	isActive: boolean;
+	size: GameTile;
+	capacity: number;
+	isPublic: boolean;
+	isActive: boolean;	
 	created: string;
 	updated: string;
+}
+
+export interface GameActivity extends RecordModel {
+	visitCount: number,
+	visitDuration: number,
+	organizationVisits: string[];
+	buildingVisits: string[];
+	roomVisits: string[];
+	tableVisits: string[];
+	dialogVisits: string[];
+
 }
 
 export interface GameHero extends RecordModel {
 	id: string;
 	user: string;
 	position: GamePosition;
-	projects: Projects[];
-	currentProject: string;
-	currentMap: string | null;
+	organization: string[];
+	currentOrganization: string;
+	currentBuilding: string | null;
 	currentRoom: string | null;
 	currentTable: string | null;
 	isMoving: boolean;
+	activityLog: GameActivity,
 	lastSeen: string;
 	created: string;
 	updated: string;
@@ -88,8 +118,9 @@ export interface GameDialog extends RecordModel {
 }
 
 export interface GameState {
-	currentView: 'map' | 'room' | 'table' | 'dialog';
-	currentMap: GameMap | null;
+	currentOrganization: GameOrganization | null;
+	currentView: 'building' | 'room' | 'table' | 'dialog';
+	currentBuilding: GameBuilding | null;
 	currentRoom: GameRoom | null;
 	currentTable: GameTable | null;
 	currentDialog: GameDialog | null;
@@ -100,6 +131,7 @@ export interface GameState {
 }
 
 export interface GameRoad {
+	hasTraffic: string;
 	id: string;
 	from: string;
 	to: string;

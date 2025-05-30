@@ -73,7 +73,11 @@
 	{/each}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.notification-container {
 		position: fixed;
 		bottom: 20px;

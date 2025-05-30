@@ -2,14 +2,14 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Bone } from 'lucide-svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import { currentTheme } from '$lib/stores/themeStore';
+	import { currentTheme, type Theme } from '$lib/stores/themeStore';
 	import { t } from '$lib/stores/translationStore';
 	import { get } from 'svelte/store';
 
 	interface Style {
 		name: string;
-		value: string;
-		icon: any; // You might want to use a more specific type here
+		value: Theme;
+		icon: any;
 		description: string;
 		dummyContent: string;
 	}
@@ -17,85 +17,74 @@
 	let hoveredStyle: Style | null = null;
 	const dispatch = createEventDispatcher();
 
-	const styles = [
+	const styles: Style[] = [
 		{
 			name: 'Classic',
-			value: 'default',
+			value: 'default' as const,
 			icon: Sun,
 			description: 'This style will brighten your day',
 			dummyContent: 'Sunshine and clear skies'
 		},
 		{
 			name: 'Dark',
-			value: 'dark',
+			value: 'dark' as const,
 			icon: Moon,
 			description: 'For night owls and stargazers',
 			dummyContent: 'Moonlit adventures await'
 		},
 		{
 			name: 'Light',
-			value: 'light',
+			value: 'light' as const,
 			icon: Sunrise,
 			description: 'Start your day with a fresh look',
 			dummyContent: 'Early bird gets the worm'
 		},
 		{
 			name: 'Sunset',
-			value: 'sunset',
+			value: 'sunset' as const,
 			icon: Sunset,
 			description: 'Wind down with warm hues',
 			dummyContent: 'Golden hour vibes'
 		},
 		{
 			name: 'Focus',
-			value: 'focus',
+			value: 'focus' as const,
 			icon: Focus,
 			description: 'Minimize distractions, maximize productivity',
 			dummyContent: 'Concentration intensifies'
 		},
 		{
 			name: 'Bold',
-			value: 'bold',
+			value: 'bold' as const,
 			icon: Bold,
 			description: 'Make a statement with vibrant colors',
 			dummyContent: 'Stand out from the crowd'
 		},
 		{
 			name: 'Turbo',
-			value: 'turbo',
+			value: 'turbo' as const,
 			icon: Gauge,
 			description: 'Speed up your workflow',
 			dummyContent: 'Faster than the speed of light'
 		},
 		{
 			name: 'Bone',
-			value: 'bone',
+			value: 'bone' as const,
 			icon: Bone,
 			description: 'Contrasts brights up.',
 			dummyContent: 'Shake it, make it.'
 		}
 	];
 
-	function applyTheme(theme: string) {
-		document.body.className = theme;
-	}
-
-	async function changeStyle(style: string) {
-		// Use the theme store's set method which already handles everything
+	async function changeStyle(style: Theme) {
 		await currentTheme.set(style);
-
-		// Dispatch events
 		dispatch('styleChange', { style });
 		dispatch('close');
 	}
 
-	onMount(async () => {
-		// Initialize theme on component mount
-		await currentTheme.initialize();
-	});
-
-	$: selectedStyle = styles.find((style) => style.value === $currentTheme) || styles[0];
-	$: displayedStyle = hoveredStyle || selectedStyle;
+	function applyTheme(theme: string) {
+		document.body.className = theme;
+	}
 
 	function handleHover(style: Style) {
 		hoveredStyle = style;
@@ -106,6 +95,13 @@
 		hoveredStyle = null;
 		applyTheme($currentTheme);
 	}
+
+	$: selectedStyle = styles.find((style) => style.value === $currentTheme) || styles[0];
+	$: displayedStyle = hoveredStyle || selectedStyle;
+
+	onMount(async () => {
+		await currentTheme.initialize();
+	});
 </script>
 
 <div class="style-switcher">
@@ -129,7 +125,6 @@
 
 <style lang="scss">
 	@use "src/lib/styles/themes.scss" as *;
-
 
 	.style-switcher {
 		display: flex;

@@ -128,15 +128,21 @@
 
 			label
 				.filter(function (d) {
-					return d.parent === focus || this.style.display === 'inline';
+					return d.parent === focus || (this as SVGTextElement)?.style?.display === 'inline';
 				})
 				.transition(transition as any)
 				.style('fill-opacity', (d) => (d.parent === focus ? 1 : 0))
 				.on('start', function (d) {
-					if (d.parent === focus) this.style.display = 'inline';
+					const element = this as SVGTextElement;
+					if (d.parent === focus && element?.style) {
+						element.style.display = 'inline';
+					}
 				})
 				.on('end', function (d) {
-					if (d.parent !== focus) this.style.display = 'none';
+					const element = this as SVGTextElement;
+					if (d.parent !== focus && element?.style) {
+						element.style.display = 'none';
+					}
 				});
 		};
 
@@ -148,7 +154,11 @@
 	<svg class="d3-container" bind:this={d3Container}></svg>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.d3-window {
 		width: 100%;
 		height: 100%;

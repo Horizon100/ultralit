@@ -12,8 +12,9 @@
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
 	export let parentAgent: AIAgent;
-	export let aiModel: AIModel;
+	export const aiModel: AIModel | null = null;;
 	export let userId: string;
+
 
 	let seedPrompt = '';
 	let childAgents: AIAgent[] = [];
@@ -86,26 +87,8 @@
 		await updateParentAgent();
 	}
 
-	function selectTemplate(index: number) {
-		expandedTemplate = expandedTemplate === index ? null : index;
-	}
 
-	async function confirmTemplate(template) {
-		try {
-			const newAgent = await createAgent({
-				name: template.name,
-				description: template.description,
-				prompt: template.prompt,
-				parent_agent: parentAgent.id,
-				user_id: userId
-				// Add other necessary fields from the template
-			});
-			await addChildAgent(newAgent);
-			expandedTemplate = null;
-		} catch (error) {
-			handleError(error);
-		}
-	}
+
 	async function handleDeleteChildAgent(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
 			try {
@@ -196,7 +179,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.agent-gen-container {
 		margin: 0 auto;
 		box-sizing: border-box;

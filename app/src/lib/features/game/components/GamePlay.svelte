@@ -156,7 +156,11 @@
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.game-container {
 		width: 60%;
 		height: 89%;
@@ -185,15 +189,20 @@
 	}
 	.player {
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg id='down'%3E%3Crect x='6' y='6' width='4' height='4' fill='%23ffd700'/%3E%3Crect x='4' y='10' width='8' height='2' fill='%23ff0000'/%3E%3Crect x='4' y='12' width='2' height='4' fill='%230000ff'/%3E%3Crect x='10' y='12' width='2' height='4' fill='%230000ff'/%3E%3C/g%3E%3Cg id='left' transform='translate(16 0)'%3E%3Crect x='10' y='6' width='4' height='4' fill='%23ffd700'/%3E%3Crect x='4' y='10' width='8' height='2' fill='%23ff0000'/%3E%3Crect x='2' y='12' width='4' height='2' fill='%230000ff'/%3E%3Crect x='8' y='12' width='4' height='2' fill='%230000ff'/%3E%3C/g%3E%3Cg id='right' transform='translate(32 0)'%3E%3Crect x='2' y='6' width='4' height='4' fill='%23ffd700'/%3E%3Crect x='4' y='10' width='8' height='2' fill='%23ff0000'/%3E%3Crect x='4' y='12' width='4' height='2' fill='%230000ff'/%3E%3Crect x='10' y='12' width='4' height='2' fill='%230000ff'/%3E%3C/g%3E%3Cg id='up' transform='translate(48 0)'%3E%3Crect x='6' y='10' width='4' height='4' fill='%23ffd700'/%3E%3Crect x='4' y='4' width='8' height='2' fill='%23ff0000'/%3E%3Crect x='4' y='6' width='2' height='4' fill='%230000ff'/%3E%3Crect x='10' y='6' width='2' height='4' fill='%230000ff'/%3E%3C/g%3E%3C/svg%3E");
+		transform-origin: center;
+  		transition: transform 0.15s ease;
 	}
 	.player.down {
 		background-position: 0 0;
 	}
 	.player.left {
 		background-position: -16px 0;
+		transform: scaleX(-1);
+
 	}
 	.player.right {
 		background-position: -32px 0;
+		transform: scaleX(1);
 	}
 	.player.up {
 		background-position: -48px 0;

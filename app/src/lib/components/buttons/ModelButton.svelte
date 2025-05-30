@@ -84,7 +84,7 @@
 		font-size: 0.9rem;
 		white-space: nowrap;
 		color: red;
-		user-select:;
+		user-select: none;
 	}
 
 	.status-wrapper {

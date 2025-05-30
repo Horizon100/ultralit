@@ -2,7 +2,6 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	// import Assistant from '$lib/components/ai/Assistant.svelte';
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
 
 	export let width: number;
@@ -17,11 +16,11 @@
 		activeTab = tab;
 	}
 
-	const slideTransition = (node, { duration = 180, delay = 0, direction = 1 }) => {
+	const slideTransition = (p0: HTMLDivElement, { duration = 180, delay = 0, direction = 1 }) => {
 		return {
 			delay,
 			duration,
-			css: (t) => {
+			css: (t: number) => {
 				const eased = cubicOut(t);
 				return `
           transform: translateX(${(1 - eased) * 360 * direction}%) rotateX(${(1 - eased) * 360 * direction}deg);
@@ -63,7 +62,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.side-menu {
 		display: flex;
 		flex-direction: column;

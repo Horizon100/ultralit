@@ -27,7 +27,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.sticker-creator {
 		position: absolute;
 		background-color: white;

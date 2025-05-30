@@ -532,7 +532,47 @@ export async function loadTasks(columnsStore?: Writable<KanbanColumn[]>) {
 		throw err;
 	}
 }
+export async function loadTasksForGantt(projectId?: string): Promise<Task[]> {
+	try {
+		let url = '/api/tasks';
+		if (projectId) {
+			url = `/api/projects/${projectId}/tasks`;
+		}
 
+		const response = await fetch(url);
+		if (!response.ok) throw new Error('Failed to fetch tasks');
+
+		const data = await response.json();
+		
+		// Convert raw task data to Task objects
+		const tasks: Task[] = data.items.map((task: RawTaskData) => ({
+			id: task.id,
+			title: task.title,
+			taskDescription: task.taskDescription || '',
+			created: task.created,
+			due_date: task.due_date,
+			start_date: task.start_date,
+			taskTags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+			project_id: task.project_id,
+			createdBy: task.createdBy,
+			assignedTo: task.assignedTo || '',
+			parent_task: task.parent_task,
+			allocatedAgents: task.allocatedAgents || [],
+			status: task.status,
+			priority: task.priority || 'medium',
+			prompt: task.prompt || '',
+			context: task.context || '',
+			task_outcome: task.task_outcome || '',
+			dependencies: task.dependencies || [],
+			agentMessages: task.agentMessages || []
+		}));
+
+		return tasks;
+	} catch (err) {
+		console.error('Error loading tasks for Gantt:', err);
+		throw err;
+	}
+}
 /**
  * Gets prompt content from a message thread
  * @param threadId ID of the thread

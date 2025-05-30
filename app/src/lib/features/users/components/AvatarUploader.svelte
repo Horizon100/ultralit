@@ -144,7 +144,11 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.avatar-uploader {
 		display: flex;
 		justify-content: center;

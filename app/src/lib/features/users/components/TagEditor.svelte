@@ -116,7 +116,7 @@
 				);
 				if (projectsResponse.ok) {
 					const projectsData = await projectsResponse.json();
-					projectsData.items.forEach((project) => {
+					projectsData.items.forEach((project: any) => {
 						projects[project.id] = project;
 					});
 				}
@@ -131,7 +131,7 @@
 				const tasksResponse = await fetch(`/api/tasks/batch?ids=${Array.from(taskIds).join(',')}`);
 				if (tasksResponse.ok) {
 					const tasksData = await tasksResponse.json();
-					tasksData.items.forEach((task) => {
+					tasksData.items.forEach((task: any) => {
 						tasks[task.id] = task;
 					});
 				}
@@ -148,7 +148,7 @@
 				);
 				if (threadsResponse.ok) {
 					const threadsData = await threadsResponse.json();
-					threadsData.items.forEach((thread) => {
+					threadsData.items.forEach((thread: any) => {
 						threads[thread.id] = thread;
 					});
 				}
@@ -235,15 +235,25 @@
 		}
 	}
 
-	// Create a new tag
 	function createNewTag() {
+		if (!$currentUser?.id) {
+			console.error('No current user available');
+			return;
+		}
+		
 		editingTag = {
 			id: '',
 			name: 'New Tag',
 			tagDescription: '',
 			color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`,
-			createdBy: $currentUser?.id,
-			selected: false
+			createdBy: $currentUser.id,
+			selected: false,
+			thread_id: [],
+			user: $currentUser.id,
+			collectionId: '',
+			collectionName: '',
+			created: new Date().toISOString(),
+			updated: new Date().toISOString()
 		};
 	}
 
@@ -296,6 +306,23 @@
 		}
 		return `${type} ${id}`;
 	}
+
+	function parseTaggedEntities(entities: string | string[] | undefined | null): string[] {
+		if (!entities) return [];
+		
+		if (typeof entities === 'string') {
+			return entities.split(',').filter(Boolean);
+		}
+		
+		if (Array.isArray(entities)) {
+			return entities.filter(Boolean);
+		}
+		
+		return [];
+	}
+	$: taggedProjectIds = parseTaggedEntities(editingTag?.taggedProjects);
+	$: taggedTaskIds = parseTaggedEntities(editingTag?.taggedTasks);
+	$: taggedThreadIds = parseTaggedEntities(editingTag?.taggedThreads);
 </script>
 
 <div class="tag-editor-container">
@@ -361,7 +388,7 @@
 						<h3>{editingTag.id ? 'Edit Tag' : 'Create New Tag'}</h3>
 						<div class="form-actions">
 							{#if editingTag.id}
-								<button class="delete-btn" on:click={() => deleteTag(editingTag.id)}>
+								<button class="delete-btn" on:click={() => editingTag && deleteTag(editingTag.id)}>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="16"
@@ -411,8 +438,10 @@
 												class="preset-color"
 												style="background-color: {color}"
 												on:click={() => {
-													editingTag.color = color;
-													isColorPickerOpen = false;
+													if (editingTag) {
+														editingTag.color = color;
+														isColorPickerOpen = false;
+													}
 												}}
 											></div>
 										{/each}
@@ -433,7 +462,6 @@
 					</div>
 
 					{#if editingTag.id}
-						<!-- Show related entities if editing an existing tag -->
 						<div class="related-entities">
 							<h4>Used in</h4>
 
@@ -441,9 +469,7 @@
 								<div class="entity-section">
 									<h5>Projects</h5>
 									<ul class="entity-list">
-										{#each typeof editingTag.taggedProjects === 'string' ? editingTag.taggedProjects
-													.split(',')
-													.filter(Boolean) : Array.isArray(editingTag.taggedProjects) ? editingTag.taggedProjects.filter(Boolean) : [] as projectId}
+										{#each parseTaggedEntities(editingTag.taggedProjects) as projectId}
 											<li>
 												<a href="/projects/{projectId}">
 													{getEntityName('project', projectId)}
@@ -458,9 +484,7 @@
 								<div class="entity-section">
 									<h5>Tasks</h5>
 									<ul class="entity-list">
-										{#each typeof editingTag.taggedTasks === 'string' ? editingTag.taggedTasks
-													.split(',')
-													.filter(Boolean) : Array.isArray(editingTag.taggedTasks) ? editingTag.taggedTasks.filter(Boolean) : [] as taskId}
+										{#each parseTaggedEntities(editingTag.taggedTasks) as taskId}
 											<li>
 												<a href="/tasks/{taskId}">
 													{getEntityName('task', taskId)}
@@ -475,9 +499,7 @@
 								<div class="entity-section">
 									<h5>Threads</h5>
 									<ul class="entity-list">
-										{#each typeof editingTag.taggedThreads === 'string' ? editingTag.taggedThreads
-													.split(',')
-													.filter(Boolean) : Array.isArray(editingTag.taggedThreads) ? editingTag.taggedThreads.filter(Boolean) : [] as threadId}
+										{#each parseTaggedEntities(editingTag.taggedThreads) as threadId}
 											<li>
 												<a href="/threads/{threadId}">
 													{getEntityName('thread', threadId)}
@@ -489,6 +511,61 @@
 							{/if}
 
 							{#if !editingTag.taggedProjects && !editingTag.taggedTasks && !editingTag.taggedThreads}
+								<div class="empty-entities">This tag is not used anywhere yet.</div>
+							{/if}
+						</div>
+					{/if}
+
+					{#if editingTag.id}
+						<div class="related-entities">
+							<h4>Used in</h4>
+
+							{#if taggedProjectIds.length > 0}
+								<div class="entity-section">
+									<h5>Projects</h5>
+									<ul class="entity-list">
+										{#each taggedProjectIds as projectId}
+											<li>
+												<a href="/projects/{projectId}">
+													{getEntityName('project', projectId)}
+												</a>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+
+							{#if taggedTaskIds.length > 0}
+								<div class="entity-section">
+									<h5>Tasks</h5>
+									<ul class="entity-list">
+										{#each taggedTaskIds as taskId}
+											<li>
+												<a href="/tasks/{taskId}">
+													{getEntityName('task', taskId)}
+												</a>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+
+							{#if taggedThreadIds.length > 0}
+								<div class="entity-section">
+									<h5>Threads</h5>
+									<ul class="entity-list">
+										{#each taggedThreadIds as threadId}
+											<li>
+												<a href="/threads/{threadId}">
+													{getEntityName('thread', threadId)}
+												</a>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+
+							{#if taggedProjectIds.length === 0 && taggedTaskIds.length === 0 && taggedThreadIds.length === 0}
 								<div class="empty-entities">This tag is not used anywhere yet.</div>
 							{/if}
 						</div>

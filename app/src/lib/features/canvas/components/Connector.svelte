@@ -6,6 +6,8 @@
 	export let scale: number;
 	export let offsetX: number;
 	export let offsetY: number;
+	export const startPoint: string | undefined = undefined;
+	export const endPoint: string | undefined = undefined;
 
 	function getShapeCenter(shape: Shape) {
 		const rect = shape.ref?.getBoundingClientRect();
@@ -40,7 +42,11 @@
 
 <path d={path} stroke="black" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}		
 	path {
 		pointer-events: all;
 		cursor: pointer;

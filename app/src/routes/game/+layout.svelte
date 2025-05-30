@@ -1,29 +1,15 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import type { GameState } from '$lib/types/types.game';
-	import { gameService } from '$lib/stores/gameStore';
+	import { gameStore, gameService } from '$lib/stores/gameStore';
 	import { goto } from '$app/navigation';
-	import GameInstructions from '$lib/features/game/components/GameInstructions.svelte';
+	import AddHero from '$lib/features/game/components/AddHero.svelte'; 
 
 	export let data;
 
-	export const gameState = writable<GameState>({
-		currentView: 'map',
-		currentMap: null,
-		currentRoom: null,
-		currentTable: null,
-		currentDialog: null,
-		heroPawn: null,
-		viewportPosition: { x: 0, y: 0 },
-		zoomLevel: 1,
-		isLoading: false
-	});
-
-	let gameInstructions: GameInstructions;
 
 	function setupKeyboardShortcuts() {
 		const handleKeydown = (event: KeyboardEvent) => {
@@ -42,9 +28,7 @@
 					break;
 				case '?':
 					event.preventDefault();
-					if (gameInstructions && gameInstructions.toggleInstructions) {
-						gameInstructions.toggleInstructions();
-					}
+
 					break;
 			}
 		};
@@ -57,27 +41,49 @@
 	}
 
 	async function leaveCurrentLocation() {
-		const $gameState = get(gameState);
-		if ($gameState.heroPawn && data.user) {
+		const $gameStore = get(gameStore); // Changed from gameState to gameStore
+		if ($gameStore.heroPawn && data.user) {
 			await gameService.leaveCurrentLocation(data.user.id);
-			if ($gameState.currentView === 'dialog') {
-				if ($gameState.currentTable) {
-					goto(`/game/room/${$gameState.currentRoom?.id}`);
+			if ($gameStore.currentView === 'dialog') {
+				if ($gameStore.currentTable && $gameStore.currentRoom) {
+					goto(`/game/room/${$gameStore.currentRoom.id}`);
 				} else {
 					goto('/game');
 				}
-			} else if ($gameState.currentView === 'room') {
-				goto('/game');
+			} else if ($gameStore.currentView === 'table') {
+				if ($gameStore.currentBuilding) {
+					goto(`/game/buildings/${$gameStore.currentBuilding.id}`);
+				} else {
+					goto('/game');
+				}
+			} else if ($gameStore.currentView === 'room') {
+				if ($gameStore.currentBuilding) {
+					goto(`/game/buildings/${$gameStore.currentBuilding.id}`);
+				} else {
+					goto('/game');
+				}
 			}
 		}
 	}
 
+
 	onMount(async () => {
 		if (browser && data.user) {
 			await gameService.initializeGame(data.user.id);
+			
+			// Add debug logging
+			gameStore.subscribe(state => {
+				console.log('[DEBUG] GameStore state:', {
+					heroPawn: state.heroPawn,
+					currentOrganization: state.currentOrganization,
+					heroCurrentOrg: state.heroPawn?.currentOrganization
+				});
+			});
+			
 			setupKeyboardShortcuts();
 		}
 	});
+
 
 	$: currentPath = $page.route.id;
 </script>
@@ -89,31 +95,37 @@
 			<!-- Navigation breadcrumb -->
 			<div class="breadcrumb-container">
 				<nav class="breadcrumb-nav">
-					<span class="breadcrumb-item current">Game</span>
-					{#if $gameState.currentMap}
+					<button class="btn-secondary" on:click={() => goto('/game')}>
+						Back
+					</button>
+
+					{#if $gameStore.currentOrganization}
 						<span class="breadcrumb-separator">/</span>
-						<span class="breadcrumb-item current">{$gameState.currentMap.name}</span>
+						<span class="breadcrumb-item current">{$gameStore.currentOrganization.name}</span>
 					{/if}
-					{#if $gameState.currentRoom}
+
+					{#if $gameStore.currentBuilding}
 						<span class="breadcrumb-separator">/</span>
-						<span class="breadcrumb-item current">{$gameState.currentRoom.name}</span>
+						<span class="breadcrumb-item current">{$gameStore.currentBuilding.name}</span>
 					{/if}
-					{#if $gameState.currentTable}
+					{#if $gameStore.currentRoom}
 						<span class="breadcrumb-separator">/</span>
-						<span class="breadcrumb-item current">{$gameState.currentTable.name}</span>
+						<span class="breadcrumb-item current">{$gameStore.currentRoom.name}</span>
+					{/if}
+					{#if $gameStore.currentTable}
+						<span class="breadcrumb-separator">/</span>
+						<span class="breadcrumb-item current">{$gameStore.currentTable.name}</span>
 					{/if}
 				</nav>
 			</div>
 
 			<!-- Mini-map and controls -->
 			<div class="game-controls">
-				<button class="btn-secondary" on:click={() => goto('/game')}>
-					Return to Map
-				</button>
+					<AddHero />
 
-				{#if $gameState.heroPawn}
+				{#if $gameStore.heroPawn}
 					<div class="user-status">
-						Position: ({$gameState.heroPawn.position.x}, {$gameState.heroPawn.position.y})
+						Position: ({$gameStore.heroPawn.position.x}, {$gameStore.heroPawn.position.y})
 					</div>
 				{/if}
 			</div>
@@ -126,11 +138,10 @@
 </main>
 
 <!-- Loading overlay -->
-{#if $gameState.isLoading}
+{#if $gameStore.isLoading}
 	<div class="loading-overlay">
 		<div class="loading-spinner">
 			<div class="spinner"></div>
-			<p>Loading game...</p>
 		</div>
 	</div>
 {/if}
@@ -146,13 +157,12 @@
 	.game-hud {
 		position: fixed;
 		top: 3rem;
-		left: 4rem;
+		left: 4.5rem;
 		right: 3rem;
 		z-index: 50;
-		padding: 1rem;
+		padding: 0.5rem;
 		backdrop-filter: blur(5px);
-		border-bottom: 1px solid var(--line-color);
-		background: var(--bg-gradient);
+
 		border-radius: 1rem 1rem 0 0;
 	}
 
@@ -176,7 +186,7 @@
 	}
 
 	.breadcrumb-item.current {
-		color: var(--primary-color);
+		color: var(--text-color);
 	}
 
 	.breadcrumb-separator {
@@ -220,7 +230,6 @@
 		padding: 1rem;
 		overflow: hidden;
 		border-radius: 1rem;
-		background: var(--bg-gradient);
 		color: var(--text-color);
 		font-family: var(--font-family);
 		height: calc(100vh - 10rem);
@@ -232,8 +241,10 @@
 
 	.loading-overlay {
 		position: fixed;
+		width: 100vw;
+		height: 100vh;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
+		// background: rgba(0, 0, 0, 0.5);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -242,6 +253,7 @@
 
 	.loading-spinner {
 		background: var(--bg-color);
+		position: absolute;
 		padding: 1.5rem;
 		border-radius: 8px;
 		text-align: center;

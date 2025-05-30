@@ -42,6 +42,7 @@
 	let isLoading = true;
 	let avatarFile: File | null = null;
 	let showGeneratorForm = false;
+	let tagInput = '';
 
 	let availableModels: AIModel[] = [];
 	let availableActions: Actions[] = [];
@@ -63,13 +64,13 @@
 	let selectedStatus: string | null = null;
 	let selectedTags: string[] = [];
 	let showFilters = false;
-	let selectedAIModel: AIModel = 'gpt-3.5-turbo'; // Set a default value
+	let selectedAIModel: AIModel;
 	const pb = new PocketBase(pocketbaseUrl);
 
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-	const statusIcons = {
+	const statusIcons: Record<string, any> = {
 		active: Activity,
 		inactive: Compass,
 		maintenance: ServerCog,
@@ -91,13 +92,18 @@
 		{ value: 'za', label: 'Alphabetical descending' }
 	];
 
-	const roleIcons = {
+	const roleIcons: Record<string, any> = {
 		hub: Cpu,
 		proxy: ShieldCheck,
 		assistant: HeadphonesIcon,
 		moderator: AlertCircle
 	};
-
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			addTag(tagInput);
+			tagInput = '';
+		}
+	}
 	$: modelsByProvider = availableModels.reduce(
 		(acc, model) => {
 			if (!acc[model.provider]) {
@@ -200,7 +206,7 @@
 		try {
 			await loadAgents();
 			await modelStore.loadModels($currentUser.id);
-			await actionStore.loadActions($currentUser.id);
+			await actionStore.loadActions();
 		} finally {
 			hideLoading();
 			isLoading = false;
@@ -735,11 +741,12 @@
 				<div class="form-group">
 					<label>TAGS</label>
 					<div class="tag-input">
-						<input
-							type="text"
-							placeholder="Add a tag"
-							on:keydown={(e) => e.key === 'Enter' && addTag(e.target.value)}
-						/>
+					<input
+						type="text"
+						placeholder="Add a tag"
+						bind:value={tagInput}
+						on:keydown={handleKeydown}
+					/>
 					</div>
 					<div class="tag-list">
 						{#each selectedTags as tag}
@@ -857,11 +864,8 @@
 {/if}
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
 	}
 	.agents-config {
@@ -1090,6 +1094,7 @@
 	@supports (-webkit-appearance: none) {
 		select {
 			-webkit-appearance: none;
+			appearance: none;
 			background: var(--secondary-color);
 			background-size: 1.25rem !important;
 		}
@@ -1612,8 +1617,6 @@
 		cursor: pointer;
 	}
 
-	.tag-input {
-	}
 
 	.tag-list {
 		display: flex;
@@ -1726,9 +1729,7 @@
 		width: calc(100% - 90px);
 	}
 
-	.column-agents {
-		/* background-color: blue; */
-	}
+
 	.agent-name {
 		color: white;
 		font-size: 16px;
@@ -1790,12 +1791,7 @@
 	@media (max-width: 1700px) {
 	}
 
-	@media (max-width: 1000px) {
-		.button-grid {
-			/* width: 99%; */
-			/* grid-template-columns: repeat(4, 1fr);  */
-		}
-	}
+
 
 	@media (max-width: 750px) {
 		.agent-item {

@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
-	import PostCard from '../../../components/cards/PostCard.svelte';
+	import PostCard from '$lib/features/content/components/PostCard.svelte';
 	import PostComposer from './PostComposer.svelte';
 	import { X } from 'lucide-svelte';
 
@@ -34,13 +34,16 @@
 		if (!post) return;
 
 		let attachments: File[] = [];
-		if (event.detail.attachments) {
-			if (event.detail.attachments instanceof FileList) {
-				attachments = Array.from(event.detail.attachments);
-			} else if (Array.isArray(event.detail.attachments)) {
-				attachments = event.detail.attachments;
-			} else if (event.detail.attachments instanceof File) {
-				attachments = [event.detail.attachments];
+		const eventAttachments = event.detail.attachments;
+		
+		if (eventAttachments) {
+			if (eventAttachments instanceof FileList) {
+				attachments = Array.from(eventAttachments);
+			} else if (Array.isArray(eventAttachments)) {
+				attachments = eventAttachments;
+			} else {
+				// If it's not FileList or Array, assume it's a single File
+				attachments = [eventAttachments as File];
 			}
 		}
 
@@ -90,11 +93,8 @@
 {/if}
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
 	}
 	.modal-backdrop {

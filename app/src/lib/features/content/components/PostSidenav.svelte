@@ -70,8 +70,8 @@
 		font-family: var(--font-family);
 	}
 	.left-sidebar {
-		width: 280px;
-		height: 100vh;
+		width: 250px;
+		height: 92vh;
 		position: sticky;
 		top: 0;
 		overflow-y: auto;

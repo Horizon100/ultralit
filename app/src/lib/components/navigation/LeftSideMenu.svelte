@@ -14,7 +14,10 @@
 	let updateStatus: 'success' | 'error' | '' = '';
 
 	$: if (selectedShape) {
-		editedAgent = { ...selectedShape };
+		editedAgent = { 
+			...selectedShape,
+			provider: selectedShape.provider || ''
+		};
 	}
 
 	function setActiveTab(tab: 'layers' | 'style') {
@@ -67,7 +70,11 @@
 						id="name"
 						type="text"
 						bind:value={editedAgent.name}
-						on:input={(e) => console.log('Input changed:', e.target.value)}
+						on:input={(e) => {
+							if (e.target && 'value' in e.target) {
+								console.log('Input changed:', e.target.value);
+							}
+						}}				
 					/>
 				</div>
 				<div class="handle">
@@ -87,14 +94,6 @@
 				</div>
 
 				<div class="handle">
-					<div class="field">
-						<label for="focus">Focus:</label>
-						<select id="focus" bind:value={editedAgent.focus}>
-							<option value="processor">Processor</option>
-							<option value="communicator">Communicator</option>
-							<!-- Add other focus options -->
-						</select>
-					</div>
 					<div class="field">
 						<label for="role">Role:</label>
 						<select id="role" bind:value={editedAgent.role}>
@@ -137,7 +136,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.side-menu {
 		height: 100%;
 		transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -180,8 +183,7 @@
 		margin-bottom: 0.5rem;
 	}
 
-	input,
-	textarea {
+	input {
 		width: 100%;
 		padding: 0.5rem;
 		background-color: #2a3130;
@@ -221,13 +223,12 @@
 	}
 
 	input,
-	textarea,
 	select {
 		width: 100%;
 		padding: 0.5rem;
-		background-color: #2a3130;
-		color: white;
-		border: 1px solid #4a5a5a;
+		background-color: var(--primary-color);
+		color: var(--text-color);
+		border: 1px solid var(--line-color);
 		border-radius: 4px;
 		pointer-events: auto;
 		opacity: 1;

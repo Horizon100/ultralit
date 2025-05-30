@@ -115,7 +115,11 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.reset-password-container {
 		max-width: 400px;
 		margin: 2rem auto;

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import type { PostAttachment, Post } from '$lib/types/types.posts';
 
 export const GET: RequestHandler = async ({ params }) => {
 	let postId = params.id;
@@ -27,15 +28,71 @@ export const GET: RequestHandler = async ({ params }) => {
 			return json({ error: 'User not found' }, { status: 404 });
 		}
 
+		// Get attachments for the main post
+		const postAttachments = await pb.collection('posts_attachments').getFullList({
+			filter: `post = "${postId}"`
+		}) as PostAttachment[];
+
+		// Get comments with their attachments
 		const comments = await pb.collection('posts').getList(1, 100, {
 			filter: `parent = "${postId}"`,
 			sort: 'created',
 			expand: 'user'
 		});
 
+		// Get attachments for all comments
+		const commentIds = comments.items.map((comment) => comment.id);
+		const commentAttachmentsMap = new Map<string, PostAttachment[]>();
+
+		if (commentIds.length > 0) {
+			const commentAttachments = await pb.collection('posts_attachments').getFullList({
+				filter: commentIds.map((id) => `post = "${id}"`).join(' || ')
+			}) as PostAttachment[];
+
+			commentAttachments.forEach((attachment) => {
+				if (!commentAttachmentsMap.has(attachment.post)) {
+					commentAttachmentsMap.set(attachment.post, []);
+				}
+				commentAttachmentsMap.get(attachment.post)?.push(attachment);
+			});
+		}
+
+		// Transform comments to include attachments and author fields
+		const transformedComments = comments.items.map((comment) => ({
+			...comment,
+			author_name: comment.expand?.user?.name,
+			author_username: comment.expand?.user?.username,
+			author_avatar: comment.expand?.user?.avatar,
+			attachments: commentAttachmentsMap.get(comment.id) || [],
+			// Add interaction status and other fields
+			upvote: false,
+			downvote: false,
+			repost: false,
+			hasRead: false,
+			share: false,
+			quote: false,
+			preview: false
+		}));
+
+		// Add attachments and other fields to the main post
+		const postWithAttachments = {
+			...post,
+			attachments: postAttachments,
+			author_name: user.name,
+			author_username: user.username,
+			author_avatar: user.avatar,
+			upvote: false,
+			downvote: false,
+			repost: false,
+			hasRead: false,
+			share: false,
+			quote: false,
+			preview: false
+		};
+
 		return json({
-			post: post,
-			comments: comments.items,
+			post: postWithAttachments,
+			comments: transformedComments,
 			user: user
 		});
 	} catch (error) {
@@ -44,7 +101,6 @@ export const GET: RequestHandler = async ({ params }) => {
 		return json({ error: errorMessage }, { status: 404 });
 	}
 };
-
 /**
  * API endpoint for upvoting a post
  * Uses server-side admin authentication to bypass PocketBase permission checks
@@ -63,7 +119,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
 
 		try {
 			// Fetch the post using admin API
-			const post = await pb.collection('posts').getOne(postId);
+			const post = await pb.collection('posts').getOne(postId) as Post;
 
 			// Initialize arrays if they don't exist
 			let upvotedBy = post.upvotedBy || [];
@@ -87,7 +143,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
 				downvotedBy,
 				upvoteCount: upvotedBy.length,
 				downvoteCount: downvotedBy.length
-			});
+			}) as Post;
 
 			console.log(`Upvote successful for post ${postId}`);
 
@@ -132,7 +188,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		console.log(`Deleting post ${params.id}...`);
 
 		try {
-			const post = await pb.collection('posts').getOne(params.id);
+			const post = await pb.collection('posts').getOne(params.id) as Post;
 
 			if (post.user !== locals.user.id) {
 				return new Response(JSON.stringify({ error: 'Unauthorized to delete this post' }), {
@@ -142,12 +198,12 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			}
 
 			try {
-				const attachments = await pb.collection('post_attachments').getFullList({
+				const attachments = await pb.collection('posts_attachments').getFullList({
 					filter: `post = "${params.id}"`
-				});
+				}) as PostAttachment[];
 
 				for (const attachment of attachments) {
-					await pb.collection('post_attachments').delete(attachment.id);
+					await pb.collection('posts_attachments').delete(attachment.id);
 				}
 			} catch (attachmentError) {
 				console.log(
@@ -159,7 +215,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			try {
 				const comments = await pb.collection('posts').getFullList({
 					filter: `parent = "${params.id}"`
-				});
+				}) as Post[];
 
 				for (const comment of comments) {
 					await pb.collection('posts').delete(comment.id);

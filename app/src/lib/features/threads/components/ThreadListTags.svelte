@@ -55,10 +55,23 @@
 	async function updateTag(tag: Tag) {
 		if (!tag.name.trim()) return;
 		try {
-			const updatedTag = await pb.collection('tags').update(tag.id, {
-				name: tag.name.trim(),
-				color: tag.color
+			const response = await fetch(`/api/tags/${tag.id}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					name: tag.name.trim(),
+					color: tag.color
+				})
 			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || `Failed to update tag: ${response.statusText}`);
+			}
+
+			const updatedTag = await response.json();
 			dispatch('tagUpdated', { tag: updatedTag });
 			editingTagId = null;
 		} catch (error) {
@@ -160,6 +173,10 @@
 </div>
 
 <style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}		
 	.tag-list {
 		display: flex;
 		flex-wrap: wrap;
@@ -205,84 +222,13 @@
 		}
 	}
 
-	button.tag {
-		opacity: 0.5;
-		transition: all 0.3s ease;
-	}
 
-	button.tag.selected {
-		color: black;
-		opacity: 1;
-	}
 
 	.tag.selected .edit-tag {
 		opacity: 0.7;
 		color: var(--text-color);
 		pointer-events: auto;
 		display: inline-flex;
-	}
-
-	// .delete-tag-button {
-	//     background: none;
-	//     border: none;
-	//     cursor: pointer;
-	//     padding: 2px;
-	//     margin-left: 2px;
-	//     color: var(--text-color);
-	//     opacity: 0.7;
-	//     transition: all ease 0.3s;
-
-	//     &:hover {
-	//       opacity: 1;
-	//       transform: scale(1.1);
-	//     }
-	//   }
-
-	//   .delete-tag-button:hover {
-	//     color: rgb(255, 0, 0);
-	//   }
-
-	.assigned-tags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 5px;
-	}
-
-	.tag-row {
-		display: flex;
-		flex-wrap: nowrap;
-		justify-content: right;
-		align-items: right;
-		gap: 5px;
-		margin-top: 1rem;
-		border-radius: 20px;
-		transition: all ease 0.3s;
-		margin-right: 2rem;
-
-		&:hover {
-			display: flex;
-			flex-wrap: nowrap;
-			justify-content: right;
-		}
-	}
-
-	.tag-selector {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: right;
-		align-items: center;
-		gap: 5px;
-		width: auto;
-		border-radius: 20px;
-		transition: all ease 0.3s;
-	}
-
-	.assigned-tags {
-		display: flex;
-		flex-wrap: wrap;
-		width: 100%;
-		transition: all 0.3s ease;
-		justify-content: flex-end;
 	}
 
 	.tag {
@@ -319,20 +265,6 @@
 		}
 	}
 
-	.tag-selector-toggle {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: white;
-		position: absolute;
-		right: 1rem;
-		top: 2.1rem;
-
-		&:hover {
-			color: rgb(69, 171, 202);
-			background-color: transparent;
-		}
-	}
 
 	.tag-edit-buttons {
 		display: flex;
@@ -396,12 +328,7 @@
 		}
 	}
 
-	.tags {
-		display: flex;
-		flex-direction: row;
-		justify-content: left;
-		width: 100%;
-	}
+
 
 	span.new-tag:hover {
 		background-color: var(--tertiary-color);
@@ -409,10 +336,7 @@
 		transform: scale(1.1);
 	}
 
-	.new-tag svg {
-		height: 50px;
-		width: 50px;
-	}
+
 
 	.new-tag-input {
 		display: flex;
@@ -433,14 +357,6 @@
 		width: 100%;
 	}
 
-	.thread-tags {
-		display: flex;
-		flex-direction: row;
-		gap: 20px;
-		/* height: 40px; */
-		/* z-index: 1000; */
-		user-select: none;
-	}
 
 	button {
 		display: flex;
@@ -489,47 +405,13 @@
 		justify-content: center;
 	}
 
-	button.new-button {
-		background-color: var(--primary-color);
-		font-size: var(--font-size-s);
-		font-weight: bold;
-		cursor: pointer;
-		transition: all ease 0.3s;
-		width: 20% !important;
-		padding: var(--spacing-md);
-		display: flex;
-		margin: var(--spacing-sm) 0;
-		user-select: none;
-		gap: var(--spacing-sm);
-	}
 
-	button.new-button:hover,
 	button.add-tag:hover {
 		background-color: var(--tertiary-color);
 	}
 
-	.new-button svg {
-		color: red;
-	}
 
-	span.new-button {
-		border: none;
-		cursor: pointer;
-		display: flex;
-		position: relative;
-		justify-content: center;
-		transition: all ease 0.3s;
-		border-radius: 50%;
-		width: auto;
-		height: auto;
-		display: flex;
-	}
 
-	.tag-buttons {
-		display: flex;
-		margin-left: 5px;
-		background-color: red;
-	}
 
 	.edit-tag {
 		background: none;
@@ -545,74 +427,13 @@
 		pointer-events: none;
 	}
 
-	.thread-actions {
-		display: flex;
-		flex-direction: row;
-		width: 100%;
-		background: var(--bg-gradient-right);
-		border-radius: var(--spacing-md);
-		margin-bottom: 0.5rem;
-	}
 
-	.search-bar {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		// padding: var(--spacing-sm);
-		border-radius: var(--radius-m);
-		height: var(--spacing-xl);
-		width: 80%;
-		height: auto;
-		margin: 0 var(--spacing-md);
 
-		input {
-			background: transparent;
-			border: none;
-			color: var(--text-color);
-			width: 100%;
-			outline: none;
 
-			&::placeholder {
-				color: var(--placeholder-color);
-			}
-		}
-	}
-
-	button.new-button {
-		background-color: var(--primary-color);
-		font-size: var(--font-size-s);
-		font-weight: bold;
-		cursor: pointer;
-		transition: all ease 0.3s;
-		width: 20% !important;
-		padding: var(--spacing-md);
-		display: flex;
-		margin: var(--spacing-sm) 0;
-		user-select: none;
-		gap: var(--spacing-sm);
-	}
-
-	button.new-button:hover,
 	button.add-tag:hover {
 		background-color: var(--tertiary-color);
 	}
 
-	.new-button svg {
-		color: red;
-	}
-
-	span.new-button {
-		border: none;
-		cursor: pointer;
-		display: flex;
-		position: relative;
-		justify-content: center;
-		transition: all ease 0.3s;
-		border-radius: 50%;
-		width: auto;
-		height: auto;
-		display: flex;
-	}
 
 	@keyframes pulsate {
 		0% {

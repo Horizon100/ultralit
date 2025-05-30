@@ -31,7 +31,7 @@
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
 	import { goto } from '$app/navigation';
-
+	import { getAgentAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
@@ -71,7 +71,7 @@
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-	const statusIcons = {
+	const statusIcons: Record<string, any> = {
 		active: Activity,
 		inactive: Compass,
 		maintenance: ServerCog,
@@ -93,7 +93,7 @@
 		{ value: 'za', label: 'Alphabetical descending' }
 	];
 
-	const roleIcons = {
+	const roleIcons: Record<string, any> = {
 		hub: Cpu,
 		proxy: ShieldCheck,
 		assistant: HeadphonesIcon,
@@ -174,7 +174,7 @@
 
 			// Load models and actions for the current user
 			await modelStore.loadModels($currentUser.id);
-			await actionStore.loadActions($currentUser.id);
+			await actionStore.loadActions();
 		} finally {
 			hideLoading();
 			isLoading = false;
@@ -302,12 +302,7 @@
 		}
 	}
 
-	function getAvatarUrl(agent: AIAgent): string {
-		if (agent.avatar) {
-			return pb.getFileUrl(agent, agent.avatar);
-		}
-		return '';
-	}
+
 
 	async function handleAvatarUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -373,8 +368,9 @@
 			resetForm();
 			avatarFile = null;
 
-			// Reload agents to get the latest data
-			await agentStore.loadAgents($currentUser.id);
+			if ($currentUser?.id) {
+				await agentStore.loadAgents($currentUser.id);
+			}
 		} catch (error) {
 			console.error('Error saving agent:', error);
 			if (error instanceof ClientResponseError) {
@@ -415,7 +411,7 @@
 					<div class="agent-item" on:click={() => showGenerator(agent)}>
 						<div class="avatar-container">
 							{#if agent.avatar}
-								<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
 									<Bot />
@@ -553,7 +549,7 @@
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Bot size={48} />
 							{/if}
@@ -664,11 +660,16 @@
 				<div class="form-group">
 					<label>TAGS</label>
 					<div class="tag-input">
-						<input
-							type="text"
-							placeholder="Add a tag"
-							on:keydown={(e) => e.key === 'Enter' && addTag(e.target.value)}
-						/>
+					<input
+						type="text"
+						placeholder="Add a tag"
+						on:keydown={(e) => {
+							if (e.key === 'Enter' && e.currentTarget instanceof HTMLInputElement) {
+								addTag(e.currentTarget.value);
+								e.currentTarget.value = '';
+							}
+						}}
+					/>
 					</div>
 					<div class="tag-list">
 						{#each selectedTags as tag}
@@ -702,7 +703,7 @@
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Bot size={48} />
 							{/if}
@@ -812,11 +813,6 @@
 		transition: all 1.8s cubic-bezier(0.075, 0.82, 0.165, 1);
 	}
 
-	.agents-config:hover {
-		/* transform: scale(0.99); */
-		/* height: 82vh; */
-		/* border-radius: 50px; */
-	}
 
 	.column {
 		flex: 1;
@@ -1570,12 +1566,6 @@
 	@media (max-width: 1700px) {
 	}
 
-	@media (max-width: 1000px) {
-		.button-grid {
-			/* width: 99%; */
-			/* grid-template-columns: repeat(4, 1fr);  */
-		}
-	}
 
 	@media (max-width: 750px) {
 		.agent-name {
@@ -1591,7 +1581,5 @@
 			align-items: center;
 		}
 
-		.button-grid {
-		}
 	}
 </style>

@@ -359,8 +359,7 @@
 					</div>
 				{:else}
 					{#each filteredTags as tag (tag.id)}
-						<span
-							type="button"
+						<button
 							class="tag-item"
 							class:active={selectedTags.includes(tag.id)}
 							class:disabled={isLoading}
@@ -386,7 +385,7 @@
 									</button>
 								</div>
 							{/if}
-						</span>
+						</button>
 					{/each}
 				{/if}
 			</div>
@@ -395,10 +394,9 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
-		//   font-family: 'Source Code Pro', monospace;
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
-		transition: all 0.3s ease;
 	}
 	.dropdown-container {
 		position: relative;

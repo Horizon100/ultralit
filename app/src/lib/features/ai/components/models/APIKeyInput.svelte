@@ -3,11 +3,11 @@
 	import { get } from 'svelte/store';
 	import { X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { providers, type ProviderType } from '$lib/features/ai/utils/providers';
+	import { providers } from '$lib/features/ai/utils/providers';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 
-	export let provider: ProviderType;
+	export let provider: string;
 
 	const dispatch = createEventDispatcher<{
 		submit: string;
@@ -15,6 +15,10 @@
 	}>();
 
 	let key = '';
+
+	function getProviderName(): string {
+		return (providers as any)[provider]?.name || provider;
+	}
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -38,7 +42,7 @@
 			<input
 				type="password"
 				bind:value={key}
-				placeholder="Enter API key for {providers[provider].name}"
+				placeholder="Enter API key for {getProviderName()}"
 				autofocus
 			/>
 		</div>

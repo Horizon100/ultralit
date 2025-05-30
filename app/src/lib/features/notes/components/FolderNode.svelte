@@ -11,15 +11,17 @@
 	export let draggedItem: { item: Folders | Notes; isFolder: boolean } | null;
 
 	// Events to bubble up to the parent component
-	export let onDragStart;
-	export let onDragOver;
-	export let onDrop;
-	export let onOpenNote;
-	export let onToggleFolder;
-	export let onShowContextMenu;
+	export let onDragStart: (e: DragEvent, item: Folders | Notes, isFolder: boolean) => void;
+	export let onDragOver: (e: DragEvent, folder: Folders) => void;
+	export let onDrop: (e: DragEvent, folder: Folders) => void;
+	export let onOpenNote: (note: Notes) => void;
+	export let onToggleFolder: (folder: Folders) => void;
+	export let onShowContextMenu: (e: Event, item: Folders | Notes, isFolder: boolean) => void;
 
-	$: childFolders = notesStore.getChildFolders(folder.id);
-	$: notes = notesStore.notes[folder.id] || [];
+	// Subscribe to the store to access the data
+	$: storeData = $notesStore;
+	$: childFolders = storeData.folders.filter(f => f.parentId === folder.id);
+	$: notes = storeData.notes[folder.id] || [];
 </script>
 
 <div
@@ -52,6 +54,7 @@
 		<div class="folder-contents" transition:slide>
 			{#each notes as note (note.id)}
 				<div
+					class="note-item"
 					draggable="true"
 					on:dragstart={(e) => onDragStart(e, note, false)}
 					on:click={() => onOpenNote(note)}
@@ -64,27 +67,80 @@
 
 			<!-- Recursively render child folders -->
 			{#each childFolders as childFolder (childFolder.id)}
-				<FolderNode
+				<svelte:self
 					folder={childFolder}
 					{openFolders}
 					{currentNote}
 					{dragOverFolder}
 					{draggedItem}
-					on:dragstart={onDragStart}
-					on:dragover={onDragOver}
-					on:drop={onDrop}
-					on:openNote={onOpenNote}
-					on:toggleFolder={onToggleFolder}
-					on:showContextMenu={onShowContextMenu}
+					{onDragStart}
+					{onDragOver}
+					{onDrop}
+					{onOpenNote}
+					{onToggleFolder}
+					{onShowContextMenu}
 				/>
 			{/each}
 		</div>
 	{/if}
 </div>
 
-<style>
-	/* Add relevant styles for folder nesting */
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;
+
+	* {
+		font-family: var(--font-family);
+	}
+
+	.folder {
+		user-select: none;
+	}
+
+	.folder-title {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 4px 8px;
+		cursor: pointer;
+	}
+
+	.folder-title:hover {
+		background-color: var(--color-surface-hover, #f5f5f5);
+	}
+
+	.drag-over {
+		background-color: var(--color-primary-light, #e3f2fd);
+	}
+
+	.context-menu-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px;
+		opacity: 0.7;
+	}
+
+	.context-menu-button:hover {
+		opacity: 1;
+		background-color: var(--color-surface-hover, #f0f0f0);
+	}
+
 	.folder-contents {
-		padding-left: 20px; /* Indent child folders */
+		padding-left: 20px;
+	}
+
+	.note-item {
+		padding: 4px 8px;
+		cursor: pointer;
+		border-radius: 4px;
+	}
+
+	.note-item:hover {
+		background-color: var(--color-surface-hover, #f5f5f5);
+	}
+
+	.note-item.selected {
+		background-color: var(--color-primary-light, #e3f2fd);
+		font-weight: 500;
 	}
 </style>

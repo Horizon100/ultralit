@@ -6,26 +6,26 @@
 	const dispatch = createEventDispatcher();
 
 	// App features to highlight
-	$: appFeatures = [
+	const appFeatures = [
 		{
-			title: $t('appFeatures.items.0.title'),
-			description: $t('appFeatures.items.0.description')
+			title: "AI Conversations",
+			description: "Start intelligent chats with our AI system"
 		},
 		{
-			title: $t('appFeatures.items.1.title'),
-			description: $t('appFeatures.items.1.description')
+			title: "Project Collaboration",
+			description: "Create projects and invite teammates"
 		},
 		{
-			title: $t('appFeatures.items.2.title'),
-			description: $t('appFeatures.items.2.description')
+			title: "Task Management",
+			description: "Organize and track your work efficiently"
 		},
 		{
-			title: $t('appFeatures.items.3.title'),
-			description: $t('appFeatures.items.3.description')
+			title: "Knowledge Network",
+			description: "Connect your ideas in a visual network"
 		},
 		{
-			title: $t('appFeatures.items.4.title'),
-			description: $t('appFeatures.items.4.description')
+			title: "Notes System",
+			description: "Keep your thoughts organized and accessible"
 		}
 	];
 
@@ -79,39 +79,17 @@
 		}
 	];
 
-	function followUser(userId: number) {
-		suggestedUsers = suggestedUsers.map((user) => {
-			if (user.id === userId) {
-				return { ...user, following: !user.following };
-			}
-			return user;
-		});
 
-		dispatch('followUser', { userId });
-	}
 
-	function markStepCompleted(index: number) {
-		gettingStarted = gettingStarted.map((step, i) => {
-			if (i === index) {
-				return { ...step, completed: !step.completed };
-			}
-			return step;
-		});
 
-		dispatch('stepCompleted', { index });
-	}
-
-	function shareInvite() {
-		dispatch('shareInvite');
-	}
 </script>
 
 <aside class="right-sidebar">
 	<div class="sidebar-content">
+
 		<!-- App Features Highlight -->
 		<section class="features-section">
 			<h3>
-				<Star size={20} />
 				{$t('features.homeIntro.title')}
 			</h3>
 			<ul class="features-list">
@@ -204,20 +182,16 @@
 </aside>
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
 	@use "src/lib/styles/themes.scss" as *;	* {
 		font-family: var(--font-family);
 	}
 	.right-sidebar {
-		width: 320px;
+		width: 250px;
 		height: 100vh;
 		position: sticky;
 		top: 0;
 		overflow-y: auto;
-		border-left: 1px solid var(--line-color);
+		// border-left: 1px solid var(--line-color);
 		// background: var(--bg-gradient-left);
 	}
 

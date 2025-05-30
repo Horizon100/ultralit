@@ -4,6 +4,7 @@
 	import { EditorState } from '@codemirror/state';
 	import type { Extension } from '@codemirror/state';
 	import { EditorView } from '@codemirror/view';
+	import { json } from '@sveltejs/kit';
 	import {
 		getLanguageExtension,
 		createBasicExtensions,
@@ -118,20 +119,19 @@
 			// Get proper highlighting based on the file and theme
 			const themeHighlighting = getLanguageHighlighting(activeFile, darkMode);
 
+			// Ensure extensions are properly typed
+			const basicExtensions: Extension[] = createBasicExtensions(darkMode, currentLanguage) as Extension[];
+			const autosaveExtension: Extension = createAutosaveExtension((content) => {
+				files[activeFile] = content;
+				fileSystem.updateFile(activeFile, content);
+				unsavedChanges.add(activeFile);
+				unsavedChanges = new Set(unsavedChanges);
+			}) as Extension;
+
 			const startState = EditorState.create({
 				doc: files[activeFile] || '',
-				extensions: [
-					...createBasicExtensions(darkMode, currentLanguage),
-					createAutosaveExtension((content) => {
-						files[activeFile] = content;
-						fileSystem.updateFile(activeFile, content);
-						// Mark file as having unsaved changes
-						unsavedChanges.add(activeFile);
-						unsavedChanges = new Set(unsavedChanges);
-					})
-				]
+				extensions: [...basicExtensions, autosaveExtension] as any
 			});
-
 			if (editorView) {
 				editorView.destroy();
 			}
@@ -195,7 +195,7 @@
 							unsavedChanges.add(activeFile);
 							unsavedChanges = new Set(unsavedChanges);
 						})
-					]
+					] as any
 				});
 
 				editorView.setState(newState);
@@ -305,15 +305,15 @@
 	function toggleTheme() {
 		darkMode = !darkMode;
 		if (editorView) {
+			const basicExtensions = createBasicExtensions(darkMode, currentLanguage) as Extension[];
+			const autosaveExtension = createAutosaveExtension((content) => {
+				fileSystem.updateFile(activeFile, content);
+				files = fileSystem.getFiles();
+			}) as Extension;
+
 			const newState = EditorState.create({
 				doc: editorView.state.doc,
-				extensions: [
-					...createBasicExtensions(darkMode, currentLanguage),
-					createAutosaveExtension((content) => {
-						fileSystem.updateFile(activeFile, content);
-						files = fileSystem.getFiles();
-					})
-				]
+				extensions: [...basicExtensions, autosaveExtension] as any
 			});
 
 			editorView.setState(newState);
@@ -601,15 +601,14 @@
 		if (!repoName) return;
 
 		try {
-			// In a real app, you might want to get the project ID from somewhere
-			const projectId = 'default-project-id'; // Replace with actual project ID
-			const newRepo = await createRepository(repoName, projectId);
+			const newRepo = await createRepository(repoName);
 
 			repositories = [...repositories, newRepo];
 			selectRepository(newRepo);
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 			console.error('Failed to create repository:', error);
-			alert(`Failed to create repository: ${error.message}`);
+			alert(`Failed to create repository: ${errorMessage}`);
 		}
 	}
 
@@ -654,9 +653,17 @@
 		try {
 			await createFolder(selectedRepo.id, selectedBranch, folderName);
 			await loadRepositoryContents();
-		} catch (error) {
-			console.error('Failed to create folder:', error);
-			alert(`Failed to create folder: ${error.message}`);
+		} catch (createError) {
+			const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
+
+			console.error('Failed to create folder:', {
+				message: errorMessage,
+				error: createError,
+			});
+			return json({ 
+				error: 'Failed to create folder',
+				details: errorMessage
+			}, { status: 500 });
 		}
 	}
 

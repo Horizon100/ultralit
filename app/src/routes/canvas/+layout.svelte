@@ -79,6 +79,20 @@
 		easing: cubicOut
 	});
 
+	const defaultShape: Shape = {
+		id: 'default',
+		svg: '',
+		component: {
+			template: '',
+			style: ''
+		},
+		x: 0,
+		y: 0,
+		width: 0,
+		height: 0,
+		ref: null
+	};
+
 	let width: number;
 	let height: number;
 	let gridPath: string;
@@ -284,7 +298,7 @@
 					prompt: '',
 					description: '',
 					avatar: '',
-					role: [],
+					role: undefined,
 					capabilities: [],
 					focus: 'processor',
 					status: 'active',
@@ -445,7 +459,7 @@
 				prompt: '',
 				description: '',
 				avatar: '',
-				role: [],
+				role: undefined,
 				capabilities: [],
 				focus: 'processor',
 				status: 'active',
@@ -489,6 +503,8 @@
 			styleElement.textContent = shape.component.style;
 			document.head.appendChild(styleElement);
 		}
+		return newShape;
+
 	}
 
 	function dragShape(event: MouseEvent, shapeId: string) {
@@ -698,7 +714,7 @@
 		width={$rightSideMenuWidth}
 		on:mouseleave={handleRightSideMenuLeave}
 		{handleAddShape}
-		userId={$currentUser?.id}
+		userId={$currentUser?.id || ''}
 		on:click={toggleRightSideMenu}
 	/>
 

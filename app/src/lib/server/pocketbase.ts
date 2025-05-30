@@ -7,29 +7,24 @@ import type {
 	AIPreferences,
 	Message,
 	NetworkData,
-	CursorPosition,
 	User,
 	AIModel,
 	Workflows,
 	Threads,
 	Messages
 } from '$lib/types/types';
+import type { Cookies } from '@sveltejs/kit';
+
 
 // Setup
-export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
+export const pb = new PocketBase('http://172.104.188.44:80');
 pb.autoCancellation(false);
 
 // Utility variable for auth checks
 let lastAuthCheck = 0;
 const AUTH_CHECK_COOLDOWN = 5000;
 
-let publishTimer: ReturnType<typeof setTimeout> | null = null;
-let lastPublishedPosition: { userId: string; x: number; y: number; name: string } | null = null;
 
-interface CursorChangeEvent {
-	action: string;
-	record: CursorPosition;
-}
 
 // ============= Authentication Functions =============
 
@@ -44,56 +39,57 @@ export async function checkPocketBaseConnection() {
 	}
 }
 
-export async function ensureAuthenticated(): Promise<boolean> {
-	console.log('Checking authentication...');
-	const now = Date.now();
+export async function ensureAuthenticated(cookies?: Cookies): Promise<boolean> {
+    console.log('Checking authentication...');
+    const now = Date.now();
 
-	// Log auth state for debugging
-	console.log('Current auth model:', pb.authStore.model ? 'exists' : 'null');
-	console.log('Is auth valid?', pb.authStore.isValid);
+    // Restore from cookie if available
+    if (cookies) {
+        const authCookie = cookies.get('pb_auth');
+        if (authCookie) {
+            try {
+                const authData = JSON.parse(authCookie);
+                pb.authStore.save(authData.token, authData.model);
+                console.log('Restored auth from cookie');
+            } catch (e) {
+                console.error('Error parsing auth cookie:', e);
+            }
+        }
+    }
 
-	// If auth is valid and we've checked recently, return true
-	if (pb.authStore.isValid && now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
-		console.log('Auth is valid and checked recently, returning true');
-		return true;
-	}
+    // Log auth state for debugging
+    console.log('Current auth model:', pb.authStore.model ? 'exists' : 'null');
+    console.log('Is auth valid?', pb.authStore.isValid);
 
-	lastAuthCheck = now;
+    // If auth is valid and we've checked recently, return true
+    if (pb.authStore.isValid && now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
+        console.log('Auth is valid and checked recently, returning true');
+        return true;
+    }
 
-	// Check if we have a token
-	if (!pb.authStore.token) {
-		console.log('No token available, authentication fails');
-		return false;
-	}
+    lastAuthCheck = now;
 
-	// If auth is invalid or we need to refresh, try to refresh
-	try {
-		console.log('Attempting to refresh auth token...');
-		// Use a try/catch block for the refresh operation
-		try {
-			await pb.collection('users').authRefresh();
-			console.log('Auth token refreshed successfully');
-			return pb.authStore.isValid;
-		} catch (error) {
-			// Check if this is an invalid/expired token error
-			if (error instanceof ClientResponseError) {
-				if (error.status === 401) {
-					console.log('Token refresh failed: Token invalid or expired');
-					pb.authStore.clear();
-					return false;
-				}
-			}
+    // Check if we have a token
+    if (!pb.authStore.token) {
+        console.log('No token available, authentication fails');
+        return false;
+    }
 
-			// For other errors, we might still be authenticated
-			console.error('Error during token refresh:', error);
-			// Check if auth is still valid despite the error
-			return pb.authStore.isValid;
-		}
-	} catch (outerError) {
-		// Catch any unexpected errors in the outer try block
-		console.error('Unexpected error during authentication check:', outerError);
-		return false;
-	}
+    // If auth is invalid or we need to refresh, try to refresh
+    try {
+        console.log('Attempting to refresh auth token...');
+        await pb.collection('users').authRefresh();
+        console.log('Auth token refreshed successfully');
+        return pb.authStore.isValid;
+    } catch (error) {
+        if (error instanceof ClientResponseError && error.status === 401) {
+            console.log('Token refresh failed: Token invalid or expired');
+            pb.authStore.clear();
+            return false;
+        }
+        console.error('Error during token refresh:', error);
+        return pb.authStore.isValid;
+    }
 }
 export async function signUp(email: string, password: string): Promise<User | null> {
 	try {
@@ -506,84 +502,6 @@ export async function deleteMessage(id: string): Promise<boolean> {
 		console.error('Error deleting message:', error);
 		return false;
 	}
-}
-
-// ============= Cursor Functions =============
-
-export async function subscribeToCursorChanges(
-	callback: (data: CursorChangeEvent) => void
-): Promise<() => void> {
-	try {
-		console.log('Subscribing to cursor position changes...');
-
-		const unsubscribe = await pb.realtime.subscribe('cursors', callback);
-		console.log('Subscribed successfully to cursor changes');
-		return unsubscribe;
-	} catch (error) {
-		console.error('Error subscribing to cursor changes:', error);
-		if (error instanceof Error) {
-			console.error('Error name:', error.name);
-			console.error('Error message:', error.message);
-			console.error('Error stack:', error.stack);
-		}
-		throw error;
-	}
-}
-
-export async function publishCursorPosition(
-	userId: string,
-	x: number,
-	y: number,
-	name: string
-): Promise<void> {
-	lastPublishedPosition = { userId, x, y, name };
-
-	if (publishTimer) {
-		clearTimeout(publishTimer);
-	}
-
-	publishTimer = setTimeout(async () => {
-		if (!lastPublishedPosition) return;
-
-		try {
-			console.debug('Publishing cursor position with parameters:', lastPublishedPosition);
-
-			const existingRecords = await pb.collection('cursor_positions').getFullList({
-				filter: `user="${lastPublishedPosition.userId}"`,
-				$autoCancel: false
-			});
-
-			if (existingRecords.length > 0) {
-				await pb.collection('cursor_positions').update(
-					existingRecords[0].id,
-					{
-						position: { x: lastPublishedPosition.x, y: lastPublishedPosition.y },
-						name: lastPublishedPosition.name
-					},
-					{ $autoCancel: false }
-				);
-			} else {
-				await pb.collection('cursor_positions').create(
-					{
-						user: lastPublishedPosition.userId,
-						position: { x: lastPublishedPosition.x, y: lastPublishedPosition.y },
-						name: lastPublishedPosition.name
-					},
-					{ $autoCancel: false }
-				);
-			}
-		} catch (error) {
-			if (error instanceof ClientResponseError) {
-				console.error('Error publishing cursor position:', {
-					message: error.message,
-					data: error.data,
-					status: error.status
-				});
-			} else {
-				console.error('Unknown error publishing cursor position:', error);
-			}
-		}
-	}, 100); // Debounce for 100ms
 }
 
 // ============= User Related Functions =============

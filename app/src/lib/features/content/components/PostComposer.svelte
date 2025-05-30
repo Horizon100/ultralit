@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import { pocketbaseUrl } from '$lib/pocketbase';
-	import { Paperclip } from 'lucide-svelte';
+	import { Paperclip, X } from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
+	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 
-	// Props$t('posts.inputPlaceholder');
-	export let placeholder: string = $t('posts.textareaPlaceholder');
-	export let buttonText: string = $t('posts.postButton');
+	// Props
+	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
+	export let buttonText: string = $t('posts.postButton') as string;
 	export let initialContent: string = '';
 	export let disabled: boolean = false;
 	export let parentId: string | undefined = undefined;
@@ -21,6 +21,7 @@
 
 	const dispatch = createEventDispatcher<{
 		submit: { content: string; attachments: File[]; parentId?: string };
+		postCreated: { postId: string; post: any };
 	}>();
 
 	function handleFileSelect(event: Event) {
@@ -40,33 +41,105 @@
 		isSubmitting = true;
 
 		try {
-			dispatch('submit', {
-				content: content.trim(),
-				attachments: attachments.length > 0 ? attachments : [],
-				parentId
+			// If this is a comment (has parentId), use the existing flow
+			if (parentId) {
+				dispatch('submit', {
+					content: content.trim(),
+					attachments: attachments.length > 0 ? attachments : [],
+					parentId
+				});
+
+				// Reset form
+				content = '';
+				attachments = [];
+				if (fileInput) fileInput.value = '';
+				return;
+			}
+
+			// For new posts, create the post first, then add attachments
+			const postFormData = new FormData();
+			postFormData.append('content', content.trim());
+			postFormData.append('user', $currentUser!.id);
+
+			// Create the post without attachments first
+			const postResponse = await fetch('/api/posts', {
+				method: 'POST',
+				body: postFormData,
+				credentials: 'include'
 			});
+
+			if (!postResponse.ok) {
+				const errorData = await postResponse.json().catch(() => ({}));
+				throw new Error(errorData.message || 'Failed to create post');
+			}
+
+			const postResult = await postResponse.json();
+			const newPost = postResult;
+
+			console.log('Post created:', newPost.id);
+
+			// If there are attachments, upload them separately
+			if (attachments.length > 0) {
+				const attachmentFormData = new FormData();
+				
+				attachments.forEach((file, index) => {
+					attachmentFormData.append(`attachment_${index}`, file);
+				});
+
+				const attachmentResponse = await fetch(`/api/posts/${newPost.id}/attachment`, {
+					method: 'POST',
+					body: attachmentFormData,
+					credentials: 'include'
+				});
+
+				if (!attachmentResponse.ok) {
+					console.error('Failed to upload attachments, but post was created');
+					// Don't throw error - post was created successfully
+				} else {
+					const attachmentResult = await attachmentResponse.json();
+					console.log(`${attachmentResult.count} attachments uploaded`);
+					
+					// Add attachments to the post object
+					newPost.attachments = attachmentResult.attachments;
+				}
+			}
+
+			// Dispatch success event
+			dispatch('postCreated', { postId: newPost.id, post: newPost });
 
 			// Reset form
 			content = '';
 			attachments = [];
 			if (fileInput) fileInput.value = '';
+
+			console.log('Post creation completed successfully');
+
 		} catch (err) {
 			console.error('Error submitting post:', err);
+			alert('Failed to create post: ' + (err instanceof Error ? err.message : 'Unknown error'));
 		} finally {
 			isSubmitting = false;
 		}
 	}
 
 	// Reset content when initialContent changes
-	$: content = initialContent;
+	$: if (initialContent && !content) {
+		content = initialContent;
+	}
+
+	// File preview helper
+	function getFilePreview(file: File): string {
+		if (file.type.startsWith('image/')) {
+			return URL.createObjectURL(file);
+		}
+		return '';
+	}
 </script>
 
 <div class="post-composer">
 	<div class="composer-header">
 		<img
-			src={$currentUser?.avatar
-				? `${pocketbaseUrl}/api/files/users/${$currentUser.id}/${$currentUser.avatar}`
-				: '/api/placeholder/40/40'}
+			src={$currentUser ? getAvatarUrl($currentUser) : '/api/placeholder/40/40'}
 			alt="Your avatar"
 			class="composer-avatar"
 		/>
@@ -83,10 +156,32 @@
 		<div class="attachments-preview">
 			{#each attachments as file, index}
 				<div class="attachment-item">
-					<span class="attachment-name">{file.name}</span>
-					<button class="remove-attachment" on:click={() => removeAttachment(index)} type="button">
-						×
-					</button>
+					{#if file.type.startsWith('image/')}
+						<div class="attachment-image-preview">
+							<img src={getFilePreview(file)} alt={file.name} class="preview-image" />
+							<button 
+								class="remove-attachment-image" 
+								on:click={() => removeAttachment(index)} 
+								type="button"
+								title="Remove image"
+							>
+								<X size={16} />
+							</button>
+						</div>
+					{:else}
+						<div class="attachment-file-preview">
+							<Paperclip size={16} />
+							<span class="attachment-name">{file.name}</span>
+							<button 
+								class="remove-attachment" 
+								on:click={() => removeAttachment(index)} 
+								type="button"
+								title="Remove file"
+							>
+								<X size={16} />
+							</button>
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -98,7 +193,7 @@
 				<input
 					type="file"
 					multiple
-					accept="image/*,video/*,.pdf,.doc,.docx"
+					accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip,.rar"
 					on:change={handleFileSelect}
 					class="file-input"
 					bind:this={fileInput}
@@ -111,6 +206,9 @@
 					disabled={disabled || isSubmitting}
 				>
 					<Paperclip size={16} />
+					{#if attachments.length > 0}
+						<span class="attachment-count">{attachments.length}</span>
+					{/if}
 				</button>
 			</div>
 		{/if}
@@ -135,10 +233,9 @@
 	}
 	.post-composer {
 		background: var(--primary-color);
-		border: 1px solid var(--line-color);
-		border-radius: 12px;
-		padding: 16px;
-		margin-bottom: 20px;
+		border-radius: 2rem;
+		padding: 1rem;
+
 	}
 
 	.composer-header {
@@ -166,6 +263,7 @@
 		font-family: var(--font-family);
 		line-height: 1.5;
 		outline: none;
+		
 	}
 
 	.composer-textarea::placeholder {
@@ -274,5 +372,87 @@
 
 	.post-button:disabled {
 		cursor: not-allowed;
+	}
+		.attachment-item {
+		margin-bottom: 0.5rem;
+	}
+
+	.attachment-image-preview {
+		position: relative;
+		display: inline-block;
+		margin-right: 0.5rem;
+	}
+
+	.preview-image {
+		width: 80px;
+		height: 80px;
+		object-fit: cover;
+		border-radius: 8px;
+		border: 1px solid #e5e7eb;
+	}
+
+	.remove-attachment-image {
+		position: absolute;
+		top: -8px;
+		right: -8px;
+		background: #ef4444;
+		color: white;
+		border: none;
+		border-radius: 50%;
+		width: 24px;
+		height: 24px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		font-size: 14px;
+	}
+
+	.attachment-file-preview {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		background: #f3f4f6;
+		border-radius: 6px;
+		border: 1px solid #e5e7eb;
+	}
+
+	.attachment-name {
+		flex: 1;
+		font-size: 0.875rem;
+		color: #374151;
+	}
+
+	.remove-attachment {
+		background: #ef4444;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		width: 24px;
+		height: 24px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	.composer-option-button {
+		position: relative;
+	}
+
+	.attachment-count {
+		position: absolute;
+		top: -8px;
+		right: -8px;
+		background: #3b82f6;
+		color: white;
+		border-radius: 50%;
+		width: 18px;
+		height: 18px;
+		font-size: 11px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 </style>

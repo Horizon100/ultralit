@@ -43,7 +43,7 @@
 			tasks = await loadProjectTasks(projectId);
 		} catch (err) {
 			console.error('Error loading project tasks:', err);
-			error = err?.message || 'Failed to load tasks';
+			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			tasks = [];
 		} finally {
 			isLoading = false;
@@ -91,7 +91,7 @@
 
 	// Get status display name
 	function getStatusDisplay(status: string): string {
-		const statusMap = {
+		const statusMap: Record<string, string> = {
 			todo: 'To Do',
 			done: 'Done',
 			review: 'Review',
@@ -395,6 +395,7 @@
 		overflow: hidden;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 	}
 

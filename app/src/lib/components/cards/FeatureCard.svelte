@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+	import Headmaster from '$lib/assets/illustrations/headmaster.jpeg';
 	import type { FeaturePlan, PricingPlan } from '$lib/types/types.features';
 
 	export let title = '';

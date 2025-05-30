@@ -24,7 +24,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.generic-overlay {
 		position: fixed;
 		top: 0;

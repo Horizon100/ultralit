@@ -4,7 +4,11 @@
 
 <slot />
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	/* Reset CSS */
 	:global(html, body) {
 		margin: 0;

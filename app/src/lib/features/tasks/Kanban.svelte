@@ -1670,6 +1670,16 @@
 		// Update backend
 		updateTaskTags(task.id, newTags);
 	}
+	$: tagPlaceholder = $t('tasks.tags') as string;
+	$: searchPlaceholder = $t('nav.search') as string;
+	$: addPlaceholder = $t('tasks.add') as string;
+
+	$: descriptionText = selectedTask?.taskDescription || ($t('tasks.addDescription') as string) || 'Add Description';
+
+	$: toggleLabel = allColumnsOpen 
+	? ($t('generic.collapseAll') as string) || 'Collapse All'
+	: ($t('generic.expandAll') as string) || 'Expand All';
+
 	$: hasProjectContext =
 		(selectedTask?.project_id && selectedTask.project_id !== '') ||
 		(currentProjectId && currentProjectId !== '');
@@ -1817,7 +1827,7 @@
 						{currentProjectId}
 						mode="task"
 						isFilterMode={true}
-						placeholder="Tags"
+						placeholder={tagPlaceholder}
 						showSelectedCount={true}
 						on:tagsChanged={handleTagsChanged}
 					/>
@@ -1864,7 +1874,7 @@
 						toggleAllColumns();
 					}
 				}}
-				placeholder={$t('nav.search')}
+				placeholder={searchPlaceholder}
 				class="search-input"
 			/>
 			{#if searchQuery}
@@ -1884,19 +1894,23 @@
 				<PlusCircle />
 			</span>
 			<textarea
-				placeholder={$t('tasks.add')}
+				placeholder={addPlaceholder}
 				on:keydown={(e) => addGlobalTask(e)}
 				class="global-task-input"
 			></textarea>
 		</div>
 	</div>
-	<div class="kanban-container" in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
+	<div class="kanban-container" 
+		in:fly={{ y: -400, duration: 400 }} 
+		out:fade={{ duration: 300 }}
+		class:drawer-visible={$showThreadList}
+	>
 		{#if $showThreadList}
-			<div class="column-view-controls">
+			<div class="column-view-controls"  transition:fly={{ x: -300, duration: 300 }}>
 				<button
 					class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
 					on:click={toggleAllColumns}
-					aria-label={allColumnsOpen ? $t('generic.collapseAll') : $t('generic.expandAll')}
+					aria-label={toggleLabel}
 				>
 					<span class="toggle-icon">
 						{#if allColumnsOpen}
@@ -1928,7 +1942,9 @@
 				{/each}
 			</div>
 		{/if}
-		<div class="kanban-board">
+		<div class="kanban-board"
+			class:drawer-visible={$showThreadList}
+		>
 			{#each $columns as column}
 				<div
 					class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}"
@@ -1941,14 +1957,15 @@
             </button> -->
 
 					{#if column.isOpen}
+						<span class="column-title">
+							{column.title}
+						</span>
 						<div
 							class="task-list"
 							in:slide={{ duration: 300, axis: 'x' }}
 							out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
 						>
-							<span class="column-title">
-								{column.title}
-							</span>
+
 
 							{#each column.tasks as task}
 								<div
@@ -2026,7 +2043,6 @@
 											<span
 												class="priority-flag {task.priority}"
 												on:click={(e) => togglePriority(task, e)}
-												title={$t('posts.reposted')}
 											>
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
@@ -2148,21 +2164,21 @@
 													<div class="timeline">
 														<span
 															class="date-part"
-															on:wheel={(e) =>
+    															on:wheel|capture|preventDefault|stopPropagation={(e) => 
 																handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
 															title="Scroll to change day (hold Shift for precision)"
 															>{task.due_date.getDate()}</span
 														>
 														<span
 															class="month-part"
-															on:wheel={(e) =>
+    															on:wheel|capture|preventDefault|stopPropagation={(e) => 
 																handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
 															title="Scroll to change month (hold Shift for precision)"
 															>{task.due_date.toLocaleString('default', { month: 'short' })}</span
 														>
 														<span
 															class="year-part"
-															on:wheel={(e) =>
+																on:wheel|capture|preventDefault|stopPropagation={(e) => 
 																handleDateScroll(e, task.due_date, 'year', task, 'due_date')}
 															title="Scroll to change year (hold Shift for precision)"
 															>{task.due_date.getFullYear()}</span
@@ -2304,7 +2320,7 @@
 					></textarea>
 				{:else}
 					<div class="description-display" on:click={() => (isEditingDescription = true)}>
-						{capitalizeFirst(selectedTask.taskDescription || $t('tasks.addDescription'))}
+						{capitalizeFirst(descriptionText)}
 					</div>
 				{/if}
 			</div>
@@ -2478,9 +2494,21 @@
 		display: flex;
 		flex-direction: row;
 		transition: all 0.2s ease;
-		height: auto;
+		height: 89vh;
+		width: 100%;
 		margin-left: 0rem !important;
-		overflow-x: auto;
+		// overflow-x: scroll;
+		// &::-webkit-scrollbar {
+		// 	width: 0.5rem;
+		// 	background-color: transparent;
+		// }
+		// &::-webkit-scrollbar-track {
+		// 	background: transparent;
+		// }
+		// &::-webkit-scrollbar-thumb {
+		// 	background: var(--placeholder-color);
+		// 	border-radius: 1rem;
+		// }
 	}
 	p {
 		font-size: 1.1rem;
@@ -2638,25 +2666,41 @@
 		border-color: var(--tertiary-color);
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
 	}
+	.drawer-visible.kanban-container {
+		height: 93vh;
+	}
+	.drawer-visible.kanban-board {
+	}
 	.kanban-board {
 		display: flex;
 		flex-direction: row;
 		justify-content: stretch;
 		align-items: stretch;
 		gap: 0.5rem;
-		overflow-x: scroll;
-		overflow-y: scroll;
-		scrollbar-width: thin;
-		scroll-behavior: smooth;
-		scrollbar-color: var(--secondary-color) transparent;
-		align-items: flex-start;
-		width: 90vw;
-		height: 95%;
-		margin-left: 2rem;
+		width: auto;
+		height: auto;
+		margin-left: 0.5rem;
+		margin-right: 0.5rem;
 		// backdrop-filter: blur(20px);
 		border-radius: 2rem;
-		// border: 1px solid var(--line-color);
+		border: 1px solid var(--line-color);
 		transition: all 0.3s ease;
+		overflow-x: scroll;
+		overflow-y: hidden;
+		scroll-behavior: smooth;
+
+		&::-webkit-scrollbar {
+			height: 0.5rem;
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--placeholder-color);
+			border-radius: 1rem;
+		}
 	}
 	:global(.minimized-symbol) {
 		color: var(--placeholder-color) !important;
@@ -2683,7 +2727,7 @@
 		// border: 1px solid var(--secondary-color);
 		border-radius: 2rem;
 		transition: all 0.3s ease;
-		height: 100vh;
+		height: 100%;
 
 		&:hover {
 			// border: 1px solid var(--secondary-color);
@@ -2692,7 +2736,7 @@
 	}
 	.column-title {
 		padding: 0.5rem;
-		line-height: 2;
+		line-height: 1;
 		border-bottom: 1px solid var(--line-color) !important;
 		font-size: 0.8rem;
 		text-align: center;
@@ -2780,7 +2824,22 @@
 	}
 
 	.kanban-column.expanded[class*='column-'] {
-		flex: 0 0 var(--column-expanded-width);
+		flex: 0 0 auto;
+		overflow-x: scroll;
+		overflow-y: hidden;
+		width: 300px;
+		&::-webkit-scrollbar {
+			height: 0.25rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+			width: 0.5rem;
+		}
 	}
 	// .kanban-column.column-cancel:has(.column-header.active-cancel) {
 	//   flex: 0 0 400px;
@@ -2878,11 +2937,24 @@
 		justify-content: flex-start;
 		align-items: center;
 		height: 100%;
-		overflow-y: scroll;
-		overflow-x: hidden;
 		padding: 0 0.5rem;
 		border-radius: 2rem;
 		// border: 1px solid var(--secondary-color);
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--placeholder-color);
+			border-radius: 1rem;
+		}
+
 	}
 
 	.title-section {
@@ -3216,10 +3288,11 @@
 			display: flex;
 			margin-left: 1rem;
 			flex-direction: column;
-			justify-content: flex-end;
+			justify-content: center;
 			border-radius: 1rem;
 			width: auto;
 			padding: 0;
+			gap: 0.5rem;
 			transition: all 0.2s ease;
 			&:hover {
 				background-color: var(--primary-color);
@@ -3229,7 +3302,7 @@
 					width: 100% !important;
 				}
 				& .date-part {
-					font-size: 2rem !important;
+					font-size: 0.8rem !important;
 				}
 
 				& .timeline {
@@ -3241,7 +3314,7 @@
 					// width: 8rem;
 					display: flex;
 
-					font-size: 1rem;
+					font-size: 0.8rem;
 					background-color: row;
 				}
 			}
@@ -3297,6 +3370,10 @@
 		text-align: center;
 		display: flex;
 		justify-content: center;
+		z-index: 10;
+		&:hover {
+            overflow: hidden;
+        }
 	}
 
 	.timeline-container .date-part:hover,
@@ -3307,12 +3384,12 @@
 	}
 
 	.timeline-container .date-part {
-		min-width: 24px;
+		min-width: 60px;
 		text-align: center;
 	}
 
 	.timeline-container .month-part {
-		min-width: 36px;
+		min-width: 60px;
 		text-align: center;
 	}
 
@@ -3877,11 +3954,12 @@
 	.column-view-controls {
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
-		align-items: flex-start;
+		align-items: stretch;
 		font-size: 0.5rem !important;
-		margin-right: 0.5rem;
+		margin: 0;
 		gap: 0.5rem;
+		max-width: 250px;
+		width: 100% !important;
 	}
 
 	.count-badge {
@@ -3892,6 +3970,7 @@
 		justify-content: center;
 		align-items: center;
 		font-size: 0.7rem;
+		max-width: 50px;
 	}
 	.toggle-btn {
 		padding: 0.5rem;
@@ -4124,7 +4203,19 @@
 			overflow-y: scroll;
 			overflow-x: hidden;
 		}
-
+		.column-view-controls {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+			align-items: stretch;
+			position: absolute;
+			z-index: 2000;
+			height: auto;
+			width: auto !important;
+			font-size: 0.5rem !important;
+			bottom: 2rem;
+			backdrop-filter: blur(10px);
+		}
 		// .view-controls {
 		//     padding: 0;
 		//     margin: 0;
@@ -4152,96 +4243,110 @@
 
 		.kanban-container {
 			display: flex;
-			flex-direction: row;
+			flex-direction: column;
 			transition: all 0.2s ease;
 			height: auto;
 		}
 
 		.kanban-column {
 			border-radius: 5px;
-			flex: 0 0 auto;
 			display: flex;
+			width: 100vw !important;
 			flex-direction: column;
-			justify-content: center;
-			width: 100%;
+			justify-content: top;
+			align-items: stretch;
 			transition: all 0.3s ease;
 			// border: 1px solid var(--secondary-color);
 			border-radius: 1rem;
 			transition: all 0.3s ease;
 
-			&:hover {
-				// border: 1px solid var(--secondary-color);
-				background: var(--secondary-color);
-			}
 		}
 
 		.kanban-column.expanded.column-backlog {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
+
 		}
 		.kanban-column.expanded.column-todo {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-inprogress {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-review {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-done {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-hold {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-postpone {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-delegate {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-cancel {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.expanded.column-archive {
-			flex: 0 0 150px;
+			flex: 0 0 300px;
 		}
 		.kanban-column.column-cancel:has(.column-header.active-cancel) {
-			flex: 0 0 150px;
+			flex: 0 0 100%;
 		}
 
 		.kanban-column {
 			height: 100px !important;
 			overflow-x: scroll;
+			
 		}
 
 		.column-title {
-			position: absolute;
+			position: relative;
 			font-size: 1rem;
-			padding-inline-start: 0.5rem;
-			display: none;
+			padding-inline-start: 1.5rem;
+			border-bottom: none !important;
+			border-top: 1px solid var(--line-color);
+			display: flex;
 		}
 		.toggle-btn {
 			width: auto;
+			padding: 0.5rem;
 			&:hover {
-				transform: none;
-				padding: 0.5rem;
+				transform: translateX(0);
+				padding:0.5rem;
 				width: auto;
-				transform: rotateY(30deg);
 				box-shadow: 0px 1px 100px 1px rgba(255, 255, 255, 0.2);
-				letter-spacing: 0.2rem;
+				letter-spacing: 0;
 			}
 		}
 		.task-list {
 			height: auto;
 			display: flex;
 			flex-direction: row;
-			flex-wrap: nowrap;
-			justify-content: stretch;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			margin: 0;
+			padding: 1rem;
 			align-items: stretch;
-			overflow-y: hidden;
-			gap: 0.5rem;
+			gap: 0.25rem;
 			margin-top: 0.5rem !important;
-			width: 100% !important;
+			margin-right: 1rem;
+			width: auto;
+			overflow-y: scroll;
+			&::-webkit-scrollbar {
+				width: 0.5rem;
+				background-color: transparent;
+			}
+			&::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			&::-webkit-scrollbar-thumb {
+				background: var(--placeholder-color);
+				border-radius: 1rem;
+			}
 		}
 
 		.task-card {
@@ -4254,9 +4359,9 @@
 			justify-content: space-between;
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			position: relative;
-			flex: 1 1 280px;
+			flex: 1 1 100%;
 			min-width: 200px;
-			max-width: 250px;
+			max-width: calc(33% - 1rem);
 			//width may break horizontal shift scroll
 			word-break: break-word;
 			transition: all 0.3s ease;
@@ -4438,19 +4543,150 @@
 			justify-content: flex-start;
 			overflow-y: scroll;
 			overflow-x: hidden;
-			width: 100%;
+			width: 98%;
 			margin-right: 2rem;
-			height: 90vh;
+			height:84vh;
 			border-radius: 2rem;
 			border: 1px solid var(--line-color);
 			padding: 0;
 			margin: 0;
 		}
 		.kanban-column {
-			max-width: 100%;
+			// max-width: 100%;
 			display: flex;
 			flex-direction: column;
 		}
+
+	.timeline-container {
+		transition: all 0.3s ease;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		gap: 0.25rem;
+		padding: 0.5rem !important;
+		width: auto;
+		& span {
+			display: flex;
+			flex-direction: row;
+		}
+		& .timeline {
+			display: none;
+		}
+
+		& .timeline-wrapper {
+			display: flex;
+			margin-left: 1rem;
+			flex-direction: column;
+			justify-content: flex-end;
+			border-radius: 1rem;
+			width: auto;
+			padding: 0;
+			transition: all 0.2s ease;
+			&:hover {
+				background-color: var(--primary-color);
+				padding: 0.5rem;
+				flex-grow: 1;
+				span {
+					width: 100% !important;
+				}
+				& .date-part {
+					font-size: 1rem !important;
+				}
+
+				& .timeline {
+					position: relative;
+					align-items: center;
+					display: flex;
+					justify-content: center;
+					flex-direction: row;
+					// width: 8rem;
+					display: flex;
+
+					font-size: 1rem;
+					background-color: row;
+				}
+			}
+		}
+		span.date-status.upcoming,
+		span.date-status.overdue,
+		span.date-status.due-today {
+			padding: 0 !important;
+			margin: 0 !important;
+			display: flex;
+			font-size: 0.7rem !important;
+			justify-content: flex-end;
+			letter-spacing: 0;
+			color: var(--line-color);
+		}
+		&:hover {
+			flex-direction: row;
+			width: calc(100% - 2rem);
+			margin-left: 1rem;
+			padding: 0;
+
+			span.date-status.upcoming,
+			span.date-status.overdue,
+			span.date-status.due-today {
+				padding: 0 !important;
+				margin: 0 !important;
+				display: flex;
+				font-size: 0.7rem !important;
+				letter-spacing: 0;
+			}
+		}
+	}
+
+	.timeline {
+		// color: var(--text-color);
+		// padding: 0.25rem 0.5rem;
+		// border-bottom-left-radius: 0.5rem;
+		// border-top-right-radius: 0.5rem;
+		font-size: 0.75rem;
+		// display: inline-block;
+		letter-spacing: 0.1rem;
+		// position: absolute;
+		// left: 0;
+		// bottom: 0;
+	}
+	.timeline-container .date-part,
+	.timeline-container .month-part,
+	.timeline-container .year-part {
+		cursor: ns-resize;
+		// padding: 0.5rem;
+		border-radius: 0.5rem;
+		transition: all 0.2s ease;
+		text-align: center;
+		display: flex;
+		font-size: 0.5rem !important;
+		justify-content: center;
+		z-index: 10;
+		&:hover {
+            overflow: hidden;
+        }
+	}
+
+	.timeline-container .date-part:hover,
+	.timeline-container .month-part:hover,
+	.timeline-container .year-part:hover {
+		background-color: var(--tertiary-color);
+		// padding: 0.5rem;
+	}
+
+	.timeline-container .date-part {
+		min-width: 40px;
+		text-align: center;
+		font-size: 0.5rem !important;
+	}
+
+	.timeline-container .month-part {
+		min-width: 36px;
+		text-align: center;
+	}
+
+	.timeline-container .year-part {
+		min-width: 40px;
+		text-align: center;
+	}
 	}
 
 	@media (max-width: 768px) {
@@ -4479,23 +4715,25 @@
 			gap: 1rem;
 		}
 		.kanban-board {
-			height: 87vh;
+			height: 78vh;
+			margin-left: 0.5rem;
 		}
 		.task-card {
 			background: var(--secondary-color);
 			border-radius: 1rem;
 			margin-bottom: 0.5rem;
+						flex: 1 1 100%;
+			min-width: 120px;
+			max-width: calc(50% - 0.5rem);
 			cursor: move;
-			width: 250px;
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			position: relative;
-			width: auto;
 			word-break: break-all;
 			transition: all 0.3s ease;
 		}
 
 		.task-card:hover {
-			transform: translateX(1rem);
+			transform: translateX(0);
 			// transform: scale(1.05) translateX(0) rotate(2deg);
 			box-shadow: none;
 			// box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
@@ -4527,7 +4765,7 @@
 			flex-wrap: wrap;
 			width: auto !important;
 			font-size: 0.5rem !important;
-			bottom: 0;
+			bottom: 1rem;
 		}
 
 		h4 {
@@ -4559,7 +4797,7 @@
 			left: 0rem;
 			overflow: hidden;
 			top: 7rem;
-			bottom: 23rem;
+			bottom: 20rem;
 			height: auto;
 			gap: 1rem;
 			position: absolute;
@@ -4567,14 +4805,15 @@
 		.column-view-controls {
 			display: flex;
 			flex-direction: row;
-			justify-content: flex-end;
-			align-items: flex-start;
+			justify-content: flex-start;
+			align-items: stretch;
 			position: absolute;
 			z-index: 2000;
 			height: auto;
 			width: auto !important;
 			font-size: 0.5rem !important;
-			bottom: 0;
+			bottom: -1.5rem;
+			backdrop-filter: blur(10px);
 		}
 
 		.global-input-container {
@@ -4613,7 +4852,9 @@
 			display: none;
 		}
 		.kanban-board {
-			height: 80vh !important;
+			margin-right: 0.5rem !important;
+			width: auto;
+			height: 78vh !important;
 		}
 	}
 </style>

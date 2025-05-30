@@ -13,13 +13,13 @@
 	import Hero from'$lib/features/game/components/Hero.svelte';
 	import {
 		gameService,
-		gameMapStore,
+		gameBuildingStore,
+		gameRoomStore,
 		gameRoadStore,
 		otherHeroesStore
 	} from '$lib/stores/gameStore';
 	import type {
-		GameState,
-		GameMap as GameMapType,
+		GameBuilding,	
 		GameRoad as GameRoadType,
 		GameHero
 	} from '$lib/types/types.game';
@@ -34,6 +34,8 @@
 	// Track if we're inside a building
 	let isInsideBuilding = false;
 
+  	let heroDirection: 'left' | 'right' | 'up' | 'down' = 'down';
+
 	// Camera/viewport management
 	let mapContainer: HTMLDivElement;
 	let camera = {
@@ -45,7 +47,7 @@
 	};
 
 	// Map data from stores
-	$: mapContainers = $gameMapStore;
+	$: buildings = $gameBuildingStore || []; 
 	$: roads = $gameRoadStore || [];
 	$: otherHeroes = $otherHeroesStore;
 
@@ -197,7 +199,7 @@
 	async function handleGridMovement(direction: string) {
 		const $gameStore = get(gameStore);
 		if (!$gameStore.heroPawn || !data.user) return;
-
+    	heroDirection = direction as 'left' | 'right' | 'up' | 'down';
 		const currentPos = $gameStore.heroPawn.position;
 		const gridX = pixelToGrid(currentPos.x);
 		const gridY = pixelToGrid(currentPos.y);
@@ -232,13 +234,13 @@
 	}
 
 	// Check if a grid position is blocked by a building
-	function isPositionBlocked(gridX: number, gridY: number): boolean {
-		return mapContainers.some((container) => {
-			const containerGridX = pixelToGrid(container.position.x);
-			const containerGridY = pixelToGrid(container.position.y);
-			return containerGridX === gridX && containerGridY === gridY;
-		});
-	}
+		function isPositionBlocked(gridX: number, gridY: number): boolean {
+			return buildings.some((container: GameBuilding) => {  
+				const containerGridX = pixelToGrid(container.position.x);
+				const containerGridY = pixelToGrid(container.position.y);
+				return containerGridX === gridX && containerGridY === gridY;
+			});
+		}
 
 	// Handle map clicks for movement
 	async function onMapClick(event: MouseEvent) {
@@ -279,15 +281,10 @@
 
 			// Initialize game with project context
 			const user = get(currentUser);
-			const currentProject = get(projectStore.currentProject);
 
 			if (user) {
 				// Initialize visibility handling for better sync management
 				gameClient.initializeVisibilityHandling(user.id);
-
-				if (currentProject) {
-					await gameService.initializeGame(user.id, currentProject.id);
-				}
 			}
 		}
 	});
@@ -296,7 +293,7 @@
 <div class="map-navigator">
 	<div class="minimap">
 		<div class="minimap-content">
-			{#each mapContainers as container}
+			{#each buildings as container}
 				<div
 					class="minimap-building"
 					style="left: {pixelToGrid(container.position.x) * 2.4}px; top: {pixelToGrid(
@@ -342,17 +339,22 @@
 				{/if}
 			{/each}
 
-			{#each mapContainers as container}
-				<MapView {container} {GRID_SIZE} {pixelToGrid} {data} bind:isInsideBuilding />
+			{#each buildings as container}
+				<MapView {container} gridSize={GRID_SIZE} {data} bind:isInsideBuilding />
 			{/each}
 
 			{#each otherHeroes as hero}
-				<Hero {hero} isCurrentUser={false} {GRID_SIZE} {pixelToGrid} />
+				<Hero {hero} isCurrentUser={false} gridSize={GRID_SIZE} />
 			{/each}
 
 			{#if $gameStore.heroPawn}
-				<Hero hero={$gameStore.heroPawn} isCurrentUser={true} {GRID_SIZE} {pixelToGrid} />
-			{/if}
+			<Hero 
+				hero={$gameStore.heroPawn} 
+				isCurrentUser={true} 
+				gridSize={GRID_SIZE}
+				direction={heroDirection}
+			/>			
+  			{/if}
 		</div>
 	</div>
 </div>

@@ -10,9 +10,7 @@ import type {
 	AIPreferences,
 	Message,
 	NetworkData,
-	CursorPosition,
 	AIModel,
-	Workflows,
 	Threads,
 	Messages
 } from '$lib/types/types';
@@ -22,6 +20,10 @@ const userCache = new Map<string, { data: User; timestamp: number }>();
 const CACHE_DURATION = 60000;
 let lastAuthCheck = 0;
 const AUTH_CHECK_COOLDOWN = 5000;
+let cachedAuthState: { isValid: boolean; user: User; timestamp: number } | null = null;
+const AUTH_CACHE_DURATION = 60000; // 1 minute cache
+
+
 
 // Export PocketBase URL for UI components (avatar display, etc.)
 export const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL;
@@ -51,7 +53,55 @@ currentUser.subscribe((user) => {
 		}
 	}
 });
+export async function refreshCurrentUser(): Promise<void> {
+	const user = get(currentUser);
+	if (!user?.id) return;
 
+	try {
+		console.log('Refreshing current user data from database...');
+		
+		const pb = new PocketBase(pocketbaseUrl);
+		
+		if (typeof window !== 'undefined') {
+			const authData = localStorage.getItem('pocketbase_auth');
+			if (authData) {
+				pb.authStore.loadFromCookie(authData);
+			}
+		}
+
+		const freshUser = await pb.collection('users').getOne(user.id, {
+			fields: '*' 
+		});
+
+		console.log('Fresh user data from database:', freshUser);
+		
+		currentUser.set(freshUser as User);
+		
+		console.log('currentUser store updated with fresh data');
+		
+	} catch (error) {
+		console.error('Failed to refresh current user:', error);
+	}
+}
+
+// Function to update a specific field in the current user
+export async function updateCurrentUserField(field: keyof User, value: User[keyof User]): Promise<void> {
+	const user = get(currentUser);
+	if (!user?.id) return;
+
+	try {
+		// Update the store immediately for UI responsiveness
+		currentUser.update(u => u ? { ...u, [field]: value } : null);
+		
+		// Then refresh from database to ensure consistency
+		await refreshCurrentUser();
+		
+	} catch (error) {
+		console.error(`Failed to update user field ${field}:`, error);
+		// Refresh anyway to get the current state
+		await refreshCurrentUser();
+	}
+}
 // ============= Authentication API Calls =============
 
 export async function checkPocketBaseConnection(): Promise<boolean> {
@@ -83,7 +133,7 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 }
 
 export function getFileUrl(
-	record: any,
+	record: { id: string },
 	filename: string,
 	collection: string = 'ai_agents'
 ): string {
@@ -97,10 +147,20 @@ export async function ensureAuthenticated(): Promise<boolean> {
 		return authCheckInProgress;
 	}
 
-	// Check if we've recently validated and have a user
 	const now = Date.now();
 	const currentUserValue = get(currentUser);
 
+	// Check cached auth state first
+	if (cachedAuthState && 
+		now - cachedAuthState.timestamp < AUTH_CACHE_DURATION && 
+		cachedAuthState.isValid) {
+		if (!currentUserValue || currentUserValue.id !== cachedAuthState.user.id) {
+			currentUser.set(cachedAuthState.user);
+		}
+		return true;
+	}
+
+	// Check if we've recently validated and have a user
 	if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN && currentUserValue && currentUserValue.id) {
 		return true;
 	}
@@ -110,20 +170,27 @@ export async function ensureAuthenticated(): Promise<boolean> {
 	// Start a new authentication check
 	authCheckInProgress = (async () => {
 		try {
-			// Make the server request
 			const url = '/api/verify/auth-check';
 			console.log('Checking authentication with server...');
+
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout for auth check
 
 			const response = await fetch(url, {
 				method: 'GET',
 				credentials: 'include',
 				headers: {
-					Accept: 'application/json'
-				}
+					'Accept': 'application/json',
+					'Cache-Control': 'no-cache' // Prevent browser caching
+				},
+				signal: controller.signal
 			});
+
+			clearTimeout(timeoutId);
 
 			if (!response.ok) {
 				console.warn('Authentication check failed: server returned', response.status);
+				cachedAuthState = null;
 				currentUser.set(null);
 				return false;
 			}
@@ -131,15 +198,25 @@ export async function ensureAuthenticated(): Promise<boolean> {
 			const data = await response.json();
 			if (data.success && data.user) {
 				console.log('Authentication confirmed by server');
+				
+				// Update cache
+				cachedAuthState = {
+					isValid: true,
+					user: data.user,
+					timestamp: now
+				};
+				
 				currentUser.set(data.user);
 				return true;
 			}
 
 			console.warn('Authentication check failed: invalid user data', data);
+			cachedAuthState = null;
 			currentUser.set(null);
 			return false;
 		} catch (error) {
 			console.error('Auth check error:', error);
+			cachedAuthState = null;
 			currentUser.set(null);
 			return false;
 		} finally {
@@ -149,10 +226,56 @@ export async function ensureAuthenticated(): Promise<boolean> {
 
 	return authCheckInProgress;
 }
+
 export async function withAuth<T>(fn: () => Promise<T>): Promise<T | null> {
 	const isAuthenticated = await ensureAuthenticated();
 	if (!isAuthenticated) return null;
 	return fn();
+}
+
+// Clear cache on logout
+export function clearAuthCache(): void {
+	cachedAuthState = null;
+	lastAuthCheck = 0;
+	authCheckInProgress = null;
+}
+export async function signIn(email: string, password: string): Promise<AuthModel | null> {
+	try {
+		const url = '/api/verify/signin';
+		console.log('Signing in at:', url);
+
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, password }),
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			console.error('Sign-in failed:', response.status, response.statusText);
+
+			// Try to get error message from response
+			const errorData = await response.json().catch(() => null);
+			if (errorData && errorData.error) {
+				throw new Error(errorData.error);
+			}
+
+			throw new Error(`Sign-in failed with status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		if (!data.success) throw new Error(data.error || 'Unknown error');
+
+		currentUser.set(data.user);
+
+		return {
+			token: data.token,
+			record: data.user
+		};	
+	} catch (error) {
+		console.error('Sign-in error:', error instanceof Error ? error.message : String(error));
+		return null;
+	}
 }
 
 export async function signUp(email: string, password: string): Promise<User | null> {
@@ -191,55 +314,7 @@ export async function signUp(email: string, password: string): Promise<User | nu
 		return null;
 	}
 }
-export async function signIn(email: string, password: string): Promise<AuthModel | null> {
-	try {
-		// Log the full URL we're trying to fetch
-		const url = '/api/verify/signin';
-		console.log('Signing in at:', url);
 
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email, password }),
-			// Add credentials to include cookies in the request
-			credentials: 'include'
-		});
-
-		// Check if response is ok
-		if (!response.ok) {
-			console.error('Sign-in failed:', response.status, response.statusText);
-
-			// Try to get error message from response
-			const errorData = await response.json().catch(() => null);
-			if (errorData && errorData.error) {
-				throw new Error(errorData.error);
-			}
-
-			throw new Error(`Sign-in failed with status: ${response.status}`);
-		}
-
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error || 'Unknown error');
-
-		// Update the current user store
-		currentUser.set(data.user);
-
-		/*
-		 * Initialize local PocketBase session with the token
-		 * This ensures PocketBase's client-side auth store is updated
-		 */
-		if (typeof window !== 'undefined' && data.authData && data.authData.token) {
-			const pb = new PocketBase(pocketbaseUrl);
-			pb.authStore.save(data.authData.token, data.user);
-			console.log('Local PocketBase auth store updated');
-		}
-
-		return data.authData;
-	} catch (error) {
-		console.error('Sign-in error:', error instanceof Error ? error.message : String(error));
-		return null;
-	}
-}
 
 export async function signOut(): Promise<void> {
 	try {
@@ -370,7 +445,7 @@ export async function updateUser(id: string, userData: FormData | Partial<User>)
 				if (errorData && errorData.error) {
 					throw new Error(errorData.error);
 				}
-			} catch (jsonError) {
+			} catch {
 				// If response is not JSON or fails to parse
 				throw new Error(`Update user failed with status: ${response.status}`);
 			}
@@ -401,15 +476,15 @@ export async function updateUser(id: string, userData: FormData | Partial<User>)
 	}
 }
 
-export async function getUserById(id: string, bypassCache: boolean = false): Promise<User | null> {
+export async function getUserById(userId: string, bypassCache: boolean = false): Promise<User | null> {
 	const now = Date.now();
-	const cachedUser = userCache.get(id);
+	const cachedUser = userCache.get(userId);
 	if (!bypassCache && cachedUser && now - cachedUser.timestamp < CACHE_DURATION) {
 		return cachedUser.data;
 	}
 
 	try {
-		const url = `/api/verify/users/${id}`;
+		const url = `/api/verify/users/${userId}/public`;
 
 		const response = await fetch(url, {
 			method: 'GET',
@@ -424,7 +499,7 @@ export async function getUserById(id: string, bypassCache: boolean = false): Pro
 		const data = await response.json();
 		if (!data.success) throw new Error(data.error);
 
-		userCache.set(id, { data: data.user, timestamp: now });
+		userCache.set(userId, { data: data.user, timestamp: now });
 
 		return data.user;
 	} catch (error) {
@@ -432,7 +507,52 @@ export async function getUserById(id: string, bypassCache: boolean = false): Pro
 		return null;
 	}
 }
+export async function getPublicUsersBatch(userIds: string[]): Promise<Partial<User>[]> {
+	try {
+		const url = `/api/users/public/batch`;
+		console.log('Getting batch user data for', userIds.length, 'users');
 
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ userIds })
+		});
+
+		if (!response.ok) {
+			console.error('Batch user data failed:', response.status, response.statusText);
+			return [];
+		}
+
+		const profiles = await response.json();
+		return profiles;
+	} catch (error) {
+		console.error('Error fetching batch user data:', error);
+		return [];
+	}
+}
+export async function getPublicUserByUsername(username: string): Promise<Partial<User> | null> {
+	try {
+		const url = `/api/users/username/${username}`;
+		console.log('Getting user by username at:', url);
+
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			console.error('Get user by username failed:', response.status, response.statusText);
+			return null;
+		}
+
+		const data = await response.json();
+
+		if (!data.user) throw new Error('User not found');
+		return data.user;
+	} catch (error) {
+		console.error('Error fetching user by username:', error);
+		return null;
+	}
+}
 export async function getPublicUserData(userId: string): Promise<Partial<User> | null> {
 	try {
 		// Log the full URL we're trying to fetch
@@ -953,61 +1073,7 @@ export async function deleteMessage(id: string): Promise<boolean> {
 	}
 }
 
-// ============= Cursor API Calls =============
 
-/*
- * Cursor position is a special case that might require direct PocketBase usage
- * on the client for real-time updates
- */
-export interface CursorChangeCallback {
-	(data: { action: string; record: CursorPosition }): void;
-}
-
-export async function subscribeToCursorChanges(
-	callback: CursorChangeCallback
-): Promise<() => void> {
-	try {
-		const response = await fetch('/api/network/cursor-subscribe', {
-			method: 'POST',
-			credentials: 'include'
-		});
-
-		/*
-		 * This is a placeholder since WebSockets can't be handled through REST
-		 * You'll need to implement a WebSocket connection directly
-		 */
-		console.warn('Cursor subscription through REST API is not fully implemented');
-
-		// Return a dummy unsubscribe function
-		return () => {
-			fetch('/api/network/cursor-unsubscribe', {
-				method: 'POST',
-				credentials: 'include'
-			}).catch((err) => console.error('Error unsubscribing from cursor changes:', err));
-		};
-	} catch (error) {
-		console.error('Error subscribing to cursor changes:', error);
-		throw error;
-	}
-}
-
-export async function publishCursorPosition(
-	userId: string,
-	x: number,
-	y: number,
-	name: string
-): Promise<void> {
-	try {
-		await fetch('/api/network/cursor-position', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			credentials: 'include',
-			body: JSON.stringify({ userId, x, y, name })
-		});
-	} catch (error) {
-		console.error('Error publishing cursor position:', error);
-	}
-}
 
 // ============= Other User Data API Calls =============
 

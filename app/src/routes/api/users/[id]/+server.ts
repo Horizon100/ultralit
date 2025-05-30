@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	try {
 		const user = await pb.collection('users').getOne(userId, {
 			fields:
-				'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus,hero'
+				'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus,hero,wallpaper_preference'
 		});
 
 		if (!user) {
@@ -27,6 +27,7 @@ export const GET: RequestHandler = async ({ params }) => {
 				model_preference: user.model_preference || [],
 				taskAssignments: user.taskAssignments || [],
 				hero: user.hero || '',
+				wallpaper_preference: user.wallpaper_preference || null,
 				userTaskStatus: user.userTaskStatus || {
 					backlog: 0,
 					todo: 0,
@@ -65,7 +66,25 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
 		const data = await request.json();
 
-		const updateData: Record<string, any> = {};
+		// Replace Record<string, any> with inline object type
+		const updateData: {
+			model_preference?: string[];
+			taskAssignments?: string[];
+			hero?: string;
+			userTaskStatus?: {
+				backlog: number;
+				todo: number;
+				focus: number;
+				done: number;
+				hold: number;
+				postpone: number;
+				cancel: number;
+				review: number;
+				delegate: number;
+				archive: number;
+			};
+			wallpaper_preference?: string;
+		} = {};
 
 		if ('model_preference' in data) {
 			updateData.model_preference = data.model_preference;
@@ -81,6 +100,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
 		if ('userTaskStatus' in data) {
 			updateData.userTaskStatus = data.userTaskStatus;
+		}
+
+		if ('wallpaper_preference' in data) {
+			updateData.wallpaper_preference = data.wallpaper_preference;
 		}
 
 		if (Object.keys(updateData).length === 0) {
@@ -101,6 +124,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				id: updated.id,
 				model_preference: updated.model_preference || [],
 				taskAssignments: updated.taskAssignments || [],
+				wallpaper_preference: updated.wallpaper_preference || null,
 				userTaskStatus: updated.userTaskStatus || {
 					backlog: 0,
 					todo: 0,

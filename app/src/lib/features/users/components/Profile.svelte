@@ -25,7 +25,10 @@
 		ChevronLeft,
 		TagsIcon,
 		Settings,
-		SettingsIcon
+		SettingsIcon,
+
+		WallpaperIcon
+
 	} from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
@@ -37,12 +40,10 @@
 	import { currentTheme } from '$lib/stores/themeStore';
 	import StyleSwitcher from '$lib/features/users/components/StyleSwitcher.svelte';
 	import StatsContainer from '$lib/features/users/components/StatsContainer.svelte';
-	import APIKeyInput from '$lib/features/ai/components/models/APIKeyInput.svelte';
 	import { apiKey } from '$lib/stores/apiKeyStore';
-	import KeyStatusButton from '$lib/components/buttons/KeyStatusButton.svelte';
 	import TagEditor from '$lib/features/users/components/TagEditor.svelte';
 	import AvatarUploader from '$lib/features/users/components/AvatarUploader.svelte';
-	import type { ProviderType } from '$lib/types/types';
+    import WallpaperSelector from '$lib/features/users/components/WallpaperSelector.svelte';
 
 	interface UserData {
 		id: string;
@@ -62,6 +63,7 @@
 
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
+
 	let isLoading = false;
 
 	let completeUserData: UserData | null = null;
@@ -77,6 +79,7 @@
 	let placeholderText = '';
 
 	let showStyles = false;
+	let showWallpapers = false;
 	let currentStyle = 'default';
 
 	let activeTab = 'profile';
@@ -131,6 +134,9 @@
 	function toggleStyles(): void {
 		showStyles = !showStyles;
 	}
+	function toggleWallpapers(): void {
+		showWallpapers = !showWallpapers;
+	}
 
 	function toggleAvatarUploader(): void {
 		showAvatarUploader = !showAvatarUploader;
@@ -152,11 +158,26 @@
 	function handleAvatarUploadError(error: string): void {
 		console.error('Avatar upload error:', error);
 	}
+function handleWallpaperChangeEvent(event: CustomEvent) {
+	const { wallpaperPreference } = event.detail;
+	console.log('Wallpaper changed:', wallpaperPreference);
+	
+	// The currentUser store should automatically update, but you can manually update if needed
+	// currentUser.update(user => ({ 
+	//     ...user, 
+	//     wallpaper_preference: stringifyWallpaperPreference(wallpaperPreference) 
+	// }));
+	
+	// Optionally close the wallpaper selector after selection
+	// showWallpapers = false;
+}
 
 	function handleStyleClose(): void {
 		showStyles = false;
 	}
-
+	function handleWallpaperClose(): void {
+		showWallpapers = false;
+	}
 	function switchTab(tab: string): void {
 		activeTab = tab;
 	}
@@ -238,6 +259,12 @@
 		await currentTheme.set(style);
 		showStyles = false;
 	}
+	async function handleWallpaperChange(event: CustomEvent): Promise<void> {
+		const { wallpaper } = event.detail;
+		await currentTheme.set(wallpaper);
+		showStyles = false;
+	}
+
 
 	$: placeholderText = getRandomQuote();
 
@@ -385,43 +412,48 @@
 			return 'Invalid date';
 		}
 	}
-	onMount(async () => {
-		if (user?.id) {
-			try {
-				isLoading = true;
+onMount(async () => {
+    if (user?.id) {
+        try {
+            isLoading = true;
 
-				// Fetch complete user data in parallel
-				const [completeUser, verifiedData] = await Promise.all([
-					getUserById(user.id),
-					fetchCompleteUserData(user.id)
-				]);
+            // Fetch complete user data in parallel
+            const [completeUser, verifiedData] = await Promise.all([
+                getUserById(user.id),
+                fetchCompleteUserData(user.id)
+            ]);
 
-				// Merge all data sources
-				user = {
-					...user,
-					...completeUser,
-					...(verifiedData?.user || {}),
-					name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
-					username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
-					description: completeUser?.description || ''
-				};
+            // Safely extract user data from verifiedData
+            const verifiedUserData = verifiedData && typeof verifiedData === 'object' && 'user' in verifiedData 
+                ? (verifiedData as { user: UserData }).user 
+                : verifiedData as UserData;
 
-				// Initialize editedUser
-				editedUser = {
-					name: user.name,
-					username: user.username,
-					description: user.description
-				};
+            // Merge all data sources
+            user = {
+                ...user,
+                ...completeUser,
+                ...(verifiedUserData || {}),
+                name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
+                username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
+                description: completeUser?.description || ''
+            };
 
-				currentTheme.initialize();
-				await loadUserStats();
-			} catch (err) {
-				console.error('Failed to load user data:', err);
-			} finally {
-				isLoading = false;
-			}
-		}
-	});
+            // Initialize editedUser
+            editedUser = {
+                name: user.name,
+                username: user.username,
+                description: user.description
+            };
+
+            currentTheme.initialize();
+            await loadUserStats();
+        } catch (err) {
+            console.error('Failed to load user data:', err);
+        } finally {
+            isLoading = false;
+        }
+    }
+});
 </script>
 
 <div
@@ -480,6 +512,14 @@
 							/>
 							<!-- <span class="hover">{$t('profile.theme')}</span> -->
 						</button>
+						<button
+							class="settings-button"
+							on:click={toggleWallpapers}
+							transition:fly={{ y: -200, duration: 300 }}
+						>
+							<WallpaperIcon size={16}/>
+							<!-- <span class="hover">{$t('profile.theme')}</span> -->
+						</button>
 						<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 							<LogOutIcon size={16} />
 							<span class="hover">{$t('profile.logout')}</span>
@@ -504,6 +544,25 @@
 				</div>
 			</div>
 		{/if}
+{#if showWallpapers}
+	<div
+		class="style-overlay"
+		on:click={handleOverlayClick}
+		transition:fly={{ x: -200, duration: 300 }}
+	>
+		<div
+			class="style-content"
+			on:click|stopPropagation
+			transition:fly={{ x: -20, duration: 300 }}
+		>
+			<WallpaperSelector 
+				currentWallpaper={$currentUser?.wallpaper_preference || { wallpaperId: null, isActive: false }}
+				on:close={handleWallpaperClose} 
+				on:styleChange={handleWallpaperChangeEvent}
+			/>				
+		</div>
+	</div>
+{/if}
 
 		{#if user}
 			<!-- Tab Navigation -->
@@ -538,7 +597,11 @@
 										{#if isEditing}
 											<input
 												value={editedUser.username || editedUser.email?.split('@')[0] || ''}
-												on:input={(e) => (editedUser.username = e.target.value)}
+												on:input={(e) => {
+													if (e.target instanceof HTMLInputElement) {
+														editedUser.username = e.target.value;
+													}
+												}}											
 											/>
 										{:else}
 											<span class="row">
@@ -558,8 +621,12 @@
 													editedUser.fullName ||
 													editedUser.displayName ||
 													''}
-												on:input={(e) => (editedUser.name = e.target.value)}
-											/>
+												on:input={(e) => {
+													if (e.target instanceof HTMLInputElement) {
+														editedUser.name = e.target.value;
+													}
+												}}											
+											/>											
 										{:else}
 											<span class="name"
 												>{user?.name || user?.fullName || user?.displayName || 'Not set'}</span
@@ -638,8 +705,12 @@
 									<textarea
 										class="textarea-description"
 										value={editedUser.description}
-										on:input={(e) => (editedUser.description = e.target.value)}
 										placeholder="Enter your description"
+										on:input={(e) => {
+											if (e.target instanceof HTMLInputElement) {
+												editedUser.description = e.target.value;
+											}
+										}}											
 									></textarea>
 								{:else}
 									<span class="description">
@@ -760,16 +831,11 @@
 	</div>
 {/if}
 
-{#if !hasApiKey}
-	<div class="key-overlay">
-		<APIKeyInput />
-	</div>
-{/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
-		color: var(--text-color);
 	}
 	.modal-overlay {
 		display: flex;
@@ -778,12 +844,21 @@
 		width: 100%;
 		height: 100%;
 		border-radius: 2rem;
-		overflow-y: scroll;
-		overflow-x: hidden;
-		scroll-behavior: smooth;
-		scrollbar-color: var(--bg-color) transparent;
 		transition: all 0.3s ease;
 		background: transparent;
+				overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.btn-row {
@@ -822,6 +897,7 @@
 	textarea {
 		background: var(--secondary-color) !important;
 		border: 1px solid transparent;
+		color: var(--text-color);
 		border-radius: 1rem;
 		outline: none !important;
 		width: 100%;
@@ -830,6 +906,8 @@
 		&:focus {
 			background: var(--primary-color) !important;
 			border: 1px solid var(--secondary-color);
+			box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+
 		}
 	}
 	input {
@@ -877,6 +955,27 @@
 			font-size: 2.5rem;
 			letter-spacing: 0.1rem;
 			font-weight: 800;
+			input {
+				background: var(--secondary-color) !important;
+				color: var(--text-color);
+				border-radius: var(--radius-m);
+				padding: 1rem;
+				font-size: 1.5rem;
+				resize: vertical;
+				width: auto;
+				display: flex;
+				height: auto;
+				outline: none !important;
+				border: 1px solid transparent;
+				transition: all 0.3s ease;
+
+				&:focus {
+					background: var(--primary-color) !important;
+					border: 1px solid var(--secondary-color);
+					box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+
+				}
+			}
 		}
 		.info-stats {
 			display: flex;
@@ -915,7 +1014,6 @@
 		& .info-row {
 			justify-content: flex-start;
 			align-items: center;
-
 			padding: 0;
 			& span.row {
 				display: flex;
@@ -1000,7 +1098,7 @@
 		left: 0;
 		margin-top: 0;
 		margin-bottom: 2rem;
-		width: 600px;
+		max-width: calc(100% - 2rem);
 		height: auto;
 		display: flex;
 		justify-content: right;
@@ -1067,7 +1165,7 @@
 			font-size: 1rem;
 			width: 100%;
 			line-height: 1.5;
-			padding: 1.5rem;
+			padding: 1rem;
 			min-height: 200px;
 			scroll-behavior: smooth;
 			scrollbar-color: var(--secondary-color) transparent;
@@ -1118,7 +1216,7 @@
 		width: 100%;
 
 		& input {
-			background: var(--primary-color);
+			background: var(--primary-color) !important;
 			border-radius: var(--radius-m);
 			padding: 1rem;
 			font-size: 1.5rem;
@@ -1127,6 +1225,18 @@
 			height: auto;
 			min-width: 300px;
 		}
+	}
+
+	.info-row input {
+					background: var(--primary-color) !important;
+			border-radius: var(--radius-m);
+			padding: 1rem;
+			font-size: 1.5rem;
+			resize: vertical;
+			display: flex;
+			height: auto;
+			min-width: 300px;
+		
 	}
 	span.meta {
 		display: flex;
@@ -1533,8 +1643,8 @@
 
 		.style-overlay {
 			top: auto;
-			left: auto;
-			width: 100vw;
+			left: 0;
+			width: 100% !important;
 			height: fit-content;
 		}
 

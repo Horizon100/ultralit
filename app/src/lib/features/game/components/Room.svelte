@@ -4,13 +4,13 @@
 	import { gameRoomStore, gameStore } from '$lib/stores/gameStore';
 	import { get } from 'svelte/store';
 	import { gameClient } from '$lib/clients/gameClient';
-	import type { GameMap, GameRoom } from '$lib/types/types.game';
+	import type { GameBuilding, GameRoom } from '$lib/types/types.game';
 
-	export let currentMap: GameMap | null = null;
+	export let currentMap: GameBuilding | null = null;
 	export let isExpanded: boolean = false;
-	export let data: any;
-	export let GRID_SIZE: number;
-	export let pixelToGrid: (pixel: number) => number;
+	export const data: any = undefined;
+	export const gridSize: any = undefined;
+	export const pixelToGrid: (pixel: number) => number = () => 0; 
 	export let gridX: number;
 	export let gridY: number;
 
@@ -25,7 +25,7 @@
 	let targetPosition = { ...heroPosition };
 
 	// Room layout and corridors
-	$: rooms = currentMap ? $gameRoomStore.filter((room) => room.mapContainer === currentMap.id) : [];
+	$: rooms = currentMap ? $gameRoomStore.filter((room) => room.building === currentMap.id) : [];
 	$: buildingLayout = createBuildingLayout(rooms);
 
 	function createBuildingLayout(rooms: GameRoom[]): BuildingCell[][] {
@@ -200,7 +200,7 @@
 	}
 
 	function getRoomColor(roomType: string) {
-		const colors = {
+		const colors: Record<string, string> = {
 			hr: '#3b82f6',
 			library: '#8b5cf6',
 			manufacturing: '#f59e0b',
@@ -218,7 +218,7 @@
 	}
 
 	function getRoomIcon(roomType: string) {
-		const icons = {
+		const icons: Record<string, string> = {
 			hr: '👥',
 			library: '📚',
 			manufacturing: '⚙️',
@@ -320,7 +320,12 @@
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}	
 	.expanded-building {
 		background: white;
 		border-radius: 16px;

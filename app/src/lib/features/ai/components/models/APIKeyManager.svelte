@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Key, Eye, EyeOff, Check, AlertCircle, Trash } from 'lucide-svelte';
-	import { apiKeys, type ApiKeys } from '$lib/stores/apiKeyStore';
+	import { apiKey, type ApiKeys } from '$lib/stores/apiKeyStore';
 	import { fade, slide } from 'svelte/transition';
 
 	interface ServiceConfig {
@@ -40,7 +40,7 @@
 	let verifying: Partial<Record<keyof ApiKeys, boolean>> = {};
 	let errors: Partial<Record<keyof ApiKeys, string>> = {};
 
-	$: existingKeys = Object.keys($apiKeys).filter((key) => !!$apiKeys[key]);
+	$: existingKeys = Object.keys($apiKey).filter((key) => !!$apiKey[key]);
 
 	async function verifyAndSaveKey(service: keyof ApiKeys) {
 		const key = inputKeys[service];
@@ -58,7 +58,7 @@
 			});
 
 			if (response.ok) {
-				await apiKeys.setKey(service, key);
+				await apiKey.setKey(service as string, key);
 				inputKeys[service] = '';
 			} else {
 				const data = await response.json();
@@ -74,7 +74,7 @@
 
 	async function removeKey(service: keyof ApiKeys) {
 		try {
-			await apiKeys.removeKey(service);
+			await apiKey.deleteKey(service as string);
 		} catch (error) {
 			console.error(`Error removing ${service} key:`, error);
 		}
@@ -93,7 +93,7 @@
 
 			<p class="description">{config.description}</p>
 
-			{#if $apiKeys[service]}
+			{#if $apiKey[service]}
 				<div class="existing-key" transition:fade>
 					<div class="key-display">
 						<span>••••••••</span>
@@ -106,12 +106,21 @@
 			{:else}
 				<div class="input-group">
 					<div class="input-wrapper">
-						<input
-							type={showKeys[service] ? 'text' : 'password'}
-							bind:value={inputKeys[service]}
-							placeholder={config.placeholder}
-							pattern={config.pattern}
-						/>
+						{#if showKeys[service]}
+							<input
+								type="text"
+								bind:value={inputKeys[service]}
+								placeholder={config.placeholder}
+								pattern={config.pattern}
+							/>
+						{:else}
+							<input
+								type="password"
+								bind:value={inputKeys[service]}
+								placeholder={config.placeholder}
+								pattern={config.pattern}
+							/>
+						{/if}
 						<button
 							class="toggle-visibility"
 							on:click={() => (showKeys[service] = !showKeys[service])}
@@ -147,8 +156,10 @@
 	</div>
 </div>
 
-<style>
-	.api-key-manager {
-		/* Add your styles here */
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
 	}
+
 </style>

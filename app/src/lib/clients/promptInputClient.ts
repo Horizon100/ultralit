@@ -1,5 +1,5 @@
 import { ensureAuthenticated } from '$lib/pocketbase';
-import type { PromptInput, PromptType } from '$lib/types/types';
+import type { PromptInput } from '$lib/types/types';
 
 async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
@@ -10,7 +10,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 				errorData.message ||
 					`API request failed with status ${response.status}: ${response.statusText}`
 			);
-		} catch (jsonError) {
+		} catch {
 			throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
 		}
 	}
@@ -42,10 +42,7 @@ export async function fetchUserPrompts(): Promise<PromptInput[]> {
 	}
 }
 
-export async function createPrompt(
-	promptText: string,
-	promptType: PromptType = 'NORMAL'
-): Promise<PromptInput> {
+export async function createPrompt(promptText: string): Promise<PromptInput> {
 	try {
 		await ensureAuthenticated();
 		console.log('Creating prompt with text:', promptText);
@@ -56,7 +53,7 @@ export async function createPrompt(
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ text: promptText, type: promptType }),
+			body: JSON.stringify({ text: promptText }),
 			credentials: 'include'
 		});
 
@@ -79,24 +76,18 @@ export async function createPrompt(
 
 export async function updatePrompt(
 	id: string,
-	promptText: string,
-	promptType?: PromptType
+	promptText: string
 ): Promise<PromptInput> {
 	try {
 		await ensureAuthenticated();
-		console.log(`Updating prompt ${id} with text:`, promptText, 'and type:', promptType);
-		const updateData: { text: string; type?: PromptType } = { text: promptText };
-
-		if (promptType) {
-			updateData.type = promptType;
-		}
+		console.log(`Updating prompt ${id} with text:`, promptText);
 
 		const response = await fetch(`/api/prompts/${id}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify(updateData),
+			body: JSON.stringify({ text: promptText }),
 			credentials: 'include'
 		});
 
@@ -109,7 +100,7 @@ export async function updatePrompt(
 			try {
 				const errorJson = JSON.parse(errorText);
 				throw new Error(errorJson.error || `Failed to update prompt: ${response.statusText}`);
-			} catch (parseError) {
+			} catch {
 				throw new Error(`Failed to update prompt: ${response.statusText}`);
 			}
 		}

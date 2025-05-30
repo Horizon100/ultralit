@@ -3,7 +3,10 @@ import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import type { Post, PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
 import type { User } from '$lib/types/types';
-interface PBListResult<T> {
+
+
+export const GET: RequestHandler = async ({ url, locals }) => {
+	interface PBListResult<T> {
 	items: T[];
 	totalPages: number;
 	totalItems: number;
@@ -19,8 +22,6 @@ interface TimelinePost extends PostWithInteractions {
 	repostedBy_name?: string;
 	repostedBy_avatar?: string;
 }
-
-export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
 		// Modified: Allow both authenticated and guest users to view posts
 		const isAuthenticated = !!locals.user;
@@ -79,7 +80,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				if (!attachmentsMap.has(attachment.post)) {
 					attachmentsMap.set(attachment.post, []);
 				}
-				attachmentsMap.get(attachment.post)!.push(attachment);
+				const attachmentsList = attachmentsMap.get(attachment.post);
+				if (attachmentsList) {
+					attachmentsList.push(attachment);
+				}
 			});
 		}
 
@@ -89,21 +93,20 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const attachments = attachmentsMap.get(post.id) || [];
 
 			// Check if user has interacted with this post (only if authenticated)
-			const upvote = isAuthenticated ? post.upvotedBy?.includes(locals.user!.id) || false : false;
-			const downvote = isAuthenticated
-				? post.downvotedBy?.includes(locals.user!.id) || false
+			const upvote = isAuthenticated && locals.user ? post.upvotedBy?.includes(locals.user.id) || false : false;
+			const downvote = isAuthenticated && locals.user
+				? post.downvotedBy?.includes(locals.user.id) || false
 				: false;
-			const repost = isAuthenticated ? post.repostedBy?.includes(locals.user!.id) || false : false;
-			const hasRead = isAuthenticated ? post.readBy?.includes(locals.user!.id) || false : false;
-
+			const repost = isAuthenticated && locals.user ? post.repostedBy?.includes(locals.user.id) || false : false;
+			const hasRead = isAuthenticated && locals.user ? post.readBy?.includes(locals.user.id) || false : false;
 			return {
 				...post,
 				upvote,
 				downvote,
 				repost,
 				hasRead,
-				share: false, // Default value for share interaction
-				quote: false, // Default value for quote interaction
+				share: false,
+				quote: false,
 				author_name: userData?.name,
 				author_username: userData?.username,
 				author_avatar: userData?.avatar,
@@ -111,7 +114,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			} as PostWithInteractions;
 		});
 
-		// OPTIONAL: Add separate repost entries to the timeline
 		const timelineWithReposts: TimelinePost[] = [];
 
 		postsWithInteractions.forEach((post) => {
@@ -313,6 +315,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				upvote: false,
 				downvote: false,
 				repost: false,
+				preview: false,
 				hasRead: false,
 				share: false,
 				quote: false,

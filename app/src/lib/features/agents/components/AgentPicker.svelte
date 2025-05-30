@@ -30,7 +30,7 @@
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
 	import { goto } from '$app/navigation';
-
+	import { getAvatarUrl, getAgentAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
@@ -63,12 +63,11 @@
 	let selectedStatus: string | null = null;
 	let selectedTags: string[] = [];
 	let showFilters = false;
-	let selectedAIModel: AIModel = 'gpt-3.5-turbo'; // Set a default value
-
+	let selectedAIModel: AIModel;
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-	const statusIcons = {
+	const statusIcons: Record<string, any> = {
 		active: Activity,
 		inactive: Compass,
 		maintenance: ServerCog,
@@ -90,7 +89,7 @@
 		{ value: 'za', label: 'Alphabetical descending' }
 	];
 
-	const roleIcons = {
+	const roleIcons: Record<string, any> = {
 		hub: Cpu,
 		proxy: ShieldCheck,
 		assistant: HeadphonesIcon,
@@ -169,7 +168,7 @@
 		try {
 			await loadAgents();
 			await modelStore.loadModels($currentUser.id);
-			await actionStore.loadActions($currentUser.id);
+			await actionStore.loadActions();
 		} finally {
 			hideLoading();
 			isLoading = false;
@@ -299,12 +298,7 @@
 		}
 	}
 
-	function getAvatarUrl(agent: AIAgent): string {
-		if (agent.avatar) {
-			return pb.getFileUrl(agent, agent.avatar);
-		}
-		return '';
-	}
+
 
 	async function handleAvatarUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -406,7 +400,7 @@
 
 						<div class="avatar-container">
 							{#if agent.avatar}
-								<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
 									<Bot size={48} />
@@ -552,7 +546,7 @@
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Bot size={48} />
 							{/if}
@@ -666,7 +660,11 @@
 						<input
 							type="text"
 							placeholder="Add a tag"
-							on:keydown={(e) => e.key === 'Enter' && addTag(e.target.value)}
+							on:keydown={(e) => {
+								if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+									addTag(e.target.value);
+								}
+							}}						
 						/>
 					</div>
 					<div class="tag-list">
@@ -701,7 +699,7 @@
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Bot size={48} />
 							{/if}
@@ -784,7 +782,10 @@
 	</div>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}	
 	.agents-config {
 		display: flex;
 		position: absolute;
@@ -1487,9 +1488,7 @@
 		width: calc(100% - 90px);
 	}
 
-	.column-agents {
-		/* background-color: blue; */
-	}
+
 	.agent-name {
 		color: white;
 		font-size: 16px;

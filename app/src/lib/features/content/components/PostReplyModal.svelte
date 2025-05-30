@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import type { PostWithInteractions } from '$lib/types/types.posts';
-	import PostCard from '../../../components/cards/PostCard.svelte';
-	import PostComposer from './PostComposer.svelte';
+	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
+	import PostCard from '$lib/features/content/components/PostCard.svelte';
+	import PostComposer from '$lib/features/content/components//PostComposer.svelte';
 	import { X } from 'lucide-svelte';
 
 	export let isOpen: boolean = false;
@@ -25,20 +25,12 @@
 	}
 
 	function handleQuoteSubmit(
-		event: CustomEvent<{ content: string; attachments?: File[] | FileList | null }>
+		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
 	) {
 		if (!post) return;
 
-		let attachments: File[] = [];
-		if (event.detail.attachments) {
-			if (event.detail.attachments instanceof FileList) {
-				attachments = Array.from(event.detail.attachments);
-			} else if (Array.isArray(event.detail.attachments)) {
-				attachments = event.detail.attachments;
-			} else if (event.detail.attachments instanceof File) {
-				attachments = [event.detail.attachments];
-			}
-		}
+		// Get attachments from the event - PostComposer already sends File[]
+		const attachments = event.detail.attachments || [];
 
 		dispatch('quote', {
 			content: event.detail.content,
@@ -54,42 +46,44 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
-{#if isOpen && post}
-	<div class="modal-backdrop" on:click={handleBackdropClick} transition:fade={{ duration: 200 }}>
-		<div class="modal-content" transition:scale={{ duration: 200, start: 0.95 }}>
-			<div class="modal-header">
+{#if isOpen}
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
+	<div 
+		class="modal-backdrop" 
+		on:click={handleBackdropClick}
+		on:keydown={handleKeydown}
+		transition:fade={{ duration: 200 }}
+	>
+		<div class="modal-content" transition:scale={{ duration: 200, start: 0.9 }}>
+			<header class="modal-header">
 				<h2>Quote Post</h2>
-				<button class="close-button" on:click={handleClose}>
+				<button type="button" class="close-button" on:click={handleClose}>
 					<X size={20} />
 				</button>
-			</div>
-
+			</header>
+			
 			<div class="modal-body">
-				<!-- Quote Composer -->
-				<div class="quote-section">
-					<PostComposer
-						placeholder="What do you think about this post?"
-						buttonText="Quote Post"
-						on:submit={handleQuoteSubmit}
-					/>
-				</div>
-
-				<!-- Quoted Post (without actions, in a card style) -->
-				<div class="quoted-post">
-					<PostCard {post} showActions={false} />
-				</div>
+				{#if post}
+					<div class="quoted-post">
+						<PostCard {post} showActions={false} isPreview={true} />
+					</div>
+					
+					<div class="composer-section">
+						<PostComposer
+							placeholder="Add your comment..."
+							buttonText="Quote Post"
+							on:submit={handleQuoteSubmit}
+						/>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
 {/if}
 
+
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
+
 	@use "src/lib/styles/themes.scss" as *;
 	* {
 		font-family: var(--font-family);

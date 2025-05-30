@@ -21,7 +21,7 @@ function createApiKeyStore() {
 	const { subscribe: subscribeLoading, set: setLoading } = writable<boolean>(false);
 
 	// Define which pages need API keys
-	const chatPages = ['/chat', '/ask', '/canvas', '/ide'];
+	const chatPages = ['/chat', '/canvas', '/ide'];
 
 	function shouldLoadKeys(): boolean {
 		if (!browser) return false;
@@ -74,9 +74,6 @@ function createApiKeyStore() {
 			setLoading(false);
 		}
 	}
-
-	// DON'T automatically initialize - only load when explicitly called
-	// loadKeys(); // REMOVED THIS LINE
 
 	// Subscribe to user changes, but only load keys if on appropriate page
 	currentUser.subscribe((user) => {

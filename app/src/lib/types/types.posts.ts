@@ -49,10 +49,31 @@ export interface PostWithInteractions extends Post {
 	upvote: boolean;
 	downvote: boolean;
 	repost: boolean;
+	preview: boolean;
 	hasRead: boolean;
 	share: boolean;
 	quote: boolean;
 	author_name?: string;
 	author_username?: string;
 	author_avatar?: string;
+	expand?: {
+		user?: {
+			id: string;
+			name?: string;
+			username?: string;
+			avatar?: string;
+		};
+	};
 }
+
+export interface PostWithInteractionsExtended extends PostWithInteractions {
+	expand?: {
+		user?: {
+			id: string;
+			name?: string;
+			username?: string;
+			avatar?: string;
+		};
+	};
+}
+

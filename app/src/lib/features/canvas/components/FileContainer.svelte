@@ -50,14 +50,9 @@
 	let containerHeight: number;
 
 	$: {
-		if (file instanceof File) {
+
 			fileType = file.type;
 			fileName = file.name;
-		} else {
-			fileType = file.type;
-			fileName = file.name;
-			fileContent = file.content;
-		}
 	}
 
 	$: {
@@ -222,8 +217,6 @@
 	});
 
 	$: FileIcon = getFileIcon(fileType);
-	$: gradientBorder = getGradientBorder(fileType);
-	$: isWideScreen = containerWidth > 1600;
 </script>
 
 <div
@@ -294,7 +287,11 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.file-container {
 		position: absolute;
 		top: 0;

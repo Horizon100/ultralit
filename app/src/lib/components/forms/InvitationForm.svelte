@@ -144,11 +144,17 @@
 			isLoading = false;
 		}
 	}
+		$: invitationPlaceholder = $t('profile.invitationPlaceholder') as string;
+		$: emailPlaceholder = $t('profile.email') as string;
+		$: passwordPlaceholder = $t('profile.password') as string;
+
+
 	$: invitationReasons = $t('profile.invitationReasons') as unknown as Array<{
 		bold: string;
 		text: string;
 	}>;
 </script>
+
 
 <div class="auth-overlay" on:click|self={close}>
 	<div class="auth-content">
@@ -167,7 +173,7 @@
 							<input
 								type="text"
 								bind:value={invitationCode}
-								placeholder={$t('profile.invitationPlaceholder')}
+								placeholder={invitationPlaceholder}	
 								required
 								disabled={isCheckingCode || isLoading}
 							/>
@@ -199,7 +205,7 @@
 							<input
 								type="email"
 								bind:value={email}
-								placeholder={$t('profile.email')}
+								placeholder={emailPlaceholder}	
 								required
 								disabled={isLoading}
 							/>
@@ -218,7 +224,7 @@
 							<input
 								type="password"
 								bind:value={password}
-								placeholder={$t('profile.password')}
+								placeholder={passwordPlaceholder}	
 								required
 								disabled={isLoading}
 							/>

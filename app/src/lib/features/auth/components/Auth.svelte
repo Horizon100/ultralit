@@ -34,11 +34,11 @@
 	import { get } from 'svelte/store';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import GoogleAuth from '$lib/components/buttons/GoogleAuth.svelte';
-	import type { User } from '$lib/types/types';
 	import InvitationForm from '$lib/components/forms/InvitationForm.svelte';
 	import Google from '$lib/assets/icons/auth/google.svg';
 	import Microsoft from '$lib/assets/icons/auth/microsoft.svg';
 	import Yandex from '$lib/assets/icons/auth/yandex.svg';
+
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -52,11 +52,13 @@
 	let isWaitlistMode: boolean = false;
 	let isLoading: boolean = false;
 	let connectionChecked: boolean = false;
-
 	// Touch interaction state
 	let startY: number = 0;
 	let currentY: number = 0;
 	let isDragging: boolean = false;
+	
+	let showStyles = false;
+
 	const SWIPE_THRESHOLD = 100;
 
 	const yPosition = spring(0, {
@@ -148,7 +150,6 @@
 		showInvitationOverlay = false;
 		showPasswordReset = false;
 	}
-
 	export async function login(): Promise<void> {
 		if (!browser) return;
 
@@ -158,18 +159,23 @@
 		try {
 			if (!email || !password) {
 				errorMessage = 'Email and password are required';
-				isLoading = false;
 				return;
 			}
 
+			console.log('Starting login process...');
 			const authData = await signIn(email, password);
+			
 			if (authData) {
+				console.log('Login successful, navigating...');
 				errorMessage = '';
 				await tick();
 
+				// Close modal and dispatch success
 				dispatch('close');
-
 				dispatch('success');
+				
+				// Navigate to home page
+				await goto('/home');
 			} else {
 				errorMessage = 'Login failed. Please check your credentials.';
 			}
@@ -177,7 +183,6 @@
 			console.error('Login error:', err);
 			errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
 		} finally {
-			goto('/home');
 			isLoading = false;
 		}
 	}
@@ -191,29 +196,21 @@
 		try {
 			if (!email || !password) {
 				errorMessage = 'Email and password are required';
-				isLoading = false;
 				return;
 			}
 
-			console.log(
-				'Attempting signup with:',
-				email,
-				password ? '(password provided)' : '(no password)'
-			);
+			console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
 
 			const createdUser = await registerUser(email, password);
 			if (createdUser) {
 				// Login with the newly created credentials
 				await login();
 			} else {
-				// Handle null return from registerUser like you do in login
 				errorMessage = 'Signup failed. Please try again.';
 			}
 		} catch (err) {
-			// This catch should now only trigger for unexpected errors
 			console.error('Unexpected signup error:', err);
-			errorMessage =
-				err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+			errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
 		} finally {
 			isLoading = false;
 		}
@@ -279,6 +276,13 @@
 	function toggleProfileModal(): void {
 		showProfileModal = !showProfileModal;
 	}
+	function handleStyleClick() {
+		showStyles = !showStyles;
+	}
+
+	function handleStyleClose() {
+		showStyles = false;
+	}
 
 	function updateAvatarUrl(): void {
 		const user = get(currentUser);
@@ -298,6 +302,8 @@
 			avatarUrl = null;
 		}
 	});
+
+
 
 	async function resetPassword(): Promise<void> {
 		if (!browser) return;
@@ -337,6 +343,9 @@
 			isLoading = false;
 		}
 	}
+	$: emailPlaceholder = $t('profile.email') as string;
+	$: passwordPlaceholder = $t('profile.password') as string;
+	$: resetPlaceholder = $t('profile.emailReset') as string;
 
 	onMount(async () => {
 		if (!browser) return;
@@ -402,7 +411,7 @@
 						<input
 							type="email"
 							bind:value={email}
-							placeholder={$t('profile.email')}
+							placeholder={emailPlaceholder}
 							required
 							disabled={isLoading}
 						/>
@@ -420,7 +429,7 @@
 						<input
 							type="password"
 							bind:value={password}
-							placeholder={$t('profile.password')}
+							placeholder={passwordPlaceholder}
 							required
 							disabled={isLoading}
 							transition:fly={{ duration: 300 }}
@@ -470,7 +479,7 @@
 							<input
 								type="email"
 								bind:value={email}
-								placeholder={$t('profile.emailReset')}
+								placeholder={resetPlaceholder}
 								required
 								disabled={isLoading}
 							/>
@@ -531,7 +540,12 @@
 </div>
 
 {#if showProfileModal}
-	<Profile user={$currentUser} onClose={toggleProfileModal} />
+	<Profile 
+		user={$currentUser} 
+		onClose={toggleProfileModal} 
+		onStyleClick={handleStyleClick}
+		logout={logout}
+	/>
 	<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 		<LogOut size={24} />
 		<span>Logout</span>
@@ -562,13 +576,17 @@
 		justify-content: space-between;
 		align-items: center;
 		width: 100%;
-
 		height: 4rem;
 		padding: 0;
 		padding-right: 0.5rem;
 		gap: 1rem;
 		background: var(--bg-color);
 		border-radius: 2rem;
+		& input {
+			height: 3rem !important;
+			padding-inline-start: 1rem;
+			margin-left: 0.5rem;
+		}
 	}
 	.auth-container {
 		display: flex;
@@ -698,8 +716,7 @@
 		display: flex;
 		padding: 0.5rem;
 
-		&:hover {
-		}
+
 	}
 	img.logo {
 		width: 4rem;
@@ -823,8 +840,7 @@
 			width: 100%;
 		}
 
-		.button-group {
-		}
+
 
 		.button-group .button {
 			/* background-color: #007bff; Button background color */
@@ -867,8 +883,5 @@
 			width: auto;
 		}
 	}
-	@media (max-width: 450px) {
-		.auth-container {
-		}
-	}
+
 </style>

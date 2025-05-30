@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
 	import PocketBase from 'pocketbase';
+	import type { User } from '$lib/types/types';
 
 	let loading = true;
 	let error: string | null = null;
@@ -51,7 +52,7 @@
 
 			// Update the currentUser store
 			if (authData && authData.record) {
-				currentUser.set(authData.record);
+				currentUser.set(authData.record as User);
 
 				// Now call the server to sync the session there
 				await fetch('/api/verify/auth-check', {
@@ -92,7 +93,11 @@
 	{/if}
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.auth-callback-container {
 		display: flex;
 		justify-content: center;

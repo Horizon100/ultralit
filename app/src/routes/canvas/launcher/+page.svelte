@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
+	import { onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { quintOut } from 'svelte/easing';
 	import {
 		X,
 		Bot,
@@ -10,46 +9,23 @@
 		Workflow,
 		Target,
 		Settings2,
-		Plus,
 		SquareMenu,
-		Box,
-		Trash2,
-		Check
 	} from 'lucide-svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
 	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
-	import ObjectivesConfig from '$lib/features/canvas/components/ObjectivesConfig.svelte';
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
-	import { agentStore } from '$lib/stores/agentStore';
 	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
 	import GenericOverlay from '$lib/components/modals/GenericOverlay.svelte';
-	import type { Workspaces, Workshops } from '$lib/types/types';
 	import { currentUser } from '$lib/pocketbase';
-	import { quotes } from '$lib/translations/quotes';
 
 	let showOverlay = false;
 	let overlayContent = '';
 	let touchStartY = 0;
-	let currentWorkspace: Workspaces | null = null;
-	let currentWorkspaceId: string | null = null;
-	let workshopCount = 0;
 	let isNavExpanded = false;
 	let innerWidth: number;
 	let showGenericOverlay = false;
 	let genericOverlayContent = '';
-	let workspaces: Workspaces[] = [];
-	let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
-	let isScrolling = false;
-	let startX: number;
-	let scrollLeft: number;
-	let showWorkspaceList = false;
-	let editingWorkspace: string | null = null;
-	let editedName: string = '';
 	let confirmationMessage: string | null = null;
-	let textareaElement: HTMLTextAreaElement | null = null;
-	let showBuilder = false;
 	let isLoading = false;
 	let showFade = false;
 	let showH2 = false;
@@ -58,12 +34,7 @@
 
 	$: isNarrowScreen = innerWidth <= 700;
 
-	$: if ($page.params.workspaceId !== currentWorkspaceId) {
-		currentWorkspaceId = $page.params.workspaceId;
-		if (currentWorkspaceId && $currentUser && $currentUser.id) {
-			agentStore.loadAgents(currentWorkspaceId);
-		}
-	}
+
 
 	onMount(() => {
 		user = $currentUser;
@@ -196,8 +167,6 @@
 								<ModelsConfig />
 							{:else if overlayContent === 'Actions'}
 								<ActionsConfig />
-							{:else if overlayContent === 'Objectives'}
-								<ObjectivesConfig />
 							{/if}
 						</div>
 					{/key}
@@ -213,7 +182,11 @@
 	</GenericOverlay>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}	
 	.layout {
 		position: absolute;
 		justify-content: center;
@@ -251,7 +224,7 @@
 		display: flex;
 		flex-direction: row;
 		position: absolute;
-		left: calc(50%-200px);
+		left: calc(50% - 200px);
 		top: 0.5rem;
 		padding: 20px 10px;
 		justify-content: space-between;

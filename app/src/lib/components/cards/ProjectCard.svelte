@@ -164,43 +164,50 @@
 		}
 	}
 
-	async function loadProjectData() {
-		if (!projectId) {
-			console.log('No projectId provided, skipping load');
-			return;
-		}
-
-		console.log('Loading data for projectId:', projectId);
-		activeTab = 'info';
-		isLoading = true;
-
-		try {
-			const response = await fetch(`/api/projects/${projectId}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`API request failed with status ${response.status}`);
-			}
-
-			const data = await response.json();
-			if (data.success && data.data) {
-				project = data.data;
-				if ($currentUser) {
-					isOwner = project.owner === $currentUser.id;
-					activeTab = 'info';
-				}
-			} else {
-				throw new Error(data.error || 'Failed to fetch project');
-			}
-		} catch (error) {
-			console.error('Error loading project data:', error);
-			errorMessage = 'Failed to load project data.';
-		} finally {
-			isLoading = false;
-		}
+async function loadProjectData() {
+	if (!projectId) {
+		console.log('No projectId provided, skipping load');
+		return;
 	}
+
+	console.log('Loading data for projectId:', projectId);
+	activeTab = 'info';
+	isLoading = true;
+	errorMessage = ''; // Clear previous errors
+
+	try {
+		const response = await fetch(`/api/projects/${projectId}`, {
+			method: 'GET',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+		}
+
+		const data = await response.json();
+		if (data.success && data.data) {
+			project = data.data;
+			if ($currentUser && project) {
+				isOwner = project.owner === $currentUser.id;
+				// Update project store with current project
+				projectStore.setCurrentProject(project.id);
+			}
+		} else {
+			throw new Error(data.error || 'Failed to fetch project');
+		}
+	} catch (error) {
+		console.error('Error loading project data:', error);
+		errorMessage = error instanceof Error ? error.message : 'Failed to load project data.';
+	} finally {
+		isLoading = false;
+	}
+}
+
 
 	async function loadProjectThreadsData() {
 		console.log('Loading threads for project:', projectId);
@@ -326,8 +333,7 @@
 			console.log('AI suggestions generated successfully');
 		} catch (error) {
 			console.error('Error in handleProjectSuggestions:', error);
-			// Use your app's error notification method
-			alert(`Failed to generate suggestions: ${error.message}`);
+			errorMessage = error instanceof Error ? error.message : 'Failed to generate suggestions.';
 		} finally {
 			isGeneratingSuggestions = false;
 		}
@@ -342,7 +348,8 @@
 			await handleSendMessage(suggestionText);
 		} catch (error) {
 			console.error('Error handling suggestion:', error);
-			alert(`Could not use this suggestion: ${error.message}`);
+			errorMessage = error instanceof Error ? error.message : 'Could not use this suggestion.';
+
 		}
 	}
 	async function ensureThreadExists(projectId: string): Promise<string> {
@@ -378,14 +385,17 @@
 			throw error;
 		}
 	}
-	onMount(async () => {
-		console.log('Component mounting...');
+	function cleanup() {
+		if (unsubscribeProjectStore) unsubscribeProjectStore();
+		if (unsubscribeThreadsStore) unsubscribeThreadsStore();
+	}
 
-		// Set initial tab state
+	onMount(() => {
+		console.log('Component mounting...');
+		
 		activeTab = 'info';
 		previousActiveTab = 'info';
 
-		// Set up store subscriptions
 		unsubscribeProjectStore = projectStore.subscribe(async (state) => {
 			const targetId = projectId || state.currentProjectId;
 			if (!targetId) return;
@@ -396,34 +406,39 @@
 				if ($currentUser) {
 					isOwner = project.owner === $currentUser.id;
 				}
-				// Ensure info tab is active when project changes
 				activeTab = 'info';
 				previousActiveTab = 'info';
 
-				// Load threads for the project
 				await loadProjectThreadsData();
 			}
 		});
 
-		if (!$currentUser) {
-			isLoading = true;
-			const unsubscribeUser = currentUser.subscribe((user) => {
-				if (user) {
-					unsubscribeUser();
-					initializeComponent();
-				} else {
-					isLoading = false;
-				}
-			});
-			return;
-		}
+		unsubscribeThreadsStore = threadsStore.subscribe(value => {
+		});
 
-		await initializeComponent();
+		const initializeAsync = async () => {
+			if (!$currentUser) {
+				isLoading = true;
+				const unsubscribeUser = currentUser.subscribe((user) => {
+					if (user) {
+						unsubscribeUser();
+						initializeComponent();
+					} else {
+						isLoading = false;
+					}
+				});
+				return;
+			}
 
-		return () => {
-			unsubscribeProjectStore?.();
-			unsubscribeThreadsStore?.();
+			await initializeComponent();
 		};
+
+		initializeAsync().catch(error => {
+			console.error('Mount initialization error:', error);
+			errorMessage = error instanceof Error ? error.message : 'Failed to initialize component';
+		});
+
+		return cleanup;
 	});
 </script>
 
@@ -643,10 +658,14 @@
 										{projectDescription}
 									</p>
 								</div>
-								<div class="project-deadlines-list">
-									<ProjectDeadlines projectId={$projectStore.currentProjectId} />
-								</div>
-								<ProjectCollaborators projectId={$projectStore.currentProjectId} />
+									{#if $projectStore.currentProjectId}
+										<div class="project-deadlines-list">
+											<ProjectDeadlines projectId={$projectStore.currentProjectId} />
+										</div>
+											<ProjectCollaborators projectId={$projectStore.currentProjectId} />
+									{:else}
+										<div class="text-gray-500">No project selected</div>
+									{/if}
 
 								<!-- <div class="project-details">
                       <h3>{$t('dashboard.projectActivity')}</h3>
@@ -773,14 +792,15 @@
 								<span class="detail-value">{updatedDate}</span>
 							</div>
 						</div>
-					{:else if activeTab === 'stats'}
-						<div class="project-stats">
-							<ProjectStatsContainer projectId={$projectStore.currentProjectId} />
-						</div>
-					{:else if activeTab === 'members'}
-						<div class="project-stats">
+						{#if $projectStore.currentProjectId}
+							<div class="project-stats">
+							<ProjectDeadlines projectId={$projectStore.currentProjectId} />
+							</div>
+							<ProjectDeadlines projectId={$projectStore.currentProjectId} />
 							<ProjectCollaborators projectId={$projectStore.currentProjectId} />
-						</div>
+						{:else}
+							<div class="text-gray-500">No project selected</div>
+						{/if}
 					{/if}
 				</div>
 			</div>

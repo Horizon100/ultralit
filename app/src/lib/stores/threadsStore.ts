@@ -51,17 +51,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 // Get auth headers helper function
-function getAuthHeaders(): HeadersInit {
-	const user = get(currentUser);
-	const headers: HeadersInit = {
-		'Content-Type': 'application/json'
-	};
+function getAuthHeaders(): Record<string, string> {
+    const user = get(currentUser);
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
 
-	if (user?.token) {
-		headers['Authorization'] = `Bearer ${user.token}`;
-	}
+    if (user?.token) {
+        headers['Authorization'] = `Bearer ${user.token}`;
+    }
 
-	return headers;
+    return headers;
 }
 
 // Fetch threads function that uses Fetch API instead of PocketBase
@@ -140,6 +140,7 @@ export function createThreadsStore() {
 		namingThreadId: null,
 		sortOption: ThreadSortOption.NewestFirst,
 		selectedUserIds: new Set<string>(),
+		selectedTagIds: new Set<string>(),
 		availableUsers: [],
 		isLoading: false,
 		isUpdating: false,

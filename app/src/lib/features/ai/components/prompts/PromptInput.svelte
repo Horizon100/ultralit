@@ -29,7 +29,6 @@
 	let showInputForm = false;
 	let editingPromptId: string | null = null;
 	let promptText = '';
-	let selectedPromptType: PromptType;
 	let activePromptId: string | null = null;
 	let activeSysPrompt: string | null = null;
 	let isSubmitting = false;
@@ -62,12 +61,12 @@
 		try {
 			if (editingPromptId) {
 				// Update existing prompt
-				const updatedPrompt = await updatePrompt(editingPromptId, promptText, selectedPromptType);
+				const updatedPrompt = await updatePrompt(editingPromptId, promptText);
 				promptInputStore.updatePrompt(editingPromptId, updatedPrompt);
 				editingPromptId = null;
 			} else {
 				// Create new prompt
-				const newPrompt = await createPrompt(promptText, selectedPromptType);
+				const newPrompt = await createPrompt(promptText);
 				promptInputStore.addPrompt(newPrompt);
 			}
 
@@ -84,7 +83,6 @@
 		editingPromptId = prompt.id;
 		promptText = prompt.prompt;
 		showInputForm = true;
-		selectedPromptType = prompt.type;
 		error = '';
 	}
 
@@ -281,13 +279,7 @@
 					<div class="prompt-content">
 						<p class="prompt-text">{prompt.prompt}</p>
 
-						<div class="prompt-meta">
-							{#if prompt.type}
-								<span class="prompt-type-badge prompt-type-{prompt.type.toLowerCase()}">
-									{prompt.type}
-								</span>
-							{/if}
-						</div>
+
 					</div>
 					<div class="button-container">
 						{#if activePromptId === prompt.id}

@@ -3,12 +3,7 @@ import { pb } from '$lib/server/pocketbase';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-	// Ensure the requester is authenticated
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
+export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { userIds } = await request.json();
 
@@ -23,36 +18,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Construct filter to fetch these users
 		const filter = limitedUserIds.map((id) => `id = "${id}"`).join(' || ');
 
+		// Only fetch public fields that unauthenticated users can see
 		const users = await pb.collection('users').getList(1, batchSize, {
-			filter: filter
+			filter: filter,
+			fields: 'id,username,name,avatar,verified,description,role,created' // Only basic public fields
 		});
 
 		// Map to public profiles with only allowed fields
 		const publicProfiles = users.items.map((user) => ({
 			id: user.id,
-			username: user.username,
+			username: user.username || '',
 			name: user.name || '',
-			avatar: user.avatar,
-			verified: user.verified,
+			avatar: user.avatar || '',
+			verified: user.verified || false,
 			description: user.description || '',
-			role: user.role,
-			last_login: user.last_login,
-			perks: user.activated_features || [],
-			taskAssignments: user.taskAssignments || [],
-			userTaskStatus: user.userTaskStatus || {
-				backlog: 0,
-				todo: 0,
-				focus: 0,
-				done: 0,
-				hold: 0,
-				postpone: 0,
-				cancel: 0,
-				review: 0,
-				delegate: 0,
-				archive: 0
-			},
-			userProjects: user.projects || [],
-			hero: user.hero || '',
+			role: user.role || 'user',
 			created: user.created
 		}));
 

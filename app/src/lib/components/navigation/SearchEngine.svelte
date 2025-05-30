@@ -348,7 +348,7 @@
 		}
 	}
 
-	async function handleProjectSelect(project) {
+	async function handleProjectSelect(project: Projects) {
 		console.log('handleProjectSelect called with project:', project);
 
 		try {
@@ -376,7 +376,7 @@
 		}
 	}
 
-	async function handleThreadSelect(thread) {
+	async function handleThreadSelect(thread: Threads) {
 		console.log('handleThreadSelect called with thread:', thread);
 
 		try {
@@ -412,7 +412,7 @@
 		}
 	}
 
-	async function handleMessageSelect(message) {
+	async function handleMessageSelect(message: Messages) {
 		console.log('handleMessageSelect called with message:', message);
 
 		try {
@@ -455,7 +455,7 @@
 		}
 	}
 
-	async function handleTaskSelect(task) {
+	async function handleTaskSelect(task: Task) {
 		console.log('handleTaskSelect called with task:', task);
 
 		try {
@@ -494,7 +494,6 @@
 		}
 
 		try {
-			// Navigate to the post view page using the same format as PostCard component
 			const url = post.author_username
 				? `/${post.author_username}/posts/${post.id}`
 				: `/posts/${post.id}`;

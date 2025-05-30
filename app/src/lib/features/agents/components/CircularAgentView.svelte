@@ -51,7 +51,11 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.circular-view-container {
 		width: 100%;
 		height: 100%;

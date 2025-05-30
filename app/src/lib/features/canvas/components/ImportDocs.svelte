@@ -69,7 +69,11 @@
 	<input type="file" accept={allowedTypes.join(',')} multiple on:change={handleFileInput} />
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	/* .import-docs {
     position: absolute;
     opacity: 0;

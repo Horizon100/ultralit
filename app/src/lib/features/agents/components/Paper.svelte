@@ -161,7 +161,7 @@
 			clickThreshold: 10
 		});
 
-		Object.keys(list).forEach((parent) => {
+		(Object.keys(list) as (keyof typeof list)[]).forEach((parent) => {
 			const neighbors = list[parent];
 			createNode(parent);
 			neighbors.forEach((adj) => {
@@ -370,7 +370,11 @@
 
 <div bind:this={paperContainer} id="paper-container"></div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	#paper-container {
 		/* width: 100%; */
 		/* height: 600px; */
@@ -381,12 +385,6 @@
 		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
 	}
 
-	#logo {
-		position: absolute;
-		bottom: 20px;
-		right: 20px;
-		z-index: 10;
-	}
 
 	:global(.joint-element) {
 		cursor: pointer;

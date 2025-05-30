@@ -19,8 +19,8 @@
 	import Compass from '$lib/assets/icons/map/compass.svg';
 
 	import type { Shape } from '$lib/types/types'; // Import Shape from your types file
-	export let startPoint: string;
-	export let endPoint: string;
+	export const startPoint: string | undefined = undefined;
+	export const endPoint: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{
 		addShape: { shape: Shape; x: number; y: number };
@@ -452,26 +452,37 @@
 					<span class="expand-icon">{expandedCategories[category.name] ? '▼' : '▶'}</span>
 				</button>
 				{#if expandedCategories[category.name]}
-					<div class="shapes-grid" transition:slide={{ duration: 300 }}>
-						{#each category.shapes as shape (shape.id)}
-							<div
-								class="shape-item"
-								draggable="true"
-								on:dragstart={(e) => handleDragStart(e, shape)}
-								on:click={() => handleClick(shape)}
-							>
-								{@html shape.svg}
-							</div>
-						{/each}
-					</div>
+                    <div class="shapes-grid" transition:slide={{ duration: 300 }}>
+                        {#each category.shapes as shape (shape.id)}
+                            <div
+                                class="shape-item"
+                                draggable="true"
+                                role="button"
+                                tabindex="0"
+                                on:dragstart={(e) => handleDragStart(e, shape)}
+                                on:click={() => handleClick(shape)}
+                                on:keydown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        handleClick(shape);
+                                    }
+                                }}
+                            >
+                                {@html shape.svg}
+                            </div>
+                        {/each}
+                    </div>
 				{/if}
 			</div>
 		{/each}
 	</div>
 </div>
 
-<style>
-	.assets-container {
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}	
+    .assets-container {
 		padding: 1rem;
 		user-select: none;
 	}
@@ -487,10 +498,6 @@
 		gap: 0.5rem;
 	}
 
-	image {
-		width: 100%;
-		height: 100%;
-	}
 
 	.category-header {
 		width: 100%;
@@ -539,13 +546,6 @@
 		background-color: rgba(255, 255, 255, 0.2);
 	}
 
-	svg {
-		width: 100%;
-		height: 100%;
-		transition: transform 0.3s ease;
-	}
 
-	.shape-item:hover svg {
-		transform: scale(1.05);
-	}
+
 </style>

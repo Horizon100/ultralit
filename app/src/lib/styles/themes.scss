@@ -9,7 +9,6 @@
 @use 'sass:map';
 
 // Import fonts
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Montserrat:wght@400;700&family=Merriweather:wght@400;700&display=swap');
 
 // Theme variables
 $themes: (
@@ -496,7 +495,7 @@ pre.code-block:hover .copy-code-button {
 	justify-content: flex-start;
 	align-items: flex-end;
 	position: absolute;
-	right: 1rem;
+	right: 0.5rem;
 	top: 0.5rem;
 	border-bottom: 1px solid var(--border-color);
 	z-index: 3000;
@@ -1160,7 +1159,19 @@ input.toggle {
 		}
 	}
 }
+@keyframes pulsateShadow {
+	0% {
+		box-shadow:
+			0 0 5px #f8f8f8,
+			0 0 2px #39ff88;
+	}
 
+	100% {
+		box-shadow:
+			0 0 5px #bcbcbc,
+			0 0 1px #b5b5b5;
+	}
+}
 @keyframes pulsate {
 	0% {
 		box-shadow: {

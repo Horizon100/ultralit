@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Transform } from '../../types';
-	import Icicle from '../network/Icicle.svelte';
+	import type { Transform } from '$lib/types/types';
+	import Icicle from '$lib/components/charts/Icicle.svelte';
 
 	export let transform: Transform;
 	export let onZoom: (direction: 'in' | 'out') => void;
@@ -24,7 +24,11 @@
     {/if} -->
 </div>
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}
 	.controls {
 		position: absolute;
 		bottom: 10px;

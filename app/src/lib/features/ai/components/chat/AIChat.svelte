@@ -63,7 +63,6 @@
 		generateTasks as generateTasksAPI,
 		createAIAgent
 	} from '$lib/clients/aiClient';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import { pocketbaseUrl } from '$lib/pocketbase';
 	import { messagesStore } from '$lib/stores/messagesStore';
@@ -73,10 +72,9 @@
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import ThreadCollaborators from '$lib/features/threads/components/ThreadCollaborators.svelte';
 	import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
-	// import PromptCatalog from './PromptCatalog.svelte';
 	import PromptCatalog from '../prompts/PromptInput.svelte';
 	import { pendingSuggestion } from '$lib/stores/suggestionStore';
-
+	import { getUserProfile } from '$lib/clients/profileClient';
 	import type {
 		ExpandedSections,
 		ThreadGroup,
@@ -154,15 +152,17 @@
 	import RecursiveMessage from '$lib/features/ai/components/chat/RecursiveMessage.svelte';
 	import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
 	import SysPromptSelector from '../prompts/SysPromptSelector.svelte';
+    import { swipeGesture } from '$lib/utils/swipeGesture';
+	import { useGlobalSwipe } from '$lib/utils/globalSwipe';
 
 	type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 	let documentClickListener: ((e: MouseEvent) => void) | null = null;
 
-	export let message: InternalChatMessage;
+	export let message: InternalChatMessage | null = null;
 	export let seedPrompt: string = '';
 	export let additionalPrompt: string = '';
-	export let aiModel: AIModel = defaultModel;
+	export let aiModel: AIModel;
 	export let userId: string;
 	export let attachment: File | null = null;
 	export let promptType: PromptType = 'NORMAL';
@@ -224,7 +224,7 @@
 	let isEditingThreadName = false;
 	let editedThreadName = '';
 	let isCreatingThread = false;
-	let updateStatus: string = '';
+	let updateStatus: string | null;
 	let isThreadsLoaded: boolean;
 	let isThreadListVisible = true;
 	let isProjectListVisible = false;
@@ -232,6 +232,11 @@
 	let isLoading = false;
 	let isExpanded = false;
 	let bookmarkId = '';
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let swipeThreshold = 100; 
+    let angleThreshold = 30;
+	let isDragging = false;
 
 	/*
 	 * let isLoading: boolean = false;
@@ -239,7 +244,7 @@
 	 */
 	let isSubmissionAreaActive = false;
 	let isFocused = false;
-	let hideTimeout: ReturnType<typeof setTimeout>;
+	let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 	let showSysPrompt = false;
 	let showPromptCatalog = false;
 	let showModelSelector = false;
@@ -255,7 +260,6 @@
 	let defaultTextareaHeight = '60px';
 	let selected: Date = date || new Date();
 	let showNetworkVisualization: boolean = false;
-	let isDragging = false;
 	let startY: number;
 	let scrollTopStart: number;
 	let currentPage = 1;
@@ -285,7 +289,10 @@
 	let lastMessageCount = 0;
 	let latestMessageId: string | null = null;
 	// Prompt state
-	let promptSuggestions = getRandomPrompts(3);
+    let promptSuggestions: string[] = [];
+	let currentGreeting = '';
+    let currentQuestion = '';
+    let currentQuote = '';
 	let isProcessingPromptClick = false;
 	let currentPromptType: PromptType;
 	let hasSentSeedPrompt: boolean = false;
@@ -353,8 +360,58 @@
 	});
 	const dispatch = createEventDispatcher();
 	// const expandedGroups = writable<ExpandedGroups>({});
+	const smoothSlideIn = {
+		duration: 350,
+		easing: cubicOut,
+		x: -300
+	};
 
-	const isMobileScreen = () => window.innerWidth < 1000;
+	const smoothSlideOut = {
+		duration: 300,
+		easing: cubicIn,
+		x: -300
+	};
+
+	// Global swipe for general area
+	useGlobalSwipe({
+		threshold: 120, // Slightly lower threshold for better responsiveness
+		angleThreshold: 35,
+		onSwipeRight: () => {
+			console.log('🌍 Global swipe right detected, showThreadList:', $showThreadList);
+			if (!$showThreadList) {
+				console.log('🌍 Opening thread list via global swipe');
+				threadsStore.setThreadListVisibility(true);
+			}
+		},
+		onSwipeLeft: () => {
+			console.log('🌍 Global swipe left detected, showThreadList:', $showThreadList);
+			if ($showThreadList) {
+				console.log('🌍 Closing thread list via global swipe');
+				threadsStore.setThreadListVisibility(false);
+			}
+		}
+	});
+
+	// Drawer-specific swipe config with enhanced settings
+	const drawerSwipeConfig = {
+		threshold: 60, // Lower threshold for more responsive drawer swipes
+		angleThreshold: 40,
+		onSwipeLeft: () => {
+			console.log('🎯 Drawer swipe LEFT detected! showThreadList:', $showThreadList);
+			if ($showThreadList) {
+				console.log('🎯 Hiding thread list via drawer swipe...');
+				threadsStore.setThreadListVisibility(false);
+			}
+		},
+		onSwipeRight: () => {
+			console.log('🎯 Drawer swipe RIGHT detected!');
+			// Optional: You could add a slight bounce effect or do nothing
+		},
+		enableVisualFeedback: true
+	};
+
+	console.log('🔧 Component loaded, drawerSwipeConfig:', drawerSwipeConfig);
+		const isMobileScreen = () => window.innerWidth < 1000;
 	export const focusOnMount = (node: HTMLElement) => {
 		node.focus();
 	};
@@ -401,7 +458,7 @@
 		handleTextareaBlur();
 	};
 
-	async function fetchPromptFromAPI(promptId) {
+async function fetchPromptFromAPI(promptId: string | null): Promise<any | null> {
 		if (!promptId) return null;
 
 		try {
@@ -421,16 +478,26 @@
 	}
 
 	// Function to load the prompt immediately
-	async function loadUserPrompt() {
-		isLoadingPrompt = true;
+		async function loadUserPrompt() {
+			isLoadingPrompt = true;
 
-		if ($currentUser?.prompt_preference) {
-			userPromptData = await fetchPromptFromAPI($currentUser.prompt_preference);
-			console.log('Loaded prompt data:', userPromptData);
+			if ($currentUser?.prompt_preference) {
+				let promptId: string | null = null;
+
+				if (Array.isArray($currentUser.prompt_preference) && $currentUser.prompt_preference.length > 0) {
+					promptId = $currentUser.prompt_preference[0];
+				} else if (typeof $currentUser.prompt_preference === 'string') {
+					promptId = $currentUser.prompt_preference;
+				}
+
+				if (promptId) {
+					userPromptData = await fetchPromptFromAPI(promptId);
+					console.log('Loaded prompt data:', userPromptData);
+				}
+			}
+
+			isLoadingPrompt = false;
 		}
-
-		isLoadingPrompt = false;
-	}
 
 	function handleModelSelection(event: CustomEvent<AIModel>) {
 		const selectedModel = event.detail;
@@ -450,10 +517,7 @@
 			models: false
 		}));
 	}
-	function isReplyHidden(messageId) {
-		const repliesContainer = document.querySelector(`.replies-to-${messageId}`);
-		return repliesContainer ? repliesContainer.classList.contains('hidden') : true;
-	}
+
 	function handleTextSelection() {
 		const selection = window.getSelection();
 		activeSelection = selection?.toString().trim() || '';
@@ -557,8 +621,10 @@
 
 				// Wrap in setTimeout to ensure proper timing
 				setTimeout(() => {
-					textareaElement.blur();
-					handleImmediateTextareaBlur();
+					if (textareaElement) {
+						textareaElement.blur();
+						handleImmediateTextareaBlur();
+					}
 				}, 0);
 			}
 
@@ -617,12 +683,12 @@
 				{
 					text: currentMessage,
 					type: 'human',
-					thread: currentThreadId,
+					thread: currentThreadId!,
 					parent_msg: quotedMessage?.id ?? null,
 					prompt_type: promptType,
 					tempId: tempUserMsgId
 				},
-				currentThreadId
+				currentThreadId!
 			);
 
 			chatMessages = chatMessages.map((msg) =>
@@ -632,7 +698,7 @@
 			quotedMessage = null;
 
 			if ($isAiActive) {
-				const thinkingMessage = addMessage('thinking');
+				const thinkingMessage = addMessage('thinking', '');
 				thinkingMessageId = thinkingMessage.id;
 				chatMessages = [...chatMessages, thinkingMessage];
 
@@ -687,14 +753,14 @@
 					{
 						text: aiResponse,
 						type: 'robot',
-						thread: currentThreadId,
+						thread: currentThreadId!,
 						parent_msg: userMessage.id,
 						prompt_type: promptType,
 						prompt_input: promptInput,
 						model: aiModel.api_type,
 						tempId: tempAssistantMsgId
 					},
-					currentThreadId
+					currentThreadId!
 				);
 
 				const newAssistantMessage = addMessage('assistant', '', userMessage.id);
@@ -719,7 +785,7 @@
 				);
 			}
 
-			await handleThreadNameUpdate(currentThreadId);
+			await handleThreadNameUpdate(currentThreadId!);
 		} catch (error) {
 			handleError(error);
 		} finally {
@@ -727,96 +793,98 @@
 		}
 	}
 
-	async function replyToMessage(replyText: string, parentMessageId: string) {
-		if (!replyText.trim()) return;
-		ensureAuthenticated();
+async function replyToMessage(text: string, parent_msg?: string, contextMessages?: any[]): Promise<void> {
+    const replyText = text;
+    const parentMessageId = parent_msg || '';
+    
+    if (!replyText.trim()) return;
+    ensureAuthenticated();
 
-		try {
-			if (!currentThreadId) {
-				console.log('No current thread ID - creating a new thread');
-				const newThread = await handleCreateNewThread();
-				if (!newThread || !newThread.id) {
-					console.error('Failed to create a new thread');
-					return;
-				}
-			}
+    try {
+        if (!currentThreadId) {
+            console.log('No current thread ID - creating a new thread');
+            const newThread = await handleCreateNewThread();
+            if (!newThread || !newThread.id) {
+                console.error('Failed to create a new thread');
+                return;
+            }
+        }
 
-			if (!currentThreadId) {
-				console.error('Still no current thread ID after attempt to create one');
-				return;
-			}
+        if (!currentThreadId) {
+            console.error('Still no current thread ID after attempt to create one');
+            return;
+        }
 
-			// Ensure we have a valid model
-			if (!aiModel || !aiModel.api_type) {
-				console.log('No valid model selected, using fallback');
-				/*
-				 * Use same fallback logic you have in handleSendMessage
-				 * (Including this logic would make this example too long)
-				 */
-			}
+        // Ensure we have a valid model
+        if (!aiModel || !aiModel.api_type) {
+            console.log('No valid model selected, using fallback');
+        }
 
-			// Add the user reply message to UI
-			const userMessageUI = addMessage('user', replyText, parentMessageId, aiModel.id);
-			chatMessages = [...chatMessages, userMessageUI];
+        // Add the user reply message to UI
+        const userMessageUI = addMessage('user', replyText, parentMessageId, aiModel.id);
+        chatMessages = [...chatMessages, userMessageUI];
 
-			// Save the message to the database
-			const userMessage = await messagesStore.saveMessage(
-				{
-					text: replyText,
-					type: 'human',
-					thread: currentThreadId,
-					parent_msg: parentMessageId,
-					prompt_type: promptType
-				},
-				currentThreadId
-			);
+        // Save the message to the database
+        const userMessage = await messagesStore.saveMessage(
+            {
+                text: replyText,
+                type: 'human',
+                thread: currentThreadId,
+                parent_msg: parentMessageId || null,
+                prompt_type: promptType
+            },
+            currentThreadId
+        );
 
-			if ($isAiActive) {
-				// Show thinking message
-				const thinkingMessage = addMessage('thinking', userMessageUI.id);
-				thinkingMessageId = thinkingMessage.id;
-				chatMessages = [...chatMessages, thinkingMessage];
+        if ($isAiActive) {
+            // Show thinking message
+            const thinkingMessage = addMessage('thinking', '', userMessageUI.id);
+            thinkingMessageId = thinkingMessage.id;
+            chatMessages = [...chatMessages, thinkingMessage];
 
-				// Prepare the context for this reply
-				const { messagesToSend } = prepareReplyContext(
-					replyText,
-					parentMessageId,
-					chatMessages,
-					aiModel,
-					promptType
-				);
+            // Prepare the context for this reply
+            const { messagesToSend } = prepareReplyContext(
+                replyText,
+                parentMessageId,
+                chatMessages,
+                aiModel,
+                promptType
+            );
+            const typedMessages = messagesToSend.map(msg => ({
+                ...msg,
+                role: msg.role as RoleType
+            }));
+            const aiResponse = await fetchAIResponse(typedMessages, aiModel, userId, attachment);
 
-				const aiResponse = await fetchAIResponse(messagesToSend, aiModel, userId, attachment);
+            chatMessages = chatMessages.filter((msg) => msg.id !== String(thinkingMessageId));
 
-				chatMessages = chatMessages.filter((msg) => msg.id !== String(thinkingMessageId));
+            const assistantMessage = await messagesStore.saveMessage(
+                {
+                    text: aiResponse,
+                    type: 'robot',
+                    thread: currentThreadId,
+                    parent_msg: userMessage.id,
+                    prompt_type: promptType,
+                    model: aiModel.api_type
+                },
+                currentThreadId
+            );
 
-				const assistantMessage = await messagesStore.saveMessage(
-					{
-						text: aiResponse,
-						type: 'robot',
-						thread: currentThreadId,
-						parent_msg: userMessage.id,
-						prompt_type: promptType,
-						model: aiModel.api_type
-					},
-					currentThreadId
-				);
+            // Add the AI response to UI
+            const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+            chatMessages = [...chatMessages, newAssistantMessage];
+            typingMessageId = newAssistantMessage.id;
 
-				// Add the AI response to UI
-				const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-				chatMessages = [...chatMessages, newAssistantMessage];
-				typingMessageId = newAssistantMessage.id;
+            // Type out the message
+            await typeMessage(aiResponse);
+        }
 
-				// Type out the message
-				await typeMessage(aiResponse);
-			}
-
-			// Update thread name if needed
-			await handleThreadNameUpdate(currentThreadId);
-		} catch (error) {
-			handleError(error);
-		}
-	}
+        // Update thread name if needed
+        await handleThreadNameUpdate(currentThreadId);
+    } catch (error) {
+        handleError(error);
+    }
+}
 	async function typeMessage(message: string) {
 		const typingSpeed = 1;
 		isTypingInProgress = true;
@@ -923,48 +991,7 @@
 
 		return tempDiv.innerHTML;
 	}
-	/*
-	 *   function getLastMessage(): Messages | null {
-	 *     if (messages && messages.length > 0) {
-	 *       return messages[messages.length - 1];
-	 *     }
-	 *     return null;
-	 *   }
-	 */
 
-	/*
-	 *   function getTotalMessages(): number {
-	 *     return messages.length;
-	 *   }
-	 *   function mapMessageToInternal(message: Messages): InternalChatMessage {
-	 *   const content = formatContentSync(
-	 *     message.text,
-	 *     message.prompt_type as PromptType || 'NORMAL',
-	 *     message.type === 'human' ? 'user' : 'assistant'
-	 *   );
-	 */
-
-	/*
-	 *   return {
-	 *     id: message.id,
-	 *     content,
-	 *     text: message.text,
-	 *     role: message.type === 'human' ? 'user' : 'assistant' as RoleType,
-	 *     collectionId: message.collectionId,
-	 *     collectionName: message.collectionName,
-	 *     parent_msg: message.parent_msg,
-	 *     reactions: message.reactions,
-	 *     prompt_type: message.prompt_type as PromptType || 'NORMAL',
-	 *     model: message.model,
-	 *     thread: message.thread,
-	 *     isTyping: false,
-	 *     isHighlighted: false,
-	 *     user: message.user,
-	 *     created: message.created,
-	 *     updated: message.updated
-	 *   };
-	 * }
-	 */
 
 	function handleReplyableClick(event: MouseEvent) {
 		const target = event.target as HTMLElement;
@@ -1010,156 +1037,8 @@
 		}
 	}
 
-	/*
-	 * async function submitReply(elementId: string, text: string = '') {
-	 *   try {
-	 *     const element = document.getElementById(elementId);
-	 *     if (!element) return;
-	 */
 
-	/*
-	 *     const parentMsgId = element.getAttribute('data-parent-msg');
-	 *     if (!parentMsgId) return;
-	 */
-
-	/*
-	 *     // Find the parent message in the chat messages
-	 *     const parentMessage = chatMessages.find(msg => msg.id === parentMsgId);
-	 *     if (!parentMessage) return;
-	 */
-
-	/*
-	 *     // Use the parent message's thread ID
-	 *     const threadId = parentMessage.thread || currentThreadId;
-	 */
-
-	/*
-	 *     // Get quoted element content
-	 *     const quotedText = element.textContent?.trim() || '';
-	 */
-
-	/*
-	 *     // Format the message content to include the quoted text
-	 *     let messageContent = '';
-	 *       if (text) {
-	 *         // Format quoted text as a markdown blockquote
-	 *         const formattedQuote = quotedText
-	 *           .split('\n')
-	 *           .map(line => `> ${line}`)
-	 *           .join('\n');
-	 */
-
-	/*
-	 *         messageContent = `${formattedQuote}\n\n${text}`;
-	 *       } else {
-	 *         // If no text was provided (re-prompt), just use the quoted text
-	 *         messageContent = `Re-prompt: "${quotedText}"`;
-	 *       }
-	 */
-
-	/*
-	 *     // Close the menu
-	 *     activeReplyMenu = null;
-	 */
-
-	/*
-	 *     // Create a temporary UI message
-	 *     const userMessageUI = addMessage('user', messageContent, parentMsgId, aiModel.id);
-	 *     chatMessages = [...chatMessages, userMessageUI];
-	 */
-
-	/*
-	 *     // Save the message using the messagesStore's saveMessage method
-	 *     const userMessage = await messagesStore.saveMessage({
-	 *       text: messageContent,
-	 *       type: 'human',
-	 *       thread: threadId, // Use the thread ID from the parent message
-	 *       parent_msg: parentMsgId, // Set parent message ID
-	 *       prompt_type: promptType
-	 *     }, threadId); // Pass thread ID as second parameter
-	 */
-
-	/*
-	 *     // Check if AI should respond
-	 *     if ($isAiActive) {
-	 *       // Show thinking indicator
-	 *       const thinkingMessage = addMessage('thinking', getRandomThinkingPhrase(), parentMsgId);
-	 *       thinkingMessageId = thinkingMessage.id;
-	 *       chatMessages = [...chatMessages, thinkingMessage];
-	 */
-
-	/*
-	 *       // Get context messages for this thread
-	 *       const contextMessages = chatMessages
-	 *         .filter(msg => msg.thread === threadId || msg.id === parentMsgId || msg.parent_msg === parentMsgId)
-	 *         .filter(({ role, content }) => role && content)
-	 *         .map(({ role, content }) => ({
-	 *           role,
-	 *           content: role === 'user' && promptType
-	 *             ? `[Using ${promptType} prompt]\n${content.toString()}`
-	 *             : content.toString(),
-	 *           model: aiModel.api_type,
-	 *         }));
-	 */
-
-	/*
-	 *       if (contextMessages.length === 0) {
-	 *         throw new Error('No valid messages to send');
-	 *       }
-	 */
-
-	/*
-	 *       // Add prompt type if needed
-	 *       if (promptType) {
-	 *         contextMessages.unshift({
-	 *           role: 'system',
-	 *           content: `You are responding using the ${promptType} prompt. Please format your response accordingly.`,
-	 *           model: aiModel.api_type,
-	 *         });
-	 *       }
-	 */
-
-	/*
-	 *       // Fetch AI response
-	 *       const aiResponse = await fetchAIResponse(contextMessages, aiModel, userId);
-	 */
-
-	/*
-	 *       // Remove thinking message
-	 *       chatMessages = chatMessages.filter(msg => msg.id !== String(thinkingMessageId));
-	 */
-
-	/*
-	 *       // Save AI response
-	 *       const assistantMessage = await messagesStore.saveMessage({
-	 *         text: aiResponse,
-	 *         type: 'robot',
-	 *         thread: threadId,
-	 *         parent_msg: userMessage.id,
-	 *         prompt_type: promptType,
-	 *         model: aiModel.api_type,
-	 *       }, threadId);
-	 */
-
-	/*
-	 *       // Add assistant message to UI
-	 *       const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-	 *       chatMessages = [...chatMessages, newAssistantMessage];
-	 *       typingMessageId = newAssistantMessage.id;
-	 */
-
-	/*
-	 *       // Type the message
-	 *       await typeMessage(aiResponse);
-	 *     }
-	 *   } catch (error) {
-	 *     console.error("Message handling error:", error);
-	 *     // Handle error (show notification, etc.)
-	 *   }
-	 * }
-	 */
-
-	function toggleReplies(messageId) {
+	function toggleReplies(messageId: string) {
 		console.log(`[toggleReplies] Starting to toggle replies for message ID: ${messageId}`);
 
 		try {
@@ -1209,7 +1088,7 @@
 	}
 
 	// Helper function to update toggle button state
-	function updateToggleButtonState(messageId, isHidden) {
+	function updateToggleButtonState(messageId: string, isHidden: boolean) {
 		try {
 			const toggleButton = document.querySelector(
 				`[data-message-id="${messageId}"] .toggle-replies-btn .toggle-icon, 
@@ -1380,51 +1259,7 @@
 			}, 500); // 500ms cooldown before allowing another load
 		}
 	}
-	async function getUserProfile(userId: string): Promise<UserProfile | null> {
-		// Check if already in cache
-		if (userProfileCache.has(userId)) {
-			return userProfileCache.get(userId) || null;
-		}
 
-		try {
-			// Use your API endpoint instead of direct PocketBase access
-			const response = await fetch(`/api/verify/users/${userId}/public`, {
-				method: 'GET',
-				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				userProfileCache.set(userId, null);
-				return null;
-			}
-
-			const data = await response.json();
-
-			if (!data.success || !data.user) {
-				userProfileCache.set(userId, null);
-				return null;
-			}
-
-			const userData = data.user;
-
-			// Create profile object from user data
-			const profile: UserProfile = {
-				id: userData.id,
-				name: userData.name || userData.name || 'User',
-				avatarUrl: userData.avatar
-					? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
-					: null
-			};
-
-			// Store in cache
-			userProfileCache.set(userId, profile);
-			return profile;
-		} catch (error) {
-			console.error('Error fetching user profile:', error);
-			userProfileCache.set(userId, null);
-			return null;
-		}
-	}
 
 	async function preloadUserProfiles() {
 		const userIds = new Set<string>();
@@ -1439,17 +1274,7 @@
 		await Promise.all(fetchPromises);
 	}
 
-	function handleRealTimeMessage(newMessage) {
-		const existingIndex = chatMessages.findIndex((msg) => msg.id === newMessage.id);
 
-		if (existingIndex >= 0) {
-			const updatedMessages = [...chatMessages];
-			updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...newMessage };
-			chatMessages = updatedMessages;
-		} else {
-			chatMessages = [...chatMessages, newMessage];
-		}
-	}
 
 	function dedupeChatMessages() {
 		const uniqueMessages = new Map();
@@ -1473,9 +1298,9 @@
 			let displayDate: string;
 
 			if (messageDate === today) {
-				displayDate = $t('threads.today');
+				displayDate = $t('threads.today') as string;
 			} else if (messageDate === yesterday) {
-				displayDate = $t('threads.yesterday');
+				displayDate = $t('threads.yesterday') as string;
 			} else {
 				const date = new Date(messageDate);
 				displayDate = date.toLocaleDateString('en-US', {
@@ -1509,8 +1334,8 @@
 		const threadDate = new Date(thread.updated);
 		const diffDays = Math.floor((now.getTime() - threadDate.getTime()) / (1000 * 3600 * 24));
 
-		if (diffDays === 0) return $t('threads.today');
-		if (diffDays === 1) return $t('threads.yesterday');
+		if (diffDays === 0) return $t('threads.today') as string;
+		if (diffDays === 1) return $t('threads.yesterday') as string;
 
 		// Format other dates as "Sat, 14. Dec 2024"
 		return threadDate.toLocaleDateString('en-US', {
@@ -1619,7 +1444,7 @@
 		threadsStore.setSortOption(sortOption);
 		showSortOptions = false;
 	}
-	$: threads = $threadsStore.searchedThreads;
+	$: threads = $threadsStore.searchedThreads || [];
 
 	function toggleUserSelection(userId: string) {
 		threadsStore.toggleUserSelection(userId);
@@ -1629,26 +1454,7 @@
 	function clearSelectedUsers() {
 		threadsStore.clearSelectedUsers();
 	}
-	function getRandomThinkingPhrase(): string {
-		const thinkingPhrases = $t('extras.thinking');
-		if (!thinkingPhrases?.length) {
-			return 'Thinking...';
-		}
-		return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
-	}
-	/*
-	 * function drag(event: MouseEvent) {
-	 *   if (isDragging) {
-	 *     const deltaY = startY - event.clientY;
-	 *     chatMessagesDiv.scrollTop = scrollTopStart + deltaY;
-	 *   }
-	 * }
-	 * function stopDrag() {
-	 *   isDragging = false;
-	 *   document.removeEventListener('mousemove', drag);
-	 *   document.removeEventListener('mouseup', stopDrag);
-	 * }
-	 */
+
 	function updateAvatarUrl() {
 		if ($currentUser && $currentUser.avatar) {
 			avatarUrl = `${pocketbaseUrl}/api/files/users/${$currentUser.id}/${$currentUser.avatar}`;
@@ -1699,6 +1505,7 @@
 					) {
 						expandedSections.set({
 							prompts: false,
+							sysprompts: false,
 							models: false,
 							bookmarks: false,
 							cites: false,
@@ -1728,10 +1535,7 @@
 			return newSections;
 		});
 	}
-	/*
-	 * ASYNC
-	 * Message handling functions
-	 */
+
 
 	async function handleThreadNameUpdate(threadId: string) {
 		try {
@@ -1810,13 +1614,11 @@
 	function resetTextarea() {
 		userInput = '';
 
-		// Ensure DOM updates before resetting height
 		setTimeout(() => {
 			resetTextareaHeight(textareaElement);
 		}, 0);
 	}
 
-	// Make sure to handle cases when clearing message and sending
 	$: if (userInput === '' && textareaElement) {
 		resetTextareaHeight(textareaElement);
 	}
@@ -1895,7 +1697,7 @@
 				thread.members &&
 				((typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
 					(Array.isArray(thread.members) &&
-						thread.members.some((m) =>
+						thread.members.some((m: any) =>
 							typeof m === 'string' ? m === currentUserId : m.id === currentUserId
 						)));
 
@@ -2022,7 +1824,9 @@
 				name: `(untitled)`,
 				created: new Date().toISOString(),
 				updated: new Date().toISOString(),
-				current_thread: ''
+				current_thread: '',
+				project: '',
+				project_id: '',
 			};
 
 			if (currentProjectId) {
@@ -2084,54 +1888,112 @@
 			}
 
 			return newThread;
-		} catch (error) {
-			console.error('Error in handleCreateNewThread:', error);
-			showNotification({
-				message: 'Failed to create a new conversation',
-				type: 'error',
-				duration: 5000
-			});
+			} catch (error) {
+				handleError(error);
 			return null;
 		} finally {
 			isCreatingThread = false;
 		}
 	}
+	$: deleteNotification = $t('notifications.delete') as string;
 
-	async function handleDeleteThread(event: MouseEvent, threadId: string) {
-		event.stopPropagation();
-		if (confirm('Are you sure you want to delete this thread?')) {
-			const success = await deleteThread(threadId);
-			if (success) {
-				threads = threads.filter((t) => t.id !== threadId);
-				if (currentThreadId === threadId) {
-					currentThreadId = null;
-					chatMessages = [];
-				}
-			}
-		}
-	}
+let showDeleteModal = false;
+    let threadToDelete: string | null = null;
 
-	async function handleStartPromptSelection(promptText: string) {
-		if (isProcessingPromptClick) return;
+    async function handleDeleteThread(event: MouseEvent, threadId: string) {
+        event.stopPropagation();
+        threadToDelete = threadId;
+        showDeleteModal = true;
+    }
 
-		try {
-			isProcessingPromptClick = true;
+    async function confirmDelete() {
+        if (threadToDelete) {
+            const success = await deleteThread(threadToDelete);
+            if (success) {
+                threads = threads.filter((t) => t.id !== threadToDelete);
+                if (currentThreadId === threadToDelete) {
+                    currentThreadId = null;
+                    chatMessages = [];
+                }
+            }
+        }
+        showDeleteModal = false;
+        threadToDelete = null;
+    }
 
-			// Use the existing handleSendMessage function
-			await handleSendMessage(promptText);
+    function cancelDelete() {
+        showDeleteModal = false;
+        threadToDelete = null;
+    }
+	  $: {
+        const greetings = $t('extras.greetings') as string[];
+        if (Array.isArray(greetings) && greetings.every(item => typeof item === 'string')) {
+            currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+        } else {
+            currentGreeting = 'Hello';
+        }
+    }
+    
+    $: {
+        const questions = $t('extras.questions') as string[];
+        if (Array.isArray(questions) && questions.every(item => typeof item === 'string')) {
+            currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+        } else {
+            currentQuestion = "What's on your mind?";
+        }
+    }
+    
+    $: {
+        const quotes = $t('extras.quotes') as string[];
+        if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+            currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        } else {
+            currentQuote = 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
+        }
+    }
 
-			// Refresh prompts after processing
-			promptSuggestions = getRandomPrompts(3);
-		} catch (error) {
-			handleError(error);
-		} finally {
-			isProcessingPromptClick = false;
-		}
-	}
-	function refreshPromptSuggestions() {
-		promptSuggestions = getRandomPrompts(3);
-	}
+	$: {
+        const prompts = $t('startPrompts') as string[];
+        if (Array.isArray(prompts)) {
+            const shuffled = [...prompts].sort(() => 0.5 - Math.random());
+            promptSuggestions = shuffled.slice(0, 3);
+        }
+    }
 
+    async function handleStartPromptSelection(promptText: string) {
+        if (isProcessingPromptClick) return;
+
+        try {
+            isProcessingPromptClick = true;
+            await handleSendMessage(promptText);
+            refreshPromptSuggestions();
+        } catch (error) {
+            handleError(error);
+        } finally {
+            isProcessingPromptClick = false;
+        }
+    }
+    
+    function refreshPromptSuggestions() {
+        const prompts = $t('startPrompts') as string[];
+        if (Array.isArray(prompts)) {
+            const shuffled = [...prompts].sort(() => 0.5 - Math.random());
+            promptSuggestions = shuffled.slice(0, 3);
+        }
+    }
+    function refreshGreeting() {
+        const greetings = $t('extras.greetings') as string[];
+        if (Array.isArray(greetings) && greetings.every(item => typeof item === 'string')) {
+            currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+        }
+    }
+    
+    function refreshQuestion() {
+        const questions = $t('extras.questions') as string[];
+        if (Array.isArray(questions) && questions.every(item => typeof item === 'string')) {
+            currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+        }
+    }
 	async function submitThreadNameChange() {
 		if (currentThreadId && editedThreadName.trim() !== '') {
 			try {
@@ -2313,68 +2175,7 @@
 		}
 	}
 
-	function enhanceWithCitations() {
-		const messageElements = document.querySelectorAll('.chat-messages .message p');
 
-		messageElements.forEach((element) => {
-			const html = element.innerHTML;
-
-			/*
-			 * Process content to identify important terms (simple approach)
-			 * For a real implementation, you might want to use NLP or more sophisticated methods
-			 */
-			const processed = html.replace(
-				/(<strong>.*?<\/strong>)|(\b[A-Z][a-z]{2,}\b)/g,
-				(match, strongTag, word) => {
-					// If already in a strong tag, leave it alone
-					if (strongTag) return strongTag;
-					// Otherwise wrap the term in a strong tag
-					return `<strong>${word}</strong>`;
-				}
-			);
-
-			// Only update if changes were made
-			if (processed !== html) {
-				element.innerHTML = processed;
-			}
-		});
-
-		// Add event listeners to strong elements
-		const strongElements = document.querySelectorAll('.chat-messages .message p strong');
-
-		strongElements.forEach((el) => {
-			const strongEl = el as HTMLElement;
-
-			// Remove any existing event listeners
-			const clone = strongEl.cloneNode(true);
-			if (strongEl.parentNode) {
-				strongEl.parentNode.replaceChild(clone, strongEl);
-			}
-
-			const newEl = clone as HTMLElement;
-
-			// Add hover effect
-			newEl.addEventListener('mouseenter', () => {
-				newEl.style.cursor = 'pointer';
-				newEl.style.textDecoration = 'underline';
-				const text = newEl.textContent || '';
-				newEl.title = `Search for "${text}" on ${$currentCite}`;
-			});
-
-			newEl.addEventListener('mouseleave', () => {
-				newEl.style.textDecoration = 'none';
-			});
-
-			// Add click handler to open citation
-			newEl.addEventListener('click', () => {
-				const text = newEl.textContent || '';
-				if (text) {
-					const url = `${sourceUrls[$currentCite]}${encodeURIComponent(text)}`;
-					window.open(url, '_blank');
-				}
-			});
-		});
-	}
 	function setupReplyableHandlers() {
 		document.querySelectorAll('.replyable').forEach((el) => {
 			el.addEventListener('click', (e) => {
@@ -2413,10 +2214,105 @@
 			}
 		});
 	}
+	function getTimeGroup(date: Date): string {
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const threadDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+		
+		const diffTime = today.getTime() - threadDate.getTime();
+		const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
+		const diffWeeks = Math.floor(diffDays / 7);
+		const diffMonths = now.getMonth() - date.getMonth() + (12 * (now.getFullYear() - date.getFullYear()));
+		const diffYears = now.getFullYear() - date.getFullYear();
+		
+		if (diffDays === 0) {
+			return $t('dates.today') as string;
+		} else if (diffDays === 1) {
+			return $t('dates.yesterday') as string;
+		} else if (diffDays >= 2 && diffDays <= 6) {
+			return `${diffDays} ${$t('dates.daysAgo') as string}`;
+		} else if (diffWeeks === 1) {
+			return $t('dates.weekAgo') as string;
+		} else if (diffWeeks >= 2 && diffWeeks <= 4) {
+			return `${diffWeeks} ${$t('dates.weeksAgo') as string}`;
+		} else if (diffMonths === 1) {
+			return $t('dates.monthAgo') as string;
+		} else if (diffMonths >= 2 && diffMonths <= 11) {
+			return `${diffMonths} ${$t('dates.monthsAgo') as string}`;
+		} else if (diffYears === 1) {
+			return $t('dates.yearAgo') as string;
+		} else if (diffYears > 1) {
+			return `${diffYears} ${$t('dates.yearsAgo') as string}`;
+		}
+		
+		return $t('dates.monthAgo') as string;
+	}
 
+function groupThreadsByTime(threads: any[]) {
+    const grouped: { [key: string]: any[] } = {};
+    
+    threads.forEach(thread => {
+        const date = thread.updated ? new Date(thread.updated) : new Date(thread.created);
+        if (!isNaN(date.getTime())) {
+            const group = getTimeGroup(date);
+            if (!grouped[group]) {
+                grouped[group] = [];
+            }
+            grouped[group].push(thread);
+        }
+    });
+    
+	const getGroupOrder = () => [
+		$t('dates.today') as string,
+		$t('dates.yesterday') as string,
+		`2 ${$t('dates.daysAgo') as string}`,
+		`3 ${$t('dates.daysAgo') as string}`,
+		`4 ${$t('dates.daysAgo') as string}`,
+		`5 ${$t('dates.daysAgo') as string}`,
+		`6 ${$t('dates.daysAgo') as string}`,
+		$t('dates.weekAgo') as string,
+		`2 ${$t('dates.weeksAgo') as string}`,
+		`3 ${$t('dates.weeksAgo') as string}`,
+		`4 ${$t('dates.weeksAgo') as string}`,
+		$t('dates.monthAgo') as string,
+		`2 ${$t('dates.monthsAgo') as string}`,
+		`3 ${$t('dates.monthsAgo') as string}`,
+		`4 ${$t('dates.monthsAgo') as string}`,
+		`5 ${$t('dates.monthsAgo') as string}`,
+		`6 ${$t('dates.monthsAgo') as string}`,
+		`7 ${$t('dates.monthsAgo') as string}`,
+		`8 ${$t('dates.monthsAgo') as string}`,
+		`9 ${$t('dates.monthsAgo') as string}`,
+		`10 ${$t('dates.monthsAgo') as string}`,
+		`11 ${$t('dates.monthsAgo') as string}`,
+		$t('dates.yearAgo') as string
+	];
+    
+    const sortedGroups: { group: string; threads: any[] }[] = [];
+    const groupOrder = getGroupOrder();
+    
+    // Add groups that exist in our threads
+		groupOrder.forEach(group => {
+			if (grouped[group] && grouped[group].length > 0) {
+				sortedGroups.push({ group, threads: grouped[group] });
+			}
+		});
+		
+		// Add any remaining groups (like multiple years ago)
+		Object.keys(grouped).forEach(group => {
+			if (!groupOrder.includes(group) && grouped[group].length > 0) {
+				sortedGroups.push({ group, threads: grouped[group] });
+			}
+		});
+		
+		return sortedGroups;
+	}
+
+	$: groupedThreads = groupThreadsByTime(threads);
+	$: searchPlaceholder = $t('nav.search') as string;
 	$: isLoading = $threadsStore.isLoading;
-	$: isUpdating = $threadsStore.isUpdating;
-	$: error = $threadsStore.error;
+	// $: isUpdating = $threadsStore.isUpdating;
+	// $: error = $threadsStore.error;
 	$: {
 		const storeState = $threadsStore;
 		if (storeState) {
@@ -2600,8 +2496,8 @@
 	}
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 	// $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
-	$: selectedIcon = $promptStore
-		? availablePrompts.find((option) => option.value === $promptStore)?.icon
+	$: selectedIcon = $promptStore?.selectedPromptId
+		? availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon
 		: null;
 	$: selectedModelName = $modelStore?.selectedModel?.name || '';
 	// $: promptType = $promptStore;
@@ -2665,14 +2561,7 @@
 	$: {
 		threadsStore.setSearchQuery(searchQuery);
 	}
-	$: bookmarkedMessages = derived([currentUser, messagesStore], ([$currentUser, $messages]) => {
-		if ($currentUser && $currentUser.bookmarks && $messages) {
-			return $messages.filter((message) => $currentUser.bookmarks.includes(message.id));
-		} else {
-			return [];
-		}
-	});
-	$: orderedGroupedThreads = groupThreadsByDate(filteredThreads || []);
+
 	$: console.log('isLoading changed:', isLoading);
 	$: if ($currentUser?.avatar) {
 		updateAvatarUrl();
@@ -2680,19 +2569,6 @@
 	$: if (date) {
 		messagesStore.setSelectedDate(date.toISOString());
 	}
-	/*
-	 * $: {
-	 *     if (currentThread?.name) {
-	 *         orderedGroupedThreads = groupThreadsByDate(
-	 *             $threadsStore.threads.map(thread =>
-	 *                 thread.id === currentThread?.id
-	 *                     ? { ...thread, name: currentThread.name }
-	 *                     : thread
-	 *             )
-	 *         );
-	 *     }
-	 * }
-	 */
 	$: if (chatMessages && chatMessages.length > 0) {
 		dedupeChatMessages();
 		preloadUserProfiles();
@@ -2700,9 +2576,10 @@
 	$: if ($isTextareaFocused && $showThreadList) {
 		threadListVisibility.set(false);
 	}
+	$: placeholderText = currentManualPlaceholder as string || '';
+
 onMount(() => {
 	let observer: MutationObserver;
-	let unsubscribe: () => void;
 
 	const initializeApp = async () => {
 		try {
@@ -2827,9 +2704,6 @@ onMount(() => {
 		if (observer) {
 			observer.disconnect();
 		}
-		if (unsubscribe) {
-			unsubscribe();
-		}
 	};
 });
 
@@ -2860,6 +2734,7 @@ onMount(() => {
 
 		if (hideTimeout) {
 			clearTimeout(hideTimeout);
+			hideTimeout = null; 
 		}
 
 		chatMessages = [];
@@ -2887,20 +2762,21 @@ onMount(() => {
 
 {#if $currentUser}
 	<div class="chat-interface" in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
-		{#if showAgentPicker}
-			<!-- <AgentPicker 
-    on:close={() => showAgentPicker = false}
-  /> -->
-		{/if}
+
 		<div
 			class="chat-container"
 			transition:fly={{ x: 300, duration: 300 }}
 			class:drawer-visible={$showThreadList}
 		>
-			<img src={Headmaster} alt="Notes illustration" class="illustration" />
 
 			{#if $showThreadList}
-				<div class="drawer" transition:fly={{ x: -300, duration: 300 }}>
+				<div 
+					class="drawer" 
+					transition:fly={{ x: -300, duration: 300 }}
+					use:swipeGesture={drawerSwipeConfig}
+
+
+				>
 					<div class="drawer-list" in:fly={{ duration: 200 }} out:fade={{ duration: 200 }}>
 						<div class="drawer-toolbar" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
 							<button
@@ -2984,7 +2860,7 @@ onMount(() => {
 										transition:slide={{ duration: 300 }}
 										type="text"
 										bind:value={searchQuery}
-										placeholder={$t('nav.search')}
+										placeholder={searchPlaceholder}
 										on:input={handleSearchChange}
 										on:blur={() => {
 											if (!searchQuery) {
@@ -3058,55 +2934,49 @@ onMount(() => {
 									</div>
 								{/if}
 
-								{#if threads.length === 0}
-									<div class="empty-state">
-										<!-- No threads. Select or create project first. -->
+							{#if threads.length === 0}
+								<div class="empty-state">
+									<!-- No threads. Select or create project first. -->
+								</div>
+							{:else}
+								{#each groupedThreads as { group, threads: groupThreads } (group)}
+									<div class="time-divider" in:fade>
+										<span class="time-label">{group}</span>
 									</div>
-								{:else}
-									{#each threads as thread (thread.id)}
+									{#each groupThreads as thread (thread.id)}
 										<button
 											class="card-container"
 											class:selected={currentThreadId === thread.id}
 											on:click={() => handleLoadThread(thread.id)}
 										>
 											<div class="card" class:active={currentThreadId === thread.id} in:fade>
-												<div class="card-static">
-													<span class="card-title">
-														<!-- Get the most up-to-date thread name -->
-														{thread.id === currentThreadId && currentThread
-															? currentThread.name || 'Unnamed Thread'
-															: thread.name || 'Unnamed Thread'}
-													</span>
-													<span class="card-time">
-														{#if thread.updated && !isNaN(new Date(thread.updated).getTime())}
-															{getRelativeTime(new Date(thread.updated))}
-														{:else}
-															{thread.created
-																? getRelativeTime(new Date(thread.created))
-																: 'No date available'}
-														{/if}
-													</span>
-
-													<div class="card-actions" transition:fade={{ duration: 300 }}>
-														<button
-															class="action-btn delete"
-															on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
-														>
-															<Trash2 />
-														</button>
-													</div>
+											<div class="card-static">
+												<div class="card-title">
+													{thread.id === currentThreadId && currentThread
+														? currentThread.name || 'Unnamed Thread'
+														: thread.name || 'Unnamed Thread'}
 												</div>
 											</div>
+											
+											<div class="card-actions" transition:fade={{ duration: 300 }}>
+												<button
+													class="action-btn delete"
+													on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
+												>
+													<Trash2 size={16}/>
+												</button>
+											</div>
+										</div>
 										</button>
 									{/each}
-								{/if}
+								{/each}
+							{/if}
 							</div>
 						{/if}
 					</div>
 				</div>
 			{/if}
-
-			<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
+					<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
 				<div
 					class="chat-content"
 					class:drawer-visible={$showThreadList}
@@ -3343,8 +3213,8 @@ onMount(() => {
 													bind:value={userInput}
 													class:quote-placeholder={isTextareaFocused}
 													on:input={(e) => {
-														adjustFontSize(e.target);
-														textTooLong = e.target.value.length > MAX_VISIBLE_CHARS;
+														adjustFontSize(e.currentTarget);
+														textTooLong = e.currentTarget.value.length > MAX_VISIBLE_CHARS;
 													}}
 													on:keydown={(e) => {
 														if (e.key === 'Enter' && !e.shiftKey) {
@@ -3466,7 +3336,7 @@ onMount(() => {
 																	{/if}
 																</span>
 															</span>
-															<span
+															<button
 																class="btn send-btn"
 																class:visible={isTextareaFocused}
 																transition:slide
@@ -3474,7 +3344,7 @@ onMount(() => {
 																disabled={isLoading}
 															>
 																<Send />
-															</span>
+															</button>
 														{/if}
 													</div>
 												</div>
@@ -3512,9 +3382,7 @@ onMount(() => {
 												{message}
 												allMessages={chatMessages}
 												{userId}
-												{currentUser}
 												{name}
-												{getUserProfile}
 												{getAvatarUrl}
 												{processMessageContentWithReplyable}
 												{latestMessageId}
@@ -3556,8 +3424,10 @@ onMount(() => {
 											in:slide={{ duration: 200 }}
 											out:slide={{ duration: 200 }}
 										>
+										{#if $threadsStore.currentThreadId}
 											<ThreadCollaborators
 												threadId={$threadsStore.currentThreadId}
+												projectId={$threadsStore.currentThread?.project_id || ''}
 												on:select={(event) => {
 													expandedSections.update((sections) => ({
 														...sections,
@@ -3567,6 +3437,7 @@ onMount(() => {
 													console.log('Parent received selection from catalog:', event.detail);
 												}}
 											/>
+										{/if}
 										</div>
 									{/if}
 									{#if $expandedSections.sysprompts}
@@ -3611,12 +3482,13 @@ onMount(() => {
 											in:slide={{ duration: 200 }}
 											out:slide={{ duration: 200 }}
 										>
-											<ModelSelector
-												on:select={(event) => {
-													showModelSelector = !showModelSelector;
-													console.log('Parent received selection from catalog:', event.detail);
-												}}
-											/>
+								<ModelSelector
+									provider={aiModel?.provider}
+									on:select={(event) => {
+										showModelSelector = !showModelSelector;
+										console.log('Parent received selection from catalog:', event.detail);
+									}}
+/>
 										</div>
 									{/if}
 									{#if $expandedSections.bookmarks}
@@ -3649,8 +3521,8 @@ onMount(() => {
 											bind:value={userInput}
 											class:quote-placeholder={isTextareaFocused}
 											on:input={(e) => {
-												adjustFontSize(e.target);
-												textTooLong = e.target.value.length > MAX_VISIBLE_CHARS;
+												adjustFontSize(e.currentTarget);
+												textTooLong = e.currentTarget.value.length > MAX_VISIBLE_CHARS;
 											}}
 											on:keydown={(e) => {
 												if (e.key === 'Enter' && !e.shiftKey) {
@@ -3809,7 +3681,7 @@ onMount(() => {
 															{/if}
 														</span>
 													</span>
-													<span
+													<button
 														class="btn send-btn"
 														class:visible={isTextareaFocused}
 														transition:slide
@@ -3817,7 +3689,7 @@ onMount(() => {
 														disabled={isLoading}
 													>
 														<Send />
-													</span>
+													</button>
 												{/if}
 											</div>
 										</div>
@@ -3835,7 +3707,7 @@ onMount(() => {
 										bind:this={textareaElement}
 										bind:value={userInput}
 										class:quote-placeholder={isTextareaFocused}
-										on:input={(e) => adjustFontSize(e.target)}
+										on:input={(e) => adjustFontSize(e.currentTarget)}
 										on:keydown={(e) => {
 											if (e.key === 'Enter' && !e.shiftKey) {
 												e.preventDefault();
@@ -3844,7 +3716,7 @@ onMount(() => {
 										}}
 										on:focus={onTextareaFocus}
 										on:blur={onTextareaBlur}
-										placeholder={currentManualPlaceholder}
+										placeholder={placeholderText}
 										disabled={isLoading}
 										rows="1"
 									/>
@@ -3918,7 +3790,7 @@ onMount(() => {
 												<span class="btn" transition:slide>
 													<Paperclip />
 												</span>
-												<span
+												<button
 													class="btn send-btn"
 													class:visible={isTextareaFocused}
 													transition:slide
@@ -3926,7 +3798,7 @@ onMount(() => {
 													disabled={isLoading}
 												>
 													<Send />
-												</span>
+												</button>
 											{/if}
 										</div>
 									</div>
@@ -3935,9 +3807,30 @@ onMount(() => {
 						</div>
 					{/if}
 				</div>
-			</div>
 		</div>
+		</div>
+
 	</div>
+	{#if showDeleteModal}
+    <div class="modal-overlay" transition:fade={{ duration: 200 }}>
+        <div class="modal-content delete" transition:scale={{ duration: 300 }}>
+            <div class="modal-header">
+                <h3>{$t('generic.delete')} {$t('threads.thread')}</h3>
+            </div>
+            <div class="modal-body">
+                <p>{deleteNotification}</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" on:click={cancelDelete}>
+                    {$t('generic.no')}
+                </button>
+                <button class="btn btn-delete" on:click={confirmDelete}>
+                    {$t('generic.yes')}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
 {:else}
 	<p>User is not authenticated</p>
 {/if}
@@ -3948,11 +3841,9 @@ onMount(() => {
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: 'Roboto', sans-serif; */
-		/* font-family: 'Montserrat'; */
-		/* color: var(--text-color); */
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+
 		font-family: var(--font-family);
 	}
 
@@ -3986,7 +3877,90 @@ onMount(() => {
 			// border-radius: var(--radius-m);
 			// overflow: hidden;
 		}
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
 
+.modal-content.delete {
+    background: var(--bg-color);
+    border: 1px solid var(--line-color);
+    border-radius: 1rem !important;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 0.5rem;
+    justify-content: center;
+	display: flex;
+    h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color);
+		width: 100%;
+		text-align: center;
+    }
+}
+
+.modal-body {
+    padding: 1rem;
+    
+    p {
+        margin: 0;
+        color: var(--placeholder-color);
+        line-height: 1.5;
+		text-align: center;
+    }
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0 1.5rem 1.5rem;
+    justify-content: center;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &.btn-cancel {
+        background: transparent;
+        border-color: var(--line-color);
+        color: var(--text-color);
+        
+        &:hover {
+            background: var(--hover-color);
+        }
+    }
+    
+    &.btn-delete {
+        background: #ef4444;
+        color: white;
+        
+        &:hover {
+            background: #dc2626;
+        }
+    }
+}
 		table {
 			margin-top: 2rem;
 			margin-bottom: 2rem;
@@ -4564,28 +4538,7 @@ onMount(() => {
 			gap: 0.5rem;
 			border-radius: 1rem;
 		}
-		&.delete-card-container {
-			border: none;
-			color: #606060;
-			cursor: pointer;
-			height: 30px;
-			width: 30px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			position: absolute;
-			right: 0;
-			top: 50%;
-			transform: translateY(-50%);
-			transition: all ease 0.3s;
-			opacity: 0;
-			visibility: hidden;
-			&:hover {
-				height: 30px;
-				width: 30px;
-				color: red;
-			}
-		}
+
 	}
 	span.hero {
 		display: flex;
@@ -4957,12 +4910,14 @@ onMount(() => {
 		display: flex;
 		flex-direction: column;
 		// background: var(--bg-gradient);
-		justify-content: flex-start;
-		// align-items: center;
+		justify-content: space-between;
+		align-items: center;
 		width: 100%;
+		
 		height: auto;
 		margin-top: 0;
 		margin-right: 0;
+		margin-bottom: 2rem;
 		height: auto;
 		// width: 50%;
 		// margin: 0 1rem;
@@ -5052,6 +5007,7 @@ onMount(() => {
 			justify-content: flex-start;
 			align-items: flex-end;
 			width: 100%;
+			max-width: 1200px;
 			margin-bottom: 0;
 		}
 		& .prompts {
@@ -5087,19 +5043,18 @@ onMount(() => {
 			margin-left: 0;
 			top: 0;
 			margin-top: 0;
-
 			width: 100%;
 		}
 		& .chat-container {
 			right: 0;
 			margin-right: 0;
 			width: auto;
-			left: 400px;
+			left: 250px;
 		}
 		& .chat-header {
 			right: 0;
 			margin-right: 0;
-			width: auto;
+			width: 100%;
 			left: 0;
 		}
 		& .chat-header-thread {
@@ -5138,18 +5093,20 @@ onMount(() => {
 	.drawer-visible .input-container {
 		left: 0;
 		right: 0.5rem;
+		bottom: 1.5rem;
+		
 	}
 	.input-container {
 		display: flex;
 		flex-direction: column;
-		max-width: 1600px;
-		position: absolute;
+		max-width: 1200px;
+		width: calc(100% - 2rem);
+		position: relative;
 		flex-grow: 0;
-		left: 8rem;
+		left: auto;
 		margin-top: 0;
 		height: auto;
-		right: 2rem;
-		bottom: 3.5rem;
+		bottom: 4rem;
 		margin-bottom: 0;
 		border: 1px solid var(--line-color);
 		transition: all 0.2s ease;
@@ -5160,6 +5117,7 @@ onMount(() => {
 		justify-content: center;
 		// background: var(--bg-gradient);
 		z-index: 7700;
+				user-select: none;
 
 		&::placeholder {
 			color: var(--placeholder-color);
@@ -5222,7 +5180,7 @@ onMount(() => {
 		width: 100%;
 		height: 100%;
 		margin-top: 0;
-		margin-bottom: 0;
+		margin-bottom: 1rem;
 		position: relative;
 		justify-content: flex-end;
 		align-items: center;
@@ -5235,7 +5193,7 @@ onMount(() => {
 		flex-direction: column;
 		position: relative;
 
-		width: calc(100%);
+		width: 100%;
 		max-width: 1200px;
 		margin-top: 0;
 		height: auto;
@@ -5313,7 +5271,6 @@ onMount(() => {
 	.combo-input {
 		// width: 100vw;;
 		border-radius: var(--radius-m);
-
 		margin-bottom: 0;
 		height: auto;
 		width: 100%;
@@ -5358,6 +5315,7 @@ onMount(() => {
 		margin-bottom: 0;
 		height: auto;
 		width: 100%;
+		max-width: 1200px;
 		margin-left: 0;
 		bottom: auto;
 		left: 0;
@@ -5432,45 +5390,46 @@ onMount(() => {
 	}
 
 	.drawer-visible .chat-messages {
-		max-width: 1600px;
-		left: 0;
 		border: 1px solid var(--line-color);
-		padding-inline-start: 1rem;
+		border-bottom: 1px solid transparent;
+		width: calc(100% - 2rem);
 	}
 
 	.chat-messages {
 		flex-grow: 0;
-		// overflow-y: auto;
 		overflow-x: hidden;
-		// background: var(--primary-color);
-		/* padding: 10px; */
 		display: flex;
 		position: relative;
-		left: 3rem;
+		left: auto;
 		gap: 1rem;
-		margin-bottom: 7rem;
+
+		margin-bottom: 4rem;
+		// border: 1px solid var(--line-color);
+		// border-bottom: 1px solid transparent;
+		border-radius: 2rem 2rem 0 0;
 		margin-top: 0;
-		// left: 25%;
 		padding: 0;
-		// padding-inline-start: 1rem;
-		// backdrop-filter: blur(10px);
 		flex-direction: column;
 		align-items: stretch;
-		height: calc(100% - 4rem);
-		overflow-x: hidden;
-		overflow-y: none;
-		scrollbar-width: 2px;
-		scrollbar-color: var(--secondary-color) transparent;
+		height: 100%;
+		width: calc(100% - 2rem);
+		max-width: 1200px;
+		// scrollbar-width: 2px;
+		// scrollbar-color: var(--secondary-color) transparent;
 		scroll-behavior: smooth;
-		// margin-bottom: 100px;
-		// height: 100%;
-		width: 100%;
-		border-radius: 2rem;
-		// padding-bottom: 40px;
-		// border: 2px solid var(--bg-color);
-		// background-color: var(--secondary-color);
-		// backdrop-filter: blur(10px);
-
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 		background: linear-gradient
 			(
 				90deg,
@@ -5497,6 +5456,7 @@ onMount(() => {
 		&::before {
 			display: flex;
 			flex-direction: column;
+			
 			/* top: 0;
       background: linear-gradient(
         to bottom, 
@@ -5562,7 +5522,7 @@ onMount(() => {
 			width: 10px;
 		}
 		&::-webkit-scrollbar-track {
-			background: #f1f1f1;
+			background: transparent;
 		}
 		&::-webkit-scrollbar-thumb {
 			background: #888;
@@ -5835,7 +5795,7 @@ onMount(() => {
 		top: 0rem;
 		left: 0rem;
 		right: 0;
-		width: auto;
+		width: 100%;
 		z-index: 2000;
 		// padding: 0.5rem;
 		color: var(--text-color);
@@ -5878,6 +5838,7 @@ onMount(() => {
 			justify-content: center;
 			margin-left: auto;
 			letter-spacing: 0.2rem;
+			user-select: none;
 			& .icon {
 				color: var(--placeholder-color);
 				margin-right: 0.5rem;
@@ -5993,11 +5954,20 @@ onMount(() => {
 		margin-top: 0;
 		margin-bottom: 1rem;
 		position: relative;
-		scrollbar-width: thin;
+		// scrollbar-width: thin;
 		scroll-behavior: smooth;
-		overflow: {
-			x: hidden;
-			y: auto;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
 		}
 	}
 
@@ -6470,6 +6440,7 @@ onMount(() => {
 		padding-top: 1rem !important;
 		display: flex;
 		text-align: center;
+		user-select: none !important;
 
 		font-size: 1.5rem;
 		letter-spacing: 0.2rem;
@@ -6486,6 +6457,7 @@ onMount(() => {
 		justify-content: center;
 		align-items: flex-start;
 		height: auto;
+		user-select: none !important;
 		// transform: translateY(50%);
 	}
 
@@ -6626,8 +6598,14 @@ onMount(() => {
 		align-items: center;
 		transition: all 0.3s ease;
 		position: relative;
-		width: 100%;
+		width: calc(100% - 2rem) !important;
+		max-width: 1200px;
 		height: 100%;
+		margin-top: 1rem;
+		margin-bottom: 0 !important;
+		padding: 1rem;
+		// animation: pulsateShadow 1.5s infinite alternate;
+		border-radius: 2rem;
 		flex: 1;
 		// overflow-y: scroll !important;
 		overflow: hidden !important;
@@ -6742,39 +6720,107 @@ onMount(() => {
 		margin-bottom: 10px;
 	}
 
-	.card-title {
-		font-weight: 300;
-		font-size: calc(0.5rem + 1vmin);
-
-		// font-size: var( --font-size-s);
-		margin-bottom: 0.25rem;
-		text-align: left;
-	}
-
-	.card-title.project {
-		font-weight: 300;
-		font-size: var(--font-size-sm);
+	.card {
 		display: flex;
-		width: auto;
+		flex-direction: row;
+		align-items: center;
+    	justify-content: space-between;
+		max-width: 100%;
+		height: 100%;
+		position: relative;
+		// backdrop-filter: blur(8px);
+		// background: var(--bg-gradient-left);
+		// border-bottom: 5px solid var(--bg-color);
+		// border-top: 1px solid var(--bg-color);
+		// border-left: 5px solid var(--bg-color);
+		// border-right: 1px solid var(--bg-color);
+		transition: all 0.3s ease;
+		min-width: 0;
+		// &.active {
+		//   border-left: 3px solid var(--primary-color);
+		// }
 	}
-
 	.card-static {
 		display: flex;
 		flex-direction: column;
 		position: relative;
 		align-items: flex-start;
-		justify-content: flex-start;
-		width: 100%;
+    	justify-content: space-between;
+		width: 250px;
 		line-height: 1.2;
 		margin-left: 0;
+		& .card-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis !important;
+        width: 90%;
+		font-size: 0.8rem;
+		text-align: left;
+		}
+		& .card-title.project {
+			font-weight: 300;
+			font-size: var(--font-size-sm);
+			display: flex;
+			width: auto;
+		}
+
+	}
+	span.icon:hover .card-actions {
+		transform: translateX(0);
+		opacity: 1;
+		visibility: visible;
 	}
 
+	.card-actions {
+		position: absolute;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		right: 0;
+		left: -1rem;
+		top: -1.5rem;
+		gap: 1rem;
+		height: 2rem;
+		display: flex;
+		transform: translateX(0%) ;
+		width: 3rem;
+		background: var(--secondary-color) !important;
+		z-index: 1000;
+		opacity: 0;
+		transition: all 0.2s ease;
+		visibility: hidden;
+	}
+
+	.card-container:hover .card-actions {
+		transform: translateX(0%) translateY(3rem);
+		opacity: 1;
+		visibility: visible;
+		width: 250px !important;
+		padding-left: 1rem;
+	}
+	.card-container:hover .card-time {
+		opacity: 1;
+		visibility: visible;
+		height: auto;
+	}
+	.card-time {
+		font-size: 0.6rem;
+		display: flex;
+		margin-top: 1rem;
+		width: auto;
+		opacity: 0;
+		height: 100%;
+				background: transparent;
+
+	}
 	button.action-btn {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
 		color: transparent;
+
 		width: 40px;
 		height: 40px;
 		transition: all 0.1s ease;
@@ -6785,15 +6831,14 @@ onMount(() => {
 			display: flex;
 			justify-content: center;
 			border-radius: var(--radius-s);
-			background: var(--bg-gradient-r);
 			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 			user-select: none;
 			transition: all 0.2s ease;
 		}
 		&:hover {
 			color: var(--tertiary-color);
-
 			&.delete {
+				
 				&:hover {
 					color: red;
 				}
@@ -6819,7 +6864,6 @@ onMount(() => {
 		margin-right: 0;
 		margin-top: 0;
 		top: 0;
-		margin-bottom: 2rem;
 		bottom: 0;
 		left: 0;
 		width: 100%;
@@ -6832,6 +6876,54 @@ onMount(() => {
 		scrollbar-color: var(--bg-color) transparent;
 		scroll-behavior: smooth;
 	}
+
+.drawer {
+  /* Ensure smooth hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  /* Smooth touch interactions */
+  touch-action: pan-y; /* Allow vertical scrolling but preserve horizontal swipes */
+  
+  /* Optional: Add subtle shadow during interaction */
+  transition: box-shadow 0.2s ease-out;
+}
+.drawer-backdrop {
+  transition: backdrop-filter 0.2s ease-out;
+}
+
+.drawer-backdrop.swiping {
+  backdrop-filter: blur(2px);
+}
+.drawer:active,
+.drawer.swiping {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* Smooth slide-in/out transitions */
+.drawer-slide-enter {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.drawer-slide-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              opacity 0.3s ease-out;
+}
+
+.drawer-slide-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.drawer-slide-exit-active {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19),
+              opacity 0.3s ease-in;
+}
 	.drawer {
 		display: flex;
 		flex-direction: column;
@@ -6839,19 +6931,23 @@ onMount(() => {
 		align-items: center;
 		// background: var(--bg-gradient-right);
 		// z-index: 11;
-
+		transform: translateZ(0);
+		backface-visibility: hidden;
+		touch-action: pan-y;
+		transition: box-shadow 0.2s ease-out;
+			--drawer-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+		z-index: 9999;
 		overflow: {
 			x: hidden;
 			y: auto;
 		}
 		position: relative;
-		top: 4rem;
-		bottom: 0;
-		left: 3rem;
+		top: 0rem;
+		left: 0;
+		margin-bottom: 0;
 		margin-left: 0;
-		height: 100vh;
-		width: calc(400px - 4rem);
-		transition: all 0.3s ease-in-out;
+		height: calc(100% - 6rem);
+		width: 250px;
 		scrollbar: {
 			width: 1px;
 			color: var(--bg-color) transparent;
@@ -6901,8 +6997,7 @@ onMount(() => {
 		width: fit-content;
 		backdrop-filter: blur(10px);
 		// background: var(--primary-color);
-		border-top-right-radius: var(--radius-l);
-		border-bottom-right-radius: var(--radius-l);
+
 
 		// box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	}
@@ -6912,15 +7007,13 @@ onMount(() => {
 		flex-direction: row;
 		position: relative;
 		width: 100%;
+		height: 3rem;
 		margin-left: 0;
-		box-shadow: 0 1px 1px var(--secondary-color);
-		min-height: 5rem;
-		border-top-right-radius: var(--radius-m);
-		border-bottom-right-radius: 0 !important;
-		border-bottom-left-radius: var(--radius-m);
+		// box-shadow: 0 1px 1px var(--secondary-color);
 		margin-right: 0;
 		padding: 0;
 		cursor: pointer;
+		border-radius: 0;
 	}
 	button.card-container {
 		display: flex;
@@ -6928,6 +7021,8 @@ onMount(() => {
 		position: relative;
 		flex-grow: 1;
 		padding: 1rem;
+		border-radius: 0;
+
 		// background-color: var(--bg-color);
 		width: 100%;
 		// box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -6935,7 +7030,7 @@ onMount(() => {
 		&:hover {
 			box-shadow: none;
 			background: var(--secondary-color) !important;
-
+			border-radius: 0;
 			// background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
 			opacity: 1;
 			visibility: visible;
@@ -6944,84 +7039,13 @@ onMount(() => {
 		&.selected {
 			backdrop-filter: blur(30px);
 			background: var(--primary-color);
-			border-radius: 2rem;
+			border-radius: 0;
 		}
 	}
 
-	.card {
-		display: flex;
-		flex-direction: row;
-		align-items: flex-start;
-		justify-content: flex-end;
-		width: 100%;
-		height: 100%;
-		position: relative;
-		// backdrop-filter: blur(8px);
-		// background: var(--bg-gradient-left);
-		// border-bottom: 5px solid var(--bg-color);
-		// border-top: 1px solid var(--bg-color);
-		// border-left: 5px solid var(--bg-color);
-		// border-right: 1px solid var(--bg-color);
-		transition: all 0.3s ease;
 
-		// &.active {
-		//   border-left: 3px solid var(--primary-color);
-		// }
-	}
 
-	span.icon:hover .card-actions {
-		transform: translateX(0);
-		opacity: 1;
-		visibility: visible;
-	}
 
-	span.icon .card-actions {
-		width: auto;
-		height: 36px;
-		position: absolute;
-		right: 1rem;
-		gap: 0.5rem;
-		z-index: 1000;
-	}
-
-	.card-actions {
-		position: absolute;
-		display: flex;
-		flex-direction: row;
-		right: 0;
-		gap: 1rem;
-		height: 40px;
-		display: flex;
-		transform: translateX(100%);
-		backdrop-filter: blur(100px);
-		background: var(--bg-color);
-		width: auto;
-		border-radius: var(--radius-m);
-		opacity: 0;
-		transition: all 0.2s ease;
-		visibility: hidden;
-	}
-
-	.card-container:hover .card-actions {
-		transform: translateX(0);
-		opacity: 1;
-		visibility: visible;
-	}
-	.card-container:hover .card-time {
-		transform: translateY(0);
-		opacity: 1;
-		visibility: visible;
-		height: auto;
-	}
-	.card-time {
-		font-size: var(--font-size-xs);
-		display: flex;
-		transform: translateY(-100%);
-		margin-top: 1rem;
-		width: auto;
-		opacity: 0;
-		height: 100%;
-	}
 
 	.thread-toggle {
 		color: var(--text-color);
@@ -7272,21 +7296,23 @@ onMount(() => {
 		background-color: #1565c0;
 	}
 
-	.delete-card-container {
-		opacity: 0;
-		visibility: hidden;
-		transition:
-			opacity 0.2s,
-			visibility 0.2s,
-			transform 0.3s;
 
-		&:hover {
-			opacity: 1;
-			visibility: visible;
-			box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-		}
-	}
-
+.time-divider {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    margin: 0;
+    user-select: none;
+    .time-label {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: var(--placeholder-color);
+        letter-spacing: 0.2rem;
+		    &::first-letter {
+        text-transform: uppercase;
+    }
+    }
+}
 	.date-divider {
 		display: flex;
 		flex-direction: row;
@@ -7526,6 +7552,7 @@ onMount(() => {
 		// background: rgba(0, 0, 0, 0.2);
 		left: 0;
 		right: 0;
+		bottom: auto;
 		padding: 0;
 		padding-top: 0;
 		height: 100%;
@@ -7593,6 +7620,20 @@ onMount(() => {
 			.chat-messages {
 				margin-right: 0;
 				right: 0;
+				scroll-behavior: smooth;
+				overflow-x: hidden;
+				overflow-y: scroll;
+				&::-webkit-scrollbar {
+					width: 0.5rem;
+					background-color: transparent;
+				}
+				&::-webkit-scrollbar-track {
+					background: transparent;
+				}
+				&::-webkit-scrollbar-thumb {
+					background: var(--secondary-color);
+					border-radius: 1rem;
+				}
 			}
 
 			// &.input-container-start {
@@ -7611,7 +7652,7 @@ onMount(() => {
 		.chat-content {
 			width: auto;
 			margin-right: 0;
-			margin-left: 4rem;
+			margin-left: 0;
 		}
 
 		.chat-placeholder img {
@@ -7660,9 +7701,11 @@ onMount(() => {
 					max-height: 200px;
 					font-size: 1rem !important;
 					padding: 2rem;
+					
 					&::placeholder {
 						color: var(--placeholder-color);
 						font-size: 0.65rem !important;
+						
 					}
 					&:focus {
 						padding-inline-start: 4rem;
@@ -7969,8 +8012,10 @@ onMount(() => {
 			margin-left: 0rem;
 			right: 0;
 			left: 0;
-			padding-inline-start: 1rem;
-			top: 3rem;
+			padding-inline-start: 0;
+			top: 1rem;
+			width: 100% !important;
+			border: 1px solid transparent !important; 
 			z-index: 0;
 		}
 
@@ -8154,41 +8199,17 @@ onMount(() => {
 		}
 
 		.drawer {
-			width: auto;
-			margin-right: 0;
 			margin-left: 0;
-			background: var(--bg-gradient-r);
-			// backdrop-filter: blur(20px);
-			// backdrop-filter: blur(100px);
-			// border-top: 1px solid var(--primary-color);
-			// border-right: 1px solid var(--primary-color);
-			padding: 0;
-			z-index: 1;
-			// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-			// background-color: red !important;
-			top: 2rem;
-			margin-right: 0;
-			left: 0.5rem;
-			margin-bottom: 1rem !important;
-			border-radius: 0;
-			width: 100%;
-			max-width: 450px;
-			height: 84vh !important;
-			// border-right: 1px solid var(--secondary-color);
-			align-items: center;
-			justify-content: center;
-			// margin-bottom: 4rem;
-			transform: translateX(-100%);
-			transition: transform 0.3s ease-in-out;
-			/* z-index: 1000; */
-		}
-
-		.drawer-visible .chat-messages {
-			margin-left: calc(50% - 2rem);
+			left: 0;
+			position: relative;
+			top: 0 !important;
+			margin-top: 0 !important;
+			margin-bottom: 12rem !important;
+			height: auto !important;
 		}
 
 		.drawer-visible .drawer {
-			margin-left: -1rem;
+			margin-left: 0;
 			transform: translateX(0);
 			top: 3rem;
 			padding-top: 0;
@@ -8206,10 +8227,21 @@ onMount(() => {
 		}
 		.drawer-visible .thread-filtered-results {
 			border: 1px solid var(--line-color);
-			padding: 1rem;
-			margin-left: 1rem;
-			margin-right: 1rem;
-			border-radius: 2rem;
+			padding: 0;
+			margin-left: 0;
+			margin-right: 0;
+			border-radius: 0 2rem 2rem 0;
+			backdrop-filter: blur(10px);
+			overflow-x: hidden;
+			overflow-y: auto;
+			&::-webkit-scrollbar {
+				width: 0.5rem;
+				background-color: transparent;
+			}
+			&::-webkit-scrollbar-thumb {
+				background: var(--secondary-color);
+				border-radius: 1rem;
+			}
 		}
 		.drawer-visible .scroll-bottom-btn {
 			display: none;
@@ -8220,16 +8252,21 @@ onMount(() => {
 		}
 
 		.input-container {
-			left: 0.5rem !important;
-			right: 0.5rem;
+			left: 0rem !important;
+			right: 0;
 			margin-bottom: 0;
-			bottom: 4rem !important;
+			bottom:6rem !important;
 			background: transparent;
+			border-radius: 0;
+			border: 1px solid transparent;
+			border-top: 1px solid var(--line-color);
 			flex-grow: 0;
 			width: auto;
 			position: absolute;
 			align-items: center;
 			justify-content: flex-end;
+			overflow: none;
+
 		}
 
 		.chat-placeholder {
@@ -8250,10 +8287,6 @@ onMount(() => {
 			scrollbar-color: var(--secondary-color) transparent;
 			scroll-behavior: smooth;
 			width: 100%;
-		}
-		.input-container {
-			bottom: 7rem !important;
-			overflow: none;
 		}
 
 		span.header-btns {
@@ -8325,6 +8358,24 @@ onMount(() => {
 			top: 2rem;
 		}
 
+		.drawer-visible .thread-filtered-results {
+			border: 1px solid var(--line-color);
+			padding: 0;
+			margin-left: 0;
+			margin-right: 0;
+			border-radius: 0 2rem 2rem 0;
+			backdrop-filter: blur(10px);
+			overflow-x: hidden;
+			overflow-y: auto;
+			&::-webkit-scrollbar {
+				width: 0.5rem;
+				background-color: transparent;
+			}
+			&::-webkit-scrollbar-thumb {
+				background: var(--secondary-color);
+				border-radius: 1rem;
+			}
+		}
 		.message {
 			p {
 				font-size: 0.9rem;
@@ -8557,7 +8608,7 @@ onMount(() => {
 			width: 100%;
 			padding: 0.5rem;
 			height: 3rem !important;
-
+			user-select: none;
 			line-height: 1.5;
 			margin-top: auto;
 			display: flex;
@@ -8571,6 +8622,8 @@ onMount(() => {
 			color: var(--placeholder-color);
 			opacity: 0.8;
 			height: auto;
+			user-select: none;
+
 		}
 
 		textarea {
@@ -8595,10 +8648,13 @@ onMount(() => {
 				width: calc(100% - 2rem) !important;
 				background: var(--primary-color);
 				height: auto;
+				user-select: none;
 
 				& textarea {
 					height: 100px !important;
 					font-size: 1rem !important;
+					user-select: none;
+
 				}
 			}
 
@@ -8687,6 +8743,14 @@ onMount(() => {
 			display: none;
 		}
 
+
+		.drawer-visible .drawer {
+			margin-left: 0;
+			width: calc(100% - 3rem);
+			transform: translateX(0);
+			top: 3rem !important;
+			padding-top: 0;
+		}
 		.drawer {
 			display: flex;
 			flex-direction: column;
@@ -8698,12 +8762,12 @@ onMount(() => {
 			// padding: 20px 10px;
 			// border-top-left-radius: 50px;
 			// background-color: var(--bg-color);
-			top: 4rem;
+			top: 0rem;
 			bottom: 0rem;
 			margin-bottom: 1rem;
 			gap: 1px;
 			// left: 64px;
-			height: 60vh;
+			height: 100vh !important;
 			width: calc(100% - 1rem);
 			// height: 86%;
 			// background: var(bg-gradient-r);
@@ -8980,7 +9044,7 @@ onMount(() => {
 	}
 
 	.modal-header {
-		padding: 16px;
+		padding: 1rem;
 		border-bottom: 1px solid var(--border-color);
 		display: flex;
 		justify-content: space-between;

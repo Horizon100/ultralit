@@ -54,7 +54,11 @@ export default {
 		collapse: 'Collapse',
 		collapseAll: 'Collapse all',
 		expand: 'Expand',
-		expandAll: 'Expand all'
+		expandAll: 'Expand all',
+		yes: 'Yes',
+		no: 'No',
+		on: 'On',
+		off: 'Off'
 	},
 	posts: {
 		loginPrompt: 'Please sign in to create a post.',
@@ -424,12 +428,15 @@ export default {
 		days: 'days',
 		dayAgo: 'day ago',
 		daysAgo: 'days ago',
-		monthAgo: 'month ago',
+		weekAgo: 'Last week',
+		weeksAgo: 'weeks ago',
+		monthAgo: 'Last month',
 		monthsAgo: 'months ago',
-		yearAgo: 'year ago',
+		yearAgo: 'Last year',
 		yearsAgo: 'years ago',
 		today: 'Today',
 		tomorrow: 'Tomorrow',
+		yesterday: 'Yesterday',
 		endWeek: 'End of Week',
 		week: 'week',
 		weeks: 'weeks',
@@ -437,7 +444,20 @@ export default {
 		months: 'months',
 		now: 'Now'
 	},
-
+	months: {
+		january: 'January',
+		february: 'February',
+		march: 'March',
+		april: 'April',
+		may: 'May',
+		june: 'June',
+		july: 'July',
+		august: 'August',
+		september: 'September',
+		october: 'October',
+		november: 'November',
+		december: 'December'
+	},
 	tasks: {
 		title: 'Tasks',
 		task: 'task',
@@ -470,7 +490,8 @@ export default {
 		notAssigned: 'Not assigned',
 		schedule: 'Schedule',
 		gantt: 'Taskflows',
-		add: 'Add a task'
+		add: 'Add a task',
+		tags: 'Tags',
 	},
 
 	dashboard: {
@@ -506,7 +527,7 @@ export default {
 		updated: 'Updated',
 		shared: 'People',
 		thread: 'Thread',
-		threads: 'Threads'
+		threads: 'Threads',
 	},
 
 	chat: {
@@ -587,6 +608,9 @@ export default {
 	button: {
 		tags: 'Tags'
 	},
+	notifications: {
+		delete: 'Are you sure you want to delete this?'
+	},
 	thinkingPhrases: [
 		'Consulting my digital crystal ball...',
 		'Asking the oracle of ones and zeros...',
@@ -598,5 +622,37 @@ export default {
 		'Divining the digital tea leaves...',
 		'Consulting the sacred scrolls of binary...',
 		'Communing with the AI hive mind...'
+	],
+	startPrompts: [
+		'How can I improve my daily workflow?',
+		'What\'s the best way to prioritize competing tasks?',
+		'How do you structure effective team meetings?',
+		'What tools help you stay organized?',
+		'How can I better communicate with remote colleagues?',
+		'What\'s your approach to managing deadlines?',
+		'How do you handle interruptions while working?',
+		'What makes a project successful from start to finish?',
+		'How can I give more constructive feedback?',
+		'What\'s the key to effective delegation?',
+		'How do you maintain focus during long work sessions?',
+		'What strategies help resolve team conflicts?',
+		'How can I better track my progress on goals?',
+		'What\'s the best way to onboard new team members?',
+		'How do you balance individual work with collaboration?',
+		'What makes virtual teamwork more effective?',
+		'How can I improve my time management skills?',
+		'What\'s your process for brainstorming new ideas?',
+		'How do you handle multiple projects simultaneously?',
+		'What makes documentation actually useful?',
+		'How can I build stronger working relationships?',
+		'What\'s the best way to run a retrospective?',
+		'How do you stay motivated on long-term projects?',
+		'What tools help your team collaborate better?',
+		'How can I make my presentations more engaging?',
+		'What\'s your approach to knowledge sharing?',
+		'How do you handle scope creep in projects?',
+		'What makes cross-functional teams work well?',
+		'How can I improve my decision-making process?',
+		'What strategies help maintain team momentum?'
 	]
 };

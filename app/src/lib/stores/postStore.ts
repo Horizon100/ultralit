@@ -209,7 +209,8 @@ function createPostStore() {
 			try {
 				const params = new URLSearchParams({
 					limit: limit.toString(),
-					depth: depth.toString()
+					depth: depth.toString(),
+					expand: 'user' // Add this
 				});
 
 				const response = await fetch(`/api/posts/${postId}/children?${params}`, {

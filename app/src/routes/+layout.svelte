@@ -6,7 +6,6 @@
 	import { goto } from '$app/navigation';
 	import { fly, fade, slide } from 'svelte/transition';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
-	import type { ThreadStoreState } from '$lib/types/types';
 	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
 	import { taskNotifications } from '$lib/stores/taskNotificationStore';
 	// Components
@@ -18,12 +17,12 @@
 	import StyleSwitcher from '$lib/features/users/components/StyleSwitcher.svelte';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
-	import Sidenav from '$lib/components/navigation/Sidenav.svelte';
 	import ProjectDropdown from '$lib/components/buttons/ProjectDropdown.svelte';
 	import SearchEngine from '$lib/components/navigation/SearchEngine.svelte';
-
+	import { getWallpaperSrc, parseWallpaperPreference, AVAILABLE_WALLPAPERS } from '$lib/utils/wallpapers';
+	import type { WallpaperPreference } from '$lib/utils/wallpapers';
 	// Stores
-	import { currentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
+	import { currentUser, refreshCurrentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import {
 		currentLanguage,
@@ -37,7 +36,6 @@
 	import { threadListVisibility } from '$lib/clients/threadsClient';
 	import { showAuth, toggleAuth } from '$lib/stores/authStore';
 	import { sidenavStore, showSidenav } from '$lib/stores/sidenavStore';
-
 	// Icons
 	import {
 		MessageSquare,
@@ -89,14 +87,31 @@
 		SquareDashedKanban,
 		Gamepad,
 		Gamepad2,
-		HomeIcon
+		HomeIcon,
+
+		MessageCirclePlus,
+
+		ListCollapse,
+
+		TagIcon,
+
+		Filter,
+
+		FilterX
+
+
+
+
+
 	} from 'lucide-svelte';
 
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
 	export let isOpen = false;
 	export let isSearchFocused = false;
+
 	// Local state
+	
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
 	let isStylesOpen = false;
@@ -113,6 +128,9 @@
 	let activeSection = '';
 	let activeRevealButton: string | null = null;
 	let isDropdownOpen = false;
+	let wallpaperPreference: WallpaperPreference = { wallpaperId: null, isActive: false };
+	let wallpaperSrc: string | null = null;
+	let preference: WallpaperPreference;
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -302,6 +320,61 @@
 	}
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
 
+	$: {
+		console.log('=== WALLPAPER DEBUG ===');
+		console.log('Current user:', $currentUser);
+		console.log('Current user wallpaper_preference (raw):', $currentUser?.wallpaper_preference);
+		console.log('Current user wallpaper_preference type:', typeof $currentUser?.wallpaper_preference);
+	}
+	
+$: if ($currentUser?.wallpaper_preference) {
+	wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+} else if (!$currentUser) {
+	// Show default wallpaper when no user is logged in
+	wallpaperPreference = { 
+		wallpaperId: 'aristoles', // or whatever your aristotle image is named
+		isActive: true 
+	};
+	console.log('No user logged in, using default wallpaper:', wallpaperPreference);
+} else {
+	// User is logged in but has no wallpaper preference
+	wallpaperPreference = { wallpaperId: null, isActive: false };
+	console.log('User logged in but no wallpaper preference set');
+}
+
+$: wallpaperSrc = getWallpaperSrc(wallpaperPreference);
+	
+	// Get wallpaper source with debugging
+	$: {
+		console.log('Getting wallpaper source for preference:', wallpaperPreference);
+		try {
+			const src = getWallpaperSrc(wallpaperPreference);
+			console.log('Wallpaper source result:', src);
+			console.log('Wallpaper source type:', typeof src);
+			wallpaperSrc = src;
+		} catch (err) {
+			console.error('Error getting wallpaper source:', err);
+			wallpaperSrc = null;
+		}
+	}
+	
+	// Debug final rendering decision
+	$: {
+		console.log('=== RENDERING DECISION ===');
+		console.log('wallpaperSrc:', wallpaperSrc);
+		console.log('Should show wallpaper:', !!wallpaperSrc);
+		console.log('wallpaperPreference.isActive:', wallpaperPreference?.isActive);
+		console.log('wallpaperPreference.wallpaperId:', wallpaperPreference?.wallpaperId);
+		console.log('========================');
+	}
+	$: if ($currentUser?.wallpaper_preference && $currentUser.wallpaper_preference !== JSON.stringify(preference)) {
+		const newPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+		if (newPreference && (newPreference.isActive !== preference?.isActive || newPreference.wallpaperId !== preference?.wallpaperId)) {
+			console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
+			preference = newPreference;
+		}
+	}
+
 	// Lifecycle hooks
 onMount(() => {
 	let unsubscribe: (() => void) | undefined;
@@ -319,6 +392,29 @@ onMount(() => {
 			if ($currentUser && $currentUser.id) {
 				console.log('Current user:', $currentUser);
 				username = $currentUser.username || $currentUser.email;
+				
+				// Force refresh user data to get wallpaper_preference
+				console.log('🔄 Fetching fresh user data with wallpaper_preference...');
+				try {
+					const response = await fetch(`/api/users/${$currentUser.id}`);
+					console.log('📡 User API response status:', response.status);
+					
+					if (response.ok) {
+						const data = await response.json();
+						console.log('📦 Fresh user data:', data);
+						
+						if (data.success && data.user) {
+							console.log('🎯 Fresh wallpaper_preference:', data.user.wallpaper_preference);
+							// Update the currentUser store with fresh data
+							currentUser.set(data.user);
+							console.log('✅ Updated currentUser store with fresh data');
+						}
+					} else {
+						console.error('❌ Failed to fetch user data:', response.status);
+					}
+				} catch (apiError) {
+					console.error('❌ Error fetching fresh user data:', apiError);
+				}
 			}
 		} catch (error) {
 			console.error('Error during layout onMount:', error);
@@ -355,6 +451,36 @@ onMount(() => {
 <svelte:window bind:innerWidth />
 
 <div class="app-container {$currentTheme}">
+<!-- Debug info (remove this in production) -->
+	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
+<strong>Wallpaper Debug:</strong><br>
+	User ID: {$currentUser?.id || 'None'}<br>
+	Raw Preference: {$currentUser?.wallpaper_preference || 'None'}<br>
+	Raw Type: {typeof $currentUser?.wallpaper_preference}<br>
+	Raw Length: {$currentUser?.wallpaper_preference?.length || 0}<br>
+	Parsed Active: {wallpaperPreference?.isActive}<br>
+	Parsed ID: {wallpaperPreference?.wallpaperId || 'None'}<br>
+	Available Count: {AVAILABLE_WALLPAPERS?.length || 0}<br>
+	Source: {wallpaperSrc || 'None'}<br>
+	Should Show: {!!wallpaperSrc}<br>
+	Current Route: {$page?.url?.pathname || 'Unknown'}
+	</div> -->
+
+	{#if wallpaperSrc}
+		<img
+			src={wallpaperSrc}
+			alt="Background illustration"
+			class="illustration"
+			in:fade={{ duration: 1000, delay: 200 }}
+			on:load={() => console.log('Wallpaper image loaded successfully')}
+			on:error={(e) => console.error('Wallpaper image failed to load:', e)}
+		/>
+	{:else}
+		<!-- Debug: Show when no wallpaper -->
+		<div style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px; font-size: 12px;">
+			No wallpaper: {wallpaperPreference?.isActive ? 'Active but no src' : 'Inactive'}
+		</div>
+	{/if}
 	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
 	<header>
 		{#if $currentUser}
@@ -379,6 +505,7 @@ onMount(() => {
 							'?')[0]?.toUpperCase()}
 					</div>
 				{/if}
+				<TimeTracker/>
 				<span class="nav-text">{username} </span>
 				<span
 					class="icon"
@@ -391,7 +518,7 @@ onMount(() => {
 					}}
 					on:click={logout}
 				>
-					<LogOutIcon size={24} />
+					<LogOutIcon size={16} />
 				</span>
 			</button>
 		{:else}
@@ -444,7 +571,7 @@ onMount(() => {
 				on:click|stopPropagation={() => {
 					// Set a flag before navigating to root
 					sessionStorage.setItem('directNavigation', 'true');
-					navigateTo('/');
+					navigateTo('/welcome');
 				}}
 				style="cursor: pointer;"
 			>
@@ -525,10 +652,10 @@ onMount(() => {
 						}
 					}}
 				>
-					{#if currentPath === '/home' && showThreadList}
-						<PanelLeftClose />
+					{#if currentPath === '/home' && $showSidenav}
+						<ChevronDown />
 					{:else if currentPath === '/home'}
-						<HomeIcon />
+						<MessageCirclePlus />
 					{:else}
 						<HomeIcon />
 					{/if}
@@ -557,10 +684,11 @@ onMount(() => {
 						}
 					}}
 				>
-					{#if currentPath === '/chat' && showThreadList}
-						<PanelLeftClose />
+				
+					{#if currentPath === '/chat' && $showThreadList }
+						<ChevronLeft />
 					{:else if currentPath === '/chat'}
-						<MessageCircleDashed />
+						<ListCollapse />
 					{:else}
 						<MessageCircle />
 					{/if}
@@ -589,10 +717,11 @@ onMount(() => {
 						}
 					}}
 				>
-					{#if currentPath === '/lean' && showThreadList}
-						<PanelLeftClose />
+				
+					{#if currentPath === '/lean' && $showThreadList}
+						<FilterX />
 					{:else if currentPath === '/lean'}
-						<SquareDashedKanban />
+						<Filter />
 					{:else}
 						<SquareKanban />
 					{/if}
@@ -684,7 +813,10 @@ onMount(() => {
 				>
 					<X size={24} />
 				</button>
-				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+				<Auth 
+					on:success={handleAuthSuccess} 
+					on:logout={handleLogout} 
+				/>
 			</div>
 		</div>
 	{/if}
@@ -797,11 +929,9 @@ onMount(() => {
 </div>
 
 <style lang="scss">
-    @use "../../src/lib/styles/themes.scss" as *;
+	@use "src/lib/styles/themes.scss" as *;	
 	* {
-		//   font-family: 'Source Code Pro', monospace;
 		font-family: var(--font-family);
-		transition: all 0.3s ease;
 	}
 
 	.middle-buttons {
@@ -862,7 +992,6 @@ onMount(() => {
 			}
 			&:hover {
 				backdrop-filter: blur(10px);
-				border: 1px solid var(--line-color);
 				.shortcut-buttons {
 					display: flex;
 				}
@@ -1426,6 +1555,25 @@ onMount(() => {
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.illustration {
+		position: fixed;
+		width: 100%;
+		max-width: 1000px;
+		height: auto;
+		right: 0;
+		left: 30%;
+		bottom: 50%;
+		display: static;
+		overflow-x: hidden !important;
+		transform: translateY(50%) translateX(10%);
+		opacity: 0.05;
+		z-index: 1;
+		pointer-events: none;
+		mix-blend-mode:multiply;
+		filter: contrast(20) brightness(0.1);
+		border-radius: 10rem;
+		object-fit: content;
+	}
 
 	.mobile-menu {
 		display: flex;
@@ -1673,29 +1821,54 @@ onMount(() => {
 	}
 	.sidenav {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: flex-end;
 		justify-content: flex-end;
-		position: absolute;
+		position: fixed;
 		left: 0;
 		right: 50% !important;
 		top: auto;
-		bottom: 1rem;
-		padding: 0 0.5rem;
+		bottom: 0;
+		padding: 0;
 		z-index: 1000;
-		width: 3rem;
+		width: 100%;
+		max-width: 250px;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
 		border-right: 1px solid transparent;
+		backdrop-filter: blur(10px);
+		touch-action: none; 
+		user-select: none; 
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+		transform: none !important;
+		will-change: auto;
+		pointer-events: auto;
+		
+		/* Lock positioning */
+		transform: translateZ(0) !important;
+	backface-visibility: hidden;
 		&.expanded {
-			width: 350px;
+			width: 250px;
 			backdrop-filter: blur(10px);
-
 			height: 78%;
+			justify-content: flex-end;
+			align-items: stretch;
+			flex-direction: column;
+			
 			// backdrop-filter: blur(30px);
 			// border-right: 1px solid var(--bg-color);
+			& .navigation-buttons {
+				flex-direction: column !important;
+				justify-content: flex-start;
+				align-items: flex-start;
+							touch-action: none;
+			transform: none !important;
+			}
 		}
+
 	}
 
 	// .sidenav:hover {
@@ -1704,12 +1877,11 @@ onMount(() => {
 
 	.navigation-buttons {
 		display: flex;
-		flex-direction: column;
-		gap: 1rem;
+		flex-direction: row;
+		gap: 0.5rem;
 		width: 100%;
-		justify-content: left;
-		align-items: left;
-		backdrop-filter: blur(5px);
+		justify-content: center;
+		align-items: center;
 
 		& .hidden {
 			display: none;
@@ -1730,9 +1902,9 @@ onMount(() => {
 
 		&.active {
 			background: var(--tertiary-color);
-			box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+			// box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 			&.expanded {
-				width: 350px;
+				width: 250px;
 				justify-content: flex-start;
 				padding: 0.5rem 1rem;
 				border-radius: var(--radius-s);
@@ -1749,7 +1921,7 @@ onMount(() => {
 		}
 
 		&.expanded {
-			width: 350px;
+			width: 250px;
 			justify-content: flex-start;
 			padding: 0.5rem 1rem;
 			border-radius: var(--radius-s);
@@ -1758,9 +1930,7 @@ onMount(() => {
 			border-radius: 2rem !important;
 		}
 
-		&.toggle {
-			margin-top: auto;
-		}
+
 
 		&.profile {
 			margin-top: auto;
@@ -1868,8 +2038,8 @@ onMount(() => {
 				padding: 0;
 			}
 			& .user-avatar {
-				width: 2.5rem !important;
-				height: 2.5rem;
+				width: 2rem !important;
+				height: 2rem;
 				border-radius: 50%;
 				object-fit: cover;
 			}
@@ -2045,16 +2215,16 @@ onMount(() => {
 	.thread-toggle,
 	.close-button {
 		color: var(--text-color);
-		background: var(--bg-gradient-right);
+		background: transparent;
 		font-size: auto;
 		border: none;
 		cursor: pointer;
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		width: 2.5rem;
-		height: 2.5rem;
-		padding: 0.25rem;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
 		border-radius: 50%;
 		transition: all 0.2s ease-in-out;
 		overflow: hidden;
@@ -2064,9 +2234,9 @@ onMount(() => {
 	.nav-button.active {
 		border: 1px solid var(--secondary-color);
 		background: var(--bg-color);
-		width: 4rem;
-		height: 4rem;
-		box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+		width: 3rem;
+		height: 3rem;
+		box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 
 		&.expanded {
 			height: 3rem;
@@ -2242,6 +2412,22 @@ onMount(() => {
 		main {
 			overflow-y: hidden;
 		}
+			.illustration {
+			position: fixed;
+			width: auto;
+			height: auto;
+			max-width: 70vh;
+			left: auto;
+			top: 50%;
+			transform: translateY(-50%) translateX(50%);
+			border-radius: 10rem;
+			opacity: 0.1;
+			z-index: 1;
+			pointer-events: none;
+			mix-blend-mode: multiply;
+			filter: contrast(2.5) brightness(0.8);
+			object-fit: contain;
+		}
 		.auth-content {
 			position: absolute;
 			overflow: hidden;
@@ -2354,16 +2540,29 @@ onMount(() => {
 		}
 		.nav-button {
 			background: transparent !important;
+
 		}
+	.nav-button.drawer.active {
+		border: 1px solid var(--secondary-color);
+		background: var(--bg-color);
+		width: 2.5rem !important;
+		height: 2.5rem !important;
+		padding: 0.5rem;
+		box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+
+		&.expanded {
+			height: 3rem;
+		}
+	}
 
 		.nav-button.drawer {
 			left: 1rem;
 			bottom: 1rem;
-			padding: 0;
 			height: 3rem !important;
 			width: 3rem !important;
 			color: var(--placeholder-color);
 			border: 1px solid transparent !important;
+			
 		}
 		.nav-button.info {
 			display: flex !important;
@@ -2409,7 +2608,7 @@ onMount(() => {
 			display: flex !important;
 			position: relative !important;
 			height: 2rem !important;
-			width: 2rem !important;
+			width: 1 !important;
 			cursor: pointer;
 			top: auto;
 			left: auto;
@@ -2421,7 +2620,6 @@ onMount(() => {
 			}
 			&:hover {
 				box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-				animation: nonlinearSpin 3.3s ease !important;
 				// width: 6rem !important;
 				// height: 6rem !important;
 				justify-content: center;
@@ -2561,15 +2759,16 @@ onMount(() => {
 			display: flex;
 			justify-content: center;
 			// backdrop-filter: blur(30px);
+			background: var(--bg-gradient);
 			flex-direction: row;
 			height: auto;
 			overflow-x: hidden;
 			overflow-y: hidden;
 			bottom: 0 !important;
 			border-radius: 0 !important;
-			border-top: 1px solid var(--line-color);
 			gap: 10px;
 			width: calc(100% - 0.5rem);
+			max-width: 100%;
 			margin-left: 0.25rem;
 			flex: 1;
 			top: auto;

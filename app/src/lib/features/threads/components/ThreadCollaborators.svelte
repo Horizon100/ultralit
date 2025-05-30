@@ -9,7 +9,7 @@
 	import { Group, Users } from 'lucide-svelte';
 
 	export let threadId: string;
-	export let projectId: string;
+	export let projectId: string | null;
 
 	let collaborators: User[] = [];
 	let projectCollaborators: User[] = [];
@@ -858,7 +858,7 @@
 											{:else if canAddMembers()}
 												<button
 													class="add-btn"
-													on:click|stopPropagation={() => addCollaborator(collaborator.id)}
+													on:click|stopPropagation={() => addCollaborator}
 												>
 													Add
 												</button>

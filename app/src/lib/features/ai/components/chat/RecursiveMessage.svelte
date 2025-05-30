@@ -3,7 +3,7 @@
 	import { fly, fade, slide } from 'svelte/transition';
 	import { Bot, MessagesSquare, RefreshCcw, Send, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import Reactions from '$lib/features/ai/components/chat/Reactions.svelte';
-	import type { InternalChatMessage } from '$lib/types/types';
+	import type { InternalChatMessage, RoleType } from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
@@ -83,10 +83,12 @@
 	}
 
 	function getRandomThinkingPhrase(): string {
-		const thinkingPhrases = $t('extras.thinking');
-		if (!thinkingPhrases?.length) {
+		const thinkingPhrases = $t('extras.thinking') as string[];
+		
+		if (!Array.isArray(thinkingPhrases) || !thinkingPhrases.length) {
 			return 'Thinking...';
 		}
+		
 		return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
 	}
 	// Add this helper function
@@ -206,6 +208,7 @@
 				title: cleanTitle,
 				taskDescription: description,
 				creationDate: new Date(),
+				start_date: null,
 				due_date: null,
 				tags: [],
 				attachments: [],
@@ -267,12 +270,12 @@
 				parentTask: savedParentTask,
 				childTasks: childTasks
 			};
-		} catch (error) {
+		} catch (error: unknown) {
 			console.error('Error generating task:', error);
 			console.log('Error details:', {
-				name: error?.name,
-				message: error?.message,
-				stack: error?.stack,
+				name: (error as any)?.name,
+				message: (error as any)?.message,
+				stack: (error as any)?.stack,
 				fullError: error
 			});
 			addNotification(
@@ -314,7 +317,7 @@
 
 		try {
 			const systemPrompt = {
-				role: 'system',
+				role: 'system' as RoleType,
 				content: `Extract 4-8 specific subtasks from the content below. Each subtask should be:
       - A clear, actionable item
       - Independent enough to track separately
@@ -327,7 +330,7 @@
 			};
 
 			const userPrompt = {
-				role: 'user',
+				role: 'user' as RoleType,
 				content: `Generate subtasks based on this content:
       ${content}`,
 				model: model.api_type
@@ -396,6 +399,7 @@
 					title: cleanTitle,
 					taskDescription: '',
 					creationDate: new Date(),
+					start_date: null,
 					due_date: null,
 					tags: [],
 					attachments: [],
@@ -441,7 +445,7 @@
 		}
 	}
 
-	async function handleSelectResponse(event) {
+	async function handleSelectResponse(event: CustomEvent) {
 		const { messageId, content, systemPrompt } = event.detail;
 		console.log('Handling response selection:', event.detail);
 
@@ -457,7 +461,7 @@
 			const userMessageContent = userMessage ? userMessage.content : 'User message';
 
 			// Use the existing sendMessage function which already knows how to properly save messages
-			await sendMessage(userMessageContent, null, [
+			await sendMessage(userMessageContent, undefined, [
 				{
 					role: 'system',
 					content: systemPrompt || '',
@@ -763,6 +767,10 @@
 	 *     }
 	 * }
 	 */
+	function isPromise<T>(value: any): value is Promise<T> {
+		return value && typeof value === 'object' && typeof value.then === 'function';
+	}
+
 	$: if (message?.content) {
 		console.log(
 			'Processing message:',
@@ -774,18 +782,17 @@
 		);
 		isProcessingContent = true;
 
-		// Check if content is a Promise
-		if (message.content instanceof Promise) {
-			// Wait for the Promise to resolve
+		if (isPromise(message.content)) {
 			message.content
-				.then((resolvedContent: string) => {
+				.then((resolvedContent: unknown) => {
 					console.log('Promise resolved to:', resolvedContent);
+					
+					const contentString = String(resolvedContent || '');
 
 					if (processMessageContentWithReplyable) {
-						// Pass the resolved content, not the promise
-						return processMessageContentWithReplyable(resolvedContent, message.id);
+						return processMessageContentWithReplyable(contentString, message.id);
 					} else {
-						return resolvedContent;
+						return contentString;
 					}
 				})
 				.then((content: string) => {
@@ -798,8 +805,7 @@
 					processedContent = 'Error loading message content';
 					isProcessingContent = false;
 				});
-		} else {
-			// Handle regular string content (backup case)
+		}else {
 			const contentToProcess = String(message.content || '');
 
 			if (processMessageContentWithReplyable) {
@@ -922,7 +928,7 @@
 				{/if}
 			</div>
 		{/if}
-		<div class="navigation-buttons">
+		<!-- <div class="navigation-buttons">
 			{#if depth === 0 && showScrollButtons && !isClickable}
 				<button
 					class="nav-btn scroll-prev-btn"
@@ -942,7 +948,7 @@
 					<ChevronDown />
 				</button>
 			{/if}
-		</div>
+		</div> -->
 	</div>
 
 	<p class:typing={message.isTyping}>
@@ -982,6 +988,7 @@
 			</div>
 		</div>
 	{/if}
+	
 
 	{#if childReplies.length > 0}
 		<div class="replies-section">
@@ -1018,11 +1025,10 @@
 								{promptType}
 							/>
 						{:else}
-							<!-- Simplified view for deep nesting -->
 							<div class="deep-nested-reply">
 								<p>
 									{reply.role}:
-									{#if reply.content instanceof Promise}
+									{#if isPromise(reply.content)}
 										{#await reply.content}
 											Loading...
 										{:then resolvedContent}
@@ -1150,15 +1156,8 @@
 } -->
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: 'Roboto', sans-serif; */
-		/* font-family: 'Montserrat'; */
-		/* color: var(--text-color); */
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
 	}
 	:global(.navigation-buttons .nav-container) {

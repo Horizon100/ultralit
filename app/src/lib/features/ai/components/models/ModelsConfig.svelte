@@ -76,6 +76,10 @@
 	}
 
 	async function handleSubmit() {
+		if (!$currentUser) {
+			updateStatus = 'User not authenticated';
+			return;
+		}
 		const modelData: Partial<AIModel> = {
 			name: modelName,
 			description: modelDescription,
@@ -83,7 +87,7 @@
 			base_url: modelBaseUrl,
 			api_type: modelApiType,
 			api_version: modelApiVersion,
-			user: $currentUser ? [$currentUser.id] : [],
+			user: [$currentUser.id],
 			created: new Date().toISOString(),
 			updated: new Date().toISOString()
 		};
@@ -93,7 +97,7 @@
 				const updatedModel = await updateModel(selectedModel.id, modelData);
 				modelStore.updateModel(selectedModel.id, updatedModel);
 			} else {
-				const newModel = await createModel(modelData);
+				const newModel = await createModel(modelData, $currentUser.id);
 				modelStore.addModel(newModel);
 			}
 			showCreateForm = false;
@@ -233,10 +237,6 @@
 
 <style lang="scss">
 	@use "src/lib/styles/themes.scss" as *;	* {
-		/* font-family: 'Merriweather', serif; */
-		/* font-family: 'Roboto', sans-serif; */
-		/* font-family: 'Montserrat'; */
-		/* color: var(--text-color); */
 		font-family: var(--font-family);
 	}
 

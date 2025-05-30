@@ -117,55 +117,56 @@ class GameClient {
 	 * Sync position to server with throttling
 	 */
 	private async syncPositionToServer(userId: string) {
-	if (!this.pendingPosition || !this.isOnline) return;
+		if (!this.pendingPosition || !this.isOnline) return;
 
-	// Check if we should sync based on distance threshold
-	if (
-		this.lastSentPosition &&
-		!this.shouldSyncPosition(this.lastSentPosition, this.pendingPosition)
-	) {
-		return;
-	}
+		// Check if we should sync based on distance threshold
+		if (
+			this.lastSentPosition &&
+			!this.shouldSyncPosition(this.lastSentPosition, this.pendingPosition)
+		) {
+			return;
+		}
 
-	try {
-		console.log(`[GAME CLIENT] Syncing position to server:`, this.pendingPosition);
+		try {
+			console.log(`[GAME CLIENT] Syncing position to server:`, this.pendingPosition);
 
-		const response = await fetch(`/api/game/hero/${userId}`, {
-			method: 'PATCH',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			credentials: 'include',
-			body: JSON.stringify({
-				position: this.pendingPosition,
-				lastSeen: new Date().toISOString()
-			})
-		});
+			// Use the correct API endpoint for heroes
+			const response = await fetch(`/api/game/heroes/${userId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify({
+					position: this.pendingPosition,
+					lastSeen: new Date().toISOString()
+				})
+			});
 
-		if (response.ok) {
-			this.lastSentPosition = { ...this.pendingPosition };
-			this.pendingPosition = null;
-			console.log(`[GAME CLIENT] Position synced successfully`);
-		} else {
-			// Get the error details from the response
-			let errorMessage = `Status: ${response.status}`;
-			try {
-				const errorData = await response.text();
-				errorMessage += `, Error: ${errorData}`;
-			} catch (e) {
-				// Ignore if can't read response
+			if (response.ok) {
+				this.lastSentPosition = { ...this.pendingPosition };
+				this.pendingPosition = null;
+				console.log(`[GAME CLIENT] Position synced successfully`);
+			} else {
+				// Get the error details from the response
+				let errorMessage = `Status: ${response.status}`;
+				try {
+					const errorData = await response.text();
+					errorMessage += `, Error: ${errorData}`;
+				} catch {
+					// Ignore if can't read response
+				}
+				
+				console.error(`[GAME CLIENT] Failed to sync position: ${errorMessage}`);
+				// Retry on failure (could implement exponential backoff)
+				this.scheduleRetrySync(userId);
 			}
-			
-			console.error(`[GAME CLIENT] Failed to sync position: ${errorMessage}`);
-			// Retry on failure (could implement exponential backoff)
+		} catch (error) {
+			console.error('[GAME CLIENT] Network error syncing position:', error);
+			this.isOnline = false;
 			this.scheduleRetrySync(userId);
 		}
-	} catch (error) {
-		console.error('[GAME CLIENT] Network error syncing position:', error);
-		this.isOnline = false;
-		this.scheduleRetrySync(userId);
 	}
-}
 
 	/**
 	 * Check if position change is significant enough to sync
@@ -218,12 +219,12 @@ class GameClient {
 		window.addEventListener('beforeunload', () => {
 			if (this.pendingPosition) {
 				// Use sendBeacon for reliable sync on page unload
-				const data = JSON.stringify({
+				const data = new Blob([JSON.stringify({
 					position: this.pendingPosition,
 					lastSeen: new Date().toISOString()
-				});
+				})], { type: 'application/json' });
 
-				navigator.sendBeacon(`/api/game/hero/${userId}`, data);
+				navigator.sendBeacon(`/api/game/heroes/${userId}`, data);
 			}
 		});
 	}
@@ -231,11 +232,7 @@ class GameClient {
 	/**
 	 * Check if hero position is blocked by buildings
 	 */
-	async isPositionBlocked(_position: GamePosition): Promise<boolean> {
-		/*
-		* This could query local state or make a quick API call
-		* For now, assume no blocking - you can implement this based on your map data
-		*/
+	async isPositionBlocked(): Promise<boolean> {
 		return false;
 	}
 

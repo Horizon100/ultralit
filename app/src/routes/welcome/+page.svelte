@@ -14,7 +14,6 @@
 	import Terms from '$lib/features/legal/components/Terms.svelte';
 	import PrivacyPolicy from '$lib/features/legal/components/PrivacyPolicy.svelte';
 	import Auth from '$lib/features/auth/components/Auth.svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 	import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
@@ -219,177 +218,171 @@
 		{/if} -->
 		<div class="user-container" in:fly={{ y: -200, duration: 500 }} out:fade={{ duration: 300 }}>
 			{#if showFade}
-				<img
-					src={Headmaster}
-					alt="Landing illustration"
-					class="illustration"
-					in:fade={{ duration: 2000 }}
-				/>
-			{/if}
-			<div class="half-container">
-				<div class="content-wrapper">
-					<div id="start" class="section">
-						{#if showLogo}
-							<div
-								class="logo-container"
-								style="height: {$logoSize}%; margin-top: {$logoMargin}%;"
-								in:fade={{ duration: 2000, delay: 0 }}
-								out:fade={{ duration: 100 }}
-							>
-								<img src={horizon100} alt="Horizon100" class="logo" in:fade={{ duration: 100 }} />
+				<div class="half-container">
+					<div class="content-wrapper">
+						<div id="start" class="section">
+							{#if showLogo}
+								<div
+									class="logo-container"
+									style="height: {$logoSize}%; margin-top: {$logoMargin}%;"
+									in:fade={{ duration: 2000, delay: 0 }}
+									out:fade={{ duration: 100 }}
+								>
+									<img src={horizon100} alt="Horizon100" class="logo" in:fade={{ duration: 100 }} />
+								</div>
+							{/if}
+							{#if !$currentUser}
+								{#if showH2}
+									<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
+										{$t('landing.h1')}
+									</h1>
+								{/if}
+
+								{#if showTypeWriter}
+									<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+										<TypeWriter text={introText} minSpeed={1} maxSpeed={10} />
+									</div>
+								{/if}
+							{:else}
+								{#if showH2}
+									<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
+										{guidance.hook}
+									</h1>
+								{/if}
+
+								{#if showTypeWriter}
+									<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+										<TypeWriter text={guidance.question} minSpeed={1} maxSpeed={10} />
+									</div>
+								{/if}
+								{#if showTypeWriter}
+									<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
+										<TypeWriter text={guidance.hint} minSpeed={1} maxSpeed={20} />
+									</div>
+								{/if}
+							{/if}
+							{#if showButton}
+								<div
+									class="footer-container"
+									in:fly={{ y: -50, duration: 500, delay: 200 }}
+									out:fade={{ duration: 300 }}
+								>
+									{#if !$showAuth}
+										{#if pageReady && !isLoading && !$currentUser}
+											<button
+												on:click={toggleAuth}
+												in:fly={{ y: 50, duration: 500, delay: 400 }}
+												out:fly={{ y: 50, duration: 500, delay: 400 }}
+											>
+												{$t('landing.cta')}
+											</button>
+										{/if}
+									{/if}
+
+									<div class="cta-buttons">
+										<button on:click={subscribeToNewsletter}>
+											<Mail size="30" />
+											{$t('landing.subscribing')}
+										</button>
+										<NewsletterPopup bind:showPopup={showNewsletterPopup} />
+
+										<!-- <a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
+											<button>
+												<Send size="30" />
+												Telegram
+											</button>
+										</a> -->
+										<a
+											href="https://github.com/Horizon100/ultralit"
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											<button>
+												<Github size="30" />
+												GitHub
+											</button>
+										</a>
+									</div>
+									<!-- <div class="testimonial">
+										<p>{userCount} {$t('landing.usercount')}</p>
+									</div> -->
+								</div>
+							{/if}
+						</div>
+						{#if showH2}
+							<div id="features" class="section">
+								<h2>{$t('features.title')}</h2>
+								<div class="feature-cards">
+								{#each featureCards as card, index}
+									<FeatureCard 
+										title={card.title} 
+										features={card.features} 
+										isPro={card.isPro} 
+										cardId={index}
+									/>
+								{/each}
+								</div>
 							</div>
 						{/if}
-						{#if !$currentUser}
-							{#if showH2}
-								<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
-									{$t('landing.h1')}
-								</h1>
-							{/if}
-
-							{#if showTypeWriter}
-								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-									<TypeWriter text={introText} minSpeed={1} maxSpeed={10} />
-								</div>
-							{/if}
-						{:else}
-							{#if showH2}
-								<h1 in:fly={{ y: -50, duration: 500, delay: 200 }} out:fade={{ duration: 300 }}>
-									{guidance.hook}
-								</h1>
-							{/if}
-
-							{#if showTypeWriter}
-								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-									<TypeWriter text={guidance.question} minSpeed={1} maxSpeed={10} />
-								</div>
-							{/if}
-							{#if showTypeWriter}
-								<div class="typewriter" in:fade={{ duration: 500, delay: 500 }}>
-									<TypeWriter text={guidance.hint} minSpeed={1} maxSpeed={20} />
-								</div>
-							{/if}
-						{/if}
 						{#if showButton}
-							<div
-								class="footer-container"
-								in:fly={{ y: -50, duration: 500, delay: 200 }}
-								out:fade={{ duration: 300 }}
-							>
-								{#if !$showAuth}
-									{#if pageReady && !isLoading && !$currentUser}
+							<div id="pricing" class="section">
+								<h2>{$t('pricing.title')}</h2>
+								<div class="pricing-plans">
+								{#each pricingPlans as plan, index}
+									<div class="card">
+										<h3>{plan.name}</h3>
+										<p class="description">{plan.description}</p>
+										<div class="list">
+											{#each plan.features as feature}
+												<span>
+													<CheckCircle />{feature}
+												</span>
+											{/each}
+										</div>
+										<span class="subscription">
+											<p class="price">{plan.price}</p>
+											<p class="month">{plan.month}</p>
+										</span>
 										<button
-											on:click={toggleAuth}
+											class="card-btn"
+											data-sveltekit-noscroll
+											on:click={(e) => handlePlanClick(plan.name, e)}
 											in:fly={{ y: 50, duration: 500, delay: 400 }}
 											out:fly={{ y: 50, duration: 500, delay: 400 }}
 										>
-											{$t('landing.cta')}
+											{plan.button}
 										</button>
-									{/if}
-								{/if}
-
-								<div class="cta-buttons">
-									<button on:click={subscribeToNewsletter}>
-										<Mail size="30" />
-										{$t('landing.subscribing')}
-									</button>
-									<NewsletterPopup bind:showPopup={showNewsletterPopup} />
-
-									<!-- <a href="https://t.me/vrazum" target="_blank" rel="noopener noreferrer">
-										<button>
-											<Send size="30" />
-											Telegram
-										</button>
-									</a> -->
-									<a
-										href="https://github.com/Horizon100/ultralit"
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										<button>
-											<Github size="30" />
-											GitHub
-										</button>
-									</a>
+									</div>
+								{/each}
 								</div>
-								<!-- <div class="testimonial">
-									<p>{userCount} {$t('landing.usercount')}</p>
-								</div> -->
+							</div>
+						{/if}
+						{#if showH2}
+							<div id="integrations" class="section">
+								<h2>Integrations</h2>
+								<div class="card-wrapper">
+									<div class="int-card">
+										<img src={openaiIcon} alt="Integration" class="integration-logo" />
+										<h2>OpenAI</h2>
+									</div>
+									<div class="int-card">
+										<img src={anthropicIcon} alt="Integration" class="integration-logo" />
+										<h2>Anthropic</h2>
+									</div>
+									<div class="int-card">
+										<img src={deepseekIcon} alt="Integration" class="integration-logo" />
+										<h2>Deepseek</h2>
+									</div>
+									<div class="int-card">
+										<img src={grokIcon} alt="Integration" class="integration-logo" />
+										<h2>Grok</h2>
+									</div>
+								</div>
 							</div>
 						{/if}
 					</div>
-					{#if showH2}
-						<div id="features" class="section">
-							<h2>{$t('features.title')}</h2>
-							<div class="feature-cards">
-							{#each featureCards as card, index}
-								<FeatureCard 
-									title={card.title} 
-									features={card.features} 
-									isPro={card.isPro} 
-									cardId={index}
-								/>
-							{/each}
-							</div>
-						</div>
-					{/if}
-					{#if showButton}
-						<div id="pricing" class="section">
-							<h2>{$t('pricing.title')}</h2>
-							<div class="pricing-plans">
-							{#each pricingPlans as plan, index}
-								<div class="card">
-									<h3>{plan.name}</h3>
-									<p class="description">{plan.description}</p>
-									<div class="list">
-										{#each plan.features as feature}
-											<span>
-												<CheckCircle />{feature}
-											</span>
-										{/each}
-									</div>
-									<span class="subscription">
-										<p class="price">{plan.price}</p>
-										<p class="month">{plan.month}</p>
-									</span>
-									<button
-										class="card-btn"
-										data-sveltekit-noscroll
-										on:click={(e) => handlePlanClick(plan.name, e)}
-										in:fly={{ y: 50, duration: 500, delay: 400 }}
-										out:fly={{ y: 50, duration: 500, delay: 400 }}
-									>
-										{plan.button}
-									</button>
-								</div>
-							{/each}
-							</div>
-						</div>
-					{/if}
-					{#if showH2}
-						<div id="integrations" class="section">
-							<h2>Integrations</h2>
-							<div class="card-wrapper">
-								<div class="int-card">
-									<img src={openaiIcon} alt="Integration" class="integration-logo" />
-									<h2>OpenAI</h2>
-								</div>
-								<div class="int-card">
-									<img src={anthropicIcon} alt="Integration" class="integration-logo" />
-									<h2>Anthropic</h2>
-								</div>
-								<div class="int-card">
-									<img src={deepseekIcon} alt="Integration" class="integration-logo" />
-									<h2>Deepseek</h2>
-								</div>
-								<div class="int-card">
-									<img src={grokIcon} alt="Integration" class="integration-logo" />
-									<h2>Grok</h2>
-								</div>
-							</div>
-						</div>
-					{/if}
 				</div>
-			</div>
+			{/if}
 		</div>
 	{/if}
 {/if}

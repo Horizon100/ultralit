@@ -15,10 +15,14 @@ export const GET: RequestHandler = async ({ url }) => {
 		const sanitizedSearch = search.trim().toLowerCase();
 		console.log('Searching for users with term:', sanitizedSearch);
 
+		// Only search in public fields and fetch only public data
+		const publicFields = 'id,name,username,avatar,created';
+
 		// Try exact matching first
 		console.log('Trying exact match search...');
 		const exactMatches = await pb.collection('users').getList(1, 100, {
-			filter: `email = "${sanitizedSearch}" || name = "${sanitizedSearch}" || username = "${sanitizedSearch}" || id = "${sanitizedSearch}"`
+			filter: `name = "${sanitizedSearch}" || username = "${sanitizedSearch}" || id = "${sanitizedSearch}"`,
+			fields: publicFields // Only fetch public fields
 		});
 
 		console.log(`Found ${exactMatches.totalItems} exact matches`);
@@ -27,21 +31,21 @@ export const GET: RequestHandler = async ({ url }) => {
 			// We found exact matches
 			const filteredResults = exactMatches.items.map((user) => ({
 				id: user.id,
-				email: user.email,
 				name: user.name,
 				username: user.username,
 				avatar: user.avatar,
-				collectionId: user.collectionId
+				created: user.created
 			}));
 
 			console.log('Returning exact matches:', filteredResults.length);
 			return json(filteredResults, { status: 200 });
 		}
 
-		// No exact matches found, try with contains operator
+		// No exact matches found, try with contains operator (only public fields)
 		console.log('No exact matches, trying contains search...');
 		const containsMatches = await pb.collection('users').getList(1, 100, {
-			filter: `email ~ "${sanitizedSearch}" || name ~ "${sanitizedSearch}" || username ~ "${sanitizedSearch}"`
+			filter: `name ~ "${sanitizedSearch}" || username ~ "${sanitizedSearch}"`,
+			fields: publicFields // Only fetch public fields
 		});
 
 		console.log(`Found ${containsMatches.totalItems} contains matches`);
@@ -50,11 +54,10 @@ export const GET: RequestHandler = async ({ url }) => {
 			// We found contains matches
 			const filteredResults = containsMatches.items.map((user) => ({
 				id: user.id,
-				email: user.email,
 				name: user.name,
 				username: user.username,
 				avatar: user.avatar,
-				collectionId: user.collectionId
+				created: user.created
 			}));
 
 			console.log('Returning contains matches:', filteredResults.length);
@@ -65,18 +68,18 @@ export const GET: RequestHandler = async ({ url }) => {
 		if (sanitizedSearch.length >= 3) {
 			console.log('No matches found with PocketBase filters, trying manual filtering...');
 
-			// Get all users (limit to 200 to prevent performance issues)
-			const allUsers = await pb.collection('users').getFullList(200);
+			// Get users with only public fields (limit to 200 to prevent performance issues)
+			const allUsers = await pb.collection('users').getFullList(200, {
+				fields: publicFields
+			});
 			console.log(`Retrieved ${allUsers.length} users for manual filtering`);
 
-			// Manually filter users
+			// Manually filter users (only search in public fields)
 			const manuallyFiltered = allUsers.filter((user) => {
-				const email = (user.email || '').toLowerCase();
 				const name = (user.name || '').toLowerCase();
 				const username = (user.username || '').toLowerCase();
 
 				return (
-					email.includes(sanitizedSearch) ||
 					name.includes(sanitizedSearch) ||
 					username.includes(sanitizedSearch) ||
 					user.id === sanitizedSearch
@@ -87,11 +90,10 @@ export const GET: RequestHandler = async ({ url }) => {
 
 			const filteredResults = manuallyFiltered.map((user) => ({
 				id: user.id,
-				email: user.email,
 				name: user.name,
 				username: user.username,
 				avatar: user.avatar,
-				collectionId: user.collectionId
+				created: user.created
 			}));
 
 			return json(filteredResults, { status: 200 });
@@ -102,6 +104,12 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json([], { status: 200 });
 	} catch (err) {
 		console.error('Error searching users:', err);
+		
+		// Check if it's a permissions error
+		if (err && typeof err === 'object' && 'status' in err && err.status === 403) {
+			console.error('Permission denied - make sure users collection allows public read access');
+		}
+		
 		return json(
 			{
 				error: 'Failed to search users',

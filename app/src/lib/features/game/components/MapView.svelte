@@ -2,11 +2,10 @@
 <script lang="ts">
 	import { gameStore, gameRoomStore } from '$lib/stores/gameStore';
 	import Room from './Room.svelte';
-	import type { GameMap as GameMapType, GameRoom as GameRoomType } from '$lib/types/types.game';
+	import type { GameBuilding, GameRoom as GameRoomType } from '$lib/types/types.game';
 
-	export let container: GameMapType;
-	export let GRID_SIZE: number;
-	export let pixelToGrid: (pixel: number) => number;
+	export let container: GameBuilding;
+	export let gridSize: number;
 	export let data: any;
 	export let isInsideBuilding: boolean;
 
@@ -19,9 +18,9 @@
 	$: gridY = pixelToGrid(container.position.y);
 
 	// Get rooms for this map container
-	$: rooms = $gameRoomStore.filter((room) => room.mapContainer === container.id);
+	$: rooms = $gameRoomStore.filter((room) => room.building === container.id);
 
-	function getIconForType(type: GameMapType['type']) {
+	function getIconForType(type: GameBuilding['type']) {
 		switch (type) {
 			case 'office':
 				return '🏢';
@@ -36,7 +35,7 @@
 		}
 	}
 
-	function getColorForType(type: GameMapType['type']) {
+	function getColorForType(type: GameBuilding['type']) {
 		switch (type) {
 			case 'office':
 				return 'office';
@@ -73,13 +72,15 @@
 				return '🚪';
 		}
 	}
-
+	function pixelToGrid(pixel: number): number {
+		return Math.floor(pixel / gridSize);
+	}
 	async function enterBuilding() {
 		isExpanded = true;
 		isInsideBuilding = true;
 	}
 
-	function handleRoomSelection(event) {
+	function handleRoomSelection(event: CustomEvent) {
 		const room = event.detail;
 		console.log('Selected room:', room);
 		isExpanded = false;
@@ -92,7 +93,7 @@
 		isInsideBuilding = false;
 	}
 
-	$: isActive = $gameStore.currentMap?.id === container.id;
+	$: isActive = $gameStore.currentBuilding?.id === container.id;
 </script>
 
 <div
@@ -108,14 +109,14 @@
 	<!-- Building structure -->
 	<div class="building-main">
 		<!-- Main building body -->
-		<div class="building-body {getColorForType(container.type)}">
+		<div class="building-body {getColorForType(container.buildingType)}">
 			<div class="building-roof"></div>
 			<div class="building-entrance"></div>
 		</div>
 
 		<!-- Building details -->
 		<div class="building-details">
-			<div class="building-icon">{getIconForType(container.type)}</div>
+			<div class="building-icon">{getIconForType(container.buildingType)}</div>
 			<div class="building-name">{container.name}</div>
 		</div>
 
@@ -124,7 +125,7 @@
 			<div class="room-indicators">
 				{#each rooms.slice(0, 4) as room}
 					<div class="room-indicator" title={room.name}>
-						<span class="room-icon">{getRoomIcon(room.type)}</span>
+						<span class="room-icon">{getRoomIcon('room')}</span>
 					</div>
 				{/each}
 				{#if rooms.length > 4}
@@ -152,7 +153,7 @@
 					<div class="tooltip-room-list">
 						{#each rooms as room}
 							<div class="tooltip-room">
-								<span class="tooltip-room-icon">{getRoomIcon(room.type)}</span>
+								<span class="tooltip-room-icon">{getRoomIcon('room')}</span>
 								<span class="tooltip-room-name">{room.name}</span>
 							</div>
 						{/each}
@@ -168,15 +169,19 @@
 	currentMap={container}
 	{isExpanded}
 	{data}
-	{GRID_SIZE}
+	{gridSize}
 	{pixelToGrid}
 	{gridX}
 	{gridY}
 	on:selectRoom={handleRoomSelection}
 	on:close={handleCloseBuilding}
 />
+<style lang="scss">
 
-<style>
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
+		font-family: var(--font-family);
+	}		
 	.map-container {
 		position: relative;
 		display: flex;

@@ -7,9 +7,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { spring } from 'svelte/motion';
 	import { t } from '$lib/stores/translationStore';
-
 	import Auth from '$lib/features/auth/components/Auth.svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 
 	let pageReady = false;
@@ -46,6 +44,7 @@
 		</div>
 	</div>
 {/if}
+
 
 <!-- Error state -->
 {#if error}

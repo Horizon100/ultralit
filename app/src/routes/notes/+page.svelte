@@ -3,11 +3,11 @@
 	import { currentUser } from '$lib/pocketbase';
 	import { elasticOut, elasticIn } from 'svelte/easing';
 	import { fly, slide, fade } from 'svelte/transition';
-	import type { Notes, Attachment, AIModel } from '$lib/types/types';
+	import type { Notes, Attachment, Folders, AIModel, ProviderType } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
 	import { fetchAIResponse } from '$lib/clients/aiClient';
 	import { X, FileIcon } from 'lucide-svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster2.png';
+	import Headmaster from '$lib/assets/illustrations/headmaster.jpeg';
 	import {
 		handleImageUpload,
 		onFileSelected,
@@ -17,7 +17,6 @@
 	import { notesClient } from '$lib/clients/notesClient';
 	import { page } from '$app/stores';
 	import { ensureAuthenticated } from '$lib/pocketbase';
-	import type { Folders } from '$lib/types/types';
 	import { currentFolderNotes } from '$lib/stores/notesStore';
 	import {
 		Folder,
@@ -324,7 +323,10 @@
 			description: 'Default AI model',
 			user: ['default-user'],
 			created: new Date().toISOString(),
-			updated: new Date().toISOString()
+			updated: new Date().toISOString(),
+			provider: 'openai', 
+			collectionId: 'ai_models', 
+			collectionName: 'ai_models'
 		};
 	}
 	function addFolder() {
@@ -557,7 +559,7 @@
 						draggable="true"
 						on:dragstart={(e) => handleDragStart(e, folder, true)}
 						on:dragover={(e) => handleDragOver(e, folder)}
-						on:drop={(e) => handleDrop(e, folder)}
+						on:drop={(e) => handleDrop(e)}
 						class:drag-over={dragOverFolder === folder}
 					>
 						<div class="folder-title">
@@ -679,8 +681,8 @@
 				on:click={showTooltip}
 				on:dragenter={handleDragEnter}
 				on:dragleave={handleDragLeave}
-				on:dragover={handleDragOver}
-				on:drop={handleDrop}
+				on:dragover={(event) => currentFolder && handleDragOver(event, currentFolder)}
+				on:drop={(event) => currentFolder && handleDrop(event)}
 				class="note-content"
 				class:dragging={isDragging}
 				bind:innerHTML={currentNote.content}
@@ -700,7 +702,7 @@
 					{#each currentNote.attachments || [] as attachment}
 						<div class="attachment">
 							<FileIcon />
-							<span>{attachment.name}</span>
+							<span>{attachment.fileName}</span>
 						</div>
 					{/each}
 				</div>

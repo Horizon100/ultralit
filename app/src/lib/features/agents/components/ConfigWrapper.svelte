@@ -6,33 +6,26 @@
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import { X, Bot, Wrench, Target, Settings2, SquareMenu } from 'lucide-svelte';
-	import WorkshopOverlay from '$lib/features/canvas/components/WorkshopOverlay.svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
 	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
-	import ObjectivesConfig from '$lib/features/canvas/components/ObjectivesConfig.svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { agentStore } from '$lib/stores/agentStore';
 	import CursorEffect from '$lib/features/canvas/components/CursorEffect.svelte';
 	import GenericOverlay from '$lib/components/modals/GenericOverlay.svelte';
-	import type { Workspaces, Workshops } from '$lib/types/types';
 	import { currentUser } from '$lib/pocketbase';
 	import { quotes } from '$lib/translations/quotes';
-	import itImage from '$lib/assets/illustrations/italian.jpeg';
-	import greekImage from '$lib/assets/illustrations/greek.png';
+	import itImage from '$lib/assets/wallpapers/galileo.jpeg';
+	import greekImage from '$lib/assets/wallpapers/platon.png';
 
 	let showOverlay = false;
 	let overlayContent = '';
 	let touchStartY = 0;
-	let currentWorkspace: Workspaces | null = null;
-	let currentWorkspaceId: string | null = null;
-	let workshopCount = 0;
 	let isNavExpanded = false;
 	let innerWidth: number;
 	let showGenericOverlay = false;
 	let genericOverlayContent = '';
-	let workspaces: Workspaces[] = [];
 	let currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
 	let isScrolling = false;
 	let startX: number;
@@ -50,12 +43,7 @@
 	$: user = $currentUser;
 	$: isNarrowScreen = innerWidth <= 700;
 
-	$: if ($page.params.workspaceId !== currentWorkspaceId) {
-		currentWorkspaceId = $page.params.workspaceId;
-		if (currentWorkspaceId && $currentUser && $currentUser.id) {
-			agentStore.loadAgents(currentWorkspaceId);
-		}
-	}
+
 
 	onMount(() => {
 		user = $currentUser;
@@ -168,12 +156,6 @@
 		<Wrench size={24} class="nav-icon" />
 	</button>
 
-	<button
-		class={overlayContent === 'Objectives' ? 'active' : ''}
-		on:click={() => toggleOverlay('Objectives')}
-	>
-		<Target size={24} class="nav-icon" />
-	</button>
 </nav>
 {#if showH2}
 	<div class="layout" in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
@@ -212,8 +194,6 @@
 								<ModelsConfig />
 							{:else if overlayContent === 'Actions'}
 								<ActionsConfig />
-							{:else if overlayContent === 'Objectives'}
-								<ObjectivesConfig />
 							{/if}
 						</div>
 					{/key}
@@ -229,7 +209,10 @@
 	</GenericOverlay>
 {/if}
 
-<style>
+<style lang="scss">
+	@use "src/lib/styles/themes.scss" as *;	* {
+		font-family: var(--font-family);
+	}	
 	.layout {
 		position: absolute;
 		justify-content: flex-start;
