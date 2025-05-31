@@ -593,7 +593,8 @@ export default {
 		not_available: 'Недоступно',
 		followers: 'Подписчики',
 		following: 'Подписан',
-		follow: 'Подписаться'
+		follow: 'Подписаться',
+		favorites: 'Избранное'
 	},
 	button: {
 		tags: 'Тагы'

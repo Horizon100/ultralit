@@ -4,7 +4,6 @@ import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
 import grokIcon from '$lib/assets/icons/providers/x.svg';
 import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
-
 export interface ProviderConfig {
 	name: string;
 	icon: string;
@@ -333,3 +332,49 @@ export const fetchAllProviderModels = async (
 	const results = await Promise.all(modelPromises);
 	return results.flat();
 };
+
+
+
+export function getProviderFromModel(modelName: string): ProviderType {
+	const model = modelName.toLowerCase();
+	
+	if (model.includes('gpt') || model.includes('o1') || model.includes('openai')) {
+		return 'openai';
+	}
+	
+	if (model.includes('claude') || model.includes('anthropic')) {
+		return 'anthropic';
+	}
+	
+	if (model.includes('gemini') || model.includes('bard') || model.includes('google')) {
+		return 'google';
+	}
+	
+	if (model.includes('grok') || model.includes('x-ai')) {
+		return 'grok';
+	}
+	
+	if (model.includes('deepseek')) {
+		return 'deepseek';
+	}
+	
+	return 'openai';
+}
+
+
+export function getProviderIcon(provider: ProviderType): string {
+	switch (provider) {
+		case 'openai':
+			return openaiIcon;
+		case 'anthropic':
+			return anthropicIcon;
+		case 'google':
+			return googleIcon;
+		case 'grok':
+			return grokIcon;
+		case 'deepseek':
+			return deepseekIcon;
+		default:
+			return openaiIcon;
+	}
+}

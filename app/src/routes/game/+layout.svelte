@@ -223,9 +223,10 @@
 	}
 
 	.game-content {
-		width: calc(100% - 7rem);
+		width: 100%;
 		margin-top: 3rem;
-		margin-left: 4rem;
+		margin-left: 0rem;
+		margin-right: 0;
 		margin-bottom: 4rem;
 		padding: 1rem;
 		overflow: hidden;

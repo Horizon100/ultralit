@@ -155,6 +155,8 @@
 		align-items: center;
 		position: relative;
 		width: 100%;
+		box-shadow: 0 20px 40px 20px rgba(255, 255, 255, 0.7);
+
 	}
 
 	.hidden-input {
@@ -163,25 +165,25 @@
 
 	.upload-prompt {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
+		gap: 1rem;
 		padding: 1rem;
+		background-color:var(--secondary-color) !important;
 		color: var(--text-color);
 		transition: all 0.2s ease;
-		opacity: 1;
-		position: absolute;
+		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
-		bottom: 0;
 		border-radius: 2rem;
+		&:hover {
+			background: var(--tertiary-color) !important;
+		}
 	}
 
-	.upload-prompt:hover {
-		opacity: 1;
-	}
 
 	.preview-container {
 		position: relative;

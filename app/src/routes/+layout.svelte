@@ -319,62 +319,73 @@
 		}
 	}
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
-
-	$: {
-		console.log('=== WALLPAPER DEBUG ===');
-		console.log('Current user:', $currentUser);
-		console.log('Current user wallpaper_preference (raw):', $currentUser?.wallpaper_preference);
-		console.log('Current user wallpaper_preference type:', typeof $currentUser?.wallpaper_preference);
+$: {
+	if ($currentUser?.wallpaper_preference) {
+		wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+	} else if (!$currentUser) {
+		wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
+	} else {
+		wallpaperPreference = { wallpaperId: null, isActive: false };
 	}
 	
-$: if ($currentUser?.wallpaper_preference) {
-	wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-} else if (!$currentUser) {
-	// Show default wallpaper when no user is logged in
-	wallpaperPreference = { 
-		wallpaperId: 'aristoles', // or whatever your aristotle image is named
-		isActive: true 
-	};
-	console.log('No user logged in, using default wallpaper:', wallpaperPreference);
-} else {
-	// User is logged in but has no wallpaper preference
-	wallpaperPreference = { wallpaperId: null, isActive: false };
-	console.log('User logged in but no wallpaper preference set');
+	wallpaperSrc = getWallpaperSrc(wallpaperPreference);
+	console.log('Layout wallpaper updated:', { wallpaperPreference, wallpaperSrc });
 }
-
-$: wallpaperSrc = getWallpaperSrc(wallpaperPreference);
+	// $: {
+	// 	console.log('=== WALLPAPER DEBUG ===');
+	// 	console.log('Current user:', $currentUser);
+	// 	console.log('Current user wallpaper_preference (raw):', $currentUser?.wallpaper_preference);
+	// 	console.log('Current user wallpaper_preference type:', typeof $currentUser?.wallpaper_preference);
+	// }
 	
+// $: if ($currentUser?.wallpaper_preference) {
+// 	wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+// } else if (!$currentUser) {
+// 	// Show default wallpaper when no user is logged in
+// 	wallpaperPreference = { 
+// 		wallpaperId: 'aristoles', // or whatever your aristotle image is named
+// 		isActive: true 
+// 	};
+// 	console.log('No user logged in, using default wallpaper:', wallpaperPreference);
+// } else {
+// 	// User is logged in but has no wallpaper preference
+// 	wallpaperPreference = { wallpaperId: null, isActive: false };
+// 	console.log('User logged in but no wallpaper preference set');
+// }
+
+// $: wallpaperSrc = getWallpaperSrc(wallpaperPreference);
+	
+
+// 	$: if ($currentUser?.wallpaper_preference && $currentUser.wallpaper_preference !== JSON.stringify(preference)) {
+// 		const newPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+// 		if (newPreference && (newPreference.isActive !== preference?.isActive || newPreference.wallpaperId !== preference?.wallpaperId)) {
+// 			console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
+// 			preference = newPreference;
+// 		}
+// 	}
 	// Get wallpaper source with debugging
-	$: {
-		console.log('Getting wallpaper source for preference:', wallpaperPreference);
-		try {
-			const src = getWallpaperSrc(wallpaperPreference);
-			console.log('Wallpaper source result:', src);
-			console.log('Wallpaper source type:', typeof src);
-			wallpaperSrc = src;
-		} catch (err) {
-			console.error('Error getting wallpaper source:', err);
-			wallpaperSrc = null;
-		}
-	}
+	// $: {
+	// 	console.log('Getting wallpaper source for preference:', wallpaperPreference);
+	// 	try {
+	// 		const src = getWallpaperSrc(wallpaperPreference);
+	// 		console.log('Wallpaper source result:', src);
+	// 		console.log('Wallpaper source type:', typeof src);
+	// 		wallpaperSrc = src;
+	// 	} catch (err) {
+	// 		console.error('Error getting wallpaper source:', err);
+	// 		wallpaperSrc = null;
+	// 	}
+	// }
 	
-	// Debug final rendering decision
-	$: {
-		console.log('=== RENDERING DECISION ===');
-		console.log('wallpaperSrc:', wallpaperSrc);
-		console.log('Should show wallpaper:', !!wallpaperSrc);
-		console.log('wallpaperPreference.isActive:', wallpaperPreference?.isActive);
-		console.log('wallpaperPreference.wallpaperId:', wallpaperPreference?.wallpaperId);
-		console.log('========================');
-	}
-	$: if ($currentUser?.wallpaper_preference && $currentUser.wallpaper_preference !== JSON.stringify(preference)) {
-		const newPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-		if (newPreference && (newPreference.isActive !== preference?.isActive || newPreference.wallpaperId !== preference?.wallpaperId)) {
-			console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
-			preference = newPreference;
-		}
-	}
-
+	// // Debug final rendering decision
+	// $: {
+	// 	console.log('=== RENDERING DECISION ===');
+	// 	console.log('wallpaperSrc:', wallpaperSrc);
+	// 	console.log('Should show wallpaper:', !!wallpaperSrc);
+	// 	console.log('wallpaperPreference.isActive:', wallpaperPreference?.isActive);
+	// 	console.log('wallpaperPreference.wallpaperId:', wallpaperPreference?.wallpaperId);
+	// 	console.log('========================');
+	// }
 	// Lifecycle hooks
 onMount(() => {
 	let unsubscribe: (() => void) | undefined;
@@ -792,8 +803,6 @@ onMount(() => {
 				<!-- <LogIn /> -->
 			{/if}
 		</div>
-
-		<!-- Navigation Buttons -->
 	</div>
 
 	{#if showLanguageNotification}
@@ -1837,7 +1846,7 @@ onMount(() => {
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
 		border-right: 1px solid transparent;
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(1px);
 		touch-action: none; 
 		user-select: none; 
 		-webkit-user-select: none;
@@ -2560,7 +2569,7 @@ onMount(() => {
 			bottom: 1rem;
 			height: 3rem !important;
 			width: 3rem !important;
-			color: var(--placeholder-color);
+			color: var(--tertiary-color);
 			border: 1px solid transparent !important;
 			
 		}

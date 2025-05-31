@@ -14,6 +14,8 @@ export const GET: RequestHandler = async ({ params }) => {
         created?: string;
         updated?: string;
         verified?: boolean;
+        theme_preference?: string;
+        wallpaper_preference?: string;
         model?: string | null;
         selected_provider?: string | null;
         prompt_preference?: string;
@@ -39,6 +41,8 @@ export const GET: RequestHandler = async ({ params }) => {
             created: user.created || '',
             updated: user.updated || '',
             verified: user.verified || false,
+            theme_preference: user.theme_preference || '',
+            wallpaper_preference: user.wallpaper_preference || '',
             model: user.model || null,
             selected_provider: user.selected_provider || null,
             prompt_preference: user.prompt_preference || '',
@@ -91,6 +95,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         created?: string;
         updated?: string;
         verified?: boolean;
+        theme_preference?: string;
+        wallpaper_preference?: string;
         model?: string | null;
         selected_provider?: string | null;
         prompt_preference?: string;
@@ -121,6 +127,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
             created: user.created || '',
             updated: user.updated || '',
             verified: user.verified || false,
+            theme_preference: user.theme_preference || '',
+            wallpaper_preference: user.wallpaper_preference || '',
             model: user.model || null,
             selected_provider: user.selected_provider || null,
             prompt_preference: user.prompt_preference || '',
@@ -175,7 +183,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
             const allowedFields = [
                 'name', 'username', 'description', 'email', 'model',
                 'selected_provider', 'theme', 'language', 'prompt_preference',
-                'sysprompt_preference', 'avatar', 'model_preference'
+                'sysprompt_preference', 'avatar', 'model_preference', 'theme_preference',
+                'wallpaper_preference'
             ] as const;
 
             for (const field of allowedFields) {

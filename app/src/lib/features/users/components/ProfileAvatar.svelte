@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher } from 'svelte';
-	import { getUserProfile } from '$lib/clients/profileClient';
+	import { getUserById } from '$lib/pocketbase';
 	import type { UserProfile } from '$lib/types/types';
 
 	export let userId: string;
@@ -27,7 +27,7 @@
 		try {
 			loading = true;
 			error = false;
-			profile = await getUserProfile(userId);
+			profile = await getUserById(userId);
 			dispatch('profileLoaded', profile);
 		} catch (err) {
 			console.error('Error loading profile:', err);

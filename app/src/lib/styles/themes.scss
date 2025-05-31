@@ -78,10 +78,10 @@ $themes: (
 		bg-gradient-left: linear-gradient(to left, #2ecc71, #16a085),
 		bg-gradient-right: linear-gradient(to right, #27ae60, #ffffff),
 		text-color: #2c4e39,
-		placeholder-color: rgba(143, 143, 143, 0.5),
+		placeholder-color: rgb(132, 213, 183),
 		font-family: 'Source Code Pro',
-		primary-color: #ffffff,
-		secondary-color: #27ae60,
+		primary-color: #378b5a,
+		secondary-color: #83af95,
 		tertiary-color: #16a085,
 		line-color: rgba(54, 64, 64, 0.5)
 	),
@@ -122,7 +122,7 @@ $themes: (
 		text-color: rgba(25, 46, 48),
 		placeholder-color: rgba(0, 0, 0, 0.5),
 		font-family: 'Century Gothic, sans-serif',
-		primary-color: #ffffff,
+		primary-color: #7d1313,
 		secondary-color: #e4e4e4,
 		tertiary-color: #8ea0a2,
 		line-color: rgba(0, 234, 234, 0.5)
@@ -631,9 +631,9 @@ pre.code-block:hover .copy-code-button {
 
 .tooltip {
 	position: absolute;
-	left: 0;
-	margin-left: 18px;
-	margin-top: 50px;
+	margin-top: 5rem;
+	margin-left: 5rem;
+	left:auto;
 	font-size: 0.7rem;
 	white-space: nowrap;
 	background-color: var(--secondary-color);
@@ -646,7 +646,31 @@ pre.code-block:hover .copy-code-button {
 	z-index: 2000;
 	transition: all 0.2s ease;
 }
+.tooltip-delayed {
+	animation: tooltip-appear 2s ease-out 1s both;
+	&::first-letter {
+		text-transform: capitalize;
+	}
+}
 
+@keyframes tooltip-appear {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+@keyframes swipe {
+	0% {
+		transform: translateX(-100%) translateY(-100%) rotate(45deg);
+	}
+	100% {
+		transform: translateX(100%) translateY(100%) rotate(45deg);
+	}
+}
 span {
 	&.prompts {
 		align-items: flex-start;

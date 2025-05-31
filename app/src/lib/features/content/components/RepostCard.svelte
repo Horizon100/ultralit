@@ -49,11 +49,9 @@
 </article>
 
 <style lang="scss">
-	$breakpoint-sm: 576px;
-	$breakpoint-md: 1000px;
-	$breakpoint-lg: 992px;
-	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+
+	@use "src/lib/styles/themes.scss" as *;	
+	* {
 		font-family: var(--font-family);
 	}
 	.repost-wrapper {
@@ -68,7 +66,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		color: var(--secondary-color);
+		color: var(--placeholder-color);
 		font-size: 0.9rem;
 		padding: 12px 16px 8px;
 		background: rgba(var(--secondary-color-rgb), 0.05);
@@ -87,7 +85,7 @@
 	}
 
 	.reposter-name {
-		color: var(--secondary-color);
+		color: var(--placeholder-color);
 		text-decoration: none;
 		font-weight: 500;
 		transition: color 0.2s;

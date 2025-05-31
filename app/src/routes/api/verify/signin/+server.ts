@@ -26,6 +26,22 @@ const sanitizeUserData = (user: User | null): Partial<User> | null => {
     };
 };
 
+const createMinimalAuthData = (authStore: any) => {
+    return {
+        token: authStore.token,
+        // Only store essential user fields to keep cookie size down
+        model: {
+            id: authStore.model?.id,
+            email: authStore.model?.email,
+            username: authStore.model?.username,
+            name: authStore.model?.name,
+            collectionId: authStore.model?.collectionId
+            // DO NOT include arrays like prompt_preference, model_preference - they make cookie too large!
+        }
+    };
+};
+
+
 export const POST: RequestHandler = async ({ request, cookies }) => {
     try {
         const { email, password } = await request.json();
@@ -40,8 +56,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 error: 'Email and password are required' 
             }, { status: 400 });
         }
-
-
         
         console.log('Attempting authentication with PocketBase...');
         
@@ -50,6 +64,18 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         
         console.log('✅ Authentication successful!');
         console.log('User ID:', authData.record.id);
+        
+        // Create minimal auth data for cookie (this is the key fix!)
+        const minimalAuthData = createMinimalAuthData(pb.authStore);
+        const authCookieValue = JSON.stringify(minimalAuthData);
+        
+        // Check cookie size before setting (optional debugging)
+        const cookieSize = new Blob([authCookieValue]).size;
+        console.log('Auth cookie size:', cookieSize, 'bytes');
+        
+        if (cookieSize > 3500) { // Warning if approaching 4KB limit
+            console.warn('⚠️ Auth cookie is getting large:', cookieSize, 'bytes');
+        }
         
         // Set auth cookie with optimized settings
         const cookieOptions = {
@@ -60,15 +86,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             maxAge: 60 * 60 * 24 * 7 // 7 days
         };
 
-        // Store auth data in cookie for faster subsequent requests
-        cookies.set('pb_auth', JSON.stringify({
-            token: pb.authStore.token,
-            model: pb.authStore.model
-        }), cookieOptions);
+        // Store minimal auth data in cookie
+        cookies.set('pb_auth', authCookieValue, cookieOptions);
 
         return json({
             success: true,
-            user: sanitizeUserData(authData.record),
+            user: sanitizeUserData(authData.record), // Full user data in response
             token: pb.authStore.token
         });
         
@@ -87,6 +110,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                     success: false,
                     error: 'Invalid email or password'
                 }, { status: 401 });
+            }
+            
+            // Handle cookie size errors
+            if (error.message.includes('too large')) {
+                return json({
+                    success: false,
+                    error: 'Session data too large. Please contact support.'
+                }, { status:500 });
             }
         }
         

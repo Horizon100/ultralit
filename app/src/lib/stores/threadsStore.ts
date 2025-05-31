@@ -148,7 +148,9 @@ export function createThreadsStore() {
 		currentThread: null,
 		filteredThreads: [],
 		isNaming: false,
-		project_id: ''
+		project_id: '',
+		showFavoriteThreads: false,
+
 	});
 	const { subscribe, update } = store;
 	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
@@ -239,6 +241,16 @@ export function createThreadsStore() {
 			}
 		});
 	});
+	const favoritedThreads = derived([searchedThreads, store, currentUser], ([$searchedThreads, $store, $currentUser]) => {
+		if (!$store.showFavoriteThreads || !$currentUser?.favoriteThreads?.length) {
+			return $searchedThreads || []; // Return all searched threads if not filtering favorites
+		}
+		
+		// Filter to only show favorited threads
+		return ($searchedThreads || []).filter(thread => 
+			$currentUser.favoriteThreads.includes(thread.id)
+		);
+	});
 
 	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
 	const availableUsers = derived(store, ($store) => $store.availableUsers);
@@ -252,9 +264,10 @@ export function createThreadsStore() {
 		sortOptionInfo,
 		allSortOptions,
 		searchedThreads,
+		favoritedThreads,
 		selectedUserIds,
 		availableUsers,
-		showThreadList, // Export the dedicated derived store
+		showThreadList,
 
 		toggleThreadList: () => {
 			update((state) => {
@@ -599,12 +612,6 @@ export function createThreadsStore() {
 			}
 		},
 
-		setSearchQuery: (query: string) => {
-			store.update((state) => ({
-				...state,
-				searchQuery: query
-			}));
-		},
 
 		autoUpdateThreadName: async (
 			threadId: string,
@@ -814,7 +821,6 @@ export function createThreadsStore() {
 			});
 		},
 
-		// Toggle user selection for filtering
 		toggleUserSelection: (userId: string) => {
 			update((state) => {
 				const newSelection = new Set(state.selectedUserIds);
@@ -832,7 +838,6 @@ export function createThreadsStore() {
 			});
 		},
 
-		// Clear all selected users
 		clearSelectedUsers: () => {
 			update((state) => ({
 				...state,
@@ -840,14 +845,101 @@ export function createThreadsStore() {
 			}));
 		},
 
-		// Add a method to refresh relative times
 		refreshThreadTimes: () => {
 			update((state) => ({
 				...state,
-				date: new Date().toISOString() // Update date to trigger reactivity
+				date: new Date().toISOString() 
 			}));
 		},
 
+		setSearchQuery: (query: string) => {
+			console.log('📝 Setting search query in store:', query);
+			store.update((state) => ({
+				...state,
+				searchQuery: query
+			}));
+		},
+
+		setFavoriteFilter: (showFavorites: boolean) => {
+			update((state) => ({
+				...state,
+				showFavoriteThreads: showFavorites
+			}));
+		},
+		toggleFavoriteFilter: () => {
+				update((state) => {
+					const newShowFavorites = !state.showFavoriteThreads;
+					console.log('🔄 Toggling favorite filter:', { 
+						from: state.showFavoriteThreads, 
+						to: newShowFavorites 
+					});
+					return {
+						...state,
+						showFavoriteThreads: newShowFavorites
+					};
+				});
+			},
+
+
+		toggleThreadFavorite: async (threadId: string): Promise<boolean> => {
+			try {
+				const user = get(currentUser);
+				if (!user) throw new Error('User not authenticated');
+
+				const isFavorited = user.favoriteThreads?.includes(threadId) || false;
+				const action = isFavorited ? 'remove' : 'add';
+
+				const response = await fetch('/api/favorites', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						threadId,
+						action
+					})
+				});
+
+				if (!response.ok) {
+					throw new Error('Failed to update favorite thread');
+				}
+
+				const result = await response.json();
+
+				if (result.success) {
+					currentUser.update((currentUser) => {
+						if (!currentUser) return currentUser;
+						return {
+							...currentUser,
+							favoriteThreads: result.favoriteThreads || result.bookmarks
+						};
+					});
+
+					update((state) => ({
+						...state,
+						updateStatus: isFavorited ? 'Removed from favorites' : 'Added to favorites'
+					}));
+
+					setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
+					return !isFavorited;
+				} else {
+					throw new Error(result.message || 'Favorite operation failed');
+				}
+			} catch (error) {
+				console.error('Error toggling thread favorite:', error);
+				update((state) => ({
+					...state,
+					updateStatus: 'Failed to update favorite'
+				}));
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
+				throw error;
+			}
+		},
+
+		isThreadFavorited: (threadId: string): boolean => {
+			const user = get(currentUser);
+			return user?.favoriteThreads?.includes(threadId) || false;
+		},
 		getSortedAndFilteredThreads: derived(store, ($store) => {
 			// First apply search filter
 			let filteredThreads =

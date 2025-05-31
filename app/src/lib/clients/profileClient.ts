@@ -16,8 +16,8 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 	}
 
 	try {
-		// Use your API endpoint instead of direct PocketBase access
-		const response = await fetch(`/api/verify/users/${userId}/public`, {
+		// Use the correct API endpoint that matches your other functions
+		const response = await fetch(`/api/users/${userId}`, {
 			method: 'GET',
 			credentials: 'include'
 		});
@@ -29,17 +29,18 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
 		const data = await response.json();
 
-		if (!data.success || !data.user) {
+		// Handle the response structure consistently
+		const userData = data.user || data;
+
+		if (!userData || !userData.id) {
 			userProfileCache.set(userId, null);
 			return null;
 		}
 
-		const userData = data.user;
-
 		// Create profile object from user data
 		const profile: UserProfile = {
 			id: userData.id,
-			name: userData.name || userData.name || 'User',
+			name: userData.name || userData.username || 'User', // Fixed redundant assignment
 			username: userData.username,
 			email: userData.email,
 			avatarUrl: userData.avatar
@@ -56,7 +57,6 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		return null;
 	}
 }
-
 /**
  * Fetches detailed public user profile with additional fields
  * @param userId - The ID of the user to fetch

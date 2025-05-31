@@ -603,7 +603,8 @@ export default {
 		not_available: 'Not available',
 		followers: 'Followers',
 		following: 'Following',
-		follow: 'Follow'
+		follow: 'Follow',
+		favorites: 'Favorites'
 	},
 	button: {
 		tags: 'Tags'

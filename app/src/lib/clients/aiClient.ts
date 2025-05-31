@@ -8,10 +8,9 @@ import type {
 	ProviderType
 } from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
-import { getPrompt } from '$lib/features/ai/utils/prompts';
+import { getPrompt, prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
-import { prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/promptUtils';
 
 export async function fetchAIResponse(
 	messages: AIMessage[],

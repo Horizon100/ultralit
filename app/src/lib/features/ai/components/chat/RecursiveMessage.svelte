@@ -8,14 +8,16 @@
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
 	import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
-	import { currentUser } from '$lib/pocketbase';
+	import { currentUser,  getUserById, getPublicUsersBatch } from '$lib/pocketbase';
 	import { saveTask, getPromptFromThread } from '$lib/clients/taskClient';
 	import type { KanbanTask } from '$lib/types/types';
 	import { fetchAIResponse, generateTaskFromMessage } from '$lib/clients/aiClient';
 	import { addNotification, updateNotification } from '$lib/stores/taskNotificationStore';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { t } from '$lib/stores/translationStore';
-	import { getUserProfile } from '$lib/clients/profileClient';
+	import { getProviderFromModel, getProviderIcon } from '$lib/features/ai/utils/providers';
+	import { getPromptLabel, getPromptDescription, getPromptLabelFromContent } from '$lib/features/ai/utils/prompts';
+
 
 	export let message: InternalChatMessage;
 	export let allMessages: InternalChatMessage[] = [];
@@ -53,18 +55,6 @@
 	let showScrollButtons = false;
 	let processedContent = '';
 	let isProcessingContent = true;
-
-	$: currentProjectId = $projectStore.currentProjectId;
-	$: isClickable = $showThreadList && childReplies.length > 0;
-
-	const dispatch = createEventDispatcher();
-
-	const MAX_DEPTH = 5;
-
-	$: childReplies = allMessages.filter((msg) => msg.parent_msg === message.id);
-
-	$: repliesHidden = hiddenReplies.has(message.id) || $showThreadList;
-
 	let showReplyInput = false;
 	let replyText = '';
 	let isSubmitting = false;
@@ -72,7 +62,22 @@
 	let taskTooltipText = '';
 	let wheelDelta = 0;
 	let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
+	let createHovered = false;
+    let providerHovered = false;
+
+	const dispatch = createEventDispatcher();
 	const WHEEL_THRESHOLD = 100;
+	const MAX_DEPTH = 5;
+
+	$: currentProjectId = $projectStore.currentProjectId;
+	$: isClickable = $showThreadList && childReplies.length > 0;
+	$: childReplies = allMessages.filter((msg) => msg.parent_msg === message.id);
+	$: repliesHidden = hiddenReplies.has(message.id) || $showThreadList;
+	$: provider = getProviderFromModel(message.model || '');
+	$: providerIconSrc = getProviderIcon(provider);
+$: promptLabel = getPromptLabelFromContent(message.prompt_type);
+	$: promptDescription = getPromptDescription(message.prompt_type);
+
 	function handleToggleReplies(messageId: string) {
 		if (hiddenReplies.has(messageId)) {
 			hiddenReplies.delete(messageId);
@@ -881,7 +886,7 @@
 			<div class="user-header">
 				<div class="avatar-container">
 					{#if message.user}
-						{#await getUserProfile(message.user) then userProfile}
+						{#await getUserById(message.user) then userProfile}
 							{#if userProfile && getAvatarUrl(userProfile)}
 								<img src={getAvatarUrl(userProfile)} alt="User avatar" class="user-avatar" />
 							{:else}
@@ -909,7 +914,7 @@
 				</div>
 				<span class="role">
 					{#if message.type === 'human' && message.user}
-						{#await getUserProfile(message.user) then userProfile}
+						{#await getUserById(message.user) then userProfile}
 							{userProfile ? userProfile.name : name}
 						{/await}
 					{:else}
@@ -918,16 +923,34 @@
 				</span>
 			</div>
 		{:else if message.role === 'assistant'}
-			<div class="avatar-container">
-				<Bot />
-			</div>
-			<div class="user-header">
-				<span class="model">{message.model}</span>
-				{#if message.prompt_type}
-					<span class="prompt-type">{message.prompt_type}</span>
-				{/if}
-			</div>
+	<div class="user-header ai">
+		<div class="avatar-container" 
+			on:mouseenter={() => (providerHovered = true)}
+			on:mouseleave={() => (providerHovered = false)}>
+			<img 
+				src={providerIconSrc} 
+				alt="{provider} icon" 
+				class="provider-icon"
+			/>
+		</div>
+		{#if providerHovered}
+			<span class="tooltip tooltip-delayed" in:fade>
+				{provider}
+			</span>
 		{/if}
+		<span class="model">{message.model} </span>
+	</div>
+	<span class="prompt-type" 
+		on:mouseenter={() => (createHovered = true)}
+		on:mouseleave={() => (createHovered = false)}>
+		{promptLabel}
+		{#if createHovered}
+			<span class="tooltip tooltip-delayed" in:fade>
+				{message.prompt_type}
+			</span>
+		{/if}
+	</span>
+	{/if}
 		<!-- <div class="navigation-buttons">
 			{#if depth === 0 && showScrollButtons && !isClickable}
 				<button
@@ -991,20 +1014,26 @@
 	
 
 	{#if childReplies.length > 0}
-		<div class="replies-section">
+		<div class="replies-section" in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
 			<button
-				class="toggle-replies-btn"
+   				class="toggle-replies-btn {repliesHidden ? '' : 'selected'}"
 				on:click|stopPropagation={() => handleToggleReplies(message.id)}
 			>
 				<span class="replies-indicator">
-					<MessagesSquare size={16} />
+					<!-- <MessagesSquare size={16} /> -->
 					{childReplies.length}
-					<span class="toggle-icon">{repliesHidden ? '+' : '−'}</span>
+					<span class="toggle-icon">
+						{#if repliesHidden}
+							<ChevronDown size={12} />
+						{:else}
+							<ChevronUp size={12} />
+						{/if}
+					</span>				
 				</span>
 			</button>
 
 			{#if !repliesHidden}
-				<div class="replies-container replies-to-{message.id}">
+				<div class="replies-container replies-to-{message.id}"  in:fly={{ y: -200, duration: 300 }} out:fly={{ y: -200, duration: 200 }}>
 					{#each childReplies as reply (reply.id)}
 						{#if depth < MAX_DEPTH}
 							<svelte:self
@@ -1014,7 +1043,7 @@
 								{currentUser}
 								{name}
 								depth={depth + 1}
-								{getUserProfile}
+								{getUserById}
 								{getAvatarUrl}
 								{processMessageContentWithReplyable}
 								{latestMessageId}
@@ -1025,7 +1054,7 @@
 								{promptType}
 							/>
 						{:else}
-							<div class="deep-nested-reply">
+							<div class="deep-nested-reply"  in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
 								<p>
 									{reply.role}:
 									{#if isPromise(reply.content)}
@@ -1190,6 +1219,23 @@
 		background: transparent !important;
 		z-index: 2;
 	}
+	.tooltip {
+		position: absolute;
+		margin-top: 1rem;
+		margin-left: 0;
+		left:12rem;
+		font-size: 0.7rem;
+		white-space: nowrap;
+		background-color: var(--secondary-color);
+		backdrop-filter: blur(80px);
+		border: 1px solid var(--secondary-color);
+		font-weight: 100;
+		animation: glowy 0.5s 0.5s initial;
+		padding: 4px 8px;
+		border-radius: var(--radius-s);
+		z-index: 2000;
+		transition: all 0.2s ease;
+	}
 	.nav-btn {
 		width: 3rem;
 		height: 3rem;
@@ -1208,46 +1254,99 @@
 		}
 	}
 
-	.message {
-		// height: 100% !important;
-		margin-bottom: auto !important;
-	}
+
 	.message.clickable {
 		cursor: pointer;
 		transition: all 0.3s ease;
-		border-radius: 2rem;
-		height: auto !important;
-		height: 10vh !important;
+
+		padding-left: 1rem !important;
+		width: calc(100% - 1rem) !important; 
+		height: auto;
+		    background: linear-gradient(to bottom, transparent, var(--bg-color));
+
+		overflow-y: hidden;
+		overflow-y: hidden !important;
+
 	}
+
 
 	.message.clickable:hover {
 		background: var(--primary-color);
 		// transform: translateX(10px);
 	}
 
+
+
+	// .message.clickable::before {
+	// 	content: '';
+	// 	position: absolute;
+	// 	top: -150%;
+	// 	left: -150%;
+	// 	width: 300%;
+	// 	max-height: 50vh;
+	// 	height: 300%;
+	// 	background: linear-gradient(
+	// 		45deg,
+	// 		rgba(255, 255, 255, 0.2),
+	// 		rgba(255, 255, 255, 0.2),
+	// 		rgba(255, 255, 255, 0.2)
+	// 	);
+	// 	transform: translateX(-100%) rotate(45deg);
+	// 	opacity: 0;
+	// 	transition: opacity 0.3s ease;
+	// 	pointer-events: none;
+
+	// }
+
+
+
+	// .message.clickable:hover::before {
+	// 	animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
+	// 	opacity: 1;
+	// }
 	.message.depth-0 {
-		box-shadow: 10px -20px 50px -15px var(--primary-color, 0.01);
+		// box-shadow: 10px -20px 50px -15px var(--primary-color, 0.01);
 		// backdrop-filter: blur(12px);
-		padding-left: 1rem !important;
-		padding-top: 1rem !important;
 		display: flex;
 		align-items: stretch;
-		flex: 1;
+		padding-left: 1rem !important;
+		padding-bottom: 1rem !important;
 		flex-grow: 1;
 		padding: 0;
 		border-radius: 1rem;
+		font-size: 1.25rem;
+		font-weight: 900 !important;
+		.avatar-container {
+			position: relative;
+			left: 0rem;
+		& img {
+			width: 2rem;
+		}
+		}
+
 	}
 
 	.message.depth-1 {
 		margin-left: 1.5rem;
-		max-width: calc(80% - 1.5rem);
+		max-width: calc(100% - 1.5rem);
 		// box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
-		border-radius: 1rem;
+		font-size: 0.9rem;
+
+		p {
+			padding-inline-start: 1rem;
+		}
+		.avatar-container {
+			position: relative;
+			left: 0.5rem;
+			width: 2rem;
+			padding: 0;
+			height: 2rem;
+		}
 	}
 
 	.message.depth-2 {
 		margin-left: 1.5rem;
-		max-width: calc(80% - 3rem);
+		max-width: calc(100% - 3rem);
 		// box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
 		border-radius: 1rem;
 	}
@@ -1256,7 +1355,7 @@
 	.message.depth-4,
 	.message.depth-5 {
 		margin-left: 1.5rem;
-		max-width: calc(80% - 4rem);
+		max-width: calc(100% - 4rem);
 		// box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
 		border-radius: 1rem;
 	}
@@ -1267,6 +1366,7 @@
 		border-radius: 0.5rem;
 		margin: 0.5rem 0;
 		font-size: 0.9rem;
+		
 	}
 
 	.view-full-link {
@@ -1276,11 +1376,11 @@
 	}
 
 	.replies-container {
-		margin-left: 1rem;
-		margin-top: 0.5rem;
+		margin-right: 2rem;
+		margin-top: 0;
 		border-left: 1px solid var(--line-color);
-		border-bottom: 1px solid var(--line-color);
-		border-bottom-left-radius: 2rem;
+		border-radius: 0 0 2rem 2rem;
+    	background: linear-gradient(to bottom, transparent, var(--bg-color));
 
 		// padding-left: 0.75rem;
 	}
@@ -1367,9 +1467,11 @@
 		align-items: center;
 		overflow: hidden;
 		position: relative;
-		background: var(--primary-color);
 		display: flex;
 		object-fit: cover;
+		& img {
+			width: 1.5rem;
+		}
 
 		& .avatar,
 		& .avatar-placeholder {
@@ -1381,7 +1483,6 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			background-color: #2c3e50;
 			& svg {
 				width: 20px;
 				height: 20px;
@@ -1391,39 +1492,46 @@
 	}
 
 	.toggle-replies-btn {
-		background: var(--secondary-color);
+		background: var(--bg-color);
 		color: var(--text-color);
 		cursor: pointer;
-		border: 1px solid var(--line-color);
+		border: 1px solid transparent;
 		display: inline-flex;
 		width: auto;
 		min-width: 4rem;
 		max-width: fit-content;
-		margin-bottom: 0.5rem;
-		border-radius: 1rem;
+		border-radius: 1rem 1rem 1rem 0;
 		font-size: 0.9rem;
-		padding: 0.25rem 0.5rem;
+		padding: 0.5rem;
 		text-align: left;
 		justify-content: center;
 		align-self: flex-start;
-
-		&:hover {
+		border: 1px solid var(--line-color);
+		transition: all 0.3s ease;
+		&.selected {
 			background: var(--primary-color);
+
+		}
+		
+		&:hover {
+			background: var(--secondary-color);
 		}
 	}
 
 	.replies-indicator {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		justify-content: space-around;
+		width: 100%;
 	}
 	.message-footer {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		width: 100%;
+		width: auto;
 		color: var(--placeholder-color);
 		font-weight: 200;
+		padding: 0rem 0rem 1rem 1rem;
 	}
 
 	.message.typing::after {
@@ -1436,31 +1544,64 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		justify-content: space-between;
-		width: 100%;
+		margin: 0;
+		justify-content: flex-start;
+		width: auto;
 		gap: 1rem;
+		padding-top: 0.5rem;
 
-		&.assistant {
-			margin-bottom: 0.5rem;
-		}
 	}
 	.user-header {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: center;
+		width: auto;
 		gap: 1rem;
+		margin-left: 0;
+		font-size: 0.9rem;
 		user-select: none;
+		&.ai {
+			display: flex;
+			background: var(--bg-gradient-left);
+			border-radius: 0 1rem 1rem 0;
+			padding: 0.5rem;
+			flex-direction: row;
+			justify-content: flex-start;
+			align-items: center;
+			width: auto;
+			gap: 1rem;
+			margin-left: 0;
+			font-size: 0.9rem;
+			user-select: none;
+
+		}
 	}
 
+
+.prompt-type {
+	cursor: pointer;
+	opacity: 0.8;
+	transition: opacity 0.2s ease;
+	text-transform:lowercase;
+	&::first-letter {
+		text-transform: capitalize;
+	}
+}
+
+.prompt-type:hover {
+	opacity: 1;
+}
 	.replies-section {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		height: auto;
-		overflow-y: auto;
+		overflow-y: hidden;
 		overflow-x: hidden;
 		margin-left: 0;
+		margin-bottom: 1;
+
 		&.replies-container {
 			display: flex;
 			flex-direction: column;
@@ -1489,11 +1630,9 @@
 		}
 	}
 
-	.scroll-highlight {
-		animation: highlight-fade 1.2s cubic-bezier(0.42, 0, 0.58, 1);
-		border-radius: 2rem;
-		background-color: var(--primary-color);
-	}
+	// .scroll-highlight {
+	// 	animation: highlight-fade 1.2s cubic-bezier(0.42, 0, 0.58, 1);
+	// }
 	@keyframes bounce {
 		0%,
 		80%,
@@ -1563,25 +1702,28 @@
 		flex-direction: column;
 		align-items: flex-start;
 		font-weight: 200;
-		padding: 1rem 1rem;
 		gap: 1rem;
-		margin-bottom: 1rem;
+		margin-bottom: 0;
 		width: auto;
-		letter-spacing: 0.2rem;
+		letter-spacing: 0.1rem;
 		line-height: 1;
 		transition: all 0.3s ease-in-out;
 
 		& p {
 			margin: 0;
-			display: flex;
+			
+			display: inline-block;
 			flex-direction: column;
-			white-space: pre-wrap;
+			white-space: normal;
 			overflow-wrap: break-word;
 			word-wrap: break-word;
 			hyphens: auto;
 			text-align: left;
 			height: fit-content;
 			line-height: 1.5;
+			&::first-letter {
+				text-transform: uppercase !important;
+			}
 		}
 		&:hover::before {
 			opacity: 0.8;
@@ -1607,7 +1749,7 @@
 			transition: all 0.3s ease-in;
 
 			& p {
-				display: flex;
+				display: inline-block;
 				flex-wrap: wrap;
 				margin: 0;
 				width: 100%;
@@ -1626,9 +1768,9 @@
 			align-self: flex-start;
 			color: var(--text-color);
 			height: auto;
+
 			// background: var(--bg-gradient-r);
 			margin-left: 0;
-			width: fit-content;
 
 			transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		}
@@ -1654,8 +1796,9 @@
 			// margin-right: 3.5rem;
 			margin-left: 0;
 			// border-top: 2px solid var(--line-color);
-			max-width: 1600px;
-			width: calc(100%);
+			max-height: auto;
+			height: auto !important;
+			width: 100%;
 			min-width: 200px;
 			font-weight: 500;
 			// background: var(--bg-color);
@@ -1722,7 +1865,6 @@
 			margin-left: 0;
 			max-width: calc(100%);
 			// box-shadow: 0 -20px 60px 0 var(--secondary-color, 0.01);
-			border-radius: 1rem;
 		}
 
 		.message.depth-2 {

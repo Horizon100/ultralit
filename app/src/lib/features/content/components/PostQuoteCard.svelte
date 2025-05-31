@@ -275,6 +275,7 @@
 		margin: 0;
 	}
 
+	.quoted-post.loading,
 	.quoted-post {
 		margin-top: 1rem;
 		margin-left: 1rem;
@@ -284,7 +285,6 @@
 		border: 1px solid var(--line-color) !important;
 	}
 
-	.quoted-post.loading,
 	.quoted-post.error {
 		padding: 16px;
 		text-align: center;

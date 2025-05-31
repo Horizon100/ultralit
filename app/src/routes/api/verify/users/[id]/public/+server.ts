@@ -16,6 +16,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			name: record.name || record.username || 'User',
 			avatar: record.avatar,
 			username: record.username,
+			wallpaper_preference: record.wallpaper_preference,
 			created: record.created,
 			updated: record.updated
 		};

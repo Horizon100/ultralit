@@ -341,7 +341,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: row;
-		justify-content: flex-start;
+		justify-content: center;
 		align-items: flex-start;
 		height: 2rem;
 		width: auto;
@@ -354,6 +354,14 @@
 		align-items: center;
 		justify-content: center;
 		height: auto;
+	}
+	.dropdown-overlay {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.5);
 	}
 
 	span.dropdown-trigger {
@@ -504,15 +512,17 @@
 	.dropdown-content {
 		border-radius: 0.5rem;
 		border: 1px solid var(--line-color);
-
 		padding-top: 0;
-		top: auto !important;
+		top: 0 !important;
+		width: 100%;
+		padding: 1rem;
+
+		box-shadow: 0 30px 140px 50px rgba(255, 255, 255, 0.22);
 		display: flex;
 		flex-direction: column;
 		margin-top: 0;
 		align-items: center;
 		position: relative;
-		width: 100%;
 		background-color: var(--secondary-color);
 		height: auto;
 		// box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -524,7 +534,7 @@
 		height: 2rem;
 		margin: 0;
 		border-radius: 2rem;
-		width: calc(100%);
+		width: auto;
 		gap: 0;
 		backdrop-filter: blur(10px);
 
@@ -627,10 +637,10 @@
 	.projects-list {
 		height: auto;
 
-		width: 600px;
+		width: auto;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
+		overflow: hidden !important;
 		// border: 1px solid var(--secondary-color);
 		margin-right: 0;
 		margin-left: 0;
@@ -656,7 +666,7 @@
 		transition: all 0.2s ease;
 		letter-spacing: 0.4rem;
 		&:hover {
-			background: var(--secondary-color);
+			background: var(--primary-color);
 
 			.project-actions {
 				opacity: 1;
@@ -710,7 +720,6 @@
 	@media (max-width: 1000px) {
 		.projects-list {
 			height: auto;
-			width: 450px;
 		}
 	}
 	@media (max-width: 767px) {
@@ -747,7 +756,8 @@
 			padding: 0;
 			width: auto;
 			max-width: auto;
-			left: 5rem;
+			left: 0;
+			transform: none;
 			right: 0;
 			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 		}

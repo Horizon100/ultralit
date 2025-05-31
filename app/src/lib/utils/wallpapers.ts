@@ -1,5 +1,7 @@
 // src/lib/utils/wallpapers.ts
 
+import type { User } from '$lib/types/types';
+
 // Auto-import all images from wallpapers folder
 const wallpaperModules = import.meta.glob('$lib/assets/wallpapers/*.{png,jpg,jpeg,webp}', {
 	eager: true,
@@ -63,31 +65,64 @@ console.log('Available wallpapers:', AVAILABLE_WALLPAPERS.length, AVAILABLE_WALL
 export const DEFAULT_WALLPAPER = autoWallpapers.length > 0 ? autoWallpapers[0].id : null;
 
 /**
- * Parse wallpaper preference from string (backward compatibility), object, or array
+ * Parse wallpaper preference from User.wallpaper_preference (string[] or string) or other formats
  */
-export function parseWallpaperPreference(preference: string | WallpaperPreference | WallpaperPreferenceArray | undefined): WallpaperPreference {
+export function parseWallpaperPreference(preference: string | string[] | WallpaperPreference | WallpaperPreferenceArray | undefined): WallpaperPreference {
 	console.log('parseWallpaperPreference called with:', preference, 'type:', typeof preference);
 	
-	if (!preference) {
-		console.log('No preference provided, returning default');
-		return { wallpaperId: null, isActive: false };
-	}
-	
-	// If it's an array [wallpaperId, isActive]
-	if (Array.isArray(preference)) {
-		console.log('Preference is array, parsing...');
-		const [wallpaperId, isActive] = preference;
-		const result = {
-			wallpaperId: wallpaperId || null,
-			isActive: isActive ?? false
+	// Handle null, undefined, or empty string - return default with first wallpaper if available
+	if (!preference || preference === '' || preference === 'undefined' || preference === 'null') {
+		console.log('No/empty preference provided, returning default with first wallpaper');
+		const defaultPreference = {
+			wallpaperId: DEFAULT_WALLPAPER,
+			isActive: DEFAULT_WALLPAPER !== null // Only activate if we have wallpapers
 		};
-		console.log('Array converted to:', result);
-		return result;
+		console.log('Default preference:', defaultPreference);
+		return defaultPreference;
 	}
 	
-	// If it's a string (legacy format or JSON), convert to new format
+	// Handle string[] format (from User.wallpaper_preference)
+	if (Array.isArray(preference)) {
+		console.log('Preference is array, checking format...');
+		
+		// If it's a WallpaperPreferenceArray [wallpaperId, isActive]
+		if (preference.length === 2 && (typeof preference[1] === 'boolean' || preference[1] === 'true' || preference[1] === 'false')) {
+			console.log('Preference is WallpaperPreferenceArray, parsing...');
+			const [wallpaperId, isActive] = preference;
+			const result = {
+				wallpaperId: wallpaperId || null,
+				isActive: typeof isActive === 'boolean' ? isActive : isActive === 'true'
+			};
+			console.log('WallpaperPreferenceArray converted to:', result);
+			return result;
+		}
+		
+		// If it's a string[] (User.wallpaper_preference), take the first item as JSON or wallpaper ID
+		if (preference.length > 0 && typeof preference[0] === 'string') {
+			console.log('Preference is string[], using first item:', preference[0]);
+			return parseWallpaperPreference(preference[0]);
+		}
+		
+		// Empty array - return default
+		console.log('Empty array, returning default');
+		const defaultPreference = {
+			wallpaperId: DEFAULT_WALLPAPER,
+			isActive: DEFAULT_WALLPAPER !== null
+		};
+		console.log('Default preference for empty array:', defaultPreference);
+		return defaultPreference;
+	}
+	
+	// If it's a string (from User.wallpaper_preference), convert to new format
 	if (typeof preference === 'string') {
 		console.log('Preference is string, attempting to parse...');
+		
+		// Handle special legacy values
+		if (preference === 'none' || preference === 'false') {
+			console.log('Legacy "none" or "false" value, disabling wallpapers');
+			return { wallpaperId: null, isActive: false };
+		}
+		
 		try {
 			// Try to parse as JSON first
 			const parsed = JSON.parse(preference);
@@ -105,25 +140,70 @@ export function parseWallpaperPreference(preference: string | WallpaperPreferenc
 			}
 			
 			// Check if it's an object format
-			if (parsed && typeof parsed === 'object' && 'wallpaperId' in parsed && 'isActive' in parsed) {
-				console.log('Valid JSON object found, returning:', parsed);
-				return parsed;
+			if (parsed && typeof parsed === 'object' && ('wallpaperId' in parsed || 'isActive' in parsed)) {
+				const result = {
+					wallpaperId: parsed.wallpaperId || null,
+					isActive: parsed.isActive ?? false
+				};
+				console.log('Valid JSON object found, returning:', result);
+				return result;
 			}
 		} catch (err) {
 			console.log('JSON parse failed, treating as legacy wallpaper ID string:', err);
-			// If JSON parse fails, treat as wallpaper ID string (legacy)
-			const result = {
-				wallpaperId: preference === 'none' ? null : preference,
-				isActive: preference !== 'none'
-			};
-			console.log('Legacy string converted to:', result);
-			return result;
 		}
+		
+		// If JSON parse fails, treat as wallpaper ID string (legacy)
+		// Validate that the wallpaper ID actually exists
+		const isValidId = isValidWallpaper(preference);
+		const result = {
+			wallpaperId: isValidId ? preference : DEFAULT_WALLPAPER,
+			isActive: isValidId || DEFAULT_WALLPAPER !== null
+		};
+		console.log('Legacy string converted to:', result);
+		return result;
 	}
 	
-	// If it's already an object, return as is
-	console.log('Preference is object, returning as-is:', preference);
-	return preference as WallpaperPreference;
+	// If it's already an object, validate and return
+	if (preference && typeof preference === 'object') {
+		console.log('Preference is object, validating...');
+		const result = {
+			wallpaperId: preference.wallpaperId || null,
+			isActive: preference.isActive ?? false
+		};
+		console.log('Object validated and returned:', result);
+		return result;
+	}
+	
+	// Fallback to default
+	console.log('Unhandled preference type, returning default');
+	return {
+		wallpaperId: DEFAULT_WALLPAPER,
+		isActive: DEFAULT_WALLPAPER !== null
+	};
+}
+
+/**
+ * Parse wallpaper preference directly from User object
+ */
+export function parseUserWallpaperPreference(user: User | Partial<User> | null): WallpaperPreference {
+	console.log('parseUserWallpaperPreference called with user:', user?.id, 'wallpaper_preference:', user?.wallpaper_preference);
+	
+	if (!user) {
+		console.log('No user provided, returning default');
+		return {
+			wallpaperId: DEFAULT_WALLPAPER,
+			isActive: DEFAULT_WALLPAPER !== null
+		};
+	}
+	
+	// Handle both string[] and string formats
+	const preference = user.wallpaper_preference;
+	if (Array.isArray(preference)) {
+		// If it's string[], use the first item or return default
+		return parseWallpaperPreference(preference.length > 0 ? preference[0] : undefined);
+	}
+	
+	return parseWallpaperPreference(preference);
 }
 
 /**
@@ -149,10 +229,19 @@ export function getWallpaperById(id: string): Wallpaper | null {
 /**
  * Get wallpaper source by preference, with fallback handling
  */
-export function getWallpaperSrc(preference?: string | WallpaperPreference): string | null {
+export function getWallpaperSrc(preference: string | string[] | WallpaperPreference | User): string | null {
 	console.log('getWallpaperSrc called with:', preference);
 	
-	const parsed = parseWallpaperPreference(preference);
+	let parsed: WallpaperPreference;
+	
+	// If it's a User object, extract wallpaper_preference
+	if (preference && typeof preference === 'object' && 'wallpaper_preference' in preference) {
+		console.log('Input is User object, extracting wallpaper_preference');
+		parsed = parseUserWallpaperPreference(preference as User);
+	} else {
+		parsed = parseWallpaperPreference(preference as string | WallpaperPreference);
+	}
+	
 	console.log('Parsed preference:', parsed);
 	
 	// If wallpapers are disabled, return null
@@ -194,6 +283,7 @@ export function getWallpaperCategories(): string[] {
 		.filter(category => category !== undefined) as string[]
 	)];
 }
+
 /**
  * Validate if wallpaper ID exists
  */

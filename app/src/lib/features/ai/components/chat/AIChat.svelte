@@ -56,7 +56,10 @@
 		TrashIcon,
 		PlusCircle,
 		BotIcon,
-		Braces
+		Braces,
+
+		Star
+
 	} from 'lucide-svelte';
 	import {
 		fetchAIResponse,
@@ -64,7 +67,7 @@
 		createAIAgent
 	} from '$lib/clients/aiClient';
 	import { apiKey } from '$lib/stores/apiKeyStore';
-	import { pocketbaseUrl } from '$lib/pocketbase';
+	import { pocketbaseUrl, getUserById, getPublicUsersBatch } from '$lib/pocketbase';
 	import { messagesStore } from '$lib/stores/messagesStore';
 	import { getRandomPrompts } from '$lib/features/ai/utils/startPrompts';
 	import ProjectCard from '$lib/components/cards/ProjectCard.svelte';
@@ -74,13 +77,14 @@
 	import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
 	import PromptCatalog from '../prompts/PromptInput.svelte';
 	import { pendingSuggestion } from '$lib/stores/suggestionStore';
-	import { getUserProfile } from '$lib/clients/profileClient';
+	// import { getUserProfile } from '$lib/clients/profileClient';
 	import type {
 		ExpandedSections,
 		ThreadGroup,
 		MessageState,
 		PromptState,
 		UIState,
+		User,
 		UserProfile,
 		AIModel,
 		ChatMessage,
@@ -119,7 +123,7 @@
 		updateThread,
 		addMessageToThread
 	} from '$lib/clients/threadsClient';
-	import { threadsStore, ThreadSortOption, showThreadList } from '$lib/stores/threadsStore';
+	import { threadsStore, ThreadSortOption, showThreadList} from '$lib/stores/threadsStore';
 	import { t } from '$lib/stores/translationStore';
 	import { promptStore } from '$lib/stores/promptStore';
 	import { modelStore } from '$lib/stores/modelStore';
@@ -154,6 +158,7 @@
 	import SysPromptSelector from '../prompts/SysPromptSelector.svelte';
     import { swipeGesture } from '$lib/utils/swipeGesture';
 	import { useGlobalSwipe } from '$lib/utils/globalSwipe';
+	import { handleFavoriteThread } from '$lib/utils/favoriteHandlers';
 
 	type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
@@ -181,7 +186,10 @@
 	let userScrollPosition = 0;
 	let scrollThreshold = 100;
 	let isAtBottom = true;
-
+	let showFavoriteThreads = false;
+	let favoritesHovered = false;
+	let favoriteThreadsData: Threads[] = [];
+	let isLoadingFavorites = false;
 	let textareaElement: HTMLTextAreaElement | null = null;
 	let showAgentPicker = false;
 	let isUpdatingThreadName = false;
@@ -217,6 +225,7 @@
 	let showAuth = false;
 	// Thread-related state
 	let threads: Threads[];
+	let thread: Threads | null = null;
 	let currentThread: Threads | null = null;
 	let currentThreadId: string | null = null;
 	let namingThreadId: string | null = null;
@@ -237,7 +246,9 @@
     let swipeThreshold = 100; 
     let angleThreshold = 30;
 	let isDragging = false;
-
+	let showFavoriteThreadTooltip = false;
+	let favoriteThreadTooltipText = '';
+	let isFavoriteState = false;
 	/*
 	 * let isLoading: boolean = false;
 	 * let isTextareaFocused = false;
@@ -275,6 +286,8 @@
 	let selectedPromptLabel = '';
 	let selectedSysPromptLabel = '';
 	let selectedModelLabel = '';
+	let selectedProviderLabel = '';
+
 	let scrollPercentage = 0;
 	let threadCount = 0;
 	let messageCount = 0;
@@ -517,7 +530,49 @@ async function fetchPromptFromAPI(promptId: string | null): Promise<any | null> 
 			models: false
 		}));
 	}
+	async function loadFavoriteThreads() {
+		if (!$currentUser?.favoriteThreads?.length) {
+			favoriteThreadsData = [];
+			return;
+		}
 
+		try {
+			isLoadingFavorites = true;
+			const response = await fetch('/api/favorites');
+			
+			if (response.ok) {
+				favoriteThreadsData = await response.json();
+				console.log('Loaded favorite threads:', favoriteThreadsData);
+			} else {
+				console.error('Failed to load favorite threads');
+				favoriteThreadsData = [];
+			}
+		} catch (error) {
+			console.error('Error loading favorite threads:', error);
+			favoriteThreadsData = [];
+		} finally {
+			isLoadingFavorites = false;
+		}
+	}
+
+$: filteredThreads = (() => {
+	let filtered = threads || [];
+	
+	if (showFavoriteThreads && $currentUser?.favoriteThreads && $currentUser.favoriteThreads.length > 0) {
+		filtered = filtered.filter(thread => 
+			$currentUser!.favoriteThreads!.includes(thread.id)
+		);
+	}
+	
+	if (searchQuery.trim()) {
+		const query = searchQuery.toLowerCase();
+		filtered = filtered.filter(thread =>
+			thread.name?.toLowerCase().includes(query)
+		);
+	}
+	
+	return filtered;
+})();
 	function handleTextSelection() {
 		const selection = window.getSelection();
 		activeSelection = selection?.toString().trim() || '';
@@ -1261,19 +1316,35 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 	}
 
 
-	async function preloadUserProfiles() {
-		const userIds = new Set<string>();
+async function preloadUserProfiles() {
+	const userIds = new Set<string>();
 
-		chatMessages.forEach((message) => {
-			if (message.type === 'human' && message.user) {
-				userIds.add(message.user);
-			}
-		});
+	chatMessages.forEach((message) => {
+		if (message.type === 'human' && message.user) {
+			userIds.add(message.user);
+		}
+	});
 
-		const fetchPromises = Array.from(userIds).map((userId) => getUserProfile(userId));
-		await Promise.all(fetchPromises);
+	// Use the existing getUserById function which works correctly
+	const fetchPromises = Array.from(userIds).map((userId) => getUserById(userId));
+	await Promise.all(fetchPromises);
+}
+
+// Or even better, use batch fetching for better performance:
+async function preloadUserProfilesBatch() {
+	const userIds = new Set<string>();
+
+	chatMessages.forEach((message) => {
+		if (message.type === 'human' && message.user) {
+			userIds.add(message.user);
+		}
+	});
+
+	// Use batch fetching for better performance
+	if (userIds.size > 0) {
+		await getPublicUsersBatch(Array.from(userIds));
 	}
-
+}
 
 
 	function dedupeChatMessages() {
@@ -1385,6 +1456,55 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 				return 0;
 			});
 	}
+function isThreadFavorited(threadId?: string): boolean {
+	if (!threadId) return false;
+	
+	const user = $currentUser;
+	// console.log('Full user object:', user); // Add this to see the complete user structure
+	// console.log('User favoriteThreads field:', user?.favoriteThreads);
+	// console.log('All user fields:', user ? Object.keys(user) : 'No user');
+	
+	const isFavorited = user?.favoriteThreads?.includes(threadId) || false;
+	// console.log('Checking if thread is favorited:', { threadId, favoriteThreads: user?.favoriteThreads, isFavorited });
+	return isFavorited;
+}
+async function onFavoriteThread(event: Event, specificThread?: Threads) {
+	console.log('onFavoriteThread called with:', { 
+		specificThreadExists: !!specificThread,
+		specificThreadId: specificThread?.id,
+		currentUser: $currentUser,
+		favoriteThreads: $currentUser?.favoriteThreads 
+	});
+
+	if (!specificThread) {
+		console.error('No thread provided to onFavoriteThread');
+		return;
+	}
+
+	const currentIsFavorite = isThreadFavorited(specificThread.id);
+	console.log('Current favorite state:', currentIsFavorite);
+
+	try {
+		await handleFavoriteThread({
+			currentUser,
+			thread: specificThread,
+			isFavoriteState: currentIsFavorite,
+			onStateUpdate: (newState) => {
+				console.log('State updated:', { threadId: specificThread.id, newState });
+			},
+			onTooltipShow: (text) => {
+				console.log('Tooltip:', text);
+				favoriteThreadTooltipText = text;
+				showFavoriteThreadTooltip = true;
+				setTimeout(() => {
+					showFavoriteThreadTooltip = false;
+				}, 1000);
+			}
+		});
+	} catch (error) {
+		console.error('Error in onFavoriteThread:', error);
+	}
+}
 	// UI helper functions
 
 	function getRandomGreeting(): string {
@@ -1444,7 +1564,41 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 		threadsStore.setSortOption(sortOption);
 		showSortOptions = false;
 	}
-	$: threads = $threadsStore.searchedThreads || [];
+$: threads = (() => {
+	// console.log('🔄 Calculating threads with filters');
+	
+	// Start with all threads from store
+	let allThreads = $threadsStore.threads || [];
+	// console.log('📊 All threads:', allThreads.length);
+	
+	// Apply project filter first
+	const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
+	if (currentProjectId) {
+		allThreads = allThreads.filter(thread => thread.project_id === currentProjectId);
+		// console.log('🏗️ After project filter:', allThreads.length);
+	}
+	
+	// Apply favorite filter
+	if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
+		allThreads = allThreads.filter(thread => 
+			$currentUser.favoriteThreads!.includes(thread.id)
+		);
+		// console.log('⭐ After favorite filter:', allThreads.length);
+	}
+	
+	// Apply search filter last
+	if (searchQuery && searchQuery.trim()) {
+		const query = searchQuery.toLowerCase();
+		allThreads = allThreads.filter(thread =>
+			thread.name?.toLowerCase().includes(query) ||
+			thread.last_message?.content?.toLowerCase().includes(query)
+		);
+		// console.log('🔍 After search filter:', allThreads.length);
+	}
+	
+	// console.log('✅ Final threads:', allThreads.map(t => ({ id: t.id, name: t.name, isFavorite: $currentUser?.favoriteThreads?.includes(t.id) })));
+	return allThreads;
+})();
 
 	function toggleUserSelection(userId: string) {
 		threadsStore.toggleUserSelection(userId);
@@ -1756,6 +1910,7 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 					parent_msg: msg.parent_msg,
 					prompt_type: msg.prompt_type as PromptType,
 					prompt_input: msg.prompt_input,
+					provider: msg.provider,
 					model: msg.model,
 					collectionId: msg.collectionId || 'defaultCollectionId',
 					collectionName: msg.collectionName || 'defaultCollectionName'
@@ -1776,6 +1931,7 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 							parent_msg: msg.parent_msg,
 							prompt_type: (msg.prompt_type as PromptType) || null,
 							prompt_input: msg.prompt_input,
+							provider: msg.provider,
 							model: msg.model,
 							collectionId: msg.collectionId || 'defaultCollectionId',
 							collectionName: msg.collectionName || 'defaultCollectionName'
@@ -2247,6 +2403,16 @@ let showDeleteModal = false;
 		
 		return $t('dates.monthAgo') as string;
 	}
+	function updateFavoriteThreadState(user: User | null) {
+		if (user && Array.isArray(user.favoriteThreads) && thread) {
+			isFavoriteState = user.favoriteThreads.includes(thread.id);
+		} else {
+			isFavoriteState = false;
+		}
+	}
+
+	// Initialize on component mount
+	$: updateFavoriteThreadState($currentUser);
 
 function groupThreadsByTime(threads: any[]) {
     const grouped: { [key: string]: any[] } = {};
@@ -2311,33 +2477,58 @@ function groupThreadsByTime(threads: any[]) {
 	$: groupedThreads = groupThreadsByTime(threads);
 	$: searchPlaceholder = $t('nav.search') as string;
 	$: isLoading = $threadsStore.isLoading;
+	$: {
+	const storeState = $threadsStore;
+	if (storeState) {
+		// threads = storeState.threads; // <-- DELETE THIS LINE
+		currentThreadId = storeState.currentThreadId;
+
+		// Update currentThread when the store changes
+		if (currentThreadId && storeState.threads) {
+			const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
+			if (threadFromStore && !isEditingThreadName) {
+				currentThread = threadFromStore;
+			}
+		}
+
+		messages = storeState.messages;
+		updateStatus = storeState.updateStatus;
+
+		if (!isEditingThreadName) {
+			isEditingThreadName = storeState.isEditingThreadName;
+			editedThreadName = storeState.editedThreadName;
+		}
+
+		namingThreadId = storeState.namingThreadId;
+	}
+}
 	// $: isUpdating = $threadsStore.isUpdating;
 	// $: error = $threadsStore.error;
-	$: {
-		const storeState = $threadsStore;
-		if (storeState) {
-			threads = storeState.threads;
-			currentThreadId = storeState.currentThreadId;
+	// $: {
+	// 	const storeState = $threadsStore;
+	// 	if (storeState) {
+	// 		threads = storeState.threads;
+	// 		currentThreadId = storeState.currentThreadId;
 
-			// Update currentThread when the store changes
-			if (currentThreadId && storeState.threads) {
-				const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
-				if (threadFromStore && !isEditingThreadName) {
-					currentThread = threadFromStore;
-				}
-			}
+	// 		// Update currentThread when the store changes
+	// 		if (currentThreadId && storeState.threads) {
+	// 			const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
+	// 			if (threadFromStore && !isEditingThreadName) {
+	// 				currentThread = threadFromStore;
+	// 			}
+	// 		}
 
-			messages = storeState.messages;
-			updateStatus = storeState.updateStatus;
+	// 		messages = storeState.messages;
+	// 		updateStatus = storeState.updateStatus;
 
-			if (!isEditingThreadName) {
-				isEditingThreadName = storeState.isEditingThreadName;
-				editedThreadName = storeState.editedThreadName;
-			}
+	// 		if (!isEditingThreadName) {
+	// 			isEditingThreadName = storeState.isEditingThreadName;
+	// 			editedThreadName = storeState.editedThreadName;
+	// 		}
 
-			namingThreadId = storeState.namingThreadId;
-		}
-	}
+	// 		namingThreadId = storeState.namingThreadId;
+	// 	}
+	// }
 	/*
 	 * $: {
 	 *   if (namingThreadId) {
@@ -2388,39 +2579,40 @@ function groupThreadsByTime(threads: any[]) {
 			}
 		}
 	}
-	$: {
-		if ($threadsStore.threads) {
-			// Get current project ID from either threadsStore or projectStore
-			const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
+	// $: {
+	// 	if ($threadsStore.threads) {
+	// 		// Get current project ID from either threadsStore or projectStore
+	// 		const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
 
-			// First filter by project ID
-			const projectThreads = currentProjectId
-				? $threadsStore.threads.filter((thread) => thread.project_id === currentProjectId)
-				: $threadsStore.threads;
+	// 		// First filter by project ID
+	// 		const projectThreads = currentProjectId
+	// 			? $threadsStore.threads.filter((thread) => thread.project_id === currentProjectId)
+	// 			: $threadsStore.threads;
 
-			// Then apply search filter
-			threads = searchQuery
-				? projectThreads.filter((thread) =>
-						thread.name?.toLowerCase().includes(searchQuery.toLowerCase())
-					)
-				: projectThreads;
+	// 		// Then apply search filter
+	// 		threads = searchQuery
+	// 			? projectThreads.filter((thread) =>
+	// 					thread.name?.toLowerCase().includes(searchQuery.toLowerCase())
+	// 				)
+	// 			: projectThreads;
 
-			console.log(
-				`Filtered to ${threads.length} threads for project ${currentProjectId || 'none'} with search "${searchQuery}"`
-			);
-		}
-	}
+	// 		console.log(
+	// 			`Filtered to ${threads.length} threads for project ${currentProjectId || 'none'} with search "${searchQuery}"`
+	// 		);
+	// 	}
+	// }
 
 	// Reactive statement to update search query in store
+	let isUpdatingSearch = false;
+
 	$: {
-		if (searchQuery !== undefined) {
+		if (searchQuery !== undefined && !isUpdatingSearch) {
 			threadsStore.setSearchQuery(searchQuery);
 		}
 	}
 	$: isThreadListVisible = $showThreadList;
 	$: sortOptionInfo = threadsStore.sortOptionInfo;
 	$: allSortOptions = threadsStore.allSortOptions;
-	$: searchedThreads = threadsStore.searchedThreads;
 	$: selectedUserIds = threadsStore.selectedUserIds;
 	$: availableUsers = threadsStore.availableUsers;
 
@@ -2480,20 +2672,20 @@ function groupThreadsByTime(threads: any[]) {
 	 *   }
 	 * }
 	 */
-	$: {
-		if ($threadsStore.threads) {
-			// Only update if we're not displaying non-project threads
-			if ($projectStore.currentProjectId || threads.length === 0) {
-				threads = $threadsStore.threads.filter((thread) => {
-					// Apply any filters you need here
-					if (searchQuery) {
-						return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
-					}
-					return true;
-				});
-			}
-		}
-	}
+	// $: {
+	// 	if ($threadsStore.threads) {
+	// 		// Only update if we're not displaying non-project threads
+	// 		if ($projectStore.currentProjectId || threads.length === 0) {
+	// 			threads = $threadsStore.threads.filter((thread) => {
+	// 				// Apply any filters you need here
+	// 				if (searchQuery) {
+	// 					return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
+	// 				}
+	// 				return true;
+	// 			});
+	// 		}
+	// 	}
+	// }
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 	// $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
 	$: selectedIcon = $promptStore?.selectedPromptId
@@ -2571,7 +2763,7 @@ function groupThreadsByTime(threads: any[]) {
 	}
 	$: if (chatMessages && chatMessages.length > 0) {
 		dedupeChatMessages();
-		preloadUserProfiles();
+		preloadUserProfilesBatch();
 	}
 	$: if ($isTextareaFocused && $showThreadList) {
 		threadListVisibility.set(false);
@@ -2808,53 +3000,60 @@ onMount(() => {
 								{:else}
 									<div class="icon" in:fade>
 										<MessageCirclePlus />
+										
 										{#if createHovered}
-											<span class="tooltip" in:fade>
+											<span class="tooltip tooltip-delayed" in:fade>
 												{$t('tooltip.newThread')}
 											</span>
 										{/if}
 									</div>
 								{/if}
 							</button>
-							<!-- <button 
-              class="toolbar-button"
-              class:active={showSortOptions}
-              on:click={() => showSortOptions = !showSortOptions}
-              aria-label="Sort threads"
-              title={$sortOptionInfo.label}
-            >
-              <svelte:component this={$sortOptionInfo.icon} size={18} />
-              <span class="button-label">{$sortOptionInfo.label}</span>
-            </button>
-            <button 
-              class="toolbar-button"
-              class:active={showUserFilter || $selectedUserIds.size > 0}
-              on:click={() => showUserFilter = !showUserFilter}
-              aria-label="Filter by users"
-              title="Filter by users"
-            >
-              <Filter size={18} />
-              {#if $selectedUserIds.size > 0}
-                <span class="filter-badge">{$selectedUserIds.size}</span>
-              {/if}
-            </button> -->
+							<button
+								class="toolbar-button"
+								class:active={$threadsStore.showFavoriteThreads}
+								on:click={() => {
+									if (isExpanded) {
+										isExpanded = false;
+									}
+									
+									threadsStore.setSearchQuery('');
+									threadsStore.toggleFavoriteFilter();
+								}}
+								on:mouseenter={() => (favoritesHovered = true)}
+								on:mouseleave={() => (favoritesHovered = false)}
+							>
+								<Star size={18} fill={$threadsStore.showFavoriteThreads ? 'currentColor' : 'none'} />
+								{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
+									<span class="tooltip tooltip-delayed" in:fade>
+										{$t('profile.favorites') || 'Favorite Threads'}
+									</span>
+								{/if}
+								{#if $currentUser?.favoriteThreads && $currentUser.favoriteThreads.length > 0}
+									<span class="filter-badge">{$currentUser.favoriteThreads.length}</span>
+								{/if}
+							</button>
+
 							<div class="drawer-input">
 								<button
 									class="toolbar-button"
 									class:active={isExpanded}
 									on:click={() => {
+										if (!isExpanded && $threadsStore.showFavoriteThreads) {
+											threadsStore.toggleFavoriteFilter();
+										}
 										isExpanded = !isExpanded;
 									}}
 									on:mouseenter={() => (searchHovered = true)}
 									on:mouseleave={() => (searchHovered = false)}
 								>
 									<Search />
-									<!-- {#if searchHovered && !isExpanded}
-                    <span class="filter-badge" in:fade>
-                      search
-                    </span>
-                  {/if} -->
-								</button>
+									{#if searchHovered && !isExpanded}
+										<span class="tooltip tooltip-delayed" in:fade>
+											{$t('nav.search') || 'Search threads'}
+										</span>
+									{/if}
+								</button>								
 								{#if isExpanded}
 									<input
 										transition:slide={{ duration: 300 }}
@@ -2871,6 +3070,28 @@ onMount(() => {
 									/>
 								{/if}
 							</div>
+							<!-- <button 
+							class="toolbar-button"
+							class:active={showSortOptions}
+							on:click={() => showSortOptions = !showSortOptions}
+							aria-label="Sort threads"
+							title={$sortOptionInfo.label}
+							>
+							<svelte:component this={$sortOptionInfo.icon} size={18} />
+							<span class="button-label">{$sortOptionInfo.label}</span>
+							</button>
+							<button 
+							class="toolbar-button"
+							class:active={showUserFilter || $selectedUserIds.size > 0}
+							on:click={() => showUserFilter = !showUserFilter}
+							aria-label="Filter by users"
+							title="Filter by users"
+							>
+							<Filter size={18} />
+							{#if $selectedUserIds.size > 0}
+								<span class="filter-badge">{$selectedUserIds.size}</span>
+							{/if}
+							</button> -->
 						</div>
 						{#if showSortOptions}
 							<div class="dropdown sort-dropdown" transition:fade={{ duration: 150 }}>
@@ -2964,6 +3185,15 @@ onMount(() => {
 													on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
 												>
 													<Trash2 size={16}/>
+												</button>
+												<button
+													class="action-btn"
+													on:click|stopPropagation={(e) => onFavoriteThread(e, thread)}
+												>
+													<Star 
+														size={16} 
+														fill={isThreadFavorited(thread.id) ? 'currentColor' : 'none'} 
+													/>
 												</button>
 											</div>
 										</div>
@@ -4084,31 +4314,37 @@ onMount(() => {
 				margin-inline-start: 1.5rem;
 				padding-inline-start: 0;
 				border-left: 10px solid var(--tertiary-color);
+				
 			}
 			&:li {
 				font-size: 1.2rem;
 				font-weight: 600;
 				transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 				background: var(--bg-gradient-right);
+				
 			}
 		}
 
 		ol {
 			display: flex;
 			flex-direction: column;
+			justify-content: center;
 			// list-style-position: outside;
 			// padding: 1rem;
-			padding-inline-start: 1rem;
-			margin: 1rem 0;
+			padding-inline-start: 0;
+			margin: 0;
+			margin-left: 0;
 			// border: 1px solid var(--secondary-color);
 			border-radius: 2rem;
-			gap: 1rem;
+			width: 100%;
+			// border-left: 1px solid var(--line-color);
+			border-radius: 0;
 			transition: all 0.3s ease;
 
 			p {
 				list-style-type: lower-alpha !important;
 
-				font-size: 1.1rem;
+				font-size: 0.9rem;
 				line-height: 1.5;
 				margin: {
 					left: 0;
@@ -4118,6 +4354,7 @@ onMount(() => {
 				& ol {
 					display: flex;
 					flex-direction: column;
+					
 				}
 			}
 
@@ -4127,14 +4364,15 @@ onMount(() => {
 				// padding: 1rem;
 				margin: 0;
 				// padding: 2rem;
-				padding-inline-start: 1rem;
-				font-size: 1.1rem;
-				letter-spacing: 0.2rem;
+				padding: 1rem;
+				font-size: 0.9rem;
+				letter-spacing: 0rem;
 				// line-height: 2;
 				// border-top: 1px solid var(--placeholder-color);
 				// border-bottom: 1px solid var(--placeholder-color);
 				list-style-type: lower-alpha !important;
 
+				max-width: 90%;
 				// background: var(--bg-gradient-r);
 				border-radius: 0;
 				// border-top-left-radius: 2rem;
@@ -4143,9 +4381,11 @@ onMount(() => {
 				transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 				// border-bottom: 3px solid var(--bg-color);
 				// border-bottom: 1px solid var(--placeholder-color);
+
 				& strong {
 					display: inline-block;
 					width: auto !important;
+					
 				}
 
 				&:last-child {
@@ -4349,7 +4589,7 @@ onMount(() => {
 		border-radius: var(--radius-m);
 
 		&input {
-			background: red;
+			background: var(--bg-color);
 		}
 	}
 
@@ -4888,7 +5128,7 @@ onMount(() => {
 		flex-grow: 1;
 		display: flex;
 		flex-direction: column;
-		position: absolute;
+		position: fixed;
 		transition: all 0.3s ease-in-out;
 		overflow-y: hidden;
 		overflow-x: hidden;
@@ -4897,7 +5137,7 @@ onMount(() => {
 		// background: rgba(0, 0, 0, 0.2);
 		top: auto;
 		left: 0;
-		right: 1rem;
+		right: 0;
 		padding: 0;
 		padding-top: 0;
 		height: 100vh;
@@ -4910,14 +5150,19 @@ onMount(() => {
 		display: flex;
 		flex-direction: column;
 		// background: var(--bg-gradient);
-		justify-content: space-between;
+		justify-content: flex-start;
 		align-items: center;
-		width: 100%;
-		
-		height: auto;
+		width: auto !important;
+		margin-top: 0.5rem !important;
+		margin-left: 0.5rem !important;
+		margin-right: 0.5rem;
+		margin-bottom: 4rem;
+		border: 1px solid var(--line-color);
+		border-radius: 2rem;
 		margin-top: 0;
-		margin-right: 0;
-		margin-bottom: 2rem;
+		// animation: pulsateShadow 1.5s infinite alternate;
+			background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
+
 		height: auto;
 		// width: 50%;
 		// margin: 0 1rem;
@@ -4925,7 +5170,6 @@ onMount(() => {
 		// padding: 0 10px;
 		overflow-y: hidden;
 		overflow-x: hidden;
-		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
 		transition: all ease 0.3s;
 	}
 
@@ -5044,6 +5288,7 @@ onMount(() => {
 			top: 0;
 			margin-top: 0;
 			width: 100%;
+			height: 100%;
 		}
 		& .chat-container {
 			right: 0;
@@ -5091,22 +5336,21 @@ onMount(() => {
 		height: 200px;
 	}
 	.drawer-visible .input-container {
-		left: 0;
-		right: 0.5rem;
-		bottom: 1.5rem;
+		bottom: 3rem;
+		position: absolute;
 		
 	}
 	.input-container {
 		display: flex;
 		flex-direction: column;
-		max-width: 1200px;
+		max-width: 1000px;
 		width: calc(100% - 2rem);
-		position: relative;
+		position: absolute;
 		flex-grow: 0;
 		left: auto;
 		margin-top: 0;
 		height: auto;
-		bottom: 4rem;
+		bottom: 3rem;
 		margin-bottom: 0;
 		border: 1px solid var(--line-color);
 		transition: all 0.2s ease;
@@ -5285,26 +5529,34 @@ onMount(() => {
 		// background: var(--bg-gradient);
 		// backdrop-filter: blur(40px);
 		transition: all 0.3s ease;
+		max-height: 400px;
+        overflow: hidden; //
 
 		& textarea {
 			// max-height: 50vh;
+			padding: 1rem;
 			height: auto;
 			width: 100%;
 			margin: 1rem;
 			margin-top: 0;
 			margin-bottom: 0;
+			font-size: 1rem !important;
 			z-index: 1000;
+			height: 100vh;
 			// background: var(--bg-gradient-left);
 			&:focus {
+
 				// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
 				// border-bottom: 1px solid var(--placeholder-color);
 				// border-top-left-radius: 0;
-				min-height: 300px;
+				height: 100% !important;
 				// background: var(--primary-color);
 				// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
 				// margin: 2.5rem;
-				margin-top: 0.5rem;
+				margin-top: 1.5rem;
 				margin-bottom: 0;
+							overflow-y: scroll !important;
+
 				// background: var(--primary-color);
 			}
 		}
@@ -5390,9 +5642,12 @@ onMount(() => {
 	}
 
 	.drawer-visible .chat-messages {
-		border: 1px solid var(--line-color);
 		border-bottom: 1px solid transparent;
-		width: calc(100% - 2rem);
+		width: 100%;
+		height: auto;
+		justify-content: flex-start !important;
+		align-items: flex-start !important;
+
 	}
 
 	.chat-messages {
@@ -5400,20 +5655,20 @@ onMount(() => {
 		overflow-x: hidden;
 		display: flex;
 		position: relative;
-		left: auto;
 		gap: 1rem;
-
-		margin-bottom: 4rem;
+		margin-bottom: 2rem;
 		// border: 1px solid var(--line-color);
 		// border-bottom: 1px solid transparent;
 		border-radius: 2rem 2rem 0 0;
 		margin-top: 0;
 		padding: 0;
 		flex-direction: column;
+		justify-content: center;
 		align-items: stretch;
-		height: 100%;
-		width: calc(100% - 2rem);
-		max-width: 1200px;
+		height: auto;
+		max-height: 85vh;
+		width: 100%;
+		max-width: 1000px;
 		// scrollbar-width: 2px;
 		// scrollbar-color: var(--secondary-color) transparent;
 		scroll-behavior: smooth;
@@ -5645,7 +5900,7 @@ onMount(() => {
 			border-left: 2px solid var(--line-color);
 			border-bottom: 1px solid transparent;
 			border-radius: 0;
-			max-width: 1200px;
+			max-width: 1000px;
 			width: calc(100% - 2rem);
 			min-width: 200px;
 			font-weight: 500;
@@ -5808,7 +6063,13 @@ onMount(() => {
 		flex-direction: row;
 		transition: all 0.2s ease;
 		// border-bottom: 1px solid var(--line-color);
-
+			background: linear-gradient(
+				to top,
+				transparent 0%,
+				rgba(255, 255, 255, 0.05) 90%,
+				rgba(255, 255, 255, 0.05) 40%
+			);						
+			backdrop-filter: blur(2px) !important;
 		& h3 {
 			margin: 0;
 			margin-top: auto;
@@ -5953,11 +6214,14 @@ onMount(() => {
 	.thread-filtered-results {
 		margin-top: 0;
 		margin-bottom: 1rem;
+		border-top-right-radius: 1rem;
 		position: relative;
 		// scrollbar-width: thin;
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
+		height: 100%;
+					background: var(--primary-color);
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -5985,7 +6249,7 @@ onMount(() => {
 		width: calc(100%);
 		// padding: 0.75rem 1rem;
 		// border-top: 1px solid var(--line-color);
-
+		background: var(--bg-gradient-right);
 		// border-bottom: 2px solid var(--secondary-color);
 		cursor: pointer;
 		// box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
@@ -6026,6 +6290,7 @@ onMount(() => {
 		border: 1px solid var(--border-color, #e2e8f0);
 		cursor: pointer;
 		transition: all 0.2s ease;
+		gap: 0.5rem;
 
 		&:hover {
 			background-color: var(--secondary-color);
@@ -6162,7 +6427,7 @@ onMount(() => {
 			width: auto;
 			color: var(--text-color);
 			transition: all 0.3s ease;
-			font-size: 1.5rem;
+			font-size: 1rem;
 			&::placeholder {
 				color: var(--placeholder-color);
 			}
@@ -6749,6 +7014,7 @@ onMount(() => {
 		width: 250px;
 		line-height: 1.2;
 		margin-left: 0;
+		color: var(--text-color);
 		& .card-title {
         white-space: nowrap;
         overflow: hidden;
@@ -6775,29 +7041,31 @@ onMount(() => {
 		position: absolute;
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: center;
-		right: 0;
+		right: auto;
 		left: -1rem;
-		top: -1.5rem;
+		top: -1.75rem;
 		gap: 1rem;
 		height: 2rem;
+		margin-left: 0;
 		display: flex;
-		transform: translateX(0%) ;
-		width: 3rem;
-		background: var(--secondary-color) !important;
+		transform: translateX(0%);
+		width: auto;
 		z-index: 1000;
 		opacity: 0;
 		transition: all 0.2s ease;
 		visibility: hidden;
+		cursor:default;
+		
 	}
 
 	.card-container:hover .card-actions {
 		transform: translateX(0%) translateY(3rem);
 		opacity: 1;
 		visibility: visible;
-		width: 250px !important;
-		padding-left: 1rem;
+		padding-left: 0;
+		margin-left: 0;
 	}
 	.card-container:hover .card-time {
 		opacity: 1;
@@ -6819,11 +7087,15 @@ onMount(() => {
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
-		color: transparent;
-
-		width: 40px;
-		height: 40px;
+		background: var(--bg-gradient-r) !important;
+		color: var(--placeholder-color) !important;
+		border-radius: 50%;
+		box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
+		width: 2rem !important;
+		height: 2rem;
+		padding: 0.5rem;
 		transition: all 0.1s ease;
+
 		&.badge {
 			padding: 0.5rem;
 			gap: 0.5rem;
@@ -6836,10 +7108,11 @@ onMount(() => {
 			transition: all 0.2s ease;
 		}
 		&:hover {
-			color: var(--tertiary-color);
+			color: var(--tertiary-color) !important;
 			&.delete {
 				
 				&:hover {
+
 					color: red;
 				}
 			}
@@ -6867,7 +7140,7 @@ onMount(() => {
 		bottom: 0;
 		left: 0;
 		width: 100%;
-		height: fit-content;
+		height: 100%;
 		// backdrop-filter: blur(20px);
 		border-radius: 10px;
 		overflow-y: hidden;
@@ -6941,6 +7214,7 @@ onMount(() => {
 			x: hidden;
 			y: auto;
 		}
+
 		position: relative;
 		top: 0rem;
 		left: 0;
@@ -6952,8 +7226,10 @@ onMount(() => {
 			width: 1px;
 			color: var(--bg-color) transparent;
 		}
-		scroll-behavior: smooth;
+		border-bottom-right-radius: 2rem;
 
+		scroll-behavior: smooth;
+		padding-bottom: 0;
 		&.hidden {
 			display: none;
 			transform: translateX(-100%);
@@ -7038,8 +7314,9 @@ onMount(() => {
 		}
 		&.selected {
 			backdrop-filter: blur(30px);
-			background: var(--primary-color);
+			background: var(--bg-color);
 			border-radius: 0;
+			border-radius: 0 1rem 1rem 0;
 		}
 	}
 
@@ -7539,26 +7816,7 @@ onMount(() => {
 
 	// }
 
-	.chat-container {
-		flex-grow: 1;
-		display: flex;
-		flex-direction: column;
-		position: fixed;
-		transition: all 0.3s ease-in-out;
-		overflow-y: hidden;
-		overflow-x: hidden;
-		// /* left: 20%; */
-		width: 100%;
-		// background: rgba(0, 0, 0, 0.2);
-		left: 0;
-		right: 0;
-		bottom: auto;
-		padding: 0;
-		padding-top: 0;
-		height: 100%;
-		margin-top: 0;
-		margin-left: 0;
-	}
+
 
 	@media (min-width: 1900px) {
 
@@ -7843,6 +8101,8 @@ onMount(() => {
 			text-align: center;
 			align-items: center !important;
 			justify-content: center !important;
+			backdrop-filter: none !important;
+
 			left: 0;
 			height: auto !important;
 			margin-right: 0;
@@ -7859,6 +8119,7 @@ onMount(() => {
 			}
 		}
 
+
 		.chat-header {
 			left: 0 !important;
 			position: absolute;
@@ -7867,15 +8128,36 @@ onMount(() => {
 			// justify-content: space-between;
 			// background: var(--bg-color);
 			box-shadow: none;
-			backdrop-filter: none;
+			height: 2.5rem !important;
 			top: 0.5rem !important;
+			border-top-left-radius: 2rem;
+			border-top-right-radius: 2rem;
+			background: linear-gradient(
+				to top,
+				transparent 0%,
+				rgba(255, 255, 255, 0.05) 90%,
+				rgba(255, 255, 255, 0.05) 40%
+			);						
+			backdrop-filter: blur(2px) !important;
 			padding: 0 !important;
-			& .chat-header-thread {
-				height: 2rem !important;
-				padding: 0 !important;
-			}
 		}
 
+		.chat-header-thread {
+			margin-top: 0 !important;
+			margin-left: 0 !important;
+			margin-right: 1rem;
+			justify-content: center !important;
+			gap: 1rem;
+			backdrop-filter: blur(10px);
+			& span {
+				width: auto;
+			}
+		}
+		.drawer-visible .chat-header {
+			justify-content: flex-end;
+			align-items: flex-end;
+			display: none;
+		}
 		.btn-col-left:hover {
 			width: 96%;
 		}
@@ -8013,7 +8295,7 @@ onMount(() => {
 			right: 0;
 			left: 0;
 			padding-inline-start: 0;
-			top: 1rem;
+			top: 2rem;
 			width: 100% !important;
 			border: 1px solid transparent !important; 
 			z-index: 0;
@@ -8066,6 +8348,7 @@ onMount(() => {
 			gap: auto;
 			align-items: center;
 			transition: background-color 0.2s;
+			background: var(--bg-gradient-right);
 			// border-radius: var(--radius-m);
 			display: flex;
 			flex-direction: row;
@@ -8128,7 +8411,7 @@ onMount(() => {
 			}
 			&.selected {
 				backdrop-filter: blur(30px);
-				background: var(--primary-color);
+				background: var(--tertiary-color);
 			}
 		}
 		button.card-container {
@@ -8196,6 +8479,7 @@ onMount(() => {
 		.drawer-list {
 			height: 100%;
 			border-radius: 0;
+			
 		}
 
 		.drawer {
@@ -8204,8 +8488,9 @@ onMount(() => {
 			position: relative;
 			top: 0 !important;
 			margin-top: 0 !important;
-			margin-bottom: 12rem !important;
+			margin-bottom: 6rem !important;
 			height: auto !important;
+			
 		}
 
 		.drawer-visible .drawer {
@@ -8222,11 +8507,10 @@ onMount(() => {
 		.drawer-visible .chat-container {
 			display: flex;
 			z-index: -1;
-			left: 0 !important;
+			left: 250px !important;
 			width: 100% !important;
 		}
 		.drawer-visible .thread-filtered-results {
-			border: 1px solid var(--line-color);
 			padding: 0;
 			margin-left: 0;
 			margin-right: 0;
@@ -8234,6 +8518,7 @@ onMount(() => {
 			backdrop-filter: blur(10px);
 			overflow-x: hidden;
 			overflow-y: auto;
+
 			&::-webkit-scrollbar {
 				width: 0.5rem;
 				background-color: transparent;
@@ -8304,28 +8589,7 @@ onMount(() => {
 			padding: 0.5rem !important;
 			height: auto;
 		}
-		.chat-header {
-			height: 4rem;
-			top: 3rem;
-			left: 0 !important;
-		}
 
-		.chat-header-thread {
-			margin-top: 1rem;
-			margin-left: 10rem !important;
-			margin-right: 1rem;
-			justify-content: flex-end !important;
-			gap: 1rem;
-			backdrop-filter: blur(10px);
-			& span {
-				width: auto;
-			}
-		}
-		.drawer-visible .chat-header {
-			justify-content: flex-end;
-			align-items: flex-end;
-			display: none;
-		}
 		// .logo-container {
 		//   display: flex;
 		// }
@@ -8357,9 +8621,11 @@ onMount(() => {
 		.chat-messages {
 			top: 2rem;
 		}
-
+		.drawer-visible .chat-content {
+			border: 1px solid transparent;
+		}
 		.drawer-visible .thread-filtered-results {
-			border: 1px solid var(--line-color);
+			border: none;
 			padding: 0;
 			margin-left: 0;
 			margin-right: 0;
@@ -8465,9 +8731,9 @@ onMount(() => {
 					width: auto;
 					right: 2rem;
 					left: 4rem;
-					z-index: 1;
 					&::placeholder {
 						color: var(--placeholder-color);
+						
 					}
 				}
 			}
@@ -8508,6 +8774,7 @@ onMount(() => {
 			&:hover {
 				box-shadow: none;
 				background: var(--secondary-color) !important;
+				border-radius: 2rem;
 
 				// background: rgba(226, 226, 226, 0.2);  /* Very subtle white for the glass effect */
 				opacity: 1;
@@ -8516,7 +8783,7 @@ onMount(() => {
 			}
 			&.selected {
 				backdrop-filter: blur(30px);
-				background: var(--primary-color);
+				background: var(--bg-color);
 				border-radius: 2rem;
 			}
 		}
@@ -8587,6 +8854,7 @@ onMount(() => {
 			border-top-left-radius: 1rem;
 			border-top-right-radius: 1rem;
 			flex-grow: 0;
+			max-height: 200px;
 
 			& .combo-input textarea {
 				padding: 0 !important;
@@ -8599,6 +8867,7 @@ onMount(() => {
 					padding-inline-start: 2rem !important;
 					font-size: 0.7rem !important;
 					background: transparent !important;
+
 				}
 			}
 		}
@@ -8615,6 +8884,7 @@ onMount(() => {
 			text-align: left;
 			font-size: 0.7rem;
 			letter-spacing: 0rem;
+			
 		}
 
 		textarea.quote-placeholder::placeholder {
@@ -8651,10 +8921,27 @@ onMount(() => {
 				user-select: none;
 
 				& textarea {
-					height: 100px !important;
-					font-size: 1rem !important;
-					user-select: none;
-
+					// max-height: 50vh;
+					height: auto;
+					width: 100%;
+					margin: 1rem;
+					margin-top: 0;
+					margin-bottom: 0;
+					z-index: 1000;
+					// background: var(--bg-gradient-left);
+					&:focus {
+						// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
+						// border-bottom: 1px solid var(--placeholder-color);
+						// border-top-left-radius: 0;
+						height: 100px !important;
+						min-height: auto !important;
+						// background: var(--primary-color);
+						// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
+						// margin: 2.5rem;
+						margin-top: 0.5rem;
+						margin-bottom: 0;
+						// background: var(--primary-color);
+					}
 				}
 			}
 
@@ -8723,15 +9010,38 @@ onMount(() => {
 			width: 100%;
 		}
 
+		.drawer-visible .chat-container {
+			right: 0;
+			margin-right: 0;
+			width: auto;
+			left: 300px !important;
+		}
+
 		.chat-container {
 			padding: 0;
 			top: 0;
 			left: 0;
 		}
 
+		.input-container {
+			flex-direction: column;
+		}
+
 		.combo-input {
 			width: 100% !important;
 			padding: 0;
+						max-height: 200px;
+
+		}
+		.btn-row {
+			flex-direction: row;
+						gap: 0.1rem;
+
+		}
+
+		.submission {
+			flex-direction: row;
+			gap: 0.1rem;
 		}
 
 		.drawer-list {
@@ -8746,10 +9056,13 @@ onMount(() => {
 
 		.drawer-visible .drawer {
 			margin-left: 0;
-			width: calc(100% - 3rem);
+			width: 300px;
 			transform: translateX(0);
 			top: 3rem !important;
 			padding-top: 0;
+			margin-bottom: 6rem !important;
+			background: var(--primary-color) !important ;
+
 		}
 		.drawer {
 			display: flex;

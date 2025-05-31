@@ -7,14 +7,10 @@
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { Bot } from 'lucide-svelte';
-	import { getWallpaperSrc, parseWallpaperPreference } from '$lib/utils/wallpapers';
-	import type { WallpaperPreference } from '$lib/utils/wallpapers';
 
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-	let wallpaperPreference: WallpaperPreference = { wallpaperId: null, isActive: false };
-	let wallpaperSrc: string | null = null;
 	// Default AI model configuration
 	const defaultAIModel: AIModel = {
 		id: 'default',
@@ -51,6 +47,7 @@
 		collectionId: '',
 		collectionName: 'messages',
 		parent_msg: null,
+		provider: 'openai' as const,
 		prompt_type: null,
 		prompt_input: null,
 		model: aiModel.id,
@@ -66,14 +63,6 @@
 		}
 	} as InternalChatMessage;
 
-	$: if ($currentUser?.wallpaper_preference) {
-    wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-  } else if (!$currentUser) {
-    // Default wallpaper when not logged in
-    wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
-  } else {
-    wallpaperPreference = { wallpaperId: null, isActive: false };
-  }
 
 	onMount(async () => {
 		try {
@@ -87,8 +76,8 @@
 			userId = $currentUser.id;
 
 			// Get URL parameters
-			threadId = $page.url.searchParams.get('threadId');
-			messageId = $page.url.searchParams.get('messageId');
+			// threadId = $page.url.searchParams.get('threadId');
+			// messageId = $page.url.searchParams.get('messageId');
 
 			pageReady = true;
 		} catch (e) {

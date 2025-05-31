@@ -43,13 +43,14 @@ export interface User extends RecordModel {
 	messages: string[];
 	last_login: Date;
 	bookmarks: string[];
+	favoriteThreads: string[];
 	timer_sessions: TimerSessionSummary[];
 	token_balance: number;
 	lifetime_tokens: number;
 	current_subscription?: string;
 	activated_features: string[];
 	theme_preference?: string;
-	wallpaper_preference?: string;
+	wallpaper_preference: string[];
 	created: string;
 	updated: string;
 	id: string;
@@ -150,7 +151,6 @@ export interface ThreadStoreState {
 	namingThreadId: string | null;
 	currentThread: Threads | null;
 	filteredThreads: Threads[];
-	searchedThreads?: Threads[];
 	isEditingThreadName: boolean;
 	editedThreadName: string;
 	isNaming: boolean;
@@ -163,6 +163,7 @@ export interface ThreadStoreState {
 	isUpdating: boolean;
 	error: string | null;
 	currentProjectId?: string | null;
+	showFavoriteThreads: boolean;
 }
 
 export interface Threads extends RecordModel {
@@ -549,6 +550,7 @@ export interface InternalChatMessage extends ChatMessage {
 	prompt_type: string | null;
 	prompt_input: string | null;
 	model: User['model'];
+	provider: ProviderType;
 	thread?: string;
 	role: RoleType;
 }

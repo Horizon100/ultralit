@@ -871,14 +871,7 @@ async function loadProjectData() {
 		pointer-events: none;
 	}
 
-	@keyframes swipe {
-		0% {
-			transform: translateX(-100%) translateY(-100%) rotate(45deg);
-		}
-		100% {
-			transform: translateX(100%) translateY(100%) rotate(45deg);
-		}
-	}
+
 
 	.project-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);

@@ -111,16 +111,16 @@
 
 	const dispatch = createEventDispatcher();
 
-	$: chatRelatedPages = ['/chat', '/canvas', '/ide']; // Add other pages that need API keys
-	$: needsApiKey = chatRelatedPages.some(path => $page.url.pathname.startsWith(path));
-	$: hasApiKey = needsApiKey ? hasAnyApiKey($apiKey) : true;
+	// $: chatRelatedPages = ['/chat', '/canvas', '/ide']; // Add other pages that need API keys
+	// $: needsApiKey = chatRelatedPages.some(path => $page.url.pathname.startsWith(path));
+	// $: hasApiKey = needsApiKey ? hasAnyApiKey($apiKey) : true;
 
-	function hasAnyApiKey(apiKeys: any): boolean {
-		if (!apiKeys || typeof apiKeys !== 'object') return false;
-		return Object.values(apiKeys).some(key => 
-			typeof key === 'string' && key.trim() !== ''
-		);
-	}
+	// function hasAnyApiKey(apiKeys: any): boolean {
+	// 	if (!apiKeys || typeof apiKeys !== 'object') return false;
+	// 	return Object.values(apiKeys).some(key => 
+	// 		typeof key === 'string' && key.trim() !== ''
+	// 	);
+	// }
 
 	function getRandomQuote(): string {
 		const quotes = $t('extras.quotes') as string[];
@@ -1203,6 +1203,8 @@ onMount(async () => {
 		text-align: justify;
 		width: 100%;
 		display: flex;
+		color: var(--text-color);
+
 	}
 
 	.info-row {
