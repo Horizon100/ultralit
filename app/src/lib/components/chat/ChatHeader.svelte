@@ -2,7 +2,6 @@
 	import { createEventDispatcher } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { Save } from 'lucide-svelte';
 	import { showThreadList } from '$lib/stores/threadsStore';
 	import { isTextareaFocused } from '$lib/stores/textareaFocusStore';
 	import { projectStore } from '$lib/stores/projectStore';
@@ -10,6 +9,7 @@
 	import ProjectCard from '$lib/components/cards/ProjectCard.svelte';
 	import { UIUtils } from '$lib/utils/uiUtils';
 	import type { Threads } from '$lib/types/types';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let currentThread: Threads | null = null;

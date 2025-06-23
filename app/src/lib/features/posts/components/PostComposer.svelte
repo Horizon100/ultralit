@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import { Paperclip, X, Tag } from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { processVideoAttachments } from '$lib/utils/videoHandlers';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
@@ -14,7 +13,8 @@
 	import type { AIModel } from '$lib/types/types';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { postStore } from '$lib/stores/postStore';
-	
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
 	export let buttonText: string = $t('posts.postButton') as string;
 	export let initialContent: string = '';
@@ -284,12 +284,12 @@ async function handleSubmit() {
 								type="button"
 								title="Remove image"
 							>
-								<X size={16} />
+								{@html getIcon('X', { size: 16 })}
 							</button>
 						</div>
 					{:else}
 						<div class="attachment-file-preview">
-							<Paperclip size={16} />
+							{@html getIcon('Paperclip', { size: 16 })}
 							<span class="attachment-name">{file.name}</span>
 							<button
 								class="remove-attachment"
@@ -297,7 +297,7 @@ async function handleSubmit() {
 								type="button"
 								title="Remove file"
 							>
-								<X size={16} />
+								{@html getIcon('X', { size: 16 })}
 							</button>
 						</div>
 					{/if}
@@ -310,7 +310,7 @@ async function handleSubmit() {
 	{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
 		<div class="tagging-status">
 			<div class="tagging-indicator">
-				<Tag size={14} />
+				{@html getIcon('Tag', { size: 14 })}
 				{#if isGeneratingTags}
 					<span class="tagging-text generating">Generating tags...</span>
 				{:else if willGenerateTags}
@@ -338,7 +338,7 @@ async function handleSubmit() {
 					title="Add attachments"
 					disabled={disabled || isSubmitting}
 				>
-					<Paperclip size={16} />
+					{@html getIcon('Paperclip', { size: 16 })}
 					{#if attachments.length > 0}
 						<span class="attachment-count">{attachments.length}</span>
 					{/if}

@@ -100,55 +100,8 @@
 	import AgentPicker from '$lib/features/agents/components/AgentPicker.svelte';
 
 	// ===== ICON IMPORTS =====
-	import {
-		Send,
-		Paperclip,
-		Bot,
-		FilePenLine,
-		Save,
-		Check,
-		ChevronDown,
-		ChevronUp,
-		ChevronRight,
-		ChevronLeft,
-		Edit2,
-		Pen,
-		Trash,
-		MessageCirclePlus,
-		Search,
-		Trash2,
-		Users,
-		Brain,
-		Command,
-		Calendar,
-		ArrowLeft,
-		ListTree,
-		Box,
-		PackagePlus,
-		MessageCircleMore,
-		RefreshCcw,
-		CalendarClock,
-		MessageSquareText,
-		Bookmark,
-		BookmarkMinus,
-		BookmarkX,
-		BookmarkCheckIcon,
-		Quote,
-		Filter,
-		SquarePlay,
-		Play,
-		PlugZap,
-		ZapOff,
-		Link,
-		Unlink,
-		MessageSquare,
-		MessagesSquare,
-		TrashIcon,
-		PlusCircle,
-		BotIcon,
-		Braces,
-		Star
-	} from 'lucide-svelte';
+
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// ===== CLIENT IMPORTS =====
 	import {
@@ -812,7 +765,9 @@
 							<svelte:component this={option.icon} />
 							<span>{option.label}</span>
 							{#if $sortOptionInfo.value === option.value}
-								<Check class="check-icon" />
+								<span class="check-icon">
+									{@html getIcon('Check', { size: 16 })}
+								</span>
 							{/if}
 						</button>
 					{/each}
@@ -840,7 +795,9 @@
 							>
 								<span>{user.name}</span>
 								{#if $selectedUserIds.has(user.id)}
-									<Check size={16} class="check-icon" />
+									<span class="check-icon">
+										{@html getIcon('Check', { size: 16 })}
+									</span>
 								{/if}
 							</button>
 						{/each}

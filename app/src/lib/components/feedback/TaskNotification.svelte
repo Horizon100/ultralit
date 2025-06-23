@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import { RefreshCcw, X, AlertCircle, CheckCircle, File } from 'lucide-svelte';
 	import type { NotificationType, TaskNotification } from '$lib/types/types.notifications';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let notifications: TaskNotification[] = [];
@@ -43,11 +43,13 @@
 		>
 			<div class="icon">
 				{#if notification.type === 'loading'}
-					<RefreshCcw size={18} class="spinner" />
+					<span class="spinner">
+						{@html getIcon('RefreshCcw', { size: 18 })}
+					</span>
 				{:else if notification.type === 'success'}
-					<CheckCircle size={18} />
+					{@html getIcon('CheckCircle', { size: 18 })}
 				{:else if notification.type === 'error'}
-					<AlertCircle size={18} />
+					{@html getIcon('AlertCircle', { size: 18 })}
 				{/if}
 			</div>
 
@@ -56,7 +58,7 @@
 
 				{#if notification.link}
 					<button class="link-button" on:click={() => handleLinkClick(notification)}>
-						<File size={14} />
+						{@html getIcon('File', { size: 14 })}
 						{notification.link.text}
 					</button>
 				{/if}
@@ -67,7 +69,7 @@
 				on:click={() => removeNotification(notification.id)}
 				aria-label="Close notification"
 			>
-				<X size={16} />
+				{@html getIcon('X', { size: 16 })}
 			</button>
 		</div>
 	{/each}

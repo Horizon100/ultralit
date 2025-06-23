@@ -1,26 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import {
-		Plus,
-		Trash2,
-		Bot,
-		Settings,
-		CopyPlus,
-		Search,
-		ArrowUpDown,
-		Upload,
-		Filter,
-		Activity,
-		Compass,
-		ServerCog,
-		OctagonPause,
-		AlertCircle,
-		RefreshCcw,
-		Cpu,
-		HeadphonesIcon,
-		ShieldCheck,
-		ArrowLeft
-	} from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { AIAgent, AIModel, Actions, ProviderType } from '$lib/types/types';
 	import { agentStore } from '$lib/stores/agentStore';
@@ -34,6 +13,7 @@
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import AgentGen from '$lib/features/agents/components/AgentGen.svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let showCreateForm = false;
 	let selectedAgent: AIAgent | null = null;
@@ -70,11 +50,11 @@
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-	const statusIcons: Record<string, any> = {
-		active: Activity,
-		inactive: Compass,
-		maintenance: ServerCog,
-		paused: OctagonPause
+	const statusIcons: Record<string, IconName> = {
+		active: 'Activity',
+		inactive: 'Compass',
+		maintenance: 'ServerCog',
+		paused: 'OctagonPause'
 	};
 
 	const agentUserInputs: { value: 'end' | 'never' | 'always'; label: string }[] = [
@@ -92,11 +72,11 @@
 		{ value: 'za', label: 'Alphabetical descending' }
 	];
 
-	const roleIcons: Record<string, any> = {
-		hub: Cpu,
-		proxy: ShieldCheck,
-		assistant: HeadphonesIcon,
-		moderator: AlertCircle
+	const roleIcons: Record<string, IconName> = {
+		hub: 'Cpu',
+		proxy: 'ShieldCheck',
+		assistant: 'HeadphonesIcon',
+		moderator: 'AlertCircle'
 	};
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
@@ -464,7 +444,7 @@
 								<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									<Bot size={20} />
+									{@html getIcon('Bot', { size: 20 })}
 								</div>
 							{/if}
 						</div>
@@ -477,24 +457,24 @@
 						<div class="container-row">
 							<div class="data-counts">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Trash2 size={16} />
+									{@html getIcon('Trash2', { size: 16 })}
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Settings size={16} />
+									{@html getIcon('Settings', { size: 16 })}
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<RefreshCcw size={16} />
+									{@html getIcon('RefreshCcw', { size: 16 })}
 								</button>
 							</div>
 							<div class="action-buttons">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Trash2 size={16} />
+									{@html getIcon('Trash2', { size: 16 })}
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Settings size={16} />
+									{@html getIcon('Settings', { size: 16 })}
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<RefreshCcw size={16} />
+									{@html getIcon('RefreshCcw', { size: 16 })}
 								</button>
 							</div>
 						</div>
@@ -574,7 +554,7 @@
 				</div>
 
 				<div class="search-container">
-					<Search size={24} />
+					{@html getIcon('Search', { size: 24 })}
 					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
 				</div>
 			</div>
@@ -582,7 +562,7 @@
 		<div class="search-and-sort-container">
 			<div class="options">
 				<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
-					<Filter size={24} />
+					{@html getIcon('Filter', { size: 24 })}
 					{showFilters ? 'Hide' : 'Filters'}
 				</button>
 				<div class="sort-container">
@@ -596,7 +576,7 @@
 					<!-- <h2>Agents</h2> -->
 					{#if !showCreateForm}
 						<button class="create-button" on:click={showCreate}>
-							<Plus size={24} />
+							{@html getIcon('Plus', { size: 24 })}
 						</button>
 					{/if}
 				</div>
@@ -616,11 +596,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								<Bot size={48} />
+								{@html getIcon('Bot', { size: 48 })}
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							<Upload size={24} />
+							{@html getIcon('Upload', { size: 24 })}	
 						</div>
 						<input
 							type="file"
@@ -764,13 +744,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					<ArrowLeft size={24} />
+					{@html getIcon('ArrowLeft', { size: 24 })}
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						<RefreshCcw size={24} />
+						{@html getIcon('RefreshCcw', { size: 24 })}
 					{:else}
-						<Plus size={24} />
+						{@html getIcon('Plus', { size: 24 })}
 					{/if}
 				</button>
 			</div>
@@ -788,11 +768,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								<Bot size={48} />
+								{@html getIcon('Bot', { size: 48 })}
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							<Upload size={24} />
+							{@html getIcon('Upload', { size: 24 })}	
 						</div>
 						<input
 							type="file"
@@ -849,13 +829,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					<ArrowLeft size={24} />
+					{@html getIcon('ArrowLeft', { size: 24 })}
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						<RefreshCcw size={24} />
+						{@html getIcon('RefreshCcw', { size: 24 })}
 					{:else}
-						<Plus size={24} />
+						{@html getIcon('Plus', { size: 24 })}
 					{/if}
 				</button>
 			</div>

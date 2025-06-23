@@ -6,55 +6,6 @@
 	import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
 	import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
 	import {
-		Send,
-		Paperclip,
-		Bot,
-		FilePenLine,
-		Save,
-		Check,
-		ChevronDown,
-		ChevronUp,
-		ChevronRight,
-		ChevronLeft,
-		Edit2,
-		Pen,
-		Trash,
-		MessageCirclePlus,
-		Search,
-		Trash2,
-		Users,
-		Brain,
-		Command,
-		Calendar,
-		ArrowLeft,
-		ListTree,
-		Box,
-		PackagePlus,
-		MessageCircleMore,
-		RefreshCcw,
-		CalendarClock,
-		MessageSquareText,
-		Bookmark,
-		BookmarkMinus,
-		BookmarkX,
-		BookmarkCheckIcon,
-		Quote,
-		Filter,
-		SquarePlay,
-		Play,
-		PlugZap,
-		ZapOff,
-		Link,
-		Unlink,
-		MessageSquare,
-		MessagesSquare,
-		TrashIcon,
-		PlusCircle,
-		BotIcon,
-		Braces,
-		Star
-	} from 'lucide-svelte';
-	import {
 		fetchAIResponse,
 		generateTasks as generateTasksAPI,
 		createAIAgent
@@ -73,17 +24,11 @@
 	// import { getUserProfile } from '$lib/clients/profileClient';
 	import type {
 		ExpandedSections,
-		ThreadGroup,
-		MessageState,
-		PromptState,
-		UIState,
 		User,
 		UserProfile,
 		AIModel,
-		ChatMessage,
 		InternalChatMessage,
 		Scenario,
-		ThreadStoreState,
 		Projects,
 		Task,
 		Attachment,
@@ -92,7 +37,6 @@
 		PromptType,
 		NetworkData,
 		AIAgent,
-		Network,
 		Threads,
 		Messages,
 		ProviderType
@@ -165,6 +109,9 @@
 		showEditor,
 		showExplorer
 	} from '$lib/stores/sidenavStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
+
 	type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 	let documentClickListener: ((e: MouseEvent) => void) | null = null;
@@ -2677,12 +2624,13 @@ async function handleLoadThread(threadId: string) {
 							>
 								{#if isCreatingThread}
 									<div class="spinner2" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
-										<Bot class="bot-icon" />
+										<span class="bot-icon">
+											{@html getIcon('Bot', { size: 16 })}
+										</span>
 									</div>
 								{:else}
 									<div class="icon" in:fade>
-										<MessageCirclePlus />
-
+										{@html getIcon('MessageCirclePlus', { size: 16 })}
 										{#if createHovered}
 											<span class="tooltip tooltip-delayed" in:fade>
 												{$t('tooltip.newThread')}
@@ -2705,10 +2653,9 @@ async function handleLoadThread(threadId: string) {
 								on:mouseenter={() => (favoritesHovered = true)}
 								on:mouseleave={() => (favoritesHovered = false)}
 							>
-								<Star
-									size={18}
-									fill={$threadsStore.showFavoriteThreads ? 'currentColor' : 'none'}
-								/>
+								<span class="favorite-filter" class:active={$threadsStore.showFavoriteThreads}>
+								{@html getIcon('Star', { size: 18 })}
+								</span>
 								{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 									<span class="tooltip tooltip-delayed" in:fade>
 										{$t('profile.favorites') || 'Favorite Threads'}
@@ -2732,7 +2679,7 @@ async function handleLoadThread(threadId: string) {
 									on:mouseenter={() => (searchHovered = true)}
 									on:mouseleave={() => (searchHovered = false)}
 								>
-									<Search />
+									{@html getIcon('Search', { size: 16 })}
 									{#if searchHovered && !isExpanded}
 										<span class="tooltip tooltip-delayed" in:fade>
 											{$t('nav.search') || 'Search threads'}
@@ -2767,7 +2714,7 @@ async function handleLoadThread(threadId: string) {
 										<svelte:component this={option.icon} />
 										<span>{option.label}</span>
 										{#if $sortOptionInfo.value === option.value}
-											<Check class="check-icon" />
+											<span class="check-icon">{@html getIcon('Check', { size: 20 })}</span>
 										{/if}
 									</button>
 								{/each}
@@ -2793,7 +2740,7 @@ async function handleLoadThread(threadId: string) {
 										>
 											<span>{user.name}</span>
 											{#if $selectedUserIds.has(user.id)}
-												<Check size={16} class="check-icon" />
+												<span class="check-icon">{@html getIcon('Check', { size: 16 })}</span>
 											{/if}
 										</button>
 									{/each}
@@ -2847,16 +2794,15 @@ async function handleLoadThread(threadId: string) {
 															class="action-btn delete"
 															on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
 														>
-															<Trash2 size={16} />
+															{@html getIcon('Trash2', { size: 16 })}
 														</button>
 														<button
 															class="action-btn"
 															on:click|stopPropagation={(e) => onFavoriteThread(e, thread)}
 														>
-															<Star
-																size={16}
-																fill={isThreadFavorited(thread.id) ? 'currentColor' : 'none'}
-															/>
+														<span class="star-icon" class:favorited={isThreadFavorited(thread.id)}>
+														{@html getIcon('Star', { size: 16 })}
+														</span>
 														</button>
 													</div>
 												</div>
@@ -3049,7 +2995,7 @@ async function handleLoadThread(threadId: string) {
 														View/Edit Text ({userInput.length} chars)
 													</button>
 													<button class="text-trash-btn" on:click={() => (userInput = '')}>
-														<TrashIcon size={16} />
+														{@html getIcon('Trash2', { size: 16 })}
 													</button>
 												</div>
 											{:else}
@@ -3090,9 +3036,9 @@ async function handleLoadThread(threadId: string) {
 															>
 																<span class="icon">
 																	{#if $expandedSections.models}
-																		<BookmarkCheckIcon />
+																		{@html getIcon('BookmarkCheckIcon', { size: 20 })}
 																	{:else}
-																		<Bookmark />
+																		{@html getIcon('Bookmark', { size: 20 })}
 																	{/if}
 																</span>
 															</button>
@@ -3103,9 +3049,9 @@ async function handleLoadThread(threadId: string) {
 															>
 																<span class="icon">
 																	{#if $expandedSections.prompts}
-																		<Braces size={30} />
+																		{@html getIcon('Braces', { size: 30 })}
 																	{:else}
-																		<Braces size={20} />
+																		{@html getIcon('Braces', { size: 20 })}
 																	{/if}
 																</span>
 																{#if selectedPromptLabel}
@@ -3124,9 +3070,9 @@ async function handleLoadThread(threadId: string) {
 															>
 																<span class="icon">
 																	{#if $expandedSections.sysprompts}
-																		<Command size={24} />
+																		{@html getIcon('Command', { size: 24 })}
 																	{:else}
-																		<Command size={20} />
+																		{@html getIcon('Command', { size: 20 })}
 																	{/if}
 																</span>
 
@@ -3155,9 +3101,9 @@ async function handleLoadThread(threadId: string) {
 															>
 																<span class="icon">
 																	{#if $expandedSections.models}
-																		<Brain />
+																		{@html getIcon('Brain', { size: 20 })}
 																	{:else}
-																		<Brain />
+																		{@html getIcon('Brain', { size: 16 })}
 																	{/if}
 																	{#if selectedModelLabel}
 																		<p class="selector-lable">{selectedModelLabel}</p>
@@ -3171,7 +3117,7 @@ async function handleLoadThread(threadId: string) {
 																on:click={() => !isLoading && handleSendMessage()}
 																disabled={isLoading}
 															>
-																<Send />
+																{@html getIcon('Send', { size: 20 })}
 															</button>
 														{/if}
 													</div>
@@ -3340,7 +3286,7 @@ async function handleLoadThread(threadId: string) {
 												View/Edit Text ({userInput.length} chars)
 											</button>
 											<button class="text-trash-btn" on:click={() => (userInput = '')}>
-												<TrashIcon size={16} />
+												{@html getIcon('Trash2', { size: 16 })}
 											</button>
 										</div>
 									{:else}
@@ -3381,14 +3327,14 @@ async function handleLoadThread(threadId: string) {
 															on:click={toggleAiActive}
 														>
 															{#if $isAiActive}
-																<PlugZap size="20" />
+																{@html getIcon('PlugZap', { size: 20 })}
 																{#if createHovered}
 																	<span class="tooltip" in:fade>
 																		{$t('tooltip.pauseAi')}
 																	</span>
 																{/if}
 															{:else}
-																<ZapOff size="20" />
+																{@html getIcon('ZapOff', { size: 20 })}
 																{#if createHovered}
 																	<span class="tooltip" in:fade>
 																		{$t('tooltip.playAi')}
@@ -3403,9 +3349,9 @@ async function handleLoadThread(threadId: string) {
 														>
 															<span class="icon">
 																{#if $expandedSections.collaborators}
-																	<Users size={30} />
+																	{@html getIcon('Users', { size: 30 })}
 																{:else}
-																	<Users size={20} />
+																	{@html getIcon('Users', { size: 20 })}
 																{/if}
 															</span>
 														</button>
@@ -3417,9 +3363,9 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																<BookmarkCheckIcon />
+																{@html getIcon('BookmarkCheckIcon', { size: 20 })}																
 															{:else}
-																<Bookmark />
+																{@html getIcon('Bookmark', { size: 20 })}
 															{/if}
 														</span>
 													</button>
@@ -3430,9 +3376,9 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.prompts}
-																<Braces size={30} />
+																{@html getIcon('Braces', { size: 30 })}
 															{:else}
-																<Braces size={20} />
+																{@html getIcon('Braces', { size: 20 })}
 															{/if}
 														</span>
 														{#if selectedPromptLabel}
@@ -3448,9 +3394,9 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.sysprompts}
-																<Command size={30} />
+																{@html getIcon('Command', { size: 30 })}
 															{:else}
-																<Command size={20} />
+																{@html getIcon('Command', { size: 20 })}
 															{/if}
 														</span>
 
@@ -3469,9 +3415,9 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																<Brain />
+																{@html getIcon('Brain', { size: 20 })}																
 															{:else}
-																<Brain />
+																{@html getIcon('Brain', { size: 16 })}
 															{/if}
 															{#if selectedModelLabel}
 																<p class="selector-lable">{selectedModelLabel}</p>
@@ -3485,7 +3431,7 @@ async function handleLoadThread(threadId: string) {
 														on:click={() => !isLoading && handleSendMessage()}
 														disabled={isLoading}
 													>
-														<Send />
+														{@html getIcon('Send', { size: 20 })}
 													</button>
 												{/if}
 											</div>
@@ -3528,14 +3474,14 @@ async function handleLoadThread(threadId: string) {
 														on:click={toggleAiActive}
 													>
 														{#if $isAiActive}
-															<PlugZap size="20" />
+															{@html getIcon('PlugZap', { size: 20 })}
 															{#if createHovered}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.pauseAi')}
 																</span>
 															{/if}
 														{:else}
-															<ZapOff size="20" />
+															{@html getIcon('ZapOff', { size: 20 })}
 															{#if createHovered}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.playAi')}
@@ -3547,7 +3493,7 @@ async function handleLoadThread(threadId: string) {
 												{/if}
 
 												<button class="btn" transition:slide>
-													<Paperclip />
+													{@html getIcon('Paperclip', { size: 20 })}
 												</button>
 												<button
 													class="btn send-btn"
@@ -3556,7 +3502,7 @@ async function handleLoadThread(threadId: string) {
 													on:click={() => !isLoading && handleSendMessage()}
 													disabled={isLoading}
 												>
-													<Send />
+													{@html getIcon('Send', { size: 20 })}
 												</button>
 											{/if}
 										</div>
@@ -3623,6 +3569,28 @@ async function handleLoadThread(threadId: string) {
 
 	// }
 
+	  .star-icon :global(svg) {
+		fill: none;
+		transition: fill 0.2s ease;
+	}
+	
+	.star-icon.favorited :global(svg) {
+		fill: currentColor;
+	}
+	  .favorite-filter :global(svg) {
+		fill: none;
+		transition: fill 0.2s ease;
+		cursor: pointer;
+	}
+	
+	.favorite-filter.active :global(svg) {
+		fill: currentColor;
+	}
+	
+	/* Optional: Add hover effect */
+	.favorite-filter:hover :global(svg) {
+		opacity: 0.7;
+	}
 	:global {
 		// Table styles
 		.language-table {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fly, fade, slide } from 'svelte/transition';
-	import { MessageCirclePlus, Search, Star, Trash2, Check, Filter } from 'lucide-svelte';
 	import { swipeGesture } from '$lib/utils/swipeGesture';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { currentUser } from '$lib/pocketbase';
@@ -9,6 +8,7 @@
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import { UserService } from '$lib/services/userService';
 	import type { Threads } from '$lib/types/types';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let threads: Threads[] = [];
@@ -114,7 +114,7 @@
 						</div>
 					{:else}
 						<div class="icon" in:fade>
-							<MessageCirclePlus />
+							{@html getIcon('MessageCirclePlus')}
 							{#if createHovered}
 								<span class="tooltip tooltip-delayed" in:fade>
 									{$t('tooltip.newThread')}
@@ -132,8 +132,10 @@
 					on:mouseenter={() => (favoritesHovered = true)}
 					on:mouseleave={() => (favoritesHovered = false)}
 				>
-					<Star size={18} fill={$threadsStore.showFavoriteThreads ? 'currentColor' : 'none'} />
-					{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
+					<span class="star-filter" class:active={$threadsStore.showFavoriteThreads}>
+					{@html getIcon('Star', { size: 18 })}
+					</span>				
+				{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 						<span class="tooltip tooltip-delayed" in:fade>
 							{$t('profile.favorites') || 'Favorite Threads'}
 						</span>
@@ -152,7 +154,7 @@
 						on:mouseenter={() => (searchHovered = true)}
 						on:mouseleave={() => (searchHovered = false)}
 					>
-						<Search />
+						{@html getIcon('Search')}
 						{#if searchHovered && !isExpanded}
 							<span class="tooltip tooltip-delayed" in:fade>
 								{$t('nav.search') || 'Search threads'}
@@ -226,16 +228,16 @@
 												class="action-btn delete"
 												on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
 											>
-												<Trash2 size={16} />
+												{@html getIcon('Trash2', { size: 16 })}
 											</button>
 											<button
 												class="action-btn"
 												on:click|stopPropagation={(e) => handleFavoriteThread(e, thread)}
 											>
-												<Star
-													size={16}
-													fill={isThreadFavorited(thread.id) ? 'currentColor' : 'none'}
-												/>
+												
+												<span class="star-icon" class:favorited={isThreadFavorited(thread.id)}>
+												{@html getIcon('Star', { size: 16 })}
+												</span>
 											</button>
 										</div>
 									</div>
@@ -626,6 +628,22 @@
 		padding: 0;
 		cursor: pointer;
 		border-radius: 0;
+	}
+	.star-icon :global(svg) {
+		fill: none;
+		transition: fill 0.2s ease;
+	}
+	
+	.star-icon.favorited :global(svg) {
+		fill: currentColor;
+	}
+	  .star-filter :global(svg) {
+		fill: none;
+		transition: fill 0.2s ease;
+	}
+	
+	.star-filter.active :global(svg) {
+		fill: currentColor;
 	}
 	button.card-container {
 		display: flex;

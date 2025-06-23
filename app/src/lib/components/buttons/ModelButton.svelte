@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import { Key, CheckCircle2, XCircle } from 'lucide-svelte';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import { providers } from '$lib/features/ai/utils/providers';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let showKeyInput: boolean;
 </script>
@@ -12,7 +12,8 @@
 	on:click={() => (showKeyInput = !showKeyInput)}
 	transition:fly={{ y: -200, duration: 300 }}
 >
-	<Key size={24} />
+
+	{@html getIcon('Key', { size: 24 })}
 	<div class="key-statuses">
 		{#each Object.entries(providers) as [provider, config]}
 			<div class="provider-status">
@@ -22,9 +23,9 @@
 				</div>
 				<div class="status-wrapper">
 					{#if $apiKey[provider]}
-						<CheckCircle2 size={16} class="status-icon success" />
+						<span class="status-icon success">{@html getIcon('CheckCircle2', { size: 16, color: 'green' })}</span>
 					{:else}
-						<XCircle size={16} class="status-icon error" />
+						<span class="status-icon error">{@html getIcon('XCircle', { size: 16, color: 'red' })}</span>
 					{/if}
 				</div>
 			</div>

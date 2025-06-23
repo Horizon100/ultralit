@@ -1,4 +1,4 @@
-import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
+import { type IconName } from '$lib/utils/lucideIcons';
 
 export default {
 	nav: {
@@ -363,56 +363,56 @@ export default {
 			{
 				name: 'Базовый',
 				value: 'default',
-				icon: Sun,
+				icon: 'Sun' as IconName,
 				description: 'Этот стиль украсит ваш день»',
 				dummyContent: 'Солнце и чистое небо'
 			},
 			{
 				name: 'Темный',
 				value: 'dark',
-				icon: Moon,
+				icon: 'Moon' as IconName,
 				description: 'Для сов и любителей понаблюдать за звездами',
 				dummyContent: 'Вас ждут приключения под лунным светом'
 			},
 			{
 				name: 'Светлый',
 				value: 'light',
-				icon: Sunrise,
+				icon: 'Sunrise' as IconName,
 				description: 'Начните день со свежего образа',
 				dummyContent: 'Ранняя пташка получает червяка'
 			},
 			{
 				name: 'Закат',
 				value: 'sunset',
-				icon: Sunset,
+				icon: 'Sunset' as IconName,
 				description: 'Расслабьтесь в теплых тонах',
 				dummyContent: 'Вибрации золотого часа'
 			},
 			{
 				name: 'Фокус',
 				value: 'focus',
-				icon: Focus,
+				icon: 'Focus' as IconName,
 				description: 'Минимизируйте отвлекающие факторы, максимизируйте производительность',
 				dummyContent: 'Усиливается концентрация'
 			},
 			{
 				name: 'Жирный',
 				value: 'bold',
-				icon: Bold,
+				icon: 'Bold' as IconName,
 				description: 'Заявите о себе с помощью ярких цветов',
 				dummyContent: 'Выделитесь из толпы'
 			},
 			{
 				name: 'Турбо',
 				value: 'turbo',
-				icon: Gauge,
+				icon: 'Gauge' as IconName,
 				description: 'Ускорьте свой рабочий процесс',
 				dummyContent: 'Быстрее скорости света'
 			},
 			{
 				name: 'Bone',
 				value: 'bone',
-				icon: Gauge,
+				icon: 'Bone' as IconName,
 				description: 'Ускорьте свой рабочий процесс',
 				dummyContent: 'Быстрее скорости света'
 			}

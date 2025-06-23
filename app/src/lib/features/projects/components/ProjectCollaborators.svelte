@@ -3,9 +3,9 @@
 	import { projectStore } from '$lib/stores/projectStore';
 	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
 	import type { User, Projects } from '$lib/types/types';
-	import { PlusSquareIcon, Trash2, Users } from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { fetchTryCatch, clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let projectId: string;
 
@@ -356,7 +356,7 @@
 				disabled={isLoading}
 			/>
 			<button class="add" on:click={addCollaborator} disabled={isLoading}>
-				<Users />
+				  {@html getIcon('Users')}
 				+
 			</button>
 		</span>

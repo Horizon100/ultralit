@@ -4,19 +4,6 @@
 	import { slide, fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import {
-		Send,
-		Paperclip,
-		PlugZap,
-		ZapOff,
-		Users,
-		Bookmark,
-		BookmarkCheckIcon,
-		Braces,
-		Command,
-		Brain,
-		TrashIcon
-	} from 'lucide-svelte';
-	import {
 		isTextareaFocused,
 		handleTextareaFocus,
 		handleTextareaBlur,
@@ -33,6 +20,7 @@
 	import MsgBookmarks from '$lib/features/ai/components/chat/MsgBookmarks.svelte';
 	import { availablePrompts } from '$lib/features/ai/utils/prompts';
 	import type { AIModel } from '$lib/types/types';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let userInput = '';
@@ -239,7 +227,7 @@
 						View/Edit Text ({userInput.length} chars)
 					</button>
 					<button class="text-trash-btn" on:click={clearUserInput}>
-						<TrashIcon size={16} />
+						{@html getIcon('TrashIcon', { size: 16 })}
 					</button>
 				</div>
 			{:else}
@@ -272,14 +260,14 @@
 								on:click={toggleAiActive}
 							>
 								{#if isAiActive}
-									<PlugZap size="20" />
+									{@html getIcon('PlugZap', { size: 20 })}
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.pauseAi')}
 										</span>
 									{/if}
 								{:else}
-									<ZapOff size="20" />
+									{@html getIcon('ZapOff', { size: 20 })}
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.playAi')}
@@ -297,9 +285,9 @@
 							>
 								<span class="icon">
 									{#if $expandedSections.collaborators}
-										<Users size={30} />
+										{@html getIcon('Users', { size: 30 })}
 									{:else}
-										<Users size={20} />
+										{@html getIcon('Users', { size: 20 })}
 									{/if}
 								</span>
 							</button>
@@ -314,9 +302,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.bookmarks}
-									<BookmarkCheckIcon />
+									{@html getIcon('BookmarkCheckIcon')}
 								{:else}
-									<Bookmark />
+									{@html getIcon('Bookmark')}
 								{/if}
 							</span>
 						</button>
@@ -330,9 +318,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.prompts}
-									<Braces size={30} />
+									{@html getIcon('Braces', { size: 30 })}
 								{:else}
-									<Braces size={20} />
+									{@html getIcon('Braces', { size: 20 })}
 								{/if}
 							</span>
 							{#if selectedPromptLabel && selectedIcon}
@@ -349,9 +337,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.sysprompts}
-									<Command size={24} />
+									{@html getIcon('Command', { size: 24 })}
 								{:else}
-									<Command size={20} />
+									{@html getIcon('Command', { size: 20 })}
 								{/if}
 							</span>
 
@@ -380,7 +368,7 @@
 							on:click={() => toggleSection('models')}
 						>
 							<span class="icon">
-								<Brain />
+								{@html getIcon('Brain')}
 								{#if selectedModelLabel}
 									<p class="selector-lable">{selectedModelLabel}</p>
 								{/if}
@@ -396,7 +384,7 @@
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
-							<Send />
+							{@html getIcon('Send')}
 						</button>
 					</div>
 				</div>
@@ -433,14 +421,14 @@
 								on:click={toggleAiActive}
 							>
 								{#if isAiActive}
-									<PlugZap size="20" />
+									{@html getIcon('PlugZap', { size: 20 })}
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.pauseAi')}
 										</span>
 									{/if}
 								{:else}
-									<ZapOff size="20" />
+									{@html getIcon('ZapOff', { size: 20 })}
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.playAi')}
@@ -452,7 +440,7 @@
 
 						<!-- Attachment Button -->
 						<button class="btn" type="button" transition:slide>
-							<Paperclip />
+							{@html getIcon('Paperclip')}
 						</button>
 
 						<!-- Send Button -->
@@ -464,7 +452,7 @@
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
-							<Send />
+							{@html getIcon('Send')}
 						</button>
 					{/if}
 				</div>

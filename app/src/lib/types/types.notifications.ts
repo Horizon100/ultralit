@@ -1,4 +1,4 @@
-import { Save } from 'lucide-svelte';
+import { type IconName } from '$lib/utils/lucideIcons';
 
 export type NotificationType = 'loading' | 'success' | 'error' | 'info';
 
@@ -10,7 +10,7 @@ export interface IdeNotification {
 	autoClose?: boolean;
 	action?: {
 		label: string;
-		icon?: typeof Save;
+		icon?: IconName;  
 		onClick: () => void;
 	};
 }

@@ -1,27 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import {
-		Plus,
-		Trash2,
-		Bot,
-		Settings,
-		CopyPlus,
-		Search,
-		ArrowUpDown,
-		Upload,
-		Filter,
-		Activity,
-		Compass,
-		ServerCog,
-		OctagonPause,
-		AlertCircle,
-		RefreshCcw,
-		Cpu,
-		HeadphonesIcon,
-		ShieldCheck,
-		ArrowLeft,
-		CircleOff
-	} from 'lucide-svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import type { AIAgent, AIModel, Actions } from '$lib/types/types';
 	import { agentStore } from '$lib/stores/agentStore';
@@ -34,7 +12,7 @@
 	import { getAgentAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import AgentGen from '$lib/features/agents/components/AgentGen.svelte';
 
 	let showCreateForm = false;
@@ -71,12 +49,12 @@
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-	const statusIcons: Record<string, any> = {
-		active: Activity,
-		inactive: Compass,
-		maintenance: ServerCog,
-		paused: OctagonPause
-	};
+		const statusIcons: Record<string, IconName> = {
+			active: 'Activity',
+			inactive: 'Compass',
+			maintenance: 'ServerCog',
+			paused: 'OctagonPause'
+		};
 
 	const agentUserInputs: { value: 'end' | 'never' | 'always'; label: string }[] = [
 		{ value: 'end', label: 'end' },
@@ -93,11 +71,11 @@
 		{ value: 'za', label: 'Alphabetical descending' }
 	];
 
-	const roleIcons: Record<string, any> = {
-		hub: Cpu,
-		proxy: ShieldCheck,
-		assistant: HeadphonesIcon,
-		moderator: AlertCircle
+	const roleIcons: Record<string, IconName> = {
+		hub: 'Cpu',
+		proxy: 'ShieldCheck',
+		assistant: 'HeadphonesIcon',
+		moderator: 'AlertCircle'
 	};
 
 	function toggleFilters() {
@@ -382,7 +360,7 @@
 								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									<Bot />
+									{@html getIcon('Bot', { size: 20 })}
 								</div>
 							{/if}
 						</div>
@@ -390,13 +368,13 @@
 						<div class="status-badge {agent.status}">{agent.status}</div>
 						<div class="action-buttons" transition:fade={{ duration: 200 }}>
 							<button class="control-button" on:click|stopPropagation={() => showEdit(agent)}>
-								<Settings size={24} />
+								{@html getIcon('Settings', { size: 24 })}
 							</button>
 							<button
 								class="control-button-delete"
 								on:click|stopPropagation={() => handleDelete(agent)}
 							>
-								<Trash2 size={24} />
+								{@html getIcon('Trash2', { size: 24 })}
 							</button>
 						</div>
 					</div>
@@ -409,12 +387,12 @@
 	<div class="bottom-container">
 		<div class="search-and-sort-container">
 			<div class="search-container">
-				<Search size={30} />
+				{@html getIcon('Search', { size: 30 })}
 				<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
 				<div class="container-row">
 					{#if !showCreateForm}
 						<button class="create-button" on:click={showCreate}>
-							<Plus size={24} />
+							{@html getIcon('Plus', { size: 24 })}
 						</button>
 					{/if}
 				</div>
@@ -446,7 +424,7 @@
 								class:active={!selectedRole}
 								on:click={() => selectRole(null)}
 							>
-								<CircleOff />
+								{@html getIcon('CircleOff', { size: 24 })}
 							</button>
 						</div>
 						<div class="filter-row">
@@ -471,7 +449,7 @@
 								class:active={!selectedStatus}
 								on:click={() => (selectedStatus = null)}
 							>
-								<CircleOff />
+								{@html getIcon('CircleOff', { size: 24 })}
 							</button>
 						</div>
 						<div class="filter-row">
@@ -519,11 +497,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								<Bot size={48} />
+								{@html getIcon('Bot', { size: 48 })}
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							<Upload size={24} />
+							{@html getIcon('Upload', { size: 24 })}	
 						</div>
 						<input
 							type="file"
@@ -649,13 +627,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					<ArrowLeft size={24} />
+					{@html getIcon('ArrowLeft', { size: 24 })}
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						<RefreshCcw size={24} />
+						{@html getIcon('RefreshCcw', { size: 24 })}
 					{:else}
-						<Plus size={24} />
+						{@html getIcon('Plus', { size: 24 })}
 					{/if}
 				</button>
 			</div>
@@ -673,11 +651,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								<Bot size={48} />
+								{@html getIcon('Bot', { size: 48 })}
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							<Upload size={24} />
+							{@html getIcon('Upload', { size: 24 })}	
 						</div>
 						<input
 							type="file"
@@ -734,13 +712,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					<ArrowLeft size={24} />
+					{@html getIcon('ArrowLeft', { size: 24 })}
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						<RefreshCcw size={24} />
+						{@html getIcon('RefreshCcw', { size: 24 })}
 					{:else}
-						<Plus size={24} />
+						{@html getIcon('Plus', { size: 24 })}
 					{/if}
 				</button>
 			</div>

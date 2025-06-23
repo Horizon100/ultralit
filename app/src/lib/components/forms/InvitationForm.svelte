@@ -1,25 +1,18 @@
 <script lang="ts">
 	import { t } from '$lib/stores/translationStore';
-	import { CheckCircle, ChevronRight, LogIn, MailPlus, Loader2, Bot } from 'lucide-svelte';
 	import {
-		currentUser,
-		checkPocketBaseConnection,
-		updateUser,
 		signIn,
 		signUp as registerUser,
-		signOut,
-		pocketbaseUrl
 	} from '$lib/pocketbase';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	// Import client-side utilities
 	import { validateInvitationCode, markInvitationCodeAsUsed } from '$lib/clients/invitationClient';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { fade, slide, fly } from 'svelte/transition';
 	import Google from '$lib/assets/icons/auth/google.svg';
-	import Microsoft from '$lib/assets/icons/auth/microsoft.svg';
-	import Yandex from '$lib/assets/icons/auth/yandex.svg';
+
 
 	let email: string = '';
 	let password: string = '';
@@ -185,17 +178,19 @@
 								{#if isCheckingCode}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											<Bot />
+											{@html getIcon('Bot')}
 										</div>
 									</div>
 								{:else}
-									<ChevronRight />
+									{@html getIcon('ChevronRight')}
 								{/if}
 							</button>
 						</span>
 					{:else}
 						<div class="code-valid" transition:fly={{ duration: 300 }}>
-							<CheckCircle class="check-icon" />
+							<span class="check-icon">
+								{@html getIcon('CheckCircle')}
+							</span>
 							<h2>{$t('profile.invitationSuccess')}</h2>
 						</div>
 
@@ -242,14 +237,14 @@
 								{#if isLoading}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											<Bot />
+											{@html getIcon('Bot')}
 										</div>
 									</div>
 								{:else}
 									<span>
 										{$t('profile.signup')}
 									</span>
-									<ChevronRight />
+									{@html getIcon('ChevronRight')}
 								{/if}
 							</button>
 						</span>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { TrendingUp, Users, Star, Compass, Share2 } from 'lucide-svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { fly } from 'svelte/transition';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	const dispatch = createEventDispatcher();
 

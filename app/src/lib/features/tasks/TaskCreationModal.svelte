@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { X, ListTodo, Calendar, Tag, CheckSquare } from 'lucide-svelte';
 	import type { KanbanTask, Tag as TagType } from '$lib/types/types';
 	import {clientTryCatch, isFailure } from '$lib/utils/errorUtils';
-	
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	export let messageContent: string = '';
 	export let promptContent: string = '';
 	export let tags: TagType[] = [];
@@ -104,9 +104,12 @@
 	<div class="modal-backdrop" transition:fade={{ duration: 150 }} on:click|self={closeModal}>
 		<div class="modal-container" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="modal-header">
-				<h3><ListTodo size={20} /> Create Task from Message</h3>
+				<h3>
+					{@html getIcon('ListTodo', { size: 20 })}
+					Create Task from Message
+				</h3>
 				<button class="close-btn" on:click={closeModal}>
-					<X size={20} />
+					{@html getIcon('X', { size: 20 })}
 				</button>
 			</div>
 
@@ -134,7 +137,10 @@
 				</div>
 
 				<div class="form-group">
-					<label><Calendar size={16} /> Set Deadline</label>
+					<label>
+						{@html getIcon('Calendar', { size: 16 })}
+						Set Deadline
+					</label>
 					<div class="deadline-buttons">
 						<button class:selected={selectedDeadline === '1'} on:click={() => setQuickDeadline(1)}>
 							Tomorrow
@@ -168,7 +174,10 @@
 				</div>
 
 				<div class="form-group">
-					<label><CheckSquare size={16} /> Priority</label>
+					<label>
+						{@html getIcon('CheckSquare', { size: 16 })}
+						Priority
+					</label>
 					<div class="priority-buttons">
 						<button
 							class="priority-btn high"
@@ -196,7 +205,10 @@
 
 				{#if tags && tags.length > 0}
 					<div class="form-group">
-						<label><Tag size={16} /> Tags</label>
+						<label>
+							{@html getIcon('Tag', { size: 16 })}
+							Tags
+						</label>
 						<div class="tags-container">
 							{#each tags as tag}
 								<button

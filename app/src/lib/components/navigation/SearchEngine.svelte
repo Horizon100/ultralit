@@ -3,21 +3,15 @@
 	import { fade, slide } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
 	import { get } from 'svelte/store';
-	import {
-		Search,
-		ArrowRight,
-		Book,
-		MessageCircle,
-		CheckSquare,
-		Layers,
-		MessagesSquare
-	} from 'lucide-svelte';
+
 	import { projectStore } from '$lib/stores/projectStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
 	import { messagesStore } from '$lib/stores/messagesStore';
 	import { postStore } from '$lib/stores/postStore';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/stores/translationStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	import type { Projects, Threads, Messages, Task } from '$lib/types/types';
 	import type { Post, PostWithInteractions } from '$lib/types/types.posts';
 
@@ -634,7 +628,7 @@
 							on:click|stopPropagation={() => setActiveTab('projects')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<Book size={16} />
+							{@html getIcon('Book', { size: 16 })}
 							<span>{$t('profile.projects')} ({projectResults.length})</span>
 						</button>
 					{/if}
@@ -645,7 +639,7 @@
 							on:click|stopPropagation={() => setActiveTab('threads')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<MessagesSquare size={16} />
+							{@html getIcon('MessagesSquare', { size: 16 })}
 							<span>{$t('threads.threads')} ({threadResults.length})</span>
 						</button>
 					{/if}
@@ -656,7 +650,7 @@
 							on:click|stopPropagation={() => setActiveTab('messages')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<MessageCircle size={16} />
+							{@html getIcon('MessageCircle', { size: 16 })}
 							<span>{$t('chat.messages')} ({messageResults.length})</span>
 						</button>
 					{/if}
@@ -667,7 +661,7 @@
 							on:click|stopPropagation={() => setActiveTab('posts')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<Layers size={16} />
+							{@html getIcon('Layers', { size: 16 })}
 							<span>{$t('posts.posts')} ({postResults.length})</span>
 						</button>
 					{/if}
@@ -678,7 +672,7 @@
 							on:click|stopPropagation={() => setActiveTab('tasks')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<CheckSquare size={16} />
+							{@html getIcon('CheckSquare', { size: 16 })}
 							<span>{$t('tasks.title')} ({taskResults.length})</span>
 						</button>
 					{/if}
@@ -689,7 +683,7 @@
 							on:click|stopPropagation={() => setActiveTab('all')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							<Layers size={16} />
+							{@html getIcon('Layers', { size: 16 })}
 							<span>{$t('generic.all')} </span>
 						</button>
 					{/if}
@@ -718,7 +712,9 @@
 											<span class="result-description">{project.description}</span>
 										{/if}
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</a>
 							{/each}
 						</div>
@@ -746,7 +742,9 @@
 											<span class="result-meta">in project</span>
 										{/if}
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</a>
 							{/each}
 						</div>
@@ -792,7 +790,9 @@
 											{/if}
 										</div>
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</a>
 							{/each}
 						</div>
@@ -834,7 +834,9 @@
 											{/if}
 										</div>
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</a>
 							{/each}
 						</div>
@@ -884,7 +886,9 @@
 											{/if}
 										</div>
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</a>
 							{/each}
 						</div>
@@ -926,7 +930,9 @@
 											{/if}
 										</div>
 									</div>
-									<ArrowRight size={14} class="result-arrow" />
+									<span class="result-arrow">
+										{@html getIcon('ArrowRight', { size: 14 })}
+									</span>
 								</div>
 							{/each}
 						</div>

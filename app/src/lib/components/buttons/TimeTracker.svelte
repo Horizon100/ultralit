@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Timer, TimerOff } from 'lucide-svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import type { User } from '$lib/types/types';
 	import { page } from '$app/stores';
 	import { timerStore } from '$lib/stores/timerStore';
 	import { browser } from '$app/environment';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	$: ({ isTracking, seconds, startTime } = $timerStore);
 
@@ -102,12 +103,12 @@ async function stopAndSaveTracking() {
 	>
 		{#if isTracking}
 			<span class="timer-icon">
-				<TimerOff size={16} />
+				{@html getIcon('TimerOff', { size: 16 })}
 			</span>
 			<span class="timer"> Stop </span>
 		{:else}
 			<span class="timer-icon">
-				<Timer size={16} />
+				{@html getIcon('Timer', { size: 16 })}
 			</span>
 			<span class="timer"> Start </span>
 		{/if}

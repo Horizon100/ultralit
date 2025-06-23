@@ -1,10 +1,9 @@
 import type { PromptType } from '$lib/types/types';
-import { MessageSquareText, Minimize, AlertCircle, HelpCircle } from 'lucide-svelte';
 import type { AIMessage, AIModel, PromptInput } from '$lib/types/types';
 import { currentUser } from '$lib/pocketbase';
 import { get } from 'svelte/store';
-import type { ComponentType } from 'svelte';
 import { clientTryCatch, fetchTryCatch } from '$lib/utils/errorUtils';
+import { type IconName } from '$lib/utils/lucideIcons';
 
 export let aiModel: AIModel;
 
@@ -18,32 +17,32 @@ export const SYSTEM_PROMPTS = {
 export const availablePrompts: Array<{
 	value: PromptType;
 	label: string;
-	icon: ComponentType;
+	icon: IconName;
 	description: string;
 }> = [
 	{
 		value: 'NORMAL',
 		label: 'Normal',
-		icon: MessageSquareText,
+		icon: 'MessageSquareText',
 		description: 'Balanced responses with appropriate detail for most conversations.'
 	},
 	{
 		value: 'CONCISE',
 		label: 'Concise',
-		icon: Minimize,
+		icon: 'Minimize',
 		description: 'Brief, to-the-point responses that focus only on essential information.'
 	},
 	{
 		value: 'CRITICAL',
 		label: 'Critical',
-		icon: AlertCircle,
+		icon: 'AlertCircle',
 		description:
 			'Analytical responses that evaluate information critically and suggest improvements.'
 	},
 	{
 		value: 'INTERVIEW',
 		label: 'Interview',
-		icon: HelpCircle,
+		icon: 'HelpCircle',
 		description: 'Response style that asks follow-up questions to gather more information.'
 	}
 ];

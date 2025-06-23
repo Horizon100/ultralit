@@ -6,8 +6,8 @@
 	import { fade, fly, scale, slide } from 'svelte/transition';
 	import type { User, Projects, Threads } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
-	import { Group, Users } from 'lucide-svelte';
 	import { fetchTryCatch, isSuccess, clientTryCatch } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let threadId: string;
 	export let projectId: string | null;
@@ -595,7 +595,7 @@ async function toggleCollaborator(user: User) {
 		<span class="collaborator-header">
 			<h3>{$t('dashboard.projectCollaborators')}</h3>
 			<button class="add-collaborator" on:click={addCollaborator} disabled={isLoading}>
-				<Users />
+				{@html getIcon('Users')}
 				+
 			</button>
 		</span>

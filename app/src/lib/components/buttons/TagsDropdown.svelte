@@ -1,22 +1,12 @@
 <!-- src/lib/components/dropdowns/TagsDropdown.svelte -->
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
-	import {
-		Tag,
-		Search,
-		ChevronDown,
-		Plus,
-		Check,
-		Trash2,
-		ChevronLeft,
-		X,
-		Filter
-	} from 'lucide-svelte';
 	import { getRandomBrightColor } from '$lib/utils/colorUtils';
 	import { currentUser } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { get } from 'svelte/store';
 	import { onMount, createEventDispatcher } from 'svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	const dispatch = createEventDispatcher();
 
@@ -286,7 +276,7 @@
 			</span>
 
 			<span class="dropdown-icon" class:rotated={isExpanded}>
-				<ChevronDown size={16} />
+				{@html getIcon('ChevronDown', { size: 16 })}	
 			</span>
 		</button>
 	</span>
@@ -299,14 +289,16 @@
 		>
 			<div class="dropdown-header">
 				<div class="search-bar">
-					<span><Search size={16} /></span>
+					<span>
+						{@html getIcon('Search', { size: 16 })}
+					</span>
 					<input type="text" bind:value={searchQuery} placeholder="Search tags" />
 				</div>
 
 				<div class="header-actions">
 					{#if selectedTags.length > 0}
 						<button class="clear-btn" on:click={clearAllTags} title="Clear all selected tags">
-							<X size={14} />
+							{@html getIcon('X', { size: 14 })}
 						</button>
 					{/if}
 
@@ -316,7 +308,7 @@
 						disabled={isLoading}
 						title="Add new tag"
 					>
-						<Plus size={16} />
+						{@html getIcon('Plus', { size: 16 })}
 					</button>
 				</div>
 			</div>
@@ -338,7 +330,7 @@
 						disabled={!newTagName.trim() || isLoading}
 						on:click={handleCreateNewTag}
 					>
-						<Check size={16} />
+						{@html getIcon('Check', { size: 16 })}
 					</button>
 				</div>
 			{/if}
@@ -381,7 +373,7 @@
 										on:click|stopPropagation={(e) => handleDeleteTag(e, tag.id)}
 										title="Delete tag"
 									>
-										<Trash2 size={14} />
+										{@html getIcon('Trash2', { size: 14 })}
 									</button>
 								</div>
 							{/if}

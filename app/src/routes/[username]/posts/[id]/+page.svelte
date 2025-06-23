@@ -11,10 +11,10 @@
 	import PostTrends from '$lib/features/posts/components/PostTrends.svelte';
 	import { showSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
-	import { ArrowLeft, Loader2 } from 'lucide-svelte';
 	import BackButton from '$lib/components/buttons/BackButton.svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// State
 	let loading = true;

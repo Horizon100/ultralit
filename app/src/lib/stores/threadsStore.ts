@@ -10,25 +10,12 @@ import {
 } from '$lib/clients/threadsClient';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
 import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
-
 import { browser } from '$app/environment';
-import {
-	ArrowDown,
-	CalendarDays,
-	MessageSquare,
-	SortAsc,
-	SortDesc,
-	User as UserIcon,
-	UserCircle
-} from 'lucide-svelte';
-import type { ComponentType } from 'svelte';
-import type { SvelteComponent } from 'svelte';
-import type { IconProps } from 'lucide-svelte';
-type LucideIcon = ComponentType<SvelteComponent<IconProps>>;
+import { type IconName } from '$lib/utils/lucideIcons';
 export interface SortOptionInfo {
 	value: ThreadSortOption;
 	label: string;
-	icon: LucideIcon;
+	icon: IconName;
 }
 export enum ThreadSortOption {
 	NewestFirst = 'newest',
@@ -41,19 +28,15 @@ export enum ThreadSortOption {
 	UserCountDesc = 'users_desc'
 }
 
-
-
 // Get auth headers helper function (no changes needed)
 function getAuthHeaders(): Record<string, string> {
 	const user = get(currentUser);
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json'
 	};
-
 	if (user?.token) {
 		headers['Authorization'] = `Bearer ${user.token}`;
 	}
-
 	return headers;
 }
 
@@ -1199,55 +1182,55 @@ function getSortOptionInfo(option: ThreadSortOption): SortOptionInfo {
 			return {
 				value: option,
 				label: '↑',
-				icon: CalendarDays
+				icon: 'CalendarDays'
 			};
 		case ThreadSortOption.OldestFirst:
 			return {
 				value: option,
 				label: '↓',
-				icon: CalendarDays
+				icon: 'CalendarDays'
 			};
 		case ThreadSortOption.AlphabeticalAsc:
 			return {
 				value: option,
 				label: 'A-Z',
-				icon: SortAsc
+				icon: 'SortAsc'
 			};
 		case ThreadSortOption.AlphabeticalDesc:
 			return {
 				value: option,
 				label: 'Z-A',
-				icon: SortDesc
+				icon: 'SortDesc'
 			};
 		case ThreadSortOption.MessageCountHigh:
 			return {
 				value: option,
 				label: '↑#',
-				icon: MessageSquare
+				icon: 'MessageSquare'
 			};
 		case ThreadSortOption.MessageCountLow:
 			return {
 				value: option,
 				label: '↓#',
-				icon: MessageSquare
+				icon: 'MessageSquare'
 			};
 		case ThreadSortOption.UserCountAsc:
 			return {
 				value: option,
 				label: '↑#',
-				icon: UserCircle
+				icon: 'UserCircle'
 			};
 		case ThreadSortOption.UserCountDesc:
 			return {
 				value: option,
 				label: '↓#',
-				icon: UserIcon
+				icon: 'User'
 			};
 		default:
 			return {
 				value: ThreadSortOption.NewestFirst,
 				label: 'Newest First',
-				icon: ArrowDown
+				icon: 'ArrowDown'
 			};
 	}
 }

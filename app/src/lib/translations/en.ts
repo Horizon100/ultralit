@@ -1,4 +1,4 @@
-import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge } from 'lucide-svelte';
+import { type IconName } from '$lib/utils/lucideIcons';
 
 export default {
 	nav: {
@@ -368,56 +368,56 @@ export default {
 			{
 				name: 'Classic',
 				value: 'default',
-				icon: Sun,
+				icon: 'Sun' as IconName,
 				description: 'This style will brighten your day',
 				dummyContent: 'Sunshine and clear skies'
 			},
 			{
 				name: 'Dark',
 				value: 'dark',
-				icon: Moon,
+				icon: 'Moon' as IconName,
 				description: 'For night owls and stargazers',
 				dummyContent: 'Moonlit adventures await'
 			},
 			{
 				name: 'Light',
 				value: 'light',
-				icon: Sunrise,
+				icon: 'Sunrise' as IconName,
 				description: 'Start your day with a fresh look',
 				dummyContent: 'Early bird gets the worm'
 			},
 			{
 				name: 'Sunset',
 				value: 'sunset',
-				icon: Sunset,
+				icon: 'Sunset' as IconName,
 				description: 'Wind down with warm hues',
 				dummyContent: 'Golden hour vibes'
 			},
 			{
 				name: 'Focus',
 				value: 'focus',
-				icon: Focus,
+				icon: 'Focus' as IconName,
 				description: 'Minimize distractions, maximize productivity',
 				dummyContent: 'Concentration intensifies'
 			},
 			{
 				name: 'Bold',
 				value: 'bold',
-				icon: Bold,
+				icon: 'Bold' as IconName,
 				description: 'Make a statement with vibrant colors',
 				dummyContent: 'Stand out from the crowd'
 			},
 			{
 				name: 'Turbo',
 				value: 'turbo',
-				icon: Gauge,
+				icon: 'Gauge' as IconName,
 				description: 'Speed up your workflow',
 				dummyContent: 'Faster than the speed of light'
 			},
 			{
 				name: 'Bone',
 				value: 'bone',
-				icon: Gauge,
+				icon: 'Bone' as IconName,
 				description: 'Speed up your workflow',
 				dummyContent: 'Faster than the speed of light'
 			}

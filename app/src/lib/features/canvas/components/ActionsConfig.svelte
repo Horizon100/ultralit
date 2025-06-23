@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { Actions } from '$lib/types/types';
 	import { actionStore } from '$lib/stores/actionStore';
@@ -12,7 +11,7 @@
 		fetchActions
 	} from '$lib/clients/actionClient';
 	import { browser } from '$app/environment';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
@@ -119,7 +118,7 @@
 			<h2>Actions</h2>
 			{#if !showCreateForm}
 				<button class="create-button" on:click={showCreate}>
-					<Plus size={24} />
+					{@html getIcon('Plus', { size: 24 })}
 				</button>
 			{/if}
 		</div>
@@ -139,7 +138,7 @@
 							{action.name}
 						</button>
 						<button class="delete-button" on:click={() => handleDelete(action)}>
-							<Trash2 size={24} />
+							{@html getIcon('Trash2', { size: 24 })}
 						</button>
 					</div>
 				{/each}

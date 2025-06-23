@@ -4,7 +4,7 @@
 	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostComposer from '$lib/features/posts/components//PostComposer.svelte';
-	import { X } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let isOpen: boolean = false;
 	export let post: PostWithInteractions | null = null;
@@ -58,7 +58,7 @@
 			<header class="modal-header">
 				<h2>Quote Post</h2>
 				<button type="button" class="close-button" on:click={handleClose}>
-					<X size={20} />
+					{@html getIcon('X', { size: 20 })}
 				</button>
 			</header>
 

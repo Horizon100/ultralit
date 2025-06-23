@@ -20,29 +20,12 @@
 	import { t } from '$lib/stores/translationStore';
 	import { browser } from '$app/environment';
 	import BackButton from '$lib/components/buttons/BackButton.svelte';
-	import {
-		Calendar,
-		MapPin,
-		Link as LinkIcon,
-		Mail,
-		MessageSquare,
-		Settings,
-		Loader2,
-		ArrowLeft,
-
-		UserIcon
-
-	} from 'lucide-svelte';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { clientTryCatch, validationTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import { toast } from '$lib/utils/toastUtils';
 	import type { AIModel, User } from '$lib/types/types';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
 	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
-	import DmHeader from '$lib/features/dm/components/DMHeader.svelte';
-	import DmDrawer from '$lib/features/dm/components/DMDrawer.svelte';
-	import DmInput from '$lib/features/dm/components/DMInput.svelte';
-	import DmChat from '$lib/features/dm/components/DMChat.svelte';
 	import DMModule from '$lib/features/dm/components/DMModule.svelte';
 
 	// State
@@ -695,20 +678,20 @@ $: {
 
 							<div class="user-meta">
 								<div class="meta-item">
-									<Calendar size={16} />
+									{@html getIcon('Calendar', { size: 16 })}
 									<span>{$t('profile.joined')} {formatJoinDate(user.created)}</span>
 								</div>
 
 								{#if profile?.location}
 									<div class="meta-item">
-										<MapPin size={16} />
+										{@html getIcon('MapPin', { size: 16 })}
 										<span>{profile.location}</span>
 									</div>
 								{/if}
 
 								{#if profile?.website}
 									<div class="meta-item">
-										<LinkIcon size={16} />
+										{@html getIcon('Link', { size: 16 })}
 										<a href={profile.website} target="_blank" rel="noopener noreferrer">
 											{profile.website}
 										</a>
@@ -740,21 +723,21 @@ $: {
 							<div class="action-buttons">
 								{#if $currentUser}
 									<button class="btn btn-primary">
-										<MessageSquare size={16} />
+										{@html getIcon('MessageSquare', { size: 16 })}
 										{$t('chat.message')}
 									</button>
 
 									<button class="btn btn-secondary">
-										<UserIcon size={16} />
+										{@html getIcon('User', { size: 16 })}
 										{$t('profile.follow')}
 									</button>
 
 									<button class="btn btn-outline">
-										<Settings size={16} />
+										{@html getIcon('Settings', { size: 16 })}
 									</button>
 								{:else}
 									<button class="btn btn-primary" on:click={() => goto('/login')}>
-										<UserIcon size={16} />
+										{@html getIcon('UserIcon', { size: 16 })}
 										{$t('generic.signin')}
 									</button>
 								{/if}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Bot } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let role: 'user' | 'assistant' | 'thinking';
 	export let avatarUrl: string | null;
@@ -39,7 +39,7 @@
 		</div>
 	{:else if role === 'thinking'}
 		<span class="role">
-			<Bot size="50" color="white" />
+			{@html getIcon('Bot', { size: 50, color: 'white' })}
 		</span>
 	{/if}
 </div>

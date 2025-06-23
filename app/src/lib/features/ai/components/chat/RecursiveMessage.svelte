@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fly, fade, slide } from 'svelte/transition';
-	import { Bot, MessagesSquare, RefreshCcw, Send, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import Reactions from '$lib/features/ai/components/chat/Reactions.svelte';
 	import type { InternalChatMessage, RoleType } from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
@@ -22,6 +21,8 @@
 		getPromptLabelFromContent
 	} from '$lib/features/ai/utils/prompts';
 	import { isFailure, clientTryCatch } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	export let message: InternalChatMessage;
 	export let allMessages: InternalChatMessage[] = [];
 	export let userId: string;
@@ -955,9 +956,11 @@
 					title="Send reply (Ctrl+Enter)"
 				>
 					{#if isSubmitting}
-						<RefreshCcw size={16} class="loading-icon" />
+						<span class="loading-icon">
+							{@html getIcon('RefreshCcw', { size: 16 })}
+						</span>
 					{:else}
-						<Send size={16} />
+						{@html getIcon('Send', { size: 16 })}
 					{/if}
 				</button>
 			</div>
@@ -975,9 +978,9 @@
 					{childReplies.length}
 					<span class="toggle-icon">
 						{#if repliesHidden}
-							<ChevronDown size={12} />
+							{@html getIcon('ChevronDown', { size: 12 })}
 						{:else}
-							<ChevronUp size={12} />
+							{@html getIcon('ChevronUp', { size: 12 })}
 						{/if}
 					</span>
 				</span>

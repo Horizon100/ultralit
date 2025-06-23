@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Calendar, ChartAreaIcon, ChartNoAxesGantt, KanbanSquareIcon } from 'lucide-svelte';
 	import { writable } from 'svelte/store';
 	import { slide, fly, fade } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';

@@ -1,23 +1,12 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import {
-		FileText,
-		Image,
-		FileSpreadsheet,
-		Headphones,
-		Video,
-		Maximize2,
-		Minimize2,
-		Link,
-		Code,
-		Presentation
-	} from 'lucide-svelte';
 	import PrismJS from 'prismjs';
 	import 'prismjs/components/prism-javascript';
 	import 'prismjs/components/prism-json';
 	import 'prismjs/components/prism-csv';
 	import mammoth from 'mammoth';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// export let file: File | { type: string; name: string; content: string | ArrayBuffer };
 	export let file: File;
@@ -67,23 +56,23 @@
 
 	// / File type definitions
 
-	function getFileIcon(fileType: string) {
-		if (fileType.startsWith('image/')) return Image;
-		if (fileType === 'application/pdf') return FileText;
-		if (fileType.includes('word')) return FileText;
+	function getFileIcon(fileType: string): IconName {
+		if (fileType.startsWith('image/')) return 'Image';
+		if (fileType === 'application/pdf') return 'FileText';
+		if (fileType.includes('word')) return 'FileText';
 		if (fileType.includes('sheet') || fileType.includes('excel') || fileType.includes('csv'))
-			return FileSpreadsheet;
-		if (fileType.startsWith('audio/')) return Headphones;
-		if (fileType.startsWith('video/')) return Video;
+		return 'FileSpreadsheet';
+		if (fileType.startsWith('audio/')) return 'Headphones';
+		if (fileType.startsWith('video/')) return 'Video';
 		if (
-			fileType === 'text/plain' ||
-			fileType === 'application/json' ||
-			fileType === 'text/javascript' ||
-			fileType === 'text/csv'
+		fileType === 'text/plain' ||
+		fileType === 'application/json' ||
+		fileType === 'text/javascript' ||
+		fileType === 'text/csv'
 		)
-			return Code;
-		if (fileType.includes('presentation') || fileType.includes('powerpoint')) return Presentation;
-		return FileText;
+		return 'Code';
+		if (fileType.includes('presentation') || fileType.includes('powerpoint')) return 'Presentation';
+		return 'FileText';
 	}
 
 	function getGradientBorder(fileType: string) {
@@ -215,7 +204,7 @@
 		}
 	});
 
-	$: FileIcon = getFileIcon(fileType);
+  $: fileIconName = getFileIcon(fileType); // Returns IconName string instead of component
 </script>
 
 <div
@@ -235,7 +224,7 @@
 >
 	<div class="file-header">
 		<div class="file-icon">
-			<svelte:component this={FileIcon} size={24} color="gray" />
+		{@html getIcon(fileIconName, { size: 24, color: 'gray' })}
 		</div>
 		<span class="file-name">{fileName}</span>
 		<button
@@ -245,7 +234,7 @@
 				loadFileContent();
 			}}
 		>
-			<svelte:component this={isExpanded ? Minimize2 : Maximize2} size={18} color="gray" />
+			{@html getIcon(isExpanded ? 'Minimize2' : 'Maximize2', { size: 18, color: 'gray' })}
 		</button>
 	</div>
 

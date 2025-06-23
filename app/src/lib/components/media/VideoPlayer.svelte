@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Volume2, VolumeX, Play, Pause } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let src: string;
@@ -317,9 +317,9 @@
 					aria-label={isPlaying ? 'Pause' : 'Play'}
 				>
 					{#if isPlaying}
-						<Pause size={24} />
+						{@html getIcon('Pause', { size: 24 })}
 					{:else}
-						<Play size={24} />
+						{@html getIcon('Play', { size: 24 })}
 					{/if}
 				</button>
 			{/if}
@@ -332,9 +332,9 @@
 					aria-label={isMuted ? 'Unmute' : 'Mute'}
 				>
 					{#if isMuted}
-						<VolumeX size={20} />
+						{@html getIcon('VolumeX', { size: 20 })}
 					{:else}
-						<Volume2 size={20} />
+						{@html getIcon('Volume2', { size: 20 })}
 					{/if}
 				</button>
 			</div>

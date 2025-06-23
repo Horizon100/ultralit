@@ -5,6 +5,7 @@
 	import { elasticOut, cubicIn, cubicOut, quintOut } from 'svelte/easing';
 	import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
 	import { projectStore } from '$lib/stores/projectStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type {
 		KanbanTask,
 		KanbanAttachment,
@@ -16,30 +17,6 @@
 		AIModel
 	} from '$lib/types/types';
 	import UserDisplay from '$lib/features/users/components/UserDisplay.svelte';
-	import {
-		ArrowRight,
-		ArrowDown,
-		EyeOff,
-		Layers,
-		Flag,
-		CalendarClock,
-		ChevronLeft,
-		ChevronRight,
-		Filter,
-		ListFilter,
-		ClipboardList,
-		TagIcon,
-		CirclePlay,
-		FolderGit,
-		GitFork,
-		LayoutList,
-		ListCollapse,
-		PlayCircleIcon,
-		Trash2,
-		PlusCircle,
-		Tags,
-		Search
-	} from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
 	import AssignButton from '$lib/components/buttons/AssignButton.svelte';
 	import {
@@ -1861,9 +1838,9 @@ async function handleTaskUnassigned(taskId: string) {
 				>
 					<span class="toggle-icon">
 						{#if allColumnsOpen}
-							<EyeOff size={16} />
+							{@html getIcon('EyeOff', {size: 16})}
 						{:else}
-							<Layers size={16} />
+							{@html getIcon('Layers', {size: 16})}
 						{/if}
 					</span>
 					<span class="toggle-label">
@@ -1919,15 +1896,17 @@ async function handleTaskUnassigned(taskId: string) {
 					on:click={(e) => togglePriorityView(e)}
 					title="Toggle priority view"
 				>
-					<Flag
-						class={[
-							TaskViewMode.highPriority,
-							TaskViewMode.mediumPriority,
-							TaskViewMode.LowPriority
-						].includes(taskViewMode)
-							? 'active'
-							: ''}
-					/>
+				<span 
+				class={[
+					TaskViewMode.highPriority,
+					TaskViewMode.mediumPriority,
+					TaskViewMode.LowPriority
+				].includes(taskViewMode)
+					? 'active'
+					: ''}
+				>
+				{@html getIcon('Flag')}
+				</span>
 					{#if taskViewMode === TaskViewMode.highPriority}
 						<span></span>
 						<span class="count-badge">{highPriorityCount}</span>
@@ -1945,7 +1924,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'all')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					<ListCollapse />
+					{@html getIcon('ListCollapse', {size: 16})}
 					<span class="count-badge">{totalTaskCount}</span>
 				</button>
 				<button
@@ -1954,7 +1933,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'parents')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					<FolderGit />
+					{@html getIcon('FolderGit', {size: 16})}
 					<span class="count-badge">{parentTaskCount}</span>
 				</button>
 				<button
@@ -1963,7 +1942,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'subtasks')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					<GitFork />
+					{@html getIcon('GitFork', {size: 16})}
 					<span class="count-badge">{subtaskCount}</span>
 				</button>
 				<button
@@ -1972,7 +1951,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:click={toggleTagFilter}
 					title="Tags"
 				>
-					<Filter />
+					{@html getIcon('Filter', {size: 16})}
 				</button>
 			</div>
 			{#if showTagFilter}
@@ -2119,7 +2098,7 @@ async function handleTaskUnassigned(taskId: string) {
 											{#if hasSubtasks(task.id)}
 												<div class="task-badge subtasks">
 													<span class="task-icon">
-														<ClipboardList />
+														{@html getIcon('ClipboardList', {size: 16})}
 													</span>
 													{countSubtasks(task.id)}
 													<span>{$t('tasks.subtasks')}</span>
@@ -2202,7 +2181,7 @@ async function handleTaskUnassigned(taskId: string) {
 														{tag.name}
 													</span>
 												{/each}
-												<TagIcon size="16" />
+												  	{@html getIcon('TagIcon', {size: 16})}
 												{#if task.tags.length > 0}
 													<span class="tag-count">{task.tags.length}</span>
 												{/if}
@@ -2344,7 +2323,7 @@ async function handleTaskUnassigned(taskId: string) {
 						on:click={(e) =>
 							selectedTask?.parent_task && navigateToParentTask(selectedTask.parent_task, e)}
 					>
-						<ChevronLeft size="16" />
+						{@html getIcon('ChevronLeft', { size: 16 })}
 					</button>
 					<p>{selectedTask?.parent_task ? getParentTaskTitle(selectedTask.parent_task) : ''}</p>
 				</div>
@@ -2429,9 +2408,9 @@ async function handleTaskUnassigned(taskId: string) {
 					{/if}
 					<button on:click={showAddTag ? addTag : toggleAddTag}>
 						{#if showAddTag}
-							<ChevronLeft />
+							{@html getIcon('ChevronLeft', { size: 16 })}
 						{:else}
-							<Tags /> +
+							{@html getIcon('Tags', { size: 16 })} +
 						{/if}
 					</button>
 				</div>
@@ -2468,7 +2447,7 @@ async function handleTaskUnassigned(taskId: string) {
 										{processWordCrop(subtask.title)}
 									</div>
 									<div class="subtask-status">{subtask.status}</div>
-									<ChevronRight size="16" />
+									{@html getIcon('ChevronRight', {size: 16})}
 								</div>
 							{/each}
 						</div>
@@ -2501,7 +2480,7 @@ async function handleTaskUnassigned(taskId: string) {
 						class:selected={selectedStart === 0}
 					>
 						<span>
-							<CirclePlay size="20" />
+							{@html getIcon('CirclePlay', { size: 20 })}
 							{$t('dates.now')}
 						</span>
 					</button>
@@ -2563,7 +2542,7 @@ async function handleTaskUnassigned(taskId: string) {
 						class="delete-task-btn"
 						on:click={(e) => selectedTask && openDeleteConfirm(selectedTask.id, e)}
 					>
-						<Trash2 />
+						{@html getIcon('Trash2', { size: 16 })}
 						<span>{$t('generic.delete')}</span>
 					</button>
 				</div>

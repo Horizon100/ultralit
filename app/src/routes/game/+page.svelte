@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';
 	import type { GameHero, GameOrganization } from '$lib/types/types.game';
-	import Background from '$lib/assets/illustrations/gamelanding-2.jpeg';
+	import Background from '$lib/assets/maps/pixelmap.svg';
 	import { 
 		clientTryCatch, 
 		fetchTryCatch, 

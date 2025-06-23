@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { invalidateAll } from '$app/navigation';
-	import { ArrowLeft } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let size: number = 30;
 	export let fallbackUrl: string = '/';
@@ -33,7 +33,7 @@
 </script>
 
 <button class="back-button {className}" on:click={handleBack} type="button" aria-label="Go back">
-	<ArrowLeft {size} />
+	{@html getIcon('ArrowLeft', { size })}
 	{#if showText}
 		<span class="back-text">{text}</span>
 	{/if}

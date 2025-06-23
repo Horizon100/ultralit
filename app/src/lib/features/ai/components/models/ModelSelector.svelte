@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { AIModel, ProviderType } from '$lib/types/types';
-	import { Bot, Settings, Key, CheckCircle2, XCircle, Star, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 	import APIKeyInput from '$lib/features/ai/components/models/APIKeyInput.svelte';
@@ -11,6 +10,7 @@
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { fetchTryCatch, clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let provider: string;
 
@@ -374,7 +374,7 @@
 							<span class="model-name">{model.name}</span>
 							<span class="provider-badge">{providers[model.provider]?.name}</span>
 							<button class="star-button star-active" on:click={(e) => toggleFavorite(model, e)}>
-								<Star size={16} fill="#FFD700" />
+								{@html getIcon('Star', { size: 16, color: '#FFD700' })}
 							</button>
 						</button>
 					{/each}
@@ -383,7 +383,7 @@
 				<div class="no-favorites">
 					<div class="small-spinner-container">
 						<div class="small-spinner">
-							<Bot />
+							{@html getIcon('Bot')}
 						</div>
 					</div>
 					<p>Star your favorite models to see them here</p>
@@ -410,11 +410,11 @@
 						<div class="provider-status">
 							{#if get(apiKey)[key]}
 								<div class="icon-wrapper success">
-									<CheckCircle2 />
+									{@html getIcon('CheckCircle2')}
 								</div>
 							{:else}
 								<div class="icon-wrapper error">
-									<XCircle size={35} />
+									{@html getIcon('XCircle', { size: 35 })}
 								</div>
 							{/if}
 						</div>
@@ -427,7 +427,7 @@
 
 {#if isOffline}
 	<div class="offline-indicator">
-		<XCircle size={16} color="orange" />
+		{@html getIcon('XCircle', { size: 16, color: 'orange' })}
 		<span>Offline</span>
 	</div>
 {/if}
@@ -454,13 +454,13 @@
 								expandedModelList && handleDeleteAPIKey(expandedModelList)}
 							title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
 						>
-							<Trash2 size={20} />
+							{@html getIcon('Trash2', { size: 20 })}
 						</button>
 					{/if}
 
 					<!-- Close button -->
 					<button class="close-btn" on:click={() => (expandedModelList = null)}>
-						<XCircle size={35} />
+						{@html getIcon('XCircle', { size: 35 })}
 					</button>
 				</div>
 			</div>
@@ -488,7 +488,7 @@
 								class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
 								on:click={(e) => toggleFavorite(model, e)}
 							>
-								<Star size={30} />
+								{@html getIcon('Star', { size: 30 })}
 							</span>
 							{model.name}
 						</button>

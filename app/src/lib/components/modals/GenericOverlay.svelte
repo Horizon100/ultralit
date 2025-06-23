@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { X } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let title: string = '';
 
@@ -15,7 +15,7 @@
 <div class="generic-overlay" transition:fade={{ duration: 300 }}>
 	<div class="generic-content" transition:fly={{ y: 300, duration: 300 }}>
 		<button class="close-button" on:click={closeOverlay}>
-			<X size={30} />
+			{@html getIcon('X', { size: 30 })}
 		</button>
 		<h2>{title}</h2>
 		<div class="content">

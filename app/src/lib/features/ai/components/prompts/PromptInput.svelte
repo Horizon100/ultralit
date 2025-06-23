@@ -9,20 +9,10 @@
 		InternalChatMessage
 	} from '$lib/types/types';
 	import Calendar from '$lib/components/data/Calendar.svelte';
-	import {
-		Calculator,
-		CalendarCheck,
-		ChevronLeft,
-		Check,
-		GitCompare,
-		Pen,
-		RefreshCcw,
-		SplitSquareVertical,
-		Trash2,
-		X
-	} from 'lucide-svelte';
+
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -288,7 +278,7 @@
 					<div class="button-container">
 						{#if activePromptId === prompt.id}
 							<span class="active-prompt-badge">
-								<Check size={16} />
+								{@html getIcon('Check', { size: 16 })}
 								Active
 							</span>
 						{:else}
@@ -297,10 +287,10 @@
 							</button>
 						{/if}
 						<button class="edit-button" on:click={() => handleEdit(prompt)}>
-							<Pen size="16" />
+							{@html getIcon('Pen', { size: 16 })}
 						</button>
 						<button class="delete-button" on:click={() => handleDelete(prompt.id)}>
-							<Trash2 size="16" />
+							{@html getIcon('Trash2', { size: 16 })}
 						</button>
 					</div>
 				</div>

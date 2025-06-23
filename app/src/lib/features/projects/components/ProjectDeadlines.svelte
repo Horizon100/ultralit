@@ -6,7 +6,7 @@
 	import { get } from 'svelte/store';
 	import { loadProjectTasks } from '$lib/clients/taskClient';
 	import { fade, slide } from 'svelte/transition';
-	import { Calendar, Clock, Flag, User, ChevronRight } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type { KanbanTask, Projects } from '$lib/types/types';
 
 	export let projectId: string;
@@ -153,7 +153,7 @@
 		</div>
 	{:else if sortedTasks.length === 0}
 		<div class="empty-state" transition:fade>
-			<Calendar size={48} strokeWidth={1.5} />
+			{@html getIcon('Calendar', { size: 48, strokeWidth: 1.5 })}
 			<p>No tasks found for this project</p>
 			<span class="sub-text">Tasks will appear here once they're created</span>
 		</div>
@@ -182,33 +182,34 @@
 						<div class="task-meta">
 							{#if task.due_date}
 								<span class="due-date" class:overdue={isOverdue(task.due_date)}>
-									<Clock size={14} />
+									{@html getIcon('Clock', { size: 14 })}
 									{formatDate(task.due_date)}
 								</span>
 							{:else}
 								<span class="no-due-date">
-									<Clock size={14} />
+									{@html getIcon('Clock', { size: 14 })}
 									No deadline
 								</span>
 							{/if}
 
 							{#if task.priority && task.priority !== 'low'}
 								<span class="priority-indicator {getPriorityClass(task.priority)}">
-									<Flag size={14} />
+									{@html getIcon('Flag', { size: 14 })}
 									{task.priority}
 								</span>
 							{/if}
 
 							{#if task.assignedTo}
 								<span class="assigned-to">
-									<User size={14} />
+									{@html getIcon('User', { size: 14 })}
 									Assigned
 								</span>
 							{/if}
 						</div>
 					</div>
-
-					<ChevronRight size={16} class="chevron" />
+					<span class="chevron">
+						{@html getIcon('ChevronRight', { size: 16 })}
+					</span>
 				</div>
 			{/each}
 		</div>

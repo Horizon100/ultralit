@@ -10,19 +10,7 @@
 	import { postStore } from '$lib/stores/postStore';
 	import { flip } from 'svelte/animate';
 	import { t } from '$lib/stores/translationStore';
-	import {
-		MessageSquare,
-		Heart,
-		Repeat,
-		Share,
-		MoreHorizontal,
-		Paperclip,
-		EyeIcon,
-		TagsIcon,
-		ChevronDown,
-		ChevronRight,
-		Bot
-	} from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getExpandedUserAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { formatFileSize } from '$lib/utils/fileHandlers';
 	import { slide, fade } from 'svelte/transition'; 
@@ -477,12 +465,12 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 <article class="post-card" class:comment={isComment}>
 	{#if isRepost}
 		<div class="repost-indicator">
-			<Repeat size={14} />
+			{@html getIcon('Repeat', { size: 14 })}
 			<span>{$t('posts.repostedBy')} {post.author_name || post.author_username}</span>
 		</div>
 	{:else if isOwnRepost}
 		<div class="repost-indicator own-repost">
-			<Repeat size={14} />
+			{@html getIcon('Repeat', { size: 14 })}
 			<span>{$t('posts.youReposted')}</span>
 		</div>
 	{/if}
@@ -516,7 +504,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		</div>
 		{#if showActions}
 			<button class="post-options">
-				<MoreHorizontal size={16} />
+				{@html getIcon('MoreHorizontal', { size: 16 })}
 			</button>
 		{/if}
 	</div>
@@ -583,7 +571,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 							{:else}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<div class="attachment-file">
-										<Paperclip size={16} />
+										{@html getIcon('Paperclip', { size: 16 })}
 										<span>{attachment.original_name}</span>
 										{#if attachment.file_size}
 											<span class="filesize">({formatFileSize(attachment.file_size)})</span>
@@ -639,7 +627,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 								</div>
 							{:else}
 								<div class="attachment-file">
-									<Paperclip size={16} />
+									{@html getIcon('Paperclip', { size: 16 })}
 									<span>{attachment.original_name}</span>
 									{#if attachment.file_size}
 										<span class="filesize">({formatFileSize(attachment.file_size)})</span>
@@ -710,7 +698,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	{#if showActions}
 		<div class="post-actions">
 			<button class="action-button comment" title="Comment" on:click={handleComment}>
-				<MessageSquare size={16} />
+				{@html getIcon('MessageSquare', { size: 16 })}
 				<span>{post.commentCount || 0}</span>
 			</button>
 
@@ -720,7 +708,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 				on:click={() => handleInteraction('repost')}
 				title={repostTitle}
 			>
-				<Repeat size={16} />
+				{@html getIcon('Repeat', { size: 16 })}
 				<span>{post.repostCount || 0}</span>
 			</button>
 
@@ -730,7 +718,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 			on:click={() => handleInteraction('upvote')}
 			title={upvoteTitle}
 		>
-			<Heart size={16} />
+			{@html getIcon('Heart', { size: 16 })}
 			<span>{upvoteCount}</span>
 		</button>
 
@@ -740,7 +728,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 				title={shareTitle}
 				on:click={handleShare}
 			>
-				<Share size={16} />
+				{@html getIcon('Share', { size: 16 })}
 				<span>{(post.shareCount || 0) + (post.quoteCount || 0)}</span>
 				{#if showTooltip}
 					<span class="tooltip">{$t('generic.copiedLink')} </span>
@@ -748,7 +736,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 			</button>
 			<!-- Read indicator -->
 			<div class="action-button read" title="{post.readCount || 0} readers">
-				<EyeIcon size={14} />
+				{@html getIcon('EyeIcon', { size: 14 })}
 				<span class="read-count">{post.readCount || 0}</span>
 			</div>
 			<!-- Updated tags button -->
@@ -761,15 +749,15 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 				on:click={handleTags}
 				disabled={tagCount === 0}
 			>
-				<TagsIcon size={16} />
+				{@html getIcon('TagsIcon', { size: 16 })}
 				<span class="tag-count">{tagCount}</span>
 
 				{#if tagCount > 0}
 					<span class="expand-icon">
 						{#if tagsExpanded}
-							<ChevronDown size={12} />
+							{@html getIcon('ChevronDown', { size: 12 })}
 						{:else}
-							<ChevronRight size={12} />
+							{@html getIcon('ChevronRight', { size: 12 })}
 						{/if}
 					</span>
 				{/if}
@@ -782,14 +770,14 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		title={agentsTitle}
 		on:click={handleAgents}
 	>
-		<Bot size={16} />
+	{@html getIcon('Bot', { size: 16 })}
 	<span class="agent-count">{activeAgents.length}</span>
 
 		<span class="expand-icon">
 			{#if agentsExpanded}
-				<ChevronDown size={12} />
+				{@html getIcon('ChevronDown', { size: 12 })}
 			{:else}
-				<ChevronRight size={12} />
+				{@html getIcon('ChevronRight', { size: 12 })}
 			{/if}
 		</span>
 	</button>

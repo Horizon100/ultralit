@@ -9,18 +9,7 @@
 		InternalChatMessage
 	} from '$lib/types/types';
 	import Calendar from '$lib/components/data/Calendar.svelte';
-	import {
-		Calculator,
-		CalendarCheck,
-		ChevronLeft,
-		Check,
-		GitCompare,
-		Pen,
-		RefreshCcw,
-		SplitSquareVertical,
-		Trash2,
-		X
-	} from 'lucide-svelte';
+
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { SYSTEM_PROMPTS, availablePrompts } from '$lib/features/ai/utils/prompts';
 	import {
@@ -30,6 +19,7 @@
 		initPromptStores
 	} from '$lib/stores/promptStore';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -254,7 +244,7 @@
 							</button>
 						{:else if activeSysPrompt === name}
 							<span class="active-prompt-badge">
-								<Check size={20} />
+								{@html getIcon('Check', { size: 20 })}
 								Active
 							</span>
 						{:else}

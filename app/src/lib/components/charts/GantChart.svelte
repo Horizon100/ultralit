@@ -5,17 +5,10 @@
 	import { projectStore } from '$lib/stores/projectStore';
 	import type { KanbanTask, Task } from '$lib/types/types';
 	import UserDisplay from '$lib/features/users/components/UserDisplay.svelte';
-	import {
-		CalendarClock,
-		ChevronDown,
-		ChevronRight,
-		ChevronLeft,
-		FolderGit,
-		Info,
-		X
-	} from 'lucide-svelte';
+
 	import { t } from '$lib/stores/translationStore';
 	import { loadTasksForGantt, updateTask } from '$lib/clients/taskClient';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Project ID from store
 	let currentProjectId: string | null = null;
@@ -614,7 +607,7 @@
 												handleTaskClick(task);
 											}}
 										>
-											<Info size="12" />
+											{@html getIcon('Info')}
 										</button>
 									</div>
 
@@ -657,7 +650,7 @@
 					<div class="task-info-header">
 						<h3>{selectedTask.title}</h3>
 						<button class="close-btn" on:click={closeTaskInfo}>
-							<X size={18} />
+							{@html getIcon('X', { size: 16 })}
 						</button>
 					</div>
 

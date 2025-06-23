@@ -3,10 +3,11 @@
 	import type { PostWithInteractions } from '$lib/types/types.posts';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
-	import { Quote } from 'lucide-svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import { t } from '$lib/stores/translationStore';
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	export let post: PostWithInteractions;
 	export let quotedBy: {
 		id?: string;
@@ -128,7 +129,7 @@ async function fetchQuotedPost() {
 <div class="quote-card">
 	<!-- Quote header showing who quoted -->
 	<div class="quote-header">
-		<Quote size={14} />
+		{@html getIcon('Quote', { size: 14 })}
 		<span>{$t('posts.quotedBy')} {quotedBy.name || quotedBy.username || 'Unknown User'}</span>
 	</div>
 

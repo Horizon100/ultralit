@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChatCopy.svelte';
-	import { Bot } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let isLoading = true;
 	let error: string | null = null;
@@ -107,7 +107,7 @@
 		<div class="center-container" transition:fade={{ duration: 300 }}>
 			<div class="loading-overlay">
 				<div class="spinner">
-					<Bot size={80} class="bot-icon" />
+					<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
 				</div>
 			</div>
 		</div>

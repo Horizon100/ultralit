@@ -16,16 +16,6 @@
 	import CodeMirror from 'svelte-codemirror-editor';
 	import type { Repository, CodeFolders, CodeFiles, CodeCommits } from '$lib/types/types.ide';
 	import {
-		PanelLeft,
-		PackagePlus,
-		GitBranchPlus,
-		FolderPlus,
-		FilePlus,
-		ChevronDown,
-		Save,
-		Package
-	} from 'lucide-svelte';
-	import {
 		fetchRepositories,
 		createRepository,
 		createBranch,
@@ -41,6 +31,7 @@
 	import { saveFile } from './services/file-service';
 	import { getLanguageHighlighting } from './themes/highlighting';
 	import { clientTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
+  	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let editorElement: HTMLElement;
 	let editorView: EditorView;
@@ -906,15 +897,15 @@ onMount(async () => {
 	<div class="toolbar">
 		<div class="toolbar-left">
 			<button on:click={toggleSidebar} aria-label="Toggle Sidebar">
-				<PanelLeft />
+				{@html getIcon('PanelLeft')}
 			</button>
 
 			<button on:click={handleCreateRepository} aria-label="New Repository">
-				<PackagePlus />
+				{@html getIcon('PackagePlus')}
 			</button>
 
 			<button on:click={handleCreateBranch} aria-label="New Branch" disabled={!selectedRepo}>
-				<GitBranchPlus />
+				{@html getIcon('GitBranchPlus')}
 			</button>
 
 			<button
@@ -922,10 +913,10 @@ onMount(async () => {
 				aria-label="New Folder"
 				disabled={!selectedRepo || !selectedBranch}
 			>
-				<FolderPlus />
+				{@html getIcon('FolderPlus')}
 			</button>
 			<button on:click={createNewFile} aria-label="New File">
-				<FilePlus />
+				{@html getIcon('FilePlus')}
 			</button>
 
 			{#if activeFile}
@@ -936,7 +927,7 @@ onMount(async () => {
 		</div>
 		<div class="toolbar-right">
 			<button on:click={handleSaveFile} class="save-button" aria-label="Save File">
-				<Save size={16} />
+				{@html getIcon('Save')}
 				Save
 			</button>
 			<button on:click={toggleTheme} aria-label="Toggle Theme">
@@ -1006,7 +997,7 @@ onMount(async () => {
 				<div class="repository-list">
 					<span class="repo-header">
 						<span class="icon">
-							<Package />
+							{@html getIcon('Package')}
 						</span>
 						<h3>Repositories</h3>
 					</span>

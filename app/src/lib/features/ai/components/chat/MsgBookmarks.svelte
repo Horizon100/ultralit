@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { Loader2, MessageSquare, Copy } from 'lucide-svelte';
 	import type { Messages, User, Threads } from '$lib/types/types';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
 	import { MarkupFormatter } from '$lib/features/ai/utils/markupFormatter';
 
@@ -108,7 +107,7 @@
 							on:click={() => copyMessage(message)}
 							title="Copy to clipboard"
 						>
-							<Copy size={16} />
+							{@html getIcon('Copy', { size: 16 })}
 							{#if copyTooltips[message.id]}
 								<span class="tooltip">Copied!</span>
 							{/if}
@@ -121,9 +120,11 @@
 								disabled={threadLoading[message.id]}
 							>
 								{#if threadLoading[message.id]}
-									<Loader2 class="loading-spinner-small" />
+									<span class="loading-spinner-small">
+										{@html getIcon('Loader2')}
+									</span>
 								{:else}
-									<MessageSquare size={16} />
+									{@html getIcon('MessageSquare', { size: 16 })}
 									<span>Open Thread</span>
 								{/if}
 							</button>

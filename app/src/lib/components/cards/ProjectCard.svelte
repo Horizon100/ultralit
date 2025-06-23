@@ -4,23 +4,7 @@
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { cubicOut } from 'svelte/easing';
 	import { projectStore } from '$lib/stores/projectStore';
-	import {
-		Box,
-		MessageCircleMore,
-		ArrowLeft,
-		ChevronDown,
-		PackagePlus,
-		Check,
-		Search,
-		Pen,
-		Trash2,
-		Plus,
-		InfoIcon,
-		ChartBarBig,
-		Users,
-		Logs,
-		BrainCircuit
-	} from 'lucide-svelte';
+
 	import type { Projects, Threads } from '$lib/types/types';
 	import { onMount } from 'svelte';
 	import { generateAISuggestions } from '$lib/clients/aiClient';
@@ -37,6 +21,9 @@
 	import { writable } from 'svelte/store';
 	import { defaultModel, availableModels } from '$lib/features/ai/utils/models';
 	import ProjectDeadlines from '$lib/features/projects/components/ProjectDeadlines.svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
+	
 	export let projectId: string | undefined = undefined;
 	export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
 	export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
@@ -451,7 +438,7 @@
 							autofocus
 						/>
 						<button class="save-button" on:click={() => saveProjectEdit('name')}>
-							<Check />
+							{@html getIcon('Check')}
 						</button>
 					</div>
 				{:else if isExpanded}{:else}{/if}
@@ -461,7 +448,7 @@
 						on:click={() => setActiveTab('info')}
 					>
 						<span>
-							<InfoIcon />
+							{@html getIcon('InfoIcon')}
 							<p>
 								<!-- {$t('dashboard.projectInfo')} -->
 							</p>
@@ -472,7 +459,7 @@
 						on:click={() => setActiveTab('details')}
 					>
 						<span>
-							<Logs />
+							{@html getIcon('Logs')}
 							<p>
 								{$t('dashboard.projectDetails')}
 							</p>
@@ -483,7 +470,7 @@
 						on:click={() => setActiveTab('stats')}
 					>
 						<span>
-							<ChartBarBig />
+							{@html getIcon('ChartBarBig')}
 							<p>
 								{$t('dashboard.projectStats')}
 							</p>
@@ -494,8 +481,7 @@
 						on:click={() => setActiveTab('members')}
 					>
 						<span>
-							<Users />
-
+							{@html getIcon('Users')}
 							<p>
 								{$t('dashboard.projectMembers')}
 							</p>
@@ -517,7 +503,7 @@
 								></textarea>
 								<button class="save-button" on:click={() => saveProjectEdit('description')}>
 									{$t('tooltip.done')}
-									<Check />
+									{@html getIcon('Check')}
 								</button>
 							</div>
 						{:else if projectDescription}
@@ -539,7 +525,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															<Pen />
+															{@html getIcon('Pen')}
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -571,7 +557,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															<Pen />
+															{@html getIcon('Pen')}
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -604,7 +590,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															<Pen />
+															{@html getIcon('Pen')}
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -639,7 +625,7 @@
 													on:mouseleave={() => (hoveredEdit = false)}
 												>
 													<div class="icon" in:fade>
-														<Pen />
+														{@html getIcon('Pen')}
 														{#if hoveredEdit}
 															<span class="tooltip" in:fade>
 																{$t('tooltip.editDescription')}
@@ -705,7 +691,7 @@
 															<div class="spinner"></div>
 														</div>
 													{:else}
-														<BrainCircuit />
+														{@html getIcon('BrainCircuit')}
 														{#if hoveredGenerate}
 															<span class="tooltip" in:fade>
 																{$t('tooltip.generateHints')}
@@ -762,7 +748,7 @@
 						{:else if isOwner}
 							<div class="add-description-container">
 								<button class="toggle-btn" on:click={() => handleEditProject('description')}>
-									<Plus size={14} /> Add description
+									{@html getIcon('Plus', { size: 14 })} Add description
 								</button>
 							</div>
 						{/if}

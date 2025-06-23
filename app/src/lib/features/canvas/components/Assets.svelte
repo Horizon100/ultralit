@@ -1,22 +1,10 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	import {
-		Square,
-		Circle,
-		Triangle,
-		Star,
-		Hexagon,
-		Pencil,
-		CheckSquare,
-		Database,
-		Mic,
-		Calculator,
-		Box
-	} from 'lucide-svelte';
 	import AgentThumbnail from '$lib/assets/thumbnails/agent-thumbnail.svg';
-	import Controls from '$lib/assets/icons/ai/controls.svg';
-	import Compass from '$lib/assets/icons/map/compass.svg';
+	import Controls from '$lib/assets/icons/draggable/controls.svg';
+	import Compass from '$lib/assets/maps/compass.svg';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	import type { Shape } from '$lib/types/types'; // Import Shape from your types file
 	export const startPoint: string | undefined = undefined;

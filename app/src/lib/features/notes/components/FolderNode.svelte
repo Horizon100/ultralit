@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { ChevronRight, ChevronDown, MoreVertical } from 'lucide-svelte';
 	import type { Folders, Notes } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let folder: Folders;
 	export let openFolders: Set<string>;
@@ -35,9 +35,9 @@
 	<div class="folder-title">
 		<span on:click={() => onToggleFolder(folder)}>
 			{#if openFolders.has(folder.id)}
-				<ChevronDown size={16} />
+				{@html getIcon('ChevronDown', { size: 16 })}
 			{:else}
-				<ChevronRight size={16} />
+				{@html getIcon('ChevronRight', { size: 16 })}
 			{/if}
 			{folder.title}
 		</span>
@@ -45,7 +45,7 @@
 			class="context-menu-button"
 			on:click|stopPropagation={(e) => onShowContextMenu(e, folder, true)}
 		>
-			<MoreVertical size={16} />
+			{@html getIcon('MoreVertical', { size: 16 })}
 		</button>
 	</div>
 

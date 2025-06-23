@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
-	import { Repeat } from 'lucide-svelte';
 	import { pocketbaseUrl } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let post: any;
 	export let repostedBy: any;
@@ -35,7 +35,7 @@ $: commentCount = post.commentCount || 0;
 				class="reposter-avatar"
 			/>
 		</a>
-		<Repeat size={16} />
+		{@html getIcon('Repeat', { size: 16 })}
 		<a href="/{repostedBy.username}" class="reposter-name">
 			{repostedBy.name || repostedBy.username}
 			{$t('posts.reposted')}

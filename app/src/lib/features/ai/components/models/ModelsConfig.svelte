@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { AIModel, User } from '$lib/types/types';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { createModel, updateModel, deleteModel } from '$lib/clients/modelClient';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 
@@ -128,7 +127,7 @@
 			<h2>Models</h2>
 			{#if !showCreateForm}
 				<button class="create-button" on:click={showCreate}>
-					<Plus size={24} />
+					{@html getIcon('Plus', { size: 24 })}
 				</button>
 			{/if}
 		</div>
@@ -147,7 +146,7 @@
 							{model.name}
 						</button>
 						<button class="delete-button" on:click={() => handleDelete(model)}>
-							<Trash2 size={24} />
+							{@html getIcon('Trash2', { size: 24 })}
 						</button>
 					</div>
 				{/each}

@@ -2,13 +2,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import type { InternalChatMessage, Messages, User } from '$lib/types/types';
-	import { Bookmark, Copy, MessageSquare, ListTodo, CheckCircle } from 'lucide-svelte';
-	import type { SvelteComponentTyped } from 'svelte';
 	import { MarkupFormatter } from '$lib/features/ai/utils/markupFormatter';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let message: InternalChatMessage;
 	export let userId: string;
-
 	export let isDualResponse: boolean = false;
 	export let isPrimaryDualResponse: boolean = false;
 
@@ -22,58 +20,47 @@
 	let showSelectionTooltip = false;
 	let selectionTooltipText = '';
 
-	// Define type for Lucide icons
-	type IconComponent = SvelteComponentTyped<{
-		size?: number | string;
-		color?: string;
-		strokeWidth?: number | string;
-		class?: string;
-	}>;
 
-	type Reaction = {
-		symbol:
-			| typeof Bookmark
-			| typeof Copy
-			| typeof MessageSquare
-			| typeof ListTodo
-			| typeof CheckCircle;
+
+		type Reaction = {
+		symbol: IconName;  // ← Changed from component to IconName
 		action: string;
 		label: string;
 		isIcon: boolean;
 		showCondition?: () => boolean;
 	};
 
-	// Updated reactions array with the new task button
+	// Updated reactions array with IconName strings
 	const reactions: Reaction[] = [
 		{
-			symbol: Bookmark,
+			symbol: 'Bookmark',  // ← String instead of component
 			action: 'bookmark',
 			label: 'Bookmark',
 			isIcon: true,
 			showCondition: () => !isDualResponse
 		},
 		{
-			symbol: Copy,
+			symbol: 'Copy',
 			action: 'copy',
 			label: 'Copy to Clipboard',
 			isIcon: true
 		},
 		{
-			symbol: MessageSquare,
+			symbol: 'MessageSquare',
 			action: 'reply',
 			label: 'Reply to message',
 			isIcon: true,
 			showCondition: () => !isDualResponse
 		},
 		{
-			symbol: ListTodo,
+			symbol: 'ListTodo',
 			action: 'task',
 			label: 'Create task from message',
 			isIcon: true,
 			showCondition: () => !isDualResponse
 		},
 		{
-			symbol: CheckCircle,
+			symbol: 'CheckCircle',
 			action: 'selectResponse',
 			label: 'Select this response',
 			isIcon: true,

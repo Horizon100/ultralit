@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
-	import { TagIcon, Tags } from 'lucide-svelte';
 	import type { Tag } from '$lib/types/types';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let availableTags: Tag[] = [];
 	export let currentThreadId: string | null = null;
@@ -30,9 +30,9 @@
 			transition:fly={{ y: -300, duration: 300 }}
 		>
 			{#if isTags}
-				<TagIcon style="color: var(--placeholder-color)" />
+				{@html getIcon('TagIcon', { color: 'var(--placeholder-color)' })}
 			{:else}
-				<Tags style="color: var(--tertiary-color)" />
+				{@html getIcon('Tags', { color: 'var(--tertiary-color)' })}
 			{/if}
 		</button>
 		{#if showTagSelector}

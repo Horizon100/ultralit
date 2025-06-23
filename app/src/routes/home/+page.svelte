@@ -18,7 +18,6 @@
 	import PostSidenav from '$lib/features/posts/components/PostSidenav.svelte';
 	import PostTrends from '$lib/features/posts/components/PostTrends.svelte';
 	import AiMenu from '$lib/features/agents/components/AiMenu.svelte';
-	import { X } from 'lucide-svelte';
 	import { threadsStore, ThreadSortOption, showThreadList } from '$lib/stores/threadsStore';
 	import { slide, fly } from 'svelte/transition';
 	import { swipeGesture } from '$lib/utils/swipeGesture';

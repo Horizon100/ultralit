@@ -2,7 +2,6 @@
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { AIAgent, AIModel } from '$lib/types/types';
-	import { ArrowRight, Plus, Trash2, Edit2, Check } from 'lucide-svelte';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
 	import { erpAgentTemplates } from '$lib/features/agents/utils/erp';
@@ -11,6 +10,8 @@
 	import { isLoading, showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { isSuccess, clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	export let parentAgent: AIAgent;
 	export const aiModel: AIModel | null = null;
 	export let userId: string;
@@ -149,10 +150,15 @@ async function loadChildAgents() {
 							<h3>{agent.name}</h3>
 							<p>{agent.description}</p>
 							<div class="agent-actions">
-								<button on:click={() => handleEditChildAgent(agent)}><Edit2 size="16" /></button>
-								<button on:click={() => handleDeleteChildAgent(agent)}><Trash2 size="16" /></button>
-								<button on:click={() => handleOpenChildAgentOverlay(agent)}
-									><Plus size="16" /></button
+								<button on:click={() => handleEditChildAgent(agent)}>
+									{@html getIcon('Edit2', { size: 16 })}
+								</button>
+								<button on:click={() => handleDeleteChildAgent(agent)}>
+									{@html getIcon('Trash2', { size: 16 })}
+								</button>
+								<button on:click={() => handleOpenChildAgentOverlay(agent)}>
+									{@html getIcon('Plus', { size: 16 })}
+								</button
 								>
 							</div>
 						</div>

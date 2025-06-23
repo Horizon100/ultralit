@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { Key, Eye, EyeOff, Check, AlertCircle, Trash } from 'lucide-svelte';
 	import { apiKey, type ApiKeys } from '$lib/stores/apiKeyStore';
 	import { fade, slide } from 'svelte/transition';
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	interface ServiceConfig {
 		name: string;
-		icon: any;
+		icon: IconName;
 		description: string;
 		placeholder: string;
 		pattern: string;
@@ -15,21 +15,21 @@
 	const services: Record<keyof ApiKeys, ServiceConfig> = {
 		openai: {
 			name: 'OpenAI',
-			icon: Key,
+			icon: 'Key',
 			description: 'Used for chat and completions',
 			placeholder: 'sk-...',
 			pattern: '^sk-[a-zA-Z0-9]{48}$'
 		},
 		anthropic: {
 			name: 'Anthropic',
-			icon: Key,
+			icon: 'Key',
 			description: 'Used for Claude API',
 			placeholder: 'sk-ant-...',
 			pattern: '^sk-ant-[a-zA-Z0-9]{48}$'
 		},
 		stability: {
 			name: 'Stability AI',
-			icon: Key,
+			icon: 'Key',
 			description: 'Used for image generation',
 			placeholder: 'sk-...',
 			pattern: '^sk-[a-zA-Z0-9]{48}$'
@@ -97,10 +97,12 @@
 					<div class="key-display">
 						<span>••••••••</span>
 						<button class="remove-key" on:click={() => removeKey(service)} title="Remove key">
-							<Trash size={16} />
+							{@html getIcon('Trash2', { size: 16 })}
 						</button>
 					</div>
-					<Check size={16} class="verified" />
+					<span class="verified">
+						{@html getIcon('Check', { size: 16 })}
+					</span>
 				</div>
 			{:else}
 				<div class="input-group">
@@ -124,7 +126,7 @@
 							class="toggle-visibility"
 							on:click={() => (showKeys[service] = !showKeys[service])}
 						>
-							<svelte:component this={showKeys[service] ? EyeOff : Eye} size={16} />
+							{@html getIcon(showKeys[service] ? 'EyeOff' : 'Eye', { size: 16 })}						
 						</button>
 					</div>
 
@@ -139,7 +141,7 @@
 
 				{#if errors[service]}
 					<div class="error" transition:fade>
-						<AlertCircle size={16} />
+						{@html getIcon('AlertCircle', { size: 16 })}
 						<span>{errors[service]}</span>
 					</div>
 				{/if}

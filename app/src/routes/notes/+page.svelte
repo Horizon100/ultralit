@@ -6,8 +6,7 @@
 	import type { Notes, Attachment, Folders, AIModel, ProviderType } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
 	import { fetchAIResponse } from '$lib/clients/aiClient';
-	import { X, FileIcon } from 'lucide-svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster.jpeg';
+	import Headmaster from '$lib/assets/wallapapers/aristoteles.png';
 	import {
 		handleImageUpload,
 		onFileSelected,
@@ -18,17 +17,7 @@
 	import { page } from '$app/stores';
 	import { ensureAuthenticated } from '$lib/pocketbase';
 	import { currentFolderNotes } from '$lib/stores/notesStore';
-	import {
-		Folder,
-		Search,
-		Bookmark,
-		FolderPlus,
-		ListFilter,
-		ChevronRight,
-		ChevronDown,
-		Plus,
-		MoreVertical
-	} from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { 
 		clientTryCatch, 
 		thirdPartyApiTryCatch, 
@@ -556,29 +545,30 @@ async function loadAttachments(noteId: string) {
 	<div class="explorer">
 		<div class="explorer-header">
 			<span class:active={activeSection === 'folders'} on:click={() => (activeSection = 'folders')}>
-				<Folder size={24} class="nav-icon" />
+				<span class="nav-icon">{@html getIcon('Folder', { size: 24 })}</span>				
 			</span>
 			<span class:active={activeSection === 'search'} on:click={() => (activeSection = 'search')}>
-				<Search size={24} class="nav-icon" />
+				<span class="nav-icon">{@html getIcon('Search', { size: 24 })}</span>
 			</span>
 			<span
 				class:active={activeSection === 'bookmarks'}
 				on:click={() => (activeSection = 'bookmarks')}
 			>
-				<Bookmark size={24} class="nav-icon" />
+				<span class="nav-icon">{@html getIcon('Bookmark', { size: 24 })}</span>
 			</span>
 		</div>
 
 		{#if activeSection === 'folders'}
 			<div class="explorer-nav" transition:slide>
 				<span on:click={addFolder}>
-					<FolderPlus size={24} class="nav-icon" />
+					<span class="nav-icon">{@html getIcon('FolderPlus', { size: 24 })}</span>
 				</span>
 				<span on:click={(e) => createNewNote(e)}>
-					<Plus size={24} class="nav-icon" />
+					<span class="nav-icon">{@html getIcon('Plus', { size: 24 })}</span>
+
 				</span>
 				<span>
-					<ListFilter size={24} class="nav-icon" />
+					<span class="nav-icon">{@html getIcon('ListFilter', { size: 24 })}</span>
 				</span>
 			</div>
 
@@ -595,9 +585,9 @@ async function loadAttachments(noteId: string) {
 						<div class="folder-title">
 							<span on:click={() => toggleFolder(folder)}>
 								{#if openFolders.has(folder.id)}
-									<ChevronDown size={16} />
+									{@html getIcon('ChevronDown', { size: 16 })}
 								{:else}
-									<ChevronRight size={16} />
+									{@html getIcon('ChevronRight', { size: 16 })}
 								{/if}
 								{folder.title}
 							</span>
@@ -605,7 +595,7 @@ async function loadAttachments(noteId: string) {
 								class="context-menu-button"
 								on:click|stopPropagation={(e) => showContextMenu(e, folder, true)}
 							>
-								<MoreVertical size={16} />
+								{@html getIcon('MoreVertical', { size: 16 })}
 							</button>
 						</div>
 						{#if openFolders.has(folder.id)}
@@ -672,7 +662,7 @@ async function loadAttachments(noteId: string) {
 	<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
 		<div class="tab-row">
 			<button class="new-tab" on:click={createNewNote}>
-				<Plus size={24} />
+				{@html getIcon('Plus', { size: 24 })}
 			</button>
 			{#each openTabs as tab (tab.id)}
 				<div
@@ -682,7 +672,7 @@ async function loadAttachments(noteId: string) {
 				>
 					<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
 					<button class="close-tab" on:click={() => closeTab(tab)}>
-						<X size={24} />
+						{@html getIcon('X', { size: 24 })}
 					</button>
 				</div>
 			{/each}
@@ -731,7 +721,7 @@ async function loadAttachments(noteId: string) {
 				<div class="attachments-container" transition:slide>
 					{#each currentNote.attachments || [] as attachment}
 						<div class="attachment">
-							<FileIcon />
+							{@html getIcon('FileIcon', { size: 30 })}
 							<span>{attachment.fileName}</span>
 						</div>
 					{/each}
@@ -774,7 +764,7 @@ async function loadAttachments(noteId: string) {
 			<div class="attachments-container" transition:slide>
 				{#each currentNote.attachments as attachment (attachment.id)}
 					<div class="attachment">
-						<FileIcon />
+						{@html getIcon('FileIcon')}
 						<span>{attachment.fileName}</span>
 					</div>
 				{/each}

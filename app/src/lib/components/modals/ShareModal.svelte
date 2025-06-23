@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import { Link, Quote, X } from 'lucide-svelte';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
 	import { currentUser } from '$lib/pocketbase'; // Import the current user store
 	import { t } from '$lib/stores/translationStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let isOpen: boolean = false;
 	export let post: PostWithInteractions | null = null;
@@ -48,14 +48,14 @@
 			<div class="modal-header">
 				<h2>{$t('generic.share')} {$t('posts.post')}</h2>
 				<button class="close-button" on:click={handleClose}>
-					<X size={20} />
+					{@html getIcon('X', { size: 20 })}
 				</button>
 			</div>
 
 			<div class="modal-body">
 				<button class="share-option" on:click={handleCopyLink}>
 					<div class="option-icon">
-						<Link size={20} />
+						{@html getIcon('Link', { size: 20 })}
 					</div>
 					<div class="option-text">
 						<div class="option-title">{$t('posts.copyLink')}</div>
@@ -66,7 +66,7 @@
 				{#if $currentUser}
 					<button class="share-option" on:click={handleQuote}>
 						<div class="option-icon">
-							<Quote size={20} />
+							{@html getIcon('Quote', { size: 20 })}
 						</div>
 						<div class="option-text">
 							<div class="option-title">{$t('posts.quote')} {$t('posts.post')}</div>

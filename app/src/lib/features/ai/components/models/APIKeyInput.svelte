@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { get } from 'svelte/store';
-	import { X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { providers } from '$lib/features/ai/utils/providers';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let provider: string;
 

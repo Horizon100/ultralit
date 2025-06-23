@@ -11,19 +11,7 @@
 		pocketbaseUrl,
 		requestPasswordReset
 	} from '$lib/pocketbase';
-	import {
-		Camera,
-		LogIn,
-		UserPlus,
-		LogOut,
-		Send,
-		SignalHigh,
-		MailPlus,
-		Loader2,
-		ChevronRight,
-		Bot,
-		ChevronLeft
-	} from 'lucide-svelte';
+
 	import Profile from '$lib/features/users/components/Profile.svelte';
 	import Terms from '$lib/features/legal/components/Terms.svelte';
 	import PrivacyPolicy from '$lib/features/legal/components/PrivacyPolicy.svelte';
@@ -44,6 +32,8 @@
 		isSuccess, 
 		isFailure 
 	} from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -498,14 +488,14 @@ export async function login(): Promise<void> {
 							{#if isLoading}
 								<div class="small-spinner-container">
 									<div class="small-spinner">
-										<Bot />
+										{@html getIcon('Bot')}
 									</div>
 								</div>
 							{:else}
 								<span>
 									{$t('profile.login')}
 								</span>
-								<ChevronRight />
+								{@html getIcon('ChevronRight')}
 							{/if}
 						</button>
 					</span>
@@ -521,7 +511,7 @@ export async function login(): Promise<void> {
 					{#if showPasswordReset}
 						<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
 							<button class="round-btn back" on:click={closePasswordReset}>
-								<ChevronLeft />
+								{@html getIcon('ChevronLeft')}
 							</button>
 							<input
 								type="email"
@@ -534,14 +524,14 @@ export async function login(): Promise<void> {
 								>{#if isLoading}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											<Bot />
+											{@html getIcon('Bot')}
 										</div>
 									</div>
 								{:else}
 									<span>
 										{$t('profile.reset')}
 									</span>
-									<ChevronRight />
+									{@html getIcon('ChevronRight')}
 								{/if}
 							</button>
 						</span>
@@ -594,7 +584,7 @@ export async function login(): Promise<void> {
 		{logout}
 	/>
 	<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-		<LogOut size={24} />
+		{@html getIcon('LogOut')}
 		<span>Logout</span>
 	</button>
 {/if}

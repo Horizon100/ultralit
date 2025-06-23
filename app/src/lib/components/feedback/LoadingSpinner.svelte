@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { isLoading } from '$lib/stores/loadingStore';
 	import { fade } from 'svelte/transition';
-	import { Bot } from 'lucide-svelte'; // Import the Bot icon from lucide-svelte
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 </script>
 
 {#if $isLoading}
 	<div class="center-container" transition:fade={{ duration: 600 }}>
 		<div class="loading-overlay" transition:fade={{ duration: 600 }}>
 			<div class="spinner">
-				<Bot size={80} class="bot-icon" />
+				<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
 			</div>
 		</div>
 	</div>

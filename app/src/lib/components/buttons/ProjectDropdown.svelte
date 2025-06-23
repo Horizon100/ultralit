@@ -3,21 +3,13 @@
 	import { currentUser } from '$lib/pocketbase';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { loadThreads } from '$lib/clients/threadsClient';
-	import {
-		Check,
-		Search,
-		Trash2,
-		Plus,
-		ChevronLeft,
-		PackageOpen,
-		Package
-	} from 'lucide-svelte';
 	import type { Projects } from '$lib/types/types';
 	import { onMount } from 'svelte';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { t } from '$lib/stores/translationStore';
 	import { get } from 'svelte/store';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let isOpen = false;
 
@@ -218,17 +210,16 @@
 						class:rotated={isExpanded}
 						on:click|preventDefault={() => !isLoading && handleSelectProject(null)}
 					>
-						<ChevronLeft />
-						<!-- <p>Home</p> -->
+						{@html getIcon('ChevronLeft')}
 					</span>
 				{/if}
 				<span class="trigger-display" class:drawer-visible={$showThreadList}>
 					{#if $projectStore.currentProject}
 						<span class="active">
-							<PackageOpen size={16} />
+							{@html getIcon('PackageOpen')}
 						</span>
 					{:else}
-						<Package size={16} />
+						{@html getIcon('Package')}
 					{/if}
 					<span>
 						{$projectStore.currentProject?.name || $t('profile.projects')}
@@ -250,7 +241,7 @@
 		<div class="dropdown-content" transition:slide={{ duration: 200 }}>
 			<div class="dropdown-header">
 				<div class="search-bar">
-					<span><Search /></span>
+					{@html getIcon('Search')}
 					<input type="text" bind:value={searchQuery} placeholder={searchPlaceholder} />
 				</div>
 				<button
@@ -258,7 +249,7 @@
 					on:click={() => (isCreatingProject = !isCreatingProject)}
 					disabled={isLoading}
 				>
-					<Plus />
+					{@html getIcon('Plus')}
 				</button>
 			</div>
 
@@ -279,7 +270,7 @@
 						disabled={!newProjectName.trim() || isLoading}
 						on:click={() => handleCreateNewProject(newProjectName)}
 					>
-						<Check size={16} />
+						{@html getIcon('Check')}
 					</button>
 				</div>
 			{/if}
@@ -304,7 +295,7 @@
 									disabled={isLoading}
 									on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
 								>
-									<Trash2 size={14} />
+									{@html getIcon('Trash2')}
 								</button>
 							</div>
 						</div>

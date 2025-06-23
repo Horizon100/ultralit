@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
-	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Bone } from 'lucide-svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { currentTheme, type Theme } from '$lib/stores/themeStore';
 	import { t } from '$lib/stores/translationStore';
 	import { get } from 'svelte/store';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+
 
 	interface Style {
 		name: string;
@@ -21,56 +22,56 @@
 		{
 			name: 'Classic',
 			value: 'default' as const,
-			icon: Sun,
+			icon: 'Sun' as IconName,
 			description: 'This style will brighten your day',
 			dummyContent: 'Sunshine and clear skies'
 		},
 		{
 			name: 'Dark',
 			value: 'dark' as const,
-			icon: Moon,
+			icon: 'Moon' as IconName,
 			description: 'For night owls and stargazers',
 			dummyContent: 'Moonlit adventures await'
 		},
 		{
 			name: 'Light',
 			value: 'light' as const,
-			icon: Sunrise,
+			icon: 'Sunrise' as IconName,
 			description: 'Start your day with a fresh look',
 			dummyContent: 'Early bird gets the worm'
 		},
 		{
 			name: 'Sunset',
 			value: 'sunset' as const,
-			icon: Sunset,
+			icon: 'Sunset' as IconName,
 			description: 'Wind down with warm hues',
 			dummyContent: 'Golden hour vibes'
 		},
 		{
 			name: 'Focus',
 			value: 'focus' as const,
-			icon: Focus,
+			icon: 'Focus' as IconName,
 			description: 'Minimize distractions, maximize productivity',
 			dummyContent: 'Concentration intensifies'
 		},
 		{
 			name: 'Bold',
 			value: 'bold' as const,
-			icon: Bold,
+			icon: 'Bold' as IconName,
 			description: 'Make a statement with vibrant colors',
 			dummyContent: 'Stand out from the crowd'
 		},
 		{
 			name: 'Turbo',
 			value: 'turbo' as const,
-			icon: Gauge,
+			icon: 'Gauge' as IconName,
 			description: 'Speed up your workflow',
 			dummyContent: 'Faster than the speed of light'
 		},
 		{
 			name: 'Bone',
 			value: 'bone' as const,
-			icon: Bone,
+			icon: 'Bone' as IconName,
 			description: 'Contrasts brights up.',
 			dummyContent: 'Shake it, make it.'
 		}

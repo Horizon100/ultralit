@@ -5,7 +5,7 @@
 	import { projectStore } from '$lib/stores/projectStore';
 	import type { KanbanTask, KanbanAttachment, Tag } from '$lib/types/types';
 	import { fade } from 'svelte/transition';
-	import { Trash2 } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	type ViewMode = 'month-grid' | 'month-group';
 	let viewMode: ViewMode = 'month-group';
@@ -857,7 +857,7 @@ function updateCalendarGrid() {
 							}
 						}}
 					>
-						<Trash2 />
+						{@html getIcon('Trash2')}
 						<span>Delete</span>
 					</button>
 					<span>

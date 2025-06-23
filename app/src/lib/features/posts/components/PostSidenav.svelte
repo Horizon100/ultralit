@@ -2,7 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
-	import { MessageSquare, Calendar, Sparkles } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// export let innerWidth: number;
 </script>
@@ -15,25 +15,25 @@
 				<ul>
 					<li>
 						<a href="/chat" class="sidebar-link">
-							<MessageSquare size={20} />
+							{@html getIcon('MessageSquare', { size: 20 })}
 							<span>{$t('nav.chat')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/lean" class="sidebar-link">
-							<Calendar size={20} />
+							{@html getIcon('Calendar', { size: 20 })}
 							<span>{$t('nav.tasks')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/canvas" class="sidebar-link">
-							<Sparkles size={20} />
+							{@html getIcon('Sparkles', { size: 20 })}
 							<span>{$t('nav.canvas')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/notes" class="sidebar-link">
-							<MessageSquare size={20} />
+							{@html getIcon('MessageSquare', { size: 20 })}
 							<span>{$t('nav.notes')}</span>
 						</a>
 					</li>

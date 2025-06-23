@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Play, Pause, Volume2, VolumeX, Settings } from 'lucide-svelte';
 	import {
 		initAudioState,
 		registerAudioElement,
@@ -16,6 +15,7 @@
 		cleanupAudioPlayer,
 		pauseOtherAudioPlayers
 	} from '$lib/utils/mediaHandlers';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let attachmentId: string;
 	export let audioSrc: string;
@@ -283,9 +283,9 @@
 		<!-- Play/Pause Button -->
 		<button class="control-btn play-pause" on:click={handlePlayPause}>
 			{#if audioState.isPlaying}
-				<Pause size={20} />
+				{@html getIcon('Pause', { size: 20 })}
 			{:else}
-				<Play size={20} />
+				{@html getIcon('Play', { size: 20 })}
 			{/if}
 		</button>
 
@@ -293,9 +293,9 @@
 		<div class="volume-controls">
 			<button class="control-btn volume-btn" on:click={handleMuteClick}>
 				{#if audioState.isMuted || audioState.volume === 0}
-					<VolumeX size={16} />
+					{@html getIcon('VolumeX', { size: 16 })}
 				{:else}
-					<Volume2 size={16} />
+					{@html getIcon('Volume2', { size: 16 })}
 				{/if}
 			</button>
 
@@ -317,7 +317,7 @@
 		<!-- Playback Speed Control -->
 		<div class="speed-control">
 			<button class="control-btn speed-btn" on:click={toggleSpeedMenu}>
-				<Settings size={16} />
+				{@html getIcon('Settings', { size: 16 })}
 				<span class="speed-label">{currentSpeed}x</span>
 			</button>
 

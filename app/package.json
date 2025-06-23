@@ -26,7 +26,8 @@
 		"lint:css:svelte": "stylelint \"src/**/*.svelte\" --custom-syntax postcss-html",
 		"lint:css:all": "yarn lint:css && yarn lint:css:svelte",
 		"find-empty-blocks": "yarn lint:css:svelte",
-		"audit:env": "node src/scripts/audit-env.ts"
+		"audit:env": "node src/scripts/audit-env.ts",
+		"extract-icons": "node src/scripts/extract-icons.ts"
 	},
 	"devDependencies": {
 		"@erbelion/vite-plugin-sveltekit-purgecss": "^0.1.0",

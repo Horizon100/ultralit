@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { Loader2 } from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let newPassword: string = '';
 	let confirmPassword: string = '';
@@ -106,7 +106,7 @@
 
 			<button type="submit" class="reset-button" disabled={isLoading}>
 				{#if isLoading}
-					<Loader2 class="animate-spin" />
+					<span class="animate-spin">{@html getIcon('Loader2')}</span>
 				{:else}
 					{$t('profile.resetPassword')}
 				{/if}

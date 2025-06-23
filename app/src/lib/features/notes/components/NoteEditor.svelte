@@ -6,8 +6,7 @@
 	import type { Notes, Attachment, Folders, AIModel, ProviderType } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
 	import { fetchAIResponse } from '$lib/clients/aiClient';
-	import { X, FileIcon } from 'lucide-svelte';
-	import Headmaster from '$lib/assets/illustrations/headmaster.jpeg';
+	import Headmaster from '$lib/assets/wallpapers/aristoles.png';
 	import {
 		handleImageUpload,
 		onFileSelected,
@@ -19,17 +18,6 @@
 	import { ensureAuthenticated } from '$lib/pocketbase';
 	import { currentFolderNotes } from '$lib/stores/notesStore';
 	import {
-		Folder,
-		Search,
-		Bookmark,
-		FolderPlus,
-		ListFilter,
-		ChevronRight,
-		ChevronDown,
-		Plus,
-		MoreVertical
-	} from 'lucide-svelte';
-	import {
 		sidenavStore,
 		showSidenav,
 		showInput,
@@ -40,6 +28,7 @@
 		showEditor,
 		showExplorer
 	} from '$lib/stores/sidenavStore';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let draggedItem: { item: Folders | Notes; isFolder: boolean } | null = null;
 	let dragOverFolder: Folders | null = null;
@@ -541,29 +530,41 @@
 					class:active={activeSection === 'folders'}
 					on:click={() => (activeSection = 'folders')}
 				>
-					<Folder size={16} class="nav-icon" />
+					<span class="nav-icon">
+						{@html getIcon('Folder', { size: 16 })}
+					</span>
 				</span>
 				<span class:active={activeSection === 'search'} on:click={() => (activeSection = 'search')}>
-					<Search size={16} class="nav-icon" />
+					<span class="nav-icon">
+						{@html getIcon('Search', { size: 16 })}
+					</span>
 				</span>
 				<span
 					class:active={activeSection === 'bookmarks'}
 					on:click={() => (activeSection = 'bookmarks')}
 				>
-					<Bookmark size={16} class="nav-icon" />
+					<span class="nav-icon">
+						{@html getIcon('Bookmark', { size: 16 })}
+					</span>
 				</span>
 			</div>
 
 			{#if activeSection === 'folders'}
 				<div class="explorer-nav" transition:slide>
 					<span on:click={addFolder}>
-						<FolderPlus size={16} class="nav-icon" />
+						<span class="nav-icon">
+							{@html getIcon('FolderPlus', { size: 16 })}
+						</span>
 					</span>
 					<span on:click={(e) => createNewNote(e)}>
-						<Plus size={16} class="nav-icon" />
+						<span class="nav-icon">
+							{@html getIcon('Plus', { size: 16 })}
+						</span>
 					</span>
 					<span>
-						<ListFilter size={16} class="nav-icon" />
+						<span class="nav-icon">
+							{@html getIcon('ListFilter', { size: 16 })}
+						</span>
 					</span>
 				</div>
 
@@ -580,9 +581,9 @@
 							<div class="folder-title">
 								<span on:click={() => toggleFolder(folder)}>
 									{#if openFolders.has(folder.id)}
-										<ChevronDown size={16} />
+										{@html getIcon('ChevronDown', { size: 16 })}
 									{:else}
-										<ChevronRight size={16} />
+										{@html getIcon('ChevronRight', { size: 16 })}
 									{/if}
 									{folder.title}
 								</span>
@@ -590,7 +591,7 @@
 									class="context-menu-button"
 									on:click|stopPropagation={(e) => showContextMenu(e, folder, true)}
 								>
-									<MoreVertical size={16} />
+									{@html getIcon('MoreVertical', { size: 16 })}
 								</button>
 							</div>
 							{#if openFolders.has(folder.id)}
@@ -659,7 +660,7 @@
 	<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
 		<div class="tab-row">
 			<button class="new-tab" on:click={createNewNote}>
-				<Plus size={16} />
+				{@html getIcon('Plus', { size: 16 })}
 			</button>
 			{#each openTabs as tab (tab.id)}
 				<div
@@ -669,7 +670,7 @@
 				>
 					<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
 					<button class="close-tab" on:click={() => closeTab(tab)}>
-						<X size={16} />
+						{@html getIcon('X', { size: 16 })}
 					</button>
 				</div>
 			{/each}
@@ -718,7 +719,7 @@
 				<div class="attachments-container" transition:slide>
 					{#each currentNote.attachments || [] as attachment}
 						<div class="attachment">
-							<FileIcon />
+							{@html getIcon('FileIcon', { size: 16 })}
 							<span>{attachment.fileName}</span>
 						</div>
 					{/each}
@@ -761,7 +762,7 @@
 			<div class="attachments-container" transition:slide>
 				{#each currentNote.attachments as attachment (attachment.id)}
 					<div class="attachment">
-						<FileIcon />
+						{@html getIcon('FileIcon', { size: 16 })}
 						<span>{attachment.fileName}</span>
 					</div>
 				{/each}

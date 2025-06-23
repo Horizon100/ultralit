@@ -17,8 +17,8 @@
 	import { createAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
 	import Connector from '$lib/features/canvas/components/Connector.svelte';
-	import { BrainCog, ChevronRight, Maximize, X } from 'lucide-svelte';
 	import { isSuccess, unwrapOr, clientTryCatch, isFailure, tryCatchSync } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let svgElement: SVGSVGElement;
 	let viewBox = '0 0 2000 857';
@@ -743,18 +743,17 @@ async function createAgentInDatabase(x: number, y: number) {
 			<span>{$zoomLevel.toFixed(0)}%</span>
 			<button on:click={zoomIn}>+</button>
 			<button on:click={resetZoom}>
-				<Maximize />
+				{@html getIcon('Maximize')}
 			</button>
 		</span>
 		<button on:click={toggleRightSideMenu}>
 			<span class="open-button">
 				{#if showRightSideMenu}
-					<BrainCog />
-
+					{@html getIcon('BrainCog')}
 					Agents
-					<X />
+					{@html getIcon('X')}
 				{:else}
-					<BrainCog />
+					{@html getIcon('BrainCog')}
 				{/if}
 			</span>
 		</button>

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import { RefreshCcw, X, AlertCircle, CheckCircle } from 'lucide-svelte';
 	import type { NotificationType, IdeNotification } from '$lib/types/types.notifications';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Props
 	export let notifications: IdeNotification[] = [];
@@ -75,11 +75,13 @@
 		>
 			<div class="icon" style="color: {getIconColor(notification.type)}">
 				{#if notification.type === 'loading'}
-					<RefreshCcw size={18} class="spinner" />
+					<span class="spinner">
+						{@html getIcon('RefreshCcw', { size: 18 })}
+					</span>
 				{:else if notification.type === 'success'}
-					<CheckCircle size={18} />
+					{@html getIcon('CheckCircle', { size: 18 })}
 				{:else if notification.type === 'error'}
-					<AlertCircle size={18} />
+					{@html getIcon('AlertCircle', { size: 18 })}
 				{:else if notification.type === 'info'}
 					<svg
 						width="18"
@@ -116,7 +118,7 @@
 				on:click={() => removeNotification(notification.id)}
 				aria-label="Close notification"
 			>
-				<X size={16} />
+				{@html getIcon('X', { size: 16 })}
 			</button>
 		</div>
 	{/each}

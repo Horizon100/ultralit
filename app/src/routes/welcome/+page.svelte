@@ -7,7 +7,6 @@
 	import { fade, fly } from 'svelte/transition';
 	import { spring } from 'svelte/motion';
 	import { t } from '$lib/stores/translationStore';
-	import { LogIn, Bot, Mail, Send, Github, CheckCircle, X } from 'lucide-svelte';
 	import TypeWriter from '$lib/transitions/TypeWriter.svelte';
 	import FeatureCard from '$lib/components/cards/FeatureCard.svelte';
 	import NewsletterPopup from '$lib/features/users/components/Newsletter.svelte';
@@ -20,6 +19,7 @@
 	import grokIcon from '$lib/assets/icons/providers/x.svg';
 	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
 	import { clientTryCatch, storageTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let pageReady = false;
 	let redirectedFromLogin = false;
@@ -214,7 +214,7 @@
 		<div class="center-container" transition:fade={{ duration: 300 }}>
 			<div class="loading-overlay">
 				<div class="spinner">
-					<Bot size={80} class="bot-icon" />
+					<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
 				</div>
 			</div>
 		</div>
@@ -297,7 +297,7 @@
 
 									<div class="cta-buttons">
 										<button on:click={subscribeToNewsletter}>
-											<Mail size="30" />
+											{@html getIcon('Mail', { size: 30 })}
 											{$t('landing.subscribing')}
 										</button>
 										<NewsletterPopup bind:showPopup={showNewsletterPopup} />
@@ -314,7 +314,7 @@
 											rel="noopener noreferrer"
 										>
 											<button>
-												<Github size="30" />
+												{@html getIcon('Github', { size: 30 })}
 												GitHub
 											</button>
 										</a>
@@ -351,7 +351,8 @@
 											<div class="list">
 												{#each plan.features as feature}
 													<span>
-														<CheckCircle />{feature}
+														{@html getIcon('CheckCircle', { size: 30 })}
+														{feature}
 													</span>
 												{/each}
 											</div>

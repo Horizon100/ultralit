@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { uploadAvatar } from '$lib/pocketbase';
-	import { Camera, XCircle } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	/*
 	 * Let's not use the translation store directly since it's causing errors
@@ -120,7 +120,7 @@
 			<img src={previewUrl} alt="Avatar preview" class="avatar-preview" />
 			<div class="preview-actions">
 				<button class="cancel-button" on:click={cancelUpload} title={texts.cancel}>
-					<XCircle size={24} />
+					{@html getIcon('XCircle', { size: 24 })}
 				</button>
 				<button
 					class="upload-button"
@@ -134,7 +134,7 @@
 		</div>
 	{:else}
 		<div class="upload-prompt" on:click={triggerFileInput}>
-			<Camera size={24} />
+			{@html getIcon('Camera', { size: 24 })}
 			<span>{texts.upload_avatar}</span>
 		</div>
 	{/if}

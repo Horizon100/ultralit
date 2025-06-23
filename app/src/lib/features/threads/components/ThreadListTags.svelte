@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
-	import { Plus, Check, Trash, Pen } from 'lucide-svelte';
 	import {} from '$lib/pocketbase';
 	import type { Tag } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let selectedTagIds: Set<string>;
 
@@ -111,13 +111,13 @@
 					/>
 					<span class="tag-edit-buttons">
 						<span class="save-tag-button" on:click={() => updateTag(tag)}>
-							<Check />
+							{@html getIcon('Check')}
 						</span>
 						<span
 							class="delete-tag-button"
 							on:click|stopPropagation={(event) => dispatch('deleteTag', { tagId: tag.id })}
 						>
-							<Trash />
+							{@html getIcon('Trash2')}
 						</span>
 					</span>
 				</div>
@@ -130,14 +130,14 @@
 				>
 					{tag.name}
 					<span class="edit-tag" on:click|stopPropagation={() => startEditingTag(tag.id)}>
-						<Pen size={16} />
+						{@html getIcon('Pen', { size: 16 })}
 					</span>
 				</span>
 			{/if}
 		</div>
 	{/each}
 	<button class="add-tag" on:click={toggleTagCreation}>
-		<Plus />
+		{@html getIcon('Plus')}
 		{$t('threads.newTag')}
 	</button>
 	{#if editingTagIndex !== null}
@@ -162,7 +162,7 @@
 					newTagName = ''; // Clear the input
 				}}
 			>
-				<Plus />
+				{@html getIcon('Plus')}
 			</span>
 		</div>
 	{/if}

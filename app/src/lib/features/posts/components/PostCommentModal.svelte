@@ -4,7 +4,7 @@
 	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostComposer from './PostComposer.svelte';
-	import { X } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let isOpen: boolean = false;
 	export let post: PostWithInteractions | null = null;
@@ -88,7 +88,7 @@ function handleCommentSubmit(
 			<div class="modal-header">
 				<h2>Reply to Post</h2>
 				<button class="close-button" on:click={handleClose}>
-					<X size={20} />
+					{@html getIcon('X', { size: 20 })}
 				</button>
 			</div>
 

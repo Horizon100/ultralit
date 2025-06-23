@@ -1,36 +1,8 @@
 <script lang="ts">
 	import { fade, fly, slide } from 'svelte/transition';
 	import { page } from '$app/stores';
-	import {
-		Camera,
-		LogOutIcon,
-		Languages,
-		Palette,
-		X,
-		Bone,
-		Save,
-		TextCursorIcon,
-		Pen,
-		User2,
-		UserCircle,
-		MailCheck,
-		Mail,
-		KeyIcon,
-		Cake,
-		History,
-		Shield,
-		Layers,
-		MessageCirclePlus,
-		Group,
-		ChevronLeft,
-		TagsIcon,
-		Settings,
-		SettingsIcon,
-		WallpaperIcon
-	} from 'lucide-svelte';
-	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
@@ -97,15 +69,16 @@
 	}
 	$: console.log('User data:', user);
 
+
 	const styles: StyleOption[] = [
-		{ name: 'Daylight Delight', value: 'default', icon: Sun },
-		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
-		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-		{ name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-		{ name: 'Laser Focus', value: 'focus', icon: Focus },
-		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-		{ name: 'Bone Tone', value: 'bone', icon: Bone }
+	{ name: 'Daylight Delight', value: 'default', icon: 'Sun' },
+	{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' },
+	{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' },
+	{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' },
+	{ name: 'Laser Focus', value: 'focus', icon: 'Focus' },
+	{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' },
+	{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' },
+	{ name: 'Bone Tone', value: 'bone', icon: 'Bone' }
 	];
 
 	const dispatch = createEventDispatcher();
@@ -539,7 +512,7 @@ async function loadUserStats(): Promise<void> {
 		<div class="settings-row">
 			<div class="btn-row">
 				<button class="back-button" on:click={onClose}>
-					<ChevronLeft />
+					{@html getIcon('ChevronLeft', { size: 20 })}
 				</button>
 
 				<!-- Active tab title -->
@@ -564,16 +537,11 @@ async function loadUserStats(): Promise<void> {
 				{#if isEditing}
 					<button class="settings-button done" on:click={saveChanges}>
 						<span>
-							<Save size={16} />
+							{@html getIcon('Save', { size: 16 })}
 							{$t('profile.close')}
 						</span>
 					</button>
 				{:else}
-					<!-- <TimeTracker/>
-			<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-				<LogOutIcon size={16} />
-				<span class="hover">{$t('profile.logout')}</span>
-			</button> -->
 				{/if}
 			</div>
 		</div>
@@ -584,7 +552,7 @@ async function loadUserStats(): Promise<void> {
 				<div class="avatar-uploader-content" on:click|stopPropagation>
 					<div class="avatar-uploader-header">
 						<button class="close-button" on:click={toggleAvatarUploader}>
-							<X size={20} />
+							{@html getIcon('X', { size: 20 })}
 						</button>
 						<AvatarUploader
 							userId={user.id}
@@ -608,7 +576,7 @@ async function loadUserStats(): Promise<void> {
 								on:click={() => switchTab('profile')}
 								title="Profile"
 							>
-								<User2 size={20} />
+								{@html getIcon('User2', { size: 20 })}
 							</button>
 						{:else}
 							<!-- All tabs when not editing -->
@@ -617,45 +585,45 @@ async function loadUserStats(): Promise<void> {
 								on:click={() => switchTab('profile')}
 								title="Profile"
 							>
-								<User2 size={20} />
+								{@html getIcon('User2', { size: 20 })}
 							</button>
 							<button
 								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
 								on:click={() => switchTab('stats')}
 								title="Stats"
 							>
-								<Layers size={20} />
+								{@html getIcon('Layers', { size: 20 })}
 							</button>
 							<button
 								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
 								on:click={() => switchTab('tags')}
 								title="Tags"
 							>
-								<TagsIcon size={20} />
+								{@html getIcon('Tags', { size: 20 })}
 							</button>
 							<button
 								class="tab-button {activeTab === 'settings' ? 'active' : ''}"
 								on:click={() => switchTab('settings')}
 								title="Settings"
 							>
-								<Settings size={20} />
+								{@html getIcon('Settings', { size: 20 })}
 							</button>
 							<button
 								class="tab-button {activeTab === 'theme' ? 'active' : ''}"
 								on:click={() => switchTab('theme')}
 								title="Theme"
 							>
-								<svelte:component
-									this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
-									size={20}
-								/>
+							{@html getIcon(
+							styles.find((s) => s.value === $currentTheme)?.icon || 'Sun', 
+							{ size: 20 }
+							)}
 							</button>
 							<button
 								class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"
 								on:click={() => switchTab('wallpaper')}
 								title="Wallpaper"
 							>
-								<WallpaperIcon size={20} />
+								{@html getIcon('WallpaperIcon', { size: 20 })}
 							</button>
 						{/if}
 					</div>
@@ -683,7 +651,7 @@ async function loadUserStats(): Promise<void> {
 											</div>
 										{/if}
 										<div class="avatar-overlay">
-											<Camera size={20} />
+											{@html getIcon('Camera', { size: 20 })}
 										</div>
 									</div>
 
@@ -847,15 +815,15 @@ async function loadUserStats(): Promise<void> {
 									<h3>Account Settings</h3>
 									<div class="settings-row">
 										<button class="settings-option" on:click={toggleEdit}>
-											<Settings size={20} />
+											{@html getIcon('Settings', { size: 20 })}
 											<span>Edit Profile</span>
 										</button>
 										<button class="settings-option" on:click={handleLanguageChange}>
-											<Languages size={20} />
+											{@html getIcon('Languages', { size: 20 })}
 											<span>Change Language ({$t('lang.flag')})</span>
 										</button>
 										<button class="settings-option logout" on:click={logout}>
-											<LogOutIcon size={20} />
+											{@html getIcon('LogOut', { size: 20 })}
 											<span>Logout</span>
 										</button>
 									</div>
@@ -864,7 +832,7 @@ async function loadUserStats(): Promise<void> {
 									<h3>Profile</h3>
 									<div class="settings-row">
 										<button class="settings-option" on:click={toggleAvatarUploader}>
-											<Camera size={20} />
+											{@html getIcon('Camera', { size: 20 })}
 											<span>Change Avatar</span>
 										</button>
 									</div>

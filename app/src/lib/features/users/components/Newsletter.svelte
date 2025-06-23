@@ -2,7 +2,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { newsletterStore } from '$lib/stores/newsletterStore';
 	import type { NewsletterPreferences } from '$lib/types/types.subscriptions';
-	import { X } from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let showPopup = false;
 
@@ -39,7 +39,7 @@
 	<div class="overlay" transition:fade>
 		<div class="popup-container" transition:fly={{ y: 20 }}>
 			<button class="close-button" on:click={close}>
-				<X size={24} />
+				{@html getIcon('X', { size: 24 })}
 			</button>
 
 			{#if isSubmitted}

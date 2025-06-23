@@ -5,7 +5,6 @@
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import { X, Bot, Wrench, Target, Settings2, SquareMenu } from 'lucide-svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
 	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
@@ -18,6 +17,7 @@
 	import { quotes } from '$lib/translations/quotes';
 	import itImage from '$lib/assets/wallpapers/galileo.jpeg';
 	import greekImage from '$lib/assets/wallpapers/platon.png';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let showOverlay = false;
 	let overlayContent = '';
@@ -131,7 +131,9 @@
 <nav class="config-selector" class:collapsed={!isNavExpanded && isNarrowScreen}>
 	{#if isNarrowScreen}
 		<button class="toggle-nav" on:click={toggleNav}>
-			<SquareMenu size={24} class="nav-icon" />
+			<span class="nav-icon">
+				{@html getIcon('SquareMenu', { size: 24 })}
+			</span>
 		</button>
 	{/if}
 
@@ -139,19 +141,25 @@
 		class={overlayContent === 'Agents' ? 'active' : ''}
 		on:click={() => toggleOverlay('Agents')}
 	>
-		<Bot size={24} class="nav-icon" />
+			<span class="nav-icon">
+				{@html getIcon('Bot', { size: 24 })}
+			</span>
 	</button>
 	<button
 		class={overlayContent === 'Models' ? 'active' : ''}
 		on:click={() => toggleOverlay('Models')}
 	>
-		<Settings2 size={24} class="nav-icon" />
+			<span class="nav-icon">
+				{@html getIcon('Settings2', { size: 24 })}
+			</span>
 	</button>
 	<button
 		class={overlayContent === 'Actions' ? 'active' : ''}
 		on:click={() => toggleOverlay('Actions')}
 	>
-		<Wrench size={24} class="nav-icon" />
+			<span class="nav-icon">
+				{@html getIcon('Wrench', { size: 24 })}
+			</span>
 	</button>
 </nav>
 {#if showH2}
@@ -180,7 +188,7 @@
 			>
 				<div class="overlay-content" on:click|stopPropagation transition:slide={{ duration: 200 }}>
 					<button class="close-button" on:click={closeOverlay} transition:fade={{ duration: 300 }}>
-						<X size={30} />
+						{@html getIcon('X', { size: 30 })}
 					</button>
 
 					{#key overlayContent}

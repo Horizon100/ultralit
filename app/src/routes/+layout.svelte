@@ -54,80 +54,7 @@
 		showExplorer
 	} from '$lib/stores/sidenavStore';
 	import Toast from '$lib/components/modals/Toast.svelte';
-
-	// Icons
-	import {
-		MessageSquare,
-		X,
-		PanelLeftClose,
-		PanelLeftOpen,
-		Drill,
-		NotebookTabs,
-		Sun,
-		Moon,
-		Languages,
-		Camera,
-		Plus,
-		LogIn,
-		LogOut,
-		User,
-		Sunrise,
-		Sunset,
-		Focus,
-		Bold,
-		Gauge,
-		Component,
-		Bone,
-		SquareKanban,
-		MapPin,
-		Combine,
-		MessageCircleDashed,
-		MessageCircle,
-		ChevronLeft,
-		HelpCircle,
-		InfoIcon,
-		Settings2,
-		Settings,
-		Brain,
-		Menu,
-		Code,
-		KanbanSquare,
-		Box,
-		ChevronDown,
-		LogOutIcon,
-		Github,
-		CircleDollarSign,
-		Link,
-		Table,
-		ComponentIcon,
-		Home,
-		CodeIcon,
-		Code2,
-		SquareDashedKanban,
-		Gamepad,
-		Gamepad2,
-		HomeIcon,
-		MessageCirclePlus,
-		ListCollapse,
-		TagIcon,
-		Filter,
-		FilterX,
-		LucideHome,
-		FilterIcon,
-		ChevronRight,
-		ScanFace,
-		Calendar,
-		FilterXIcon,
-		Bot,
-		KanbanSquareDashed,
-		ListFilter,
-		ListX,
-		MessageCircleOff,
-		ListCollapseIcon,
-		CalendarOff,
-		Notebook,
-		NotebookPen
-	} from 'lucide-svelte';
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { swipeGesture } from '$lib/utils/swipeGesture';
 	import { 
 		clientTryCatch, 
@@ -181,15 +108,15 @@
 
 	// Styles configuration
 	const styles = [
-		{ name: 'Daylight Delight', value: 'default', icon: Sun },
-		{ name: 'Midnight Madness', value: 'dark', icon: Moon },
-		{ name: 'Sunrise Surprise', value: 'light', icon: Sunrise },
-		{ name: 'Sunset Serenade', value: 'sunset', icon: Sunset },
-		{ name: 'Laser Focus', value: 'focus', icon: Focus },
-		{ name: 'Bold & Beautiful', value: 'bold', icon: Bold },
-		{ name: 'Turbo Mode', value: 'turbo', icon: Gauge },
-		{ name: 'Bone Tone', value: 'bone', icon: Bone },
-		{ name: 'Ivory Tower', value: 'ivoryx', icon: Component }
+	{ name: 'Daylight Delight', value: 'default', icon: 'Sun' as IconName },
+	{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' as IconName },
+	{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' as IconName },
+	{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' as IconName },
+	{ name: 'Laser Focus', value: 'focus', icon: 'Focus' as IconName },
+	{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' as IconName },
+	{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' as IconName },
+	{ name: 'Bone Tone', value: 'bone', icon: 'Bone' as IconName },
+	{ name: 'Ivory Tower', value: 'ivoryx', icon: 'Component' as IconName }
 	];
 
 	// Functions
@@ -609,7 +536,7 @@
 								}
 							}}
 						>
-							<LogOutIcon size={16} />
+							{@html getIcon('LogOutIcon', { size: 16 })}
 						</span>
 					</div>
 					{#if showProfile}
@@ -637,14 +564,14 @@
 					in:fly={{ y: 0, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					<LogIn size="16" />
+					{@html getIcon('LogIn', { size: 16 })}
 					<span>
 						{$t('profile.login')}
 					</span>
 				</button>
 				<span class="auth-language">
 					<button class="nav-link language" on:click={handleLanguageChange}>
-						<Languages size={16} />
+						{@html getIcon('Languages', { size: 16 })}
 						<span>{$t('lang.flag')}</span>
 					</button>
 				</span>
@@ -695,7 +622,7 @@
 					}
 				}}
 			>
-				<LucideHome />
+				{@html getIcon('Compass')}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.chat')}</span>
 				{/if}
@@ -711,7 +638,7 @@
 					}
 				}}
 			>
-				<KanbanSquare />
+				{@html getIcon('Command')}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.lean')}</span>
 				{/if}
@@ -727,7 +654,7 @@
 					}
 				}}
 			>
-				<Gamepad />
+				{@html getIcon('Gamepad')}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.game')}</span>
 				{/if}
@@ -743,7 +670,7 @@
 					}
 				}}
 			>
-				<Code />
+				{@html getIcon('Code')}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.ide')}</span>
 				{/if}
@@ -759,7 +686,7 @@
 					}
 				}}
 			>
-				<Combine />
+				{@html getIcon('Combine')}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.canvas')}</span>
 				{/if}
@@ -770,7 +697,7 @@
 				rel="noopener noreferrer"
 				class:expanded={isNavExpanded}
 			>
-				<Github size="30" />
+				{@html getIcon('Github')}
 				{#if isNavExpanded}
 					<span class="nav-text">GitHub</span>
 				{/if}
@@ -830,9 +757,11 @@
 						}}
 					>
 						{#if $showSidenav}
-							<ChevronLeft />
+						{@html getIcon('ChevronLeft')}
+
 						{:else}
-							<FilterIcon />
+						{@html getIcon('Filter')}
+
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -879,9 +808,9 @@
 						}}
 					>
 						{#if $showInput}
-							<ChevronDown />
+							{@html getIcon('ChevronDown')}
 						{:else}
-							<MessageCirclePlus />
+							{@html getIcon('MessageCirclePlus')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.compose')}</span>
@@ -928,9 +857,9 @@
 						}}
 					>
 						{#if $showRightSidenav}
-							<ChevronRight />
+							{@html getIcon('ChevronRight')}
 						{:else}
-							<ScanFace />
+							{@html getIcon('ScanFace')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -948,7 +877,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<HomeIcon />
+						{@html getIcon('HomeIcon')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.home')}</span>
 						{/if}
@@ -967,9 +896,9 @@
 						}}
 					>
 						{#if $showThreadList}
-							<ChevronLeft />
+							{@html getIcon('ChevronLeft')}
 						{:else}
-							<ListCollapse />
+							{@html getIcon('ListCollapse')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.chat')}</span>
@@ -984,7 +913,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<SquareKanban />
+						{@html getIcon('SquareKanban')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.kanban')}</span>
 						{/if}
@@ -998,7 +927,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<Gamepad2 />
+						{@html getIcon('Gamepad2')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.game')}</span>
 						{/if}
@@ -1046,10 +975,10 @@
 						}}
 					>
 						{#if $showSidenav}
-							<ListX />
+							{@html getIcon('ListX')}
 							Stages
 						{:else}
-							<ListFilter />
+							{@html getIcon('ListFilter')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -1095,9 +1024,9 @@
 						}}
 					>
 						{#if $showRightSidenav}
-							<CalendarOff />
+							{@html getIcon('CalendarOff')}
 						{:else}
-							<Calendar />
+							{@html getIcon('Calendar')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -1143,9 +1072,9 @@
 						}}
 					>
 						{#if $showOverlay}
-							<MessageCircleOff />
+							{@html getIcon('MessageCircleOff')}
 						{:else}
-							<MessageSquare />
+							{@html getIcon('MessageSquare')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -1165,9 +1094,9 @@
 							}}
 						>
 							{#if $showThreadList}
-								<ListCollapseIcon />
+								{@html getIcon('ListCollapseIcon')}
 							{:else}
-								<ListCollapse />
+								{@html getIcon('ListCollapse')}
 							{/if}
 							{#if isNavExpanded}
 								<span class="nav-text">{$t('nav.chat')}</span>
@@ -1213,9 +1142,9 @@
 						}}
 					>
 						{#if $showEditor}
-							<Notebook />
+							{@html getIcon('Notebook')}
 						{:else}
-							<NotebookPen />
+							{@html getIcon('NotebookPen')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -1239,9 +1168,9 @@
 							}}
 						>
 							{#if $showExplorer}
-								<ListCollapseIcon />
+								{@html getIcon('ListCollapseIcon')}
 							{:else}
-								<ListCollapse />
+								{@html getIcon('ListCollapse')}
 							{/if}
 							{#if isNavExpanded}
 								<span class="nav-text">{$t('nav.chat')}</span>
@@ -1260,7 +1189,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<HomeIcon />
+						{@html getIcon('HomeIcon')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.home')}</span>
 						{/if}
@@ -1274,7 +1203,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<MessageCircle />
+						{@html getIcon('MessageCircle')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.chat')}</span>
 						{/if}
@@ -1288,7 +1217,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						<SquareKanban />
+						{@html getIcon('SquareKanban')}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.kanban')}</span>
 						{/if}
@@ -1307,9 +1236,9 @@
 						}}
 					>
 						{#if $showSidenav}
-							<PanelLeftClose />
+							{@html getIcon('PanelLeftClose')}
 						{:else}
-							<Gamepad />
+							{@html getIcon('Gamepad')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.game')}</span>
@@ -1334,9 +1263,9 @@
 		}}
 	>
 		{#if isNavExpanded}
-			<PanelLeftClose />
+			{@html getIcon('PanelLeftClose')}
 		{:else}
-			<PanelLeftOpen />
+			{@html getIcon('PanelLeftOpen')}
 		{/if}
 	</button>
 	{#if showLanguageNotification}
@@ -1354,35 +1283,14 @@
 					in:fly={{ y: 50, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					<X size={24} />
+					{@html getIcon('X')}
 				</button>
 				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
 			</div>
 		</div>
 	{/if}
 
-	<!-- {#if showProfile}
-<div
-	class="profile-overlay"
-	on:click={handleOverlayClick}
-	transition:fly={{ y: -200, duration: 300 }}
->
-	<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-		<button
-			class="close-button"
-			transition:fly={{ y: -200, duration: 300 }}
-			on:click={() => (showProfile = false)}
-		>
-			<X size={24} />
-		</button>
-		<Profile
-			user={$currentUser}
-			onClose={() => (showProfile = false)}
-			onStyleClick={handleStyleClick}
-		/>
-	</div>
-</div>
-{/if} -->
+
 	{#if showLanguageNotification}
 		<div class="language-overlay" transition:fade={{ duration: 300 }}>
 			<div class="language-notification" transition:fade={{ duration: 300 }}>
@@ -1430,7 +1338,7 @@
 					in:fly={{ y: 50, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					<X size={24} />
+					{@html getIcon('X')}
 				</button>
 				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
 			</div>
