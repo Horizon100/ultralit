@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Attachment } from '$lib/types/types';
+	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	const dispatch = createEventDispatcher<{
 		upload: Attachment[];
@@ -18,28 +19,34 @@
 		uploadError = '';
 		const newAttachments: Attachment[] = [];
 
-		try {
+		const result = await clientTryCatch((async () => {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
-				
+
 				// Create FormData for the file upload
 				const formData = new FormData();
 				formData.append('file', file);
 				formData.append('fileName', file.name);
 
 				// Upload to your API endpoint
-				const response = await fetch('/api/attachments', {
+				const uploadResult = await fetchTryCatch<{
+					id: string;
+					file: string;
+					fileName: string;
+					url: string;
+					note?: string;
+					error?: string;
+				}>('/api/attachments', {
 					method: 'POST',
 					body: formData
 				});
 
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.error || `Failed to upload ${file.name}`);
+				if (isFailure(uploadResult)) {
+					throw new Error(`Failed to upload ${file.name}: ${uploadResult.error}`);
 				}
 
-				const uploadedFile = await response.json();
-				
+				const uploadedFile = uploadResult.data;
+
 				// Create attachment object matching your interface
 				const attachment: Attachment = {
 					id: uploadedFile.id,
@@ -60,52 +67,57 @@
 
 			// Clear the file input
 			files = undefined as any;
+			
+			return newAttachments;
+		})(), `Uploading ${files.length} file(s)`);
 
-		} catch (error) {
-			console.error('Upload error:', error);
-			uploadError = error instanceof Error ? error.message : 'Upload failed';
-		} finally {
-			isUploading = false;
+		if (isFailure(result)) {
+			console.error('Upload error:', result.error);
+			uploadError = result.error;
 		}
+
+		isUploading = false;
 	}
 
 	async function deleteAttachment(attachmentId: string) {
-		try {
-			const response = await fetch(`/api/attachments/${attachmentId}`, {
-				method: 'DELETE'
-			});
+		const result = await clientTryCatch((async () => {
+			const deleteResult = await fetchTryCatch<{ error?: string }>(
+				`/api/attachments/${attachmentId}`,
+				{
+					method: 'DELETE'
+				}
+			);
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || 'Failed to delete attachment');
+			if (isFailure(deleteResult)) {
+				throw new Error(`Failed to delete attachment: ${deleteResult.error}`);
 			}
 
 			// Remove from local array
-			uploadedAttachments = uploadedAttachments.filter(att => att.id !== attachmentId);
+			uploadedAttachments = uploadedAttachments.filter((att) => att.id !== attachmentId);
 			dispatch('upload', uploadedAttachments);
+			
+			return true;
+		})(), `Deleting attachment ${attachmentId}`);
 
-		} catch (error) {
-			console.error('Delete error:', error);
-			uploadError = error instanceof Error ? error.message : 'Delete failed';
+		if (isFailure(result)) {
+			console.error('Delete error:', result.error);
+			uploadError = result.error;
 		}
 	}
 </script>
 
 <div class="attachment-uploader">
 	<h2>Upload Attachments</h2>
-	
+
 	<div class="upload-section">
-		<input 
-			type="file" 
-			bind:files 
-			multiple 
-			accept="image/*,application/pdf,.doc,.docx,.txt" 
+		<input
+			type="file"
+			bind:files
+			multiple
+			accept="image/*,application/pdf,.doc,.docx,.txt"
 			disabled={isUploading}
 		/>
-		<button 
-			on:click={handleUpload} 
-			disabled={!files || files.length === 0 || isUploading}
-		>
+		<button on:click={handleUpload} disabled={!files || files.length === 0 || isUploading}>
 			{isUploading ? 'Uploading...' : 'Upload'}
 		</button>
 	</div>
@@ -131,8 +143,8 @@
 								{attachment.fileName}
 							{/if}
 						</span>
-						<button 
-							class="delete-btn" 
+						<button
+							class="delete-btn"
 							on:click={() => deleteAttachment(attachment.id)}
 							title="Delete attachment"
 						>

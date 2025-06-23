@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const project = url.searchParams.get('project');
 	console.log('[MAPS API] Requested project:', project);
-	
+
 	// Only filter by project if one is specified
 	const filter = project ? `project = "${project}"` : '';
 	console.log('[MAPS API] Filter:', filter);
@@ -23,7 +23,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		});
 
 		console.log('[MAPS API] Found maps count:', maps.length);
-		console.log('[MAPS API] Maps:', maps.map(m => ({ id: m.id, name: m.name, project: m.project })));
+		console.log(
+			'[MAPS API] Maps:',
+			maps.map((m) => ({ id: m.id, name: m.name, project: m.project }))
+		);
 
 		return json({ maps });
 	} catch (err) {

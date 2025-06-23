@@ -55,21 +55,18 @@
 	class="building-container"
 	style={buildingStyle}
 	on:click={handleClick}
-	on:mouseenter={() => isHovered = true}
-	on:mouseleave={() => isHovered = false}
+	on:mouseenter={() => (isHovered = true)}
+	on:mouseleave={() => (isHovered = false)}
 	class:hovered={isHovered}
 	role="button"
 	tabindex="0"
 	on:keydown={(e) => e.key === 'Enter' && handleClick()}
 >
 	<!-- Building structure -->
-	<div 
-		class="building-body"
-		style="--building-color: {getBuildingColor(building.name)};"
-	>
+	<div class="building-body" style="--building-color: {getBuildingColor(building.name)};">
 		<!-- Building roof -->
 		<div class="building-roof"></div>
-		
+
 		<!-- Building main area -->
 		<div class="building-main">
 			<div class="building-icon">
@@ -79,7 +76,7 @@
 				{building.name}
 			</div>
 		</div>
-		
+
 		<!-- Building entrance -->
 		<div class="building-entrance"></div>
 	</div>
@@ -126,7 +123,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -149,9 +146,13 @@
 	.building-body {
 		width: 100%;
 		height: 100%;
-		background: linear-gradient(135deg, var(--building-color), color-mix(in srgb, var(--building-color) 80%, #000));
+		background: linear-gradient(
+			135deg,
+			var(--building-color),
+			color-mix(in srgb, var(--building-color) 80%, #000)
+		);
 		border-radius: 8px;
-		box-shadow: 
+		box-shadow:
 			0 4px 8px rgba(0, 0, 0, 0.2),
 			0 1px 3px rgba(0, 0, 0, 0.1);
 		border: 2px solid rgba(255, 255, 255, 0.2);
@@ -161,7 +162,7 @@
 	}
 
 	.building-container:hover .building-body {
-		box-shadow: 
+		box-shadow:
 			0 8px 16px rgba(0, 0, 0, 0.3),
 			0 2px 6px rgba(0, 0, 0, 0.15);
 		border-color: rgba(255, 255, 255, 0.4);
@@ -268,7 +269,8 @@
 	}
 
 	@keyframes pulse {
-		0%, 100% {
+		0%,
+		100% {
 			opacity: 1;
 			transform: scale(1);
 		}

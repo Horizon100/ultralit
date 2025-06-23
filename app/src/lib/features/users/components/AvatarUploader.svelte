@@ -145,7 +145,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -156,7 +156,6 @@
 		position: relative;
 		width: 100%;
 		box-shadow: 0 20px 40px 20px rgba(255, 255, 255, 0.7);
-
 	}
 
 	.hidden-input {
@@ -171,7 +170,7 @@
 		cursor: pointer;
 		gap: 1rem;
 		padding: 1rem;
-		background-color:var(--secondary-color) !important;
+		background-color: var(--secondary-color) !important;
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		position: fixed;
@@ -183,7 +182,6 @@
 			background: var(--tertiary-color) !important;
 		}
 	}
-
 
 	.preview-container {
 		position: relative;

@@ -2,22 +2,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
+	import { fly } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { gameStore } from '$lib/stores/gameStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { gameClient } from '$lib/clients/gameClient';
 	import AddHero from './AddHero.svelte';
-
+	import { showSidenav } from '$lib/stores/sidenavStore';
+	import GameDynamicSidenav from '$lib/components/navigation/GameDynamicSidenav.svelte';
 	import MapGrid from './MapGrid.svelte';
 	import BuildingView from './BuildingView.svelte';
 	import Hero from './Hero.svelte';
 	import Road from './Road.svelte';
-	import {
-		gameService,
-		gameRoadStore,
-		otherHeroesStore
-	} from '$lib/stores/gameStore';
+	import { gameService, gameRoadStore, otherHeroesStore } from '$lib/stores/gameStore';
 	import type {
 		GameState,
 		GameOrganization,
@@ -29,7 +27,7 @@
 	export let data: any;
 
 	// World grid configuration
-	const WORLD_GRID_SIZE = 64;
+	const WORLD_GRID_SIZE = 50;
 	const WORLD_MAP_WIDTH = 50;
 	const WORLD_MAP_HEIGHT = 50;
 
@@ -52,48 +50,55 @@
 
 	// Room layout for buildings (4 rooms + lobby, each room 3x3 cells minimum)
 	const ROOM_LAYOUTS = {
-		2: [  // 2x2 building - too small for 3x3 rooms, use 1x1
+		2: [
+			// 2x2 building - too small for 3x3 rooms, use 1x1
 			{ name: 'Lobby', position: { x: 0, y: 0 }, size: { width: 1, height: 1 } },
 			{ name: 'Room A', position: { x: 1, y: 0 }, size: { width: 1, height: 1 } },
 			{ name: 'Room B', position: { x: 0, y: 1 }, size: { width: 1, height: 1 } },
 			{ name: 'Room C', position: { x: 1, y: 1 }, size: { width: 1, height: 1 } }
 		],
-		3: [  // 3x3 building - each room takes full space
+		3: [
+			// 3x3 building - each room takes full space
 			{ name: 'Lobby', position: { x: 0, y: 0 }, size: { width: 3, height: 3 } }
 		],
-		4: [  // 4x4 building  
+		4: [
+			// 4x4 building
 			{ name: 'Lobby', position: { x: 1, y: 1 }, size: { width: 2, height: 2 } },
 			{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 1, height: 1 } },
 			{ name: 'Room B', position: { x: 3, y: 0 }, size: { width: 1, height: 1 } },
 			{ name: 'Room C', position: { x: 0, y: 3 }, size: { width: 1, height: 1 } },
 			{ name: 'Room D', position: { x: 3, y: 3 }, size: { width: 1, height: 1 } }
 		],
-		6: [  // 6x6 building - proper 3x3 rooms
+		6: [
+			// 6x6 building - proper 3x3 rooms
 			{ name: 'Lobby', position: { x: 1, y: 1 }, size: { width: 3, height: 3 } },
 			{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 3, height: 3 } },
 			{ name: 'Room B', position: { x: 3, y: 0 }, size: { width: 3, height: 3 } },
 			{ name: 'Room C', position: { x: 0, y: 3 }, size: { width: 3, height: 3 } },
 			{ name: 'Room D', position: { x: 3, y: 3 }, size: { width: 3, height: 3 } }
 		],
-		9: [  // 9x9 building - larger 3x3 rooms with spacing
+		9: [
+			// 9x9 building - larger 3x3 rooms with spacing
 			{ name: 'Lobby', position: { x: 3, y: 3 }, size: { width: 3, height: 3 } },
 			{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 3, height: 3 } },
 			{ name: 'Room B', position: { x: 6, y: 0 }, size: { width: 3, height: 3 } },
 			{ name: 'Room C', position: { x: 0, y: 6 }, size: { width: 3, height: 3 } },
 			{ name: 'Room D', position: { x: 6, y: 6 }, size: { width: 3, height: 3 } }
 		],
-	18: [  // 18x18 building - 4 separate 9x9 rooms, no overlap
-		{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 9, height: 9 } },
-		{ name: 'Room B', position: { x: 9, y: 0 }, size: { width: 9, height: 9 } },
-		{ name: 'Room C', position: { x: 0, y: 9 }, size: { width: 9, height: 9 } },
-		{ name: 'Room D', position: { x: 9, y: 9 }, size: { width: 9, height: 9 } }
-	],
-	20: [  // 20x20 building - 4 separate 9x9 rooms with 2-cell corridors
-		{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 9, height: 9 } },
-		{ name: 'Room B', position: { x: 11, y: 0 }, size: { width: 9, height: 9 } },
-		{ name: 'Room C', position: { x: 0, y: 11 }, size: { width: 9, height: 9 } },
-		{ name: 'Room D', position: { x: 11, y: 11 }, size: { width: 9, height: 9 } }
-	]
+		18: [
+			// 18x18 building - 4 separate 9x9 rooms, no overlap
+			{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 9, height: 9 } },
+			{ name: 'Room B', position: { x: 9, y: 0 }, size: { width: 9, height: 9 } },
+			{ name: 'Room C', position: { x: 0, y: 9 }, size: { width: 9, height: 9 } },
+			{ name: 'Room D', position: { x: 9, y: 9 }, size: { width: 9, height: 9 } }
+		],
+		20: [
+			// 20x20 building - 4 separate 9x9 rooms with 2-cell corridors
+			{ name: 'Room A', position: { x: 0, y: 0 }, size: { width: 9, height: 9 } },
+			{ name: 'Room B', position: { x: 11, y: 0 }, size: { width: 9, height: 9 } },
+			{ name: 'Room C', position: { x: 0, y: 11 }, size: { width: 9, height: 9 } },
+			{ name: 'Room D', position: { x: 11, y: 11 }, size: { width: 9, height: 9 } }
+		]
 	};
 
 	// Camera/viewport management
@@ -113,7 +118,10 @@
 	$: heroPosition = $gameStore.heroPawn?.position;
 	$: visibleHeroes = filterHeroesByOrganization(otherHeroes, $gameStore.currentOrganization);
 
-	function filterHeroesByOrganization(heroes: GameHero[], currentOrg: GameOrganization | null): GameHero[] {
+	function filterHeroesByOrganization(
+		heroes: GameHero[],
+		currentOrg: GameOrganization | null
+	): GameHero[] {
 		if (!currentOrg || !currentOrg.members || !heroes) {
 			console.log('[DEBUG] No organization or members to filter by');
 			return [];
@@ -124,7 +132,7 @@
 		console.log('[DEBUG] Organization members:', memberHeroIds);
 
 		// Filter heroes to only include those who are members
-		const filtered = heroes.filter(hero => {
+		const filtered = heroes.filter((hero) => {
 			const isMember = memberHeroIds.includes(hero.id);
 			console.log(`[DEBUG] Hero ${hero.id} is member: ${isMember}`);
 			return isMember;
@@ -187,7 +195,6 @@
 			// Always try to load buildings and rooms
 			await loadBuildings();
 			await loadRooms();
-
 		} catch (error) {
 			console.error('Failed to load world data:', error);
 			organizations = [];
@@ -217,11 +224,11 @@
 			console.log('Building ID:', building.id);
 			console.log('Building size:', building.size);
 			console.log('Building position:', building.position);
-			
+
 			// Get room layout based on building size
 			const buildingSize = Math.max(building.size.width, building.size.height);
 			console.log('Calculated building size:', buildingSize);
-			
+
 			const roomLayout = ROOM_LAYOUTS[buildingSize as keyof typeof ROOM_LAYOUTS] || ROOM_LAYOUTS[3];
 			console.log('Selected room layout:', roomLayout);
 			console.log('Number of rooms to create:', roomLayout.length);
@@ -230,15 +237,15 @@
 
 			for (let i = 0; i < roomLayout.length; i++) {
 				const room = roomLayout[i];
-					if (room.name.includes('Corridor') || room.name.includes('Lobby')) {
-						continue;
-					}
-					
+				if (room.name.includes('Corridor') || room.name.includes('Lobby')) {
+					continue;
+				}
+
 				console.log(`\n--- Creating room ${i + 1}/${roomLayout.length}: ${room.name} ---`);
-				
+
 				const roomPixelPosition = {
-					x: building.position.x + (room.position.x * WORLD_GRID_SIZE),
-					y: building.position.y + (room.position.y * WORLD_GRID_SIZE)
+					x: building.position.x + room.position.x * WORLD_GRID_SIZE,
+					y: building.position.y + room.position.y * WORLD_GRID_SIZE
 				};
 
 				console.log(`Room ${room.name} position calculation:`);
@@ -269,7 +276,10 @@
 					});
 
 					console.log(`Room ${room.name} response status:`, roomResponse.status);
-					console.log(`Room ${room.name} response headers:`, Array.from(roomResponse.headers.entries()));
+					console.log(
+						`Room ${room.name} response headers:`,
+						Array.from(roomResponse.headers.entries())
+					);
 
 					if (roomResponse.ok) {
 						const roomResult = await roomResponse.json();
@@ -278,7 +288,7 @@
 					} else {
 						const errorText = await roomResponse.text();
 						console.error(`❌ Failed to create room ${room.name}:`, errorText);
-						
+
 						// Try to parse as JSON for better error info
 						try {
 							const errorJson = JSON.parse(errorText);
@@ -296,7 +306,7 @@
 			console.log('Total rooms attempted:', roomLayout.length);
 			console.log('Total rooms created successfully:', createdRooms.length);
 			console.log('Created room IDs:', createdRooms);
-			
+
 			// Update the building with room references if any rooms were created
 			if (createdRooms.length > 0) {
 				console.log('\n--- Updating building with room references ---');
@@ -324,7 +334,6 @@
 			} else {
 				console.warn('⚠️ No rooms were created, skipping building update');
 			}
-
 		} catch (error) {
 			console.error('💥 Error in createRoomsForBuilding:', error);
 		}
@@ -345,7 +354,7 @@
 			return;
 		}
 
-		const buildingType = buildingTypes.find(bt => bt.id === selectedBuildingType);
+		const buildingType = buildingTypes.find((bt) => bt.id === selectedBuildingType);
 		if (!buildingType) return;
 
 		// Check if area is clear
@@ -393,24 +402,24 @@
 				const result = await response.json();
 				const newBuilding = result.data;
 				console.log('✅ Building created successfully:', newBuilding);
-				
+
 				// Create rooms for the new building
 				await createRoomsForBuilding(newBuilding);
-				
+
 				// Add the new building to the list immediately
 				buildings = [...buildings, newBuilding];
-				
+
 				// Also reload buildings and rooms to ensure we have the latest data
 				await loadBuildings();
 				await loadRooms();
-				
+
 				// Reset creation mode
 				cancelBuildingCreation();
 			} else {
 				// Handle non-JSON error responses
 				let errorMessage = 'Unknown error';
 				let errorDetails = null;
-				
+
 				try {
 					const error = await response.json();
 					errorMessage = error.error || error.message || 'Failed to create building';
@@ -423,7 +432,7 @@
 					errorMessage = `Server error (${response.status}): ${response.statusText}`;
 					errorDetails = { rawError: errorText };
 				}
-				
+
 				console.error('Building creation failed:', {
 					status: response.status,
 					statusText: response.statusText,
@@ -431,7 +440,7 @@
 					errorDetails,
 					sentData: buildingData
 				});
-				
+
 				alert(`Failed to create building: ${errorMessage}`);
 			}
 		} catch (error) {
@@ -440,7 +449,11 @@
 		}
 	}
 
-	function isBuildingAreaBlocked(gridX: number, gridY: number, size: { width: number, height: number }): boolean {
+	function isBuildingAreaBlocked(
+		gridX: number,
+		gridY: number,
+		size: { width: number; height: number }
+	): boolean {
 		// Check if building would go outside world bounds
 		if (gridX + size.width > WORLD_MAP_WIDTH || gridY + size.height > WORLD_MAP_HEIGHT) {
 			return true;
@@ -573,47 +586,52 @@
 		}
 	}
 
-	// Check if position is blocked by buildings
-// Check if position is blocked by buildings
-function isPositionBlocked(gridX: number, gridY: number): boolean {
-	return buildings.some((building) => {
-		if (!building || !building.size || !building.position) return false;
-		
-		// Convert building pixel position to grid coordinates
-		const buildingGridX = Math.floor(building.position.x / WORLD_GRID_SIZE);
-		const buildingGridY = Math.floor(building.position.y / WORLD_GRID_SIZE);
-		const buildingWidth = building.size?.width || 2;
-		const buildingHeight = building.size?.height || 2;
-		
-		// Check if position is within building bounds
-		const isInBuilding = gridX >= buildingGridX && 
-			   gridX < buildingGridX + buildingWidth &&
-			   gridY >= buildingGridY && 
-			   gridY < buildingGridY + buildingHeight;
-		
-		if (!isInBuilding) return false;
-		
-		// If inside building, check if position is in a room or lobby (allow movement)
-		const matchingRooms = rooms.filter(room => room.building === building.id);
-		const isInRoom = matchingRooms.some(room => {
-			if (!room.position || !room.size) return false;
-			const roomGridX = Math.floor(room.position.x / WORLD_GRID_SIZE);
-			const roomGridY = Math.floor(room.position.y / WORLD_GRID_SIZE);
-			return gridX >= roomGridX && 
-				   gridX < roomGridX + room.size.width &&
-				   gridY >= roomGridY && 
-				   gridY < roomGridY + room.size.height;
+	/*
+	 * Check if position is blocked by buildings
+	 * Check if position is blocked by buildings
+	 */
+	function isPositionBlocked(gridX: number, gridY: number): boolean {
+		return buildings.some((building) => {
+			if (!building || !building.size || !building.position) return false;
+
+			// Convert building pixel position to grid coordinates
+			const buildingGridX = Math.floor(building.position.x / WORLD_GRID_SIZE);
+			const buildingGridY = Math.floor(building.position.y / WORLD_GRID_SIZE);
+			const buildingWidth = building.size?.width || 2;
+			const buildingHeight = building.size?.height || 2;
+
+			// Check if position is within building bounds
+			const isInBuilding =
+				gridX >= buildingGridX &&
+				gridX < buildingGridX + buildingWidth &&
+				gridY >= buildingGridY &&
+				gridY < buildingGridY + buildingHeight;
+
+			if (!isInBuilding) return false;
+
+			// If inside building, check if position is in a room or lobby (allow movement)
+			const matchingRooms = rooms.filter((room) => room.building === building.id);
+			const isInRoom = matchingRooms.some((room) => {
+				if (!room.position || !room.size) return false;
+				const roomGridX = Math.floor(room.position.x / WORLD_GRID_SIZE);
+				const roomGridY = Math.floor(room.position.y / WORLD_GRID_SIZE);
+				return (
+					gridX >= roomGridX &&
+					gridX < roomGridX + room.size.width &&
+					gridY >= roomGridY &&
+					gridY < roomGridY + room.size.height
+				);
+			});
+
+			// Block movement only if inside building but NOT in any room/lobby
+			return !isInRoom;
 		});
-		
-		// Block movement only if inside building but NOT in any room/lobby
-		return !isInRoom;
-	});
-}
+	}
 
 	// Handle grid clicks for movement or building placement
 	async function onGridClick(event: CustomEvent) {
 		const { gridX, gridY, pixelX, pixelY } = event.detail;
-		
+
 		if (isCreatingBuilding) {
 			await createBuilding(gridX, gridY);
 		} else if (!isPositionBlocked(gridX, gridY) && data.user) {
@@ -661,53 +679,27 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 	});
 </script>
 
-<div class="world-navigator">
+<div class="world-navigator" class:drawer-visible={$showSidenav}>
 	<!-- Building creation toolbar -->
-	<div class="building-toolbar">
-							<AddHero />
-
-		<div class="toolbar-header">
-			<h3>Buildings</h3>
-			{#if isCreatingBuilding}
-				<button class="cancel-btn" on:click={cancelBuildingCreation}>✕</button>
-			{/if}
-		</div>
-		
-		<div class="building-types">
-			{#each buildingTypes as buildingType}
-				<button 
-					class="building-btn" 
-					class:selected={selectedBuildingType === buildingType.id}
-					class:creating={isCreatingBuilding && selectedBuildingType === buildingType.id}
-					on:click={() => selectBuildingType(buildingType)}
-					title="{buildingType.name} - Auto-creates rooms (3x3 each)"
-				>
-					<span class="building-icon">{buildingType.icon}</span>
-					<span class="building-name">{buildingType.name}</span>
-					<span class="building-rooms">
-						{#if buildingType.size.width === 6}
-							+5 rooms (3x3)
-						{:else if buildingType.size.width === 9}
-							+5 rooms (3x3)
-						{:else}
-							+rooms (3x3)
-						{/if}
-					</span>
-				</button>
-			{/each}
-		</div>
-
-		{#if isCreatingBuilding}
-			<div class="creation-hint">
-				<p>Click on the map to place your {buildingTypes.find(bt => bt.id === selectedBuildingType)?.name}</p>
-				<p class="hint-small">Will auto-create lobby + rooms</p>
-				<p class="hint-small">Press ESC to cancel</p>
-			</div>
-		{/if}
-	</div>
+	{#if $showSidenav}
+		<GameDynamicSidenav
+			width={300}
+			{buildingTypes}
+			{selectedBuildingType}
+			{isCreatingBuilding}
+			onSelectBuildingType={selectBuildingType}
+			onCancelBuilding={cancelBuildingCreation}
+		/>
+	{/if}
 
 	<!-- Main world view -->
-	<div bind:this={mapContainer} class="world-container">
+	<div
+		bind:this={mapContainer}
+		class="world-container"
+		class:drawer-visible={$showSidenav}
+		in:fly={{ x: -200, duration: 100 }}
+		out:fly={{ x: -200, duration: 500 }}
+	>
 		{#if loading}
 			<div class="loading-overlay">
 				<div class="spinner"></div>
@@ -735,7 +727,7 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 				{#each buildings as building}
 					{#if building && building.position && building.size}
 						<!-- Building container -->
-						<div 
+						<div
 							style="position: absolute; 
 								   left: {building.position.x}px; 
 								   top: {building.position.y}px; 
@@ -748,19 +740,21 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 							title="Building: {building.name}"
 						>
 							<!-- Building name label -->
-							<div style="position: absolute; top: -25px; left: 0; background: #8B4513; color: white; padding: 2px 8px; font-size: 12px; border-radius: 3px; font-weight: bold;">
+							<div
+								style="position: absolute; top: -25px; left: 0; background: #8B4513; color: white; padding: 2px 8px; font-size: 12px; border-radius: 3px; font-weight: bold;"
+							>
 								{building.name}
 							</div>
 
 							<!-- Show rooms inside this building -->
-							{#each rooms.filter(room => room.building === building.id) as room}
+							{#each rooms.filter((room) => room.building === building.id) as room}
 								{#if room && room.position && room.size}
 									<!-- Debug room positioning -->
 									{@const relativeX = room.position.x - building.position.x}
 									{@const relativeY = room.position.y - building.position.y}
 									{@const roomWidth = room.size.width * WORLD_GRID_SIZE}
 									{@const roomHeight = room.size.height * WORLD_GRID_SIZE}
-									
+
 									<div
 										style="position: absolute;
 											   left: {relativeX}px;
@@ -773,10 +767,13 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 											   align-items: center;
 											   justify-content: center;
 											   box-sizing: border-box;"
-										title="{room.name} - Capacity: {room.capacity} - Size: {room.size.width}x{room.size.height} - Pos: {relativeX},{relativeY}"
+										title="{room.name} - Capacity: {room.capacity} - Size: {room.size.width}x{room
+											.size.height} - Pos: {relativeX},{relativeY}"
 									>
-										<span style="font-size: 12px; color: black; font-weight: bold; text-shadow: 1px 1px 1px white; text-align: center;">
-											{room.name}<br>
+										<span
+											style="font-size: 12px; color: black; font-weight: bold; text-shadow: 1px 1px 1px white; text-align: center;"
+										>
+											{room.name}<br />
 											<small style="font-size: 8px;">{room.size.width}x{room.size.height}</small>
 										</span>
 									</div>
@@ -784,7 +781,6 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 							{/each}
 						</div>
 					{/if}
-					
 				{/each}
 
 				<!-- Other heroes -->
@@ -828,7 +824,10 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 							   width: {room.size.width * 2.4}px;
 							   height: {room.size.height * 1.6}px;"
 					>
-						<div class="minimap-room-dot" style="background: {room.name === 'Lobby' ? '#FFD700' : '#4682B4'};"></div>
+						<div
+							class="minimap-room-dot"
+							style="background: {room.name === 'Lobby' ? '#FFD700' : '#4682B4'};"
+						></div>
 					</div>
 				{/if}
 			{/each}
@@ -837,7 +836,8 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 			{#if $gameStore.heroPawn}
 				<div
 					class="minimap-player"
-					style="left: {($gameStore.heroPawn.position.x / WORLD_GRID_SIZE) * 2.4}px; top: {($gameStore.heroPawn.position.y / WORLD_GRID_SIZE) * 1.6}px;"
+					style="left: {($gameStore.heroPawn.position.x / WORLD_GRID_SIZE) *
+						2.4}px; top: {($gameStore.heroPawn.position.y / WORLD_GRID_SIZE) * 1.6}px;"
 				>
 					<div class="minimap-player-dot"></div>
 				</div>
@@ -847,43 +847,18 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.world-navigator {
-		height: 100vh;
+		height: 89vh;
 		width: 100%;
 		position: relative;
 		overflow: hidden;
-		background: linear-gradient(135deg, #87ceeb, #e0f6ff);
-	}
+		background-color: var(--secondary-color);
 
-	.building-toolbar {
-		position: absolute;
-		left: 1rem;
-		top: 1rem;
-		width: 12rem;
-		background: rgba(255, 255, 255, 0.95);
-		border-radius: 0.75rem;
-		border: 2px solid var(--border-primary);
-		backdrop-filter: blur(10px);
-		z-index: 30;
-		padding: 1rem;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-	}
-
-	.toolbar-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-	}
-
-	.toolbar-header h3 {
-		margin: 0;
-		font-size: 1.125rem;
-		color: var(--text-primary);
+		// background: linear-gradient(135deg, #87ceeb, #e0f6ff);
 	}
 
 	.cancel-btn {
@@ -982,8 +957,16 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 
 	.world-container {
 		position: absolute;
+		max-width: 1600px;
 		inset: 0;
 		overflow: hidden;
+		transition: all 0.2s ease;
+	}
+
+	.drawer-visible .world-container {
+		transform: translateX(300px);
+		border-radius: 2rem !important;
+		border: 1px solid var(--tertiary-color);
 	}
 
 	.loading-overlay {
@@ -1043,7 +1026,7 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 	.minimap-building-box {
 		width: 100%;
 		height: 100%;
-		background-color: #8B4513;
+		background-color: #8b4513;
 		border: 1px solid #654321;
 		opacity: 0.8;
 	}
@@ -1082,21 +1065,31 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.5; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	@keyframes pulse-green {
-		0%, 100% { 
+		0%,
+		100% {
 			background: var(--primary);
 			box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
 		}
-		50% { 
+		50% {
 			background: #22c55e;
 			box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
 		}
@@ -1107,12 +1100,12 @@ function isPositionBlocked(gridX: number, gridY: number): boolean {
 			width: 10rem;
 			padding: 0.75rem;
 		}
-		
+
 		.building-btn {
 			padding: 0.5rem;
 			gap: 0.5rem;
 		}
-		
+
 		.building-name {
 			font-size: 0.75rem;
 		}

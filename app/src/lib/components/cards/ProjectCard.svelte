@@ -164,50 +164,49 @@
 		}
 	}
 
-async function loadProjectData() {
-	if (!projectId) {
-		console.log('No projectId provided, skipping load');
-		return;
-	}
-
-	console.log('Loading data for projectId:', projectId);
-	activeTab = 'info';
-	isLoading = true;
-	errorMessage = ''; // Clear previous errors
-
-	try {
-		const response = await fetch(`/api/projects/${projectId}`, {
-			method: 'GET',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+	async function loadProjectData() {
+		if (!projectId) {
+			console.log('No projectId provided, skipping load');
+			return;
 		}
 
-		const data = await response.json();
-		if (data.success && data.data) {
-			project = data.data;
-			if ($currentUser && project) {
-				isOwner = project.owner === $currentUser.id;
-				// Update project store with current project
-				projectStore.setCurrentProject(project.id);
-			}
-		} else {
-			throw new Error(data.error || 'Failed to fetch project');
-		}
-	} catch (error) {
-		console.error('Error loading project data:', error);
-		errorMessage = error instanceof Error ? error.message : 'Failed to load project data.';
-	} finally {
-		isLoading = false;
-	}
-}
+		console.log('Loading data for projectId:', projectId);
+		activeTab = 'info';
+		isLoading = true;
+		errorMessage = ''; // Clear previous errors
 
+		try {
+			const response = await fetch(`/api/projects/${projectId}`, {
+				method: 'GET',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+			}
+
+			const data = await response.json();
+			if (data.success && data.data) {
+				project = data.data;
+				if ($currentUser && project) {
+					isOwner = project.owner === $currentUser.id;
+					// Update project store with current project
+					projectStore.setCurrentProject(project.id);
+				}
+			} else {
+				throw new Error(data.error || 'Failed to fetch project');
+			}
+		} catch (error) {
+			console.error('Error loading project data:', error);
+			errorMessage = error instanceof Error ? error.message : 'Failed to load project data.';
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	async function loadProjectThreadsData() {
 		console.log('Loading threads for project:', projectId);
@@ -349,7 +348,6 @@ async function loadProjectData() {
 		} catch (error) {
 			console.error('Error handling suggestion:', error);
 			errorMessage = error instanceof Error ? error.message : 'Could not use this suggestion.';
-
 		}
 	}
 	async function ensureThreadExists(projectId: string): Promise<string> {
@@ -392,7 +390,7 @@ async function loadProjectData() {
 
 	onMount(() => {
 		console.log('Component mounting...');
-		
+
 		activeTab = 'info';
 		previousActiveTab = 'info';
 
@@ -413,8 +411,7 @@ async function loadProjectData() {
 			}
 		});
 
-		unsubscribeThreadsStore = threadsStore.subscribe(value => {
-		});
+		unsubscribeThreadsStore = threadsStore.subscribe((value) => {});
 
 		const initializeAsync = async () => {
 			if (!$currentUser) {
@@ -433,7 +430,7 @@ async function loadProjectData() {
 			await initializeComponent();
 		};
 
-		initializeAsync().catch(error => {
+		initializeAsync().catch((error) => {
 			console.error('Mount initialization error:', error);
 			errorMessage = error instanceof Error ? error.message : 'Failed to initialize component';
 		});
@@ -658,14 +655,14 @@ async function loadProjectData() {
 										{projectDescription}
 									</p>
 								</div>
-									{#if $projectStore.currentProjectId}
-										<div class="project-deadlines-list">
-											<ProjectDeadlines projectId={$projectStore.currentProjectId} />
-										</div>
-											<ProjectCollaborators projectId={$projectStore.currentProjectId} />
-									{:else}
-										<div class="text-gray-500">No project selected</div>
-									{/if}
+								{#if $projectStore.currentProjectId}
+									<div class="project-deadlines-list">
+										<ProjectDeadlines projectId={$projectStore.currentProjectId} />
+									</div>
+									<ProjectCollaborators projectId={$projectStore.currentProjectId} />
+								{:else}
+									<div class="text-gray-500">No project selected</div>
+								{/if}
 
 								<!-- <div class="project-details">
                       <h3>{$t('dashboard.projectActivity')}</h3>
@@ -794,7 +791,7 @@ async function loadProjectData() {
 						</div>
 						{#if $projectStore.currentProjectId}
 							<div class="project-stats">
-							<ProjectDeadlines projectId={$projectStore.currentProjectId} />
+								<ProjectDeadlines projectId={$projectStore.currentProjectId} />
 							</div>
 							<ProjectDeadlines projectId={$projectStore.currentProjectId} />
 							<ProjectCollaborators projectId={$projectStore.currentProjectId} />
@@ -816,7 +813,7 @@ async function loadProjectData() {
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -870,8 +867,6 @@ async function loadProjectData() {
 		transition: opacity 0.3s ease;
 		pointer-events: none;
 	}
-
-
 
 	.project-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
@@ -1297,8 +1292,7 @@ async function loadProjectData() {
 		color: var(--accent-color);
 		text-align: left;
 
-		& h3.project-name {
-		}
+
 	}
 	.project-sidenav {
 		display: flex;

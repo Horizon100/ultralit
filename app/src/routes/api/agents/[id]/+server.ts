@@ -2,180 +2,98 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 import { error } from '@sveltejs/kit';
 
-export const GET: RequestHandler = async ({ params, url, cookies }) => {
-	try {
-		// Get auth token from cookies
-		const authCookie = cookies.get('pb_auth');
-		if (!authCookie) {
-			throw error(401, 'Authentication required');
-		}
+export const GET: RequestHandler = async ({ params, url, cookies }) =>
+  apiTryCatch(async () => {
+    const authCookie = cookies.get('pb_auth');
+    if (!authCookie) throw error(401, 'Authentication required');
 
-		// Parse the cookie value properly
-		try {
-			const authData = JSON.parse(authCookie);
-			pb.authStore.save(authData.token, authData.model);
-		} catch (_) {
-			// Fallback to direct cookie loading
-			pb.authStore.loadFromCookie(authCookie);
-		}
+    try {
+      const authData = JSON.parse(authCookie);
+      pb.authStore.save(authData.token, authData.model);
+    } catch {
+      pb.authStore.loadFromCookie(authCookie);
+    }
 
-		if (!pb.authStore.isValid) {
-			throw error(401, 'Invalid authentication');
-		}
+    if (!pb.authStore.isValid) throw error(401, 'Invalid authentication');
 
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
-			throw error(401, 'User ID not found');
-		}
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw error(401, 'User ID not found');
 
-		const expand = url.searchParams.get('expand') || '';
+    const expand = url.searchParams.get('expand') || '';
+    const queryOptions: { expand?: string } = {};
+    if (expand) queryOptions.expand = expand;
 
-		const queryOptions: { expand?: string } = {};
-		if (expand) {
-			queryOptions.expand = expand;
-		}
+    const agentResult = await pbTryCatch(pb.collection('ai_agents').getOne(params.id, queryOptions), 'fetch agent');
+    const agent = unwrap(agentResult);
 
-		const agent = await pb.collection('ai_agents').getOne(params.id, queryOptions);
+    if (agent.owner !== userId) throw error(403, 'Access denied');
 
-		// Check if user owns this agent - FIXED: using 'owner' instead of 'user_id'
-		if (agent.owner !== userId) {
-			throw error(403, 'Access denied');
-		}
+    return json({ success: true, data: agent });
+  }, 'Failed to fetch agent');
 
-		return json({
-			success: true,
-			data: agent
-		});
-	} catch (err) {
-		console.error('Error fetching agent:', err);
-		const errorMessage = err instanceof Error ? err.message : 'Failed to fetch agent';
-		const statusCode =
-			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
+export const PATCH: RequestHandler = async ({ params, request, cookies }) =>
+  apiTryCatch(async () => {
+    const authCookie = cookies.get('pb_auth');
+    if (!authCookie) throw error(401, 'Authentication required');
 
-		return json(
-			{
-				success: false,
-				error: errorMessage
-			},
-			{ status: statusCode }
-		);
-	}
-};
+    try {
+      const authData = JSON.parse(authCookie);
+      pb.authStore.save(authData.token, authData.model);
+    } catch {
+      pb.authStore.loadFromCookie(authCookie);
+    }
 
-export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
-	try {
-		// Get auth token from cookies
-		const authCookie = cookies.get('pb_auth');
-		if (!authCookie) {
-			throw error(401, 'Authentication required');
-		}
+    if (!pb.authStore.isValid) throw error(401, 'Invalid authentication');
 
-		// Parse the cookie value properly
-		try {
-			const authData = JSON.parse(authCookie);
-			pb.authStore.save(authData.token, authData.model);
-		} catch (_) {
-			pb.authStore.loadFromCookie(authCookie);
-		}
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw error(401, 'User ID not found');
 
-		if (!pb.authStore.isValid) {
-			throw error(401, 'Invalid authentication');
-		}
+    const existingResult = await pbTryCatch(pb.collection('ai_agents').getOne(params.id), 'fetch existing agent');
+    const existingAgent = unwrap(existingResult);
 
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
-			throw error(401, 'User ID not found');
-		}
+    if (existingAgent.owner !== userId) throw error(403, 'Access denied');
 
-		// First, check if user owns this agent
-		const existingAgent = await pb.collection('ai_agents').getOne(params.id);
-		// FIXED: using 'owner' instead of 'user_id'
-		if (existingAgent.owner !== userId) {
-			throw error(403, 'Access denied');
-		}
+    const contentType = request.headers.get('content-type');
+    let updateData: FormData | Record<string, unknown>;
 
-		const contentType = request.headers.get('content-type');
-		let updateData: FormData | Record<string, any>;
+    if (contentType?.includes('multipart/form-data')) {
+      updateData = await request.formData();
+    } else {
+      updateData = await request.json();
+    }
 
-		if (contentType?.includes('multipart/form-data')) {
-			updateData = await request.formData();
-		} else {
-			updateData = await request.json();
-		}
+    const updatedResult = await pbTryCatch(pb.collection('ai_agents').update(params.id, updateData), 'update agent');
+    const updatedAgent = unwrap(updatedResult);
 
-		const updatedAgent = await pb.collection('ai_agents').update(params.id, updateData);
+    return json({ success: true, data: updatedAgent });
+  }, 'Failed to update agent');
 
-		return json({
-			success: true,
-			data: updatedAgent
-		});
-	} catch (err) {
-		console.error('Error updating agent:', err);
-		const errorMessage = err instanceof Error ? err.message : 'Failed to update agent';
-		const statusCode =
-			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
+export const DELETE: RequestHandler = async ({ params, cookies }) =>
+  apiTryCatch(async () => {
+    const authCookie = cookies.get('pb_auth');
+    if (!authCookie) throw error(401, 'Authentication required');
 
-		return json(
-			{
-				success: false,
-				error: errorMessage
-			},
-			{ status: statusCode }
-		);
-	}
-};
+    try {
+      const authData = JSON.parse(authCookie);
+      pb.authStore.save(authData.token, authData.model);
+    } catch {
+      pb.authStore.loadFromCookie(authCookie);
+    }
 
-export const DELETE: RequestHandler = async ({ params, cookies }) => {
-	try {
-		// Get auth token from cookies
-		const authCookie = cookies.get('pb_auth');
-		if (!authCookie) {
-			throw error(401, 'Authentication required');
-		}
+    if (!pb.authStore.isValid) throw error(401, 'Invalid authentication');
 
-		// Parse the cookie value properly
-		try {
-			const authData = JSON.parse(authCookie);
-			pb.authStore.save(authData.token, authData.model);
-		} catch (_) {
-			pb.authStore.loadFromCookie(authCookie);
-		}
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw error(401, 'User ID not found');
 
-		if (!pb.authStore.isValid) {
-			throw error(401, 'Invalid authentication');
-		}
+    const existingResult = await pbTryCatch(pb.collection('ai_agents').getOne(params.id), 'fetch existing agent');
+    const existingAgent = unwrap(existingResult);
 
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
-			throw error(401, 'User ID not found');
-		}
+    if (existingAgent.owner !== userId) throw error(403, 'Access denied');
 
-		// First, check if user owns this agent
-		const existingAgent = await pb.collection('ai_agents').getOne(params.id);
-		// FIXED: using 'owner' instead of 'user_id'
-		if (existingAgent.owner !== userId) {
-			throw error(403, 'Access denied');
-		}
+    await pbTryCatch(pb.collection('ai_agents').delete(params.id), 'delete agent');
 
-		await pb.collection('ai_agents').delete(params.id);
-
-		return json({
-			success: true
-		});
-	} catch (err) {
-		console.error('Error deleting agent:', err);
-		const errorMessage = err instanceof Error ? err.message : 'Failed to delete agent';
-		const statusCode =
-			err && typeof err === 'object' && 'status' in err ? (err as any).status : 500;
-
-		return json(
-			{
-				success: false,
-				error: errorMessage
-			},
-			{ status: statusCode }
-		);
-	}
-};
+    return json({ success: true });
+  }, 'Failed to delete agent');

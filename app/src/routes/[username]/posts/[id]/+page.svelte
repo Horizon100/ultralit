@@ -4,14 +4,18 @@
 	import { goto } from '$app/navigation';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
-	import PostCard from '$lib/features/content/components/PostCard.svelte';
-	import PostQuoteCard from '$lib/features/content/components/PostQuoteCard.svelte';
-	import PostComposer from '$lib/features/content/components/PostComposer.svelte';
-	import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
-	import PostTrends from '$lib/features/content/components/PostTrends.svelte';
+	import PostCard from '$lib/features/posts/components/PostCard.svelte';
+	import PostQuoteCard from '$lib/features/posts/components/PostQuoteCard.svelte';
+	import PostComposer from '$lib/features/posts/components/PostComposer.svelte';
+	import PostSidenav from '$lib/features/posts/components/PostSidenav.svelte';
+	import PostTrends from '$lib/features/posts/components/PostTrends.svelte';
 	import { showSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import { ArrowLeft, Loader2 } from 'lucide-svelte';
+	import BackButton from '$lib/components/buttons/BackButton.svelte';
+	import { postStore } from '$lib/stores/postStore';
+	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
+
 	// State
 	let loading = true;
 	let error = '';
@@ -19,152 +23,356 @@
 	let comments: any[] = [];
 	let user: any = null;
 	let showComposer = false;
-	let innerWidth = 0;
 	let showAuthModal = false;
 	let authAction = '';
+	let postCardElement: HTMLElement;
+	let commentsElement: HTMLElement;
+	let isScrollingIntoComments = false;
+	let commentSubmitted = false;
+	let lastCommentTime = 0;
+	let mounted = false;
 
 	// Get params from URL
 	$: username = $page.params.username;
 	$: postId = $page.params.id;
 
-	async function fetchPostData() {
-		if (!postId) return;
+async function fetchPostData() {
+	if (!postId) return;
 
+	const result = await clientTryCatch((async () => {
 		loading = true;
 		error = '';
 
-		try {
-			const response = await fetch(`/api/posts/${postId}`);
-			const data = await response.json();
+		const fetchResult = await fetchTryCatch<{
+			post: any;
+			comments: any[];
+			user: any;
+			error?: string;
+		}>(`/api/posts/${postId}`);
 
-			if (!response.ok) {
-				error = data.error || 'Failed to load post';
-				return;
-			}
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to load post: ${fetchResult.error}`);
+		}
 
-			post = data.post;
-			comments = data.comments;
-			user = data.user;
+		const data = fetchResult.data;
 
-			// Verify the username matches the post's author
-			if (username && user.username !== username) {
-				error = 'Post not found';
-				return;
-			}
-		} catch (err) {
-			console.error('Error fetching post data:', err);
-			error = 'Failed to load post';
-		} finally {
-			loading = false;
+		if (data.error) {
+			throw new Error(data.error);
+		}
+
+		// Ensure we have the required data
+		if (!data.post) {
+			throw new Error('Post not found');
+		}
+
+		if (!data.user) {
+			throw new Error('Post author not found');
+		}
+
+		post = data.post;
+		comments = data.comments || [];
+		user = data.user;
+
+		// Verify the username matches the post's author (only if username is provided in URL)
+		if (username && user && user.username !== username) {
+			throw new Error('Post not found');
+		}
+
+		return { post, comments, user };
+	})(), `Fetching post data for ${postId}`);
+
+	if (isFailure(result)) {
+		console.error('Error fetching post data:', result.error);
+		error = result.error;
+		// Reset state on error
+		post = null;
+		comments = [];
+		user = null;
+	}
+
+	loading = false;
+}
+
+	// Handle scroll detection
+	function handleScroll() {
+		if (!postCardElement || !commentsElement) return;
+
+		const scrollTop = window.pageYOffset;
+		const commentsRect = commentsElement.getBoundingClientRect();
+		const windowHeight = window.innerHeight;
+
+		// Check if comments section is taking up significant screen space
+		const commentsVisibleHeight = Math.max(
+			0,
+			Math.min(commentsRect.bottom, windowHeight) - Math.max(commentsRect.top, 0)
+		);
+		const commentsVisible = commentsVisibleHeight > windowHeight * 0.4; // 40% of screen
+
+		if (commentsVisible && !isScrollingIntoComments) {
+			// Scale down when entering comments
+			isScrollingIntoComments = true;
+			postCardElement.style.transform = 'scale(0.9)';
+			postCardElement.style.transformOrigin = 'center top';
+		} else if (!commentsVisible && isScrollingIntoComments) {
+			// Scale back up when leaving comments
+			isScrollingIntoComments = false;
+			postCardElement.style.transform = 'scale(1)';
 		}
 	}
 
-	function goBack() {
-		if (window.history.length > 1) {
-			window.history.back();
-		} else {
-			goto('/');
-		}
+	let scrollTimeout: number;
+	function throttledScroll() {
+		if (scrollTimeout) return;
+
+		scrollTimeout = requestAnimationFrame(() => {
+			handleScroll();
+			scrollTimeout = 0;
+		});
 	}
 
-	// Handle post interactions - unified for all posts/comments
-	async function handlePostInteraction(
-		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
-	) {
-		if (!$currentUser) {
-			alert($t('posts.interactPrompt'));
-			return;
+async function handlePostInteraction(
+	event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
+) {
+	if (!$currentUser) {
+		alert($t('posts.interactPrompt'));
+		return;
+	}
+
+	const { postId, action } = event.detail;
+	
+	// Extract real post ID if it's a composite key (for consistency with home page)
+	const realPostId = extractRealPostId(postId);
+	
+	console.log('Post detail interaction:', {
+		receivedPostId: postId,
+		realPostId,
+		action,
+		isCompositeKey: postId !== realPostId
+	});
+
+	const result = await clientTryCatch((async () => {
+		let fetchResult;
+		let optimisticUpdate = null;
+
+		// Apply optimistic updates first for better UX
+		if (action === 'upvote') {
+			optimisticUpdate = applyOptimisticUpvote(realPostId);
+		} else if (action === 'repost') {
+			optimisticUpdate = applyOptimisticRepost(realPostId);
 		}
 
-		const { postId, action } = event.detail;
-		console.log('Post interaction:', event.detail);
-
 		try {
-			let response;
-			
 			switch (action) {
 				case 'upvote':
-					response = await fetch(`/api/posts/${postId}/upvote`, {
+					fetchResult = await fetchTryCatch<{
+						success: boolean;
+						data: {
+							upvoted: boolean;
+							upvoteCount: number;
+							downvoteCount: number;
+						}
+					}>(`/api/posts/${realPostId}/upvote`, {
 						method: 'PATCH',
 						credentials: 'include'
 					});
+
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to upvote post: ${fetchResult.error}`);
+					}
+
+					// Use the response structure that matches your API
+					const upvoteData = fetchResult.data.data || fetchResult.data;
+					updatePostState(realPostId, 'upvote', upvoteData);
 					break;
+
 				case 'repost':
-					response = await fetch(`/api/posts/${postId}/repost`, {
+					fetchResult = await fetchTryCatch<{
+						success: boolean;
+						data: {
+							reposted: boolean;
+							repostCount: number;
+						}
+					}>(`/api/posts/${realPostId}/repost`, {
 						method: 'POST',
 						credentials: 'include'
 					});
+
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to repost: ${fetchResult.error}`);
+					}
+
+					const repostData = fetchResult.data.data || fetchResult.data;
+					updatePostState(realPostId, 'repost', repostData);
 					break;
+
 				case 'share':
-					response = await fetch(`/api/posts/${postId}/share`, {
-						method: 'POST',
-						credentials: 'include'
-					});
+					// Use the postStore method for consistency
+					const shareResult = await postStore.sharePost(realPostId, post?.author_username);
+					
+					// Handle share result similar to home page
+					if (shareResult.copied) {
+						console.log('Link copied to clipboard!');
+					}
 					break;
+
 				case 'read':
-					response = await fetch(`/api/posts/${postId}/read`, {
-						method: 'PATCH',
-						credentials: 'include'
-					});
+					await postStore.markAsRead(realPostId);
+					updatePostState(realPostId, 'read', { hasRead: true });
 					break;
 			}
 
-			if (!response || !response.ok) {
-				const errorData = await response?.json().catch(() => ({}));
-				throw new Error(errorData.message || `Failed to ${action} post`);
-			}
-
-			const result = await response.json();
-
-			// Update local state based on the action
-			if (action === 'upvote') {
-				if (postId === post.id) {
-					post.upvote = result.upvoted;
-					post.upvoteCount = result.upvoteCount;
-					post.downvoteCount = result.downvoteCount;
-				} else {
-					comments = comments.map(comment => {
-						if (comment.id === postId) {
-							return {
-								...comment,
-								upvote: result.upvoted,
-								upvoteCount: result.upvoteCount,
-								downvoteCount: result.downvoteCount
-							};
-						}
-						return comment;
-					});
-				}
-			} else if (action === 'repost') {
-				if (postId === post.id) {
-					post.repost = result.reposted;
-					post.repostCount = result.repostCount;
-				} else {
-					comments = comments.map(comment => {
-						if (comment.id === postId) {
-							return {
-								...comment,
-								repost: result.reposted,
-								repostCount: result.repostCount
-							};
-						}
-						return comment;
-					});
-				}
-			}
-
-			console.log(`${action} successful for post ${postId}`);
+			console.log(`${action} successful for post ${realPostId}`);
+			return true;
 
 		} catch (error) {
-			console.error(`Error ${action}ing post:`, error);
-			alert(`Failed to ${action} post: ` + (error instanceof Error ? error.message : 'Unknown error'));
+			// Revert optimistic updates on error
+			if (optimisticUpdate) {
+				revertOptimisticUpdate(optimisticUpdate);
+			}
+			throw error;
+		}
+	})(), `Handling ${action} interaction for post ${realPostId}`);
+
+	if (isFailure(result)) {
+		console.error(`Error ${action}ing post:`, result.error);
+		alert(`Failed to ${action} post: ${result.error}`);
+	}
+}
+
+// Helper function to extract real post ID (same as home page)
+function extractRealPostId(postId: string): string {
+	if (postId.startsWith('repost_')) {
+		const parts = postId.split('_');
+		if (parts.length >= 2) {
+			return parts[1];
 		}
 	}
+	return postId;
+}
 
+// Optimistic update functions for better UX
+function applyOptimisticUpvote(postId: string) {
+	const originalState = { post: { ...post }, comments: [...comments] };
+	
+	if (postId === post?.id) {
+		post = {
+			...post,
+			upvote: !post.upvote,
+			upvoteCount: post.upvote 
+				? (post.upvoteCount || 1) - 1 
+				: (post.upvoteCount || 0) + 1,
+			downvote: false // Remove downvote when upvoting
+		};
+	} else {
+		comments = comments.map((comment) => {
+			if (comment.id === postId) {
+				return {
+					...comment,
+					upvote: !comment.upvote,
+					upvoteCount: comment.upvote 
+						? (comment.upvoteCount || 1) - 1 
+						: (comment.upvoteCount || 0) + 1,
+					downvote: false
+				};
+			}
+			return comment;
+		});
+	}
+	
+	return originalState;
+}
+
+function applyOptimisticRepost(postId: string) {
+	const originalState = { post: { ...post }, comments: [...comments] };
+	
+	if (postId === post?.id) {
+		post = {
+			...post,
+			repost: !post.repost,
+			repostCount: post.repost 
+				? (post.repostCount || 1) - 1 
+				: (post.repostCount || 0) + 1
+		};
+	} else {
+		comments = comments.map((comment) => {
+			if (comment.id === postId) {
+				return {
+					...comment,
+					repost: !comment.repost,
+					repostCount: comment.repost 
+						? (comment.repostCount || 1) - 1 
+						: (comment.repostCount || 0) + 1
+				};
+			}
+			return comment;
+		});
+	}
+	
+	return originalState;
+}
+
+function revertOptimisticUpdate(originalState: any) {
+	post = originalState.post;
+	comments = originalState.comments;
+}
+
+// Unified function to update post state with server response
+function updatePostState(postId: string, action: string, data: any) {
+	if (action === 'upvote') {
+		if (postId === post?.id) {
+			post = {
+				...post,
+				upvote: data.upvoted,
+				upvoteCount: data.upvoteCount,
+				downvote: data.upvoted ? false : post.downvote,
+				downvoteCount: data.downvoteCount || post.downvoteCount
+			};
+		} else {
+			comments = comments.map((comment) => {
+				if (comment.id === postId) {
+					return {
+						...comment,
+						upvote: data.upvoted,
+						upvoteCount: data.upvoteCount,
+						downvote: data.upvoted ? false : comment.downvote,
+						downvoteCount: data.downvoteCount || comment.downvoteCount
+					};
+				}
+				return comment;
+			});
+		}
+	} else if (action === 'repost') {
+		if (postId === post?.id) {
+			post = {
+				...post,
+				repost: data.reposted,
+				repostCount: data.repostCount
+			};
+		} else {
+			comments = comments.map((comment) => {
+				if (comment.id === postId) {
+					return {
+						...comment,
+						repost: data.reposted,
+						repostCount: data.repostCount
+					};
+				}
+				return comment;
+			});
+		}
+	} else if (action === 'read') {
+		if (postId === post?.id) {
+			post = {
+				...post,
+				hasRead: data.hasRead
+			};
+		}
+	}
+}
 	// Handle comment button clicks
 	function handleComment(event: CustomEvent<{ postId: string }>) {
 		const { postId } = event.detail;
-		
+
 		if (!$currentUser) {
 			showAuthModal = true;
 			authAction = 'comment';
@@ -181,92 +389,156 @@
 	}
 
 	// Handle quote submissions
-	async function handleQuote(
-		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
-	) {
-		if (!$currentUser) {
-			alert($t('posts.interactPrompt'));
-			return;
-		}
+async function handleQuote(
+	event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
+) {
+	if (!$currentUser) {
+		alert($t('posts.interactPrompt'));
+		return;
+	}
 
-		try {
-			console.log('Creating quote post:', event.detail);
+	const result = await clientTryCatch((async () => {
+		console.log('Creating quote post:', event.detail);
 
-			const formData = new FormData();
-			formData.append('content', event.detail.content);
-			
-			event.detail.attachments.forEach((file, index) => {
-				formData.append(`attachment_${index}`, file);
-			});
+		const formData = new FormData();
+		formData.append('content', event.detail.content);
 
-			const response = await fetch(`/api/posts/${event.detail.quotedPostId}/quote`, {
+		event.detail.attachments.forEach((file, index) => {
+			formData.append(`attachment_${index}`, file);
+		});
+
+		const fetchResult = await fetchTryCatch<any>(
+			`/api/posts/${event.detail.quotedPostId}/quote`,
+			{
 				method: 'POST',
 				body: formData,
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.message || 'Failed to quote post');
 			}
+		);
 
-			const result = await response.json();
-			console.log('Quote post created successfully:', result);
-			
-			// Optionally refresh or navigate
-			// await fetchPostData();
-			
-		} catch (error) {
-			console.error('Error quoting post:', error);
-			alert('Failed to quote post: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to quote post: ${fetchResult.error}`);
 		}
+
+		const result = fetchResult.data;
+		console.log('Quote post created successfully:', result);
+
+		/*
+		 * Optionally refresh or navigate
+		 * await fetchPostData();
+		 */
+
+		return result;
+	})(), `Creating quote for post ${event.detail.quotedPostId}`);
+
+	if (isFailure(result)) {
+		console.error('Error quoting post:', result.error);
+		alert(`Failed to quote post: ${result.error}`);
 	}
+}
+$: if (mounted && username && postId) {
+	console.log('🔄 Reactive fetchPostData triggered by username/postId change');
+	// Check if we just added a comment - if so, don't refetch
+	if (Date.now() - lastCommentTime < 5000) {
+		console.log('⏸️ Skipping fetchPostData - comment was just added');
+	} else {
+		console.log('📡 Fetching post data...');
+		fetchPostData();
+	}
+}
+
+$: if (comments && commentSubmitted) {
+	console.log('🔄 Comments array updated, count:', comments.length);
+	// Reset flag after a brief delay to avoid infinite loops
+	setTimeout(() => {
+		commentSubmitted = false;
+	}, 100);
+}
+$: if (comments) {
+	console.log('📊 Comments array changed. Length:', comments.length);
+	console.log('📝 Comment IDs:', comments.map(c => c.id));
+}
 
 	// Handle comment submission
-	async function handleCommentSubmit(
-		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
-	) {
-		if (!$currentUser) {
-			console.error($t('generic.userNotLoggedIn'));
-			return;
-		}
-
-		try {
-			const response = await fetch(`/api/posts/${post.id}/comments`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					content: event.detail.content,
-					user: $currentUser.id
-				}),
-				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.message || 'Failed to create comment');
-			}
-
-			const result = await response.json();
-			
-			if (result.success && result.comment) {
-				comments = [...comments, result.comment];
-				
-				if (post) {
-					post.commentCount = (post.commentCount || 0) + 1;
-				}
-				
-				showComposer = false;
-				console.log('Comment added successfully');
-			}
-
-		} catch (error) {
-			console.error($t('posts.errorComment'), error);
-			alert('Failed to add comment: ' + (error instanceof Error ? error.message : 'Unknown error'));
-		}
+async function handleCommentSubmit(
+	event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
+) {
+	if (!$currentUser) {
+		console.error($t('generic.userNotLoggedIn'));
+		return;
 	}
+
+	console.log('🚀 Starting comment submission...');
+
+	const result = await clientTryCatch((async () => {
+		const fetchResult = await fetchTryCatch<{
+			success: boolean;
+			comment: any;
+			message?: string;
+		}>(`/api/posts/${post.id}/comments`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				content: event.detail.content,
+				user: $currentUser.id
+			}),
+			credentials: 'include'
+		});
+
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to create comment: ${fetchResult.error}`);
+		}
+
+		const result = fetchResult.data;
+
+		if (result.success && result.comment) {
+			console.log('📝 New comment received from API:', result.comment);
+			
+			// Set timestamp to prevent reactive fetchPostData
+			lastCommentTime = Date.now();
+			commentSubmitted = true;
+			
+			// Ensure we don't have duplicates
+			const existingIds = new Set(comments.map(c => c.id));
+			if (!existingIds.has(result.comment.id)) {
+				// Force array reactivity by creating completely new array
+				const newComments = [...comments, result.comment];
+				comments = newComments;
+				console.log('✅ Comment added to array. New length:', comments.length);
+			} else {
+				console.log('⚠️ Comment already exists in array');
+			}
+
+			// Update post count
+			if (post) {
+				post = { 
+					...post, 
+					commentCount: (post.commentCount || 0) + 1 
+				};
+				console.log('📈 Updated post comment count:', post.commentCount);
+			}
+
+			showComposer = false;
+			
+			// Reset flag after delay
+			setTimeout(() => {
+				commentSubmitted = false;
+			}, 1000);
+		}
+
+		return result;
+	})(), `Creating comment for post ${post.id}`);
+
+	if (isFailure(result)) {
+		console.error($t('posts.errorComment'), result.error);
+		alert(`Failed to add comment: ${result.error}`);
+	}
+}
+
+
+
 
 	function handleFollowUser(event: CustomEvent) {
 		console.log($t('posts.followUser'), event.detail.userId);
@@ -274,16 +546,64 @@
 
 	$: replyPlaceholder = $t('posts.replyToThis') as string;
 
-	onMount(() => {
-		fetchPostData();
-	});
+	$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
+		setTimeout(async () => {
+			const result = await clientTryCatch((async () => {
+				await postStore.markAsRead(post.id);
+				
+				// Update local post state
+				const fetchResult = await fetchTryCatch<{ post: any }>(
+					`/api/posts/${post.id}`
+				);
 
-	$: if (username && postId) {
-		fetchPostData();
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to fetch updated post: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
+				post = data.post;
+
+				return data;
+			})(), `Marking post ${post.id} as read`);
+
+			if (isFailure(result)) {
+				console.error('Error marking post as read:', result.error);
+			}
+		}, 2000);
 	}
-</script>
+onMount(() => {
+	console.log('🏗️ Component mounted');
+	mounted = true; // This will trigger the reactive statement to fetch data
 
-<svelte:window bind:innerWidth />
+	// Wait for elements to be ready
+	setTimeout(() => {
+		if (commentsElement && postCardElement) {
+			const observer = new IntersectionObserver(
+				(entries) => {
+					entries.forEach((entry) => {
+						if (entry.isIntersecting) {
+							// Comments are visible - scale down post
+							postCardElement.style.transform = 'scale(0.9)';
+							postCardElement.style.transition = 'transform 0.4s ease';
+						} else {
+							// Comments not visible - scale back up
+							postCardElement.style.transform = 'scale(1)';
+						}
+					});
+				},
+				{
+					threshold: 0.3 // Trigger when 30% of comments are visible
+				}
+			);
+
+			observer.observe(commentsElement);
+
+			// Cleanup
+			return () => observer.disconnect();
+		}
+	}, 100);
+});
+</script>
 
 <svelte:head>
 	<title>{post ? `${user?.name || user?.username} - Post` : 'Post'}</title>
@@ -292,9 +612,9 @@
 
 <div class="post-detail-container" class:hide-left-sidebar={!$showSidenav}>
 	<!-- Left Sidebar Component -->
-	{#if $showSidenav && innerWidth > 768}
+	{#if $showSidenav}
 		<div class="sidebar-container">
-			<PostSidenav {innerWidth} />
+			<PostSidenav />
 		</div>
 	{/if}
 
@@ -302,12 +622,9 @@
 	<div class="post-content-wrapper">
 		<!-- Header with back button -->
 		<header class="post-header">
-			<button class="back-button" on:click={goBack}>
-				<ArrowLeft size={20} />
-				<span>{$t('generic.back')}</span>
-			</button>
+			<BackButton />
 
-			{#if user}
+			<!-- {#if user}
 				<div class="header-user">
 					<img
 						src={user.avatar
@@ -318,14 +635,51 @@
 					/>
 					<span class="header-username">@{user.username}</span>
 				</div>
-			{/if}
+			{:else if loading}
+				<div class="skeleton-header">
+					<div class="skeleton-avatar skeleton-shimmer"></div>
+					<div class="skeleton-text-group">
+						<div class="skeleton-text skeleton-text-username skeleton-shimmer"></div>
+					</div>
+				</div>
+			{/if} -->
 		</header>
 
 		{#if loading}
-			<div class="loading-container">
-				<Loader2 class="loading-spinner" size={32} />
-				<p>{$t('posts.loadingPosts')}</p>
+			<!-- Main post skeleton -->
+			<div class="skeleton-post">
+				<div class="skeleton-post-header">
+					<div class="skeleton-avatar skeleton-shimmer"></div>
+					<div class="skeleton-text-group">
+						<div class="skeleton-text skeleton-text-name skeleton-shimmer"></div>
+						<div class="skeleton-text skeleton-text-username skeleton-shimmer"></div>
+					</div>
+				</div>
+
+				<div class="skeleton-content">
+					<div class="skeleton-text skeleton-text-line skeleton-shimmer"></div>
+					<div class="skeleton-text skeleton-text-line skeleton-shimmer"></div>
+					<div class="skeleton-text skeleton-text-line skeleton-text-short skeleton-shimmer"></div>
+				</div>
+
+				<div class="skeleton-actions"></div>
 			</div>
+
+			<!-- Comments skeleton -->
+			<!-- <div class="skeleton-comments">
+				<div class="skeleton-text skeleton-text-title skeleton-shimmer"></div>
+				
+				{#each Array(3) as _, i}
+					<div class="skeleton-comment">
+						<div class="skeleton-avatar skeleton-shimmer"></div>
+						<div class="skeleton-comment-content">
+							<div class="skeleton-text skeleton-text-name skeleton-shimmer"></div>
+							<div class="skeleton-text skeleton-text-line skeleton-shimmer"></div>
+							<div class="skeleton-text skeleton-text-line skeleton-text-short skeleton-shimmer"></div>
+						</div>
+					</div>
+				{/each}
+			</div> -->
 		{:else if error}
 			<div class="error-container">
 				<h1>{$t('posts.errorExpression')}</h1>
@@ -336,23 +690,25 @@
 			</div>
 		{:else if post}
 			<main class="post-detail-main">
-				{#if post.quotedPost}
-					<PostQuoteCard
-						{post}
-						on:interact={handlePostInteraction}
-						on:comment={handleComment}
-						on:quote={handleQuote}
-					/>
-				{:else}
-					<PostCard
-						{post}
-						showActions={true}
-						isPreview={false}
-						on:interact={handlePostInteraction}
-						on:comment={handleComment}
-						on:quote={handleQuote}
-					/>
-				{/if}
+				<div bind:this={postCardElement} class="post-card-container">
+					{#if post.quotedPost}
+						<PostQuoteCard
+							{post}
+							on:interact={handlePostInteraction}
+							on:comment={handleComment}
+							on:quote={handleQuote}
+						/>
+					{:else}
+						<PostCard
+							{post}
+							showActions={true}
+							isPreview={false}
+							on:interact={handlePostInteraction}
+							on:comment={handleComment}
+							on:quote={handleQuote}
+						/>
+					{/if}
+				</div>
 
 				<!-- Comment Composer -->
 				{#if showComposer && $currentUser}
@@ -366,7 +722,7 @@
 				{/if}
 
 				<!-- Comments Section -->
-				<section class="comments-section">
+				<section class="comments-section" bind:this={commentsElement}>
 					<h3 class="comments-title">
 						{comments.length > 0
 							? `${comments.length} ${comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}`
@@ -375,7 +731,6 @@
 
 					{#each comments as comment (comment.id)}
 						{#if comment.quotedPost}
-							<!-- This comment is a quote post -->
 							<PostQuoteCard
 								post={comment}
 								on:interact={handlePostInteraction}
@@ -383,7 +738,6 @@
 								on:quote={handleQuote}
 							/>
 						{:else}
-							<!-- Regular comment -->
 							<PostCard
 								post={comment}
 								showActions={true}
@@ -400,11 +754,9 @@
 	</div>
 
 	<!-- Right Sidebar Component -->
-	{#if innerWidth > 1200}
-		<div class="sidebar-container">
-			<PostTrends on:followUser={handleFollowUser} />
-		</div>
-	{/if}
+	<div class="sidebar-container">
+		<PostTrends on:followUser={handleFollowUser} />
+	</div>
 </div>
 
 {#if showAuthModal}
@@ -423,7 +775,10 @@
 				<a href="/login?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-primary">
 					{$t('profile.login')}
 				</a>
-				<a href="/signup?redirect={encodeURIComponent($page.url.pathname)}" class="btn btn-secondary">
+				<a
+					href="/signup?redirect={encodeURIComponent($page.url.pathname)}"
+					class="btn btn-secondary"
+				>
 					{$t('profile.signup')}
 				</a>
 			</div>
@@ -432,7 +787,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -460,23 +815,19 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 1rem;
+		padding: 0.5rem;
 		max-width: 100%;
 	}
 
 	/* Header styles */
 	.post-header {
 		width: 100%;
-		max-width: 680px;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		padding: 1rem;
-		border-bottom: 1px solid var(--line-color);
-		margin-bottom: 1rem;
-		position: sticky;
-		top: 0;
-		background-color: var(--bg-color);
+		justify-content: left;
+
+		position: relative;
+		left: 0;
 		z-index: 10;
 		backdrop-filter: blur(10px);
 		-webkit-backdrop-filter: blur(10px);
@@ -531,8 +882,6 @@
 		padding: 2rem;
 	}
 
-
-
 	@keyframes spin {
 		from {
 			transform: rotate(0deg);
@@ -577,7 +926,7 @@
 	/* Post detail styles */
 	.post-detail-main {
 		width: 100%;
-		max-width: 680px;
+		max-width: 800px;
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
@@ -625,7 +974,6 @@
 		color: var(--text-color);
 		margin-bottom: 1rem;
 	}
-
 
 	.post-metadata {
 		margin-top: 1rem;
@@ -679,7 +1027,28 @@
 	}
 
 	.comments-section {
-		width: 100%;
+		width: auto;
+		height: 71vh;
+		margin-left: 0;
+		background: var(--bg-gradient);
+		padding: 2rem;
+		border-radius: 2rem;
+		margin-bottom: 2rem;
+		scroll-behavior: smooth;
+		overflow-y: auto !important;
+		box-shadow: 0 30px 140px 50px rgba(255, 255, 255, 0.22);
+		overflow-x: hidden;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.comments-title {
@@ -737,15 +1106,253 @@
 		border: 1px solid var(--primary-color);
 		color: var(--primary-color);
 	}
+	/* Skeleton Loading Styles */
+	.skeleton-container {
+		width: 100%;
+		max-width: 680px;
+		padding: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
 
+	.skeleton-shimmer {
+		position: relative;
+		overflow: hidden;
+		background: linear-gradient(
+			90deg,
+			var(--skeleton-base, #f0f0f0) 25%,
+			var(--skeleton-highlight, #e0e0e0) 50%,
+			var(--skeleton-base, #f0f0f0) 75%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 2s infinite;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.skeleton-shimmer {
+			background: linear-gradient(
+				90deg,
+				var(--skeleton-base, #2a2a2a) 25%,
+				var(--skeleton-highlight, #3a3a3a) 50%,
+				var(--skeleton-base, #2a2a2a) 75%
+			);
+		}
+	}
+
+	@keyframes shimmer {
+		0% {
+			background-position: -200% 0;
+		}
+		100% {
+			background-position: 200% 0;
+		}
+	}
+
+	/* Header Skeleton - matches .header-user */
+	.skeleton-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem; /* Same as .header-user */
+	}
+
+	.skeleton-header .skeleton-avatar {
+		width: 32px; /* Same as .header-avatar */
+		height: 32px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	/* Post Skeleton - matches .main-post */
+	.skeleton-post {
+		background-color: var(--bg-color);
+		border: 1px solid var(--line-color);
+		border-radius: 12px;
+		padding: 1.5rem; /* Same as .main-post */
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+		max-width: 680px;
+	}
+
+	.skeleton-post-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem; /* Same as .author-link */
+		margin-bottom: 1rem; /* Same as .post-author */
+	}
+
+	.skeleton-post-header .skeleton-avatar {
+		width: 48px; /* Same as .author-avatar */
+		height: 48px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.skeleton-content {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 1rem; /* Same as .post-content */
+	}
+
+	.skeleton-actions {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 1rem; /* Same as .post-actions */
+		padding-top: 1rem;
+		border-top: 1px solid var(--line-color);
+	}
+
+	/* Comments Skeleton - matches .comments-section */
+	.skeleton-comments {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+	}
+
+	.skeleton-comment {
+		display: flex;
+		gap: 0.75rem;
+		padding: 1rem;
+		border: 1px solid var(--line-color);
+		border-radius: 8px;
+		background-color: var(--bg-color);
+	}
+
+	.skeleton-comment .skeleton-avatar {
+		width: 48px; /* Same as comment avatars */
+		height: 48px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.skeleton-comment-content {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	/* Skeleton Elements */
+	.skeleton-text {
+		height: 16px;
+		border-radius: 4px;
+	}
+
+	.skeleton-text-name {
+		width: 120px;
+		height: 18px; /* Matches font-weight: 600 text */
+	}
+
+	.skeleton-text-username {
+		width: 80px;
+		height: 14px; /* Matches smaller username text */
+	}
+
+	.skeleton-text-title {
+		width: 150px;
+		height: 20px; /* Matches .comments-title */
+		margin-bottom: 0.5rem;
+	}
+
+	.skeleton-text-line {
+		width: 100%;
+		height: 18px; /* Matches post content line-height */
+	}
+
+	.skeleton-text-short {
+		width: 60%;
+	}
+
+	.skeleton-text-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.skeleton-action {
+		width: 60px;
+		height: 32px; /* Matches action button height */
+		border-radius: 8px; /* Same as .action-button */
+	}
+	.post-card-container {
+		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		will-change: transform;
+	}
+
+	/* Smooth transition for mobile */
+	@media (max-width: 768px) {
+		.post-card-container {
+			transition: transform 0.25s ease-out;
+		}
+	}
+	/* Mobile Responsive - matches existing mobile styles */
+	@media (max-width: 768px) {
+		.skeleton-container {
+			padding: 0.5rem; /* Same as .post-content-wrapper mobile */
+		}
+
+		.skeleton-post {
+			padding: 1rem; /* Same as .main-post mobile */
+		}
+
+		/* Header skeleton mobile adjustments */
+		.skeleton-header .skeleton-avatar {
+			width: 28px; /* Slightly smaller for mobile */
+			height: 28px;
+		}
+
+		/* Post skeleton mobile adjustments */
+		.skeleton-post-header .skeleton-avatar {
+			width: 40px; /* Smaller for mobile */
+			height: 40px;
+		}
+
+		.skeleton-comment .skeleton-avatar {
+			width: 40px;
+			height: 40px;
+		}
+
+		.skeleton-text-name {
+			width: 100px;
+		}
+
+		.skeleton-text-username {
+			width: 70px;
+		}
+
+		.skeleton-text-line {
+			height: 16px; /* Matches mobile post content */
+		}
+
+		.skeleton-actions {
+			flex-wrap: wrap;
+			gap: 0.5rem;
+		}
+
+		.skeleton-action {
+			width: 50px; /* Smaller for mobile */
+			height: 28px;
+		}
+	}
+
+	/* Dark mode adjustments */
+	:global([data-theme='dark']) .skeleton-shimmer {
+		--skeleton-base: #2a2a2a;
+		--skeleton-highlight: #3a3a3a;
+	}
+
+	:global([data-theme='light']) .skeleton-shimmer {
+		--skeleton-base: #f0f0f0;
+		--skeleton-highlight: #e0e0e0;
+	}
 	/* Mobile responsive */
 	@media (max-width: 768px) {
 		.post-content-wrapper {
 			padding: 0.5rem;
-		}
-
-		.post-header {
-			padding: 0.75rem;
 		}
 
 		.back-button span {

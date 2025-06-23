@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import PostCard from '$lib/features/content/components/PostCard.svelte';
+	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import { Repeat } from 'lucide-svelte';
 	import { pocketbaseUrl } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
@@ -17,6 +17,10 @@
 	function handleComment(event: any) {
 		dispatch('comment', event.detail);
 	}
+	$: repostCount = post.repostCount || 0;
+$: upvoteCount = post.upvoteCount || 0;
+$: shareCount = post.shareCount || 0;
+$: commentCount = post.commentCount || 0;
 </script>
 
 <article class="repost-wrapper">
@@ -49,8 +53,7 @@
 </article>
 
 <style lang="scss">
-
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -89,7 +92,6 @@
 		text-decoration: none;
 		font-weight: 500;
 		transition: color 0.2s;
-		
 	}
 
 	.reposter-name:hover {

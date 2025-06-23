@@ -7,13 +7,13 @@
 	export let hero: GameHero;
 	export let isCurrentUser: boolean = false;
 	export let gridSize: number = 64;
-  	export let direction: 'left' | 'right' | 'up' | 'down' = 'down'; 
+	export let direction: 'left' | 'right' | 'up' | 'down' = 'down';
 
 	let isHovered = false;
 
 	function getHeroColor(): string {
-		if (isCurrentUser) return '#3b82f6';
-		if (isOnline) return '#10b981'; 
+		if (isCurrentUser) return '';
+		if (isOnline) return '#10b981';
 		return '#6b7280';
 	}
 
@@ -25,8 +25,8 @@
 	}
 
 	$: heroStyle = `
-		left: ${hero.position.x - gridSize/2}px;
-		top: ${hero.position.y - gridSize/2}px;
+		left: ${hero.position.x - gridSize / 2}px;
+		top: ${hero.position.y - gridSize / 2}px;
 		width: ${gridSize}px;
 		height: ${gridSize}px;
 	`;
@@ -38,12 +38,11 @@
 
 	// Hero status
 	$: isOnline = hero.lastSeen && new Date(hero.lastSeen).getTime() > Date.now() - 300000; // 5 minutes
-
-
 </script>
 
 <div
-	class="hero-container" class:flipped={direction === 'left'}
+	class="hero-container"
+	class:flipped={direction === 'left'}
 	class:current-user={isCurrentUser}
 	class:moving={hero.isMoving}
 	class:online={isOnline}
@@ -52,13 +51,9 @@
 	on:mouseleave={() => (isHovered = false)}
 >
 	<!-- Hero avatar circle -->
-	<div class="hero-circle" style="--hero-color: {getHeroColor()};" >
+	<div class="hero-circle" style="--hero-color: {getHeroColor()};">
 		{#if userAvatarUrl}
-			<img 
-				src={`${userAvatarUrl}?thumb=100x100`} 
-				alt={userName} 
-				class="hero-image" 
-			/>
+			<img src={`${userAvatarUrl}?thumb=100x100`} alt={userName} class="hero-image" />
 		{:else}
 			<div class="hero-initials">
 				{userName.charAt(0).toUpperCase()}
@@ -127,7 +122,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -141,36 +136,34 @@
 		transition: all 0.3s ease;
 		cursor: pointer;
 	}
-.hero-container.flipped .hero-image,
-.hero-container.flipped .hero-initials {
-  transform: scaleX(-1);
-}
+	.hero-container.flipped .hero-image,
+	.hero-container.flipped .hero-initials {
+		transform: scaleX(-1);
+	}
 
-.hero-image, .hero-initials {
-  transition: transform 0.15s ease;
-}
+	.hero-image,
+	.hero-initials {
+		transition: transform 0.15s ease;
+	}
 
-/* Adjust the moving animation to work with flipping */
-.hero-container.moving .hero-image,
-.hero-container.moving .hero-initials {
+	/* Adjust the moving animation to work with flipping */
+	.hero-container.moving .hero-image,
+	.hero-container.moving .hero-initials {
+		animation: bounceAndFlip 0.6s ease-in-out infinite;
+	}
 
-  animation: bounceAndFlip 0.6s ease-in-out infinite;
-}
-
-@keyframes bounceAndFlip {
-  0%, 100% {
-    transform: translateX(4px) scaleX(var(--flip-factor, 1));
-	  transform: scaleX(1);
-
-}
-  50% {
-    transform: translateY(-4px) scaleX(var(--flip-factor, 1));
-  
-}
-}
+	@keyframes bounceAndFlip {
+		0%,
+		100% {
+			transform: translateX(4px) scaleX(var(--flip-factor, 1));
+			transform: scaleX(1);
+		}
+		50% {
+			transform: translateY(-4px) scaleX(var(--flip-factor, 1));
+		}
+	}
 	.hero-container.moving {
 		transition: all 0.8s ease;
-
 	}
 
 	.hero-container.current-user {
@@ -189,7 +182,7 @@
 		border: 3px solid var(--hero-color);
 		overflow: hidden;
 		background: white;
-		box-shadow: 
+		box-shadow:
 			0 4px 8px rgba(0, 0, 0, 0.2),
 			0 0 0 1px var(--hero-color);
 		transition: all 0.2s ease;
@@ -202,13 +195,13 @@
 
 	@keyframes currentUserGlow {
 		0% {
-			box-shadow: 
+			box-shadow:
 				0 4px 8px rgba(0, 0, 0, 0.2),
 				0 0 0 1px var(--hero-color),
 				0 0 8px var(--hero-color);
 		}
 		100% {
-			box-shadow: 
+			box-shadow:
 				0 4px 8px rgba(0, 0, 0, 0.2),
 				0 0 0 1px var(--hero-color),
 				0 0 16px var(--hero-color);
@@ -217,11 +210,11 @@
 
 	.hero-container.moving .hero-circle {
 		animation: bounce 0.6s ease-in-out infinite;
-		
 	}
 
 	@keyframes bounce {
-		0%, 100% {
+		0%,
+		100% {
 			transform: translateY(0);
 		}
 		50% {
@@ -266,7 +259,7 @@
 	}
 
 	.current-indicator {
-		background: #3b82f6;
+		background: green;
 		animation: pulse 2s ease-in-out infinite;
 	}
 
@@ -308,7 +301,9 @@
 	}
 
 	@keyframes movingDots {
-		0%, 80%, 100% {
+		0%,
+		80%,
+		100% {
 			opacity: 0.3;
 		}
 		40% {
@@ -317,7 +312,8 @@
 	}
 
 	@keyframes pulse {
-		0%, 100% {
+		0%,
+		100% {
 			opacity: 1;
 		}
 		50% {
@@ -337,8 +333,8 @@
 	.username-text {
 		font-size: 11px;
 		font-weight: 500;
-		color: #374151;
-		background: rgba(255, 255, 255, 0.95);
+		color: var(--tertiary-color);
+		background: var(--primary-color);
 		padding: 3px 6px;
 		border-radius: 4px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -349,7 +345,7 @@
 	}
 
 	.you-text {
-		color: #3b82f6;
+		color: var(--placeholder-color);
 		font-weight: 600;
 	}
 

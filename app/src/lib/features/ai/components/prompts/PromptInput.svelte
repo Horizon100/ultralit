@@ -22,6 +22,7 @@
 		X
 	} from 'lucide-svelte';
 	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -120,7 +121,7 @@
 	}
 
 	async function setPromptPreference(promptId: string): Promise<void> {
-		try {
+		const result = await clientTryCatch((async () => {
 			if ($currentUser?.id) {
 				await updateUser($currentUser.id, {
 					prompt_preference: [promptId]
@@ -135,11 +136,16 @@
 				}
 
 				console.log('Prompt preferences updated successfully:', [promptId]);
+			} else {
+				throw new Error('User not authenticated');
 			}
-		} catch (error) {
-			console.error('Error updating prompt preference:', error);
+		})(), `Setting prompt preference to ${promptId}`);
+
+		if (isFailure(result)) {
+			console.error('Error updating prompt preference:', result.error);
 		}
 	}
+
 
 	onMount(async () => {
 		try {
@@ -278,8 +284,6 @@
 				<div class="prompt-item" transition:slide={{ duration: 300 }}>
 					<div class="prompt-content">
 						<p class="prompt-text">{prompt.prompt}</p>
-
-
 					</div>
 					<div class="button-container">
 						{#if activePromptId === prompt.id}
@@ -306,7 +310,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

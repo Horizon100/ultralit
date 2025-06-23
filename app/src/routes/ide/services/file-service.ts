@@ -1,6 +1,7 @@
 // src/lib/services/fileService.ts
 import { addNotification, updateNotification } from '$lib/stores/ideNotificationStore';
 import type { CodeFiles } from '$lib/types/types.ide';
+import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 /**
  * Saves file content to the server
@@ -12,11 +13,10 @@ export async function saveFile(file: CodeFiles, content: string): Promise<CodeFi
 	// Show saving notification
 	const notificationId = addNotification(`Saving ${file.name}...`, 'loading');
 
-	try {
-		// Format content as array if it's not already
-		const contentArray = Array.isArray(content) ? content : [content];
+	const contentArray = Array.isArray(content) ? content : [content];
 
-		const response = await fetch(`/api/files/${file.id}`, {
+	const result = await clientTryCatch(
+		fetch(`/api/files/${file.id}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
@@ -24,32 +24,33 @@ export async function saveFile(file: CodeFiles, content: string): Promise<CodeFi
 			body: JSON.stringify({
 				content: contentArray
 			})
-		});
+		}).then(async (response) => {
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || 'Failed to save file');
+			}
+			return response.json();
+		})
+	);
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(errorData.error || 'Failed to save file');
-		}
-
-		const updatedFile = await response.json();
-
-		// Update notification to success
+	if (result.success) {
 		updateNotification(notificationId, {
 			message: `${file.name} saved successfully`,
 			type: 'success'
 		});
-
-		return updatedFile;
-	} catch (error) {
-		// Update notification to error
+	} else {
 		updateNotification(notificationId, {
-			message: `Error saving ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+			message: `Error saving ${file.name}: ${String(result.error || 'Unknown error')}`,
 			type: 'error',
 			autoClose: false // Keep error notifications visible
 		});
-
-		throw error;
 	}
+
+	if (isFailure(result)) {
+		throw result.error;
+	}
+
+	return result.data as CodeFiles;
 }
 
 /**
@@ -64,8 +65,8 @@ export async function createNewFile(
 ): Promise<CodeFiles> {
 	const notificationId = addNotification(`Creating ${fileName}...`, 'loading');
 
-	try {
-		const response = await fetch('/api/files', {
+	const result = await clientTryCatch(
+		fetch('/api/files', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -77,28 +78,31 @@ export async function createNewFile(
 				repository: repositoryId,
 				branch
 			})
-		});
+		}).then(async (response) => {
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || 'Failed to create file');
+			}
+			return response.json();
+		})
+	);
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(errorData.error || 'Failed to create file');
-		}
-
-		const newFile = await response.json();
-
+	if (result.success) {
 		updateNotification(notificationId, {
 			message: `${fileName} created successfully`,
 			type: 'success'
 		});
-
-		return newFile;
-	} catch (error) {
+	} else {
 		updateNotification(notificationId, {
-			message: `Error creating ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+			message: `Error creating ${fileName}: ${String(result.error || 'Unknown error')}`,
 			type: 'error',
 			autoClose: false
 		});
-
-		throw error;
 	}
+
+	if (isFailure(result)) {
+		throw result.error;
+	}
+
+	return result.data as CodeFiles;
 }

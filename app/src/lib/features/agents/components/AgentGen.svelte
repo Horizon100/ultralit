@@ -10,11 +10,10 @@
 	import CircularAgentView from '$lib/features/agents/components/CircularAgentView.svelte';
 	import { isLoading, showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
-
+	import { isSuccess, clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	export let parentAgent: AIAgent;
-	export const aiModel: AIModel | null = null;;
+	export const aiModel: AIModel | null = null;
 	export let userId: string;
-
 
 	let seedPrompt = '';
 	let childAgents: AIAgent[] = [];
@@ -27,58 +26,39 @@
 	$: childAgents = [];
 
 	onMount(async () => {
-		try {
-			await loadChildAgents();
-		} catch (error) {
-			handleError(error);
+		const result = await clientTryCatch(loadChildAgents(), 'Failed to load child agents');
+		if (isFailure(result)) {
+			handleError(result.error);
 		}
 	});
 
-	async function loadChildAgents() {
-		loading = true;
-		showLoading();
-		try {
-			const agents = await agentStore.loadAgents(userId);
-			if (Array.isArray(agents)) {
-				childAgents = agents.filter((agent: AIAgent) => agent.parent_agent === parentAgent.id);
-			} else {
-				console.error('loadAgents did not return an array');
-				childAgents = [];
-			}
-		} catch (error) {
-			handleError(error);
-		} finally {
-			loading = false;
-			hideLoading();
-		}
+async function loadChildAgents() {
+	loading = true;
+	showLoading();
+
+	const result = await clientTryCatch(agentStore.loadAgents(userId), 'Failed to load agents');
+
+	if (isSuccess(result)) {
+		childAgents = result.data.filter((agent: AIAgent) => agent.parent_agent === parentAgent.id);
+	} else {
+		console.error('loadAgents failed:', result.error);
+		childAgents = [];
+		handleError(result.error);
 	}
 
-	async function handleSeedPromptSubmit() {
-		if (seedPrompt.trim()) {
-			try {
-				const newAgent = await createAgent({
-					name: `Child of ${parentAgent.name}`,
-					description: seedPrompt,
-					parent_agent: parentAgent.id,
-					user_id: userId
-					// Add other necessary fields
-				});
-				await addChildAgent(newAgent);
-				seedPrompt = ''; // Clear the input after successful submission
-			} catch (error) {
-				handleError(error);
-			}
-		}
-	}
+	loading = false;
+	hideLoading();
+}
 
 	async function updateParentAgent() {
-		try {
-			const updatedParent = await updateAgent(parentAgent.id, {
-				child_agents: childAgents.map((agent) => agent.id)
-			});
-			parentAgent = updatedParent; // Update the local parentAgent state
-		} catch (error) {
-			handleError(error);
+		const result = await updateAgent(parentAgent.id, {
+			child_agents: childAgents.map((agent) => agent.id)
+		});
+
+		if (isSuccess(result)) {
+			parentAgent = result.data;
+		} else {
+			handleError(result.error);
 		}
 	}
 
@@ -88,16 +68,20 @@
 	}
 
 
-
 	async function handleDeleteChildAgent(agent: AIAgent) {
-		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
-			try {
-				await deleteAgent(agent.id);
-				childAgents = childAgents.filter((a) => a.id !== agent.id);
-				await updateParentAgent();
-			} catch (error) {
-				handleError(error);
+		if (!confirm(`Are you sure you want to delete ${agent.name}?`)) return;
+
+		const deleteResult = await clientTryCatch(deleteAgent(agent.id), 'Failed to delete agent');
+
+		if (isSuccess(deleteResult)) {
+			childAgents = childAgents.filter((a) => a.id !== agent.id);
+
+			const updateResult = await clientTryCatch(updateParentAgent(), 'Failed to update parent agent');
+			if (!isSuccess(updateResult)) {
+				handleError(updateResult.error);
 			}
+		} else {
+			handleError(deleteResult.error);
 		}
 	}
 
@@ -180,7 +164,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

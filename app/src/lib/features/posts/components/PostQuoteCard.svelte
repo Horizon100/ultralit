@@ -2,11 +2,11 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
-	import PostCard from '$lib/features/content/components/PostCard.svelte';
+	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import { Quote } from 'lucide-svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import { t } from '$lib/stores/translationStore';
-
+	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 	export let post: PostWithInteractions;
 	export let quotedBy: {
 		id?: string;
@@ -24,48 +24,37 @@
 		quote: { content: string; attachments: File[]; quotedPostId: string };
 	}>();
 
-	async function fetchQuotedPost() {
-		if (!post.quotedPost) {
-			loadingQuotedPost = false;
-			return;
-		}
+async function fetchQuotedPost() {
+	if (!post.quotedPost) {
+		loadingQuotedPost = false;
+		return;
+	}
 
-		try {
-			console.log('Fetching quoted post:', post.quotedPost);
+	const result = await fetchTryCatch<{ post: PostWithInteractions }>(
+		`/api/posts/${post.quotedPost}`,
+		{ method: 'GET', credentials: 'include' }
+	);
 
-			// Fetch the specific quoted post directly
-			const response = await fetch(`/api/posts/${post.quotedPost}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				if (response.status === 404) {
-					console.log('Quoted post not found (404)');
-					quotedPost = null;
-				} else {
-					throw new Error(`Failed to fetch quoted post: ${response.status}`);
-				}
-			} else {
-				const data = await response.json();
-				console.log('Quoted post data received:', data);
-				
-				// The API returns { post, comments, user } structure
-				if (data.post) {
-					quotedPost = data.post;
-					console.log('Quoted post loaded successfully');
-				} else {
-					console.log('No post data in response');
-					quotedPost = null;
-				}
-			}
-		} catch (error) {
-			console.error('Error fetching quoted post:', error);
+	if (isSuccess(result)) {
+		if (result.data?.post) {
+			quotedPost = result.data.post;
+			console.log('Quoted post loaded successfully');
+		} else {
+			console.warn('No post data in response');
 			quotedPost = null;
-		} finally {
-			loadingQuotedPost = false;
+		}
+	} else {
+		console.error('Failed to fetch quoted post:', result.error);
+		if (result.error.includes('404')) {
+			console.warn('Quoted post not found (404)');
+			quotedPost = null;
+		} else {
+			// optional: show toast or fallback UI
 		}
 	}
+
+	loadingQuotedPost = false;
+}
 
 	function handleInteraction(
 		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
@@ -94,29 +83,39 @@
 
 		// If less than an hour, show minutes
 		if (minutes < 60) return `${minutes}m`;
-		
+
 		// If less than a day, show hours
 		if (hours < 24) return `${hours}h`;
-		
+
 		// If more than a day, show date format
 		const day = date.getDate();
 		const month = date.getMonth(); // 0-11
 		const year = date.getFullYear();
 		const currentYear = now.getFullYear();
-		
+
 		// Month names array for translation lookup
 		const monthKeys = [
-			'january', 'february', 'march', 'april', 'may', 'june',
-			'july', 'august', 'september', 'october', 'november', 'december'
+			'january',
+			'february',
+			'march',
+			'april',
+			'may',
+			'june',
+			'july',
+			'august',
+			'september',
+			'october',
+			'november',
+			'december'
 		];
-		
+
 		const monthName = $t(`months.${monthKeys[month]}`) as string;
-		
+
 		// If same year, show: "15. March"
 		if (year === currentYear) {
 			return `${day}. ${monthName}`;
 		}
-		
+
 		// If different year, show: "15. March 2023"
 		return `${day}. ${monthName} ${year}`;
 	}
@@ -199,7 +198,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -211,8 +210,6 @@
 		transition: all 0.15s ease;
 	}
 
-
-
 	.quote-header {
 		display: flex;
 		align-items: center;
@@ -221,7 +218,6 @@
 		color: var(--placeholder-color);
 		font-size: 14px;
 	}
-
 
 	.quote-author-info {
 		display: flex;
@@ -291,8 +287,6 @@
 		color: var(--placeholder-color);
 		background: var(--bg-gradient);
 	}
-
-
 
 	/* Hide the post content from the actions PostCard since we're showing it above */
 	.quote-actions :global(.post-content) {

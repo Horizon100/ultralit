@@ -1,47 +1,24 @@
-// src/routes/api/attachments/+server.ts
-import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// Upload a new attachment
-export const POST: RequestHandler = async ({ request, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const POST: RequestHandler = async ({ request, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) throw new Error('Unauthorized');
 
-		// Parse the multipart form data
-		const formData = await request.formData();
+    const formData = await request.formData();
+    formData.append('createdBy', locals.user.id);
 
-		// Ensure createdBy is set
-		formData.append('createdBy', locals.user.id);
+    const attachmentResult = await pbTryCatch(pb.collection('attachments').create(formData), 'create attachment');
+    const attachment = unwrap(attachmentResult);
 
-		// Create the attachment record
-		const attachment = await pb.collection('attachments').create(formData);
+    const fileUrl = pb.getFileUrl(attachment, attachment.file);
 
-		// Get the file URL
-		const fileUrl = pb.getFileUrl(attachment, attachment.file);
-
-		return json({
-			id: attachment.id,
-			fileName: attachment.fileName,
-			file: attachment.file,
-			url: fileUrl,
-			note: attachment.note || ''
-		});
-	} catch (error) {
-		console.error('Error uploading attachment:', error);
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Failed to upload attachment'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+    return {
+      id: attachment.id,
+      fileName: attachment.fileName,
+      file: attachment.file,
+      url: fileUrl,
+      note: attachment.note || ''
+    };
+  }, 'Failed to upload attachment');

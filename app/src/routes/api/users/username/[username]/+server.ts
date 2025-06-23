@@ -1,116 +1,224 @@
-// src/routes/api/users/username/[username]/+server.ts
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
+import { pbTryCatch, apiTryCatch } from '$lib/utils/errorUtils';
+import type { PostWithInteractionsExtended } from '$lib/types/types.posts';
 
-export const GET: RequestHandler = async ({ params }) => {
-	const { username } = params;
+// Extended type to include the additional fields your logic adds
+interface ProfilePost extends PostWithInteractionsExtended {
+	isRepost: boolean;
+	isOwnRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
+}
 
-	try {
-		// Find user by username - only fetch public fields
-		const users = await pb.collection('users').getList(1, 1, {
-			filter: `username = "${username}"`,
-			fields: 'id,username,name,avatar,created,updated' // Only public fields
-		});
+export const GET: RequestHandler = async ({ params, url, locals }) => {
+	return apiTryCatch(async () => {
+		const { username } = params;
 
-		if (users.items.length === 0) {
-			return json({ error: 'User not found' }, { status: 404 });
+		// Get pagination parameters
+		const offset = parseInt(url.searchParams.get('offset') || '0');
+		const limit = parseInt(url.searchParams.get('limit') || '10');
+		const page = Math.floor(offset / limit) + 1;
+		
+		console.log('🔍 API username:', username, 'offset:', offset, 'limit:', limit);
+
+		// Check if user is authenticated
+		const isAuthenticated = !!locals.user;
+		const currentUserId = locals.user?.id;
+
+		// Find user by username
+		const userResult = await pbTryCatch(
+			pb.collection('users').getList(1, 1, {
+				filter: `username = "${username}"`
+			}),
+			'fetch user by username'
+		);
+
+		if (!userResult.success || userResult.data.items.length === 0) {
+			throw new Error('User not found');
 		}
 
-		const user = users.items[0];
-		console.log('=== USER PROFILE DEBUG ===');
-		console.log('User ID:', user.id);
-		console.log('Username:', user.username);
+		const user = userResult.data.items[0];
+		console.log('✅ Found user:', user.id, user.username);
 
-		// Get user's original posts and reposts separately
-		const [originalPosts, repostedPosts] = await Promise.all([
-			// Original posts by the user
-			pb.collection('posts').getList(1, 50, {
-				filter: `user = "${user.id}"`,
-				sort: '-created',
-				expand: 'user'
-			}),
-
-			// Posts reposted by the user
-			pb.collection('posts').getList(1, 50, {
-				filter: `repostedBy ~ "${user.id}"`,
-				sort: '-created',
-				expand: 'user'
-			})
+		// Fetch posts with proper interaction data
+		console.log('📊 Fetching ALL posts for user...');
+		
+		const [originalPostsResult, repostedPostsResult] = await Promise.all([
+			pbTryCatch(
+				pb.collection('posts').getList(1, 200, {
+					filter: `user = "${user.id}"`,
+					sort: '-created',
+					expand: 'user'
+				}),
+				'fetch original posts'
+			),
+			pbTryCatch(
+				pb.collection('posts').getList(1, 200, {
+					filter: `repostedBy ~ "${user.id}"`,
+					sort: '-created',
+					expand: 'user'
+				}),
+				'fetch reposted posts'
+			)
 		]);
 
-		console.log('Original posts:', originalPosts.totalItems);
-		console.log(
-			'Original posts details:',
-			originalPosts.items.map((p) => ({
-				id: p.id,
-				content: p.content.substring(0, 30),
-				repostedBy: p.repostedBy,
-				repostCount: p.repostCount
-			}))
-		);
+		if (!originalPostsResult.success || !repostedPostsResult.success) {
+			throw new Error('Failed to fetch posts');
+		}
 
-		console.log('Reposted posts:', repostedPosts.totalItems);
-		console.log(
-			'Reposted posts details:',
-			repostedPosts.items.map((p) => ({
-				id: p.id,
-				content: p.content.substring(0, 30),
-				repostedBy: p.repostedBy,
-				user: p.user
-			}))
-		);
+		const originalPosts = originalPostsResult.data;
+		const repostedPosts = repostedPostsResult.data;
 
-		// Create a combined array with proper flags
-		const allPosts: any[] = [];
+		console.log('📊 Raw posts fetched:', {
+			original: originalPosts.items.length,
+			reposts: repostedPosts.items.length
+		});
 
-		// Add original posts (check if they were also reposted by the user)
+		// Create combined array with proper interaction data
+		const allPosts: ProfilePost[] = [];
+
+		// Add original posts with proper interaction calculations
 		originalPosts.items.forEach((post) => {
-			const isOwnRepost = post.repostedBy && post.repostedBy.includes(user.id);
-			console.log(`Post ${post.id}: isOwnRepost=${isOwnRepost}, repostedBy=${post.repostedBy}`);
+			const upvotedBy = post.upvotedBy || [];
+			const downvotedBy = post.downvotedBy || [];
+			const repostedBy = post.repostedBy || [];
+			const readBy = post.readBy || [];
+			const sharedBy = post.sharedBy || [];
+			const quotedBy = post.quotedBy || [];
+			const commentedBy = post.commentedBy || [];
 
-			// Always add the original post
+			// Calculate user interaction state
+			const upvote = isAuthenticated && currentUserId ? upvotedBy.includes(currentUserId) : false;
+			const downvote = isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
+			const repost = isAuthenticated && currentUserId ? repostedBy.includes(currentUserId) : false;
+			const hasRead = isAuthenticated && currentUserId ? readBy.includes(currentUserId) : false;
+			const share = isAuthenticated && currentUserId ? sharedBy.includes(currentUserId) : false;
+			const quote = isAuthenticated && currentUserId ? quotedBy.includes(currentUserId) : false;
+
+			// Calculate read count (excluding the author)
+			const readCount = readBy.filter((id: string) => id !== post.user).length;
+
 			allPosts.push({
 				...post,
 				isRepost: false,
-				isOwnRepost: isOwnRepost
+				
+				// User interaction state
+				upvote,
+				downvote,
+				repost,
+				hasRead,
+				share,
+				quote,
+				preview: false,
+
+				// Interaction counts - use database values or calculate from arrays
+				upvoteCount: post.upvoteCount ?? upvotedBy.length,
+				downvoteCount: post.downvoteCount ?? downvotedBy.length,
+				repostCount: post.repostCount ?? repostedBy.length,
+				readCount: post.readCount ?? readCount,
+				shareCount: post.shareCount ?? sharedBy.length,
+				quoteCount: post.quoteCount ?? quotedBy.length,
+				commentCount: post.commentCount ?? commentedBy.length,
+
+				// Arrays for tracking interactions
+				upvotedBy,
+				downvotedBy,
+				repostedBy,
+				readBy,
+				sharedBy,
+				quotedBy,
+				commentedBy,
+
+				// Tags
+				tags: post.tags || [],
+				tagCount: post.tagCount ?? (post.tags || []).length,
+
+				// Required fields with proper defaults
+				content: post.content || '',
+				user: post.user || '',
+				parent: post.parent || '',
+				children: post.children || [],
+				quotedPost: post.quotedPost || ''
 			});
-
-			// If user reposted their own post, add a separate repost entry
-			if (isOwnRepost) {
-				console.log(`Adding own repost for post ${post.id}`);
-				allPosts.push({
-					...post,
-					id: `repost_${post.id}_${user.id}`, // Create unique ID for repost
-					isRepost: true,
-					originalPostId: post.id,
-					repostedBy_id: user.id,
-					repostedBy_username: user.username,
-					repostedBy_name: user.name,
-					repostedBy_avatar: user.avatar
-				});
-			}
 		});
 
-		// Add reposts of other people's posts
+		// Add reposts from others
 		repostedPosts.items.forEach((post) => {
-			// Only add if it's not the user's own post (already handled above)
 			if (post.user !== user.id) {
-				console.log(`Adding repost of other's post ${post.id}`);
+				const upvotedBy = post.upvotedBy || [];
+				const downvotedBy = post.downvotedBy || [];
+				const repostedBy = post.repostedBy || [];
+				const readBy = post.readBy || [];
+				const sharedBy = post.sharedBy || [];
+				const quotedBy = post.quotedBy || [];
+				const commentedBy = post.commentedBy || [];
+
+				// Calculate user interaction state for reposts
+				const upvote = isAuthenticated && currentUserId ? upvotedBy.includes(currentUserId) : false;
+				const downvote = isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
+				const repostState = isAuthenticated && currentUserId ? repostedBy.includes(currentUserId) : false;
+				const hasRead = isAuthenticated && currentUserId ? readBy.includes(currentUserId) : false;
+				const share = isAuthenticated && currentUserId ? sharedBy.includes(currentUserId) : false;
+				const quote = isAuthenticated && currentUserId ? quotedBy.includes(currentUserId) : false;
+
+				const readCount = readBy.filter((id: string) => id !== post.user).length;
+
 				allPosts.push({
 					...post,
-					id: `repost_${post.id}_${user.id}`, // Create unique ID for repost
+					id: `repost_${post.id}_${user.id}`,
 					isRepost: true,
 					originalPostId: post.id,
 					repostedBy_id: user.id,
 					repostedBy_username: user.username,
 					repostedBy_name: user.name,
-					repostedBy_avatar: user.avatar
+					repostedBy_avatar: user.avatar,
+					
+					// User interaction state
+					upvote,
+					downvote,
+					repost: repostState,
+					hasRead,
+					share,
+					quote,
+					preview: false,
+
+					// Interaction counts - use database values or calculate
+					upvoteCount: post.upvoteCount ?? upvotedBy.length,
+					downvoteCount: post.downvoteCount ?? downvotedBy.length,
+					repostCount: post.repostCount ?? repostedBy.length,
+					readCount: post.readCount ?? readCount,
+					shareCount: post.shareCount ?? sharedBy.length,
+					quoteCount: post.quoteCount ?? quotedBy.length,
+					commentCount: post.commentCount ?? commentedBy.length,
+
+					// Arrays
+					upvotedBy,
+					downvotedBy,
+					repostedBy,
+					readBy,
+					sharedBy,
+					quotedBy,
+					commentedBy,
+
+					// Tags
+					tags: post.tags || [],
+					tagCount: post.tagCount ?? (post.tags || []).length,
+
+					// Required fields
+					content: post.content || '',
+					user: post.user || '',
+					parent: post.parent || '',
+					children: post.children || [],
+					quotedPost: post.quotedPost || ''
 				});
 			}
 		});
 
-		// Add author information from expanded user data
+		// Enhance posts with user data
 		allPosts.forEach((post) => {
 			if (post.expand?.user) {
 				post.author_name = post.expand.user.name;
@@ -119,53 +227,65 @@ export const GET: RequestHandler = async ({ params }) => {
 			}
 		});
 
-		// Sort by creation date
+		// Sort by created date
 		allPosts.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 
-		console.log('=== FINAL RESULTS ===');
-		console.log('Combined posts:', allPosts.length);
-		console.log('Reposts in combined:', allPosts.filter((p) => p.isRepost).length);
-		console.log(
-			'All posts with flags:',
-			allPosts.map((p) => ({
-				id: p.id,
-				isRepost: p.isRepost,
-				content: p.content.substring(0, 30)
-			}))
-		);
+		console.log('📊 All posts combined and sorted:', allPosts.length);
 
-		// Get user profile if exists (optional, might fail for public access)
+		// Apply pagination
+		const startIndex = offset;
+		const endIndex = offset + limit;
+		const paginatedPosts = allPosts.slice(startIndex, endIndex);
+
+		// Calculate hasMore correctly
+		const totalPosts = allPosts.length;
+		const postsReturned = paginatedPosts.length;
+		const postsAlreadyFetched = offset + postsReturned;
+		const hasMore = postsAlreadyFetched < totalPosts;
+
+		console.log('🔥 PAGINATION CALCULATION:', {
+			totalPosts,
+			offset,
+			limit,
+			startIndex,
+			endIndex,
+			postsReturned,
+			postsAlreadyFetched,
+			hasMore,
+			formula: `${postsAlreadyFetched} < ${totalPosts} = ${hasMore}`
+		});
+
+		// Get profile (only on first page)
 		let profile = null;
-		try {
-			const profileResult = await pb.collection('user_profiles').getList(1, 1, {
-				filter: `user = "${user.id}"`
-			});
-			profile = profileResult.items[0] || null;
-		} catch (err) {
-			console.log('No profile found for user or profile collection not accessible');
+		if (offset === 0) {
+			const profileResult = await pbTryCatch(
+				pb.collection('user_profiles').getList(1, 1, {
+					filter: `user = "${user.id}"`
+				}),
+				'fetch user profile'
+			);
+			if (profileResult.success) {
+				profile = profileResult.data.items[0] || null;
+			}
 		}
 
-		return json({
+		console.log(`✅ API: Returning ${postsReturned} posts out of ${totalPosts} total, hasMore: ${hasMore}`);
+
+		return {
 			user: {
 				id: user.id,
 				username: user.username,
 				name: user.name,
+				email: user.email,
 				avatar: user.avatar,
 				created: user.created,
 				updated: user.updated
 			},
-			profile,
-			posts: allPosts,
-			totalPosts: allPosts.length
-		});
-	} catch (error) {
-		console.error('Error fetching user:', error);
-		
-		// Provide more specific error messages
-		if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-			return json({ error: 'User not found' }, { status: 404 });
-		}
-		
-		return json({ error: 'Failed to fetch user' }, { status: 500 });
-	}
+			profile: offset === 0 ? profile : undefined,
+			posts: paginatedPosts,
+			totalPosts: totalPosts,
+			currentPage: page,
+			hasMore: hasMore
+		};
+	}, 'Failed to fetch user profile');
 };

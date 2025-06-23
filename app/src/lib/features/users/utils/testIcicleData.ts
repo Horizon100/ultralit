@@ -1,95 +1,95 @@
 // Test data for Icicle chart component
 export const icicleTestData = {
-	name: "Company",
+	name: 'Company',
 	children: [
 		{
-			name: "Engineering",
+			name: 'Engineering',
 			children: [
 				{
-					name: "Frontend",
+					name: 'Frontend',
 					children: [
-						{ name: "React Team", value: 15 },
-						{ name: "Vue Team", value: 8 },
-						{ name: "Svelte Team", value: 12 }
+						{ name: 'React Team', value: 15 },
+						{ name: 'Vue Team', value: 8 },
+						{ name: 'Svelte Team', value: 12 }
 					]
 				},
 				{
-					name: "Backend",
+					name: 'Backend',
 					children: [
-						{ name: "Node.js Team", value: 20 },
-						{ name: "Python Team", value: 18 },
-						{ name: "Go Team", value: 10 }
+						{ name: 'Node.js Team', value: 20 },
+						{ name: 'Python Team', value: 18 },
+						{ name: 'Go Team', value: 10 }
 					]
 				},
 				{
-					name: "DevOps",
+					name: 'DevOps',
 					children: [
-						{ name: "Infrastructure", value: 14 },
-						{ name: "CI/CD", value: 6 },
-						{ name: "Security", value: 8 }
+						{ name: 'Infrastructure', value: 14 },
+						{ name: 'CI/CD', value: 6 },
+						{ name: 'Security', value: 8 }
 					]
 				}
 			]
 		},
 		{
-			name: "Product",
+			name: 'Product',
 			children: [
 				{
-					name: "Design",
+					name: 'Design',
 					children: [
-						{ name: "UX Design", value: 12 },
-						{ name: "UI Design", value: 10 },
-						{ name: "Research", value: 6 }
+						{ name: 'UX Design', value: 12 },
+						{ name: 'UI Design', value: 10 },
+						{ name: 'Research', value: 6 }
 					]
 				},
 				{
-					name: "Management",
+					name: 'Management',
 					children: [
-						{ name: "Product Managers", value: 8 },
-						{ name: "Project Managers", value: 5 },
-						{ name: "Analysts", value: 7 }
+						{ name: 'Product Managers', value: 8 },
+						{ name: 'Project Managers', value: 5 },
+						{ name: 'Analysts', value: 7 }
 					]
 				}
 			]
 		},
 		{
-			name: "Sales & Marketing",
+			name: 'Sales & Marketing',
 			children: [
 				{
-					name: "Sales",
+					name: 'Sales',
 					children: [
-						{ name: "Enterprise Sales", value: 15 },
-						{ name: "SMB Sales", value: 12 },
-						{ name: "Customer Success", value: 10 }
+						{ name: 'Enterprise Sales', value: 15 },
+						{ name: 'SMB Sales', value: 12 },
+						{ name: 'Customer Success', value: 10 }
 					]
 				},
 				{
-					name: "Marketing",
+					name: 'Marketing',
 					children: [
-						{ name: "Digital Marketing", value: 8 },
-						{ name: "Content Marketing", value: 6 },
-						{ name: "Brand Marketing", value: 4 }
+						{ name: 'Digital Marketing', value: 8 },
+						{ name: 'Content Marketing', value: 6 },
+						{ name: 'Brand Marketing', value: 4 }
 					]
 				}
 			]
 		},
 		{
-			name: "Operations",
+			name: 'Operations',
 			children: [
 				{
-					name: "HR",
+					name: 'HR',
 					children: [
-						{ name: "Recruitment", value: 6 },
-						{ name: "People Ops", value: 4 },
-						{ name: "Learning & Dev", value: 3 }
+						{ name: 'Recruitment', value: 6 },
+						{ name: 'People Ops', value: 4 },
+						{ name: 'Learning & Dev', value: 3 }
 					]
 				},
 				{
-					name: "Finance",
+					name: 'Finance',
 					children: [
-						{ name: "Accounting", value: 5 },
-						{ name: "Financial Planning", value: 4 },
-						{ name: "Legal", value: 3 }
+						{ name: 'Accounting', value: 5 },
+						{ name: 'Financial Planning', value: 4 },
+						{ name: 'Legal', value: 3 }
 					]
 				}
 			]
@@ -99,25 +99,25 @@ export const icicleTestData = {
 
 // Alternative simpler test data
 export const simpleTestData = {
-	name: "Root",
+	name: 'Root',
 	children: [
 		{
-			name: "Branch A",
+			name: 'Branch A',
 			children: [
-				{ name: "Leaf A1", value: 100 },
-				{ name: "Leaf A2", value: 200 },
-				{ name: "Leaf A3", value: 150 }
+				{ name: 'Leaf A1', value: 100 },
+				{ name: 'Leaf A2', value: 200 },
+				{ name: 'Leaf A3', value: 150 }
 			]
 		},
 		{
-			name: "Branch B",
+			name: 'Branch B',
 			children: [
-				{ name: "Leaf B1", value: 300 },
-				{ name: "Leaf B2", value: 250 }
+				{ name: 'Leaf B1', value: 300 },
+				{ name: 'Leaf B2', value: 250 }
 			]
 		},
 		{
-			name: "Branch C",
+			name: 'Branch C',
 			value: 180
 		}
 	]
@@ -125,49 +125,49 @@ export const simpleTestData = {
 
 // File system example
 export const fileSystemData = {
-	name: "src",
+	name: 'src',
 	children: [
 		{
-			name: "components",
+			name: 'components',
 			children: [
 				{
-					name: "charts",
+					name: 'charts',
 					children: [
-						{ name: "Icicle.svelte", value: 250 },
-						{ name: "BarChart.svelte", value: 180 },
-						{ name: "LineChart.svelte", value: 220 }
+						{ name: 'Icicle.svelte', value: 250 },
+						{ name: 'BarChart.svelte', value: 180 },
+						{ name: 'LineChart.svelte', value: 220 }
 					]
 				},
 				{
-					name: "ui",
+					name: 'ui',
 					children: [
-						{ name: "Button.svelte", value: 80 },
-						{ name: "Modal.svelte", value: 150 },
-						{ name: "Input.svelte", value: 120 }
+						{ name: 'Button.svelte', value: 80 },
+						{ name: 'Modal.svelte', value: 150 },
+						{ name: 'Input.svelte', value: 120 }
 					]
 				}
 			]
 		},
 		{
-			name: "routes",
+			name: 'routes',
 			children: [
-				{ name: "+layout.svelte", value: 100 },
-				{ name: "+page.svelte", value: 200 },
+				{ name: '+layout.svelte', value: 100 },
+				{ name: '+page.svelte', value: 200 },
 				{
-					name: "dashboard",
+					name: 'dashboard',
 					children: [
-						{ name: "+page.svelte", value: 300 },
-						{ name: "+layout.svelte", value: 150 }
+						{ name: '+page.svelte', value: 300 },
+						{ name: '+layout.svelte', value: 150 }
 					]
 				}
 			]
 		},
 		{
-			name: "lib",
+			name: 'lib',
 			children: [
-				{ name: "utils.ts", value: 180 },
-				{ name: "stores.ts", value: 120 },
-				{ name: "api.ts", value: 250 }
+				{ name: 'utils.ts', value: 180 },
+				{ name: 'stores.ts', value: 120 },
+				{ name: 'api.ts', value: 250 }
 			]
 		}
 	]

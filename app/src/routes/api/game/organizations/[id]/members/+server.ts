@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
 		// Get current organization
 		const organization = await locals.pb.collection('game_organizations').getOne(organizationId);
-		
+
 		// Check if hero is already a member
 		const currentMembers = organization.members || [];
 		if (currentMembers.includes(heroId)) {
@@ -27,11 +27,13 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
 		// Add hero to members array
 		const updatedMembers = [...currentMembers, heroId];
-		
+
 		// Update organization
-		const updatedOrganization = await locals.pb.collection('game_organizations').update(organizationId, {
-			members: updatedMembers
-		});
+		const updatedOrganization = await locals.pb
+			.collection('game_organizations')
+			.update(organizationId, {
+				members: updatedMembers
+			});
 
 		// Update the hero's currentOrganization
 		await locals.pb.collection('game_heroes').update(heroId, {
@@ -46,15 +48,18 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 		});
 	} catch (createError) {
 		const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
-		
+
 		console.error('Add Member error:', {
 			message: errorMessage,
 			error: createError
 		});
-		
-		return json({ 
-			error: 'Failed to add members',
-			details: errorMessage
-		}, { status: 500 });
+
+		return json(
+			{
+				error: 'Failed to add members',
+				details: errorMessage
+			},
+			{ status: 500 }
+		);
 	}
 };

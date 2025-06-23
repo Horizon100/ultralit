@@ -4,6 +4,7 @@ import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
 import grokIcon from '$lib/assets/icons/providers/x.svg';
 import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
+import { fetchTryCatch, isFailure, clientTryCatch } from '$lib/utils/errorUtils';
 export interface ProviderConfig {
 	name: string;
 	icon: string;
@@ -11,11 +12,22 @@ export interface ProviderConfig {
 	validateApiKey: (apiKey: string) => Promise<boolean>;
 }
 
-const handleFetchError = (provider: string) => (error: any) => {
-	if (error.response?.status === 401) {
-		throw new Error('Invalid API key');
+interface OpenAIModel {
+	id: string;
+	created: number;
+}
+
+interface ModelListResponse {
+	data: OpenAIModel[];
+}
+
+const handleFetchError = (providerName: string) => (error: unknown) => {
+	const errorObj = error as { response?: { status?: number }; message?: string };
+	if (errorObj.response?.status === 401) {
+		throw new Error(`Invalid API key for ${providerName}`);
 	}
-	throw new Error(`Failed to fetch models: ${error.message}`);
+	const message = errorObj.message || 'Unknown error';
+	throw new Error(`Failed to fetch ${providerName} models: ${message}`);
 };
 
 export const providers: Record<ProviderType, ProviderConfig> = {
@@ -33,19 +45,22 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			try {
-				const response = await fetch('https://api.openai.com/v1/models', {
-					headers: { Authorization: `Bearer ${apiKey}` }
-				});
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<ModelListResponse>(
+					'https://api.openai.com/v1/models',
+					{
+						headers: { Authorization: `Bearer ${apiKey}` }
+					}
+				);
 
-				if (!response.ok) {
-					throw new Error(`HTTP error! status: ${response.status}`);
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to fetch OpenAI models: ${fetchResult.error}`);
 				}
 
-				const data = await response.json();
+				const data = fetchResult.data;
 				return data.data
-					.filter((model: any) => model.id.includes('gpt') && !model.id.includes('instruct'))
-					.map((model: any) => ({
+					.filter((model: OpenAIModel) => model.id.includes('gpt') && !model.id.includes('instruct'))
+					.map((model: OpenAIModel) => ({
 						id: `openai-${model.id}`,
 						name: model.id,
 						provider: 'openai' as ProviderType,
@@ -60,9 +75,13 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						collectionId: 'models',
 						collectionName: 'models'
 					}));
-			} catch (error) {
-				throw handleFetchError('OpenAI')(error);
+			})(), 'Fetching OpenAI models');
+
+			if (isFailure(result)) {
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		}
 	},
 	anthropic: {
@@ -83,12 +102,12 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			try {
+			const result = await clientTryCatch((async () => {
 				return [
 					{
 						id: 'anthropic-claude-3-opus',
 						name: 'Claude 3 Opus',
-						provider: 'anthropic',
+						provider: 'anthropic' as ProviderType,
 						api_key: apiKey,
 						base_url: 'https://api.anthropic.com/v1',
 						api_type: 'claude-3-opus-20240229',
@@ -103,7 +122,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					{
 						id: 'anthropic-claude-3-sonnet',
 						name: 'Claude 3 Sonnet',
-						provider: 'anthropic',
+						provider: 'anthropic' as ProviderType,
 						api_key: apiKey,
 						base_url: 'https://api.anthropic.com/v1',
 						api_type: 'claude-3-sonnet-20240229',
@@ -118,7 +137,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					{
 						id: 'anthropic-claude-3-haiku',
 						name: 'Claude 3 Haiku',
-						provider: 'anthropic',
+						provider: 'anthropic' as ProviderType,
 						api_key: apiKey,
 						base_url: 'https://api.anthropic.com/v1',
 						api_type: 'claude-3-haiku-20240307',
@@ -131,15 +150,19 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						collectionName: 'models'
 					}
 				];
-			} catch (error) {
-				throw handleFetchError('Anthropic')(error);
+			})(), 'Fetching Anthropic models');
+
+			if (isFailure(result)) {
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		}
 	},
 	google: {
 		name: 'Gemini',
 		icon: googleIcon,
-		validateApiKey: async (apiKey: string): Promise<boolean> => {
+		validateApiKey: async (): Promise<boolean> => {
 			return false;
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
@@ -177,54 +200,57 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			try {
-				const response = await fetch('https://api.x.ai/v1/models', {
-					headers: { Authorization: `Bearer ${apiKey}` }
-				});
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<ModelListResponse>(
+					'https://api.x.ai/v1/models',
+					{
+						headers: { Authorization: `Bearer ${apiKey}` }
+					}
+				);
 
-				if (response.status === 429) {
-					// Rate limited - return hardcoded models instead of failing
-					console.warn('Grok API rate limited, returning default models');
-					return [
-						{
-							id: 'grok-grok-1',
-							name: 'Grok-1',
-							provider: 'grok' as ProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.x.ai/v1',
-							api_type: 'grok-1',
-							api_version: '',
-							description: 'Grok-1 model by X.AI',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						},
-						{
-							id: 'grok-grok-beta',
-							name: 'Grok Beta',
-							provider: 'grok' as ProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.x.ai/v1',
-							api_type: 'grok-beta',
-							api_version: '',
-							description: 'Grok Beta model by X.AI',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						}
-					];
+				if (isFailure(fetchResult)) {
+					// Check if it's a rate limit error
+					if (fetchResult.error.includes('429') || fetchResult.error.includes('rate limit')) {
+						console.warn('Grok API rate limited, returning default models');
+						return [
+							{
+								id: 'grok-grok-1',
+								name: 'Grok-1',
+								provider: 'grok' as ProviderType,
+								api_key: apiKey,
+								base_url: 'https://api.x.ai/v1',
+								api_type: 'grok-1',
+								api_version: '',
+								description: 'Grok-1 model by X.AI',
+								user: [],
+								created: new Date().toISOString(),
+								updated: new Date().toISOString(),
+								collectionId: 'models',
+								collectionName: 'models'
+							},
+							{
+								id: 'grok-grok-beta',
+								name: 'Grok Beta',
+								provider: 'grok' as ProviderType,
+								api_key: apiKey,
+								base_url: 'https://api.x.ai/v1',
+								api_type: 'grok-beta',
+								api_version: '',
+								description: 'Grok Beta model by X.AI',
+								user: [],
+								created: new Date().toISOString(),
+								updated: new Date().toISOString(),
+								collectionId: 'models',
+								collectionName: 'models'
+							}
+						];
+					}
+					
+					throw new Error(`Failed to fetch Grok models: ${fetchResult.error}`);
 				}
 
-				if (!response.ok) {
-					throw new Error(`HTTP error! status: ${response.status}`);
-				}
-
-				const data = await response.json();
-				return data.data.map((model: any) => ({
+				const data = fetchResult.data;
+				return data.data.map((model: OpenAIModel) => ({
 					id: `grok-${model.id}`,
 					name: model.id,
 					provider: 'grok' as ProviderType,
@@ -239,13 +265,12 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					collectionId: 'models',
 					collectionName: 'models'
 				}));
-			} catch (error) {
-				// Type guard to check if error is an Error object
-				const errorMessage = error instanceof Error ? error.message : String(error);
+			})(), 'Fetching Grok models');
 
-				// If we get rate limited or any error, return fallback models
-				if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
-					console.warn('Grok API rate limited, returning default models');
+			if (isFailure(result)) {
+				// Final fallback for any other errors
+				if (result.error.includes('429') || result.error.includes('rate limit')) {
+					console.warn('Grok API rate limited, returning minimal fallback models');
 					return [
 						{
 							id: 'grok-grok-1',
@@ -264,8 +289,11 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						}
 					];
 				}
-				throw handleFetchError('Grok')(error);
+				
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		}
 	},
 	deepseek: {
@@ -282,17 +310,20 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			try {
-				const response = await fetch('https://api.deepseek.com/v1/models', {
-					headers: { Authorization: `Bearer ${apiKey}` }
-				});
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<ModelListResponse>(
+					'https://api.deepseek.com/v1/models',
+					{
+						headers: { Authorization: `Bearer ${apiKey}` }
+					}
+				);
 
-				if (!response.ok) {
-					throw new Error(`HTTP error! status: ${response.status}`);
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to fetch Deepseek models: ${fetchResult.error}`);
 				}
 
-				const data = await response.json();
-				return data.data.map((model: any) => ({
+				const data = fetchResult.data;
+				return data.data.map((model: OpenAIModel) => ({
 					id: `deepseek-${model.id}`,
 					name: model.id,
 					provider: 'deepseek' as ProviderType,
@@ -307,33 +338,50 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					collectionId: 'models',
 					collectionName: 'models'
 				}));
-			} catch (error) {
-				throw handleFetchError('Deepseek')(error);
+			})(), 'Fetching Deepseek models');
+
+			if (isFailure(result)) {
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		}
 	}
 };
+
 export const fetchAllProviderModels = async (
 	selectedProviders: ProviderType[],
 	apiKeys: Record<ProviderType, string>
 ): Promise<AIModel[]> => {
-	const modelPromises = selectedProviders.map(async (provider) => {
-		if (!apiKeys[provider]) {
-			return [];
-		}
-		try {
-			return await providers[provider].fetchModels(apiKeys[provider]);
-		} catch (error) {
-			console.error(`Error fetching ${provider} models:`, error);
-			return [];
-		}
-	});
+	const result = await clientTryCatch((async () => {
+		const modelPromises = selectedProviders.map(async (provider) => {
+			if (!apiKeys[provider]) {
+				return [];
+			}
 
-	const results = await Promise.all(modelPromises);
-	return results.flat();
+			const providerResult = await clientTryCatch((async () => {
+				return await providers[provider].fetchModels(apiKeys[provider]);
+			})(), `Fetching models for ${provider}`);
+
+			if (isFailure(providerResult)) {
+				console.error(`Error fetching ${provider} models:`, providerResult.error);
+				return [];
+			}
+
+			return providerResult.data;
+		});
+
+		const results = await Promise.all(modelPromises);
+		return results.flat();
+	})(), 'Fetching models from all providers');
+
+	if (isFailure(result)) {
+		console.error('Error fetching models from providers:', result.error);
+		return [];
+	}
+
+	return result.data;
 };
-
-
 
 export function getProviderFromModel(modelName: string): ProviderType {
 	const model = modelName.toLowerCase();
@@ -360,7 +408,6 @@ export function getProviderFromModel(modelName: string): ProviderType {
 	
 	return 'openai';
 }
-
 
 export function getProviderIcon(provider: ProviderType): string {
 	switch (provider) {

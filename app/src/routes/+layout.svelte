@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { fly, fade, slide } from 'svelte/transition';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
@@ -18,8 +19,13 @@
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
 	import ProjectDropdown from '$lib/components/buttons/ProjectDropdown.svelte';
+	import { projectStore } from '$lib/stores/projectStore';
 	import SearchEngine from '$lib/components/navigation/SearchEngine.svelte';
-	import { getWallpaperSrc, parseWallpaperPreference, AVAILABLE_WALLPAPERS } from '$lib/utils/wallpapers';
+	import {
+		getWallpaperSrc,
+		parseWallpaperPreference,
+		AVAILABLE_WALLPAPERS
+	} from '$lib/utils/wallpapers';
 	import type { WallpaperPreference } from '$lib/utils/wallpapers';
 	// Stores
 	import { currentUser, refreshCurrentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
@@ -33,9 +39,22 @@
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { t } from '$lib/stores/translationStore';
+	import { timerStore } from '$lib/stores/timerStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
 	import { showAuth, toggleAuth } from '$lib/stores/authStore';
-	import { sidenavStore, showSidenav } from '$lib/stores/sidenavStore';
+	import {
+		sidenavStore,
+		showSidenav,
+		showInput,
+		showRightSidenav,
+		showFilters,
+		showOverlay,
+		showSettings,
+		showEditor,
+		showExplorer
+	} from '$lib/stores/sidenavStore';
+	import Toast from '$lib/components/modals/Toast.svelte';
+
 	// Icons
 	import {
 		MessageSquare,
@@ -88,30 +107,42 @@
 		Gamepad,
 		Gamepad2,
 		HomeIcon,
-
 		MessageCirclePlus,
-
 		ListCollapse,
-
 		TagIcon,
-
 		Filter,
-
-		FilterX
-
-
-
-
-
+		FilterX,
+		LucideHome,
+		FilterIcon,
+		ChevronRight,
+		ScanFace,
+		Calendar,
+		FilterXIcon,
+		Bot,
+		KanbanSquareDashed,
+		ListFilter,
+		ListX,
+		MessageCircleOff,
+		ListCollapseIcon,
+		CalendarOff,
+		Notebook,
+		NotebookPen
 	} from 'lucide-svelte';
-
+	import { swipeGesture } from '$lib/utils/swipeGesture';
+	import { 
+		clientTryCatch, 
+		fetchTryCatch, 
+		storageTryCatch,
+		isSuccess, 
+		isFailure 
+	} from '$lib/utils/errorUtils';
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
 	export let isOpen = false;
 	export let isSearchFocused = false;
 
 	// Local state
-	
+
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
 	let isStylesOpen = false;
@@ -131,6 +162,7 @@
 	let wallpaperPreference: WallpaperPreference = { wallpaperId: null, isActive: false };
 	let wallpaperSrc: string | null = null;
 	let preference: WallpaperPreference;
+	let isLogoHovered = false;
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -163,11 +195,11 @@
 	// Functions
 	function getRandomQuote(): string {
 		const quotes = $t('extras.quotes');
-		
-		if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+
+		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
 			return quotes[Math.floor(Math.random() * quotes.length)];
 		}
-		
+
 		return 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
 	}
 	function toggleSidenav() {
@@ -310,159 +342,175 @@
 	}
 
 	async function logout() {
-		try {
-			await signOut();
+		const result = await clientTryCatch(
+			signOut(),
+			'User logout'
+		);
+
+		if (isSuccess(result)) {
 			showProfile = false;
 			goto('/welcome');
-		} catch (error) {
-			console.error('Error during logout:', error);
+		} else {
+			console.error('Error during logout:', result.error);
 		}
 	}
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
-$: {
-	if ($currentUser?.wallpaper_preference) {
-		wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-	} else if (!$currentUser) {
-		wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
-	} else {
-		wallpaperPreference = { wallpaperId: null, isActive: false };
+	$: {
+		if ($currentUser?.wallpaper_preference) {
+			wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
+		} else if (!$currentUser) {
+			wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
+		} else {
+			wallpaperPreference = { wallpaperId: null, isActive: false };
+		}
+
+		wallpaperSrc = getWallpaperSrc(wallpaperPreference);
+		console.log('Layout wallpaper updated:', { wallpaperPreference, wallpaperSrc });
 	}
-	
-	wallpaperSrc = getWallpaperSrc(wallpaperPreference);
-	console.log('Layout wallpaper updated:', { wallpaperPreference, wallpaperSrc });
-}
-	// $: {
-	// 	console.log('=== WALLPAPER DEBUG ===');
-	// 	console.log('Current user:', $currentUser);
-	// 	console.log('Current user wallpaper_preference (raw):', $currentUser?.wallpaper_preference);
-	// 	console.log('Current user wallpaper_preference type:', typeof $currentUser?.wallpaper_preference);
-	// }
-	
-// $: if ($currentUser?.wallpaper_preference) {
-// 	wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-// } else if (!$currentUser) {
-// 	// Show default wallpaper when no user is logged in
-// 	wallpaperPreference = { 
-// 		wallpaperId: 'aristoles', // or whatever your aristotle image is named
-// 		isActive: true 
-// 	};
-// 	console.log('No user logged in, using default wallpaper:', wallpaperPreference);
-// } else {
-// 	// User is logged in but has no wallpaper preference
-// 	wallpaperPreference = { wallpaperId: null, isActive: false };
-// 	console.log('User logged in but no wallpaper preference set');
-// }
 
-// $: wallpaperSrc = getWallpaperSrc(wallpaperPreference);
-	
+	onMount(() => {
+		let unsubscribe: (() => void) | undefined;
+		let themeUnsubscribe: (() => void) | undefined;
 
-// 	$: if ($currentUser?.wallpaper_preference && $currentUser.wallpaper_preference !== JSON.stringify(preference)) {
-// 		const newPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-// 		if (newPreference && (newPreference.isActive !== preference?.isActive || newPreference.wallpaperId !== preference?.wallpaperId)) {
-// 			console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
-// 			preference = newPreference;
-// 		}
-// 	}
-	// Get wallpaper source with debugging
-	// $: {
-	// 	console.log('Getting wallpaper source for preference:', wallpaperPreference);
-	// 	try {
-	// 		const src = getWallpaperSrc(wallpaperPreference);
-	// 		console.log('Wallpaper source result:', src);
-	// 		console.log('Wallpaper source type:', typeof src);
-	// 		wallpaperSrc = src;
-	// 	} catch (err) {
-	// 		console.error('Error getting wallpaper source:', err);
-	// 		wallpaperSrc = null;
-	// 	}
-	// }
-	
-	// // Debug final rendering decision
-	// $: {
-	// 	console.log('=== RENDERING DECISION ===');
-	// 	console.log('wallpaperSrc:', wallpaperSrc);
-	// 	console.log('Should show wallpaper:', !!wallpaperSrc);
-	// 	console.log('wallpaperPreference.isActive:', wallpaperPreference?.isActive);
-	// 	console.log('wallpaperPreference.wallpaperId:', wallpaperPreference?.wallpaperId);
-	// 	console.log('========================');
-	// }
-	// Lifecycle hooks
-onMount(() => {
-	let unsubscribe: (() => void) | undefined;
-	let themeUnsubscribe: (() => void) | undefined;
-
-	const initialize = async () => {
-		try {
+		const initialize = async () => {
 			console.log('Layout onMount initiated');
-			
+
 			// Initialize theme and language (global)
 			currentTheme.initialize();
-			await initializeLanguage();
+			
+			const languageResult = await clientTryCatch(
+				initializeLanguage(),
+				'Language initialization'
+			);
+
+			if (isFailure(languageResult)) {
+				console.error('Failed to initialize language:', languageResult.error);
+			}
+
+			if (browser) {
+				// Clean up old timer state format (one-time migration)
+				const migrationResult = storageTryCatch(
+					() => {
+						const oldState = localStorage.getItem('timer_state');
+						if (oldState) {
+							const parsed = JSON.parse(oldState);
+							// Check if old format had 'currentPath' property
+							if (parsed.currentPath !== undefined) {
+								localStorage.removeItem('timer_state');
+								console.log('Migrated old timer state format');
+							}
+						}
+						return true;
+					},
+					false, // fallback value
+					'Timer state migration'
+				);
+
+				if (!migrationResult) {
+					// Clear invalid state as fallback
+					storageTryCatch(
+						() => {
+							localStorage.removeItem('timer_state');
+							console.log('Cleared invalid timer state');
+							return true;
+						},
+						false,
+						'Timer state cleanup'
+					);
+				}
+
+				// Initialize timer store
+				timerStore.initialize();
+			}
 
 			// Set up user info (global)
 			if ($currentUser && $currentUser.id) {
 				console.log('Current user:', $currentUser);
 				username = $currentUser.username || $currentUser.email;
-				
+
 				// Force refresh user data to get wallpaper_preference
 				console.log('🔄 Fetching fresh user data with wallpaper_preference...');
-				try {
-					const response = await fetch(`/api/users/${$currentUser.id}`);
-					console.log('📡 User API response status:', response.status);
-					
-					if (response.ok) {
-						const data = await response.json();
-						console.log('📦 Fresh user data:', data);
-						
-						if (data.success && data.user) {
-							console.log('🎯 Fresh wallpaper_preference:', data.user.wallpaper_preference);
-							// Update the currentUser store with fresh data
-							currentUser.set(data.user);
-							console.log('✅ Updated currentUser store with fresh data');
-						}
-					} else {
-						console.error('❌ Failed to fetch user data:', response.status);
+				
+				const userDataResult = await fetchTryCatch<{ success: boolean; user: any }>(
+					`/api/verify/users/${$currentUser.id}`,
+					{
+						credentials: 'include'
 					}
-				} catch (apiError) {
-					console.error('❌ Error fetching fresh user data:', apiError);
+				);
+
+				if (isSuccess(userDataResult)) {
+					console.log('📦 Fresh user data:', userDataResult.data);
+
+					if (userDataResult.data.success && userDataResult.data.user) {
+						console.log('🎯 Fresh wallpaper_preference:', userDataResult.data.user.wallpaper_preference);
+						// Update the currentUser store with fresh data
+						currentUser.set(userDataResult.data.user);
+						console.log('✅ Updated currentUser store with fresh data');
+					}
+				} else {
+					console.error('❌ Failed to fetch user data:', userDataResult.error);
+				}
+
+				// Initialize projects and restore saved project selection
+				console.log('🚀 Initializing project state...');
+
+				const projectLoadResult = await clientTryCatch(
+					projectStore.loadProjects(),
+					'Project loading'
+				);
+
+				if (isSuccess(projectLoadResult)) {
+					console.log('✅ Projects loaded');
+
+					const projectInitResult = await clientTryCatch(
+						projectStore.initializeFromStorage(),
+						'Project state initialization'
+					);
+
+					if (isSuccess(projectInitResult)) {
+						console.log('✅ Project state initialized from storage');
+					} else {
+						console.error('❌ Error initializing project state:', projectInitResult.error);
+					}
+				} else {
+					console.error('❌ Error loading projects:', projectLoadResult.error);
 				}
 			}
-		} catch (error) {
-			console.error('Error during layout onMount:', error);
-		}
-	};
+		};
 
-	// Set up navigation tracking (global)
-	unsubscribe = navigating.subscribe((navigationData) => {
-		if (navigationData) {
-			isNavigating.set(true);
-		} else {
-			setTimeout(() => {
-				isNavigating.set(false);
-			}, 300);
-		}
+		// Set up navigation tracking (global)
+		unsubscribe = navigating.subscribe((navigationData) => {
+			if (navigationData) {
+				isNavigating.set(true);
+			} else {
+				setTimeout(() => {
+					isNavigating.set(false);
+				}, 300);
+			}
+		});
+
+		// Set up theme tracker (global)
+		themeUnsubscribe = currentTheme.subscribe((theme) => {
+			document.documentElement.className = theme;
+		});
+
+		// Initialize async operations - call initialize() directly since onMount can't be async
+		initialize().catch((error) => {
+			console.error('Failed to initialize layout:', error);
+		});
+
+		// Return cleanup function synchronously
+		return () => {
+			unsubscribe?.();
+			themeUnsubscribe?.();
+		};
 	});
-
-	// Set up theme tracker (global)
-	themeUnsubscribe = currentTheme.subscribe((theme) => {
-		document.documentElement.className = theme;
-	});
-
-	// Initialize async operations
-	initialize();
-
-	// Return cleanup function synchronously
-	return () => {
-		unsubscribe?.();
-		themeUnsubscribe?.();
-	};
-});
 </script>
 
 <svelte:window bind:innerWidth />
 
 <div class="app-container {$currentTheme}">
-<!-- Debug info (remove this in production) -->
+	<!-- Debug info (remove this in production) -->
 	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
 <strong>Wallpaper Debug:</strong><br>
 	User ID: {$currentUser?.id || 'None'}<br>
@@ -488,7 +536,9 @@ onMount(() => {
 		/>
 	{:else}
 		<!-- Debug: Show when no wallpaper -->
-		<div style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px; font-size: 12px;">
+		<div
+			style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px; font-size: 12px;"
+		>
 			No wallpaper: {wallpaperPreference?.isActive ? 'Active but no src' : 'Inactive'}
 		</div>
 	{/if}
@@ -498,6 +548,28 @@ onMount(() => {
 			<button
 				class="nav-button info user"
 				class:expanded={isNavExpanded}
+				use:swipeGesture={{
+					threshold: 50,
+					enableVisualFeedback: true,
+					onSwipeDown: () => {
+						console.log('🟢 User button swiped down - showing profile');
+						if (!showProfile) {
+							toggleAuthOrProfile();
+						}
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					},
+					onSwipeUp: () => {
+						console.log('🟢 User button swiped up - hiding profile');
+						if (showProfile) {
+							showProfile = false;
+						}
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}
+				}}
 				on:click={() => {
 					toggleAuthOrProfile();
 					// Only close the nav if it's expanded
@@ -506,31 +578,56 @@ onMount(() => {
 					}
 				}}
 			>
-				{#if getAvatarUrl($currentUser)}
-					<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
-				{:else}
-					<div class="default-avatar">
-						{($currentUser?.name ||
-							$currentUser?.username ||
-							$currentUser?.email ||
-							'?')[0]?.toUpperCase()}
+				<div class="user-wrapper">
+					<div class="user-shortcuts">
+						{#if getAvatarUrl($currentUser)}
+							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
+						{:else}
+							<div class="default-avatar">
+								{($currentUser?.name ||
+									$currentUser?.username ||
+									$currentUser?.email ||
+									'?')[0]?.toUpperCase()}
+							</div>
+						{/if}
+
+						<span class="nav-text">{username} </span>
+						<div class="tracker">
+							<TimeTracker />
+						</div>
+						<div class="project" on:click|stopPropagation>
+							<ProjectDropdown />
+						</div>
+
+						<span
+							class="icon"
+							on:click|stopPropagation={() => {
+								logout();
+								// Only close the nav if it's expanded
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+						>
+							<LogOutIcon size={16} />
+						</span>
 					</div>
-				{/if}
-				<TimeTracker/>
-				<span class="nav-text">{username} </span>
-				<span
-					class="icon"
-					on:click={() => {
-						logout();
-						// Only close the nav if it's expanded
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-					on:click={logout}
-				>
-					<LogOutIcon size={16} />
-				</span>
+					{#if showProfile}
+						<div
+							class="profile-overlay"
+							on:click={handleOverlayClick}
+							transition:fly={{ y: -200, duration: 300 }}
+						>
+							<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+								<Profile
+									user={$currentUser}
+									onClose={() => (showProfile = false)}
+									onStyleClick={handleStyleClick}
+								/>
+							</div>
+						</div>
+					{/if}
+				</div>
 			</button>
 		{:else}
 			<span class="header-auth">
@@ -549,34 +646,32 @@ onMount(() => {
 					<button class="nav-link language" on:click={handleLanguageChange}>
 						<Languages size={16} />
 						<span>{$t('lang.flag')}</span>
-						<!-- <span class="hover">{$t('profile.language')}</span> -->
 					</button>
 				</span>
 			</span>
 		{/if}
-		{#if $currentUser}
-			<div class="project">
-				{#if !isSearchFocused}
-					<ProjectDropdown bind:isOpen={isDropdownOpen} />
-				{/if}
-			</div>
-		{/if}
-		<span
+
+		<!-- Search wrapper - hidden when logo is hovered -->
+		<div
 			class="search-wrapper"
 			class:dropdown-open={isDropdownOpen}
 			class:search-open={isSearchFocused}
+			class:logo-hovered={isLogoHovered}
 		>
-			<span>
-				{#if !isDropdownOpen}
-					<SearchEngine
-						size="large"
-						placeholder={searchPlaceholder}
-						bind:isFocused={isSearchFocused}
-					/>
-				{/if}
-			</span>
-		</span>
-		<button class="nav-button info logo" class:expanded={isNavExpanded}>
+				<SearchEngine
+					size="large"
+					placeholder={searchPlaceholder}
+					bind:isFocused={isSearchFocused}
+				/>
+		</div>
+
+		<!-- Logo button with hover handlers -->
+		<button
+			class="nav-button info logo"
+			class:expanded={isNavExpanded}
+			on:mouseenter={() => (isLogoHovered = true)}
+			on:mouseleave={() => (isLogoHovered = false)}
+		>
 			<div
 				class="logo-container"
 				on:click|stopPropagation={() => {
@@ -589,52 +684,103 @@ onMount(() => {
 				<img src={horizon100} alt="Horizon100" class="logo" />
 				<h2>vRAZUM</h2>
 			</div>
-				<a href="https://github.com/Horizon100/ultralit" target="_blank" rel="noopener noreferrer" class:expanded={isNavExpanded}>
-						<Github size="30" />
-						{#if isNavExpanded}
-							<span class="nav-text">GitHub</span>
-						{/if}
-				</a>
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/canvas'}
-					on:click={() => {
-						navigateTo('/canvas');
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-				>
-					<Combine />
-
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.canvas')}</span>
-					{/if}
-				</a>
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/notes'}
-					on:click={() => {
-						navigateTo('/notes');
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-				>
-					<NotebookTabs />
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.notes')}</span>
-					{/if}
-				</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/home'}
+				on:click={() => {
+					navigateTo('/home');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<LucideHome />
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.chat')}</span>
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/lean'}
+				on:click={() => {
+					navigateTo('/lean');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<KanbanSquare />
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.lean')}</span>
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/game'}
+				on:click={() => {
+					navigateTo('/game');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<Gamepad />
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.game')}</span>
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/ide'}
+				on:click={() => {
+					navigateTo('/ide');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<Code />
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.ide')}</span>
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/canvas'}
+				on:click={() => {
+					navigateTo('/canvas');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<Combine />
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.canvas')}</span>
+				{/if}
+			</a>
+			<a
+				href="https://github.com/Horizon100/ultralit"
+				target="_blank"
+				rel="noopener noreferrer"
+				class:expanded={isNavExpanded}
+			>
+				<Github size="30" />
+				{#if isNavExpanded}
+					<span class="nav-text">GitHub</span>
+				{/if}
+			</a>
 			{#if isNavExpanded}
 				<!-- <h2>vRAZUM</h2> -->
 			{/if}
 		</button>
 	</header>
-	<nav style="z-index: 1000;">
-	</nav>
+	<nav style="z-index: 1000;"></nav>
 	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
 		<div
 			class="navigation-buttons"
@@ -643,168 +789,556 @@ onMount(() => {
 			out:fly={{ x: 200, duration: 300 }}
 		>
 			{#if $currentUser}
-				<button
-					class="nav-button drawer"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/home'}
-					class:reveal-active={activeRevealButton === 'home'}
-					on:click={(event) => {
-						if (currentPath === '/home') {
-							event.preventDefault();
-							activeRevealButton = activeRevealButton === 'home' ? null : 'home';
-							toggleSidenav();
-							isNavExpanded = false;
-						} else {
-							navigateTo('/home');
-							activeRevealButton = 'home';
-							if (isNavExpanded) {
+				<!-- Home Route Navigation -->
+{#if currentPath === '/home' || currentPath === '/' || currentPath.split('/')[1] && !currentPath.startsWith('/api')}					<!-- Left Navigation Button (Sidenav) -->
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showSidenav}
+						class:reveal-active={$showSidenav}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeRight: () => {
+								console.log('🟢 Left button swiped right - showing sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
+								if (!$showSidenav) {
+									sidenavStore.toggleLeft();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeLeft: () => {
+								console.log('🟢 Left button swiped left - hiding sidenav');
+								if ($showSidenav) {
+									sidenavStore.hideLeft();
+								}
 								isNavExpanded = false;
 							}
-						}
-					}}
-				>
-					{#if currentPath === '/home' && $showSidenav}
-						<ChevronDown />
-					{:else if currentPath === '/home'}
-						<MessageCirclePlus />
-					{:else}
-						<HomeIcon />
-					{/if}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideInput();
+								sidenavStore.hideRight();
+							}
+							sidenavStore.toggleLeft();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showSidenav}
+							<ChevronLeft />
+						{:else}
+							<FilterIcon />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.sidebar')}</span>
+						{/if}
+					</button>
 
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.home')}</span>
-					{/if}
-				</button>
-				<button
-					class="nav-button drawer reveal"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/chat'}
-					class:reveal-active={activeRevealButton === 'chat'}
-					on:click={(event) => {
-						if (currentPath === '/chat') {
+					<!-- Composer Button -->
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showInput}
+						class:reveal-active={$showInput}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeUp: () => {
+								console.log('🟢 Composer button swiped up - showing input');
+								if (innerWidth <= 450) {
+									sidenavStore.hideLeft();
+									sidenavStore.hideRight();
+								}
+								if (!$showInput) {
+									sidenavStore.toggleInput();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeDown: () => {
+								console.log('🟢 Composer button swiped down - hiding input');
+								if ($showInput) {
+									sidenavStore.hideInput();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideLeft();
+								sidenavStore.hideRight();
+							}
+							sidenavStore.toggleInput();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showInput}
+							<ChevronDown />
+						{:else}
+							<MessageCirclePlus />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.compose')}</span>
+						{/if}
+					</button>
+
+					<!-- Right Navigation Button (Right Sidenav) -->
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showRightSidenav}
+						class:reveal-active={$showRightSidenav}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeLeft: () => {
+								console.log('🟢 Right button swiped left - showing right sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								if (!$showRightSidenav) {
+									sidenavStore.toggleRight();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeRight: () => {
+								console.log('🟢 Right button swiped right - hiding right sidenav');
+								if ($showRightSidenav) {
+									sidenavStore.hideRight();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideLeft();
+								sidenavStore.hideInput();
+							}
+							sidenavStore.toggleRight();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showRightSidenav}
+							<ChevronRight />
+						{:else}
+							<ScanFace />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.profile')}</span>
+						{/if}
+					</button>
+				{/if}
+
+				<!-- Chat Route Navigation -->
+				{#if currentPath === '/chat'}
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
+							navigateTo('/home');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<HomeIcon />
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.home')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button drawer reveal"
+						class:expanded={isNavExpanded}
+						class:active={true}
+						class:reveal-active={activeRevealButton === 'chat'}
+						on:click={(event) => {
 							event.preventDefault();
 							activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
 							toggleThreadList();
 							isNavExpanded = false;
-						} else {
-							navigateTo('/chat');
-							activeRevealButton = 'chat';
-							if (isNavExpanded) {
-								isNavExpanded = false;
-							}
-						}
-					}}
-				>
-				
-					{#if currentPath === '/chat' && $showThreadList }
-						<ChevronLeft />
-					{:else if currentPath === '/chat'}
-						<ListCollapse />
-					{:else}
-						<MessageCircle />
-					{/if}
+						}}
+					>
+						{#if $showThreadList}
+							<ChevronLeft />
+						{:else}
+							<ListCollapse />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.chat')}</span>
+						{/if}
+					</button>
 
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('tasks.gantt')}</span>
-					{/if}
-				</button>
-				<button
-					class="nav-button drawer reveal"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/lean'}
-					class:reveal-active={activeRevealButton === 'lean'}
-					on:click={(event) => {
-						if (currentPath === '/lean') {
-							event.preventDefault();
-							activeRevealButton = activeRevealButton === 'lean' ? null : 'lean';
-							toggleThreadList();
-							isNavExpanded = false;
-						} else {
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
 							navigateTo('/lean');
-							activeRevealButton = 'lean';
-							if (isNavExpanded) {
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<SquareKanban />
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.kanban')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
+							navigateTo('/game');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<Gamepad2 />
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.game')}</span>
+						{/if}
+					</button>
+				{/if}
+
+				<!-- Kanban/Lean Route Navigation -->
+				{#if currentPath === '/lean'}
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showSidenav}
+						class:reveal-active={$showSidenav}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeRight: () => {
+								console.log('🟢 Left button swiped right - showing sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
+								if (!$showSidenav) {
+									sidenavStore.toggleLeft();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeLeft: () => {
+								console.log('🟢 Left button swiped left - hiding sidenav');
+								if ($showSidenav) {
+									sidenavStore.hideLeft();
+								}
 								isNavExpanded = false;
 							}
-						}
-					}}
-				>
-				
-					{#if currentPath === '/lean' && $showThreadList}
-						<FilterX />
-					{:else if currentPath === '/lean'}
-						<Filter />
-					{:else}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideInput();
+								sidenavStore.hideRight();
+							}
+							sidenavStore.toggleLeft();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showSidenav}
+							<ListX />
+							Stages
+						{:else}
+							<ListFilter />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.sidebar')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showRightSidenav}
+						class:reveal-active={$showRightSidenav}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeLeft: () => {
+								console.log('🟢 Right button swiped left - showing right sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								if (!$showRightSidenav) {
+									sidenavStore.toggleRight();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeRight: () => {
+								console.log('🟢 Right button swiped right - hiding right sidenav');
+								if ($showRightSidenav) {
+									sidenavStore.hideRight();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideLeft();
+								sidenavStore.hideInput();
+							}
+							sidenavStore.toggleRight();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showRightSidenav}
+							<CalendarOff />
+						{:else}
+							<Calendar />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.profile')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showOverlay}
+						class:reveal-active={$showOverlay}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeLeft: () => {
+								console.log('🟢 Right button swiped left - showing right sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								if (!$showOverlay) {
+									sidenavStore.toggleOverlay();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeRight: () => {
+								console.log('🟢 Right button swiped right - hiding right sidenav');
+								if ($showOverlay) {
+									sidenavStore.hideOverlay();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideLeft();
+								sidenavStore.hideInput();
+							}
+							sidenavStore.toggleOverlay();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showOverlay}
+							<MessageCircleOff />
+						{:else}
+							<MessageSquare />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.profile')}</span>
+						{/if}
+					</button>
+					{#if $showOverlay}
+						<button
+							class="nav-button drawer"
+							class:expanded={isNavExpanded}
+							class:active={$showThreadList}
+							class:reveal-active={activeRevealButton === 'chat'}
+							on:click={(event) => {
+								event.preventDefault();
+								activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+								toggleThreadList();
+								isNavExpanded = false;
+							}}
+						>
+							{#if $showThreadList}
+								<ListCollapseIcon />
+							{:else}
+								<ListCollapse />
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('nav.chat')}</span>
+							{/if}
+						</button>
+					{/if}
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showEditor}
+						class:reveal-active={$showEditor}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeLeft: () => {
+								console.log('🟢 Right button swiped left - showing right sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								if (!$showOverlay) {
+									sidenavStore.toggleEditor();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeRight: () => {
+								console.log('🟢 Right button swiped right - hiding right sidenav');
+								if ($showOverlay) {
+									sidenavStore.hideEditor();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
+							if (innerWidth <= 450) {
+								// Mobile: close others first
+								sidenavStore.hideLeft();
+								sidenavStore.hideInput();
+							}
+							sidenavStore.toggleEditor();
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showEditor}
+							<Notebook />
+						{:else}
+							<NotebookPen />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.profile')}</span>
+						{/if}
+					</button>
+					{#if $showEditor}
+						<button
+							class="nav-button drawer"
+							class:expanded={isNavExpanded}
+							class:active={$showExplorer}
+							class:reveal-active={activeRevealButton === 'lean'}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								sidenavStore.toggleExplorer();
+								isNavExpanded = false;
+							}}
+						>
+							{#if $showExplorer}
+								<ListCollapseIcon />
+							{:else}
+								<ListCollapse />
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('nav.chat')}</span>
+							{/if}
+						</button>
+					{/if}
+				{/if}
+
+				<!-- Game Route Navigation -->
+				{#if currentPath.startsWith('/game')}
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
+							navigateTo('/home');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<HomeIcon />
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.home')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
+							navigateTo('/chat');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<MessageCircle />
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.chat')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button"
+						class:expanded={isNavExpanded}
+						on:click={() => {
+							navigateTo('/lean');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
 						<SquareKanban />
-					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.tasks')}</span>
-					{/if}
-				</button>
-				<button
-					class="nav-button drawer reveal"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/game'}
-					class:reveal-active={activeRevealButton === 'game'}
-					on:click={(event) => {
-						if (currentPath === '/game') {
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.kanban')}</span>
+						{/if}
+					</button>
+
+					<button
+						class="nav-button drawer reveal"
+						class:expanded={isNavExpanded}
+						class:active={true}
+						class:reveal-active={activeRevealButton === 'game'}
+						on:click={(event) => {
 							event.preventDefault();
 							activeRevealButton = activeRevealButton === 'game' ? null : 'game';
-							toggleThreadList();
+							toggleSidenav();
 							isNavExpanded = false;
-						} else {
-							navigateTo('/game');
-							activeRevealButton = 'game';
-							if (isNavExpanded) {
-								isNavExpanded = false;
-							}
-						}
-					}}
-				>
-					{#if currentPath === '/game' && showThreadList}
-						<PanelLeftClose />
-					{:else if currentPath === '/game'}
-						<Gamepad />
-					{:else}
-						<Gamepad2 />
-					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.game')}</span>
-					{/if}
-				</button>
-				<button
-					class="nav-button drawer"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/ide'}
-					on:click={() => navigateTo('/ide')}
-				>
-					<Code2 />
-					{#if isNavExpanded}
-						<span class="nav-text">IDE</span>
-					{/if}
-				</button>
-
-				<button
-					class="nav-button toggle"
-					on:click={() => {
-						toggleNav();
-						if (showProfile || showAuthModal) {
-							showProfile = false;
-							showAuthModal = false;
-						}
-					}}
-				>
-					{#if isNavExpanded}
-						<PanelLeftClose />
-					{:else}
-						<PanelLeftOpen />
-					{/if}
-				</button>
+						}}
+					>
+						{#if $showSidenav}
+							<PanelLeftClose />
+						{:else}
+							<Gamepad />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.game')}</span>
+						{/if}
+					</button>
+				{/if}
 			{:else}
+				<!-- Unauthenticated state -->
 				<!-- <LogIn /> -->
 			{/if}
 		</div>
 	</div>
-
+	<!-- Navigation Toggle Button (always visible) -->
+	<button
+		class="nav-button toggle"
+		on:click={() => {
+			toggleNav();
+			if (showProfile || showAuthModal) {
+				showProfile = false;
+				showAuthModal = false;
+			}
+		}}
+	>
+		{#if isNavExpanded}
+			<PanelLeftClose />
+		{:else}
+			<PanelLeftOpen />
+		{/if}
+	</button>
 	{#if showLanguageNotification}
 		<div class="language-notification" transition:fade={{ duration: 300 }}>
 			{$t('lang.notification')}
@@ -822,36 +1356,11 @@ onMount(() => {
 				>
 					<X size={24} />
 				</button>
-				<Auth 
-					on:success={handleAuthSuccess} 
-					on:logout={handleLogout} 
-				/>
+				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
 			</div>
 		</div>
 	{/if}
 
-	{#if showProfile}
-		<div
-			class="profile-overlay"
-			on:click={handleOverlayClick}
-			transition:fly={{ y: -200, duration: 300 }}
-		>
-			<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-				<!-- <button
-				class="close-button"
-				transition:fly={{ y: -200, duration: 300 }}
-				on:click={() => (showProfile = false)}
-			>
-				<ChevronLeft size={24} />
-			</button> -->
-				<Profile
-					user={$currentUser}
-					onClose={() => (showProfile = false)}
-					onStyleClick={handleStyleClick}
-				/>
-			</div>
-		</div>
-	{/if}
 	<!-- {#if showProfile}
 <div
 	class="profile-overlay"
@@ -931,6 +1440,7 @@ onMount(() => {
 	<main>
 		<slot />
 	</main>
+	<Toast />
 
 	<footer>
 		<!-- Footer content -->
@@ -938,7 +1448,7 @@ onMount(() => {
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1001,7 +1511,19 @@ onMount(() => {
 			}
 			&:hover {
 				backdrop-filter: blur(10px);
+				width: auto;
+				padding: 0.5rem; 
+				height: auto;
+				flex-direction: row;
+				border-left: 4px solid var(--tertiary-color);
+				background: var(--primary-color);
+				justify-content: space-around;
+				border-radius: 3rem 0 0 3rem !important;
+				
 				.shortcut-buttons {
+					display: flex;
+				}
+				h2 {
 					display: flex;
 				}
 			}
@@ -1013,6 +1535,26 @@ onMount(() => {
 		}
 	}
 
+	.user-wrapper {
+		display: flex;
+		flex-direction: column !important;
+		align-items: flex-start;
+		justify-content: flex-start;
+						background: transparent !important;
+
+		height: auto;
+		width: auto;
+		gap: 0;
+	}
+	.user-shortcuts {
+		display: flex;
+		width: auto;
+		background-color: transparent;
+		border: 1px solid var(--line-color);
+		gap: 1rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 2rem;
+	}
 	.auth-overlay {
 		top: 0;
 		left: 0;
@@ -1043,37 +1585,39 @@ onMount(() => {
 		height: auto;
 	}
 	.profile-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
+		position: relative;
 		width: 100%;
-		height: 100%;
+		height: auto !important;
+		justify-content: flex-start;
+		align-items: flex-start;
 		display: flex;
-		flex-grow: 1;
+		margin: 0;
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		justify-content: flex-end !important;
-		align-items: flex-start !important;
 		z-index: 1002;
+		
 		transition: all 0.3s ease;
+		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
 	}
 
 	.project {
 		width: auto !important;
 		justify-content: center;
 		align-items: center;
-		margin-left: 0;
-		top: 0;
+		margin: 0;
+		padding: 0;
 		// z-index: 999;
-		display: flex;
+		display: none;
 		// overflow: visible;
 	}
-
+	.tracker {
+		display: none;
+	}
 	.profile-content {
 		position: relative;
 		width: auto;
 		height: 94vh;
 		width: 500px;
-		top: 4rem;
+		top: 0;
 		margin-bottom: auto;
 		padding: 0;
 		margin: 0;
@@ -1236,13 +1780,13 @@ onMount(() => {
 		gap: 1rem;
 		position: relative;
 		user-select: none;
-		width: auto;
 
 		& h2 {
 			padding: 0 !important;
 			height: auto !important;
 			margin: 0;
 			font-style: normal;
+			display: none;
 		}
 	}
 
@@ -1259,7 +1803,7 @@ onMount(() => {
 		width: 100%;
 		z-index: 6000;
 		& h2 {
-			display: flex;
+			display: none;
 		}
 	}
 
@@ -1314,20 +1858,26 @@ onMount(() => {
 		overflow: auto;
 	}
 
-	span.search-wrapper {
+	.search-wrapper {
 		background: var(--secondary-color);
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		position: relative;
-		width: 600px;
+		width: auto;
+		max-width: 600px;
+		height: 100%;
 		height: 2rem;
 		padding: 0 0.5rem;
 		border-radius: 1rem;
 		border: 1px solid var(--line-color);
+		transition:
+			opacity 0.2s ease,
+			transform 0.2s ease;
 		&.search-open {
 			height: 2rem;
 			padding: 0;
+			border-radius: 1rem;
 			flex-direction: column;
 			align-items: flex-start;
 			justify-content: flex-start;
@@ -1578,7 +2128,7 @@ onMount(() => {
 		opacity: 0.05;
 		z-index: 1;
 		pointer-events: none;
-		mix-blend-mode:multiply;
+		mix-blend-mode: multiply;
 		filter: contrast(20) brightness(0.1);
 		border-radius: 10rem;
 		object-fit: content;
@@ -1745,20 +2295,6 @@ onMount(() => {
 		margin-right: 16px;
 		z-index: 1001;
 	}
-	.profile-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		flex-grow: 1;
-		justify-content: center;
-		align-items: center;
-		z-index: 1002;
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
-		transition: all 0.3s ease;
-	}
 
 	.user-button {
 		background-color: #3c3c3c;
@@ -1832,52 +2368,50 @@ onMount(() => {
 		display: flex;
 		flex-direction: row;
 		align-items: flex-end;
-		justify-content: flex-end;
+		justify-content: center;
 		position: fixed;
 		left: 0;
-		right: 50% !important;
+		right: 0 !important;
 		top: auto;
 		bottom: 0;
 		padding: 0;
 		z-index: 1000;
 		width: 100%;
-		max-width: 250px;
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
 		border-right: 1px solid transparent;
-		backdrop-filter: blur(1px);
-		touch-action: none; 
-		user-select: none; 
+		touch-action: none;
+		user-select: none;
 		-webkit-user-select: none;
 		-moz-user-select: none;
 		-ms-user-select: none;
 		transform: none !important;
 		will-change: auto;
 		pointer-events: auto;
-		
+
 		/* Lock positioning */
 		transform: translateZ(0) !important;
-	backface-visibility: hidden;
+		backface-visibility: hidden;
 		&.expanded {
-			width: 250px;
+			width: 100%;
+
 			backdrop-filter: blur(10px);
-			height: 78%;
 			justify-content: flex-end;
 			align-items: stretch;
 			flex-direction: column;
-			
+
 			// backdrop-filter: blur(30px);
 			// border-right: 1px solid var(--bg-color);
 			& .navigation-buttons {
-				flex-direction: column !important;
+				flex-direction: row !important;
 				justify-content: flex-start;
 				align-items: flex-start;
-							touch-action: none;
-			transform: none !important;
+				touch-action: none;
+				transform: none !important;
+				max-width: 100%;
 			}
 		}
-
 	}
 
 	// .sidenav:hover {
@@ -1889,8 +2423,14 @@ onMount(() => {
 		flex-direction: row;
 		gap: 0.5rem;
 		width: 100%;
-		justify-content: center;
+		max-width: 1000px;
+		justify-content: space-around;
 		align-items: center;
+		backdrop-filter: blur(3px);
+		border-radius: 2rem 2rem 0 0;
+		border: 1px solid var(--line-color);
+		border-bottom: 1px solid transparent;
+		// padding: 0.5rem;
 
 		& .hidden {
 			display: none;
@@ -1939,16 +2479,19 @@ onMount(() => {
 			border-radius: 2rem !important;
 		}
 
-
-
 		&.profile {
 			margin-top: auto;
 		}
 	}
 
 	.nav-text {
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		font-size: 1rem;
 		white-space: nowrap;
+		margin: 0;
+		padding: 0;
 	}
 
 	.user-button {
@@ -2023,15 +2566,49 @@ onMount(() => {
 		}
 		&.logo {
 			&.expanded {
-				height: auto;
-				max-width: 350px;
+				max-width: 50%;
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				flex-direction: row;
 				width: 100%;
+				height: 100vh;
 				justify-content: flex-start;
 				z-index: 10;
-				left: 0;
 				top: 3rem;
-				padding-top: 1rem;
+				padding: 1rem;
 				backdrop-filter: blur(10px);
+			}
+		}
+		&.user {
+			display: flex;
+			flex-direction: column !important;
+			justify-content: flex-start;
+			align-items: flex-start;
+			width: auto;
+			max-width: 500px;
+			
+			&:hover {
+				flex-direction: column !important;
+				justify-content: flex-start;
+				width: auto;
+				align-items: center;
+				height: auto;
+				flex: 1;
+				// background: var(--primary-color) !important;
+				flex-direction: column;
+				& .user-wrapper {
+					// margin-top: 3rem;
+					width: auto;
+					padding: 0 !important;
+				}
+
+				& .project {
+					display: flex;
+				}
+				& .tracker {
+					display: flex;
+					justify-content: center;
+				}
 			}
 		}
 		&.user,
@@ -2061,18 +2638,25 @@ onMount(() => {
 			}
 
 			&:hover {
-				padding: 0.5rem !important;
-				max-width: 180px;
-				background: var(--primary-color) !important;
+				// padding: 0.5rem !important;
+				// background: var(--primary-color) !important;
+				flex-direction: column;
+				width: 100% !important;
+				& .project {
+					display: flex;
+				}
 			}
 		}
 		span.icon {
 			display: none;
+			justify-content: center;
+			align-items: center;
 			padding: 0;
 			border-radius: 50%;
+			transition: all 0.2s ease;
 			&:hover {
 				background: red;
-				padding: 1rem;
+				padding: 0.5rem;
 			}
 		}
 		h2 {
@@ -2104,6 +2688,7 @@ onMount(() => {
 			}
 			span.icon {
 				display: flex;
+				justify-content: center;
 			}
 		}
 		&.expanded {
@@ -2220,10 +2805,17 @@ onMount(() => {
 		margin-bottom: 1rem;
 	}
 
+	.nav-button.toggle {
+		position: fixed;
+		right: 1rem;
+		bottom: 1rem;
+		z-index: 9999;
+	}
+
 	.nav-button,
 	.thread-toggle,
 	.close-button {
-		color: var(--text-color);
+		color: var(--tertiary-color);
 		background: transparent;
 		font-size: auto;
 		border: none;
@@ -2243,8 +2835,8 @@ onMount(() => {
 	.nav-button.active {
 		border: 1px solid var(--secondary-color);
 		background: var(--bg-color);
-		width: 3rem;
-		height: 3rem;
+		width: 2.5rem;
+		height: 2.5rem;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 
 		&.expanded {
@@ -2416,12 +3008,57 @@ onMount(() => {
 			}
 		}
 	}
+	.nav-button.drawer {
+		left: 1rem;
+		bottom: 1rem;
+		height: 3rem !important;
+		width: 3rem !important;
+		color: var(--tertiary-color);
+		border: 1px solid transparent !important;
+		&.expanded {
+			width: auto !important;
+		}
+	}
+	.nav-button.reveal {
+		&.reveal-active {
+			background: var(--primary-color);
 
+			// Add any other active styles you want
+		}
+	}
+	.nav-button.drawer.active {
+		border: 1px solid var(--secondary-color);
+		border-radius: 1rem !important;
+		background: var(--bg-color) !important;
+		width: auto !important;
+		max-width: 300px;
+
+		flex: 1;
+		height: 2rem !important;
+		padding: 0.5rem;
+		margin: 0.5rem 1rem;
+		box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+		&:hover {
+			animation: none;
+		}
+		&.expanded {
+			height: 3rem;
+		}
+	}
+
+	.search-wrapper.logo-hovered {
+		opacity: 0;
+		transform: translateY(-10px);
+		pointer-events: none;
+		transition:
+			opacity 0.2s ease,
+			transform 0.2s ease;
+	}
 	@media (max-width: 1000px) {
 		main {
 			overflow-y: hidden;
 		}
-			.illustration {
+		.illustration {
 			position: fixed;
 			width: auto;
 			height: auto;
@@ -2467,14 +3104,17 @@ onMount(() => {
 				display: none !important;
 			}
 		}
-		span.search-wrapper {
+		.search-wrapper {
 			background: var(--secondary-color);
 			display: flex;
 			flex-direction: row;
 			align-items: center;
 			position: relative;
-			width: calc(100% - 9rem);
+			width: auto;
+			flex: 1;
+			margin-left: 4rem;
 			height: 2rem;
+			margin-right: 0;
 			padding: 0 0.5rem;
 			border-radius: 1rem;
 			border: 1px solid var(--line-color);
@@ -2482,7 +3122,6 @@ onMount(() => {
 				height: 2rem;
 				width: 100% !important;
 				padding: 0;
-				margin-left: 0 !important;
 				flex-direction: column;
 				align-items: flex-start;
 				justify-content: flex-start;
@@ -2503,7 +3142,6 @@ onMount(() => {
 			span {
 				gap: 1.5rem;
 			}
-
 		}
 
 		.nav-link {
@@ -2549,30 +3187,15 @@ onMount(() => {
 		}
 		.nav-button {
 			background: transparent !important;
-
 		}
-	.nav-button.drawer.active {
-		border: 1px solid var(--secondary-color);
-		background: var(--bg-color);
-		width: 2.5rem !important;
-		height: 2.5rem !important;
-		padding: 0.5rem;
-		box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 
-		&.expanded {
-			height: 3rem;
+		.nav-button:hover,
+		.thread-toggle:hover {
+			box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+			animation: none;
+			transform: scale(0.9);
 		}
-	}
 
-		.nav-button.drawer {
-			left: 1rem;
-			bottom: 1rem;
-			height: 3rem !important;
-			width: 3rem !important;
-			color: var(--tertiary-color);
-			border: 1px solid transparent !important;
-			
-		}
 		.nav-button.info {
 			display: flex !important;
 			position: fixed !important;
@@ -2585,7 +3208,6 @@ onMount(() => {
 
 			// display: none !important;
 			&:hover {
-				max-width: 350px;
 				border-radius: 2rem;
 				gap: 1rem;
 				padding: 0;
@@ -2612,16 +3234,21 @@ onMount(() => {
 		}
 		.nav-button.info.logo {
 			position: relative !important;
+			flex-direction: row !important;
+			&:hover {
+				width: 100% !important;
+			}
 		}
 		.nav-button.info.user {
-			display: flex !important;
-			position: relative !important;
-			height: 2rem !important;
-			width: 1 !important;
-			cursor: pointer;
-			top: auto;
-			left: auto;
-			background: transparent !important;
+			// display: flex !important;
+			// position: relative !important;
+			// height: auto !important;
+			// width: auto !important;
+			// cursor: pointer;
+			// top: 0;
+			// left: auto;
+			// background: transparent !important;
+			width: auto;
 
 			& img.user-avatar {
 				height: 2rem !important;
@@ -2634,11 +3261,24 @@ onMount(() => {
 				justify-content: center;
 				width: auto !important;
 				padding: 0 !important;
-
-
+				z-index: 9999;
 			}
 		}
-
+		.user-wrapper {
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			align-self: flex-start;
+			width: 100%;
+			gap: 1rem;
+		}
+		.user-shortcuts {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			width: auto;
+			justify-content: flex-start;
+		}
 		.project {
 			left: 0;
 			right: 0;
@@ -2653,7 +3293,7 @@ onMount(() => {
 
 		header {
 			gap: 0;
-			justify-content: space-between;
+			justify-content: space-around;
 			// justify-content: center;
 		}
 
@@ -2665,7 +3305,6 @@ onMount(() => {
 			position: absolute;
 			right: 2rem;
 		}
-
 
 		footer {
 			color: white;
@@ -2684,10 +3323,6 @@ onMount(() => {
 			border-radius: 1rem !important;
 			animation: none !important;
 
-			&.user {
-				position: relative;
-				bottom: auto;
-			}
 			span.icon {
 				display: none;
 				padding: 1rem;
@@ -2752,18 +3387,6 @@ onMount(() => {
 			display: none;
 		}
 
-		.profile-overlay {
-			margin-left: 0;
-			left: 0;
-			height: auto;
-			margin-top: 5rem;
-		}
-		.nav-button.reveal {
-			&.reveal-active {
-				background: var(--primary-color);
-				// Add any other active styles you want
-			}
-		}
 		.sidenav {
 			display: flex;
 			justify-content: center;
@@ -2776,9 +3399,9 @@ onMount(() => {
 			bottom: 0 !important;
 			border-radius: 0 !important;
 			gap: 10px;
-			width: calc(100% - 0.5rem);
+			width: 100%;
 			max-width: 100%;
-			margin-left: 0.25rem;
+
 			flex: 1;
 			top: auto;
 			bottom: 0;
@@ -2790,7 +3413,6 @@ onMount(() => {
 				& .nav-button.info.user,
 				& .nav-button.drawer {
 					display: flex !important;
-
 				}
 			}
 		}
@@ -2819,7 +3441,14 @@ onMount(() => {
 			margin: 0;
 			gap: 8px;
 		}
-
+		.profile-overlay {
+			margin-left: 0;
+			left: 0;
+			height: auto;
+			width: 500px !important;
+			backdrop-filter: blur(0);
+			background: var(--bg-color);
+		}
 		.nav-button,
 		.thread-toggle,
 		.avatar-container {
@@ -2829,10 +3458,6 @@ onMount(() => {
 			border-radius: 50% !important;
 		}
 
-		.nav-button:hover,
-		.thread-toggle:hover {
-			transform: scale(1.1);
-		}
 		.nav-button.info:hover {
 			transform: none;
 		}
@@ -2916,14 +3541,7 @@ onMount(() => {
 			background: transparent;
 		}
 
-		.profile-overlay {
-			margin-left: 0;
-			left: 0;
-			height: auto;
-			margin-top: 3rem;
-			backdrop-filter: blur(0);
-			background: var(--bg-color);
-		}
+
 
 		.project {
 			margin-left: 0;
@@ -2943,6 +3561,7 @@ onMount(() => {
 			bottom: 0;
 			position: fixed;
 			overflow: auto;
+			overflow-y: hidden;
 			display: flex;
 			flex-grow: 1;
 			height: -webkit-fill-available;
@@ -3000,7 +3619,6 @@ onMount(() => {
 			z-index: 10;
 			transition: all 0.1s ease-in;
 
-
 			& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
@@ -3019,8 +3637,6 @@ onMount(() => {
 					display: flex !important;
 				}
 			}
-
-
 		}
 
 		.nav-button.drawer {
@@ -3046,7 +3662,6 @@ onMount(() => {
 			justify-content: space-around;
 			overflow: hidden;
 			transition: all 0.2s ease;
-
 		}
 
 		.top-buttons {

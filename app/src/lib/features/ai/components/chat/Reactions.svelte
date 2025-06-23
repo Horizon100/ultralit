@@ -276,7 +276,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	.message-reactions {
+	@use 'src/lib/styles/themes.scss' as *;
+	.message-reactions {
 		position: relative; // Keep this
 		display: flex; // Changed from inline-block
 		overflow: visible; // Changed from hidden to show tooltips

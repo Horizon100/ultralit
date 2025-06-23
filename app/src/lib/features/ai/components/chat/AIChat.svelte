@@ -9,11 +9,6 @@
 		Send,
 		Paperclip,
 		Bot,
-		Menu,
-		Reply,
-		Smile,
-		Plus,
-		X,
 		FilePenLine,
 		Save,
 		Check,
@@ -57,9 +52,7 @@
 		PlusCircle,
 		BotIcon,
 		Braces,
-
 		Star
-
 	} from 'lucide-svelte';
 	import {
 		fetchAIResponse,
@@ -74,7 +67,7 @@
 	import MsgBookmarks from '$lib/features/ai/components/chat/MsgBookmarks.svelte';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import ThreadCollaborators from '$lib/features/threads/components/ThreadCollaborators.svelte';
-	import { updateAIAgent, ensureAuthenticated, deleteThread } from '$lib/pocketbase';
+	import { ensureAuthenticated } from '$lib/pocketbase';
 	import PromptCatalog from '../prompts/PromptInput.svelte';
 	import { pendingSuggestion } from '$lib/stores/suggestionStore';
 	// import { getUserProfile } from '$lib/clients/profileClient';
@@ -102,7 +95,7 @@
 		Network,
 		Threads,
 		Messages,
-    ProviderType
+		ProviderType
 	} from '$lib/types/types';
 	import { projectStore } from '$lib/stores/projectStore';
 	import {
@@ -121,9 +114,10 @@
 		loadThreads,
 		threadListVisibility,
 		updateThread,
-		addMessageToThread
+		addMessageToThread,
+		deleteThread
 	} from '$lib/clients/threadsClient';
-	import { threadsStore, ThreadSortOption, showThreadList} from '$lib/stores/threadsStore';
+	import { threadsStore, ThreadSortOption, showThreadList } from '$lib/stores/threadsStore';
 	import { t } from '$lib/stores/translationStore';
 	import { promptStore } from '$lib/stores/promptStore';
 	import { modelStore } from '$lib/stores/modelStore';
@@ -156,10 +150,21 @@
 	import RecursiveMessage from '$lib/features/ai/components/chat/RecursiveMessage.svelte';
 	import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
 	import SysPromptSelector from '../prompts/SysPromptSelector.svelte';
-    import { swipeGesture } from '$lib/utils/swipeGesture';
+	import { swipeGesture } from '$lib/utils/swipeGesture';
 	import { useGlobalSwipe } from '$lib/utils/globalSwipe';
 	import { handleFavoriteThread } from '$lib/utils/favoriteHandlers';
-
+	import { clientTryCatch, fetchTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+	import {
+		sidenavStore,
+		showSidenav,
+		showInput,
+		showRightSidenav,
+		showFilters,
+		showOverlay,
+		showSettings,
+		showEditor,
+		showExplorer
+	} from '$lib/stores/sidenavStore';
 	type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 	let documentClickListener: ((e: MouseEvent) => void) | null = null;
@@ -241,10 +246,10 @@
 	let isLoading = false;
 	let isExpanded = false;
 	let bookmarkId = '';
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let swipeThreshold = 100; 
-    let angleThreshold = 30;
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let swipeThreshold = 100;
+	let angleThreshold = 30;
 	let isDragging = false;
 	let showFavoriteThreadTooltip = false;
 	let favoriteThreadTooltipText = '';
@@ -302,10 +307,10 @@
 	let lastMessageCount = 0;
 	let latestMessageId: string | null = null;
 	// Prompt state
-    let promptSuggestions: string[] = [];
+	let promptSuggestions: string[] = [];
 	let currentGreeting = '';
-    let currentQuestion = '';
-    let currentQuote = '';
+	let currentQuestion = '';
+	let currentQuote = '';
 	let isProcessingPromptClick = false;
 	let currentPromptType: PromptType;
 	let hasSentSeedPrompt: boolean = false;
@@ -424,7 +429,7 @@
 	};
 
 	console.log('🔧 Component loaded, drawerSwipeConfig:', drawerSwipeConfig);
-		const isMobileScreen = () => window.innerWidth < 1000;
+	const isMobileScreen = () => window.innerWidth < 1000;
 	export const focusOnMount = (node: HTMLElement) => {
 		node.focus();
 	};
@@ -471,46 +476,44 @@
 		handleTextareaBlur();
 	};
 
-async function fetchPromptFromAPI(promptId: string | null): Promise<any | null> {
-		if (!promptId) return null;
 
-		try {
-			// Use API endpoint instead of direct PocketBase access
-			const response = await fetch(`/api/prompts/${promptId}`);
+	async function fetchPromptFromAPI(promptId: string | null) {
+	if (!promptId) return null;
 
-			if (!response.ok) {
-				throw new Error(`Failed to fetch prompt: ${response.status}`);
-			}
+	const { success, data, error } = await fetchTryCatch(`/api/prompts/${promptId}`);
 
-			const data = await response.json();
-			return data;
-		} catch (error) {
-			console.error('Error fetching prompt from API:', error);
-			return null;
-		}
+	if (success && data) {
+		return data;
+	} else {
+		console.error('Failed to fetch prompt:', error);
+		return null;
+	}
 	}
 
 	// Function to load the prompt immediately
-		async function loadUserPrompt() {
-			isLoadingPrompt = true;
+	async function loadUserPrompt() {
+		isLoadingPrompt = true;
 
-			if ($currentUser?.prompt_preference) {
-				let promptId: string | null = null;
+		if ($currentUser?.prompt_preference) {
+			let promptId: string | null = null;
 
-				if (Array.isArray($currentUser.prompt_preference) && $currentUser.prompt_preference.length > 0) {
-					promptId = $currentUser.prompt_preference[0];
-				} else if (typeof $currentUser.prompt_preference === 'string') {
-					promptId = $currentUser.prompt_preference;
-				}
-
-				if (promptId) {
-					userPromptData = await fetchPromptFromAPI(promptId);
-					console.log('Loaded prompt data:', userPromptData);
-				}
+			if (
+				Array.isArray($currentUser.prompt_preference) &&
+				$currentUser.prompt_preference.length > 0
+			) {
+				promptId = $currentUser.prompt_preference[0];
+			} else if (typeof $currentUser.prompt_preference === 'string') {
+				promptId = $currentUser.prompt_preference;
 			}
 
-			isLoadingPrompt = false;
+			if (promptId) {
+				userPromptData = await fetchPromptFromAPI(promptId);
+				console.log('Loaded prompt data:', userPromptData);
+			}
 		}
+
+		isLoadingPrompt = false;
+	}
 
 	function handleModelSelection(event: CustomEvent<AIModel>) {
 		const selectedModel = event.detail;
@@ -530,49 +533,25 @@ async function fetchPromptFromAPI(promptId: string | null): Promise<any | null> 
 			models: false
 		}));
 	}
-	async function loadFavoriteThreads() {
-		if (!$currentUser?.favoriteThreads?.length) {
-			favoriteThreadsData = [];
-			return;
+
+	$: filteredThreads = (() => {
+		let filtered = threads || [];
+
+		if (
+			showFavoriteThreads &&
+			$currentUser?.favoriteThreads &&
+			$currentUser.favoriteThreads.length > 0
+		) {
+			filtered = filtered.filter((thread) => $currentUser!.favoriteThreads!.includes(thread.id));
 		}
 
-		try {
-			isLoadingFavorites = true;
-			const response = await fetch('/api/favorites');
-			
-			if (response.ok) {
-				favoriteThreadsData = await response.json();
-				console.log('Loaded favorite threads:', favoriteThreadsData);
-			} else {
-				console.error('Failed to load favorite threads');
-				favoriteThreadsData = [];
-			}
-		} catch (error) {
-			console.error('Error loading favorite threads:', error);
-			favoriteThreadsData = [];
-		} finally {
-			isLoadingFavorites = false;
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
 		}
-	}
 
-$: filteredThreads = (() => {
-	let filtered = threads || [];
-	
-	if (showFavoriteThreads && $currentUser?.favoriteThreads && $currentUser.favoriteThreads.length > 0) {
-		filtered = filtered.filter(thread => 
-			$currentUser!.favoriteThreads!.includes(thread.id)
-		);
-	}
-	
-	if (searchQuery.trim()) {
-		const query = searchQuery.toLowerCase();
-		filtered = filtered.filter(thread =>
-			thread.name?.toLowerCase().includes(query)
-		);
-	}
-	
-	return filtered;
-})();
+		return filtered;
+	})();
 	function handleTextSelection() {
 		const selection = window.getSelection();
 		activeSelection = selection?.toString().trim() || '';
@@ -655,6 +634,7 @@ $: filteredThreads = (() => {
 			parent_msg: parentMsgId,
 			prompt_type: null,
 			prompt_input: null,
+			provider: 'openai',
 			model: selectedModelLabel || model,
 			reactions: {
 				upvote: 0,
@@ -762,6 +742,7 @@ $: filteredThreads = (() => {
 					.map(({ role, content }) => ({
 						role,
 						content: content.toString(),
+						provider: aiModel.provider,
 						model: aiModel.api_type
 					}));
 
@@ -784,22 +765,19 @@ $: filteredThreads = (() => {
 						promptId = user.prompt_preference;
 					}
 
-					if (promptId) {
-						try {
-							const response = await fetch(`/api/prompts/${promptId}`);
-							console.log('Prompt fetch response status:', response.status);
-							console.log('Prompt fetch response ok:', response.ok);
 
-							if (response.ok) {
-								const promptData = await response.json();
-								console.log('Prompt fetch data:', promptData);
-								promptInput = promptData.data?.prompt || promptData.prompt;
-								console.log('Set prompt_input to:', promptInput);
-							} else {
-								console.log('Prompt fetch failed with status:', response.status);
-							}
-						} catch (error) {
-							console.error('Error fetching user prompt:', error);
+					if (promptId) {
+						const promptResult = await fetchTryCatch<{ prompt: string; data?: { prompt: string } }>(
+							`/api/prompts/${promptId}`,
+							{ method: 'GET', credentials: 'include' }
+						);
+
+						if (isSuccess(promptResult)) {
+							const result = promptResult.data;
+							promptInput = result.data?.prompt || result.prompt;
+							console.log('Set prompt_input to:', promptInput);
+						} else {
+							console.warn('Prompt fetch failed:', promptResult.error);
 						}
 					}
 				}
@@ -817,14 +795,17 @@ $: filteredThreads = (() => {
 					},
 					currentThreadId!
 				);
-
 				const newAssistantMessage = addMessage('assistant', '', userMessage.id);
 				newAssistantMessage.tempId = tempAssistantMsgId;
 				newAssistantMessage.serverId = assistantMessage.id;
 				chatMessages = [...chatMessages, newAssistantMessage];
 				typingMessageId = newAssistantMessage.id;
 
-				await typeMessage(aiResponse);
+				// Type message safely
+				const typeResult = await clientTryCatch(typeMessage(aiResponse), 'Typing animation failed');
+				if (!isSuccess(typeResult)) {
+					console.warn(typeResult.error);
+				}
 
 				chatMessages = chatMessages.map((msg) =>
 					msg.tempId === tempAssistantMsgId
@@ -838,108 +819,127 @@ $: filteredThreads = (() => {
 							}
 						: msg
 				);
+
+				// Update thread name safely
+				const threadUpdateResult = await clientTryCatch(
+					handleThreadNameUpdate(currentThreadId!),
+					'Failed to update thread name'
+				);
+				if (!isSuccess(threadUpdateResult)) {
+					console.warn(threadUpdateResult.error);
+				}
 			}
 
 			await handleThreadNameUpdate(currentThreadId!);
-		} catch (error) {
-			handleError(error);
-		} finally {
-			cleanup();
-		}
+			} catch (error) {
+				console.error('Unexpected error in handleSendMessage:', error);
+				handleError(error instanceof Error ? error.message : String(error));
+			} finally {
+				try {
+					cleanup();
+				} catch (cleanupError) {
+					console.warn('Error during cleanup:', cleanupError);
+				}
+			}
 	}
 
-async function replyToMessage(text: string, parent_msg?: string, contextMessages?: any[]): Promise<void> {
-    const replyText = text;
-    const parentMessageId = parent_msg || '';
-    
-    if (!replyText.trim()) return;
-    ensureAuthenticated();
+	async function replyToMessage(
+		text: string,
+		parent_msg?: string,
+		contextMessages?: any[]
+	): Promise<void> {
+		const replyText = text;
+		const parentMessageId = parent_msg || '';
 
-    try {
-        if (!currentThreadId) {
-            console.log('No current thread ID - creating a new thread');
-            const newThread = await handleCreateNewThread();
-            if (!newThread || !newThread.id) {
-                console.error('Failed to create a new thread');
-                return;
-            }
-        }
+		if (!replyText.trim()) return;
+		ensureAuthenticated();
 
-        if (!currentThreadId) {
-            console.error('Still no current thread ID after attempt to create one');
-            return;
-        }
+		try {
+			if (!currentThreadId) {
+				console.log('No current thread ID - creating a new thread');
+				const newThread = await handleCreateNewThread();
+				if (!newThread || !newThread.id) {
+					console.error('Failed to create a new thread');
+					return;
+				}
+			}
 
-        // Ensure we have a valid model
-        if (!aiModel || !aiModel.api_type) {
-            console.log('No valid model selected, using fallback');
-        }
+			if (!currentThreadId) {
+				console.error('Still no current thread ID after attempt to create one');
+				return;
+			}
 
-        // Add the user reply message to UI
-        const userMessageUI = addMessage('user', replyText, parentMessageId, aiModel.id);
-        chatMessages = [...chatMessages, userMessageUI];
+			// Ensure we have a valid model
+			if (!aiModel || !aiModel.api_type) {
+				console.log('No valid model selected, using fallback');
+			}
 
-        // Save the message to the database
-        const userMessage = await messagesStore.saveMessage(
-            {
-                text: replyText,
-                type: 'human',
-                thread: currentThreadId,
-                parent_msg: parentMessageId || null,
-                prompt_type: promptType
-            },
-            currentThreadId
-        );
+			// Add the user reply message to UI
+			const userMessageUI = addMessage('user', replyText, parentMessageId, aiModel.id);
+			chatMessages = [...chatMessages, userMessageUI];
 
-        if ($isAiActive) {
-            // Show thinking message
-            const thinkingMessage = addMessage('thinking', '', userMessageUI.id);
-            thinkingMessageId = thinkingMessage.id;
-            chatMessages = [...chatMessages, thinkingMessage];
+			// Save the message to the database
+			const userMessage = await messagesStore.saveMessage(
+				{
+					text: replyText,
+					type: 'human',
+					thread: currentThreadId,
+					parent_msg: parentMessageId || null,
+					prompt_type: promptType
+				},
+				currentThreadId
+			);
 
-            // Prepare the context for this reply
-            const { messagesToSend } = prepareReplyContext(
-                replyText,
-                parentMessageId,
-                chatMessages,
-                aiModel,
-                promptType
-            );
-            const typedMessages = messagesToSend.map(msg => ({
-                ...msg,
-                role: msg.role as RoleType
-            }));
-            const aiResponse = await fetchAIResponse(typedMessages, aiModel, userId, attachment);
+			if ($isAiActive) {
+				// Show thinking message
+				const thinkingMessage = addMessage('thinking', '', userMessageUI.id);
+				thinkingMessageId = thinkingMessage.id;
+				chatMessages = [...chatMessages, thinkingMessage];
 
-            chatMessages = chatMessages.filter((msg) => msg.id !== String(thinkingMessageId));
+				// Prepare the context for this reply
+				const { messagesToSend } = prepareReplyContext(
+					replyText,
+					parentMessageId,
+					chatMessages,
+					aiModel,
+					promptType
+				);
+				const typedMessages = messagesToSend.map((msg) => ({
+					...msg,
+					role: msg.role as RoleType,
+					provider: aiModel.provider
+				}));
+				const aiResponse = await fetchAIResponse(typedMessages, aiModel, userId, attachment);
 
-            const assistantMessage = await messagesStore.saveMessage(
-                {
-                    text: aiResponse,
-                    type: 'robot',
-                    thread: currentThreadId,
-                    parent_msg: userMessage.id,
-                    prompt_type: promptType,
-                    model: aiModel.api_type
-                },
-                currentThreadId
-            );
+				chatMessages = chatMessages.filter((msg) => msg.id !== String(thinkingMessageId));
 
-            // Add the AI response to UI
-            const newAssistantMessage = addMessage('assistant', '', userMessage.id);
-            chatMessages = [...chatMessages, newAssistantMessage];
-            typingMessageId = newAssistantMessage.id;
+				const assistantMessage = await messagesStore.saveMessage(
+					{
+						text: aiResponse,
+						type: 'robot',
+						thread: currentThreadId,
+						parent_msg: userMessage.id,
+						prompt_type: promptType,
+						model: aiModel.api_type
+					},
+					currentThreadId
+				);
 
-            // Type out the message
-            await typeMessage(aiResponse);
-        }
+				// Add the AI response to UI
+				const newAssistantMessage = addMessage('assistant', '', userMessage.id);
+				chatMessages = [...chatMessages, newAssistantMessage];
+				typingMessageId = newAssistantMessage.id;
 
-        // Update thread name if needed
-        await handleThreadNameUpdate(currentThreadId);
-    } catch (error) {
-        handleError(error);
-    }
-}
+				// Type out the message
+				await typeMessage(aiResponse);
+			}
+
+			// Update thread name if needed
+			await handleThreadNameUpdate(currentThreadId);
+		} catch (error) {
+			handleError(error);
+		}
+	}
 	async function typeMessage(message: string) {
 		const typingSpeed = 1;
 		isTypingInProgress = true;
@@ -1047,7 +1047,6 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 		return tempDiv.innerHTML;
 	}
 
-
 	function handleReplyableClick(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 		const selection = window.getSelection();
@@ -1083,15 +1082,6 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 			activeReplyMenu = null;
 		}
 	}
-	function handleReplyableDoubleClick(event: MouseEvent) {
-		// Allow text selection on double-click without showing menu
-		const target = event.target as HTMLElement;
-		if (target.classList.contains('replyable')) {
-			event.stopPropagation();
-			return;
-		}
-	}
-
 
 	function toggleReplies(messageId: string) {
 		console.log(`[toggleReplies] Starting to toggle replies for message ID: ${messageId}`);
@@ -1238,15 +1228,16 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 					// Try to fetch project threads
 					try {
 						if (project.id) {
-							const projectThreads = await fetchThreadsForProject(project.id);
-							if (projectThreads && projectThreads.length > 0) {
-								console.log(`Found ${projectThreads.length} threads for project ${project.id}`);
-								projectThreads.forEach((thread) => {
+							const result = await fetchThreadsForProject(project.id);
+							if (isSuccess(result) && result.data.length > 0) {
+								result.data.forEach((thread) => {
 									allThreadsMap.set(thread.id, {
 										...thread,
 										project_id: project.id
 									});
 								});
+							} else if (!isSuccess(result)) {
+								console.warn(`Could not fetch threads for project ${project.id}:`, result.error);
 							}
 						}
 					} catch (err) {
@@ -1259,7 +1250,13 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 				console.log(`Collected ${fetchedThreads.length} threads in total`);
 			} else {
 				// Get threads for a specific project
-				fetchedThreads = (await fetchThreadsForProject(projectId)) || [];
+				const result = await fetchThreadsForProject(projectId);
+				if (isSuccess(result)) {
+					fetchedThreads = result.data;
+				} else {
+					console.error(`Failed to fetch threads for project ${projectId}:`, result.error);
+					fetchedThreads = [];
+				}				
 				console.log(`Fetched ${fetchedThreads.length} threads for project ${projectId}`);
 			}
 
@@ -1315,37 +1312,35 @@ async function replyToMessage(text: string, parent_msg?: string, contextMessages
 		}
 	}
 
+	async function preloadUserProfiles() {
+		const userIds = new Set<string>();
 
-async function preloadUserProfiles() {
-	const userIds = new Set<string>();
+		chatMessages.forEach((message) => {
+			if (message.type === 'human' && message.user) {
+				userIds.add(message.user);
+			}
+		});
 
-	chatMessages.forEach((message) => {
-		if (message.type === 'human' && message.user) {
-			userIds.add(message.user);
-		}
-	});
-
-	// Use the existing getUserById function which works correctly
-	const fetchPromises = Array.from(userIds).map((userId) => getUserById(userId));
-	await Promise.all(fetchPromises);
-}
-
-// Or even better, use batch fetching for better performance:
-async function preloadUserProfilesBatch() {
-	const userIds = new Set<string>();
-
-	chatMessages.forEach((message) => {
-		if (message.type === 'human' && message.user) {
-			userIds.add(message.user);
-		}
-	});
-
-	// Use batch fetching for better performance
-	if (userIds.size > 0) {
-		await getPublicUsersBatch(Array.from(userIds));
+		// Use the existing getUserById function which works correctly
+		const fetchPromises = Array.from(userIds).map((userId) => getUserById(userId));
+		await Promise.all(fetchPromises);
 	}
-}
 
+	// Or even better, use batch fetching for better performance:
+	async function preloadUserProfilesBatch() {
+		const userIds = new Set<string>();
+
+		chatMessages.forEach((message) => {
+			if (message.type === 'human' && message.user) {
+				userIds.add(message.user);
+			}
+		});
+
+		// Use batch fetching for better performance
+		if (userIds.size > 0) {
+			await getPublicUsersBatch(Array.from(userIds));
+		}
+	}
 
 	function dedupeChatMessages() {
 		const uniqueMessages = new Map();
@@ -1356,7 +1351,6 @@ async function preloadUserProfilesBatch() {
 
 		chatMessages = Array.from(uniqueMessages.values());
 	}
-
 
 	function groupMessagesByDate(messages: InternalChatMessage[]) {
 		const groups: { [key: string]: { messages: InternalChatMessage[]; displayDate: string } } = {};
@@ -1416,147 +1410,87 @@ async function preloadUserProfilesBatch() {
 			year: 'numeric'
 		});
 	}
-	function groupThreadsByDate(threads: Threads[]): ThreadGroup[] {
-		// Create groups object to store threads by date
-		const groups: { [key: string]: Threads[] } = {};
 
-		// Sort threads by updated date in descending order
-		const sortedThreads = [...threads].sort(
-			(a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime()
-		);
+	function isThreadFavorited(threadId?: string): boolean {
+		if (!threadId) return false;
 
-		// Group threads by their date group
-		sortedThreads.forEach((thread) => {
-			const group = getThreadDateGroup(thread);
-			if (!groups[group]) {
-				groups[group] = [];
-			}
-			groups[group].push(thread);
+		const user = $currentUser;
+		/*
+		 * console.log('Full user object:', user); // Add this to see the complete user structure
+		 * console.log('User favoriteThreads field:', user?.favoriteThreads);
+		 * console.log('All user fields:', user ? Object.keys(user) : 'No user');
+		 */
+
+		const isFavorited = user?.favoriteThreads?.includes(threadId) || false;
+		// console.log('Checking if thread is favorited:', { threadId, favoriteThreads: user?.favoriteThreads, isFavorited });
+		return isFavorited;
+	}
+	async function onFavoriteThread(event: Event, specificThread?: Threads) {
+		console.log('onFavoriteThread called with:', {
+			specificThreadExists: !!specificThread,
+			specificThreadId: specificThread?.id,
+			currentUser: $currentUser,
+			favoriteThreads: $currentUser?.favoriteThreads
 		});
 
-		// Convert groups object to array and sort by date priority
-		const groupPriority = (group: string): number => {
-			if (group === $t('threads.today')) return 0;
-			if (group === $t('threads.yesterday')) return 1;
-			return 2;
-		};
+		if (!specificThread) {
+			console.error('No thread provided to onFavoriteThread');
+			return;
+		}
 
-		return Object.entries(groups)
-			.map(([group, threads]) => ({ group, threads }))
-			.sort((a, b) => {
-				const priorityDiff = groupPriority(a.group) - groupPriority(b.group);
-				if (priorityDiff !== 0) return priorityDiff;
+		const currentIsFavorite = isThreadFavorited(specificThread.id);
+		console.log('Current favorite state:', currentIsFavorite);
 
-				// If neither is today/yesterday, sort by date
-				if (groupPriority(a.group) === 2 && groupPriority(b.group) === 2) {
-					return (
-						new Date(b.threads[0].updated).getTime() - new Date(a.threads[0].updated).getTime()
-					);
+		try {
+			await handleFavoriteThread({
+				thread: specificThread,
+				isFavoriteState: currentIsFavorite,
+				onStateUpdate: (newState) => {
+					console.log('State updated:', { threadId: specificThread.id, newState });
+				},
+				onTooltipShow: (text) => {
+					console.log('Tooltip:', text);
+					favoriteThreadTooltipText = text;
+					showFavoriteThreadTooltip = true;
+					setTimeout(() => {
+						showFavoriteThreadTooltip = false;
+					}, 1000);
 				}
-				return 0;
 			});
+		} catch (error) {
+			console.error('Error in onFavoriteThread:', error);
+		}
 	}
-function isThreadFavorited(threadId?: string): boolean {
-	if (!threadId) return false;
-	
-	const user = $currentUser;
-	// console.log('Full user object:', user); // Add this to see the complete user structure
-	// console.log('User favoriteThreads field:', user?.favoriteThreads);
-	// console.log('All user fields:', user ? Object.keys(user) : 'No user');
-	
-	const isFavorited = user?.favoriteThreads?.includes(threadId) || false;
-	// console.log('Checking if thread is favorited:', { threadId, favoriteThreads: user?.favoriteThreads, isFavorited });
-	return isFavorited;
-}
-async function onFavoriteThread(event: Event, specificThread?: Threads) {
-	console.log('onFavoriteThread called with:', { 
-		specificThreadExists: !!specificThread,
-		specificThreadId: specificThread?.id,
-		currentUser: $currentUser,
-		favoriteThreads: $currentUser?.favoriteThreads 
-	});
-
-	if (!specificThread) {
-		console.error('No thread provided to onFavoriteThread');
-		return;
-	}
-
-	const currentIsFavorite = isThreadFavorited(specificThread.id);
-	console.log('Current favorite state:', currentIsFavorite);
-
-	try {
-		await handleFavoriteThread({
-			currentUser,
-			thread: specificThread,
-			isFavoriteState: currentIsFavorite,
-			onStateUpdate: (newState) => {
-				console.log('State updated:', { threadId: specificThread.id, newState });
-			},
-			onTooltipShow: (text) => {
-				console.log('Tooltip:', text);
-				favoriteThreadTooltipText = text;
-				showFavoriteThreadTooltip = true;
-				setTimeout(() => {
-					showFavoriteThreadTooltip = false;
-				}, 1000);
-			}
-		});
-	} catch (error) {
-		console.error('Error in onFavoriteThread:', error);
-	}
-}
 	// UI helper functions
 
 	function getRandomGreeting(): string {
 		const quotes = $t('extras.greetings');
-		
-		if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+
+		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
 			return quotes[Math.floor(Math.random() * quotes.length)];
 		}
-		
+
 		return 'Hello';
 	}
 
 	function getRandomQuestions(): string {
 		const quotes = $t('extras.questions');
-		
-		if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+
+		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
 			return quotes[Math.floor(Math.random() * quotes.length)];
 		}
-		
+
 		return "What's on your mind?";
 	}
 
 	function getRandomQuote(): string {
 		const quotes = $t('extras.quotes');
-		
-		if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
+
+		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
 			return quotes[Math.floor(Math.random() * quotes.length)];
 		}
-		
+
 		return 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
-	}
-
-	function handleClickOutside() {
-		window.addEventListener('click', (event) => {
-			const target = event.target as HTMLElement;
-			if (!target.closest('.btn-ai')) {
-				expandedSections.set({
-					prompts: false,
-					sysprompts: false,
-					models: false,
-					bookmarks: false,
-					cites: false,
-					collaborators: false
-				});
-			}
-		});
-		showSortOptions = false;
-		showUserFilter = false;
-	}
-
-	function toggleSortOption() {
-		threadsStore.toggleSortOption();
 	}
 
 	// Set specific sort option
@@ -1564,41 +1498,40 @@ async function onFavoriteThread(event: Event, specificThread?: Threads) {
 		threadsStore.setSortOption(sortOption);
 		showSortOptions = false;
 	}
-$: threads = (() => {
-	// console.log('🔄 Calculating threads with filters');
-	
-	// Start with all threads from store
-	let allThreads = $threadsStore.threads || [];
-	// console.log('📊 All threads:', allThreads.length);
-	
-	// Apply project filter first
-	const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
-	if (currentProjectId) {
-		allThreads = allThreads.filter(thread => thread.project_id === currentProjectId);
-		// console.log('🏗️ After project filter:', allThreads.length);
-	}
-	
-	// Apply favorite filter
-	if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-		allThreads = allThreads.filter(thread => 
-			$currentUser.favoriteThreads!.includes(thread.id)
-		);
-		// console.log('⭐ After favorite filter:', allThreads.length);
-	}
-	
-	// Apply search filter last
-	if (searchQuery && searchQuery.trim()) {
-		const query = searchQuery.toLowerCase();
-		allThreads = allThreads.filter(thread =>
-			thread.name?.toLowerCase().includes(query) ||
-			thread.last_message?.content?.toLowerCase().includes(query)
-		);
-		// console.log('🔍 After search filter:', allThreads.length);
-	}
-	
-	// console.log('✅ Final threads:', allThreads.map(t => ({ id: t.id, name: t.name, isFavorite: $currentUser?.favoriteThreads?.includes(t.id) })));
-	return allThreads;
-})();
+	$: threads = (() => {
+		// console.log('🔄 Calculating threads with filters');
+
+		// Start with all threads from store
+		let allThreads = $threadsStore.threads || [];
+		// console.log('📊 All threads:', allThreads.length);
+
+		// Apply project filter first
+		const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
+		if (currentProjectId) {
+			allThreads = allThreads.filter((thread) => thread.project_id === currentProjectId);
+			// console.log('🏗️ After project filter:', allThreads.length);
+		}
+
+		// Apply favorite filter
+		if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
+			allThreads = allThreads.filter((thread) => $currentUser.favoriteThreads!.includes(thread.id));
+			// console.log('⭐ After favorite filter:', allThreads.length);
+		}
+
+		// Apply search filter last
+		if (searchQuery && searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			allThreads = allThreads.filter(
+				(thread) =>
+					thread.name?.toLowerCase().includes(query) ||
+					thread.last_message?.content?.toLowerCase().includes(query)
+			);
+			// console.log('🔍 After search filter:', allThreads.length);
+		}
+
+		// console.log('✅ Final threads:', allThreads.map(t => ({ id: t.id, name: t.name, isFavorite: $currentUser?.favoriteThreads?.includes(t.id) })));
+		return allThreads;
+	})();
 
 	function toggleUserSelection(userId: string) {
 		threadsStore.toggleUserSelection(userId);
@@ -1690,7 +1623,6 @@ $: threads = (() => {
 		});
 	}
 
-
 	async function handleThreadNameUpdate(threadId: string) {
 		try {
 			const currentMessages = await messagesStore.fetchMessages(threadId);
@@ -1764,23 +1696,15 @@ $: threads = (() => {
 		}
 	}
 
-
-	function resetTextarea() {
-		userInput = '';
-
-		setTimeout(() => {
-			resetTextareaHeight(textareaElement);
-		}, 0);
-	}
-
 	$: if (userInput === '' && textareaElement) {
 		resetTextareaHeight(textareaElement);
 	}
 
 	// Thread management functions
 
-	async function handleLoadThread(threadId: string) {
-		try {
+async function handleLoadThread(threadId: string) {
+	const loadResult = await clientTryCatch(
+		(async () => {
 			isLoadingMessages = true;
 
 			threadsStore.update((state) => ({
@@ -1796,16 +1720,16 @@ $: threads = (() => {
 			}
 
 			// Fetch thread through API endpoint
-			const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
+			const threadResult = await fetchTryCatch<{ success: boolean; thread: Threads; error?: string }>(
+				`/api/keys/threads/${threadId}`,
+				{ method: 'GET', credentials: 'include' }
+			);
 
-			if (!threadResponse.ok) {
-				throw new Error('Failed to fetch thread');
+			if (isFailure(threadResult)) {
+				throw new Error(threadResult.error);
 			}
 
-			const threadData = await threadResponse.json();
+			const threadData = threadResult.data;
 			if (!threadData.success) {
 				throw new Error(threadData.error || 'Failed to fetch thread');
 			}
@@ -1816,28 +1740,29 @@ $: threads = (() => {
 			// Get project access
 			let hasProjectAccess = false;
 			if (thread.project) {
-				const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
+			    const projectId = typeof thread.project === 'string' ? thread.project : (thread.project as { id: string }).id;
 
-				try {
-					const projectResponse = await fetch(`/api/projects/${projectId}/threads`, {
-						method: 'GET',
-						credentials: 'include'
-					});
-
-					if (projectResponse.ok) {
-						const projectData = await projectResponse.json();
-						if (projectData.success) {
-							const project = projectData.data;
-							hasProjectAccess =
-								project.owner === currentUserId ||
-								(project.collaborators &&
-									(Array.isArray(project.collaborators)
-										? project.collaborators.includes(currentUserId)
-										: project.collaborators.split(',').includes(currentUserId)));
-						}
+			const projectResult = await clientTryCatch<{ success: boolean; data: Projects }>(
+			    fetchTryCatch<{ success: boolean; data: Projects }>(
+			        `/api/projects/${projectId}/threads`,
+			        { method: 'GET', credentials: 'include' }
+				).then(fetchResult => {
+					if (isFailure(fetchResult)) {
+						throw new Error(fetchResult.error);
 					}
-				} catch (err) {
-					console.error('Error fetching project:', err);
+					return fetchResult.data;
+				}),
+				'Error fetching project'
+			);
+
+				if (isSuccess(projectResult)) {
+					const projectData = projectResult.data;
+					if (projectData.success) {
+						const project = projectData.data;
+	hasProjectAccess =
+		project.owner === currentUserId ||
+		(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId));
+					}
 				}
 			}
 
@@ -1866,26 +1791,33 @@ $: threads = (() => {
 
 			// Handle project context
 			if (thread.project) {
-				const projectId = typeof thread.project === 'string' ? thread.project : thread.project.id;
-				await projectStore.setCurrentProject(projectId);
+				const projectId =
+					typeof thread.project === 'string'
+						? thread.project
+						: (thread.project as { id: string }).id;				
+						await projectStore.setCurrentProject(projectId);
 
-				try {
-					const projectThreadsResponse = await fetch(`/api/projects/${projectId}/threads`, {
-						method: 'GET',
-						credentials: 'include'
-					});
-
-					if (projectThreadsResponse.ok) {
-						const projectThreadsData = await projectThreadsResponse.json();
-						if (projectThreadsData.success) {
-							threadsStore.update((state) => ({
-								...state,
-								threads: projectThreadsData.threads
-							}));
+				const projectThreadsResult = await clientTryCatch<{ success: boolean; threads: Threads[] }>(
+					fetchTryCatch<{ success: boolean; threads: Threads[] }>(
+						`/api/projects/${projectId}/threads`,
+						{ method: 'GET', credentials: 'include' }
+					).then(fetchResult => {
+						if (isFailure(fetchResult)) {
+							throw new Error(fetchResult.error);
 						}
+						return fetchResult.data;
+					}),
+					'Error fetching project threads'
+				);
+
+				if (isSuccess(projectThreadsResult)) {
+					const projectThreadsData = projectThreadsResult.data;
+					if (projectThreadsData.success) {
+						threadsStore.update((state) => ({
+							...state,
+							threads: projectThreadsData.threads
+						}));
 					}
-				} catch (err) {
-					console.error('Error fetching project threads:', err);
 				}
 			}
 
@@ -1894,8 +1826,13 @@ $: threads = (() => {
 			currentThread = thread as Threads;
 
 			// Fetch messages with real-time updates
-			try {
-				const messages = await messagesStore.fetchMessages(threadId);
+			const messagesResult = await clientTryCatch(
+				messagesStore.fetchMessages(threadId),
+				'Error loading messages'
+			);
+
+			if (isSuccess(messagesResult)) {
+				const messages = messagesResult.data;
 
 				// Map messages
 				chatMessages = messages.map((msg) => ({
@@ -1938,9 +1875,8 @@ $: threads = (() => {
 						}));
 					}
 				});
-			} catch (err) {
-				console.error('Error loading messages:', err);
 			}
+
 			showSysPrompt = false;
 			showPromptCatalog = false;
 			showModelSelector = false;
@@ -1948,19 +1884,24 @@ $: threads = (() => {
 			showCollaborators = false;
 			showCites = false;
 			return thread;
-		} catch (error) {
-			console.error(`Error loading thread ${threadId}:`, error);
-			if (error instanceof Error && error.message && error.message.includes('Unauthorized')) {
-				await threadsStore.setCurrentThread(null);
-				chatMessages = [];
-				currentThreadId = null;
-				currentThread = null;
-			}
-			return null;
-		} finally {
-			isLoadingMessages = false;
+		})(),
+		`Error loading thread ${threadId}`
+	);
+
+	if (isFailure(loadResult)) {
+		if (loadResult.error.includes('Unauthorized')) {
+			await threadsStore.setCurrentThread(null);
+			chatMessages = [];
+			currentThreadId = null;
+			currentThread = null;
 		}
+		isLoadingMessages = false;
+		return null;
 	}
+
+	isLoadingMessages = false;
+	return loadResult.data;
+}
 	async function handleCreateNewThread(message = '') {
 		if (isCreatingThread) return null;
 
@@ -1982,7 +1923,7 @@ $: threads = (() => {
 				updated: new Date().toISOString(),
 				current_thread: '',
 				project: '',
-				project_id: '',
+				project_id: ''
 			};
 
 			if (currentProjectId) {
@@ -2044,8 +1985,8 @@ $: threads = (() => {
 			}
 
 			return newThread;
-			} catch (error) {
-				handleError(error);
+		} catch (error) {
+			handleError(error);
 			return null;
 		} finally {
 			isCreatingThread = false;
@@ -2053,141 +1994,89 @@ $: threads = (() => {
 	}
 	$: deleteNotification = $t('notifications.delete') as string;
 
-let showDeleteModal = false;
-    let threadToDelete: string | null = null;
+	let showDeleteModal = false;
+	let threadToDelete: string | null = null;
 
-    async function handleDeleteThread(event: MouseEvent, threadId: string) {
-        event.stopPropagation();
-        threadToDelete = threadId;
-        showDeleteModal = true;
-    }
+	async function handleDeleteThread(event: MouseEvent, threadId: string) {
+		event.stopPropagation();
+		threadToDelete = threadId;
+		showDeleteModal = true;
+	}
 
-    async function confirmDelete() {
-        if (threadToDelete) {
-            const success = await deleteThread(threadToDelete);
-            if (success) {
-                threads = threads.filter((t) => t.id !== threadToDelete);
-                if (currentThreadId === threadToDelete) {
-                    currentThreadId = null;
-                    chatMessages = [];
-                }
-            }
-        }
-        showDeleteModal = false;
-        threadToDelete = null;
-    }
+	async function confirmDelete() {
+		if (threadToDelete) {
+			const success = await deleteThread(threadToDelete);
+			if (success) {
+				threads = threads.filter((t) => t.id !== threadToDelete);
+				if (currentThreadId === threadToDelete) {
+					currentThreadId = null;
+					chatMessages = [];
+				}
+			}
+		}
+		showDeleteModal = false;
+		threadToDelete = null;
+	}
 
-    function cancelDelete() {
-        showDeleteModal = false;
-        threadToDelete = null;
-    }
-	  $: {
-        const greetings = $t('extras.greetings') as string[];
-        if (Array.isArray(greetings) && greetings.every(item => typeof item === 'string')) {
-            currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-        } else {
-            currentGreeting = 'Hello';
-        }
-    }
-    
-    $: {
-        const questions = $t('extras.questions') as string[];
-        if (Array.isArray(questions) && questions.every(item => typeof item === 'string')) {
-            currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-        } else {
-            currentQuestion = "What's on your mind?";
-        }
-    }
-    
-    $: {
-        const quotes = $t('extras.quotes') as string[];
-        if (Array.isArray(quotes) && quotes.every(item => typeof item === 'string')) {
-            currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        } else {
-            currentQuote = 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
-        }
-    }
+	function cancelDelete() {
+		showDeleteModal = false;
+		threadToDelete = null;
+	}
+	$: {
+		const greetings = $t('extras.greetings') as string[];
+		if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
+			currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+		} else {
+			currentGreeting = 'Hello';
+		}
+	}
 
 	$: {
-        const prompts = $t('startPrompts') as string[];
-        if (Array.isArray(prompts)) {
-            const shuffled = [...prompts].sort(() => 0.5 - Math.random());
-            promptSuggestions = shuffled.slice(0, 3);
-        }
-    }
-
-    async function handleStartPromptSelection(promptText: string) {
-        if (isProcessingPromptClick) return;
-
-        try {
-            isProcessingPromptClick = true;
-            await handleSendMessage(promptText);
-            refreshPromptSuggestions();
-        } catch (error) {
-            handleError(error);
-        } finally {
-            isProcessingPromptClick = false;
-        }
-    }
-    
-    function refreshPromptSuggestions() {
-        const prompts = $t('startPrompts') as string[];
-        if (Array.isArray(prompts)) {
-            const shuffled = [...prompts].sort(() => 0.5 - Math.random());
-            promptSuggestions = shuffled.slice(0, 3);
-        }
-    }
-    function refreshGreeting() {
-        const greetings = $t('extras.greetings') as string[];
-        if (Array.isArray(greetings) && greetings.every(item => typeof item === 'string')) {
-            currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-        }
-    }
-    
-    function refreshQuestion() {
-        const questions = $t('extras.questions') as string[];
-        if (Array.isArray(questions) && questions.every(item => typeof item === 'string')) {
-            currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-        }
-    }
-	async function submitThreadNameChange() {
-		if (currentThreadId && editedThreadName.trim() !== '') {
-			try {
-				isUpdatingThreadName = true;
-				isEditingThreadName = false;
-
-				console.log(
-					'Starting thread name update. Current name:',
-					currentThread?.name,
-					'New name:',
-					editedThreadName.trim()
-				);
-
-				// Update thread in PocketBase
-				const updatedThread = await threadsStore.updateThread(currentThreadId, {
-					name: editedThreadName.trim()
-				});
-
-				// Force a refresh of the threads array from the store
-				threads = [...$threadsStore.threads];
-
-				// currentThread will now be updated via the reactive statement that derives it from threads
-
-				// Prevent auto-naming for this thread
-				if (typeof window !== 'undefined') {
-					window.localStorage.setItem(`thread_${currentThreadId}_manual_name`, 'true');
-					window.localStorage.setItem(
-						`thread_${currentThreadId}_name_timestamp`,
-						Date.now().toString()
-					);
-				}
-			} catch (error) {
-				console.error('Error updating thread name:', error);
-			} finally {
-				isUpdatingThreadName = false;
-			}
+		const questions = $t('extras.questions') as string[];
+		if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
+			currentQuestion = questions[Math.floor(Math.random() * questions.length)];
 		} else {
-			isEditingThreadName = false;
+			currentQuestion = "What's on your mind?";
+		}
+	}
+
+	$: {
+		const quotes = $t('extras.quotes') as string[];
+		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
+			currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+		} else {
+			currentQuote =
+				'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
+		}
+	}
+
+	$: {
+		const prompts = $t('startPrompts') as string[];
+		if (Array.isArray(prompts)) {
+			const shuffled = [...prompts].sort(() => 0.5 - Math.random());
+			promptSuggestions = shuffled.slice(0, 3);
+		}
+	}
+
+	async function handleStartPromptSelection(promptText: string) {
+		if (isProcessingPromptClick) return;
+
+		try {
+			isProcessingPromptClick = true;
+			await handleSendMessage(promptText);
+			refreshPromptSuggestions();
+		} catch (error) {
+			handleError(error);
+		} finally {
+			isProcessingPromptClick = false;
+		}
+	}
+
+	function refreshPromptSuggestions() {
+		const prompts = $t('startPrompts') as string[];
+		if (Array.isArray(prompts)) {
+			const shuffled = [...prompts].sort(() => 0.5 - Math.random());
+			promptSuggestions = shuffled.slice(0, 3);
 		}
 	}
 
@@ -2204,68 +2093,6 @@ let showDeleteModal = false;
 
 		// Fallback - no avatar
 		return '';
-	}
-
-	async function goBack() {
-		console.log('Back button clicked');
-		console.log('Initial state:', {
-			currentThreadId,
-			threads: threads?.length
-		});
-
-		try {
-			if (currentThreadId) {
-				isLoading = true;
-				console.log('Starting thread reset...');
-
-				// First update any pending changes
-				await resetThread(currentThreadId);
-				console.log('Thread reset complete');
-
-				// Keep a copy of current threads before clearing state
-				const currentThreads = [...threads];
-
-				// Clear local state
-
-				currentThread = null;
-				currentThreadId = null;
-				chatMessages = [];
-				messages = [];
-				expandedDates = new Set();
-				quotedMessage = null;
-				thinkingMessageId = null;
-				typingMessageId = null;
-
-				console.log('Local state cleared');
-
-				// Reset store current thread but maintain threads list
-				threadsStore.clearCurrentThread();
-				console.log('Store thread cleared');
-
-				// Update URL
-				const url = new URL(window.location.href);
-				url.searchParams.delete('threadId');
-				url.searchParams.delete('messageId');
-				url.searchParams.delete('autoTrigger');
-				history.replaceState({}, '', url.toString());
-				console.log('URL updated');
-
-				// Show thread list and restore threads
-				threads = currentThreads;
-
-				console.log('Final threads length:', threads?.length);
-			}
-		} catch (error) {
-			console.error('Error going back:', error);
-		} finally {
-			isLoading = false;
-
-			console.log('Final state:', {
-				currentThreadId,
-				threads: threads?.length,
-				showThreadList
-			});
-		}
 	}
 
 	function startEditingThreadName() {
@@ -2286,51 +2113,6 @@ let showDeleteModal = false;
 			editedThreadName: currentThread?.name || ''
 		}));
 	}
-	async function initializeThreadsAndMessages(): Promise<void> {
-		try {
-			// Get current store state first
-			const currentState = get(threadsStore);
-
-			// Only load threads if we don't have them already
-			if (!currentState.threads || currentState.threads.length === 0) {
-				threads = await threadsStore.loadThreads();
-			} else {
-				threads = currentState.threads;
-			}
-
-			const urlParams = new URLSearchParams(window.location.search);
-			const threadIdFromUrl = urlParams.get('threadId');
-
-			if (threadIdFromUrl) {
-				await handleLoadThread(threadIdFromUrl);
-			} else if (!currentThreadId && (!threads || threads.length === 0)) {
-				// Ensure we preserve showThreadList state
-				const currentVisibility = currentState.showThreadList;
-
-				const newThread = await threadsStore.addThread({
-					name: `Thread ${threads?.length ? threads.length + 1 : 1}`,
-					op: userId
-				});
-
-				if (newThread?.id) {
-					currentThreadId = newThread.id;
-					// Update store with preserved visibility
-					threadsStore.update((state) => ({
-						...state,
-						currentThreadId: newThread.id,
-						showThreadList: currentVisibility
-					}));
-					await handleLoadThread(newThread.id);
-				}
-			}
-
-			filteredThreads = threads;
-			initialLoadComplete = true;
-		} catch (error) {
-			console.error('Error initializing:', error);
-		}
-	}
-
 
 	function setupReplyableHandlers() {
 		document.querySelectorAll('.replyable').forEach((el) => {
@@ -2374,13 +2156,14 @@ let showDeleteModal = false;
 		const now = new Date();
 		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 		const threadDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-		
+
 		const diffTime = today.getTime() - threadDate.getTime();
 		const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
 		const diffWeeks = Math.floor(diffDays / 7);
-		const diffMonths = now.getMonth() - date.getMonth() + (12 * (now.getFullYear() - date.getFullYear()));
+		const diffMonths =
+			now.getMonth() - date.getMonth() + 12 * (now.getFullYear() - date.getFullYear());
 		const diffYears = now.getFullYear() - date.getFullYear();
-		
+
 		if (diffDays === 0) {
 			return $t('dates.today') as string;
 		} else if (diffDays === 1) {
@@ -2400,7 +2183,7 @@ let showDeleteModal = false;
 		} else if (diffYears > 1) {
 			return `${diffYears} ${$t('dates.yearsAgo') as string}`;
 		}
-		
+
 		return $t('dates.monthAgo') as string;
 	}
 	function updateFavoriteThreadState(user: User | null) {
@@ -2411,66 +2194,65 @@ let showDeleteModal = false;
 		}
 	}
 
-	// Initialize on component mount
 	$: updateFavoriteThreadState($currentUser);
 
-function groupThreadsByTime(threads: any[]) {
-    const grouped: { [key: string]: any[] } = {};
-    
-    threads.forEach(thread => {
-        const date = thread.updated ? new Date(thread.updated) : new Date(thread.created);
-        if (!isNaN(date.getTime())) {
-            const group = getTimeGroup(date);
-            if (!grouped[group]) {
-                grouped[group] = [];
-            }
-            grouped[group].push(thread);
-        }
-    });
-    
-	const getGroupOrder = () => [
-		$t('dates.today') as string,
-		$t('dates.yesterday') as string,
-		`2 ${$t('dates.daysAgo') as string}`,
-		`3 ${$t('dates.daysAgo') as string}`,
-		`4 ${$t('dates.daysAgo') as string}`,
-		`5 ${$t('dates.daysAgo') as string}`,
-		`6 ${$t('dates.daysAgo') as string}`,
-		$t('dates.weekAgo') as string,
-		`2 ${$t('dates.weeksAgo') as string}`,
-		`3 ${$t('dates.weeksAgo') as string}`,
-		`4 ${$t('dates.weeksAgo') as string}`,
-		$t('dates.monthAgo') as string,
-		`2 ${$t('dates.monthsAgo') as string}`,
-		`3 ${$t('dates.monthsAgo') as string}`,
-		`4 ${$t('dates.monthsAgo') as string}`,
-		`5 ${$t('dates.monthsAgo') as string}`,
-		`6 ${$t('dates.monthsAgo') as string}`,
-		`7 ${$t('dates.monthsAgo') as string}`,
-		`8 ${$t('dates.monthsAgo') as string}`,
-		`9 ${$t('dates.monthsAgo') as string}`,
-		`10 ${$t('dates.monthsAgo') as string}`,
-		`11 ${$t('dates.monthsAgo') as string}`,
-		$t('dates.yearAgo') as string
-	];
-    
-    const sortedGroups: { group: string; threads: any[] }[] = [];
-    const groupOrder = getGroupOrder();
-    
-    // Add groups that exist in our threads
-		groupOrder.forEach(group => {
+	function groupThreadsByTime(threads: any[]) {
+		const grouped: { [key: string]: any[] } = {};
+
+		threads.forEach((thread) => {
+			const date = thread.updated ? new Date(thread.updated) : new Date(thread.created);
+			if (!isNaN(date.getTime())) {
+				const group = getTimeGroup(date);
+				if (!grouped[group]) {
+					grouped[group] = [];
+				}
+				grouped[group].push(thread);
+			}
+		});
+
+		const getGroupOrder = () => [
+			$t('dates.today') as string,
+			$t('dates.yesterday') as string,
+			`2 ${$t('dates.daysAgo') as string}`,
+			`3 ${$t('dates.daysAgo') as string}`,
+			`4 ${$t('dates.daysAgo') as string}`,
+			`5 ${$t('dates.daysAgo') as string}`,
+			`6 ${$t('dates.daysAgo') as string}`,
+			$t('dates.weekAgo') as string,
+			`2 ${$t('dates.weeksAgo') as string}`,
+			`3 ${$t('dates.weeksAgo') as string}`,
+			`4 ${$t('dates.weeksAgo') as string}`,
+			$t('dates.monthAgo') as string,
+			`2 ${$t('dates.monthsAgo') as string}`,
+			`3 ${$t('dates.monthsAgo') as string}`,
+			`4 ${$t('dates.monthsAgo') as string}`,
+			`5 ${$t('dates.monthsAgo') as string}`,
+			`6 ${$t('dates.monthsAgo') as string}`,
+			`7 ${$t('dates.monthsAgo') as string}`,
+			`8 ${$t('dates.monthsAgo') as string}`,
+			`9 ${$t('dates.monthsAgo') as string}`,
+			`10 ${$t('dates.monthsAgo') as string}`,
+			`11 ${$t('dates.monthsAgo') as string}`,
+			$t('dates.yearAgo') as string
+		];
+
+		const sortedGroups: { group: string; threads: any[] }[] = [];
+		const groupOrder = getGroupOrder();
+
+		// Add groups that exist in our threads
+		groupOrder.forEach((group) => {
 			if (grouped[group] && grouped[group].length > 0) {
 				sortedGroups.push({ group, threads: grouped[group] });
 			}
 		});
-		
+
 		// Add any remaining groups (like multiple years ago)
-		Object.keys(grouped).forEach(group => {
+		Object.keys(grouped).forEach((group) => {
 			if (!groupOrder.includes(group) && grouped[group].length > 0) {
 				sortedGroups.push({ group, threads: grouped[group] });
 			}
 		});
-		
+
 		return sortedGroups;
 	}
 
@@ -2478,73 +2260,31 @@ function groupThreadsByTime(threads: any[]) {
 	$: searchPlaceholder = $t('nav.search') as string;
 	$: isLoading = $threadsStore.isLoading;
 	$: {
-	const storeState = $threadsStore;
-	if (storeState) {
-		// threads = storeState.threads; // <-- DELETE THIS LINE
-		currentThreadId = storeState.currentThreadId;
+		const storeState = $threadsStore;
+		if (storeState) {
+			// threads = storeState.threads; // <-- DELETE THIS LINE
+			currentThreadId = storeState.currentThreadId;
 
-		// Update currentThread when the store changes
-		if (currentThreadId && storeState.threads) {
-			const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
-			if (threadFromStore && !isEditingThreadName) {
-				currentThread = threadFromStore;
+			// Update currentThread when the store changes
+			if (currentThreadId && storeState.threads) {
+				const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
+				if (threadFromStore && !isEditingThreadName) {
+					currentThread = threadFromStore;
+				}
 			}
+
+			messages = storeState.messages;
+			updateStatus = storeState.updateStatus;
+
+			if (!isEditingThreadName) {
+				isEditingThreadName = storeState.isEditingThreadName;
+				editedThreadName = storeState.editedThreadName;
+			}
+
+			namingThreadId = storeState.namingThreadId;
 		}
-
-		messages = storeState.messages;
-		updateStatus = storeState.updateStatus;
-
-		if (!isEditingThreadName) {
-			isEditingThreadName = storeState.isEditingThreadName;
-			editedThreadName = storeState.editedThreadName;
-		}
-
-		namingThreadId = storeState.namingThreadId;
 	}
-}
-	// $: isUpdating = $threadsStore.isUpdating;
-	// $: error = $threadsStore.error;
-	// $: {
-	// 	const storeState = $threadsStore;
-	// 	if (storeState) {
-	// 		threads = storeState.threads;
-	// 		currentThreadId = storeState.currentThreadId;
 
-	// 		// Update currentThread when the store changes
-	// 		if (currentThreadId && storeState.threads) {
-	// 			const threadFromStore = storeState.threads.find((t) => t.id === currentThreadId);
-	// 			if (threadFromStore && !isEditingThreadName) {
-	// 				currentThread = threadFromStore;
-	// 			}
-	// 		}
-
-	// 		messages = storeState.messages;
-	// 		updateStatus = storeState.updateStatus;
-
-	// 		if (!isEditingThreadName) {
-	// 			isEditingThreadName = storeState.isEditingThreadName;
-	// 			editedThreadName = storeState.editedThreadName;
-	// 		}
-
-	// 		namingThreadId = storeState.namingThreadId;
-	// 	}
-	// }
-	/*
-	 * $: {
-	 *   if (namingThreadId) {
-	 *     if (currentThreadId === namingThreadId) {
-	 *       currentThread = threads?.find(t => t.id === currentThreadId) || null;
-	 *       if (currentThread) {
-	 *         threadsStore.update(state => ({
-	 *           ...state,
-	 *           isEditingThreadName: false,
-	 *           namingThreadId: null
-	 *         }));
-	 *       }
-	 *     }
-	 *   }
-	 * }
-	 */
 	$: {
 		if (namingThreadId) {
 			if (currentThreadId === namingThreadId) {
@@ -2579,30 +2319,7 @@ function groupThreadsByTime(threads: any[]) {
 			}
 		}
 	}
-	// $: {
-	// 	if ($threadsStore.threads) {
-	// 		// Get current project ID from either threadsStore or projectStore
-	// 		const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
 
-	// 		// First filter by project ID
-	// 		const projectThreads = currentProjectId
-	// 			? $threadsStore.threads.filter((thread) => thread.project_id === currentProjectId)
-	// 			: $threadsStore.threads;
-
-	// 		// Then apply search filter
-	// 		threads = searchQuery
-	// 			? projectThreads.filter((thread) =>
-	// 					thread.name?.toLowerCase().includes(searchQuery.toLowerCase())
-	// 				)
-	// 			: projectThreads;
-
-	// 		console.log(
-	// 			`Filtered to ${threads.length} threads for project ${currentProjectId || 'none'} with search "${searchQuery}"`
-	// 		);
-	// 	}
-	// }
-
-	// Reactive statement to update search query in store
 	let isUpdatingSearch = false;
 
 	$: {
@@ -2658,41 +2375,12 @@ function groupThreadsByTime(threads: any[]) {
 		isEditingProjectName = state.isEditingProjectName;
 		editedProjectName = state.editedProjectdName;
 	});
-	/*
-	 * $: {
-	 *   if ($threadsStore.threads) {
-	 *     // Update local threads array whenever store changes
-	 *     threads = $threadsStore.threads.filter(thread => {
-	 *       // Apply any filters you need here
-	 *       if (searchQuery) {
-	 *         return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
-	 *       }
-	 *       return true;
-	 *     });
-	 *   }
-	 * }
-	 */
-	// $: {
-	// 	if ($threadsStore.threads) {
-	// 		// Only update if we're not displaying non-project threads
-	// 		if ($projectStore.currentProjectId || threads.length === 0) {
-	// 			threads = $threadsStore.threads.filter((thread) => {
-	// 				// Apply any filters you need here
-	// 				if (searchQuery) {
-	// 					return thread.name.toLowerCase().includes(searchQuery.toLowerCase());
-	// 				}
-	// 				return true;
-	// 			});
-	// 		}
-	// 	}
-	// }
+
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
-	// $: selectedPromptLabel = $promptStore ? availablePrompts.find(option => option.value === $promptStore)?.label || '' : '';
 	$: selectedIcon = $promptStore?.selectedPromptId
 		? availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon
 		: null;
 	$: selectedModelName = $modelStore?.selectedModel?.name || '';
-	// $: promptType = $promptStore;
 	$: {
 		if ($expandedSections.models) {
 			showModelSelector = true;
@@ -2768,136 +2456,146 @@ function groupThreadsByTime(threads: any[]) {
 	$: if ($isTextareaFocused && $showThreadList) {
 		threadListVisibility.set(false);
 	}
-	$: placeholderText = currentManualPlaceholder as string || '';
+	$: placeholderText = (currentManualPlaceholder as string) || '';
 
-onMount(() => {
-	let observer: MutationObserver;
+	onMount(() => {
+		let observer: MutationObserver;
 
-	const initializeApp = async () => {
-		try {
-			console.log('onMount initiated');
-			document.addEventListener('click', handleReplyableClick);
+		const initializeApp = async () => {
+			try {
+				console.log('onMount initiated');
+				document.addEventListener('click', handleReplyableClick);
 
-			isAuthenticated = await ensureAuthenticated();
-			
-			if ($currentUser && $currentUser.id) {
-				console.log('Current user:', $currentUser);
-				updateAvatarUrl();
-				name = $currentUser.name || $currentUser.email;
-				loadUserPrompt();
-			}
+            if (!$currentUser) {
+                isAuthenticated = await ensureAuthenticated();
+                if (!isAuthenticated) {
+                    console.error('Authentication failed in AIChat');
+                    return;
+                }
+            } else {
+                isAuthenticated = true;
+            }
 
-			if ($currentUser && $currentUser.id && !modelInitialized) {
-				console.log('Initializing models for user:', $currentUser.id);
+            if ($currentUser && $currentUser.id) {
+                console.log('Current user in AIChat:', $currentUser);
+                updateAvatarUrl();
+                name = $currentUser.name || $currentUser.email;
+                loadUserPrompt();
+            }
 
-				try {
-					await modelStore.initialize($currentUser.id);
-					modelInitialized = true;
-					refreshPromptSuggestions();
-				} catch (error) {
-					console.error('Error initializing models:', error);
+				if ($currentUser && $currentUser.id && !modelInitialized) {
+					console.log('Initializing models for user:', $currentUser.id);
 
-					if (!aiModel || !aiModel.api_type) {
-						await apiKey.ensureLoaded();
-						const availableKeys = get(apiKey);
-						const providersWithKeys = Object.keys(availableKeys).filter((p) => !!availableKeys[p]);
+					try {
+						await modelStore.initialize($currentUser.id);
+						modelInitialized = true;
+						refreshPromptSuggestions();
+					} catch (error) {
+						console.error('Error initializing models:', error);
 
-						const validProvider =
-							providersWithKeys.length > 0 ? (providersWithKeys[0] as ProviderType) : 'deepseek';
+						if (!aiModel || !aiModel.api_type) {
+							await apiKey.ensureLoaded();
+							const availableKeys = get(apiKey);
+							const providersWithKeys = Object.keys(availableKeys).filter(
+								(p) => !!availableKeys[p]
+							);
 
-						aiModel = availableModels.find((m) => m.provider === validProvider) || defaultModel;
-						console.log('Using fallback model after initialization error:', aiModel);
+							const validProvider =
+								providersWithKeys.length > 0 ? (providersWithKeys[0] as ProviderType) : 'deepseek';
+
+							aiModel = availableModels.find((m) => m.provider === validProvider) || defaultModel;
+							console.log('Using fallback model after initialization error:', aiModel);
+						}
 					}
 				}
-			}
 
-			console.log('Loading initial thread data...');
-			const currentProjectId = get(projectStore).currentProjectId;
+				console.log('Loading initial thread data...');
+				const currentProjectId = get(projectStore).currentProjectId;
 
-			if (get(projectStore).threads.length === 0) {
-				console.log('Loading projects first...');
-				await projectStore.loadProjects();
-				const suggestion = get(pendingSuggestion);
-				if (suggestion) {
-					handleSendMessage(suggestion);
-					pendingSuggestion.set(null);
+				if (get(projectStore).threads.length === 0) {
+					console.log('Loading projects first...');
+					await projectStore.loadProjects();
+					const suggestion = get(pendingSuggestion);
+					if (suggestion) {
+						handleSendMessage(suggestion);
+						pendingSuggestion.set(null);
+					}
 				}
-			}
 
-			if (currentProjectId) {
-				console.log(`Project ${currentProjectId} selected, loading threads`);
-				await loadThreads(currentProjectId);
-			} else {
-				console.log('No project selected, loading unassigned threads');
-				await loadThreads(null);
-			}
+				if (currentProjectId) {
+					console.log(`Project ${currentProjectId} selected, loading threads`);
+					await loadThreads(currentProjectId);
+				} else {
+					console.log('No project selected, loading unassigned threads');
+					await loadThreads(null);
+				}
 
-			if (currentThreadId) {
-				await preloadUserProfiles();
+				if (currentThreadId) {
+					await preloadUserProfiles();
 
+					if (chatMessagesDiv) {
+						enhanceCodeBlocks(chatMessagesDiv);
+					}
+				}
+
+				if (textareaElement) {
+					const adjustTextareaHeight = () => {
+						console.log('Adjusting textarea height');
+						if (!textareaElement) return;
+						textareaElement.style.height = 'auto';
+						textareaElement.style.height = `${textareaElement.scrollHeight}px`;
+					};
+					textareaElement.addEventListener('input', adjustTextareaHeight);
+				}
+
+				// Create MutationObserver to watch for changes to the chat messages
 				if (chatMessagesDiv) {
-					enhanceCodeBlocks(chatMessagesDiv);
-				}
-			}
+					observer = new MutationObserver((mutations) => {
+						mutations.forEach((mutation) => {
+							if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+								if (chatMessagesDiv) {
+									const messageContents = chatMessagesDiv.querySelectorAll(
+										'.message-content:not([data-processed="true"])'
+									);
+									messageContents.forEach((content) => {
+										enhanceCodeBlocks(content as HTMLElement);
+										content.setAttribute('data-processed', 'true');
+									});
+								}
+								isTypingInProgress = chatMessages.some((msg) => msg.isTyping);
 
-			if (textareaElement) {
-				const adjustTextareaHeight = () => {
-					console.log('Adjusting textarea height');
-					if (!textareaElement) return;
-					textareaElement.style.height = 'auto';
-					textareaElement.style.height = `${textareaElement.scrollHeight}px`;
-				};
-				textareaElement.addEventListener('input', adjustTextareaHeight);
-			}
-
-			// Create MutationObserver to watch for changes to the chat messages
-			if (chatMessagesDiv) {
-				observer = new MutationObserver((mutations) => {
-					mutations.forEach((mutation) => {
-						if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-							if (chatMessagesDiv) {
-								const messageContents = chatMessagesDiv.querySelectorAll(
-									'.message-content:not([data-processed="true"])'
-								);
-								messageContents.forEach((content) => {
-									enhanceCodeBlocks(content as HTMLElement);
-									content.setAttribute('data-processed', 'true');
-								});
-							}
-							isTypingInProgress = chatMessages.some((msg) => msg.isTyping);
-
-							if (chatMessagesDiv) {
-								const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
-								const scrollBottom = scrollTop + clientHeight;
-								if (scrollHeight - scrollBottom < 100) {
-									chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+								if (chatMessagesDiv) {
+									const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+									const scrollBottom = scrollTop + clientHeight;
+									if (scrollHeight - scrollBottom < 100) {
+										chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+									}
 								}
 							}
-						}
+						});
 					});
-				});
 
-				observer.observe(chatMessagesDiv, {
-					childList: true,
-					subtree: true
-				});
+					observer.observe(chatMessagesDiv, {
+						childList: true,
+						subtree: true
+					});
+				}
+			} catch (error) {
+				console.error('Error during onMount:', error);
 			}
-		} catch (error) {
-			console.error('Error during onMount:', error);
-		}
-	};
+		};
 
-	// Start the async initialization
-	initializeApp();
+		// Start the async initialization
+		initializeApp();
 
-	// Return the cleanup function synchronously
-	return () => {
-		document.removeEventListener('click', handleReplyableClick);
-		if (observer) {
-			observer.disconnect();
-		}
-	};
-});
+		// Return the cleanup function synchronously
+		return () => {
+			document.removeEventListener('click', handleReplyableClick);
+			if (observer) {
+				observer.disconnect();
+			}
+		};
+	});
 
 	afterUpdate(() => {
 		// Setup reply handlers
@@ -2926,7 +2624,7 @@ onMount(() => {
 
 		if (hideTimeout) {
 			clearTimeout(hideTimeout);
-			hideTimeout = null; 
+			hideTimeout = null;
 		}
 
 		chatMessages = [];
@@ -2938,36 +2636,20 @@ onMount(() => {
 		url.searchParams.delete('autoTrigger');
 		window.history.replaceState({}, '', url);
 	});
-
-	/*
-	 * Lifecycle hooks
-	 * onMount(() => {
-	 * 		const interval = setInterval(() => {
-	 * 			deg += 2;
-	 * 			if (deg >= 360) deg = 0;
-	 * 			document.body.style.setProperty('--deg', deg);
-	 * 		}, 60);
-	 * 		return () => clearInterval(interval);
-	 * 	});
-	 */
 </script>
 
-{#if $currentUser}
+{#if $currentUser && $showOverlay}
 	<div class="chat-interface" in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
-
 		<div
 			class="chat-container"
 			transition:fly={{ x: 300, duration: 300 }}
 			class:drawer-visible={$showThreadList}
 		>
-
 			{#if $showThreadList}
-				<div 
-					class="drawer" 
+				<div
+					class="drawer"
 					transition:fly={{ x: -300, duration: 300 }}
 					use:swipeGesture={drawerSwipeConfig}
-
-
 				>
 					<div class="drawer-list" in:fly={{ duration: 200 }} out:fade={{ duration: 200 }}>
 						<div class="drawer-toolbar" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
@@ -3000,7 +2682,7 @@ onMount(() => {
 								{:else}
 									<div class="icon" in:fade>
 										<MessageCirclePlus />
-										
+
 										{#if createHovered}
 											<span class="tooltip tooltip-delayed" in:fade>
 												{$t('tooltip.newThread')}
@@ -3016,14 +2698,17 @@ onMount(() => {
 									if (isExpanded) {
 										isExpanded = false;
 									}
-									
+
 									threadsStore.setSearchQuery('');
 									threadsStore.toggleFavoriteFilter();
 								}}
 								on:mouseenter={() => (favoritesHovered = true)}
 								on:mouseleave={() => (favoritesHovered = false)}
 							>
-								<Star size={18} fill={$threadsStore.showFavoriteThreads ? 'currentColor' : 'none'} />
+								<Star
+									size={18}
+									fill={$threadsStore.showFavoriteThreads ? 'currentColor' : 'none'}
+								/>
 								{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 									<span class="tooltip tooltip-delayed" in:fade>
 										{$t('profile.favorites') || 'Favorite Threads'}
@@ -3053,7 +2738,7 @@ onMount(() => {
 											{$t('nav.search') || 'Search threads'}
 										</span>
 									{/if}
-								</button>								
+								</button>
 								{#if isExpanded}
 									<input
 										transition:slide={{ duration: 300 }}
@@ -3070,28 +2755,6 @@ onMount(() => {
 									/>
 								{/if}
 							</div>
-							<!-- <button 
-							class="toolbar-button"
-							class:active={showSortOptions}
-							on:click={() => showSortOptions = !showSortOptions}
-							aria-label="Sort threads"
-							title={$sortOptionInfo.label}
-							>
-							<svelte:component this={$sortOptionInfo.icon} size={18} />
-							<span class="button-label">{$sortOptionInfo.label}</span>
-							</button>
-							<button 
-							class="toolbar-button"
-							class:active={showUserFilter || $selectedUserIds.size > 0}
-							on:click={() => showUserFilter = !showUserFilter}
-							aria-label="Filter by users"
-							title="Filter by users"
-							>
-							<Filter size={18} />
-							{#if $selectedUserIds.size > 0}
-								<span class="filter-badge">{$selectedUserIds.size}</span>
-							{/if}
-							</button> -->
 						</div>
 						{#if showSortOptions}
 							<div class="dropdown sort-dropdown" transition:fade={{ duration: 150 }}>
@@ -3155,58 +2818,58 @@ onMount(() => {
 									</div>
 								{/if}
 
-							{#if threads.length === 0}
-								<div class="empty-state">
-									<!-- No threads. Select or create project first. -->
-								</div>
-							{:else}
-								{#each groupedThreads as { group, threads: groupThreads } (group)}
-									<div class="time-divider" in:fade>
-										<span class="time-label">{group}</span>
+								{#if threads.length === 0}
+									<div class="empty-state">
+										<!-- No threads. Select or create project first. -->
 									</div>
-									{#each groupThreads as thread (thread.id)}
-										<button
-											class="card-container"
-											class:selected={currentThreadId === thread.id}
-											on:click={() => handleLoadThread(thread.id)}
-										>
-											<div class="card" class:active={currentThreadId === thread.id} in:fade>
-											<div class="card-static">
-												<div class="card-title">
-													{thread.id === currentThreadId && currentThread
-														? currentThread.name || 'Unnamed Thread'
-														: thread.name || 'Unnamed Thread'}
-												</div>
-											</div>
-											
-											<div class="card-actions" transition:fade={{ duration: 300 }}>
-												<button
-													class="action-btn delete"
-													on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
-												>
-													<Trash2 size={16}/>
-												</button>
-												<button
-													class="action-btn"
-													on:click|stopPropagation={(e) => onFavoriteThread(e, thread)}
-												>
-													<Star 
-														size={16} 
-														fill={isThreadFavorited(thread.id) ? 'currentColor' : 'none'} 
-													/>
-												</button>
-											</div>
+								{:else}
+									{#each groupedThreads as { group, threads: groupThreads } (group)}
+										<div class="time-divider" in:fade>
+											<span class="time-label">{group}</span>
 										</div>
-										</button>
+										{#each groupThreads as thread (thread.id)}
+											<button
+												class="card-container"
+												class:selected={currentThreadId === thread.id}
+												on:click={() => handleLoadThread(thread.id)}
+											>
+												<div class="card" class:active={currentThreadId === thread.id} in:fade>
+													<div class="card-static">
+														<div class="card-title">
+															{thread.id === currentThreadId && currentThread
+																? currentThread.name || 'Unnamed Thread'
+																: thread.name || 'Unnamed Thread'}
+														</div>
+													</div>
+
+													<div class="card-actions" transition:fade={{ duration: 300 }}>
+														<button
+															class="action-btn delete"
+															on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
+														>
+															<Trash2 size={16} />
+														</button>
+														<button
+															class="action-btn"
+															on:click|stopPropagation={(e) => onFavoriteThread(e, thread)}
+														>
+															<Star
+																size={16}
+																fill={isThreadFavorited(thread.id) ? 'currentColor' : 'none'}
+															/>
+														</button>
+													</div>
+												</div>
+											</button>
+										{/each}
 									{/each}
-								{/each}
-							{/if}
+								{/if}
 							</div>
 						{/if}
 					</div>
 				</div>
 			{/if}
-					<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
+			<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
 				<div
 					class="chat-content"
 					class:drawer-visible={$showThreadList}
@@ -3227,55 +2890,7 @@ onMount(() => {
 					>
 						{#if currentThread}
 							<div class="chat-header-thread">
-								<!-- <button class="btn-back" on:click={goBack}>
-                <ArrowLeft />
-              </button> -->
-								<!-- {#if isEditingThreadName}
-              <input class="thread-name"
-                transition:fade={{duration: 300, easing: cubicOut}}
-                bind:value={editedThreadName}
-                on:keydown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    submitThreadNameChange();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    isEditingThreadName = false;
-                    threadsStore.update(state => ({
-                      ...state,
-                      isEditingThreadName: false
-                    }));
-                  }
-                }}
-                on:blur={() => {
-                  // Only submit changes if there's actual content
-                  if (editedThreadName.trim() !== '') {
-                    submitThreadNameChange();
-                  } else {
-                    isEditingThreadName = false;
-                    threadsStore.update(state => ({
-                      ...state,
-                      isEditingThreadName: false
-                    }));
-                  }
-                }}
-                autofocus
-              />
-                <span class="save-button" on:click={submitThreadNameChange}>
-                  <Save />
-                </span>
-              {:else} -->
-								<!-- <span class="icon">
-                  /
-              </span> -->
-								<!-- <div class="drawer-tab">
 
-                <span class="icon">
-                  <h3>
-                    /
-                  </h3>
-                </span>
-              </div> -->
 								{#if currentThread && (currentThread.user === userId || currentThread.op === userId)}
 									{#if isUpdatingThreadName}
 										<div class="spinner-container">
@@ -3467,20 +3082,8 @@ onMount(() => {
 												<div class="btn-row" transition:slide>
 													<div class="submission" class:visible={isTextareaFocused}>
 														{#if isTextareaFocused}
-															<!-- <span 
-                            class="btn"
-                            transition:slide
-                            on:click={() => toggleSection('cites')}
-                            >
-                            <span class="icon">
-                              {#if $expandedSections.cites}
-                              <Unlink/>
-                              {:else}
-                              <Link />
-                              {/if}
-                            </span>
-                          </span> -->
-															<span
+
+															<button
 																class="btn"
 																transition:slide
 																on:click={() => toggleSection('bookmarks')}
@@ -3492,13 +3095,8 @@ onMount(() => {
 																		<Bookmark />
 																	{/if}
 																</span>
-															</span>
-															<!-- <span class="btn" 
-                              transition:slide
-                            >
-                              <Paperclip />
-                            </span> -->
-															<span
+															</button>
+															<button
 																class="btn"
 																transition:slide
 																on:click={() => toggleSection('prompts')}
@@ -3518,8 +3116,8 @@ onMount(() => {
 																		/>
 																	{/if}
 																{/if}
-															</span>
-															<span
+															</button>
+															<button
 																class="btn model"
 																transition:slide
 																on:click={() => toggleSection('sysprompts')}
@@ -3549,8 +3147,8 @@ onMount(() => {
 																		{/if}
 																	{/if}
 																</div>
-															</span>
-															<span
+															</button>
+															<button
 																class="btn model"
 																transition:slide
 																on:click={() => toggleSection('models')}
@@ -3565,7 +3163,7 @@ onMount(() => {
 																		<p class="selector-lable">{selectedModelLabel}</p>
 																	{/if}
 																</span>
-															</span>
+															</button>
 															<button
 																class="btn send-btn"
 																class:visible={isTextareaFocused}
@@ -3654,20 +3252,20 @@ onMount(() => {
 											in:slide={{ duration: 200 }}
 											out:slide={{ duration: 200 }}
 										>
-										{#if $threadsStore.currentThreadId}
-											<ThreadCollaborators
-												threadId={$threadsStore.currentThreadId}
-												projectId={$threadsStore.currentThread?.project_id || ''}
-												on:select={(event) => {
-													expandedSections.update((sections) => ({
-														...sections,
-														prompts: false
-													}));
-													showCollaborators = !showCollaborators;
-													console.log('Parent received selection from catalog:', event.detail);
-												}}
-											/>
-										{/if}
+											{#if $threadsStore.currentThreadId}
+												<ThreadCollaborators
+													threadId={$threadsStore.currentThreadId}
+													projectId={$threadsStore.currentThread?.project_id || ''}
+													on:select={(event) => {
+														expandedSections.update((sections) => ({
+															...sections,
+															prompts: false
+														}));
+														showCollaborators = !showCollaborators;
+														console.log('Parent received selection from catalog:', event.detail);
+													}}
+												/>
+											{/if}
 										</div>
 									{/if}
 									{#if $expandedSections.sysprompts}
@@ -3712,13 +3310,13 @@ onMount(() => {
 											in:slide={{ duration: 200 }}
 											out:slide={{ duration: 200 }}
 										>
-								<ModelSelector
-									provider={aiModel?.provider}
-									on:select={(event) => {
-										showModelSelector = !showModelSelector;
-										console.log('Parent received selection from catalog:', event.detail);
-									}}
-/>
+											<ModelSelector
+												provider={aiModel?.provider}
+												on:select={(event) => {
+													showModelSelector = !showModelSelector;
+													console.log('Parent received selection from catalog:', event.detail);
+												}}
+											/>
 										</div>
 									{/if}
 									{#if $expandedSections.bookmarks}
@@ -3775,21 +3373,8 @@ onMount(() => {
 										<div class="btn-row" transition:slide>
 											<div class="submission" class:visible={isTextareaFocused}>
 												{#if isTextareaFocused}
-													<!-- <span 
-                    class="btn"
-                    transition:slide
-                    on:click={() => toggleSection('cites')}
-                    >
-                    <span class="icon">
-                      {#if $expandedSections.cites}
-                      <Unlink/>
-                      {:else}
-                      <Link />
-                      {/if}
-                    </span>
-                  </span> -->
 													{#if $threadsStore.currentThreadId}
-														<span
+														<button
 															class="btn"
 															on:mouseenter={() => (createHovered = true)}
 															on:mouseleave={() => (createHovered = false)}
@@ -3810,8 +3395,8 @@ onMount(() => {
 																	</span>
 																{/if}
 															{/if}
-														</span>
-														<span
+														</button>
+														<button
 															class="btn"
 															transition:slide
 															on:click={() => toggleSection('collaborators')}
@@ -3823,22 +3408,9 @@ onMount(() => {
 																	<Users size={20} />
 																{/if}
 															</span>
-														</span>
-
-														<!-- <button class="toggle-btn collaborators" on:click={() => toggleSection('collaborators')}
-                    >
-                    
-                    <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
-              
-                  </button> -->
-														<!-- <button 
-                  class="toggle-btn"
-                  on:click={() => showAgentPicker = !showAgentPicker}
-                >
-                  <BotIcon/>
-                </button> -->
+														</button>
 													{/if}
-													<span
+													<button
 														class="btn"
 														transition:slide
 														on:click={() => toggleSection('bookmarks')}
@@ -3850,13 +3422,8 @@ onMount(() => {
 																<Bookmark />
 															{/if}
 														</span>
-													</span>
-													<!-- <span class="btn" 
-                      transition:slide
-                    >
-                      <Paperclip />
-                    </span> -->
-													<span
+													</button>
+													<button
 														class="btn"
 														transition:slide
 														on:click={() => toggleSection('prompts')}
@@ -3873,8 +3440,8 @@ onMount(() => {
 																<svelte:component this={selectedIcon} color="var(--text-color)" />
 															{/if}
 														{/if}
-													</span>
-													<span
+													</button>
+													<button
 														class="btn model"
 														transition:slide
 														on:click={() => toggleSection('sysprompts')}
@@ -3894,8 +3461,8 @@ onMount(() => {
 																{/if}
 															{/each}
 														{/if}
-													</span>
-													<span
+													</button>
+													<button
 														class="btn model"
 														transition:slide
 														on:click={() => toggleSection('models')}
@@ -3910,7 +3477,7 @@ onMount(() => {
 																<p class="selector-lable">{selectedModelLabel}</p>
 															{/if}
 														</span>
-													</span>
+													</button>
 													<button
 														class="btn send-btn"
 														class:visible={isTextareaFocused}
@@ -3976,50 +3543,12 @@ onMount(() => {
 															{/if}
 														{/if}
 													</button>
-													<!-- <span 
-                class="btn"
-                transition:slide
-                on:click={() => toggleSection('collaborators')}
-              >
-                <span class="icon">
-                  {#if $expandedSections.collaborators}
-                    <Users size={30} />
-                  {:else}
-                    <Users size={20} />
-                  {/if}
-                </span>
-                
-              </span> -->
 
-													<!-- <button class="toggle-btn collaborators" on:click={() => toggleSection('collaborators')}
-                  >
-                  
-                  <ThreadCollaborators threadId={$threadsStore.currentThreadId} />
-            
-                </button> -->
-													<!-- <button 
-                class="toggle-btn"
-                on:click={() => showAgentPicker = !showAgentPicker}
-              >
-                <BotIcon/>
-              </button> -->
 												{/if}
-												<!-- <span 
-                    class="btn"
-                    transition:slide
-                    on:click={() => toggleSection('bookmarks')}
-                    >
-                    <span class="icon">
-                      {#if $expandedSections.models}
-                      <BookmarkCheckIcon/>
-                      {:else}
-                      <Bookmark />
-                      {/if}
-                    </span>
-                  </span> -->
-												<span class="btn" transition:slide>
+
+												<button class="btn" transition:slide>
 													<Paperclip />
-												</span>
+												</button>
 												<button
 													class="btn send-btn"
 													class:visible={isTextareaFocused}
@@ -4037,32 +3566,31 @@ onMount(() => {
 						</div>
 					{/if}
 				</div>
+			</div>
 		</div>
-		</div>
-
 	</div>
 	{#if showDeleteModal}
-    <div class="modal-overlay" transition:fade={{ duration: 200 }}>
-        <div class="modal-content delete" transition:scale={{ duration: 300 }}>
-            <div class="modal-header">
-                <h3>{$t('generic.delete')} {$t('threads.thread')}</h3>
-            </div>
-            <div class="modal-body">
-                <p>{deleteNotification}</p>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" on:click={cancelDelete}>
-                    {$t('generic.no')}
-                </button>
-                <button class="btn btn-delete" on:click={confirmDelete}>
-                    {$t('generic.yes')}
-                </button>
-            </div>
-        </div>
-    </div>
-{/if}
+		<div class="modal-overlay" transition:fade={{ duration: 200 }}>
+			<div class="modal-content delete" transition:scale={{ duration: 300 }}>
+				<div class="modal-header">
+					<h3>{$t('generic.delete')} {$t('threads.thread')}</h3>
+				</div>
+				<div class="modal-body">
+					<p>{deleteNotification}</p>
+				</div>
+				<div class="modal-actions">
+					<button class="btn btn-cancel" on:click={cancelDelete}>
+						{$t('generic.no')}
+					</button>
+					<button class="btn btn-delete" on:click={confirmDelete}>
+						{$t('generic.yes')}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 {:else}
-	<p>User is not authenticated</p>
+	<!-- <p>User is not authenticated</p> -->
 {/if}
 <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet" />
 
@@ -4071,9 +3599,8 @@ onMount(() => {
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
-
 		font-family: var(--font-family);
 	}
 
@@ -4107,90 +3634,90 @@ onMount(() => {
 			// border-radius: var(--radius-m);
 			// overflow: hidden;
 		}
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
+		.modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(0, 0, 0, 0.7);
+			backdrop-filter: blur(4px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 9999;
+		}
 
-.modal-content.delete {
-    background: var(--bg-color);
-    border: 1px solid var(--line-color);
-    border-radius: 1rem !important;
-    max-width: 400px;
-    width: 90%;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-}
+		.modal-content.delete {
+			background: var(--bg-color);
+			border: 1px solid var(--line-color);
+			border-radius: 1rem !important;
+			max-width: 400px;
+			width: 90%;
+			box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+			overflow: hidden;
+		}
 
-.modal-header {
-    padding: 0.5rem;
-    justify-content: center;
-	display: flex;
-    h3 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--text-color);
-		width: 100%;
-		text-align: center;
-    }
-}
+		.modal-header {
+			padding: 0.5rem;
+			justify-content: center;
+			display: flex;
+			h3 {
+				margin: 0;
+				font-size: 1.25rem;
+				font-weight: 600;
+				color: var(--text-color);
+				width: 100%;
+				text-align: center;
+			}
+		}
 
-.modal-body {
-    padding: 1rem;
-    
-    p {
-        margin: 0;
-        color: var(--placeholder-color);
-        line-height: 1.5;
-		text-align: center;
-    }
-}
+		.modal-body {
+			padding: 1rem;
 
-.modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    padding: 0 1.5rem 1.5rem;
-    justify-content: center;
-}
+			p {
+				margin: 0;
+				color: var(--placeholder-color);
+				line-height: 1.5;
+				text-align: center;
+			}
+		}
 
-.btn {
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid transparent;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &.btn-cancel {
-        background: transparent;
-        border-color: var(--line-color);
-        color: var(--text-color);
-        
-        &:hover {
-            background: var(--hover-color);
-        }
-    }
-    
-    &.btn-delete {
-        background: #ef4444;
-        color: white;
-        
-        &:hover {
-            background: #dc2626;
-        }
-    }
-}
+		.modal-actions {
+			display: flex;
+			gap: 0.75rem;
+			padding: 0 1.5rem 1.5rem;
+			justify-content: center;
+		}
+
+		.btn {
+			padding: 0.5rem 1rem;
+			border-radius: 0.5rem;
+			border: 1px solid transparent;
+			font-size: 0.875rem;
+			font-weight: 500;
+			cursor: pointer;
+			transition: all 0.2s ease;
+
+			&.btn-cancel {
+				background: transparent;
+				border-color: var(--line-color);
+				color: var(--text-color);
+
+				&:hover {
+					background: var(--hover-color);
+				}
+			}
+
+			&.btn-delete {
+				background: #ef4444;
+				color: white;
+
+				&:hover {
+					background: #dc2626;
+				}
+			}
+		}
 		table {
 			margin-top: 2rem;
 			margin-bottom: 2rem;
@@ -4314,14 +3841,12 @@ onMount(() => {
 				margin-inline-start: 1.5rem;
 				padding-inline-start: 0;
 				border-left: 10px solid var(--tertiary-color);
-				
 			}
 			&:li {
 				font-size: 1.2rem;
 				font-weight: 600;
 				transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 				background: var(--bg-gradient-right);
-				
 			}
 		}
 
@@ -4354,7 +3879,6 @@ onMount(() => {
 				& ol {
 					display: flex;
 					flex-direction: column;
-					
 				}
 			}
 
@@ -4385,7 +3909,6 @@ onMount(() => {
 				& strong {
 					display: inline-block;
 					width: auto !important;
-					
 				}
 
 				&:last-child {
@@ -4410,9 +3933,6 @@ onMount(() => {
 			}
 		}
 
-
-
-
 		// First level items
 		&:first-child {
 			margin-top: 0;
@@ -4430,7 +3950,6 @@ onMount(() => {
 			border-radius: 1rem;
 			// display: block;
 			margin-bottom: 1em;
-
 		}
 		strong + p,
 		b + p {
@@ -4778,7 +4297,6 @@ onMount(() => {
 			gap: 0.5rem;
 			border-radius: 1rem;
 		}
-
 	}
 	span.hero {
 		display: flex;
@@ -5128,21 +4646,23 @@ onMount(() => {
 		flex-grow: 1;
 		display: flex;
 		flex-direction: column;
-		position: fixed;
+		position: absolute;
 		transition: all 0.3s ease-in-out;
 		overflow-y: hidden;
 		overflow-x: hidden;
 		// /* left: 20%; */
-		width: 100%;
+		width: auto;
 		// background: rgba(0, 0, 0, 0.2);
 		top: auto;
 		left: 0;
 		right: 0;
+		bottom: auto;
 		padding: 0;
 		padding-top: 0;
-		height: 100vh;
+		height: calc(100vh - 4rem);
 		margin-top: 0;
 		margin-left: 0;
+		backdrop-filter: blur(10px);
 	}
 
 	.chat-content {
@@ -5161,7 +4681,7 @@ onMount(() => {
 		border-radius: 2rem;
 		margin-top: 0;
 		// animation: pulsateShadow 1.5s infinite alternate;
-			background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
+		// background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
 
 		height: auto;
 		// width: 50%;
@@ -5336,32 +4856,31 @@ onMount(() => {
 		height: 200px;
 	}
 	.drawer-visible .input-container {
-		bottom: 3rem;
+		bottom: 5rem;
 		position: absolute;
-		
 	}
 	.input-container {
 		display: flex;
 		flex-direction: column;
 		max-width: 1000px;
-		width: calc(100% - 2rem);
+		width: calc(100% - 4rem);
 		position: absolute;
 		flex-grow: 0;
 		left: auto;
 		margin-top: 0;
 		height: auto;
-		bottom: 3rem;
+		bottom: 5rem;
 		margin-bottom: 0;
 		border: 1px solid var(--line-color);
 		transition: all 0.2s ease;
 		backdrop-filter: blur(10px);
-		border-radius: 1rem;
+		border-radius: 2rem;
 		align-items: center;
 		// backdrop-filter: blur(4px);
 		justify-content: center;
 		// background: var(--bg-gradient);
 		z-index: 7700;
-				user-select: none;
+		user-select: none;
 
 		&::placeholder {
 			color: var(--placeholder-color);
@@ -5414,7 +4933,6 @@ onMount(() => {
 			// box-shadow: none !important;
 
 			// }
-
 		}
 	}
 
@@ -5424,7 +4942,7 @@ onMount(() => {
 		width: 100%;
 		height: 100%;
 		margin-top: 0;
-		margin-bottom: 1rem;
+		margin-bottom: 8rem;
 		position: relative;
 		justify-content: flex-end;
 		align-items: center;
@@ -5530,7 +5048,7 @@ onMount(() => {
 		// backdrop-filter: blur(40px);
 		transition: all 0.3s ease;
 		max-height: 400px;
-        overflow: hidden; //
+		overflow: hidden; //
 
 		& textarea {
 			// max-height: 50vh;
@@ -5545,7 +5063,6 @@ onMount(() => {
 			height: 100vh;
 			// background: var(--bg-gradient-left);
 			&:focus {
-
 				// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
 				// border-bottom: 1px solid var(--placeholder-color);
 				// border-top-left-radius: 0;
@@ -5555,7 +5072,7 @@ onMount(() => {
 				// margin: 2.5rem;
 				margin-top: 1.5rem;
 				margin-bottom: 0;
-							overflow-y: scroll !important;
+				overflow-y: scroll !important;
 
 				// background: var(--primary-color);
 			}
@@ -5590,7 +5107,6 @@ onMount(() => {
 		}
 		& .submission {
 			flex-direction: row;
-
 		}
 
 		& textarea {
@@ -5647,7 +5163,6 @@ onMount(() => {
 		height: auto;
 		justify-content: flex-start !important;
 		align-items: flex-start !important;
-
 	}
 
 	.chat-messages {
@@ -5711,7 +5226,7 @@ onMount(() => {
 		&::before {
 			display: flex;
 			flex-direction: column;
-			
+
 			/* top: 0;
       background: linear-gradient(
         to bottom, 
@@ -5925,7 +5440,6 @@ onMount(() => {
 			&:hidden {
 				background-color: red;
 			}
-
 		}
 	}
 	.message-header + p + div > div {
@@ -6063,13 +5577,13 @@ onMount(() => {
 		flex-direction: row;
 		transition: all 0.2s ease;
 		// border-bottom: 1px solid var(--line-color);
-			background: linear-gradient(
-				to top,
-				transparent 0%,
-				rgba(255, 255, 255, 0.05) 90%,
-				rgba(255, 255, 255, 0.05) 40%
-			);						
-			backdrop-filter: blur(2px) !important;
+		background: linear-gradient(
+			to top,
+			transparent 0%,
+			rgba(255, 255, 255, 0.05) 90%,
+			rgba(255, 255, 255, 0.05) 40%
+		);
+		backdrop-filter: blur(2px) !important;
 		& h3 {
 			margin: 0;
 			margin-top: auto;
@@ -6221,7 +5735,7 @@ onMount(() => {
 		overflow-x: hidden;
 		overflow-y: scroll;
 		height: 100%;
-					background: var(--primary-color);
+		background: var(--primary-color);
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -6249,7 +5763,7 @@ onMount(() => {
 		width: calc(100%);
 		// padding: 0.75rem 1rem;
 		// border-top: 1px solid var(--line-color);
-		background: var(--bg-gradient-right);
+		background: var(--primary-color);
 		// border-bottom: 2px solid var(--secondary-color);
 		cursor: pointer;
 		// box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
@@ -6324,7 +5838,6 @@ onMount(() => {
 		font-size: 0.75rem;
 		font-weight: bold;
 	}
-
 
 	.user-dropdown {
 		right: 0.5rem;
@@ -6989,7 +6502,7 @@ onMount(() => {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-    	justify-content: space-between;
+		justify-content: space-between;
 		max-width: 100%;
 		height: 100%;
 		position: relative;
@@ -7010,18 +6523,18 @@ onMount(() => {
 		flex-direction: column;
 		position: relative;
 		align-items: flex-start;
-    	justify-content: space-between;
+		justify-content: space-between;
 		width: 250px;
 		line-height: 1.2;
 		margin-left: 0;
 		color: var(--text-color);
 		& .card-title {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis !important;
-        width: 90%;
-		font-size: 0.8rem;
-		text-align: left;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis !important;
+			width: 90%;
+			font-size: 0.8rem;
+			text-align: left;
 		}
 		& .card-title.project {
 			font-weight: 300;
@@ -7029,7 +6542,6 @@ onMount(() => {
 			display: flex;
 			width: auto;
 		}
-
 	}
 	span.icon:hover .card-actions {
 		transform: translateX(0);
@@ -7056,8 +6568,7 @@ onMount(() => {
 		opacity: 0;
 		transition: all 0.2s ease;
 		visibility: hidden;
-		cursor:default;
-		
+		cursor: default;
 	}
 
 	.card-container:hover .card-actions {
@@ -7079,8 +6590,7 @@ onMount(() => {
 		width: auto;
 		opacity: 0;
 		height: 100%;
-				background: transparent;
-
+		background: transparent;
 	}
 	button.action-btn {
 		display: flex;
@@ -7110,9 +6620,7 @@ onMount(() => {
 		&:hover {
 			color: var(--tertiary-color) !important;
 			&.delete {
-				
 				&:hover {
-
 					color: red;
 				}
 			}
@@ -7150,53 +6658,55 @@ onMount(() => {
 		scroll-behavior: smooth;
 	}
 
-.drawer {
-  /* Ensure smooth hardware acceleration */
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  
-  /* Smooth touch interactions */
-  touch-action: pan-y; /* Allow vertical scrolling but preserve horizontal swipes */
-  
-  /* Optional: Add subtle shadow during interaction */
-  transition: box-shadow 0.2s ease-out;
-}
-.drawer-backdrop {
-  transition: backdrop-filter 0.2s ease-out;
-}
+	.drawer {
+		/* Ensure smooth hardware acceleration */
+		transform: translateZ(0);
+		backface-visibility: hidden;
 
-.drawer-backdrop.swiping {
-  backdrop-filter: blur(2px);
-}
-.drawer:active,
-.drawer.swiping {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
+		/* Smooth touch interactions */
+		touch-action: pan-y; /* Allow vertical scrolling but preserve horizontal swipes */
 
-/* Smooth slide-in/out transitions */
-.drawer-slide-enter {
-  transform: translateX(-100%);
-  opacity: 0;
-}
+		/* Optional: Add subtle shadow during interaction */
+		transition: box-shadow 0.2s ease-out;
+	}
+	.drawer-backdrop {
+		transition: backdrop-filter 0.2s ease-out;
+	}
 
-.drawer-slide-enter-active {
-  transform: translateX(0);
-  opacity: 1;
-  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              opacity 0.3s ease-out;
-}
+	.drawer-backdrop.swiping {
+		backdrop-filter: blur(2px);
+	}
+	.drawer:active,
+	.drawer.swiping {
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	}
 
-.drawer-slide-exit {
-  transform: translateX(0);
-  opacity: 1;
-}
+	/* Smooth slide-in/out transitions */
+	.drawer-slide-enter {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
 
-.drawer-slide-exit-active {
-  transform: translateX(-100%);
-  opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19),
-              opacity 0.3s ease-in;
-}
+	.drawer-slide-enter-active {
+		transform: translateX(0);
+		opacity: 1;
+		transition:
+			transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+			opacity 0.3s ease-out;
+	}
+
+	.drawer-slide-exit {
+		transform: translateX(0);
+		opacity: 1;
+	}
+
+	.drawer-slide-exit-active {
+		transform: translateX(-100%);
+		opacity: 0;
+		transition:
+			transform 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19),
+			opacity 0.3s ease-in;
+	}
 	.drawer {
 		display: flex;
 		flex-direction: column;
@@ -7208,7 +6718,7 @@ onMount(() => {
 		backface-visibility: hidden;
 		touch-action: pan-y;
 		transition: box-shadow 0.2s ease-out;
-			--drawer-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+		--drawer-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 		z-index: 9999;
 		overflow: {
 			x: hidden;
@@ -7218,9 +6728,9 @@ onMount(() => {
 		position: relative;
 		top: 0rem;
 		left: 0;
-		margin-bottom: 0;
+		margin-bottom: 1rem;
 		margin-left: 0;
-		height: calc(100% - 6rem);
+		height: calc(100% - 4rem);
 		width: 250px;
 		scrollbar: {
 			width: 1px;
@@ -7274,7 +6784,6 @@ onMount(() => {
 		backdrop-filter: blur(10px);
 		// background: var(--primary-color);
 
-
 		// box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	}
 
@@ -7320,10 +6829,6 @@ onMount(() => {
 		}
 	}
 
-
-
-
-
 	.thread-toggle {
 		color: var(--text-color);
 		background: var(--bg-gradient-right);
@@ -7340,7 +6845,6 @@ onMount(() => {
 		transition: all 0.3s ease-in-out;
 		overflow: hidden;
 		user-select: none;
-
 	}
 
 	.message-actions {
@@ -7573,23 +7077,22 @@ onMount(() => {
 		background-color: #1565c0;
 	}
 
-
-.time-divider {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    margin: 0;
-    user-select: none;
-    .time-label {
-        font-size: 0.7rem;
-        font-weight: 400;
-        color: var(--placeholder-color);
-        letter-spacing: 0.2rem;
-		    &::first-letter {
-        text-transform: uppercase;
-    }
-    }
-}
+	.time-divider {
+		display: flex;
+		align-items: center;
+		padding: 1rem;
+		margin: 0;
+		user-select: none;
+		.time-label {
+			font-size: 0.7rem;
+			font-weight: 400;
+			color: var(--placeholder-color);
+			letter-spacing: 0.2rem;
+			&::first-letter {
+				text-transform: uppercase;
+			}
+		}
+	}
 	.date-divider {
 		display: flex;
 		flex-direction: row;
@@ -7816,10 +7319,7 @@ onMount(() => {
 
 	// }
 
-
-
 	@media (min-width: 1900px) {
-
 	}
 	@media (max-width: 1900px) {
 		.thread-info {
@@ -7959,11 +7459,10 @@ onMount(() => {
 					max-height: 200px;
 					font-size: 1rem !important;
 					padding: 2rem;
-					
+
 					&::placeholder {
 						color: var(--placeholder-color);
 						font-size: 0.65rem !important;
-						
 					}
 					&:focus {
 						padding-inline-start: 4rem;
@@ -8085,7 +7584,7 @@ onMount(() => {
 			margin-top: 0 !important;
 			width: 100% !important;
 			margin-top: 0;
-			margin-bottom: 0;
+			margin-bottom: 8rem;
 			// justify-content:space-between;
 			transition: all 0.3s ease;
 			gap: 0rem;
@@ -8119,7 +7618,6 @@ onMount(() => {
 			}
 		}
 
-
 		.chat-header {
 			left: 0 !important;
 			position: absolute;
@@ -8137,7 +7635,7 @@ onMount(() => {
 				transparent 0%,
 				rgba(255, 255, 255, 0.05) 90%,
 				rgba(255, 255, 255, 0.05) 40%
-			);						
+			);
 			backdrop-filter: blur(2px) !important;
 			padding: 0 !important;
 		}
@@ -8297,7 +7795,7 @@ onMount(() => {
 			padding-inline-start: 0;
 			top: 2rem;
 			width: 100% !important;
-			border: 1px solid transparent !important; 
+			border: 1px solid transparent !important;
 			z-index: 0;
 		}
 
@@ -8479,7 +7977,6 @@ onMount(() => {
 		.drawer-list {
 			height: 100%;
 			border-radius: 0;
-			
 		}
 
 		.drawer {
@@ -8490,7 +7987,6 @@ onMount(() => {
 			margin-top: 0 !important;
 			margin-bottom: 6rem !important;
 			height: auto !important;
-			
 		}
 
 		.drawer-visible .drawer {
@@ -8540,7 +8036,7 @@ onMount(() => {
 			left: 0rem !important;
 			right: 0;
 			margin-bottom: 0;
-			bottom:6rem !important;
+			bottom: 6rem !important;
 			background: transparent;
 			border-radius: 0;
 			border: 1px solid transparent;
@@ -8551,7 +8047,6 @@ onMount(() => {
 			align-items: center;
 			justify-content: flex-end;
 			overflow: none;
-
 		}
 
 		.chat-placeholder {
@@ -8733,7 +8228,6 @@ onMount(() => {
 					left: 4rem;
 					&::placeholder {
 						color: var(--placeholder-color);
-						
 					}
 				}
 			}
@@ -8867,7 +8361,6 @@ onMount(() => {
 					padding-inline-start: 2rem !important;
 					font-size: 0.7rem !important;
 					background: transparent !important;
-
 				}
 			}
 		}
@@ -8884,7 +8377,6 @@ onMount(() => {
 			text-align: left;
 			font-size: 0.7rem;
 			letter-spacing: 0rem;
-			
 		}
 
 		textarea.quote-placeholder::placeholder {
@@ -8893,7 +8385,6 @@ onMount(() => {
 			opacity: 0.8;
 			height: auto;
 			user-select: none;
-
 		}
 
 		textarea {
@@ -9030,13 +8521,11 @@ onMount(() => {
 		.combo-input {
 			width: 100% !important;
 			padding: 0;
-						max-height: 200px;
-
+			max-height: 200px;
 		}
 		.btn-row {
 			flex-direction: row;
-						gap: 0.1rem;
-
+			gap: 0.1rem;
 		}
 
 		.submission {
@@ -9053,7 +8542,6 @@ onMount(() => {
 			display: none;
 		}
 
-
 		.drawer-visible .drawer {
 			margin-left: 0;
 			width: 300px;
@@ -9062,7 +8550,6 @@ onMount(() => {
 			padding-top: 0;
 			margin-bottom: 6rem !important;
 			background: var(--primary-color) !important ;
-
 		}
 		.drawer {
 			display: flex;

@@ -1,34 +1,44 @@
 // src/lib/utils/promptUtils.ts
-import type { AIMessage, PromptInput } from '$lib/types/types';
+import type { AIMessage, PromptInput, AIModel } from '$lib/types/types';
 import { currentUser } from '$lib/pocketbase';
 import { get } from 'svelte/store';
+import { fetchTryCatch, clientTryCatch } from '$lib/utils/errorUtils';
 
 export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
-	try {
-		const response = await fetch(`/api/prompts?userId=${userId}`);
-		if (!response.ok) return [];
-		return await response.json();
-	} catch (error) {
-		console.error('Error fetching user prompts:', error);
+	const result = await fetchTryCatch<PromptInput[]>(
+		`/api/prompts?userId=${userId}`,
+		{
+			method: 'GET'
+		}
+	);
+
+	if (!result.success) {
+		console.error('Error fetching user prompts:', result.error);
 		return [];
 	}
+
+	return result.data;
 }
 
 export async function fetchSystemPrompt(promptId: string): Promise<string | null> {
-	try {
-		const response = await fetch(`/api/prompts/${promptId}`);
-		if (!response.ok) return null;
-		const data = await response.json();
-		return data.data?.prompt || null;
-	} catch (error) {
-		console.error('Error fetching system prompt:', error);
+	const result = await fetchTryCatch<{ data?: { prompt?: string } }>(
+		`/api/prompts/${promptId}`,
+		{
+			method: 'GET'
+		}
+	);
+
+	if (!result.success) {
+		console.error('Error fetching system prompt:', result.error);
 		return null;
 	}
+
+	return result.data.data?.prompt || null;
 }
 
 export async function prepareMessagesWithCustomPrompts(
 	originalMessages: AIMessage[],
-	userId: string
+	aiModel: AIModel
 ): Promise<AIMessage[]> {
 	const user = get(currentUser);
 	if (!user) return originalMessages;
@@ -51,8 +61,14 @@ export async function prepareMessagesWithCustomPrompts(
 			const systemPrompt = SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
 			if (systemPrompt) allPrompts.push(systemPrompt);
 		} else {
-			const systemPrompt = await fetchSystemPrompt(user.sysprompt_preference);
-			if (systemPrompt) allPrompts.push(systemPrompt);
+			const systemPromptResult = await clientTryCatch(
+				fetchSystemPrompt(user.sysprompt_preference),
+				'Failed to fetch custom system prompt'
+			);
+
+			if (systemPromptResult.success && systemPromptResult.data) {
+				allPrompts.push(systemPromptResult.data);
+			}
 		}
 	}
 
@@ -65,16 +81,30 @@ export async function prepareMessagesWithCustomPrompts(
 			promptIds = [user.prompt_preference];
 		}
 
-		for (const promptId of promptIds) {
-			try {
-				const response = await fetch(`/api/prompts/${promptId}`);
-				if (response.ok) {
-					const data = await response.json();
-					if (data.data?.prompt) allPrompts.push(data.data.prompt);
-				}
-			} catch (error) {
-				console.error('Error fetching user prompt:', error);
-			}
+		const promptResults = await clientTryCatch(
+			Promise.all(
+				promptIds.map(async (promptId) => {
+					const result = await fetchTryCatch<{ data?: { prompt?: string } }>(
+						`/api/prompts/${promptId}`,
+						{
+							method: 'GET'
+						}
+					);
+
+					if (result.success && result.data.data?.prompt) {
+						return result.data.data.prompt;
+					}
+					return null;
+				})
+			),
+			'Failed to fetch user prompts'
+		);
+
+		if (promptResults.success) {
+			const validPrompts = promptResults.data.filter((prompt): prompt is string => prompt !== null);
+			allPrompts.push(...validPrompts);
+		} else {
+			console.error('Error fetching user prompts:', promptResults.error);
 		}
 	}
 
@@ -85,13 +115,15 @@ export async function prepareMessagesWithCustomPrompts(
 	if (systemMessageIndex >= 0) {
 		messages[systemMessageIndex] = {
 			...messages[systemMessageIndex],
-			content: `${combinedPromptContent}\n\n${messages[systemMessageIndex].content}`
+			content: `${combinedPromptContent}\n\n${messages[systemMessageIndex].content}`,
+			provider: aiModel.provider
 		};
 	} else {
 		messages.unshift({
 			role: 'system',
 			content: combinedPromptContent,
-			model: messages[0]?.model || 'default'
+			model: messages[0]?.model || 'default',
+			provider: aiModel.provider
 		});
 	}
 

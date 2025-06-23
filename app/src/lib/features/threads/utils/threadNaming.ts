@@ -3,6 +3,7 @@ import { threadsStore } from '$lib/stores/threadsStore';
 import type { AIModel, RoleType, Messages } from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
 import { get } from 'svelte/store';
+import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 export async function generateThreadName(
 	userMessage: string,
@@ -10,7 +11,7 @@ export async function generateThreadName(
 	model: AIModel,
 	userId: string
 ): Promise<string> {
-	try {
+	const result = await clientTryCatch((async () => {
 		if (!model || typeof model !== 'object') {
 			console.warn('Invalid model passed to generateThreadName, using default');
 			model = { ...defaultModel };
@@ -46,21 +47,24 @@ export async function generateThreadName(
 		console.log('Sending prompt for thread name generation:', messages);
 
 		// Direct API call to bypass fetchAIResponse and prompts
-		const response = await fetch('/api/ai', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				messages,
-				model: modelToUse,
-				userId
-			})
-		});
+		const fetchResult = await fetchTryCatch<{ response: string }>(
+			'/api/ai',
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					messages,
+					model: modelToUse,
+					userId
+				})
+			}
+		);
 
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to generate thread name: ${fetchResult.error}`);
 		}
 
-		const data = await response.json();
+		const data = fetchResult.data;
 		console.log('Received thread name suggestion:', data.response);
 
 		const cleanName = data.response
@@ -70,10 +74,14 @@ export async function generateThreadName(
 
 		console.log('Cleaned thread name:', cleanName);
 		return cleanName || 'New Conversation';
-	} catch (error) {
-		console.error('Error generating thread name:', error);
+	})(), `Generating thread name for user message: ${userMessage.slice(0, 50)}...`);
+
+	if (isFailure(result)) {
+		console.error('Error generating thread name:', result.error);
 		return 'New Conversation';
 	}
+
+	return result.data;
 }
 
 export async function shouldUpdateThreadName(messages: Messages[]): Promise<boolean> {
@@ -98,7 +106,7 @@ export async function updateThreadNameIfNeeded(
 ): Promise<void> {
 	threadsStore.setNamingThreadId(threadId);
 
-	try {
+	const result = await clientTryCatch((async () => {
 		if (!threadId || !messages?.length || !model || !userId) {
 			console.log('Missing required data for thread naming, skipping');
 			return;
@@ -163,29 +171,43 @@ export async function updateThreadNameIfNeeded(
 			)
 		}));
 
-		try {
-			await fetch(`/api/keys/threads/${threadId}`, {
-				method: 'PATCH',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${get(currentUser)?.token || ''}`
-				},
-				body: JSON.stringify({ name: newName })
-			});
+		const updateResult = await clientTryCatch((async () => {
+			const fetchResult = await fetchTryCatch<{ success: boolean }>(
+				`/api/keys/threads/${threadId}`,
+				{
+					method: 'PATCH',
+					credentials: 'include',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${get(currentUser)?.token || ''}`
+					},
+					body: JSON.stringify({ name: newName })
+				}
+			);
+
+			if (isFailure(fetchResult)) {
+				throw new Error(`Failed to update thread name: ${fetchResult.error}`);
+			}
 
 			console.log('Thread updated successfully');
 
 			if (typeof window !== 'undefined') {
 				window.localStorage.setItem(`thread_${threadId}_name_timestamp`, Date.now().toString());
 			}
-		} catch (updateError) {
-			console.error('Error updating thread name:', updateError);
+
+			return true;
+		})(), `Updating thread ${threadId} name to "${newName}"`);
+
+		if (isFailure(updateResult)) {
+			console.error('Error updating thread name:', updateResult.error);
 		}
-	} catch (error) {
-		console.error('Error in updateThreadNameIfNeeded:', error);
-	} finally {
-		threadsStore.setNamingThreadId(null);
-		console.log('Cleared naming state');
+	})(), `Updating thread name for thread ${threadId}`);
+
+	if (isFailure(result)) {
+		console.error('Error in updateThreadNameIfNeeded:', result.error);
 	}
+
+	// Always clean up
+	threadsStore.setNamingThreadId(null);
+	console.log('Cleared naming state');
 }

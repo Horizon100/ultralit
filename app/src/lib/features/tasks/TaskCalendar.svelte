@@ -69,68 +69,77 @@
 		loadData();
 	});
 
-	// Load data from PocketBase - reused from Kanban component
-	async function loadData() {
-		isLoading.set(true);
-		error.set(null);
+async function loadData() {
+	isLoading.set(true);
+	error.set(null);
 
-		try {
-			// Load tasks
-			await loadTasks();
+	try {
+		// Load tasks
+		await loadTasks();
 
-			// Load tags
-			await loadTags();
+		// Load tags
+		await loadTags();
 
-			// Update month groups for grouped view
-			updateMonthGroups();
-			updateCalendarGrid();
-			isLoading.set(false);
-		} catch (err: any) {
-			console.error('Error loading data:', err);
-			error.set(err instanceof Error ? err.message : 'Failed to load data');
-			isLoading.set(false);
-		}
+		// Update month groups for grouped view - only after tasks are loaded
+		updateMonthGroups();
+		updateCalendarGrid();
+		isLoading.set(false);
+	} catch (err: any) {
+		console.error('Error loading data:', err);
+		error.set(err instanceof Error ? err.message : 'Failed to load data');
+		isLoading.set(false);
 	}
+}
 
-	async function loadTasks() {
-		try {
-			let url = '/api/tasks';
-			if (currentProjectId) {
-				url = `/api/projects/${currentProjectId}/tasks`;
-			}
-
-			const response = await fetch(url);
-			if (!response.ok) throw new Error('Failed to fetch tasks');
-
-			const data = await response.json();
-
-			// Process tasks
-			const tasksList = data.items.map((task: any) => ({
-				id: task.id,
-				title: task.title,
-				taskDescription: task.taskDescription || '',
-				creationDate: new Date(task.created),
-				due_date: task.due_date ? new Date(task.due_date) : null,
-				tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-				attachments: [],
-				project_id: task.project_id,
-				createdBy: task.createdBy,
-				allocatedAgents: task.allocatedAgents || [],
-				status: task.status,
-				priority: task.priority || 'medium',
-				prompt: task.prompt || '',
-				context: task.context || '',
-				task_outcome: task.task_outcome || '',
-				dependencies: task.dependencies || [],
-				agentMessages: task.agentMessages || []
-			}));
-
-			tasks.set(tasksList);
-		} catch (err) {
-			console.error('Error loading tasks:', err);
-			throw err;
+async function loadTasks() {
+	try {
+		let url = '/api/tasks';
+		if (currentProjectId) {
+			url = `/api/projects/${currentProjectId}/tasks`;
 		}
+
+		const response = await fetch(url);
+		if (!response.ok) throw new Error('Failed to fetch tasks');
+
+		const data = await response.json();
+
+		// Add safety check for data.items
+		if (!data || !Array.isArray(data.items)) {
+			console.warn('Invalid API response format:', data);
+			tasks.set([]);
+			return;
+		}
+
+		// Process tasks
+		const tasksList = data.items.map((task: any) => ({
+			id: task.id,
+			title: task.title,
+			taskDescription: task.taskDescription || '',
+			creationDate: new Date(task.created),
+			due_date: task.due_date ? new Date(task.due_date) : null,
+			tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+			attachments: [],
+			project_id: task.project_id,
+			createdBy: task.createdBy,
+			allocatedAgents: task.allocatedAgents || [],
+			status: task.status,
+			priority: task.priority || 'medium',
+			prompt: task.prompt || '',
+			context: task.context || '',
+			task_outcome: task.task_outcome || '',
+			dependencies: task.dependencies || [],
+			agentMessages: task.agentMessages || []
+		}));
+
+		tasks.set(tasksList);
+	} catch (err) {
+		console.error('Error loading tasks:', err);
+		// Set empty array on error to prevent further issues
+		tasks.set([]);
+		throw err;
 	}
+}
+
 
 	async function loadTags() {
 		try {
@@ -151,66 +160,77 @@
 	}
 
 	// Group tasks by month for the month view
-	function updateMonthGroups() {
-		const taskList = get(tasks);
-
-		// Fixed syntax - use type assertion instead of type annotation
-		const groups = {} as Record<string, { name: string; tasks: KanbanTask[] }>;
-
-		// First ensure we have the "no-date" group
-		groups['no-date'] = {
-			name: 'No Due Date',
-			tasks: []
-		};
-
-		taskList.forEach((task) => {
-			if (task.due_date) {
-				try {
-					// Safely convert to Date object
-					let dateObj: Date;
-
-					if (task.due_date instanceof Date) {
-						dateObj = task.due_date;
-					} else if (typeof task.due_date === 'string') {
-						dateObj = new Date(task.due_date);
-					} else {
-						// If conversion fails, add to no-date group
-						groups['no-date'].tasks.push(task);
-						console.warn(`Invalid date format for task ${task.id}:`, task.due_date);
-						return;
-					}
-
-					// Check if date is valid
-					if (isNaN(dateObj.getTime())) {
-						groups['no-date'].tasks.push(task);
-						console.warn(`Invalid date for task ${task.id}:`, task.due_date);
-						return;
-					}
-
-					const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}`;
-					const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
-
-					if (!groups[monthKey]) {
-						groups[monthKey] = {
-							name: monthName,
-							tasks: []
-						};
-					}
-
-					groups[monthKey].tasks.push(task);
-				} catch (err) {
-					// If any error occurs, add to no-date group
-					groups['no-date'].tasks.push(task);
-					console.error(`Error processing date for task ${task.id}:`, err);
-				}
-			} else {
-				// Tasks without due dates
-				groups['no-date'].tasks.push(task);
+function updateMonthGroups() {
+	const taskList = get(tasks);
+	
+	// Add null check to prevent errors
+	if (!taskList || !Array.isArray(taskList)) {
+		monthGroups.set({
+			'no-date': {
+				name: 'No Due Date',
+				tasks: []
 			}
 		});
-
-		monthGroups.set(groups);
+		return;
 	}
+
+	// Fixed syntax - use type assertion instead of type annotation
+	const groups = {} as Record<string, { name: string; tasks: KanbanTask[] }>;
+
+	// First ensure we have the "no-date" group
+	groups['no-date'] = {
+		name: 'No Due Date',
+		tasks: []
+	};
+
+	taskList.forEach((task) => {
+		if (task.due_date) {
+			try {
+				// Safely convert to Date object
+				let dateObj: Date;
+
+				if (task.due_date instanceof Date) {
+					dateObj = task.due_date;
+				} else if (typeof task.due_date === 'string') {
+					dateObj = new Date(task.due_date);
+				} else {
+					// If conversion fails, add to no-date group
+					groups['no-date'].tasks.push(task);
+					console.warn(`Invalid date format for task ${task.id}:`, task.due_date);
+					return;
+				}
+
+				// Check if date is valid
+				if (isNaN(dateObj.getTime())) {
+					groups['no-date'].tasks.push(task);
+					console.warn(`Invalid date for task ${task.id}:`, task.due_date);
+					return;
+				}
+
+				const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}`;
+				const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+				if (!groups[monthKey]) {
+					groups[monthKey] = {
+						name: monthName,
+						tasks: []
+					};
+				}
+
+				groups[monthKey].tasks.push(task);
+			} catch (err) {
+				// If any error occurs, add to no-date group
+				groups['no-date'].tasks.push(task);
+				console.error(`Error processing date for task ${task.id}:`, err);
+			}
+		} else {
+			// Tasks without due dates
+			groups['no-date'].tasks.push(task);
+		}
+	});
+
+	monthGroups.set(groups);
+}
 	async function updateTaskDueDate(taskId: string, dueDate: Date | null) {
 		try {
 			const response = await fetch(`/api/tasks/${taskId}`, {
@@ -231,92 +251,103 @@
 			throw err;
 		}
 	}
-	function updateCalendarGrid() {
-		const taskList = get(tasks);
-		const year = currentDate.getFullYear();
-		const month = currentDate.getMonth();
-
-		// Get first day of month
-		const firstDay = new Date(year, month, 1);
-		// Get last day of month
-		const lastDay = new Date(year, month + 1, 0);
-
-		/*
-		 * Get day of week of first day (0 = Sunday, 6 = Saturday)
-		 * Convert to Monday = 0, Sunday = 6 format
-		 */
-		const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
-
-		// Create array of days
-		const days: Day[] = [];
-
-		// Add days from previous month to fill first week
-		const daysFromPrevMonth = firstDayOfWeek;
-		for (let i = daysFromPrevMonth - 1; i >= 0; i--) {
-			const date = new Date(year, month, -i);
-			days.push({
-				date,
-				dayOfMonth: date.getDate(),
-				isCurrentMonth: false,
-				tasks: taskList.filter((task) => {
-					if (!task.due_date) return false;
-					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-					return (
-						taskDate.getDate() === date.getDate() &&
-						taskDate.getMonth() === date.getMonth() &&
-						taskDate.getFullYear() === date.getFullYear()
-					);
-				})
-			});
-		}
-
-		// Add all days of current month
-		const daysInMonth = lastDay.getDate();
-		for (let i = 1; i <= daysInMonth; i++) {
-			const date = new Date(year, month, i);
-			days.push({
-				date,
-				dayOfMonth: i,
-				isCurrentMonth: true,
-				tasks: taskList.filter((task) => {
-					if (!task.due_date) return false;
-					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-					return (
-						taskDate.getDate() === i &&
-						taskDate.getMonth() === month &&
-						taskDate.getFullYear() === year
-					);
-				})
-			});
-		}
-
-		// Add days from next month to complete grid (typically 42 days total for 6 weeks)
-		const totalDaysNeeded = 42;
-		const daysFromNextMonth = totalDaysNeeded - days.length;
-		for (let i = 1; i <= daysFromNextMonth; i++) {
-			const date = new Date(year, month + 1, i);
-			days.push({
-				date,
-				dayOfMonth: i,
-				isCurrentMonth: false,
-				tasks: taskList.filter((task) => {
-					if (!task.due_date) return false;
-					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-					return (
-						taskDate.getDate() === i &&
-						taskDate.getMonth() === month + 1 &&
-						taskDate.getFullYear() === year
-					);
-				})
-			});
-		}
-
+function updateCalendarGrid() {
+	const taskList = get(tasks);
+	
+	// Add null check to prevent the error
+	if (!taskList || !Array.isArray(taskList)) {
 		calendarGrid.set({
-			days,
-			month: firstDay.toLocaleString('default', { month: 'long' }),
-			year
+			days: [],
+			month: currentDate.toLocaleString('default', { month: 'long' }),
+			year: currentDate.getFullYear()
+		});
+		return;
+	}
+	
+	const year = currentDate.getFullYear();
+	const month = currentDate.getMonth();
+
+	// Get first day of month
+	const firstDay = new Date(year, month, 1);
+	// Get last day of month
+	const lastDay = new Date(year, month + 1, 0);
+
+	/*
+	 * Get day of week of first day (0 = Sunday, 6 = Saturday)
+	 * Convert to Monday = 0, Sunday = 6 format
+	 */
+	const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+	// Create array of days
+	const days: Day[] = [];
+
+	// Add days from previous month to fill first week
+	const daysFromPrevMonth = firstDayOfWeek;
+	for (let i = daysFromPrevMonth - 1; i >= 0; i--) {
+		const date = new Date(year, month, -i);
+		days.push({
+			date,
+			dayOfMonth: date.getDate(),
+			isCurrentMonth: false,
+			tasks: taskList.filter((task) => {
+				if (!task.due_date) return false;
+				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+				return (
+					taskDate.getDate() === date.getDate() &&
+					taskDate.getMonth() === date.getMonth() &&
+					taskDate.getFullYear() === date.getFullYear()
+				);
+			})
 		});
 	}
+
+	// Add all days of current month
+	const daysInMonth = lastDay.getDate();
+	for (let i = 1; i <= daysInMonth; i++) {
+		const date = new Date(year, month, i);
+		days.push({
+			date,
+			dayOfMonth: i,
+			isCurrentMonth: true,
+			tasks: taskList.filter((task) => {
+				if (!task.due_date) return false;
+				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+				return (
+					taskDate.getDate() === i &&
+					taskDate.getMonth() === month &&
+					taskDate.getFullYear() === year
+				);
+			})
+		});
+	}
+
+	// Add days from next month to complete grid (typically 42 days total for 6 weeks)
+	const totalDaysNeeded = 42;
+	const daysFromNextMonth = totalDaysNeeded - days.length;
+	for (let i = 1; i <= daysFromNextMonth; i++) {
+		const date = new Date(year, month + 1, i);
+		days.push({
+			date,
+			dayOfMonth: i,
+			isCurrentMonth: false,
+			tasks: taskList.filter((task) => {
+				if (!task.due_date) return false;
+				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+				return (
+					taskDate.getDate() === i &&
+					taskDate.getMonth() === month + 1 &&
+					taskDate.getFullYear() === year
+				);
+			})
+		});
+	}
+
+	calendarGrid.set({
+		days,
+		month: firstDay.toLocaleString('default', { month: 'long' }),
+		year
+	});
+}
 
 	// Add these navigation functions
 	function previousMonth() {
@@ -355,7 +386,7 @@
 				taskDescription: '',
 				creationDate: new Date(),
 				start_date: new Date(day.date),
-				due_date: new Date(day.date), 
+				due_date: new Date(day.date),
 				tags: [],
 				attachments: [],
 				project_id: currentProjectId || undefined,
@@ -515,7 +546,7 @@
 			createdBy: get(currentUser)?.id,
 			allocatedAgents: [],
 			status: 'todo',
-			priority: 'medium',
+			priority: 'medium'
 		};
 
 		selectedTask = newTask;
@@ -666,53 +697,55 @@
 			<div class="weekday">Sat</div>
 			<div class="weekday">Sun</div>
 
-			<!-- Calendar days -->
-			{#each $calendarGrid.days as day}
-				<div
-					class="calendar-day"
-					class:other-month={!day.isCurrentMonth}
-					on:click={() => handleDayClick(day)}
-				>
-					<div class="day-number {isToday(day.date) ? 'current-date' : ''}">
-						{day.dayOfMonth}
-					</div>
-					<div class="day-tasks">
-						{#if day.tasks.length > 0}
-							{#each day.tasks.slice(0, 3) as task}
-								<div
-									class="day-task"
-									style="background-color: {task.priority === 'high'
-										? '#e53e3e'
-										: task.status === 'done'
-											? '#48bb78'
-											: task.status === 'inprogress'
-												? '#ed8936'
-												: '#4299e1'}"
-								>
-									<span>
-										{task.title}
-									</span>
+			<!-- Calendar days - Add safety check for $calendarGrid.days -->
+			{#if $calendarGrid && $calendarGrid.days && Array.isArray($calendarGrid.days)}
+				{#each $calendarGrid.days as day}
+					<div
+						class="calendar-day"
+						class:other-month={!day.isCurrentMonth}
+						on:click={() => handleDayClick(day)}
+					>
+						<div class="day-number {isToday(day.date) ? 'current-date' : ''}">
+							{day.dayOfMonth}
+						</div>
+						<div class="day-tasks">
+							{#if day.tasks && Array.isArray(day.tasks) && day.tasks.length > 0}
+								{#each day.tasks.slice(0, 3) as task}
+									<div
+										class="day-task"
+										style="background-color: {task.priority === 'high'
+											? '#e53e3e'
+											: task.status === 'done'
+												? '#48bb78'
+												: task.status === 'inprogress'
+													? '#ed8936'
+													: '#4299e1'}"
+									>
+										<span>
+											{task.title}
+										</span>
 
-									{#if task.tags && task.tags.length > 0}
-										<div class="tag-list">
-											{#each $tags.filter((tag) => task.tags.includes(tag.id)) as tag}
-												<span class="tag" style="background-color: {tag.color}">
-													<span class="tag-hidden">
-														{tag.name}
+										{#if task.tags && Array.isArray(task.tags) && task.tags.length > 0 && $tags && Array.isArray($tags)}
+											<div class="tag-list">
+												{#each $tags.filter((tag) => task.tags.includes(tag.id)) as tag}
+													<span class="tag" style="background-color: {tag.color}">
+														<span class="tag-hidden">
+															{tag.name}
+														</span>
 													</span>
-												</span>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{/each}
-							{#if day.tasks.length > 3}
-								<div class="more-tasks">+{day.tasks.length - 3} more</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/each}
+								{#if day.tasks.length > 3}
+									<div class="more-tasks">+{day.tasks.length - 3} more</div>
+								{/if}
 							{/if}
-						{/if}
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -790,25 +823,27 @@
 				<div class="tag-section">
 					<p>Tags:</p>
 					<div class="tag-list">
-						{#each $tags as tag}
-							<button
-								class="tag-modal"
-								class:selected={selectedTask.tags.includes(tag.id)}
-								on:click={() => {
-									if (selectedTask?.tags) {
-										if (selectedTask.tags.includes(tag.id)) {
-											selectedTask.tags = selectedTask.tags.filter((id) => id !== tag.id);
-										} else {
-											selectedTask.tags = [...selectedTask.tags, tag.id];
+						{#if $tags && Array.isArray($tags)}
+							{#each $tags as tag}
+								<button
+									class="tag-modal"
+									class:selected={selectedTask.tags && Array.isArray(selectedTask.tags) && selectedTask.tags.includes(tag.id)}
+									on:click={() => {
+										if (selectedTask?.tags) {
+											if (selectedTask.tags.includes(tag.id)) {
+												selectedTask.tags = selectedTask.tags.filter((id) => id !== tag.id);
+											} else {
+												selectedTask.tags = [...selectedTask.tags, tag.id];
+											}
+											selectedTask = { ...selectedTask };
 										}
-										selectedTask = { ...selectedTask };
-									}
-								}}
-								style="background-color: {tag.color}"
-											>
-								{tag.name}
-							</button>
-						{/each}
+									}}
+									style="background-color: {tag.color}"
+								>
+									{tag.name}
+								</button>
+							{/each}
+						{/if}
 					</div>
 				</div>
 				<div class="buttons">
@@ -831,8 +866,8 @@
 					</span>
 				</div>
 			</div>
-			<div class="modal-container">
-				{#if selectedDayTasks.length > 0}
+			<!-- <div class="modal-container">
+				{#if selectedDayTasks && Array.isArray(selectedDayTasks) && selectedDayTasks.length > 0}
 					<div class="day-tasks-section">
 						<h3>Tasks for {formatDateDisplay(selectedTask.due_date)}</h3>
 						<div class="day-tasks modal">
@@ -849,7 +884,7 @@
 												: '#4299e1'}"
 								>
 									<span>{task.title}</span>
-									{#if task.tags && task.tags.length > 0}
+									{#if task.tags && Array.isArray(task.tags) && task.tags.length > 0 && $tags && Array.isArray($tags)}
 										<div class="tag-list-modal">
 											{#each $tags.filter((tag) => task.tags.includes(tag.id)) as tag}
 												<span class="tag-modal" style="background-color: {tag.color}"
@@ -866,37 +901,40 @@
 						</div>
 					</div>
 				{/if}
-			</div>
+			</div> -->
 		</div>
 	</div>
 {/if}
+
 {#if isTaskListModalOpen && selectedDay}
 	<div class="modal-overlay" on:click={closeTaskListModal} transition:fade={{ duration: 150 }}>
 		<div class="task-list-modal" on:click|stopPropagation>
 			<h3>Tasks for {formatDateDisplay(selectedDay.date)}</h3>
 			<div class="task-list">
-				{#each selectedDayTasks as task}
-					<div
-						class="task-list-item"
-						on:click={() => openTaskDetails(task)}
-						style="background-color: {task.priority === 'high'
-							? '#e53e3e'
-							: task.status === 'done'
-								? '#48bb78'
-								: task.status === 'inprogress'
-									? '#ed8936'
-									: '#4299e1'}"
-					>
-						<span class="task-title">{task.title}</span>
-						{#if task.tags && task.tags.length > 0}
-							<div class="tag-list-small">
-								{#each $tags.filter((tag) => task.tags.includes(tag.id)) as tag}
-									<span class="tag-small" style="background-color: {tag.color}">{tag.name}</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{/each}
+				{#if selectedDayTasks && Array.isArray(selectedDayTasks)}
+					{#each selectedDayTasks as task}
+						<div
+							class="task-list-item"
+							on:click={() => openTaskDetails(task)}
+							style="background-color: {task.priority === 'high'
+								? '#e53e3e'
+								: task.status === 'done'
+									? '#48bb78'
+									: task.status === 'inprogress'
+										? '#ed8936'
+										: '#4299e1'}"
+						>
+							<span class="task-title">{task.title}</span>
+							{#if task.tags && Array.isArray(task.tags) && task.tags.length > 0 && $tags && Array.isArray($tags)}
+								<div class="tag-list-small">
+									{#each $tags.filter((tag) => task.tags.includes(tag.id)) as tag}
+										<span class="tag-small" style="background-color: {tag.color}">{tag.name}</span>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/each}
+				{/if}
 			</div>
 			<div class="task-list-actions">
 				<button class="cancel-button" on:click={closeTaskListModal}>Close</button>
@@ -934,7 +972,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1149,9 +1187,11 @@
 		bottom: 0;
 		backdrop-filter: blur(20px);
 		display: flex;
-		justify-content: center;
+		justify-content: flex-end;
 		align-items: center;
 		z-index: 1000;
+				padding: 1rem;
+
 	}
 
 	.modal-container {
@@ -1159,12 +1199,12 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		width: 100%;
-
 		&.form {
 			background: var(--primary-color);
 			border: 1px solid var(--bg-color);
 			padding: 1rem;
 			border-radius: 2rem;
+			width: 100%;
 		}
 	}
 
@@ -1174,11 +1214,12 @@
 		justify-content: flex-start;
 		border-radius: 2rem;
 		gap: 1rem;
-		padding: 2rem;
+
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.3);
 		width: 100%;
-		max-width: 800px;
-		max-height: 90vh;
+		max-width: 400px;
+		height: 100%;
+		max-height: 600px;
 		overflow-y: auto;
 		overflow-x: hidden;
 
@@ -1211,12 +1252,12 @@
 	.description-section,
 	.due-date-section,
 	.tag-section {
-		margin-top: 2rem;
-		margin-bottom: 1.5rem;
+		margin-top: 0.25rem;
+		margin-bottom: 0.25rem;
 		display: flex;
 		flex-direction: column;
 		& p {
-			font-size: 1.3rem;
+			font-size: 0.8rem;
 			margin-bottom: 0.5rem;
 			color: var(--placeholder-color);
 		}
@@ -1238,7 +1279,7 @@
 		justify-content: center;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 1.2rem;
+		font-size: 0.8rem;
 	}
 
 	.description-section {
@@ -1251,30 +1292,35 @@
 			border-radius: 1rem;
 			text-justify: center;
 			transition: all 0.3s ease;
-			height: 2rem;
+			height: auto;
+			font-size: 0.8rem;
+
 			// border: 1px solid var(--line-color);
 			&:focus {
 				width: auto;
-
+			font-size: 0.8rem !important;
+			text-justify: center;
+				padding: 1rem;
 				background: var(--secondary-color);
 				border: 1px solid var(--line-color);
 				outline: none;
 				font-weight: 200;
-				font-size: 1.3rem;
-				max-height: 5rem;
+				max-height: 10rem;
 				display: flex;
 				align-items: center;
-				padding: 1rem;
 			}
 		}
 	}
 
 	.description-display {
-		padding: 1rem;
+		padding: 0 0.5rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
 		border: 1px solid var(--line-color);
 		border-radius: 1rem;
 		background: var(--bg-color);
-		font-size: 1.4rem;
+		font-size: 0.8rem;
 		cursor: text;
 		transition: all 0.3s ease;
 		&:hover {
@@ -1342,10 +1388,10 @@
 	}
 	input.due[type='date'] {
 		border-radius: 2rem;
-		padding: 0.5rem 1rem;
-		height: 3rem;
+		padding: 0 0.5rem;
+		height: 2rem;
 		width: 100%;
-		font-size: 1.3rem;
+		font-size: 0.8rem;
 		cursor: pointer;
 		appearance: none;
 		-webkit-appearance: none;
@@ -1399,9 +1445,8 @@
 		border: 1px solid var(--line-color);
 		background: var(--bg-color);
 		color: var(--text-color);
-		font-size: 1.3rem;
+		font-size: 0.8rem;
 		width: auto;
-
 	}
 	@supports (-webkit-appearance: none) {
 		select {
@@ -1417,7 +1462,7 @@
 		border: 1px solid var(--line-color);
 		background: var(--bg-color);
 		color: var(--text-color);
-		font-size: 1.3rem;
+		font-size: 0.8rem;
 		width: auto;
 		border-radius: 2rem;
 		transition: all 0.3s ease-in;
@@ -1447,7 +1492,7 @@
 		border-radius: 2rem;
 		color: var(--text-color);
 		border: none;
-		font-size: 1.2rem;
+		font-size: 0.8rem;
 		opacity: 0.5;
 		transition: all 0.3s ease;
 		&:hover {
@@ -1512,7 +1557,7 @@
 		align-items: center;
 		gap: 1rem;
 		& h3 {
-			font-size: 1.2rem;
+		font-size: 0.8rem;
 			margin: 0;
 			padding: 0;
 		}
@@ -1521,6 +1566,7 @@
 		border-bottom: 1px solid var(--line-color);
 		padding: 1rem;
 		transition: all 0.3s ease;
+		font-size: 0.8rem;
 		&:hover {
 			border-radius: 1rem;
 			cursor: text;
@@ -1686,7 +1732,6 @@
 		cursor: pointer;
 		color: var(--text-color);
 		transition: all 0.3s ease;
-
 	}
 
 	.task-list-item .task-list-actions {

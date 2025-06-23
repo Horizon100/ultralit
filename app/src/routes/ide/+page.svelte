@@ -40,6 +40,7 @@
 	import { setupKeyboardShortcuts } from './services/keyboardShortcuts';
 	import { saveFile } from './services/file-service';
 	import { getLanguageHighlighting } from './themes/highlighting';
+	import { clientTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
 
 	let editorElement: HTMLElement;
 	let editorView: EditorView;
@@ -72,9 +73,9 @@
 	async function handleSaveFile() {
 		if (!activeFile || !editorView) return;
 
-		// Check if this is a repository file
-		if (activeRepoFile) {
-			try {
+		const result = await clientTryCatch((async () => {
+			// Check if this is a repository file
+			if (activeRepoFile) {
 				const content = editorView.state.doc.toString();
 
 				// Save to server
@@ -83,84 +84,123 @@
 				// Remove from unsaved changes
 				unsavedChanges.delete(activeFile);
 				unsavedChanges = new Set(unsavedChanges);
-			} catch (error) {
-				console.error('Failed to save file:', error);
-			}
-		} else {
-			// For files not from repository, just update local storage
-			const content = editorView.state.doc.toString();
-			fileSystem.updateFile(activeFile, content);
 
-			// Show a success notification
+				return { type: 'repository', file: activeFile };
+			} else {
+				// For files not from repository, just update local storage
+				const content = editorView.state.doc.toString();
+				fileSystem.updateFile(activeFile, content);
+
+				// Show a success notification
+				ideNotifications.update((notifications) => [
+					{
+						id: `local_save_${Date.now()}`,
+						message: `${activeFile} saved locally`,
+						type: 'success',
+						timestamp: Date.now(),
+						autoClose: true
+					},
+					...notifications
+				]);
+
+				// Remove from unsaved changes
+				unsavedChanges.delete(activeFile);
+				unsavedChanges = new Set(unsavedChanges);
+
+				return { type: 'local', file: activeFile };
+			}
+		})(), `Saving file ${activeFile}`);
+
+		if (isFailure(result)) {
+			console.error('Failed to save file:', result.error);
+			
+			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
-					id: `local_save_${Date.now()}`,
-					message: `${activeFile} saved locally`,
-					type: 'success',
+					id: `save_error_${Date.now()}`,
+					message: `Failed to save ${activeFile}: ${result.error}`,
+					type: 'error',
 					timestamp: Date.now(),
 					autoClose: true
 				},
 				...notifications
 			]);
+		}
+	}
 
-			// Remove from unsaved changes
-			unsavedChanges.delete(activeFile);
+function createEditor() {
+	if (!editorElement || !browser) return;
+
+	const result = tryCatchSync(() => {
+		// Get language extension for active file
+		currentLanguage = getLanguageExtension(activeFile);
+
+		// Get proper highlighting based on the file and theme
+		const themeHighlighting = getLanguageHighlighting(activeFile, darkMode);
+
+		// Ensure extensions are properly typed
+		const basicExtensions: Extension[] = createBasicExtensions(
+			darkMode,
+			currentLanguage
+		) as Extension[];
+		const autosaveExtension: Extension = createAutosaveExtension((content) => {
+			files[activeFile] = content;
+			fileSystem.updateFile(activeFile, content);
+			unsavedChanges.add(activeFile);
 			unsavedChanges = new Set(unsavedChanges);
+		}) as Extension;
+
+		const startState = EditorState.create({
+			doc: files[activeFile] || '',
+			extensions: [...basicExtensions, autosaveExtension] as any
+		});
+		
+		if (editorView) {
+			editorView.destroy();
 		}
-	}
 
-	function createEditor() {
-		if (!editorElement || !browser) return;
+		editorView = new EditorView({
+			state: startState,
+			parent: editorElement
+		});
 
-		try {
-			// Get language extension for active file
-			currentLanguage = getLanguageExtension(activeFile);
-
-			// Get proper highlighting based on the file and theme
-			const themeHighlighting = getLanguageHighlighting(activeFile, darkMode);
-
-			// Ensure extensions are properly typed
-			const basicExtensions: Extension[] = createBasicExtensions(darkMode, currentLanguage) as Extension[];
-			const autosaveExtension: Extension = createAutosaveExtension((content) => {
-				files[activeFile] = content;
-				fileSystem.updateFile(activeFile, content);
-				unsavedChanges.add(activeFile);
-				unsavedChanges = new Set(unsavedChanges);
-			}) as Extension;
-
-			const startState = EditorState.create({
-				doc: files[activeFile] || '',
-				extensions: [...basicExtensions, autosaveExtension] as any
-			});
-			if (editorView) {
-				editorView.destroy();
-			}
-
-			editorView = new EditorView({
-				state: startState,
-				parent: editorElement
-			});
-
-			// Setup keyboard shortcuts
-			if (cleanupKeyboardShortcuts) {
-				cleanupKeyboardShortcuts();
-			}
-
-			cleanupKeyboardShortcuts = setupKeyboardShortcuts(editorView, {
-				onSave: handleSaveFile
-			});
-		} catch (error) {
-			console.error('Editor initialization failed:', error);
+		// Setup keyboard shortcuts
+		if (cleanupKeyboardShortcuts) {
+			cleanupKeyboardShortcuts();
 		}
-	}
 
-	function openRepoFile(file: CodeFiles) {
+		cleanupKeyboardShortcuts = setupKeyboardShortcuts(editorView, {
+			onSave: handleSaveFile
+		});
+
+		return true;
+	});
+
+	if (isFailure(result)) {
+		console.error('Editor initialization failed:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `editor_error_${Date.now()}`,
+				message: `Failed to initialize editor: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: false
+			},
+			...notifications
+		]);
+	}
+}
+
+async function openRepoFile(file: CodeFiles) {
+	const result = await clientTryCatch((async () => {
 		// Add the file content to local file system if it doesn't exist
 		if (!files[file.name]) {
 			// Convert array content to string if needed
 			const content = Array.isArray(file.content) ? file.content.join('\n') : file.content;
 			fileSystem.createFile(file.name, content);
-			files = fileSystem.getFiles();
+			files = await fileSystem.getFiles(); // Now we can await
 		}
 
 		// Store the active repository file
@@ -168,11 +208,31 @@
 
 		// Open the file in the editor
 		openFile(file.name);
+
+		return true;
+	})(), `Opening repository file ${file.name}`);
+
+	if (isFailure(result)) {
+		console.error('Error opening repository file:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `open_repo_file_error_${Date.now()}`,
+				message: `Failed to open ${file.name}: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
 	}
+}
 
-	function openFile(filename: string) {
-		if (!files[filename]) return;
+function openFile(filename: string) {
+	if (!files[filename]) return;
 
+	const result = tryCatchSync(() => {
 		if (!openFiles.includes(filename)) {
 			openFiles = [...openFiles, filename];
 		}
@@ -183,39 +243,55 @@
 			// Get language extension for the file
 			currentLanguage = getLanguageExtension(filename);
 
-			try {
-				const newState = EditorState.create({
-					doc: files[filename],
-					extensions: [
-						...createBasicExtensions(darkMode, currentLanguage),
-						createAutosaveExtension((content) => {
-							files[activeFile] = content;
-							fileSystem.updateFile(activeFile, content);
-							// Mark file as having unsaved changes
-							unsavedChanges.add(activeFile);
-							unsavedChanges = new Set(unsavedChanges);
-						})
-					] as any
-				});
+			const newState = EditorState.create({
+				doc: files[filename],
+				extensions: [
+					...createBasicExtensions(darkMode, currentLanguage),
+					createAutosaveExtension((content) => {
+						files[activeFile] = content;
+						fileSystem.updateFile(activeFile, content);
+						// Mark file as having unsaved changes
+						unsavedChanges.add(activeFile);
+						unsavedChanges = new Set(unsavedChanges);
+					})
+				] as any
+			});
 
-				editorView.setState(newState);
-			} catch (error) {
-				console.error('Error updating editor:', error);
-
-				// If state update fails, try recreating the editor
-				createEditor();
-			}
+			editorView.setState(newState);
 		} else if (browser) {
 			// Editor not initialized yet
 			createEditor();
 		}
-	}
 
-	function closeFile(filename: string) {
+		return true;
+	});
+
+	if (isFailure(result)) {
+		console.error('Error updating editor:', result.error);
+
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `open_file_error_${Date.now()}`,
+				message: `Failed to open ${filename}: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
+
+		// If state update fails, try recreating the editor
+		createEditor();
+	}
+}
+
+function closeFile(filename: string) {
+	const result = tryCatchSync(() => {
 		// Check for unsaved changes
 		if (unsavedChanges.has(filename)) {
 			const shouldClose = confirm(`${filename} has unsaved changes. Close anyway?`);
-			if (!shouldClose) return;
+			if (!shouldClose) return false;
 		}
 
 		openFiles = openFiles.filter((f) => f !== filename);
@@ -234,81 +310,96 @@
 
 			openFile(activeFile);
 		}
+
+		return true;
+	});
+
+	if (isFailure(result)) {
+		console.error('Error closing file:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `close_file_error_${Date.now()}`,
+				message: `Failed to close ${filename}: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
+	}
+}
+
+async function createNewFile() {
+	if (!selectedRepo || !selectedBranch) {
+		alert('Please select a repository and branch first');
+		return;
 	}
 
-	async function createNewFile() {
-		if (!selectedRepo || !selectedBranch) {
-			alert('Please select a repository and branch first');
-			return;
-		}
+	const fileName = prompt('Enter new file name:');
+	if (!fileName) return;
 
-		const fileName = prompt('Enter new file name:');
-		if (!fileName) return;
+	const result = await clientTryCatch((async () => {
+		// Determine the current path
+		const currentPath = '/'; // You can enhance this to use selected folder path
 
-		try {
-			// Determine the current path
-			const currentPath = '/'; // You can enhance this to use selected folder path
+		// Create the file using your client method
+		const newFile = await createFile(
+			selectedRepo.id,
+			selectedBranch,
+			fileName,
+			['// New file created'], // Initial content
+			currentPath
+		);
 
-			// Create the file using your client method
-			const newFile = await createFile(
-				selectedRepo.id,
-				selectedBranch,
-				fileName,
-				['// New file created'], // Initial content
-				currentPath
-			);
+		// Update the file list
+		repoFiles = [...repoFiles, newFile];
 
-			// Update the file list
-			repoFiles = [...repoFiles, newFile];
+		// Open the newly created file
+		openRepoFile(newFile);
 
-			// Open the newly created file
-			openRepoFile(newFile);
-		} catch (error) {
-			console.error('Error creating file:', error);
-			alert(`Failed to create file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-		}
+		return newFile;
+	})(), `Creating new file ${fileName} in repository ${selectedRepo.id}`);
+
+	if (isFailure(result)) {
+		console.error('Error creating file:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `create_file_error_${Date.now()}`,
+				message: `Failed to create ${fileName}: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
+
+		alert(`Failed to create file: ${result.error}`);
 	}
+}
 
-	function deleteFile(filename: string) {
-		if (confirm(`Are you sure you want to delete "${filename}"?`)) {
-			fileSystem.deleteFile(filename);
-			files = fileSystem.getFiles();
 
-			if (activeFile === filename) {
-				closeFile(filename);
-			} else {
-				openFiles = openFiles.filter((f) => f !== filename);
-			}
-		}
-	}
-
-	function renameFile(oldFilename: string) {
-		const newFilename = prompt('Enter new file name:', oldFilename);
-		if (newFilename && newFilename !== oldFilename && !fileSystem.fileExists(newFilename)) {
-			fileSystem.renameFile(oldFilename, newFilename);
-			files = fileSystem.getFiles();
-
-			if (activeFile === oldFilename) {
-				activeFile = newFilename;
-			}
-
-			openFiles = openFiles.map((f) => (f === oldFilename ? newFilename : f));
-		} else if (newFilename && fileSystem.fileExists(newFilename)) {
-			alert('File already exists!');
-		}
-	}
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
 
-	function toggleTheme() {
+function toggleTheme() {
+	const result = tryCatchSync(() => {
 		darkMode = !darkMode;
 		if (editorView) {
 			const basicExtensions = createBasicExtensions(darkMode, currentLanguage) as Extension[];
 			const autosaveExtension = createAutosaveExtension((content) => {
 				fileSystem.updateFile(activeFile, content);
-				files = fileSystem.getFiles();
+				// Handle the Promise separately for files update
+				fileSystem.getFiles().then(updatedFiles => {
+					files = updatedFiles;
+				}).catch(error => {
+					console.error('Error updating files after autosave:', error);
+				});
 			}) as Extension;
 
 			const newState = EditorState.create({
@@ -318,7 +409,26 @@
 
 			editorView.setState(newState);
 		}
+		return true;
+	});
+
+	if (isFailure(result)) {
+		console.error('Error toggling theme:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `toggle_theme_error_${Date.now()}`,
+				message: `Failed to toggle theme: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
 	}
+}
+
 
 	async function getAIAssistance() {
 		if (aiIsLoading) return;
@@ -404,58 +514,69 @@
 		}
 	}
 
-	async function applyAiSuggestion() {
-		if (!aiResponse) return;
+async function applyAiSuggestion() {
+	if (!aiResponse) return;
 
+	const result = await clientTryCatch((async () => {
 		const codeRegex = /```(?:[a-z]*\n)?([\s\S]*?)```/g;
 		const matches = [...aiResponse.matchAll(codeRegex)];
 
-		if (matches.length > 0) {
-			const code = matches[0][1];
-			if (!editorView.state.selection.main.empty) {
-				editorView.dispatch({
-					changes: {
-						from: editorView.state.selection.main.from,
-						to: editorView.state.selection.main.to,
-						insert: code
-					}
-				});
-			} else {
-				editorView.dispatch({
-					changes: {
-						from: 0,
-						to: editorView.state.doc.length,
-						insert: code
-					}
-				});
-			}
-
-			fileSystem.updateFile(activeFile, editorView.state.doc.toString());
-			files = fileSystem.getFiles();
-
-			isAiPanelOpen = false;
-		} else {
-			alert('No code found in the AI response');
+		if (matches.length === 0) {
+			throw new Error('No code found in the AI response');
 		}
+
+		const code = matches[0][1];
+		
+		if (!editorView.state.selection.main.empty) {
+			editorView.dispatch({
+				changes: {
+					from: editorView.state.selection.main.from,
+					to: editorView.state.selection.main.to,
+					insert: code
+				}
+			});
+		} else {
+			editorView.dispatch({
+				changes: {
+					from: 0,
+					to: editorView.state.doc.length,
+					insert: code
+				}
+			});
+		}
+
+		fileSystem.updateFile(activeFile, editorView.state.doc.toString());
+		files = await fileSystem.getFiles(); // Now we can await
+
+		isAiPanelOpen = false;
+		
+		return true;
+	})(), 'Applying AI suggestion');
+
+	if (isFailure(result)) {
+		console.error('Error applying AI suggestion:', result.error);
+		
+		// Show error notification
+		ideNotifications.update((notifications) => [
+			{
+				id: `apply_ai_error_${Date.now()}`,
+				message: `Failed to apply AI suggestion: ${result.error}`,
+				type: 'error',
+				timestamp: Date.now(),
+				autoClose: true
+			},
+			...notifications
+		]);
+
+		alert(`Failed to apply AI suggestion: ${result.error}`);
 	}
+}
 
 	function closeAiPanel() {
 		isAiPanelOpen = false;
 	}
 
-	/*
-	 * 	async function fetchRepositories() {
-	 *     try {
-	 *       const response = await fetch('/api/repositories');
-	 *       if (response.ok) {
-	 *         const data = await response.json();
-	 *         repositories = data.items || [];
-	 *       }
-	 *     } catch (error) {
-	 *       console.error('Error fetching repositories:', error);
-	 *     }
-	 *   }
-	 */
+
 
 	async function createNewRepository() {
 		const repoName = prompt('Enter new repository name:');
@@ -658,12 +779,15 @@
 
 			console.error('Failed to create folder:', {
 				message: errorMessage,
-				error: createError,
+				error: createError
 			});
-			return json({ 
-				error: 'Failed to create folder',
-				details: errorMessage
-			}, { status: 500 });
+			return json(
+				{
+					error: 'Failed to create folder',
+					details: errorMessage
+				},
+				{ status: 500 }
+			);
 		}
 	}
 
@@ -689,40 +813,76 @@
 		}
 	}
 
-	onMount(async () => {
-		if (browser) {
-			try {
-				repositories = await fetchRepositories();
-			} catch (error) {
-				console.error('Failed to load repositories:', error);
-			}
-			try {
-				// Get files
-				files = fileSystem.getFiles();
-				if (Object.keys(files).length === 0) {
-					// Add default files if none exist
-					fileSystem.createFile(
-						'main.ts',
-						'// Welcome to the editor!\n\nfunction hello() {\n  console.log("Hello, world!");\n}\n\nhello();'
-					);
-					fileSystem.createFile(
-						'README.md',
-						'# My Project\n\nThis is a sample project created in the online IDE.'
-					);
-					fileSystem.createFile(
-						'styles.css',
-						'/* Main styles */\nbody {\n  font-family: sans-serif;\n  margin: 0;\n  padding: 20px;\n}\n'
-					);
-					files = fileSystem.getFiles();
-				}
+onMount(async () => {
+	if (browser) {
+		// Load repositories
+		const repoResult = await clientTryCatch((async () => {
+			return await fetchRepositories();
+		})(), 'Loading repositories');
 
-				// Create the editor
-				createEditor();
-			} catch (err) {
-				console.error('Editor initialization failed:', err);
-			}
+		if (isFailure(repoResult)) {
+			console.error('Failed to load repositories:', repoResult.error);
+			
+			// Show error notification
+			ideNotifications.update((notifications) => [
+				{
+					id: `load_repos_error_${Date.now()}`,
+					message: `Failed to load repositories: ${repoResult.error}`,
+					type: 'error',
+					timestamp: Date.now(),
+					autoClose: true
+				},
+				...notifications
+			]);
+		} else {
+			repositories = repoResult.data;
 		}
-	});
+
+		// Initialize files and editor
+		const editorResult = await clientTryCatch((async () => {
+			// Get files (now properly awaiting the Promise)
+			files = await fileSystem.getFiles();
+			
+			if (Object.keys(files).length === 0) {
+				// Add default files if none exist
+				fileSystem.createFile(
+					'main.ts',
+					'// Welcome to the editor!\n\nfunction hello() {\n  console.log("Hello, world!");\n}\n\nhello();'
+				);
+				fileSystem.createFile(
+					'README.md',
+					'# My Project\n\nThis is a sample project created in the online IDE.'
+				);
+				fileSystem.createFile(
+					'styles.css',
+					'/* Main styles */\nbody {\n  font-family: sans-serif;\n  margin: 0;\n  padding: 20px;\n}\n'
+				);
+				files = await fileSystem.getFiles(); // Await this as well
+			}
+
+			// Create the editor
+			createEditor();
+
+			return true;
+		})(), 'Initializing editor and file system');
+
+		if (isFailure(editorResult)) {
+			console.error('Editor initialization failed:', editorResult.error);
+			
+			// Show error notification
+			ideNotifications.update((notifications) => [
+				{
+					id: `editor_init_error_${Date.now()}`,
+					message: `Failed to initialize editor: ${editorResult.error}`,
+					type: 'error',
+					timestamp: Date.now(),
+					autoClose: false
+				},
+				...notifications
+			]);
+		}
+	}
+});
 
 	onDestroy(() => {
 		if (editorView) {
@@ -1047,7 +1207,8 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.ide-container {

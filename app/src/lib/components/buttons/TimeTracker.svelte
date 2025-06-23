@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { Timer, TimerOff } from 'lucide-svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import type { User } from '$lib/types/types';
 	import { page } from '$app/stores';
+	import { timerStore } from '$lib/stores/timerStore';
+	import { browser } from '$app/environment';
 
-	let isTracking = false;
-	let seconds = 0;
-	let interval: ReturnType<typeof setInterval> | null = null;
-	let startTime: Date;
+	$: ({ isTracking, seconds, startTime } = $timerStore);
 
 	$: hours = Math.floor(seconds / 3600);
 	$: minutes = Math.floor((seconds % 3600) / 60);
@@ -19,7 +18,6 @@
 		minutes.toString().padStart(2, '0'),
 		remainingSeconds.toString().padStart(2, '0')
 	].join(':');
-	$: currentPath = $page.route.id || $page.url.pathname;
 
 	async function toggleTracking() {
 		if (isTracking) {
@@ -30,97 +28,97 @@
 	}
 
 	function startTracking() {
-		isTracking = true;
-		startTime = new Date();
-		interval = setInterval(() => {
-			seconds++;
-		}, 1000);
+		timerStore.startTracking();
 	}
 
-	async function stopAndSaveTracking() {
-		isTracking = false;
-		if (interval) {
-			clearInterval(interval);
-			interval = null;
-		}
+async function stopAndSaveTracking() {
+	if (!$currentUser) {
+		timerStore.stopTracking();
+		return;
+	}
 
-		const endTime = new Date();
-		const duration = seconds;
+	const sessionData = timerStore.getCurrentSession();
+	timerStore.stopTracking();
 
-		if ($currentUser && duration > 0) {
-			try {
-				const timerSession = {
-					date: startTime.toISOString().split('T')[0],
-					startTime: startTime.toISOString(),
-					endTime: endTime.toISOString(),
-					duration: duration,
-					path: currentPath
-
-				};
-
-				const response = await fetch(`/api/users/${$currentUser.id}/tracking`, {
+	if (sessionData && sessionData.duration > 0) {
+		const result = await clientTryCatch((async () => {
+			const fetchResult = await fetchTryCatch<any>(
+				`/api/users/${$currentUser.id}/tracking`,
+				{
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
 					},
-					body: JSON.stringify(timerSession)
-				});
-
-				if (!response.ok) {
-					const errorData = await response.json().catch(() => ({}));
-					throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+					body: JSON.stringify(sessionData)
 				}
+			);
 
-				const result = await response.json();
-				console.log('Timer session saved:', result);
+			if (isFailure(fetchResult)) {
+				throw new Error(`Failed to save timer session: ${fetchResult.error}`);
+			}
 
+			const result = fetchResult.data;
+			console.log('Timer session saved:', result);
+			return result;
+		})(), `Saving timer session for user ${$currentUser.id}`);
 
-			} catch (error) {
-				console.error('Error saving timer session:', error);
+		if (isFailure(result)) {
+			console.error('Error saving timer session:', result.error);
+		}
+	}
+}
+
+	async function handleBeforeUnload() {
+		if (isTracking && $currentUser) {
+			const sessionData = timerStore.getCurrentSession();
+			if (sessionData && sessionData.duration > 0) {
+				const data = JSON.stringify(sessionData);
+				const blob = new Blob([data], { type: 'application/json' });
+
+				navigator.sendBeacon(`/api/users/${$currentUser.id}/tracking`, blob);
 			}
 		}
-
-		seconds = 0;
 	}
 
-	onDestroy(async () => {
-		if (interval) {
-			clearInterval(interval);
-			interval = null;
+	onMount(() => {
+		if (browser) {
+			window.addEventListener('beforeunload', handleBeforeUnload);
 		}
-		if (isTracking) {
-			await stopAndSaveTracking();
+	});
+
+	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
 		}
 	});
 </script>
 
 <div class="time-tracker" class:tracking={isTracking}>
-	<button on:click={(event) => {
-		event.stopPropagation();
-		toggleTracking();
-	}}>
+	<button
+		on:click={(event) => {
+			event.stopPropagation();
+			toggleTracking();
+		}}
+	>
 		{#if isTracking}
 			<span class="timer-icon">
 				<TimerOff size={16} />
 			</span>
-			<span class="timer">
-				Stop
-			</span>
+			<span class="timer"> Stop </span>
 		{:else}
 			<span class="timer-icon">
 				<Timer size={16} />
 			</span>
-			<span class="timer">
-				Start
-			</span>
+			<span class="timer"> Start </span>
 		{/if}
 	</button>
 	{#if isTracking}
 		<span class="time-display">{timeDisplay}</span>
 	{/if}
 </div>
+
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

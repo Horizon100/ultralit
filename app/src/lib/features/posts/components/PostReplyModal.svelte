@@ -2,8 +2,8 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
-	import PostCard from '$lib/features/content/components/PostCard.svelte';
-	import PostComposer from './PostComposer.svelte';
+	import PostCard from '$lib/features/posts/components/PostCard.svelte';
+	import PostComposer from '$lib/features/posts/components//PostComposer.svelte';
 	import { X } from 'lucide-svelte';
 
 	export let isOpen: boolean = false;
@@ -11,7 +11,7 @@
 
 	const dispatch = createEventDispatcher<{
 		close: void;
-		comment: { content: string; attachments: File[]; parentId: string };
+		quote: { content: string; attachments: File[]; quotedPostId: string };
 	}>();
 
 	function handleClose() {
@@ -24,35 +24,21 @@
 		}
 	}
 
-	function handleCommentSubmit(
-		event: CustomEvent<{
-			content: string;
-			attachments?: File[] | FileList | null;
-			parentId?: string;
-		}>
+	function handleQuoteSubmit(
+		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
 	) {
 		if (!post) return;
 
-		let attachments: File[] = [];
-		const eventAttachments = event.detail.attachments;
-		
-		if (eventAttachments) {
-			if (eventAttachments instanceof FileList) {
-				attachments = Array.from(eventAttachments);
-			} else if (Array.isArray(eventAttachments)) {
-				attachments = eventAttachments;
-			} else {
-				// If it's not FileList or Array, assume it's a single File
-				attachments = [eventAttachments as File];
-			}
-		}
+		// Get attachments from the event - PostComposer already sends File[]
+		const attachments = event.detail.attachments || [];
 
-		dispatch('comment', {
+		dispatch('quote', {
 			content: event.detail.content,
 			attachments,
-			parentId: post.id
+			quotedPostId: post.id
 		});
 	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			handleClose();
@@ -60,43 +46,47 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
-{#if isOpen && post}
-	<div class="modal-backdrop" on:click={handleBackdropClick} transition:fade={{ duration: 200 }}>
-		<div class="modal-content" transition:scale={{ duration: 200, start: 0.95 }}>
-			<div class="modal-header">
-				<h2>Reply to Post</h2>
-				<button class="close-button" on:click={handleClose}>
+{#if isOpen}
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
+	<div
+		class="modal-backdrop"
+		on:click={handleBackdropClick}
+		on:keydown={handleKeydown}
+		transition:fade={{ duration: 200 }}
+	>
+		<div class="modal-content" transition:scale={{ duration: 200, start: 0.9 }}>
+			<header class="modal-header">
+				<h2>Quote Post</h2>
+				<button type="button" class="close-button" on:click={handleClose}>
 					<X size={20} />
 				</button>
-			</div>
+			</header>
 
 			<div class="modal-body">
-				<!-- Original Post (without actions) -->
-				<div class="original-post">
-					<PostCard {post} showActions={false} />
-				</div>
+				{#if post}
+					<div class="quoted-post">
+						<PostCard {post} showActions={false} isPreview={true} />
+					</div>
 
-				<!-- Reply Composer -->
-				<div class="reply-section">
-					<PostComposer
-						placeholder="Post your reply..."
-						buttonText="Reply"
-						parentId={post.id}
-						on:submit={handleCommentSubmit}
-					/>
-				</div>
+					<div class="composer-section">
+						<PostComposer
+							placeholder="Add your comment..."
+							buttonText="Quote Post"
+							on:submit={handleQuoteSubmit}
+						/>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
+
 	.modal-backdrop {
 		position: fixed;
 		top: 0;
@@ -150,24 +140,24 @@
 		background-color: var(--bg-gradient);
 		color: var(--text-color);
 	}
-	.original-post {
-		margin-bottom: 20px;
-	}
 
-	.reply-section {
-		// border-top: 1px solid var(--line-color);
-		padding-top: 20px;
-	}
 	.modal-body {
 		padding: 20px;
 		max-height: calc(90vh - 80px);
 		overflow-y: auto;
 	}
 
-	.modal-body :global(.post-card) {
-		margin-bottom: 0;
-		border: none;
+	.quote-section {
+		margin-bottom: 20px;
 	}
+
+	.quoted-post {
+		// border: 1px solid var(--line-color);
+		border-radius: 8px;
+		overflow: hidden;
+		height: 10rem;
+	}
+
 	/* Scrollbar styling */
 	.modal-body::-webkit-scrollbar {
 		width: 6px;
@@ -184,5 +174,9 @@
 
 	.modal-body::-webkit-scrollbar-thumb:hover {
 		background: var(--placeholder-color);
+	}
+	.modal-body :global(.post-card) {
+		margin-bottom: 0;
+		border: none !important;
 	}
 </style>

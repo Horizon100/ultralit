@@ -1,38 +1,42 @@
-// src/routes/api/verify/auth-check/+server.ts
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch, tryCatchSync, pbTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-	try {
+	return apiTryCatch(async () => {
 		// Restore auth from cookie if available
 		const authCookie = cookies.get('pb_auth');
 		if (authCookie) {
-			try {
+			const parseResult = tryCatchSync(() => {
 				const authData = JSON.parse(authCookie);
 				pb.authStore.save(authData.token, authData.model);
-			} catch (e) {
-				console.error('Error parsing auth cookie:', e);
+				return authData;
+			});
+
+			if (isFailure(parseResult)) {
+				console.error('Error parsing auth cookie:', parseResult.error);
 			}
 		}
 
 		// Refresh auth if needed
 		if (pb.authStore.isValid) {
-			try {
-				await pb.collection('users').authRefresh();
-			} catch (error) {
-				console.error('Auth refresh failed:', error);
+			const refreshResult = await pbTryCatch(
+				pb.collection('users').authRefresh(),
+				'auth refresh'
+			);
+
+			if (isFailure(refreshResult)) {
 				pb.authStore.clear();
-				return json({ success: false }, { status: 401 });
+				throw new Error('Authentication expired');
 			}
 		}
 
 		if (!pb.authStore.isValid) {
-			return json({ success: false }, { status: 401 });
+			throw new Error('Not authenticated');
 		}
 
 		// Return sanitized user data
-		return json({
+		return {
 			success: true,
 			user: {
 				id: pb.authStore.model?.id,
@@ -42,9 +46,6 @@ export const GET: RequestHandler = async ({ cookies }) => {
 				avatar: pb.authStore.model?.avatar
 				// other safe fields
 			}
-		});
-	} catch (error) {
-		console.error('Auth check error:', error);
-		return json({ success: false }, { status: 500 });
-	}
+		};
+	}, 'Authentication check failed', 401);
 };

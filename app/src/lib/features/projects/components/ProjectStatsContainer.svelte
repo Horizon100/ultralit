@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { projectStore } from '$lib/stores/projectStore';
+	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	// Stats variables
 	let messageCount = 0;
@@ -31,39 +32,33 @@
 			return;
 		}
 
-		try {
-			isLoading = true;
-			console.log('Fetching stats for project:', id);
+		isLoading = true;
+		console.log('Fetching stats for project:', id);
 
-			// Reset stats first
-			messageCount = 0;
-			collaboratorCount = 0;
-			documentCount = 0;
-			completionPercentage = 0;
-			lastActive = null;
+		// Reset stats first
+		messageCount = 0;
+		collaboratorCount = 0;
+		documentCount = 0;
+		completionPercentage = 0;
+		lastActive = null;
 
-			const response = await fetch(`/api/projects/${id}/stats`, {
+		const result = await fetchTryCatch<{ success: boolean; data?: any; error?: string }>(
+			`/api/projects/${id}/stats`,
+			{
 				method: 'GET',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+				headers: { 'Content-Type': 'application/json' }
 			}
+		);
 
-			const result = await response.json();
-			
-			if (result.success && result.data) {
-				const stats = result.data;
-				
-				messageCount = stats.messageCount || 0;
-				documentCount = stats.documentCount || 0;
-				collaboratorCount = stats.collaboratorCount || 0;
-				completionPercentage = stats.completionPercentage || 0;
-				lastActive = stats.lastActive ? new Date(stats.lastActive) : null;
+		if (isSuccess(result)) {
+			const { success, data } = result.data;
+
+			if (success && data) {
+				messageCount = data.messageCount || 0;
+				documentCount = data.documentCount || 0;
+				collaboratorCount = data.collaboratorCount || 0;
+				completionPercentage = data.completionPercentage || 0;
+				lastActive = data.lastActive ? new Date(data.lastActive) : null;
 
 				console.log('Stats fetched successfully:', {
 					messageCount,
@@ -73,20 +68,19 @@
 					lastActive
 				});
 			} else {
-				throw new Error('Invalid response format');
+				console.warn('Stats response was unsuccessful or missing data');
 			}
-
-		} catch (error) {
-			console.error('Error fetching project stats:', error);
+		} else {
+			console.error('Error fetching project stats:', result.error);
 			// Reset stats on error
 			messageCount = 0;
 			collaboratorCount = 0;
 			documentCount = 0;
 			completionPercentage = 0;
 			lastActive = null;
-		} finally {
-			isLoading = false;
 		}
+
+		isLoading = false;
 	}
 
 	// Track when store values change
@@ -148,6 +142,7 @@
 		<p>{noProjectLabel}</p>
 	</div>
 {/if}
+
 <style lang="scss">
 	* {
 		font-family: var(--font-family);
@@ -194,7 +189,6 @@
 		transition: opacity 0.3s ease;
 		pointer-events: none;
 	}
-
 
 	.stats-container:hover::before {
 		animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);

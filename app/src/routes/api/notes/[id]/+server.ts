@@ -1,36 +1,35 @@
-// src/routes/api/notes/[id]/+server.ts
-import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from '@sveltejs/kit';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
-		return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+		return new Response(
+			JSON.stringify({ success: false, error: 'Unauthorized' }),
+			{ status: 401, headers: { 'Content-Type': 'application/json' } }
+		);
 	}
 
-	try {
-		const { id } = params;
+	const { id } = params;
 
-		if (!id) {
-			return json({ success: false, error: 'Note ID is required' }, { status: 400 });
-		}
+	if (!id) {
+		return new Response(
+			JSON.stringify({ success: false, error: 'Note ID is required' }),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } }
+		);
+	}
 
-		// Fetch note with expanded relations
+	return apiTryCatch(async () => {
 		const note = await pb.collection('notes').getOne(id, {
 			expand: 'createdBy,attachments'
 		});
 
-		// Verify ownership
-		if (note.createdBy !== locals.user.id) {
-			return json({ success: false, error: 'Access denied' }, { status: 403 });
+		if (note.createdBy !== locals.user?.id) {
+			const err = new Error('Access denied');
+			err.name = 'Forbidden';
+			throw err;
 		}
 
-		return json({ success: true, note });
-	} catch (error: unknown) {
-		console.error('Error fetching note:', error);
-		if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-			return json({ success: false, error: 'Note not found' }, { status: 404 });
-		}
-		return json({ success: false, error: 'Failed to fetch note' }, { status: 500 });
-	}
+		return { note };
+	}, 'Failed to fetch note');
 };

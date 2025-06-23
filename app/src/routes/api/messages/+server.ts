@@ -1,34 +1,22 @@
 // src/routes/api/messages/search/+server.ts
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
+import type { Messages } from '$lib/types/types';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
-	console.log('🔍 Message search endpoint called');
+export const GET: RequestHandler = async ({ url, cookies }) =>
+	apiTryCatch(async () => {
+		console.log('🔍 Message search endpoint called');
 
-	try {
-		// Ensure user is authenticated (matching your /api/messages pattern)
 		const authCookie = cookies.get('pb_auth');
 		if (!authCookie) {
-			return json(
-				{
-					success: false,
-					error: 'Not authenticated'
-				},
-				{ status: 401 }
-			);
+			throw new Error('Not authenticated');
 		}
 
 		pb.authStore.loadFromCookie(authCookie);
 
 		if (!pb.authStore.isValid) {
-			return json(
-				{
-					success: false,
-					error: 'Invalid authentication'
-				},
-				{ status: 401 }
-			);
+			throw new Error('Invalid authentication');
 		}
 
 		const query = url.searchParams.get('q');
@@ -39,17 +27,13 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		console.log('Search params:', { query, limit, projectId, userId });
 
 		if (!query || query.trim().length === 0) {
-			return json({
+			return {
 				success: true,
 				messages: []
-			});
+			};
 		}
 
-		// Build filter to only get user's accessible messages
-		let filter = `text ~ "${query}"`;
-
-		// Add user filter to only get messages user has created
-		filter += ` && user = "${userId}"`;
+		let filter = `text ~ "${query}" && user = "${userId}"`;
 
 		if (projectId) {
 			filter += ` && thread.project_id = "${projectId}"`;
@@ -57,7 +41,6 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 		console.log('Search filter:', filter);
 
-		// Search messages
 		const messages = await pb.collection('messages').getList(1, parseInt(limit), {
 			filter,
 			sort: '-created',
@@ -67,8 +50,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 		console.log('Search successful, found:', messages.items.length, 'messages');
 
-		// Transform the results
-		const messagesWithContext = messages.items.map((message: any) => ({
+		const messagesWithContext = (messages.items as Messages[]).map((message) => ({
 			...message,
 			threadName: message.expand?.thread?.name || 'Unknown Thread',
 			threadId: message.thread,
@@ -76,19 +58,9 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			projectId: message.expand?.thread?.project_id || null
 		}));
 
-		return json({
+		return {
 			success: true,
 			messages: messagesWithContext,
 			total: messages.totalItems
-		});
-	} catch (error) {
-		console.error('❌ Error in message search:', error);
-		return json(
-			{
-				success: false,
-				error: error instanceof Error ? error.message : 'Failed to search messages'
-			},
-			{ status: 500 }
-		);
-	}
-};
+		};
+	}, 'Failed to search messages');

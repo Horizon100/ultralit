@@ -14,7 +14,7 @@
 	let updateStatus: 'success' | 'error' | '' = '';
 
 	$: if (selectedShape) {
-		editedAgent = { 
+		editedAgent = {
 			...selectedShape,
 			provider: selectedShape.provider || ''
 		};
@@ -74,7 +74,7 @@
 							if (e.target && 'value' in e.target) {
 								console.log('Input changed:', e.target.value);
 							}
-						}}				
+						}}
 					/>
 				</div>
 				<div class="handle">
@@ -137,7 +137,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

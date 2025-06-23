@@ -1,20 +1,12 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const POST: RequestHandler = async ({ request }) => {
-	try {
-		const { userId, bookmarks } = await request.json();
+export const POST: RequestHandler = async ({ request }) =>
+  apiTryCatch(async () => {
+    const { userId, bookmarks } = await request.json();
 
-		// Update user in PocketBase
-		await pb.collection('users').update(userId, {
-			bookmarks: bookmarks
-		});
+    await pb.collection('users').update(userId, { bookmarks });
 
-		return json({ success: true });
-	} catch (error) {
-		console.error('Error updating bookmarks:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		return json({ success: false, error: errorMessage }, { status: 500 });
-	}
-};
+    return { success: true };
+  }, 'Failed to update bookmarks');

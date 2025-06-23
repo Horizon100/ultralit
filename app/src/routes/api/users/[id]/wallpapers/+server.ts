@@ -3,7 +3,13 @@
 import { pb } from '$lib/server/pocketbase';
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { AVAILABLE_WALLPAPERS, DEFAULT_WALLPAPER, isValidWallpaper, parseWallpaperPreference, stringifyWallpaperPreference } from '$lib/utils/wallpapers';
+import {
+	AVAILABLE_WALLPAPERS,
+	DEFAULT_WALLPAPER,
+	isValidWallpaper,
+	parseWallpaperPreference,
+	stringifyWallpaperPreference
+} from '$lib/utils/wallpapers';
 import type { WallpaperPreference } from '$lib/utils/wallpapers';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -43,14 +49,22 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user || params.id !== locals.user.id) {
-		console.log('Authorization failed:', { hasUser: !!locals.user, requestedId: params.id, userId: locals.user?.id });
+		console.log('Authorization failed:', {
+			hasUser: !!locals.user,
+			requestedId: params.id,
+			userId: locals.user?.id
+		});
 		throw error(403, 'Forbidden');
 	}
 
 	try {
 		const requestData = await request.json();
 		console.log('Wallpaper PATCH request data:', requestData);
-		console.log('Available wallpapers:', AVAILABLE_WALLPAPERS.length, AVAILABLE_WALLPAPERS.map(w => w.id));
+		console.log(
+			'Available wallpapers:',
+			AVAILABLE_WALLPAPERS.length,
+			AVAILABLE_WALLPAPERS.map((w) => w.id)
+		);
 
 		const { wallpaperId, isActive } = requestData;
 
@@ -66,13 +80,19 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		if (preference.isActive && preference.wallpaperId) {
 			if (AVAILABLE_WALLPAPERS.length === 0) {
 				console.warn('No wallpapers available in the system');
-				throw error(400, 'No wallpapers are available. Please add wallpaper images to src/lib/assets/wallpapers/');
+				throw error(
+					400,
+					'No wallpapers are available. Please add wallpaper images to src/lib/assets/wallpapers/'
+				);
 			}
-			
+
 			if (!isValidWallpaper(preference.wallpaperId)) {
-				const availableIds = AVAILABLE_WALLPAPERS.map(w => w.id).join(', ');
+				const availableIds = AVAILABLE_WALLPAPERS.map((w) => w.id).join(', ');
 				console.error(`Invalid wallpaper: ${preference.wallpaperId}. Available: ${availableIds}`);
-				throw error(400, `Invalid wallpaper: ${preference.wallpaperId}. Available wallpapers: ${availableIds}`);
+				throw error(
+					400,
+					`Invalid wallpaper: ${preference.wallpaperId}. Available wallpapers: ${availableIds}`
+				);
 			}
 		}
 
@@ -95,21 +115,21 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			success: true,
 			preference: finalPreference
 		});
-    } catch (err) {
-        console.error('Wallpaper PATCH error:', err);
-        
-        // If it's already an error object from SvelteKit, re-throw it
-        if (err && typeof err === 'object' && 'status' in err) {
-            throw err;
-        }
-        
-        // Handle PocketBase errors
-        if (err && typeof err === 'object' && 'data' in err) {
-            console.error('PocketBase error details:', err.data);
-            throw error(400, 'Database error: Failed to update user preferences');
-        }
-        
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update wallpaper';
-        throw error(500, errorMessage);
-    }
+	} catch (err) {
+		console.error('Wallpaper PATCH error:', err);
+
+		// If it's already an error object from SvelteKit, re-throw it
+		if (err && typeof err === 'object' && 'status' in err) {
+			throw err;
+		}
+
+		// Handle PocketBase errors
+		if (err && typeof err === 'object' && 'data' in err) {
+			console.error('PocketBase error details:', err.data);
+			throw error(400, 'Database error: Failed to update user preferences');
+		}
+
+		const errorMessage = err instanceof Error ? err.message : 'Failed to update wallpaper';
+		throw error(500, errorMessage);
+	}
 };

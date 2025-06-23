@@ -451,7 +451,7 @@ export default {
 		september: 'Сентябрь',
 		october: 'Октябрь',
 		november: 'Ноябрь',
-		december: 'Декабрь',
+		december: 'Декабрь'
 	},
 	tasks: {
 		title: 'Задач',

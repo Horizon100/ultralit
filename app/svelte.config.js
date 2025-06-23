@@ -7,8 +7,7 @@ const config = {
 	preprocess: [
 		vitePreprocess(),
 		sveltePreprocess({
-			scss: {
-			}
+			scss: {}
 		})
 	],
 	kit: {
@@ -16,6 +15,10 @@ const config = {
 			out: 'build',
 			precompress: true
 		})
+	},
+	onwarn: (warning, handler) => {
+		if (warning.code === 'css-unused-selector') return;
+		handler(warning);
 	}
 };
 

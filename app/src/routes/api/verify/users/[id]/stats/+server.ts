@@ -1,147 +1,98 @@
 import { pb } from '$lib/server/pocketbase';
-import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-export const GET: RequestHandler = async ({ params, locals }) => {
-	const userId = params.id;
+export const GET: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    const userId = params.id;
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    const pocketBase = locals?.pb || pb;
 
-	async function checkEligiblePerks(stats: { threadCount: number; messageCount: number; taskCount: number; tagCount: number }) {
-		console.log('Checking perks for stats:', stats);
-		return [];
-	}
+    const userResult = await pbTryCatch(pocketBase.collection('users').getOne(userId), 'fetch user');
+    const user = unwrap(userResult);
+    if (!user) throw new Error('User not found');
 
-	async function updateUserPerks(userId: string, perks: unknown[]) {
-		console.log('Updating perks for user:', userId, 'perks:', perks);
-	}
+    async function checkEligiblePerks(stats: {
+      threadCount: number;
+      messageCount: number;
+      taskCount: number;
+      tagCount: number;
+    }) {
+      console.log('Checking perks for stats:', stats);
+      return [];
+    }
 
-	try {
-		const pocketBase = locals?.pb || pb;
+    async function updateUserPerks(userId: string, perks: unknown[]) {
+      console.log('Updating perks for user:', userId, 'perks:', perks);
+    }
 
-		console.log('=== STATS DEBUG ===');
-		console.log('PocketBase URL:', pb.baseUrl);
-		console.log('User ID:', userId);
+    // Helper to safely count items in a collection
+    async function safeCount(collectionName: string, filter: string): Promise<number> {
+      try {
+        const result = await pocketBase.collection(collectionName).getList(1, 1, { filter });
+        return result.totalItems;
+      } catch (e) {
+        console.error(`Error counting ${collectionName}:`, e);
+        return 0;
+      }
+    }
 
-		const user = await pocketBase.collection('users').getOne(userId);
+    const threadCount = await safeCount('threads', `op="${userId}"`);
+    const taskCount = await safeCount('tasks', `createdBy="${userId}"`);
+    const messageCount = await safeCount('messages', `user="${userId}"`);
+    const tagCount = await safeCount('tags', `createdBy="${userId}"`);
 
-		if (!user) {
-			throw error(404, 'User not found');
-		}
+    let lastActive: Date | null = null;
 
-		let threadCount = 0;
-		let messageCount = 0;
-		let taskCount = 0;
-		let tagCount = 0;
-		const timerCount = 0; // Changed to const since never reassigned
-		let lastActive: Date | null = null;
+    if (messageCount > 0) {
+      try {
+        const messagesResult = await pocketBase.collection('messages').getList(1, 1, {
+          filter: `user="${userId}"`,
+          sort: '-created'
+        });
+        if (messagesResult.items.length > 0 && messagesResult.items[0].created) {
+          lastActive = new Date(messagesResult.items[0].created);
+        }
+      } catch (e) {
+        console.error('Error fetching latest message:', e);
+      }
+    }
 
-		console.log('Fetching stats for user:', userId);
+    if (!lastActive) {
+      if (user.updated) {
+        lastActive = new Date(user.updated);
+      } else if (user.created) {
+        lastActive = new Date(user.created);
+      }
+    }
 
-		// Thread count
-		try {
-			const threadFilter = `op="${userId}"`;
-			const threadsResult = await pocketBase.collection('threads').getList(1, 1, {
-				filter: threadFilter
-			});
-			threadCount = threadsResult.totalItems;
-			console.log('Thread count:', threadCount);
-		} catch (e) {
-			console.error('Error counting threads:', e);
-		}
+    const stats = { threadCount, messageCount, taskCount, tagCount };
+    const eligiblePerks = await checkEligiblePerks(stats);
+    await updateUserPerks(userId, eligiblePerks);
 
-		// Task count
-		try {
-			const taskFilter = `createdBy="${userId}"`;
-			const taskResults = await pocketBase.collection('tasks').getList(1, 1, {
-				filter: taskFilter
-			});
-			taskCount = taskResults.totalItems;
-			console.log('Task count:', taskCount);
-		} catch (e) {
-			console.error('Error counting tasks:', e);
-		}
+    let perks: unknown[] = [];
+    if (user.perks && user.perks.length > 0) {
+      try {
+        const filter = user.perks.map((id: string) => `id="${id}"`).join(' || ');
+        const perksResult = await pocketBase.collection('perks').getList(1, 100, {
+          filter
+        });
+        perks = perksResult.items;
+      } catch (e) {
+        console.error('Error fetching perks:', e);
+      }
+    }
 
-		// Message count
-		try {
-			const messageFilter = `user="${userId}"`;
-			const messagesResult = await pocketBase.collection('messages').getList(1, 1, {
-				filter: messageFilter
-			});
-			messageCount = messagesResult.totalItems;
-			console.log('Message count:', messageCount);
-
-			if (messageCount > 0) {
-				const latestMessage = await pocketBase.collection('messages').getList(1, 1, {
-					filter: messageFilter,
-					sort: '-created'
-				});
-				if (latestMessage.items.length > 0 && latestMessage.items[0].created) {
-					const messageDate = new Date(latestMessage.items[0].created);
-					if (!lastActive || messageDate > (lastActive as Date)) {
-						lastActive = messageDate;
-					}
-}
-			}
-		} catch (e) {
-			console.error('Error counting messages:', e);
-		}
-
-		// Tag count
-		try {
-			const tagFilter = `createdBy="${userId}"`;
-			const tagsResult = await pocketBase.collection('tags').getList(1, 1, {
-				filter: tagFilter
-			});
-			tagCount = tagsResult.totalItems;
-			console.log('Tag count:', tagCount);
-		} catch (e) {
-			console.error('Error counting tags:', e);
-		}
-
-		// Set lastActive if not found
-		if (!lastActive) {
-			if (user.updated) {
-				lastActive = new Date(user.updated);
-			} else if (user.created) {
-				lastActive = new Date(user.created);
-			}
-		}
-
-		const stats = { threadCount, messageCount, taskCount, tagCount };
-		const eligiblePerks = await checkEligiblePerks(stats);
-		await updateUserPerks(userId, eligiblePerks);
-
-		let perks: unknown[] = [];
-		try {
-			if (user.perks && user.perks.length > 0) {
-				const filter = user.perks.map((id: string) => `id="${id}"`).join(' || ');
-				const perksResult = await pocketBase.collection('perks').getList(1, 100, {
-					filter: filter
-				});
-				perks = perksResult.items;
-			}
-		} catch (e) {
-			console.error('Error fetching perks:', e);
-		}
-
-		return json({
-			success: true,
-			threadCount,
-			messageCount,
-			taskCount,
-			tagCount,
-			timerCount,
-			lastActive: lastActive ? lastActive.toISOString() : null,
-			perks: perks
-		});
-	} catch (err) {
-		console.error('=== STATS ERROR ===');
-		console.error('Error fetching user stats:', err);
-		return json(
-			{
-				success: false,
-				error: err instanceof Error ? err.message : 'Failed to fetch user stats'
-			},
-			{ status: 400 }
-		);
-	}
-};
+    return {
+      success: true,
+      threadCount,
+      messageCount,
+      taskCount,
+      tagCount,
+      timerCount: 0,
+      lastActive: lastActive ? lastActive.toISOString() : null,
+      perks
+    };
+  }, 'Failed to fetch user stats');

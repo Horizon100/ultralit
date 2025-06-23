@@ -29,6 +29,7 @@
 		setSystemPrompt,
 		initPromptStores
 	} from '$lib/stores/promptStore';
+	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	let prompts: PromptInputType[] = [];
 	let isLoading = true;
@@ -95,23 +96,22 @@
 
 		console.log('Selected system prompts for dual comparison:', selectedSystemPrompts);
 	}
-	// In your component
 	async function setSysPromptPreference(promptType: string): Promise<void> {
 		console.log('=== STARTING setSysPromptPreference ===');
 		console.log('Input promptType:', promptType);
 		console.log('Current $currentUser:', $currentUser);
 
-		try {
+		const result = await clientTryCatch((async () => {
 			if ($currentUser?.id) {
 				console.log('Calling updateUser with:', {
 					userId: $currentUser.id,
 					data: { sysprompt_preference: promptType }
 				});
 
-				const result = await updateUser($currentUser.id, {
+				const updateResult = await updateUser($currentUser.id, {
 					sysprompt_preference: promptType
 				});
-				console.log('updateUser result:', result);
+				console.log('updateUser result:', updateResult);
 
 				// Check what's actually in the database now
 				const freshUser = await getUserById($currentUser.id, true);
@@ -122,10 +122,15 @@
 					currentUser.set(freshUser);
 					console.log('Updated currentUser store, new value:', $currentUser);
 				}
+			} else {
+				throw new Error('User not authenticated');
 			}
-		} catch (error) {
-			console.error('Error in setSysPromptPreference:', error);
+		})(), `Setting system prompt preference to ${promptType}`);
+
+		if (isFailure(result)) {
+			console.error('Error in setSysPromptPreference:', result.error);
 		}
+
 		console.log('=== END setSysPromptPreference ===');
 	}
 
@@ -265,7 +270,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

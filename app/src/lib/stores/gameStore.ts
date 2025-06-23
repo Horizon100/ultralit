@@ -1,4 +1,3 @@
-// src/lib/stores/gameStore.ts
 import { writable } from 'svelte/store';
 import type {
 	GameState,
@@ -11,14 +10,9 @@ import type {
 	GameRoad
 } from '$lib/types/types.game';
 
-interface DialogData {
-	type: 'table' | 'private' | 'room';
-	participants: string[];
-	tableId?: string;
-	roomId?: string;
-}
+import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
-// Create the main game store
+// existing stores
 export const gameStore = writable<GameState>({
 	currentOrganization: null,
 	currentView: 'building',
@@ -31,8 +25,6 @@ export const gameStore = writable<GameState>({
 	zoomLevel: 1,
 	isLoading: false
 });
-
-// Additional stores for game data
 export const gameOrganizationStore = writable<GameOrganization[]>([]);
 export const gameBuildingStore = writable<GameBuilding[]>([]);
 export const gameRoomStore = writable<GameRoom[]>([]);
@@ -51,8 +43,6 @@ class GameService {
 	}
 
 	private async apiCall(endpoint: string, options?: RequestInit) {
-		console.log(`[GAME SERVICE] Calling API: ${endpoint}`, options);
-
 		const response = await fetch(endpoint, {
 			...options,
 			credentials: 'include',
@@ -62,209 +52,226 @@ class GameService {
 			}
 		});
 
-		console.log(`[GAME SERVICE] Response status: ${response.status} for ${endpoint}`);
-
 		if (!response.ok) {
-			console.error(
-				`[GAME SERVICE] API call failed: ${response.status} ${response.statusText} for ${endpoint}`
-			);
-			throw new Error(`API call failed: ${response.status}`);
+			const errorText = await response.text();
+			throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`);
 		}
 
-		const result = await response.json();
-		console.log(`[GAME SERVICE] Response data:`, result);
-		return result;
+		return response.json();
 	}
 
 	// Initialize game for a user
-async initializeGame(userId: string) {
-	try {
+	async initializeGame(userId: string) {
 		gameStore.update((state) => ({ ...state, isLoading: true }));
 
-		// Get or create hero
-		const hero = await this.getOrCreateHero(userId);
+		const result = await clientTryCatch(
+			(async () => {
+				// Get or create hero
+				const hero = await this.getOrCreateHero(userId);
 
-		// Load world data
-		await this.loadWorldData();
+				// Load world data
+				await this.loadWorldData();
 
-		// Load other heroes
-		await this.loadOtherHeroes(userId);
+				// Load other heroes
+				await this.loadOtherHeroes(userId);
 
-		// Load current organization if hero has one
-		let currentOrganization = null;
-		// Check for both null and empty string
-		if (hero.currentOrganization && hero.currentOrganization !== "") {
-			try {
-				console.log(`[GAME SERVICE] Loading organization: ${hero.currentOrganization}`);
-				const orgResponse = await this.apiCall(`/api/game/organizations/${hero.currentOrganization}`);
-				currentOrganization = orgResponse.data;
-				console.log(`[GAME SERVICE] Loaded organization: ${currentOrganization.name}`);
-			} catch (error) {
-				console.error('[GAME SERVICE] Failed to load current organization:', error);
-			}
-		} else {
-			console.log('[GAME SERVICE] Hero has no current organization (empty or null)');
+				// Load current organization if hero has one
+				let currentOrganization = null;
+				if (hero.currentOrganization && hero.currentOrganization !== '') {
+					try {
+						const orgResponse = await this.apiCall(
+							`/api/game/organizations/${hero.currentOrganization}`
+						);
+						currentOrganization = orgResponse.data;
+					} catch (error) {
+						console.error('[GAME SERVICE] Failed to load current organization:', error);
+					}
+				}
+
+				gameStore.update((state) => ({
+					...state,
+					heroPawn: hero,
+					currentOrganization,
+					isLoading: false
+				}));
+			})(),
+			'Failed to initialize game'
+		);
+
+		if (!isSuccess(result)) {
+			console.error(result.error);
+			gameStore.update((state) => ({ ...state, isLoading: false }));
 		}
-
-		gameStore.update((state) => ({
-			...state,
-			heroPawn: hero,
-			currentOrganization: currentOrganization,
-			isLoading: false
-		}));
-	} catch (error) {
-		console.error('Failed to initialize game:', error);
-		gameStore.update((state) => ({ ...state, isLoading: false }));
 	}
-}
 
-	// Get or create hero
 	async getOrCreateHero(userId: string): Promise<GameHero> {
-		console.log(`[GAME SERVICE] Getting or creating hero for user: ${userId}`);
-		try {
-			const response = await this.apiCall(`/api/game/heroes/${userId}`);
-			return response.data;
-		} catch (error) {
-			console.log(`[GAME SERVICE] Hero not found, creating new one...`);
-			if (error instanceof Error && error.message.includes('404')) {
-				const response = await this.apiCall(`/api/game/heroes`, {
-					method: 'POST',
-					body: JSON.stringify({
-						userId: userId
-					})
-				});
-				return response.data;
-			}
-			throw error;
+		const result = await clientTryCatch(
+			this.apiCall(`/api/game/heroes/${userId}`),
+			'Failed to get hero'
+		);
+
+		if (isSuccess(result)) {
+			return result.data;
 		}
+
+		// If 404, create new hero
+		if (result.error && result.error.includes('404')) {
+			const createResult = await clientTryCatch(
+				this.apiCall(`/api/game/heroes`, {
+					method: 'POST',
+					body: JSON.stringify({ userId })
+				}),
+				'Failed to create hero'
+			);
+
+			if (isSuccess(createResult)) {
+				return createResult.data;
+			}
+			throw new Error(createResult.error ?? 'Failed to create hero');
+		}
+
+		throw new Error(result.error ?? 'Failed to get or create hero');
 	}
 
 	// Load world data
 	async loadWorldData() {
-		try {
-			// Load organizations
-			const orgsResponse = await this.apiCall('/api/game/organizations');
-			gameOrganizationStore.set(orgsResponse.data);
+		const result = await clientTryCatch(
+			(async () => {
+				const orgsResponse = await this.apiCall('/api/game/organizations');
+				gameOrganizationStore.set(orgsResponse.data);
 
-			// Load buildings
-			const buildingsResponse = await this.apiCall('/api/game/buildings');
-			gameBuildingStore.set(buildingsResponse.data);
+				const buildingsResponse = await this.apiCall('/api/game/buildings');
+				gameBuildingStore.set(buildingsResponse.data);
 
-			// Load roads
-			const roadsResponse = await this.apiCall('/api/game/roads');
-			gameRoadStore.set(roadsResponse.data || []);
+				const roadsResponse = await this.apiCall('/api/game/roads');
+				gameRoadStore.set(roadsResponse.data || []);
 
-			// Load rooms
-			const roomsResponse = await this.apiCall('/api/game/rooms');
-			gameRoomStore.set(roomsResponse.data);
+				const roomsResponse = await this.apiCall('/api/game/rooms');
+				gameRoomStore.set(roomsResponse.data);
 
-			// Load tables
-			const tablesResponse = await this.apiCall('/api/game/tables');
-			gameTableStore.set(tablesResponse.data);
-		} catch (error) {
-			console.error('Failed to load world data:', error);
+				const tablesResponse = await this.apiCall('/api/game/tables');
+				gameTableStore.set(tablesResponse.data);
+			})(),
+			'Failed to load world data'
+		);
+
+		if (!isSuccess(result)) {
+			console.error(result.error);
 		}
 	}
 
 	// Load other heroes
 	async loadOtherHeroes(currentUserId: string) {
-		try {
-			const response = await this.apiCall(`/api/game/heroes?exclude=${currentUserId}`);
-			otherHeroesStore.set(response.data || []);
-		} catch (error) {
-			console.error('Failed to load other heroes:', error);
+		const result = await clientTryCatch(
+			this.apiCall(`/api/game/heroes?exclude=${currentUserId}`),
+			'Failed to load other heroes'
+		);
+
+		if (isSuccess(result)) {
+			otherHeroesStore.set(result.data || []);
+		} else {
+			console.error(result.error);
 		}
 	}
 
 	// Enter a building
 	async enterBuilding(userId: string, buildingId: string) {
-		try {
-			await this.apiCall(`/api/game/heroes/${userId}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
-					currentBuilding: buildingId,
+		const result = await clientTryCatch(
+			(async () => {
+				await this.apiCall(`/api/game/heroes/${userId}`, {
+					method: 'PATCH',
+					body: JSON.stringify({
+						currentBuilding: buildingId,
+						currentRoom: null,
+						currentTable: null,
+						lastSeen: new Date().toISOString()
+					})
+				});
+
+				const buildingResponse = await this.apiCall(`/api/game/buildings/${buildingId}`);
+
+				gameStore.update((state) => ({
+					...state,
+					currentView: 'room',
+					currentBuilding: buildingResponse.data,
 					currentRoom: null,
-					currentTable: null,
-					lastSeen: new Date().toISOString()
-				})
-			});
+					currentTable: null
+				}));
+			})(),
+			'Failed to enter building'
+		);
 
-			// Get building details
-			const buildingResponse = await this.apiCall(`/api/game/buildings/${buildingId}`);
-
-			// Update game state
-			gameStore.update((state) => ({
-				...state,
-				currentView: 'room',
-				currentBuilding: buildingResponse.data,
-				currentRoom: null,
-				currentTable: null
-			}));
-		} catch (error) {
-			console.error('Failed to enter building:', error);
+		if (!isSuccess(result)) {
+			console.error(result.error);
 		}
 	}
 
 	// Enter a room within a building
 	async enterRoom(userId: string, roomId: string) {
-		try {
-			await this.apiCall(`/api/game/heroes/${userId}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
-					currentRoom: roomId,
-					currentTable: null,
-					lastSeen: new Date().toISOString()
-				})
-			});
-
-			// Get room details
-			const roomResponse = await this.apiCall(`/api/game/rooms/${roomId}`);
-
-			// Add user to room's active members
-			const room = roomResponse.data;
-			const updatedMembers = [...(room.activeMembers || [])];
-			if (!updatedMembers.includes(userId)) {
-				updatedMembers.push(userId);
-				await this.apiCall(`/api/game/rooms/${roomId}`, {
+		const result = await clientTryCatch(
+			(async () => {
+				await this.apiCall(`/api/game/heroes/${userId}`, {
 					method: 'PATCH',
-					body: JSON.stringify({ activeMembers: updatedMembers })
+					body: JSON.stringify({
+						currentRoom: roomId,
+						currentTable: null,
+						lastSeen: new Date().toISOString()
+					})
 				});
-			}
 
-			// Update game state
-			gameStore.update((state) => ({
-				...state,
-				currentView: 'table',
-				currentRoom: { ...room, activeMembers: updatedMembers },
-				currentTable: null
-			}));
-		} catch (error) {
-			console.error('Failed to enter room:', error);
+				const roomResponse = await this.apiCall(`/api/game/rooms/${roomId}`);
+
+				const room = roomResponse.data;
+				const updatedMembers = [...(room.activeMembers || [])];
+
+				if (!updatedMembers.includes(userId)) {
+					updatedMembers.push(userId);
+					await this.apiCall(`/api/game/rooms/${roomId}`, {
+						method: 'PATCH',
+						body: JSON.stringify({ activeMembers: updatedMembers })
+					});
+				}
+
+				gameStore.update((state) => ({
+					...state,
+					currentView: 'table',
+					currentRoom: { ...room, activeMembers: updatedMembers },
+					currentTable: null
+				}));
+			})(),
+			'Failed to enter room'
+		);
+
+		if (!isSuccess(result)) {
+			console.error(result.error);
 		}
 	}
 
 	// Sit at a table
 	async sitAtTable(userId: string, tableId: string) {
-		try {
-			await this.apiCall(`/api/game/heroes/${userId}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
-					currentTable: tableId,
-					lastSeen: new Date().toISOString()
-				})
-			});
+		const result = await clientTryCatch(
+			(async () => {
+				await this.apiCall(`/api/game/heroes/${userId}`, {
+					method: 'PATCH',
+					body: JSON.stringify({
+						currentTable: tableId,
+						lastSeen: new Date().toISOString()
+					})
+				});
 
-			// Get table details
-			const tableResponse = await this.apiCall(`/api/game/tables/${tableId}`);
+				const tableResponse = await this.apiCall(`/api/game/tables/${tableId}`);
 
-			// Update game state
-			gameStore.update((state) => ({
-				...state,
-				currentView: 'dialog',
-				currentTable: tableResponse.data
-			}));
-		} catch (error) {
-			console.error('Failed to sit at table:', error);
+				gameStore.update((state) => ({
+					...state,
+					currentView: 'dialog',
+					currentTable: tableResponse.data
+				}));
+			})(),
+			'Failed to sit at table'
+		);
+
+		if (!isSuccess(result)) {
+			console.error(result.error);
 		}
 	}
 
@@ -275,77 +282,76 @@ async initializeGame(userId: string) {
 		tableId?: string,
 		roomId?: string
 	): Promise<GameDialog> {
-		try {
-			const dialogData: DialogData = {
-				type,
-				participants,
-				tableId,
-				roomId
-			};
-
-			const response = await this.apiCall('/api/game/dialog', {
+		const result = await clientTryCatch(
+			this.apiCall('/api/game/dialog', {
 				method: 'POST',
-				body: JSON.stringify(dialogData)
-			});
+				body: JSON.stringify({
+					type,
+					participants,
+					tableId,
+					roomId
+				})
+			}),
+			'Failed to start dialog'
+		);
 
-			// Update game state
+		if (isSuccess(result)) {
 			gameStore.update((state) => ({
 				...state,
 				currentView: 'dialog',
-				currentDialog: response.data
+				currentDialog: result.data
 			}));
-
-			return response.data;
-		} catch (error) {
-			console.error('Failed to start dialog:', error);
-			throw error;
+			return result.data;
+		} else {
+			console.error(result.error);
+			throw new Error(result.error ?? 'Failed to start dialog');
 		}
 	}
 
 	// Leave current location (room, table, or building)
 	async leaveCurrentLocation(userId: string) {
-		try {
-			const $gameStore = gameStore;
-			let currentState: GameState;
-			
-			const unsubscribe = $gameStore.subscribe(state => {
-				currentState = state;
-			});
-			unsubscribe();
-
-			// Remove from current location
-			if (currentState!.currentRoom) {
-				// Remove from room's active members
-				const room = currentState!.currentRoom;
-				const updatedMembers = (room.activeMembers || []).filter(id => id !== userId);
-				await this.apiCall(`/api/game/rooms/${room.id}`, {
-					method: 'PATCH',
-					body: JSON.stringify({ activeMembers: updatedMembers })
+		const result = await clientTryCatch(
+			(async () => {
+				let currentState: GameState;
+				const unsubscribe = gameStore.subscribe((state) => {
+					currentState = state;
 				});
-			}
+				unsubscribe();
 
-			// Update hero location
-			await this.apiCall(`/api/game/heroes/${userId}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
+				if (currentState!.currentRoom) {
+					const room = currentState!.currentRoom;
+					const updatedMembers = (room.activeMembers || []).filter((id) => id !== userId);
+
+					await this.apiCall(`/api/game/rooms/${room.id}`, {
+						method: 'PATCH',
+						body: JSON.stringify({ activeMembers: updatedMembers })
+					});
+				}
+
+				await this.apiCall(`/api/game/heroes/${userId}`, {
+					method: 'PATCH',
+					body: JSON.stringify({
+						currentBuilding: null,
+						currentRoom: null,
+						currentTable: null,
+						lastSeen: new Date().toISOString()
+					})
+				});
+
+				gameStore.update((state) => ({
+					...state,
+					currentView: 'building',
 					currentBuilding: null,
 					currentRoom: null,
 					currentTable: null,
-					lastSeen: new Date().toISOString()
-				})
-			});
+					currentDialog: null
+				}));
+			})(),
+			'Failed to leave current location'
+		);
 
-			// Return to world view
-			gameStore.update((state) => ({
-				...state,
-				currentView: 'building',
-				currentBuilding: null,
-				currentRoom: null,
-				currentTable: null,
-				currentDialog: null
-			}));
-		} catch (error) {
-			console.error('Failed to leave current location:', error);
+		if (!isSuccess(result)) {
+			console.error(result.error);
 		}
 	}
 }

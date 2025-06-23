@@ -6,10 +6,9 @@
 	import type { GameState } from '$lib/types/types.game';
 	import { gameStore, gameService } from '$lib/stores/gameStore';
 	import { goto } from '$app/navigation';
-	import AddHero from '$lib/features/game/components/AddHero.svelte'; 
+	import AddHero from '$lib/features/game/components/AddHero.svelte';
 
 	export let data;
-
 
 	function setupKeyboardShortcuts() {
 		const handleKeydown = (event: KeyboardEvent) => {
@@ -66,24 +65,22 @@
 		}
 	}
 
-
 	onMount(async () => {
 		if (browser && data.user) {
 			await gameService.initializeGame(data.user.id);
-			
+
 			// Add debug logging
-			gameStore.subscribe(state => {
+			gameStore.subscribe((state) => {
 				console.log('[DEBUG] GameStore state:', {
 					heroPawn: state.heroPawn,
 					currentOrganization: state.currentOrganization,
 					heroCurrentOrg: state.heroPawn?.currentOrganization
 				});
 			});
-			
+
 			setupKeyboardShortcuts();
 		}
 	});
-
 
 	$: currentPath = $page.route.id;
 </script>
@@ -95,9 +92,7 @@
 			<!-- Navigation breadcrumb -->
 			<div class="breadcrumb-container">
 				<nav class="breadcrumb-nav">
-					<button class="btn-secondary" on:click={() => goto('/game')}>
-						Back
-					</button>
+					<button class="btn-secondary" on:click={() => goto('/game')}> Back </button>
 
 					{#if $gameStore.currentOrganization}
 						<span class="breadcrumb-separator">/</span>
@@ -121,7 +116,7 @@
 
 			<!-- Mini-map and controls -->
 			<div class="game-controls">
-					<AddHero />
+				<AddHero />
 
 				{#if $gameStore.heroPawn}
 					<div class="user-status">
@@ -147,8 +142,8 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
-	
+	@use 'src/lib/styles/themes.scss' as *;
+
 	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
@@ -157,8 +152,8 @@
 	.game-hud {
 		position: fixed;
 		top: 3rem;
-		left: 4.5rem;
-		right: 3rem;
+		left: 0.5rem;
+		right: 0.5rem;
 		z-index: 50;
 		padding: 0.5rem;
 		backdrop-filter: blur(5px);
@@ -275,4 +270,4 @@
 			transform: rotate(360deg);
 		}
 	}
-	</style>
+</style>

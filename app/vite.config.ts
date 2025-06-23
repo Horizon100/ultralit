@@ -5,8 +5,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	css: {
 		preprocessorOptions: {
-			scss: {
-			}
+			scss: {}
 		}
 	},
 	server: {

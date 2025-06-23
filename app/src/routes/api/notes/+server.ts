@@ -2,168 +2,145 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from '@sveltejs/kit';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
+import type { RecordModel } from 'pocketbase';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) {
-		return json({ success: false, error: 'Unauthorized' }, { status: 401 });
-	}
+export const GET: RequestHandler = async ({ url, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
+    const userId = locals.user.id;
 
-	try {
-		const folderId = url.searchParams.get('folderId');
+    const folderId = url.searchParams.get('folderId');
+    if (folderId === null) {
+      throw new Error('Folder ID parameter is required');
+    }
 
-		if (folderId === null) {
-			return json({ success: false, error: 'Folder ID parameter is required' }, { status: 400 });
+    const filter =
+      folderId === ''
+        ? `createdBy="${userId}" && folder=""`
+        : `createdBy="${userId}" && folder="${folderId}"`;
+
+    const notes = await pbTryCatch(
+      pb.collection('notes').getFullList({
+        filter,
+        sort: '-created',
+        expand: 'createdBy,attachments'
+      })
+    );
+
+    return json({ success: true, notes: unwrap(notes) as RecordModel[] });
+  });
+
+export const POST: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
 		}
+		const userId = locals.user.id;
 
-		const filter =
-			folderId === ''
-				? `createdBy="${locals.user.id}" && folder=""`
-				: `createdBy="${locals.user.id}" && folder="${folderId}"`;
-
-		// Fetch notes for the folder
-		const notes = await pb.collection('notes').getFullList({
-			filter,
-			sort: '-created',
-			expand: 'createdBy,attachments'
-		});
-
-		return json({ success: true, notes });
-	} catch (error) {
-		console.error('Error fetching notes:', error);
-		return json({ success: false, error: 'Failed to fetch notes' }, { status: 500 });
-	}
-};
-
-export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) {
-		return json({ success: false, error: 'Unauthorized' }, { status: 401 });
-	}
-
-	try {
 		const data = await request.json();
 
-		// Validate required fields
 		if (!data.title) {
-			return json({ success: false, error: 'Title is required' }, { status: 400 });
+			throw new Error('Title is required');
 		}
 
-		// If folder is provided, verify ownership
 		if (data.folder) {
-			try {
-				const folder = await pb.collection('notes_folders').getOne(data.folder);
-				if (folder.createdBy !== locals.user.id) {
-					return json({ success: false, error: 'Access denied to folder' }, { status: 403 });
-				}
-			} catch {
-				return json({ success: false, error: 'Invalid folder' }, { status: 400 });
+			const folder = await pbTryCatch(pb.collection('notes_folders').getOne(data.folder));
+			const folderData = unwrap(folder) as RecordModel;
+			if (folderData.createdBy !== userId) {
+				throw new Error('Access denied to folder');
 			}
 		}
 
-		// Create note
-		const note = await pb.collection('notes').create({
-			title: data.title,
-			content: data.content || '',
-			folder: data.folder || '',
-			order: data.order || 0,
-			createdBy: locals.user.id
-		});
+		const note = await pbTryCatch(
+			pb.collection('notes').create({
+				title: data.title,
+				content: data.content || '',
+				folder: data.folder || '',
+				order: data.order || 0,
+				createdBy: userId
+			})
+		);
 
-		// Fetch the created note with expanded relations
-		const createdNote = await pb.collection('notes').getOne(note.id, {
-			expand: 'createdBy,attachments'
-		});
+		const createdNote = await pbTryCatch(
+			pb.collection('notes').getOne(unwrap(note).id, {
+				expand: 'createdBy,attachments'
+			})
+		);
 
-		return json({ success: true, note: createdNote });
-	} catch (error) {
-		console.error('Error creating note:', error);
-		return json({ success: false, error: 'Failed to create note' }, { status: 500 });
-	}
-};
+		return json({ success: true, note: unwrap(createdNote) as RecordModel });
+	});
 
-export const PUT: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) {
-		return json({ success: false, error: 'Unauthorized' }, { status: 401 });
-	}
+export const PUT: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
+		const userId = locals.user.id;
 
-	try {
 		const data = await request.json();
 		const { id, ...updateData } = data;
 
 		if (!id) {
-			return json({ success: false, error: 'Note ID is required' }, { status: 400 });
+			throw new Error('Note ID is required');
 		}
 
-		// Verify ownership
-		const existingNote = await pb.collection('notes').getOne(id);
-		if (existingNote.createdBy !== locals.user.id) {
-			return json({ success: false, error: 'Access denied' }, { status: 403 });
+		const existingNote = await pbTryCatch(pb.collection('notes').getOne(id));
+		const existingNoteData = unwrap(existingNote) as RecordModel;
+		if (existingNoteData.createdBy !== userId) {
+			throw new Error('Access denied');
 		}
 
-		// If folder is being changed, verify ownership of new folder
-		if (updateData.folder && updateData.folder !== existingNote.folder) {
-			try {
-				const folder = await pb.collection('notes_folders').getOne(updateData.folder);
-				if (folder.createdBy !== locals.user.id) {
-					return json({ success: false, error: 'Access denied to folder' }, { status: 403 });
-				}
-			} catch {
-				return json({ success: false, error: 'Invalid folder' }, { status: 400 });
+		if (updateData.folder && updateData.folder !== existingNoteData.folder) {
+			const folder = await pbTryCatch(pb.collection('notes_folders').getOne(updateData.folder));
+			const folderData = unwrap(folder) as RecordModel;
+			if (folderData.createdBy !== userId) {
+				throw new Error('Access denied to folder');
 			}
 		}
 
-		// Update note
-		const note = await pb.collection('notes').update(id, updateData);
+		const note = await pbTryCatch(pb.collection('notes').update(id, updateData));
 
-		// Fetch the updated note with expanded relations
-		const updatedNote = await pb.collection('notes').getOne(note.id, {
-			expand: 'createdBy,attachments'
-		});
+		const updatedNote = await pbTryCatch(
+			pb.collection('notes').getOne(unwrap(note).id, {
+				expand: 'createdBy,attachments'
+			})
+		);
 
-		return json({ success: true, note: updatedNote });
-	} catch (error) {
-		console.error('Error updating note:', error);
-		return json({ success: false, error: 'Failed to update note' }, { status: 500 });
-	}
-};
+		return json({ success: true, note: unwrap(updatedNote) as RecordModel });
+	});
 
-export const DELETE: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) {
-		return json({ success: false, error: 'Unauthorized' }, { status: 401 });
-	}
+export const DELETE: RequestHandler = async ({ url, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
+		const userId = locals.user.id;
 
-	try {
 		const id = url.searchParams.get('id');
-
 		if (!id) {
-			return json({ success: false, error: 'Note ID is required' }, { status: 400 });
+			throw new Error('Note ID is required');
 		}
 
-		// Verify ownership
-		const note = await pb.collection('notes').getOne(id);
-		if (note.createdBy !== locals.user.id) {
-			return json({ success: false, error: 'Access denied' }, { status: 403 });
+		const note = await pbTryCatch(pb.collection('notes').getOne(id));
+		const noteData = unwrap(note) as RecordModel;
+		if (noteData.createdBy !== userId) {
+			throw new Error('Access denied');
 		}
 
-		// Delete associated attachments first
-		try {
-			const attachments = await pb.collection('attachments').getFullList({
+		const attachments = await pbTryCatch(
+			pb.collection('attachments').getFullList({
 				filter: `note="${id}"`
-			});
+			})
+		);
 
-			for (const attachment of attachments) {
-				await pb.collection('attachments').delete(attachment.id);
-			}
-		} catch (error) {
-			console.error('Error deleting attachments:', error);
-			// Continue with note deletion even if attachment deletion fails
+		for (const attachment of unwrap(attachments) as RecordModel[]) {
+			await pbTryCatch(pb.collection('attachments').delete(attachment.id));
 		}
 
-		// Delete note
-		await pb.collection('notes').delete(id);
+		await pbTryCatch(pb.collection('notes').delete(id));
 
 		return json({ success: true });
-	} catch (error) {
-		console.error('Error deleting note:', error);
-		return json({ success: false, error: 'Failed to delete note' }, { status: 500 });
-	}
-};
+	});

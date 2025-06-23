@@ -5,6 +5,7 @@
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
 	import { PERKS, INCREMENTS } from '$lib/features/users/utils/perks';
+	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	export let projectId: string | undefined = undefined;
 	export let threadCount = 0;
@@ -23,7 +24,6 @@
 	let localPerks: Perk[] = [];
 	let timerTarget = 8 * 3600;
 
-
 	function calculateTotalTimerDuration(sessions: TimerSession[]): number {
 		if (!sessions || !Array.isArray(sessions)) {
 			console.log('No timer sessions found or invalid format');
@@ -37,10 +37,15 @@
 			return total;
 		}, 0);
 
-		console.log('Total timer duration calculated:', totalSeconds, 'seconds from', sessions.length, 'sessions');
+		console.log(
+			'Total timer duration calculated:',
+			totalSeconds,
+			'seconds from',
+			sessions.length,
+			'sessions'
+		);
 		return totalSeconds;
 	}
-
 
 	function formatTimerCount(seconds: number): string {
 		console.log('Formatting timer count from seconds:', seconds);
@@ -82,13 +87,11 @@
 		}
 	}
 
-
-function calculatePercentage(count: number, target: number): number {
+	function calculatePercentage(count: number, target: number): number {
 		if (count >= target) return 100;
 		const percentage = Math.round((count / target) * 100);
 		return percentage;
 	}
-
 
 	function checkPerksAgainstStats() {
 		console.log('DEBUG: Checking perks against current stats');
@@ -202,97 +205,98 @@ function calculatePercentage(count: number, target: number): number {
 				tagCount = data.tagCount || 0;
 				await fetchTimerSessions();
 
-			// Don't overwrite timerCount if we have timer_sessions
-			// Only use API timerCount if we don't have local timer sessions
-			if (!$currentUser?.timer_sessions || $currentUser.timer_sessions.length === 0) {
-				timerCount = data.timerCount || 0;
+				/*
+				 * Don't overwrite timerCount if we have timer_sessions
+				 * Only use API timerCount if we don't have local timer sessions
+				 */
+				if (!$currentUser?.timer_sessions || $currentUser.timer_sessions.length === 0) {
+					timerCount = data.timerCount || 0;
+				}
+				// Otherwise, keep the calculated timerCount from reactive statement
+
+				console.log('DEBUG: Perks from API:', data.perks);
+				console.log('DEBUG: Perks type:', typeof data.perks, Array.isArray(data.perks));
+
+				perks = data.perks || [];
+
+				console.log('DEBUG: Perks after assignment:', perks);
+				console.log('DEBUG: Perks length after assignment:', perks.length);
+
+				if (data.lastActive) {
+					lastActive = new Date(data.lastActive);
+				}
+
+				console.log('Stats updated:', {
+					threadCount,
+					messageCount,
+					taskCount,
+					tagCount,
+					timerCount,
+					lastActive,
+					perks
+				});
+
+				checkPerksAgainstStats();
+			} else {
+				error = data.error || 'Unknown error in stats response';
+				console.error('Error in stats response:', data.error);
 			}
-			// Otherwise, keep the calculated timerCount from reactive statement
-
-			console.log('DEBUG: Perks from API:', data.perks);
-			console.log('DEBUG: Perks type:', typeof data.perks, Array.isArray(data.perks));
-
-			perks = data.perks || [];
-
-			console.log('DEBUG: Perks after assignment:', perks);
-			console.log('DEBUG: Perks length after assignment:', perks.length);
-
-			if (data.lastActive) {
-				lastActive = new Date(data.lastActive);
-			}
-
-			console.log('Stats updated:', {
-				threadCount,
-				messageCount,
-				taskCount,
-				tagCount,
-				timerCount,
-				lastActive,
-				perks
-			});
-
-			checkPerksAgainstStats();
-		} else {
-			error = data.error || 'Unknown error in stats response';
-			console.error('Error in stats response:', data.error);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+			error = errorMessage;
+			console.error('Error fetching stats:', errorMessage);
+		} finally {
+			loading = false;
 		}
-	} catch (e) {
-		const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-		error = errorMessage;
-		console.error('Error fetching stats:', errorMessage);
-	} finally {
-		loading = false;
 	}
-}
 
-function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'>[] {
-	console.log('Getting eligible perks locally with stats:', {
-		threadCount,
-		messageCount,
-		taskCount,
-		tagCount,
-		timerCount // Add this
-	});
-
-	return PERKS.filter((perk) => {
-		return perk.filterConditions.every((condition: PerkFilterCondition) => {
-			let userValue = 0;
-
-			switch (condition.parameter) {
-				case 'messages':
-					userValue = messageCount;
-					break;
-				case 'threads':
-					userValue = threadCount;
-					break;
-				case 'tasks':
-					userValue = taskCount;
-					break;
-				case 'tags':
-					userValue = tagCount;
-					break;
-				case 'timer': 
-					break;
-			}
-
-			switch (condition.operator) {
-				case '=':
-					return userValue === condition.value;
-				case '>':
-					return userValue > condition.value;
-				case '>=':
-					return userValue >= condition.value;
-				case '<':
-					return userValue < condition.value;
-				case '<=':
-					return userValue <= condition.value;
-				default:
-					return false;
-			}
+	function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'>[] {
+		console.log('Getting eligible perks locally with stats:', {
+			threadCount,
+			messageCount,
+			taskCount,
+			tagCount,
+			timerCount // Add this
 		});
-	});
-}
 
+		return PERKS.filter((perk) => {
+			return perk.filterConditions.every((condition: PerkFilterCondition) => {
+				let userValue = 0;
+
+				switch (condition.parameter) {
+					case 'messages':
+						userValue = messageCount;
+						break;
+					case 'threads':
+						userValue = threadCount;
+						break;
+					case 'tasks':
+						userValue = taskCount;
+						break;
+					case 'tags':
+						userValue = tagCount;
+						break;
+					case 'timer':
+						break;
+				}
+
+				switch (condition.operator) {
+					case '=':
+						return userValue === condition.value;
+					case '>':
+						return userValue > condition.value;
+					case '>=':
+						return userValue >= condition.value;
+					case '<':
+						return userValue < condition.value;
+					case '<=':
+						return userValue <= condition.value;
+					default:
+						return false;
+				}
+			});
+		});
+	}
 
 	async function checkAndUpdatePerks() {
 		if (!$currentUser) {
@@ -327,29 +331,29 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 			if (data.success) {
 				console.log('Perks from API:', data.perks);
 
-			if (data.perks && data.perks.length > 0) {
-				perks = data.perks;
-			} else {
-				console.log('No perks from API, using local calculation');
-				localPerks = getEligiblePerksLocally().map(createFullPerk);
+				if (data.perks && data.perks.length > 0) {
+					perks = data.perks;
+				} else {
+					console.log('No perks from API, using local calculation');
+					localPerks = getEligiblePerksLocally().map(createFullPerk);
 
-				perks = localPerks;
-			}
+					perks = localPerks;
+				}
 
 				console.log('Perks updated, new length:', perks.length);
 			} else {
 				throw new Error(data.error || 'Unknown error in perks response');
 			}
-			} catch (e) {
-				console.error('Error checking perks:', e);
+		} catch (e) {
+			console.error('Error checking perks:', e);
 
-				// Fallback to local perks calculation
-				console.log('Using local perks calculation due to API error');
-				localPerks = getEligiblePerksLocally().map(createFullPerk);
-				perks = localPerks;
-			} finally {
-				checkingPerks = false;
-			}
+			// Fallback to local perks calculation
+			console.log('Using local perks calculation due to API error');
+			localPerks = getEligiblePerksLocally().map(createFullPerk);
+			perks = localPerks;
+		} finally {
+			checkingPerks = false;
+		}
 	}
 
 	function togglePerksPanel() {
@@ -363,23 +367,28 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 	async function fetchTimerSessions() {
 		if (!$currentUser) return;
 
-		try {
-			const response = await fetch(`/api/users/${$currentUser.id}/tracking`, {
-				credentials: 'include'
-			});
+		const result = await fetchTryCatch<{
+			success: boolean;
+			sessions?: any[];
+			totalDuration?: number;
+		}>(`/api/users/${$currentUser.id}/tracking`, {
+			credentials: 'include'
+		});
 
-			if (response.ok) {
-				const data = await response.json();
-				if (data.success && data.sessions) {
-					timerCount = data.totalDuration || calculateTotalTimerDuration(data.sessions);
-					console.log('Timer sessions fetched:', data.sessions.length, 'Total seconds:', timerCount);
-				}
+		if (isSuccess(result)) {
+			const data = result.data;
+
+			if (data.success && data.sessions) {
+				timerCount = data.totalDuration ?? calculateTotalTimerDuration(data.sessions);
+				console.log('Timer sessions fetched:', data.sessions.length, 'Total seconds:', timerCount);
+			} else {
+				console.warn('Timer sessions response missing success flag or sessions');
 			}
-		} catch (error) {
-			console.error('Error fetching timer sessions:', error);
+		} else {
+			console.error('Error fetching timer sessions:', result.error);
 		}
 	}
-		let tooltipVisible = false;
+	let tooltipVisible = false;
 	let tooltipContent = '';
 	let tooltipX = 0;
 	let tooltipY = 0;
@@ -433,7 +442,11 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 	function getNextPerkTarget(
 		statValue: number,
 		statType: 'messages' | 'threads' | 'tasks' | 'tags'
-	): { value: number; perk: Omit<Perk, "id" | "created" | "updated" | "achievedBy"> | null; progress: number } {
+	): {
+		value: number;
+		perk: Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'> | null;
+		progress: number;
+	} {
 		const sortedIncrements = [...INCREMENTS].sort((a, b) => a - b);
 		const nextTargetValue = sortedIncrements.find((inc) => inc > statValue);
 		const targetValue = nextTargetValue || sortedIncrements[sortedIncrements.length - 1];
@@ -458,7 +471,9 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 			progress: Math.min(Math.max(progress, 0), 100)
 		};
 	}
-	function createFullPerk(partialPerk: Omit<Perk, "id" | "created" | "updated" | "achievedBy">): Perk {
+	function createFullPerk(
+		partialPerk: Omit<Perk, 'id' | 'created' | 'updated' | 'achievedBy'>
+	): Perk {
 		return {
 			...partialPerk,
 			id: crypto.randomUUID(),
@@ -474,7 +489,6 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 		};
 	}
 
-	
 	// Computed properties for next targets
 	$: nextMessageTarget = getNextPerkTarget(messageCount, 'messages');
 	$: nextThreadTarget = getNextPerkTarget(threadCount, 'threads');
@@ -483,7 +497,6 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 	$: timerTarget = 3600;
 
 	onMount(async () => {
-
 		console.log('Component mounted with initial values:', {
 			projectId,
 			threadCount,
@@ -509,7 +522,7 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 			console.log('Using stats provided as props');
 
 			if (perks.length === 0) {
-            	localPerks = getEligiblePerksLocally().map(createFullPerk);
+				localPerks = getEligiblePerksLocally().map(createFullPerk);
 				perks = localPerks;
 			}
 		}
@@ -645,7 +658,8 @@ function getEligiblePerksLocally(): Omit<Perk, 'id' | 'created' | 'updated' | 'a
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 

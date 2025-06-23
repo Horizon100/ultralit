@@ -43,8 +43,6 @@
 	$: user = $currentUser;
 	$: isNarrowScreen = innerWidth <= 700;
 
-
-
 	onMount(() => {
 		user = $currentUser;
 		setTimeout(() => (showFade = true), 50);
@@ -155,7 +153,6 @@
 	>
 		<Wrench size={24} class="nav-icon" />
 	</button>
-
 </nav>
 {#if showH2}
 	<div class="layout" in:fly={{ y: -400, duration: 400 }} out:fade={{ duration: 300 }}>
@@ -210,9 +207,10 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
-	}	
+	}
 	.layout {
 		position: absolute;
 		justify-content: flex-start;

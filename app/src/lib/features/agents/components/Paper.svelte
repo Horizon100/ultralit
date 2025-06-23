@@ -371,7 +371,7 @@
 <div bind:this={paperContainer} id="paper-container"></div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -384,7 +384,6 @@
 		border: 10px solid #f3f7f6;
 		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
 	}
-
 
 	:global(.joint-element) {
 		cursor: pointer;

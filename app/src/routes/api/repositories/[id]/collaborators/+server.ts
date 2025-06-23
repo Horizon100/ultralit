@@ -1,30 +1,27 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 // GET: Get all collaborators for a repository
-export const GET: RequestHandler = async ({ params, locals }) => {
-	// Check if user is authenticated
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+export const GET: RequestHandler = async ({ params, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
 
-	try {
 		const { id } = params;
 
-		// Check if user has access to this repository
 		const repository = await pb.collection('repositories').getOne(id);
 		const isOwner = repository.createdBy === locals.user.id;
 		const isCollaborator = repository.repoCollaborators?.includes(locals.user.id);
 		const isPublic = repository.isPublic;
 
 		if (!isOwner && !isCollaborator && !isPublic) {
-			return json({ error: 'Access denied' }, { status: 403 });
+			throw new Error('Access denied');
 		}
 
-		// Get collaborator users
 		const collaboratorIds = [repository.createdBy, ...(repository.repoCollaborators || [])];
-		const uniqueIds = [...new Set(collaboratorIds)]; // Remove duplicates
+		const uniqueIds = [...new Set(collaboratorIds)];
 
 		const collaborators = [];
 		for (const userId of uniqueIds) {
@@ -38,61 +35,49 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				});
 			} catch (err) {
 				console.error(`Error fetching user ${userId}:`, err);
-				// Skip this user if we can't fetch them
+				// Skip this user if fetch fails
 			}
 		}
 
-		return json(collaborators);
-	} catch (error) {
-		console.error('Error fetching collaborators:', error);
-		return json({ error: 'Failed to fetch collaborators' }, { status: 500 });
-	}
-};
+		return collaborators;
+	}, 'Failed to fetch collaborators', 500);
 
 // POST: Add a collaborator to the repository
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	// Check if user is authenticated
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+export const POST: RequestHandler = async ({ params, request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
 
-	try {
 		const { id } = params;
 		const data = await request.json();
 
 		if (!data.userId) {
-			return json({ error: 'User ID is required' }, { status: 400 });
+			throw new Error('User ID is required');
 		}
 
-		// Check if user is repository owner
 		const repository = await pb.collection('repositories').getOne(id);
 		if (repository.createdBy !== locals.user.id) {
-			return json({ error: 'Only the repository owner can add collaborators' }, { status: 403 });
+			throw new Error('Only the repository owner can add collaborators');
 		}
 
 		// Check if user exists
 		try {
 			await pb.collection('users').getOne(data.userId);
 		} catch {
-			return json({ error: 'User not found' }, { status: 404 });
+			throw new Error('User not found');
 		}
 
-		// Add collaborator if not already added
 		const collaborators = repository.repoCollaborators || [];
 		if (!collaborators.includes(data.userId)) {
 			collaborators.push(data.userId);
 
-			// Update repository
 			const updatedRepository = await pb.collection('repositories').update(id, {
 				repoCollaborators: collaborators
 			});
 
-			return json(updatedRepository);
+			return updatedRepository;
 		}
 
-		return json(repository);
-	} catch (error) {
-		console.error('Error adding collaborator:', error);
-		return json({ error: 'Failed to add collaborator' }, { status: 500 });
-	}
-};
+		return repository;
+	}, 'Failed to add collaborator', 500);

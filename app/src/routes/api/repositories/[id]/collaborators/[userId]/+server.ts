@@ -1,45 +1,38 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// DELETE: Remove a collaborator from the repository
-export const DELETE: RequestHandler = async ({ params, locals }) => {
-	// Check if user is authenticated
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+export const DELETE: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-	try {
-		const { id, userId } = params;
+    const { id, userId } = params;
 
-		// Check if user is repository owner
-		const repository = await pb.collection('repositories').getOne(id);
+    const repositoryResult = await pbTryCatch(pb.collection('repositories').getOne(id), 'fetch repository');
+    const repository = unwrap(repositoryResult);
 
-		// Allow self-removal or owner can remove anyone
-		const isSelfRemoval = userId === locals.user.id;
-		const isOwner = repository.createdBy === locals.user.id;
+    const isSelfRemoval = userId === locals.user.id;
+    const isOwner = repository.createdBy === locals.user.id;
 
-		if (!isOwner && !isSelfRemoval) {
-			return json({ error: 'Only the repository owner can remove collaborators' }, { status: 403 });
-		}
+    if (!isOwner && !isSelfRemoval) {
+      throw new Error('Only the repository owner can remove collaborators');
+    }
 
-		// Cannot remove the owner
-		if (userId === repository.createdBy) {
-			return json({ error: 'Cannot remove the repository owner' }, { status: 400 });
-		}
+    if (userId === repository.createdBy) {
+      throw new Error('Cannot remove the repository owner');
+    }
 
-		// Remove collaborator
-		let collaborators = repository.repoCollaborators || [];
-		collaborators = collaborators.filter((id: string) => id !== userId);
+    let collaborators = repository.repoCollaborators || [];
+    collaborators = collaborators.filter((collaboratorId: string) => collaboratorId !== userId);
 
-		// Update repository
-		const updatedRepository = await pb.collection('repositories').update(id, {
-			repoCollaborators: collaborators
-		});
+    const updateResult = await pbTryCatch(
+      pb.collection('repositories').update(id, { repoCollaborators: collaborators }),
+      'update repository collaborators'
+    );
+    const updatedRepository = unwrap(updateResult);
 
-		return json(updatedRepository);
-	} catch (error) {
-		console.error('Error removing collaborator:', error);
-		return json({ error: 'Failed to remove collaborator' }, { status: 500 });
-	}
-};
+    return json(updatedRepository);
+  }, 'Failed to remove collaborator');

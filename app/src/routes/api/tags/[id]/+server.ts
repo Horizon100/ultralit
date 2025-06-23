@@ -1,158 +1,105 @@
-// src/routes/api/tags/[id]/+server.ts
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// Update a tag
-export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const PATCH: RequestHandler = async ({ params, request, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-		// Check if user can update this tag
-		const tag = await pb.collection('tags').getOne(params.id);
+    const tag = await pb.collection('tags').getOne(params.id);
 
-		if (tag.createdBy !== locals.user.id) {
-			// Check if user has access to any of the projects tagged
-			if (tag.taggedProjects) {
-				/*
-				 * If the tag is related to projects, check if user has permissions
-				 * on any of those projects
-				 */
-				const projectIds = tag.taggedProjects.split(',');
-				let hasAccess = false;
+    if (tag.createdBy !== locals.user.id) {
+      if (tag.taggedProjects) {
+        const projectIds = tag.taggedProjects.split(',').filter(Boolean);
+        let hasAccess = false;
 
-				for (const projectId of projectIds) {
-					if (!projectId) continue;
+        for (const projectId of projectIds) {
+          const project = await pb.collection('projects').getOne(projectId);
+          if (
+            project.owner === locals.user.id ||
+            (project.collaborators && project.collaborators.includes(locals.user.id))
+          ) {
+            hasAccess = true;
+            break;
+          }
+        }
 
-					try {
-						const project = await pb.collection('projects').getOne(projectId);
-						if (
-							project.owner === locals.user.id ||
-							(project.collaborators && project.collaborators.includes(locals.user.id))
-						) {
-							hasAccess = true;
-							break;
-						}
-					} catch (err) {
-						console.error(`Error updating tag ${params.id}:`, err);
-						return new Response(
-							JSON.stringify({
-								error: err instanceof Error ? err.message : 'Failed to update tag'
-							}),
-							{
-								status: 500,
-								headers: { 'Content-Type': 'application/json' }
-							}
-						);
-					}
-				}
+        if (!hasAccess) {
+          throw new Error('Unauthorized');
+        }
+      } else {
+        throw new Error('Unauthorized');
+      }
+    }
 
-				if (!hasAccess) {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 403,
-						headers: { 'Content-Type': 'application/json' }
-					});
-				}
-			} else {
-				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-					status: 403,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-		}
+    const data = await request.json();
 
-		const data = await request.json();
+    const updatedTag = await pb.collection('tags').update(params.id, data);
 
-		// Update the tag
-		const updatedTag = await pb.collection('tags').update(params.id, data);
+    return json(updatedTag);
+  }, 'Failed to update tag');
 
-		return json(updatedTag);
-	} catch (error) {
-		console.error('Error in handler:', error);
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Internal server error'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+export const DELETE: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-// Delete a tag
-export const DELETE: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+    const tag = await pb.collection('tags').getOne(params.id);
 
-		// Check if user can delete this tag
-		const tag = await pb.collection('tags').getOne(params.id);
+    if (tag.createdBy !== locals.user.id) {
+      if (tag.taggedProjects) {
+        const projectIds = tag.taggedProjects.split(',').filter(Boolean);
+        let hasOwnerAccess = false;
 
-		if (tag.createdBy !== locals.user.id) {
-			// Check if user has access to any of the projects tagged
-			if (tag.taggedProjects) {
-				/*
-				 * If the tag is related to projects, check if user has permissions
-				 * on any of those projects
-				 */
-				const projectIds = tag.taggedProjects.split(',');
-				let hasOwnerAccess = false;
+        for (const projectId of projectIds) {
+          try {
+            const project = await pb.collection('projects').getOne(projectId);
+            if (project.owner === locals.user.id) {
+              hasOwnerAccess = true;
+              break;
+            }
+          } catch {
+            // Ignore errors here, continue checking others
+          }
+        }
 
-				for (const projectId of projectIds) {
-					if (!projectId) continue;
+        if (!hasOwnerAccess) {
+          throw new Error('Unauthorized');
+        }
+      } else {
+        throw new Error('Unauthorized');
+      }
+    }
 
-					try {
-						const project = await pb.collection('projects').getOne(projectId);
-						if (project.owner === locals.user.id) {
-							hasOwnerAccess = true;
-							break;
-						}
-					} catch (err) {
-						console.warn(
-							`Could not check project ${projectId}: ${err instanceof Error ? err.message : 'Unknown error'}`
-						);
-					}
-				}
+    await pb.collection('tags').delete(params.id);
 
-				if (!hasOwnerAccess) {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 403,
-						headers: { 'Content-Type': 'application/json' }
-					});
-				}
-			} else {
-				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-					status: 403,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-		}
+    return json({ success: true });
+  }, 'Failed to delete tag');
 
-		// Delete the tag
-		await pb.collection('tags').delete(params.id);
+  export const GET: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-		return json({ success: true });
-	} catch (error) {
-		console.error('Error deleting tag:', error);
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Internal server error'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+    const tagId = params.id;
+    if (!tagId) {
+      throw new Error('Tag ID is required');
+    }
+
+    const result = await pbTryCatch(
+      pb.collection('tags').getOne(tagId),
+      `fetch tag ${tagId}`
+    );
+
+    const tag = unwrap(result);
+
+    // Optional: Check if user has access to this tag
+    // You might want to implement access control here based on your business logic
+    
+    return json({ success: true, data: tag });
+  }, 'Failed to fetch tag');

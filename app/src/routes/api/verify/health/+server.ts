@@ -1,16 +1,13 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async () => {
-	try {
+	return apiTryCatch(async () => {
 		const isHealthy = await pbServer.checkPocketBaseConnection();
-		return json({
+		return {
 			success: isHealthy,
 			message: isHealthy ? 'PocketBase is healthy' : 'PocketBase is not healthy'
-		});
-	} catch (error) {
-		console.error('PocketBase health check failed:', error);
-		return json({ success: false, error: 'PocketBase connection failed' }, { status: 500 });
-	}
+		};
+	}, 'PocketBase health check failed', 500);
 };

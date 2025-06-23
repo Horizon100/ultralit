@@ -34,7 +34,6 @@ export enum Feature {
 
 export type FeatureCategory = 'chat' | 'mas' | 'advanced' | 'common' | 'analytics' | 'storage';
 
-
 export const FEATURE_CATEGORIES: Record<Feature, FeatureCategory> = {
 	// Chat Features
 	[Feature.CHAT_BASIC]: 'chat',

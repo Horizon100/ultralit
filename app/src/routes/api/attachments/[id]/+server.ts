@@ -1,93 +1,78 @@
-// src/routes/api/attachments/[id]/+server.ts
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// Delete an attachment
-export const DELETE: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const DELETE: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) throw new Error('Unauthorized');
 
-		// Check if user can delete this attachment
-		const attachment = await pb.collection('attachments').getOne(params.id);
+    const attachmentResult = await pbTryCatch(pb.collection('attachments').getOne(params.id), 'fetch attachment');
+    const attachment = unwrap(attachmentResult);
 
-		if (attachment.createdBy !== locals.user.id) {
-			// Check for project or task permissions
-			let hasAccess = false;
+    if (attachment.createdBy !== locals.user.id) {
+      let hasAccess = false;
 
-			// Check task permissions if there are attached tasks
-			if (attachment.attachedTasks) {
-				const taskIds = attachment.attachedTasks.split(',');
+      if (attachment.attachedTasks) {
+        const taskIds = attachment.attachedTasks.split(',');
 
-				for (const taskId of taskIds) {
-					if (!taskId) continue;
+        for (const taskId of taskIds) {
+          if (!taskId) continue;
 
-					try {
-						const task = await pb.collection('tasks').getOne(taskId);
+          try {
+            const taskResult = await pbTryCatch(pb.collection('tasks').getOne(taskId), `fetch task ${taskId}`);
+            const task = unwrap(taskResult);
 
-						if (task.createdBy === locals.user.id) {
-							hasAccess = true;
-							break;
-						}
+            if (task.createdBy === locals.user.id) {
+              hasAccess = true;
+              break;
+            }
 
-						// Check project permissions
-						if (task.project_id) {
-							const project = await pb.collection('projects').getOne(task.project_id);
-							if (project.owner === locals.user.id) {
-								hasAccess = true;
-								break;
-							}
-						}
-					} catch (err: unknown) {
-						const message = err instanceof Error ? err.message : 'Unknown error';
-						console.warn(`Could not check task ${taskId}: ${message}`);
-					}
-				}
-			}
+            if (task.project_id) {
+              try {
+                const projectResult = await pbTryCatch(pb.collection('projects').getOne(task.project_id), `fetch project ${task.project_id}`);
+                const project = unwrap(projectResult);
 
-			// Check project permissions if there are attached projects
-			if (!hasAccess && attachment.attachedProjects) {
-				const projectIds = attachment.attachedProjects.split(',');
+                if (project.owner === locals.user.id) {
+                  hasAccess = true;
+                  break;
+                }
+              } catch (e) {
+                console.warn(`Could not check project ${task.project_id}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+              }
+            }
+          } catch (e) {
+            console.warn(`Could not check task ${taskId}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+          }
+        }
+      }
 
-				for (const projectId of projectIds) {
-					if (!projectId) continue;
+      if (!hasAccess && attachment.attachedProjects) {
+        const projectIds = attachment.attachedProjects.split(',');
 
-					try {
-						const project = await pb.collection('projects').getOne(projectId);
-						if (project.owner === locals.user.id) {
-							hasAccess = true;
-							break;
-						}
-					} catch (err: unknown) {
-						const message = err instanceof Error ? err.message : 'Unknown error';
-						console.warn(`Could not check project ${projectId}: ${message}`);
-					}
-				}
-			}
+        for (const projectId of projectIds) {
+          if (!projectId) continue;
 
-			if (!hasAccess) {
-				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-					status: 403,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-		}
+          try {
+            const projectResult = await pbTryCatch(pb.collection('projects').getOne(projectId), `fetch project ${projectId}`);
+            const project = unwrap(projectResult);
 
-		// Delete the attachment
-		await pb.collection('attachments').delete(params.id);
+            if (project.owner === locals.user.id) {
+              hasAccess = true;
+              break;
+            }
+          } catch (e) {
+            console.warn(`Could not check project ${projectId}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+          }
+        }
+      }
 
-		return json({ success: true });
-	} catch (error: unknown) {
-		console.error('Error deleting attachment:', error);
-		const message = error instanceof Error ? error.message : 'Unknown error';
-		return new Response(JSON.stringify({ error: message }), {
-			status: 500,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
-};
+      if (!hasAccess) {
+        throw new Error('Unauthorized');
+      }
+    }
+
+    await pbTryCatch(pb.collection('attachments').delete(params.id), 'delete attachment');
+
+    return json({ success: true });
+  }, 'Failed to delete attachment');

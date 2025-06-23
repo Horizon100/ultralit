@@ -3,10 +3,10 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import type { GameOrganization, GameBuilding} from '$lib/types/types.game';
+	import type { GameOrganization, GameBuilding } from '$lib/types/types.game';
 	import { gameStore, gameService } from '$lib/stores/gameStore';
 	import { get } from 'svelte/store';
-    import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';
+	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';
 
 	export let data;
 
@@ -41,7 +41,6 @@
 				...state,
 				currentView: 'building'
 			}));
-
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
 			console.error('Organization load error:', err);
@@ -76,18 +75,15 @@
 	});
 </script>
 
-
 <div class="world-navigator-section">
-    <GameNavigator {data} />
+	<GameNavigator {data} />
 </div>
 
-
 <style lang="scss">
-
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}		
+	}
 	.organization-view {
 		padding: 2rem;
 		max-width: 1200px;
@@ -100,7 +96,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-        position: absolute;
+		position: absolute;
 		height: 50vh;
 		gap: 1rem;
 	}
@@ -115,8 +111,12 @@
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	.organization-header {

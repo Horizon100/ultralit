@@ -5,14 +5,14 @@
 	import type { AIModel, InternalChatMessage } from '$lib/types/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
+	import AIChat from '$lib/features/ai/components/chat/AIChatCopy.svelte';
 	import { Bot } from 'lucide-svelte';
 
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
 	// Default AI model configuration
-	const defaultAIModel: AIModel = {
+	export const defaultAIModel: AIModel = {
 		id: 'default',
 		name: 'Default Model',
 		api_key: '',
@@ -29,13 +29,12 @@
 	};
 
 	// Declare variables first
-	let userId: string = '';
-	let aiModel = defaultAIModel;
-	let threadId: string | null = null;
-	let messageId: string | null = null;
-	let initialMessage: InternalChatMessage | null = null;
+	export let userId: string = '';
+	export let aiModel = defaultAIModel;
+	export let threadId: string | null = null;
+	export let messageId: string | null = null;
+	export let initialMessage: InternalChatMessage | null = null;
 
-	// Create reactive default message after variables are declared
 	$: defaultMessage = {
 		id: '',
 		text: '',
@@ -51,7 +50,7 @@
 		prompt_type: null,
 		prompt_input: null,
 		model: aiModel.id,
-		thread: threadId,
+		thread: threadId || undefined,
 		isTyping: false,
 		isHighlighted: false,
 		reactions: {
@@ -62,7 +61,6 @@
 			question: 0
 		}
 	} as InternalChatMessage;
-
 
 	onMount(async () => {
 		try {
@@ -75,9 +73,11 @@
 
 			userId = $currentUser.id;
 
-			// Get URL parameters
-			// threadId = $page.url.searchParams.get('threadId');
-			// messageId = $page.url.searchParams.get('messageId');
+			/*
+			 * Get URL parameters
+			 * threadId = $page.url.searchParams.get('threadId');
+			 * messageId = $page.url.searchParams.get('messageId');
+			 */
 
 			pageReady = true;
 		} catch (e) {
@@ -93,6 +93,7 @@
 
 	$: userId = $currentUser?.id ?? '';
 </script>
+
 <!-- {#if wallpaperSrc}
   <img
     src={wallpaperSrc}
@@ -112,19 +113,13 @@
 		</div>
 	{:else}
 		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat 
-				message={defaultMessage}
-				{threadId} 
-				initialMessageId={messageId} 
-				{aiModel} 
-				{userId} 
-			/>
+			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
 		</div>
 	{/if}
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 

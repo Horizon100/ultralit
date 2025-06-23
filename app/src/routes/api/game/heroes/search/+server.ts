@@ -1,34 +1,35 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
-	if (!locals.pb.authStore.isValid) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	return apiTryCatch(
+		async () => {
+			if (!locals.pb.authStore.isValid) {
+				throw new Error('Unauthorized');
+			}
 
-	try {
-		const query = url.searchParams.get('q');
-		if (!query || query.trim().length < 2) {
-			return json({ error: 'Query must be at least 2 characters' }, { status: 400 });
-		}
+			const query = url.searchParams.get('q');
+			if (!query || query.trim().length < 2) {
+				throw new Error('Query must be at least 2 characters');
+			}
 
-		console.log('[HEROES_SEARCH] Searching for:', query);
+			console.log('[HEROES_SEARCH] Searching for:', query);
 
-		// Search heroes by user name, username, or email
-		const heroes = await locals.pb.collection('game_heroes').getFullList({
-			filter: `user.name ~ "${query}" || user.username ~ "${query}" || user.email ~ "${query}"`,
-			expand: 'user',
-			sort: 'user.name'
-		});
+			// Search heroes by user name, username, or email
+			const heroes = await locals.pb.collection('game_heroes').getFullList({
+				filter: `user.name ~ "${query}" || user.username ~ "${query}" || user.email ~ "${query}"`,
+				expand: 'user',
+				sort: 'user.name'
+			});
 
-		console.log('[HEROES_SEARCH] Found heroes:', heroes.length);
+			console.log('[HEROES_SEARCH] Found heroes:', heroes.length);
 
-		return json({
-			success: true,
-			data: heroes
-		});
-	} catch (error) {
-		console.error('Heroes search error:', error);
-		return json({ error: 'Failed to search heroes' }, { status: 500 });
-	}
+			return {
+				success: true,
+				data: heroes
+			};
+		},
+		'Failed to search heroes',
+		500
+	);
 };

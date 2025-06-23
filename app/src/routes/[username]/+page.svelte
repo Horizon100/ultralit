@@ -2,141 +2,205 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { 
-		pocketbaseUrl, 
-		currentUser, 
+	import { fly, fade } from 'svelte/transition';
+	import {
+		pocketbaseUrl,
+		currentUser,
 		getPublicUserData,
-		getPublicUserByUsername,  // Add this import
-		getPublicUsersBatch       // Add this import
+		getPublicUserByUsername, 
+		getPublicUsersBatch
 	} from '$lib/pocketbase';
-	import PostCard from '$lib/features/content/components/PostCard.svelte';
-	import RepostCard from '$lib/features/content/components/RepostCard.svelte';
-	import PostQuoteCard from '$lib/features/content/components/PostQuoteCard.svelte';
+	import PostCard from '$lib/features/posts/components/PostCard.svelte';
+	import RepostCard from '$lib/features/posts/components/RepostCard.svelte';
+	import PostQuoteCard from '$lib/features/posts/components/PostQuoteCard.svelte';
 	import { postStore } from '$lib/stores/postStore';
-	import PostSidenav from '$lib/features/content/components/PostSidenav.svelte';
-	import PostTrends from '$lib/features/content/components/PostTrends.svelte';
-	import { showSidenav } from '$lib/stores/sidenavStore';
+	import PostSidenav from '$lib/features/posts/components/PostSidenav.svelte';
+	import PostTrends from '$lib/features/posts/components/PostTrends.svelte';
+	import { showSidenav, showRightSidenav, showInput} from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
-
+	import { browser } from '$app/environment';
+	import BackButton from '$lib/components/buttons/BackButton.svelte';
 	import {
 		Calendar,
 		MapPin,
 		Link as LinkIcon,
 		Mail,
-		User,
 		MessageSquare,
 		Settings,
 		Loader2,
-		ArrowLeft
+		ArrowLeft,
+
+		UserIcon
+
 	} from 'lucide-svelte';
 
+	import { clientTryCatch, validationTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+	import { toast } from '$lib/utils/toastUtils';
+	import type { AIModel, User } from '$lib/types/types';
+	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
+	import DmHeader from '$lib/features/dm/components/DMHeader.svelte';
+	import DmDrawer from '$lib/features/dm/components/DMDrawer.svelte';
+	import DmInput from '$lib/features/dm/components/DMInput.svelte';
+	import DmChat from '$lib/features/dm/components/DMChat.svelte';
+	import DMModule from '$lib/features/dm/components/DMModule.svelte';
+
 	// State
+	export let data;
+	let dmModule: DMModule;
+	let selectedUserId: string | null = null;
 	let loading = true;
 	let error = '';
 	let user: any = null;
 	let profile: any = null;
-	let userPosts: any[] = [];
+	let userPosts: PostWithInteractions[] = [];
 	let totalPosts = 0;
 	let innerWidth = 0;
-	let userProfilesMap: Map<string, any> = new Map();
+	let userProfilesMap: Map<string, Partial<User> | null> = new Map();
+	
+	// Fixed infinite scroll state variables
+	let profileLoadingMore = false;
+	let profileHasMore = true;
+	let profileCurrentOffset = 0;
+	const PROFILE_POSTS_PER_PAGE = 10;
+	
+	// NEW: Infinite scroll manager
+	let infiniteScrollManager: InfiniteScrollManager | null = null;
+
+	// Other state variables...
+	let postComposerRef: any;
+	let enableAutoTagging = true;
+	let taggingModel: AIModel | null = null;
+	let showPostModal = false;
+	let isCommentModalOpen = false;
+	let selectedPost: PostWithInteractions | null = null;
+	let loadingProfiles = false;
 
 	// Get username from URL
 	$: username = $page.params.username;
 
-	// Helper function to fetch user profiles (same as home page)
+	// Helper function to fetch user profiles (same as before)
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
-		try {
-			// Use batch endpoint for better performance
+		const result = await clientTryCatch((async () => {
 			const profiles = await getPublicUsersBatch(userIds);
-			
-			// Map profiles to userProfilesMap
 			profiles.forEach((profile) => {
 				if (profile && profile.id) {
 					userProfilesMap.set(profile.id, profile);
 				}
 			});
-
-			// For any missing profiles, mark as null
-			userIds.forEach(id => {
+			userIds.forEach((id) => {
 				if (!userProfilesMap.has(id)) {
 					userProfilesMap.set(id, null);
 				}
 			});
-
-			// Force reactivity update
 			userProfilesMap = new Map(userProfilesMap);
-		} catch (error) {
-			console.error('Error fetching user profiles:', error);
-			
-			// Fallback to individual requests if batch fails
-			const fetchPromises = userIds.map(async (userId) => {
-				try {
-					const profile = await getPublicUserData(userId);
-					userProfilesMap.set(userId, profile);
-				} catch (err) {
-					console.error(`Error fetching profile for user ${userId}:`, err);
-					userProfilesMap.set(userId, null);
-				}
-			});
+			return profiles;
+		})(), `Fetching user profiles for ${userIds.length} users`);
 
-			// Process in batches of 5
-			const batchSize = 5;
-			for (let i = 0; i < fetchPromises.length; i += batchSize) {
-				const batch = fetchPromises.slice(i, i + batchSize);
-				await Promise.all(batch);
-			}
-
-			userProfilesMap = new Map(userProfilesMap);
+		if (isFailure(result)) {
+			console.error('Error fetching user profiles:', result.error);
+			// Fallback logic...
 		}
 	}
+function toggleDM() {
+		showInput = !showInput;
+	}
 
-	async function fetchUserData() {
-		if (!username) return;
+	function startConversationWith(userId: string) {
+		selectedUserId = userId;
+		showInput = true;
+		
+		setTimeout(() => {
+			if (dmModule) {
+				dmModule.startNewConversation(userId);
+			}
+		}, 100);
+	}
 
-		loading = true;
+	// FIXED: Main fetch function
+	async function fetchUserData(offset = 0, append = false) {
+		if (!username || !browser) return;
+
+		if (!append) {
+			loading = true;
+			profileCurrentOffset = 0;
+			profileHasMore = true;
+			userPosts = [];
+		} else {
+			profileLoadingMore = true; // Set loading state for pagination
+		}
+		
 		error = '';
 
 		try {
-			// Use getPublicUserByUsername instead of getPublicUserData for username lookup
-			const userData = await getPublicUserByUsername(username);
+			console.log(`🔍 Fetching user data with offset: ${offset}, append: ${append}`);
 			
-			if (!userData) {
-				error = 'User not found';
-				return;
-			}
-
-			user = userData;
-			
-			// Now fetch posts using the posts API, filtering by this user
-			const response = await fetch(`/api/posts?limit=50&offset=0&user=${user.id}`);
+			const response = await fetch(`/api/users/username/${username}?offset=${offset}&limit=${PROFILE_POSTS_PER_PAGE}`);
 			const data = await response.json();
 
 			if (!response.ok) {
-				error = data.error || 'Failed to load posts';
+				error = data.error || 'Failed to load user data';
 				return;
 			}
 
-			userPosts = data.posts || [];
-			totalPosts = userPosts.length;
+			const actualData = data.data || data;
+			
+			if (!append) {
+				user = actualData.user;
+				userPosts = actualData.posts || [];
+			} else {
+				const newPosts = actualData.posts || [];
+				const existingIds = new Set(userPosts.map(p => p.id));
+				const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+				userPosts = [...userPosts, ...uniqueNewPosts];
+				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+			}
 
-			// Get unique user IDs from posts for profile enhancement
-			const userIds = [...new Set(userPosts.flatMap((post) => {
-				const ids = [post.user];
-				if (post.repostedBy && Array.isArray(post.repostedBy)) {
-					ids.push(...post.repostedBy);
-				}
-				return ids;
-			}))];
+			// FIXED: Update pagination state correctly
+			const newPostsCount = (actualData.posts || []).length;
+			
+			// Use server's hasMore if available, otherwise calculate
+			if (actualData.hasMore !== undefined) {
+				profileHasMore = actualData.hasMore;
+			} else {
+				profileHasMore = newPostsCount === PROFILE_POSTS_PER_PAGE;
+			}
+			
+			// Update offset for next request
+			profileCurrentOffset = append ? 
+				profileCurrentOffset + newPostsCount : 
+				newPostsCount;
+			
+			totalPosts = actualData.totalPosts || userPosts.length;
 
-			// Fetch user profiles for enhancement
+			console.log('📊 Profile data updated:', {
+				postsCount: userPosts.length,
+				newPostsCount,
+				hasMore: profileHasMore,
+				currentOffset: profileCurrentOffset,
+				totalPosts: totalPosts
+			});
+
+			// Fetch user profiles for enhanced display
+			const userIds = [
+				...new Set(
+					userPosts.flatMap((post) => {
+						const ids = [post.user];
+						if (post.repostedBy && Array.isArray(post.repostedBy)) {
+							ids.push(...post.repostedBy);
+						}
+						return ids;
+					})
+				)
+			];
+
 			if (userIds.length > 0) {
 				await fetchUserProfiles(userIds);
 			}
 
-			// Enhance posts with user profile data (same as home page)
+			// Enhance posts with profile data
 			userPosts = userPosts.map((post) => {
 				const authorProfile = userProfilesMap.get(post.user);
-
 				if (authorProfile) {
 					return {
 						...post,
@@ -146,17 +210,53 @@
 						author_avatar: authorProfile.avatar || post.author_avatar
 					};
 				}
-
 				return post;
 			});
-
+			
 		} catch (err) {
 			console.error('Error fetching user data:', err);
 			error = 'Failed to load user data';
 		} finally {
 			loading = false;
+			profileLoadingMore = false; // Always reset loading state
 		}
 	}
+
+	// NEW: Load more function for infinite scroll
+	async function loadMoreProfilePosts() {
+		if (profileLoadingMore || !profileHasMore) {
+			console.log('⛔ Load more skipped:', { profileLoadingMore, profileHasMore });
+			return;
+		}
+
+		console.log('🚀 Loading more profile posts from offset:', profileCurrentOffset);
+		await fetchUserData(profileCurrentOffset, true);
+	}
+
+	// NEW: Setup infinite scroll
+	function setupInfiniteScroll() {
+		if (infiniteScrollManager) {
+			infiniteScrollManager.destroy();
+		}
+
+		infiniteScrollManager = new InfiniteScrollManager({
+			loadMore: async () => {
+				try {
+					await loadMoreProfilePosts();
+				} catch (error) {
+					console.error('Error loading more profile posts:', error);
+				}
+			},
+			hasMore: () => profileHasMore,
+			isLoading: () => profileLoadingMore,
+			triggerId: 'profile-loading-trigger', // FIXED: Use correct trigger ID
+			debug: true // Enable debugging
+		});
+
+		infiniteScrollManager.setup();
+		return infiniteScrollManager;
+	}
+
 
 	function formatJoinDate(dateString: string): string {
 		const date = new Date(dateString);
@@ -166,52 +266,313 @@
 		});
 	}
 
-	// Handle post interactions (same as home page)
-	async function handlePostInteraction(
-		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
-	) {
-		const { postId, action } = event.detail;
+// Updated handlePostInteraction function for username page
+async function handlePostInteraction(
+	event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
+) {
+	const { postId, action } = event.detail;
 
-		if (!$currentUser && action !== 'share') {
-			alert('Please sign in to interact with posts');
-			return;
+	if (!$currentUser && action !== 'share') {
+		toast.warning('Please sign in to interact with posts');
+		return;
+	}
+
+	// Extract real post ID if it's a composite key (for consistency)
+	const realPostId = extractRealPostId(postId);
+	
+	console.log('Username page interaction:', {
+		receivedPostId: postId,
+		realPostId,
+		action,
+		isCompositeKey: postId !== realPostId
+	});
+
+	try {
+		// Apply optimistic updates first for better UX
+		let optimisticUpdate = null;
+		if (action === 'upvote') {
+			optimisticUpdate = applyOptimisticUpvote(realPostId);
+		} else if (action === 'repost') {
+			optimisticUpdate = applyOptimisticRepost(realPostId);
 		}
 
+		// Make API calls through store
 		try {
-			if (action === 'upvote') {
-				await postStore.toggleUpvote(postId);
-			} else if (action === 'repost') {
-				await postStore.toggleRepost(postId);
-			} else if (action === 'read') {
-				await postStore.markAsRead(postId);
-			} else if (action === 'share') {
-				await postStore.sharePost(postId);
+			switch (action) {
+				case 'upvote':
+					const upvoteResult = await postStore.toggleUpvote(realPostId);
+					updateLocalPostState(realPostId, 'upvote', upvoteResult);
+					break;
+
+				case 'repost':
+					const repostResult = await postStore.toggleRepost(realPostId);
+					updateLocalPostState(realPostId, 'repost', repostResult);
+					if (repostResult.reposted) {
+						toast.success('Post reposted!');
+					} else {
+						toast.info('Repost removed');
+					}
+					break;
+
+				case 'read':
+					await postStore.markAsRead(realPostId);
+					updateLocalPostState(realPostId, 'read', { hasRead: true });
+					break;
+
+				case 'share':
+					// Find the post to get username for share URL
+					const targetPost = userPosts.find(p => p.id === realPostId || 
+						(p.isRepost && p.originalPostId === realPostId));
+					
+					const shareResult = await postStore.sharePost(realPostId, targetPost?.author_username);
+					
+					// Handle share result with toast messages
+					if (shareResult.copied) {
+						if (shareResult.copyMethod === 'execCommand') {
+							toast.success('Link copied to clipboard!');
+						} else {
+							toast.success(shareResult.message || 'Link copied to clipboard!');
+						}
+					} else {
+						if (shareResult.shareCount !== undefined) {
+							toast.success('Post shared successfully!');
+							toast.warning('Automatic copy failed - please copy manually', 4000);
+							setTimeout(() => {
+								toast.info(`Copy: ${shareResult.url}`, 10000);
+							}, 1000);
+						} else {
+							toast.warning('Could not copy automatically');
+							setTimeout(() => {
+								toast.info(`Copy: ${shareResult.url}`, 10000);
+							}, 500);
+						}
+					}
+					break;
 			}
-		} catch (err) {
-			console.error(`Error ${action}ing post:`, err);
+
+			console.log(`${action} successful for post ${realPostId}`);
+
+		} catch (error) {
+			// Revert optimistic updates on error
+			if (optimisticUpdate) {
+				revertOptimisticUpdate(optimisticUpdate);
+			}
+			throw error;
+		}
+
+	} catch (err) {
+		console.error(`Error ${action}ing post:`, err);
+		
+		// Show specific error messages
+		switch (action) {
+			case 'upvote':
+				toast.error('Failed to upvote post');
+				break;
+			case 'repost':
+				toast.error('Failed to repost');
+				break;
+			case 'read':
+				toast.error('Failed to mark as read');
+				break;
+			case 'share':
+				toast.error('Failed to share post');
+				const postUrl = `${window.location.origin}/posts/${realPostId}`;
+				setTimeout(() => {
+					toast.info(`Manual copy: ${postUrl}`, 10000);
+				}, 500);
+				break;
+			default:
+				toast.error(`Failed to ${action} post`);
 		}
 	}
+}
+
+// Helper function to extract real post ID (same as other pages)
+function extractRealPostId(postId: string): string {
+	if (postId.startsWith('repost_')) {
+		const parts = postId.split('_');
+		if (parts.length >= 2) {
+			return parts[1];
+		}
+	}
+	return postId;
+}
+
+// Optimistic update functions for better UX
+function applyOptimisticUpvote(postId: string) {
+	const originalPosts = [...userPosts];
+	
+	userPosts = userPosts.map((post) => {
+		// Update both original posts and reposts of the same post
+		const shouldUpdate = post.id === postId || 
+							(post.isRepost && post.originalPostId === postId);
+		
+		if (shouldUpdate) {
+			return {
+				...post,
+				upvote: !post.upvote,
+				upvoteCount: post.upvote 
+					? (post.upvoteCount || 1) - 1 
+					: (post.upvoteCount || 0) + 1,
+				downvote: false // Remove downvote when upvoting
+			};
+		}
+		return post;
+	});
+	
+	return originalPosts;
+}
+
+function applyOptimisticRepost(postId: string) {
+	const originalPosts = [...userPosts];
+	
+	userPosts = userPosts.map((post) => {
+		const shouldUpdate = post.id === postId || 
+							(post.isRepost && post.originalPostId === postId);
+		
+		if (shouldUpdate) {
+			return {
+				...post,
+				repost: !post.repost,
+				repostCount: post.repost 
+					? (post.repostCount || 1) - 1 
+					: (post.repostCount || 0) + 1
+			};
+		}
+		return post;
+	});
+	
+	return originalPosts;
+}
+
+function revertOptimisticUpdate(originalPosts: PostWithInteractions[]) {
+	userPosts = originalPosts;
+}
+
+// Function to update local state with server response
+function updateLocalPostState(postId: string, action: string, data: any) {
+	userPosts = userPosts.map((post) => {
+		// Update both original posts and reposts of the same post
+		const shouldUpdate = post.id === postId || 
+							(post.isRepost && post.originalPostId === postId);
+		
+		if (!shouldUpdate) return post;
+
+		switch (action) {
+			case 'upvote':
+				return {
+					...post,
+					upvote: data.upvoted,
+					upvoteCount: data.upvoteCount,
+					downvote: data.upvoted ? false : post.downvote,
+					downvoteCount: data.downvoteCount || post.downvoteCount
+				};
+
+			case 'repost':
+				return {
+					...post,
+					repost: data.reposted,
+					repostCount: data.repostCount
+				};
+
+			case 'read':
+				return {
+					...post,
+					hasRead: data.hasRead
+				};
+
+			default:
+				return post;
+		}
+	});
+}
+
+// Add enhanced posts reactive statement for consistency with home page
+$: enhancedUserPosts = userPosts.map((post) => {
+	const authorProfile = userProfilesMap.get(post.user);
+	
+	// Ensure proper ID handling for interactions
+	const enhancedPost = {
+		...post,
+		// For reposts, keep the original ID separate from display ID
+		id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
+		_isRepost: post.isRepost,
+		_originalId: post.id,
+		_displayKey: post.isRepost 
+			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}` 
+			: post.id
+	};
+
+	if (authorProfile) {
+		return {
+			...enhancedPost,
+			authorProfile,
+			author_name: authorProfile.name || post.author_name,
+			author_username: authorProfile.username || post.author_username,
+			author_avatar: authorProfile.avatar || post.author_avatar
+		};
+	}
+
+	return enhancedPost;
+});
+
+// Update your posts rendering to use enhancedUserPosts
+// In your template:
+// {#each enhancedUserPosts as post (post._displayKey || post.id)}
+
+// Enhanced debugging
+$: {
+	console.log('🔄 USERNAME PAGE STATE:', {
+		userPostsLength: userPosts.length,
+		enhancedPostsLength: enhancedUserPosts?.length || 0,
+		profileHasMore,
+		profileLoadingMore,
+		profileCurrentOffset,
+		totalPosts,
+		observerAttached: infiniteScrollManager?.isObserverAttached
+	});
+}
 
 	async function handleQuote(
 		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
 	) {
 		if (!$currentUser) {
-			alert('Please sign in to quote posts');
+			toast.error('Please sign in to quote posts');
 			return;
 		}
 
 		const { content, attachments, quotedPostId } = event.detail;
 
-		try {
-			await postStore.quotePost(quotedPostId, content, attachments);
-			// Refresh the user's posts to show the new quote
-			await fetchUserData();
-		} catch (error) {
-			console.error('Failed to quote post:', error);
+		const result = await clientTryCatch(
+			postStore.quotePost(quotedPostId, content, attachments),
+			'Quote post operation'
+		);
+
+		if (result.success) {
+			const fetchResult = await clientTryCatch(fetchUserData(), 'Fetch user data');
+			
+			if (!fetchResult.success) {
+				console.error('Failed to refresh user data:', fetchResult.error);
+				toast.warning('Posted successfully but failed to refresh feed');
+			} else {
+				toast.success('Post quoted successfully!');
+			}
+		} else {
+			console.error('Failed to quote post:', result.error);
+			
+			let userMessage = 'Failed to quote post';
+			if (result.error.includes('not found')) {
+				userMessage = 'Original post not found';
+			} else if (result.error.includes('permission')) {
+				userMessage = 'You don\'t have permission to quote this post';
+			} else if (result.error.includes('too long')) {
+				userMessage = 'Your quote is too long';
+			}
+			
+			toast.error(userMessage);
 		}
 	}
 
-	// Handle post comments
 	function handleComment(event: CustomEvent<{ postId: string }>) {
 		if (!$currentUser) {
 			alert($t('generic.interactPrompt'));
@@ -219,23 +580,55 @@
 		}
 
 		console.log($t('posts.addingComment'), event.detail.postId);
-		// Implement comment handling here
 	}
 
 	function handleFollowUser(event: CustomEvent<{ userId: string }>) {
 		console.log($t('posts.followUser'), event.detail.userId);
 	}
 
-	onMount(() => {
-		fetchUserData();
+	onMount(async () => {
+		console.log('=== USERNAME PAGE MOUNT START ===');
+				const handleNewChat = () => {
+			// Handle new chat creation - maybe open user selection modal
+			console.log('New chat requested from DM module');
+			// You could open a user selection modal here
+		};
+
+		document.addEventListener('newChat', handleNewChat);
+		
+		// Fetch initial data
+		if (!user && username) {
+			await fetchUserData(0, false);
+		}
+
+		// NEW: Setup infinite scroll with retry
+		console.log('🔧 Setting up infinite scroll...');
+		setupInfiniteScroll();
+		
+		// Try to attach with retries
+		if (infiniteScrollManager) {
+			infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+				if (success) {
+					console.log('✅ Infinite scroll ready!');
+				} else {
+					console.error('❌ Failed to setup infinite scroll');
+				}
+			});
+		}
+
+		console.log('=== USERNAME PAGE MOUNT END ===');
+
+		// Cleanup function
+		return () => {
+			document.removeEventListener('newChat', handleNewChat);
+			console.log('🧹 Cleaning up infinite scroll...');
+			if (infiniteScrollManager) {
+				infiniteScrollManager.destroy();
+				infiniteScrollManager = null;
+			}
+		};
 	});
-
-	// Refetch data when username changes
-	$: if (username) {
-		fetchUserData();
-	}
 </script>
-
 <svelte:window bind:innerWidth />
 
 <svelte:head>
@@ -245,26 +638,24 @@
 
 <div class="profile-page-container" class:hide-left-sidebar={!$showSidenav}>
 	<!-- Left Sidebar Component -->
-	{#if $showSidenav && innerWidth > 768}
+	{#if $showSidenav}
 		<div class="sidebar-container">
-			<PostSidenav {innerWidth} />
+			<PostSidenav />
 		</div>
 	{/if}
 
 	<!-- Main Content -->
 	<div class="profile-content-wrapper">
 		{#if loading}
-			<div class="loading-container">
-				<Loader2 class="loading-spinner" size={32} />
-				<p>{$t('generic.loading')}</p>
+			
+			<div class="trigger-loader" in:fly={{ y: 200, duration: 300 }} out:fly={{ y: -200, duration: 200 }} >
 			</div>
 		{:else if error}
 			<div class="error-container">
 				<h1>{$t('posts.errorExpression')}</h1>
-				<!-- <p>{error}</p> -->
-				 <p>
+				<p>
 					{$t('posts.historySignin')}
-				 </p>
+				</p>
 				<button class="btn btn-primary" on:click={() => goto('/')}>
 					{$t('generic.back')}
 				</button>
@@ -272,9 +663,7 @@
 		{:else if user}
 			<!-- Sticky Header with Back Button -->
 			<div class="profile-sticky-header">
-				<button class="back-button" on:click={() => goto('/')}>
-					<ArrowLeft size={20} />
-				</button>
+				<BackButton />
 				<div class="header-username">
 					<span class="username-text">{user.name || user.username}</span>
 					<span class="post-count">{totalPosts} {$t('posts.posts')} </span>
@@ -356,7 +745,7 @@
 									</button>
 
 									<button class="btn btn-secondary">
-										<User size={16} />
+										<UserIcon size={16} />
 										{$t('profile.follow')}
 									</button>
 
@@ -365,7 +754,7 @@
 									</button>
 								{:else}
 									<button class="btn btn-primary" on:click={() => goto('/login')}>
-										<User size={16} />
+										<UserIcon size={16} />
 										{$t('generic.signin')}
 									</button>
 								{/if}
@@ -383,112 +772,95 @@
 							<button class="tab"> {$t('posts.likes')}</button>
 						</nav>
 					</div>
-					<!-- <section class="posts-section">
-            {#if $postStore.posts.length > 0}
-              {#each $postStore.posts as post (post.id)}
-                {#if post.isRepost}
-                  <RepostCard 
-                    {post}
-                    repostedBy={{
-                      id: post.repostedBy_id || user.id,
-                      username: post.repostedBy_username || user.username,
-                      name: post.repostedBy_name || user.name,
-                      avatar: post.repostedBy_avatar || user.avatar
-                    }}
-                    on:interact={handlePostInteraction}
-                    on:comment={handleComment}
-                    on:quote={handleQuote}
-                  />
-                {:else if post.quotedPost}
-                  <PostQuoteCard 
-                    {post}
-                    quotedBy={{
-                      id: post.user,
-                      username: post.author_username,
-                      name: post.author_name,
-                      avatar: post.author_avatar
-                    }}
-                    on:interact={handlePostInteraction}
-                    on:comment={handleComment}
-                    on:quote={handleQuote}
-                  />
-                {:else}
-                  <PostCard 
-                    {post}
-                    isRepost={false}
-                    on:interact={handlePostInteraction}
-                    on:comment={handleComment}
-                    on:quote={handleQuote}
-                  />
-                {/if}
-              {/each}
-            {:else}
-              <div class="empty-state">
-                <p>No posts yet</p>
-              </div>
-            {/if}
-          </section> -->
+
 					<!-- Posts Feed -->
-					<section class="posts-section">
+					<section class="posts-section" in:fly={{ y:200, duration: 300 }} out:fly={{ y: -200, duration: 200 }}>
 						{#if $currentUser}
 							<!-- Full post list for authenticated users -->
-							{#if $postStore.posts.length > 0}
-								{#each $postStore.posts as post (post.id)}
-									{#if post.repost}
-										<RepostCard
-											{post}
-											repostedBy={{
-												id: $currentUser?.id,
-												username: $currentUser?.username,
-												name: $currentUser?.name,
-												avatar: $currentUser?.avatar
-											}}
-											
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-										/>
-									{:else if post.quotedPost}
-										<PostQuoteCard
-											{post}
-											quotedBy={{
-												id: post.user,
-												username: post.author_username,
-												name: post.author_name,
-												avatar: post.author_avatar
-											}}
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-										/>
-									{:else}
-										<PostCard
-											{post}
-											isRepost={false}
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-										/>
-									{/if}
-								{/each}
+							{#if userPosts.length > 0}
+{#each enhancedUserPosts as post (post._displayKey || post.id)}
+  {#if post._isRepost}
+    <RepostCard
+      {post}
+      repostedBy={{
+        id: post.repostedBy_id,
+        username: post.repostedBy_username,
+        name: post.repostedBy_name,
+        avatar: post.repostedBy_avatar
+      }}
+      on:interact={handlePostInteraction}
+      on:comment={handleComment}
+      on:quote={handleQuote}
+    />
+  {:else if post.quotedPost}
+    <PostQuoteCard
+      {post}
+      on:interact={handlePostInteraction}
+      on:comment={handleComment}
+      on:quote={handleQuote}
+    />
+  {:else}
+    <PostCard
+      {post}
+      on:interact={handlePostInteraction}
+      on:comment={handleComment}
+      on:quote={handleQuote}
+    />
+  {/if}
+{/each}
+
+								<!-- FIXED: Loading trigger for authenticated users with more posts -->
+								{#if profileHasMore}
+									<div 
+										id="profile-loading-trigger" 
+										class="loading-trigger"
+									>
+										{#if profileLoadingMore}
+											<div class="loading-trigger">							
+
+											<div class="loading-indicator">
+												<div class="trigger-loader" in:fly={{ y:50, duration: 300 }} out:fly={{ y: -50, duration: 200 }} ></div>
+												<!-- <span>Loading more posts...</span> -->
+											</div>
+											</div>
+										{:else}
+												<div class="loading-trigger">							
+													<div class="loading-indicator">
+												<div class="trigger-loader" in:fly={{ y:50, duration: 300 }} out:fly={{ y: -50, duration: 200 }} ></div>
+												<!-- <span>Loading more posts...</span> -->
+												</div>
+												</div>	
+										{/if}
+									</div>
+								{:else if userPosts.length > 0}
+									<div class="end-of-posts" style="text-center: center; padding: 20px; color: #666;">
+										<p>No more posts to load</p>
+										<p>Total posts: {userPosts.length}</p>
+									</div>
+								{/if}
 							{:else}
 								<div class="empty-state">
-									<p>{$t('posts.noPosts')}</p>
+									<p>{user?.username || 'This user'} hasn't posted anything yet.</p>
 								</div>
 							{/if}
 						{:else}
 							<!-- Limited preview for non-authenticated users -->
 							<div class="auth-required-posts">
-								{#if $postStore.posts.length > 0}
+								{#if userPosts.length > 0}
 									<!-- Show just 2 posts as a preview -->
-									{#each $postStore.posts.slice(0, 2) as post (post.id)}
+									{#each userPosts.slice(0, 2) as post (post.id)}
 										<PostCard
 											{post}
-											isRepost={false}
+											isRepost={post.isRepost || false}
 											isPreview={true}
-											on:interact={handlePostInteraction}
+											on:upvote={handlePostInteraction}
+											on:downvote={handlePostInteraction}
+											on:repost={handlePostInteraction}
 											on:comment={handleComment}
+											on:share={handlePostInteraction}
 											on:quote={handleQuote}
+											on:read={handlePostInteraction}
+											on:follow={handleFollowUser}
 										/>
 									{/each}
 
@@ -500,23 +872,14 @@
 												{$t('posts.seeAll')}
 												{totalPosts}
 												{$t('posts.postsFrom')}
-												{user.name || user.username}
+												{user?.name || user?.username}
 											</h3>
 											<p>{$t('posts.historySignin')}</p>
-											<div class="auth-buttons">
-												<a href="/signup?ref=profile&username={username}" class="btn btn-primary"
-													>Sign Up</a
-												>
-												<a
-													href="/login?redirect={encodeURIComponent($page.url.pathname)}"
-													class="btn btn-secondary">Log In</a
-												>
-											</div>
 										</div>
 									</div>
 								{:else}
 									<div class="empty-state">
-										<p>{$t('posts.noPosts')}</p>
+										<p>{user?.username || 'This user'} hasn't posted anything yet.</p>
 									</div>
 								{/if}
 							</div>
@@ -527,19 +890,72 @@
 		{/if}
 	</div>
 
-	<!-- Right Sidebar Component -->
-	{#if innerWidth > 1200}
+	{#if $showInput}
+		<div class="dm-container" in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }} >
+			<DMModule 
+				bind:this={dmModule}
+				user={data.user}
+				initialConversationId={selectedUserId}
+				height="80vh"
+				showDrawerToggle={true}
+			/>
+		</div>
+	{/if}
+
+	{#if $showRightSidenav}
 		<div class="sidebar-container">
 			<PostTrends on:followUser={handleFollowUser} />
 		</div>
 	{/if}
 </div>
 
+<!-- FIXED: Debug panel with correct variable references -->
+{#if browser}
+<div style="position: fixed; bottom: 10px; left: 10px; background: #333; color: white; padding: 15px; font-size: 12px; z-index: 9999; border-radius: 8px; min-width: 250px; max-width: 300px;">
+	<div style="font-weight: bold; margin-bottom: 8px;">🔄 Profile Scroll Debug</div>
+	<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
+	<div>Attached: {infiniteScrollManager?.isObserverAttached ? '✅' : '❌'}</div>
+	<div>Trigger: {typeof document !== 'undefined' && document?.getElementById('profile-loading-trigger') ? '✅' : '❌'}</div>
+	<div>Has More: {profileHasMore ? '✅' : '❌'}</div>
+	<div>Loading: {profileLoadingMore ? '⏳' : '💤'}</div>
+	<div>Posts: {userPosts.length}/{totalPosts}</div>
+	<div>User: {$currentUser ? '✅' : '❌'}</div>
+	<div style="margin-top: 10px;">
+		<button 
+			style="background: #007bff; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;"
+			on:click={async () => {
+				console.log('🚀 Manual trigger profile loadMore');
+				await loadMoreProfilePosts();
+			}}
+		>
+			Manual Load More
+		</button>
+	</div>
+	<div style="margin-top: 5px;">
+		<button 
+			style="background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;"
+			on:click={() => {
+				console.log('🔧 Re-setup infinite scroll');
+				setupInfiniteScroll();
+				if (infiniteScrollManager) {
+					infiniteScrollManager.attachWithRetry();
+				}
+			}}
+		>
+			Re-setup Scroll
+		</button>
+	</div>
+</div>
+{/if}
+
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
+	/* HTML: <div class="loader"></div> */
+/* HTML: <div class="loader"></div> */
+
 	/* New layout styles */
 	.profile-page-container {
 		display: flex;
@@ -552,18 +968,35 @@
 	.profile-page-container.hide-left-sidebar .profile-content-wrapper {
 		margin-left: 0;
 	}
-
+	.loading-trigger {
+		height: 100px !important;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		text-align: center;
+		position: relative;
+	}
 	.sidebar-container {
 		position: sticky;
 		top: 0;
 		height: 100vh;
 	}
-
+	.dm-container {
+		position: absolute !important;
+		bottom: 0;
+		display: flex;
+		width: 100%;
+		max-width: 1000px;
+		border-radius: 2rem;
+		border: 1px solid var(--line-color);
+		padding: 1rem;
+		backdrop-filter: blur(10px);
+	}
 	.profile-content-wrapper {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
+		justify-content: center;
 		align-items: center;
 		max-width: 800px;
 	}
@@ -580,20 +1013,6 @@
 		background: var(--primary-color);
 		backdrop-filter: blur(10px);
 		-webkit-backdrop-filter: blur(10px);
-	}
-
-	.back-button {
-		background: none;
-		border: none;
-		color: var(--text-color);
-		cursor: pointer;
-		padding: 0.5rem;
-		border-radius: 50%;
-		margin-right: 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: background-color 0.2s;
 	}
 
 	.back-button:hover {
@@ -617,8 +1036,6 @@
 		font-size: 0.8rem;
 		color: var(--placeholder-color);
 	}
-
-
 
 	@keyframes spin {
 		from {
@@ -688,7 +1105,6 @@
 		border: 4px solid var(--bg-color);
 		object-fit: cover;
 	}
-
 
 	.user-name {
 		font-size: 2rem;
@@ -806,7 +1222,39 @@
 		border-radius: 12px;
 		overflow: hidden;
 	}
-
+	.loading-trigger {
+		height: 200px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		text-align: center;
+		margin-bottom: 100px !important;
+	}
+.trigger-loader {
+  width: 20px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--tertiary-color);
+  box-shadow: 0 0 0 0 var(--tertiary-color);
+  animation: l2 1.5s infinite linear;
+  position: relative;
+}
+.trigger-loader:before,
+.trigger-loader:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--tertiary-color);
+  animation: inherit;
+  animation-delay: -0.5s;
+}
+.trigger-loader:after {
+  animation-delay: -1s;
+}
+@keyframes l2 {
+    100% {box-shadow: 0 0 0 40px var(--primary-color)}
+}
 	.tab-nav {
 		display: flex;
 		padding: 0 24px;

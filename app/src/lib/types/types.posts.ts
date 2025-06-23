@@ -31,15 +31,18 @@ export interface Post {
 	sharedBy: string[];
 	quotedBy: string[];
 	readBy: string[];
+	 agents?: string[];
 	upvoteCount: number;
 	downvoteCount: number;
 	repostCount: number;
 	commentCount: number;
 	shareCount: number;
+	tagCount: number;
 	quoteCount: number;
 	readCount: number;
 	parent: string;
 	children: string[];
+	tags: string[];
 	quotedPost: string;
 	created: string;
 	updated: string;
@@ -53,9 +56,18 @@ export interface PostWithInteractions extends Post {
 	hasRead: boolean;
 	share: boolean;
 	quote: boolean;
+	agents?: string[];
+	tagCount: number;
+	tags: string[];
 	author_name?: string;
 	author_username?: string;
 	author_avatar?: string;
+	isRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
 	expand?: {
 		user?: {
 			id: string;
@@ -77,3 +89,10 @@ export interface PostWithInteractionsExtended extends PostWithInteractions {
 	};
 }
 
+export type PostStoreState = {
+	posts: PostWithInteractions[];
+	loading: boolean;
+	loadingMore: boolean;
+	hasMore: boolean;
+	error: string | null;
+};

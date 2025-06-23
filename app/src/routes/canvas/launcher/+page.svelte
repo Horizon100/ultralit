@@ -2,15 +2,7 @@
 	import { onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
 	import { fade, slide, fly } from 'svelte/transition';
-	import {
-		X,
-		Bot,
-		Wrench,
-		Workflow,
-		Target,
-		Settings2,
-		SquareMenu,
-	} from 'lucide-svelte';
+	import { X, Bot, Wrench, Workflow, Target, Settings2, SquareMenu } from 'lucide-svelte';
 	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 	import ModelsConfig from '$lib/features/ai/components/models/ModelsConfig.svelte';
 	import ActionsConfig from '$lib/features/canvas/components/ActionsConfig.svelte';
@@ -33,8 +25,6 @@
 	$: user = $currentUser;
 
 	$: isNarrowScreen = innerWidth <= 700;
-
-
 
 	onMount(() => {
 		user = $currentUser;
@@ -162,7 +152,7 @@
 					{#key overlayContent}
 						<div in:fly={{ x: -50, duration: 300, delay: 300 }} out:fly={{ x: 50, duration: 300 }}>
 							{#if overlayContent === 'Agents'}
-								<AgentsConfig />
+								<ModelsConfig />
 							{:else if overlayContent === 'Models'}
 								<ModelsConfig />
 							{:else if overlayContent === 'Actions'}
@@ -183,10 +173,10 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}	
+	}
 	.layout {
 		position: absolute;
 		justify-content: center;

@@ -1,19 +1,19 @@
 // src/routes/api/ide/folders/+server.ts
-import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+export const GET: RequestHandler = async ({ url, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
 
-	try {
 		const repositoryId = url.searchParams.get('repository');
 		const branch = url.searchParams.get('branch');
 
 		if (!repositoryId || !branch) {
-			return json({ error: 'Repository ID and branch are required' }, { status: 400 });
+			throw new Error('Repository ID and branch are required');
 		}
 
 		// Verify repository access
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const isPublic = repository.isPublic;
 
 		if (!isOwner && !isCollaborator && !isPublic) {
-			return json({ error: 'Access denied' }, { status: 403 });
+			throw new Error('Access denied');
 		}
 
 		// Fetch folders
@@ -32,24 +32,20 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			sort: 'path,name'
 		});
 
-		return json(folders);
-	} catch (error) {
-		console.error('Error fetching folders:', error);
-		return json({ error: 'Failed to fetch folders' }, { status: 500 });
-	}
-};
+		return folders;
+	}, 'Failed to fetch folders', 500);
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+export const POST: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
 
-	try {
 		const data = await request.json();
 
 		// Validate required fields
 		if (!data.name || !data.repository || !data.branch) {
-			return json({ error: 'Name, repository, and branch are required' }, { status: 400 });
+			throw new Error('Name, repository, and branch are required');
 		}
 
 		// Verify repository access
@@ -58,7 +54,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const isCollaborator = repository.repoCollaborators?.includes(locals.user.id);
 
 		if (!isOwner && !isCollaborator) {
-			return json({ error: 'Access denied' }, { status: 403 });
+			throw new Error('Access denied');
 		}
 
 		// Create folder
@@ -71,9 +67,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			createdBy: locals.user.id
 		});
 
-		return json(folder);
-	} catch (error) {
-		console.error('Error creating folder:', error);
-		return json({ error: 'Failed to create folder' }, { status: 500 });
-	}
-};
+		return folder;
+	}, 'Failed to create folder', 500);

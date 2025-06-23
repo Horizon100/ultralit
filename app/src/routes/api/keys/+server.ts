@@ -1,9 +1,8 @@
-// src/routes/api/keys/+server.ts - UPDATED VERSION
-import { json } from '@sveltejs/kit';
+// src/routes/api/keys/+server.ts
 import type { RequestHandler } from './$types';
-import type { Cookies } from '@sveltejs/kit';
 import * as pbServer from '$lib/server/pocketbase';
 import { CryptoService } from '$lib/utils/crypto';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 // Type for API keys object
 interface ApiKeys {
@@ -15,214 +14,164 @@ interface ApiKeys {
 	[key: string]: string | undefined;
 }
 
-// Helper function to fetch and decrypt user API keys
-async function getUserKeys(userId: string): Promise<ApiKeys> {
-	try {
-		const userData = await pbServer.pb.collection('users').getOne(userId);
-		if (!userData.api_keys) {
-			return {}; // Return empty object if no keys found
-		}
+// GET endpoint to fetch API keys
+export const GET: RequestHandler = async ({ cookies }) =>
+	apiTryCatch(async () => {
+		// Restore auth inline
+		const authCookie = cookies.get('pb_auth');
+		if (!authCookie) throw new Error('User not authenticated');
 
-		const decryptedKeys = await CryptoService.decrypt(userData.api_keys, userId);
-		const keys = JSON.parse(decryptedKeys);
-
-		// Ensure we return a proper object with provider keys
-		return typeof keys === 'object' && keys !== null ? keys : {};
-	} catch (error) {
-		console.error('Error fetching API keys:', error);
-		// If decryption fails, return empty object instead of throwing
-		return {};
-	}
-}
-
-// Helper function to restore authentication from cookies
-function restoreAuth(cookies: Cookies): boolean {
-	const authCookie = cookies.get('pb_auth');
-	if (authCookie) {
+		let authData;
 		try {
-			const authData = JSON.parse(authCookie);
+			authData = JSON.parse(authCookie);
 			pbServer.pb.authStore.save(authData.token, authData.model);
-			return true;
-		} catch (_) {
-			console.error('Error parsing auth cookie');
-			return false;
-		}
-	}
-	return false;
-}
-
-// GET endpoint to fetch API keys for the authenticated user
-export const GET: RequestHandler = async ({ cookies }) => {
-	// Restore auth from cookies
-	restoreAuth(cookies);
-
-	try {
-		// Check if user is authenticated
-		if (!pbServer.pb.authStore.isValid) {
-			return json({ error: 'User not authenticated' }, { status: 401 });
+		} catch {
+			throw new Error('Failed to parse auth cookie');
 		}
 
+		if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 		const user = pbServer.pb.authStore.model;
-		if (!user) {
-			return json({ error: 'User not found' }, { status: 401 });
+		if (!user) throw new Error('User not found');
+
+		// Fetch and decrypt keys inline
+		let userData;
+		try {
+			userData = await pbServer.pb.collection('users').getOne(user.id);
+		} catch {
+			// User might not have keys yet
+			return {};
 		}
 
-		// Use the helper function to get keys
-		const userKeys = await getUserKeys(user.id);
+		if (!userData.api_keys) return {};
 
-		// Log for debugging
-		console.log('Retrieved keys for user:', user.id, 'Keys:', Object.keys(userKeys));
+		let decryptedKeys;
+		try {
+			decryptedKeys = await CryptoService.decrypt(userData.api_keys, user.id);
+		} catch {
+			// Fail silently on decryption error
+			return {};
+		}
 
-		return json(userKeys);
-	} catch (error) {
-		console.error('API keys GET error:', error);
-		return json(
-			{
-				error: 'Failed to fetch API keys',
-				details: error instanceof Error ? error.message : String(error)
-			},
-			{ status: 500 }
-		);
-	}
-};
+		const keys = JSON.parse(decryptedKeys);
+		return typeof keys === 'object' && keys !== null ? keys : {};
+	}, 'Failed to fetch API keys', 500);
 
 // POST endpoint to save API keys
-export const POST: RequestHandler = async ({ request, cookies }) => {
-	// Restore auth from cookies
-	restoreAuth(cookies);
+export const POST: RequestHandler = async ({ request, cookies }) =>
+	apiTryCatch(async () => {
+		// Restore auth inline
+		const authCookie = cookies.get('pb_auth');
+		if (!authCookie) throw new Error('User not authenticated');
 
-	try {
-		// Check if user is authenticated
-		if (!pbServer.pb.authStore.isValid) {
-			return json({ error: 'User not authenticated' }, { status: 401 });
+		let authData;
+		try {
+			authData = JSON.parse(authCookie);
+			pbServer.pb.authStore.save(authData.token, authData.model);
+		} catch {
+			throw new Error('Failed to parse auth cookie');
 		}
 
+		if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 		const user = pbServer.pb.authStore.model;
-		if (!user) {
-			return json({ error: 'User not found' }, { status: 401 });
-		}
+		if (!user) throw new Error('User not found');
 
 		const data = await request.json();
 		const { service, key } = data;
 
 		if (!service || key === undefined) {
-			return json({ error: 'Missing service or key' }, { status: 400 });
+			throw new Error('Missing service or key');
 		}
 
-		// Validate provider name
 		const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
 		if (!validProviders.includes(service)) {
-			return json({ error: `Invalid provider: ${service}` }, { status: 400 });
+			throw new Error(`Invalid provider: ${service}`);
 		}
 
-		// Get current keys or initialize empty object
+		// Fetch existing keys
+		let userData;
 		let currentKeys: ApiKeys = {};
 		try {
-			currentKeys = await getUserKeys(user.id);
-		} catch (_) {
-			// If keys don't exist yet, we'll create them with an empty object
-			console.warn('No existing keys found, creating new key storage');
+			userData = await pbServer.pb.collection('users').getOne(user.id);
+			if (userData.api_keys) {
+				const decryptedKeys = await CryptoService.decrypt(userData.api_keys, user.id);
+				currentKeys = JSON.parse(decryptedKeys);
+			}
+		} catch {
+			// no existing keys, continue with empty object
 		}
 
-		// Update the specific provider key
 		currentKeys[service] = key;
 
-		// Log for debugging
-		console.log(`Saving API key for ${service}, user: ${user.id}`);
-		console.log('Updated keys object:', Object.keys(currentKeys));
-
-		// Encrypt and save the entire keys object
 		const encryptedData = await CryptoService.encrypt(JSON.stringify(currentKeys), user.id);
 		await pbServer.pb.collection('users').update(user.id, {
 			api_keys: encryptedData,
 			keys_updated: new Date().toISOString()
 		});
 
-		return json({
+		return {
 			success: true,
 			service,
 			message: `${service} API key saved successfully`
-		});
-	} catch (error) {
-		console.error('API keys POST error:', error);
-		return json(
-			{
-				error: 'Failed to save API key',
-				details: error instanceof Error ? error.message : String(error)
-			},
-			{ status: 500 }
-		);
-	}
-};
+		};
+	}, 'Failed to save API key', 500);
 
 // DELETE endpoint to remove an API key
-export const DELETE: RequestHandler = async ({ cookies, url }) => {
-	// Restore auth from cookies
-	restoreAuth(cookies);
+export const DELETE: RequestHandler = async ({ cookies, url }) =>
+	apiTryCatch(async () => {
+		// Restore auth inline
+		const authCookie = cookies.get('pb_auth');
+		if (!authCookie) throw new Error('User not authenticated');
 
-	try {
-		// Check if user is authenticated
-		if (!pbServer.pb.authStore.isValid) {
-			return json({ error: 'User not authenticated' }, { status: 401 });
+		let authData;
+		try {
+			authData = JSON.parse(authCookie);
+			pbServer.pb.authStore.save(authData.token, authData.model);
+		} catch {
+			throw new Error('Failed to parse auth cookie');
 		}
 
+		if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 		const user = pbServer.pb.authStore.model;
-		if (!user) {
-			return json({ error: 'User not found' }, { status: 401 });
-		}
+		if (!user) throw new Error('User not found');
 
-		// Get service from URL parameter
 		const service = url.searchParams.get('service');
-
 		if (!service) {
-			return json({ error: 'Missing service parameter' }, { status: 400 });
+			throw new Error('Missing service parameter');
 		}
 
-		// Get current keys
+		// Fetch existing keys
+		let userData;
 		let currentKeys: ApiKeys = {};
 		try {
-			currentKeys = await getUserKeys(user.id);
-		} catch (_) {
-			return json({ error: 'No API keys found to delete' }, { status: 404 });
+			userData = await pbServer.pb.collection('users').getOne(user.id);
+			if (userData.api_keys) {
+				const decryptedKeys = await CryptoService.decrypt(userData.api_keys, user.id);
+				currentKeys = JSON.parse(decryptedKeys);
+			}
+		} catch {
+			throw new Error('No API keys found to delete');
 		}
 
-		// Check if the key exists
 		if (!(service in currentKeys)) {
-			return json({ error: `No API key found for service: ${service}` }, { status: 404 });
+			throw new Error(`No API key found for service: ${service}`);
 		}
 
-		// Remove the key
 		delete currentKeys[service];
 
-		// Log for debugging
-		console.log(`Deleting API key for ${service}, user: ${user.id}`);
-		console.log('Remaining keys:', Object.keys(currentKeys));
-
-		// Encrypt and save the updated keys object
 		const encryptedData = await CryptoService.encrypt(JSON.stringify(currentKeys), user.id);
 		await pbServer.pb.collection('users').update(user.id, {
 			api_keys: encryptedData,
 			keys_updated: new Date().toISOString()
 		});
 
-		return json({
+		return {
 			success: true,
 			service,
 			message: `${service} API key deleted successfully`
-		});
-	} catch (error) {
-		console.error('API keys DELETE error:', error);
-		return json(
-			{
-				error: 'Failed to delete API key',
-				details: error instanceof Error ? error.message : String(error)
-			},
-			{ status: 500 }
-		);
-	}
-};
+		};
+	}, 'Failed to delete API key', 500);
 
-// Handle OPTIONS request for CORS
+// OPTIONS handler for CORS (no changes needed)
 export const OPTIONS: RequestHandler = async () => {
 	return new Response(null, {
 		headers: {

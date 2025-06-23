@@ -2,9 +2,8 @@
 	import { gameStore } from '$lib/stores/gameStore';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import type { GameHero } from '$lib/types/types.game';
-import { writable } from 'svelte/store';
-import { addHeroSearchOpen } from '$lib/stores/addHeroStore';
-
+	import { writable } from 'svelte/store';
+	import { addHeroSearchOpen } from '$lib/stores/addHeroStore';
 
 	let isSearchOpen = false;
 	let searchQuery = '';
@@ -45,102 +44,105 @@ import { addHeroSearchOpen } from '$lib/stores/addHeroStore';
 			isSearching = false;
 		}
 	}
-async function addHeroToOrganization(hero: GameHero) {
-	if (!$gameStore.currentOrganization) {
-		console.error('[ADD_HERO] No current organization');
-		return;
-	}
-
-	try {
-		console.log('[ADD_HERO] Adding hero to organization:', hero.id);
-
-		// Check if hero is already a member
-		const currentMembers = $gameStore.currentOrganization.members || [];
-		if (currentMembers.includes(hero.id)) {
-			alert('Hero is already a member of this organization');
+	async function addHeroToOrganization(hero: GameHero) {
+		if (!$gameStore.currentOrganization) {
+			console.error('[ADD_HERO] No current organization');
 			return;
 		}
 
-		// Add hero to members array
-		const updatedMembers = [...currentMembers, hero.id];
+		try {
+			console.log('[ADD_HERO] Adding hero to organization:', hero.id);
 
-		// Update organization members
-		const response = await fetch(`/api/game/organizations/${$gameStore.currentOrganization.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				members: updatedMembers
-			})
-		});
+			// Check if hero is already a member
+			const currentMembers = $gameStore.currentOrganization.members || [];
+			if (currentMembers.includes(hero.id)) {
+				alert('Hero is already a member of this organization');
+				return;
+			}
 
-		if (response.ok) {
-			console.log('[ADD_HERO] Organization updated successfully');
+			// Add hero to members array
+			const updatedMembers = [...currentMembers, hero.id];
 
-			// Update the hero's organizations and currentOrganization
-			const heroOrganizations = hero.organization || [];
-			const updatedHeroOrganizations = heroOrganizations.includes($gameStore.currentOrganization.id) 
-				? heroOrganizations 
-				: [...heroOrganizations, $gameStore.currentOrganization.id];
-
-			const heroUpdateResponse = await fetch(`/api/game/heroes/update/${hero.id}`, {
+			// Update organization members
+			const response = await fetch(`/api/game/organizations/${$gameStore.currentOrganization.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					organization: updatedHeroOrganizations,
-					currentOrganization: $gameStore.currentOrganization.id
+					members: updatedMembers
 				})
 			});
 
-			if (heroUpdateResponse.ok) {
-				console.log('[ADD_HERO] Hero updated successfully');
-				
-				// Update the store
-				gameStore.update(state => ({
-					...state,
-					currentOrganization: state.currentOrganization ? {
-						...state.currentOrganization,
-						members: updatedMembers
-					} : null
-				}));
+			if (response.ok) {
+				console.log('[ADD_HERO] Organization updated successfully');
 
-				closeSearch();
-				alert('Hero added successfully!');
+				// Update the hero's organizations and currentOrganization
+				const heroOrganizations = hero.organization || [];
+				const updatedHeroOrganizations = heroOrganizations.includes(
+					$gameStore.currentOrganization.id
+				)
+					? heroOrganizations
+					: [...heroOrganizations, $gameStore.currentOrganization.id];
+
+				const heroUpdateResponse = await fetch(`/api/game/heroes/update/${hero.id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						organization: updatedHeroOrganizations,
+						currentOrganization: $gameStore.currentOrganization.id
+					})
+				});
+
+				if (heroUpdateResponse.ok) {
+					console.log('[ADD_HERO] Hero updated successfully');
+
+					// Update the store
+					gameStore.update((state) => ({
+						...state,
+						currentOrganization: state.currentOrganization
+							? {
+									...state.currentOrganization,
+									members: updatedMembers
+								}
+							: null
+					}));
+
+					closeSearch();
+					alert('Hero added successfully!');
+				} else {
+					const heroError = await heroUpdateResponse.json();
+					console.error('[ADD_HERO] Failed to update hero:', heroError);
+					alert('Added to organization but failed to update hero');
+				}
 			} else {
-				const heroError = await heroUpdateResponse.json();
-				console.error('[ADD_HERO] Failed to update hero:', heroError);
-				alert('Added to organization but failed to update hero');
+				const errorData = await response.json();
+				console.error('[ADD_HERO] Failed to update organization:', errorData);
+				alert(`Failed to add hero: ${errorData.error || 'Unknown error'}`);
 			}
-		} else {
-			const errorData = await response.json();
-			console.error('[ADD_HERO] Failed to update organization:', errorData);
-			alert(`Failed to add hero: ${errorData.error || 'Unknown error'}`);
+		} catch (error) {
+			console.error('[ADD_HERO] Add hero error:', error);
+			alert('Failed to add hero. Please try again.');
 		}
-	} catch (error) {
-		console.error('[ADD_HERO] Add hero error:', error);
-		alert('Failed to add hero. Please try again.');
 	}
-}
 
-function openSearch() {
-    isSearchOpen = true;
-    addHeroSearchOpen.set(true);
-    setTimeout(() => {
-        const input = document.querySelector('.hero-search-input') as HTMLInputElement;
-        if (input) input.focus();
-    }, 100);
-}
+	function openSearch() {
+		isSearchOpen = true;
+		addHeroSearchOpen.set(true);
+		setTimeout(() => {
+			const input = document.querySelector('.hero-search-input') as HTMLInputElement;
+			if (input) input.focus();
+		}, 100);
+	}
 
-
-function closeSearch() {
-    isSearchOpen = false;
-    searchQuery = '';
-    searchResults = [];
-    addHeroSearchOpen.set(false);
-}
+	function closeSearch() {
+		isSearchOpen = false;
+		searchQuery = '';
+		searchResults = [];
+		addHeroSearchOpen.set(false);
+	}
 	function handleKeydown(event: KeyboardEvent) {
 		// Prevent all keyboard events from propagating to game navigation
 		event.stopPropagation();
-		
+
 		if (event.key === 'Escape') {
 			closeSearch();
 		}
@@ -149,7 +151,7 @@ function closeSearch() {
 	function handleInputKeydown(event: KeyboardEvent) {
 		// Prevent game navigation shortcuts when typing in search
 		event.stopPropagation();
-		
+
 		if (event.key === 'Escape') {
 			closeSearch();
 		}
@@ -172,9 +174,16 @@ function closeSearch() {
 			<div class="search-header">
 				<h4>Add Hero to {$gameStore.currentOrganization?.name || 'Organization'}</h4>
 				<button class="close-btn" on:click={closeSearch} title="Close">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<line x1="18" y1="6" x2="6" y2="18"/>
-						<line x1="6" y1="6" x2="18" y2="18"/>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
 					</svg>
 				</button>
 			</div>
@@ -196,7 +205,7 @@ function closeSearch() {
 
 			{#if searchQuery.length >= 2}
 				<div class="search-results">
-                            <button on:click={() => alert('TEST BUTTON WORKS!')}>TEST OUTSIDE LOOP</button>
+					<button on:click={() => alert('TEST BUTTON WORKS!')}>TEST OUTSIDE LOOP</button>
 
 					{#if searchResults.length > 0}
 						{#each searchResults as hero}
@@ -206,10 +215,12 @@ function closeSearch() {
 										{#if hero.expand?.user}
 											{@const avatarUrl = getAvatarUrl(hero.expand.user)}
 											{#if avatarUrl}
-												<img src="{avatarUrl}" alt="Avatar" />
+												<img src={avatarUrl} alt="Avatar" />
 											{:else}
 												<div class="avatar-placeholder">
-													{(hero.expand.user.name || hero.expand.user.username || 'U').charAt(0).toUpperCase()}
+													{(hero.expand.user.name || hero.expand.user.username || 'U')
+														.charAt(0)
+														.toUpperCase()}
 												</div>
 											{/if}
 										{:else}
@@ -227,24 +238,27 @@ function closeSearch() {
 										</div>
 									</div>
 								</div>
-                                <button 
-                                class="add-btn" 
-                                on:click={(event) => {
-                                    console.log('[ADD_HERO] Add button clicked for hero:', hero.id);
-                                    console.log('[ADD_HERO] Event:', event);
-                                    console.log('[ADD_HERO] Button disabled state:', $gameStore.currentOrganization?.members?.includes(hero.id));
-                                    event.stopPropagation();
-                                    event.preventDefault();
-                                    addHeroToOrganization(hero);
-                                }}
-                                disabled={$gameStore.currentOrganization?.members?.includes(hero.id)}
-                                >
-                                {#if $gameStore.currentOrganization?.members?.includes(hero.id)}
-                                    Already Member
-                                {:else}
-                                    Add
-                                {/if}
-                                </button>
+								<button
+									class="add-btn"
+									on:click={(event) => {
+										console.log('[ADD_HERO] Add button clicked for hero:', hero.id);
+										console.log('[ADD_HERO] Event:', event);
+										console.log(
+											'[ADD_HERO] Button disabled state:',
+											$gameStore.currentOrganization?.members?.includes(hero.id)
+										);
+										event.stopPropagation();
+										event.preventDefault();
+										addHeroToOrganization(hero);
+									}}
+									disabled={$gameStore.currentOrganization?.members?.includes(hero.id)}
+								>
+									{#if $gameStore.currentOrganization?.members?.includes(hero.id)}
+										Already Member
+									{:else}
+										Add
+									{/if}
+								</button>
 							</div>
 						{/each}
 					{:else if !isSearching}
@@ -254,20 +268,18 @@ function closeSearch() {
 					{/if}
 				</div>
 			{:else if searchQuery.length > 0}
-				<div class="search-hint">
-					Type at least 2 characters to search...
-				</div>
+				<div class="search-hint">Type at least 2 characters to search...</div>
 			{/if}
 		</div>
 	{/if}
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}		
-    .add-hero-container {
+	}
+	.add-hero-container {
 		position: relative;
 	}
 
@@ -282,24 +294,24 @@ function closeSearch() {
 		border-radius: 0.375rem;
 		font-size: 0.875rem;
 		transition: background-color 0.2s;
-        z-index: 9999;
+		z-index: 9999;
 	}
 
 	.add-hero-btn:hover {
 		background: var(--primary-color);
 	}
 
-.hero-search-panel {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: var(--bg-color);
-    border: 2px solid var(--line-color);
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    width: 22rem;
-    z-index: 1000;
-}
+	.hero-search-panel {
+		position: absolute;
+		top: 0;
+		right: 0;
+		background: var(--bg-color);
+		border: 2px solid var(--line-color);
+		border-radius: 0.5rem;
+		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+		width: 22rem;
+		z-index: 1000;
+	}
 
 	.search-header {
 		display: flex;
@@ -307,7 +319,7 @@ function closeSearch() {
 		align-items: center;
 		padding: 1rem;
 		background: var(--bg-color);
-        height: 2rem;
+		height: 2rem;
 	}
 
 	.search-header h4 {
@@ -333,21 +345,21 @@ function closeSearch() {
 
 	.search-input-container {
 		position: relative;
-        display: flex;
-        justify-content: center;
-        margin-bottom: 1rem;
+		display: flex;
+		justify-content: center;
+		margin-bottom: 1rem;
 	}
 
 	.hero-search-input {
 		width: calc(100% - 4rem);
-        border-radius: 1rem;
+		border-radius: 1rem;
 		border: 1px solid var(--line-color);
-        background: var(--secondary-color);
-        padding: 1rem;
+		background: var(--secondary-color);
+		padding: 1rem;
 		font-size: 0.875rem;
 		outline: none;
 		transition: border-color 0.2s;
-        color: var(--text-color);
+		color: var(--text-color);
 	}
 
 	.hero-search-input:focus {
@@ -372,8 +384,12 @@ function closeSearch() {
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	.search-results {
@@ -385,19 +401,18 @@ function closeSearch() {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-        padding: 1rem;
-        background: var(--bg-color);
+		padding: 1rem;
+		background: var(--bg-color);
 		transition: background-color 0.2s;
-        cursor: pointer;
+		cursor: pointer;
 	}
 
 	.hero-result:hover {
-        background: var(--primary-color);
-        & .hero-name,
-        & .hero-meta {
-            color: var(--text-color);
-        }
-
+		background: var(--primary-color);
+		& .hero-name,
+		& .hero-meta {
+			color: var(--text-color);
+		}
 	}
 
 	.hero-result:last-child {
@@ -460,13 +475,13 @@ function closeSearch() {
 		border: none;
 		border-radius: 0.25rem;
 		font-size: 0.75rem;
-    pointer-events: auto !important;
+		pointer-events: auto !important;
 		transition: background-color 0.2s;
 	}
 
 	.add-btn:hover:not(:disabled) {
 		background: var(--tertiary-color);
-        color: var(--primary-color);
+		color: var(--primary-color);
 	}
 
 	.add-btn:disabled {
@@ -474,7 +489,8 @@ function closeSearch() {
 		cursor: not-allowed;
 	}
 
-	.no-results, .search-hint {
+	.no-results,
+	.search-hint {
 		padding: 1rem;
 		text-align: center;
 		color: #64748b;

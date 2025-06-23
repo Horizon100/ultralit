@@ -1,3 +1,5 @@
+import { fetchTryCatch, isSuccess, type Result } from '$lib/utils/errorUtils';
+
 /**
  * Interface for invitation code records
  */
@@ -15,51 +17,43 @@ export interface InvitationCode {
  * @param code The invitation code to validate
  * @returns The invitation code record if valid, null if invalid
  */
-export async function validateInvitationCode(code: string): Promise<InvitationCode | null> {
-	try {
-		const response = await fetch(`/api/verify/invitation-codes/validate`, {
+export async function validateInvitationCode(code: string): Promise<Result<InvitationCode | null, string>> {
+	const result = await fetchTryCatch<{ success: boolean; invitationCode?: InvitationCode; message?: string }>(
+		`/api/verify/invitation-codes/validate`,
+		{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ code })
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.message || 'Failed to validate invitation code');
 		}
+	);
 
-		const data = await response.json();
-		return data.success ? data.invitationCode : null;
-	} catch (error) {
-		console.error('Error validating invitation code:', error);
-		return null;
+	if (isSuccess(result)) {
+		const invitationCode = result.data.success ? result.data.invitationCode || null : null;
+		return { data: invitationCode, error: null, success: true };
 	}
+
+	return { data: null, error: result.error, success: false };
 }
 
 /**
  * Mark an invitation code as used
  * @param codeId The ID of the invitation code
  * @param userId The ID of the user who used the code
- * @returns True if successful, false otherwise
+ * @returns Result object with success status
  */
-export async function markInvitationCodeAsUsed(codeId: string, userId: string): Promise<boolean> {
-	try {
-		// Updated to use the new endpoint path
-		const response = await fetch(`/api/verify/invitation-codes/${codeId}/use`, {
+export async function markInvitationCodeAsUsed(codeId: string, userId: string): Promise<Result<boolean, string>> {
+	const result = await fetchTryCatch<{ success: boolean; message?: string }>(
+		`/api/verify/invitation-codes/${codeId}/use`,
+		{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ userId })
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.message || 'Failed to mark invitation code as used');
 		}
+	);
 
-		const data = await response.json();
-		return data.success;
-	} catch (error) {
-		console.error('Error marking invitation code as used:', error);
-		return false;
+	if (isSuccess(result)) {
+		return { data: result.data.success, error: null, success: true };
 	}
+
+	return { data: null, error: result.error, success: false };
 }

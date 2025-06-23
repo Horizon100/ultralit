@@ -199,7 +199,8 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.actions-config {

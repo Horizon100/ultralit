@@ -1,8 +1,16 @@
 import { pocketbaseUrl } from '$lib/pocketbase';
 import type { UserProfile, PublicUserProfile } from '$lib/types/types';
+import { fetchTryCatch, clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 
 const userProfileCache: Map<string, UserProfile | null> = new Map();
 const publicUserProfileCache: Map<string, PublicUserProfile | null> = new Map();
+
+type ApiResponse<T> = {
+	success?: boolean;
+	user?: T;
+	data?: T;
+	error?: string;
+};
 
 /**
  * Fetches user profile data, with caching
@@ -15,48 +23,48 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		return userProfileCache.get(userId) || null;
 	}
 
-	try {
-		// Use the correct API endpoint that matches your other functions
-		const response = await fetch(`/api/users/${userId}`, {
+	const result = await clientTryCatch(
+		fetchTryCatch<ApiResponse<any>>(`/api/users/${userId}`, {
 			method: 'GET',
 			credentials: 'include'
-		});
+		}).then(fetchResult => {
+			if (isFailure(fetchResult)) {
+				throw new Error(fetchResult.error);
+			}
+			return fetchResult.data;
+		}),
+		'Error fetching user profile'
+	);
 
-		if (!response.ok) {
-			userProfileCache.set(userId, null);
-			return null;
-		}
-
-		const data = await response.json();
-
-		// Handle the response structure consistently
-		const userData = data.user || data;
-
-		if (!userData || !userData.id) {
-			userProfileCache.set(userId, null);
-			return null;
-		}
-
-		// Create profile object from user data
-		const profile: UserProfile = {
-			id: userData.id,
-			name: userData.name || userData.username || 'User', // Fixed redundant assignment
-			username: userData.username,
-			email: userData.email,
-			avatarUrl: userData.avatar
-				? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
-				: ''
-		};
-
-		// Store in cache
-		userProfileCache.set(userId, profile);
-		return profile;
-	} catch (error) {
-		console.error('Error fetching user profile:', error);
+	if (isFailure(result)) {
 		userProfileCache.set(userId, null);
 		return null;
 	}
+
+	// Handle the response structure consistently
+	const userData = result.data.user || result.data;
+
+	if (!userData || !userData.id) {
+		userProfileCache.set(userId, null);
+		return null;
+	}
+
+	// Create profile object from user data
+	const profile: UserProfile = {
+		id: userData.id,
+		name: userData.name || userData.username || 'User',
+		username: userData.username,
+		email: userData.email,
+		avatarUrl: userData.avatar
+			? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
+			: ''
+	};
+
+	// Store in cache
+	userProfileCache.set(userId, profile);
+	return profile;
 }
+
 /**
  * Fetches detailed public user profile with additional fields
  * @param userId - The ID of the user to fetch
@@ -68,34 +76,35 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
 		return publicUserProfileCache.get(userId) ?? null;
 	}
 
-	try {
-		// Use the new public profile endpoint
-		const response = await fetch(`/api/users/${userId}/public`, {
+	const result = await clientTryCatch(
+		fetchTryCatch<PublicUserProfile>(`/api/users/${userId}/public`, {
 			method: 'GET',
 			credentials: 'include'
-		});
+		}).then(fetchResult => {
+			if (isFailure(fetchResult)) {
+				throw new Error(fetchResult.error);
+			}
+			return fetchResult.data;
+		}),
+		'Error fetching public user profile'
+	);
 
-		if (!response.ok) {
-			publicUserProfileCache.set(userId, null);
-			return null;
-		}
-
-		const data = await response.json();
-
-		// Create profile object with processed avatar URL
-		const publicProfile: PublicUserProfile = {
-			...data,
-			avatarUrl: data.avatar ? `${pocketbaseUrl}/api/files/users/${data.id}/${data.avatar}` : null
-		};
-
-		// Store in cache
-		publicUserProfileCache.set(userId, publicProfile);
-		return publicProfile;
-	} catch (error) {
-		console.error('Error fetching public user profile:', error);
+	if (isFailure(result)) {
 		publicUserProfileCache.set(userId, null);
 		return null;
 	}
+
+	// Create profile object with processed avatar URL
+	const publicProfile: PublicUserProfile = {
+		...result.data,
+		avatarUrl: result.data.avatar 
+			? `${pocketbaseUrl}/api/files/users/${result.data.id}/${result.data.avatar}` 
+			: null
+	};
+
+	// Store in cache
+	publicUserProfileCache.set(userId, publicProfile);
+	return publicProfile;
 }
 
 /**
@@ -111,60 +120,69 @@ export async function getPublicUserProfiles(
 
 	// If we have uncached IDs, fetch them
 	if (uncachedIds.length > 0) {
-		try {
-			// Try to use batch endpoint
-			const response = await fetch(`/api/users/public/batch`, {
+		// Try to use batch endpoint first
+		const batchResult = await clientTryCatch(
+			fetchTryCatch<PublicUserProfile[]>(`/api/users/public/batch`, {
 				method: 'POST',
 				credentials: 'include',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({ userIds: uncachedIds })
-			});
-
-			if (response.ok) {
-				const profiles = await response.json();
-
-				// Process and cache each profile
-				profiles.forEach((profile: PublicUserProfile & { avatar?: string }) => {
-					// Process avatar URL if needed
-					if (profile.avatar) {
-						profile.avatarUrl = `${pocketbaseUrl}/api/files/users/${profile.id}/${profile.avatar}`;
-					} else {
-						profile.avatarUrl = null;
+			}).then(fetchResult => {
+				if (isFailure(fetchResult)) {
+					// Check if it's a 404 (endpoint doesn't exist)
+					if (fetchResult.error.includes('404') || fetchResult.error.includes('not found')) {
+						throw new Error('BATCH_NOT_FOUND');
 					}
-
-					publicUserProfileCache.set(profile.id, profile);
-				});
-			} else if (response.status === 404) {
-				// Fallback: If batch endpoint doesn't exist, fetch individually
-				console.log('Batch endpoint not found, falling back to individual fetches');
-
-				// Fetch profiles individually (limit concurrency to 3)
-				const fetchProfile = async (userId: string) => {
-					try {
-						const profile = await getPublicUserProfile(userId);
-						return { userId, profile };
-					} catch (err) {
-						console.error(`Error fetching profile for ${userId}:`, err);
-						return { userId, profile: null };
-					}
-				};
-
-				// Process in batches of 3 to avoid too many concurrent requests
-				const batchSize = 3;
-				for (let i = 0; i < uncachedIds.length; i += batchSize) {
-					const batch = uncachedIds.slice(i, i + batchSize);
-					const results = await Promise.all(batch.map(fetchProfile));
-
-					results.forEach(({ userId, profile }) => {
-						publicUserProfileCache.set(userId, profile);
-					});
+					throw new Error(fetchResult.error);
 				}
+				return fetchResult.data;
+			}),
+			'Error batch fetching public user profiles'
+		);
+
+		if (isSuccess(batchResult)) {
+			// Process and cache each profile
+			batchResult.data.forEach((profile: PublicUserProfile & { avatar?: string }) => {
+				// Process avatar URL if needed
+				if (profile.avatar) {
+					profile.avatarUrl = `${pocketbaseUrl}/api/files/users/${profile.id}/${profile.avatar}`;
+				} else {
+					profile.avatarUrl = null;
+				}
+
+				publicUserProfileCache.set(profile.id, profile);
+			});
+		} else if (batchResult.error === 'BATCH_NOT_FOUND') {
+			// Fallback: If batch endpoint doesn't exist, fetch individually
+			console.log('Batch endpoint not found, falling back to individual fetches');
+
+			// Fetch profiles individually (limit concurrency to 3)
+			const fetchProfile = async (userId: string) => {
+				const profileResult = await clientTryCatch(
+					getPublicUserProfile(userId),
+					`Error fetching profile for ${userId}`
+				);
+				
+				return { 
+					userId, 
+					profile: isSuccess(profileResult) ? profileResult.data : null 
+				};
+			};
+
+			// Process in batches of 3 to avoid too many concurrent requests
+			const batchSize = 3;
+			for (let i = 0; i < uncachedIds.length; i += batchSize) {
+				const batch = uncachedIds.slice(i, i + batchSize);
+				const results = await Promise.all(batch.map(fetchProfile));
+
+				results.forEach(({ userId, profile }) => {
+					publicUserProfileCache.set(userId, profile);
+				});
 			}
-		} catch (error) {
-			console.error('Error batch fetching public user profiles:', error);
 		}
+		// If other error types, we just continue without caching
 	}
 
 	// Return all requested profiles from cache

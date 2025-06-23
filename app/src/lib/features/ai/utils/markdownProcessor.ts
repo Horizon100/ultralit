@@ -1,6 +1,12 @@
 // markdownProcessor.ts
 import { marked } from 'marked';
-
+import { 
+	clientTryCatch, 
+	validationTryCatch,
+	isSuccess, 
+	isFailure,
+	unwrapOr
+} from '$lib/utils/errorUtils';
 marked.setOptions({
 	gfm: true,
 	breaks: true
@@ -34,48 +40,7 @@ function safeStringify(value: unknown): string {
 	return String(value);
 }
 
-/**
- * Highlight JSON with syntax colors
- * @param code The JSON string to highlight
- * @returns HTML with syntax highlighting spans
- */
-function highlightJSON(code: string): string {
-	try {
-		const tokenTypes = {
-			punctuation: /[{}[\],]/g,
-			key: /"([^"]+)"(?=\s*:)/g,
-			string: /"([^"]+)"/g,
-			number: /-?\d+\.?\d*/g,
-			boolean: /\b(true|false)\b/g,
-			null: /\bnull\b/g
-		};
 
-		let highlightedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-		// Highlight keys
-		highlightedCode = highlightedCode.replace(tokenTypes.key, '<span class="json-key">$&</span>');
-
-		// Highlight string values
-		highlightedCode = highlightedCode.replace(tokenTypes.string, (match) => {
-			if (!match.match(/"([^"]+)"(?=\s*:)/)) {
-				return '<span class="json-string">' + match + '</span>';
-			}
-			return match;
-		});
-
-		// Highlight other tokens
-		highlightedCode = highlightedCode
-			.replace(tokenTypes.number, '<span class="json-number">$&</span>')
-			.replace(tokenTypes.boolean, '<span class="json-boolean">$&</span>')
-			.replace(tokenTypes.null, '<span class="json-null">$&</span>')
-			.replace(tokenTypes.punctuation, '<span class="json-punctuation">$&</span>');
-
-		return highlightedCode;
-	} catch (error) {
-		console.error('Error highlighting JSON:', error);
-		return code;
-	}
-}
 
 /**
  * Highlight code based on language
@@ -134,100 +99,6 @@ renderer.codespan = function ({ text }: { text: string }) {
 // Set the custom renderer
 marked.setOptions({ renderer });
 
-/**
- * Process markdown content to HTML with enhanced code handling
- * @param content Markdown content to process
- * @returns HTML content
- */
-export async function processMarkdown(content: string): Promise<string> {
-	try {
-		// Normalize line endings
-		const normalizedContent = content.replace(/\r\n/g, '\n');
-
-		// Convert markdown to HTML
-		const processed = await marked(normalizedContent);
-
-		return (
-			processed
-				// Ensure proper spacing around headers
-				.replace(/(<h[1-6]>)/g, '\n$1')
-				.replace(/(<\/h[1-6]>)/g, '$1\n')
-				// Proper list formatting
-				.replace(/(<[uo]l>)/g, '\n$1')
-				.replace(/(<\/[uo]l>)/g, '$1\n')
-				// Proper code block formatting
-				.replace(/(<pre[^>]*>)/g, '\n$1')
-				.replace(/(<\/pre>)/g, '$1\n')
-				// Clean up excessive newlines
-				.replace(/\n{3,}/g, '\n\n')
-		);
-	} catch (error) {
-		console.error('Error processing markdown:', error);
-		return content || '';
-	}
-}
-
-/**
- * Extract clean text content from HTML, with special handling for code blocks
- * @param html HTML content to extract text from
- * @returns Plain text representation
- */
-export function extractPlainTextFromHtml(html: string): string {
-	if (!html) return '';
-
-	try {
-		// Create a temporary DOM element
-		const tempElement = document.createElement('div');
-		tempElement.innerHTML = html;
-
-		// Handle code blocks specially - use the original code stored in data attributes
-		const codeBlocks = tempElement.querySelectorAll('pre[data-raw-code], code[data-raw-code]');
-		codeBlocks.forEach((block) => {
-			const rawCode = block.getAttribute('data-raw-code');
-			if (rawCode) {
-				// Replace the content with the decoded original
-				try {
-					const decodedCode = decodeURIComponent(rawCode);
-
-					// Create a text node containing the code
-					const textNode = document.createTextNode(decodedCode);
-
-					// If it's a pre element, wrap in backticks for code blocks
-					if (block.tagName.toLowerCase() === 'pre') {
-						// Clear existing content
-						block.innerHTML = '';
-
-						// Add a line before and after with triple backticks
-						block.appendChild(document.createTextNode('```\n'));
-						block.appendChild(textNode);
-						block.appendChild(document.createTextNode('\n```'));
-					} else {
-						// For inline code, replace with backtick-wrapped text
-						const parent = block.parentNode;
-						if (parent) {
-							const inlineCode = document.createTextNode('`' + decodedCode + '`');
-							parent.replaceChild(inlineCode, block);
-						}
-					}
-				} catch (e) {
-					console.error('Error decoding code block:', e);
-				}
-			}
-		});
-
-		// Format tables for plain text
-		const tables = tempElement.querySelectorAll('table');
-		tables.forEach((table) => {
-			formatTableForPlainText(table as HTMLTableElement);
-		});
-
-		return tempElement.textContent || '';
-	} catch (error) {
-		console.error('Error extracting plain text:', error);
-		// Fallback to simple HTML stripping if the DOM approach fails
-		return html.replace(/<[^>]*>/g, '');
-	}
-}
 
 /**
  * Format a table element for plain text representation
@@ -256,6 +127,8 @@ function formatTableForPlainText(table: HTMLTableElement): void {
 	table.appendChild(document.createTextNode('\n\n'));
 }
 
+
+
 /**
  * Svelte action to add copy buttons to code blocks
  * @param node The element to attach the action to
@@ -263,35 +136,58 @@ function formatTableForPlainText(table: HTMLTableElement): void {
  */
 export function enhanceCodeBlocks(node: HTMLElement) {
 	function initCopyButtons() {
+		const validationResult = validationTryCatch(() => {
+			if (!node) {
+				throw new Error('Node is required');
+			}
+			return node;
+		}, 'node validation');
+
+		if (isFailure(validationResult)) {
+			console.error('Error initializing copy buttons:', validationResult.error);
+			return;
+		}
+
 		const codeBlocks = node.querySelectorAll('pre:not(.copy-enabled)');
 
 		codeBlocks.forEach((pre) => {
-			pre.classList.add('copy-enabled');
+			const setupResult = validationTryCatch(() => {
+				pre.classList.add('copy-enabled');
 
-			// Make sure the pre element has position relative
-			if (getComputedStyle(pre).position === 'static') {
-				(pre as HTMLElement).style.position = 'relative';
+				// Make sure the pre element has position relative
+				if (getComputedStyle(pre).position === 'static') {
+					(pre as HTMLElement).style.position = 'relative';
+				}
+
+				// Create the copy button
+				const copyButton = document.createElement('button');
+				copyButton.className = 'copy-code-button';
+				copyButton.innerHTML =
+					'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+				copyButton.title = 'Copy to clipboard';
+
+				// Style the button
+				copyButton.style.position = 'absolute';
+				copyButton.style.top = '0.5rem';
+				copyButton.style.right = '0.5rem';
+				copyButton.style.padding = '0.35rem';
+				copyButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+				copyButton.style.border = 'none';
+				copyButton.style.borderRadius = '3px';
+				copyButton.style.color = 'rgba(255, 255, 255, 0.6)';
+				copyButton.style.cursor = 'pointer';
+				copyButton.style.opacity = '0';
+				copyButton.style.transition = 'opacity 0.2s';
+
+				return { pre, copyButton };
+			}, 'copy button setup');
+
+			if (isFailure(setupResult)) {
+				console.error('Error setting up copy button:', setupResult.error);
+				return;
 			}
 
-			// Create the copy button
-			const copyButton = document.createElement('button');
-			copyButton.className = 'copy-code-button';
-			copyButton.innerHTML =
-				'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-			copyButton.title = 'Copy to clipboard';
-
-			// Style the button
-			copyButton.style.position = 'absolute';
-			copyButton.style.top = '0.5rem';
-			copyButton.style.right = '0.5rem';
-			copyButton.style.padding = '0.35rem';
-			copyButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-			copyButton.style.border = 'none';
-			copyButton.style.borderRadius = '3px';
-			copyButton.style.color = 'rgba(255, 255, 255, 0.6)';
-			copyButton.style.cursor = 'pointer';
-			copyButton.style.opacity = '0';
-			copyButton.style.transition = 'opacity 0.2s';
+			const { copyButton } = setupResult.data;
 
 			// Add the button to the pre element
 			pre.appendChild(copyButton);
@@ -310,10 +206,12 @@ export function enhanceCodeBlocks(node: HTMLElement) {
 				event.preventDefault();
 				event.stopPropagation();
 
-				try {
-					// Get the code element
+				// Extract code content
+				const codeExtractionResult = validationTryCatch(() => {
 					const code = pre.querySelector('code');
-					if (!code) return;
+					if (!code) {
+						throw new Error('No code element found');
+					}
 
 					// Try to get raw code from data attribute first
 					const rawCode = pre.getAttribute('data-raw-code');
@@ -326,10 +224,28 @@ export function enhanceCodeBlocks(node: HTMLElement) {
 						textToCopy = code.innerText;
 					}
 
-					// Copy to clipboard
-					await navigator.clipboard.writeText(textToCopy);
+					if (!textToCopy) {
+						throw new Error('No code content to copy');
+					}
 
-					// Visual feedback
+					return textToCopy;
+				}, 'code extraction');
+
+				if (isFailure(codeExtractionResult)) {
+					console.error('Error extracting code:', codeExtractionResult.error);
+					return;
+				}
+
+				const textToCopy = codeExtractionResult.data;
+
+				// Copy to clipboard using error utilities
+				const copyResult = await clientTryCatch(
+					navigator.clipboard.writeText(textToCopy),
+					'Copying to clipboard'
+				);
+
+				if (isSuccess(copyResult)) {
+					// Visual feedback for success
 					const originalText = copyButton.innerHTML;
 					copyButton.innerHTML =
 						'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
@@ -340,8 +256,9 @@ export function enhanceCodeBlocks(node: HTMLElement) {
 						copyButton.innerHTML = originalText;
 						copyButton.style.backgroundColor = '';
 					}, 1500);
-				} catch (error) {
-					console.error('Failed to copy code:', error);
+				} else {
+					// Visual feedback for error
+					console.error('Failed to copy code:', copyResult.error);
 					copyButton.innerHTML =
 						'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 					copyButton.style.backgroundColor = 'var(--error-color, #f44336)';
@@ -360,46 +277,228 @@ export function enhanceCodeBlocks(node: HTMLElement) {
 	initCopyButtons();
 
 	// Set up observer to handle dynamically added code blocks
-	const observer = new MutationObserver((mutations) => {
-		let shouldInit = false;
+	const observerSetupResult = validationTryCatch(() => {
+		const observer = new MutationObserver((mutations) => {
+			let shouldInit = false;
 
-		for (const mutation of mutations) {
-			if (mutation.type === 'childList' && mutation.addedNodes.length) {
-				for (const node of mutation.addedNodes) {
-					if (node.nodeType === Node.ELEMENT_NODE) {
-						const element = node as HTMLElement;
-						if (element.tagName === 'PRE' || element.querySelector('pre')) {
-							shouldInit = true;
-							break;
+			for (const mutation of mutations) {
+				if (mutation.type === 'childList' && mutation.addedNodes.length) {
+					for (const node of mutation.addedNodes) {
+						if (node.nodeType === Node.ELEMENT_NODE) {
+							const element = node as HTMLElement;
+							if (element.tagName === 'PRE' || element.querySelector('pre')) {
+								shouldInit = true;
+								break;
+							}
 						}
 					}
 				}
+
+				if (shouldInit) break;
 			}
 
-			if (shouldInit) break;
-		}
+			if (shouldInit) {
+				initCopyButtons();
+			}
+		});
 
-		if (shouldInit) {
-			initCopyButtons();
-		}
-	});
+		// Start observing
+		observer.observe(node, { childList: true, subtree: true });
+		return observer;
+	}, 'mutation observer setup');
 
-	// Start observing
-	observer.observe(node, { childList: true, subtree: true });
+	const observer = unwrapOr(observerSetupResult, null);
 
 	// Return action object with cleanup function
 	return {
 		destroy() {
 			// Stop observing
-			observer.disconnect();
+			if (observer) {
+				observer.disconnect();
+			}
 
 			// Remove copy buttons
-			const copyButtons = node.querySelectorAll('.copy-code-button');
-			copyButtons.forEach((button) => {
-				button.remove();
-			});
+			const cleanup = validationTryCatch(() => {
+				const copyButtons = node.querySelectorAll('.copy-code-button');
+				copyButtons.forEach((button) => {
+					button.remove();
+				});
+			}, 'cleanup copy buttons');
+
+			if (isFailure(cleanup)) {
+				console.error('Error during cleanup:', cleanup.error);
+			}
 		}
 	};
+}
+
+/**
+ * Highlight JSON with syntax colors
+ * @param code The JSON string to highlight
+ * @returns HTML with syntax highlighting spans
+ */
+function highlightJSON(code: string): string {
+	const highlightResult = validationTryCatch(() => {
+		if (!code || typeof code !== 'string') {
+			throw new Error('Valid code string is required');
+		}
+
+		const tokenTypes = {
+			punctuation: /[{}[\],]/g,
+			key: /"([^"]+)"(?=\s*:)/g,
+			string: /"([^"]+)"/g,
+			number: /-?\d+\.?\d*/g,
+			boolean: /\b(true|false)\b/g,
+			null: /\bnull\b/g
+		};
+
+		let highlightedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		// Highlight keys
+		highlightedCode = highlightedCode.replace(tokenTypes.key, '<span class="json-key">$&</span>');
+
+		// Highlight string values
+		highlightedCode = highlightedCode.replace(tokenTypes.string, (match) => {
+			if (!match.match(/"([^"]+)"(?=\s*:)/)) {
+				return '<span class="json-string">' + match + '</span>';
+			}
+			return match;
+		});
+
+		// Highlight other tokens
+		highlightedCode = highlightedCode
+			.replace(tokenTypes.number, '<span class="json-number">$&</span>')
+			.replace(tokenTypes.boolean, '<span class="json-boolean">$&</span>')
+			.replace(tokenTypes.null, '<span class="json-null">$&</span>')
+			.replace(tokenTypes.punctuation, '<span class="json-punctuation">$&</span>');
+
+		return highlightedCode;
+	}, 'JSON highlighting');
+
+	return unwrapOr(highlightResult, code);
+}
+
+/**
+ * Process markdown content to HTML with enhanced code handling
+ * @param content Markdown content to process
+ * @returns HTML content
+ */
+export async function processMarkdown(content: string): Promise<string> {
+	// Validate input
+	const validation = validationTryCatch(() => {
+		if (typeof content !== 'string') {
+			throw new Error('Content must be a string');
+		}
+		return content;
+	}, 'markdown input validation');
+
+	if (isFailure(validation)) {
+		console.error('Error validating markdown input:', validation.error);
+		return '';
+	}
+
+	// Process markdown
+	const processResult = await clientTryCatch(
+		(async () => {
+			// Normalize line endings
+			const normalizedContent = content.replace(/\r\n/g, '\n');
+
+			// Convert markdown to HTML
+			const processed = await marked(normalizedContent);
+
+			return (
+				processed
+					// Ensure proper spacing around headers
+					.replace(/(<h[1-6]>)/g, '\n$1')
+					.replace(/(<\/h[1-6]>)/g, '$1\n')
+					// Proper list formatting
+					.replace(/(<[uo]l>)/g, '\n$1')
+					.replace(/(<\/[uo]l>)/g, '$1\n')
+					// Proper code block formatting
+					.replace(/(<pre[^>]*>)/g, '\n$1')
+					.replace(/(<\/pre>)/g, '$1\n')
+					// Clean up excessive newlines
+					.replace(/\n{3,}/g, '\n\n')
+			);
+		})(),
+		'Processing markdown'
+	);
+
+	return unwrapOr(processResult, content || '');
+}
+
+/**
+ * Extract clean text content from HTML, with special handling for code blocks
+ * @param html HTML content to extract text from
+ * @returns Plain text representation
+ */
+export function extractPlainTextFromHtml(html: string): string {
+	if (!html) return '';
+
+	const extractionResult = validationTryCatch(() => {
+		// Create a temporary DOM element
+		const tempElement = document.createElement('div');
+		tempElement.innerHTML = html;
+
+		// Handle code blocks specially - use the original code stored in data attributes
+		const codeBlocks = tempElement.querySelectorAll('pre[data-raw-code], code[data-raw-code]');
+		codeBlocks.forEach((block) => {
+			const codeProcessingResult = validationTryCatch(() => {
+				const rawCode = block.getAttribute('data-raw-code');
+				if (!rawCode) return;
+
+				// Replace the content with the decoded original
+				const decodedCode = decodeURIComponent(rawCode);
+
+				// Create a text node containing the code
+				const textNode = document.createTextNode(decodedCode);
+
+				// If it's a pre element, wrap in backticks for code blocks
+				if (block.tagName.toLowerCase() === 'pre') {
+					// Clear existing content
+					block.innerHTML = '';
+
+					// Add a line before and after with triple backticks
+					block.appendChild(document.createTextNode('```\n'));
+					block.appendChild(textNode);
+					block.appendChild(document.createTextNode('\n```'));
+				} else {
+					// For inline code, replace with backtick-wrapped text
+					const parent = block.parentNode;
+					if (parent) {
+						const inlineCode = document.createTextNode('`' + decodedCode + '`');
+						parent.replaceChild(inlineCode, block);
+					}
+				}
+			}, 'code block processing');
+
+			if (isFailure(codeProcessingResult)) {
+				console.error('Error processing code block:', codeProcessingResult.error);
+			}
+		});
+
+		// Format tables for plain text
+		const tables = tempElement.querySelectorAll('table');
+		tables.forEach((table) => {
+			const tableFormatResult = validationTryCatch(() => {
+				formatTableForPlainText(table as HTMLTableElement);
+			}, 'table formatting');
+
+			if (isFailure(tableFormatResult)) {
+				console.error('Error formatting table:', tableFormatResult.error);
+			}
+		});
+
+		return tempElement.textContent || '';
+	}, 'HTML text extraction');
+
+	if (isSuccess(extractionResult)) {
+		return extractionResult.data;
+	} else {
+		console.error('Error extracting plain text:', extractionResult.error);
+		// Fallback to simple HTML stripping if the DOM approach fails
+		return html.replace(/<[^>]*>/g, '');
+	}
 }
 
 // Export this as a alias for backward compatibility

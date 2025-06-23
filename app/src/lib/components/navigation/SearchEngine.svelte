@@ -947,7 +947,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.search-engine {
@@ -980,7 +981,6 @@
 			height: 2rem;
 			padding: 0;
 			transition: cubic-bezier(0.55, 0.085, 0.68, 0.53);
-			margin-left: 2rem;
 
 			&.expanded {
 				width: 600px;
@@ -990,7 +990,9 @@
 			display: flex;
 			flex-direction: row;
 			padding: 0 !important;
+			padding-inline-start: 2rem;
 			width: 100%;
+			width: 600px;
 			font-size: 0.9rem !important;
 			// padding: 0.75rem 2.75rem 0.75rem 2.75rem;
 			border: 1px solid transparent;
@@ -1010,8 +1012,9 @@
 		.tab-navigation {
 			display: flex;
 			overflow-x: auto;
-			position: fixed;
+			position: absolute;
 			width: 100%;
+			flex: 1;
 			padding: 0.5rem;
 			background-color: var(--bg-gradient-left);
 			border-bottom: 1px solid var(--line-color);
@@ -1124,8 +1127,7 @@
 		position: relative;
 		left: 0;
 		right: 0;
-		padding: 0;
-		background: var(--primary-color);
+		background: var(--bg-gradient);
 		border: 1px solid var(--line-color);
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 		margin-top: 0;
@@ -1135,11 +1137,21 @@
 		border-radius: 0 0 0.5rem 0.5rem;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 		max-height: 400px;
-		width: 600px;
-		overflow: hidden;
-		// width: 600px !important;
-		// max-height: 600px;
-		overflow-y: auto;
+		width: 100%;
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.results-container {

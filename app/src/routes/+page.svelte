@@ -3,12 +3,8 @@
 	import { browser } from '$app/environment';
 	import { currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
-	import { showAuth, toggleAuth } from '$lib/stores/authStore';
-	import { fade, fly } from 'svelte/transition';
-	import { spring } from 'svelte/motion';
+	import { clientTryCatch } from '$lib/utils/errorUtils';
 	import { t } from '$lib/stores/translationStore';
-	import Auth from '$lib/features/auth/components/Auth.svelte';
-	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 
 	let pageReady = false;
 	let redirectedFromLogin = false;
@@ -17,23 +13,21 @@
 
 	onMount(async () => {
 		if (browser) {
-			try {
-				const user = $currentUser;
+			const { success, error: err, data: user } = await clientTryCatch(
+				Promise.resolve($currentUser),
+				'Authentication check failed'
+			);
 
-				if (user) {
-					await goto('/home');
-				} else {
-					await goto('/welcome');
-				}
-			} catch (err) {
-				console.error('Authentication check failed:', err);
-				error = 'Failed to check authentication status';
+			if (success && user) {
+				await goto('/home');
+			} else {
+				error = err ?? 'Failed to check authentication status';
 				await goto('/welcome');
-			} finally {
-				isLoading = false;
 			}
+
+			isLoading = false;
 		}
-	});
+});
 </script>
 
 {#if isLoading}
@@ -44,7 +38,6 @@
 		</div>
 	</div>
 {/if}
-
 
 <!-- Error state -->
 {#if error}
@@ -62,7 +55,8 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.loading-container,

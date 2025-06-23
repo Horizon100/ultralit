@@ -5,6 +5,7 @@
 	import type { User, Projects } from '$lib/types/types';
 	import { PlusSquareIcon, Trash2, Users } from 'lucide-svelte';
 	import { t } from '$lib/stores/translationStore';
+	import { fetchTryCatch, clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	export let projectId: string;
 
@@ -36,21 +37,20 @@
 			unsubscribe();
 		};
 	});
-
 	export async function loadProjectData() {
 		try {
-			const storeState = $projectStore; // Accessing the store state directly
+			const storeState = $projectStore;
 			const projectFromStore = storeState.threads.find((p) => p.id === projectId);
 
 			if (projectFromStore) {
-				project = projectFromStore;
+				project = projectFromStore as Projects;
 			} else {
-				// Use API endpoint instead of direct pb access
-				const response = await fetch(`/api/projects/${projectId}`);
-				if (response.ok) {
-					project = await response.json();
+				const result = await fetchTryCatch(`/api/projects/${projectId}`);
+
+				if (isSuccess(result)) {
+					project = result.data as Projects;
 				} else {
-					throw new Error(`Failed to fetch project: ${response.status}`);
+					throw new Error(`Failed to fetch project: ${result.error}`);
 				}
 			}
 
@@ -74,18 +74,21 @@
 				return [];
 			}
 
-			const result = await projectStore.loadCollaborators(projectId);
-			console.log('Raw collaborators result:', result);
+			const result = await clientTryCatch(projectStore.loadCollaborators(projectId));
 
-			// Check if the result is an object with a data property
-			if (result && typeof result === 'object' && 'data' in result && Array.isArray(result.data)) {
-				collaborators = result.data;
-				console.log('Collaborators array set with length:', collaborators.length);
-			} else if (Array.isArray(result)) {
-				collaborators = result;
+			if (isSuccess(result)) {
+				// Support both array and { data: array } formats
+				if (Array.isArray(result.data)) {
+					collaborators = result.data;
+				} else if (result.data && Array.isArray((result.data as any).data)) {
+					collaborators = (result.data as any).data;
+				} else {
+					console.error('Unexpected collaborators data structure:', result.data);
+					collaborators = [];
+				}
 				console.log('Collaborators array set with length:', collaborators.length);
 			} else {
-				console.error('Expected array but got:', typeof result, result);
+				console.error('Failed to load collaborators:', result.error);
 				collaborators = [];
 			}
 
@@ -98,7 +101,6 @@
 			return [];
 		}
 	}
-
 	/*
 	 * Remove these unused functions since we're using the findUserByIdentifier approach
 	 * async function fetchUserByEmail(email: string): Promise<User | null> { ... }
@@ -425,7 +427,8 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
 	}

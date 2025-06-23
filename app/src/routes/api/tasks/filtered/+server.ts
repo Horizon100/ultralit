@@ -14,26 +14,26 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const projectId = url.searchParams.get('project_id');
 		const status = url.searchParams.get('status');
 		const priority = url.searchParams.get('priority');
-		
+
 		console.log('Filtering tasks:', { projectId, status, priority });
 
 		// Build filter
 		let filter = `createdBy="${locals.user.id}"`;
-		
+
 		if (projectId && projectId !== 'null' && projectId !== 'undefined') {
 			filter += ` && project_id="${projectId}"`;
 		}
-		
+
 		if (status && status !== 'all') {
 			filter += ` && status="${status.toLowerCase()}"`;
 		}
-		
+
 		if (priority && priority !== 'all') {
 			filter += ` && priority="${priority.toLowerCase()}"`;
 		}
-		
+
 		filter += ` && status!="archive"`;
-		
+
 		console.log('Filter:', filter);
 
 		const tasks = await pb.collection('tasks').getList(1, 100, {
@@ -48,7 +48,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			count: tasks.items.length,
 			filter: { projectId, status, priority }
 		});
-
 	} catch (err) {
 		console.error('Error filtering tasks:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to filter tasks';

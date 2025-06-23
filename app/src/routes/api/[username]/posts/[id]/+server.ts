@@ -1,51 +1,66 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
+import { pbTryCatch, apiTryCatch } from '$lib/utils/errorUtils';
 
-export const GET: RequestHandler = async ({ params }) => {
-	const { username, id } = params;
+export const GET: RequestHandler = async ({ params }) =>
+	apiTryCatch(async () => {
+		const { username, id } = params;
 
-	// Check if id is provided
-	if (!id) {
-		return json({ error: 'Post ID is required' }, { status: 400 });
-	}
-
-	try {
-		// First verify the user exists and get their ID
-		const users = await pb.collection('users').getList(1, 1, {
-			filter: `username = "${username}"`
-		});
-
-		if (users.items.length === 0) {
-			return json({ error: 'User not found' }, { status: 404 });
+		if (!id) {
+			throw new Error('Post ID is required');
 		}
 
-		const user = users.items[0];
+		// Find user by username
+		const userResult = await pbTryCatch(
+			pb.collection('users').getList(1, 1, {
+				filter: `username = "${username}"`
+			}),
+			'fetch user by username'
+		);
 
-		// Get the specific post
-		const post = await pb.collection('posts').getOne(id, {
-			expand: 'user'
-		});
-
-		// Verify the post belongs to this user
-		if (post.user !== user.id) {
-			return json({ error: 'Post not found' }, { status: 404 });
+		if (!userResult.success || userResult.data.items.length === 0) {
+			throw new Error('User not found');
 		}
 
-		// Get comments for this post
-		const comments = await pb.collection('posts').getList(1, 100, {
-			filter: `parent = "${id}"`,
-			sort: 'created',
-			expand: 'user'
-		});
+		const user = userResult.data.items[0];
 
-		return json({
-			post: post,
-			comments: comments.items,
-			user: user
-		});
-	} catch (error) {
-		console.error('Error fetching post:', error);
-		return json({ error: 'Post not found' }, { status: 404 });
-	}
-};
+		// Get the post
+		const postResult = await pbTryCatch(
+			pb.collection('posts').getOne(id, {
+				expand: 'user'
+			}),
+			'fetch post'
+		);
+
+		if (!postResult.success) {
+			throw new Error('Post not found');
+		}
+
+		const post = postResult.data;
+
+		// Check if this post belongs to the user or if the user has reposted it
+		const isOwnPost = post.user === user.id;
+		const isReposted = post.repostedBy?.includes(user.id);
+
+		if (!isOwnPost && !isReposted) {
+			throw new Error('Post not found');
+		}
+
+		// Get comments for the post
+		const commentsResult = await pbTryCatch(
+			pb.collection('posts').getList(1, 100, {
+				filter: `parent = "${id}"`,
+				sort: 'created',
+				expand: 'user'
+			}),
+			'fetch comments'
+		);
+
+		const comments = commentsResult.success ? commentsResult.data.items : [];
+
+		return {
+			post,
+			comments,
+			user
+		};
+	}, 'Failed to fetch post');

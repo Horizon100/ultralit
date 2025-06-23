@@ -2,6 +2,7 @@
 	import { Key, Eye, EyeOff, Check, AlertCircle, Trash } from 'lucide-svelte';
 	import { apiKey, type ApiKeys } from '$lib/stores/apiKeyStore';
 	import { fade, slide } from 'svelte/transition';
+	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	interface ServiceConfig {
 		name: string;
@@ -49,34 +50,32 @@
 		verifying[service] = true;
 		errors[service] = '';
 
-		try {
-			// Verify key with service-specific endpoint
-			const response = await fetch(`/api/verify/${service}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ key })
-			});
+		const result = await fetchTryCatch<{ success: boolean; error?: string }>(`/api/verify/${service}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ key })
+		});
 
-			if (response.ok) {
+		if (isSuccess(result)) {
+			if (result.data.success) {
 				await apiKey.setKey(service as string, key);
 				inputKeys[service] = '';
 			} else {
-				const data = await response.json();
-				errors[service] = data.error || `Invalid ${services[service].name} API key`;
+				errors[service] = result.data.error || `Invalid ${services[service].name} API key`;
 			}
-		} catch (error) {
-			console.error(`Error verifying ${service} key:`, error);
+		} else {
+			console.error(`Error verifying ${service} key:`, result.error);
 			errors[service] = `Error verifying ${services[service].name} key`;
-		} finally {
-			verifying[service] = false;
 		}
+
+		verifying[service] = false;
 	}
 
 	async function removeKey(service: keyof ApiKeys) {
-		try {
-			await apiKey.deleteKey(service as string);
-		} catch (error) {
-			console.error(`Error removing ${service} key:`, error);
+		const result = await fetchTryCatch(apiKey.deleteKey(service as string));
+
+		if (!isSuccess(result)) {
+			console.error(`Error removing ${service} key:`, result.error);
 		}
 	}
 </script>
@@ -157,9 +156,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
-
 </style>

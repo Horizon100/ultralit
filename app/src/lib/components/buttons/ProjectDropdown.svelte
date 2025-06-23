@@ -2,34 +2,13 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
 	import { projectStore } from '$lib/stores/projectStore';
-
-	import { loadThreads, threadListVisibility } from '$lib/clients/threadsClient';
+	import { loadThreads } from '$lib/clients/threadsClient';
 	import {
-		fetchProjects,
-		resetProject,
-		fetchThreadsForProject,
-		updateProject,
-		removeThreadFromProject,
-		addThreadToProject
-	} from '$lib/clients/projectClient';
-	import {
-		Box,
-		MessageCircleMore,
-		ArrowLeft,
-		ChevronDown,
-		PackagePlus,
 		Check,
 		Search,
-		Pen,
 		Trash2,
 		Plus,
-		Book,
-		Home,
-		Stamp,
-		Layers2,
-		Layers,
 		ChevronLeft,
-		Asterisk,
 		PackageOpen,
 		Package
 	} from 'lucide-svelte';
@@ -37,8 +16,8 @@
 	import { onMount } from 'svelte';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 	import { t } from '$lib/stores/translationStore';
-	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
+	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	export let isOpen = false;
 
@@ -47,29 +26,22 @@
 	let isCreatingProject = false;
 	let newProjectName = '';
 	let searchQuery = '';
-	let projects: Projects[] = [];
-	let currentProject: Projects | null = null;
-	let currentProjectId: string | null = null;
-	let isEditingProjectName = false;
-	let editingProjectId: string | null = null;
-	let editedProjectName = '';
 	let filteredProjects = $projectStore.threads;
-	let currentThreadId: string | null = null;
 	let isLoading: boolean = false;
-	let projectsLoaded = false; 
-
-	// $: console.log('Store state:', $projectStore);
-	// $: console.log('Filtered projects:', filteredProjects);
-	// $: console.log('Current project:', $projectStore.currentProject);
+	let projectsLoaded = false;
 
 	async function ensureProjectsLoaded() {
 		if (!projectsLoaded) {
 			console.log('Loading projects on first interaction...');
-			try {
+			
+			const result = await clientTryCatch((async () => {
 				await projectStore.loadProjects();
 				projectsLoaded = true;
-			} catch (error) {
-				console.error('Error loading projects:', error);
+				return true;
+			})(), 'Loading projects');
+
+			if (isFailure(result)) {
+				console.error('Error loading projects:', result.error);
 			}
 		}
 	}
@@ -80,9 +52,11 @@
 		}
 		isExpanded = !isExpanded;
 	}
+
 	async function handleSelectProject(projectId: string | null) {
 		console.log('Selecting project:', projectId === null ? 'Home (unassigned)' : projectId);
-		try {
+		
+		const result = await clientTryCatch((async () => {
 			isExpanded = false;
 			isLoading = true;
 
@@ -97,7 +71,8 @@
 			await projectStore.setCurrentProject(projectId);
 
 			console.log(`Loading ${projectId ? 'project' : 'unassigned'} threads...`);
-			try {
+			
+			const threadsResult = await clientTryCatch((async () => {
 				await loadThreads(projectId);
 
 				threadsStore.update((state) => {
@@ -119,14 +94,21 @@
 					'Threads loaded successfully for:',
 					projectId ? `project ${projectId}` : 'unassigned threads'
 				);
-			} catch (error) {
-				console.error('Error loading threads:', error);
+				return true;
+			})(), `Loading threads for project ${projectId || 'unassigned'}`);
+
+			if (isFailure(threadsResult)) {
+				console.error('Error loading threads:', threadsResult.error);
 			}
-		} catch (error) {
-			console.error('Project selection error:', error);
-		} finally {
-			isLoading = false;
+
+			return true;
+		})(), `Selecting project ${projectId || 'unassigned'}`);
+
+		if (isFailure(result)) {
+			console.error('Project selection error:', result.error);
 		}
+
+		isLoading = false;
 	}
 
 	async function handleCreateNewProject(nameOrEvent?: string | Event) {
@@ -134,9 +116,10 @@
 
 		if (!projectName.trim()) return;
 
-		try {
+		const result = await clientTryCatch((async () => {
 			isCreatingProject = true;
 			await ensureProjectsLoaded();
+			
 			const newProject = await projectStore.addProject({
 				name: projectName.trim(),
 				description: ''
@@ -148,11 +131,15 @@
 				isExpanded = false;
 				await handleSelectProject(newProject.id);
 			}
-		} catch (error) {
-			console.error('Error creating project:', error);
-		} finally {
-			isCreatingProject = false;
+
+			return newProject;
+		})(), `Creating new project "${projectName}"`);
+
+		if (isFailure(result)) {
+			console.error('Error creating project:', result.error);
 		}
+
+		isCreatingProject = false;
 	}
 
 	async function handleDeleteProject(e: Event, projectId: string) {
@@ -160,7 +147,7 @@
 
 		if (!projectId) return;
 
-		try {
+		const result = await clientTryCatch((async () => {
 			const user = get(currentUser);
 			if (!user) throw new Error('User not authenticated');
 
@@ -168,30 +155,30 @@
 			const project = storeState.threads.find((p) => p.id === projectId);
 
 			if (!project) {
-				alert('Project not found');
-				return;
+				throw new Error('Project not found');
 			}
 
 			if (project.owner !== user.id) {
-				alert('Only the project owner can delete this project.');
-				return;
+				throw new Error('Only the project owner can delete this project.');
 			}
 
 			const confirmed = confirm(
 				'Are you sure you want to delete this project? This action cannot be undone.'
 			);
-			if (!confirmed) return;
+			if (!confirmed) return false;
 
 			const success = await projectStore.deleteProject(projectId);
 
 			if (success && $projectStore.currentProjectId === projectId) {
 				await handleSelectProject(null);
 			}
-		} catch (error) {
-			console.error('Error deleting project:', error);
-			alert(
-				'Failed to delete project: ' + (error instanceof Error ? error.message : String(error))
-			);
+
+			return success;
+		})(), `Deleting project ${projectId}`);
+
+		if (isFailure(result)) {
+			console.error('Error deleting project:', result.error);
+			alert(`Failed to delete project: ${result.error}`);
 		}
 	}
 
@@ -207,18 +194,14 @@
 				project.name.toLowerCase().includes(searchQuery.toLowerCase())
 			)
 		: $projectStore.threads;
-	$: isThreadListVisible = $showThreadList;
 	$: isOpen = isExpanded;
 	$: searchPlaceholder = $t('nav.searchProjects') as string;
-
-
 
 	onMount(() => {
 		document.addEventListener('click', handleClickOutside);
 		return () => document.removeEventListener('click', handleClickOutside);
 	});
 </script>
-
 <div class="dropdown-container" bind:this={dropdownContainer}>
 	<span class="dropdown-wrapper">
 		<button
@@ -333,7 +316,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -341,7 +324,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: flex-start;
 		height: 2rem;
 		width: auto;
@@ -371,7 +354,7 @@
 		transition: all 0.2s ease;
 	}
 	.dropdown-trigger {
-		background: transparent;
+		background: var(--bg-color) !important;
 
 		border: 1px solid transparent;
 		// border-bottom: 1px solid var(--placeholder-color);
@@ -444,7 +427,6 @@
 
 		.icon {
 			transition: transform 0.2s ease;
-
 		}
 	}
 	.drawer-visible.dropdown-trigger {

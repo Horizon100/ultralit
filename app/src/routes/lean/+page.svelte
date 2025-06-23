@@ -12,8 +12,21 @@
 	import { t } from '$lib/stores/translationStore';
 	import Icicle from '$lib/components/charts/Icicle.svelte';
 	import { fetchTaskHierarchyData } from '$lib/features/tasks/utils/taskHierarchyData';
-	import type { HierarchyData} from '$lib/types/types';
+	import type { HierarchyData, AIModel, InternalChatMessage } from '$lib/types/types';
 	import { getWallpaperSrc } from '$lib/utils/wallpapers';
+	import {
+		sidenavStore,
+		showSidenav,
+		showInput,
+		showRightSidenav,
+		showEditor,
+		showOverlay
+	} from '$lib/stores/sidenavStore';
+	import NoteEditor from '$lib/features/notes/components/NoteEditor.svelte';
+	import { clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
+	import { toast } from '$lib/utils/toastUtils';
+	import Toast from '$lib/components/modals/Toast.svelte';
 
 	let hierarchyData: HierarchyData = { name: 'Loading tasks...', children: [] };
 	let filteredTasks: any[] = [];
@@ -30,10 +43,29 @@
 	let hasProjectAccess = false;
 	let projectCollaborators: string[] = [];
 	let user = $currentUser;
-
-  const activeTab = writable<string>('kanban');
+	let addTagInput: HTMLInputElement;
+	let userId: string = '';
+	let threadId: string | null = null;
+	let messageId: string | null = null;
+	const activeTab = writable<string>('kanban');
 	const tabTransition = writable<string | null>(null);
-		
+	export const defaultAIModel: AIModel = {
+		id: 'default',
+		name: 'Default Model',
+		api_key: '',
+		base_url: 'https://api.openai.com/v1',
+		api_type: 'gpt-3.5-turbo',
+		api_version: 'v1',
+		description: 'Default AI Model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		provider: 'openai',
+		collectionId: '',
+		collectionName: ''
+	};
+	let aiModel = defaultAIModel;
+
 	function switchTab(tabName: string) {
 		tabTransition.set(tabName);
 		setTimeout(() => {
@@ -62,22 +94,40 @@
 		}
 	});
 
-	async function initializePage() {
-		isLoading = true;
-		authError = false;
+async function initializePage() {
+    isLoading = true;
+    authError = false;
 
-		try {
-			user = $currentUser;
-			setTimeout(() => {
-				showPage = true;
-				isLoading = false;
-			}, 50);
-		} catch (error) {
-			console.error('Error during initialization:', error);
-			authError = true;
-			isLoading = false;
-		}
-	}
+    try {
+        // Wait for authentication first
+        const authenticated = await ensureAuthenticated();
+        if (!authenticated) {
+            authError = true;
+            isLoading = false;
+            return;
+        }
+
+        user = $currentUser;
+        if (!user) {
+            authError = true;
+            isLoading = false;
+            return;
+        }
+
+        userId = user.id;
+        
+        // Small delay to ensure everything is properly set
+        setTimeout(() => {
+            showPage = true;
+            isLoading = false;
+        }, 50);
+
+    } catch (error) {
+        console.error('Authentication error:', error);
+        authError = true;
+        isLoading = false;
+    }
+}
 	function handleTaskClick(event: CustomEvent) {
 		const { task, name } = event.detail;
 		console.log('Task clicked:', name, task);
@@ -90,61 +140,90 @@
 	}
 
 
-	async function loadFilteredTasks(status = null, priority = null) {
-		try {
-			const params = new URLSearchParams();
-			if (currentProjectId) params.append('project_id', currentProjectId);
-			if (status) params.append('status', status);
-			if (priority) params.append('priority', priority);
-			
-			const response = await fetch(`/api/tasks/filtered?${params}`);
-			if (!response.ok) throw new Error('Failed to fetch filtered tasks');
-			
-			const data = await response.json();
-			filteredTasks = data.tasks;
-			console.log('Loaded filtered tasks:', filteredTasks.length);
-		} catch (error) {
-			console.error('Failed to load filtered tasks:', error);
-			filteredTasks = [];
-		}
-	}
 
 	function closeTaskList() {
 		showTaskList = false;
 		filteredTasks = [];
 	}
-    function handleOverlayClick(event: MouseEvent): void {
-        if ((event.target as HTMLElement).classList.contains('task-modal')) {
-            closeTaskModal();
-        }
-    }
-	onMount(async () => {
-		initializePage();
-		try {
-			const data = await fetchTaskHierarchyData('status', currentProjectId ?? undefined);
-			hierarchyData = data;
-		} catch (error) {
-			console.error('Failed to load hierarchy data:', error);
-			hierarchyData = { name: 'Failed to load data', children: [] };
+	function handleOverlayClick(event: MouseEvent): void {
+		if ((event.target as HTMLElement).classList.contains('task-modal')) {
+			closeTaskModal();
 		}
-	});
+	}
+	$: if ($currentUser && !userId) {
+		userId = $currentUser.id;
+		user = $currentUser;
+	}
+	$: defaultMessage = {
+		id: '',
+		text: '',
+		content: '',
+		user: userId,
+		role: 'user' as const,
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: '',
+		collectionName: 'messages',
+		parent_msg: null,
+		provider: 'openai' as const,
+		prompt_type: null,
+		prompt_input: null,
+		model: aiModel.id,
+		thread: threadId || undefined,
+		isTyping: false,
+		isHighlighted: false,
+		reactions: {
+			upvote: 0,
+			downvote: 0,
+			bookmark: [],
+			highlight: [],
+			question: 0
+		}
+	} as InternalChatMessage;
+onMount(async () => {
+    initializePage();
+    
+    console.log('Starting hierarchy data fetch...');
+    
+    const hierarchyResult = await clientTryCatch(
+        fetchTaskHierarchyData('status', currentProjectId ?? undefined),
+        'Failed to load hierarchy data.'
+    );
+
+    console.log('Hierarchy result:', hierarchyResult);
+
+    if (isSuccess(hierarchyResult)) {
+        // Check if the data indicates an error
+        if (hierarchyResult.data.name === "No status data available") {
+            console.log('Data indicates error - showing toast');
+            toast.error('Failed to load hierarchy data. Please login in.');
+            hierarchyData = hierarchyResult.data;
+        } else {
+            console.log('Success - setting data');
+            hierarchyData = hierarchyResult.data;
+        }
+    } else {
+        console.log('Failure - showing toast and setting fallback');
+        toast.error('Failed to load hierarchy data.');
+        hierarchyData = { name: 'No data available', children: [] };
+    }
+});
 </script>
 
 {#if showPage}
 	<div in:fade={{ duration: 800 }}>
-
 		<main in:fade={{ duration: 600, delay: 400 }}>
 			<!-- Tab Navigation -->
-			<div class="tabs" in:slide={{ duration: 400, delay: 600, easing: quintOut }}>
-				<button
+			<!-- <div class="tabs" in:slide={{ duration: 400, delay: 600, easing: quintOut }}> -->
+			<!-- <button
 					class:active={$activeTab === 'kanban'}
 					on:click={() => switchTab('kanban')}
 					in:fade={{ duration: 400, delay: 850 }}
 				>
 					<KanbanSquareIcon />
 					<span>{$t('tasks.title')}</span>
-				</button>
-				<button
+				</button> -->
+			<!-- <button
 					class:active={$activeTab === 'task-calendar'}
 					on:click={() => switchTab('task-calendar')}
 					in:fade={{ duration: 400, delay: 800 }}
@@ -168,20 +247,42 @@
 					<ChartAreaIcon />
 					<span>{$t('tasks.title')}</span>
 				</button>
+			</div> -->
+			<div class="row-wrapper">
+				<div class="kanban-wrapper">
+					<Kanban />
+				</div>
+				{#if $showRightSidenav}
+					<div class="calendar-wrapper">
+						<TaskCalendar />
+					</div>
+				{:else}{/if}
+				{#if $showEditor}
+					<div class="notes-wrapper">
+						<NoteEditor />
+					</div>
+				{:else}{/if}
+
+				{#if showOverlay && user && !authError}
+    <div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+        <AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
+    </div>
+{:else if authError}
+    <div class="auth-error">
+        <p>Authentication failed. Please refresh the page.</p>
+        <button on:click={() => window.location.reload()}>Refresh</button>
+    </div>
+{/if}
 			</div>
 
 			<!-- Tab Panels -->
 			<div class="tab-panels">
 				{#if $activeTab === 'kanban'}
-					<div class="tab-panel" in:fade={{ duration: 400 }}>
-						<Kanban />
-					</div>
+					<div class="tab-panel" in:fade={{ duration: 400 }}></div>
 				{/if}
 
 				{#if $activeTab === 'task-calendar'}
-					<div class="tab-panel" in:fade={{ duration: 400 }}>
-						<TaskCalendar />
-					</div>
+					<div class="tab-panel" in:fade={{ duration: 400 }}></div>
 				{/if}
 				{#if $activeTab === 'gant'}
 					<div class="tab-panel" in:fade={{ duration: 400 }}>
@@ -191,38 +292,40 @@
 
 				{#if $activeTab === 'icicle'}
 					<div class="tab-panel" in:fade={{ duration: 400 }}>
-						<div class="icicle-container" 
+						<div
+							class="icicle-container"
 							style="z-index: 10;"
-							bind:clientWidth={containerWidth} 
+							bind:clientWidth={containerWidth}
 							bind:clientHeight={containerHeight}
-
 						>
-							<Icicle 
-								data={hierarchyData} 
-								width={containerWidth} 
-								height={containerHeight} 
-								scale={1.2} 
+							<Icicle
+								data={hierarchyData}
+								width={containerWidth}
+								height={containerHeight}
+								scale={1.2}
 								on:taskClicked={handleTaskClick}
 							/>
 						</div>
 					</div>
 				{/if}
 			</div>
+
 		</main>
 	</div>
 {/if}
-
+<Toast />
 
 {#if showTaskModal && selectedTask}
-	<div class="task-modal" 
-		in:fade={{ duration: 300 }} 
-		style="z-index: 11;" 
-        on:click={handleOverlayClick}
+	<div
+		class="task-modal"
+		in:fade={{ duration: 300 }}
+		style="z-index: 11;"
+		on:click={handleOverlayClick}
 	>
-        <div class="modal-content" on:click|stopPropagation>
+		<div class="modal-content" on:click|stopPropagation>
 			<div class="modal-header">
 				<h2>{selectedTask.title}</h2>
-                <button on:click|stopPropagation={closeTaskModal}>×</button>
+				<button on:click|stopPropagation={closeTaskModal}>×</button>
 			</div>
 			<div class="task-details">
 				<p><strong>Description:</strong> {selectedTask.description || 'No description'}</p>
@@ -233,10 +336,13 @@
 						<span class="assigned">Assigned to: {selectedTask.assignedTo}</span>
 					{/if}
 					{#if selectedTask.due_date}
-						<span class="due-date">Due: {new Date(selectedTask.due_date).toLocaleDateString()}</span>
+						<span class="due-date">Due: {new Date(selectedTask.due_date).toLocaleDateString()}</span
+						>
 					{/if}
 					{#if selectedTask.start_date}
-						<span class="start-date">Start: {new Date(selectedTask.start_date).toLocaleDateString()}</span>
+						<span class="start-date"
+							>Start: {new Date(selectedTask.start_date).toLocaleDateString()}</span
+						>
 					{/if}
 				</div>
 			</div>
@@ -245,10 +351,7 @@
 {/if}
 <!-- Task List Modal -->
 {#if showTaskList}
-	<div class="task-list-modal" 
-		in:fade={{ duration: 300 }}
-	
-	>
+	<div class="task-list-modal" in:fade={{ duration: 300 }}>
 		<div class="modal-content">
 			<div class="modal-header">
 				<h2>{taskListTitle}</h2>
@@ -276,8 +379,9 @@
 	</div>
 {/if}
 
+
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 
 	* {
 		font-family: var(--font-family);
@@ -293,7 +397,58 @@
 		overflow-x: hidden;
 		overflow-y: hidden;
 	}
-
+	.row-wrapper {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+		width: 100%;
+	}
+	.kanban-wrapper {
+		display: flex;
+		flex-direction: row;
+		overflow: none;
+		width: auto;
+	}
+	.calendar-wrapper {
+		display: flex;
+		flex-direction: column;
+		z-index: 10000;
+		backdrop-filter: blur(3px);
+		width: auto;
+		max-width:700px;
+		border-radius: 2rem;
+		justify-content: center;
+		align-items: center;
+		height: auto;
+		position: absolute;
+		top: auto;
+		bottom: 4rem;
+		left: 450px;
+		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+	}
+	.notes-wrapper {
+		display: flex;
+		flex-direction: row;
+		z-index: 6500;
+		backdrop-filter: blur(3px);
+		width: auto;
+		height: auto;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right:600px;
+		left: 450px;
+		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+	}
+		.chat {
+			width: 100% !important;
+			max-width: 600px;
+			position: absolute;
+			display: flex;
+			right: 0.5rem;
+			top: 0;
+			z-index: 9999;
+		}
 	.icicle-container {
 		width: 100vw; /* Full viewport width */
 		height: 100vh; /* Full viewport height */
@@ -311,7 +466,7 @@
 	}
 	span {
 		&.status,
-		&.priority, 
+		&.priority,
 		&.due-date {
 			color: var(--text-color) !important;
 			background: var(--primary-color) !important;
@@ -372,7 +527,7 @@
 	.tab-panels {
 		margin-top: 0;
 		display: flex;
-		position: absolute;
+		position: relative;
 		left: 0;
 		right: 0;
 		top: 0.5rem;
@@ -422,75 +577,75 @@
 		pointer-events: none;
 		backdrop-filter: blur(20px);
 	}
-    .task-modal {
-        position: absolute;
-        top: 0;
-        left: auto;
-        right: 0;
-        bottom: 0;
-        display: flex;
+	.task-modal {
+		position: absolute;
+		top: 0;
+		left: auto;
+		right: 0;
+		bottom: 0;
+		display: flex;
 		backdrop-filter: blur(10px);
 		border-left: 1px solid var(--line-color);
-        justify-content: center;
-        align-items: flex-start;
+		justify-content: center;
+		align-items: flex-start;
 		height: 100vh;
-        z-index: 1000;
-        
-        .modal-content {
+		z-index: 1000;
+
+		.modal-content {
 			display: flex;
 			flex-direction: column;
 			justify-content: flex-start;
 			align-items: flex-end;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 800px;
+			padding: 20px;
+			border-radius: 8px;
+			max-width: 800px;
 			min-width: 450px;
-            width: 100%;
-            height: 100%;
-            overflow-y: auto;
+			width: 100%;
+			height: 100%;
+			overflow-y: auto;
 
 			flex: 1;
-            
-            .modal-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 1rem;
+
+			.modal-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 1rem;
 				width: 100%;
-                
-                h2 {
-                    margin: 0;
-                }
-                
-                button {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
+
+				h2 {
+					margin: 0;
+				}
+
+				button {
+					background: none;
+					border: none;
+					font-size: 24px;
 					color: var(--placeholder-color);
-                    cursor: pointer;
-                }
-            }
-            
-            .task-details {
-                p {
-                    margin-bottom: 15px;
-                }
-                
-                .task-meta {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 10px;
-                    font-size: 14px;
-                    
-                    span {
-                        padding: 4px 8px;
-                        border-radius: 4px;
-                        background: #f0f0f0;
-                    }
-                }
-            }
-        }
-    }
+					cursor: pointer;
+				}
+			}
+
+			.task-details {
+				p {
+					margin-bottom: 15px;
+				}
+
+				.task-meta {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 10px;
+					font-size: 14px;
+
+					span {
+						padding: 4px 8px;
+						border-radius: 4px;
+						background: #f0f0f0;
+					}
+				}
+			}
+		}
+	}
 	@media (max-width: 1000px) {
 		main {
 			flex-grow: 1;
@@ -504,6 +659,47 @@
 			display: flex;
 			flex-direction: column;
 			overflow-y: none;
+		}
+		.kanban-wrapper {
+			display: flex;
+			flex-direction: column-reverse;
+			overflow: none;
+			width: auto;
+			bottom: 10rem !important;
+		}
+		.row-wrapper {
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			position: relative;
+			height: 100%;
+		}
+		.notes-wrapper {
+			display: flex;
+			flex-direction: row;
+			z-index: 6500;
+			backdrop-filter: blur(10px);
+			width: auto;
+			height: auto;
+			position: absolute;
+			right: 0;
+			left: 0;
+			box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+		}
+		.calendar-wrapper {
+			display: flex;
+			flex-direction: column;
+			z-index: 6500;
+			backdrop-filter: blur(3px);
+			width: 100% !important;
+			height: auto;
+			max-width: 1000px;
+			bottom: 0;
+			margin-left: auto;
+			width: 1000px;
+			position: relative;
+			box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+			transform: translateY(-100%);
 		}
 		.tab-panels {
 			right: 0.5rem;
@@ -550,7 +746,7 @@
 			}
 		}
 	}
-	
+
 	@media (max-width: 768px) {
 		.tab-panels {
 			margin-top: 3rem;

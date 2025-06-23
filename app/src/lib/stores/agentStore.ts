@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import type { AIAgent } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import { browser } from '$app/environment';
+import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 interface ApiResponse<T> {
 	success: boolean;
@@ -18,18 +19,27 @@ interface AgentStoreState {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
-	if (!response.ok) {
-		const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-		throw new Error(errorData.error || `API request failed with status ${response.status}`);
-	}
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+    throw new Error(errorData.error || `API request failed with status ${response.status}`);
+  }
 
-	const result: ApiResponse<T> = await response.json();
-	if (!result.success) {
-		throw new Error(result.error || 'API request failed');
-	}
+  const result: ApiResponse<T> = await response.json();
+  console.log('Raw API response:', result); // Debug log
+  
+  if (!result.success) {
+    throw new Error(result.error || 'API request failed');
+  }
 
-	return result.data;
+  if (result.data === undefined || result.data === null) {
+    console.error('API returned undefined/null data:', result);
+    throw new Error('API returned no data');
+  }
+
+  console.log('Extracted data:', result.data); // Debug log
+  return result.data;
 }
+
 function createAgentStore() {
 	const initialAgents = browser ? JSON.parse(localStorage.getItem('userAgents') || '[]') : [];
 
@@ -47,29 +57,33 @@ function createAgentStore() {
 
 	const debouncedUpdateAgent: (id: string, changes: Partial<AIAgent>) => void = debounce(
 		async (id: string, changes: Partial<AIAgent>) => {
-			try {
-				const response = await fetch(`/api/agents/${id}`, {
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					credentials: 'include',
-					body: JSON.stringify(changes)
-				});
+			const result = await clientTryCatch(
+				(async () => {
+					const response = await fetch(`/api/agents/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						credentials: 'include',
+						body: JSON.stringify(changes)
+					});
+					return await handleResponse<AIAgent>(response);
+				})(),
+				'Failed to update agent'
+			);
 
-				const result = await handleResponse<AIAgent>(response);
-
+			if (isSuccess(result)) {
 				update((state) => ({
 					...state,
-					agents: state.agents.map((agent) => (agent.id === id ? { ...agent, ...result } : agent)),
+					agents: state.agents.map((agent) => (agent.id === id ? { ...agent, ...result.data } : agent)),
 					updateStatus: 'Agent updated successfully'
 				}));
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-			} catch (error) {
-				console.error('Failed to update agent:', error);
-				update((state) => ({ ...state, updateStatus: 'Failed to update agent' }));
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+			} else {
+				console.error(result.error);
+				update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to update agent' }));
 			}
+
+			setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
 		},
 		300
 	);
@@ -77,75 +91,124 @@ function createAgentStore() {
 	return {
 		subscribe,
 
-		loadAgents: async (userId?: string): Promise<AIAgent[]> => {
-			update((state) => ({ ...state, isLoading: true }));
+loadAgents: async (userId?: string): Promise<AIAgent[]> => {
+  update((state) => ({ ...state, isLoading: true }));
 
-			try {
-				console.log('Loading agents for user:', userId);
-				const response = await fetch('/api/agents', {
-					method: 'GET',
-					credentials: 'include'
-				});
+  const result = await clientTryCatch(
+    (async () => {
+      console.log('Loading agents for user:', userId);
+      const response = await fetch('/api/agents', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      // Debug: Let's see the raw response
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('Parsed response data:', responseData);
+        console.log('Response data type:', typeof responseData);
+        console.log('Response data keys:', Object.keys(responseData));
+        
+        if (responseData.data) {
+          console.log('Data field exists:', responseData.data);
+          console.log('Data field type:', typeof responseData.data);
+          console.log('Is data an array?', Array.isArray(responseData.data));
+        } else {
+          console.log('No data field found in response');
+        }
+      } catch (e) {
+        console.error('Failed to parse JSON:', e);
+        throw new Error('Invalid JSON response');
+      }
 
-				const agents = await handleResponse<AIAgent[]>(response);
-				console.log('Loaded agents:', agents);
+      if (!response.ok) {
+        throw new Error(responseData.error || `API request failed with status ${response.status}`);
+      }
 
-				// Parse position strings to objects if needed
-				const parsedAgents = agents.map((agent) => ({
-					...agent,
-					position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
-				}));
+      if (!responseData.success) {
+        throw new Error(responseData.error || 'API request failed');
+      }
 
-				set({
-					agents: parsedAgents,
-					updateStatus: 'Agents loaded successfully',
-					isLoading: false
-				});
+      const agents = responseData.data;
+      console.log('Final agents data:', agents);
 
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return parsedAgents;
-			} catch (error) {
-				console.error('Error loading agents:', error);
-				set({
-					agents: [],
-					updateStatus: 'Failed to load agents',
-					isLoading: false
-				});
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return [];
-			}
-		},
+      // Check if agents is actually an array before mapping
+      if (!Array.isArray(agents)) {
+        console.error('Expected agents to be an array, got:', typeof agents, agents);
+        throw new Error('Invalid response format: expected array of agents');
+      }
+
+      // Parse position strings to objects if needed
+      const parsedAgents = agents.map((agent) => ({
+        ...agent,
+        position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
+      }));
+
+      return parsedAgents;
+    })(),
+    'Error loading agents'
+  );
+
+  if (isSuccess(result)) {
+    set({
+      agents: result.data,
+      updateStatus: 'Agents loaded successfully',
+      isLoading: false
+    });
+    setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return result.data;
+  } else {
+    console.error(result.error);
+    set({
+      agents: [],
+      updateStatus: result.error ?? 'Failed to load agents',
+      isLoading: false
+    });
+    setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+    return [];
+  }
+},
 		createAgent: async (agentData: Partial<AIAgent> | FormData): Promise<AIAgent | null> => {
-			try {
-				const isFormData = agentData instanceof FormData;
+			const result = await clientTryCatch(
+				(async () => {
+					const isFormData = agentData instanceof FormData;
 
-				const response = await fetch('/api/agents', {
-					method: 'POST',
-					credentials: 'include',
-					headers: isFormData
-						? {}
-						: {
-								'Content-Type': 'application/json'
-							},
-					body: isFormData ? agentData : JSON.stringify(agentData)
-				});
+					const response = await fetch('/api/agents', {
+						method: 'POST',
+						credentials: 'include',
+						headers: isFormData
+							? {}
+							: {
+									'Content-Type': 'application/json'
+							  },
+						body: isFormData ? agentData : JSON.stringify(agentData)
+					});
 
-				const result = await handleResponse<AIAgent>(response);
+					return await handleResponse<AIAgent>(response);
+				})(),
+				'Error creating agent'
+			);
 
+			if (isSuccess(result)) {
 				update((state) => ({
 					...state,
-					agents: [...state.agents, result],
+					agents: [...state.agents, result.data],
 					updateStatus: 'Agent created successfully'
 				}));
 				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return result;
-			} catch (error) {
-				console.error('Error creating agent:', error);
-				update((state) => ({ ...state, updateStatus: 'Failed to create agent' }));
+				return result.data;
+			} else {
+				console.error(result.error);
+				update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to create agent' }));
 				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
 		},
+
 		updateAgent: (id: string, changes: Partial<AIAgent>) => {
 			const formattedChanges: Partial<AIAgent> = { ...changes };
 			if (formattedChanges.position && typeof formattedChanges.position !== 'string') {
@@ -167,69 +230,71 @@ function createAgentStore() {
 			id: string,
 			agentData: Partial<AIAgent> | FormData
 		): Promise<AIAgent | null> => {
-			try {
-				const isFormData = agentData instanceof FormData;
+			const result = await clientTryCatch(
+				(async () => {
+					const isFormData = agentData instanceof FormData;
 
-				const response = await fetch(`/api/agents/${id}`, {
-					method: 'PUT',
-					credentials: 'include',
-					...(isFormData
-						? {}
-						: {
-								headers: {
-									'Content-Type': 'application/json'
-								},
-								body: JSON.stringify(agentData)
-							}),
-					...(isFormData ? { body: agentData } : {})
-				});
+					const response = await fetch(`/api/agents/${id}`, {
+						method: 'PUT',
+						credentials: 'include',
+						...(isFormData
+							? {}
+							: {
+									headers: {
+										'Content-Type': 'application/json'
+									},
+									body: JSON.stringify(agentData)
+							  }),
+						...(isFormData ? { body: agentData } : {})
+					});
 
-				const result = await handleResponse<AIAgent>(response);
+					return await handleResponse<AIAgent>(response);
+				})(),
+				'Error updating agent'
+			);
 
-				if (result.success) {
-					update((state) => ({
-						...state,
-						agents: state.agents.map((agent) =>
-							agent.id === id ? { ...agent, ...result.data } : agent
-						),
-						updateStatus: 'Agent updated successfully'
-					}));
-					setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-					return result.data;
-				}
-
-				throw new Error(result.error || 'Failed to update agent');
-			} catch (error) {
-				console.error('Error updating agent:', error);
-				update((state) => ({ ...state, updateStatus: 'Failed to update agent' }));
+			if (isSuccess(result)) {
+				update((state) => ({
+					...state,
+					agents: state.agents.map((agent) =>
+						agent.id === id ? { ...agent, ...result.data } : agent
+					),
+					updateStatus: 'Agent updated successfully'
+				}));
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return result.data;
+			} else {
+				console.error(result.error);
+				update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to update agent' }));
 				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
 		},
 
 		deleteAgent: async (id: string): Promise<boolean> => {
-			try {
-				const response = await fetch(`/api/agents/${id}`, {
-					method: 'DELETE',
-					credentials: 'include'
-				});
+			const result = await clientTryCatch(
+				(async () => {
+					const response = await fetch(`/api/agents/${id}`, {
+						method: 'DELETE',
+						credentials: 'include'
+					});
 
-				const result = await handleResponse<{ success: boolean; error?: string }>(response);
+					return await handleResponse<{ success: boolean; error?: string }>(response);
+				})(),
+				'Error deleting agent'
+			);
 
-				if (result.success) {
-					update((state) => ({
-						...state,
-						agents: state.agents.filter((agent) => agent.id !== id),
-						updateStatus: 'Agent deleted successfully'
-					}));
-					setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-					return true;
-				}
-
-				throw new Error(result.error || 'Failed to delete agent');
-			} catch (error) {
-				console.error('Error deleting agent:', error);
-				update((state) => ({ ...state, updateStatus: 'Failed to delete agent' }));
+			if (isSuccess(result)) {
+				update((state) => ({
+					...state,
+					agents: state.agents.filter((agent) => agent.id !== id),
+					updateStatus: 'Agent deleted successfully'
+				}));
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return true;
+			} else {
+				console.error(result.error);
+				update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to delete agent' }));
 				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return false;
 			}

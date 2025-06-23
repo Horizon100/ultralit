@@ -1,103 +1,42 @@
-import { json } from '@sveltejs/kit';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 
-export const POST: RequestHandler = async ({ params, request }) => {
-	try {
-		const { userId } = await request.json();
-		const { id } = params;
+export const POST: RequestHandler = async ({ params, request }) =>
+  apiTryCatch(async () => {
+    const { userId } = await request.json();
+    const { id } = params;
 
-		if (!id) {
-			return json(
-				{
-					success: false,
-					message: 'No invitation code ID provided'
-				},
-				{ status: 400 }
-			);
-		}
+    if (!id) {
+      throw new Error('No invitation code ID provided');
+    }
 
-		if (!userId) {
-			return json(
-				{
-					success: false,
-					message: 'No user ID provided'
-				},
-				{ status: 400 }
-			);
-		}
+    if (!userId) {
+      throw new Error('No user ID provided');
+    }
 
-		try {
-			const invitationCode = await pb.collection('invitation_codes').getOne(id);
+    const invitationCode = await pb.collection('invitation_codes').getOne(id);
 
-			if (invitationCode.used) {
-				return json(
-					{
-						success: false,
-						message: 'Invitation code has already been used'
-					},
-					{ status: 400 }
-				);
-			}
+    if (invitationCode.used) {
+      throw new Error('Invitation code has already been used');
+    }
 
-			console.log(`Updating invitation code ${id} for user ${userId}`);
+    console.log(`Updating invitation code ${id} for user ${userId}`);
 
-			const updateData = {
-				used: true,
-				usedBy: userId,
-				usedAt: new Date().toISOString()
-			};
+    const updateData = {
+      used: true,
+      usedBy: userId,
+      usedAt: new Date().toISOString()
+    };
 
-			console.log('Update data:', JSON.stringify(updateData));
+    console.log('Update data:', JSON.stringify(updateData));
 
-			const result = await pb.collection('invitation_codes').update(id, updateData);
+    const result = await pb.collection('invitation_codes').update(id, updateData);
 
-			console.log('Update result:', JSON.stringify(result));
+    console.log('Update result:', JSON.stringify(result));
 
-			return json({
-				success: true,
-				message: 'Invitation code marked as used',
-				result: result
-			});
-		} catch (error: unknown) {
-			console.error('Error marking invitation code as used:', error);
-
-			let message = 'Failed to mark invitation code as used';
-			const status = 500;
-
-			if (error instanceof Error) {
-				message += ': ' + error.message;
-			}
-
-			// Type checking for PocketBase error response
-			if (typeof error === 'object' && error !== null && 'response' in error) {
-				console.error(
-					'Response data:',
-					(error as { response?: { data?: unknown } }).response?.data
-				);
-			}
-			return json(
-				{
-					success: false,
-					message
-				},
-				{ status }
-			);
-		}
-	} catch (error: unknown) {
-		console.error('Server error marking invitation code as used:', error);
-
-		let message = 'Server error processing invitation code';
-		if (error instanceof Error) {
-			message += ': ' + error.message;
-		}
-
-		return json(
-			{
-				success: false,
-				message
-			},
-			{ status: 500 }
-		);
-	}
-};
+    return {
+      message: 'Invitation code marked as used',
+      result
+    };
+  }, 'Failed to mark invitation code as used');

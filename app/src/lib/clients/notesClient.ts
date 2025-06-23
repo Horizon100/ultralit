@@ -1,283 +1,294 @@
 import type { Folders, Notes, Attachment } from '$lib/types/types';
+import { fetchTryCatch, fileTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+
+type ApiResponse<T> = {
+	success: boolean;
+	error?: string;
+} & T;
 
 export const notesClient = {
 	async getFolders(): Promise<Folders[]> {
-		try {
-			const response = await fetch('/api/notes/folders', {
+		const result = await fetchTryCatch<ApiResponse<{ folders: Folders[] }>>(
+			'/api/notes/folders',
+			{
 				method: 'GET',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.folders;
-		} catch (error) {
-			console.error('Error fetching folders:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error fetching folders:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to fetch folders');
+		}
+
+		return result.data.folders;
 	},
 
 	async createFolder(folderData: Partial<Folders>): Promise<Folders> {
-		try {
-			const response = await fetch('/api/notes/folders', {
+		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>(
+			'/api/notes/folders',
+			{
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				credentials: 'include',
 				body: JSON.stringify(folderData)
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.folder;
-		} catch (error) {
-			console.error('Error creating folder:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error creating folder:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to create folder');
+		}
+
+		return result.data.folder;
 	},
 
 	async updateFolder(id: string, folderData: Partial<Folders>): Promise<Folders> {
-		try {
-			const response = await fetch('/api/notes/folders', {
+		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>(
+			'/api/notes/folders',
+			{
 				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				credentials: 'include',
 				body: JSON.stringify({ id, ...folderData })
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.folder;
-		} catch (error) {
-			console.error('Error updating folder:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error updating folder:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to update folder');
+		}
+
+		return result.data.folder;
 	},
 
 	async deleteFolder(id: string): Promise<boolean> {
-		try {
-			const response = await fetch(`/api/notes/folders?id=${id}`, {
+	const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(
+			`/api/notes/folders?id=${id}`,
+			{
 				method: 'DELETE',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return true;
-		} catch (error) {
-			console.error('Error deleting folder:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error deleting folder:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to delete folder');
+		}
+
+		return true;
 	},
 
 	async getNotes(folderId: string): Promise<Notes[]> {
-		try {
-			const response = await fetch(`/api/notes?folderId=${folderId}`, {
+		const result = await fetchTryCatch<ApiResponse<{ notes: Notes[] }>>(
+			`/api/notes?folderId=${folderId}`,
+			{
 				method: 'GET',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.notes;
-		} catch (error) {
-			console.error('Error fetching notes:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error fetching notes:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to fetch notes');
+		}
+
+		return result.data.notes;
 	},
 
 	async getNote(id: string): Promise<Notes> {
-		try {
-			const response = await fetch(`/api/notes/${id}`, {
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
+			`/api/notes/${id}`,
+			{
 				method: 'GET',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.note;
-		} catch (error) {
-			console.error('Error fetching note:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error fetching note:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to fetch note');
+		}
+
+		return result.data.note;
 	},
 
 	async createNote(noteData: Partial<Notes>): Promise<Notes> {
-		try {
-			const response = await fetch('/api/notes', {
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
+			'/api/notes',
+			{
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				credentials: 'include',
 				body: JSON.stringify(noteData)
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.note;
-		} catch (error) {
-			console.error('Error creating note:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error creating note:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to create note');
+		}
+
+		return result.data.note;
 	},
 
 	async updateNote(id: string, noteData: Partial<Notes>): Promise<Notes> {
-		try {
-			const response = await fetch('/api/notes', {
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
+			'/api/notes',
+			{
 				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				credentials: 'include',
 				body: JSON.stringify({ id, ...noteData })
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.note;
-		} catch (error) {
-			console.error('Error updating note:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error updating note:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to update note');
+		}
+
+		return result.data.note;
 	},
 
 	async deleteNote(id: string): Promise<boolean> {
-		try {
-			const response = await fetch(`/api/notes?id=${id}`, {
+	const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(
+			`/api/notes?id=${id}`,
+			{
 				method: 'DELETE',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return true;
-		} catch (error) {
-			console.error('Error deleting note:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error deleting note:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to delete note');
+		}
+
+		return true;
 	},
 
 	async searchNotes(searchTerm: string): Promise<Notes[]> {
-		try {
-			const response = await fetch(`/api/notes/search?q=${encodeURIComponent(searchTerm)}`, {
+		const result = await fetchTryCatch<ApiResponse<{ notes: Notes[] }>>(
+			`/api/notes/search?q=${encodeURIComponent(searchTerm)}`,
+			{
 				method: 'GET',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.notes;
-		} catch (error) {
-			console.error('Error searching notes:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error searching notes:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to search notes');
+		}
+
+		return result.data.notes;
 	},
 
 	async uploadAttachment(noteId: string, file: File): Promise<Attachment> {
-		try {
-			const formData = new FormData();
-			formData.append('file', file);
-			formData.append('noteId', noteId);
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('noteId', noteId);
 
-			console.log('Uploading attachment:', { noteId, fileName: file.name });
+		console.log('Uploading attachment:', { noteId, fileName: file.name });
 
-			const response = await fetch('/api/attachments', {
-				method: 'POST',
-				credentials: 'include',
-				body: formData
-			});
+		const result = await fileTryCatch(
+			fetchTryCatch<ApiResponse<{ attachment: Attachment }>>(
+				'/api/attachments',
+				{
+					method: 'POST',
+					credentials: 'include',
+					body: formData
+				}
+			).then(fetchResult => {
+				if (isFailure(fetchResult)) {
+					throw new Error(fetchResult.error);
+				}
+				return fetchResult.data;
+			}),
+			file.name,
+			10 // Assuming 10MB max file size
+		);
 
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			console.log('Attachment created:', data.attachment);
-
-			return data.attachment;
-		} catch (error) {
-			console.error('Error in uploadAttachment:', error);
-			if (error instanceof Error) {
-				console.error('Error details:', error.message);
-			}
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error in uploadAttachment:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to upload attachment');
+		}
+
+		console.log('Attachment created:', result.data.attachment);
+		return result.data.attachment;
 	},
 
 	async getAttachments(noteId: string): Promise<Attachment[]> {
-		try {
-			const response = await fetch(`/api/attachments?noteId=${noteId}`, {
+		const result = await fetchTryCatch<ApiResponse<{ attachments: Attachment[] }>>(
+			`/api/attachments?noteId=${noteId}`,
+			{
 				method: 'GET',
 				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
 			}
+		);
 
-			const data = await response.json();
-			if (!data.success) throw new Error(data.error);
-
-			return data.attachments;
-		} catch (error) {
-			console.error('Error fetching attachments:', error);
-			throw error;
+		if (isFailure(result)) {
+			console.error('Error fetching attachments:', result.error);
+			throw new Error(result.error);
 		}
+
+		if (!result.data.success) {
+			throw new Error(result.data.error || 'Failed to fetch attachments');
+		}
+
+		return result.data.attachments;
 	}
 };

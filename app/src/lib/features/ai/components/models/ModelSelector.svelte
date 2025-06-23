@@ -7,9 +7,10 @@
 	import APIKeyInput from '$lib/features/ai/components/models/APIKeyInput.svelte';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import { get } from 'svelte/store';
-	import { providers} from '$lib/features/ai/utils/providers';
+	import { providers } from '$lib/features/ai/utils/providers';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { currentUser } from '$lib/pocketbase';
+	import { fetchTryCatch, clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	export let provider: string;
 
@@ -62,16 +63,14 @@
 	async function handleDeleteAPIKey(provider: ProviderType) {
 		if (!$currentUser) return;
 
-		try {
-			console.log(`Deleting API key for ${provider}`);
+		const confirmed = confirm(
+			`Are you sure you want to delete your ${providers[provider].name} API key?`
+		);
+		if (!confirmed) return;
 
-			const confirmed = confirm(
-				`Are you sure you want to delete your ${providers[provider].name} API key?`
-			);
-			if (!confirmed) return;
+		const result = await clientTryCatch(apiKey.deleteKey(provider));
 
-			await apiKey.deleteKey(provider);
-
+		if (isSuccess(result)) {
 			availableProviderModels[provider] = [];
 
 			if (expandedModelList === provider) {
@@ -83,19 +82,12 @@
 			updateFavoriteModels();
 
 			console.log(`Successfully deleted API key for ${provider}`);
-		} catch (error) {
-			console.error(`Error deleting API key for ${provider}:`, error);
-			let errorMessage = 'Unknown error occurred';
-			
-			if (error instanceof Error) {
-				errorMessage = error.message;
-			} else if (typeof error === 'string') {
-				errorMessage = error;
-			}
-			
-			alert(`Failed to delete API key: ${errorMessage}`);
+		} else {
+			console.error(`Error deleting API key for ${provider}:`, result.error);
+			alert(`Failed to delete API key: ${result.error}`);
 		}
 	}
+
 	async function handleProviderClick(key: string) {
 		const provider = key as ProviderType;
 		const currentKey = get(apiKey)[provider];
@@ -114,21 +106,20 @@
 		if (!currentKey) {
 			console.log(`No API key found for ${provider}, showing input form`);
 			showAPIKeyInput = true;
-		} else {
-			if ($currentUser) {
-				try {
-					isLoadingModels = true;
-					await modelStore.setSelectedProvider($currentUser.id, provider);
-					await loadProviderModels(provider);
-					showAPIKeyInput = false;
-				} catch (error) {
-					console.warn('Error setting provider:', error);
-				} finally {
-					isLoadingModels = false;
-				}
+		} else if ($currentUser) {
+			isLoadingModels = true;
+			try {
+				await clientTryCatch(modelStore.setSelectedProvider($currentUser.id, provider));
+				await loadProviderModels(provider);
+				showAPIKeyInput = false;
+			} catch (error) {
+				console.warn('Error setting provider:', error);
+			} finally {
+				isLoadingModels = false;
 			}
 		}
 	}
+
 
 	async function handleModelSelection(model: AIModel) {
 		const enrichedModel: AIModel = {
@@ -351,7 +342,7 @@
 				updateFavoriteModels();
 			}
 
-		let initialProvider: string = selectedModel?.provider || provider || 'deepseek';
+			let initialProvider: string = selectedModel?.provider || provider || 'deepseek';
 			if (!availableKeys[initialProvider] && availableProviders.length > 0) {
 				initialProvider = availableProviders[0];
 			}
@@ -447,31 +438,32 @@
 		on:click={handleClickOutside}
 		transition:fly={{ y: -20, duration: 200 }}
 	>
-			<div class="model-list-container">
-				<div class="model-header">
-					<h3>
-						{expandedModelList ? providers[expandedModelList].name : ''} Models {isLoadingModels
-							? ''
-							: `(${expandedModelList ? availableProviderModels[expandedModelList]?.length || 0 : 0})`}
-					</h3>
+		<div class="model-list-container">
+			<div class="model-header">
+				<h3>
+					{expandedModelList ? providers[expandedModelList].name : ''} Models {isLoadingModels
+						? ''
+						: `(${expandedModelList ? availableProviderModels[expandedModelList]?.length || 0 : 0})`}
+				</h3>
 
-					<div class="header-actions">
-						{#if expandedModelList && get(apiKey)[expandedModelList]}
-							<button
-								class="delete-key-button"
-								on:click|stopPropagation={() => expandedModelList && handleDeleteAPIKey(expandedModelList)}
-								title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
-							>
-								<Trash2 size={20} />
-							</button>
-						{/if}
-
-						<!-- Close button -->
-						<button class="close-btn" on:click={() => (expandedModelList = null)}>
-							<XCircle size={35} />
+				<div class="header-actions">
+					{#if expandedModelList && get(apiKey)[expandedModelList]}
+						<button
+							class="delete-key-button"
+							on:click|stopPropagation={() =>
+								expandedModelList && handleDeleteAPIKey(expandedModelList)}
+							title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
+						>
+							<Trash2 size={20} />
 						</button>
-					</div>
+					{/if}
+
+					<!-- Close button -->
+					<button class="close-btn" on:click={() => (expandedModelList = null)}>
+						<XCircle size={35} />
+					</button>
 				</div>
+			</div>
 
 			{#if isLoadingModels}
 				<div class="spinner-container">
@@ -527,7 +519,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1028,7 +1020,6 @@
 			justify-content: flex-end;
 			align-items: flex-end;
 		}
-
 
 		.providers-list {
 			display: flex;

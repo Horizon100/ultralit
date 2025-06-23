@@ -6,6 +6,7 @@
 	import type { Tag } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
+	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 	let selectedTagIds: Set<string>;
 
@@ -54,28 +55,23 @@
 
 	async function updateTag(tag: Tag) {
 		if (!tag.name.trim()) return;
-		try {
-			const response = await fetch(`/api/tags/${tag.id}`, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					name: tag.name.trim(),
-					color: tag.color
-				})
-			});
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || `Failed to update tag: ${response.statusText}`);
-			}
+		const result = await fetchTryCatch<Tag>(`/api/tags/${tag.id}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				name: tag.name.trim(),
+				color: tag.color
+			})
+		});
 
-			const updatedTag = await response.json();
-			dispatch('tagUpdated', { tag: updatedTag });
+		if (isSuccess(result)) {
+			dispatch('tagUpdated', { tag: result.data });
 			editingTagId = null;
-		} catch (error) {
-			console.error('Error updating tag:', error);
+		} else {
+			console.error('Error updating tag:', result.error);
 		}
 	}
 
@@ -173,10 +169,10 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}		
+	}
 	.tag-list {
 		display: flex;
 		flex-wrap: wrap;
@@ -222,8 +218,6 @@
 		}
 	}
 
-
-
 	.tag.selected .edit-tag {
 		opacity: 0.7;
 		color: var(--text-color);
@@ -264,7 +258,6 @@
 			background: var(--bg-gradient-right);
 		}
 	}
-
 
 	.tag-edit-buttons {
 		display: flex;
@@ -328,15 +321,11 @@
 		}
 	}
 
-
-
 	span.new-tag:hover {
 		background-color: var(--tertiary-color);
 		color: var(--text-color);
 		transform: scale(1.1);
 	}
-
-
 
 	.new-tag-input {
 		display: flex;
@@ -356,7 +345,6 @@
 		font-size: 16px;
 		width: 100%;
 	}
-
 
 	button {
 		display: flex;
@@ -405,13 +393,9 @@
 		justify-content: center;
 	}
 
-
 	button.add-tag:hover {
 		background-color: var(--tertiary-color);
 	}
-
-
-
 
 	.edit-tag {
 		background: none;
@@ -427,13 +411,9 @@
 		pointer-events: none;
 	}
 
-
-
-
 	button.add-tag:hover {
 		background-color: var(--tertiary-color);
 	}
-
 
 	@keyframes pulsate {
 		0% {

@@ -10,7 +10,7 @@
 
 	import MapView from '$lib/features/game/components/MapView.svelte';
 	import Road from '$lib/features/game/components/Road.svelte';
-	import Hero from'$lib/features/game/components/Hero.svelte';
+	import Hero from '$lib/features/game/components/Hero.svelte';
 	import {
 		gameService,
 		gameBuildingStore,
@@ -18,11 +18,7 @@
 		gameRoadStore,
 		otherHeroesStore
 	} from '$lib/stores/gameStore';
-	import type {
-		GameBuilding,	
-		GameRoad as GameRoadType,
-		GameHero
-	} from '$lib/types/types.game';
+	import type { GameBuilding, GameRoad as GameRoadType, GameHero } from '$lib/types/types.game';
 
 	export let data;
 
@@ -34,7 +30,7 @@
 	// Track if we're inside a building
 	let isInsideBuilding = false;
 
-  	let heroDirection: 'left' | 'right' | 'up' | 'down' = 'down';
+	let heroDirection: 'left' | 'right' | 'up' | 'down' = 'down';
 
 	// Camera/viewport management
 	let mapContainer: HTMLDivElement;
@@ -47,7 +43,7 @@
 	};
 
 	// Map data from stores
-	$: buildings = $gameBuildingStore || []; 
+	$: buildings = $gameBuildingStore || [];
 	$: roads = $gameRoadStore || [];
 	$: otherHeroes = $otherHeroesStore;
 
@@ -108,50 +104,53 @@
 	// Road cell styling functions
 	function getRoadCellClass(gridX: number, gridY: number): string {
 		if (!roads || roads.length === 0) return '';
-		
+
 		// Check if this grid position is part of any road
-		const isOnRoad = roads.some(road => {
+		const isOnRoad = roads.some((road) => {
 			if (!road || !road.path || road.path.length < 2) return false;
-			
-			return road.path.some(point => {
+
+			return road.path.some((point) => {
 				const roadGridX = pixelToGrid(point.x);
 				const roadGridY = pixelToGrid(point.y);
 				return roadGridX === gridX && roadGridY === gridY;
 			});
 		});
-		
+
 		if (!isOnRoad) return '';
-		
+
 		// Determine road direction for styling
 		const roadType = determineRoadType(gridX, gridY);
 		return `road-cell ${roadType}`;
 	}
 
 	function determineRoadType(gridX: number, gridY: number): string {
-		let hasNorth = false, hasSouth = false, hasEast = false, hasWest = false;
-		
+		let hasNorth = false,
+			hasSouth = false,
+			hasEast = false,
+			hasWest = false;
+
 		// Check adjacent cells for road connections
-		roads.forEach(road => {
+		roads.forEach((road) => {
 			if (!road || !road.path) return;
-			
-			road.path.forEach(point => {
+
+			road.path.forEach((point) => {
 				const roadGridX = pixelToGrid(point.x);
 				const roadGridY = pixelToGrid(point.y);
-				
+
 				if (roadGridX === gridX && roadGridY === gridY - 1) hasNorth = true;
 				if (roadGridX === gridX && roadGridY === gridY + 1) hasSouth = true;
 				if (roadGridX === gridX + 1 && roadGridY === gridY) hasEast = true;
 				if (roadGridX === gridX - 1 && roadGridY === gridY) hasWest = true;
 			});
 		});
-		
+
 		const connectionCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
-		
+
 		if (connectionCount >= 3) return 'road-intersection';
 		if ((hasNorth || hasSouth) && (hasEast || hasWest)) return 'road-intersection';
 		if (hasNorth || hasSouth) return 'road-vertical';
 		if (hasEast || hasWest) return 'road-horizontal';
-		
+
 		return 'road-horizontal'; // default
 	}
 
@@ -199,7 +198,7 @@
 	async function handleGridMovement(direction: string) {
 		const $gameStore = get(gameStore);
 		if (!$gameStore.heroPawn || !data.user) return;
-    	heroDirection = direction as 'left' | 'right' | 'up' | 'down';
+		heroDirection = direction as 'left' | 'right' | 'up' | 'down';
 		const currentPos = $gameStore.heroPawn.position;
 		const gridX = pixelToGrid(currentPos.x);
 		const gridY = pixelToGrid(currentPos.y);
@@ -234,13 +233,13 @@
 	}
 
 	// Check if a grid position is blocked by a building
-		function isPositionBlocked(gridX: number, gridY: number): boolean {
-			return buildings.some((container: GameBuilding) => {  
-				const containerGridX = pixelToGrid(container.position.x);
-				const containerGridY = pixelToGrid(container.position.y);
-				return containerGridX === gridX && containerGridY === gridY;
-			});
-		}
+	function isPositionBlocked(gridX: number, gridY: number): boolean {
+		return buildings.some((container: GameBuilding) => {
+			const containerGridX = pixelToGrid(container.position.x);
+			const containerGridY = pixelToGrid(container.position.y);
+			return containerGridX === gridX && containerGridY === gridY;
+		});
+	}
 
 	// Handle map clicks for movement
 	async function onMapClick(event: MouseEvent) {
@@ -325,9 +324,9 @@
 		>
 			{#each Array(MAP_HEIGHT).fill(0) as _, rowIndex}
 				{#each Array(MAP_WIDTH).fill(0) as _, colIndex}
-					<div 
-						class="grid-cell {getRoadCellClass(colIndex, rowIndex)}" 
-						data-x={colIndex} 
+					<div
+						class="grid-cell {getRoadCellClass(colIndex, rowIndex)}"
+						data-x={colIndex}
 						data-y={rowIndex}
 					></div>
 				{/each}
@@ -348,19 +347,20 @@
 			{/each}
 
 			{#if $gameStore.heroPawn}
-			<Hero 
-				hero={$gameStore.heroPawn} 
-				isCurrentUser={true} 
-				gridSize={GRID_SIZE}
-				direction={heroDirection}
-			/>			
-  			{/if}
+				<Hero
+					hero={$gameStore.heroPawn}
+					isCurrentUser={true}
+					gridSize={GRID_SIZE}
+					direction={heroDirection}
+				/>
+			{/if}
 		</div>
 	</div>
 </div>
+a
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	.map-navigator {
 		height: 100%;
 		width: 100%;
@@ -453,33 +453,31 @@
 		&.road-cell {
 			background-color: #8b7355; // Brown/dirt road color
 			border-color: #6b5b47;
-			
+
 			&.road-horizontal {
-				background: linear-gradient(to bottom, 
-					#6b5b47 0%, 
-					#8b7355 20%, 
-					#a0956b 50%, 
-					#8b7355 80%, 
+				background: linear-gradient(
+					to bottom,
+					#6b5b47 0%,
+					#8b7355 20%,
+					#a0956b 50%,
+					#8b7355 80%,
 					#6b5b47 100%
 				);
 			}
-			
+
 			&.road-vertical {
-				background: linear-gradient(to right, 
-					#6b5b47 0%, 
-					#8b7355 20%, 
-					#a0956b 50%, 
-					#8b7355 80%, 
+				background: linear-gradient(
+					to right,
+					#6b5b47 0%,
+					#8b7355 20%,
+					#a0956b 50%,
+					#8b7355 80%,
 					#6b5b47 100%
 				);
 			}
-			
+
 			&.road-intersection {
-				background: radial-gradient(circle at center, 
-					#a0956b 0%, 
-					#8b7355 50%, 
-					#6b5b47 100%
-				);
+				background: radial-gradient(circle at center, #a0956b 0%, #8b7355 50%, #6b5b47 100%);
 			}
 		}
 	}
@@ -500,4 +498,4 @@
 		position: absolute;
 		z-index: 10;
 	}
-</style>a
+</style>

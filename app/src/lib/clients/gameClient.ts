@@ -2,6 +2,7 @@
 import { gameStore } from '$lib/stores/gameStore';
 import { get } from 'svelte/store';
 import type { GamePosition } from '$lib/types/types.game';
+import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 class GameClient {
 	private pendingPosition: GamePosition | null = null;
@@ -127,11 +128,11 @@ class GameClient {
 			return;
 		}
 
-		try {
-			console.log(`[GAME CLIENT] Syncing position to server:`, this.pendingPosition);
+		console.log(`[GAME CLIENT] Syncing position to server:`, this.pendingPosition);
 
-			// Use the correct API endpoint for heroes
-			const response = await fetch(`/api/game/heroes/${userId}`, {
+		const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+			`/api/game/heroes/${userId}`,
+			{
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json'
@@ -141,29 +142,22 @@ class GameClient {
 					position: this.pendingPosition,
 					lastSeen: new Date().toISOString()
 				})
-			});
-
-			if (response.ok) {
-				this.lastSentPosition = { ...this.pendingPosition };
-				this.pendingPosition = null;
-				console.log(`[GAME CLIENT] Position synced successfully`);
-			} else {
-				// Get the error details from the response
-				let errorMessage = `Status: ${response.status}`;
-				try {
-					const errorData = await response.text();
-					errorMessage += `, Error: ${errorData}`;
-				} catch {
-					// Ignore if can't read response
-				}
-				
-				console.error(`[GAME CLIENT] Failed to sync position: ${errorMessage}`);
-				// Retry on failure (could implement exponential backoff)
-				this.scheduleRetrySync(userId);
 			}
-		} catch (error) {
-			console.error('[GAME CLIENT] Network error syncing position:', error);
-			this.isOnline = false;
+		);
+
+		if (isSuccess(result)) {
+			this.lastSentPosition = { ...this.pendingPosition };
+			this.pendingPosition = null;
+			console.log(`[GAME CLIENT] Position synced successfully`);
+		} else {
+			console.error(`[GAME CLIENT] Failed to sync position: ${result.error}`);
+			
+			// Set offline status for network-related errors
+			if (result.error.includes('timeout') || result.error.includes('Network')) {
+				this.isOnline = false;
+			}
+			
+			// Retry on failure (could implement exponential backoff)
 			this.scheduleRetrySync(userId);
 		}
 	}
@@ -219,10 +213,15 @@ class GameClient {
 		window.addEventListener('beforeunload', () => {
 			if (this.pendingPosition) {
 				// Use sendBeacon for reliable sync on page unload
-				const data = new Blob([JSON.stringify({
-					position: this.pendingPosition,
-					lastSeen: new Date().toISOString()
-				})], { type: 'application/json' });
+				const data = new Blob(
+					[
+						JSON.stringify({
+							position: this.pendingPosition,
+							lastSeen: new Date().toISOString()
+						})
+					],
+					{ type: 'application/json' }
+				);
 
 				navigator.sendBeacon(`/api/game/heroes/${userId}`, data);
 			}

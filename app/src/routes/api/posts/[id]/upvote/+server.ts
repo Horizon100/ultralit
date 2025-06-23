@@ -1,79 +1,85 @@
+// src/routes/api/posts/[id]/upvote/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const PATCH: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const PATCH: RequestHandler = async ({ params, locals, request }) => {
+  console.log('🔥 UPVOTE ENDPOINT HIT!', {
+    postId: params.id,
+    method: request.method,
+    url: request.url,
+    userId: locals.user?.id
+  });
 
-		const postId = params.id;
-		const userId = locals.user.id;
+  return apiTryCatch(async () => {
+    if (!locals.user) {
+      console.log('❌ No user authenticated');
+      return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
-		console.log(`Toggling upvote for post ${postId} by user ${userId}`);
+    const postId = params.id;
+    const userId = locals.user.id;
 
-		try {
-			// Get current post
-			const post = await pb.collection('posts').getOne(postId);
+    console.log(`🎯 Toggling upvote for post ${postId} by user ${userId}`);
 
-			let upvotedBy = post.upvotedBy || [];
-			let downvotedBy = post.downvotedBy || [];
-			let upvoted = false;
+    // Get current post
+    const post = await pb.collection('posts').getOne(postId);
+    console.log('📄 Found post:', {
+      id: post.id,
+      upvotedBy: post.upvotedBy,
+      upvoteCount: post.upvoteCount
+    });
 
-			// Toggle upvote
-			if (upvotedBy.includes(userId)) {
-				// Remove upvote
-				upvotedBy = upvotedBy.filter((id: string) => id !== userId);
-			} else {
-				// Add upvote and remove downvote if exists
-				upvotedBy.push(userId);
-				upvoted = true;
-				downvotedBy = downvotedBy.filter((id: string) => id !== userId);
-			}
+    let upvotedBy = post.upvotedBy || [];
+    let downvotedBy = post.downvotedBy || [];
+    let upvoted = false;
 
-			// Update post with new arrays and counts
-			const updatedPost = await pb.collection('posts').update(postId, {
-				upvotedBy,
-				downvotedBy,
-				upvoteCount: upvotedBy.length,
-				downvoteCount: downvotedBy.length
-			});
+    // Toggle upvote
+    if (upvotedBy.includes(userId)) {
+      // Remove upvote
+      upvotedBy = upvotedBy.filter((id: string) => id !== userId);
+      console.log('➖ Removing upvote');
+    } else {
+      // Add upvote and remove downvote if exists
+      upvotedBy.push(userId);
+      upvoted = true;
+      downvotedBy = downvotedBy.filter((id: string) => id !== userId);
+      console.log('➕ Adding upvote');
+    }
 
-			console.log(`Upvote toggle successful for post ${postId}`);
+    // Update post with new arrays and counts
+    const updatedPost = await pb.collection('posts').update(postId, {
+      upvotedBy,
+      downvotedBy,
+      upvoteCount: upvotedBy.length,
+      downvoteCount: downvotedBy.length
+    });
 
-			return json({
-				success: true,
-				upvoted,
-				upvoteCount: updatedPost.upvoteCount,
-				downvoteCount: updatedPost.downvoteCount
-			});
-		} catch (err) {
-			console.error(`Error toggling upvote for post ${postId}:`, err);
+    console.log(`✅ Upvote toggle successful for post ${postId}`, {
+      upvoted,
+      upvoteCount: updatedPost.upvoteCount,
+      downvoteCount: updatedPost.downvoteCount
+    });
 
-			if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-				return new Response(JSON.stringify({ error: 'Post not found' }), {
-					status: 404,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
+    const result = {
+      success: true,
+      upvoted,
+      upvoteCount: updatedPost.upvoteCount,
+      downvoteCount: updatedPost.downvoteCount
+    };
 
-			throw err;
-		}
-	} catch (error) {
-		console.error('Error in upvote handler:', error);
-		return new Response(
-			JSON.stringify({
-				error: 'Internal server error',
-				message: error instanceof Error ? error.message : 'Unknown error'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
+    console.log('🚀 Returning result:', result);
+    return result;
+  }, 'Failed to toggle upvote');
+};
+
+// Add a GET handler to test if the route is working
+export const GET: RequestHandler = async ({ params }) => {
+  console.log('🔍 GET request to upvote endpoint for post:', params.id);
+  return json({ 
+    message: 'Upvote endpoint is working', 
+    postId: params.id,
+    method: 'GET'
+  });
 };

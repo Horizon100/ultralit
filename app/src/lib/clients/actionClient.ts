@@ -1,92 +1,82 @@
 import type { Actions } from '$lib/types/types';
+import { fetchTryCatch, type Result } from '$lib/utils/errorUtils';
 
-export async function fetchActions(): Promise<Actions[]> {
-	try {
-		const response = await fetch('/api/actions', {
+export async function fetchActions(): Promise<Result<Actions[], string>> {
+	return fetchTryCatch<{ success: boolean; actions: Actions[]; error?: string }>(
+		'/api/actions',
+		{
 			method: 'GET',
 			credentials: 'include'
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-
-		return data.actions;
-	} catch (error) {
-		console.error('Error fetching actions:', error);
-		throw error;
-	}
+	).then(result => {
+		if (result.success) {
+			if (!result.data.success) {
+				return { data: null, error: result.data.error || 'Failed to fetch actions', success: false };
+			}
+			return { data: result.data.actions, error: null, success: true };
+		}
+		return { data: null, error: result.error, success: false };
+	});
 }
-export async function createAction(actionData: Partial<Actions>): Promise<Actions> {
-	try {
-		const response = await fetch('/api/actions', {
+
+export async function createAction(actionData: Partial<Actions>): Promise<Result<Actions, string>> {
+	return fetchTryCatch<{ success: boolean; action: Actions; error?: string }>(
+		'/api/actions',
+		{
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			credentials: 'include',
 			body: JSON.stringify(actionData)
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-
-		return data.action;
-	} catch (error) {
-		console.error('Error creating action:', error);
-		throw error;
-	}
+	).then(result => {
+		if (result.success) {
+			if (!result.data.success) {
+				return { data: null, error: result.data.error || 'Failed to create action', success: false };
+			}
+			return { data: result.data.action, error: null, success: true };
+		}
+		return { data: null, error: result.error, success: false };
+	});
 }
 
-export async function updateAction(id: string, actionData: Partial<Actions>): Promise<Actions> {
-	try {
-		const response = await fetch('/api/actions', {
+export async function updateAction(id: string, actionData: Partial<Actions>): Promise<Result<Actions, string>> {
+	return fetchTryCatch<{ success: boolean; action: Actions; error?: string }>(
+		'/api/actions',
+		{
 			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			credentials: 'include',
 			body: JSON.stringify({ id, ...actionData })
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-
-		return data.action;
-	} catch (error) {
-		console.error('Error updating action:', error);
-		throw error;
-	}
+	).then(result => {
+		if (result.success) {
+			if (!result.data.success) {
+				return { data: null, error: result.data.error || 'Failed to update action', success: false };
+			}
+			return { data: result.data.action, error: null, success: true };
+		}
+		return { data: null, error: result.error, success: false };
+	});
 }
 
-export async function deleteAction(id: string): Promise<boolean> {
-	try {
-		const response = await fetch(`/api/actions?id=${id}`, {
+export async function deleteAction(id: string): Promise<Result<boolean, string>> {
+	return fetchTryCatch<{ success: boolean; error?: string }>(
+		`/api/actions?id=${id}`,
+		{
 			method: 'DELETE',
 			credentials: 'include'
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-
-		const data = await response.json();
-		if (!data.success) throw new Error(data.error);
-
-		return true;
-	} catch (error) {
-		console.error('Error deleting action:', error);
-		throw error;
-	}
+	).then(result => {
+		if (result.success) {
+			if (!result.data.success) {
+				return { data: null, error: result.data.error || 'Failed to delete action', success: false };
+			}
+			return { data: true, error: null, success: true };
+		}
+		return { data: null, error: result.error, success: false };
+	});
 }

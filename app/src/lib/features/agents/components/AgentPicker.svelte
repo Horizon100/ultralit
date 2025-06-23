@@ -33,7 +33,7 @@
 	import { getAvatarUrl, getAgentAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { showLoading, hideLoading } from '$lib/stores/loadingStore';
 	import LoadingSpinner from '$lib/components/feedback/LoadingSpinner.svelte';
-
+	import { isSuccess } from '$lib/utils/errorUtils';
 	import AgentGen from '$lib/features/agents/components/AgentGen.svelte';
 
 	let showCreateForm = false;
@@ -255,36 +255,7 @@
 		resetForm();
 	}
 
-	/*
-	 * async function handleSubmit() {
-	 *   const agentData: Partial<AIAgent> = {
-	 *     name: agentName,
-	 *     description: agentDescription,
-	 *     max_attempts: agentMaxAttempts,
-	 *     user_input: agentUserInput,
-	 *     prompt: agentPrompt,
-	 *     model: agentModel,
-	 *     actions: agentActions,
-	 *   };
-	 */
 
-	/*
-	 *   try {
-	 *     if (selectedAgent) {
-	 *       agentStore.updateAgent(selectedAgent.id, agentData);
-	 *     } else {
-	 *       const newAgent = await createAgent(agentData);
-	 *       agentStore.addAgent(newAgent);
-	 *     }
-	 *     showCreateForm = false;
-	 *     selectedAgent = null;
-	 *     resetForm();
-	 *   } catch (error) {
-	 *     console.error('Error saving agent:', error);
-	 *     updateStatus = 'Error saving agent. Please try again.';
-	 *   }
-	 * }
-	 */
 
 	async function handleDelete(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
@@ -298,8 +269,6 @@
 		}
 	}
 
-
-
 	async function handleAvatarUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
 		if (input.files && input.files[0]) {
@@ -312,64 +281,69 @@
 		if (uploadInput) uploadInput.click();
 	}
 
-	async function handleSubmit() {
-		if (!agentName || !selectedRole) {
-			updateStatus = 'Please fill in all required fields.';
-			return;
-		}
-
-		const agentData: Partial<AIAgent> = {
-			name: agentName,
-			description: agentDescription,
-			max_attempts: agentMaxAttempts,
-			user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
-			prompt: agentPrompt,
-			model: agentModel,
-			actions: agentActions,
-			role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
-			status: 'inactive',
-			tags: selectedTags
-		};
-
-		try {
-			console.log('Submitting agent data:', agentData);
-			if (selectedAgent) {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				await updateAgent(selectedAgent.id, formData);
-			} else {
-				const formData = new FormData();
-				if (avatarFile) {
-					formData.append('avatar', avatarFile);
-				}
-				for (const [key, value] of Object.entries(agentData)) {
-					formData.append(key, JSON.stringify(value));
-				}
-				const newAgent = await createAgent(formData);
-				agentStore.addAgent(newAgent);
-			}
-			showCreateForm = false;
-			selectedAgent = null;
-			resetForm();
-			avatarFile = null;
-			await loadAgents();
-		} catch (error) {
-			console.error('Error saving agent:', error);
-			if (error instanceof ClientResponseError) {
-				console.error('Response data:', error.data);
-				console.error('Status code:', error.status);
-			} else if (error instanceof Error) {
-				console.error('Error message:', error.message);
-			}
-			updateStatus = 'Error saving agent. Please try again.';
-		}
+async function handleSubmit() {
+	if (!agentName || !selectedRole) {
+		updateStatus = 'Please fill in all required fields.';
+		return;
 	}
 
+	const agentData: Partial<AIAgent> = {
+		name: agentName,
+		description: agentDescription,
+		max_attempts: agentMaxAttempts,
+		user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
+		prompt: agentPrompt,
+		model: agentModel,
+		actions: agentActions,
+		role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+		status: 'inactive',
+		tags: selectedTags
+	};
+
+	try {
+		console.log('Submitting agent data:', agentData);
+
+		const formData = new FormData();
+		if (avatarFile) {
+			formData.append('avatar', avatarFile);
+		}
+		for (const [key, value] of Object.entries(agentData)) {
+			formData.append(key, JSON.stringify(value));
+		}
+
+		if (selectedAgent) {
+			const updateResult = await updateAgent(selectedAgent.id, formData);
+			if (!isSuccess(updateResult)) {
+				throw new Error(updateResult.error);
+			}
+		} else {
+			const createResult = await createAgent(formData);
+			if (isSuccess(createResult)) {
+				agentStore.addAgent(createResult.data);
+			} else {
+				throw new Error(createResult.error);
+			}
+		}
+
+		// Reset UI state
+		showCreateForm = false;
+		selectedAgent = null;
+		resetForm();
+		avatarFile = null;
+		await loadAgents();
+	} catch (error) {
+		console.error('Error saving agent:', error);
+
+		if (error instanceof ClientResponseError) {
+			console.error('Response data:', error.data);
+			console.error('Status code:', error.status);
+		} else if (error instanceof Error) {
+			console.error('Error message:', error.message);
+		}
+
+		updateStatus = 'Error saving agent. Please try again.';
+	}
+}
 	function showRoleInfo() {
 		// Implement role info modal or tooltip
 	}
@@ -664,7 +638,7 @@
 								if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
 									addTag(e.target.value);
 								}
-							}}						
+							}}
 						/>
 					</div>
 					<div class="tag-list">
@@ -783,9 +757,10 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
-	}	
+	}
 	.agents-config {
 		display: flex;
 		position: absolute;
@@ -1488,7 +1463,6 @@
 		width: calc(100% - 90px);
 	}
 
-
 	.agent-name {
 		color: white;
 		font-size: 16px;
@@ -1542,7 +1516,6 @@
 		font-size: 20px;
 		padding: 20px;
 	}
-
 
 	@media (max-width: 750px) {
 		.agent-item {

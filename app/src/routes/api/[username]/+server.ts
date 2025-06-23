@@ -1,47 +1,92 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
+import { pbTryCatch, apiTryCatch } from '$lib/utils/errorUtils';
+import type { PostWithInteractionsExtended } from '$lib/types/types.posts';
 
-export const GET: RequestHandler = async ({ params }) => {
-	const { username } = params;
+// Extended type to include the additional fields your logic adds
+interface ProfilePost extends PostWithInteractionsExtended {
+	isRepost: boolean;
+	isOwnRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
+}
 
-	try {
+export const GET: RequestHandler = async ({ params, url }) => {
+	return apiTryCatch(async () => {
+		const { username } = params;
+
+		// Get pagination parameters (same as the other endpoint)
+		const offset = parseInt(url.searchParams.get('offset') || '0');
+		const limit = parseInt(url.searchParams.get('limit') || '50');
+		const page = Math.floor(offset / limit) + 1;
+		
+		console.log('API/[username]: Looking for username:', username, 'offset:', offset, 'limit:', limit, 'page:', page);
+
 		// Find user by username
-		const users = await pb.collection('users').getList(1, 1, {
-			filter: `username = "${username}"`
-		});
+		const userResult = await pbTryCatch(
+			pb.collection('users').getList(1, 1, {
+				filter: `username = "${username}"`
+			}),
+			'fetch user by username'
+		);
 
-		if (users.items.length === 0) {
-			return json({ error: 'User not found' }, { status: 404 });
+		if (!userResult.success) {
+			throw new Error(userResult.error);
 		}
 
-		const user = users.items[0];
+		if (userResult.data.items.length === 0) {
+			const error = new Error('User not found');
+			error.message = 'not found';
+			throw error;
+		}
+
+		const user = userResult.data.items[0];
 		console.log('=== USER PROFILE DEBUG ===');
 		console.log('User ID:', user.id);
 		console.log('Username:', user.username);
 
-		// Get user's original posts and reposts separately
-		const [originalPosts, repostedPosts] = await Promise.all([
-			// Original posts by the user
-			pb.collection('posts').getList(1, 50, {
-				filter: `user = "${user.id}"`,
-				sort: '-created',
-				expand: 'user'
-			}),
+		// Get user's original posts and reposts separately WITH PAGINATION
+		const [originalPostsResult, repostedPostsResult] = await Promise.all([
+			// Original posts by the user - WITH PAGINATION
+			pbTryCatch(
+				pb.collection('posts').getList(page, limit, {
+					filter: `user = "${user.id}"`,
+					sort: '-created',
+					expand: 'user'
+				}),
+				'fetch original posts'
+			),
 
-			// Posts reposted by the user (including own posts they reposted)
-			pb.collection('posts').getList(1, 50, {
-				filter: `repostedBy ~ "${user.id}"`,
-				sort: '-created',
-				expand: 'user'
-			})
+			// Posts reposted by the user - WITH PAGINATION
+			pbTryCatch(
+				pb.collection('posts').getList(page, limit, {
+					filter: `repostedBy ~ "${user.id}"`,
+					sort: '-created',
+					expand: 'user'
+				}),
+				'fetch reposted posts'
+			)
 		]);
 
-		console.log('Original posts:', originalPosts.totalItems);
-		console.log('Reposted posts:', repostedPosts.totalItems);
+		if (!originalPostsResult.success) {
+			throw new Error(originalPostsResult.error);
+		}
+
+		if (!repostedPostsResult.success) {
+			throw new Error(repostedPostsResult.error);
+		}
+
+		const originalPosts = originalPostsResult.data;
+		const repostedPosts = repostedPostsResult.data;
+
+		console.log('Original posts for this page:', originalPosts.items.length);
+		console.log('Reposted posts for this page:', repostedPosts.items.length);
 
 		// Create a combined array with proper flags
-		const allPosts = [] as any[];
+		const allPosts: ProfilePost[] = [];
 
 		// Add original posts (but check if they were also reposted by the user)
 		originalPosts.items.forEach((post) => {
@@ -69,12 +114,40 @@ export const GET: RequestHandler = async ({ params }) => {
 					repostedBy_id: user.id,
 					repostedBy_username: user.username,
 					repostedBy_name: user.name,
-					repostedBy_avatar: user.avatar
+					repostedBy_avatar: user.avatar,
+					// Add missing PostWithInteractionsExtended properties with defaults
+					upvote: false,
+					downvote: false,
+					repost: true, // This is a repost
+					preview: false,
+					hasRead: false,
+					share: false,
+					quote: false,
+					tagCount: 0,
+					tags: [],
+					content: '',
+					user: '',
+					upvotedBy: [],
+					downvotedBy: [],
+					repostedBy: [],
+					commentedBy: [],
+					sharedBy: [],
+					quotedBy: [],
+					readBy: [],
+					upvoteCount: 0,
+					downvoteCount: 0,
+					repostCount: 0,
+					commentCount: 0,
+					shareCount: 0,
+					quoteCount: 0,
+					readCount: 0,
+					parent: '',
+					children: [],
+					quotedPost: ''
 				});
 			}
 		});
 
-		// Add reposts of other people's posts
 		repostedPosts.items.forEach((post) => {
 			// Only add if it's not the user's own post (already handled above)
 			if (post.user !== user.id) {
@@ -86,7 +159,36 @@ export const GET: RequestHandler = async ({ params }) => {
 					repostedBy_id: user.id,
 					repostedBy_username: user.username,
 					repostedBy_name: user.name,
-					repostedBy_avatar: user.avatar
+					repostedBy_avatar: user.avatar,
+					// Add missing PostWithInteractionsExtended properties with defaults
+					upvote: false,
+					downvote: false,
+					repost: true, // This is a repost
+					preview: false,
+					hasRead: false,
+					share: false,
+					quote: false,
+					tagCount: 0,
+					tags: [],
+					content: '',
+					user: '',
+					upvotedBy: [],
+					downvotedBy: [],
+					repostedBy: [],
+					commentedBy: [],
+					sharedBy: [],
+					quotedBy: [],
+					readBy: [],
+					upvoteCount: 0,
+					downvoteCount: 0,
+					repostCount: 0,
+					commentCount: 0,
+					shareCount: 0,
+					quoteCount: 0,
+					readCount: 0,
+					parent: '',
+					children: [],
+					quotedPost: ''
 				});
 			}
 		});
@@ -99,23 +201,53 @@ export const GET: RequestHandler = async ({ params }) => {
 			}
 		});
 
-		// Sort by created date (this line should already exist)
+		// Sort by created date
 		allPosts.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-		console.log('Combined posts:', allPosts.length);
+		console.log('Combined posts for this page:', allPosts.length);
 		console.log('Reposts in combined:', allPosts.filter((p) => p.isRepost).length);
 
-		// Get user profile if exists
+		// Get user profile if exists (only on first page)
 		let profile = null;
-		try {
-			const profileResult = await pb.collection('user_profiles').getList(1, 1, {
-				filter: `user = "${user.id}"`
-			});
-			profile = profileResult.items[0] || null;
-		} catch {
-			console.log('No profile found for user');
+		if (offset === 0) {
+			const profileResult = await pbTryCatch(
+				pb.collection('user_profiles').getList(1, 1, {
+					filter: `user = "${user.id}"`
+				}),
+				'fetch user profile'
+			);
+
+			if (profileResult.success) {
+				profile = profileResult.data.items[0] || null;
+			} else {
+				console.log('No profile found for user');
+			}
 		}
 
-		return json({
+		// Calculate total posts (only on first page for performance)
+		let totalPosts = 0;
+		if (offset === 0) {
+			try {
+				// Get total count of user's posts for accurate pagination
+				const totalOriginalPosts = await pb.collection('posts').getList(1, 1, {
+					filter: `user = "${user.id}"`,
+					fields: 'id'
+				});
+				
+				const totalRepostedPosts = await pb.collection('posts').getList(1, 1, {
+					filter: `repostedBy ~ "${user.id}" && user != "${user.id}"`,
+					fields: 'id'
+				});
+				
+				totalPosts = totalOriginalPosts.totalItems + totalRepostedPosts.totalItems;
+			} catch (err) {
+				console.warn('Could not get total post count:', err);
+				totalPosts = allPosts.length; // Fallback
+			}
+		}
+
+		console.log('API/[username]: Returning', allPosts.length, 'posts for page', page);
+
+		return {
 			user: {
 				id: user.id,
 				username: user.username,
@@ -125,12 +257,11 @@ export const GET: RequestHandler = async ({ params }) => {
 				created: user.created,
 				updated: user.updated
 			},
-			profile,
+			profile: offset === 0 ? profile : undefined, // Only return profile on first page
 			posts: allPosts,
-			totalPosts: allPosts.length
-		});
-	} catch (error) {
-		console.error('Error fetching user:', error);
-		return json({ error: 'Failed to fetch user' }, { status: 500 });
-	}
+			totalPosts: totalPosts || allPosts.length,
+			currentPage: page,
+			hasMore: allPosts.length === limit
+		};
+	}, 'Failed to fetch user profile');
 };

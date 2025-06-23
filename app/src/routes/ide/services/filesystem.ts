@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 export interface FileSystem {
 	[filename: string]: string;
@@ -15,61 +16,59 @@ export function getFileSystem() {
 			'/* Main styles */\nbody {\n  font-family: sans-serif;\n  margin: 0;\n  padding: 20px;\n}\n'
 	};
 
-	function getFiles(): FileSystem {
+	async function getFiles(): Promise<FileSystem> {
 		if (!browser) return defaultFiles;
 
-		try {
+		const result = await clientTryCatch(Promise.resolve().then(() => {
 			const stored = localStorage.getItem(STORAGE_KEY);
 			return stored ? JSON.parse(stored) : defaultFiles;
-		} catch (error) {
-			console.error('Failed to load files from storage:', error);
+		}));
+		if (isFailure(result)) {
 			return defaultFiles;
 		}
+		return result.data;
 	}
 
-	function saveFiles(files: FileSystem): void {
+	async function saveFiles(files: FileSystem): Promise<void> {
 		if (!browser) return;
-
-		try {
+		await clientTryCatch(Promise.resolve().then(() => {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-		} catch (error) {
-			console.error('Failed to save files to storage:', error);
-		}
+		}));
 	}
 
-	function createFile(filename: string, content: string): void {
-		const files = getFiles();
+	async function createFile(filename: string, content: string): Promise<void> {
+		const files = await getFiles();
 		files[filename] = content;
-		saveFiles(files);
+		await saveFiles(files);
 	}
 
-	function updateFile(filename: string, content: string): void {
-		const files = getFiles();
+	async function updateFile(filename: string, content: string): Promise<void> {
+		const files = await getFiles();
 		if (files[filename] !== undefined) {
 			files[filename] = content;
-			saveFiles(files);
+			await saveFiles(files);
 		}
 	}
 
-	function deleteFile(filename: string): void {
-		const files = getFiles();
+	async function deleteFile(filename: string): Promise<void> {
+		const files = await getFiles();
 		if (files[filename] !== undefined) {
 			delete files[filename];
-			saveFiles(files);
+			await saveFiles(files);
 		}
 	}
 
-	function renameFile(oldFilename: string, newFilename: string): void {
-		const files = getFiles();
+	async function renameFile(oldFilename: string, newFilename: string): Promise<void> {
+		const files = await getFiles();
 		if (files[oldFilename] !== undefined) {
 			files[newFilename] = files[oldFilename];
 			delete files[oldFilename];
-			saveFiles(files);
+			await saveFiles(files);
 		}
 	}
 
-	function fileExists(filename: string): boolean {
-		const files = getFiles();
+	async function fileExists(filename: string): Promise<boolean> {
+		const files = await getFiles();
 		return files[filename] !== undefined;
 	}
 

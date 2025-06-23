@@ -457,42 +457,48 @@
 			<div class="button-grid" transition:fade={{ duration: 300 }}>
 				{#each filteredAgents as agent (agent.id)}
 					<div class="agent-item">
-						<div class="status-badge {agent.status}">{agent.status}</div>
+						<div class="agent-wrapper">
 
 						<div class="avatar-container">
 							{#if agent.avatar}
 								<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									<Bot size={48} />
+									<Bot size={20} />
 								</div>
 							{/if}
 						</div>
-						<div class="agent-name">{agent.name}</div>
+						<div class="name-container">
+							<div class="status-badge {agent.status}">{agent.status}</div>
+							<div class="agent-name">{agent.name}</div>
+						</div>
+												</div>
+
 						<div class="container-row">
 							<div class="data-counts">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Trash2 size={24} />
+									<Trash2 size={16} />
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Settings size={24} />
+									<Settings size={16} />
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<RefreshCcw size={24} />
+									<RefreshCcw size={16} />
 								</button>
 							</div>
 							<div class="action-buttons">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Trash2 size={24} />
+									<Trash2 size={16} />
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Settings size={24} />
+									<Settings size={16} />
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<RefreshCcw size={24} />
+									<RefreshCcw size={16} />
 								</button>
 							</div>
 						</div>
+
 					</div>
 				{/each}
 			</div>
@@ -541,7 +547,7 @@
 									class:active={selectedStatus === status}
 									on:click={() => (selectedStatus = status)}
 								>
-									<svelte:component this={statusIcons[status]} size={24} />
+									<svelte:component this={statusIcons[status]} size={16} />
 									{#if selectedStatus == status}
 										<span>{status}</span>
 									{/if}
@@ -741,12 +747,12 @@
 				<div class="form-group">
 					<label>TAGS</label>
 					<div class="tag-input">
-					<input
-						type="text"
-						placeholder="Add a tag"
-						bind:value={tagInput}
-						on:keydown={handleKeydown}
-					/>
+						<input
+							type="text"
+							placeholder="Add a tag"
+							bind:value={tagInput}
+							on:keydown={handleKeydown}
+						/>
 					</div>
 					<div class="tag-list">
 						{#each selectedTags as tag}
@@ -864,7 +870,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -903,12 +909,12 @@
 		position: absolute;
 		/* padding: 20px; */
 		height: calc(100% - 6rem);
-		width: calc(100% - 3rem);
+		width: 100%;
 		top: 0;
-		left: 2rem;
+
 		background: var(--bg-gradient-r);
 		overflow-y: hidden;
-		border-radius: 2rem;
+
 		border: 1px solid var(--line-color);
 		/* width: auto; */
 
@@ -1130,7 +1136,7 @@
 
 	.button-grid {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		justify-content: flex-start;
 		align-items: flex-start;
 		height: 90vh;
@@ -1244,7 +1250,8 @@
 		justify-content: space-between;
 		/* margin-right: 50px; */
 		align-items: flex-start;
-		margin-right: 5rem;
+		margin-right: 0.5rem;
+		width: auto;
 	}
 
 	.item {
@@ -1274,16 +1281,17 @@
 
 	.agent-item {
 		display: flex;
-		flex-direction: column;
-		min-width: 100px;
-		max-width: 150px;
+		flex-direction: row;
 		/* height: 340px; */
-		justify-content: space-between;
+		justify-content: flex-start;
 		align-items: center;
+		gap: 1rem;
+		width: 100%;
 		/* border-bottom: 2px solid rgb(84, 84, 84); */
 		background-color: var(--primary-color);
 		border: 1px solid var(--line-color);
 		border-radius: 1rem;
+		padding: 0.5rem 0;
 		/* height: 200px; */
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 		/* padding: 20px; */
@@ -1333,8 +1341,8 @@
 		border: none;
 		border-radius: 0px;
 		cursor: pointer;
-		height: 50px;
-		width: 50px;
+		height: auto;
+		width: auto;
 		transition: background-color 0.3s;
 		display: flex;
 		flex-direction: row;
@@ -1376,17 +1384,15 @@
 	}
 
 	.avatar-container {
-		width: 98%;
+		width: 60px !important;
 		/* height: 100%; */
-		height: 200px;
-		/* border-radius: 50%; */
+		height: 60px !important;
+		margin-left: 0.5rem;
+		border-radius: 50%;
 		/* scale: 1.5; */
 		justify-content: center;
 		align-items: center;
 		overflow: hidden;
-		border-top-left-radius: 14px;
-		border-top-right-radius: 14px;
-		border-bottom: 1px solid #4b4b4b;
 		background-color: #e0e0e0;
 
 		/* margin-right: 1rem; */
@@ -1412,23 +1418,38 @@
 		justify-content: center;
 		align-items: center;
 		/* background-color: #e0e0e0; */
-		color: #757575;
+		color: var(--tertiary-color);
+	}
+	.agent-wrapper {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		width: 100%;
+
+	}
+	.name-container {
+		display: flex;
+		flex-direction: column;
+		width: 100px;
+		height: 100%;
+
+		justify-content: flex-start;
 	}
 
 	.status-badge {
 		position: relative;
 		display: flex;
 		flex-direction: row;
-		width: 50%;
+		width: auto;
+		
 		margin-left: 0;
-		text-align: center;
+		text-align: left;
 		align-items: center;
-		justify-content: center;
-		padding: 2px 5px;
+		justify-content: left;
 		border-radius: 10px;
 		font-size: 12px;
 		font-weight: bold;
-		background-color: #333333;
 		color: white;
 	}
 
@@ -1459,8 +1480,10 @@
 	.data-counts,
 	.action-buttons {
 		display: flex;
-		gap: 10px;
+		gap: 0.5rem;
 		height: 50%;
+		width: auto;
+		justify-content: flex-end;
 	}
 
 	.action-buttons {
@@ -1617,7 +1640,6 @@
 		cursor: pointer;
 	}
 
-
 	.tag-list {
 		display: flex;
 		flex-wrap: wrap;
@@ -1729,7 +1751,6 @@
 		width: calc(100% - 90px);
 	}
 
-
 	.agent-name {
 		color: white;
 		font-size: 16px;
@@ -1790,8 +1811,6 @@
 
 	@media (max-width: 1700px) {
 	}
-
-
 
 	@media (max-width: 750px) {
 		.agent-item {

@@ -28,10 +28,10 @@
 
 		const target = event.currentTarget as HTMLElement;
 		const rect = target.getBoundingClientRect();
-		
+
 		const pixelX = event.clientX - rect.left;
 		const pixelY = event.clientY - rect.top;
-		
+
 		const gridX = Math.floor(pixelX / cellSize);
 		const gridY = Math.floor(pixelY / cellSize);
 
@@ -49,52 +49,55 @@
 	// Generate road cell class
 	export function getRoadCellClass(gridX: number, gridY: number, roads: any[] = []): string {
 		if (!roads || roads.length === 0) return '';
-		
-		const isOnRoad = roads.some(road => {
+
+		const isOnRoad = roads.some((road) => {
 			if (!road || !road.path || road.path.length < 2) return false;
-			
+
 			return road.path.some((point: GamePosition) => {
 				const roadGridX = pixelToGrid(point.x);
 				const roadGridY = pixelToGrid(point.y);
 				return roadGridX === gridX && roadGridY === gridY;
 			});
 		});
-		
+
 		if (!isOnRoad) return '';
-		
+
 		const roadType = determineRoadType(gridX, gridY, roads);
 		return `road-cell ${roadType}`;
 	}
 
 	function determineRoadType(gridX: number, gridY: number, roads: any[]): string {
-		let hasNorth = false, hasSouth = false, hasEast = false, hasWest = false;
-		
-		roads.forEach(road => {
+		let hasNorth = false,
+			hasSouth = false,
+			hasEast = false,
+			hasWest = false;
+
+		roads.forEach((road) => {
 			if (!road || !road.path) return;
-			
+
 			road.path.forEach((point: GamePosition) => {
 				const roadGridX = pixelToGrid(point.x);
 				const roadGridY = pixelToGrid(point.y);
-				
+
 				if (roadGridX === gridX && roadGridY === gridY - 1) hasNorth = true;
 				if (roadGridX === gridX && roadGridY === gridY + 1) hasSouth = true;
 				if (roadGridX === gridX + 1 && roadGridY === gridY) hasEast = true;
 				if (roadGridX === gridX - 1 && roadGridY === gridY) hasWest = true;
 			});
 		});
-		
+
 		const connectionCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
-		
+
 		if (connectionCount >= 3) return 'road-intersection';
 		if ((hasNorth || hasSouth) && (hasEast || hasWest)) return 'road-intersection';
 		if (hasNorth || hasSouth) return 'road-vertical';
 		if (hasEast || hasWest) return 'road-horizontal';
-		
+
 		return 'road-horizontal';
 	}
 </script>
 
-<div 
+<div
 	class="map-grid {gridClass}"
 	class:show-grid={showGrid}
 	class:clickable={allowMovement}
@@ -104,21 +107,21 @@
 	<!-- Grid cells -->
 	{#each Array(height) as _, rowIndex}
 		{#each Array(width) as _, colIndex}
-			<div 
-				class="grid-cell" 
-				data-x={colIndex} 
+			<div
+				class="grid-cell"
+				data-x={colIndex}
 				data-y={rowIndex}
 				style="grid-column: {colIndex + 1}; grid-row: {rowIndex + 1};"
 			></div>
 		{/each}
 	{/each}
-	
+
 	<!-- Slot for positioned content -->
 	<slot></slot>
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -145,7 +148,6 @@
 
 	.grid-cell {
 		/* Remove margin that was causing positioning issues */
-		background-color: transparent;
 		border: none;
 		/* Uncomment for hexagon cells */
 		/* clip-path: polygon(
@@ -171,31 +173,29 @@
 	}
 
 	:global(.grid-cell.road-cell.road-horizontal) {
-		background: linear-gradient(to bottom, 
-			#6b5b47 0%, 
-			#8b7355 20%, 
-			#a0956b 50%, 
-			#8b7355 80%, 
+		background: linear-gradient(
+			to bottom,
+			#6b5b47 0%,
+			#8b7355 20%,
+			#a0956b 50%,
+			#8b7355 80%,
 			#6b5b47 100%
 		) !important;
 	}
 
 	:global(.grid-cell.road-cell.road-vertical) {
-		background: linear-gradient(to right, 
-			#6b5b47 0%, 
-			#8b7355 20%, 
-			#a0956b 50%, 
-			#8b7355 80%, 
+		background: linear-gradient(
+			to right,
+			#6b5b47 0%,
+			#8b7355 20%,
+			#a0956b 50%,
+			#8b7355 80%,
 			#6b5b47 100%
 		) !important;
 	}
 
 	:global(.grid-cell.road-cell.road-intersection) {
-		background: radial-gradient(circle at center, 
-			#a0956b 0%, 
-			#8b7355 50%, 
-			#6b5b47 100%
-		) !important;
+		background: radial-gradient(circle at center, #a0956b 0%, #8b7355 50%, #6b5b47 100%) !important;
 	}
 
 	:global(.grid-cell.road-cell:hover) {

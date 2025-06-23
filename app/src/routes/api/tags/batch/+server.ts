@@ -2,72 +2,44 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const GET: RequestHandler = async ({ url, locals }) =>
+  apiTryCatch(async () => {
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-		// Get IDs from query params
-		const ids = url.searchParams.get('ids');
+    const userId = locals.user.id;
 
-		if (!ids) {
-			return new Response(JSON.stringify({ error: 'No IDs provided' }), {
-				status: 400,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+    const ids = url.searchParams.get('ids');
+    if (!ids) {
+      throw new Error('No IDs provided');
+    }
 
-		// Split and filter out empty strings
-		const idArray = ids.split(',').filter(Boolean);
+    const idArray = ids.split(',').filter(Boolean);
+    if (idArray.length === 0) {
+      return json({ items: [] });
+    }
 
-		if (idArray.length === 0) {
-			return json({ items: [] });
-		}
+    const tasks = await pb.collection('tasks').getList(1, idArray.length, {
+      filter: idArray.map((id) => `id="${id}"`).join(' || '),
+      expand: 'project_id'
+    });
 
-		/*
-		 * Fetch tasks by ID with access control
-		 * First, get all tasks by ID
-		 */
-		const tasks = await pb.collection('tasks').getList(1, idArray.length, {
-			filter: idArray.map((id) => `id="${id}"`).join(' || '),
-			expand: 'project_id'
-		});
+    const accessibleTasks = tasks.items.filter((task) => {
+      if (task.createdBy === userId) return true;
 
-		// Filter tasks to only include those the user has access to
-		const accessibleTasks = tasks.items.filter((task) => {
-			// User is the creator
-			if (task.createdBy === locals.user!.id) return true;
+      if (task.project_id && task.expand?.project_id) {
+        const project = task.expand.project_id;
+        return (
+          project.owner === userId ||
+          (project.collaborators && project.collaborators.includes(userId))
+        );
+      }
 
-			// Check project access if task belongs to a project
-			if (task.project_id && task.expand?.project_id) {
-				const project = task.expand.project_id;
-				return (
-					project.owner === locals.user!.id ||
-					(project.collaborators && project.collaborators.includes(locals.user!.id))
-				);
-			}
+      return false;
+    });
 
-			return false;
-		});
-
-		return json({
-			...tasks,
-			items: accessibleTasks
-		});
-	} catch (error) {
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Internal server error'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+    return json({ ...tasks, items: accessibleTasks });
+  }, 'Failed to fetch batch tasks');

@@ -1,8 +1,12 @@
 import type { PromptType } from '$lib/types/types';
 import { MessageSquareText, Minimize, AlertCircle, HelpCircle } from 'lucide-svelte';
-import type { AIMessage, PromptInput } from '$lib/types/types';
+import type { AIMessage, AIModel, PromptInput } from '$lib/types/types';
 import { currentUser } from '$lib/pocketbase';
 import { get } from 'svelte/store';
+import type { ComponentType } from 'svelte';
+import { clientTryCatch, fetchTryCatch } from '$lib/utils/errorUtils';
+
+export let aiModel: AIModel;
 
 export const SYSTEM_PROMPTS = {
 	NORMAL: 'Respond naturally and conversationally with balanced detail.',
@@ -14,7 +18,7 @@ export const SYSTEM_PROMPTS = {
 export const availablePrompts: Array<{
 	value: PromptType;
 	label: string;
-	icon: any;
+	icon: ComponentType;
 	description: string;
 }> = [
 	{
@@ -59,25 +63,25 @@ export const getPrompt = (type: PromptType, context: string): string => {
 };
 export function getPromptLabelFromContent(promptContent: string | null): string {
 	if (!promptContent) return '';
-	
+
 	// Check if it matches any of the system prompts
 	for (const [key, value] of Object.entries(SYSTEM_PROMPTS)) {
 		if (promptContent.includes(value) || value.includes(promptContent)) {
 			return key;
 		}
 	}
-	
+
 	// If no match found, try to find in availablePrompts by description
-	const prompt = availablePrompts.find(p => 
-		promptContent.includes(p.description) || p.description.includes(promptContent)
+	const prompt = availablePrompts.find(
+		(p) => promptContent.includes(p.description) || p.description.includes(promptContent)
 	);
-	
+
 	return prompt?.value || promptContent || '';
 }
 export function getPromptInfo(promptType: PromptType | string | null) {
 	if (!promptType) return null;
-	
-	const prompt = availablePrompts.find(p => p.value === promptType);
+
+	const prompt = availablePrompts.find((p) => p.value === promptType);
 	return prompt || null;
 }
 
@@ -92,31 +96,38 @@ export function getPromptDescription(promptType: PromptType | string | null): st
 }
 
 export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
-	try {
-		const response = await fetch(`/api/prompts?userId=${userId}`);
-		if (!response.ok) return [];
-		return await response.json();
-	} catch (error) {
+	if (!userId) return [];
+	
+	const { data, error, success } = await clientTryCatch(fetch(`/api/prompts?userId=${userId}`).then(res => {
+		if (!res.ok) throw new Error(`Failed to fetch prompts: ${res.statusText}`);
+		return res.json();
+	}));
+
+	if (success && data) {
+		return data;
+	} else {
 		console.error('Error fetching user prompts:', error);
 		return [];
 	}
 }
-
 export async function fetchSystemPrompt(promptId: string): Promise<string | null> {
-	try {
-		const response = await fetch(`/api/prompts/${promptId}`);
-		if (!response.ok) return null;
-		const data = await response.json();
+	if (!promptId) return null;
+
+	const { data, error, success } = await clientTryCatch(fetch(`/api/prompts/${promptId}`).then(res => {
+		if (!res.ok) throw new Error(`Failed to fetch prompt: ${res.statusText}`);
+		return res.json();
+	}));
+
+	if (success && data) {
 		return data.data?.prompt || null;
-	} catch (error) {
+	} else {
 		console.error('Error fetching system prompt:', error);
 		return null;
 	}
 }
 
 export async function prepareMessagesWithCustomPrompts(
-	originalMessages: AIMessage[],
-	userId: string
+	originalMessages: AIMessage[]
 ): Promise<AIMessage[]> {
 	const user = get(currentUser);
 	if (!user) return originalMessages;
@@ -139,8 +150,14 @@ export async function prepareMessagesWithCustomPrompts(
 			const systemPrompt = SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
 			if (systemPrompt) allPrompts.push(systemPrompt);
 		} else {
-			const systemPrompt = await fetchSystemPrompt(user.sysprompt_preference);
-			if (systemPrompt) allPrompts.push(systemPrompt);
+			const systemPromptResult = await clientTryCatch(
+				fetchSystemPrompt(user.sysprompt_preference),
+				'Failed to fetch custom system prompt'
+			);
+
+			if (systemPromptResult.success && systemPromptResult.data) {
+				allPrompts.push(systemPromptResult.data);
+			}
 		}
 	}
 
@@ -153,16 +170,30 @@ export async function prepareMessagesWithCustomPrompts(
 			promptIds = [user.prompt_preference];
 		}
 
-		for (const promptId of promptIds) {
-			try {
-				const response = await fetch(`/api/prompts/${promptId}`);
-				if (response.ok) {
-					const data = await response.json();
-					if (data.data?.prompt) allPrompts.push(data.data.prompt);
-				}
-			} catch (error) {
-				console.error('Error fetching user prompt:', error);
-			}
+		const promptResults = await clientTryCatch(
+			Promise.all(
+				promptIds.map(async (promptId) => {
+					const result = await fetchTryCatch<{ data?: { prompt?: string } }>(
+						`/api/prompts/${promptId}`,
+						{
+							method: 'GET'
+						}
+					);
+
+					if (result.success && result.data.data?.prompt) {
+						return result.data.data.prompt;
+					}
+					return null;
+				})
+			),
+			'Failed to fetch user prompts'
+		);
+
+		if (promptResults.success) {
+			const validPrompts = promptResults.data.filter((prompt): prompt is string => prompt !== null);
+			allPrompts.push(...validPrompts);
+		} else {
+			console.error('Error fetching user prompts:', promptResults.error);
 		}
 	}
 
@@ -170,16 +201,21 @@ export async function prepareMessagesWithCustomPrompts(
 
 	const combinedPromptContent = allPrompts.join('\n\n');
 
+	// Get provider from the first message or use a default
+	const provider = messages[0]?.provider || 'openai';
+
 	if (systemMessageIndex >= 0) {
 		messages[systemMessageIndex] = {
 			...messages[systemMessageIndex],
-			content: `${combinedPromptContent}\n\n${messages[systemMessageIndex].content}`
+			content: `${combinedPromptContent}\n\n${messages[systemMessageIndex].content}`,
+			provider: provider
 		};
 	} else {
 		messages.unshift({
 			role: 'system',
 			content: combinedPromptContent,
-			model: messages[0]?.model || 'default'
+			model: messages[0]?.model || 'default',
+			provider: provider
 		});
 	}
 

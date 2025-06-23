@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import { showSidenav } from '$lib/stores/sidenavStore';
+	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import { MessageSquare, Calendar, Sparkles } from 'lucide-svelte';
 
-	export let innerWidth: number;
+	// export let innerWidth: number;
 </script>
 
-{#if $showSidenav && innerWidth > 768}
+{#if $showSidenav}
 	<aside class="left-sidebar" transition:fly={{ x: -300, duration: 300 }}>
 		<div class="sidebar-content">
 			<nav class="sidebar-nav">
@@ -66,7 +66,8 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.left-sidebar {
@@ -155,5 +156,11 @@
 		font-size: 0.75rem;
 		color: var(--text-color);
 		opacity: 0.8;
+	}
+
+	@media (max-width: 1000px) {
+		.left-sidebar {
+			background: var(--primary-color);
+		}
 	}
 </style>

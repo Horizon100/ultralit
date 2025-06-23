@@ -53,7 +53,7 @@
 
 			if (validCode) {
 				isCodeValid = true;
-    			validInvitationId = validCode.id ?? null; 
+				validInvitationId = validCode.id ?? null;
 				successMessage = 'Invitation code accepted! Please continue with registration.';
 				console.log('Valid invitation code:', validCode);
 			} else {
@@ -144,17 +144,15 @@
 			isLoading = false;
 		}
 	}
-		$: invitationPlaceholder = $t('profile.invitationPlaceholder') as string;
-		$: emailPlaceholder = $t('profile.email') as string;
-		$: passwordPlaceholder = $t('profile.password') as string;
-
+	$: invitationPlaceholder = $t('profile.invitationPlaceholder') as string;
+	$: emailPlaceholder = $t('profile.email') as string;
+	$: passwordPlaceholder = $t('profile.password') as string;
 
 	$: invitationReasons = $t('profile.invitationReasons') as unknown as Array<{
 		bold: string;
 		text: string;
 	}>;
 </script>
-
 
 <div class="auth-overlay" on:click|self={close}>
 	<div class="auth-content">
@@ -173,7 +171,7 @@
 							<input
 								type="text"
 								bind:value={invitationCode}
-								placeholder={invitationPlaceholder}	
+								placeholder={invitationPlaceholder}
 								required
 								disabled={isCheckingCode || isLoading}
 							/>
@@ -205,7 +203,7 @@
 							<input
 								type="email"
 								bind:value={email}
-								placeholder={emailPlaceholder}	
+								placeholder={emailPlaceholder}
 								required
 								disabled={isLoading}
 							/>
@@ -224,7 +222,7 @@
 							<input
 								type="password"
 								bind:value={password}
-								placeholder={passwordPlaceholder}	
+								placeholder={passwordPlaceholder}
 								required
 								disabled={isLoading}
 							/>
@@ -289,7 +287,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.error-message {

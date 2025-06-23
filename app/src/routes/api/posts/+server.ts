@@ -1,60 +1,102 @@
-import { json } from '@sveltejs/kit';
+// src/routes/api/posts/+server.ts
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import type { Post, PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
 import type { User } from '$lib/types/types';
+import { getFileType } from '$lib/utils/fileHandlers';
+import { apiTryCatch, pbTryCatch } from '$lib/utils/errorUtils';
 
+export const GET: RequestHandler = async ({ url, locals }) =>
+	apiTryCatch(async () => {
+		interface PBListResult<T> {
+			items: T[];
+			totalPages: number;
+			totalItems: number;
+			page: number;
+			perPage: number;
+		}
 
-export const GET: RequestHandler = async ({ url, locals }) => {
-	interface PBListResult<T> {
-	items: T[];
-	totalPages: number;
-	totalItems: number;
-	page: number;
-	perPage: number;
-}
+		interface TimelinePost extends PostWithInteractions {
+			isRepost?: boolean;
+			originalPostId?: string;
+			repostedBy_id?: string;
+			repostedBy_username?: string;
+			repostedBy_name?: string;
+			repostedBy_avatar?: string;
+		}
 
-interface TimelinePost extends PostWithInteractions {
-	isRepost?: boolean;
-	originalPostId?: string;
-	repostedBy_id?: string;
-	repostedBy_username?: string;
-	repostedBy_name?: string;
-	repostedBy_avatar?: string;
-}
-	try {
-		// Modified: Allow both authenticated and guest users to view posts
 		const isAuthenticated = !!locals.user;
 
 		const limit = parseInt(url.searchParams.get('limit') || '20');
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 		const parent = url.searchParams.get('parent');
 
-		// Calculate page number from offset
+		const tagId = url.searchParams.get('tag');
+		const tagIds = url.searchParams.get('tags')?.split(',').filter(Boolean);
+
 		const page = Math.floor(offset / limit) + 1;
+console.log(`Fetching posts: limit=${limit}, offset=${offset}, page=${page}, parent=${parent}`);
 
-		console.log(`Fetching posts: limit=${limit}, offset=${offset}, page=${page}, parent=${parent}`);
+// First, let's see what's actually in the database WITHOUT any filters
+try {
+	const allPostsTest = await pb.collection('posts').getList(1, 5, {
+		sort: '-created'
+		// NO FILTER - see everything
+	}) as PBListResult<Post>;
+	
+	console.log('📊 TOTAL POSTS IN DATABASE:', allPostsTest.totalItems);
+	console.log('📊 SAMPLE POSTS (no filter):', allPostsTest.items.map(p => ({
+		id: p.id,
+		content: p.content?.substring(0, 50),
+		parent: p.parent || '(empty/null)',
+		user: p.user,
+		created: p.created
+	})));
+	
+	// Check what parent values actually exist
+	const parentValues = allPostsTest.items.map(p => p.parent);
+	console.log('📊 Parent field values found:', parentValues);
+	console.log('📊 Empty parent count:', parentValues.filter(p => !p || p === '').length);
+	console.log('📊 Non-empty parent count:', parentValues.filter(p => p && p !== '').length);
+	
+} catch (error) {
+	console.error('❌ Error checking database:', error);
+}
 
-		// Build filter for parent posts or child posts
-		let filter = '';
-		if (parent) {
-			// Fetch child posts (comments) of a specific parent
-			filter = `parent = "${parent}"`;
-		} else {
-			// Fetch only top-level posts (no parent) - check for empty string and null
-			filter = 'parent = "" || parent = null';
-		}
+let filter = '';
+if (parent) {
+	// Getting comments for a specific post
+	filter = `parent = "${parent}"`;
+	console.log('🔍 Fetching comments for post:', parent);
+} else {
+	// Getting main posts (no parent)
+	// In PocketBase, null/empty fields can be filtered with:
+	filter = 'parent = "" || parent = null';
+	console.log('🔍 Fetching main posts (no parent)');
+}
 
-		// Fetch posts without expand
-		const postsResult = (await pb.collection('posts').getList(page, limit, {
-			filter,
-			sort: '-created'
-		})) as PBListResult<Post>;
+// Add tag filters if present
+if (tagId) {
+	filter += ` && tags ~ "${tagId}"`;
+	console.log('🏷️ Added tag filter:', tagId);
+} else if (tagIds && tagIds.length > 0) {
+	const tagFilters = tagIds.map((tag) => `tags ~ "${tag}"`).join(' && ');
+	filter += ` && (${tagFilters})`;
+	console.log('🏷️ Added tags filter:', tagIds);
+}
 
-		// Get unique user IDs from posts
+console.log('🎯 Final filter:', filter);
+
+// Make the actual query
+const postsResult = (await pb.collection('posts').getList(page, limit, {
+	filter: filter || undefined, // Don't pass empty string
+	sort: '-created'
+}) as PBListResult<Post>);
+
+console.log('🎯 FINAL RESULT:', postsResult.totalItems, 'posts found with filter:', filter || '(none)');
+
 		const userIds = [...new Set(postsResult.items.map((post: Post) => post.user))];
 
-		// Batch fetch user data
 		const usersMap = new Map<string, User>();
 		if (userIds.length > 0) {
 			const usersResult = (await pb.collection('users').getList(1, userIds.length, {
@@ -67,7 +109,6 @@ interface TimelinePost extends PostWithInteractions {
 			});
 		}
 
-		// Get attachments for all posts
 		const postIds = postsResult.items.map((post: Post) => post.id);
 		const attachmentsMap = new Map<string, PostAttachment[]>();
 
@@ -87,47 +128,74 @@ interface TimelinePost extends PostWithInteractions {
 			});
 		}
 
-		// Transform posts and add interaction status
 		const postsWithInteractions: PostWithInteractions[] = postsResult.items.map((post: Post) => {
 			const userData = usersMap.get(post.user);
 			const attachments = attachmentsMap.get(post.id) || [];
 
-			// Check if user has interacted with this post (only if authenticated)
-			const upvote = isAuthenticated && locals.user ? post.upvotedBy?.includes(locals.user.id) || false : false;
-			const downvote = isAuthenticated && locals.user
-				? post.downvotedBy?.includes(locals.user.id) || false
-				: false;
-			const repost = isAuthenticated && locals.user ? post.repostedBy?.includes(locals.user.id) || false : false;
-			const hasRead = isAuthenticated && locals.user ? post.readBy?.includes(locals.user.id) || false : false;
+			const tags = post.tags || [];
+			const tagCount = post.tagCount || tags.length || 0;
+
+			const upvotedBy = post.upvotedBy || [];
+			const downvotedBy = post.downvotedBy || [];
+			const repostedBy = post.repostedBy || [];
+			const readBy = post.readBy || [];
+			const sharedBy = post.sharedBy || [];
+			const quotedBy = post.quotedBy || [];
+			const commentedBy = post.commentedBy || [];
+
+			const upvote = isAuthenticated && locals.user ? upvotedBy.includes(locals.user.id) : false;
+			const downvote =
+				isAuthenticated && locals.user ? downvotedBy.includes(locals.user.id) : false;
+			const repost = isAuthenticated && locals.user ? repostedBy.includes(locals.user.id) : false;
+			const hasRead = isAuthenticated && locals.user ? readBy.includes(locals.user.id) : false;
+			const share = isAuthenticated && locals.user ? sharedBy.includes(locals.user.id) : false;
+			const quote = isAuthenticated && locals.user ? quotedBy.includes(locals.user.id) : false;
+
+			const readCount = readBy.filter((id) => id !== post.user).length;
+
 			return {
 				...post,
+				tags,
+				tagCount,
 				upvote,
 				downvote,
 				repost,
 				hasRead,
-				share: false,
-				quote: false,
+				share,
+				quote,
 				author_name: userData?.name,
 				author_username: userData?.username,
 				author_avatar: userData?.avatar,
-				attachments
+				attachments,
+
+				upvoteCount: post.upvoteCount ?? upvotedBy.length ?? 0,
+				downvoteCount: post.downvoteCount ?? downvotedBy.length ?? 0,
+				repostCount: post.repostCount ?? repostedBy.length ?? 0,
+				readCount: post.readCount ?? readCount ?? 0,
+				shareCount: post.shareCount ?? sharedBy.length ?? 0,
+				quoteCount: post.quoteCount ?? quotedBy.length ?? 0,
+				commentCount: post.commentCount ?? commentedBy.length ?? 0,
+
+				readBy,
+				upvotedBy,
+				downvotedBy,
+				repostedBy,
+				sharedBy,
+				quotedBy,
+				commentedBy
 			} as PostWithInteractions;
 		});
 
 		const timelineWithReposts: TimelinePost[] = [];
 
 		postsWithInteractions.forEach((post) => {
-			// Add the original post
 			timelineWithReposts.push({
 				...post,
 				isRepost: false
 			});
 
-			// Add repost entries for each user who reposted this post
 			if (post.repostedBy && post.repostedBy.length > 0) {
-				// Get reposter user data
 				const reposters = post.repostedBy.map((userId) => usersMap.get(userId)).filter(Boolean);
-
 				reposters.forEach((reposter) => {
 					if (reposter) {
 						timelineWithReposts.push({
@@ -139,53 +207,37 @@ interface TimelinePost extends PostWithInteractions {
 							repostedBy_username: reposter.username,
 							repostedBy_name: reposter.name,
 							repostedBy_avatar: reposter.avatar,
-							created: post.updated || post.created // Use repost time if available
+							created: post.updated || post.created
 						});
 					}
 				});
 			}
 		});
 
-		// Sort by created/updated time to maintain chronological order
 		timelineWithReposts.sort(
 			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
 		);
 
 		console.log(`Successfully fetched ${timelineWithReposts.length} posts (including reposts)`);
 
-		return json({
+		return {
 			success: true,
-			posts: timelineWithReposts, // Use enhanced timeline
+			posts: timelineWithReposts,
 			totalPages: postsResult.totalPages,
-			totalItems: timelineWithReposts.length
-		});
-	} catch (error: unknown) {
-		console.error('Error fetching posts:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorStack = error instanceof Error ? error.stack : undefined;
-
-		return new Response(
-			JSON.stringify({
-				error: 'Internal server error',
-				message: errorMessage,
-				stack: errorStack
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
+			totalItems: timelineWithReposts.length,
+			filters: {
+				tag: tagId,
+				tags: tagIds,
+				parent
 			}
-		);
-	}
-};
+		};
+	}, 'Failed to fetch posts', 500);
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-	try {
-		// Check authentication
+export const POST: RequestHandler = async (event) =>
+	apiTryCatch(async () => {
+		const { request, locals } = event;
 		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
+			throw new Error('Unauthorized');
 		}
 
 		console.log('Creating new post...');
@@ -196,239 +248,170 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const parent = (formData.get('parent') as string) || '';
 
 		if (!content || !content.trim()) {
-			return new Response(JSON.stringify({ error: 'Content is required' }), {
-				status: 400,
-				headers: { 'Content-Type': 'application/json' }
-			});
+			throw new Error('Content is required');
 		}
 
-		// Verify user authorization
 		if (user !== locals.user.id) {
-			return new Response(
-				JSON.stringify({ error: 'Unauthorized to create post for another user' }),
-				{
-					status: 403,
-					headers: { 'Content-Type': 'application/json' }
-				}
-			);
+			throw new Error('Unauthorized to create post for another user');
 		}
 
-		try {
-			// Create the post with proper field names
-			const postData: Partial<Post> = {
-				content: content.trim(),
-				user: locals.user.id,
-				children: [],
-				upvotedBy: [],
-				downvotedBy: [],
-				repostedBy: [],
-				commentedBy: [],
-				sharedBy: [],
-				quotedBy: [],
-				readBy: [],
-				upvoteCount: 0,
-				downvoteCount: 0,
-				repostCount: 0,
-				commentCount: 0,
-				shareCount: 0,
-				quoteCount: 0,
-				readCount: 0,
-				quotedPost: ''
-			};
+		const postData: Partial<Post> = {
+			content: content.trim(),
+			user: locals.user.id,
+			children: [],
+			upvotedBy: [],
+			downvotedBy: [],
+			repostedBy: [],
+			commentedBy: [],
+			sharedBy: [],
+			quotedBy: [],
+			readBy: [],
+			tags: [],
+			upvoteCount: 0,
+			downvoteCount: 0,
+			repostCount: 0,
+			commentCount: 0,
+			shareCount: 0,
+			tagCount: 0,
+			quoteCount: 0,
+			readCount: 0,
+			quotedPost: ''
+		};
 
-			// Only set parent if it's not empty
-			if (parent && parent.trim()) {
-				postData.parent = parent.trim();
+		if (parent && parent.trim()) {
+			postData.parent = parent.trim();
+		}
+
+		const newPost = (await pb.collection('posts').create(postData)) as Post;
+
+		console.log(`Post created with ID: ${newPost.id}`);
+
+		if (parent && parent.trim()) {
+			try {
+				const parentPost = (await pb.collection('posts').getOne(parent)) as Post;
+				const children = parentPost.children || [];
+				const commentedBy = parentPost.commentedBy || [];
+
+				if (!children.includes(newPost.id)) children.push(newPost.id);
+				if (!commentedBy.includes(locals.user.id)) commentedBy.push(locals.user.id);
+
+				await pb.collection('posts').update(parent, {
+					children,
+					commentedBy,
+					commentCount: (parentPost.commentCount || 0) + 1
+				});
+
+				console.log(`Updated parent post ${parent} with new child ${newPost.id}`);
+			} catch (parentError) {
+				console.error('Error updating parent post:', parentError);
 			}
+		}
 
-			const newPost = (await pb.collection('posts').create(postData)) as Post;
-
-			console.log(`Post created with ID: ${newPost.id}`);
-
-			// If this is a comment (has parent), update the parent's children array
-			if (parent && parent.trim()) {
+		const attachments: PostAttachment[] = [];
+		for (const [key, file] of formData.entries()) {
+			if (key.startsWith('attachment_') && file instanceof File) {
 				try {
-					const parentPost = (await pb.collection('posts').getOne(parent)) as Post;
-					const children = parentPost.children || [];
-					const commentedBy = parentPost.commentedBy || [];
+					console.log(`Processing attachment: ${file.name}`);
 
-					// Add to children if not already there
-					if (!children.includes(newPost.id)) {
-						children.push(newPost.id);
-					}
+					const attachmentFormData = new FormData();
+					attachmentFormData.append('post', newPost.id);
+					attachmentFormData.append('file_path', file);
+					attachmentFormData.append('file_type', getFileType(file.type));
+					attachmentFormData.append('file_size', file.size.toString());
+					attachmentFormData.append('original_name', file.name);
+					attachmentFormData.append('mime_type', file.type);
 
-					// Add user to commentedBy if not already there
-					if (!commentedBy.includes(locals.user.id)) {
-						commentedBy.push(locals.user.id);
-					}
-
-					// Update parent post with new child and increment comment count
-					await pb.collection('posts').update(parent, {
-						children,
-						commentedBy,
-						commentCount: (parentPost.commentCount || 0) + 1
-					});
-
-					console.log(`Updated parent post ${parent} with new child ${newPost.id}`);
-				} catch (parentError) {
-					console.error('Error updating parent post:', parentError);
-					// Don't fail the creation if parent update fails
+					const attachment = (await pb
+						.collection('posts_attachments')
+						.create(attachmentFormData)) as PostAttachment;
+					attachments.push(attachment);
+					console.log(`Attachment created with ID: ${attachment.id}`);
+				} catch (attachmentError) {
+					console.error('Error creating attachment:', attachmentError);
 				}
 			}
-
-			// Handle attachments if any
-			const attachments: PostAttachment[] = [];
-			for (const [key, file] of formData.entries()) {
-				if (key.startsWith('attachment_') && file instanceof File) {
-					try {
-						console.log(`Processing attachment: ${file.name}`);
-
-						// Create attachment in the posts_attachments collection
-						const attachmentFormData = new FormData();
-						attachmentFormData.append('post', newPost.id);
-						attachmentFormData.append('file_path', file); // This will be handled by PocketBase
-						attachmentFormData.append('file_type', getFileType(file.type));
-						attachmentFormData.append('file_size', file.size.toString());
-						attachmentFormData.append('original_name', file.name);
-						attachmentFormData.append('mime_type', file.type);
-
-						// Create in the posts_attachments collection
-						const attachment = (await pb
-							.collection('posts_attachments')
-							.create(attachmentFormData)) as PostAttachment;
-						attachments.push(attachment);
-						console.log(`Attachment created with ID: ${attachment.id}`);
-					} catch (attachmentError) {
-						console.error('Error creating attachment:', attachmentError);
-						// Continue with post creation even if attachment fails
-					}
-				}
-			}
-
-			// Fetch user data for the response
-			const userData = (await pb.collection('users').getOne(locals.user.id, {
-				fields: 'id,username,name,avatar'
-			})) as User;
-
-			const result: PostWithInteractions = {
-				...newPost,
-				upvote: false,
-				downvote: false,
-				repost: false,
-				preview: false,
-				hasRead: false,
-				share: false,
-				quote: false,
-				author_name: userData.name,
-				author_username: userData.username,
-				author_avatar: userData.avatar,
-				attachments
-			};
-
-			console.log('Post creation successful');
-			return json(result);
-		} catch (err: unknown) {
-			console.error('Error in post creation process:', err);
-
-			if (err && typeof err === 'object' && 'data' in err) {
-				return new Response(
-					JSON.stringify({
-						error: 'Validation error',
-						details: (err as { data: unknown }).data
-					}),
-					{
-						status: 400,
-						headers: { 'Content-Type': 'application/json' }
-					}
-				);
-			}
-
-			throw err;
 		}
-	} catch (error: unknown) {
-		console.error('Error in POST handler:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorStack = error instanceof Error ? error.stack : undefined;
 
-		return new Response(
-			JSON.stringify({
-				error: 'Internal server error',
-				message: errorMessage,
-				stack: errorStack
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
+		const userData = (await pb.collection('users').getOne(locals.user.id, {
+			fields: 'id,username,name,avatar'
+		})) as User;
+
+		const result: PostWithInteractions = {
+			...newPost,
+			upvote: false,
+			downvote: false,
+			repost: false,
+			preview: false,
+			hasRead: false,
+			share: false,
+			quote: false,
+			author_name: userData.name,
+			author_username: userData.username,
+			author_avatar: userData.avatar,
+			attachments
+		};
+
+		console.log('Post creation successful');
+		return result;
+	}, 'Failed to create post', 400);
+
+export const PATCH: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) throw new Error('Unauthorized');
+
+		const data = await request.json();
+		const { id, postId, tags } = data;
+		
+		// Use id or postId (handle both for compatibility)
+		const targetPostId = id || postId;
+		
+		if (!targetPostId) {
+			throw new Error('Post ID is required');
+		}
+
+		if (!Array.isArray(tags)) {
+			throw new Error('Tags must be an array');
+		}
+
+		console.log('Updating post tags:', { postId: targetPostId, tags });
+
+		// Get the current post to verify ownership
+		const currentPostResult = await pbTryCatch(
+			pb.collection('posts').getOne(targetPostId),
+			'fetch current post'
 		);
-	}
-};
 
-function getFileType(
-	mimeType: string
-):
-	| 'image'
-	| 'video'
-	| 'document'
-	| 'audio'
-	| 'archive'
-	| 'spreadsheet'
-	| 'presentation'
-	| 'code'
-	| 'ebook' {
-	if (mimeType.startsWith('image/')) return 'image';
-	if (mimeType.startsWith('video/')) return 'video';
-	if (mimeType.startsWith('audio/')) return 'audio';
+		if (!currentPostResult.success) {
+			throw new Error('Post not found');
+		}
 
-	// Archive files
-	if (
-		mimeType.includes('zip') ||
-		mimeType.includes('rar') ||
-		mimeType.includes('7z') ||
-		mimeType.includes('tar') ||
-		mimeType.includes('gz')
-	)
-		return 'archive';
+		const currentPost = currentPostResult.data;
 
-	// Spreadsheet files
-	if (
-		mimeType.includes('spreadsheet') ||
-		mimeType.includes('excel') ||
-		mimeType.includes('csv') ||
-		mimeType === 'application/vnd.ms-excel' ||
-		mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-	)
-		return 'spreadsheet';
+		// Verify user has permission to modify this post
+		if (currentPost.user !== locals.user.id) {
+			throw new Error('Unauthorized to modify this post');
+		}
 
-	// Presentation files
-	if (
-		mimeType.includes('presentation') ||
-		mimeType.includes('powerpoint') ||
-		mimeType === 'application/vnd.ms-powerpoint' ||
-		mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-	)
-		return 'presentation';
+		// Update the post with tags
+		const updateData = {
+			tags: tags,
+			tagCount: tags.length
+		};
 
-	// Code files
-	if (
-		mimeType.startsWith('text/') &&
-		(mimeType.includes('javascript') ||
-			mimeType.includes('css') ||
-			mimeType.includes('html') ||
-			mimeType.includes('xml') ||
-			mimeType.includes('json') ||
-			mimeType.includes('typescript'))
-	)
-		return 'code';
+		const updateResult = await pbTryCatch(
+			pb.collection('posts').update(targetPostId, updateData),
+			'update post with tags'
+		);
 
-	// Ebook files
-	if (
-		mimeType.includes('epub') ||
-		mimeType.includes('mobi') ||
-		mimeType === 'application/x-mobipocket-ebook'
-	)
-		return 'ebook';
+		if (!updateResult.success) {
+			throw new Error(updateResult.error);
+		}
 
-	// Default to document for everything else (PDF, Word, etc.)
-	return 'document';
-}
+		const updatedPost = updateResult.data;
+		console.log('Successfully updated post with tags:', updatedPost.id);
+
+		return json({ 
+			success: true, 
+			data: updatedPost 
+		});
+	}, 'Failed to update post tags');

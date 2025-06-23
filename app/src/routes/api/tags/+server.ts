@@ -2,84 +2,91 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// Get all tags (personal or not associated with projects)
-export const GET: RequestHandler = async ({ url, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const GET: RequestHandler = async ({ url, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) throw new Error('Unauthorized');
 
-		// Check for filter parameter
-		const filter = url.searchParams.get('filter');
+		const filterParam = url.searchParams.get('filter');
+		const search = url.searchParams.get('search') || '';
+		const limit = parseInt(url.searchParams.get('limit') || '100');
+		const page = parseInt(url.searchParams.get('page') || '1');
+
 		let filterString = '';
 
-		if (filter === 'createdBy') {
-			// Only get tags created by the current user
+		if (filterParam === 'createdBy') {
 			filterString = `createdBy="${locals.user.id}"`;
 		} else {
-			// Get tags created by user or unassigned to projects
 			filterString = `createdBy="${locals.user.id}" || taggedProjects=""`;
 		}
 
-		// Get tags based on the filter
-		const tags = await pb.collection('tags').getList(1, 100, {
-			filter: filterString,
-			sort: 'name'
-		});
-
-		return json(tags);
-	} catch (error) {
-		console.error('Error fetching tags:', error);
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Failed to fetch tags'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
-
-// Create a new tag
-export const POST: RequestHandler = async ({ request, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
+		// Add search filter if provided
+		if (search) {
+			const searchFilter = `name ~ "${search}"`;
+			filterString = filterString ? `(${filterString}) && (${searchFilter})` : searchFilter;
 		}
+
+		console.log('Fetching tags with filter:', filterString);
+
+		const result = await pbTryCatch(
+			pb.collection('tags').getList(page, limit, {
+				filter: filterString,
+				sort: 'name'
+			}),
+			'fetch tags'
+		);
+
+		const tags = unwrap(result);
+
+		return json({ 
+			success: true, 
+			items: tags.items,
+			totalItems: tags.totalItems,
+			totalPages: tags.totalPages
+		});
+	}, 'Failed to fetch tags');
+
+export const POST: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		if (!locals.user) throw new Error('Unauthorized');
 
 		const data = await request.json();
 
-		// Set the creator
-		data.createdBy = locals.user.id;
-
-		// Ensure selected is set
-		if (data.selected === undefined) {
-			data.selected = false;
+		// Validate tag data
+		if (!data.name || typeof data.name !== 'string') {
+			throw new Error('Tag name is required and must be a string');
 		}
 
-		// Create the tag
-		const tag = await pb.collection('tags').create(data);
+		if (data.name.trim().length === 0) {
+			throw new Error('Tag name cannot be empty');
+		}
 
-		return json(tag);
-	} catch (error) {
-		console.error('Error creating tag:', error);
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : 'Failed to create tag'
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+		if (data.name.length > 50) {
+			throw new Error('Tag name must be 50 characters or less');
+		}
+
+		// Prepare tag data
+		const tagData = {
+			name: data.name.trim().toLowerCase(),
+			selected: data.selected === true,
+			createdBy: locals.user.id,
+			taggedPosts: data.taggedPosts || []
+		};
+
+		// Check if tag already exists for this user
+		try {
+			const existingTag = await pb.collection('tags').getFirstListItem(`name = "${tagData.name}" && createdBy = "${locals.user.id}"`);
+			console.log('Tag already exists:', tagData.name);
+			return json({ success: true, data: existingTag });
+		} catch (error) {
+			// Tag doesn't exist, continue with creation
+		}
+
+		// Create new tag
+		const result = await pbTryCatch(pb.collection('tags').create(tagData), 'create tag');
+		const tag = unwrap(result);
+
+		console.log('Created new tag:', tagData.name);
+		return json({ success: true, data: tag });
+	}, 'Failed to create tag');

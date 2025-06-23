@@ -104,12 +104,12 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json([], { status: 200 });
 	} catch (err) {
 		console.error('Error searching users:', err);
-		
+
 		// Check if it's a permissions error
 		if (err && typeof err === 'object' && 'status' in err && err.status === 403) {
 			console.error('Permission denied - make sure users collection allows public read access');
 		}
-		
+
 		return json(
 			{
 				error: 'Failed to search users',

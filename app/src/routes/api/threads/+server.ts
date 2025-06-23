@@ -22,27 +22,54 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 				{ status: 500 }
 			);
 		}
+
+		// Parse query parameters
 		const projectId = url.searchParams.get('project');
+		const unassignedOnly = url.searchParams.get('unassigned') === 'true';
+
 		console.log('Project ID from query:', projectId);
+		console.log('Unassigned only:', unassignedOnly);
+
+		// Build base filter for user access
 		let filter = `op = "${userId}" || members ?~ "${userId}"`;
+
+		// Apply project filtering logic
 		if (projectId) {
+			// Load threads for specific project
 			filter = `(${filter}) && project_id = "${projectId}"`;
-		} else {
+		} else if (unassignedOnly) {
+			// Explicitly load only unassigned threads
 			filter = `(${filter}) && (project_id = "" || project_id = null)`;
 		}
+		// If neither projectId nor unassignedOnly, load ALL threads for user
+
 		console.log('Using filter:', filter);
+
 		try {
 			const threads = await pb.collection('threads').getList(1, 50, {
 				filter,
-				sort: '-updated'
+				sort: '-updated',
+				expand: 'op,project' // Expand related records for more complete data
 			});
 
 			console.log(`Found ${threads.items.length} threads`);
 
-			return json({
+			// Add additional metadata for debugging
+			const result = {
 				success: true,
-				threads: threads.items
-			});
+				threads: threads.items,
+				data: threads.items, // For backward compatibility
+				meta: {
+					total: threads.totalItems,
+					page: threads.page,
+					perPage: threads.perPage,
+					totalPages: threads.totalPages,
+					projectId: projectId,
+					unassignedOnly: unassignedOnly
+				}
+			};
+
+			return json(result);
 		} catch (filterError) {
 			console.error('Error with filter:', filterError);
 
@@ -60,7 +87,12 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 				return json({
 					success: true,
-					threads: simpleThreads.items
+					threads: simpleThreads.items,
+					data: simpleThreads.items,
+					meta: {
+						fallbackUsed: true,
+						total: simpleThreads.totalItems
+					}
 				});
 			} catch (simpleError) {
 				console.error('Error with simple filter:', simpleError);
@@ -68,7 +100,12 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 				// If even the simple filter fails, return an empty array
 				return json({
 					success: true,
-					threads: []
+					threads: [],
+					data: [],
+					meta: {
+						error: 'Filter failed, returned empty result',
+						fallbackUsed: true
+					}
 				});
 			}
 		}
@@ -108,18 +145,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			created: new Date().toISOString()
 		};
 
-		// Only include project if it's provided and not null/undefined/empty
-		if (data.project) {
-			threadData.project = data.project;
+		// Handle project assignment more explicitly
+		if (data.project && data.project.trim() !== '') {
+			threadData.project = data.project.trim();
+			threadData.project_id = data.project_id || data.project.trim();
+		} else if (data.project_id && data.project_id.trim() !== '') {
+			threadData.project_id = data.project_id.trim();
+			threadData.project = data.project || data.project_id.trim();
 		}
+		// If neither project nor project_id is provided, thread remains unassigned
 
 		// Include any other fields that were sent
 		for (const [key, value] of Object.entries(data)) {
 			if (
 				value !== undefined &&
-				!['name', 'user', 'op', 'members', 'description', 'project', 'updated', 'created'].includes(
-					key
-				)
+				![
+					'name',
+					'user',
+					'op',
+					'members',
+					'description',
+					'project',
+					'project_id',
+					'updated',
+					'created'
+				].includes(key)
 			) {
 				threadData[key] = value;
 			}

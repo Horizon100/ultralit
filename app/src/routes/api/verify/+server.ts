@@ -3,6 +3,15 @@ import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
 import type { User } from '$lib/types/types';
 import type { Cookies } from '@sveltejs/kit';
+import { 
+	apiTryCatch, 
+	pbTryCatch, 
+	tryCatchSync, 
+	validationTryCatch,
+	isSuccess,
+	isFailure,
+	unwrap
+} from '$lib/utils/errorUtils';
 
 // Helper function to update auth cookie
 function updateAuthCookie(cookies: Cookies): void {
@@ -23,6 +32,7 @@ function updateAuthCookie(cookies: Cookies): void {
 		);
 	}
 }
+
 interface AuthModelData {
 	id?: string;
 	email?: string;
@@ -38,6 +48,7 @@ interface AuthModelData {
 	sysprompt_preference?: string;
 	model_preference?: string[];
 }
+
 function sanitizeUserData(user: AuthModelData | null): Partial<User> | null {
 	if (!user) return null;
 
@@ -57,170 +68,169 @@ function sanitizeUserData(user: AuthModelData | null): Partial<User> | null {
 		model_preference: user.model_preference
 	};
 }
+
 async function getUserCount(): Promise<number> {
-	try {
-		const resultList = await pbServer.pb.collection('users').getList(1, 1, {
+	const result = await pbTryCatch(
+		pbServer.pb.collection('users').getList(1, 1, {
 			sort: '-created'
-		});
-		return resultList.totalItems;
-	} catch (error) {
-		console.error('Error fetching user count:', error);
+		}),
+		'fetch user count'
+	);
+
+	if (isFailure(result)) {
 		return 0;
 	}
+
+	return result.data.totalItems;
+}
+
+function parseAuthCookie(authCookie: string | undefined): { token: string; model: null } | null {
+	if (!authCookie) return null;
+
+	const result = tryCatchSync(() => {
+		const authData = JSON.parse(authCookie);
+		if (!authData.token || !authData.model) {
+			throw new Error('Invalid auth data structure');
+		}
+		return authData;
+	});
+
+	return isSuccess(result) ? result.data : null;
+}
+
+function extractEndpoint(url: URL): string | null {
+	const pathParts = url.pathname.split('/');
+	const apiIndex = pathParts.indexOf('api');
+	const verifyIndex = pathParts.indexOf('verify');
+
+	if (apiIndex === -1 || verifyIndex === -1 || verifyIndex !== apiIndex + 1) {
+		return null;
+	}
+
+	return pathParts.slice(verifyIndex + 1).join('/');
 }
 
 // Handle GET requests
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	console.log('GET request to', url.pathname);
 
-	// Support query param based check endpoints
-	const check = url.searchParams.get('check');
-
-	// Health check via query param
-	if (check === 'health') {
-		try {
-			const isHealthy = await pbServer.checkPocketBaseConnection();
-			return json({
-				success: isHealthy,
-				message: isHealthy ? 'PocketBase is healthy' : 'PocketBase is not healthy'
-			});
-		} catch (error) {
-			console.error('PocketBase health check failed:', error);
-			return json({ success: false, error: 'PocketBase connection failed' }, { status: 500 });
-		}
-	}
-
-	// Restore auth from cookies if available
-	const authCookie = cookies.get('pb_auth');
-	if (authCookie) {
-		try {
-			const authData = JSON.parse(authCookie);
-			pbServer.pb.authStore.save(authData.token, authData.model);
-		} catch (e) {
-			console.error('Error parsing auth cookie:', e);
-		}
-	}
-
-	// Extract the path after /api/verify/
-	const pathParts = url.pathname.split('/');
-	const apiIndex = pathParts.indexOf('api');
-	const verifyIndex = pathParts.indexOf('verify');
-
-	if (apiIndex === -1 || verifyIndex === -1 || verifyIndex !== apiIndex + 1) {
+	const endpoint = extractEndpoint(url);
+	if (!endpoint) {
 		return json({ success: false, error: 'Invalid API path' }, { status: 404 });
 	}
 
-	// The remainder is the actual endpoint we want to handle
-	const endpoint = pathParts.slice(verifyIndex + 1).join('/');
 	console.log('Endpoint:', endpoint);
 
-	// Health check endpoint via path
-	if (endpoint === 'health') {
-		try {
-			const isHealthy = await pbServer.checkPocketBaseConnection();
-			return json({
+	// Support query param based check endpoints
+	const check = url.searchParams.get('check');
+
+	// Health check via query param or path
+	if (check === 'health' || endpoint === 'health') {
+		return apiTryCatch(
+			pbServer.checkPocketBaseConnection().then(isHealthy => ({
 				success: isHealthy,
 				message: isHealthy ? 'PocketBase is healthy' : 'PocketBase is not healthy'
-			});
-		} catch (error) {
-			console.error('PocketBase health check failed:', error);
-			return json({ success: false, error: 'PocketBase connection failed' }, { status: 500 });
-		}
+			})),
+			'PocketBase health check failed'
+		);
 	}
 
 	// Auth check endpoint
 	if (endpoint === 'auth-check') {
-		console.log('=== AUTH CHECK ===');
-		console.log('Auth cookie exists:', !!authCookie);
-		console.log('Auth store valid before check:', pbServer.pb.authStore.isValid);
+		return apiTryCatch(async () => {
+			console.log('=== AUTH CHECK ===');
+			
+			const authCookie = cookies.get('pb_auth');
+			console.log('Auth cookie exists:', !!authCookie);
 
-		if (!authCookie) {
-			console.log('No auth cookie found');
-			return json({ success: false, error: 'No authentication cookie found' }, { status: 401 });
-		}
-
-		try {
-			// Try to parse and check the auth data structure before auth check
-			try {
-				const authData = JSON.parse(authCookie);
-				if (!authData.token || !authData.model) {
-					console.log('Invalid auth data structure in cookie');
-					return json({ success: false, error: 'Invalid auth data' }, { status: 401 });
-				}
-
-				// Clear and reload auth to ensure we're using the cookie data
-				pbServer.pb.authStore.clear();
-				pbServer.pb.authStore.save(authData.token, authData.model);
-
-				console.log('Auth data loaded from cookie, valid:', pbServer.pb.authStore.isValid);
-			} catch (parseError) {
-				console.error('Error parsing auth cookie:', parseError);
-				cookies.delete('pb_auth', { path: '/' });
-				return json({ success: false, error: 'Invalid auth cookie format' }, { status: 401 });
+			if (!authCookie) {
+				console.log('No auth cookie found');
+				throw new Error('No authentication cookie found');
 			}
 
-			// Now check authentication
+			const authData = parseAuthCookie(authCookie);
+			if (!authData) {
+				console.log('Invalid auth data structure in cookie');
+				cookies.delete('pb_auth', { path: '/' });
+				throw new Error('Invalid auth cookie format');
+			}
+
+			// Clear and reload auth to ensure we're using the cookie data
+			pbServer.pb.authStore.clear();
+			pbServer.pb.authStore.save(authData.token, authData.model);
+
+			console.log('Auth data loaded from cookie, valid:', pbServer.pb.authStore.isValid);
+
+			// Check authentication
 			const isAuthenticated = await pbServer.ensureAuthenticated();
 			console.log('ensureAuthenticated result:', isAuthenticated);
 
-			if (isAuthenticated) {
-				// Update the cookie with refreshed token if needed
-				updateAuthCookie(cookies);
-
-				// Return user data
-				return json({
-					success: true,
-					user: sanitizeUserData(pbServer.pb.authStore.model),
-					token: pbServer.pb.authStore.token
-				});
-			} else {
-				// Clear invalid cookie
+			if (!isAuthenticated) {
 				cookies.delete('pb_auth', { path: '/' });
-				return json({ success: false, error: 'Authentication failed' }, { status: 401 });
+				throw new Error('Authentication failed');
 			}
-		} catch (error) {
-			console.error('Auth check error:', error);
-			// Clear potentially corrupted cookie
-			cookies.delete('pb_auth', { path: '/' });
-			return json({ success: false, error: 'Authentication check failed' }, { status: 500 });
-		}
+
+			// Update the cookie with refreshed token if needed
+			updateAuthCookie(cookies);
+
+			return {
+				success: true,
+				user: sanitizeUserData(pbServer.pb.authStore.model),
+				token: pbServer.pb.authStore.token
+			};
+		}, 'Authentication check failed', 401);
 	}
 
 	// User count endpoint
 	if (endpoint === 'users/count') {
-		try {
+		return apiTryCatch(async () => {
 			const count = await getUserCount();
-			return json({ success: true, count });
-		} catch (error) {
-			console.error('Error fetching user count:', error);
-			return json({ success: false, error: 'Failed to get user count' }, { status: 400 });
-		}
+			return { success: true, count };
+		}, 'Failed to get user count');
 	}
 
 	// Handle user endpoints
-	const userMatch = /^users\/([^/]+)(?:\/(.+))?$/.exec(endpoint);
-	if (userMatch) {
-		const userId = userMatch[1];
-		const action = userMatch[2];
+const userMatch = /^users\/([^/]+)(?:\/(.+))?$/.exec(endpoint);
+if (userMatch) {
+    const userId = userMatch[1];
+    const action = userMatch[2];
 
-		if (action === 'public') {
-			try {
-				const userData = await pbServer.getPublicUserData(userId);
-				return json({ success: true, user: userData });
-			} catch (error) {
-				console.error('Error fetching public user data:', error);
-				return json({ success: false, error: 'Failed to get public user data' }, { status: 400 });
-			}
-		} else if (!action) {
-			try {
-				const userData = await pbServer.getUserById(userId);
-				return json({ success: true, user: userData });
-			} catch (error) {
-				console.error('Error fetching user:', error);
-				return json({ success: false, error: 'Failed to get user' }, { status: 400 });
-			}
-		}
-	}
+    if (action === 'public') {
+        return apiTryCatch(async () => {
+            const userData = await pbServer.getPublicUserData(userId);
+            return { success: true, user: userData };
+        }, 'Failed to get public user data');
+    } else if (!action) {
+        // FIX: Use the same pattern as your individual user endpoint
+        return apiTryCatch(async () => {
+            const userResult = await pbTryCatch(pbServer.pb.collection('users').getOne(userId), 'fetch user');
+            const user = unwrap(userResult);
+            
+            // Use the same sanitizeUser function from your individual endpoint
+            const sanitizedUser = {
+                id: user.id,
+                name: user.name || '',
+                username: user.username || '',
+                email: user.email || '',
+                description: user.description || '',
+                role: user.role || '',
+                created: user.created || '',
+                updated: user.updated || '',
+                verified: user.verified || false,
+                theme_preference: user.theme_preference || '',
+                wallpaper_preference: user.wallpaper_preference || '',
+                model: user.model || null,
+                selected_provider: user.selected_provider || null,
+                prompt_preference: user.prompt_preference || '',
+                sysprompt_preference: user.sysprompt_preference || '',
+                model_preference: user.model_preference,
+                // ... add other fields as needed
+            };
+            
+            return { success: true, user: sanitizedUser };
+        }, 'Failed to get user');
+    }
+}
 
 	console.log('No matching route for GET', url.pathname);
 	return json({ success: false, error: 'Invalid endpoint' }, { status: 404 });
@@ -230,38 +240,56 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 export const POST: RequestHandler = async ({ request, url, cookies }) => {
 	console.log('POST request to', url.pathname);
 
-	// Restore auth from cookies if available
-	const authCookie = cookies.get('pb_auth');
-	if (authCookie) {
-		try {
-			const authData = JSON.parse(authCookie);
-			pbServer.pb.authStore.save(authData.token, authData.model);
-		} catch (e) {
-			console.error('Error parsing auth cookie:', e);
-		}
-	}
-
-	// Extract the path after /api/verify/
-	const pathParts = url.pathname.split('/');
-	const apiIndex = pathParts.indexOf('api');
-	const verifyIndex = pathParts.indexOf('verify');
-
-	if (apiIndex === -1 || verifyIndex === -1 || verifyIndex !== apiIndex + 1) {
+	const endpoint = extractEndpoint(url);
+	if (!endpoint) {
 		return json({ success: false, error: 'Invalid API path' }, { status: 404 });
 	}
 
-	// The remainder is the actual endpoint we want to handle
-	const endpoint = pathParts.slice(verifyIndex + 1).join('/');
 	console.log('Endpoint:', endpoint);
+
+	// Restore auth from cookies if available
+	const authCookie = cookies.get('pb_auth');
+	const authData = parseAuthCookie(authCookie);
+	if (authData) {
+		pbServer.pb.authStore.save(authData.token, authData.model);
+	}
 
 	// Sign up endpoint
 	if (endpoint === 'signup') {
-		try {
-			const { email, password } = await request.json();
+		return apiTryCatch(async () => {
+			const body = await request.json();
+			
+			const validationResult = validationTryCatch(() => {
+				if (!body.email || !body.password) {
+					throw new Error('Email and password are required');
+				}
+
+				if (typeof body.email !== 'string' || typeof body.password !== 'string') {
+					throw new Error('Email and password must be strings');
+				}
+
+				// Validate email format
+				if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+					throw new Error('Invalid email format');
+				}
+
+				// Validate password strength
+				if (body.password.length < 8) {
+					throw new Error('Password must be at least 8 characters');
+				}
+
+				return { email: body.email, password: body.password };
+			}, 'signup credentials');
+
+			if (isFailure(validationResult)) {
+				throw new Error(validationResult.error);
+			}
+
+			const { email, password } = validationResult.data;
 
 			const user = await pbServer.signUp(email, password);
 			if (!user) {
-				return json({ success: false, error: 'Failed to create user' }, { status: 400 });
+				throw new Error('Failed to create user');
 			}
 
 			// Automatically sign in after successful signup
@@ -270,58 +298,60 @@ export const POST: RequestHandler = async ({ request, url, cookies }) => {
 			// Save auth to cookies
 			updateAuthCookie(cookies);
 
-			return json({
+			return {
 				success: true,
 				user: sanitizeUserData(user),
 				authData
-			});
-		} catch (error) {
-			console.error('Sign-up error:', error);
-			return json(
-				{
-					success: false,
-					error: error instanceof Error ? error.message : 'Sign-up failed'
-				},
-				{ status: 400 }
-			);
-		}
+			};
+		}, 'Sign-up failed', 400);
 	}
 
 	// Sign in endpoint
 	if (endpoint === 'signin') {
-		try {
-			const { email, password } = await request.json();
+		return apiTryCatch(async () => {
+			const body = await request.json();
+			
+			const validationResult = validationTryCatch(() => {
+				if (!body.email || !body.password) {
+					throw new Error('Email and password are required');
+				}
+
+				if (typeof body.email !== 'string' || typeof body.password !== 'string') {
+					throw new Error('Email and password must be strings');
+				}
+
+				return { email: body.email, password: body.password };
+			}, 'signin credentials');
+
+			if (isFailure(validationResult)) {
+				throw new Error(validationResult.error);
+			}
+
+			const { email, password } = validationResult.data;
 
 			const authData = await pbServer.signIn(email, password);
 			if (!authData) {
-				return json({ success: false, error: 'Authentication failed' }, { status: 401 });
+				throw new Error('Authentication failed');
 			}
 
 			// Save auth to cookies
 			updateAuthCookie(cookies);
 
-			return json({
+			return {
 				success: true,
 				user: sanitizeUserData(pbServer.pb.authStore.model as User),
 				authData
-			});
-		} catch (error) {
-			console.error('Sign-in error:', error);
-			return json(
-				{
-					success: false,
-					error: error instanceof Error ? error.message : 'Authentication failed'
-				},
-				{ status: 401 }
-			);
-		}
+			};
+		}, 'Authentication failed', 401);
 	}
 
 	// Sign out endpoint
 	if (endpoint === 'signout') {
-		pbServer.signOut();
-		cookies.delete('pb_auth', { path: '/' });
-		return json({ success: true });
+		return apiTryCatch(async () => {
+			pbServer.signOut();
+			cookies.delete('pb_auth', { path: '/' });
+			return { success: true };
+		}, 'Sign out failed');
 	}
 
 	console.log('No matching route for POST', url.pathname);
@@ -332,35 +362,26 @@ export const POST: RequestHandler = async ({ request, url, cookies }) => {
 export const PATCH: RequestHandler = async ({ request, url, cookies }) => {
 	console.log('PATCH request to', url.pathname);
 
-	// Restore auth from cookies if available
-	const authCookie = cookies.get('pb_auth');
-	if (authCookie) {
-		try {
-			const authData = JSON.parse(authCookie);
-			pbServer.pb.authStore.save(authData.token, authData.model);
-		} catch (e) {
-			console.error('Error parsing auth cookie:', e);
-		}
-	}
-
-	// Extract the path after /api/verify/
-	const pathParts = url.pathname.split('/');
-	const apiIndex = pathParts.indexOf('api');
-	const verifyIndex = pathParts.indexOf('verify');
-
-	if (apiIndex === -1 || verifyIndex === -1 || verifyIndex !== apiIndex + 1) {
+	const endpoint = extractEndpoint(url);
+	if (!endpoint) {
 		return json({ success: false, error: 'Invalid API path' }, { status: 404 });
 	}
 
-	// The remainder is the actual endpoint we want to handle
-	const endpoint = pathParts.slice(verifyIndex + 1).join('/');
 	console.log('Endpoint:', endpoint);
+
+	// Restore auth from cookies if available
+	const authCookie = cookies.get('pb_auth');
+	const authData = parseAuthCookie(authCookie);
+	if (authData) {
+		pbServer.pb.authStore.save(authData.token, authData.model);
+	}
 
 	// Handle user update
 	const userMatch = /^users\/([^/]+)$/.exec(endpoint);
 	if (userMatch) {
 		const userId = userMatch[1];
-		try {
+		
+		return apiTryCatch(async () => {
 			let userData;
 
 			// Handle both FormData and JSON
@@ -378,20 +399,11 @@ export const PATCH: RequestHandler = async ({ request, url, cookies }) => {
 				updateAuthCookie(cookies);
 			}
 
-			return json({
+			return {
 				success: true,
 				user: sanitizeUserData(updatedUser)
-			});
-		} catch (error) {
-			console.error('Error updating user:', error);
-			return json(
-				{
-					success: false,
-					error: error instanceof Error ? error.message : 'Failed to update user'
-				},
-				{ status: 400 }
-			);
-		}
+			};
+		}, 'Failed to update user', 400);
 	}
 
 	console.log('No matching route for PATCH', url.pathname);

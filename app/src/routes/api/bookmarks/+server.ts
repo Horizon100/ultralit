@@ -1,13 +1,13 @@
 // src/routes/api/bookmarks/+server.ts
 import { pb } from '$lib/server/pocketbase';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	try {
+	return apiTryCatch(async () => {
 		const user = locals.user;
 		if (!user?.bookmarks?.length) {
-			return json([]);
+			return [];
 		}
 
 		const records = await pb.collection('messages').getList(1, 50, {
@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 			expand: 'user,thread'
 		});
 
-		const messages = records.items.map((message) => ({
+		return records.items.map((message) => ({
 			id: message.id,
 			text: message.text,
 			type: message.type,
@@ -25,42 +25,24 @@ export const GET: RequestHandler = async ({ locals }) => {
 			threadName: message.expand?.thread?.name || 'Unknown Thread',
 			attachments: message.attachments
 		}));
-
-		return json(messages);
-	} catch (error) {
-		console.error('Error fetching bookmarks:', error);
-		return json([], { status: 500 });
-	}
+	}, 'fetch bookmarks');
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	try {
+	return apiTryCatch(async () => {
 		const user = locals.user;
 
 		if (!user) {
-			return json(
-				{
-					success: false,
-					message: 'Authentication required'
-				},
-				{ status: 401 }
-			);
+			throw new Error('Authentication required');
 		}
 
 		const { messageId, action } = await request.json();
 
 		if (!messageId || !['add', 'remove'].includes(action)) {
-			return json(
-				{
-					success: false,
-					message: 'Invalid request parameters'
-				},
-				{ status: 400 }
-			);
+			throw new Error('Invalid request parameters');
 		}
 
 		const currentBookmarks = user.bookmarks || [];
-
 		let updatedBookmarks: string[];
 
 		if (action === 'add') {
@@ -77,19 +59,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			bookmarks: updatedBookmarks
 		});
 
-		return json({
+		return {
 			success: true,
 			bookmarks: updatedBookmarks,
 			message: action === 'add' ? 'Added to bookmarks' : 'Removed from bookmarks'
-		});
-	} catch (error) {
-		console.error('Bookmark API error:', error);
-		return json(
-			{
-				success: false,
-				message: 'Failed to update bookmarks'
-			},
-			{ status: 500 }
-		);
-	}
+		};
+	}, 'update bookmarks');
 };

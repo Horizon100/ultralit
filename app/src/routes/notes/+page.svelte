@@ -29,7 +29,13 @@
 		Plus,
 		MoreVertical
 	} from 'lucide-svelte';
-
+	import { 
+		clientTryCatch, 
+		thirdPartyApiTryCatch, 
+		fileTryCatch,
+		isSuccess, 
+		isFailure 
+	} from '$lib/utils/errorUtils';
 	let draggedItem: { item: Folders | Notes; isFolder: boolean } | null = null;
 	let dragOverFolder: Folders | null = null;
 	let activeSection: 'folders' | 'search' | 'bookmarks' = 'folders';
@@ -116,60 +122,68 @@
 		}
 	}
 
-	async function handleContextMenuOption(option: string) {
-		hideContextMenu();
-		let prompt = '';
-		switch (option) {
-			case 'joke':
-				prompt = 'Tell me a short joke';
-				break;
-			case 'fact':
-				prompt = 'Tell me an interesting fact';
-				break;
-			case 'summarize':
-				prompt = `Summarize the following text: "${selectedText}"`;
-				break;
-			case 'criticize':
-				prompt = `Provide a critical analysis of the following text: "${selectedText}"`;
-				break;
-			case 'uploadImage':
-				handleImageUpload(fileInput);
-				return;
-			case 'alignLeft':
-			case 'alignCenter':
-			case 'alignRight':
-				handleImageAlign(
-					option.replace('align', '').toLowerCase() as 'left' | 'center' | 'right',
-					updateNoteContent
-				);
-				return;
-		}
+async function handleContextMenuOption(option: string) {
+	hideContextMenu();
+	let prompt = '';
+	
+	switch (option) {
+		case 'joke':
+			prompt = 'Tell me a short joke';
+			break;
+		case 'fact':
+			prompt = 'Tell me an interesting fact';
+			break;
+		case 'summarize':
+			prompt = `Summarize the following text: "${selectedText}"`;
+			break;
+		case 'criticize':
+			prompt = `Provide a critical analysis of the following text: "${selectedText}"`;
+			break;
+		case 'uploadImage':
+			handleImageUpload(fileInput);
+			return;
+		case 'alignLeft':
+		case 'alignCenter':
+		case 'alignRight':
+			handleImageAlign(
+				option.replace('align', '').toLowerCase() as 'left' | 'center' | 'right',
+				updateNoteContent
+			);
+			return;
+	}
 
-		if (prompt) {
-			try {
-				const currentAIModel: AIModel = getCurrentAIModel();
-				const response = await fetchAIResponse(
-					[
-						{
-							role: 'user',
-							content: prompt,
-							model: currentAIModel.id
-						}
-					],
-					currentAIModel,
-					'user123'
-				);
-				if (option === 'summarize' || option === 'criticize') {
-					wrapSelectedTextWithAIAnalysis(response, option);
-				} else {
-					insertTextAtCursorWithAnimation(response);
-				}
-			} catch (error) {
-				console.error('Error fetching AI response:', error);
-				insertTextAtCursorWithAnimation('Error: Unable to fetch AI response');
+	if (prompt) {
+		const currentAIModel: AIModel = getCurrentAIModel();
+		
+		const aiResult = await thirdPartyApiTryCatch(
+			fetchAIResponse(
+				[
+					{
+						role: 'user',
+						content: prompt,
+						provider: currentAIModel.provider,
+						model: currentAIModel.id
+					}
+				],
+				currentAIModel,
+				'user123'
+			),
+			currentAIModel.provider || 'AI Service',
+			'text generation'
+		);
+
+		if (isSuccess(aiResult)) {
+			if (option === 'summarize' || option === 'criticize') {
+				wrapSelectedTextWithAIAnalysis(aiResult.data, option);
+			} else {
+				insertTextAtCursorWithAnimation(aiResult.data);
 			}
+		} else {
+			console.error('Error fetching AI response:', aiResult.error);
+			insertTextAtCursorWithAnimation(`Error: ${aiResult.error}`);
 		}
 	}
+}
 
 	function handleDragEnter(event: DragEvent) {
 		event.preventDefault();
@@ -232,27 +246,39 @@
 			updateNoteContent();
 		}
 	}
-	async function uploadAttachment(file: File) {
-		if (currentNote) {
-			try {
-				console.log('Uploading file:', file.name, 'to note:', currentNote.id);
-				const uploadedFile = await notesClient.uploadAttachment(currentNote.id, file);
-				console.log('Uploaded attachment:', uploadedFile);
-
-				// Fetch the updated note
-				const updatedNote = await notesClient.getNote(currentNote.id);
-
-				// Update the current note in the store
-				notesStore.updateNote(currentNote.id, updatedNote);
-			} catch (error) {
-				console.error('Error uploading attachment:', error);
-				if (error instanceof Error) {
-					console.error('Error message:', error.message);
-					console.error('Error stack:', error.stack);
-				}
-			}
-		}
+async function uploadAttachment(file: File) {
+	if (!currentNote) {
+		console.warn('No current note selected for attachment upload');
+		return;
 	}
+
+	console.log('Uploading file:', file.name, 'to note:', currentNote.id);
+
+	const uploadResult = await fileTryCatch(
+		notesClient.uploadAttachment(currentNote.id, file),
+		file.name
+	);
+
+	if (isFailure(uploadResult)) {
+		console.error('Error uploading attachment:', uploadResult.error);
+		return;
+	}
+
+	console.log('Uploaded attachment:', uploadResult.data);
+
+	// Fetch the updated note
+	const noteResult = await clientTryCatch(
+		notesClient.getNote(currentNote.id),
+		'Fetching updated note'
+	);
+
+	if (isSuccess(noteResult)) {
+		// Update the current note in the store
+		notesStore.updateNote(currentNote.id, noteResult.data);
+	} else {
+		console.error('Error fetching updated note:', noteResult.error);
+	}
+}
 
 	function toggleAttachments() {
 		attachmentsVisible = !attachmentsVisible;
@@ -301,16 +327,20 @@
 		loadAttachments(currentNote.id);
 	}
 
-	async function loadAttachments(noteId: string) {
-		try {
-			const attachments = await notesClient.getAttachments(noteId);
-			if (currentNote) {
-				notesStore.updateNote(noteId, { attachments });
-			}
-		} catch (error) {
-			console.error('Error loading attachments:', error);
+async function loadAttachments(noteId: string) {
+	const attachmentsResult = await clientTryCatch(
+		notesClient.getAttachments(noteId),
+		'Loading attachments'
+	);
+
+	if (isSuccess(attachmentsResult)) {
+		if (currentNote) {
+			notesStore.updateNote(noteId, { attachments: attachmentsResult.data });
 		}
+	} else {
+		console.error('Error loading attachments:', attachmentsResult.error);
 	}
+}
 
 	function getCurrentAIModel(): AIModel {
 		return {
@@ -324,8 +354,8 @@
 			user: ['default-user'],
 			created: new Date().toISOString(),
 			updated: new Date().toISOString(),
-			provider: 'openai', 
-			collectionId: 'ai_models', 
+			provider: 'openai',
+			collectionId: 'ai_models',
 			collectionName: 'ai_models'
 		};
 	}
@@ -772,7 +802,8 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
 	}

@@ -30,7 +30,6 @@
 	}
 	const tasks = writable<KanbanTask[]>([]);
 
-
 	const dateRange = writable({
 		start: new Date(),
 		end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -80,10 +79,10 @@
 	const userNameCache = new Map<string, string>();
 
 	let imageError = false;
-    
-    function handleImageError() {
-        imageError = true;
-    }
+
+	function handleImageError() {
+		imageError = true;
+	}
 
 	async function getUserName(userId: string | undefined): Promise<string> {
 		if (!userId) return 'Unknown';
@@ -758,7 +757,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.gantt-container {

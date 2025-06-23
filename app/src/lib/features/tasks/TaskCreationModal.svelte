@@ -3,7 +3,8 @@
 	import { fade, fly } from 'svelte/transition';
 	import { X, ListTodo, Calendar, Tag, CheckSquare } from 'lucide-svelte';
 	import type { KanbanTask, Tag as TagType } from '$lib/types/types';
-
+	import {clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	
 	export let messageContent: string = '';
 	export let promptContent: string = '';
 	export let tags: TagType[] = [];
@@ -80,18 +81,22 @@
 
 		isSubmitting = true;
 
-		try {
-			// Dispatch the event for the parent component to handle saving
+		const result = await clientTryCatch((async () => {
 			dispatch('save', task);
 
 			// Close the modal
 			closeModal();
-		} catch (error) {
-			console.error('Error creating task:', error);
+			
+			return true;
+		})(), `Submitting task "${task.title}"`);
+
+		if (isFailure(result)) {
+			console.error('Error creating task:', result.error);
 			dispatch('error', { message: 'Failed to create task' });
-		} finally {
-			isSubmitting = false;
 		}
+
+		// Always reset submitting state
+		isSubmitting = false;
 	}
 </script>
 
@@ -219,7 +224,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

@@ -2,15 +2,16 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	try {
+	return apiTryCatch(async () => {
 		const query = url.searchParams.get('q') || '';
 		const limit = parseInt(url.searchParams.get('limit') || '10');
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 
 		if (!query) {
-			return json({ posts: [], total: 0 });
+			return json({ success: true, data: { posts: [], total: 0 } });
 		}
 
 		/*
@@ -36,7 +37,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const plainPost = { ...post };
 
 			// Add user interaction flags if the user is authenticated
-			if (currentUserId) {
+			if (currentUserId !== undefined && currentUserId !== null) {
 				plainPost.upvote = post.upvotedBy?.includes(currentUserId) || false;
 				plainPost.downvote = post.downvotedBy?.includes(currentUserId) || false;
 				plainPost.repost = post.repostedBy?.includes(currentUserId) || false;
@@ -64,13 +65,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		});
 
 		return json({
-			posts,
-			total: postsData.totalItems,
-			totalPages: postsData.totalPages,
-			page: postsData.page
+			success: true,
+			data: {
+				posts,
+				total: postsData.totalItems,
+				totalPages: postsData.totalPages,
+				page: postsData.page
+			}
 		});
-	} catch (error) {
-		console.error('Error searching posts:', error);
-		return json({ error: 'Failed to search posts' }, { status: 500 });
-	}
+	});
 };

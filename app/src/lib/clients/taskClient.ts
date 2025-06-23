@@ -3,6 +3,13 @@ import { get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
 import type { KanbanTask, KanbanColumn, Task, InternalChatMessage } from '$lib/types/types';
+import { 
+	clientTryCatch, 
+	validationTryCatch,
+	isSuccess, 
+	isFailure,
+	type Result 
+} from '$lib/utils/errorUtils';
 interface RawTaskData {
 	id: string;
 	title: string;
@@ -192,26 +199,79 @@ export async function createTaskFromMessage(
 	message: InternalChatMessage,
 	promptMessage?: InternalChatMessage | null,
 	projectId?: string
-): Promise<Task> {
-	try {
+): Promise<Result<Task, string>> {
+	// Validate inputs
+	const validation = validationTryCatch(() => {
+		if (!message) {
+			throw new Error('Message is required');
+		}
+		if (!message.content?.trim()) {
+			throw new Error('Message content is required');
+		}
+		if (!message.id) {
+			throw new Error('Message ID is required');
+		}
+
+		const user = get(currentUser);
+		if (!user?.id) {
+			throw new Error('User not authenticated');
+		}
+
+		return {
+			message: {
+				...message,
+				content: message.content.trim()
+			},
+			promptMessage,
+			projectId,
+			user
+		};
+	}, 'task creation input validation');
+
+	if (isFailure(validation)) {
+		return { data: null, error: validation.error, success: false };
+	}
+
+	const { message: validMessage, user } = validation.data;
+
+	// Process task title and description
+	const taskDataResult = validationTryCatch(() => {
 		// Extract title from first sentence, limiting to 50 characters
-		let title = message.content.split('.')[0].trim();
+		let title = validMessage.content.split('.')[0].trim();
 		if (title.length > 50) {
 			title = title.substring(0, 47) + '...';
 		}
 
-		// Create a task object
+		if (!title) {
+			// Fallback if no sentence structure
+			title = validMessage.content.substring(0, 47) + (validMessage.content.length > 47 ? '...' : '');
+		}
+
+		return {
+			title,
+			description: validMessage.content
+		};
+	}, 'task data processing');
+
+	if (isFailure(taskDataResult)) {
+		return { data: null, error: taskDataResult.error, success: false };
+	}
+
+	const { title, description } = taskDataResult.data;
+
+	// Create task object
+	const taskCreationResult = validationTryCatch(() => {
 		const newTask: KanbanTask = {
 			id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
 			title,
-			taskDescription: message.content,
+			taskDescription: description,
 			creationDate: new Date(),
 			due_date: null,
 			start_date: null,
 			tags: [],
 			attachments: [],
 			project_id: projectId || '',
-			createdBy: get(currentUser)?.id,
+			createdBy: user.id,
 			allocatedAgents: [],
 			status: 'todo',
 			priority: 'medium',
@@ -219,17 +279,31 @@ export async function createTaskFromMessage(
 			context: '',
 			task_outcome: '',
 			dependencies: [],
-			agentMessages: [message.id],
+			agentMessages: [validMessage.id],
 			assignedTo: ''
 		};
 
-		return await saveTask(newTask);
-	} catch (error) {
-		console.error('Error creating task from message:', error);
-		throw error;
-	}
-}
+		return newTask;
+	}, 'task object creation');
 
+	if (isFailure(taskCreationResult)) {
+		return { data: null, error: taskCreationResult.error, success: false };
+	}
+
+	const newTask = taskCreationResult.data;
+
+	// Save the task
+	const saveResult = await clientTryCatch(
+		saveTask(newTask),
+		'Saving task to database'
+	);
+
+	if (isFailure(saveResult)) {
+		return { data: null, error: saveResult.error, success: false };
+	}
+
+	return { data: saveResult.data, error: null, success: true };
+}
 /**
  * Updates an existing task
  * @param taskId ID of the task to update
@@ -543,7 +617,7 @@ export async function loadTasksForGantt(projectId?: string): Promise<Task[]> {
 		if (!response.ok) throw new Error('Failed to fetch tasks');
 
 		const data = await response.json();
-		
+
 		// Convert raw task data to Task objects
 		const tasks: Task[] = data.items.map((task: RawTaskData) => ({
 			id: task.id,
@@ -630,16 +704,39 @@ async function updateUserTaskAssignment(
 	taskStatus: Task['status']
 ): Promise<void> {
 	try {
-		// Get current user data
-		const userResponse = await fetch(`/api/users/${userId}`);
-		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+		console.log(
+			`Updating user ${userId} task assignment: adding task ${taskId} with status ${taskStatus}`
+		);
+
+		// Use your existing auth system to get user data
+		const userResponse = await fetch(`/api/verify/users/${userId}`, {
+			credentials: 'include'
+		});
+
+		if (!userResponse.ok) {
+			const errorText = await userResponse.text();
+			console.error(`Failed to fetch user ${userId}:`, userResponse.status, errorText);
+			throw new Error(
+				`Failed to fetch user data: ${userResponse.status} ${userResponse.statusText}`
+			);
+		}
 
 		const responseData = await userResponse.json();
-		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!responseData.success) {
+			throw new Error(responseData.error || 'Failed to fetch user data');
+		}
+
+		const userData = responseData.user;
 
 		if (!userData || !userData.id) {
 			throw new Error('Invalid user data returned from API');
 		}
+
+		console.log(`Current user data for ${userId}:`, {
+			taskAssignments: userData.taskAssignments?.length || 0,
+			userTaskStatus: userData.userTaskStatus
+		});
 
 		// Prepare updated assignments
 		const taskAssignments = [...(userData.taskAssignments || [])];
@@ -647,10 +744,11 @@ async function updateUserTaskAssignment(
 			taskAssignments.push(taskId);
 		}
 
-		// Prepare updated status counts
-		const userTaskStatus = userData.userTaskStatus || {
+		// Prepare updated status counts - ensure all status types are included
+		const userTaskStatus = {
 			backlog: 0,
 			todo: 0,
+			inprogress: 0,
 			focus: 0,
 			done: 0,
 			hold: 0,
@@ -658,30 +756,50 @@ async function updateUserTaskAssignment(
 			cancel: 0,
 			review: 0,
 			delegate: 0,
-			archive: 0
+			archive: 0,
+			...(userData.userTaskStatus || {})
 		};
 
 		// Increment the count for this status
-		userTaskStatus[taskStatus] = (userTaskStatus[taskStatus] || 0) + 1;
+		if (taskStatus in userTaskStatus) {
+			userTaskStatus[taskStatus as keyof typeof userTaskStatus] =
+				(userTaskStatus[taskStatus as keyof typeof userTaskStatus] || 0) + 1;
+		} else {
+			console.warn(`Unknown task status: ${taskStatus}, adding to userTaskStatus anyway`);
+			userTaskStatus[taskStatus as string] = 1;
+		}
 
-		// Update the user
-		const updateResponse = await fetch(`/api/users/${userId}`, {
+		const updatePayload = {
+			taskAssignments,
+			userTaskStatus
+		};
+
+		console.log(`Updating user ${userId} with:`, JSON.stringify(updatePayload, null, 2));
+
+		// Use your existing auth system to update the user
+		const updateResponse = await fetch(`/api/verify/users/${userId}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({
-				taskAssignments,
-				userTaskStatus
-			})
+			body: JSON.stringify(updatePayload),
+			credentials: 'include'
 		});
 
 		if (!updateResponse.ok) {
-			const errorData = await updateResponse.json();
+			const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
+			console.error(`Failed to update user ${userId}:`, updateResponse.status, errorData);
 			throw new Error(
 				`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`
 			);
 		}
+
+		const updateResult = await updateResponse.json();
+		if (!updateResult.success) {
+			throw new Error(updateResult.error || 'Update failed');
+		}
+
+		console.log(`Successfully updated user ${userId} task assignments`);
 	} catch (err) {
 		console.error('Error updating user task assignments:', err);
 		throw err;
@@ -689,10 +807,7 @@ async function updateUserTaskAssignment(
 }
 
 /**
- * Removes a task from a user's assignments and updates status counts
- * @param userId User ID to update
- * @param taskId Task ID to remove
- * @param taskStatus Current status of the task
+ * Removes a task from a user's assignments and updates status counts using your existing auth system
  */
 async function removeTaskFromUser(
 	userId: string,
@@ -700,12 +815,28 @@ async function removeTaskFromUser(
 	taskStatus: Task['status']
 ): Promise<void> {
 	try {
-		// Get current user data
-		const userResponse = await fetch(`/api/users/${userId}`);
-		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+		console.log(`Removing task ${taskId} (status: ${taskStatus}) from user ${userId}`);
+
+		// Use your existing auth system to get user data
+		const userResponse = await fetch(`/api/verify/users/${userId}`, {
+			credentials: 'include'
+		});
+
+		if (!userResponse.ok) {
+			const errorText = await userResponse.text();
+			console.error(`Failed to fetch user ${userId}:`, userResponse.status, errorText);
+			throw new Error(
+				`Failed to fetch user data: ${userResponse.status} ${userResponse.statusText}`
+			);
+		}
 
 		const responseData = await userResponse.json();
-		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!responseData.success) {
+			throw new Error(responseData.error || 'Failed to fetch user data');
+		}
+
+		const userData = responseData.user;
 
 		if (!userData || !userData.id) {
 			throw new Error('Invalid user data returned from API');
@@ -714,10 +845,11 @@ async function removeTaskFromUser(
 		// Remove task from assignments
 		const taskAssignments = (userData.taskAssignments || []).filter((id: string) => id !== taskId);
 
-		// Update status counts
-		const userTaskStatus = userData.userTaskStatus || {
+		// Update status counts - ensure all status types are included
+		const userTaskStatus = {
 			backlog: 0,
 			todo: 0,
+			inprogress: 0,
 			focus: 0,
 			done: 0,
 			hold: 0,
@@ -725,30 +857,51 @@ async function removeTaskFromUser(
 			cancel: 0,
 			review: 0,
 			delegate: 0,
-			archive: 0
+			archive: 0,
+			...(userData.userTaskStatus || {})
 		};
 
 		// Decrement the count for this status (ensure it doesn't go below 0)
-		userTaskStatus[taskStatus] = Math.max(0, (userTaskStatus[taskStatus] || 0) - 1);
+		if (taskStatus in userTaskStatus) {
+			userTaskStatus[taskStatus as keyof typeof userTaskStatus] = Math.max(
+				0,
+				(userTaskStatus[taskStatus as keyof typeof userTaskStatus] || 0) - 1
+			);
+		} else {
+			console.warn(`Unknown task status when removing: ${taskStatus}`);
+		}
 
-		// Update the user
-		const updateResponse = await fetch(`/api/users/${userId}`, {
+		const updatePayload = {
+			taskAssignments,
+			userTaskStatus
+		};
+
+		console.log(`Updating user ${userId} (removing task):`, JSON.stringify(updatePayload, null, 2));
+
+		// Use your existing auth system to update the user
+		const updateResponse = await fetch(`/api/verify/users/${userId}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({
-				taskAssignments,
-				userTaskStatus
-			})
+			body: JSON.stringify(updatePayload),
+			credentials: 'include'
 		});
 
 		if (!updateResponse.ok) {
-			const errorData = await updateResponse.json();
+			const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
+			console.error(`Failed to update user ${userId}:`, updateResponse.status, errorData);
 			throw new Error(
 				`Failed to update user task assignments: ${errorData.error || updateResponse.statusText}`
 			);
 		}
+
+		const updateResult = await updateResponse.json();
+		if (!updateResult.success) {
+			throw new Error(updateResult.error || 'Update failed');
+		}
+
+		console.log(`Successfully removed task ${taskId} from user ${userId}`);
 	} catch (err) {
 		console.error('Error removing task from user:', err);
 		throw err;
@@ -756,11 +909,7 @@ async function removeTaskFromUser(
 }
 
 /**
- * Updates a user's task status counts when a task status changes
- * @param userId User ID to update
- * @param oldStatus Previous task status
- * @param newStatus New task status
- * @param taskId Task ID that changed status
+ * Updates a user's task status counts when a task status changes using your existing auth system
  */
 async function updateUserTaskStatus(
 	userId: string,
@@ -769,12 +918,30 @@ async function updateUserTaskStatus(
 	taskId: string
 ): Promise<void> {
 	try {
-		// Get current user data
-		const userResponse = await fetch(`/api/users/${userId}`);
-		if (!userResponse.ok) throw new Error('Failed to fetch user data');
+		console.log(
+			`Updating user ${userId} task status: ${oldStatus} -> ${newStatus} for task ${taskId}`
+		);
+
+		// Use your existing auth system to get user data
+		const userResponse = await fetch(`/api/verify/users/${userId}`, {
+			credentials: 'include'
+		});
+
+		if (!userResponse.ok) {
+			const errorText = await userResponse.text();
+			console.error(`Failed to fetch user ${userId}:`, userResponse.status, errorText);
+			throw new Error(
+				`Failed to fetch user data: ${userResponse.status} ${userResponse.statusText}`
+			);
+		}
 
 		const responseData = await userResponse.json();
-		const userData = responseData.success ? responseData.user : responseData;
+
+		if (!responseData.success) {
+			throw new Error(responseData.error || 'Failed to fetch user data');
+		}
+
+		const userData = responseData.user;
 
 		if (!userData || !userData.id) {
 			throw new Error('Invalid user data returned from API');
@@ -782,13 +949,15 @@ async function updateUserTaskStatus(
 
 		// Ensure user still has this task assigned
 		if (!userData.taskAssignments || !userData.taskAssignments.includes(taskId)) {
+			console.log(`Task ${taskId} not found in user ${userId} assignments, skipping status update`);
 			return;
 		}
 
-		// Update status counts
-		const userTaskStatus = userData.userTaskStatus || {
+		// Update status counts - ensure all status types are included
+		const userTaskStatus = {
 			backlog: 0,
 			todo: 0,
+			inprogress: 0,
 			focus: 0,
 			done: 0,
 			hold: 0,
@@ -796,37 +965,65 @@ async function updateUserTaskStatus(
 			cancel: 0,
 			review: 0,
 			delegate: 0,
-			archive: 0
+			archive: 0,
+			...(userData.userTaskStatus || {})
 		};
 
 		// Decrement old status count (ensure it doesn't go below 0)
-		userTaskStatus[oldStatus] = Math.max(0, (userTaskStatus[oldStatus] || 0) - 1);
+		if (oldStatus in userTaskStatus) {
+			userTaskStatus[oldStatus as keyof typeof userTaskStatus] = Math.max(
+				0,
+				(userTaskStatus[oldStatus as keyof typeof userTaskStatus] || 0) - 1
+			);
+		} else {
+			console.warn(`Unknown old task status: ${oldStatus}`);
+		}
 
 		// Increment new status count
-		userTaskStatus[newStatus] = (userTaskStatus[newStatus] || 0) + 1;
+		if (newStatus in userTaskStatus) {
+			userTaskStatus[newStatus as keyof typeof userTaskStatus] =
+				(userTaskStatus[newStatus as keyof typeof userTaskStatus] || 0) + 1;
+		} else {
+			console.warn(`Unknown new task status: ${newStatus}, adding anyway`);
+			userTaskStatus[newStatus as keyof typeof userTaskStatus] = 1 as unknown as number;
+		}
 
-		// Update the user
-		const updateResponse = await fetch(`/api/users/${userId}`, {
+		const updatePayload = {
+			userTaskStatus
+		};
+
+		console.log(`Updating user ${userId} status counts:`, JSON.stringify(updatePayload, null, 2));
+
+		// Use your existing auth system to update the user
+		const updateResponse = await fetch(`/api/verify/users/${userId}`, {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({
-				userTaskStatus
-			})
+			body: JSON.stringify(updatePayload),
+			credentials: 'include'
 		});
 
 		if (!updateResponse.ok) {
-			const errorData = await updateResponse.json();
+			const errorData = await updateResponse.json().catch(() => ({ error: 'Unknown error' }));
+			console.error(`Failed to update user ${userId}:`, updateResponse.status, errorData);
 			throw new Error(
 				`Failed to update user task status counts: ${errorData.error || updateResponse.statusText}`
 			);
 		}
+
+		const updateResult = await updateResponse.json();
+		if (!updateResult.success) {
+			throw new Error(updateResult.error || 'Update failed');
+		}
+
+		console.log(`Successfully updated user ${userId} task status counts`);
 	} catch (err) {
 		console.error('Error updating user task status counts:', err);
 		throw err;
 	}
 }
+
 /**
  * Updates a task's status and updates associated user task status counts
  * @param taskId Task ID to update

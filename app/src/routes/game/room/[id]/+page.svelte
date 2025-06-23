@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import type { GameRoom, GameTable, GameHero } from '$lib/types/types.game';
-	import { gameStore } from '$lib/stores/gameStore'; 
+	import { gameStore } from '$lib/stores/gameStore';
 
 	export let data;
 
@@ -39,12 +39,11 @@
 			await loadActiveHeroes();
 
 			// Update game state
-			gameStore.update((state: any) => ({ 
+			gameStore.update((state: any) => ({
 				...state,
 				currentView: 'table',
 				currentRoom: room
 			}));
-
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
 			console.error('Room load error:', err);
@@ -55,7 +54,7 @@
 
 	async function loadActiveHeroes() {
 		if (!room) return;
-		
+
 		try {
 			const heroesResponse = await fetch(`/api/game/heroes?room=${room.id}`);
 			if (heroesResponse.ok) {
@@ -165,22 +164,66 @@
 		<!-- Room Grid Layout -->
 		<div class="room-grid">
 			<h2>Room Layout</h2>
-			<div 
+			<div
 				class="grid-container"
 				style="--grid-width: {room.size.width}; --grid-height: {room.size.height};"
 			>
-			{#each Array(room.size.height) as _, y}
-				{#each Array(room.size.width) as _, x}
-					{@const table = tables.find(t => 
-						t.position.x <= x && x < t.position.x + t.size.width &&
-						t.position.y <= y && y < t.position.y + t.size.height
-					)}
-					{#if table}
-						<!-- Interactive table cell -->
-						<div 
-							class="grid-cell has-table"
-							class:table-start={table.position.x === x && table.position.y === y}
-							style="grid-column: {x + 1}; grid-row: {y + 1};"
+				{#each Array(room.size.height) as _, y}
+					{#each Array(room.size.width) as _, x}
+						{@const table = tables.find(
+							(t) =>
+								t.position.x <= x &&
+								x < t.position.x + t.size.width &&
+								t.position.y <= y &&
+								y < t.position.y + t.size.height
+						)}
+						{#if table}
+							<!-- Interactive table cell -->
+							<div
+								class="grid-cell has-table"
+								class:table-start={table.position.x === x && table.position.y === y}
+								style="grid-column: {x + 1}; grid-row: {y + 1};"
+								role="button"
+								tabindex={0}
+								on:click={() => joinTable(table)}
+								on:keydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										joinTable(table);
+									}
+								}}
+							>
+								{#if table.position.x === x && table.position.y === y}
+									<div
+										class="table-tile"
+										style="width: {table.size.width * 100}%; height: {table.size.height * 100}%;"
+									>
+										<h3>{table.name}</h3>
+										<p>0/{table.capacity} seats</p>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<!-- Non-interactive empty cell -->
+							<div
+								class="grid-cell"
+								style="grid-column: {x + 1}; grid-row: {y + 1};"
+								role="gridcell"
+							></div>
+						{/if}
+					{/each}
+				{/each}
+			</div>
+		</div>
+
+		<!-- Tables List -->
+		<div class="tables-section">
+			<h2>Available Tables</h2>
+			{#if tables.length > 0}
+				<div class="tables-list">
+					{#each tables as table}
+						<div
+							class="table-card"
 							role="button"
 							tabindex={0}
 							on:click={() => joinTable(table)}
@@ -191,75 +234,33 @@
 								}
 							}}
 						>
-							{#if table.position.x === x && table.position.y === y}
-								<div 
-									class="table-tile"
-									style="width: {table.size.width * 100}%; height: {table.size.height * 100}%;"
-								>
-									<h3>{table.name}</h3>
-									<p>0/{table.capacity} seats</p>
+							<div class="table-header">
+								<h3>{table.name}</h3>
+								<div class="table-capacity">
+									0/{table.capacity}
 								</div>
-							{/if}
-						</div>
-					{:else}
-						<!-- Non-interactive empty cell -->
-						<div 
-							class="grid-cell"
-							style="grid-column: {x + 1}; grid-row: {y + 1};"
-							role="gridcell"
-						>
-						</div>
-					{/if}
-				{/each}
-			{/each}
-			</div>
-		</div>
-
-		<!-- Tables List -->
-	<div class="tables-section">
-		<h2>Available Tables</h2>
-		{#if tables.length > 0}
-			<div class="tables-list">
-				{#each tables as table}
-					<div 
-						class="table-card" 
-						role="button"
-						tabindex={0}
-						on:click={() => joinTable(table)}
-						on:keydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								joinTable(table);
-							}
-						}}
-					>
-						<div class="table-header">
-							<h3>{table.name}</h3>
-							<div class="table-capacity">
-								0/{table.capacity}
 							</div>
+							<div class="table-stats">
+								<span class="stat">
+									Position: ({table.position.x}, {table.position.y})
+								</span>
+								<span class="stat">
+									Size: {table.size.width}×{table.size.height}
+								</span>
+								<span class="stat">
+									{table.isPublic ? 'Public' : 'Private'}
+								</span>
+							</div>
+							<button class="join-button">Join Table</button>
 						</div>
-						<div class="table-stats">
-							<span class="stat">
-								Position: ({table.position.x}, {table.position.y})
-							</span>
-							<span class="stat">
-								Size: {table.size.width}×{table.size.height}
-							</span>
-							<span class="stat">
-								{table.isPublic ? 'Public' : 'Private'}
-							</span>
-						</div>
-						<button class="join-button">Join Table</button>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<div class="empty-state">
-				<p>No tables found in this room.</p>
-			</div>
-		{/if}
-	</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="empty-state">
+					<p>No tables found in this room.</p>
+				</div>
+			{/if}
+		</div>
 
 		<!-- Active Members -->
 		{#if activeHeroes.length > 0}
@@ -290,11 +291,10 @@
 </div>
 
 <style lang="scss">
-
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}		
+	}
 	.room-view {
 		padding: 2rem;
 		max-width: 1400px;
@@ -321,8 +321,12 @@
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	.room-header {

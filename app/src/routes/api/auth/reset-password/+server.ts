@@ -1,36 +1,12 @@
-import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const POST: RequestHandler = async ({ request }) => {
-	try {
-		const { email } = await request.json();
+export const POST: RequestHandler = async ({ request }) =>
+  apiTryCatch(async () => {
+    const { email } = await request.json();
+    if (!email) throw new Error('Email is required');
 
-		if (!email) {
-			return json({ success: false, error: 'Email is required' }, { status: 400 });
-		}
-
-		// Log the request for debugging
-		console.log(`Processing password reset for email: ${email}`);
-
-		// Use PocketBase's built-in password reset
-		await pb.collection('users').requestPasswordReset(email);
-
-		// Log success
-		console.log('Password reset email sent successfully');
-
-		return json({ success: true });
-	} catch (error) {
-		// Log the error with details
-		console.error('Password reset API error:', error);
-
-		return json(
-			{
-				success: false,
-				error:
-					error instanceof Error ? error.message : 'An error occurred during password reset request'
-			},
-			{ status: 500 }
-		);
-	}
-};
+    await pb.collection('users').requestPasswordReset(email);
+    return { success: true };
+  }, 'Failed to request password reset');

@@ -38,7 +38,12 @@
 	import Google from '$lib/assets/icons/auth/google.svg';
 	import Microsoft from '$lib/assets/icons/auth/microsoft.svg';
 	import Yandex from '$lib/assets/icons/auth/yandex.svg';
-
+	import { 
+		clientTryCatch, 
+		validationTryCatch,
+		isSuccess, 
+		isFailure 
+	} from '$lib/utils/errorUtils';
 	// Form state
 	let email: string = '';
 	let password: string = '';
@@ -56,7 +61,7 @@
 	let startY: number = 0;
 	let currentY: number = 0;
 	let isDragging: boolean = false;
-	
+
 	let showStyles = false;
 
 	const SWIPE_THRESHOLD = 100;
@@ -150,20 +155,38 @@
 		showInvitationOverlay = false;
 		showPasswordReset = false;
 	}
-	export async function login(): Promise<void> {
-		if (!browser) return;
+export async function login(): Promise<void> {
+	if (!browser) return;
 
-		errorMessage = '';
-		isLoading = true;
+	errorMessage = '';
+	isLoading = true;
 
-		try {
+	try {
+		// Validation
+		const validationResult = validationTryCatch(() => {
 			if (!email || !password) {
-				errorMessage = 'Email and password are required';
-				return;
+				throw new Error('Email and password are required');
 			}
+			if (!email.includes('@')) {
+				throw new Error('Please enter a valid email address');
+			}
+			if (password.length < 6) {
+				throw new Error('Password must be at least 6 characters long');
+			}
+		});
 
-			console.log('Starting login process...');
-			const authData = await signIn(email, password);
+		if (isFailure(validationResult)) {
+			errorMessage = validationResult.error;
+			return;
+		}
+
+		console.log('Starting login process...');
+		
+		// Attempt sign in
+		const signInResult = await clientTryCatch(signIn(email, password));
+
+		if (isSuccess(signInResult)) {
+			const authData = signInResult.data;
 			
 			if (authData) {
 				console.log('Login successful, navigating...');
@@ -173,19 +196,23 @@
 				// Close modal and dispatch success
 				dispatch('close');
 				dispatch('success');
-				
+
 				// Navigate to home page
 				await goto('/home');
 			} else {
 				errorMessage = 'Login failed. Please check your credentials.';
 			}
-		} catch (err) {
-			console.error('Login error:', err);
-			errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
-		} finally {
-			isLoading = false;
+		} else {
+			console.error('Login error:', signInResult.error);
+			errorMessage = signInResult.error;
 		}
+	} catch (err) {
+		console.error('Unexpected login error:', err);
+		errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during login';
+	} finally {
+		isLoading = false;
 	}
+}
 
 	export async function signUp(): Promise<void> {
 		if (!browser) return;
@@ -199,7 +226,11 @@
 				return;
 			}
 
-			console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
+			console.log(
+				'Attempting signup with:',
+				email,
+				password ? '(password provided)' : '(no password)'
+			);
 
 			const createdUser = await registerUser(email, password);
 			if (createdUser) {
@@ -210,7 +241,8 @@
 			}
 		} catch (err) {
 			console.error('Unexpected signup error:', err);
-			errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+			errorMessage =
+				err instanceof Error ? err.message : 'An unexpected error occurred during signup';
 		} finally {
 			isLoading = false;
 		}
@@ -303,8 +335,6 @@
 		}
 	});
 
-
-
 	async function resetPassword(): Promise<void> {
 		if (!browser) return;
 
@@ -350,23 +380,40 @@
 	onMount(async () => {
 		if (!browser) return;
 
-		try {
-			const isConnected = await checkPocketBaseConnection();
-			connectionChecked = true;
+		// Check server connection
+		const connectionResult = await clientTryCatch(
+			checkPocketBaseConnection(),
+			'Server connection check'
+		);
 
-			if (!isConnected) {
-				errorMessage = 'Unable to connect to the server. Please try again later.';
-				return;
-			}
+		connectionChecked = true;
 
-			const user = get(currentUser);
-			if (user && user.id) {
-				updateAvatarUrl();
-			}
-		} catch (error) {
-			connectionChecked = true;
-			console.error('Connection check error:', error);
+		if (isFailure(connectionResult)) {
+			console.error('Connection check error:', connectionResult.error);
 			errorMessage = 'Unable to verify server connection. Please try again later.';
+			return;
+		}
+
+		if (!connectionResult.data) {
+			errorMessage = 'Unable to connect to the server. Please try again later.';
+			return;
+		}
+
+		// Handle user avatar update if user is authenticated
+		const userValidation = validationTryCatch(() => {
+			const user = get(currentUser);
+			return user?.id ? user : null;
+		}, 'user authentication check');
+
+		if (isSuccess(userValidation) && userValidation.data) {
+			const avatarResult = await clientTryCatch(
+				Promise.resolve(updateAvatarUrl()),
+				'Avatar URL update'
+			);
+
+			if (isFailure(avatarResult)) {
+				console.warn('Failed to update avatar URL:', avatarResult.error);
+			}
 		}
 	});
 </script>
@@ -540,11 +587,11 @@
 </div>
 
 {#if showProfileModal}
-	<Profile 
-		user={$currentUser} 
-		onClose={toggleProfileModal} 
+	<Profile
+		user={$currentUser}
+		onClose={toggleProfileModal}
 		onStyleClick={handleStyleClick}
-		logout={logout}
+		{logout}
 	/>
 	<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
 		<LogOut size={24} />
@@ -565,7 +612,8 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	span.email-input,
@@ -715,8 +763,6 @@
 		width: 100%;
 		display: flex;
 		padding: 0.5rem;
-
-
 	}
 	img.logo {
 		width: 4rem;
@@ -840,8 +886,6 @@
 			width: 100%;
 		}
 
-
-
 		.button-group .button {
 			/* background-color: #007bff; Button background color */
 			color: white; /* Button text color */
@@ -883,5 +927,4 @@
 			width: auto;
 		}
 	}
-
 </style>

@@ -10,7 +10,7 @@
 	export let isExpanded: boolean = false;
 	export const data: any = undefined;
 	export const gridSize: any = undefined;
-	export const pixelToGrid: (pixel: number) => number = () => 0; 
+	export const pixelToGrid: (pixel: number) => number = () => 0;
 	export let gridX: number;
 	export let gridY: number;
 
@@ -321,11 +321,10 @@
 {/if}
 
 <style lang="scss">
-
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}	
+	}
 	.expanded-building {
 		background: white;
 		border-radius: 16px;

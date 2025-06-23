@@ -9,6 +9,7 @@ import {
 	autoUpdateThreadName
 } from '$lib/clients/threadsClient';
 import { fetchThreadsForProject } from '$lib/clients/projectClient';
+import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 import { browser } from '$app/environment';
 import {
@@ -39,34 +40,26 @@ export enum ThreadSortOption {
 	UserCountAsc = 'users_asc',
 	UserCountDesc = 'users_desc'
 }
-// Helper function to handle fetch API responses
-async function handleResponse<T>(response: Response): Promise<T> {
-	if (!response.ok) {
-		const errorData = await response
-			.json()
-			.catch(() => ({ message: `API request failed with status ${response.status}` }));
-		throw new Error(errorData.message || `API request failed with status ${response.status}`);
-	}
-	return await response.json();
-}
 
-// Get auth headers helper function
+
+
+// Get auth headers helper function (no changes needed)
 function getAuthHeaders(): Record<string, string> {
-    const user = get(currentUser);
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-    };
+	const user = get(currentUser);
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json'
+	};
 
-    if (user?.token) {
-        headers['Authorization'] = `Bearer ${user.token}`;
-    }
+	if (user?.token) {
+		headers['Authorization'] = `Bearer ${user.token}`;
+	}
 
-    return headers;
+	return headers;
 }
 
-// Fetch threads function that uses Fetch API instead of PocketBase
+// Fetch threads function that uses Fetch API with errorUtils
 export async function fetchThreads(): Promise<Threads[]> {
-	try {
+	const result = await clientTryCatch((async () => {
 		await ensureAuthenticated();
 		const user = get(currentUser);
 
@@ -74,53 +67,68 @@ export async function fetchThreads(): Promise<Threads[]> {
 			throw new Error('User not authenticated');
 		}
 
-		const response = await fetch('/api/keys/threads', {
-			method: 'GET',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${user.token}`
+		const fetchResult = await fetchTryCatch<{ threads: Threads[] }>(
+			'/api/keys/threads',
+			{
+				method: 'GET',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${user.token}`
+				}
 			}
-		});
+		);
 
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData.message || `HTTP ${response.status}`);
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to fetch threads: ${fetchResult.error}`);
 		}
 
-		const data = await response.json();
+		const data = fetchResult.data;
 		return data.threads || [];
-	} catch (error) {
-		console.error('Error fetching threads:', error);
-		throw error;
+	})(), 'Fetching threads');
+
+	if (isFailure(result)) {
+		console.error('Error fetching threads:', result.error);
+		throw new Error(result.error);
 	}
+
+	return result.data;
 }
 
-// Function to update thread using Fetch API
+// Function to update thread using Fetch API with errorUtils
 async function updateThread(id: string, changes: Partial<Threads>): Promise<Threads> {
-	try {
+	const result = await clientTryCatch((async () => {
 		ensureAuthenticated();
 
-		const response = await fetch(`/api/threads/${id}`, {
-			method: 'PATCH',
-			headers: getAuthHeaders(),
-			credentials: 'include',
-			body: JSON.stringify(changes)
-		});
-
-		const data = await handleResponse<{ success: boolean; data: Threads; error?: string }>(
-			response
+		const fetchResult = await fetchTryCatch<{ success: boolean; data: Threads; error?: string }>(
+			`/api/threads/${id}`,
+			{
+				method: 'PATCH',
+				headers: getAuthHeaders(),
+				credentials: 'include',
+				body: JSON.stringify(changes)
+			}
 		);
+
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to update thread: ${fetchResult.error}`);
+		}
+
+		const data = fetchResult.data;
 
 		if (!data.success && !data.data) {
 			throw new Error(data.error || 'Failed to update thread');
 		}
 
 		return data.data || data;
-	} catch (error) {
-		console.error('Error updating thread:', error);
-		throw error;
+	})(), `Updating thread ${id}`);
+
+	if (isFailure(result)) {
+		console.error('Error updating thread:', result.error);
+		throw new Error(result.error);
 	}
+
+	return result.data;
 }
 
 export function createThreadsStore() {
@@ -149,8 +157,7 @@ export function createThreadsStore() {
 		filteredThreads: [],
 		isNaming: false,
 		project_id: '',
-		showFavoriteThreads: false,
-
+		showFavoriteThreads: false
 	});
 	const { subscribe, update } = store;
 	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
@@ -241,16 +248,19 @@ export function createThreadsStore() {
 			}
 		});
 	});
-	const favoritedThreads = derived([searchedThreads, store, currentUser], ([$searchedThreads, $store, $currentUser]) => {
-		if (!$store.showFavoriteThreads || !$currentUser?.favoriteThreads?.length) {
-			return $searchedThreads || []; // Return all searched threads if not filtering favorites
+	const favoritedThreads = derived(
+		[searchedThreads, store, currentUser],
+		([$searchedThreads, $store, $currentUser]) => {
+			if (!$store.showFavoriteThreads || !$currentUser?.favoriteThreads?.length) {
+				return $searchedThreads || []; // Return all searched threads if not filtering favorites
+			}
+
+			// Filter to only show favorited threads
+			return ($searchedThreads || []).filter((thread) =>
+				$currentUser.favoriteThreads.includes(thread.id)
+			);
 		}
-		
-		// Filter to only show favorited threads
-		return ($searchedThreads || []).filter(thread => 
-			$currentUser.favoriteThreads.includes(thread.id)
-		);
-	});
+	);
 
 	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
 	const availableUsers = derived(store, ($store) => $store.availableUsers);
@@ -348,8 +358,8 @@ export function createThreadsStore() {
 			});
 		},
 
-		loadThreads: async (): Promise<Threads[]> => {
-			try {
+loadThreads: async (): Promise<Threads[]> => {
+			const result = await clientTryCatch((async () => {
 				update((state) => ({
 					...state,
 					isLoading: true,
@@ -357,10 +367,9 @@ export function createThreadsStore() {
 				}));
 
 				// Make sure to handle authentication properly
-				try {
-					await ensureAuthenticated();
-				} catch (authError) {
-					console.warn('Authentication check failed:', authError);
+				const authResult = await clientTryCatch(ensureAuthenticated(), 'Authentication check');
+				if (isFailure(authResult)) {
+					console.warn('Authentication check failed:', authResult.error);
 					// Don't throw here, continue and let the fetch handle it
 				}
 
@@ -380,70 +389,146 @@ export function createThreadsStore() {
 				}));
 
 				return threads;
-			} catch (error) {
-				console.error('Error loading threads:', error);
+			})(), 'Loading threads');
+
+			if (isFailure(result)) {
+				console.error('Error loading threads:', result.error);
 				update((state) => ({
 					...state,
 					isLoading: false,
-					error: error instanceof Error ? error.message : 'Failed to load threads',
+					error: result.error,
 					updateStatus: 'Failed to load threads'
 				}));
 
 				// Return the existing threads instead of throwing
 				return get(store).threads;
 			}
+
+			return result.data;
 		},
 
 		loadMessages: async (threadId: string): Promise<Messages[]> => {
-			try {
-				const messages = await fetchMessagesForThread(threadId);
+			const result = await clientTryCatch((async () => {
+				const messagesResult = await fetchMessagesForThread(threadId);
+				
+				// If fetchMessagesForThread returns a Result type, extract the data
+				let messages: Messages[];
+				if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
+					if (isFailure(messagesResult)) {
+						throw new Error(messagesResult.error);
+					}
+					messages = messagesResult.data;
+				} else {
+					messages = messagesResult as Messages[];
+				}
+				
 				store.update((state) => ({ ...state, messages, currentThreadId: threadId }));
 				return messages;
-			} catch (error) {
-				console.error('Error loading messages:', error);
+			})(), `Loading messages for thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error loading messages:', result.error);
 				store.update((state) => ({ ...state, updateStatus: 'Failed to load messages' }));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return [];
 			}
+
+			return result.data;
 		},
 
-		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
-			try {
-				console.log('Adding thread with data:', threadData);
-				const newThread = await createThread(threadData);
-				const currentState = get(store);
-				if (newThread.project_id) {
-					const projectThreads = await fetchThreadsForProject(newThread.project_id);
-					store.update((state) => ({
-						...state,
-						threads: projectThreads,
-						isThreadsLoaded: true,
-						updateStatus: 'Thread added successfully',
-						showThreadList: currentState.showThreadList
-					}));
-				} else {
-					const updatedThreads = await fetchThreads();
-					store.update((state) => ({
-						...state,
-						threads: updatedThreads,
-						isThreadsLoaded: true,
-						updateStatus: 'Thread added successfully',
-						showThreadList: currentState.showThreadList
-					}));
-				}
-
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return newThread;
-			} catch (error) {
-				console.error('Error adding thread:', error);
-				store.update((state) => ({ ...state, updateStatus: 'Failed to add thread' }));
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return null;
+addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
+	const result = await clientTryCatch((async () => {
+		console.log('Adding thread with data:', threadData);
+		const newThreadResult = await createThread(threadData);
+		
+		// Handle if createThread returns a Result type
+		let newThread: Threads;
+		if (newThreadResult && typeof newThreadResult === 'object' && 
+			'success' in newThreadResult && 'data' in newThreadResult && 'error' in newThreadResult &&
+			typeof (newThreadResult as { success: unknown }).success === 'boolean') {
+			// This is a Result type
+			const resultType = newThreadResult as { success: boolean; data: Threads; error: unknown };
+			if (!resultType.success) {
+				throw new Error(String(resultType.error));
 			}
-		},
+			newThread = resultType.data;
+		} else {
+			// This is the actual data - convert through unknown first
+			newThread = newThreadResult as unknown as Threads;
+		}
+		
+		const currentState = get(store);
+		
+		if (newThread.project_id) {
+			const projectThreadsResult = await fetchThreadsForProject(newThread.project_id);
+			
+			// Handle if fetchThreadsForProject returns a Result type
+			let projectThreads: Threads[];
+			if (projectThreadsResult && typeof projectThreadsResult === 'object' && 
+				'success' in projectThreadsResult && 'data' in projectThreadsResult && 'error' in projectThreadsResult &&
+				typeof (projectThreadsResult as { success: unknown }).success === 'boolean') {
+				// This is a Result type
+				const resultType = projectThreadsResult as { success: boolean; data: Threads[]; error: unknown };
+				if (!resultType.success) {
+					throw new Error(String(resultType.error));
+				}
+				projectThreads = resultType.data;
+			} else {
+				// This is the actual data - convert through unknown first
+				projectThreads = projectThreadsResult as unknown as Threads[];
+			}
+			
+			store.update((state) => ({
+				...state,
+				threads: projectThreads,
+				isThreadsLoaded: true,
+				updateStatus: 'Thread added successfully',
+				showThreadList: currentState.showThreadList
+			}));
+		} else {
+			const updatedThreadsResult = await fetchThreads();
+			
+			// Handle if fetchThreads returns a Result type
+			let updatedThreads: Threads[];
+			if (updatedThreadsResult && typeof updatedThreadsResult === 'object' && 
+				'success' in updatedThreadsResult && 'data' in updatedThreadsResult && 'error' in updatedThreadsResult &&
+				typeof (updatedThreadsResult as { success: unknown }).success === 'boolean') {
+				// This is a Result type
+				const resultType = updatedThreadsResult as { success: boolean; data: Threads[]; error: unknown };
+				if (!resultType.success) {
+					throw new Error(String(resultType.error));
+				}
+				updatedThreads = resultType.data;
+			} else {
+				// This is the actual data - convert through unknown first
+				updatedThreads = updatedThreadsResult as unknown as Threads[];
+			}
+			
+			store.update((state) => ({
+				...state,
+				threads: updatedThreads,
+				isThreadsLoaded: true,
+				updateStatus: 'Thread added successfully',
+				showThreadList: currentState.showThreadList
+			}));
+		}
+
+		setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+		return newThread;
+	})(), 'Adding thread');
+
+	if (isFailure(result)) {
+		console.error('Error adding thread:', result.error);
+		store.update((state) => ({ ...state, updateStatus: 'Failed to add thread' }));
+		setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
+		return null;
+	}
+
+	return result.data;
+},
 
 		updateThread: async (id: string, changes: Partial<Threads>) => {
-			try {
+			const result = await clientTryCatch((async () => {
 				update((state) => ({
 					...state,
 					isUpdating: true,
@@ -471,54 +556,72 @@ export function createThreadsStore() {
 				}));
 
 				return updatedThread;
-			} catch (error) {
-				console.error('Failed to update thread:', error);
+			})(), `Updating thread ${id}`);
+
+			if (isFailure(result)) {
+				console.error('Failed to update thread:', result.error);
 				update((state) => ({
 					...state,
 					isUpdating: false,
-					error: error instanceof Error ? error.message : 'Failed to update thread',
+					error: result.error,
 					updateStatus: 'Failed to update thread'
 				}));
-				throw error;
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		getThreadCollaborators: async (threadId: string): Promise<User[]> => {
-			try {
-				const response = await fetch(`/api/threads/${threadId}/collaborators`, {
-					method: 'GET',
-					credentials: 'include',
-					headers: getAuthHeaders()
-				});
-
-				const data = await handleResponse<{ success: boolean; data: User[]; error?: string }>(
-					response
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<{ success: boolean; data: User[]; error?: string }>(
+					`/api/threads/${threadId}/collaborators`,
+					{
+						method: 'GET',
+						credentials: 'include',
+						headers: getAuthHeaders()
+					}
 				);
+
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to get thread collaborators: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
 
 				if (!data.success && !Array.isArray(data)) {
 					throw new Error(data.error || 'Failed to get thread collaborators');
 				}
 
 				return Array.isArray(data) ? data : data.data || [];
-			} catch (error) {
-				console.error('Error getting thread collaborators:', error);
+			})(), `Getting collaborators for thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error getting thread collaborators:', result.error);
 				return [];
 			}
+
+			return result.data;
 		},
 
 		// Add collaborator to thread
 		addThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
-			try {
-				const response = await fetch(`/api/threads/${threadId}/collaborators`, {
-					method: 'POST',
-					headers: getAuthHeaders(),
-					credentials: 'include',
-					body: JSON.stringify({ userId })
-				});
-
-				const data = await handleResponse<{ success: boolean; data: Threads; error?: string }>(
-					response
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<{ success: boolean; data: Threads; error?: string }>(
+					`/api/threads/${threadId}/collaborators`,
+					{
+						method: 'POST',
+						headers: getAuthHeaders(),
+						credentials: 'include',
+						body: JSON.stringify({ userId })
+					}
 				);
+
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to add collaborator to thread: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
 
 				if (!data.success && !data.data) {
 					throw new Error(data.error || 'Failed to add collaborator to thread');
@@ -533,26 +636,35 @@ export function createThreadsStore() {
 
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return data.data || data;
-			} catch (error) {
-				console.error('Error adding thread collaborator:', error);
+			})(), `Adding collaborator ${userId} to thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error adding thread collaborator:', result.error);
 				store.update((state) => ({ ...state, updateStatus: 'Failed to add thread collaborator' }));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
+
+			return result.data;
 		},
 
 		// Remove collaborator from thread
 		removeThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
-			try {
-				const response = await fetch(`/api/threads/${threadId}/collaborators/${userId}`, {
-					method: 'DELETE',
-					credentials: 'include',
-					headers: getAuthHeaders()
-				});
-
-				const data = await handleResponse<{ success: boolean; data: Threads; error?: string }>(
-					response
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchTryCatch<{ success: boolean; data: Threads; error?: string }>(
+					`/api/threads/${threadId}/collaborators/${userId}`,
+					{
+						method: 'DELETE',
+						credentials: 'include',
+						headers: getAuthHeaders()
+					}
 				);
+
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to remove collaborator from thread: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
 
 				if (!data.success && !data.data) {
 					throw new Error(data.error || 'Failed to remove collaborator from thread');
@@ -567,8 +679,10 @@ export function createThreadsStore() {
 
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return data.data || data;
-			} catch (error) {
-				console.error('Error removing thread collaborator:', error);
+			})(), `Removing collaborator ${userId} from thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error removing thread collaborator:', result.error);
 				store.update((state) => ({
 					...state,
 					updateStatus: 'Failed to remove thread collaborator'
@@ -576,10 +690,12 @@ export function createThreadsStore() {
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
+
+			return result.data;
 		},
 
 		toggleThreadCollaborator: async (threadId: string, userId: string): Promise<Threads | null> => {
-			try {
+			const result = await clientTryCatch((async () => {
 				const thread = get(store).threads.find((t) => t.id === threadId);
 				if (!thread) {
 					throw new Error('Thread not found');
@@ -601,8 +717,10 @@ export function createThreadsStore() {
 				} else {
 					return await threadsStore.addThreadCollaborator(threadId, userId);
 				}
-			} catch (error) {
-				console.error('Error toggling thread collaborator:', error);
+			})(), `Toggling collaborator ${userId} for thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error toggling thread collaborator:', result.error);
 				store.update((state) => ({
 					...state,
 					updateStatus: 'Failed to update thread collaborator'
@@ -610,8 +728,9 @@ export function createThreadsStore() {
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
-		},
 
+			return result.data;
+		},
 
 		autoUpdateThreadName: async (
 			threadId: string,
@@ -619,7 +738,7 @@ export function createThreadsStore() {
 			model: AIModel,
 			userId: string
 		) => {
-			try {
+			const result = await clientTryCatch((async () => {
 				store.update((state) => ({ ...state, namingThreadId: threadId }));
 
 				const updatedThread = await autoUpdateThreadName(threadId, messages, model, userId);
@@ -640,8 +759,10 @@ export function createThreadsStore() {
 					3000
 				);
 				return updatedThread;
-			} catch (error) {
-				console.error('Error in autoUpdateThreadName:', error);
+			})(), `Auto-updating name for thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error in autoUpdateThreadName:', result.error);
 				store.update((state) => ({
 					...state,
 					updateStatus: 'Failed to auto-update thread name',
@@ -657,6 +778,8 @@ export function createThreadsStore() {
 				);
 				return null;
 			}
+
+			return result.data;
 		},
 
 		getCurrentThread: derived(store, ($store) => {
@@ -666,8 +789,25 @@ export function createThreadsStore() {
 		addMessage: async (
 			message: Omit<Messages, 'id' | 'created' | 'updated'>
 		): Promise<Messages | null> => {
-			try {
-				const newMessage = await addMessageToThread(message);
+			const result = await clientTryCatch((async () => {
+				const newMessageResult = await addMessageToThread(message);
+				
+				// Handle if addMessageToThread returns a Result type
+				let newMessage: Messages;
+				if (newMessageResult && typeof newMessageResult === 'object' && 
+					'success' in newMessageResult && 'data' in newMessageResult && 'error' in newMessageResult &&
+					typeof (newMessageResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = newMessageResult as { success: boolean; data: Messages; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					newMessage = resultType.data;
+				} else {
+					// This is the actual data - convert through unknown first
+					newMessage = newMessageResult as unknown as Messages;
+				}
+				
 				store.update((state) => ({
 					...state,
 					messages: [...state.messages, newMessage],
@@ -675,18 +815,34 @@ export function createThreadsStore() {
 				}));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return newMessage;
-			} catch (error) {
-				console.error('Error adding message:', error);
+			})(), `Adding message to thread ${message.thread}`);
+
+			if (isFailure(result)) {
+				console.error('Error adding message:', result.error);
 				store.update((state) => ({ ...state, updateStatus: 'Failed to add message' }));
 				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
 				return null;
 			}
+
+			return result.data;
 		},
 
 		setCurrentThread: async (id: string | null) => {
 			if (id) {
-				try {
-					const messages = await fetchMessagesForThread(id);
+				const result = await clientTryCatch((async () => {
+					const messagesResult = await fetchMessagesForThread(id);
+					
+					// If fetchMessagesForThread returns a Result type, extract the data
+					let messages: Messages[];
+					if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
+						if (isFailure(messagesResult)) {
+							throw new Error(messagesResult.error);
+						}
+						messages = messagesResult.data;
+					} else {
+						messages = messagesResult as Messages[];
+					}
+					
 					store.update((state) => ({
 						...state,
 						currentThreadId: id,
@@ -694,12 +850,16 @@ export function createThreadsStore() {
 						messages,
 						updateStatus: 'Current thread updated'
 					}));
-				} catch (error) {
-					console.error('Error loading messages for thread:', error);
+					return messages;
+				})(), `Setting current thread to ${id}`);
+
+				if (isFailure(result)) {
+					console.error('Error loading messages for thread:', result.error);
 					store.update((state) => ({
 						...state,
 						currentThreadId: id,
 						currentThread: state.threads.find((t) => t.id === id) || null,
+						messages: [],
 						updateStatus: 'Error loading messages'
 					}));
 				}
@@ -713,7 +873,6 @@ export function createThreadsStore() {
 				}));
 			}
 		},
-
 		setNamingThreadId: (threadId: string | null) => {
 			store.update((state) => ({
 				...state,
@@ -848,7 +1007,7 @@ export function createThreadsStore() {
 		refreshThreadTimes: () => {
 			update((state) => ({
 				...state,
-				date: new Date().toISOString() 
+				date: new Date().toISOString()
 			}));
 		},
 
@@ -867,74 +1026,80 @@ export function createThreadsStore() {
 			}));
 		},
 		toggleFavoriteFilter: () => {
-				update((state) => {
-					const newShowFavorites = !state.showFavoriteThreads;
-					console.log('🔄 Toggling favorite filter:', { 
-						from: state.showFavoriteThreads, 
-						to: newShowFavorites 
-					});
-					return {
-						...state,
-						showFavoriteThreads: newShowFavorites
-					};
+			update((state) => {
+				const newShowFavorites = !state.showFavoriteThreads;
+				console.log('🔄 Toggling favorite filter:', {
+					from: state.showFavoriteThreads,
+					to: newShowFavorites
 				});
-			},
-
-
-		toggleThreadFavorite: async (threadId: string): Promise<boolean> => {
-			try {
-				const user = get(currentUser);
-				if (!user) throw new Error('User not authenticated');
-
-				const isFavorited = user.favoriteThreads?.includes(threadId) || false;
-				const action = isFavorited ? 'remove' : 'add';
-
-				const response = await fetch('/api/favorites', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						threadId,
-						action
-					})
-				});
-
-				if (!response.ok) {
-					throw new Error('Failed to update favorite thread');
-				}
-
-				const result = await response.json();
-
-				if (result.success) {
-					currentUser.update((currentUser) => {
-						if (!currentUser) return currentUser;
-						return {
-							...currentUser,
-							favoriteThreads: result.favoriteThreads || result.bookmarks
-						};
-					});
-
-					update((state) => ({
-						...state,
-						updateStatus: isFavorited ? 'Removed from favorites' : 'Added to favorites'
-					}));
-
-					setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
-					return !isFavorited;
-				} else {
-					throw new Error(result.message || 'Favorite operation failed');
-				}
-			} catch (error) {
-				console.error('Error toggling thread favorite:', error);
-				update((state) => ({
+				return {
 					...state,
-					updateStatus: 'Failed to update favorite'
-				}));
-				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
-				throw error;
-			}
+					showFavoriteThreads: newShowFavorites
+				};
+			});
 		},
+
+toggleThreadFavorite: async (threadId: string): Promise<boolean> => {
+	const result = await clientTryCatch((async () => {
+		const user = get(currentUser);
+		if (!user) throw new Error('User not authenticated');
+
+		const isFavorited = user.favoriteThreads?.includes(threadId) || false;
+		const action = isFavorited ? 'remove' : 'add';
+
+		const fetchResult = await fetchTryCatch<{ success: boolean; favoriteThreads?: string[]; bookmarks?: string[]; message?: string }>(
+			'/api/favorites',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					threadId,
+					action
+				})
+			}
+		);
+
+		if (isFailure(fetchResult)) {
+			throw new Error(`Failed to update favorite thread: ${fetchResult.error}`);
+		}
+
+		const result = fetchResult.data;
+
+		if (result.success) {
+			currentUser.update((currentUser) => {
+				if (!currentUser) return currentUser;
+				return {
+					...currentUser,
+					favoriteThreads: result.favoriteThreads || result.bookmarks || []
+				};
+			});
+
+			update((state) => ({
+				...state,
+				updateStatus: isFavorited ? 'Removed from favorites' : 'Added to favorites'
+			}));
+
+			setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
+			return !isFavorited;
+		} else {
+			throw new Error(result.message || 'Favorite operation failed');
+		}
+	})(), `Toggling favorite for thread ${threadId}`);
+
+	if (isFailure(result)) {
+		console.error('Error toggling thread favorite:', result.error);
+		update((state) => ({
+			...state,
+			updateStatus: 'Failed to update favorite'
+		}));
+		setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 2000);
+		throw new Error(result.error);
+	}
+
+	return result.data;
+},
 
 		isThreadFavorited: (threadId: string): boolean => {
 			const user = get(currentUser);

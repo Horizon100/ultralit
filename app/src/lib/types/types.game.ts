@@ -11,7 +11,6 @@ export interface GameTile {
 	height: number;
 }
 
-
 export interface GameOrganization extends RecordModel {
 	id: string;
 	name: string;
@@ -70,20 +69,19 @@ export interface GameTable extends RecordModel {
 	size: GameTile;
 	capacity: number;
 	isPublic: boolean;
-	isActive: boolean;	
+	isActive: boolean;
 	created: string;
 	updated: string;
 }
 
 export interface GameActivity extends RecordModel {
-	visitCount: number,
-	visitDuration: number,
+	visitCount: number;
+	visitDuration: number;
 	organizationVisits: string[];
 	buildingVisits: string[];
 	roomVisits: string[];
 	tableVisits: string[];
 	dialogVisits: string[];
-
 }
 
 export interface GameHero extends RecordModel {
@@ -96,7 +94,7 @@ export interface GameHero extends RecordModel {
 	currentRoom: string | null;
 	currentTable: string | null;
 	isMoving: boolean;
-	activityLog: GameActivity,
+	activityLog: GameActivity;
 	lastSeen: string;
 	created: string;
 	updated: string;

@@ -176,12 +176,12 @@
 	on:selectRoom={handleRoomSelection}
 	on:close={handleCloseBuilding}
 />
-<style lang="scss">
 
-	@use "src/lib/styles/themes.scss" as *;	
+<style lang="scss">
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}		
+	}
 	.map-container {
 		position: relative;
 		display: flex;

@@ -2,223 +2,81 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-// Get a specific task
-export const GET: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+export const GET: RequestHandler = async (event) =>
+  apiTryCatch(async () => {
+    const { params, locals } = event;
 
-		console.log(`Fetching task ${params.id}...`);
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-		try {
-			const task = await pb.collection('tasks').getOne(params.id);
+    console.log(`Fetching task ${params.id}...`);
 
-			// Check if user has access to this task
-			if (task.createdBy !== locals.user.id) {
-				// If user is not the creator, check project permissions
-				if (task.project_id) {
-					const project = await pb.collection('projects').getOne(task.project_id);
-					if (project.owner !== locals.user.id && !project.collaborators.includes(locals.user.id)) {
-						return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-							status: 403,
-							headers: { 'Content-Type': 'application/json' }
-						});
-					}
-				} else {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 403,
-						headers: { 'Content-Type': 'application/json' }
-					});
-				}
-			}
+    const task = await pb.collection('tasks').getOne(params.id);
 
-			return json(task);
-		} catch (err) {
-			console.error(`Error fetching task ${params.id}:`, err);
+    if (task.createdBy !== locals.user.id) {
+      if (task.project_id) {
+        const project = await pb.collection('projects').getOne(task.project_id);
+        if (project.owner !== locals.user.id && !project.collaborators.includes(locals.user.id)) {
+          throw new Error('Unauthorized');
+        }
+      } else {
+        throw new Error('Unauthorized');
+      }
+    }
 
-			if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-				return new Response(
-					JSON.stringify({
-						error: 'Task not found',
-						details: err instanceof Error ? err.message : 'Unknown error'
-					}),
-					{
-						status: 404,
-						headers: { 'Content-Type': 'application/json' }
-					}
-				);
-			}
+    return task;
+  }, 'Failed to fetch task');
 
-			throw err;
-		}
-	} catch (error) {
-		console.error('Error in GET task handler:', error);
-		return new Response(
-			JSON.stringify({
-				error: 'Internal server error',
-				message: error instanceof Error ? error.message : 'Unknown error',
-				stack: error instanceof Error ? error.stack : undefined
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+export const PATCH: RequestHandler = async (event) =>
+  apiTryCatch(async () => {
+    const { params, request, locals } = event;
 
-// Update a task
-export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-		console.log(`Updating task ${params.id}...`);
+    const data = await request.json();
+    const task = await pb.collection('tasks').getOne(params.id);
 
-		const data = await request.json();
-		console.log('Update data:', data);
+    if (task.createdBy !== locals.user.id) {
+      if (task.project_id) {
+        const project = await pb.collection('projects').getOne(task.project_id);
+        if (project.owner !== locals.user.id && !project.collaborators.includes(locals.user.id)) {
+          throw new Error('Unauthorized');
+        }
+      } else {
+        throw new Error('Unauthorized');
+      }
+    }
 
-		// Check if user can update this task
-		try {
-			const task = await pb.collection('tasks').getOne(params.id);
-			console.log('Existing task:', task);
+    const updatedTask = await pb.collection('tasks').update(params.id, data);
+    return updatedTask;
+  }, 'Failed to update task');
 
-			if (task.createdBy !== locals.user.id) {
-				// If user is not the creator, check project permissions
-				if (task.project_id) {
-					const project = await pb.collection('projects').getOne(task.project_id);
-					if (project.owner !== locals.user.id && !project.collaborators.includes(locals.user.id)) {
-						return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-							status: 403,
-							headers: { 'Content-Type': 'application/json' }
-						});
-					}
-				} else {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 403,
-						headers: { 'Content-Type': 'application/json' }
-					});
-				}
-			}
+export const DELETE: RequestHandler = async (event) =>
+  apiTryCatch(async () => {
+    const { params, locals } = event;
 
-			// Update the task
-			console.log('Calling PocketBase update...');
-			const updatedTask = await pb.collection('tasks').update(params.id, data);
-			console.log('Update successful:', updatedTask);
+    if (!locals.user) {
+      throw new Error('Unauthorized');
+    }
 
-			return json(updatedTask);
-		} catch (err) {
-			console.error(`Error updating task ${params.id}:`, err);
+    const task = await pb.collection('tasks').getOne(params.id);
 
-			if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-				return new Response(
-					JSON.stringify({
-						error: 'Task not found',
-						details: err instanceof Error ? err.message : 'Unknown error'
-					}),
-					{
-						status: 404,
-						headers: { 'Content-Type': 'application/json' }
-					}
-				);
-			}
+    if (task.createdBy !== locals.user.id) {
+      if (task.project_id) {
+        const project = await pb.collection('projects').getOne(task.project_id);
+        if (project.owner !== locals.user.id) {
+          throw new Error('Unauthorized');
+        }
+      } else {
+        throw new Error('Unauthorized');
+      }
+    }
 
-			throw err;
-		}
-	} catch (err) {
-		console.error(`Error deleting task ${params.id}:`, err);
-
-		if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-			return new Response(
-				JSON.stringify({
-					error: 'Task not found',
-					details: err instanceof Error ? err.message : 'Unknown error'
-				}),
-				{
-					status: 404,
-					headers: { 'Content-Type': 'application/json' }
-				}
-			);
-		}
-
-		throw err;
-	}
-};
-
-// Delete a task
-export const DELETE: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
-
-		console.log(`Deleting task ${params.id}...`);
-
-		// Check if user can delete this task
-		try {
-			const task = await pb.collection('tasks').getOne(params.id);
-
-			if (task.createdBy !== locals.user.id) {
-				// If user is not the creator, check project permissions
-				if (task.project_id) {
-					const project = await pb.collection('projects').getOne(task.project_id);
-					if (project.owner !== locals.user.id) {
-						return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-							status: 403,
-							headers: { 'Content-Type': 'application/json' }
-						});
-					}
-				} else {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 403,
-						headers: { 'Content-Type': 'application/json' }
-					});
-				}
-			}
-
-			// Delete the task
-			await pb.collection('tasks').delete(params.id);
-
-			return json({ success: true });
-		} catch (err) {
-			console.error(`Error deleting task ${params.id}:`, err);
-
-			if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
-				return new Response(
-					JSON.stringify({ error: 'Task not found', details: (err as any).message }),
-					{
-						status: 404,
-						headers: { 'Content-Type': 'application/json' }
-					}
-				);
-			}
-
-			throw err;
-		}
-	} catch (error) {
-		console.error('Error in DELETE task handler:', error);
-		return new Response(
-			JSON.stringify({
-				error: 'Internal server error',
-				message: error instanceof Error ? error.message : 'Unknown error',
-				stack: error instanceof Error ? error.stack : undefined
-			}),
-			{
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
-};
+    await pb.collection('tasks').delete(params.id);
+    return { success: true };
+  }, 'Failed to delete task');

@@ -26,9 +26,7 @@
 		TagsIcon,
 		Settings,
 		SettingsIcon,
-
 		WallpaperIcon
-
 	} from 'lucide-svelte';
 	import { Moon, Sun, Sunset, Sunrise, Focus, Bold, Gauge, Key } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
@@ -43,8 +41,9 @@
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import TagEditor from '$lib/features/users/components/TagEditor.svelte';
 	import AvatarUploader from '$lib/features/users/components/AvatarUploader.svelte';
-    import WallpaperSelector from '$lib/features/users/components/WallpaperSelector.svelte';
-
+	import WallpaperSelector from '$lib/features/users/components/WallpaperSelector.svelte';
+	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
+	import { clientTryCatch, fetchTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
 	interface UserData {
 		id: string;
 		avatarUrl?: string;
@@ -111,16 +110,20 @@
 
 	const dispatch = createEventDispatcher();
 
-	// $: chatRelatedPages = ['/chat', '/canvas', '/ide']; // Add other pages that need API keys
-	// $: needsApiKey = chatRelatedPages.some(path => $page.url.pathname.startsWith(path));
-	// $: hasApiKey = needsApiKey ? hasAnyApiKey($apiKey) : true;
+	/*
+	 * $: chatRelatedPages = ['/chat', '/canvas', '/ide']; // Add other pages that need API keys
+	 * $: needsApiKey = chatRelatedPages.some(path => $page.url.pathname.startsWith(path));
+	 * $: hasApiKey = needsApiKey ? hasAnyApiKey($apiKey) : true;
+	 */
 
-	// function hasAnyApiKey(apiKeys: any): boolean {
-	// 	if (!apiKeys || typeof apiKeys !== 'object') return false;
-	// 	return Object.values(apiKeys).some(key => 
-	// 		typeof key === 'string' && key.trim() !== ''
-	// 	);
-	// }
+	/*
+	 * function hasAnyApiKey(apiKeys: any): boolean {
+	 * 	if (!apiKeys || typeof apiKeys !== 'object') return false;
+	 * 	return Object.values(apiKeys).some(key =>
+	 * 		typeof key === 'string' && key.trim() !== ''
+	 * 	);
+	 * }
+	 */
 
 	function getRandomQuote(): string {
 		const quotes = $t('extras.quotes') as string[];
@@ -158,19 +161,23 @@
 	function handleAvatarUploadError(error: string): void {
 		console.error('Avatar upload error:', error);
 	}
-function handleWallpaperChangeEvent(event: CustomEvent) {
-	const { wallpaperPreference } = event.detail;
-	console.log('Wallpaper changed:', wallpaperPreference);
-	
-	// The currentUser store should automatically update, but you can manually update if needed
-	// currentUser.update(user => ({ 
-	//     ...user, 
-	//     wallpaper_preference: stringifyWallpaperPreference(wallpaperPreference) 
-	// }));
-	
-	// Optionally close the wallpaper selector after selection
-	// showWallpapers = false;
-}
+	function handleWallpaperChangeEvent(event: CustomEvent) {
+		const { wallpaperPreference } = event.detail;
+		console.log('Wallpaper changed:', wallpaperPreference);
+
+		/*
+		 * The currentUser store should automatically update, but you can manually update if needed
+		 * currentUser.update(user => ({
+		 *     ...user,
+		 *     wallpaper_preference: stringifyWallpaperPreference(wallpaperPreference)
+		 * }));
+		 */
+
+		/*
+		 * Optionally close the wallpaper selector after selection
+		 * showWallpapers = false;
+		 */
+	}
 
 	function handleStyleClose(): void {
 		showStyles = false;
@@ -183,37 +190,43 @@ function handleWallpaperChangeEvent(event: CustomEvent) {
 	}
 
 	async function saveChanges(): Promise<void> {
-		try {
-			if (user?.id) {
-				const updatedUser = await updateUser(user.id, {
-					name: editedUser.name,
-					username: editedUser.username,
-					description: editedUser.description
-				});
-
-				// Update both user and completeUserData
-				user = { ...user, ...updatedUser };
-				completeUserData = {
-					...completeUserData,
-					...updatedUser,
-					name: updatedUser.name || completeUserData?.name || '',
-					username: updatedUser.username || completeUserData?.username || '',
-					description: updatedUser.description || completeUserData?.description || ''
-				};
-
-				isEditing = false;
-				showSaveConfirmation = true;
-				setTimeout(() => (showSaveConfirmation = false), 2000);
+		const result = await clientTryCatch((async () => {
+			if (!user?.id) {
+				throw new Error('User ID not available');
 			}
-		} catch (error) {
-			console.error('Error updating user:', error);
+
+			const updatedUser = await updateUser(user.id, {
+				name: editedUser.name,
+				username: editedUser.username,
+				description: editedUser.description
+			});
+
+			// Update both user and completeUserData
+			user = { ...user, ...updatedUser };
+			completeUserData = {
+				...completeUserData,
+				...updatedUser,
+				name: updatedUser.name || completeUserData?.name || '',
+				username: updatedUser.username || completeUserData?.username || '',
+				description: updatedUser.description || completeUserData?.description || ''
+			};
+
+			isEditing = false;
+			showSaveConfirmation = true;
+			setTimeout(() => (showSaveConfirmation = false), 2000);
+
+			return updatedUser;
+		})(), `Saving changes for user ${user?.id}`);
+
+		if (isFailure(result)) {
+			console.error('Error updating user:', result.error);
+			// You might want to show an error message to the user here
 		}
 	}
 
 	function handleOutsideClick(event: MouseEvent): void {
 		if (event.target === event.currentTarget) {
 			onClose();
-			showStyles = false;
 		}
 	}
 
@@ -257,14 +270,11 @@ function handleWallpaperChangeEvent(event: CustomEvent) {
 	async function handleStyleChange(event: CustomEvent): Promise<void> {
 		const { style } = event.detail;
 		await currentTheme.set(style);
-		showStyles = false;
 	}
 	async function handleWallpaperChange(event: CustomEvent): Promise<void> {
 		const { wallpaper } = event.detail;
 		await currentTheme.set(wallpaper);
-		showStyles = false;
 	}
-
 
 	$: placeholderText = getRandomQuote();
 
@@ -282,79 +292,127 @@ function handleWallpaperChangeEvent(event: CustomEvent) {
 		return '';
 	}
 
-	async function loadUserStats(): Promise<void> {
-		try {
-			if (user && user.id) {
-				// Refresh user data to ensure we have the latest
-				const refreshedUser = await getUserById(user.id);
-				if (refreshedUser) {
-					// Preserve the avatar URL if it already exists
-					const existingAvatarUrl = user.avatarUrl;
-
-					// Update user data
-					user = refreshedUser;
-					editedUser = { ...refreshedUser };
-
-					// Restore or set avatar URL
-					if (existingAvatarUrl) {
-						user.avatarUrl = existingAvatarUrl;
-					} else if (user.avatar) {
-						user.avatarUrl = getAvatarUrl(user);
-					}
-
-					// Fetch stats from our API endpoint
-					console.log('Fetching stats for user ID:', user.id);
-					const statsResponse = await fetch(`/api/verify/users/${user.id}/stats`, {
-						credentials: 'include'
-					});
-
-					if (statsResponse.ok) {
-						const statsData = await statsResponse.json();
-						console.log('Received stats data:', statsData);
-
-						if (statsData.success) {
-							// Update the stats with real data
-							threadCount = statsData.threadCount || 0;
-							messageCount = statsData.messageCount || 0;
-							taskCount = statsData.taskCount || 0;
-							tagCount = statsData.tagCount || 0;
-							timerCount = statsData.timerCount || 0;
-
-							if (statsData.lastActive) {
-								lastActive = new Date(statsData.lastActive);
-							} else {
-								lastActive = user.updated ? new Date(user.updated) : new Date();
-							}
-
-							console.log('Updated stats values:', {
-								threadCount,
-								messageCount,
-								taskCount,
-								tagCount,
-								timerCount,
-								lastActive
-							});
-						} else {
-							console.error('Stats API returned error:', statsData.error);
-							// Keep the default values or set fallbacks
-						}
-					} else {
-						console.error('Failed to fetch stats:', statsResponse.status);
-						// Keep the default values
-					}
-				}
-			}
-		} catch (error) {
-			console.error('Error loading user data or stats:', error);
+async function loadUserStats(): Promise<void> {
+	const result = await clientTryCatch((async () => {
+		if (!user?.id) {
+			console.error('loadUserStats: User ID not available', { user });
+			throw new Error('User ID not available');
 		}
+
+		console.log('loadUserStats: Starting with user ID:', user.id);
+
+		// Try to refresh user data, but don't fail if it doesn't work
+		let refreshedUser = null;
+		try {
+			refreshedUser = await getUserById(user.id);
+			console.log('loadUserStats: getUserById result:', refreshedUser);
+		} catch (error) {
+			console.error('loadUserStats: getUserById failed:', error);
+			// Continue with existing user data instead of failing
+			console.log('loadUserStats: Continuing with existing user data');
+		}
+
+		// Use refreshed data if available, otherwise keep existing user data
+		if (refreshedUser) {
+			// Preserve the avatar URL if it already exists
+			const existingAvatarUrl = user.avatarUrl;
+
+			// Update user data
+			user = refreshedUser;
+			editedUser = { ...refreshedUser };
+
+			// Restore or set avatar URL
+			if (existingAvatarUrl) {
+				user.avatarUrl = existingAvatarUrl;
+			} else if (user.avatar) {
+				user.avatarUrl = getAvatarUrl(user);
+			}
+			console.log('loadUserStats: User data updated successfully');
+		} else {
+			console.log('loadUserStats: Using existing user data');
+		}
+
+		// Fetch stats from our API endpoint
+		console.log('loadUserStats: Fetching stats for user ID:', user.id);
+		
+		const statsResult = await fetchTryCatch<{
+			success: boolean;
+			threadCount?: number;
+			messageCount?: number;
+			taskCount?: number;
+			tagCount?: number;
+			timerCount?: number;
+			lastActive?: string;
+			error?: string;
+		}>(`/api/verify/users/${user.id}/stats`, {
+			credentials: 'include'
+		});
+
+		if (isFailure(statsResult)) {
+			console.error('loadUserStats: Failed to fetch stats:', statsResult.error);
+			// Keep the default values
+			return { userRefreshed: !!refreshedUser, statsLoaded: false };
+		}
+
+		const statsData = statsResult.data;
+		console.log('loadUserStats: Received stats data:', statsData);
+
+		if (statsData.success) {
+			// Update the stats with real data
+			threadCount = statsData.threadCount || 0;
+			messageCount = statsData.messageCount || 0;
+			taskCount = statsData.taskCount || 0;
+			tagCount = statsData.tagCount || 0;
+			timerCount = statsData.timerCount || 0;
+
+			if (statsData.lastActive) {
+				const dateResult = tryCatchSync(() => new Date(statsData.lastActive!));
+				if (isFailure(dateResult)) {
+					console.error('loadUserStats: Error parsing lastActive date:', dateResult.error);
+					lastActive = user.updated ? new Date(user.updated) : new Date();
+				} else {
+					lastActive = dateResult.data;
+				}
+			} else {
+				lastActive = user.updated ? new Date(user.updated) : new Date();
+			}
+
+			console.log('loadUserStats: Updated stats values:', {
+				threadCount,
+				messageCount,
+				taskCount,
+				tagCount,
+				timerCount,
+				lastActive
+			});
+
+			return { userRefreshed: !!refreshedUser, statsLoaded: true };
+		} else {
+			console.error('loadUserStats: Stats API returned error:', statsData.error);
+			// Keep the default values or set fallbacks
+			return { userRefreshed: !!refreshedUser, statsLoaded: false };
+		}
+	})(), `Loading user stats for ${user?.id}`);
+
+	if (isFailure(result)) {
+		console.error('loadUserStats: Error loading user data or stats:', result.error);
+		// Don't throw here, just log the error and continue
 	}
+}
 
 	async function fetchCompleteUserData(userId: string): Promise<UserData> {
-		try {
+		const result = await clientTryCatch((async () => {
 			isLoading = true;
-			const response = await fetch(`/api/verify/users/${userId}`);
-			if (!response.ok) throw new Error('Failed to fetch user data');
-			const data = await response.json();
+			
+			const fetchResult = await fetchTryCatch<{ user: any }>(
+				`/api/verify/users/${userId}`
+			);
+
+			if (isFailure(fetchResult)) {
+				throw new Error(`Failed to fetch user data: ${fetchResult.error}`);
+			}
+
+			const data = fetchResult.data;
 
 			// Merge with basic user data
 			const completeUser = await getUserById(userId);
@@ -373,17 +431,22 @@ function handleWallpaperChangeEvent(event: CustomEvent) {
 					data.user?.username || completeUser?.username || completeUser?.email?.split('@')[0] || '',
 				description: data.user?.description || completeUser?.description || ''
 			};
-		} catch (error) {
-			console.error('Error fetching user data:', error);
+		})(), `Fetching complete user data for ${userId}`);
+
+		// Always set isLoading to false
+		isLoading = false;
+
+		if (isFailure(result)) {
+			console.error('Error fetching user data:', result.error);
 			return {
 				id: userId,
 				name: '',
 				username: '',
 				description: ''
 			};
-		} finally {
-			isLoading = false;
 		}
+
+		return result.data;
 	}
 
 	$: if (user?.id) {
@@ -401,59 +464,70 @@ function handleWallpaperChangeEvent(event: CustomEvent) {
 
 	$: displayUser = completeUserData || user;
 
-	// Helper function to safely format dates
 	function formatDate(dateString?: string): string {
 		if (!dateString) return 'Not available';
 
-		try {
-			return new Date(dateString).toLocaleString();
-		} catch (error) {
-			console.error('Error formatting date:', dateString, error);
+		const result = tryCatchSync(() => {
+			const date = new Date(dateString);
+			
+			// Check if the date is valid
+			if (isNaN(date.getTime())) {
+				throw new Error('Invalid date string');
+			}
+			
+			return date.toLocaleString();
+		});
+
+		if (isFailure(result)) {
+			console.error('Error formatting date:', dateString, result.error);
 			return 'Invalid date';
 		}
+
+		return result.data;
 	}
-onMount(async () => {
-    if (user?.id) {
-        try {
-            isLoading = true;
+	onMount(async () => {
+		if (user?.id) {
+			try {
+				isLoading = true;
 
-            // Fetch complete user data in parallel
-            const [completeUser, verifiedData] = await Promise.all([
-                getUserById(user.id),
-                fetchCompleteUserData(user.id)
-            ]);
+				// Fetch complete user data in parallel
+				const [completeUser, verifiedData] = await Promise.all([
+					getUserById(user.id),
+					fetchCompleteUserData(user.id)
+				]);
 
-            // Safely extract user data from verifiedData
-            const verifiedUserData = verifiedData && typeof verifiedData === 'object' && 'user' in verifiedData 
-                ? (verifiedData as { user: UserData }).user 
-                : verifiedData as UserData;
+				// Safely extract user data from verifiedData
+				const verifiedUserData =
+					verifiedData && typeof verifiedData === 'object' && 'user' in verifiedData
+						? (verifiedData as { user: UserData }).user
+						: (verifiedData as UserData);
 
-            // Merge all data sources
-            user = {
-                ...user,
-                ...completeUser,
-                ...(verifiedUserData || {}),
-                name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
-                username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
-                description: completeUser?.description || ''
-            };
+				// Merge all data sources
+				user = {
+					...user,
+					...completeUser,
+					...(verifiedUserData || {}),
+					name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
+					username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
+					description: completeUser?.description || ''
+				};
 
-            // Initialize editedUser
-            editedUser = {
-                name: user.name,
-                username: user.username,
-                description: user.description
-            };
+				// Initialize editedUser
+				editedUser = {
+					name: user.name,
+					username: user.username,
+					description: user.description
+				};
 
-            currentTheme.initialize();
-            await loadUserStats();
-        } catch (err) {
-            console.error('Failed to load user data:', err);
-        } finally {
-            isLoading = false;
-        }
-    }
-});
+				currentTheme.initialize();
+				await loadUserStats();
+			} catch (err) {
+				console.error('Failed to load user data:', err);
+			} finally {
+				isLoading = false;
+			}
+		}
+	});
 </script>
 
 <div
@@ -464,187 +538,209 @@ onMount(async () => {
 	<div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 300 }}>
 		<div class="settings-row">
 			<div class="btn-row">
-				<div class="btn-row">
-					<button class="back-button" on:click={onClose}>
-						<ChevronLeft />
+				<button class="back-button" on:click={onClose}>
+					<ChevronLeft />
+				</button>
+
+				<!-- Active tab title -->
+				{#if !isEditing}
+					<h4 class="active-tab-title">
+						{#if activeTab === 'profile'}
+							{$t('profile.profile') || 'Profile'}
+						{:else if activeTab === 'stats'}
+							{$t('profile.stats') || 'Stats'}
+						{:else if activeTab === 'tags'}
+							{$t('profile.tags') || 'Tags'}
+						{:else if activeTab === 'settings'}
+							{$t('profile.settings') || 'Settings'}
+						{:else if activeTab === 'theme'}
+							{$t('profile.theme') || 'Theme'}
+						{:else if activeTab === 'wallpaper'}
+							{$t('profile.wallpaper') || 'Wallpaper'}
+						{/if}
+					</h4>
+				{/if}
+
+				{#if isEditing}
+					<button class="settings-button done" on:click={saveChanges}>
+						<span>
+							<Save size={16} />
+							{$t('profile.close')}
+						</span>
 					</button>
-					{#if isEditing}
-						<button class="settings-button done" on:click={saveChanges}>
-							<span>
-								<Save size={16} />
-								{$t('profile.close')}
-							</span>
-						</button>
-					{:else if showAvatarUploader && user?.id}
-						<div class="avatar-uploader-modal" transition:fade={{ duration: 200 }}>
-							<div class="avatar-uploader-content" on:click|stopPropagation>
-								<div class="avatar-uploader-header">
-									<!-- <h3>{$t('profile.update')}</h3> -->
-									<button class="close-button" on:click={toggleAvatarUploader}>
-										<X size={20} />
-									</button>
-									<AvatarUploader
-										userId={user.id}
-										onSuccess={handleAvatarUploadSuccess}
-										onError={handleAvatarUploadError}
-									/>
-								</div>
-							</div>
-						</div>
-					{:else}
-						<button class="settings-button" on:click={toggleEdit}>
-							<Settings size={16} />
-							<!-- <span class="hover">{$t('profile.edit')}</span> -->
-						</button>
-						<button class="settings-button" on:click={handleLanguageChange}>
-							<Languages size={16} />
-							<span>{$t('lang.flag')}</span>
-							<!-- <span class="hover">{$t('profile.language')}</span> -->
-						</button>
-						<button
-							class="settings-button"
-							on:click={toggleStyles}
-							transition:fly={{ y: -200, duration: 300 }}
-						>
-							<svelte:component
-								this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
-								size={16}
-							/>
-							<!-- <span class="hover">{$t('profile.theme')}</span> -->
-						</button>
-						<button
-							class="settings-button"
-							on:click={toggleWallpapers}
-							transition:fly={{ y: -200, duration: 300 }}
-						>
-							<WallpaperIcon size={16}/>
-							<!-- <span class="hover">{$t('profile.theme')}</span> -->
-						</button>
-						<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-							<LogOutIcon size={16} />
-							<span class="hover">{$t('profile.logout')}</span>
-						</button>
-					{/if}
-				</div>
+				{:else}
+					<!-- <TimeTracker/>
+			<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
+				<LogOutIcon size={16} />
+				<span class="hover">{$t('profile.logout')}</span>
+			</button> -->
+				{/if}
 			</div>
 		</div>
 
-		{#if showStyles}
-			<div
-				class="style-overlay"
-				on:click={handleOverlayClick}
-				transition:fly={{ x: -200, duration: 300 }}
-			>
-				<div
-					class="style-content"
-					on:click|stopPropagation
-					transition:fly={{ x: -20, duration: 300 }}
-				>
-					<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
+		<!-- Keep the avatar uploader modal section as is -->
+		{#if showAvatarUploader && user?.id}
+			<div class="avatar-uploader-modal" transition:fade={{ duration: 200 }}>
+				<div class="avatar-uploader-content" on:click|stopPropagation>
+					<div class="avatar-uploader-header">
+						<button class="close-button" on:click={toggleAvatarUploader}>
+							<X size={20} />
+						</button>
+						<AvatarUploader
+							userId={user.id}
+							onSuccess={handleAvatarUploadSuccess}
+							onError={handleAvatarUploadError}
+						/>
+					</div>
 				</div>
 			</div>
 		{/if}
-{#if showWallpapers}
-	<div
-		class="style-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ x: -200, duration: 300 }}
-	>
-		<div
-			class="style-content"
-			on:click|stopPropagation
-			transition:fly={{ x: -20, duration: 300 }}
-		>
-			<WallpaperSelector 
-				currentWallpaper={$currentUser?.wallpaper_preference || { wallpaperId: null, isActive: false }}
-				on:close={handleWallpaperClose} 
-				on:styleChange={handleWallpaperChangeEvent}
-			/>				
-		</div>
-	</div>
-{/if}
 
 		{#if user}
 			<!-- Tab Navigation -->
 			<div class="tabs-container">
 				<div class="tab-header">
-					<div class="profile-header">
-						<div class="info-column">
-							<div class="header-wrapper">
-								<div
-									class="avatar-container"
-									on:click={toggleAvatarUploader}
-									role="button"
-									tabindex="0"
-								>
-									{#if getAvatarUrl($currentUser)}
-										<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
-									{:else}
-										<div class="default-avatar">
-											{($currentUser?.name ||
-												$currentUser?.username ||
-												$currentUser?.email ||
-												'?')[0]?.toUpperCase()}
-										</div>
-									{/if}
-									<div class="avatar-overlay">
-										<Camera size={20} />
-									</div>
-								</div>
+					<div class="tabs-navigation">
+						{#if isEditing}
+							<!-- Show only basic tabs during editing -->
+							<button
+								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
+								on:click={() => switchTab('profile')}
+								title="Profile"
+							>
+								<User2 size={20} />
+							</button>
+						{:else}
+							<!-- All tabs when not editing -->
+							<button
+								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
+								on:click={() => switchTab('profile')}
+								title="Profile"
+							>
+								<User2 size={20} />
+							</button>
+							<button
+								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
+								on:click={() => switchTab('stats')}
+								title="Stats"
+							>
+								<Layers size={20} />
+							</button>
+							<button
+								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
+								on:click={() => switchTab('tags')}
+								title="Tags"
+							>
+								<TagsIcon size={20} />
+							</button>
+							<button
+								class="tab-button {activeTab === 'settings' ? 'active' : ''}"
+								on:click={() => switchTab('settings')}
+								title="Settings"
+							>
+								<Settings size={20} />
+							</button>
+							<button
+								class="tab-button {activeTab === 'theme' ? 'active' : ''}"
+								on:click={() => switchTab('theme')}
+								title="Theme"
+							>
+								<svelte:component
+									this={styles.find((s) => s.value === $currentTheme)?.icon || Sun}
+									size={20}
+								/>
+							</button>
+							<button
+								class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"
+								on:click={() => switchTab('wallpaper')}
+								title="Wallpaper"
+							>
+								<WallpaperIcon size={20} />
+							</button>
+						{/if}
+					</div>
+				</div>
 
-								<div class="info-wrapper">
-									<div class="info-row">
-										{#if isEditing}
-											<input
-												value={editedUser.username || editedUser.email?.split('@')[0] || ''}
-												on:input={(e) => {
-													if (e.target instanceof HTMLInputElement) {
-														editedUser.username = e.target.value;
-													}
-												}}											
-											/>
+				<div class="tab-content">
+					{#if activeTab === 'profile'}
+						<div class="profile-header">
+							<div class="info-column">
+								<div class="header-wrapper">
+									<div
+										class="avatar-container"
+										on:click={toggleAvatarUploader}
+										role="button"
+										tabindex="0"
+									>
+										{#if getAvatarUrl($currentUser)}
+											<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
 										{:else}
-											<span class="row">
-												<span class="username"
-													>{user?.username || user?.email?.split('@')[0] || 'Not set'}</span
-												>
-												<span class="meta role">
-													{displayUser?.role || $t('profile.not_available')}
+											<div class="default-avatar">
+												{($currentUser?.name ||
+													$currentUser?.username ||
+													$currentUser?.email ||
+													'?')[0]?.toUpperCase()}
+											</div>
+										{/if}
+										<div class="avatar-overlay">
+											<Camera size={20} />
+										</div>
+									</div>
+
+									<div class="info-wrapper">
+										<div class="info-row">
+											{#if isEditing}
+												<input
+													value={editedUser.username || editedUser.email?.split('@')[0] || ''}
+													on:input={(e) => {
+														if (e.target instanceof HTMLInputElement) {
+															editedUser.username = e.target.value;
+														}
+													}}
+												/>
+											{:else}
+												<span class="row">
+													<span class="username"
+														>{user.username || user.email.split('@')[0] || 'Not set'}</span
+													>
+													<span class="meta role">
+														{displayUser.role || $t('profile.not_available')}
+													</span>
 												</span>
-											</span>
-										{/if}
-									</div>
-									<div class="info-row">
-										{#if isEditing}
-											<input
-												value={editedUser.name ||
-													editedUser.fullName ||
-													editedUser.displayName ||
-													''}
-												on:input={(e) => {
-													if (e.target instanceof HTMLInputElement) {
-														editedUser.name = e.target.value;
-													}
-												}}											
-											/>											
-										{:else}
-											<span class="name"
-												>{user?.name || user?.fullName || user?.displayName || 'Not set'}</span
-											>
-										{/if}
-									</div>
-									<div class="info-row">
-										<span class="meta">
-											{displayUser?.email || $t('profile.not_available')}
-											{#if displayUser?.verified}
-												<!-- <MailCheck size={16} class="verified-icon" /> -->
 											{/if}
-										</span>
+										</div>
+										<div class="info-row">
+											{#if isEditing}
+												<input
+													value={editedUser.name ||
+														editedUser.fullName ||
+														editedUser.displayName ||
+														''}
+													on:input={(e) => {
+														if (e.target instanceof HTMLInputElement) {
+															editedUser.name = e.target.value;
+														}
+													}}
+												/>
+											{:else}
+												<span class="name"
+													>{user.name || user.fullName || user.displayName || 'Not set'}</span
+												>
+											{/if}
+										</div>
+										<div class="info-row">
+											<span class="meta">
+												{displayUser.email || $t('profile.not_available')}
+												{#if displayUser.verified}
+													<!-- <MailCheck size={16} class="verified-icon" /> -->
+												{/if}
+											</span>
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
-						<!-- <div class="info-stats">
+
+							<!-- <div class="info-stats">
 							<div class="info-column">
 								<span class="stat">{$t('profile.projects')}</span>
 								343
@@ -668,37 +764,7 @@ onMount(async () => {
 								Connect
 							</button>
 						</div> -->
-					</div>
-					<div class="tabs-navigation">
-						{#if isEditing}{:else}
-							<button
-								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
-								on:click={() => switchTab('profile')}
-							>
-								<User2 size={20} />
-								<span>Profile</span>
-							</button>
-							<button
-								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
-								on:click={() => switchTab('stats')}
-							>
-								<Layers size={20} />
-								<span>Stats</span>
-							</button>
-							<button
-								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
-								on:click={() => switchTab('tags')}
-							>
-								<TagsIcon size={20} />
-								<span>Tags</span>
-							</button>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Tab Content -->
-				<div class="tab-content">
-					{#if activeTab === 'profile'}
+						</div>
 						<div class="profile-info" transition:fade={{ duration: 200 }}>
 							<div class="info-row-profile">
 								{#if isEditing}
@@ -710,7 +776,7 @@ onMount(async () => {
 											if (e.target instanceof HTMLInputElement) {
 												editedUser.description = e.target.value;
 											}
-										}}											
+										}}
 									></textarea>
 								{:else}
 									<span class="description">
@@ -718,25 +784,6 @@ onMount(async () => {
 									</span>
 								{/if}
 							</div>
-
-							<!-- <div class="selector-row">
-							<button class="selector-button">
-							  <MessageCirclePlus/>
-							  {$t('profile.message')}
-							</button>
-							<button class="selector-button">
-							  <Group/>
-							  {$t('profile.connect')}
-							</button>
-							<button class="selector-button" disabled>
-							  <UserCircle/>
-							</button>
-							<button class="selector-button" disabled>
-							  <Mail/>
-							</button>
-						  </div> -->
-
-							<!-- Email -->
 
 							<!-- Created Date -->
 							<div class="info-column">
@@ -750,7 +797,6 @@ onMount(async () => {
 											: $t('profile.not_available')}
 									</span>
 								</div>
-								<!-- <Cake size={50}/> -->
 							</div>
 
 							<!-- Updated Date -->
@@ -763,7 +809,6 @@ onMount(async () => {
 										{user?.updated ? formatDate(user.updated) : $t('profile.not_available')}
 									</span>
 								</div>
-								<!-- <History size={50}/> -->
 							</div>
 
 							<!-- Verified Status -->
@@ -778,28 +823,68 @@ onMount(async () => {
 										</span>
 									</span>
 								</div>
-								<!-- <Shield size={50}/> -->
 							</div>
 						</div>
 					{:else if activeTab === 'stats'}
-						{#if isEditing}{:else}
-							<div class="stats-tab" transition:fade={{ duration: 200 }}>
-								<StatsContainer
-									{threadCount}
-									{messageCount}
-									{taskCount}
-									{tagCount}
-									{timerCount}
-									{lastActive}
-								/>
-							</div>
-						{/if}
+						<div class="stats-tab" transition:fade={{ duration: 200 }}>
+							<StatsContainer
+								{threadCount}
+								{messageCount}
+								{taskCount}
+								{tagCount}
+								{timerCount}
+								{lastActive}
+							/>
+						</div>
 					{:else if activeTab === 'tags'}
-						{#if isEditing}{:else}
-							<div class="tags-tab" transition:fade={{ duration: 200 }}>
-								<TagEditor />
+						<div class="tags-tab" transition:fade={{ duration: 200 }}>
+							<TagEditor />
+						</div>
+					{:else if activeTab === 'settings'}
+						<div class="settings-tab" transition:fade={{ duration: 200 }}>
+							<div class="settings-content">
+								<div class="settings-section">
+									<h3>Account Settings</h3>
+									<div class="settings-row">
+										<button class="settings-option" on:click={toggleEdit}>
+											<Settings size={20} />
+											<span>Edit Profile</span>
+										</button>
+										<button class="settings-option" on:click={handleLanguageChange}>
+											<Languages size={20} />
+											<span>Change Language ({$t('lang.flag')})</span>
+										</button>
+										<button class="settings-option logout" on:click={logout}>
+											<LogOutIcon size={20} />
+											<span>Logout</span>
+										</button>
+									</div>
+								</div>
+								<div class="settings-section">
+									<h3>Profile</h3>
+									<div class="settings-row">
+										<button class="settings-option" on:click={toggleAvatarUploader}>
+											<Camera size={20} />
+											<span>Change Avatar</span>
+										</button>
+									</div>
+								</div>
 							</div>
-						{/if}
+						</div>
+					{:else if activeTab === 'theme'}
+						<div class="theme-tab" transition:fade={{ duration: 200 }}>
+							<StyleSwitcher on:styleChange={handleStyleChange} />
+						</div>
+					{:else if activeTab === 'wallpaper'}
+						<div class="wallpaper-tab" transition:fade={{ duration: 200 }}>
+							<WallpaperSelector
+								currentWallpaper={$currentUser?.wallpaper_preference?.[0] || {
+									wallpaperId: null,
+									isActive: false
+								}}
+								on:styleChange={handleWallpaperChangeEvent}
+							/>
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -831,22 +916,21 @@ onMount(async () => {
 	</div>
 {/if}
 
-
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.modal-overlay {
 		display: flex;
 		align-items: flex-start;
-		justify-content: center;
+		justify-content: flex-start;
 		width: 100%;
 		height: 100%;
 		border-radius: 2rem;
 		transition: all 0.3s ease;
 		background: transparent;
-				overflow-x: hidden;
+		overflow-x: hidden;
 		overflow-y: scroll;
 		&::-webkit-scrollbar {
 			width: 0.5rem;
@@ -866,7 +950,7 @@ onMount(async () => {
 		flex-direction: row;
 		justify-content: flex-start;
 		width: 100%;
-		gap: 1rem;
+		gap: 0.5rem;
 		user-select: none;
 		margin-left: 0.5rem;
 	}
@@ -877,8 +961,8 @@ onMount(async () => {
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		width: calc(100% - 2rem);
-		padding: 0.5rem;
+		width: 100%;
+		padding: 1rem;
 	}
 
 	.key-overlay {
@@ -907,7 +991,6 @@ onMount(async () => {
 			background: var(--primary-color) !important;
 			border: 1px solid var(--secondary-color);
 			box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-
 		}
 	}
 	input {
@@ -973,7 +1056,6 @@ onMount(async () => {
 					background: var(--primary-color) !important;
 					border: 1px solid var(--secondary-color);
 					box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-
 				}
 			}
 		}
@@ -1204,7 +1286,6 @@ onMount(async () => {
 		width: 100%;
 		display: flex;
 		color: var(--text-color);
-
 	}
 
 	.info-row {
@@ -1230,15 +1311,14 @@ onMount(async () => {
 	}
 
 	.info-row input {
-					background: var(--primary-color) !important;
-			border-radius: var(--radius-m);
-			padding: 1rem;
-			font-size: 1.5rem;
-			resize: vertical;
-			display: flex;
-			height: auto;
-			min-width: 300px;
-		
+		background: var(--primary-color) !important;
+		border-radius: var(--radius-m);
+		padding: 1rem;
+		font-size: 1.5rem;
+		resize: vertical;
+		display: flex;
+		height: auto;
+		min-width: 300px;
 	}
 	span.meta {
 		display: flex;

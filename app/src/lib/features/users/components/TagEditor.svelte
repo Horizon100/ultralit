@@ -36,127 +36,168 @@
 		}
 	}
 
-	onMount(async () => {
-		await loadTags();
-	});
+async function loadTags() {
+	isLoading = true;
+	error = null;
 
-	// Load all tags created by current user
-	async function loadTags() {
-		isLoading = true;
-		error = null;
+	try {
+		const response = await fetch('/api/tags?filter=createdBy');
+		if (!response.ok) throw new Error('Failed to fetch tags');
 
-		try {
-			const response = await fetch('/api/tags?filter=createdBy');
-			if (!response.ok) throw new Error('Failed to fetch tags');
-
-			const data = await response.json();
-			tags = data.items;
-
-			// Preload related entities for the tags
-			await preloadRelatedEntities();
-
-			isLoading = false;
-		} catch (err) {
-			console.error('Error loading tags:', err);
-			error = (err as Error).message || 'Failed to load tags';
-			isLoading = false;
+		const responseData = await response.json();
+		
+		// Handle your API response format: { success: true, data: { items: [...] } }
+		if (responseData.success && responseData.data) {
+			// PocketBase returns { items: [], page: 1, perPage: 100, totalItems: 0, totalPages: 1 }
+			if (responseData.data.items && Array.isArray(responseData.data.items)) {
+				tags = responseData.data.items;
+			} else if (Array.isArray(responseData.data)) {
+				// In case the API returns the array directly
+				tags = responseData.data;
+			} else {
+				console.warn('Unexpected API response format:', responseData);
+				tags = [];
+			}
+		} else {
+			console.warn('API response missing expected structure:', responseData);
+			tags = [];
 		}
+
+		console.log('Loaded tags:', tags);
+
+		// Preload related entities for the tags
+		await preloadRelatedEntities();
+
+		isLoading = false;
+	} catch (err) {
+		console.error('Error loading tags:', err);
+		error = (err as Error).message || 'Failed to load tags';
+		tags = []; // Ensure tags is always an array
+		isLoading = false;
 	}
+}
 
 	// Preload projects, tasks and threads related to tags
-	async function preloadRelatedEntities() {
-		const projectIds = new Set<string>();
-		const taskIds = new Set<string>();
-		const threadIds = new Set<string>();
+async function preloadRelatedEntities() {
+	// Ensure tags is an array before proceeding
+	if (!Array.isArray(tags) || tags.length === 0) {
+		console.log('No tags to preload entities for');
+		return;
+	}
 
-		// Collect all unique IDs
-		tags.forEach((tag) => {
-			// Check if taggedProjects exists and is a string before splitting
-			if (tag.taggedProjects && typeof tag.taggedProjects === 'string') {
-				tag.taggedProjects.split(',').forEach((id) => {
-					if (id) projectIds.add(id);
-				});
-			} else if (Array.isArray(tag.taggedProjects)) {
-				// If it's already an array (might be the case in PocketBase response)
-				tag.taggedProjects.forEach((id) => {
-					if (id) projectIds.add(id);
-				});
-			}
+	const projectIds = new Set<string>();
+	const taskIds = new Set<string>();
+	const threadIds = new Set<string>();
 
-			// Check if taggedTasks exists and is a string before splitting
-			if (tag.taggedTasks && typeof tag.taggedTasks === 'string') {
-				tag.taggedTasks.split(',').forEach((id) => {
-					if (id) taskIds.add(id);
-				});
-			} else if (Array.isArray(tag.taggedTasks)) {
-				// If it's already an array
-				tag.taggedTasks.forEach((id) => {
-					if (id) taskIds.add(id);
-				});
-			}
-
-			// Check if taggedThreads exists and is a string before splitting
-			if (tag.taggedThreads && typeof tag.taggedThreads === 'string') {
-				tag.taggedThreads.split(',').forEach((id) => {
-					if (id) threadIds.add(id);
-				});
-			} else if (Array.isArray(tag.taggedThreads)) {
-				// If it's already an array
-				tag.taggedThreads.forEach((id) => {
-					if (id) threadIds.add(id);
-				});
-			}
-		});
-
-		// Fetch projects
-		if (projectIds.size > 0) {
-			try {
-				const projectsResponse = await fetch(
-					`/api/projects/batch?ids=${Array.from(projectIds).join(',')}`
-				);
-				if (projectsResponse.ok) {
-					const projectsData = await projectsResponse.json();
-					projectsData.items.forEach((project: any) => {
-						projects[project.id] = project;
-					});
-				}
-			} catch (err) {
-				console.error('Error loading projects:', err);
-			}
+	// Collect all unique IDs
+	tags.forEach((tag) => {
+		// Check if taggedProjects exists and is a string before splitting
+		if (tag.taggedProjects && typeof tag.taggedProjects === 'string') {
+			tag.taggedProjects.split(',').forEach((id) => {
+				if (id.trim()) projectIds.add(id.trim());
+			});
+		} else if (Array.isArray(tag.taggedProjects)) {
+			// If it's already an array (might be the case in PocketBase response)
+			tag.taggedProjects.forEach((id) => {
+				if (id && typeof id === 'string') projectIds.add(id);
+			});
 		}
 
-		// Fetch tasks
-		if (taskIds.size > 0) {
-			try {
-				const tasksResponse = await fetch(`/api/tasks/batch?ids=${Array.from(taskIds).join(',')}`);
-				if (tasksResponse.ok) {
-					const tasksData = await tasksResponse.json();
-					tasksData.items.forEach((task: any) => {
-						tasks[task.id] = task;
-					});
-				}
-			} catch (err) {
-				console.error('Error loading tasks:', err);
-			}
+		// Check if taggedTasks exists and is a string before splitting
+		if (tag.taggedTasks && typeof tag.taggedTasks === 'string') {
+			tag.taggedTasks.split(',').forEach((id) => {
+				if (id.trim()) taskIds.add(id.trim());
+			});
+		} else if (Array.isArray(tag.taggedTasks)) {
+			// If it's already an array
+			tag.taggedTasks.forEach((id) => {
+				if (id && typeof id === 'string') taskIds.add(id);
+			});
 		}
 
-		// Fetch threads
-		if (threadIds.size > 0) {
-			try {
-				const threadsResponse = await fetch(
-					`/api/threads/batch?ids=${Array.from(threadIds).join(',')}`
-				);
-				if (threadsResponse.ok) {
-					const threadsData = await threadsResponse.json();
-					threadsData.items.forEach((thread: any) => {
-						threads[thread.id] = thread;
-					});
-				}
-			} catch (err) {
-				console.error('Error loading threads:', err);
+		// Check if taggedThreads exists and is a string before splitting
+		if (tag.taggedThreads && typeof tag.taggedThreads === 'string') {
+			tag.taggedThreads.split(',').forEach((id) => {
+				if (id.trim()) threadIds.add(id.trim());
+			});
+		} else if (Array.isArray(tag.taggedThreads)) {
+			// If it's already an array
+			tag.taggedThreads.forEach((id) => {
+				if (id && typeof id === 'string') threadIds.add(id);
+			});
+		}
+	});
+
+	console.log('Preloading entities:', { 
+		projects: Array.from(projectIds), 
+		tasks: Array.from(taskIds), 
+		threads: Array.from(threadIds) 
+	});
+
+	// Fetch projects
+	if (projectIds.size > 0) {
+		try {
+			const projectsResponse = await fetch(
+				`/api/projects/batch?ids=${Array.from(projectIds).join(',')}`
+			);
+			if (projectsResponse.ok) {
+				const projectsData = await projectsResponse.json();
+				// Handle your API response format
+				const projectItems = projectsData.success && projectsData.data?.items 
+					? projectsData.data.items 
+					: (Array.isArray(projectsData.data) ? projectsData.data : []);
+				
+				projectItems.forEach((project: any) => {
+					projects[project.id] = project;
+				});
 			}
+		} catch (err) {
+			console.error('Error loading projects:', err);
 		}
 	}
+
+	// Fetch tasks
+	if (taskIds.size > 0) {
+		try {
+			const tasksResponse = await fetch(`/api/tasks/batch?ids=${Array.from(taskIds).join(',')}`);
+			if (tasksResponse.ok) {
+				const tasksData = await tasksResponse.json();
+				// Handle your API response format
+				const taskItems = tasksData.success && tasksData.data?.items 
+					? tasksData.data.items 
+					: (Array.isArray(tasksData.data) ? tasksData.data : []);
+				
+				taskItems.forEach((task: any) => {
+					tasks[task.id] = task;
+				});
+			}
+		} catch (err) {
+			console.error('Error loading tasks:', err);
+		}
+	}
+
+	// Fetch threads
+	if (threadIds.size > 0) {
+		try {
+			const threadsResponse = await fetch(
+				`/api/threads/batch?ids=${Array.from(threadIds).join(',')}`
+			);
+			if (threadsResponse.ok) {
+				const threadsData = await threadsResponse.json();
+				// Handle your API response format
+				const threadItems = threadsData.success && threadsData.data?.items 
+					? threadsData.data.items 
+					: (Array.isArray(threadsData.data) ? threadsData.data : []);
+				
+				threadItems.forEach((thread: any) => {
+					threads[thread.id] = thread;
+				});
+			}
+		} catch (err) {
+			console.error('Error loading threads:', err);
+		}
+	}
+}
 
 	// Start editing a tag
 	function editTag(tag: Tag) {
@@ -240,7 +281,7 @@
 			console.error('No current user available');
 			return;
 		}
-		
+
 		editingTag = {
 			id: '',
 			name: 'New Tag',
@@ -309,20 +350,25 @@
 
 	function parseTaggedEntities(entities: string | string[] | undefined | null): string[] {
 		if (!entities) return [];
-		
+
 		if (typeof entities === 'string') {
 			return entities.split(',').filter(Boolean);
 		}
-		
+
 		if (Array.isArray(entities)) {
 			return entities.filter(Boolean);
 		}
-		
+
 		return [];
 	}
 	$: taggedProjectIds = parseTaggedEntities(editingTag?.taggedProjects);
 	$: taggedTaskIds = parseTaggedEntities(editingTag?.taggedTasks);
 	$: taggedThreadIds = parseTaggedEntities(editingTag?.taggedThreads);
+
+		onMount(async () => {
+		await loadTags();
+	});
+
 </script>
 
 <div class="tag-editor-container">
@@ -615,7 +661,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
 	}

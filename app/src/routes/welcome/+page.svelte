@@ -17,17 +17,17 @@
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 	import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
-	import googleIcon from '$lib/assets/icons/providers/google.svg';
 	import grokIcon from '$lib/assets/icons/providers/x.svg';
 	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
-	import type { FeaturePlan, PricingPlan  } from '$lib/types/types.features';
-	
+	import { clientTryCatch, storageTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+
 	let pageReady = false;
 	let redirectedFromLogin = false;
 	let isLoading = true;
 	let error: string | null = null;
 	let showNewsletterPopup = false;
 	let navigationFlagChecked = false;
+
 
 	type PricingPlan = {
 		name: string;
@@ -142,54 +142,70 @@
 		goto('/welcome');
 	}
 	onMount(async () => {
-		try {
-			isLoading = true;
+		const mountResult = await clientTryCatch(
+			new Promise<void>((resolve) => {
+				isLoading = true;
 
-			// Check for logged-in user and let the page appear before redirecting
-			if ($currentUser) {
-				// Use a flag or localStorage to check if the user deliberately navigated here
-				const directNavigation = sessionStorage.getItem('directNavigation') === 'true';
-				navigationFlagChecked = true; // Mark that we've checked the flag
+				// Check for logged-in user and let the page appear before redirecting
+				if ($currentUser) {
+					// Use a flag or localStorage to check if the user deliberately navigated here
+					const directNavigation = storageTryCatch(
+						() => sessionStorage.getItem('directNavigation') === 'true',
+						false,
+						'Failed to check navigation flag'
+					);
+					
+					navigationFlagChecked = true; // Mark that we've checked the flag
 
-				if (!directNavigation) {
-					setTimeout(() => {
-						goto('/home');
-					}, 100);
-					return;
+					if (!directNavigation) {
+						setTimeout(() => {
+							goto('/home');
+						}, 100);
+						resolve();
+						return;
+					}
+
+					// Clear the flag after using it
+					storageTryCatch(
+						() => sessionStorage.removeItem('directNavigation'),
+						undefined,
+						'Failed to clear navigation flag'
+					);
 				}
 
-				// Clear the flag after using it
-				sessionStorage.removeItem('directNavigation');
-			}
+				pageReady = true;
 
-			pageReady = true;
-
-			// Only run landing page animations if we're staying on this page
-			setTimeout(() => (showFade = true), 200);
-			setTimeout(() => {
-				showLogo = true;
+				// Only run landing page animations if we're staying on this page
+				setTimeout(() => (showFade = true), 200);
 				setTimeout(() => {
-					logoSize.set(0);
-					logoMargin.set(0);
-				}, 300);
-			}, 150);
+					showLogo = true;
+					setTimeout(() => {
+						logoSize.set(0);
+						logoMargin.set(0);
+					}, 300);
+				}, 150);
 
-			setTimeout(() => (showH1 = true), 600);
-			setTimeout(() => (showH2 = true), 700);
-			setTimeout(() => (showH3 = true), 800);
-			setTimeout(() => (showTypeWriter = true), 900);
-			setTimeout(() => (showButton = true), 1000);
+				setTimeout(() => (showH1 = true), 600);
+				setTimeout(() => (showH2 = true), 700);
+				setTimeout(() => (showH3 = true), 800);
+				setTimeout(() => (showTypeWriter = true), 900);
+				setTimeout(() => (showButton = true), 1000);
 
-			currentTip = getRandomTip();
-		} catch (e) {
+				currentTip = getRandomTip();
+				resolve();
+			}),
+			'Failed to load page'
+		);
+
+		if (isFailure(mountResult)) {
 			error = 'Failed to load page. Please try again.';
-			console.error(e);
-		} finally {
-			const minimumLoadingTime = 800;
-			setTimeout(() => {
-				isLoading = false;
-			}, minimumLoadingTime);
 		}
+
+		// Always run the minimum loading time logic
+		const minimumLoadingTime = 800;
+		setTimeout(() => {
+			isLoading = false;
+		}, minimumLoadingTime);
 	});
 </script>
 
@@ -313,14 +329,14 @@
 							<div id="features" class="section">
 								<h2>{$t('features.title')}</h2>
 								<div class="feature-cards">
-								{#each featureCards as card, index}
-									<FeatureCard 
-										title={card.title} 
-										features={card.features} 
-										isPro={card.isPro} 
-										cardId={index}
-									/>
-								{/each}
+									{#each featureCards as card, index}
+										<FeatureCard
+											title={card.title}
+											features={card.features}
+											isPro={card.isPro}
+											cardId={index}
+										/>
+									{/each}
 								</div>
 							</div>
 						{/if}
@@ -328,32 +344,32 @@
 							<div id="pricing" class="section">
 								<h2>{$t('pricing.title')}</h2>
 								<div class="pricing-plans">
-								{#each pricingPlans as plan, index}
-									<div class="card">
-										<h3>{plan.name}</h3>
-										<p class="description">{plan.description}</p>
-										<div class="list">
-											{#each plan.features as feature}
-												<span>
-													<CheckCircle />{feature}
-												</span>
-											{/each}
+									{#each pricingPlans as plan, index}
+										<div class="card">
+											<h3>{plan.name}</h3>
+											<p class="description">{plan.description}</p>
+											<div class="list">
+												{#each plan.features as feature}
+													<span>
+														<CheckCircle />{feature}
+													</span>
+												{/each}
+											</div>
+											<span class="subscription">
+												<p class="price">{plan.price}</p>
+												<p class="month">{plan.month}</p>
+											</span>
+											<button
+												class="card-btn"
+												data-sveltekit-noscroll
+												on:click={(e) => handlePlanClick(plan.name, e)}
+												in:fly={{ y: 50, duration: 500, delay: 400 }}
+												out:fly={{ y: 50, duration: 500, delay: 400 }}
+											>
+												{plan.button}
+											</button>
 										</div>
-										<span class="subscription">
-											<p class="price">{plan.price}</p>
-											<p class="month">{plan.month}</p>
-										</span>
-										<button
-											class="card-btn"
-											data-sveltekit-noscroll
-											on:click={(e) => handlePlanClick(plan.name, e)}
-											in:fly={{ y: 50, duration: 500, delay: 400 }}
-											out:fly={{ y: 50, duration: 500, delay: 400 }}
-										>
-											{plan.button}
-										</button>
-									</div>
-								{/each}
+									{/each}
 								</div>
 							</div>
 						{/if}
@@ -409,7 +425,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -976,7 +992,6 @@
 		}
 	}
 
-
 	.card h3 {
 		font-size: 1.8rem;
 		margin: 0;
@@ -1061,7 +1076,6 @@
 			height: 100vh !important;
 		}
 
-
 		h2 {
 			font-size: 60px;
 		}
@@ -1135,7 +1149,6 @@
 		.section {
 			height: auto;
 		}
-
 	}
 	@media (max-width: 450px) {
 		h1 {

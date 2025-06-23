@@ -1,91 +1,111 @@
-// src/routes/api/favorites/+server.ts
 import { pb } from '$lib/server/pocketbase';
-import { json } from '@sveltejs/kit';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ locals }) => {
-    try {
-        const user = locals.user;
-        if (!user?.favoriteThreads?.length) {
-            return json([]);
-        }
+export const GET: RequestHandler = async ({ locals }) =>
+	apiTryCatch(async () => {
+		const user = locals.user;
+		if (!user?.id) {
+			throw new Error('Authentication required');
+		}
 
-        const records = await pb.collection('threads').getList(1, 50, {
-            filter: user.favoriteThreads.map((id) => `id = '${id}'`).join(' || '),
-            sort: '-created',
-            expand: 'user,thread'
-        });
+		const userData = await pb.collection('users').getOne(user.id);
 
-        const threads = records.items.map((thread) => ({
-            id: thread.id,
-            name: thread.name,
-            created: thread.created,
-        }));
+		let favoriteThreads: string[] = [];
+		if (userData.favoriteThreads) {
+			if (Array.isArray(userData.favoriteThreads)) {
+				favoriteThreads = userData.favoriteThreads;
+			} else if (typeof userData.favoriteThreads === 'string') {
+				try {
+					favoriteThreads = JSON.parse(userData.favoriteThreads);
+				} catch {
+					favoriteThreads = [userData.favoriteThreads];
+				}
+			}
+		}
 
-        return json(threads);
-    } catch (error) {
-        console.error('Error fetching favorites:', error);
-        return json([], { status: 500 });
-    }
-};
+		if (!favoriteThreads.length) {
+			return { threads: [], favoriteThreads: [] };
+		}
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-    try {
-        const user = locals.user;
+		const filter = favoriteThreads.map((id) => `id = '${id}'`).join(' || ');
 
-        if (!user) {
-            return json(
-                {
-                    success: false,
-                    message: 'Authentication required'
-                },
-                { status: 401 }
-            );
-        }
+		const records = await pb.collection('threads').getList(1, 50, {
+			filter,
+			sort: '-created',
+			expand: 'user,op'
+		});
 
-        const { threadId, action } = await request.json();
+		const threads = records.items.map((thread) => ({
+			id: thread.id,
+			name: thread.name,
+			created: thread.created,
+			updated: thread.updated,
+			user: thread.user,
+			op: thread.op
+		}));
 
-        if (!threadId || !['add', 'remove'].includes(action)) {
-            return json(
-                {
-                    success: false,
-                    message: 'Invalid request parameters'
-                },
-                { status: 400 }
-            );
-        }
+		return { threads, favoriteThreads };
+	}, 'Failed to fetch favorites', 500);
 
-        const currentFavoriteThreads = user.favoriteThreads || [];
+export const POST: RequestHandler = async ({ request, locals }) =>
+	apiTryCatch(async () => {
+		const user = locals.user;
 
-        let updateFavoriteThreads: string[];
+		if (!user?.id) {
+			throw new Error('Authentication required');
+		}
 
-        if (action === 'add') {
-            if (!currentFavoriteThreads.includes(threadId)) {
-                updateFavoriteThreads = [...currentFavoriteThreads, threadId];
-            } else {
-                updateFavoriteThreads = currentFavoriteThreads;
-            }
-        } else {
-            updateFavoriteThreads = currentFavoriteThreads.filter((id) => id !== threadId);
-        }
+		const { threadId, action } = await request.json();
 
-        await pb.collection('users').update(user.id, {
-            favoriteThreads: updateFavoriteThreads
-        });
+		if (!threadId || !['add', 'remove'].includes(action)) {
+			throw new Error('Invalid request parameters. threadId and action (add/remove) are required.');
+		}
 
-        return json({
-            success: true,
-            favoriteThreads: updateFavoriteThreads,
-            message: action === 'add' ? 'Added to favorites' : 'Removed from favorites'
-        });
-    } catch (error) {
-        console.error('Favorites API error:', error);
-        return json(
-            {
-                success: false,
-                message: 'Failed to update favorites'
-            },
-            { status: 500 }
-        );
-    }
-};
+		const userData = await pb.collection('users').getOne(user.id);
+
+		let currentFavoriteThreads: string[] = [];
+		if (userData.favoriteThreads) {
+			if (Array.isArray(userData.favoriteThreads)) {
+				currentFavoriteThreads = userData.favoriteThreads;
+			} else if (typeof userData.favoriteThreads === 'string') {
+				try {
+					currentFavoriteThreads = JSON.parse(userData.favoriteThreads);
+				} catch {
+					currentFavoriteThreads = [userData.favoriteThreads];
+				}
+			}
+		}
+
+		let updatedFavoriteThreads: string[];
+
+		if (action === 'add') {
+			if (!currentFavoriteThreads.includes(threadId)) {
+				updatedFavoriteThreads = [...currentFavoriteThreads, threadId];
+				console.log(
+					`Adding thread ${threadId} to favorites. New count: ${updatedFavoriteThreads.length}`
+				);
+			} else {
+				updatedFavoriteThreads = currentFavoriteThreads;
+				console.log(`Thread ${threadId} already in favorites`);
+			}
+		} else {
+			updatedFavoriteThreads = currentFavoriteThreads.filter((id) => id !== threadId);
+			console.log(
+				`Removing thread ${threadId} from favorites. New count: ${updatedFavoriteThreads.length}`
+			);
+		}
+
+		await pb.collection('users').update(user.id, {
+			favoriteThreads: updatedFavoriteThreads
+		});
+
+		const verifyUser = await pb.collection('users').getOne(user.id);
+		console.log('Updated favoriteThreads in database:', verifyUser.favoriteThreads);
+
+		return {
+			favoriteThreads: updatedFavoriteThreads,
+			message: action === 'add' ? 'Added to favorites' : 'Removed from favorites',
+			count: updatedFavoriteThreads.length
+		};
+	}, 'Failed to update favorites', 500);

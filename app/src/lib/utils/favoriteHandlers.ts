@@ -1,8 +1,13 @@
-import type { User, Threads } from '$lib/types/types';
-import type { Writable } from 'svelte/store';
+import type { Threads } from '$lib/types/types';
+import { currentUser } from '$lib/pocketbase';
+import { get } from 'svelte/store';
+import { 
+	fetchTryCatch, 
+	validationTryCatch, 
+	isFailure 
+} from '$lib/utils/errorUtils';
 
 export interface FavoriteHandlerOptions {
-	currentUser: Writable<User | null>;
 	thread: Threads | null;
 	isFavoriteState: boolean;
 	onStateUpdate: (newState: boolean) => void;
@@ -10,77 +15,102 @@ export interface FavoriteHandlerOptions {
 }
 
 export async function handleFavoriteThread({
-	currentUser,
 	thread,
 	isFavoriteState,
 	onStateUpdate,
 	onTooltipShow
 }: FavoriteHandlerOptions): Promise<void> {
-	try {
-		let user: User | null = null;
-		currentUser.subscribe(value => { user = value; })();
-
-		console.log('handleFavoriteThread called:', { 
-			user: user?.id, 
-			thread: thread?.id, 
+	// Validate required parameters
+	const validation = validationTryCatch(() => {
+		const user = get(currentUser);
+		
+		console.log('handleFavoriteThread called:', {
+			user: user?.id,
+			thread: thread?.id,
 			isFavoriteState,
-			userFavoriteThreads: user?.favoriteThreads 
+			userFavoriteThreads: user?.favoriteThreads
 		});
 
-		if (!user || !thread) {
-			console.log('Missing user or thread:', { user: !!user, thread: !!thread });
-			return;
+		if (!user) {
+			throw new Error('User not authenticated');
 		}
 
-		// Determine if we're adding or removing
-		const favoriteAction = isFavoriteState ? 'remove' : 'add';
-		console.log('Action determined:', favoriteAction);
-
-		// Use API route with POST method
-		const response = await fetch('/api/favorites', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				threadId: thread.id,
-				action: favoriteAction
-			})
-		});
-
-		console.log('API response status:', response.status);
-
-		if (!response.ok) {
-			throw new Error('Failed to update favorite thread');
+		if (!thread) {
+			throw new Error('Thread not provided');
 		}
 
-		const result = await response.json();
-		console.log('API result:', result);
+		return { user, validatedThread: thread };
+	}, 'favorite thread parameters');
 
-		if (result.success) {
-			// Update local state
-			const newFavoriteState = !isFavoriteState;
-			onStateUpdate(newFavoriteState);
+	if (isFailure(validation)) {
+		console.log('Validation failed:', validation.error);
+		onTooltipShow('Failed to update favorite');
+		return;
+	}
 
-			const tooltipText = newFavoriteState
-				? 'Added to favorites'
-				: 'Removed from favorites';
+	const { validatedThread } = validation.data;
 
-			// Update the current user store with new favorite threads
-			currentUser.update((currentUser) => {
-				if (!currentUser) return currentUser;
-				return {
-					...currentUser,
-					favoriteThreads: result.favoriteThreads
-				};
-			});
+	// Determine if we're adding or removing
+	const favoriteAction = isFavoriteState ? 'remove' : 'add';
+	console.log('Action determined:', favoriteAction);
 
-			onTooltipShow(tooltipText);
-		} else {
+	// Make API call
+	const apiResult = await fetchTryCatch<{
+		success: boolean;
+		favoriteThreads: string[];
+		message?: string;
+	}>('/api/favorites', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			threadId: validatedThread.id,
+			action: favoriteAction
+		})
+	});
+
+	if (isFailure(apiResult)) {
+		console.error('API call failed:', apiResult.error);
+		onTooltipShow('Failed to update favorite');
+		return;
+	}
+
+	console.log('API response received:', apiResult.data);
+
+	// Validate API response
+	const responseValidation = validationTryCatch(() => {
+		const result = apiResult.data;
+		
+		if (!result.success) {
 			throw new Error(result.message || 'Favorite thread operation failed');
 		}
-	} catch (error) {
-		console.error('Error handling favorite thread:', error);
+
+		return result;
+	}, 'API response');
+
+	if (isFailure(responseValidation)) {
+		console.error('API response validation failed:', responseValidation.error);
 		onTooltipShow('Failed to update favorite');
+		return;
 	}
+
+	const result = responseValidation.data;
+
+	// Update local state
+	const newFavoriteState = !isFavoriteState;
+	onStateUpdate(newFavoriteState);
+
+	const tooltipText = newFavoriteState ? 'Added to favorites' : 'Removed from favorites';
+
+	// Update the current user store with new favorite threads
+	currentUser.update((currentUserData) => {
+		if (!currentUserData) return currentUserData;
+		return {
+			...currentUserData,
+			favoriteThreads: result.favoriteThreads
+		};
+	});
+
+	onTooltipShow(tooltipText);
 }

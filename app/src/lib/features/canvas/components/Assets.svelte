@@ -452,26 +452,26 @@
 					<span class="expand-icon">{expandedCategories[category.name] ? '▼' : '▶'}</span>
 				</button>
 				{#if expandedCategories[category.name]}
-                    <div class="shapes-grid" transition:slide={{ duration: 300 }}>
-                        {#each category.shapes as shape (shape.id)}
-                            <div
-                                class="shape-item"
-                                draggable="true"
-                                role="button"
-                                tabindex="0"
-                                on:dragstart={(e) => handleDragStart(e, shape)}
-                                on:click={() => handleClick(shape)}
-                                on:keydown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        handleClick(shape);
-                                    }
-                                }}
-                            >
-                                {@html shape.svg}
-                            </div>
-                        {/each}
-                    </div>
+					<div class="shapes-grid" transition:slide={{ duration: 300 }}>
+						{#each category.shapes as shape (shape.id)}
+							<div
+								class="shape-item"
+								draggable="true"
+								role="button"
+								tabindex="0"
+								on:dragstart={(e) => handleDragStart(e, shape)}
+								on:click={() => handleClick(shape)}
+								on:keydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										handleClick(shape);
+									}
+								}}
+							>
+								{@html shape.svg}
+							</div>
+						{/each}
+					</div>
 				{/if}
 			</div>
 		{/each}
@@ -479,10 +479,11 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
-	}	
-    .assets-container {
+	}
+	.assets-container {
 		padding: 1rem;
 		user-select: none;
 	}
@@ -497,7 +498,6 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-
 
 	.category-header {
 		width: 100%;
@@ -545,7 +545,4 @@
 		transform: scale(1.05);
 		background-color: rgba(255, 255, 255, 0.2);
 	}
-
-
-
 </style>

@@ -6,27 +6,26 @@ export interface TimerSession {
 	startTime: string;
 	endTime: string;
 	duration: number;
-	path: string;
 }
 export interface TimerSessionSummary {
 	date: string;
 	totalDuration: number;
-	sessions: TimerSession[]; 
+	sessions: TimerSession[];
 }
 export interface HierarchyData {
-    name: string;
-    value?: number;
-    children?: HierarchyData[];
-    taskId?: string;
-    taskData?: {
-        title: string;
-        description?: string;
-        status?: string;
-        priority?: string;
-        assignedTo?: string;
-        due_date?: string;
-        start_date?: string;
-    };
+	name: string;
+	value?: number;
+	children?: HierarchyData[];
+	taskId?: string;
+	taskData?: {
+		title: string;
+		description?: string;
+		status?: string;
+		priority?: string;
+		assignedTo?: string;
+		due_date?: string;
+		start_date?: string;
+	};
 }
 
 export interface User extends RecordModel {
@@ -42,6 +41,7 @@ export interface User extends RecordModel {
 	preferences: string[];
 	messages: string[];
 	last_login: Date;
+	status: 'online' | 'offline' | 'away';
 	bookmarks: string[];
 	favoriteThreads: string[];
 	timer_sessions: TimerSessionSummary[];
@@ -77,6 +77,32 @@ export interface User extends RecordModel {
 		delegate: number;
 		archive: number;
 	};
+}
+export interface DMMessage {
+	id: string;
+	content: string;
+	senderId: string;
+	receiverId: string;
+	replyId?: string;
+	created: string;
+	updated: string;
+}
+export interface DMConversation {
+	id: string;
+	content: DMMessage[];
+	user: {
+		id: string;
+		name: string;
+		avatar?: string;
+		status?: 'online' | 'offline' | 'away';
+	};
+	lastMessage?: {
+		content: string;
+		timestamp: Date;
+		senderId: string;
+	};
+	unreadCount: number;
+	isActive?: boolean;
 }
 export interface PublicUserProfile {
 	id: string;
@@ -188,13 +214,7 @@ export interface Threads extends RecordModel {
 	 * isNaming: boolean;
 	 */
 }
-export interface Tag extends RecordModel {
-	id: string;
-	name: string;
-	color: string;
-	thread_id: string[];
-	user: string;
-}
+
 export type RoleType =
 	| 'system'
 	| 'human'
@@ -301,6 +321,7 @@ export interface AIAgent extends RecordModel {
 export interface AIMessage {
 	role: RoleType;
 	content: string;
+	provider: ProviderType;
 	model: string;
 	prompt_type?: PromptType;
 	prompt_input?: string;
@@ -621,12 +642,19 @@ export interface Tag {
 	taggedProjects?: string;
 	taggedThreads?: string;
 	taggedTasks?: string;
+	taggedPosts?: string[];
 	color: string;
 	createdBy: string;
 	project?: Projects;
 	selected: boolean;
 }
-
+export interface Tag extends RecordModel {
+	id: string;
+	name: string;
+	color: string;
+	thread_id: string[];
+	user: string;
+}
 export type Folders = {
 	id: string;
 	title: string;

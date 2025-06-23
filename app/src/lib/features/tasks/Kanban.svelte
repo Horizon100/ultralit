@@ -11,7 +11,9 @@
 		KanbanColumn,
 		Task,
 		Tag,
-		User
+		User,
+		InternalChatMessage,
+		AIModel
 	} from '$lib/types/types';
 	import UserDisplay from '$lib/features/users/components/UserDisplay.svelte';
 	import {
@@ -50,12 +52,25 @@
 	} from '$lib/clients/taskClient';
 	import TagsDropdown from '$lib/components/buttons/TagsDropdown.svelte';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
+	import {
+		sidenavStore,
+		showSidenav,
+		showInput,
+		showRightSidenav,
+		showFilters,
+		showOverlay,
+		showSettings
+	} from '$lib/stores/sidenavStore';
+
 	import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
 	import { assign } from 'lodash-es';
 	let currentProjectId: string | null = null;
 	projectStore.subscribe((state) => {
 		currentProjectId = state.currentProjectId;
 	});
+	import AIChat from '../ai/components/chat/AIChat.svelte';
+	import { clientTryCatch } from '$lib/utils/errorUtils';
+	
 	let project = null;
 	let isAuthenticated = false;
 	let isAuthenticating = true;
@@ -73,7 +88,10 @@
 	let priorityViewActive = false;
 	let showAddTag = false;
 	let addTagInput: HTMLInputElement;
-
+	let userId: string = '';
+	let threadId: string | null = null;
+	let messageId: string | null = null;
+	let initialMessage: InternalChatMessage | null = null;
 	enum TaskViewMode {
 		All = 'all',
 		OnlySubtasks = 'subtasks',
@@ -86,6 +104,22 @@
 	let allTasksBackup: KanbanTask[] = [];
 
 	const userNameCache = new Map<string, string>();
+	export const defaultAIModel: AIModel = {
+		id: 'default',
+		name: 'Default Model',
+		api_key: '',
+		base_url: 'https://api.openai.com/v1',
+		api_type: 'gpt-3.5-turbo',
+		api_version: 'v1',
+		description: 'Default AI Model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		provider: 'openai',
+		collectionId: '',
+		collectionName: ''
+	};
+	let aiModel = defaultAIModel;
 
 	const statusMapping = {
 		Backlog: 'backlog',
@@ -170,45 +204,42 @@
 		const h = hash % 360;
 		return `hsl(${h}, 70%, 60%)`;
 	}
-	async function getUserName(userId: string | undefined): Promise<string> {
-		if (!userId) return 'Unassigned';
+async function getUserName(userId: string | undefined): Promise<string> {
+	if (!userId) return 'Unassigned';
 
-		// Check if we already have this username in cache
-		if (userNameCache.has(userId)) {
-			return userNameCache.get(userId) || 'Unknown';
+	// Check if we already have this username in cache
+	if (userNameCache.has(userId)) {
+		return userNameCache.get(userId) || 'Unknown';
+	}
+
+	try {
+		// Use your existing public user data endpoint
+		const response = await fetch(`/api/verify/users/${userId}/public`);
+
+		if (!response.ok) {
+			console.log(`User fetch failed for ID ${userId}: ${response.status}`);
+			return 'Unknown';
 		}
 
-		try {
-			const response = await fetch(`/api/users/${userId}`);
-			if (!response.ok) {
-				console.log(`User fetch failed for ID ${userId}: ${response.status}`);
-				return 'Unknown';
-			}
+		const data = await response.json();
 
-			const data = await response.json();
-
-			// Handle different response formats
-			let userData;
-			if (data.success && data.user) {
-				userData = data.user;
-			} else if (data.id) {
-				userData = data;
-			} else {
-				console.log('Unexpected user data format:', data);
-				return 'Unknown';
-			}
-
+		// Handle the response format from your verify endpoint
+		if (data.success && data.data) {
+			const userData = data.data; // Changed from data.user to data.data
 			const userName = userData.name || userData.username || userData.email || 'Unknown';
 
 			// Cache the result for future use
 			userNameCache.set(userId, userName);
-
 			return userName;
-		} catch (err) {
-			console.error('Error fetching user data:', err);
+		} else {
+			console.log('Unexpected user data format:', data);
 			return 'Unknown';
 		}
+	} catch (err) {
+		console.error('Error fetching user data:', err);
+		return 'Unknown';
 	}
+}
 	// Load data from PocketBase
 
 	async function loadTasks(projectId: string | null) {
@@ -218,10 +249,27 @@
 				url = `/api/projects/${projectId}/tasks`;
 			}
 
+			console.log('Loading tasks from:', url);
+
 			const response = await fetch(url);
-			if (!response.ok) throw new Error('Failed to fetch tasks');
+			console.log('Tasks response status:', response.status);
+			console.log('Tasks response headers:', response.headers);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('Tasks fetch failed:', response.status, errorText);
+				throw new Error(`Failed to fetch tasks: ${response.status} ${response.statusText}`);
+			}
+
+			const contentType = response.headers.get('content-type');
+			if (!contentType || !contentType.includes('application/json')) {
+				const responseText = await response.text();
+				console.error('Tasks response is not JSON:', responseText);
+				throw new Error('Invalid response format for tasks');
+			}
 
 			const data: { items: TaskResponse[] } = await response.json();
+			console.log('Tasks data loaded:', data);
 
 			// Define the response type we expect from the API
 			interface TaskResponse {
@@ -308,8 +356,11 @@
 			if (taskViewMode !== TaskViewMode.All) {
 				applyTaskViewFilter();
 			}
+
+			console.log('Tasks loaded successfully');
 		} catch (err) {
 			console.error('Error loading tasks:', err);
+			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
 			throw err;
 		}
 	}
@@ -335,13 +386,43 @@
 				url = `/api/projects/${projectId}/tags`;
 			}
 
+			console.log('Loading tags from:', url);
+
 			const response = await fetch(url);
-			if (!response.ok) throw new Error('Failed to fetch tags');
+			console.log('Tags response status:', response.status);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('Tags fetch failed:', response.status, errorText);
+
+				// If the endpoint doesn't exist, return empty tags instead of failing
+				if (response.status === 404) {
+					console.log('Tags endpoint not found, returning empty tags');
+					tags.set([]);
+					return;
+				}
+
+				throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
+			}
+
+			const contentType = response.headers.get('content-type');
+			if (!contentType || !contentType.includes('application/json')) {
+				const responseText = await response.text();
+				console.error('Tags response is not JSON:', responseText);
+				throw new Error('Invalid response format for tags');
+			}
 
 			const data = await response.json();
-			tags.set(data.items);
+			console.log('Tags data loaded:', data);
+
+			tags.set(data.items || []);
+			console.log('Tags loaded successfully');
 		} catch (err) {
 			console.error('Error loading tags:', err);
+			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
+
+			// Set empty tags so the component doesn't break
+			tags.set([]);
 			throw err;
 		}
 	}
@@ -1279,10 +1360,11 @@
 		}
 	}
 
-	async function handleTaskAssigned(detail: { taskId: string; userId: string }) {
-		const { taskId, userId } = detail;
+async function handleTaskAssigned(detail: { taskId: string; userId: string }) {
+	const { taskId, userId } = detail;
 
-		try {
+	const result = await clientTryCatch(
+		async () => {
 			if (selectedTask && selectedTask.id === taskId) {
 				selectedTask.assignedTo = userId;
 				selectedTask = { ...selectedTask };
@@ -1298,12 +1380,18 @@
 					)
 				}));
 			});
-		} catch (error) {
-			console.error('Error handling task assignment:', error);
-		}
+		},
+		'Failed to handle task assignment'
+	);
+
+	if (!result.success) {
+		console.error('Error handling task assignment:', result.error);
 	}
-	async function handleTaskUnassigned(taskId: string) {
-		try {
+}
+
+async function handleTaskUnassigned(taskId: string) {
+	const result = await clientTryCatch(
+		async () => {
 			if (selectedTask && selectedTask.id === taskId) {
 				selectedTask.assignedTo = '';
 				selectedTask = { ...selectedTask };
@@ -1318,10 +1406,14 @@
 					tasks: col.tasks.map((task) => (task.id === taskId ? { ...task, assignedTo: '' } : task))
 				}));
 			});
-		} catch (error) {
-			console.error('Error handling task unassignment:', error);
-		}
+		},
+		'Failed to handle task unassignment'
+	);
+
+	if (!result.success) {
+		console.error('Error handling task unassignment:', result.error);
 	}
+}
 
 	function searchTasks(query: string) {
 		if (!query.trim()) {
@@ -1674,11 +1766,12 @@
 	$: searchPlaceholder = $t('nav.search') as string;
 	$: addPlaceholder = $t('tasks.add') as string;
 
-	$: descriptionText = selectedTask?.taskDescription || ($t('tasks.addDescription') as string) || 'Add Description';
+	$: descriptionText =
+		selectedTask?.taskDescription || ($t('tasks.addDescription') as string) || 'Add Description';
 
-	$: toggleLabel = allColumnsOpen 
-	? ($t('generic.collapseAll') as string) || 'Collapse All'
-	: ($t('generic.expandAll') as string) || 'Expand All';
+	$: toggleLabel = allColumnsOpen
+		? ($t('generic.collapseAll') as string) || 'Collapse All'
+		: ($t('generic.expandAll') as string) || 'Expand All';
 
 	$: hasProjectContext =
 		(selectedTask?.project_id && selectedTask.project_id !== '') ||
@@ -1718,6 +1811,33 @@
 	$: lowPriorityCount = allTasksBackup.filter((task) => task.priority === 'low').length;
 	$: assignedToValue = selectedTask?.assignedTo ?? '';
 	$: projectIdValue = selectedTask?.project_id ?? currentProjectId;
+	$: defaultMessage = {
+		id: '',
+		text: '',
+		content: '',
+		user: userId,
+		role: 'user' as const,
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: '',
+		collectionName: 'messages',
+		parent_msg: null,
+		provider: 'openai' as const,
+		prompt_type: null,
+		prompt_input: null,
+		model: aiModel.id,
+		thread: threadId || undefined,
+		isTyping: false,
+		isHighlighted: false,
+		reactions: {
+			upvote: 0,
+			downvote: 0,
+			bookmark: [],
+			highlight: [],
+			question: 0
+		}
+	} as InternalChatMessage;
+
 	onDestroy(unsubscribe);
 </script>
 
@@ -1731,182 +1851,9 @@
 		<button on:click={() => loadData(get(projectStore).currentProjectId)}> Retry </button>
 	</div>
 {:else}
-	<div class="global-input-container">
-		<div class="view-controls">
-			<div class="tooltip-container">
-				<span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
-					{$t('generic.show')}
-					{$t('generic.all')}
-					{$t('tasks.tasks')}
-				</span>
-				<span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
-					{$t('generic.show')}
-					{$t('tasks.parent')}
-					{$t('tasks.tasks')}
-					{$t('generic.only')}
-				</span>
-				<span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
-					{$t('generic.show')}
-					{$t('tasks.subtasks')}
-					{$t('dates.days')}
-				</span>
-			</div>
-
-			<button
-				class="priority-toggle {taskViewMode === TaskViewMode.highPriority
-					? 'high'
-					: taskViewMode === TaskViewMode.mediumPriority
-						? 'medium'
-						: taskViewMode === TaskViewMode.LowPriority
-							? 'low'
-							: ''}"
-				on:click={(e) => togglePriorityView(e)}
-				title="Toggle priority view"
-			>
-				<Flag
-					class={[
-						TaskViewMode.highPriority,
-						TaskViewMode.mediumPriority,
-						TaskViewMode.LowPriority
-					].includes(taskViewMode)
-						? 'active'
-						: ''}
-				/>
-				{#if taskViewMode === TaskViewMode.highPriority}
-					<span></span>
-					<span class="count-badge">{highPriorityCount}</span>
-				{:else if taskViewMode === TaskViewMode.mediumPriority}
-					<span></span>
-					<span class="count-badge">{mediumPriorityCount}</span>
-				{:else if taskViewMode === TaskViewMode.LowPriority}
-					<span></span>
-					<span class="count-badge">{lowPriorityCount}</span>
-				{/if}
-			</button>
-			<button
-				class:active={taskViewMode === TaskViewMode.All}
-				on:click={() => toggleTaskView(TaskViewMode.All)}
-				on:mouseenter={() => (hoveredButton = 'all')}
-				on:mouseleave={() => (hoveredButton = null)}
-			>
-				<ListCollapse />
-				<span class="count-badge">{totalTaskCount}</span>
-			</button>
-			<button
-				class:active={taskViewMode === TaskViewMode.OnlyParentTasks}
-				on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
-				on:mouseenter={() => (hoveredButton = 'parents')}
-				on:mouseleave={() => (hoveredButton = null)}
-			>
-				<FolderGit />
-				<span class="count-badge">{parentTaskCount}</span>
-			</button>
-			<button
-				class:active={taskViewMode === TaskViewMode.OnlySubtasks}
-				on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
-				on:mouseenter={() => (hoveredButton = 'subtasks')}
-				on:mouseleave={() => (hoveredButton = null)}
-			>
-				<GitFork />
-				<span class="count-badge">{subtaskCount}</span>
-			</button>
-			<button
-				class="filter-toggle"
-				class:active={showTagFilter}
-				on:click={toggleTagFilter}
-				title="Tags"
-			>
-				<Filter />
-			</button>
-		</div>
-		{#if showTagFilter}
-			<div class="tag-filter-container" in:slide={{ duration: 150 }}>
-				<div class="tag-filter-options">
-					<TagsDropdown
-						bind:selectedTags={selectedTagIds}
-						{currentProjectId}
-						mode="task"
-						isFilterMode={true}
-						placeholder={tagPlaceholder}
-						showSelectedCount={true}
-						on:tagsChanged={handleTagsChanged}
-					/>
-
-					<div class="match-options">
-						<label class="toggle-label">
-							<input
-								type="checkbox"
-								bind:checked={requireAllTags}
-								on:change={toggleRequireAllTags}
-							/>
-							<span>{$t('generic.match')}</span>
-						</label>
-					</div>
-				</div>
-
-				<!-- Show active filters summary -->
-				{#if selectedTagIds.length > 0}
-					<div class="active-filters" transition:slide={{ duration: 150 }}>
-						<span class="filter-label">{$t('generic.filter')}</span>
-						<div class="filter-tags">
-							{#each $tags.filter((tag) => selectedTagIds.includes(tag.id)) as tag}
-								<span class="filter-tag" style="background-color: {tag.color}">
-									{tag.name}
-								</span>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<div class="global-task-input">
-			<span>
-				<Search />
-			</span>
-			<input
-				transition:fade={{ duration: 150 }}
-				type="text"
-				bind:value={searchQuery}
-				on:input={() => {
-					searchTasks(searchQuery);
-					if (searchQuery && !allColumnsOpen) {
-						toggleAllColumns();
-					}
-				}}
-				placeholder={searchPlaceholder}
-				class="search-input"
-			/>
-			{#if searchQuery}
-				<button
-					class="clear-search"
-					on:click={() => {
-						searchQuery = '';
-						applyFilters();
-					}}
-				>
-					✕
-				</button>
-			{/if}
-		</div>
-		<div class="global-task-input">
-			<span>
-				<PlusCircle />
-			</span>
-			<textarea
-				placeholder={addPlaceholder}
-				on:keydown={(e) => addGlobalTask(e)}
-				class="global-task-input"
-			></textarea>
-		</div>
-	</div>
-	<div class="kanban-container" 
-		in:fly={{ y: -400, duration: 400 }} 
-		out:fade={{ duration: 300 }}
-		class:drawer-visible={$showThreadList}
-	>
-		{#if $showThreadList}
-			<div class="column-view-controls"  transition:fly={{ x: -300, duration: 300 }}>
+	{#if $showSidenav}
+		<div class="column-wrapper">
+			<div class="column-view-controls" transition:fly={{ x: -300, duration: 300 }}>
 				<button
 					class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
 					on:click={toggleAllColumns}
@@ -1941,10 +1888,189 @@
 					</button>
 				{/each}
 			</div>
-		{/if}
-		<div class="kanban-board"
-			class:drawer-visible={$showThreadList}
-		>
+			<div class="view-controls">
+				<div class="tooltip-container">
+					<span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
+						{$t('generic.show')}
+						{$t('generic.all')}
+						{$t('tasks.tasks')}
+					</span>
+					<span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
+						{$t('generic.show')}
+						{$t('tasks.parent')}
+						{$t('tasks.tasks')}
+						{$t('generic.only')}
+					</span>
+					<span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
+						{$t('generic.show')}
+						{$t('tasks.subtasks')}
+						{$t('dates.days')}
+					</span>
+				</div>
+
+				<button
+					class="priority-toggle {taskViewMode === TaskViewMode.highPriority
+						? 'high'
+						: taskViewMode === TaskViewMode.mediumPriority
+							? 'medium'
+							: taskViewMode === TaskViewMode.LowPriority
+								? 'low'
+								: ''}"
+					on:click={(e) => togglePriorityView(e)}
+					title="Toggle priority view"
+				>
+					<Flag
+						class={[
+							TaskViewMode.highPriority,
+							TaskViewMode.mediumPriority,
+							TaskViewMode.LowPriority
+						].includes(taskViewMode)
+							? 'active'
+							: ''}
+					/>
+					{#if taskViewMode === TaskViewMode.highPriority}
+						<span></span>
+						<span class="count-badge">{highPriorityCount}</span>
+					{:else if taskViewMode === TaskViewMode.mediumPriority}
+						<span></span>
+						<span class="count-badge">{mediumPriorityCount}</span>
+					{:else if taskViewMode === TaskViewMode.LowPriority}
+						<span></span>
+						<span class="count-badge">{lowPriorityCount}</span>
+					{/if}
+				</button>
+				<button
+					class:active={taskViewMode === TaskViewMode.All}
+					on:click={() => toggleTaskView(TaskViewMode.All)}
+					on:mouseenter={() => (hoveredButton = 'all')}
+					on:mouseleave={() => (hoveredButton = null)}
+				>
+					<ListCollapse />
+					<span class="count-badge">{totalTaskCount}</span>
+				</button>
+				<button
+					class:active={taskViewMode === TaskViewMode.OnlyParentTasks}
+					on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
+					on:mouseenter={() => (hoveredButton = 'parents')}
+					on:mouseleave={() => (hoveredButton = null)}
+				>
+					<FolderGit />
+					<span class="count-badge">{parentTaskCount}</span>
+				</button>
+				<button
+					class:active={taskViewMode === TaskViewMode.OnlySubtasks}
+					on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
+					on:mouseenter={() => (hoveredButton = 'subtasks')}
+					on:mouseleave={() => (hoveredButton = null)}
+				>
+					<GitFork />
+					<span class="count-badge">{subtaskCount}</span>
+				</button>
+				<button
+					class="filter-toggle"
+					class:active={showTagFilter}
+					on:click={toggleTagFilter}
+					title="Tags"
+				>
+					<Filter />
+				</button>
+			</div>
+			{#if showTagFilter}
+				<div class="tag-filter-container" in:slide={{ duration: 150 }}>
+					<div class="tag-filter-options">
+						<TagsDropdown
+							bind:selectedTags={selectedTagIds}
+							{currentProjectId}
+							mode="task"
+							isFilterMode={true}
+							placeholder={tagPlaceholder}
+							showSelectedCount={true}
+							on:tagsChanged={handleTagsChanged}
+						/>
+
+						<div class="match-options">
+							<label class="toggle-label">
+								<input
+									type="checkbox"
+									bind:checked={requireAllTags}
+									on:change={toggleRequireAllTags}
+								/>
+								<span>{$t('generic.match')}</span>
+							</label>
+						</div>
+					</div>
+
+					<!-- Show active filters summary -->
+					{#if selectedTagIds.length > 0}
+						<div class="active-filters" transition:slide={{ duration: 150 }}>
+							<span class="filter-label">{$t('generic.filter')}</span>
+							<div class="filter-tags">
+								{#each $tags.filter((tag) => selectedTagIds.includes(tag.id)) as tag}
+									<span class="filter-tag" style="background-color: {tag.color}">
+										{tag.name}
+									</span>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
+			{/if}
+			<div class="input-wrapper">
+				<div class="global-task-input">
+					<!-- <span>
+							<Search />
+						</span> -->
+					<input
+						transition:fade={{ duration: 150 }}
+						type="text"
+						bind:value={searchQuery}
+						on:input={() => {
+							searchTasks(searchQuery);
+							if (searchQuery && !allColumnsOpen) {
+								toggleAllColumns();
+							}
+						}}
+						placeholder={searchPlaceholder}
+						class="search-input"
+					/>
+					{#if searchQuery}
+						<button
+							class="clear-search"
+							on:click={() => {
+								searchQuery = '';
+								applyFilters();
+							}}
+						>
+							✕
+						</button>
+					{/if}
+				</div>
+				<div class="global-task-input">
+					<!-- <span>
+							<PlusCircle />
+						</span> -->
+					<textarea
+						placeholder={addPlaceholder}
+						on:keydown={(e) => addGlobalTask(e)}
+						class="global-task-input"
+					></textarea>
+				</div>
+			</div>
+		</div>
+	{/if}
+	<!-- {#if $showOverlay}
+		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
+		</div>
+	{/if} -->
+
+	<div
+		class="kanban-container"
+		in:fly={{ y: -400, duration: 400 }}
+		out:fade={{ duration: 300 }}
+		class:drawer-visible={$showSidenav}
+	>
+		<div class="kanban-board" class:drawer-visible={$showThreadList}>
 			{#each $columns as column}
 				<div
 					class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}"
@@ -1965,8 +2091,6 @@
 							in:slide={{ duration: 300, axis: 'x' }}
 							out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
 						>
-
-
 							{#each column.tasks as task}
 								<div
 									class="task-card status-{task.status}"
@@ -2164,21 +2288,21 @@
 													<div class="timeline">
 														<span
 															class="date-part"
-    															on:wheel|capture|preventDefault|stopPropagation={(e) => 
+															on:wheel|capture|preventDefault|stopPropagation={(e) =>
 																handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
 															title="Scroll to change day (hold Shift for precision)"
 															>{task.due_date.getDate()}</span
 														>
 														<span
 															class="month-part"
-    															on:wheel|capture|preventDefault|stopPropagation={(e) => 
+															on:wheel|capture|preventDefault|stopPropagation={(e) =>
 																handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
 															title="Scroll to change month (hold Shift for precision)"
 															>{task.due_date.toLocaleString('default', { month: 'short' })}</span
 														>
 														<span
 															class="year-part"
-																on:wheel|capture|preventDefault|stopPropagation={(e) => 
+															on:wheel|capture|preventDefault|stopPropagation={(e) =>
 																handleDateScroll(e, task.due_date, 'year', task, 'due_date')}
 															title="Scroll to change year (hold Shift for precision)"
 															>{task.due_date.getFullYear()}</span
@@ -2203,6 +2327,7 @@
 		</div>
 	</div>
 {/if}
+
 {#if isModalOpen && selectedTask}
 	<div class="modal-overlay" on:click={() => selectedTask && saveAndCloseModal(selectedTask)}>
 		<div
@@ -2466,7 +2591,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		/* font-family: 'Merriweather', serif; */
 		/* font-family: 'Roboto', sans-serif; */
@@ -2494,8 +2619,8 @@
 		display: flex;
 		flex-direction: row;
 		transition: all 0.2s ease;
-		height: 89vh;
-		width: 100%;
+		height: 95vh;
+		width: auto;
 		margin-left: 0rem !important;
 		// overflow-x: scroll;
 		// &::-webkit-scrollbar {
@@ -2509,6 +2634,22 @@
 		// 	background: var(--placeholder-color);
 		// 	border-radius: 1rem;
 		// }
+	}
+
+	.column-wrapper {
+		display: flex;
+		flex-direction: column;
+		align-items: space-between;
+		justify-content: space-between;
+		height: calc(100% - 1rem);
+	}
+	.input-wrapper {
+		display: flex;
+		width: auto;
+		flex-direction: column;
+		justify-content: center;
+		height: auto;
+		gap: 0.5rem;
 	}
 	p {
 		font-size: 1.1rem;
@@ -2547,8 +2688,8 @@
 	}
 
 	.global-input-container {
-		width: calc(100% - 300px);
-		height: 2rem !important;
+		width: 100%;
+
 		padding: 0;
 		margin: 0;
 		margin-left: auto;
@@ -2558,6 +2699,7 @@
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
+		flex-direction: column;
 		height: auto;
 		transition: all 0.2s ease;
 		& textarea {
@@ -2578,16 +2720,24 @@
 	}
 
 	.global-task-input {
-		width: auto;
-		height: 2rem !important;
 		display: flex;
+		flex-direction: row;
+		position: relative;
+		bottom: 0;
+		left: auto;
+		right: auto;
+		margin-left: auto;
+		max-width: 400px;
+		margin-bottom: 0;
+		gap: 1rem;
 		justify-content: center;
-		align-items: center;
+		height: auto;
 		border-radius: 2rem;
 		font-size: 1.2rem;
 		margin-left: 0.5rem;
+		padding-inline-start: 0.5rem;
 		background: var(--secondary-color);
-		border-color: 1px solid var(--line-color);
+		border-color: 1px solid var(--line-color) !important;
 		transition: all 0.2s ease;
 		& span {
 			color: var(--placeholder-color);
@@ -2597,27 +2747,32 @@
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		}
 		& input {
-			display: none;
-			height: 2rem !important;
-			padding: 0;
-			line-height: 2.5;
-			padding-inline-start: 0.5rem;
+			display: flex;
+			padding: 0.25rem;
+			line-height: 1.5;
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			outline: none;
-			border: 1px solid var(--line-color);
+			background-color: var(--secondary-color);
+			width: 100%;
+			border-radius: 1rem;
+			font-size: 0.9rem;
+			height: 1.5rem;
+			border: 1px solid transparent;
 		}
 		& textarea {
-			display: none;
-			height: 2rem !important;
-			padding: 0;
-			line-height: 2.5;
-			padding-inline-start: 0.5rem;
+			display: flex;
+			padding: 0.25rem;
+			height: 1.5rem;
+			line-height: 1.5;
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			outline: none;
-			border: 1px solid var(--line-color);
+			border: 1px solid transparent !important;
+			width: 100%;
+			font-size: 0.9rem;
 		}
 		&:hover {
-			padding: 0.5rem;
+			padding: 0;
+			height: 2rem;
 			background: transparent;
 			border-color: 1px solid transparent;
 			& span {
@@ -2629,6 +2784,7 @@
 				width: 350px;
 				margin-top: 0;
 				border-radius: 1rem;
+				padding: 0.25rem;
 				height: 2rem !important;
 				background: var(--primary-color);
 				resize: vertical;
@@ -2636,11 +2792,9 @@
 				overflow-x: hidden;
 				white-space: pre-wrap;
 				word-wrap: break-word;
-				line-height: 1;
+				line-height: 2;
 				z-index: 1;
-				padding: 0;
 				padding-inline-start: 1rem;
-				padding-top: 0.5rem;
 			}
 			& input {
 				display: flex;
@@ -2667,18 +2821,17 @@
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
 	}
 	.drawer-visible.kanban-container {
-		height: 93vh;
+		height: 95vh;
 	}
-	.drawer-visible.kanban-board {
-	}
+
 	.kanban-board {
 		display: flex;
 		flex-direction: row;
 		justify-content: stretch;
 		align-items: stretch;
 		gap: 0.5rem;
-		width: auto;
-		height: auto;
+		width: 100%;
+		height: 100%;
 		margin-left: 0.5rem;
 		margin-right: 0.5rem;
 		// backdrop-filter: blur(20px);
@@ -2761,35 +2914,35 @@
 	}
 
 	.task-card.status-backlog {
-		border: 1px solid var(--color-backlog);
+		border-left: 0.5rem solid var(--color-backlog);
 	}
 	.task-card.status-todo {
 		//   border: 1px solid var(--color-todo);
-		box-shadow: 1px 1px 1px 0px var(--color-todo);
+		border-left: 0.5rem solid var(--color-todo);
 	}
 	.task-card.status-inprogress {
-		box-shadow: 1px 1px 1px 0px var(--color-inprogress);
+		border-left: 0.5rem solid  var(--color-inprogress);
 	}
 	.task-card.status-review {
-		box-shadow: 1px 1px 1px 0px var(--color-review);
+		border-left: 0.5rem solid  var(--color-review);
 	}
 	.task-card.status-done {
-		box-shadow: 1px 1px 1px 0px var(--color-done);
+		border-left: 0.5rem solid var(--color-done);
 	}
 	.task-card.status-hold {
-		box-shadow: 1px 1px 1px 0px var(--color-hold);
+		border-left: 0.5rem solid var(--color-hold);
 	}
 	.task-card.status-postpone {
-		box-shadow: 1px 1px 1px 0px var(--color-postpone);
+		border-left: 0.5rem solid var(--color-postpone);
 	}
 	.task-card.status-delegate {
-		box-shadow: 1px 1px 1px 0px var(--color-delegate);
+		border-left: 0.5rem solid var(--color-delegate);
 	}
 	.task-card.status-cancel {
-		box-shadow: 1px 1px 1px 0px var(--color-cancel);
+		border-left: 0.5rem solid var(--color-cancel);
 	}
 	.task-card.status-archive {
-		box-shadow: 1px 1px 1px 0px var(--color-archive);
+		border-left: 0.5rem solid var(--color-archive);
 	}
 
 	.active-backlog {
@@ -2939,6 +3092,7 @@
 		height: 100%;
 		padding: 0 0.5rem;
 		border-radius: 2rem;
+		gap: 0.5rem;
 		// border: 1px solid var(--secondary-color);
 		scroll-behavior: smooth;
 		overflow-x: hidden;
@@ -2954,7 +3108,6 @@
 			background: var(--placeholder-color);
 			border-radius: 1rem;
 		}
-
 	}
 
 	.title-section {
@@ -3013,7 +3166,7 @@
 
 			&:hover {
 				position: relative;
-				padding: 2rem;
+				padding: 1rem;
 				transform: none;
 				width: auto !important;
 				background: var(--bg-color);
@@ -3066,9 +3219,12 @@
 		// padding: 1rem;
 	}
 	.task-card {
-		background: var(--secondary-color);
-		border-radius: 1rem;
-		margin-bottom: 0.5rem;
+		// background: var(--secondary-color);
+		border-top: 1px solid var(--line-color);
+				border-bottom: 1px solid var(--line-color);
+
+		border-left: 0.5rem solid var(--line-color);
+		// margin-bottom: 0.5rem;
 		cursor: move;
 		display: flex;
 		flex-direction: column;
@@ -3076,13 +3232,16 @@
 		position: relative;
 		height: auto;
 		width: 100%;
+		gap: 0;
 		word-break: break-all;
 		transition: all 0.3s ease;
 		cursor: pointer;
 
 		& h4 {
-			max-height: 5rem;
 			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+    		word-break: keep-all;  
 		}
 	}
 	.task-card:active {
@@ -3115,19 +3274,15 @@
 	.task-card:hover {
 		// transform: scale(1.05) translateX(0) rotate(0deg);
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-		padding: 0.25rem;
+		// padding: 0.25rem;
 		z-index: 1;
 
 		&.description {
-			overflow: visible !important;
-			padding: 0.5rem;
+			overflow: hidden !important;
+			// padding: 0.5rem;
 		}
 
-		p.description {
-			display: flex;
-			height: auto !important;
-			max-height: 30px !important;
-		}
+
 	}
 
 	.task-card:active {
@@ -3165,7 +3320,7 @@
 		opacity: 1;
 
 		&:hover {
-			padding: 0.5rem;
+			// padding: 0.5rem;
 			border-radius: 1rem;
 			position: relative;
 			width: calc(100% - 1rem) !important;
@@ -3222,13 +3377,13 @@
 	.task-creator {
 		display: flex;
 		overflow: hidden;
-		justify-content: flex-end;
+		justify-content: flex-start;
 		align-items: center;
 		bottom: 0;
-		left: 0;
+		margin-left: 0.5rem !important;
 		// border-top: 1px solid var(--line-color);
 		gap: 0.5rem;
-		// padding: 0.25rem 0rem;
+		// padding: 0.25rem 0trem;
 		margin: 0;
 		margin-top: 0.5rem;
 		width: 100%;
@@ -3241,7 +3396,7 @@
 			transition: all 0.2s ease;
 
 			&:hover {
-				padding: 0.25rem;
+				padding: 0 0.25rem;
 				& .username {
 					display: flex;
 				}
@@ -3333,7 +3488,7 @@
 		&:hover {
 			flex-direction: row;
 			width: calc(100% - 2rem);
-			margin-left: 1rem;
+			margin-left: auto;
 			padding: 0;
 
 			span.date-status.upcoming,
@@ -3342,8 +3497,12 @@
 				padding: 0 !important;
 				margin: 0 !important;
 				display: flex;
-				font-size: 0.9rem !important;
+				font-size: 0.7rem !important;
 				letter-spacing: 0;
+				white-space: nowrap;     
+				word-break: keep-all;   
+				text-overflow: ellipsis;
+
 			}
 		}
 	}
@@ -3372,8 +3531,8 @@
 		justify-content: center;
 		z-index: 10;
 		&:hover {
-            overflow: hidden;
-        }
+			overflow: hidden;
+		}
 	}
 
 	.timeline-container .date-part:hover,
@@ -3911,16 +4070,16 @@
 	.view-controls {
 		position: relative;
 		display: flex;
-		align-items: center;
-		width: auto;
-		background-color: var(--color-bg-secondary);
-		gap: 0.5rem;
+		flex-direction: column;
+		align-items: stretch;
+		width: 100%;
+		height: auto;
+		gap: 2rem;
 	}
 
 	.view-controls button {
 		display: flex;
 		flex-direction: row;
-
 		background-color: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
@@ -3958,8 +4117,6 @@
 		font-size: 0.5rem !important;
 		margin: 0;
 		gap: 0.5rem;
-		max-width: 250px;
-		width: 100% !important;
 	}
 
 	.count-badge {
@@ -4203,23 +4360,42 @@
 			overflow-y: scroll;
 			overflow-x: hidden;
 		}
+
+		.column-wrapper {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			gap: 1rem;
+			z-index: 9999;
+			position: relative;
+			padding: 0rem;
+			transform: translateY(-11rem);
+			backdrop-filter: blur(10px);
+			border-radius: 2rem 2rem 0 0;
+			border-top: 1px solid var(--line-color);
+		}
 		.column-view-controls {
 			display: flex;
 			flex-direction: row;
 			justify-content: flex-start;
 			align-items: stretch;
-			position: absolute;
-			z-index: 2000;
+			position: relative;
 			height: auto;
-			width: auto !important;
+			width: auto;
 			font-size: 0.5rem !important;
-			bottom: 2rem;
-			backdrop-filter: blur(10px);
+			padding: 0.5rem;
 		}
-		// .view-controls {
-		//     padding: 0;
-		//     margin: 0;
-		// }
+		.view-controls {
+			padding: 0.5rem;
+			margin: 0;
+			flex-direction: row;
+			margin-left: 3rem;
+			backdrop-filter: blur(10px);
+			z-index: 1000;
+			gap: 0.5rem;
+		}
 		// .view-controls button {
 		//     display: flex;
 		//     flex-direction: row;
@@ -4240,7 +4416,24 @@
 		//     color: var(--tertiary-color);
 		//     border-color: var(--color-primary);
 		// }
-
+		.toggle-btn.active-backlog,
+		.toggle-btn.active-todo,
+		.toggle-btn.active-inprogress,
+		.toggle-btn.active-review,
+		.toggle-btn.active-done,
+		.toggle-btn.active-hold,
+		.toggle-btn.active-postpone,
+		.toggle-btn.active-delegate,
+		.toggle-btn.active-cancel,
+		.toggle-btn.active-archive {
+			//   transform: translateY(2px);
+			//   box-shadow: 0 0 0 1x white inset;
+			border-radius: 0.5rem;
+			font-weight: 800;
+			font-size: 0.6rem;
+			letter-spacing: 0.1rem;
+			background: var(--primary-color);
+		}
 		.kanban-container {
 			display: flex;
 			flex-direction: column;
@@ -4259,12 +4452,10 @@
 			// border: 1px solid var(--secondary-color);
 			border-radius: 1rem;
 			transition: all 0.3s ease;
-
 		}
 
 		.kanban-column.expanded.column-backlog {
 			flex: 0 0 300px;
-
 		}
 		.kanban-column.expanded.column-todo {
 			flex: 0 0 300px;
@@ -4300,7 +4491,6 @@
 		.kanban-column {
 			height: 100px !important;
 			overflow-x: scroll;
-			
 		}
 
 		.column-title {
@@ -4316,7 +4506,7 @@
 			padding: 0.5rem;
 			&:hover {
 				transform: translateX(0);
-				padding:0.5rem;
+				padding: 0.5rem;
 				width: auto;
 				box-shadow: 0px 1px 100px 1px rgba(255, 255, 255, 0.2);
 				letter-spacing: 0;
@@ -4545,7 +4735,7 @@
 			overflow-x: hidden;
 			width: 98%;
 			margin-right: 2rem;
-			height:84vh;
+			height: 90vh !important;
 			border-radius: 2rem;
 			border: 1px solid var(--line-color);
 			padding: 0;
@@ -4557,73 +4747,56 @@
 			flex-direction: column;
 		}
 
-	.timeline-container {
-		transition: all 0.3s ease;
-		display: flex;
-		flex-direction: row;
-		justify-content: flex-end;
-		gap: 0.25rem;
-		padding: 0.5rem !important;
-		width: auto;
-		& span {
+		.timeline-container {
+			transition: all 0.3s ease;
 			display: flex;
 			flex-direction: row;
-		}
-		& .timeline {
-			display: none;
-		}
-
-		& .timeline-wrapper {
-			display: flex;
-			margin-left: 1rem;
-			flex-direction: column;
 			justify-content: flex-end;
-			border-radius: 1rem;
+			gap: 0.25rem;
+			padding: 0.5rem !important;
 			width: auto;
-			padding: 0;
-			transition: all 0.2s ease;
-			&:hover {
-				background-color: var(--primary-color);
-				padding: 0.5rem;
-				flex-grow: 1;
-				span {
-					width: 100% !important;
-				}
-				& .date-part {
-					font-size: 1rem !important;
-				}
+			& span {
+				display: flex;
+				flex-direction: row;
+			}
+			& .timeline {
+				display: none;
+			}
 
-				& .timeline {
-					position: relative;
-					align-items: center;
-					display: flex;
-					justify-content: center;
-					flex-direction: row;
-					// width: 8rem;
-					display: flex;
+			& .timeline-wrapper {
+				display: flex;
+				margin-left: 1rem;
+				flex-direction: column;
+				justify-content: flex-end;
+				border-radius: 1rem;
+				width: auto;
+				padding: 0;
+				transition: all 0.2s ease;
+				&:hover {
+					background-color: var(--primary-color);
+					padding: 0.5rem;
+					flex-grow: 1;
+					span {
+						width: 100% !important;
+					}
+					& .date-part {
+						font-size: 1rem !important;
+					}
 
-					font-size: 1rem;
-					background-color: row;
+					& .timeline {
+						position: relative;
+						align-items: center;
+						display: flex;
+						justify-content: center;
+						flex-direction: row;
+						// width: 8rem;
+						display: flex;
+
+						font-size: 1rem;
+						background-color: row;
+					}
 				}
 			}
-		}
-		span.date-status.upcoming,
-		span.date-status.overdue,
-		span.date-status.due-today {
-			padding: 0 !important;
-			margin: 0 !important;
-			display: flex;
-			font-size: 0.7rem !important;
-			justify-content: flex-end;
-			letter-spacing: 0;
-			color: var(--line-color);
-		}
-		&:hover {
-			flex-direction: row;
-			width: calc(100% - 2rem);
-			margin-left: 1rem;
-			padding: 0;
-
 			span.date-status.upcoming,
 			span.date-status.overdue,
 			span.date-status.due-today {
@@ -4631,62 +4804,89 @@
 				margin: 0 !important;
 				display: flex;
 				font-size: 0.7rem !important;
+				justify-content: flex-end;
 				letter-spacing: 0;
+				color: var(--line-color);
+			}
+			&:hover {
+				flex-direction: row;
+				width: calc(100% - 2rem);
+				margin-left: 1rem;
+				padding: 0;
+
+				span.date-status.upcoming,
+				span.date-status.overdue,
+				span.date-status.due-today {
+					padding: 0 !important;
+					margin: 0 !important;
+					display: flex;
+					font-size: 0.7rem !important;
+					letter-spacing: 0;
+				}
 			}
 		}
-	}
 
-	.timeline {
-		// color: var(--text-color);
-		// padding: 0.25rem 0.5rem;
-		// border-bottom-left-radius: 0.5rem;
-		// border-top-right-radius: 0.5rem;
-		font-size: 0.75rem;
-		// display: inline-block;
-		letter-spacing: 0.1rem;
-		// position: absolute;
-		// left: 0;
-		// bottom: 0;
-	}
-	.timeline-container .date-part,
-	.timeline-container .month-part,
-	.timeline-container .year-part {
-		cursor: ns-resize;
-		// padding: 0.5rem;
-		border-radius: 0.5rem;
-		transition: all 0.2s ease;
-		text-align: center;
-		display: flex;
-		font-size: 0.5rem !important;
-		justify-content: center;
-		z-index: 10;
-		&:hover {
-            overflow: hidden;
-        }
-	}
+		.timeline {
+			// color: var(--text-color);
+			// padding: 0.25rem 0.5rem;
+			// border-bottom-left-radius: 0.5rem;
+			// border-top-right-radius: 0.5rem;
+			font-size: 0.75rem;
+			// display: inline-block;
+			letter-spacing: 0.1rem;
+			// position: absolute;
+			// left: 0;
+			// bottom: 0;
+		}
+		.timeline-container .date-part,
+		.timeline-container .month-part,
+		.timeline-container .year-part {
+			cursor: ns-resize;
+			// padding: 0.5rem;
+			border-radius: 0.5rem;
+			transition: all 0.2s ease;
+			text-align: center;
+			display: flex;
+			font-size: 0.5rem !important;
+			justify-content: center;
+			z-index: 10;
+			&:hover {
+				overflow: hidden;
+			}
+		}
 
-	.timeline-container .date-part:hover,
-	.timeline-container .month-part:hover,
-	.timeline-container .year-part:hover {
-		background-color: var(--tertiary-color);
-		// padding: 0.5rem;
-	}
+		.timeline-container .date-part:hover,
+		.timeline-container .month-part:hover,
+		.timeline-container .year-part:hover {
+			background-color: var(--tertiary-color);
+			// padding: 0.5rem;
+		}
 
-	.timeline-container .date-part {
-		min-width: 40px;
-		text-align: center;
-		font-size: 0.5rem !important;
-	}
+		.timeline-container .date-part {
+			min-width: 40px;
+			text-align: center;
+			font-size: 0.5rem !important;
+		}
 
-	.timeline-container .month-part {
-		min-width: 36px;
-		text-align: center;
-	}
+		.timeline-container .month-part {
+			min-width: 36px;
+			text-align: center;
+		}
 
-	.timeline-container .year-part {
-		min-width: 40px;
-		text-align: center;
-	}
+		.timeline-container .year-part {
+			min-width: 40px;
+			text-align: center;
+		}
+		.input-wrapper {
+			width: 100%;
+			position: relative;
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-end;
+			height: auto;
+			margin-right: 2rem;
+			width: 100%;
+		}
 	}
 
 	@media (max-width: 768px) {
@@ -4722,9 +4922,9 @@
 			background: var(--secondary-color);
 			border-radius: 1rem;
 			margin-bottom: 0.5rem;
-						flex: 1 1 100%;
+			flex: 1 1 100%;
 			min-width: 120px;
-			max-width: calc(50% - 0.5rem);
+			max-width: calc(30% - 0.5rem);
 			cursor: move;
 			transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			position: relative;

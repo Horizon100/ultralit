@@ -8,16 +8,19 @@ import {
 } from '$lib/clients/threadsClient';
 import { threadsStore } from './threadsStore';
 import { currentUser } from '$lib/pocketbase';
+import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 function createMessagesStore() {
 	const store = writable<{
 		messages: Messages[];
 		currentThreadId: string | null;
 		selectedDate: string | null;
+		loading: boolean;
 	}>({
 		messages: [],
 		currentThreadId: null,
-		selectedDate: null
+		selectedDate: null,
+		loading: false
 	});
 
 	let activeSubscriptions: Record<string, () => void> = {};
@@ -26,7 +29,9 @@ function createMessagesStore() {
 
 	return {
 		subscribe,
-
+		setLoading: (loading: boolean) => {
+			update((state) => ({ ...state, loading }));
+		},
 		setSelectedDate: (date: string | null) => {
 			update((state) => ({ ...state, selectedDate: date }));
 		},
@@ -36,8 +41,25 @@ function createMessagesStore() {
 		},
 
 		addMessage: async (message: Omit<Messages, 'id' | 'created' | 'updated'>) => {
-			try {
-				const newMessage = await addMessageToThread(message);
+			const result = await clientTryCatch((async () => {
+				const addResult = await addMessageToThread(message);
+				
+				// Handle if addMessageToThread returns a Result type
+				let newMessage: Messages;
+				if (addResult && typeof addResult === 'object' && 
+					'success' in addResult && 'data' in addResult && 'error' in addResult &&
+					typeof (addResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = addResult as { success: boolean; data: Messages; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					newMessage = resultType.data;
+				} else {
+					// This is the actual data
+					newMessage = addResult as unknown as Messages;
+				}
+
 				update((state) => ({
 					...state,
 					messages: [...state.messages, newMessage]
@@ -55,28 +77,53 @@ function createMessagesStore() {
 				}
 
 				return newMessage;
-			} catch (error) {
-				console.error('Error adding message:', error);
-				throw error;
+			})(), 'Adding message to thread');
+
+			if (isFailure(result)) {
+				console.error('Error adding message:', result.error);
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		updateMessage: async (id: string, data: Partial<Messages>) => {
-			try {
-				const updatedMessage = await updateMessage(id, data);
+			const result = await clientTryCatch((async () => {
+				const updateResult = await updateMessage(id, data);
+				
+				// Handle if updateMessage returns a Result type
+				let updatedMessage: Messages;
+				if (updateResult && typeof updateResult === 'object' && 
+					'success' in updateResult && 'data' in updateResult && 'error' in updateResult &&
+					typeof (updateResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = updateResult as { success: boolean; data: Messages; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					updatedMessage = resultType.data;
+				} else {
+					// This is the actual data
+					updatedMessage = updateResult as unknown as Messages;
+				}
+
 				update((state) => ({
 					...state,
 					messages: state.messages.map((msg) => (msg.id === id ? { ...msg, ...data } : msg))
 				}));
 				return updatedMessage;
-			} catch (error) {
-				console.error('Error updating message:', error);
-				throw error;
+			})(), `Updating message ${id}`);
+
+			if (isFailure(result)) {
+				console.error('Error updating message:', result.error);
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		fetchMessages: async (threadId: string) => {
-			try {
+			const result = await clientTryCatch((async () => {
 				const currentState = get(store);
 				if (currentState.currentThreadId === threadId && currentState.messages.length > 0) {
 					console.log('Skipping fetch - already have messages for this thread');
@@ -84,7 +131,23 @@ function createMessagesStore() {
 				}
 
 				console.log(`Fetching messages for thread ${threadId}`);
-				const messages = await fetchMessagesForThread(threadId);
+				const fetchResult = await fetchMessagesForThread(threadId);
+				
+				// Handle if fetchMessagesForThread returns a Result type
+				let messages: Messages[];
+				if (fetchResult && typeof fetchResult === 'object' && 
+					'success' in fetchResult && 'data' in fetchResult && 'error' in fetchResult &&
+					typeof (fetchResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = fetchResult as { success: boolean; data: Messages[]; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					messages = resultType.data;
+				} else {
+					// This is the actual data
+					messages = fetchResult as unknown as Messages[];
+				}
 
 				update((state) => ({
 					...state,
@@ -93,14 +156,18 @@ function createMessagesStore() {
 				}));
 
 				return messages;
-			} catch (error) {
-				console.error('Error fetching messages:', error);
-				throw error;
+			})(), `Fetching messages for thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error fetching messages:', result.error);
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		saveMessage: async (message: Partial<Messages>, threadId: string) => {
-			try {
+			const result = await clientTryCatch((async () => {
 				const user = get(currentUser);
 				if (!user || !user.id) {
 					throw new Error('User not authenticated');
@@ -120,14 +187,24 @@ function createMessagesStore() {
 						systemPromptText =
 							SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
 					} else {
-						try {
-							const response = await fetch(`/api/prompts/${user.sysprompt_preference}`);
-							if (response.ok) {
-								const promptData = await response.json();
-								systemPromptText = promptData.data?.prompt || promptData.prompt;
+						const promptResult = await clientTryCatch((async () => {
+							const fetchResult = await fetchTryCatch<{ data?: { prompt?: string }; prompt?: string }>(
+								`/api/prompts/${user.sysprompt_preference}`,
+								{ method: 'GET' }
+							);
+
+							if (isFailure(fetchResult)) {
+								throw new Error(`Failed to fetch system prompt: ${fetchResult.error}`);
 							}
-						} catch (error) {
-							console.error('Error fetching system prompt:', error);
+
+							const promptData = fetchResult.data;
+							return promptData.data?.prompt || promptData.prompt;
+						})(), `Fetching system prompt ${user.sysprompt_preference}`);
+
+						if (!isFailure(promptResult)) {
+							systemPromptText = promptResult.data;
+						} else {
+							console.error('Error fetching system prompt:', promptResult.error);
 						}
 					}
 				}
@@ -143,14 +220,24 @@ function createMessagesStore() {
 					}
 
 					if (promptId) {
-						try {
-							const response = await fetch(`/api/prompts/${promptId}`);
-							if (response.ok) {
-								const promptData = await response.json();
-								promptInput = promptData.data?.prompt || promptData.prompt;
+						const promptResult = await clientTryCatch((async () => {
+							const fetchResult = await fetchTryCatch<{ data?: { prompt?: string }; prompt?: string }>(
+								`/api/prompts/${promptId}`,
+								{ method: 'GET' }
+							);
+
+							if (isFailure(fetchResult)) {
+								throw new Error(`Failed to fetch user prompt: ${fetchResult.error}`);
 							}
-						} catch (error) {
-							console.error('Error fetching user prompt:', error);
+
+							const promptData = fetchResult.data;
+							return promptData.data?.prompt || promptData.prompt;
+						})(), `Fetching user prompt ${promptId}`);
+
+						if (!isFailure(promptResult)) {
+							promptInput = promptResult.data;
+						} else {
+							console.error('Error fetching user prompt:', promptResult.error);
 						}
 					}
 				}
@@ -170,11 +257,26 @@ function createMessagesStore() {
 					model: message.model || 'default'
 				};
 
-				const savedMessage = await addMessageToThread(newMessage);
-
+				const addResult = await addMessageToThread(newMessage);
+				
+				// Handle if addMessageToThread returns a Result type
+				let savedMessage: Messages;
+				if (addResult && typeof addResult === 'object' && 
+					'success' in addResult && 'data' in addResult && 'error' in addResult &&
+					typeof (addResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = addResult as { success: boolean; data: Messages; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					savedMessage = resultType.data;
+				} else {
+					// This is the actual data
+					savedMessage = addResult as unknown as Messages;
+				}
 				update((state) => {
 					const existingMessageIndex = state.messages.findIndex(
-						(m) => (tempId && m.tempId === tempId) || m.id === savedMessage.id
+						(m) => (tempId && (m as Messages & { tempId?: string }).tempId === tempId) || m.id === savedMessage.id
 					);
 
 					if (existingMessageIndex >= 0) {
@@ -182,11 +284,11 @@ function createMessagesStore() {
 						updatedMessages[existingMessageIndex] = {
 							...savedMessage,
 							tempId
-						};
+						} as Messages & { tempId?: string };
 
 						return {
 							...state,
-							messages: updatedMessages
+							messages: updatedMessages as Messages[]
 						};
 					} else {
 						return {
@@ -196,29 +298,54 @@ function createMessagesStore() {
 								{
 									...savedMessage,
 									tempId
-								}
-							]
+								} as Messages & { tempId?: string }
+							] as Messages[]
 						};
 					}
 				});
 
 				return savedMessage;
-			} catch (error) {
-				console.error('Error saving message:', error);
-				throw error;
+			})(), `Saving message to thread ${threadId}`);
+
+			if (isFailure(result)) {
+				console.error('Error saving message:', result.error);
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		fetchBookmarkedMessages: async (messageId: string) => {
-			try {
-				const messages = await fetchMessagesForBookmark(messageId);
+			const result = await clientTryCatch((async () => {
+				const fetchResult = await fetchMessagesForBookmark(messageId);
+				
+				// Handle if fetchMessagesForBookmark returns a Result type
+				let messages: Messages[];
+				if (fetchResult && typeof fetchResult === 'object' && 
+					'success' in fetchResult && 'data' in fetchResult && 'error' in fetchResult &&
+					typeof (fetchResult as { success: unknown }).success === 'boolean') {
+					// This is a Result type
+					const resultType = fetchResult as { success: boolean; data: Messages[]; error: unknown };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error));
+					}
+					messages = resultType.data;
+				} else {
+					// This is the actual data
+					messages = fetchResult as unknown as Messages[];
+				}
+
 				update((state) => ({ ...state, messages: messages || [] }));
 				return messages;
-			} catch (error) {
-				console.error('Error fetching bookmarked messages:', error);
+			})(), `Fetching bookmarked messages for ${messageId}`);
+
+			if (isFailure(result)) {
+				console.error('Error fetching bookmarked messages:', result.error);
 				update((state) => ({ ...state, messages: [] }));
-				throw error;
+				throw new Error(result.error);
 			}
+
+			return result.data;
 		},
 
 		cleanup: () => {

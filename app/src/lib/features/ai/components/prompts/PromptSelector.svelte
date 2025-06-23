@@ -71,7 +71,7 @@
 
 	function handlePromptSelection(promptType: PromptType) {
 		selectedPrompt = promptType;
-		promptStore.update(store => ({
+		promptStore.update((store) => ({
 			...store,
 			promptType: promptType
 		}));
@@ -95,7 +95,9 @@
 	// Watch for changes in store
 	$: {
 		if ($promptStore?.promptType) {
-			selectedIcon = availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon;
+			selectedIcon = availablePrompts.find(
+				(option) => option.value === $promptStore.promptType
+			)?.icon;
 			console.log('Prompt selector updated from store:', {
 				prompt: $promptStore.promptType,
 				icon: selectedIcon ? 'Icon updated' : 'No icon'
@@ -103,12 +105,12 @@
 		}
 	}
 
-
-
 	// Watch for changes in selectedPrompt
 	$: {
 		if ($promptStore?.promptType) {
-			selectedIcon = availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon;
+			selectedIcon = availablePrompts.find(
+				(option) => option.value === $promptStore.promptType
+			)?.icon;
 		}
 	}
 
@@ -154,7 +156,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		/* font-family: 'Merriweather', serif; */
 		/* font-family: 'Roboto', sans-serif; */
 		/* font-family: 'Montserrat'; */

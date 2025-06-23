@@ -2,30 +2,32 @@
 	import { TrendingUp, Users, Star, Compass, Share2 } from 'lucide-svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
+	import { fly } from 'svelte/transition';
+	import AgentsConfig from '$lib/features/agents/components/AgentsConfig.svelte';
 
 	const dispatch = createEventDispatcher();
 
 	// App features to highlight
 	const appFeatures = [
 		{
-			title: "AI Conversations",
-			description: "Start intelligent chats with our AI system"
+			title: 'AI Conversations',
+			description: 'Start intelligent chats with our AI system'
 		},
 		{
-			title: "Project Collaboration",
-			description: "Create projects and invite teammates"
+			title: 'Project Collaboration',
+			description: 'Create projects and invite teammates'
 		},
 		{
-			title: "Task Management",
-			description: "Organize and track your work efficiently"
+			title: 'Task Management',
+			description: 'Organize and track your work efficiently'
 		},
 		{
-			title: "Knowledge Network",
-			description: "Connect your ideas in a visual network"
+			title: 'Knowledge Network',
+			description: 'Connect your ideas in a visual network'
 		},
 		{
-			title: "Notes System",
-			description: "Keep your thoughts organized and accessible"
+			title: 'Notes System',
+			description: 'Keep your thoughts organized and accessible'
 		}
 	];
 
@@ -78,14 +80,11 @@
 			following: true
 		}
 	];
-
-
-
-
 </script>
 
-<aside class="right-sidebar">
+<aside class="right-sidebar" transition:fly={{ x: 300, duration: 300 }}>
 	<div class="sidebar-content">
+		<AgentsConfig />
 
 		<!-- App Features Highlight -->
 		<section class="features-section">
@@ -182,7 +181,8 @@
 </aside>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 	}
 	.right-sidebar {

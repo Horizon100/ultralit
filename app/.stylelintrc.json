@@ -1,6 +1,6 @@
 {
-  "extends": [],
-  "rules": {
-    "block-no-empty": true
-  }
+	"extends": [],
+	"rules": {
+		"block-no-empty": true
+	}
 }

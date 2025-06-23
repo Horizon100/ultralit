@@ -15,7 +15,8 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		//   font-family: 'Source Code Pro', monospace;
 		font-family: var(--font-family);
 		transition: all 0.3s ease;

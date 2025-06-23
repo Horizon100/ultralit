@@ -1,6 +1,7 @@
 import PocketBase from 'pocketbase';
 import { nanoid } from 'nanoid';
 import readline from 'readline';
+import { tryCatch, isFailure } from '$lib/utils/errorUtils';
 
 // Configuration
 const CODE_LENGTH = 12;
@@ -70,20 +71,20 @@ async function createInvitationCodes(pb: PocketBase, count: number) {
 	const results = [];
 
 	for (const code of codes) {
-		try {
-			const data = await pb.collection('invitation_codes').create({
+		const result = await tryCatch(
+			pb.collection('invitation_codes').create({
 				code,
 				used: false,
 				createdAt: new Date().toISOString()
-			});
+			})
+		);
 
-			results.push(data);
-		} catch (error) {
-			console.error(
-				'Error creating invitation code:',
-				error instanceof Error ? error.message : error
-			);
+		if (isFailure(result)) {
+			console.error('Error creating invitation code:', result.error);
+			continue;
 		}
+
+		results.push(result.data);
 	}
 
 	return { codes, results };
@@ -107,29 +108,28 @@ async function main() {
 		}
 
 		// Authenticate as a user (not as PocketBase admin)
-		try {
-			console.log('Authenticating as user with admin role...');
-			await pb.collection('users').authWithPassword(email, password);
+		console.log('Authenticating as user with admin role...');
+		const authResult = await tryCatch(
+			pb.collection('users').authWithPassword(email, password)
+		);
 
-			// Check if user has admin role
-			const user = pb.authStore.model;
-			if (!user || user.role !== 'admin') {
-				console.error('The authenticated user does not have admin role. Access will be denied.');
-				console.error('Current user role:', user?.role || 'unknown');
-				process.exit(1);
-			}
-
-			console.log('Authentication successful. User has admin role.');
-		} catch (error) {
-			console.error(
-				'Authentication failed:',
-				error instanceof Error ? error.message : String(error)
-			);
-			if (error && typeof error === 'object' && 'status' in error && error.status === 400) {
+		if (isFailure(authResult)) {
+			console.error('Authentication failed:', authResult.error);
+			if (authResult.error && typeof authResult.error === 'object' && 'status' in authResult.error && authResult.error.status === 400) {
 				console.error('Invalid credentials or user does not exist.');
 			}
 			process.exit(1);
 		}
+
+		// Check if user has admin role
+		const user = pb.authStore.model;
+		if (!user || user.role !== 'admin') {
+			console.error('The authenticated user does not have admin role. Access will be denied.');
+			console.error('Current user role:', user?.role || 'unknown');
+			process.exit(1);
+		}
+
+		console.log('Authentication successful. User has admin role.');
 
 		// Generate and store invitation codes
 		console.log(`Generating ${COUNT} invitation codes...`);

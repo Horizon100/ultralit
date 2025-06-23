@@ -8,7 +8,7 @@
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
 	import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
-	import { currentUser,  getUserById, getPublicUsersBatch } from '$lib/pocketbase';
+	import { currentUser, getUserById, getPublicUsersBatch } from '$lib/pocketbase';
 	import { saveTask, getPromptFromThread } from '$lib/clients/taskClient';
 	import type { KanbanTask } from '$lib/types/types';
 	import { fetchAIResponse, generateTaskFromMessage } from '$lib/clients/aiClient';
@@ -16,9 +16,12 @@
 	import { projectStore } from '$lib/stores/projectStore';
 	import { t } from '$lib/stores/translationStore';
 	import { getProviderFromModel, getProviderIcon } from '$lib/features/ai/utils/providers';
-	import { getPromptLabel, getPromptDescription, getPromptLabelFromContent } from '$lib/features/ai/utils/prompts';
-
-
+	import {
+		getPromptLabel,
+		getPromptDescription,
+		getPromptLabelFromContent
+	} from '$lib/features/ai/utils/prompts';
+	import { isFailure, clientTryCatch } from '$lib/utils/errorUtils';
 	export let message: InternalChatMessage;
 	export let allMessages: InternalChatMessage[] = [];
 	export let userId: string;
@@ -63,7 +66,7 @@
 	let wheelDelta = 0;
 	let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
 	let createHovered = false;
-    let providerHovered = false;
+	let providerHovered = false;
 
 	const dispatch = createEventDispatcher();
 	const WHEEL_THRESHOLD = 100;
@@ -75,7 +78,7 @@
 	$: repliesHidden = hiddenReplies.has(message.id) || $showThreadList;
 	$: provider = getProviderFromModel(message.model || '');
 	$: providerIconSrc = getProviderIcon(provider);
-$: promptLabel = getPromptLabelFromContent(message.prompt_type);
+	$: promptLabel = getPromptLabelFromContent(message.prompt_type);
 	$: promptDescription = getPromptDescription(message.prompt_type);
 
 	function handleToggleReplies(messageId: string) {
@@ -89,11 +92,11 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 
 	function getRandomThinkingPhrase(): string {
 		const thinkingPhrases = $t('extras.thinking') as string[];
-		
+
 		if (!Array.isArray(thinkingPhrases) || !thinkingPhrases.length) {
 			return 'Thinking...';
 		}
-		
+
 		return thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
 	}
 	// Add this helper function
@@ -130,7 +133,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 	async function submitReply() {
 		if (!replyText.trim() || isSubmitting) return;
 
-		try {
+		const result = await clientTryCatch((async () => {
 			isSubmitting = true;
 
 			const { messagesToSend, contextMessage } = prepareReplyContext(
@@ -152,15 +155,20 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 				hiddenReplies.delete(message.id);
 				hiddenReplies = new Set(hiddenReplies);
 			}
-		} catch (error) {
-			console.error('Error sending reply:', error);
+
+			return true; // Success indicator
+		})(), `Submitting reply to message ${message.id}`);
+
+		if (isFailure(result)) {
+			console.error('Error sending reply:', result.error);
 			dispatch('notification', {
 				message: 'Failed to send reply. Please try again.',
 				type: 'error'
 			});
-		} finally {
-			isSubmitting = false;
 		}
+
+		// Always reset submitting state
+		isSubmitting = false;
 	}
 
 	function cancelReply() {
@@ -331,13 +339,14 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
       - 3-8 words in length
       Format your response as a JSON array of strings containing ONLY the subtask titles. 
       Example: ["Create project plan", "Design user interface", "Implement backend API", "Test functionality"]`,
+				provider: model.provider,
 				model: model.api_type
 			};
 
 			const userPrompt = {
 				role: 'user' as RoleType,
-				content: `Generate subtasks based on this content:
-      ${content}`,
+				content: `Generate subtasks based on this content: ${content}`,
+				provider: model.provider,
 				model: model.api_type
 			};
 			updateNotification(subtasksNotificationId, {
@@ -365,7 +374,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 									!line.includes('{') &&
 									!line.includes('}')
 							)
-							.map((line) => line.replace(/^["'\d\-\[\]\s•]+|\s*["',]+$/g, '').trim())
+							.map((line) => line.replace(/^["'\d\-[\]\s•]+|\s*["',]+$/g, '').trim())
 							.filter((line) => line.length > 0);
 					}
 				} else {
@@ -714,64 +723,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		onGetVisibleMessages = getVisibleMessages;
 		onGetCurrentIndex = () => currentMessageIndex;
 	}
-	/*
-	 * $: if (message?.content) {
-	 *     console.log('Processing message:', message.id, 'Content:', message.content, 'Type:', typeof message.content);
-	 *     isProcessingContent = true;
-	 *       const cleanup = setupScrollHandler();
-	 */
 
-	/*
-	 *     // Check if content is a Promise
-	 *     if (message.content instanceof Promise) {
-	 *         // Wait for the Promise to resolve
-	 *         message.content
-	 *             .then((resolvedContent: string) => {
-	 *                 console.log('Promise resolved to:', resolvedContent);
-	 */
-
-	/*
-	 *                 if (processMessageContentWithReplyable) {
-	 *                     // Pass the resolved content, not the promise
-	 *                     return processMessageContentWithReplyable(resolvedContent, message.id);
-	 *                 } else {
-	 *                     return resolvedContent;
-	 *                 }
-	 *             })
-	 *             .then((content: string) => {
-	 *                 console.log('Final processed content:', content);
-	 *                 processedContent = content;
-	 *                 isProcessingContent = false;
-	 *             })
-	 *             .catch((error: any) => {
-	 *                 console.error('Error processing message content:', error);
-	 *                 processedContent = 'Error loading message content';
-	 *                 isProcessingContent = false;
-	 *             });
-	 *     } else {
-	 *         // Handle regular string content (backup case)
-	 *         const contentToProcess = String(message.content || '');
-	 */
-
-	/*
-	 *         if (processMessageContentWithReplyable) {
-	 *             processMessageContentWithReplyable(contentToProcess, message.id)
-	 *                 .then((content: string) => {
-	 *                     processedContent = content;
-	 *                     isProcessingContent = false;
-	 *                 })
-	 *                 .catch((error: any) => {
-	 *                     console.error('Error processing message content:', error);
-	 *                     processedContent = contentToProcess;
-	 *                     isProcessingContent = false;
-	 *                 });
-	 *         } else {
-	 *             processedContent = contentToProcess;
-	 *             isProcessingContent = false;
-	 *         }
-	 *     }
-	 * }
-	 */
 	function isPromise<T>(value: any): value is Promise<T> {
 		return value && typeof value === 'object' && typeof value.then === 'function';
 	}
@@ -791,7 +743,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 			message.content
 				.then((resolvedContent: unknown) => {
 					console.log('Promise resolved to:', resolvedContent);
-					
+
 					const contentString = String(resolvedContent || '');
 
 					if (processMessageContentWithReplyable) {
@@ -810,7 +762,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 					processedContent = 'Error loading message content';
 					isProcessingContent = false;
 				});
-		}else {
+		} else {
 			const contentToProcess = String(message.content || '');
 
 			if (processMessageContentWithReplyable) {
@@ -923,34 +875,34 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 				</span>
 			</div>
 		{:else if message.role === 'assistant'}
-	<div class="user-header ai">
-		<div class="avatar-container" 
-			on:mouseenter={() => (providerHovered = true)}
-			on:mouseleave={() => (providerHovered = false)}>
-			<img 
-				src={providerIconSrc} 
-				alt="{provider} icon" 
-				class="provider-icon"
-			/>
-		</div>
-		{#if providerHovered}
-			<span class="tooltip tooltip-delayed" in:fade>
-				{provider}
+			<div class="user-header ai">
+				<div
+					class="avatar-container"
+					on:mouseenter={() => (providerHovered = true)}
+					on:mouseleave={() => (providerHovered = false)}
+				>
+					<img src={providerIconSrc} alt="{provider} icon" class="provider-icon" />
+				</div>
+				{#if providerHovered}
+					<span class="tooltip tooltip-delayed" in:fade>
+						{provider}
+					</span>
+				{/if}
+				<span class="model">{message.model} </span>
+			</div>
+			<span
+				class="prompt-type"
+				on:mouseenter={() => (createHovered = true)}
+				on:mouseleave={() => (createHovered = false)}
+			>
+				{promptLabel}
+				{#if createHovered}
+					<span class="tooltip tooltip-delayed" in:fade>
+						{message.prompt_type}
+					</span>
+				{/if}
 			</span>
 		{/if}
-		<span class="model">{message.model} </span>
-	</div>
-	<span class="prompt-type" 
-		on:mouseenter={() => (createHovered = true)}
-		on:mouseleave={() => (createHovered = false)}>
-		{promptLabel}
-		{#if createHovered}
-			<span class="tooltip tooltip-delayed" in:fade>
-				{message.prompt_type}
-			</span>
-		{/if}
-	</span>
-	{/if}
 		<!-- <div class="navigation-buttons">
 			{#if depth === 0 && showScrollButtons && !isClickable}
 				<button
@@ -1011,12 +963,11 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 			</div>
 		</div>
 	{/if}
-	
 
 	{#if childReplies.length > 0}
 		<div class="replies-section" in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
 			<button
-   				class="toggle-replies-btn {repliesHidden ? '' : 'selected'}"
+				class="toggle-replies-btn {repliesHidden ? '' : 'selected'}"
 				on:click|stopPropagation={() => handleToggleReplies(message.id)}
 			>
 				<span class="replies-indicator">
@@ -1028,12 +979,16 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 						{:else}
 							<ChevronUp size={12} />
 						{/if}
-					</span>				
+					</span>
 				</span>
 			</button>
 
 			{#if !repliesHidden}
-				<div class="replies-container replies-to-{message.id}"  in:fly={{ y: -200, duration: 300 }} out:fly={{ y: -200, duration: 200 }}>
+				<div
+					class="replies-container replies-to-{message.id}"
+					in:fly={{ y: -200, duration: 300 }}
+					out:fly={{ y: -200, duration: 200 }}
+				>
 					{#each childReplies as reply (reply.id)}
 						{#if depth < MAX_DEPTH}
 							<svelte:self
@@ -1054,7 +1009,11 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 								{promptType}
 							/>
 						{:else}
-							<div class="deep-nested-reply"  in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
+							<div
+								class="deep-nested-reply"
+								in:fly={{ y: -200, duration: 300 }}
+								out:fade={{ duration: 200 }}
+							>
 								<p>
 									{reply.role}:
 									{#if isPromise(reply.content)}
@@ -1110,82 +1069,8 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 	{/if}
 </div>
 
-<!-- async function generateTaskDescription(content: string): Promise<string> {
-//   try {
-//     // Set up system instructions for the AI to generate a focused task description
-//     const systemPrompt = `
-//       Create a clear, concise task description based on the provided content. 
-//       - Focus only on actionable items and deliverables
-//       - Write in an imperative style (e.g., "Create a report" not "Here is a task to create a report")
-//       - Do not include phrases like "here is" or other meta-commentary
-//       - Be specific about requirements and acceptance criteria
-//       - Keep it focused and task-oriented
-//       - Format as a direct set of instructions
-//       - Include only text that would be useful in a task tracking system
-//     `;
-
-//     // If the content is already reasonably sized, use it directly
-//     if (content.length < 500) {
-//       // Clean the content of HTML and other markup
-//       const cleanContent = content.replace(/<\/?[^>]+(>|$)/g, '');
-      
-//       // Prepare the messages for AI processing
-//       const messages = [
-//         { role: 'system', content: systemPrompt },
-//         { role: 'user', content: `Transform this into a focused task description: ${cleanContent}` }
-//       ];
-      
-//       // Use the appropriate AI model to generate the description
-//       const aiResponse = await fetchAIResponse(messages, aiModel, userId);
-//       return aiResponse;
-//     } else {
-//       // For longer content, extract the most relevant parts
-//       const summary = content.substring(0, 1000); // Take first 1000 chars as a sample
-      
-//       const messages = [
-//         { role: 'system', content: systemPrompt },
-//         { role: 'user', content: `Create a focused task description from this content: ${summary}` }
-//       ];
-      
-//       const aiResponse = await fetchAIResponse(messages, aiModel, userId);
-//       return aiResponse;
-//     }
-//   } catch (error) {
-//     console.error('Error generating task description:', error);
-//     // Fall back to original content if description generation fails
-//     return content;
-//   }
-// } -->
-
-<!-- async function handleGenerateDualResponses(userInput: string, systemPrompts: string[]) {
-  try {
-    // Call the existing fetchDualAIResponses function
-    const result = await fetchDualAIResponses(
-      userInput,
-      aiModel,
-      userId,
-      systemPrompts
-    );
-    
-    // Emit an event to the parent component with the responses
-    dispatch('dualResponsesGenerated', {
-      responses: result.responses,
-      threadId: result.threadId,
-      systemPrompts: systemPrompts,
-      userMessage: userInput
-    });
-    
-  } catch (error) {
-    console.error('Error generating dual responses:', error);
-    dispatch('notification', {
-      message: 'Failed to generate responses: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      type: 'error'
-    });
-  }
-} -->
-
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1223,7 +1108,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		position: absolute;
 		margin-top: 1rem;
 		margin-left: 0;
-		left:12rem;
+		left: 12rem;
 		font-size: 0.7rem;
 		white-space: nowrap;
 		background-color: var(--secondary-color);
@@ -1254,28 +1139,23 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		}
 	}
 
-
 	.message.clickable {
 		cursor: pointer;
 		transition: all 0.3s ease;
 
 		padding-left: 1rem !important;
-		width: calc(100% - 1rem) !important; 
+		width: calc(100% - 1rem) !important;
 		height: auto;
-		    background: linear-gradient(to bottom, transparent, var(--bg-color));
+		background: linear-gradient(to bottom, transparent, var(--bg-color));
 
 		overflow-y: hidden;
 		overflow-y: hidden !important;
-
 	}
-
 
 	.message.clickable:hover {
 		background: var(--primary-color);
 		// transform: translateX(10px);
 	}
-
-
 
 	// .message.clickable::before {
 	// 	content: '';
@@ -1298,8 +1178,6 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 
 	// }
 
-
-
 	// .message.clickable:hover::before {
 	// 	animation: swipe 0.5s cubic-bezier(0.42, 0, 0.58, 1);
 	// 	opacity: 1;
@@ -1319,11 +1197,10 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		.avatar-container {
 			position: relative;
 			left: 0rem;
-		& img {
-			width: 2rem;
+			& img {
+				width: 2rem;
+			}
 		}
-		}
-
 	}
 
 	.message.depth-1 {
@@ -1366,7 +1243,6 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		border-radius: 0.5rem;
 		margin: 0.5rem 0;
 		font-size: 0.9rem;
-		
 	}
 
 	.view-full-link {
@@ -1380,7 +1256,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		margin-top: 0;
 		border-left: 1px solid var(--line-color);
 		border-radius: 0 0 2rem 2rem;
-    	background: linear-gradient(to bottom, transparent, var(--bg-color));
+		background: linear-gradient(to bottom, transparent, var(--bg-color));
 
 		// padding-left: 0.75rem;
 	}
@@ -1510,9 +1386,8 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		transition: all 0.3s ease;
 		&.selected {
 			background: var(--primary-color);
-
 		}
-		
+
 		&:hover {
 			background: var(--secondary-color);
 		}
@@ -1549,7 +1424,6 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 		width: auto;
 		gap: 1rem;
 		padding-top: 0.5rem;
-
 	}
 	.user-header {
 		display: flex;
@@ -1574,24 +1448,22 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 			margin-left: 0;
 			font-size: 0.9rem;
 			user-select: none;
-
 		}
 	}
 
-
-.prompt-type {
-	cursor: pointer;
-	opacity: 0.8;
-	transition: opacity 0.2s ease;
-	text-transform:lowercase;
-	&::first-letter {
-		text-transform: capitalize;
+	.prompt-type {
+		cursor: pointer;
+		opacity: 0.8;
+		transition: opacity 0.2s ease;
+		text-transform: lowercase;
+		&::first-letter {
+			text-transform: capitalize;
+		}
 	}
-}
 
-.prompt-type:hover {
-	opacity: 1;
-}
+	.prompt-type:hover {
+		opacity: 1;
+	}
 	.replies-section {
 		display: flex;
 		flex-direction: column;
@@ -1711,7 +1583,7 @@ $: promptLabel = getPromptLabelFromContent(message.prompt_type);
 
 		& p {
 			margin: 0;
-			
+
 			display: inline-block;
 			flex-direction: column;
 			white-space: normal;

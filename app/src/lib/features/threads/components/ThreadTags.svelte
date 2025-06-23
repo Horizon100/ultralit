@@ -68,10 +68,10 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}	
+	}
 	.tag-row {
 		display: flex;
 		flex-wrap: nowrap;
@@ -158,17 +158,6 @@
 			background-color: transparent;
 		}
 	}
-
-
-
-
-
-
-
-
-
-
-
 
 	@media (max-width: 450px) {
 		.tag-row {

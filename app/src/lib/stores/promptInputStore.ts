@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { PromptInput } from '$lib/types/types';
 import { fetchUserPrompts } from '$lib/clients/promptInputClient';
+import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 function createPromptInputStore() {
 	const { subscribe, update, set } = writable<PromptInput[]>([]);
@@ -13,14 +14,18 @@ function createPromptInputStore() {
 		updatePrompt: (id: string, updatedPrompt: Partial<PromptInput>) =>
 			update((prompts) => prompts.map((p) => (p.id === id ? { ...p, ...updatedPrompt } : p))),
 		loadPrompts: async () => {
-			try {
+			const result = await clientTryCatch((async () => {
 				const userPrompts = await fetchUserPrompts();
 				set(userPrompts);
 				return userPrompts;
-			} catch (error) {
-				console.error('Failed to load prompts:', error);
+			})(), 'Loading user prompts');
+
+			if (isFailure(result)) {
+				console.error('Failed to load prompts:', result.error);
 				return [];
 			}
+
+			return result.data;
 		}
 	};
 }

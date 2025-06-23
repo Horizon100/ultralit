@@ -2,13 +2,22 @@
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { currentUser, updateCurrentUserField } from '$lib/pocketbase';
-    import { AVAILABLE_WALLPAPERS, getWallpaperSrc, getWallpaperCategories, parseWallpaperPreference, stringifyWallpaperPreference } from '$lib/utils/wallpapers';
+	import {
+		AVAILABLE_WALLPAPERS,
+		getWallpaperSrc,
+		getWallpaperCategories,
+		parseWallpaperPreference,
+		stringifyWallpaperPreference
+	} from '$lib/utils/wallpapers';
 	import type { Wallpaper, WallpaperPreference } from '$lib/utils/wallpapers';
 	import { t } from '$lib/stores/translationStore';
 
 	const dispatch = createEventDispatcher();
 
-	export let currentWallpaper: string | WallpaperPreference = { wallpaperId: null, isActive: false };
+	export let currentWallpaper: string | WallpaperPreference = {
+		wallpaperId: null,
+		isActive: false
+	};
 	export let onWallpaperChange: (preference: WallpaperPreference) => void = () => {};
 
 	let preference: WallpaperPreference;
@@ -18,64 +27,12 @@
 	let showPreview = false;
 	let previewWallpaper = '';
 
-	$: filteredWallpapers = selectedCategory === 'all' 
-		? AVAILABLE_WALLPAPERS 
-		: AVAILABLE_WALLPAPERS.filter(w => w.category === selectedCategory);
-
-	$: categories = ['all', ...getWallpaperCategories()];
-
-	// React to changes in currentUser wallpaper preference
-	$: if ($currentUser?.wallpaper_preference && $currentUser.wallpaper_preference !== JSON.stringify(preference)) {
-		const newPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-		if (newPreference && (newPreference.isActive !== preference?.isActive || newPreference.wallpaperId !== preference?.wallpaperId)) {
-			console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
-			preference = newPreference;
-		}
-	}
-
-	onMount(async () => {
-		// First, try to parse from the provided currentWallpaper prop
-		preference = parseWallpaperPreference(currentWallpaper);
-		console.log('Initial preference from prop:', preference);
-		
-		// Ensure we have a valid preference object
-		if (!preference) {
-			preference = { wallpaperId: null, isActive: false };
-			console.log('Created default preference:', preference);
-		}
-
-		// If we have a current user, fetch the latest preference from the server
-		if ($currentUser?.id) {
-			try {
-				console.log('Fetching current wallpaper preference from server...');
-				const response = await fetch(`/api/users/${$currentUser.id}/wallpapers`);
-				
-				if (response.ok) {
-					const data = await response.json();
-					console.log('Fetched preference from server:', data);
-					
-					if (data.success && data.preference) {
-						preference = data.preference;
-						console.log('Updated preference from server:', preference);
-                        await updateCurrentUserField('wallpaper_preference', JSON.stringify(preference));
-
-					}
-				} else {
-					console.warn('Failed to fetch wallpaper preference:', response.status);
-				}
-			} catch (err) {
-				console.error('Error fetching wallpaper preference:', err);
-				// Keep the current preference if fetch fails
-			}
-		}
-	});
-
 	async function updateWallpaperPreference(newPreference: WallpaperPreference) {
 		if (isLoading || !$currentUser?.id) {
 			console.warn('Cannot update: loading or no user');
 			return;
 		}
-		
+
 		isLoading = true;
 		error = '';
 
@@ -88,7 +45,7 @@
 				wallpaperId: newPreference.wallpaperId,
 				isActive: newPreference.isActive
 			};
-			
+
 			console.log('Sending request body:', requestBody);
 
 			const response = await fetch(`/api/users/${$currentUser.id}/wallpapers`, {
@@ -124,15 +81,18 @@
 
 			preference = data.preference;
 			onWallpaperChange(preference);
-			await updateCurrentUserField('wallpaper_preference', stringifyWallpaperPreference(preference));
+			await updateCurrentUserField(
+				'wallpaper_preference',
+				stringifyWallpaperPreference(preference)
+			);
 
 			// Dispatch events to match your existing pattern
 			dispatch('styleChange', { wallpaperPreference: preference });
-			
+
 			console.log('Wallpaper preference updated successfully:', preference);
 		} catch (err) {
 			console.error('Wallpaper update error:', err);
-			
+
 			// Provide more specific error messages
 			if (err instanceof TypeError && err.message.includes('fetch')) {
 				error = 'Network error. Please check your connection and try again.';
@@ -141,7 +101,7 @@
 			} else {
 				error = 'An unexpected error occurred while updating wallpaper settings.';
 			}
-			
+
 			// Don't update the preference on error, keep the current state
 		} finally {
 			isLoading = false;
@@ -153,26 +113,26 @@
 			console.warn('No preference object available');
 			return;
 		}
-		
+
 		console.log('Toggling wallpaper from:', preference);
-		
+
 		const newPreference: WallpaperPreference = {
 			wallpaperId: preference.wallpaperId,
 			isActive: !preference.isActive
 		};
-		
+
 		console.log('Toggling to:', newPreference);
 		updateWallpaperPreference(newPreference);
 	}
 
 	function selectWallpaper(wallpaperId: string) {
 		console.log('Selecting wallpaper:', wallpaperId);
-		
+
 		const newPreference: WallpaperPreference = {
 			wallpaperId,
 			isActive: true
 		};
-		
+
 		updateWallpaperPreference(newPreference);
 	}
 
@@ -185,33 +145,96 @@
 		showPreview = false;
 		previewWallpaper = '';
 	}
+
+	$: filteredWallpapers =
+		selectedCategory === 'all'
+			? AVAILABLE_WALLPAPERS
+			: AVAILABLE_WALLPAPERS.filter((w) => w.category === selectedCategory);
+
+	$: categories = ['all', ...getWallpaperCategories()];
+
+	$: if (
+		$currentUser?.wallpaper_preference &&
+		Array.isArray($currentUser.wallpaper_preference) &&
+		$currentUser.wallpaper_preference.length > 0 &&
+		preference
+	) {
+		const userPreferenceString = $currentUser.wallpaper_preference[0];
+		const currentPreferenceString = JSON.stringify(preference);
+
+		if (userPreferenceString !== currentPreferenceString) {
+			const newPreference = parseWallpaperPreference(userPreferenceString);
+			if (
+				newPreference &&
+				(newPreference.isActive !== preference.isActive ||
+					newPreference.wallpaperId !== preference.wallpaperId)
+			) {
+				console.log('CurrentUser wallpaper preference changed, updating:', newPreference);
+				preference = newPreference;
+			}
+		}
+	}
+	onMount(async () => {
+		// First, try to parse from the provided currentWallpaper prop
+		preference = parseWallpaperPreference(currentWallpaper);
+		console.log('Initial preference from prop:', preference);
+
+		// Ensure we have a valid preference object
+		if (!preference) {
+			preference = { wallpaperId: null, isActive: false };
+			console.log('Created default preference:', preference);
+		}
+
+		// If we have a current user, fetch the latest preference from the server
+		if ($currentUser?.id) {
+			try {
+				console.log('Fetching current wallpaper preference from server...');
+				const response = await fetch(`/api/users/${$currentUser.id}/wallpapers`);
+
+				if (response.ok) {
+					const data = await response.json();
+					console.log('Fetched preference from server:', data);
+
+					if (data.success && data.preference) {
+						preference = data.preference;
+						console.log('Updated preference from server:', preference);
+						await updateCurrentUserField('wallpaper_preference', JSON.stringify(preference));
+					}
+				} else {
+					console.warn('Failed to fetch wallpaper preference:', response.status);
+				}
+			} catch (err) {
+				console.error('Error fetching wallpaper preference:', err);
+				// Keep the current preference if fetch fails
+			}
+		}
+	});
 </script>
 
 <div class="wallpaper-selector">
 	<div class="header">
 		<button class="close-btn-header" on:click={() => dispatch('close')}>×</button>
-        <span class="header-toggle">
-            <h3>Choose Background</h3>
-            <div class="wallpaper-toggle">
-                {#if !$currentUser}
-                    <div class="error">Please log in to change wallpaper settings.</div>
-                {:else}
-                    <label class="toggle-label">
-                        <input
-                            type="checkbox"
-                            checked={preference?.isActive || false}
-                            on:change={toggleWallpaper}
-                            disabled={isLoading}
-                        />
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-text">
-                            {preference?.isActive ? $t('generic.on') : $t('generic.off')}
-                        </span>                    
-                    </label>
-                {/if}
-            </div>
-
-        </span>
+		<span class="header-toggle">
+			<h3>Choose Background</h3>
+			<div class="wallpaper-toggle">
+				{#if !$currentUser}
+					<div class="error">Please log in to change wallpaper settings.</div>
+				{:else}
+					<label class="toggle-label">
+						<input
+							type="checkbox"
+							checked={preference?.isActive || false}
+							on:change={toggleWallpaper}
+							disabled={isLoading}
+						/>
+						<span class="toggle-slider"></span>
+						<span class="toggle-text">
+							{preference?.isActive ? $t('generic.on') : $t('generic.off')}
+						</span>
+					</label>
+				{/if}
+			</div>
+		</span>
 		<p class="subtitle">Select a wallpaper for your workspace</p>
 	</div>
 
@@ -221,7 +244,6 @@
 		</div>
 	{/if}
 
-
 	{#if preference?.isActive}
 		<!-- Category Filter -->
 		<div class="category-filter" transition:fade>
@@ -229,7 +251,7 @@
 				<button
 					class="category-btn"
 					class:active={selectedCategory === category}
-					on:click={() => selectedCategory = category}
+					on:click={() => (selectedCategory = category)}
 				>
 					{category.charAt(0).toUpperCase() + category.slice(1)}
 				</button>
@@ -241,11 +263,13 @@
 			{#if filteredWallpapers.length === 0}
 				<div class="no-wallpapers">
 					<p>No wallpapers found in this category.</p>
-					<p class="hint">Add some images to your <code>src/lib/assets/wallpapers/</code> folder!</p>
+					<p class="hint">
+						Add some images to your <code>src/lib/assets/wallpapers/</code> folder!
+					</p>
 				</div>
 			{:else}
 				{#each filteredWallpapers as wallpaper}
-					<div 
+					<div
 						class="wallpaper-item"
 						class:selected={preference.wallpaperId === wallpaper.id}
 						class:loading={isLoading && preference.wallpaperId === wallpaper.id}
@@ -261,7 +285,7 @@
 								role="button"
 								aria-label="Select {wallpaper.name} wallpaper"
 							/>
-							
+
 							<div class="wallpaper-overlay">
 								<button
 									class="preview-btn"
@@ -270,15 +294,13 @@
 								>
 									👁️
 								</button>
-								
+
 								{#if preference.wallpaperId === wallpaper.id}
-									<div class="selected-indicator" transition:scale>
-										✓
-									</div>
+									<div class="selected-indicator" transition:scale>✓</div>
 								{/if}
 							</div>
 						</div>
-						
+
 						<div class="wallpaper-info">
 							<h4>{wallpaper.name}</h4>
 							{#if wallpaper.description}
@@ -299,7 +321,12 @@
 
 <!-- Preview Modal -->
 {#if showPreview}
-	<div class="preview-modal" transition:fade on:click={closePreview} on:keydown={(e) => e.key === 'Escape' && closePreview()}>
+	<div
+		class="preview-modal"
+		transition:fade
+		on:click={closePreview}
+		on:keydown={(e) => e.key === 'Escape' && closePreview()}
+	>
 		<div class="preview-content" on:click|stopPropagation>
 			<button class="close-btn" on:click={closePreview}>×</button>
 			<img
@@ -308,7 +335,13 @@
 				class="preview-image"
 			/>
 			<div class="preview-actions">
-				<button class="select-btn" on:click={() => { selectWallpaper(previewWallpaper); closePreview(); }}>
+				<button
+					class="select-btn"
+					on:click={() => {
+						selectWallpaper(previewWallpaper);
+						closePreview();
+					}}
+				>
 					Select This Wallpaper
 				</button>
 			</div>
@@ -317,41 +350,41 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}	
-    .wallpaper-selector {
+	}
+	.wallpaper-selector {
 		max-width: 400px;
-        width: 100%;
+		width: 100%;
 		margin: 0 auto;
 	}
 
 	.header {
 		text-align: center;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 		margin-bottom: 1rem;
-        margin-right: 1rem;
+		margin-right: 1rem;
 
 		h3 {
 			margin: 0;
 			font-size: 1.2rem;
 			font-weight: 600;
 		}
-        span.header-toggle {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-        }
+		span.header-toggle {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+		}
 		.subtitle {
 			color: var(--placeholder-color);
 			margin: 0;
 			font-size: 0.9rem;
-            text-align: left;
-            margin: 0;
+			text-align: left;
+			margin: 0;
 		}
 	}
 
@@ -365,31 +398,31 @@
 		border: 1px solid var(--error-border, #fcc);
 	}
 	.close-btn-header {
-        position: absolute;
-        top: 0;
-        left: 1rem;
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        color: var(--placeholder-color);
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.2s ease;
+		position: absolute;
+		top: 0;
+		left: 1rem;
+		background: none;
+		border: none;
+		font-size: 1.5rem;
+		cursor: pointer;
+		color: var(--placeholder-color);
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		transition: all 0.2s ease;
 
-        &:hover {
-            color: var(--text-color);
-        }
+		&:hover {
+			color: var(--text-color);
+		}
 	}
-    .wallpaper-toggle {
+	.wallpaper-toggle {
 		position: relative;
-        display: flex;
-        top: 0;
-        right: 0;
+		display: flex;
+		top: 0;
+		right: 0;
 		.toggle-label {
 			display: flex;
 			align-items: center;
@@ -397,7 +430,7 @@
 			cursor: pointer;
 			font-weight: 500;
 
-			input[type="checkbox"] {
+			input[type='checkbox'] {
 				display: none;
 			}
 
@@ -428,8 +461,7 @@
 
 				&::before {
 					transform: translateX(1.5rem);
-                    background: var(--tertiary-color);
-
+					background: var(--tertiary-color);
 				}
 			}
 
@@ -493,7 +525,7 @@
 			padding: 0.5rem 1rem;
 			border: 1px solid transparent;
 			background: var(--secondary-color);
-            color: var(--placeholder-color);
+			color: var(--placeholder-color);
 			border-radius: 2rem;
 			cursor: pointer;
 			transition: all 0.2s ease;
@@ -502,16 +534,14 @@
 			&:hover {
 				background: var(--primary-color);
 				border-color: var(--tertiary-color);
-                box-shadow: 0px 1px 4px 1px var(--text-color);
-
+				box-shadow: 0px 1px 4px 1px var(--text-color);
 			}
 
 			&.active {
 				background: var(--primary-color);
 				color: var(--text-color);
 				border-color: transparent;
-                box-shadow: 0px 1px 50px 1px var(--tertiary-color);
-
+				box-shadow: 0px 1px 50px 1px var(--tertiary-color);
 			}
 		}
 	}
@@ -537,9 +567,8 @@
 
 		&.selected {
 			border-color: var(--primary-color);
-            border: 2px solid var(--tertiary-color);
-		    box-shadow: 0px 1px 50px 1px var(--tertiary-color);
-
+			border: 2px solid var(--tertiary-color);
+			box-shadow: 0px 1px 50px 1px var(--tertiary-color);
 		}
 
 		&.loading {
@@ -599,8 +628,8 @@
 				&:hover {
 					background: white;
 					transform: scale(1.1);
-                    animation: shake 0.7s ;
-		            animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+					animation: shake 0.7s;
+					animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
 				}
 			}
 
@@ -653,7 +682,7 @@
 			max-width: 90vw;
 			max-height: 90vh;
 			background: var(--bg-color);
-            box-shadow: 0px 1px 20px 1px var(--text-color);
+			box-shadow: 0px 1px 20px 1px var(--text-color);
 
 			border-radius: 1rem;
 			overflow: hidden;
@@ -709,15 +738,14 @@
 			}
 		}
 	}
-    @media (max-width: 1000px) {
-
-        .wallpaper-selector {
-            padding: 2rem;
-            max-width: 90%;
-            width: 100%;
-            margin: 0 auto;
-        }
-    }
+	@media (max-width: 1000px) {
+		.wallpaper-selector {
+			padding: 2rem;
+			max-width: 90%;
+			width: 100%;
+			margin: 0 auto;
+		}
+	}
 	@media (max-width: 768px) {
 		.wallpaper-grid {
 			grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

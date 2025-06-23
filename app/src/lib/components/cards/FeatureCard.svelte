@@ -52,7 +52,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -174,8 +174,6 @@
 		margin-left: 1rem;
 		margin-bottom: 0.75rem;
 	}
-
-
 
 	@media (max-width: 767px) {
 		.card-container {

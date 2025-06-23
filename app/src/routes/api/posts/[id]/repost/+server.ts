@@ -1,95 +1,87 @@
+// src/routes/api/posts/[id]/repost/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import { apiTryCatch } from '$lib/utils/errorUtils';
 
-export const POST: RequestHandler = async ({ params, locals }) => {
-	try {
-		if (!locals.user) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+export const POST: RequestHandler = async ({ params, locals }) =>
+  apiTryCatch(async () => {
+    console.log('🔥 REPOST ENDPOINT HIT!', {
+      postId: params.id,
+      userId: locals.user?.id,
+      userExists: !!locals.user
+    });
 
-		const postId = params.id;
-		const userId = locals.user.id;
+    if (!locals.user) {
+      console.log('❌ No user authenticated');
+      throw new Error('Unauthorized');
+    }
 
-		// Get the current post
-		const post = await pb.collection('posts').getOne(postId);
+    const postId = params.id;
+    const userId = locals.user.id;
 
-		const repostedBy = post.repostedBy || [];
-		const hasReposted = repostedBy.includes(userId);
+    console.log(`🎯 Toggling repost for post ${postId} by user ${userId}`);
 
-		let updatedRepostedBy;
-		let repostCount;
+    try {
+      const post = await pb.collection('posts').getOne(postId);
+      console.log('📄 Found post:', {
+        id: post.id,
+        repostedBy: post.repostedBy,
+        repostCount: post.repostCount
+      });
 
-		if (hasReposted) {
-			// Remove repost
-			updatedRepostedBy = repostedBy.filter((id: string) => id !== userId);
-			repostCount = Math.max(0, (post.repostCount || 0) - 1);
-		} else {
-			// Add repost
-			updatedRepostedBy = [...repostedBy, userId];
-			repostCount = (post.repostCount || 0) + 1;
-		}
+      const repostedBy = post.repostedBy || [];
+      const hasReposted = repostedBy.includes(userId);
 
-		// Update the post
-		await pb.collection('posts').update(postId, {
-			repostedBy: updatedRepostedBy,
-			repostCount: repostCount
-		});
+      console.log('🔍 Current repost status:', {
+        hasReposted,
+        repostedByArray: repostedBy,
+        currentCount: post.repostCount
+      });
 
-		return json({
-			success: true,
-			reposted: !hasReposted,
-			repostCount: repostCount,
-			repostedBy: updatedRepostedBy
-		});
-	} catch (error) {
-		console.error('Error toggling repost:', error);
-		return json({ error: 'Failed to toggle repost' }, { status: 500 });
-	}
-};
-export const PATCH: RequestHandler = async ({ params, locals }) => {
-	// Same logic as POST
-	try {
-		if (!locals.user) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+      let updatedRepostedBy;
+      let repostCount;
 
-		const postId = params.id;
-		const userId = locals.user.id;
+      if (hasReposted) {
+        console.log('➖ Removing repost');
+        updatedRepostedBy = repostedBy.filter((id: string) => id !== userId);
+        repostCount = Math.max(0, (post.repostCount || 0) - 1);
+      } else {
+        console.log('➕ Adding repost');
+        updatedRepostedBy = [...repostedBy, userId];
+        repostCount = (post.repostCount || 0) + 1;
+      }
 
-		// Get the current post
-		const post = await pb.collection('posts').getOne(postId);
+      console.log('🔄 Updating with:', {
+        updatedRepostedBy,
+        repostCount,
+        willBeReposted: !hasReposted
+      });
 
-		const repostedBy = post.repostedBy || [];
-		const hasReposted = repostedBy.includes(userId);
+      const updatedPost = await pb.collection('posts').update(postId, {
+        repostedBy: updatedRepostedBy,
+        repostCount: repostCount
+      });
 
-		let updatedRepostedBy;
-		let repostCount;
+      console.log('✅ Update successful:', {
+        newRepostedBy: updatedPost.repostedBy,
+        newRepostCount: updatedPost.repostCount
+      });
 
-		if (hasReposted) {
-			// Remove repost
-			updatedRepostedBy = repostedBy.filter((id: string) => id !== userId);
-			repostCount = Math.max(0, (post.repostCount || 0) - 1);
-		} else {
-			// Add repost
-			updatedRepostedBy = [...repostedBy, userId];
-			repostCount = (post.repostCount || 0) + 1;
-		}
+      const response = {
+        success: true,
+        reposted: !hasReposted,
+        repostCount,
+        repostedBy: updatedRepostedBy
+      };
 
-		// Update the post
-		await pb.collection('posts').update(postId, {
-			repostedBy: updatedRepostedBy,
-			repostCount: repostCount
-		});
+      console.log('🚀 Returning response:', response);
+      return response;
 
-		return json({
-			success: true,
-			reposted: !hasReposted,
-			repostCount: repostCount,
-			repostedBy: updatedRepostedBy
-		});
-	} catch (error) {
-		console.error('Error toggling repost:', error);
-		return json({ error: 'Failed to toggle repost' }, { status: 500 });
-	}
-};
+    } catch (error) {
+      console.error('❌ Error in repost operation:', error);
+      throw error;
+    }
+  }, 'Failed to toggle repost');
+
+export const PATCH: RequestHandler = POST;

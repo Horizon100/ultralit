@@ -14,10 +14,11 @@
 	import { writable } from 'svelte/store';
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
 	import type { Shape, AIAgent } from '$lib/types/types'; // Import Shape from your types file
-	import { createAgent, getAgentById, updateAgent, deleteAgent } from '$lib/clients/agentClient';
+	import { createAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
 	import Connector from '$lib/features/canvas/components/Connector.svelte';
 	import { BrainCog, ChevronRight, Maximize, X } from 'lucide-svelte';
+	import { isSuccess, unwrapOr, clientTryCatch, isFailure, tryCatchSync } from '$lib/utils/errorUtils';
 
 	let svgElement: SVGSVGElement;
 	let viewBox = '0 0 2000 857';
@@ -276,7 +277,8 @@
 	}
 
 	// Shape handling
-	async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
+async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
+	const result = await clientTryCatch((async () => {
 		const { shape, x, y } = event.detail;
 		const newShape: Shape & { opacity: any } = {
 			...shape,
@@ -292,32 +294,38 @@
 		newShape.opacity.set(1);
 
 		if (shape.id === 'Agent') {
-			try {
-				const agentData: Partial<AIAgent> = {
-					name: `Agent ${Date.now()}`,
-					prompt: '',
-					description: '',
-					avatar: '',
-					role: undefined,
-					capabilities: [],
-					focus: 'processor',
-					status: 'active',
-					tags: [],
-					performance: 0,
-					version: '1.0',
-					position: { x, y },
-					expanded: false
-				};
+			const agentData: Partial<AIAgent> = {
+				name: `Agent ${Date.now()}`,
+				prompt: '',
+				description: '',
+				avatar: '',
+				role: undefined,
+				capabilities: [],
+				focus: 'processor',
+				status: 'active',
+				tags: [],
+				performance: 0,
+				version: '1.0',
+				position: { x, y },
+				expanded: false
+			};
 
-				const createdAgent = await createAgent(agentData);
-				agentStore.addAgent(createdAgent);
-
-				console.log('Agent created and added to store:', createdAgent);
-			} catch (error) {
-				console.error('Error creating agent:', error);
+			const createResult = await createAgent(agentData);
+			if (isFailure(createResult)) {
+				throw new Error(`Failed to create agent: ${createResult.error}`);
 			}
+
+			agentStore.addAgent(createResult.data);
+			console.log('Agent created and added to store:', createResult.data);
 		}
+
+		return true;
+	})(), `Adding shape ${event.detail.shape.id} at (${event.detail.x}, ${event.detail.y})`);
+
+	if (isFailure(result)) {
+		console.error('Error creating agent:', result.error);
 	}
+}
 
 	function handleCanvasClick(event: MouseEvent) {
 		const clickedElement = event.target as Element;
@@ -421,63 +429,74 @@
 		return nearestPoint;
 	}
 
-	// Drag and drop handling
-	function handleDrop(event: DragEvent) {
-		event.preventDefault();
+function handleDrop(event: DragEvent) {
+	event.preventDefault();
 
-		if (event.dataTransfer) {
-			const shapeData = event.dataTransfer.getData('application/json');
+	if (event.dataTransfer) {
+		const shapeData = event.dataTransfer.getData('application/json');
 
-			if (shapeData) {
-				try {
-					const shape = JSON.parse(shapeData) as Shape;
-					if (svgElement) {
-						const rect = svgElement.getBoundingClientRect();
-						const x = (event.clientX - rect.left - $offsetX) / scale;
-						const y = (event.clientY - rect.top - $offsetY) / scale;
+		if (shapeData) {
+			const result = tryCatchSync(() => {
+				const shape = JSON.parse(shapeData) as Shape;
+				if (svgElement) {
+					const rect = svgElement.getBoundingClientRect();
+					const x = (event.clientX - rect.left - $offsetX) / scale;
+					const y = (event.clientY - rect.top - $offsetY) / scale;
 
-						const newShape = addShapeToCanvas(shape, x, y);
-						if (shape.id === 'Agent') {
-							createAgentInDatabase(x, y);
-						}
-
-						// Select the new shape and open left side menu
-						selectedShapeId = newShape.id;
-						openLeftSideMenu(newShape);
+					const newShape = addShapeToCanvas(shape, x, y);
+					if (shape.id === 'Agent') {
+						createAgentInDatabase(x, y);
 					}
-				} catch (error) {
-					console.error('Error parsing shape data:', error);
+
+					// Select the new shape and open left side menu
+					selectedShapeId = newShape.id;
+					openLeftSideMenu(newShape);
 				}
+				return true;
+			}, );
+
+			if (isFailure(result)) {
+				console.error('Error parsing shape data:', result.error);
 			}
 		}
 	}
+}
 
-	async function createAgentInDatabase(x: number, y: number) {
-		try {
-			const agentData: Partial<AIAgent> = {
-				name: `Agent ${Date.now()}`,
-				prompt: '',
-				description: '',
-				avatar: '',
-				role: undefined,
-				capabilities: [],
-				focus: 'processor',
-				status: 'active',
-				tags: [],
-				performance: 0,
-				version: '1.0',
-				position: { x, y },
-				expanded: false
-			};
+async function createAgentInDatabase(x: number, y: number) {
+	const result = await clientTryCatch((async () => {
+		const agentData: Partial<AIAgent> = {
+			name: `Agent ${Date.now()}`,
+			prompt: '',
+			description: '',
+			avatar: '',
+			role: undefined,
+			capabilities: [],
+			focus: 'processor',
+			status: 'active',
+			tags: [],
+			performance: 0,
+			version: '1.0',
+			position: { x, y },
+			expanded: false
+		};
 
-			const createdAgent = await createAgent(agentData);
-			agentStore.addAgent(createdAgent);
-
-			console.log('Agent created and added to store:', createdAgent);
-		} catch (error) {
-			console.error('Error creating agent:', error);
+		const createResult = await createAgent(agentData);
+		
+		if (isFailure(createResult)) {
+			throw new Error(`Failed to create agent: ${createResult.error}`);
 		}
+
+		const createdAgent = createResult.data;
+		agentStore.addAgent(createdAgent);
+
+		console.log('Agent created and added to store:', createdAgent);
+		return createdAgent;
+	})(), `Creating agent at position (${x}, ${y})`);
+
+	if (isFailure(result)) {
+		console.error('Error creating agent:', result.error);
 	}
+}
 
 	function addShapeToCanvas(shape: Shape, x: number, y: number) {
 		console.log('Adding shape to canvas:', { shape, x, y });
@@ -504,7 +523,6 @@
 			document.head.appendChild(styleElement);
 		}
 		return newShape;
-
 	}
 
 	function dragShape(event: MouseEvent, shapeId: string) {
@@ -763,7 +781,8 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	* {
+	@use 'src/lib/styles/themes.scss' as *;
+	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;
 	}

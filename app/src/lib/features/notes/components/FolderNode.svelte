@@ -20,7 +20,7 @@
 
 	// Subscribe to the store to access the data
 	$: storeData = $notesStore;
-	$: childFolders = storeData.folders.filter(f => f.parentId === folder.id);
+	$: childFolders = storeData.folders.filter((f) => f.parentId === folder.id);
 	$: notes = storeData.notes[folder.id] || [];
 </script>
 
@@ -86,7 +86,7 @@
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 
 	* {
 		font-family: var(--font-family);

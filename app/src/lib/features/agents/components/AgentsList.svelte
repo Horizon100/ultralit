@@ -260,36 +260,6 @@
 		resetForm();
 	}
 
-	/*
-	 * async function handleSubmit() {
-	 *   const agentData: Partial<AIAgent> = {
-	 *     name: agentName,
-	 *     description: agentDescription,
-	 *     max_attempts: agentMaxAttempts,
-	 *     user_input: agentUserInput,
-	 *     prompt: agentPrompt,
-	 *     model: agentModel,
-	 *     actions: agentActions,
-	 *   };
-	 */
-
-	/*
-	 *   try {
-	 *     if (selectedAgent) {
-	 *       agentStore.updateAgent(selectedAgent.id, agentData);
-	 *     } else {
-	 *       const newAgent = await createAgent(agentData);
-	 *       agentStore.addAgent(newAgent);
-	 *     }
-	 *     showCreateForm = false;
-	 *     selectedAgent = null;
-	 *     resetForm();
-	 *   } catch (error) {
-	 *     console.error('Error saving agent:', error);
-	 *     updateStatus = 'Error saving agent. Please try again.';
-	 *   }
-	 * }
-	 */
 
 	async function handleDelete(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
@@ -301,8 +271,6 @@
 			}
 		}
 	}
-
-
 
 	async function handleAvatarUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -660,16 +628,16 @@
 				<div class="form-group">
 					<label>TAGS</label>
 					<div class="tag-input">
-					<input
-						type="text"
-						placeholder="Add a tag"
-						on:keydown={(e) => {
-							if (e.key === 'Enter' && e.currentTarget instanceof HTMLInputElement) {
-								addTag(e.currentTarget.value);
-								e.currentTarget.value = '';
-							}
-						}}
-					/>
+						<input
+							type="text"
+							placeholder="Add a tag"
+							on:keydown={(e) => {
+								if (e.key === 'Enter' && e.currentTarget instanceof HTMLInputElement) {
+									addTag(e.currentTarget.value);
+									e.currentTarget.value = '';
+								}
+							}}
+						/>
 					</div>
 					<div class="tag-list">
 						{#each selectedTags as tag}
@@ -787,7 +755,7 @@
 {/if}
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 		color: var(--text-color);
@@ -812,7 +780,6 @@
 		/* height: calc(100vh - 260px); */
 		transition: all 1.8s cubic-bezier(0.075, 0.82, 0.165, 1);
 	}
-
 
 	.column {
 		flex: 1;
@@ -1566,7 +1533,6 @@
 	@media (max-width: 1700px) {
 	}
 
-
 	@media (max-width: 750px) {
 		.agent-name {
 			font-size: 12px;
@@ -1580,6 +1546,5 @@
 			justify-content: space-between;
 			align-items: center;
 		}
-
 	}
 </style>

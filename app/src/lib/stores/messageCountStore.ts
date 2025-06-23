@@ -1,121 +1,119 @@
-// messageCountsStore.ts
 import { writable, derived } from 'svelte/store';
 import PocketBase from 'pocketbase';
 import { pocketbaseUrl } from '$lib/pocketbase';
 import type { Threads } from '$lib/types/types';
+import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
-// Create PocketBase instance
 const pb = new PocketBase(pocketbaseUrl);
 
 interface MessageCounts {
-	[threadId: string]: number;
+  [threadId: string]: number;
 }
 
 interface BatchResult {
-	counts: MessageCounts;
-	totalThreads: number;
+  counts: MessageCounts;
+  totalThreads: number;
 }
 
 function createMessageCountsStore() {
-	const { subscribe, set, update } = writable<MessageCounts>({});
+  const { subscribe, set, update } = writable<MessageCounts>({});
 
-	let batchSize = 50; // Default batch size for pagination
-	let isFetching = false;
+  let batchSize = 50; // Default batch size for pagination
+  let isFetching = false;
 
-	return {
-		subscribe,
+  return {
+    subscribe,
 
-		// Fetch message counts for visible threads with pagination
-		async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
-			if (isFetching) return { counts: {}, totalThreads: 0 };
+    async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
+      if (isFetching) return { counts: {}, totalThreads: 0 };
+      isFetching = true;
 
-			isFetching = true;
-			const counts: MessageCounts = {};
+      const counts: MessageCounts = {};
 
-			try {
-				const start = (page - 1) * batchSize;
-				const batchThreads = threads.slice(start, start + batchSize);
+      try {
+        const start = (page - 1) * batchSize;
+        const batchThreads = threads.slice(start, start + batchSize);
 
-				const results = await Promise.all(
-					batchThreads.map(async (thread) => {
-						try {
-							const result = await pb.collection('messages').getList(1, 1, {
-								filter: `thread = "${thread.id}"`,
-								$autoCancel: false
-							});
-							return { threadId: thread.id, count: result.totalItems };
-						} catch (error) {
-							console.error(`Error fetching count for thread ${thread.id}:`, error);
-							return { threadId: thread.id, count: 0 };
-						}
-					})
-				);
+        // Use Promise.all with clientTryCatch to catch errors per thread count fetch
+        const results = await Promise.all(
+          batchThreads.map(async (thread) => {
+            const result = await clientTryCatch(
+              pb.collection('messages').getList(1, 1, {
+                filter: `thread = "${thread.id}"`,
+                $autoCancel: false
+              }),
+              `Error fetching count for thread ${thread.id}`
+            );
 
-				results.forEach(({ threadId, count }) => {
-					counts[threadId] = count;
-				});
+            if (isSuccess(result)) {
+              return { threadId: thread.id, count: result.data.totalItems };
+            } else {
+              console.error(result.error);
+              return { threadId: thread.id, count: 0 };
+            }
+          })
+        );
 
-				update((current) => ({ ...current, ...counts }));
+        results.forEach(({ threadId, count }) => {
+          counts[threadId] = count;
+        });
 
-				return {
-					counts,
-					totalThreads: threads.length
-				};
-			} finally {
-				isFetching = false;
-			}
-		},
+        update((current) => ({ ...current, ...counts }));
 
-		// Update count for a single thread
-		async updateCount(threadId: string): Promise<number> {
-			try {
-				const result = await pb.collection('messages').getList(1, 1, {
-					filter: `thread = "${threadId}"`,
-					$autoCancel: false
-				});
+        return {
+          counts,
+          totalThreads: threads.length
+        };
+      } finally {
+        isFetching = false;
+      }
+    },
 
-				const count = result.totalItems;
+    async updateCount(threadId: string): Promise<number> {
+      const result = await clientTryCatch(
+        pb.collection('messages').getList(1, 1, {
+          filter: `thread = "${threadId}"`,
+          $autoCancel: false
+        }),
+        `Error updating count for thread ${threadId}`
+      );
 
-				update((counts) => ({
-					...counts,
-					[threadId]: count
-				}));
+      if (isSuccess(result)) {
+        const count = result.data.totalItems;
+        update((counts) => ({ ...counts, [threadId]: count }));
+        return count;
+      } else {
+        console.error(result.error);
+        return 0;
+      }
+    },
 
-				return count;
-			} catch (error) {
-				console.error(`Error updating count for thread ${threadId}:`, error);
-				return 0;
-			}
-		},
+    increment(threadId: string) {
+      update((counts) => ({
+        ...counts,
+        [threadId]: (counts[threadId] || 0) + 1
+      }));
+    },
 
-		// Optimistic updates
-		increment(threadId: string) {
-			update((counts) => ({
-				...counts,
-				[threadId]: (counts[threadId] || 0) + 1
-			}));
-		},
+    decrement(threadId: string) {
+      update((counts) => ({
+        ...counts,
+        [threadId]: Math.max(0, (counts[threadId] || 1) - 1)
+      }));
+    },
 
-		decrement(threadId: string) {
-			update((counts) => ({
-				...counts,
-				[threadId]: Math.max(0, (counts[threadId] || 1) - 1)
-			}));
-		},
+    setBatchSize(size: number) {
+      batchSize = size;
+    },
 
-		// Set batch size
-		setBatchSize(size: number) {
-			batchSize = size;
-		},
-
-		// Reset store
-		reset() {
-			set({});
-		}
-	};
+    reset() {
+      set({});
+    }
+  };
 }
 
 export const messageCountsStore = createMessageCountsStore();
+
 
 export function getCountColor(count: number): string {
 	// Define min and max counts for scaling

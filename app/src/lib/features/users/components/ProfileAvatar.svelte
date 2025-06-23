@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { getUserById } from '$lib/pocketbase';
-	import type { UserProfile } from '$lib/types/types';
+	import type { User } from '$lib/types/types';
 
 	export let userId: string;
 	export let size: 'sm' | 'md' | 'lg' = 'md';
@@ -10,13 +10,9 @@
 
 	const dispatch = createEventDispatcher();
 
-	let profile: UserProfile | null = null;
+	let profile: User | null = null;
 	let loading = true;
 	let error = false;
-
-	onMount(async () => {
-		await loadProfile();
-	});
 
 	async function loadProfile() {
 		if (!userId) {
@@ -37,16 +33,18 @@
 			loading = false;
 		}
 	}
-
-	// Reload profile if userId changes
-	$: if (userId) {
-		loadProfile();
-	}
-
 	function handleImageError(event: Event) {
 		const target = event.target as HTMLImageElement;
 		target.src = placeholder;
 	}
+	$: if (userId) {
+		loadProfile();
+	}
+	$: avatarUrl = profile?.avatar || placeholder;
+
+	onMount(async () => {
+		await loadProfile();
+	});
 </script>
 
 <div class="profile-avatar-container" class:show-name={showName}>
@@ -57,23 +55,23 @@
 			<img src={placeholder} alt="User avatar" class="avatar size-{size}" />
 		{:else}
 			<img
-				src={profile.avatarUrl || placeholder}
-				alt="{profile.name}'s avatar"
+				src={avatarUrl}
+				alt="{profile.name || profile.username || 'User'}'s avatar"
 				class="avatar size-{size}"
 				on:error={handleImageError}
 			/>
 		{/if}
 	</div>
 
-	{#if showName && profile && profile.name}
+	{#if showName && profile && (profile.name || profile.username)}
 		<span class="profile-name size-{size}">
-			{profile.name}
+			{profile.name || profile.username || 'User'}
 		</span>
 	{/if}
 </div>
 
 <style lang="scss">
-	@use "src/lib/styles/themes.scss" as *;	
+	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

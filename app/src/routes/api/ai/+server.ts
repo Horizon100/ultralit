@@ -1,304 +1,240 @@
-// src/routes/api/ai/+server.ts
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import type { AIMessage, AIModel } from '$lib/types/types';
+import type { AIMessage, AIModel, ProviderType} from '$lib/types/types';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { TextBlock } from '@anthropic-ai/sdk/resources/messages';
 import * as pbServer from '$lib/server/pocketbase';
 import { CryptoService } from '$lib/utils/crypto';
+import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-async function getUserKeys(userId: string) {
-	try {
-		const userData = await pbServer.pb.collection('users').getOne(userId);
-		if (!userData.api_keys) {
-			return {};
-		}
+export const POST: RequestHandler = async (event) =>
+  apiTryCatch(async () => {
+    const { request, cookies } = event;
 
-		const decryptedKeys = await CryptoService.decrypt(userData.api_keys, userId);
-		return JSON.parse(decryptedKeys);
-	} catch (error) {
-		console.error('Error fetching API keys:', error);
-		throw new Error('Error fetching API keys');
-	}
-}
+    // Inline restoreAuth
+    const authCookie = cookies.get('pb_auth');
+    if (!authCookie) throw new Error('User not authenticated');
+    let authData;
+    try {
+      authData = JSON.parse(authCookie);
+      pbServer.pb.authStore.save(authData.token, authData.model);
+    } catch {
+      throw new Error('Failed to parse auth cookie');
+    }
+    if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 
-function restoreAuth(cookies: Parameters<RequestHandler>[0]['cookies']) {
-	const authCookie = cookies.get('pb_auth');
-	if (authCookie) {
-		try {
-			const authData = JSON.parse(authCookie);
-			pbServer.pb.authStore.save(authData.token, authData.model);
-			return true;
-		} catch (e) {
-			console.error('Error parsing auth cookie:', e);
-			return false;
-		}
-	}
-	return false;
-}
+    const user = pbServer.pb.authStore.model;
+    if (!user || !user.id) throw new Error('Invalid user session');
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
-	try {
-		restoreAuth(cookies);
+    console.log('🔍 AI API Debug - User ID:', user.id);
 
-		if (!pbServer.pb.authStore.isValid) {
-			throw error(401, 'User not authenticated');
-		}
+    // MOVED: Parse request body FIRST to get model info
+    let messages: AIMessage[];
+    let attachment: File | null = null;
+    let model: AIModel;
+    let userId: string;
 
-		const user = pbServer.pb.authStore.model;
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
 
-		if (!user || !user.id) {
-			throw error(401, 'Invalid user session');
-		}
+      const messagesData = formData.get('messages');
+      if (typeof messagesData !== 'string') throw new Error('Invalid messages data');
+      messages = JSON.parse(messagesData);
 
-		let messages: AIMessage[];
-		let attachment: File | null = null;
-		let model: AIModel;
-		let userId: string;
+      const modelData = formData.get('model');
+      if (typeof modelData !== 'string') throw new Error('Invalid model data');
+      model = JSON.parse(modelData) as AIModel;
 
-		const contentType = request.headers.get('content-type');
-		console.log('Content type:', contentType);
+      const userIdData = formData.get('userId');
+      if (typeof userIdData !== 'string') throw new Error('Invalid userId');
+      userId = userIdData;
 
-		if (contentType?.includes('multipart/form-data')) {
-			const formData = await request.formData();
+      attachment = formData.get('attachment') as File | null;
+      if (attachment) {
+        messages.push({
+          role: 'user',
+          content: `[Attachment: ${attachment.name}]`,
+          provider: model.provider,
+          model: model.api_type
+        });
+      }
+    } else {
+      const body = await request.json();
+      messages = body.messages;
+      model = body.model;
+      userId = body.userId;
+    }
 
-			const messagesData = formData.get('messages');
-			if (typeof messagesData !== 'string') {
-				throw error(400, 'Invalid messages data');
-			}
-			messages = JSON.parse(messagesData);
+    if (userId !== user.id) throw new Error('Unauthorized: User ID mismatch');
+    if (!messages || !Array.isArray(messages) || messages.length === 0) throw new Error('Missing or invalid messages array');
+    if (!model || !model.provider) throw new Error('Missing or invalid model information');
 
-			const modelData = formData.get('model');
-			if (typeof modelData !== 'string') {
-				throw error(400, 'Invalid model data');
-			}
-			model = JSON.parse(modelData) as AIModel;
+    // NOW get user keys after we know what model/provider we need
+    const userDataResult = await pbTryCatch(pbServer.pb.collection('users').getOne(user.id), 'fetch user data');
+    const userData = unwrap(userDataResult);
 
-			const userIdData = formData.get('userId');
-			if (typeof userIdData !== 'string') {
-				throw error(400, 'Invalid userId');
-			}
-			userId = userIdData;
+    console.log('🔍 AI API Debug - userData.api_keys exists:', !!userData.api_keys);
+    console.log('🔍 AI API Debug - userData.api_keys type:', typeof userData.api_keys);
 
-			attachment = formData.get('attachment') as File | null;
-			if (attachment) {
-				messages.push({
-					role: 'user',
-					content: `[Attachment: ${attachment.name}]`,
-					model: model.api_type
-				});
-			}
-		} else {
-			const body = await request.json();
-			messages = body.messages;
-			model = body.model;
-			userId = body.userId;
+    let userKeys: Partial<Record<ProviderType, string>> = {};    
+    if (userData.api_keys) {
+      try {
+        console.log('🔍 AI API Debug - Attempting to decrypt API keys...');
+        const decryptedKeys = await CryptoService.decrypt(userData.api_keys, user.id);
+        console.log('🔍 AI API Debug - Decryption successful');
+        
+        userKeys = JSON.parse(decryptedKeys);
+        console.log('🔍 AI API Debug - Decrypted keys providers:', Object.keys(userKeys));
+      } catch (e) {
+        console.error('🔍 AI API Debug - Error decrypting API keys:', e);
+        throw new Error('Error decrypting API keys: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    } else {
+      console.log('🔍 AI API Debug - No api_keys field found in user data');
+      throw new Error('No API keys configured for user');
+    }
 
-			console.log('Received request:', {
-				messageCount: messages?.length || 0,
-				modelInfo: model?.provider ? `${model.provider}/${model.api_type}` : 'undefined',
-				userId: userId || 'undefined'
-			});
-		}
+    console.log('🔍 AI API Debug - Requested provider:', model.provider);
+    console.log('🔍 AI API Debug - API key for provider exists:', !!userKeys[model.provider]);
 
-		if (userId !== user.id) {
-			throw error(403, 'Unauthorized: User ID mismatch');
-		}
+    const apiKey = userKeys[model.provider];
+    if (!apiKey) {
+      const availableProviders = Object.keys(userKeys);
+      console.log('🔍 AI API Debug - Available providers:', availableProviders);
+      throw new Error(`${model.provider} API key not configured. Available providers: ${availableProviders.join(', ')}`);
+    }
 
-		if (!messages || !Array.isArray(messages) || messages.length === 0) {
-			throw error(400, 'Missing or invalid messages array');
-		}
-		if (!model || !model.provider) {
-			throw error(400, 'Missing or invalid model information');
-		}
+    console.log('🔍 AI API Debug - Using API key for provider:', model.provider, 'Key starts with:', apiKey.substring(0, 8) + '...');
 
-		const userKeys = await getUserKeys(user.id);
-		const apiKey = userKeys[model.provider];
+    const systemMessage = messages.find((msg) => msg.role === 'system');
+    if (!systemMessage && messages.length > 0) {
+      const promptType = messages[0]?.prompt_type;
+      const promptInput = messages[0]?.prompt_input;
+      const systemParts = [];
 
-		if (!apiKey) {
-			throw error(
-				400,
-				`${model.provider} API key not configured. Please add your API key in settings.`
-			);
-		}
+      if (promptType) {
+        systemParts.push(`You are an AI assistant using the ${promptType} prompt style. Format your responses accordingly.`);
+      }
+      if (promptInput) {
+        systemParts.push(promptInput);
+      }
 
-		const systemMessage = messages.find((msg) => msg.role === 'system');
+      const systemContent = systemParts.join('\n\n');
+      messages.unshift({
+        role: 'system',
+        content: systemContent,
+        provider: model.provider,
+        model: model.api_type
+      });
+    }
 
-		if (!systemMessage && messages.length > 0) {
-			const promptType = messages[0]?.prompt_type;
-			const promptInput = messages[0]?.prompt_input;
+    
+    let response: string;
 
-			if (promptType || promptInput) {
-				const systemParts = [];
+    console.log('🔍 AI API Debug - About to call AI provider:', model.provider);
+    console.log('🔍 AI API Debug - Model API type:', model.api_type);
+    console.log('🔍 AI API Debug - Messages count:', messages.length);
 
-				if (promptType) {
-					systemParts.push(
-						`You are an AI assistant using the ${promptType} prompt style. Format your responses accordingly.`
-					);
-				}
+    try {
+      if (model.provider === 'openai' || model.provider === 'deepseek' || model.provider === 'grok') {
+        const baseURL =
+          model.provider === 'deepseek' ? 'https://api.deepseek.com/v1' :
+          model.provider === 'grok' ? 'https://api.x.ai/v1' : undefined;
 
-				if (promptInput) {
-					systemParts.push(promptInput);
-				}
+        console.log('🔍 AI API Debug - OpenAI-compatible provider, baseURL:', baseURL);
 
-				const systemContent = systemParts.join('\n\n');
+        const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 
-				messages.unshift({
-					role: 'system',
-					content: systemContent,
-					model: model.api_type
-				});
-			}
-		}
+        const aiMessages = messages.map((msg) => ({
+          role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
+          content: msg.content
+        })) as ChatCompletionMessageParam[];
 
-		console.log('Processing with provider:', model.provider);
-		let response;
+        console.log('🔍 AI API Debug - Converted messages:', aiMessages.length);
 
-		if (model.provider === 'openai') {
-			console.log('Sending request to OpenAI API');
+        const modelName = model.api_type || (model.provider === 'openai' ? 'gpt-3.5-turbo' : 'deepseek-chat');
+        console.log('🔍 AI API Debug - Using model name:', modelName);
 
-			// Create OpenAI client with user's API key
-			const openai = new OpenAI({ apiKey });
+        const completion = await client.chat.completions.create({
+          model: modelName,
+          messages: aiMessages,
+          temperature: 0.7,
+          max_tokens: 1500
+        });
 
-			const aiMessages = messages.map((msg) => ({
-				role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
-				content: msg.content
-			}));
+        console.log('🔍 AI API Debug - Completion received, choices count:', completion.choices?.length);
 
-			const completion = await openai.chat.completions.create({
-				model: model.api_type || 'gpt-3.5-turbo',
-				messages: aiMessages as ChatCompletionMessageParam[],
-				temperature: 0.7,
-				max_tokens: 1500
-			});
+        if (!completion.choices[0]?.message?.content) {
+          console.error('🔍 AI API Debug - No content in completion:', completion);
+          throw new Error(`Invalid response format from ${model.provider} - no content received`);
+        }
 
-			if (!completion.choices[0]?.message?.content) {
-				throw error(500, 'Invalid response format from OpenAI');
-			}
-			response = completion.choices[0].message.content;
-		} else if (model.provider === 'deepseek') {
-			console.log('Sending request to Deepseek API');
+        response = completion.choices[0].message.content;
+        console.log('🔍 AI API Debug - Response extracted successfully, length:', response.length);
 
-			const deepseek = new OpenAI({
-				apiKey,
-				baseURL: 'https://api.deepseek.com/v1'
-			});
+      } else if (model.provider === 'anthropic') {
+        console.log('🔍 AI API Debug - Using Anthropic provider');
+        
+        const anthropic = new Anthropic({ apiKey });
 
-			try {
-				const aiMessages = messages.map((msg) => ({
-					role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
-					content: msg.content
-				}));
+        const systemMsg = messages.find((msg) => msg.role === 'system');
+        const systemContent = systemMsg ? systemMsg.content : '';
 
-				const completion = await deepseek.chat.completions.create({
-					model: model.api_type || 'deepseek-chat',
-					messages: aiMessages as ChatCompletionMessageParam[],
-					temperature: 0.7,
-					max_tokens: 1500
-				});
+        const anthropicMessages = messages
+          .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+          .map((msg) => ({ role: msg.role as 'user' | 'assistant', content: msg.content }));
 
-				if (!completion.choices[0]?.message?.content) {
-					throw error(500, 'Invalid response format from Deepseek');
-				}
-				response = completion.choices[0].message.content;
-			} catch (deepseekError) {
-				console.error('Deepseek API error:', deepseekError);
-				throw error(
-					500,
-					`Deepseek API error: ${deepseekError instanceof Error ? deepseekError.message : 'Unknown error'}`
-				);
-			}
-		} else if (model.provider === 'grok') {
-			console.log('Sending request to Grok/X.AI API');
+        console.log('🔍 AI API Debug - Anthropic messages prepared:', anthropicMessages.length);
 
-			const grok = new OpenAI({
-				apiKey,
-				baseURL: 'https://api.x.ai/v1'
-			});
+        const requestPayload = {
+          model: model.api_type || 'claude-3-sonnet-20240229',
+          messages: anthropicMessages,
+          max_tokens: 1500,
+          temperature: 0.7,
+          ...(systemContent && { system: systemContent })
+        };
 
-			try {
-				const aiMessages = messages.map((msg) => ({
-					role: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system',
-					content: msg.content
-				}));
+        console.log('🔍 AI API Debug - Anthropic request payload model:', requestPayload.model);
 
-				const completion = await grok.chat.completions.create({
-					model: model.api_type || 'grok-1',
-					messages: aiMessages as ChatCompletionMessageParam[],
-					temperature: 0.7,
-					max_tokens: 1500
-				});
+        const completion = await anthropic.messages.create(requestPayload);
 
-				if (!completion.choices[0]?.message?.content) {
-					throw error(500, 'Invalid response format from Grok');
-				}
-				response = completion.choices[0].message.content;
-			} catch (grokError) {
-				console.error('Grok API error:', grokError);
-				throw error(
-					500,
-					`Grok API error: ${grokError instanceof Error ? grokError.message : 'Unknown error'}`
-				);
-			}
-		} else if (model.provider === 'anthropic') {
-			console.log('Sending request to Anthropic API');
+        console.log('🔍 AI API Debug - Anthropic completion received');
 
-			const anthropic = new Anthropic({ apiKey });
+        if (!completion.content || completion.content.length === 0) {
+          console.error('🔍 AI API Debug - No content in Anthropic completion:', completion);
+          throw new Error('Invalid response format from Anthropic');
+        }
 
-			try {
-				const systemMsg = messages.find((msg) => msg.role === 'system');
-				const systemContent = systemMsg ? systemMsg.content : '';
+        const textBlock = completion.content[0];
+        if (textBlock.type === 'text') {
+          response = (textBlock as TextBlock).text;
+          console.log('🔍 AI API Debug - Anthropic response extracted successfully');
+        } else {
+          throw new Error('Invalid response content type from Anthropic');
+        }
+      } else {
+        throw new Error(`Unsupported AI provider: ${model.provider}`);
+      }
 
-				const anthropicMessages = messages
-					.filter((msg) => msg.role === 'user' || msg.role === 'assistant')
-					.map((msg) => ({
-						role: msg.role as 'user' | 'assistant',
-						content: msg.content
-					}));
+      console.log('🔍 AI API Debug - Final response ready, returning success');
+      return json({ response, success: true });
 
-				const requestPayload = {
-					model: model.api_type || 'claude-3-sonnet-20240229',
-					messages: anthropicMessages,
-					max_tokens: 1500,
-					temperature: 0.7,
-					...(systemContent && { system: systemContent })
-				};
-
-				const completion = await anthropic.messages.create(requestPayload);
-
-				if (!completion.content || completion.content.length === 0) {
-					throw error(500, 'Invalid response format from Anthropic');
-				}
-
-				const textBlock = completion.content[0];
-				if (textBlock.type === 'text') {
-					response = (textBlock as TextBlock).text;
-				} else {
-					throw error(500, 'Invalid response content type from Anthropic');
-				}
-			} catch (anthropicError) {
-				console.error('Anthropic API error:', anthropicError);
-				throw error(
-					500,
-					`Anthropic API error: ${anthropicError instanceof Error ? anthropicError.message : 'Unknown error'}`
-				);
-			}
-		} else {
-			throw error(400, `Unsupported AI provider: ${model.provider}`);
-		}
-
-		console.log('API response successfully generated');
-		return json({ response, success: true });
-	} catch (err: unknown) {
-		if (err && typeof err === 'object' && 'status' in err) {
-			throw err;
-		}
-
-		console.error('Error in AI API:', err instanceof Error ? err.message : 'Unknown error');
-		console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace available');
-
-		throw error(500, 'Internal Error');
-	}
-};
+} catch (aiError) {
+      console.error('🔍 AI API Debug - Error calling AI provider:', aiError);
+      console.error('🔍 AI API Debug - Error details:', {
+        name: aiError instanceof Error ? aiError.name : 'Unknown',
+        message: aiError instanceof Error ? aiError.message : String(aiError),
+        stack: aiError instanceof Error ? aiError.stack : undefined
+      });
+      
+      return json({ 
+        success: false, 
+        error: `AI provider error: ${aiError instanceof Error ? aiError.message : String(aiError)}`,
+        provider: model.provider,
+        model: model.api_type
+      });
+    }
+  }, 'Internal AI API error');
