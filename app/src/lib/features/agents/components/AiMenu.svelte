@@ -77,7 +77,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		width: 100%;
+		width: auto;
 		max-width: auto;
 		background-color: rgba(54, 63, 63, 0.1);
 		backdrop-filter: blur(3px);
@@ -132,11 +132,14 @@
 
 	.search {
 		padding: 1rem;
+		display: flex;
+		width: auto;
+		margin-right: 2rem;
 	}
 
 	.search textarea {
-		width: 100%;
 		padding: 0.5rem;
+		width: 100%;
 		resize: none;
 		background-color: rgba(255, 255, 255, 0.1);
 		border: none;

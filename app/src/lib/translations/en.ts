@@ -5,6 +5,8 @@ export default {
 		home: 'Home',
 		chat: 'Chat',
 		tasks: 'Tasks',
+		tools: 'Tools',
+		ide: 'Code',
 		game: 'Game',
 		canvas: 'Canvas',
 		ask: 'Ask',

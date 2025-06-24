@@ -5,6 +5,8 @@ export default {
 		home: 'Главная',
 		chat: 'Чат',
 		tasks: 'Задачи',
+		tools: 'Инструменты',
+		ide: 'Код',
 		game: 'Игра',
 		canvas: 'Холст',
 		ask: 'Спросить',

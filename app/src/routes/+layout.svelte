@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
@@ -48,6 +48,7 @@
 		showInput,
 		showRightSidenav,
 		showFilters,
+		showSearch,
 		showOverlay,
 		showSettings,
 		showEditor,
@@ -63,6 +64,8 @@
 		isSuccess, 
 		isFailure 
 	} from '$lib/utils/errorUtils';
+	import { createHoverManager } from '$lib/utils/hoverUtils';
+
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
 	export let isOpen = false;
@@ -118,6 +121,24 @@
 	{ name: 'Bone Tone', value: 'bone', icon: 'Bone' as IconName },
 	{ name: 'Ivory Tower', value: 'ivoryx', icon: 'Component' as IconName }
 	];
+
+const pageHoverManager = createHoverManager({
+	hoverZone: 50,
+	minScreenWidth: 700,
+	debounceDelay: 100,
+	controls: ['settings'],
+	direction: 'left'
+});
+
+const { 
+	hoverState: pageHoverState, 
+	handleMenuLeave: handlePageMenuLeave, 
+	toggleMenu: togglePageMenu 
+} = pageHoverManager;
+
+
+
+let pageCleanup: (() => void) | null = null;
 
 	// Functions
 	function getRandomQuote(): string {
@@ -281,6 +302,10 @@
 			console.error('Error during logout:', result.error);
 		}
 	}
+	function isUsernameRoute(path: string): boolean {
+		// Match /username or /username/posts or /username/posts/id
+		return /^\/[^\/]+(?:\/posts(?:\/[^\/]+)?)?$/.test(path);
+	}
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
 	$: {
 		if ($currentUser?.wallpaper_preference) {
@@ -298,6 +323,7 @@
 	onMount(() => {
 		let unsubscribe: (() => void) | undefined;
 		let themeUnsubscribe: (() => void) | undefined;
+		pageCleanup = pageHoverManager.initialize();
 
 		const initialize = async () => {
 			console.log('Layout onMount initiated');
@@ -432,6 +458,11 @@
 			themeUnsubscribe?.();
 		};
 	});
+	onDestroy(() => {
+		if (pageCleanup) {
+			pageCleanup();
+		}
+	});
 </script>
 
 <svelte:window bind:innerWidth />
@@ -472,90 +503,7 @@
 	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
 	<header>
 		{#if $currentUser}
-			<button
-				class="nav-button info user"
-				class:expanded={isNavExpanded}
-				use:swipeGesture={{
-					threshold: 50,
-					enableVisualFeedback: true,
-					onSwipeDown: () => {
-						console.log('🟢 User button swiped down - showing profile');
-						if (!showProfile) {
-							toggleAuthOrProfile();
-						}
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					},
-					onSwipeUp: () => {
-						console.log('🟢 User button swiped up - hiding profile');
-						if (showProfile) {
-							showProfile = false;
-						}
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}
-				}}
-				on:click={() => {
-					toggleAuthOrProfile();
-					// Only close the nav if it's expanded
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				<div class="user-wrapper">
-					<div class="user-shortcuts">
-						{#if getAvatarUrl($currentUser)}
-							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
-						{:else}
-							<div class="default-avatar">
-								{($currentUser?.name ||
-									$currentUser?.username ||
-									$currentUser?.email ||
-									'?')[0]?.toUpperCase()}
-							</div>
-						{/if}
 
-						<span class="nav-text">{username} </span>
-						<div class="tracker">
-							<TimeTracker />
-						</div>
-						<div class="project" on:click|stopPropagation>
-							<ProjectDropdown />
-						</div>
-
-						<span
-							class="icon"
-							on:click|stopPropagation={() => {
-								logout();
-								// Only close the nav if it's expanded
-								if (isNavExpanded) {
-									isNavExpanded = false;
-								}
-							}}
-						>
-							{@html getIcon('LogOutIcon', { size: 16 })}
-						</span>
-					</div>
-					{#if showProfile}
-						<div
-							class="profile-overlay"
-							on:click={handleOverlayClick}
-							transition:fly={{ y: -200, duration: 300 }}
-						>
-							<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-								<Profile
-									user={$currentUser}
-									onClose={() => (showProfile = false)}
-									onStyleClick={handleStyleClick}
-								/>
-							</div>
-						</div>
-					{/if}
-				</div>
-			</button>
 		{:else}
 			<span class="header-auth">
 				<button
@@ -578,134 +526,6 @@
 			</span>
 		{/if}
 
-		<!-- Search wrapper - hidden when logo is hovered -->
-		<div
-			class="search-wrapper"
-			class:dropdown-open={isDropdownOpen}
-			class:search-open={isSearchFocused}
-			class:logo-hovered={isLogoHovered}
-		>
-				<SearchEngine
-					size="large"
-					placeholder={searchPlaceholder}
-					bind:isFocused={isSearchFocused}
-				/>
-		</div>
-
-		<!-- Logo button with hover handlers -->
-		<button
-			class="nav-button info logo"
-			class:expanded={isNavExpanded}
-			on:mouseenter={() => (isLogoHovered = true)}
-			on:mouseleave={() => (isLogoHovered = false)}
-		>
-			<div
-				class="logo-container"
-				on:click|stopPropagation={() => {
-					// Set a flag before navigating to root
-					sessionStorage.setItem('directNavigation', 'true');
-					navigateTo('/welcome');
-				}}
-				style="cursor: pointer;"
-			>
-				<img src={horizon100} alt="Horizon100" class="logo" />
-				<h2>vRAZUM</h2>
-			</div>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/home'}
-				on:click={() => {
-					navigateTo('/home');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				{@html getIcon('Compass')}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.chat')}</span>
-				{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/lean'}
-				on:click={() => {
-					navigateTo('/lean');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				{@html getIcon('Command')}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.lean')}</span>
-				{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/game'}
-				on:click={() => {
-					navigateTo('/game');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				{@html getIcon('Gamepad')}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.game')}</span>
-				{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/ide'}
-				on:click={() => {
-					navigateTo('/ide');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				{@html getIcon('Code')}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.ide')}</span>
-				{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/canvas'}
-				on:click={() => {
-					navigateTo('/canvas');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				{@html getIcon('Combine')}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.canvas')}</span>
-				{/if}
-			</a>
-			<a
-				href="https://github.com/Horizon100/ultralit"
-				target="_blank"
-				rel="noopener noreferrer"
-				class:expanded={isNavExpanded}
-			>
-				{@html getIcon('Github')}
-				{#if isNavExpanded}
-					<span class="nav-text">GitHub</span>
-				{/if}
-			</a>
-			{#if isNavExpanded}
-				<!-- <h2>vRAZUM</h2> -->
-			{/if}
-		</button>
 	</header>
 	<nav style="z-index: 1000;"></nav>
 	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
@@ -716,8 +536,79 @@
 			out:fly={{ x: 200, duration: 300 }}
 		>
 			{#if $currentUser}
+				{#if $showSettings && !isNavExpanded}
+					<button
+						class="nav-button toggle"
+						on:click={() => {
+							toggleNav();
+							if (showProfile || showAuthModal) {
+								showProfile = false;
+								showAuthModal = false;
+							}
+						}}
+					>
+						{#if isNavExpanded}
+							{@html getIcon('PanelLeftClose')}
+						{:else}
+							{@html getIcon('PanelLeftOpen')}
+						{/if}
+					</button>
+				{/if}
+				{#if !($showSettings && isNavExpanded)}
+
+				<button
+					class="nav-button drawer"
+					class:expanded={isNavExpanded}
+					class:active={$showSettings}
+					class:reveal-active={$showSettings}
+					use:swipeGesture={{
+						threshold: 50,
+						enableVisualFeedback: true,
+						onSwipeRight: () => {
+							console.log('🟢 Left button swiped right - showing sidenav');
+							if (innerWidth <= 450) {
+								sidenavStore.hideInput();
+								sidenavStore.hideRight();
+							}
+							if (!$showSettings) {
+								sidenavStore.toggleSettings();
+							}
+							isNavExpanded = false;
+						},
+						onSwipeLeft: () => {
+							console.log('🟢 Left button swiped left - hiding sidenav');
+							if ($showSettings) {
+								sidenavStore.hideSettings();
+							}
+							isNavExpanded = false;
+						}
+					}}
+					on:click={(event) => {
+						event.preventDefault();
+						if (innerWidth <= 450) {
+							// Mobile: close others first
+							sidenavStore.hideInput();
+							sidenavStore.hideRight();
+						}
+						sidenavStore.toggleSettings();
+						isNavExpanded = false;
+					}}
+				>
+					{#if $showSettings}
+					{@html getIcon('ChevronLeft')}
+
+					{:else}
+					{@html getIcon('MoreVertical')}
+
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.sidebar')}</span>
+					{/if}
+				</button>
+				{/if}
+
 				<!-- Home Route Navigation -->
-{#if currentPath === '/home' || currentPath === '/' || currentPath.split('/')[1] && !currentPath.startsWith('/api')}					<!-- Left Navigation Button (Sidenav) -->
+{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
 					<button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -1245,29 +1136,60 @@
 						{/if}
 					</button>
 				{/if}
+								<button
+					class="nav-button drawer"
+					class:expanded={isNavExpanded}
+					class:active={$showSearch}
+					class:reveal-active={$showSearch}
+					use:swipeGesture={{
+						threshold: 50,
+						enableVisualFeedback: true,
+						onSwipeUp: () => {
+							console.log('🟢 Composer button swiped up - showing input');
+							if (innerWidth <= 450) {
+								sidenavStore.hideLeft();
+								sidenavStore.hideRight();
+							}
+							if (!$showSearch) {
+								sidenavStore.toggleSearch();
+							}
+							isNavExpanded = false;
+						},
+						onSwipeDown: () => {
+							console.log('🟢 Composer button swiped down - hiding input');
+							if ($showSearch) {
+								sidenavStore.hideSearch();
+							}
+							isNavExpanded = false;
+						}
+					}}
+					on:click={(event) => {
+						event.preventDefault();
+						if (innerWidth <= 450) {
+							// Mobile: close others first
+							sidenavStore.hideLeft();
+							sidenavStore.hideRight();
+						}
+						sidenavStore.toggleSearch();
+						isNavExpanded = false;
+					}}
+				>
+					{#if $showInput}
+						{@html getIcon('ChevronDown')}
+					{:else}
+						{@html getIcon('Search')}
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.compose')}</span>
+					{/if}
+				</button>
 			{:else}
 				<!-- Unauthenticated state -->
 				<!-- <LogIn /> -->
 			{/if}
 		</div>
 	</div>
-	<!-- Navigation Toggle Button (always visible) -->
-	<button
-		class="nav-button toggle"
-		on:click={() => {
-			toggleNav();
-			if (showProfile || showAuthModal) {
-				showProfile = false;
-				showAuthModal = false;
-			}
-		}}
-	>
-		{#if isNavExpanded}
-			{@html getIcon('PanelLeftClose')}
-		{:else}
-			{@html getIcon('PanelLeftOpen')}
-		{/if}
-	</button>
+
 	{#if showLanguageNotification}
 		<div class="language-notification" transition:fade={{ duration: 300 }}>
 			{$t('lang.notification')}
@@ -1349,7 +1271,231 @@
 		<slot />
 	</main>
 	<Toast />
+	{#if $showSettings}
+		
+		<div
+			class="navigator-menu"
+			class:expanded={isNavExpanded}
+			on:mouseenter={() => (
+				isLogoHovered = true
+			)}
+			on:mouseleave={() => {
+				isLogoHovered = false;
+				handlePageMenuLeave();
+			}}
+			in:fly={{ x: -100, duration: 300, delay: 100 }}
+			out:fly={{ x: -100, duration: 300, delay: 100 }}
+		>
+			<div
+				class="logo-container"
+				on:click|stopPropagation={() => {
+					// Set a flag before navigating to root
+					sessionStorage.setItem('directNavigation', 'true');
+					navigateTo('/welcome');
+				}}
+				style="cursor: pointer;"
+			>
+				<img src={horizon100} alt="Horizon100" class="logo" />
+				<h2>vRAZUM</h2>
+			</div>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/home'}
+				on:click={() => {
+					navigateTo('/home');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				{@html getIcon('Compass')}
+				<span class="nav-text">{$t('nav.chat')}</span>
+				{#if isNavExpanded}
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/lean'}
+				on:click={() => {
+					navigateTo('/lean');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				{@html getIcon('Command')}
+				<span class="nav-text">{$t('nav.tools')}</span>
+				{#if isNavExpanded}
+				{/if}
+			</a>
+			<!-- <a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/game'}
+				on:click={() => {
+					navigateTo('/game');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				{@html getIcon('Gamepad')}
+				<span class="nav-text">{$t('nav.game')}</span>
+				{#if isNavExpanded}
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/ide'}
+				on:click={() => {
+					navigateTo('/ide');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				{@html getIcon('Code')}
+				<span class="nav-text">{$t('nav.ide')}</span>
+				{#if isNavExpanded}
+				{/if}
+			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/canvas'}
+				on:click={() => {
+					navigateTo('/canvas');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				{@html getIcon('Combine')}
+				<span class="nav-text">{$t('nav.canvas')}</span>
+				{#if isNavExpanded}
+				{/if}
+			</a> -->
+			<a
+				href="https://github.com/Horizon100/ultralit"
+				target="_blank"
+				rel="noopener noreferrer"
+				class:expanded={isNavExpanded}
+			>
+				{@html getIcon('Github')}
+				<span class="nav-text">GitHub</span>
+				{#if isNavExpanded}
+				{/if}
+			</a>
+			<button
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				use:swipeGesture={{
+					threshold: 50,
+					enableVisualFeedback: true,
+					onSwipeDown: () => {
+						console.log('🟢 User button swiped down - showing profile');
+						if (!showProfile) {
+							toggleAuthOrProfile();
+						}
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					},
+					onSwipeUp: () => {
+						console.log('🟢 User button swiped up - hiding profile');
+						if (showProfile) {
+							showProfile = false;
+						}
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}
+				}}
+				on:click={() => {
+					toggleAuthOrProfile();
+					// Only close the nav if it's expanded
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<div class="user-wrapper">
+					<div class="user-shortcuts">
+						{#if getAvatarUrl($currentUser)}
+							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
+						{:else}
+							<div class="default-avatar">
+								{($currentUser?.name ||
+									$currentUser?.username ||
+									$currentUser?.email ||
+									'?')[0]?.toUpperCase()}
+							</div>
+						{/if}
 
+						<span class="nav-text">{username} </span>
+						<div class="tracker">
+							<TimeTracker />
+						</div>
+						<div class="project" on:click|stopPropagation>
+							<ProjectDropdown />
+						</div>
+
+						<span
+							class="icon"
+							on:click|stopPropagation={() => {
+								logout();
+								// Only close the nav if it's expanded
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+						>
+							{@html getIcon('LogOutIcon', { size: 16 })}
+						</span>
+					</div>
+
+				</div>
+			</button>
+
+			{#if isNavExpanded}
+				<!-- <h2>vRAZUM</h2> -->
+			{/if}
+		</div>
+	{/if}
+	{#if showProfile}
+	<div
+		class="profile-overlay"
+		on:click={handleOverlayClick}
+		transition:fly={{ y: -200, duration: 300 }}
+	>
+		<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+			<Profile
+				user={$currentUser}
+				onClose={() => (showProfile = false)}
+				onStyleClick={handleStyleClick}
+			/>
+		</div>
+	</div>
+{/if}
+	{#if $showSearch}
+		<!-- Search wrapper - hidden when logo is hovered -->
+		<div
+			class="search-wrapper"
+			in:fly={{ x: 50, duration: 500, delay: 400 }}
+			out:fly={{ x: 50, duration: 500, delay: 400 }}
+			class:dropdown-open={isDropdownOpen}
+			class:search-open={isSearchFocused}
+		>
+				<SearchEngine
+					size="large"
+					placeholder={searchPlaceholder}
+					bind:isFocused={isSearchFocused}
+				/>
+		</div>
+	{/if}
 	<footer>
 		<!-- Footer content -->
 	</footer>
@@ -1375,7 +1521,167 @@
 		gap: 1rem;
 		margin-bottom: 0;
 	}
+		.navigator-menu {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-end;
+			position: absolute;
+			flex: 1;
+			top: 0;
+			padding: 0.5rem;
+			gap: 1rem;
+			bottom: 3.5rem;
+			left: 0;
+			width: auto;
+			background: var(--primary-color);
+			padding-bottom: 4rem;
+			z-index: 9999;
+			border-right: 1px solid var(--secondary-color);
 
+			&:hover {
+				width: auto !important;
+			}
+			& button.shortcut {
+				padding: 0;
+				margin: 0;
+				background: transparent;
+				border: 1px solid transparent;
+				width: 60px;
+				height: 60px;
+				& .user-avatar {
+					width: 60px !important;
+					height: 60px !important;
+					border-radius: 50%;
+					object-fit: cover;
+				}
+				& .nav-text {
+					display: none;
+				}
+				& .icon {
+					display: none;
+				}
+				& .tracker {
+					display: none;
+				}
+				
+				&:hover {
+
+					& .nav-text {
+						display: flex;
+					}
+					& .icon {
+						display: flex;
+					}
+					& .tracker {
+						display: flex;
+					}
+				}
+			}
+			button.user-wrapper {
+				display: flex;
+				flex-direction: row !important;
+				align-items: flex-start;
+				justify-content: flex-end;
+				background: transparent !important;
+				height: auto;
+				width: 100%;
+				gap: 0;
+			}
+			.user-shortcuts {
+				display: flex;
+				align-items: center;
+				width: 100%;
+				border: 1px solid var(--line-color);
+				gap: 0.5rem;
+				border-radius: 2rem;
+				transition: all 0.2s ease;
+				&:hover {
+					transform: translateX(4rem);
+					padding-right: 1rem;
+					background: var(--primary-color);
+				}
+			}
+			&.expanded {
+				width: 200px !important;
+				& button.shortcut {
+				padding: 0;
+				margin: 0;
+				background: transparent;
+				border: 1px solid transparent;
+				width: 100%;
+				height: 60px;
+				.user-shortcuts {
+					width: 200px;
+					&:hover {
+						transform: translateX(1rem);
+						padding-right: 0;
+
+					}
+
+				}
+
+				
+
+					& .nav-text {
+						display: flex;
+					}
+					& .icon {
+						display: flex;
+					}
+					& .tracker {
+						display: flex;
+					}
+				
+			}
+				& a {
+					flex-direction: row !important;
+					width: 100% !important;
+					border-radius: 3rem;
+				}
+				& .nav-text {
+					display: flex;
+				}
+				& .logo-container {
+					width: 200px !important;
+				}
+				& h2 {
+					display: flex !important;
+				}
+				
+			}
+			&  a {
+				display: flex;
+				justify-content: center;
+				color: var(--placeholder-color);
+				width: 60px !important;
+				height: 60px;
+				gap: 0.5rem !important;
+				background: var(--primary-color);
+				opacity: 0.5;
+				border-radius: 50%;
+				border: 1px solid var(--line-color);
+				align-items: center;
+				/* padding: 20px; */
+				text-decoration: none;
+				transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+				&:hover {
+					color: var(--tertiary-color);
+					opacity: 100%;
+					cursor: pointer;
+				}
+				& .nav-text {
+					display: none;
+				}
+				
+			}
+			& .logo-container {
+				position: absolute;
+				top: 0.5rem;
+				left: 0;
+				width: 80px;
+			}
+		}
 	button {
 		transition: all 0.3s ease;
 		&.icon {
@@ -1442,27 +1748,12 @@
 			}
 		}
 	}
+			img.logo {
+				width: 2rem;
+				height: 2rem;
+				position: relative;
+			}
 
-	.user-wrapper {
-		display: flex;
-		flex-direction: column !important;
-		align-items: flex-start;
-		justify-content: flex-start;
-						background: transparent !important;
-
-		height: auto;
-		width: auto;
-		gap: 0;
-	}
-	.user-shortcuts {
-		display: flex;
-		width: auto;
-		background-color: transparent;
-		border: 1px solid var(--line-color);
-		gap: 1rem;
-		padding: 0.25rem 0.5rem;
-		border-radius: 2rem;
-	}
 	.auth-overlay {
 		top: 0;
 		left: 0;
@@ -1493,8 +1784,9 @@
 		height: auto;
 	}
 	.profile-overlay {
-		position: relative;
-		width: 100%;
+		position: fixed;
+		left: 5rem !important;
+		top: 0;
 		height: auto !important;
 		justify-content: flex-start;
 		align-items: flex-start;
@@ -1517,13 +1809,11 @@
 		display: none;
 		// overflow: visible;
 	}
-	.tracker {
-		display: none;
-	}
+
 	.profile-content {
 		position: relative;
 		width: auto;
-		height: 94vh;
+		height: calc(100vh - 3rem);
 		width: 500px;
 		top: 0;
 		margin-bottom: auto;
@@ -1569,7 +1859,7 @@
 		height: 100%;
 		height: auto;
 		left: 0;
-		top: 3rem;
+		top: 0;
 		bottom: 0;
 		position: fixed;
 		display: flex;
@@ -1611,12 +1901,9 @@
 		/* margin-top: 0; */
 		/* align-items: center; */
 		height: 3rem;
-		border-bottom: 1px solid var(--line-color);
-		z-index: 1;
 		/* padding: 5px 5px; */
 		/* z-index: 100;; */
 		transition: all 0.3s ease;
-		background: var(--bg-color);
 		/* box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); */
 		/* background: linear-gradient(to bottom, #3f4b4b, #333333); */
 
@@ -1767,29 +2054,22 @@
 	}
 
 	.search-wrapper {
-		background: var(--secondary-color);
 		display: flex;
 		flex-direction: row;
-		align-items: center;
-		position: relative;
-		width: auto;
-		max-width: 600px;
-		height: 100%;
-		height: 2rem;
-		padding: 0 0.5rem;
-		border-radius: 1rem;
-		border: 1px solid var(--line-color);
+		justify-content: flex-end;
+		align-items: flex-end;
+		position: fixed;
+		bottom: 3rem;
+		left: 50%;
+		right: 0.5rem;
+		height: 3rem;
+		padding: 1rem;
+		// backdrop-filter: blur(3px);
 		transition:
 			opacity 0.2s ease,
 			transform 0.2s ease;
 		&.search-open {
-			height: 2rem;
-			padding: 0;
-			border-radius: 1rem;
-			flex-direction: column;
-			align-items: flex-start;
-			justify-content: flex-start;
-			background: var(--primary-color);
+			height: 100%;
 		}
 		&.dropdown-open {
 			height: auto !important;
@@ -2272,6 +2552,25 @@
 		text-align: center;
 		padding: 2rem;
 	}
+	.navigation-buttons {
+		display: flex;
+		flex-direction: row;
+		gap: 0.5rem;
+		width: 100%;
+		max-width: 1000px;
+		justify-content: center;
+		align-items: center;
+		backdrop-filter: blur(3px);
+		// border: 1px solid var(--line-color);
+
+		border-bottom: 1px solid transparent;
+		// padding: 0.5rem;
+		overflow-x: hidden;
+		overflow-y: hidden;
+		& .hidden {
+			display: none;
+		}
+	}
 	.sidenav {
 		display: flex;
 		flex-direction: row;
@@ -2288,7 +2587,6 @@
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
-		border-right: 1px solid transparent;
 		touch-action: none;
 		user-select: none;
 		-webkit-user-select: none;
@@ -2297,6 +2595,7 @@
 		transform: none !important;
 		will-change: auto;
 		pointer-events: auto;
+		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); 
 
 		/* Lock positioning */
 		transform: translateZ(0) !important;
@@ -2326,24 +2625,7 @@
 	//   /* backdrop-filter: blur(10px); */
 	// }
 
-	.navigation-buttons {
-		display: flex;
-		flex-direction: row;
-		gap: 0.5rem;
-		width: 100%;
-		max-width: 1000px;
-		justify-content: space-around;
-		align-items: center;
-		backdrop-filter: blur(3px);
-		border-radius: 2rem 2rem 0 0;
-		border: 1px solid var(--line-color);
-		border-bottom: 1px solid transparent;
-		// padding: 0.5rem;
 
-		& .hidden {
-			display: none;
-		}
-	}
 
 	.nav-button {
 		display: flex;
@@ -2457,18 +2739,18 @@
 		transition: all 0.3s ease;
 		height: 3rem;
 
-		& button.shortcut {
-			background: var(--primary-color);
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			width: 2rem;
-			height: 2rem;
-			border-radius: 50%;
-			&:hover {
-				background: var(--tertiary-color);
-			}
-		}
+		// & button.shortcut {
+		// 	background: var(--primary-color);
+		// 	display: flex;
+		// 	justify-content: center;
+		// 	align-items: center;
+		// 	width: 2rem;
+		// 	height: 2rem;
+		// 	border-radius: 50%;
+		// 	&:hover {
+		// 		background: var(--tertiary-color);
+		// 	}
+		// }
 		& h2 {
 			font-size: 1.2rem;
 		}
@@ -2713,12 +2995,7 @@
 		margin-bottom: 1rem;
 	}
 
-	.nav-button.toggle {
-		position: fixed;
-		right: 1rem;
-		bottom: 1rem;
-		z-index: 9999;
-	}
+
 
 	.nav-button,
 	.thread-toggle,
@@ -2931,7 +3208,6 @@
 		&.reveal-active {
 			background: var(--primary-color);
 
-			// Add any other active styles you want
 		}
 	}
 	.nav-button.drawer.active {
@@ -2939,7 +3215,7 @@
 		border-radius: 1rem !important;
 		background: var(--bg-color) !important;
 		width: auto !important;
-		max-width: 300px;
+		max-width: 150px;
 
 		flex: 1;
 		height: 2rem !important;
@@ -2966,6 +3242,8 @@
 		main {
 			overflow-y: hidden;
 		}
+
+
 		.illustration {
 			position: fixed;
 			width: auto;
@@ -3012,37 +3290,7 @@
 				display: none !important;
 			}
 		}
-		.search-wrapper {
-			background: var(--secondary-color);
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			position: relative;
-			width: auto;
-			flex: 1;
-			margin-left: 4rem;
-			height: 2rem;
-			margin-right: 0;
-			padding: 0 0.5rem;
-			border-radius: 1rem;
-			border: 1px solid var(--line-color);
-			&.search-open {
-				height: 2rem;
-				width: 100% !important;
-				padding: 0;
-				flex-direction: column;
-				align-items: flex-start;
-				justify-content: flex-start;
-				background: var(--primary-color);
-			}
-			&.dropdown-open {
-				height: auto !important;
-				min-height: 2rem;
-				flex-direction: column;
-				align-items: stretch;
-				padding: 0;
-			}
-		}
+
 		.nav-links {
 			margin: 0;
 			// justify-content: flex-end;

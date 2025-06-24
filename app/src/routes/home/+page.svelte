@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
@@ -38,6 +38,7 @@
 	} from '$lib/utils/errorUtils';
 	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
 	import { browser } from '$app/environment';
+	import { createHoverManager } from '$lib/utils/hoverUtils';
 
 interface TimelinePost extends PostWithInteractions {
 	isRepost?: boolean;
@@ -54,9 +55,9 @@ interface TimelinePost extends PostWithInteractions {
 	let homeCurrentOffset = 0;
 	let homePosts: PostWithInteractions[] = [];
 	const HOME_POSTS_PER_PAGE = 10;
-	let postComposerRef: any; // Reference to PostComposer component
-	let enableAutoTagging = true; // Enable/disable auto-tagging
-	let taggingModel: AIModel | null = null; // Optional: specify a different model for tagging
+	let postComposerRef: any; 
+	let enableAutoTagging = true; 
+	let taggingModel: AIModel | null = null; 
 	let showPostModal = false;
 	let isCommentModalOpen = false;
 	let selectedPost: PostWithInteractions | null = null;
@@ -65,8 +66,25 @@ interface TimelinePost extends PostWithInteractions {
 	let loadingMore = false;
 	let hasMore = true;
 	let currentOffset = 0;
+
 	const POSTS_PER_PAGE = 10;
-	// Helper function to batch fetch user profiles using your existing function
+
+const rightSideHoverManager = createHoverManager({
+	hoverZone: 200, 
+	minScreenWidth: 700,
+	debounceDelay: 100,
+	controls: ['rightSidenav'],
+	direction: 'right',
+});
+
+const { 
+	hoverState: rightSideHoverState, 
+	handleMenuLeave: handleRightSideLeave, 
+	toggleMenu: toggleRightSide 
+} = rightSideHoverManager;
+
+let rightSideCleanup: (() => void) | null = null;
+
 	
 async function fetchUserProfiles(userIds: string[]): Promise<void> {
 	const fetchPromises = userIds.map(async (userId) => {
@@ -626,7 +644,8 @@ $: if (typeof window !== 'undefined') {
 }
 onMount(async () => {
 	console.log('🔄 Home page mounted - setting up...');
-	
+	rightSideCleanup = rightSideHoverManager.initialize();
+
 	// Fetch initial data like username page
 	await fetchHomePosts(0, false);
 
@@ -656,7 +675,11 @@ onMount(async () => {
 		}
 	};
 });
-
+onDestroy(() => {
+	if (rightSideCleanup) {
+		rightSideCleanup();
+	}
+});
 $: {
 	console.log('🔄 REACTIVE STATE UPDATE:');
 	console.log('   Posts count:', posts.length);
@@ -794,7 +817,11 @@ $: {
 
 	<!-- Right Sidebar Component -->
 	{#if $showRightSidenav && $currentUser}
-		<div class="side-menu">
+		<div class="side-menu"
+			on:mouseleave={() => {
+				handleRightSideLeave();
+			}}
+		>
 			<AiMenu width={400} userId={$currentUser.id} />
 		</div>
 	{/if}

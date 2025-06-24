@@ -1,3 +1,4 @@
+// src/routes/api/keys/threads/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';

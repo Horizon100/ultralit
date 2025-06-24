@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import Pixelmap from '$lib/assets/game/maps/pixelmap.svg';
+	import Pixelmap from '$lib/assets/maps/pixelmap.svg';
 
 	interface PlayerPosition {
 		x: number;

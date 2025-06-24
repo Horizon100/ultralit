@@ -356,53 +356,51 @@ async function getUserName(userId: string | undefined): Promise<string> {
 			isLoading.set(false);
 		}
 	}
-	async function loadTags(projectId: string | null) {
-		try {
-			let url = '/api/tags';
-			if (projectId) {
-				url = `/api/projects/${projectId}/tags`;
+async function loadTags(projectId: string | null) {
+	try {
+		// Always use the general tags endpoint, ignore projectId
+		const url = '/api/tags';
+
+		console.log('Loading tags from:', url);
+
+		const response = await fetch(url);
+		console.log('Tags response status:', response.status);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('Tags fetch failed:', response.status, errorText);
+
+			// If the endpoint doesn't exist, return empty tags instead of failing
+			if (response.status === 404) {
+				console.log('Tags endpoint not found, returning empty tags');
+				tags.set([]);
+				return;
 			}
 
-			console.log('Loading tags from:', url);
-
-			const response = await fetch(url);
-			console.log('Tags response status:', response.status);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				console.error('Tags fetch failed:', response.status, errorText);
-
-				// If the endpoint doesn't exist, return empty tags instead of failing
-				if (response.status === 404) {
-					console.log('Tags endpoint not found, returning empty tags');
-					tags.set([]);
-					return;
-				}
-
-				throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
-			}
-
-			const contentType = response.headers.get('content-type');
-			if (!contentType || !contentType.includes('application/json')) {
-				const responseText = await response.text();
-				console.error('Tags response is not JSON:', responseText);
-				throw new Error('Invalid response format for tags');
-			}
-
-			const data = await response.json();
-			console.log('Tags data loaded:', data);
-
-			tags.set(data.items || []);
-			console.log('Tags loaded successfully');
-		} catch (err) {
-			console.error('Error loading tags:', err);
-			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
-
-			// Set empty tags so the component doesn't break
-			tags.set([]);
-			throw err;
+			throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
 		}
+
+		const contentType = response.headers.get('content-type');
+		if (!contentType || !contentType.includes('application/json')) {
+			const responseText = await response.text();
+			console.error('Tags response is not JSON:', responseText);
+			throw new Error('Invalid response format for tags');
+		}
+
+		const data = await response.json();
+		console.log('Tags data loaded:', data);
+
+		tags.set(data.items || []);
+		console.log('Tags loaded successfully');
+	} catch (err) {
+		console.error('Error loading tags:', err);
+		console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
+
+		// Set empty tags so the component doesn't break
+		tags.set([]);
+		throw err;
 	}
+}
 
 	async function saveTag(tag: Tag) {
 		try {

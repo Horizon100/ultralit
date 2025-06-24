@@ -128,7 +128,8 @@ async function stopAndSaveTracking() {
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: auto;
+		width: 40px;
+		height: 100%;
 		gap: 0.5rem !important;
 		transition: width 0.3s ease;
 		& span.timer {

@@ -4627,7 +4627,7 @@ async function handleLoadThread(threadId: string) {
 		bottom: auto;
 		padding: 0;
 		padding-top: 0;
-		height: calc(100vh - 4rem);
+		height: 100vh;
 		margin-top: 0;
 		margin-left: 0;
 		backdrop-filter: blur(10px);
@@ -4910,7 +4910,7 @@ async function handleLoadThread(threadId: string) {
 		width: 100%;
 		height: 100%;
 		margin-top: 0;
-		margin-bottom: 8rem;
+		margin-bottom: 4rem;
 		position: relative;
 		justify-content: flex-end;
 		align-items: center;

@@ -6,7 +6,7 @@
 	import type { Notes, Attachment, Folders, AIModel, ProviderType } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
 	import { fetchAIResponse } from '$lib/clients/aiClient';
-	import Headmaster from '$lib/assets/wallapapers/aristoteles.png';
+	import Headmaster from '$lib/assets/wallpapers/aristoles.png';
 	import {
 		handleImageUpload,
 		onFileSelected,

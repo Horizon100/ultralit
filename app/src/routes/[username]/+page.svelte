@@ -41,16 +41,11 @@
 	let innerWidth = 0;
 	let userProfilesMap: Map<string, Partial<User> | null> = new Map();
 	
-	// Fixed infinite scroll state variables
 	let profileLoadingMore = false;
 	let profileHasMore = true;
 	let profileCurrentOffset = 0;
 	const PROFILE_POSTS_PER_PAGE = 10;
 	
-	// NEW: Infinite scroll manager
-	let infiniteScrollManager: InfiniteScrollManager | null = null;
-
-	// Other state variables...
 	let postComposerRef: any;
 	let enableAutoTagging = true;
 	let taggingModel: AIModel | null = null;
@@ -59,8 +54,16 @@
 	let selectedPost: PostWithInteractions | null = null;
 	let loadingProfiles = false;
 
-	// Get username from URL
+	let infiniteScrollManager: InfiniteScrollManager | null = null;
+	let scrollY = 0;
+	let isScrolled = false;
+	const SCROLL_THRESHOLD = 100;
+$: {
+    isScrolled = scrollY > SCROLL_THRESHOLD;
+    console.log('Scroll update:', { scrollY, isScrolled, threshold: SCROLL_THRESHOLD });
+}
 	$: username = $page.params.username;
+
 
 	// Helper function to fetch user profiles (same as before)
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
@@ -569,50 +572,87 @@ $: {
 		console.log($t('posts.followUser'), event.detail.userId);
 	}
 
-	onMount(async () => {
-		console.log('=== USERNAME PAGE MOUNT START ===');
-				const handleNewChat = () => {
-			// Handle new chat creation - maybe open user selection modal
-			console.log('New chat requested from DM module');
-			// You could open a user selection modal here
-		};
+onMount(async () => {
+    console.log('=== USERNAME PAGE MOUNT START ===');
+    
+    // Debug: Find what's actually scrolling
+    const checkScrollableElements = () => {
+        const elements = [
+            document.documentElement,
+            document.body,
+            document.querySelector('.profile-content-wrapper'),
+            document.querySelector('.main-wrapper'),
+            document.querySelector('.profile-content')
+        ];
+        
+        elements.forEach((el, index) => {
+            if (el) {
+                console.log(`Element ${index}:`, {
+                    element: el.className || el.tagName,
+                    scrollTop: el.scrollTop,
+                    scrollHeight: el.scrollHeight,
+                    clientHeight: el.clientHeight,
+                    isScrollable: el.scrollHeight > el.clientHeight
+                });
+            }
+        });
+    };
+    
+    // Check initially and on scroll
+    checkScrollableElements();
+    
+    // Add scroll listeners to different elements to see which one actually scrolls
+    const scrollHandler = (e) => {
+        console.log('Scroll detected on:', e.target.className || e.target.tagName, 'ScrollTop:', e.target.scrollTop);
+        // Update our scroll variable manually
+        scrollY = e.target.scrollTop;
+    };
+    
+    // Try different scroll targets
+    document.addEventListener('scroll', scrollHandler, true); // Use capture phase
+    document.querySelector('.profile-content-wrapper')?.addEventListener('scroll', scrollHandler);
+    document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
+    
+    const handleNewChat = () => {
+        console.log('New chat requested from DM module');
+    };
 
-		document.addEventListener('newChat', handleNewChat);
-		
-		// Fetch initial data
-		if (!user && username) {
-			await fetchUserData(0, false);
-		}
+    document.addEventListener('newChat', handleNewChat);
 
-		// NEW: Setup infinite scroll with retry
-		console.log('🔧 Setting up infinite scroll...');
-		setupInfiniteScroll();
-		
-		// Try to attach with retries
-		if (infiniteScrollManager) {
-			infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-				if (success) {
-					console.log('✅ Infinite scroll ready!');
-				} else {
-					console.error('❌ Failed to setup infinite scroll');
-				}
-			});
-		}
+    // Rest of your existing onMount code...
+    if (!user && username) {
+        await fetchUserData(0, false);
+    }
 
-		console.log('=== USERNAME PAGE MOUNT END ===');
+    console.log('🔧 Setting up infinite scroll...');
+    setupInfiniteScroll();
+    
+    if (infiniteScrollManager) {
+        infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+            if (success) {
+                console.log('✅ Infinite scroll ready!');
+            } else {
+                console.error('❌ Failed to setup infinite scroll');
+            }
+        });
+    }
 
-		// Cleanup function
-		return () => {
-			document.removeEventListener('newChat', handleNewChat);
-			console.log('🧹 Cleaning up infinite scroll...');
-			if (infiniteScrollManager) {
-				infiniteScrollManager.destroy();
-				infiniteScrollManager = null;
-			}
-		};
-	});
+    console.log('=== USERNAME PAGE MOUNT END ===');
+
+    return () => {
+        document.removeEventListener('newChat', handleNewChat);
+        document.removeEventListener('scroll', scrollHandler, true);
+        document.querySelector('.profile-content-wrapper')?.removeEventListener('scroll', scrollHandler);
+        document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
+        console.log('🧹 Cleaning up infinite scroll...');
+        if (infiniteScrollManager) {
+            infiniteScrollManager.destroy();
+            infiniteScrollManager = null;
+        }
+    };
+});
 </script>
-<svelte:window bind:innerWidth />
+<svelte:window bind:scrollY />
 
 <svelte:head>
 	<title>{user?.name || user?.username || 'User'} - Profile</title>
@@ -644,110 +684,35 @@ $: {
 				</button>
 			</div>
 		{:else if user}
-			<!-- Sticky Header with Back Button -->
-			<div class="profile-sticky-header">
-				<BackButton />
-				<div class="header-username">
-					<span class="username-text">{user.name || user.username}</span>
-					<span class="post-count">{totalPosts} {$t('posts.posts')} </span>
-				</div>
-			</div>
-
-			<div class="main-wrapper">
-				<!-- Profile Header -->
-				<header class="profile-header">
-					<div class="profile-background"></div>
-					<div class="profile-info">
-						<div class="avatar-section">
-							<img
-								src={user.avatar
-									? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
-									: '/api/placeholder/120/120'}
-								alt="{user.name || user.username}'s avatar"
-								class="profile-avatar"
-							/>
-						</div>
-
-						<div class="user-details">
-							<h1 class="user-name">{user.name || user.username}</h1>
-							<p class="username">@{user.username}</p>
-
-							{#if profile?.bio}
-								<p class="user-bio">{profile.bio}</p>
-							{/if}
-
-							<div class="user-meta">
-								<div class="meta-item">
-									{@html getIcon('Calendar', { size: 16 })}
-									<span>{$t('profile.joined')} {formatJoinDate(user.created)}</span>
-								</div>
-
-								{#if profile?.location}
-									<div class="meta-item">
-										{@html getIcon('MapPin', { size: 16 })}
-										<span>{profile.location}</span>
-									</div>
-								{/if}
-
-								{#if profile?.website}
-									<div class="meta-item">
-										{@html getIcon('Link', { size: 16 })}
-										<a href={profile.website} target="_blank" rel="noopener noreferrer">
-											{profile.website}
-										</a>
-									</div>
-								{/if}
-							</div>
-
-							<div class="user-stats">
-								<div class="stat">
-									<span class="stat-number">{totalPosts}</span>
-									<span class="stat-label">{$t('posts.posts')} </span>
-								</div>
-
-								{#if profile?.follower_count !== undefined}
-									<div class="stat">
-										<span class="stat-number">{profile.follower_count}</span>
-										<span class="stat-label">{$t('profile.followers')} </span>
-									</div>
-								{/if}
-
-								{#if profile?.following_count !== undefined}
-									<div class="stat">
-										<span class="stat-number">{profile.following_count}</span>
-										<span class="stat-label">{$t('profile.following')}</span>
-									</div>
-								{/if}
-							</div>
-
-							<div class="action-buttons">
-								{#if $currentUser}
-									<button class="btn btn-primary">
-										{@html getIcon('MessageSquare', { size: 16 })}
-										{$t('chat.message')}
-									</button>
-
-									<button class="btn btn-secondary">
-										{@html getIcon('User', { size: 16 })}
-										{$t('profile.follow')}
-									</button>
-
-									<button class="btn btn-outline">
-										{@html getIcon('Settings', { size: 16 })}
-									</button>
-								{:else}
-									<button class="btn btn-primary" on:click={() => goto('/login')}>
-										{@html getIcon('UserIcon', { size: 16 })}
-										{$t('generic.signin')}
-									</button>
-								{/if}
-							</div>
-						</div>
+			{#if isScrolled}
+				<div class="profile-sticky-header" transition:fly={{ y: -50, duration: 200 }}>
+					<BackButton />
+					<div class="header-username">
+						<span class="username-text">{user.name || user.username}</span>
+						<span class="post-count">{totalPosts} {$t('posts.posts')} </span>
 					</div>
-				</header>
+					<div class="action-buttons">
+						{#if $currentUser}
+							<button class="btn btn-primary">
+								{@html getIcon('MessageSquare', { size: 16 })}
+								{$t('chat.message')}
+							</button>
 
-				<!-- Profile Content -->
-				<main class="profile-content">
+							<button class="btn btn-secondary">
+								{@html getIcon('User', { size: 16 })}
+								{$t('profile.follow')}
+							</button>
+
+							<button class="btn btn-outline">
+								{@html getIcon('Settings', { size: 16 })}
+							</button>
+						{:else}
+							<button class="btn btn-primary" on:click={() => goto('/login')}>
+								{@html getIcon('UserIcon', { size: 16 })}
+								{$t('generic.signin')}
+							</button>
+						{/if}
+					</div>
 					<div class="content-nav">
 						<nav class="tab-nav">
 							<button class="tab active"> {$t('posts.posts')}</button>
@@ -755,6 +720,112 @@ $: {
 							<button class="tab"> {$t('posts.likes')}</button>
 						</nav>
 					</div>
+				</div>
+			{/if}
+
+<div class="main-wrapper" class:with-sticky-header={isScrolled}>
+				{#if !isScrolled}
+					<header class="profile-header" transition:fly={{ y: -50, duration: 200 }}>
+						<div class="profile-background"></div>
+						<div class="profile-info">
+							<div class="avatar-section">
+								<img
+									src={user.avatar
+										? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
+										: '/api/placeholder/120/120'}
+									alt="{user.name || user.username}'s avatar"
+									class="profile-avatar"
+								/>
+							</div>
+
+							<div class="user-details">
+								<h1 class="user-name">{user.name || user.username}</h1>
+								<p class="username">@{user.username}</p>
+
+								{#if profile?.bio}
+									<p class="user-bio">{profile.bio}</p>
+								{/if}
+
+								<div class="user-meta">
+									<div class="meta-item">
+										{@html getIcon('Calendar', { size: 16 })}
+										<span>{$t('profile.joined')} {formatJoinDate(user.created)}</span>
+									</div>
+
+									{#if profile?.location}
+										<div class="meta-item">
+											{@html getIcon('MapPin', { size: 16 })}
+											<span>{profile.location}</span>
+										</div>
+									{/if}
+
+									{#if profile?.website}
+										<div class="meta-item">
+											{@html getIcon('Link', { size: 16 })}
+											<a href={profile.website} target="_blank" rel="noopener noreferrer">
+												{profile.website}
+											</a>
+										</div>
+									{/if}
+								</div>
+
+								<div class="user-stats">
+									<div class="stat">
+										<span class="stat-number">{totalPosts}</span>
+										<span class="stat-label">{$t('posts.posts')} </span>
+									</div>
+
+									{#if profile?.follower_count !== undefined}
+										<div class="stat">
+											<span class="stat-number">{profile.follower_count}</span>
+											<span class="stat-label">{$t('profile.followers')} </span>
+										</div>
+									{/if}
+
+									{#if profile?.following_count !== undefined}
+										<div class="stat">
+											<span class="stat-number">{profile.following_count}</span>
+											<span class="stat-label">{$t('profile.following')}</span>
+										</div>
+									{/if}
+								</div>
+					<div class="action-buttons">
+						{#if $currentUser}
+							<button class="btn btn-primary">
+								{@html getIcon('MessageSquare', { size: 16 })}
+								{$t('chat.message')}
+							</button>
+
+							<button class="btn btn-secondary">
+								{@html getIcon('User', { size: 16 })}
+								{$t('profile.follow')}
+							</button>
+
+							<button class="btn btn-outline">
+								{@html getIcon('Settings', { size: 16 })}
+							</button>
+						{:else}
+							<button class="btn btn-primary" on:click={() => goto('/login')}>
+								{@html getIcon('UserIcon', { size: 16 })}
+								{$t('generic.signin')}
+							</button>
+						{/if}
+					</div>
+					<div class="content-nav">
+						<nav class="tab-nav">
+							<button class="tab active"> {$t('posts.posts')}</button>
+							<button class="tab"> {$t('posts.media')}</button>
+							<button class="tab"> {$t('posts.likes')}</button>
+						</nav>
+					</div>
+
+							</div>
+						</div>
+					</header>
+				{/if}
+				<!-- Profile Content -->
+				<main class="profile-content">
+
 
 					<!-- Posts Feed -->
 					<section class="posts-section" in:fly={{ y:200, duration: 300 }} out:fly={{ y: -200, duration: 200 }}>
@@ -891,9 +962,16 @@ $: {
 		</div>
 	{/if}
 </div>
-
-<!-- FIXED: Debug panel with correct variable references -->
 {#if browser}
+<div style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 10px; z-index: 9999; font-size: 12px;">
+    ScrollY: {scrollY}<br>
+    Threshold: {SCROLL_THRESHOLD}<br>
+    IsScrolled: {isScrolled}<br>
+    Header Visible: {isScrolled ? 'YES' : 'NO'}
+</div>
+{/if}
+<!-- FIXED: Debug panel with correct variable references -->
+<!-- {#if browser}
 <div style="position: fixed; bottom: 10px; left: 10px; background: #333; color: white; padding: 15px; font-size: 12px; z-index: 9999; border-radius: 8px; min-width: 250px; max-width: 300px;">
 	<div style="font-weight: bold; margin-bottom: 8px;">🔄 Profile Scroll Debug</div>
 	<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
@@ -929,7 +1007,7 @@ $: {
 		</button>
 	</div>
 </div>
-{/if}
+{/if} -->
 
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
@@ -944,8 +1022,8 @@ $: {
 		display: flex;
 		justify-content: center;
 		min-height: 100vh;
-		width: 100%;
-		background-color: var(--primary-color);
+		margin-left: 1rem;
+		width: calc(100% - 2rem);
 	}
 
 	.profile-page-container.hide-left-sidebar .profile-content-wrapper {
@@ -982,19 +1060,20 @@ $: {
 		justify-content: center;
 		align-items: center;
 		max-width: 800px;
+
 	}
 
-	/* Original styles preserved */
 	.profile-sticky-header {
-		position: sticky;
+		position: fixed;
 		top: 0;
 		z-index: 10;
 		height: 3rem;
 		width: 100%;
+		max-width: 800px;
+		border-radius: 0 0 2rem 2rem;
 		display: flex;
 		align-items: center;
 		background: var(--primary-color);
-		backdrop-filter: blur(10px);
 		-webkit-backdrop-filter: blur(10px);
 	}
 
@@ -1045,6 +1124,8 @@ $: {
 		/* border-radius: 0.75rem; */
 		width: 100%;
 		margin-top: 0;
+		border-radius: 2rem 2rem 0 0;
+
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
@@ -1063,6 +1144,8 @@ $: {
 	.profile-header {
 		background: var(--bg-color);
 		overflow: hidden;
+		  position: relative;
+  z-index: 999;
 	}
 
 	.profile-background {

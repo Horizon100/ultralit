@@ -9,6 +9,7 @@ interface SidenavState {
 	showSettings: boolean;
 	showExplorer: boolean;
 	showEditor: boolean;
+	showSearch: boolean;
 }
 
 function createSidenavStore() {
@@ -20,51 +21,49 @@ function createSidenavStore() {
 		showOverlay: false,
 		showSettings: false,
 		showExplorer: false,
-		showEditor: false
+		showEditor: false,
+		showSearch: false
 	});
 
 	return {
 		subscribe,
 
-		// Left sidebar methods
 		showLeft: () => update((state) => ({ ...state, showSidenav: true })),
 		hideLeft: () => update((state) => ({ ...state, showSidenav: false })),
 		toggleLeft: () => update((state) => ({ ...state, showSidenav: !state.showSidenav })),
 
-		// Input/composer methods
 		showInput: () => update((state) => ({ ...state, showInput: true })),
 		hideInput: () => update((state) => ({ ...state, showInput: false })),
 		toggleInput: () => update((state) => ({ ...state, showInput: !state.showInput })),
 
-		// Right sidebar methods
 		showRight: () => update((state) => ({ ...state, showRightSidenav: true })),
 		hideRight: () => update((state) => ({ ...state, showRightSidenav: false })),
 		toggleRight: () => update((state) => ({ ...state, showRightSidenav: !state.showRightSidenav })),
 
-		// Filters methods
 		showFilters: () => update((state) => ({ ...state, showFilters: true })),
 		hideFilters: () => update((state) => ({ ...state, showFilters: false })),
 		toggleFilters: () => update((state) => ({ ...state, showFilters: !state.showFilters })),
 
-		// Overlay methods
 		showOverlay: () => update((state) => ({ ...state, showOverlay: true })),
 		hideOverlay: () => update((state) => ({ ...state, showOverlay: false })),
 		toggleOverlay: () => update((state) => ({ ...state, showOverlay: !state.showOverlay })),
 
-		// Settings methods
 		showSettings: () => update((state) => ({ ...state, showSettings: true })),
 		hideSettings: () => update((state) => ({ ...state, showSettings: false })),
 		toggleSettings: () => update((state) => ({ ...state, showSettings: !state.showSettings })),
 
-		// Editor methods
 		showEditor: () => update((state) => ({ ...state, showEditor: true })),
 		hideEditor: () => update((state) => ({ ...state, showEditor: false })),
 		toggleEditor: () => update((state) => ({ ...state, showEditor: !state.showEditor })),
 
-		// Explorer methods
 		showExplorer: () => update((state) => ({ ...state, showExplorer: true })),
 		hideExplorer: () => update((state) => ({ ...state, showExplorer: false })),
 		toggleExplorer: () => update((state) => ({ ...state, showExplorer: !state.showExplorer })),
+
+		showSearch: () => update((state) => ({ ...state, showSearch: true })),
+		hideSearch: () => update((state) => ({ ...state, showSearch: false })),
+		toggleSearch: () => update((state) => ({ ...state, showSearch: !state.showSearch })),
+
 
 		// Legacy methods (for backward compatibility)
 		show: () => update((state) => ({ ...state, showSidenav: true })),
@@ -82,7 +81,8 @@ function createSidenavStore() {
 				showOverlay: false,
 				showSettings: false,
 				showEditor: false,
-				showExplorer: false
+				showExplorer: false,
+				showSearch: false
 			})),
 		setLeft: (value: boolean) => update((state) => ({ ...state, showSidenav: value })),
 		setInput: (value: boolean) => update((state) => ({ ...state, showInput: value })),
@@ -91,7 +91,9 @@ function createSidenavStore() {
 		setOverlay: (value: boolean) => update((state) => ({ ...state, showOverlay: value })),
 		setSettings: (value: boolean) => update((state) => ({ ...state, showSettings: value })),
 		setEditor: (value: boolean) => update((state) => ({ ...state, showEditor: value })),
-		setExplorer: (value: boolean) => update((state) => ({ ...state, showExplorer: value }))
+		setExplorer: (value: boolean) => update((state) => ({ ...state, showExplorer: value })),
+		setSearch: (value: boolean) => update((state) => ({ ...state, showSearch: value }))
+
 	};
 }
 
@@ -106,3 +108,4 @@ export const showOverlay = derived(sidenavStore, ($store) => $store.showOverlay)
 export const showSettings = derived(sidenavStore, ($store) => $store.showSettings);
 export const showEditor = derived(sidenavStore, ($store) => $store.showEditor);
 export const showExplorer = derived(sidenavStore, ($store) => $store.showExplorer);
+export const showSearch = derived(sidenavStore, ($store) => $store.showSearch);

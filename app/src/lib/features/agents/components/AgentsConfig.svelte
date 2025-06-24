@@ -858,7 +858,7 @@
 		display: flex;
 		gap: 0;
 		z-index: 1000;
-		width: 100%;
+		width: auto;
 		backdrop-filter: blur(20px);
 	}
 
@@ -1118,9 +1118,9 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
-		align-items: flex-start;
+		align-items: stretch;
 		height: 90vh;
-		width: 100%;
+		width: calc(100% - 2rem);
 		gap: 0.5rem;
 		padding: 0.5rem;
 		/* border-radius: 12px; */
@@ -1129,7 +1129,6 @@
 		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Adds a soft shadow for depth */
 		overflow-y: auto;
 		overflow-x: hidden;
-		background-color: #333333;
 
 		/* max-height: 80vh; Limits the height to prevent excessive scrolling */
 	}
@@ -1266,7 +1265,7 @@
 		justify-content: flex-start;
 		align-items: center;
 		gap: 1rem;
-		width: 100%;
+		width: auto;
 		/* border-bottom: 2px solid rgb(84, 84, 84); */
 		background-color: var(--primary-color);
 		border: 1px solid var(--line-color);

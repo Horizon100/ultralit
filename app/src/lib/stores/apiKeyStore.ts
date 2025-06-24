@@ -17,6 +17,118 @@ export interface ApiKeys {
 	deepseek?: string;
 	[key: string]: string | undefined;
 }
+export async function debugCompleteApiKeyFlow() {
+  console.log('=== COMPLETE API KEY FLOW DEBUG ===');
+  
+  // Step 1: Test the raw server endpoint
+  console.log('1. Testing raw server endpoint...');
+  try {
+    const response = await fetch('/api/keys', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('   - Status:', response.status);
+    console.log('   - OK:', response.ok);
+    
+    const rawData = await response.json();
+    console.log('   - Raw response:', rawData);
+    console.log('   - Raw type:', typeof rawData);
+    console.log('   - Raw keys:', Object.keys(rawData || {}));
+    
+    // Step 2: Test fetchTryCatch wrapper
+    console.log('2. Testing with fetchTryCatch...');
+    const fetchResult = await fetch('/api/keys', { credentials: 'include' });
+    const fetchData = await fetchResult.json();
+    
+    console.log('   - fetchTryCatch would receive:', fetchData);
+    
+    // Step 3: Simulate the store's processing logic
+    console.log('3. Simulating store processing...');
+    let keys = fetchData;
+    
+    if (keys && typeof keys === 'object') {
+      console.log('   - Keys is object, checking structure...');
+      
+      if (keys.success && keys.data && typeof keys.data === 'object') {
+        console.log('   - Found keys.success + keys.data structure');
+        keys = keys.data;
+        console.log('   - Extracted keys from data:', Object.keys(keys));
+      } else if (keys.success && keys.keys && typeof keys.keys === 'object') {
+        console.log('   - Found keys.success + keys.keys structure'); 
+        keys = keys.keys;
+        console.log('   - Extracted keys from keys:', Object.keys(keys));
+      } else if (!keys.success && !keys.data) {
+        console.log('   - Using keys directly (no wrapper)');
+        console.log('   - Direct keys:', Object.keys(keys));
+      } else {
+        console.log('   - Unexpected structure, using empty object');
+        console.log('   - Available fields:', Object.keys(keys));
+        keys = {};
+      }
+    }
+    
+    // Step 4: Test validation
+    console.log('4. Testing validation...');
+    const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
+    const cleanKeys = {};
+    
+    Object.entries(keys).forEach(([provider, key]) => {
+      console.log(`   - Checking ${provider}: ${typeof key}, valid provider: ${validProviders.includes(provider)}, has value: ${!!key}`);
+      if (validProviders.includes(provider) && typeof key === 'string' && key.length > 0) {
+        cleanKeys[provider] = key;
+        console.log(`   - ✅ Added ${provider} to clean keys`);
+      } else {
+        console.log(`   - ❌ Rejected ${provider}`);
+      }
+    });
+    
+    console.log('5. Final clean keys:', cleanKeys);
+    console.log('6. Clean keys count:', Object.keys(cleanKeys).length);
+    
+    return cleanKeys;
+    
+  } catch (error) {
+    console.error('Error in flow debug:', error);
+  }
+}
+
+// Also add this function to test if you have any keys stored at all:
+export async function testAddApiKey() {
+  console.log('=== TESTING ADD API KEY ===');
+  
+  try {
+    // Add a test key
+    const response = await fetch('/api/keys', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        service: 'openai',
+        key: 'sk-test-key-123456789' // Replace with a real key if you want to test
+      })
+    });
+    
+    console.log('Add key response status:', response.status);
+    const addResult = await response.json();
+    console.log('Add key result:', addResult);
+    
+    // Now test fetching keys again
+    const fetchResponse = await fetch('/api/keys', {
+      credentials: 'include'
+    });
+    const fetchResult = await fetchResponse.json();
+    console.log('Keys after adding:', fetchResult);
+    
+  } catch (error) {
+    console.error('Error testing add key:', error);
+  }
+}
 
 function createApiKeyStore() {
 	const { subscribe, set, update } = writable<ApiKeys>({});

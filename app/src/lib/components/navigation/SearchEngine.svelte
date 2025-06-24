@@ -593,24 +593,7 @@
 	class:size-large={size === 'large'}
 >
 	<div class="search-input-container" bind:this={dropdownContainer}>
-		<div class="input-wrapper" class:expanded={isExpanded}>
-			<!-- <Search class="search-icon" size={size === 'small' ? 16 : size === 'large' ? 20 : 20} /> -->
-			<input
-				bind:this={searchInput}
-				bind:value={searchQuery}
-				type="text"
-				{placeholder}
-				class="search-input"
-				on:focus={handleInputFocus}
-				on:blur={handleInputBlur}
-				on:keydown={handleKeydown}
-			/>
-			{#if isLoading}
-				<div class="loading-indicator">
-					<div class="spinner"></div>
-				</div>
-			{/if}
-		</div>
+
 
 		{#if isExpanded && hasResults()}
 			<div
@@ -621,73 +604,7 @@
 				on:mouseenter|stopPropagation={() => (isMouseInside = true)}
 				on:mouseleave|stopPropagation={() => (isMouseInside = false)}
 			>
-				<div class="tab-navigation">
-					{#if projectResults.length > 0}
-						<button
-							class="tab-button {activeTab === 'projects' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('projects')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('Book', { size: 16 })}
-							<span>{$t('profile.projects')} ({projectResults.length})</span>
-						</button>
-					{/if}
 
-					{#if threadResults.length > 0}
-						<button
-							class="tab-button {activeTab === 'threads' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('threads')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('MessagesSquare', { size: 16 })}
-							<span>{$t('threads.threads')} ({threadResults.length})</span>
-						</button>
-					{/if}
-
-					{#if messageResults.length > 0}
-						<button
-							class="tab-button {activeTab === 'messages' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('messages')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('MessageCircle', { size: 16 })}
-							<span>{$t('chat.messages')} ({messageResults.length})</span>
-						</button>
-					{/if}
-
-					{#if postResults.length > 0}
-						<button
-							class="tab-button {activeTab === 'posts' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('posts')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('Layers', { size: 16 })}
-							<span>{$t('posts.posts')} ({postResults.length})</span>
-						</button>
-					{/if}
-
-					{#if taskResults.length > 0}
-						<button
-							class="tab-button {activeTab === 'tasks' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('tasks')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('CheckSquare', { size: 16 })}
-							<span>{$t('tasks.title')} ({taskResults.length})</span>
-						</button>
-					{/if}
-
-					{#if multipleTabsAvailable}
-						<button
-							class="tab-button {activeTab === 'all' ? 'active' : ''}"
-							on:click|stopPropagation={() => setActiveTab('all')}
-							on:mousedown|stopPropagation={() => {}}
-						>
-							{@html getIcon('Layers', { size: 16 })}
-							<span>{$t('generic.all')} </span>
-						</button>
-					{/if}
-				</div>
 
 				<div class="results-container">
 					<!-- Project Results -->
@@ -947,8 +864,93 @@
 						</div>
 					{/if}
 				</div>
+				<div class="tab-navigation">
+					{#if projectResults.length > 0}
+						<button
+							class="tab-button {activeTab === 'projects' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('projects')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('Book', { size: 16 })}
+							<span>{$t('profile.projects')} ({projectResults.length})</span>
+						</button>
+					{/if}
+
+					{#if threadResults.length > 0}
+						<button
+							class="tab-button {activeTab === 'threads' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('threads')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('MessagesSquare', { size: 16 })}
+							<span>{$t('threads.threads')} ({threadResults.length})</span>
+						</button>
+					{/if}
+
+					{#if messageResults.length > 0}
+						<button
+							class="tab-button {activeTab === 'messages' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('messages')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('MessageCircle', { size: 16 })}
+							<span>{$t('chat.messages')} ({messageResults.length})</span>
+						</button>
+					{/if}
+
+					{#if postResults.length > 0}
+						<button
+							class="tab-button {activeTab === 'posts' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('posts')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('Layers', { size: 16 })}
+							<span>{$t('posts.posts')} ({postResults.length})</span>
+						</button>
+					{/if}
+
+					{#if taskResults.length > 0}
+						<button
+							class="tab-button {activeTab === 'tasks' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('tasks')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('CheckSquare', { size: 16 })}
+							<span>{$t('tasks.title')} ({taskResults.length})</span>
+						</button>
+					{/if}
+
+					{#if multipleTabsAvailable}
+						<button
+							class="tab-button {activeTab === 'all' ? 'active' : ''}"
+							on:click|stopPropagation={() => setActiveTab('all')}
+							on:mousedown|stopPropagation={() => {}}
+						>
+							{@html getIcon('Layers', { size: 16 })}
+							<span>{$t('generic.all')} </span>
+						</button>
+					{/if}
+				</div>
 			</div>
 		{/if}
+				<div class="input-wrapper" class:expanded={isExpanded}>
+			<!-- <Search class="search-icon" size={size === 'small' ? 16 : size === 'large' ? 20 : 20} /> -->
+			<input
+				bind:this={searchInput}
+				bind:value={searchQuery}
+				type="text"
+				{placeholder}
+				class="search-input"
+				on:focus={handleInputFocus}
+				on:blur={handleInputBlur}
+				on:keydown={handleKeydown}
+			/>
+			{#if isLoading}
+				<div class="loading-indicator">
+					<div class="spinner"></div>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -961,20 +963,26 @@
 		position: relative;
 		top: 0;
 		left: 0;
-		right: 1rem;
+		right: 0;
 		margin-left: 0;
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		justify-content: flex-start;
-		width: auto !important;
+		justify-content: flex-end;
+		border-radius: 1rem;
+		padding-inline-start: 1rem;
+		width: 100% !important;
+		border: 1px solid var(--line-color);
+		background: var(--bg-color);
 		& .search-input-container {
 			position: relative;
 			width: 100% !important;
-			top: auto;
+			top: 0;
+			bottom: 0;
 			border-radius: 1rem;
 			padding: 0;
 			gap: 0;
+			
 		}
 
 		& .input-wrapper {
@@ -996,9 +1004,7 @@
 			display: flex;
 			flex-direction: row;
 			padding: 0 !important;
-			padding-inline-start: 2rem;
-			width: 100%;
-			width: 600px;
+			width: 500px !important;
 			font-size: 0.9rem !important;
 			// padding: 0.75rem 2.75rem 0.75rem 2.75rem;
 			border: 1px solid transparent;
@@ -1018,14 +1024,11 @@
 		.tab-navigation {
 			display: flex;
 			overflow-x: auto;
-			position: absolute;
+			position: relative;
 			width: 100%;
 			flex: 1;
-			padding: 0.5rem;
+			padding: 2rem;
 			background-color: var(--bg-gradient-left);
-			border-bottom: 1px solid var(--line-color);
-			border-top-left-radius: 8px;
-			border-top-right-radius: 8px;
 			overflow-y: hidden;
 			backdrop-filter: blur(2px);
 		}
@@ -1131,18 +1134,19 @@
 
 	.search-results {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: space-between;
 		left: 0;
 		right: 0;
-		background: var(--bg-gradient);
-		border: 1px solid var(--line-color);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		top: 0;
+		bottom: 3rem;
+		max-width: 1000px;
 		margin-top: 0;
-		max-height: 70vh;
 		z-index: 100;
 		border-top: none;
 		border-radius: 0 0 0.5rem 0.5rem;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-		max-height: 400px;
+		// box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 		width: 100%;
 		scroll-behavior: smooth;
 		overflow-x: hidden;
@@ -1164,14 +1168,17 @@
 		// padding: 0.5rem 0;
 		width: 100%;
 		padding: 0;
-		padding-top: 3rem;
 		margin: 0;
+		max-width: 1200px;
+		height: auto;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
 	}
 
 	.result-section {
+		height: auto;
 		& + .result-section {
-			border-top: 1px solid var(--line-color);
-			margin-top: 0.5rem;
 			padding-top: 0.5rem;
 		}
 	}
@@ -1271,7 +1278,6 @@
 			.tab-navigation {
 				display: flex;
 				overflow-x: auto;
-				position: fixed;
 				width: 100%;
 				padding: 0.5rem;
 				background-color: var(--bg-gradient-left);
@@ -1352,7 +1358,7 @@
 				}
 			}
 			& .search-results {
-				position: fixed;
+				position: absolute;
 				left: 0;
 				right: 0;
 				padding: 0;

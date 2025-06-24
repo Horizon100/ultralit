@@ -632,13 +632,13 @@ async function createAgentInDatabase(x: number, y: number) {
 	<div class="left-edge" on:mouseenter={handleLeftEdgeHover} role="button" tabindex="0"></div>
 	<div class="right-edge" on:mouseenter={handleRightEdgeHover}></div>
 
-	<!-- <LeftSideMenu
+	<LeftSideMenu
 		width={$leftSideMenuWidth}
 		on:mouseleave={handleLeftSideMenuLeave}
 		{selectedShape}
 		on:click={toggleLeftSideMenu}
 
-	/> -->
+	/>
 	<div class="layout-container">
 		<div class="svg-wrapper" style="flex: 1; display: flex;">
 			<svg
