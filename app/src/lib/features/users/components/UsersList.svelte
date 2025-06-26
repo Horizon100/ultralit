@@ -3,14 +3,16 @@
 	import { followStore, fetchFollowData, getFollowers, getFollowing, toggleFollowUser } from '$lib/stores/followStore';
 	import { userStatusStore, fetchUserStatus } from '$lib/stores/userStatusStore';
 	import type { PublicUserProfile, User } from '$lib/types/types';
-	import { currentUser } from '$lib/pocketbase';
+	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { sidenavStore, showDebug } from '$lib/stores/sidenavStore';
+	import { clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
+	import Debugger from '$lib/components/modals/Debugger.svelte';
 
 	// Props
 	export let userId: string;
 	export let listType: 'followers' | 'following';
 	export let showFollowButton = true;
 	export let showStatus = true;
-	export let maxHeight = '400px';
 	export let emptyMessage = '';
 	export let onUserClick: ((user: PublicUserProfile) => void) | undefined = undefined;
 
@@ -22,6 +24,54 @@
 	let processingFollow = new Set<string>();
 	let processingMainFollow = false;
 	let isFollowingProfileOwner = false;
+
+	// Debug items for Debugger component
+	$: debugItems = [
+		{ label: 'List Type', value: listType },
+		{ label: 'Current User', value: $currentUser ? 'exists' : 'null' },
+		{ label: 'Current User ID', value: $currentUser?.id || 'none' },
+		{ label: 'Profile User ID', value: userId },
+		{ label: 'Users Count', value: users.length },
+		{ label: 'Loading', value: loading },
+		{ label: 'Error', value: error || 'none' },
+		{ label: 'Following Users', value: followingUsers.size },
+		{ label: 'Show Button Condition', value: listType === 'followers' && $currentUser && $currentUser.id !== userId },
+		{ label: 'Is Following Profile Owner', value: isFollowingProfileOwner },
+		{ label: 'Processing Main Follow', value: processingMainFollow },
+		{ label: 'Store Subscribed', value: unsubscribe ? 'yes' : 'no' }
+	];
+
+	// Debug buttons for testing
+	$: debugButtons = [
+		{
+			label: 'Reload Users',
+			action: async () => {
+				console.log('🔄 Manual reload users');
+				await loadUsers();
+			},
+			color: '#28a745'
+		},
+		{
+			label: 'Force Follow Status Update',
+			action: async () => {
+				console.log('🔄 Force updating follow status');
+				await updateFollowingStatus();
+			},
+			color: '#007bff'
+		},
+		{
+			label: 'Test Main Follow',
+			action: async () => {
+				if (!$currentUser || $currentUser.id === userId) {
+					console.log('❌ Cannot test - no current user or same user');
+					return;
+				}
+				console.log('🧪 Testing main follow functionality');
+				await handleMainFollowToggle();
+			},
+			color: '#6f42c1'
+		}
+	];
 
 	// Reactive statements
 	$: {
@@ -59,125 +109,138 @@
 	$: displayEmptyMessage = emptyMessage || defaultEmptyMessage;
 
 	async function loadUsers() {
-		try {
-			loading = true;
-			error = null;
-			
-			console.log(`📋 Loading ${listType} for user:`, userId);
-			
-			const followData = await fetchFollowData(userId);
-			console.log('📥 Follow data received:', followData);
-			
-			if (!followData) {
-				throw new Error(`Failed to load ${listType}`);
-			}
+		loading = true;
+		error = null;
+		
+		console.log(`📋 Loading ${listType} for user:`, userId);
+		
+		const followDataResult = await clientTryCatch(
+			fetchFollowData(userId),
+			`Loading ${listType} data`
+		);
 
-			// Fetch status for all users if showStatus is enabled
-			if (showStatus) {
-				const userIds = listType === 'followers' 
-					? followData.followers.map(u => u.id)
-					: followData.following.map(u => u.id);
-				
-				console.log(`🔍 Fetching status for ${userIds.length} users`);
-				
-				// Fetch status for each user (in parallel)
-				await Promise.allSettled(
-					userIds.map(id => fetchUserStatus(id))
+		if (isFailure(followDataResult)) {
+			error = followDataResult.error;
+			loading = false;
+			return;
+		}
+
+		const followData = followDataResult.data;
+		console.log('📥 Follow data received:', followData);
+		
+		if (!followData) {
+			error = `Failed to load ${listType}`;
+			loading = false;
+			return;
+		}
+
+		// Fetch status for all users if showStatus is enabled
+		if (showStatus) {
+			const userIds = listType === 'followers' 
+				? followData.followers.map(u => u.id)
+				: followData.following.map(u => u.id);
+			
+			console.log(`🔍 Fetching status for ${userIds.length} users`);
+			
+			// Fetch status for each user (in parallel)
+			const statusPromises = userIds.map(async (id) => {
+				const result = await clientTryCatch(
+					fetchUserStatus(id),
+					`Fetching status for user ${id}`
 				);
-			}
-
-			console.log(`✅ Successfully loaded ${listType}:`, {
-				followers: followData.followers.length,
-				following: followData.following.length
+				if (isFailure(result)) {
+					console.warn(`Failed to fetch status for user ${id}:`, result.error);
+				}
 			});
 
-			loading = false;
-		} catch (err) {
-			console.error(`❌ Error loading ${listType}:`, err);
-			error = err instanceof Error ? err.message : `Failed to load ${listType}`;
-			loading = false;
+			await Promise.allSettled(statusPromises);
 		}
+
+		console.log(`✅ Successfully loaded ${listType}:`, {
+			followers: followData.followers.length,
+			following: followData.following.length
+		});
+
+		loading = false;
 	}
 
 	async function updateFollowingStatus() {
 		if (!$currentUser) return;
 		
-		try {
-			const currentUserFollowData = await fetchFollowData($currentUser.id);
-			if (currentUserFollowData) {
-				followingUsers = new Set(currentUserFollowData.following.map(u => u.id));
-			}
-		} catch (err) {
-			console.error('Error updating following status:', err);
+		const result = await clientTryCatch(
+			fetchFollowData($currentUser.id),
+			'Updating following status'
+		);
+
+		if (isSuccess(result) && result.data) {
+			followingUsers = new Set(result.data.following.map(u => u.id));
 		}
 	}
 
 	async function handleFollowToggle(targetUser: PublicUserProfile) {
 		if (!$currentUser || processingFollow.has(targetUser.id)) return;
 		
-		try {
-			processingFollow.add(targetUser.id);
-			processingFollow = new Set(processingFollow); // Trigger reactivity
-			
-			const isCurrentlyFollowing = followingUsers.has(targetUser.id);
-			const action = isCurrentlyFollowing ? 'unfollow' : 'follow';
-			
-			console.log(`🔄 ${action}ing user:`, targetUser.username);
-			
-			const success = await toggleFollowUser($currentUser.id, targetUser.id, action);
-			
-			if (success) {
-				// Update local following status
-				if (action === 'follow') {
-					followingUsers.add(targetUser.id);
-				} else {
-					followingUsers.delete(targetUser.id);
-				}
-				followingUsers = new Set(followingUsers); // Trigger reactivity
-				
-				console.log(`✅ Successfully ${action}ed user:`, targetUser.username);
+		processingFollow.add(targetUser.id);
+		processingFollow = new Set(processingFollow); // Trigger reactivity
+		
+		const isCurrentlyFollowing = followingUsers.has(targetUser.id);
+		const action = isCurrentlyFollowing ? 'unfollow' : 'follow';
+		
+		console.log(`🔄 ${action}ing user:`, targetUser.username);
+		
+		const result = await clientTryCatch(
+			toggleFollowUser($currentUser.id, targetUser.id, action),
+			`${action}ing user ${targetUser.username}`
+		);
+
+		if (isSuccess(result) && result.data) {
+			// Update local following status
+			if (action === 'follow') {
+				followingUsers.add(targetUser.id);
 			} else {
-				console.error(`❌ Failed to ${action} user:`, targetUser.username);
+				followingUsers.delete(targetUser.id);
 			}
-		} catch (err) {
-			console.error('Error toggling follow:', err);
-		} finally {
-			processingFollow.delete(targetUser.id);
-			processingFollow = new Set(processingFollow); // Trigger reactivity
+			followingUsers = new Set(followingUsers); // Trigger reactivity
+			
+			console.log(`✅ Successfully ${action}ed user:`, targetUser.username);
+		} else if (isFailure(result)) {
+			console.error(`❌ Failed to ${action} user:`, result.error);
 		}
+
+		processingFollow.delete(targetUser.id);
+		processingFollow = new Set(processingFollow); // Trigger reactivity
 	}
 
 	async function handleMainFollowToggle() {
 		if (!$currentUser || processingMainFollow || $currentUser.id === userId) return;
 		
-		try {
-			processingMainFollow = true;
-			
-			const action = isFollowingProfileOwner ? 'unfollow' : 'follow';
-			
-			console.log(`🔄 ${action}ing profile owner:`, userId);
-			
-			const success = await toggleFollowUser($currentUser.id, userId, action);
-			
-			if (success) {
-				// Update local following status
-				if (action === 'follow') {
-					followingUsers.add(userId);
-				} else {
-					followingUsers.delete(userId);
-				}
-				followingUsers = new Set(followingUsers); // Trigger reactivity
-				isFollowingProfileOwner = !isFollowingProfileOwner;
-				
-				console.log(`✅ Successfully ${action}ed profile owner`);
+		processingMainFollow = true;
+		
+		const action = isFollowingProfileOwner ? 'unfollow' : 'follow';
+		
+		console.log(`🔄 ${action}ing profile owner:`, userId);
+		
+		const result = await clientTryCatch(
+			toggleFollowUser($currentUser.id, userId, action),
+			`${action}ing profile owner`
+		);
+
+		if (isSuccess(result) && result.data) {
+			// Update local following status
+			if (action === 'follow') {
+				followingUsers.add(userId);
 			} else {
-				console.error(`❌ Failed to ${action} profile owner`);
+				followingUsers.delete(userId);
 			}
-		} catch (err) {
-			console.error('Error toggling main follow:', err);
-		} finally {
-			processingMainFollow = false;
+			followingUsers = new Set(followingUsers); // Trigger reactivity
+			isFollowingProfileOwner = !isFollowingProfileOwner;
+			
+			console.log(`✅ Successfully ${action}ed profile owner`);
+		} else if (isFailure(result)) {
+			console.error(`❌ Failed to ${action} profile owner:`, result.error);
 		}
+
+		processingMainFollow = false;
 	}
 
 	function handleUserClick(user: PublicUserProfile) {
@@ -216,7 +279,7 @@
 	});
 </script>
 
-<div class="user-list" style="max-height: {maxHeight};">
+<div class="user-list">
 	{#if loading}
 		<div class="loading-state">
 			<div class="loading-spinner"></div>
@@ -230,21 +293,8 @@
 			</button>
 		</div>
 	{:else}
-		<!-- Debug info -->
-		<div style="background: yellow; padding: 10px; margin: 10px; font-size: 12px;">
-			<strong>DEBUG:</strong><br>
-			listType: {listType}<br>
-			currentUser: {currentUser ? 'exists' : 'null'}<br>
-			currentUser.id: {currentUser?.id || 'none'}<br>
-			userId: {userId}<br>
-			users.length: {users.length}<br>
-			showButton: {listType === 'followers' && currentUser && currentUser.id !== userId}<br>
-			isFollowingProfileOwner: {isFollowingProfileOwner}<br>
-			processingMainFollow: {processingMainFollow}
-		</div>
-
-		<!-- Main follow button for followers list - ALWAYS show if conditions are met -->
-		{#if listType === 'followers' && currentUser && currentUser.id !== userId}
+		<!-- Main follow button for followers list -->
+		{#if listType === 'followers' && $currentUser && $currentUser.id !== userId}
 			<div class="main-follow-section">
 				<button
 					class="main-follow-button"
@@ -265,13 +315,6 @@
 					{isFollowingProfileOwner ? 'You are following this user' : 'Follow to see updates'}
 				</span>
 			</div>
-		{:else}
-			<div style="background: red; color: white; padding: 10px; margin: 10px;">
-				Button hidden because: 
-				{#if listType !== 'followers'}Not followers list (listType = {listType}){/if}
-				{#if !currentUser}No current user{/if}
-				{#if currentUser && currentUser.id === userId}Same user (currentUser.id = {currentUser.id}, userId = {userId}){/if}
-			</div>
 		{/if}
 
 		<!-- Users list or empty state -->
@@ -283,10 +326,16 @@
 			<div class="users-container">
 				{#each users as user (user.id)}
 					<div class="user-item">
-						<div class="user-header" class:clickable={!!onUserClick} on:click={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
-							<div class="avatar-container">
+						<div class="user-header" class:clickable={!!onUserClick} on:click|stopPropagation={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
+							<div class="avatar-header">
 								{#if user.avatar || user.avatarUrl}
-									<img src={user.avatarUrl || user.avatar} alt={user.name || user.username} class="avatar" />
+									<img
+										src={user.avatar
+											? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
+											: '/api/placeholder/120/120'}
+										alt="{user.name || user.username}'s avatar"
+										class="sticky-avatar"
+									/>
 								{:else}
 									<div class="avatar-placeholder">
 										{(user.name || user.username).charAt(0).toUpperCase()}
@@ -304,7 +353,7 @@
 							</div>
 						</div>
 						
-						{#if showFollowButton && currentUser && currentUser.id !== user.id}
+						{#if showFollowButton && $currentUser && $currentUser.id !== user.id}
 							<div class="follow-action">
 								<button
 									class="follow-button"
@@ -330,38 +379,40 @@
 	{/if}
 </div>
 
-<style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+<!-- Debug panel - only shows when showDebug is true -->
+{#if $showDebug}
+	<Debugger 
+		showDebug={$showDebug}
+		title="🔧 UserList Debug"
+		debugItems={debugItems}
+		buttons={debugButtons}
+	/>
+{/if}
 
+<style>
 	.user-list {
-		background: var(--bg-color);
-		border: 1px solid var(--line-color);
-		border-radius: 8px;
-		overflow: hidden;
 		display: flex;
-		flex-direction: column;
+		height: 100%;
+		width: 100%;
+		overflow-y: auto;
+		background: var(--bg-color);
 	}
 
-	.loading-state,
-	.error-state,
-	.empty-state {
+	.loading-state {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
 		padding: 2rem;
-		text-align: center;
-		color: var(--placeholder-color);
+		gap: 1rem;
 	}
 
 	.loading-spinner {
-		width: 24px;
-		height: 24px;
-		border: 2px solid var(--line-color);
-		border-top: 2px solid var(--primary-color);
+		width: 2rem;
+		height: 2rem;
+		border: 2px solid #f3f3f3;
+		border-top: 2px solid #3498db;
 		border-radius: 50%;
 		animation: spin 1s linear infinite;
-		margin-bottom: 1rem;
 	}
 
 	@keyframes spin {
@@ -369,276 +420,209 @@
 		100% { transform: rotate(360deg); }
 	}
 
+	.error-state {
+		padding: 2rem;
+		text-align: center;
+	}
+
 	.error-message {
-		color: var(--error-color);
+		color: #e74c3c;
 		margin-bottom: 1rem;
 	}
 
 	.retry-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
+		background: #3498db;
+		color: white;
 		border: none;
 		padding: 0.5rem 1rem;
 		border-radius: 4px;
 		cursor: pointer;
-		font-size: 14px;
-		transition: background-color 0.2s ease;
+	}
 
-		&:hover {
-			background: var(--primary-hover-color);
-		}
+	.retry-button:hover {
+		background: #2980b9;
+	}
+
+	.main-follow-section {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem;
+		border-bottom: 1px solid #eee;
+		margin-bottom: 1rem;
+	}
+
+	.main-follow-button {
+		padding: 0.5rem 1rem;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		background: white;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.main-follow-button.following {
+		background: #e8f5e8;
+		border-color: #28a745;
+		color: #28a745;
+	}
+
+	.main-follow-button:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.main-follow-text {
+		color: #666;
+		font-size: 0.875rem;
+	}
+
+	.empty-state {
+		padding: 2rem;
+		text-align: center;
 	}
 
 	.empty-message {
-		font-style: italic;
-		margin: 0;
+		color: #666;
 	}
 
 	.users-container {
-		overflow-y: auto;
-		flex: 1;
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		padding: 1rem;
+		gap: 0.5rem;
 	}
 
 	.user-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.5rem;
+		padding: 0.75rem;
 		border-bottom: 1px solid var(--line-color);
-		transition: background-color 0.2s ease;
-
-		&:last-child {
-			border-bottom: none;
-		}
-
-		&:hover {
-			background: var(--secondary-color);
-		}
 	}
 
 	.user-header {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.75rem;
 		flex: 1;
-		min-width: 0;
-		transition: background-color 0.2s ease;
+	}
 
-		&.clickable {
-			cursor: pointer;
-			padding: 0.25rem;
-			border-radius: 4px;
-			
-			&:hover {
-				background: var(--tertiary-color);
-			}
+	.user-header.clickable {
+		cursor: pointer;
+	}
+
+	.user-header.clickable:hover {
+		background: var(--primary-color);
+		border-radius: 4px;
+		margin: -0.25rem;
+		padding: 0.25rem;
+	}
+
+	.avatar-header {
+		display: flex;
+		position: relative;
+		width: auto;
+		height: 100%;
+		margin-right: 0.5rem;
+
+		& img {
+			width: 2.5rem;
+			height: 2.5rem;
+			object-fit: cover;
+					border-radius: 50%;
+
+			border: 1px solid var(--bg-color);
 		}
 	}
 
-	.avatar-container {
-		position: relative;
-		flex-shrink: 0;
-	}
 
 	.avatar {
-		width: 40px;
-		height: 40px;
+		width: 2.5rem;
+		height: 2.5rem;
 		border-radius: 50%;
 		object-fit: cover;
-		border: 2px solid var(--line-color);
 	}
 
 	.avatar-placeholder {
-		width: 40px;
-		height: 40px;
+		width: 2.5rem;
+		height: 2.5rem;
 		border-radius: 50%;
-		background: var(--tertiary-color);
+		background: #ddd;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-weight: bold;
-		color: var(--primary-color);
-		font-size: 16px;
-		border: 2px solid var(--line-color);
+		color: #666;
 	}
 
 	.status-indicator {
 		position: absolute;
-		bottom: 0;
-		right: 0;
-		width: 12px;
-		height: 12px;
+		top: 0;
+		left: 0;
+		width: 0.25rem;
+		height: 0.25rem;
 		border-radius: 50%;
+		border: 2px solid transparent;
+	}
+
+	.status-indicator.online {
+		background: #28a745;
 		border: 2px solid var(--bg-color);
-		background: var(--placeholder-color);
-		
-		&.online {
-			background: #4ade80;
-		}
+
 	}
 
 	.user-info {
 		flex: 1;
-		min-width: 0;
 	}
 
 	.username {
 		margin: 0;
-		font-size: 16px;
-		font-weight: 600;
-		color: var(--text-color);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		font-size: 1rem;
+		font-weight: 500;
 	}
 
 	.status-text {
-		font-size: 12px;
-		color: var(--placeholder-color);
-		text-transform: capitalize;
-		display: block;
-		margin-top: 0.125rem;
+		font-size: 0.75rem;
+		color: #666;
 	}
 
 	.follow-action {
 		flex-shrink: 0;
-		margin-left: 1rem;
 	}
 
 	.follow-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
-		border: none;
-		padding: 0.5rem 1rem;
+		padding: 0.375rem 0.75rem;
+		border: 1px solid #ddd;
 		border-radius: 4px;
+		background: white;
 		cursor: pointer;
-		font-size: 12px;
-		font-weight: 500;
-		transition: all 0.2s ease;
-		min-width: 80px;
-		height: 32px;
+		font-size: 0.875rem;
 		display: flex;
 		align-items: center;
-		justify-content: center;
-
-		&:hover:not(:disabled) {
-			background: var(--primary-hover-color);
-		}
-
-		&.following {
-			background: var(--success-color);
-			
-			&:hover:not(:disabled) {
-				background: var(--error-color);
-			}
-			
-			&:hover:not(:disabled)::after {
-				content: 'Unfollow';
-				position: absolute;
-			}
-		}
-
-		&.processing {
-			background: var(--placeholder-color);
-			cursor: not-allowed;
-		}
-
-		&:disabled {
-			opacity: 0.6;
-			cursor: not-allowed;
-		}
+		gap: 0.25rem;
 	}
 
-	.main-follow-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
-		border: none;
-		padding: 0.75rem 1.5rem;
-		border-radius: 6px;
-		cursor: pointer;
-		font-size: 14px;
-		font-weight: 600;
-		transition: all 0.2s ease;
-		min-width: 120px;
-		height: 40px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-
-		&:hover:not(:disabled) {
-			background: var(--primary-hover-color);
-			transform: translateY(-1px);
-		}
-
-		&.following {
-			background: var(--success-color);
-			
-			&:hover:not(:disabled) {
-				background: var(--error-color);
-			}
-		}
-
-		&.processing {
-			background: var(--placeholder-color);
-			cursor: not-allowed;
-		}
-
-		&:disabled {
-			opacity: 0.6;
-			cursor: not-allowed;
-		}
+	.follow-button.following {
+		background: #e8f5e8;
+		border-color: #28a745;
+		color: #28a745;
 	}
 
-	.main-follow-section {
-		padding: 1rem;
-		border-bottom: 1px solid var(--line-color);
-		background: var(--secondary-color);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.main-follow-text {
-		font-size: 12px;
-		color: var(--placeholder-color);
-		text-align: center;
+	.follow-button:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.button-spinner {
-		width: 16px;
-		height: 16px;
-		border: 2px solid transparent;
-		border-top: 2px solid currentColor;
+		width: 1rem;
+		height: 1rem;
+		border: 1px solid #ccc;
+		border-top: 1px solid #666;
 		border-radius: 50%;
 		animation: spin 1s linear infinite;
-	}
-
-	/* Scrollbar styling */
-	.users-container::-webkit-scrollbar {
-		width: 6px;
-	}
-
-	.users-container::-webkit-scrollbar-track {
-		background: var(--secondary-color);
-	}
-
-	.users-container::-webkit-scrollbar-thumb {
-		background: var(--placeholder-color);
-		border-radius: 3px;
-	}
-
-	.users-container::-webkit-scrollbar-thumb:hover {
-		background: var(--text-color);
-	}
-
-	/* Firefox scrollbar */
-	.users-container {
-		scrollbar-width: thin;
-		scrollbar-color: var(--placeholder-color) var(--secondary-color);
-	}
-
-	* {
-		font-family: var(--font-family);
 	}
 </style>

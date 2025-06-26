@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { fly, fade } from 'svelte/transition';
 	import {
 		pocketbaseUrl,
@@ -508,7 +508,10 @@ function updateLocalPostState(postId: string, action: string, data: any) {
 		}
 	});
 }
-
+function isUsernameRoute(path: string): boolean {
+	// Match /username or /username/posts or /username/posts/id
+	return /^\/[^\/]+(?:\/posts(?:\/[^\/]+)?)?$/.test(path);
+}
 
 $: enhancedUserPosts = userPosts.map((post) => {
 	const authorProfile = userProfilesMap.get(post.user);
@@ -1296,60 +1299,7 @@ onDestroy(() => {
 		>
 			{$t('posts.likes')}
 		</button>
-		{#if $currentUser}
-			{#if !isCurrentUser}
-				<button class="tab"
-					class:active={$showInput}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							sidenavStore.hideLeft();
-							sidenavStore.hideRight();
-						}
-						
-						// Close overlay if open
-						if ($showOverlay) {
-							sidenavStore.hideOverlay();
-						}
-						
-						// Toggle input
-						if ($showInput) {
-							sidenavStore.hideInput();
-						} else {
-							sidenavStore.showInput();
-						}
-					}}
-				>
-					{@html getIcon('MessageSquare', { size: 16 })}
-					{$t('chat.message')}
-				</button>
-			{:else}
-				<button class="btn btn-secondary" 
-					on:click={() => {
-						// Close any open overlays or inputs first
-						if ($showInput) {
-							sidenavStore.hideInput();
-						}
-						if ($showOverlay) {
-							sidenavStore.hideOverlay();
-						}
-						
-						if (isCurrentUser) {
-							descriptionValue = user?.description || '';
-							editingDescription = true;
-						}
-					}}												
-				>
-					{@html getIcon('Settings', { size: 16 })}
-					{$t('profile.edit')}
-				</button>
-			{/if}
-		{:else}
-			<button class="btn btn-primary" on:click={() => goto('/login')}>
-				{@html getIcon('UserIcon', { size: 16 })}
-				{$t('generic.signin')}
-			</button>
-		{/if}				
+		
 		<button class="tab"
 			class:activeOverlay={activeOverlay === 'followers'}
 			class:active={$showOverlay && activeOverlay === 'followers'}
@@ -1412,6 +1362,60 @@ onDestroy(() => {
 			{@html getIcon('User', { size: 16 })}
 			{$t('profile.following')}
 		</button>
+				{#if $currentUser}
+			{#if !isCurrentUser}
+				<button class="tab"
+					class:active={$showInput}
+					on:click={(event) => {
+						event.preventDefault();
+						if (innerWidth <= 450) {
+							sidenavStore.hideLeft();
+							sidenavStore.hideRight();
+						}
+						
+						// Close overlay if open
+						if ($showOverlay) {
+							sidenavStore.hideOverlay();
+						}
+						
+						// Toggle input
+						if ($showInput) {
+							sidenavStore.hideInput();
+						} else {
+							sidenavStore.showInput();
+						}
+					}}
+				>
+					{@html getIcon('MessageSquare', { size: 16 })}
+					{$t('chat.message')}
+				</button>
+			{:else}
+				<button class="tab" 
+					on:click={() => {
+						// Close any open overlays or inputs first
+						if ($showInput) {
+							sidenavStore.hideInput();
+						}
+						if ($showOverlay) {
+							sidenavStore.hideOverlay();
+						}
+						
+						if (isCurrentUser) {
+							descriptionValue = user?.description || '';
+							editingDescription = true;
+						}
+					}}												
+				>
+					{@html getIcon('Settings', { size: 16 })}
+					{$t('profile.edit')}
+				</button>
+			{/if}
+		{:else}
+			<button class="btn btn-primary" on:click={() => goto('/login')}>
+				{@html getIcon('UserIcon', { size: 16 })}
+				{$t('generic.signin')}
+			</button>
+		{/if}		
 	</nav>
 </div>
 							</div>
@@ -1571,10 +1575,19 @@ onDestroy(() => {
     emptyMessage={activeOverlay === 'followers' 
         ? 'No followers yet' 
         : 'Not following anyone yet'}
-    onUserClick={(clickedUser) => {
-        sidenavStore.hideOverlay();
-        goto(`/users/${clickedUser.username}`);
-    }}
+onUserClick={(clickedUser) => {
+    sidenavStore.hideOverlay();
+    const newPath = `/${clickedUser.username}`;
+    const currentPath = $page.url.pathname;
+    
+    // Check if both are username routes
+    if (isUsernameRoute(currentPath) && isUsernameRoute(newPath)) {
+        // Force full page reload for username-to-username navigation
+        window.location.href = newPath;
+    } else {
+        goto(newPath);
+    }
+}}
 />
 			{/if}
 		</div>

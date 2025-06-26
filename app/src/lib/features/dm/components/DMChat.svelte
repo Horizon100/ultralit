@@ -173,6 +173,7 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem;
+		backdrop-filter: blur(30px);
 		&::-webkit-scrollbar {
 			width: 8px;
 		}

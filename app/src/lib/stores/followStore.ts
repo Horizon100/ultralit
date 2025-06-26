@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
+import { clientTryCatch, fetchTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 import type { User, PublicUserProfile } from '$lib/types/types';
 
 export interface FollowRelationship {
@@ -67,7 +67,7 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 		10000 // 10 second timeout
 	);
 
-	if (!isSuccess(result)) {
+	if (isFailure(result)) {
 		console.error('❌ Error fetching follow data:', result.error);
 		return null;
 	}
@@ -162,7 +162,7 @@ export async function toggleFollowUser(currentUserId: string, targetUserId: stri
 		10000
 	);
 
-	if (!isSuccess(result)) {
+	if (isFailure(result)) {
 		console.error(`❌ Error ${action}ing user:`, result.error);
 		return false;
 	}
@@ -173,42 +173,21 @@ export async function toggleFollowUser(currentUserId: string, targetUserId: stri
 	if (success) {
 		console.log(`✅ Successfully ${action}ed user`);
 		
-		// Update the store to reflect the change
+		// Clear cache for both users to force refresh on next fetch
 		followStore.update(dataMap => {
-			// Update current user's follow data
-			const currentUserData = dataMap.get(currentUserId);
-			if (currentUserData) {
-				if (action === 'follow') {
-					// Add to following list if not already there
-					if (!currentUserData.following.some(u => u.id === targetUserId)) {
-						// We would need to fetch target user's profile to add to following
-						// For now, we'll mark the data as stale by clearing it
-						dataMap.delete(currentUserId);
-					}
-				} else {
-					// Remove from following list
-					currentUserData.following = currentUserData.following.filter(u => u.id !== targetUserId);
-					currentUserData.relationships.delete(targetUserId);
-				}
-			}
-			
-			// Update target user's follow data if present
-			const targetUserData = dataMap.get(targetUserId);
-			if (targetUserData) {
-				if (action === 'follow') {
-					// Current user is now a follower of target user
-					// We would need current user's profile to add to followers
-					// For now, we'll mark the data as stale by clearing it
-					dataMap.delete(targetUserId);
-				} else {
-					// Remove current user from target's followers
-					targetUserData.followers = targetUserData.followers.filter(u => u.id !== currentUserId);
-					targetUserData.relationships.delete(currentUserId);
-				}
-			}
-			
+			dataMap.delete(currentUserId);
+			dataMap.delete(targetUserId);
+			console.log('🗑️ Cleared follow cache for both users to force refresh');
 			return new Map(dataMap);
 		});
+		
+		// Optionally refresh both users' data immediately
+		setTimeout(async () => {
+			await Promise.allSettled([
+				fetchFollowData(currentUserId, true),
+				fetchFollowData(targetUserId, true)
+			]);
+		}, 100);
 	}
 	
 	return success;

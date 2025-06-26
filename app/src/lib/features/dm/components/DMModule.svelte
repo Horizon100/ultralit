@@ -1,325 +1,603 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { followStore, fetchFollowData, getFollowers, getFollowing, toggleFollowUser } from '$lib/stores/followStore';
-	import { userStatusStore, fetchUserStatus } from '$lib/stores/userStatusStore';
-	import type { PublicUserProfile, User } from '$lib/types/types';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import type { DMConversation, DMMessage, User } from '$lib/types/types';
+    import { currentUser } from '$lib/pocketbase';
+	import DMChat from '$lib/features/dm/components/DMChat.svelte';
+	import DMChatDrawer from '$lib/features/dm/components/DMDrawer.svelte';
+	import { getIcon } from '$lib/utils/lucideIcons';
+	import { fly } from 'svelte/transition';
+	import { toast } from '$lib/utils/toastUtils';
 
 	// Props
-	export let userId: string;
-	export let listType: 'followers' | 'following';
-	export let currentUser: User | null = null;
-	export let showFollowButton = true;
-	export let showStatus = true;
-	export let maxHeight = '400px';
-	export let emptyMessage = '';
-	export let onUserClick: ((user: PublicUserProfile) => void) | undefined = undefined;
+	export let user: User | null = null;
+	export let initialConversationId: string | null = null;
+	export let showDrawerToggle = true;
+	export let isDrawerOpen = false;
+	export let showDrawer: boolean = true;
+	export let showChatHeader: boolean = true;
+	export let shouldLoadConversations: boolean = true;
 
 	// State
-	let users: PublicUserProfile[] = [];
-	let loading = true;
-	let error: string | null = null;
-	let followingUsers = new Set<string>();
-	let processingFollow = new Set<string>();
-	let processingMainFollow = false;
-	let isFollowingProfileOwner = false;
+	let conversations: DMConversation[] = [];
+	let selectedConversation: DMConversation | null = null;
+	let messages: DMMessage[] = [];
+	let loading = false;
+	let initialLoading = true; 
+	let loadingConversations = false;
+	let loadingMessages = false; 
+	let sendingMessage = false;
+	let error = '';
 
-	// Reactive statements
-	$: {
-		// Update users when store changes
-		if (listType === 'followers') {
-			users = getFollowers(userId);
-		} else {
-			users = getFollowing(userId);
-		}
-		// Don't stay in loading state if we successfully loaded (even if empty)
-		// loading should only be true if we haven't attempted to load yet
-		console.log(`🔄 Reactive update - ${listType}:`, {
-			usersCount: users.length,
-			loading,
-			error,
-			userId
-		});
-	}
+	async function loadConversations() {
+		if (!$currentUser) return;
 
-	// Check which users current user is following
-	$: if (currentUser && users.length > 0) {
-		updateFollowingStatus();
-	}
-
-	// Check if current user is following the profile owner
-	$: if (currentUser && userId && currentUser.id !== userId && followingUsers.size > 0) {
-		isFollowingProfileOwner = followingUsers.has(userId);
-	}
-
-	// Check if current user is following the profile owner
-	$: if (currentUser && userId && currentUser.id !== userId && followingUsers.size > 0) {
-		isFollowingProfileOwner = followingUsers.has(userId);
-	}
-
-	// Auto-generated empty messages
-	$: defaultEmptyMessage = listType === 'followers' 
-		? 'No followers yet' 
-		: 'Not following anyone yet';
-
-	$: displayEmptyMessage = emptyMessage || defaultEmptyMessage;
-
-	async function loadUsers() {
 		try {
-			loading = true;
-			error = null;
-			
-			console.log(`📋 Loading ${listType} for user:`, userId);
-			
-			const followData = await fetchFollowData(userId);
-			console.log('📥 Follow data received:', followData);
-			
-			if (!followData) {
-				throw new Error(`Failed to load ${listType}`);
+			loadingConversations = true;
+			error = '';
+
+			const response = await fetch('/api/dm/conversations');
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.error || 'Failed to load conversations');
 			}
 
-			// Fetch status for all users if showStatus is enabled
-			if (showStatus) {
-				const userIds = listType === 'followers' 
-					? followData.followers.map(u => u.id)
-					: followData.following.map(u => u.id);
-				
-				console.log(`🔍 Fetching status for ${userIds.length} users`);
-				
-				// Fetch status for each user (in parallel)
-				await Promise.allSettled(
-					userIds.map(id => fetchUserStatus(id))
-				);
+			conversations = result.conversations.map((conv: any) => ({
+				...conv,
+				lastMessage: conv.lastMessage ? {
+					...conv.lastMessage,
+					timestamp: new Date(conv.lastMessage.timestamp)
+				} : undefined
+			}));
+
+			// Mark active conversation
+			if (initialConversationId) {
+				conversations = conversations.map(conv => ({
+					...conv,
+					isActive: conv.id === initialConversationId
+				}));
 			}
 
-			console.log(`✅ Successfully loaded ${listType}:`, {
-				followers: followData.followers.length,
-				following: followData.following.length
+			// Show success toast only if conversations were loaded
+			if (conversations.length > 0) {
+				toast.success(`Loaded ${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`, 2000);
+			}
+
+		} catch (err) {
+			console.error('Error loading conversations:', err);
+			const errorMessage = err instanceof Error ? err.message : 'Failed to load conversations';
+			error = errorMessage;
+			toast.error(errorMessage, 4000);
+		} finally {
+			loadingConversations = false;
+		}
+	}
+
+	async function loadMessages(partnerId: string) {
+		if (!$currentUser) return;
+
+		try {
+			loadingMessages = true; 
+			error = '';
+
+			const response = await fetch(`/api/dm?receiverId=${partnerId}&perPage=100`);
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.error || 'Failed to load messages');
+			}
+
+			messages = result.messages.map((msg: any) => ({
+				...msg,
+				created: msg.created,
+				updated: msg.updated
+			}));
+
+			// Show success toast for message loading (optional, might be too verbose)
+			// toast.info(`Loaded ${messages.length} message${messages.length !== 1 ? 's' : ''}`, 1500);
+
+		} catch (err) {
+			console.error('Error loading messages:', err);
+			const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
+			error = errorMessage;
+			toast.error(errorMessage, 4000);
+		} finally {
+			loading = false;
+			loadingMessages = false;
+
+		}
+	}
+
+	async function findOrCreateConversationWithUser(userId: string) {
+		const existingConv = conversations.find(conv => conv.user.id === userId);
+		
+		if (existingConv) {
+			// Found existing conversation, select it
+			selectConversationById(existingConv.id);
+			toast.info(`Opened conversation with ${existingConv.user.name}`, 2000);
+		} else {
+			await createConversationWithUser(userId);
+			toast.info(`Starting new conversation with ${user?.name || user?.username}`, 2000);
+		}
+	}
+
+	async function createConversationWithUser(userId: string) {
+		if (!user || !$currentUser) return;
+		const simulatedConversation: DMConversation = {
+			id: `temp-${userId}`,
+			content: [],
+			user: {
+				id: user.id,
+				name: user.name || user.username,
+				avatar: user.avatar,
+				status: user.status || 'offline'
+			},
+			lastMessage: undefined,
+			unreadCount: 0,
+			isActive: true
+		};
+		conversations = [simulatedConversation, ...conversations];
+		selectedConversation = simulatedConversation;
+		messages = [];
+		conversations = conversations.map(conv => ({
+			...conv,
+			isActive: conv.id === simulatedConversation.id
+		}));
+	}
+
+	function selectConversationById(convId: string) {
+		const conversation = conversations.find(conv => conv.id === convId);
+		if (conversation) {
+			selectedConversation = conversation;
+			loadMessages(conversation.user.id);
+			
+			// Update active state
+			conversations = conversations.map(conv => ({
+				...conv,
+				isActive: conv.id === convId
+			}));
+		}
+	}
+
+	function handleSelectChat(event: CustomEvent<{ conversationId: string }>) {
+		const convId = event.detail.conversationId;
+		selectConversationById(convId);
+	}
+
+	function handleNewChat() {
+		const customEvent = new CustomEvent('newChat', {
+			detail: {},
+			bubbles: true
+		});
+		document.dispatchEvent(customEvent);
+		console.log('New chat requested');
+	}
+
+	function handleSearch(event: CustomEvent<{ query: string }>) {
+		const query = event.detail.query;
+		console.log('Search query:', query);
+	}
+
+	async function handleSendMessage(message: string) {
+		if (!selectedConversation || !$currentUser) return;
+
+		try {
+			sendingMessage = true;
+			const response = await fetch('/api/dm', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					content: message,
+					receiverId: selectedConversation.user.id
+				})
 			});
 
-			loading = false;
-		} catch (err) {
-			console.error(`❌ Error loading ${listType}:`, err);
-			error = err instanceof Error ? err.message : `Failed to load ${listType}`;
-			loading = false;
-		}
-	}
+			const result = await response.json();
 
-	async function updateFollowingStatus() {
-		if (!currentUser) return;
-		
-		try {
-			const currentUserFollowData = await fetchFollowData(currentUser.id);
-			if (currentUserFollowData) {
-				followingUsers = new Set(currentUserFollowData.following.map(u => u.id));
+			if (!response.ok) {
+				throw new Error(result.error || 'Failed to send message');
 			}
-		} catch (err) {
-			console.error('Error updating following status:', err);
-		}
-	}
 
-	async function handleFollowToggle(targetUser: PublicUserProfile) {
-		if (!currentUser || processingFollow.has(targetUser.id)) return;
-		
-		try {
-			processingFollow.add(targetUser.id);
-			processingFollow = new Set(processingFollow); // Trigger reactivity
-			
-			const isCurrentlyFollowing = followingUsers.has(targetUser.id);
-			const action = isCurrentlyFollowing ? 'unfollow' : 'follow';
-			
-			console.log(`🔄 ${action}ing user:`, targetUser.username);
-			
-			const success = await toggleFollowUser(currentUser.id, targetUser.id, action);
-			
-			if (success) {
-				// Update local following status
-				if (action === 'follow') {
-					followingUsers.add(targetUser.id);
-				} else {
-					followingUsers.delete(targetUser.id);
+			// Add the new message to the current messages
+			messages = [...messages, result.message];
+
+			// If this was a temporary conversation, update it with the real conversation data
+			if (selectedConversation.id.startsWith('temp-')) {
+				// Reload conversations to get the real conversation that was just created
+				await loadConversations();
+				// Try to find the new conversation with this user
+				const newConv = conversations.find(conv => conv.user.id === selectedConversation!.user.id);
+				if (newConv) {
+					selectedConversation = newConv;
+					toast.success('Conversation started!', 2000);
 				}
-				followingUsers = new Set(followingUsers); // Trigger reactivity
-				
-				console.log(`✅ Successfully ${action}ed user:`, targetUser.username);
 			} else {
-				console.error(`❌ Failed to ${action} user:`, targetUser.username);
+				// Update existing conversation's last message
+				const updatedConversations = conversations.map(conv => {
+					if (conv.id === selectedConversation!.id) {
+						return {
+							...conv,
+							lastMessage: {
+								content: message,
+								timestamp: new Date(),
+								senderId: $currentUser!.id
+							}
+						};
+					}
+					return conv;
+				});
+				conversations = updatedConversations;
 			}
+
+			// Optional: Show success toast for message sent
+			// toast.success('Message sent', 1000);
+
 		} catch (err) {
-			console.error('Error toggling follow:', err);
+			console.error('Error sending message:', err);
+			const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
+			error = errorMessage;
+			toast.error(errorMessage, 4000);
 		} finally {
-			processingFollow.delete(targetUser.id);
-			processingFollow = new Set(processingFollow); // Trigger reactivity
+			sendingMessage = false;
+		}
+	}
+	function handleMarkAsRead(messageIds: string[]) {
+		// Implement mark as read functionality
+		console.log('Mark as read:', messageIds);
+	}
+
+	function toggleDrawer() {
+		isDrawerOpen = !isDrawerOpen;
+	}
+
+	// Public API - expose functions for parent components
+	export function openConversation(conversationId: string) {
+		selectConversationById(conversationId);
+	}
+
+	export function startNewConversation(userId: string) {
+		// Create or find conversation with specific user
+		const existingConv = conversations.find(conv => conv.user.id === userId);
+		if (existingConv) {
+			selectConversationById(existingConv.id);
+		} else {
+			// This would create a new conversation
+			console.log('Starting new conversation with user:', userId);
 		}
 	}
 
-	async function handleMainFollowToggle() {
-		if (!currentUser || processingMainFollow || currentUser.id === userId) return;
-		
+	export function refresh() {
+		loadConversations();
+	}
+
+
+	$: if (initialConversationId && conversations.length > 0) {
+		selectConversationById(initialConversationId);
+	} else if (!initialConversationId && user && conversations.length > 0 && $currentUser && user.id !== $currentUser.id) {
+		findOrCreateConversationWithUser(user.id);
+	}
+
+
+onMount(async () => {
+	if ($currentUser && shouldLoadConversations) {
+		initialLoading = true;
 		try {
-			processingMainFollow = true;
-			
-			const action = isFollowingProfileOwner ? 'unfollow' : 'follow';
-			
-			console.log(`🔄 ${action}ing profile owner:`, userId);
-			
-			const success = await toggleFollowUser(currentUser.id, userId, action);
-			
-			if (success) {
-				// Update local following status
-				if (action === 'follow') {
-					followingUsers.add(userId);
-				} else {
-					followingUsers.delete(userId);
-				}
-				followingUsers = new Set(followingUsers); // Trigger reactivity
-				isFollowingProfileOwner = !isFollowingProfileOwner;
-				
-				console.log(`✅ Successfully ${action}ed profile owner`);
-			} else {
-				console.error(`❌ Failed to ${action} profile owner`);
+			await loadConversations();
+			if (!initialConversationId && user && user.id !== $currentUser?.id) {
+				await findOrCreateConversationWithUser(user.id);
+			} else if (initialConversationId) {
+				selectConversationById(initialConversationId);
 			}
-		} catch (err) {
-			console.error('Error toggling main follow:', err);
 		} finally {
-			processingMainFollow = false;
+			initialLoading = false;
 		}
 	}
-
-	function handleUserClick(user: PublicUserProfile) {
-		if (onUserClick) {
-			onUserClick(user);
-		}
-	}
-
-	function getUserStatus(userId: string): 'online' | 'offline' | undefined {
-		if (!showStatus) return undefined;
-		
-		let status: 'online' | 'offline' | undefined;
-		userStatusStore.subscribe(statusMap => {
-			const userStatus = statusMap.get(userId);
-			status = userStatus?.status;
-		})();
-		return status;
-	}
-
-	// Cleanup
-	let unsubscribe: (() => void) | null = null;
-
-	onMount(() => {
-		loadUsers();
-		
-		// Subscribe to store changes
-		unsubscribe = followStore.subscribe(() => {
-			// This will trigger reactive updates
-		});
-	});
-
-	onDestroy(() => {
-		if (unsubscribe) {
-			unsubscribe();
-		}
-	});
+});
 </script>
 
-<div class="user-list" style="max-height: {maxHeight};">
-	{#if loading}
-		<div class="loading-state">
-			<div class="loading-spinner"></div>
-			<p>Loading {listType}...</p>
-		</div>
-	{:else if error}
-		<div class="error-state">
-			<p class="error-message">{error}</p>
-			<button class="retry-button" on:click={loadUsers}>
-				Try Again
-			</button>
-		</div>
-	{:else if users.length === 0}
-		<div class="empty-state">
-			<p class="empty-message">{displayEmptyMessage}</p>
-		</div>
-	{:else}
-		<div class="users-container">
-			{#each users as user (user.id)}
-				<div class="user-item">
-					<div class="user-header" class:clickable={!!onUserClick} on:click={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
-						<div class="avatar-container">
-							{#if user.avatar || user.avatarUrl}
-								<img src={user.avatarUrl || user.avatar} alt={user.name || user.username} class="avatar" />
-							{:else}
-								<div class="avatar-placeholder">
-									{(user.name || user.username).charAt(0).toUpperCase()}
+{#if initialLoading}
+	<div class="loading-overlay">
+		<div class="loading-spinner"></div>
+	</div>
+{/if}
+{#if !currentUser}
+	<div class="dm-error">
+		<p>User authentication required</p>
+	</div>
+{:else}
+	<div class="dm-module">
+		{#if error}
+			<div class="error-banner">
+				<span>{error}</span>
+				<button on:click={() => error = ''}>×</button>
+			</div>
+		{/if}
+
+		<div class="dm-layout" class:no-drawer={!showDrawer}>
+			{#if showDrawer}
+				<DMChatDrawer
+					{conversations}
+					currentUserId={$currentUser?.id || ''}
+					isOpen={isDrawerOpen}
+					on:selectChat={handleSelectChat}
+					on:newChat={handleNewChat}
+					on:search={handleSearch}
+				/>
+			{/if}
+			{#if !isDrawerOpen && showDrawerToggle}
+				<button class="drawer-toggle" on:click={toggleDrawer}>
+					{@html getIcon('ListCollapse')}
+				</button>
+			{/if}
+
+			<div class="chat-area" 
+				class:expanded={!isDrawerOpen}
+
+			>
+
+				{#if selectedConversation}
+					<DMChat
+						user={selectedConversation.user}
+						{messages}
+						currentUserId={$currentUser?.id || ''}
+						onSendMessage={handleSendMessage}
+						onMarkAsRead={handleMarkAsRead}
+						showHeader={showChatHeader}
+						loading={loadingMessages}
+
+
+					/>
+				{:else}
+					<div class="no-conversation">
+						<div class="no-conversation-content">
+							{#if loadingConversations}
+								<div class="loading-overlay">
+									<div class="loading-spinner"></div>
 								</div>
-							{/if}
-							{#if showStatus && getUserStatus(user.id)}
-								<div class="status-indicator" class:online={getUserStatus(user.id) === 'online'}></div>
-							{/if}
-						</div>
-						<div class="user-info">
-							<h3 class="username">{user.name || user.username}</h3>
-							{#if showStatus && getUserStatus(user.id)}
-								<span class="status-text">{getUserStatus(user.id)}</span>
+							{:else}
+								<div class="no-conversation-icon">💬</div>
+								<h2>Select a conversation</h2>
+								<p>Choose a conversation from the sidebar to start messaging</p>
+								{#if conversations.length === 0 && !loading}
+									<button class="start-chat-btn" on:click={handleNewChat}>
+										Start your first conversation
+									</button>
+								{/if}
 							{/if}
 						</div>
 					</div>
-					
-											{#if showFollowButton && currentUser && currentUser.id !== user.id}
-						<div class="follow-action">
-							<button
-								class="follow-button"
-								class:following={followingUsers.has(user.id)}
-								class:processing={processingFollow.has(user.id)}
-								disabled={processingFollow.has(user.id)}
-								on:click={() => handleFollowToggle(user)}
-							>
-								{#if processingFollow.has(user.id)}
-									<div class="button-spinner"></div>
-								{:else if followingUsers.has(user.id)}
-									Following
-								{:else}
-									Follow
-								{/if}
-							</button>
-						</div>
-					{/if}
-				</div>
-			{/each}
+				{/if}
+
+				{#if loading}
+					<div class="loading-overlay">
+						<div class="loading-spinner"></div>
+					</div>
+				{/if}
+			</div>
+
+			{#if isDrawerOpen && showDrawerToggle}
+				<button class="drawer-close" on:click={toggleDrawer}>
+					{@html getIcon('ListX')}
+				</button>
+			{/if}
 		</div>
-	{/if}
-</div>
+	</div>
+{/if}
 
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
 
-	.user-list {
-		background: var(--bg-color);
-		border: 1px solid var(--line-color);
-		border-radius: 8px;
+	.dm-module {
+		position: relative;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-	}
+        display: flex;
+        justify-content: center;
+        width: auto;
+		height: auto;
+        flex: 1;
 
-	.loading-state,
-	.error-state,
-	.empty-state {
+    }
+
+	.dm-error {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 2rem;
-		text-align: center;
+		height: 200px;
 		color: var(--placeholder-color);
+		background: var(--bg-color);
+	}
+
+	.error-banner {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		background: #ef4444;
+		color: white;
+		padding: 12px 16px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		z-index: 1000;
+
+		button {
+			background: none;
+			border: none;
+			color: white;
+			font-size: 18px;
+			cursor: pointer;
+			padding: 0 4px;
+		}
+	}
+
+	.dm-layout {
+		display: flex;
+		height: 100%;
+        width:100%;
+        flex: 1;
+        align-items: flex-start;
+        justify-content: flex-start;
+		position: relative;
+	}
+
+	.chat-area {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+		height: 100%;
+        width: auto;
+        flex: 1;
+        margin-left: 0;
+        margin-right: 0;
+
+		&.expanded {
+			width: 100%;
+
+		}
+	}
+	.dm-layout.no-drawer .chat-area {
+	width: 100%;
+	border-left: none;
+}
+
+.loading-overlay {
+	position: absolute !important;
+	top: 0;
+	left: 50%;
+	width: 100%;
+	height: 100%;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	background-color: transparent !important;
+}
+.loading-spinner {
+	position: relative !important;
+}
+
+
+	.drawer-toggle {
+		position: absolute;
+		top: 1rem;
+		left: 1rem;
+		z-index: 100;
+		background: var(--secondary-color);
+		border: none;
+		border-radius: 8px;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-color);
+		cursor: pointer;
+		transition: all 0.2s ease;
+
+		&:hover {
+			background: var(--tertiary-color);
+			color: var(--primary-color);
+		}
+	}
+
+	.drawer-close {
+		position: absolute;
+		top: 2rem;
+		left: 190px;
+		transform: translateY(-50%);
+		background: var(--secondary-color);
+		border: none;
+		border-radius: 50%;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-color);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		z-index: 10;
+
+		&:hover {
+			background: var(--tertiary-color);
+			color: var(--primary-color);
+		}
+	}
+
+	.no-conversation {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+        width: 100% !important;
+	}
+
+	.no-conversation-content {
+		text-align: center;
+		width: 100% !important;
+
+	}
+
+	.no-conversation-icon {
+		font-size: 64px;
+		margin-bottom: 24px;
+	}
+
+	.no-conversation-content h2 {
+		margin: 0 0 16px 0;
+		color: var(--text-color);
+		font-size: 24px;
+		font-weight: 600;
+	}
+
+	.no-conversation-content p {
+		margin: 0 0 32px 0;
+		color: var(--placeholder-color);
+		font-size: 16px;
+		line-height: 1.5;
+	}
+
+	.start-chat-btn {
+		background: var(--tertiary-color);
+		color: var(--primary-color);
+		border: none;
+		border-radius: 24px;
+		padding: 12px 24px;
+		font-size: 16px;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+
+		&:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 4px 12px rgba(80, 227, 194, 0.3);
+		}
+	}
+
+	.loading-overlay {
+		position: relative !important;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
 	}
 
 	.loading-spinner {
-		width: 24px;
-		height: 24px;
-		border: 2px solid var(--line-color);
-		border-top: 2px solid var(--primary-color);
+		width: 40px;
+		height: 40px;
+		border: 3px solid var(--line-color);
+		border-top: 3px solid var(--tertiary-color);
 		border-radius: 50%;
 		animation: spin 1s linear infinite;
-		margin-bottom: 1rem;
 	}
 
 	@keyframes spin {
@@ -327,276 +605,26 @@
 		100% { transform: rotate(360deg); }
 	}
 
-	.error-message {
-		color: var(--error-color);
-		margin-bottom: 1rem;
-	}
-
-	.retry-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
-		border: none;
-		padding: 0.5rem 1rem;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 14px;
-		transition: background-color 0.2s ease;
-
-		&:hover {
-			background: var(--primary-hover-color);
-		}
-	}
-
-	.empty-message {
-		font-style: italic;
-		margin: 0;
-	}
-
-	.users-container {
-		overflow-y: auto;
-		flex: 1;
-	}
-
-	.user-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.5rem;
-		border-bottom: 1px solid var(--line-color);
-		transition: background-color 0.2s ease;
-
-		&:last-child {
-			border-bottom: none;
-		}
-
-		&:hover {
-			background: var(--secondary-color);
-		}
-	}
-
-	.user-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex: 1;
-		min-width: 0;
-		transition: background-color 0.2s ease;
-
-		&.clickable {
-			cursor: pointer;
-			padding: 0.25rem;
-			border-radius: 4px;
-			
-			&:hover {
-				background: var(--tertiary-color);
-			}
-		}
-	}
-
-	.avatar-container {
-		position: relative;
-		flex-shrink: 0;
-	}
-
-	.avatar {
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 2px solid var(--line-color);
-	}
-
-	.avatar-placeholder {
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		background: var(--tertiary-color);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: bold;
-		color: var(--primary-color);
-		font-size: 16px;
-		border: 2px solid var(--line-color);
-	}
-
-	.status-indicator {
-		position: absolute;
-		bottom: 0;
-		right: 0;
-		width: 12px;
-		height: 12px;
-		border-radius: 50%;
-		border: 2px solid var(--bg-color);
-		background: var(--placeholder-color);
-		
-		&.online {
-			background: #4ade80;
-		}
-	}
-
-	.user-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.username {
-		margin: 0;
-		font-size: 16px;
-		font-weight: 600;
-		color: var(--text-color);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.status-text {
-		font-size: 12px;
-		color: var(--placeholder-color);
-		text-transform: capitalize;
-		display: block;
-		margin-top: 0.125rem;
-	}
-
-	.follow-action {
-		flex-shrink: 0;
-		margin-left: 1rem;
-	}
-
-	.follow-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
-		border: none;
-		padding: 0.5rem 1rem;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 12px;
-		font-weight: 500;
-		transition: all 0.2s ease;
-		min-width: 80px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-
-		&:hover:not(:disabled) {
-			background: var(--primary-hover-color);
-		}
-
-		&.following {
-			background: var(--success-color);
-			
-			&:hover:not(:disabled) {
-				background: var(--error-color);
-			}
-			
-			&:hover:not(:disabled)::after {
-				content: 'Unfollow';
-				position: absolute;
-			}
-		}
-
-		&.processing {
-			background: var(--placeholder-color);
-			cursor: not-allowed;
-		}
-
-		&:disabled {
-			opacity: 0.6;
-			cursor: not-allowed;
-		}
-	}
-
-	.main-follow-button {
-		background: var(--primary-color);
-		color: var(--bg-color);
-		border: none;
-		padding: 0.75rem 1.5rem;
-		border-radius: 6px;
-		cursor: pointer;
-		font-size: 14px;
-		font-weight: 600;
-		transition: all 0.2s ease;
-		min-width: 120px;
-		height: 40px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-
-		&:hover:not(:disabled) {
-			background: var(--primary-hover-color);
-			transform: translateY(-1px);
-		}
-
-		&.following {
-			background: var(--success-color);
-			
-			&:hover:not(:disabled) {
-				background: var(--error-color);
-			}
-		}
-
-		&.processing {
-			background: var(--placeholder-color);
-			cursor: not-allowed;
-		}
-
-		&:disabled {
-			opacity: 0.6;
-			cursor: not-allowed;
-		}
-	}
-
-	.main-follow-section {
-		padding: 1rem;
-		border-bottom: 1px solid var(--line-color);
-		background: var(--secondary-color);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.main-follow-text {
-		font-size: 12px;
-		color: var(--placeholder-color);
-		text-align: center;
-	}
-
-	.button-spinner {
-		width: 16px;
-		height: 16px;
-		border: 2px solid transparent;
-		border-top: 2px solid currentColor;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	/* Scrollbar styling */
-	.users-container::-webkit-scrollbar {
-		width: 6px;
-	}
-
-	.users-container::-webkit-scrollbar-track {
-		background: var(--secondary-color);
-	}
-
-	.users-container::-webkit-scrollbar-thumb {
-		background: var(--placeholder-color);
-		border-radius: 3px;
-	}
-
-	.users-container::-webkit-scrollbar-thumb:hover {
-		background: var(--text-color);
-	}
-
-	/* Firefox scrollbar */
-	.users-container {
-		scrollbar-width: thin;
-		scrollbar-color: var(--placeholder-color) var(--secondary-color);
-	}
-
 	* {
 		font-family: var(--font-family);
+	}
+
+	// Mobile responsive
+	@media (max-width: 768px) {
+		.dm-layout {
+			position: relative;
+		}
+
+		:global(.dm-chat-drawer) {
+			// position: absolute;
+			top: 0;
+			left: 0;
+			height: 100%;
+			z-index: 100;
+		}
+
+		.drawer-close {
+			// display: none;
+		}
 	}
 </style>
