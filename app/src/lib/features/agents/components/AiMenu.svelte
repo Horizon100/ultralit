@@ -52,9 +52,7 @@
 			>Assistant</button
 		>
 	</div>
-	<div class="search">
-		<textarea placeholder="Search..."></textarea>
-	</div>
+
 	<div class="content">
 		{#if activeTab === 'assets'}
 			<div in:slideTransition={{ direction: -1 }} out:slideTransition={{ direction: 1 }}>
@@ -149,8 +147,8 @@
 
 	.content {
 		position: relative;
-		height: calc(100% - 100px); /* Adjust based on your tabs and search height */
-		overflow: auto;
+		height: 84vh; /* Adjust based on your tabs and search height */
+
 	}
 
 	.content > div {

@@ -29,7 +29,7 @@
 		align-items: center;
 		height: 100%;
 		width: 100%;
-		position: fixed;
+		position: absolute;
 		top: 0;
 		left: 0;
 		z-index: 9999;
@@ -42,12 +42,11 @@
 		z-index: 9999;
 		/* top: 40px; */
 		/* left: calc(50% - 40px); */
-		box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+		// box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
 		border-radius: 50%;
-		position: fixed;
+		position: absolute;
 		right: calc(50% - 40px);
 		top: calc(50% - 40px);
-		color: #363f3f;
 
 		/* bottom: 0; */
 	}

@@ -3,11 +3,11 @@
 	import { followStore, fetchFollowData, getFollowers, getFollowing, toggleFollowUser } from '$lib/stores/followStore';
 	import { userStatusStore, fetchUserStatus } from '$lib/stores/userStatusStore';
 	import type { PublicUserProfile, User } from '$lib/types/types';
+	import { currentUser } from '$lib/pocketbase';
 
 	// Props
 	export let userId: string;
 	export let listType: 'followers' | 'following';
-	export let currentUser: User | null = null;
 	export let showFollowButton = true;
 	export let showStatus = true;
 	export let maxHeight = '400px';
@@ -42,17 +42,12 @@
 	}
 
 	// Check which users current user is following
-	$: if (currentUser && users.length > 0) {
+	$: if ($currentUser && users.length > 0) {
 		updateFollowingStatus();
 	}
 
 	// Check if current user is following the profile owner
-	$: if (currentUser && userId && currentUser.id !== userId && followingUsers.size > 0) {
-		isFollowingProfileOwner = followingUsers.has(userId);
-	}
-
-	// Check if current user is following the profile owner
-	$: if (currentUser && userId && currentUser.id !== userId && followingUsers.size > 0) {
+	$: if ($currentUser && userId && $currentUser.id !== userId && followingUsers.size > 0) {
 		isFollowingProfileOwner = followingUsers.has(userId);
 	}
 
@@ -105,10 +100,10 @@
 	}
 
 	async function updateFollowingStatus() {
-		if (!currentUser) return;
+		if (!$currentUser) return;
 		
 		try {
-			const currentUserFollowData = await fetchFollowData(currentUser.id);
+			const currentUserFollowData = await fetchFollowData($currentUser.id);
 			if (currentUserFollowData) {
 				followingUsers = new Set(currentUserFollowData.following.map(u => u.id));
 			}
@@ -118,7 +113,7 @@
 	}
 
 	async function handleFollowToggle(targetUser: PublicUserProfile) {
-		if (!currentUser || processingFollow.has(targetUser.id)) return;
+		if (!$currentUser || processingFollow.has(targetUser.id)) return;
 		
 		try {
 			processingFollow.add(targetUser.id);
@@ -129,7 +124,7 @@
 			
 			console.log(`🔄 ${action}ing user:`, targetUser.username);
 			
-			const success = await toggleFollowUser(currentUser.id, targetUser.id, action);
+			const success = await toggleFollowUser($currentUser.id, targetUser.id, action);
 			
 			if (success) {
 				// Update local following status
@@ -153,7 +148,7 @@
 	}
 
 	async function handleMainFollowToggle() {
-		if (!currentUser || processingMainFollow || currentUser.id === userId) return;
+		if (!$currentUser || processingMainFollow || $currentUser.id === userId) return;
 		
 		try {
 			processingMainFollow = true;
@@ -162,7 +157,7 @@
 			
 			console.log(`🔄 ${action}ing profile owner:`, userId);
 			
-			const success = await toggleFollowUser(currentUser.id, userId, action);
+			const success = await toggleFollowUser($currentUser.id, userId, action);
 			
 			if (success) {
 				// Update local following status
@@ -234,57 +229,104 @@
 				Try Again
 			</button>
 		</div>
-	{:else if users.length === 0}
-		<div class="empty-state">
-			<p class="empty-message">{displayEmptyMessage}</p>
-		</div>
 	{:else}
-		<div class="users-container">
-			{#each users as user (user.id)}
-				<div class="user-item">
-					<div class="user-header" class:clickable={!!onUserClick} on:click={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
-						<div class="avatar-container">
-							{#if user.avatar || user.avatarUrl}
-								<img src={user.avatarUrl || user.avatar} alt={user.name || user.username} class="avatar" />
-							{:else}
-								<div class="avatar-placeholder">
-									{(user.name || user.username).charAt(0).toUpperCase()}
-								</div>
-							{/if}
-							{#if showStatus && getUserStatus(user.id)}
-								<div class="status-indicator" class:online={getUserStatus(user.id) === 'online'}></div>
-							{/if}
-						</div>
-						<div class="user-info">
-							<h3 class="username">{user.name || user.username}</h3>
-							{#if showStatus && getUserStatus(user.id)}
-								<span class="status-text">{getUserStatus(user.id)}</span>
-							{/if}
-						</div>
-					</div>
-					
-											{#if showFollowButton && currentUser && currentUser.id !== user.id}
-						<div class="follow-action">
-							<button
-								class="follow-button"
-								class:following={followingUsers.has(user.id)}
-								class:processing={processingFollow.has(user.id)}
-								disabled={processingFollow.has(user.id)}
-								on:click={() => handleFollowToggle(user)}
-							>
-								{#if processingFollow.has(user.id)}
-									<div class="button-spinner"></div>
-								{:else if followingUsers.has(user.id)}
-									Following
-								{:else}
-									Follow
-								{/if}
-							</button>
-						</div>
-					{/if}
-				</div>
-			{/each}
+		<!-- Debug info -->
+		<div style="background: yellow; padding: 10px; margin: 10px; font-size: 12px;">
+			<strong>DEBUG:</strong><br>
+			listType: {listType}<br>
+			currentUser: {currentUser ? 'exists' : 'null'}<br>
+			currentUser.id: {currentUser?.id || 'none'}<br>
+			userId: {userId}<br>
+			users.length: {users.length}<br>
+			showButton: {listType === 'followers' && currentUser && currentUser.id !== userId}<br>
+			isFollowingProfileOwner: {isFollowingProfileOwner}<br>
+			processingMainFollow: {processingMainFollow}
 		</div>
+
+		<!-- Main follow button for followers list - ALWAYS show if conditions are met -->
+		{#if listType === 'followers' && currentUser && currentUser.id !== userId}
+			<div class="main-follow-section">
+				<button
+					class="main-follow-button"
+					class:following={isFollowingProfileOwner}
+					class:processing={processingMainFollow}
+					disabled={processingMainFollow}
+					on:click={handleMainFollowToggle}
+				>
+					{#if processingMainFollow}
+						<div class="button-spinner"></div>
+					{:else if isFollowingProfileOwner}
+						Following
+					{:else}
+						Follow
+					{/if}
+				</button>
+				<span class="main-follow-text">
+					{isFollowingProfileOwner ? 'You are following this user' : 'Follow to see updates'}
+				</span>
+			</div>
+		{:else}
+			<div style="background: red; color: white; padding: 10px; margin: 10px;">
+				Button hidden because: 
+				{#if listType !== 'followers'}Not followers list (listType = {listType}){/if}
+				{#if !currentUser}No current user{/if}
+				{#if currentUser && currentUser.id === userId}Same user (currentUser.id = {currentUser.id}, userId = {userId}){/if}
+			</div>
+		{/if}
+
+		<!-- Users list or empty state -->
+		{#if users.length === 0}
+			<div class="empty-state">
+				<p class="empty-message">{displayEmptyMessage}</p>
+			</div>
+		{:else}
+			<div class="users-container">
+				{#each users as user (user.id)}
+					<div class="user-item">
+						<div class="user-header" class:clickable={!!onUserClick} on:click={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
+							<div class="avatar-container">
+								{#if user.avatar || user.avatarUrl}
+									<img src={user.avatarUrl || user.avatar} alt={user.name || user.username} class="avatar" />
+								{:else}
+									<div class="avatar-placeholder">
+										{(user.name || user.username).charAt(0).toUpperCase()}
+									</div>
+								{/if}
+								{#if showStatus && getUserStatus(user.id)}
+									<div class="status-indicator" class:online={getUserStatus(user.id) === 'online'}></div>
+								{/if}
+							</div>
+							<div class="user-info">
+								<h3 class="username">{user.name || user.username}</h3>
+								{#if showStatus && getUserStatus(user.id)}
+									<span class="status-text">{getUserStatus(user.id)}</span>
+								{/if}
+							</div>
+						</div>
+						
+						{#if showFollowButton && currentUser && currentUser.id !== user.id}
+							<div class="follow-action">
+								<button
+									class="follow-button"
+									class:following={followingUsers.has(user.id)}
+									class:processing={processingFollow.has(user.id)}
+									disabled={processingFollow.has(user.id)}
+									on:click={() => handleFollowToggle(user)}
+								>
+									{#if processingFollow.has(user.id)}
+										<div class="button-spinner"></div>
+									{:else if followingUsers.has(user.id)}
+										Following
+									{:else}
+										Follow
+									{/if}
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </div>
 

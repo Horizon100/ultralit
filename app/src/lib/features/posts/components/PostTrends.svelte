@@ -87,7 +87,7 @@
 		<AgentsConfig />
 
 		<!-- App Features Highlight -->
-		<section class="features-section">
+		<!-- <section class="features-section">
 			<h3>
 				{$t('features.homeIntro.title')}
 			</h3>
@@ -99,7 +99,7 @@
 					</li>
 				{/each}
 			</ul>
-		</section>
+		</section> -->
 
 		<!-- Getting Started Guide -->
 		<!-- <section class="getting-started-section">

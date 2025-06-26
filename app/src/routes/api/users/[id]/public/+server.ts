@@ -25,6 +25,9 @@ export const GET: RequestHandler = async ({ params, locals }) =>
       description: user.description || '',
       role: user.role,
       last_login: user.last_login,
+      followers: user.followers || [],
+      following: user.following || [],
+      status: user.status,
       perks: user.activated_features || [],
       taskAssignments: user.taskAssignments || [],
       userTaskStatus: user.userTaskStatus || {

@@ -26,12 +26,13 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		console.log('API/[username]: Looking for username:', username, 'offset:', offset, 'limit:', limit, 'page:', page);
 
 		// Find user by username
-		const userResult = await pbTryCatch(
-			pb.collection('users').getList(1, 1, {
-				filter: `username = "${username}"`
-			}),
-			'fetch user by username'
-		);
+const userResult = await pbTryCatch(
+	pb.collection('users').getList(1, 1, {
+		filter: `username = "${username}"`,
+		fields: 'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,status,last_login,followers,following,created,updated'
+	}),
+	'fetch user by username'
+);
 
 		if (!userResult.success) {
 			throw new Error(userResult.error);
@@ -210,7 +211,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		let profile = null;
 		if (offset === 0) {
 			const profileResult = await pbTryCatch(
-				pb.collection('user_profiles').getList(1, 1, {
+				pb.collection('users').getList(1, 1, {
 					filter: `user = "${user.id}"`
 				}),
 				'fetch user profile'
@@ -247,21 +248,28 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
 		console.log('API/[username]: Returning', allPosts.length, 'posts for page', page);
 
-		return {
-			user: {
-				id: user.id,
-				username: user.username,
-				name: user.name,
-				email: user.email,
-				avatar: user.avatar,
-				created: user.created,
-				updated: user.updated
-			},
-			profile: offset === 0 ? profile : undefined, // Only return profile on first page
-			posts: allPosts,
-			totalPosts: totalPosts || allPosts.length,
-			currentPage: page,
-			hasMore: allPosts.length === limit
-		};
+	return {
+		user: {
+			id: user.id,
+			username: user.username,
+			name: user.name,
+			email: user.email,
+			avatar: user.avatar,
+			description: user.description,       
+			profileWallpaper: user.profileWallpaper, 
+			wallpaper_preference: user.wallpaper_preference, 
+			status: user.status || 'offline',
+			last_login: user.last_login || '',
+			followers: user.followers || [],
+			following: user.following || [],
+			created: user.created,
+			updated: user.updated
+		},
+		profile: offset === 0 ? profile : undefined,
+		posts: allPosts,
+		totalPosts: totalPosts || allPosts.length,
+		currentPage: page,
+		hasMore: allPosts.length === limit
+	};
 	}, 'Failed to fetch user profile');
 };

@@ -25,7 +25,8 @@ export default {
 		searchProjects: 'Поиск проектов...',
 		welcome: 'Добро пожаловать',
 		signup: 'Новый пользователь? Создайте учетную запись',
-		quickAccess: 'Быстрый доступ'
+		quickAccess: 'Быстрый доступ',
+		debug: 'Отладка'
 	},
 	generic: {
 		created: 'Создано',
@@ -421,6 +422,12 @@ export default {
 		]
 	},
 	dates: {
+		minute: 'минута',
+		minutes: 'минут',
+		minutesAgo: 'минут назад',
+		hour: 'час',
+		hours: 'часов',
+		hoursAgo: 'ч. назад',
 		day: 'день',
 		days: 'дни',
 		dayAgo: 'день назад',

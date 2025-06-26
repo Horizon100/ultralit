@@ -1,14 +1,16 @@
 <script lang="ts">
-	import type { User, PublicUserProfile, UserProfile, DMMessage } from '$lib/types/types';
+	import type { User, PublicUserProfile, UserProfile, DMMessage, ConversationUser} from '$lib/types/types';
 	import DMHeader from './DMHeader.svelte';
 	import DMInput from './DMInput.svelte';
-
 	import { onMount, afterUpdate } from 'svelte';
-	export let user: User | PublicUserProfile | UserProfile;
-	
-	export let messages: DMMessage[] = [];
+	import { fly } from 'svelte/transition';
 
+	export let user: User | PublicUserProfile | UserProfile | ConversationUser;
+	export let showHeader: boolean = true;
+	export let messages: DMMessage[] = [];
 	export let currentUserId: string;
+	export let loading = false;
+
 	export let onSendMessage: (message: string) => Promise<void> | void;
 	export let onMarkAsRead: ((messageIds: string[]) => void) | undefined = undefined;
 
@@ -91,17 +93,25 @@
 	}
 </script>
 
-<div class="dm-chat">
-	<div class="chat-header">
-		<DMHeader {user} showStatus={true} />
-	</div>
-
+<div class="dm-chat"
+>
+	{#if showHeader}
+		<div class="chat-header">
+			<DMHeader {user} showStatus={true} />
+		</div>
+	{/if}
 	<div 
 		class="messages-container" 
+		class:no-header={!showHeader}
+		
 		bind:this={messagesContainer}
 		on:scroll={handleScroll}
 	>
-		{#if messages.length === 0}
+		{#if loading && messages.length === 0}
+				<div class="loading-overlay">
+					<div class="loader-spinner"></div>
+				</div>
+		{:else if messages.length === 0}
 			<div class="empty-state">
 				<div class="empty-icon">💬</div>
 				<p>Start a conversation with {user.name || user.username}</p>
@@ -118,6 +128,7 @@
 					class="message" 
 					class:own={message.senderId === currentUserId}
 					class:other={message.senderId !== currentUserId}
+
 				>
 					<div class="message-content">
 						<p>{message.content}</p>
@@ -130,7 +141,10 @@
 		{/if}
 	</div>
 
-	<div class="chat-input">
+	<div class="chat-input"
+		in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }}
+
+	>
 		<DMInput 
 			placeholder="Message {user.name || user.username}..."
 			on:send={handleSendMessage}
@@ -145,8 +159,8 @@
 	.dm-chat {
 		display: flex;
 		flex-direction: column;
-		height: 100vh;
-		background: var(--bg-color);
+		height: 100%;
+		width: 100%;
 	}
 
 	.chat-header {
@@ -158,9 +172,7 @@
 	.messages-container {
 		flex: 1;
 		overflow-y: auto;
-		padding: 16px;
-		background: var(--bg-gradient);
-		
+		padding: 1rem;
 		&::-webkit-scrollbar {
 			width: 8px;
 		}
@@ -174,13 +186,15 @@
 			border-radius: 4px;
 		}
 	}
-
+.messages-container.no-header {
+	height: 100%;
+}
 	.empty-state {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		height: 100%;
+		height: calc(100% - 2rem);
 		color: var(--placeholder-color);
 		text-align: center;
 

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { pb } from '$lib/pocketbase';
+import { pb } from '$lib/server/pocketbase';
 import type { DMMessage } from '$lib/types/types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {

@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	try {
 		const user = await pb.collection('users').getOne(userId, {
 			fields:
-				'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus,hero,wallpaper_preference'
+				'id,name,username,email,avatar,collectionId,model_preference,taskAssignments,userTaskStatus,hero,wallpaper_preference,profileWallpaper,status,last_login,followers,following'
 		});
 
 		if (!user) {
@@ -28,6 +28,11 @@ export const GET: RequestHandler = async ({ params }) => {
 				taskAssignments: user.taskAssignments || [],
 				hero: user.hero || '',
 				wallpaper_preference: user.wallpaper_preference || null,
+				profileWallpaper: user.profileWallpaper || null,
+				status: user.status || 'offline',
+				last_login: user.last_login || '',
+				followers: user.followers || [],
+				following: user.following || [],
 				userTaskStatus: user.userTaskStatus || {
 					backlog: 0,
 					todo: 0,
@@ -66,11 +71,13 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
 		const data = await request.json();
 
-		// Replace Record<string, any> with inline object type
+		// Updated inline object type to include status and last_login
 		const updateData: {
 			model_preference?: string[];
 			taskAssignments?: string[];
 			hero?: string;
+			status?: string;
+			last_login?: string;
 			userTaskStatus?: {
 				backlog: number;
 				todo: number;
@@ -98,6 +105,14 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			updateData.hero = data.hero;
 		}
 
+		if ('status' in data) {
+			updateData.status = data.status;
+		}
+
+		if ('last_login' in data) {
+			updateData.last_login = data.last_login;
+		}
+
 		if ('userTaskStatus' in data) {
 			updateData.userTaskStatus = data.userTaskStatus;
 		}
@@ -116,6 +131,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			);
 		}
 
+		console.log('📝 Updating user with data:', updateData);
 		const updated = await pb.collection('users').update(userId, updateData);
 
 		return json({
@@ -125,6 +141,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				model_preference: updated.model_preference || [],
 				taskAssignments: updated.taskAssignments || [],
 				wallpaper_preference: updated.wallpaper_preference || null,
+				status: updated.status || 'offline',
+				last_login: updated.last_login || '',
+				followers: updated.followers || [],
+				following: updated.following || [],
 				userTaskStatus: updated.userTaskStatus || {
 					backlog: 0,
 					todo: 0,
@@ -139,14 +159,23 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				}
 			}
 		});
-	} catch (err) {
-		console.error('Error updating user data:', err);
-		return json(
-			{
-				success: false,
-				error: err instanceof Error ? err.message : 'Failed to update user'
-			},
-			{ status: 400 }
-		);
+} catch (err) {
+	console.error('Error updating user data:', err);
+	
+	// Log detailed error information
+	if (err && typeof err === 'object') {
+		console.error('Full error object:', JSON.stringify(err, null, 2));
+		if ('response' in err) {
+			console.error('Error response:', err.response);
+		}
 	}
+	
+	return json(
+		{
+			success: false,
+			error: err instanceof Error ? err.message : 'Failed to update user'
+		},
+		{ status: 400 }
+	);
+}
 };

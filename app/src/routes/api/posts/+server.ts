@@ -1,7 +1,7 @@
 // src/routes/api/posts/+server.ts
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
-import type { Post, PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
+import type { Post, PostWithInteractions, PostAttachment, TimelinePost } from '$lib/types/types.posts';
 import type { User } from '$lib/types/types';
 import { getFileType } from '$lib/utils/fileHandlers';
 import { apiTryCatch, pbTryCatch } from '$lib/utils/errorUtils';
@@ -14,15 +14,6 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 			totalItems: number;
 			page: number;
 			perPage: number;
-		}
-
-		interface TimelinePost extends PostWithInteractions {
-			isRepost?: boolean;
-			originalPostId?: string;
-			repostedBy_id?: string;
-			repostedBy_username?: string;
-			repostedBy_name?: string;
-			repostedBy_avatar?: string;
 		}
 
 		const isAuthenticated = !!locals.user;

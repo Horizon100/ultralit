@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
-	import type { User, UserProfile, Threads, Messages } from '$lib/types/types'; // Removed PublicUserProfile
+	import type { User, UserProfile, Threads, Messages } from '$lib/types/types';
+	import type { PostWithInteractions, PostStoreState, TimelinePost} from '$lib/types/types.posts';
 	import { postStore } from '$lib/stores/postStore';
-	import type { PostWithInteractions, PostStoreState} from '$lib/types/types.posts';
-	// Removed: import { getPublicUserProfile, getPublicUserProfiles } from '$lib/clients/profileClient';
 	import { pocketbaseUrl, getPublicUserData, currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
 	import PostComposer from '$lib/features/posts/components/PostComposer.svelte';
@@ -39,22 +37,15 @@
 	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
 	import { browser } from '$app/environment';
 	import { createHoverManager } from '$lib/utils/hoverUtils';
+	import { showSidenav, showInput, showRightSidenav, showDebug} from '$lib/stores/sidenavStore';
+	import Debugger from '$lib/components/modals/Debugger.svelte';
 
-interface TimelinePost extends PostWithInteractions {
-	isRepost?: boolean;
-	originalPostId?: string;
-	repostedBy_id?: string;
-	repostedBy_username?: string;
-	repostedBy_name?: string;
-	repostedBy_avatar?: string;
-}
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
 	let homeHasMore = true;
 	let homeLoadingMore = false;
 	let homeLoading = false;
 	let homeCurrentOffset = 0;
 	let homePosts: PostWithInteractions[] = [];
-	const HOME_POSTS_PER_PAGE = 10;
 	let postComposerRef: any; 
 	let enableAutoTagging = true; 
 	let taggingModel: AIModel | null = null; 
@@ -65,47 +56,47 @@ interface TimelinePost extends PostWithInteractions {
 	let userProfilesMap: Map<string, Partial<User> | null> = new Map();
 	let loadingMore = false;
 	let hasMore = true;
+	let rightSideCleanup: (() => void) | null = null;
 	let currentOffset = 0;
 
-	const POSTS_PER_PAGE = 10;
+	const HOME_POSTS_PER_PAGE = 10;
 
-const rightSideHoverManager = createHoverManager({
-	hoverZone: 200, 
-	minScreenWidth: 700,
-	debounceDelay: 100,
-	controls: ['rightSidenav'],
-	direction: 'right',
-});
-
-const { 
-	hoverState: rightSideHoverState, 
-	handleMenuLeave: handleRightSideLeave, 
-	toggleMenu: toggleRightSide 
-} = rightSideHoverManager;
-
-let rightSideCleanup: (() => void) | null = null;
-
-	
-async function fetchUserProfiles(userIds: string[]): Promise<void> {
-	const fetchPromises = userIds.map(async (userId) => {
-		try {
-			const userData = await getPublicUserData(userId);
-			userProfilesMap.set(userId, userData);
-		} catch (error) {
-			console.error(`Error fetching profile for user ${userId}:`, error);
-			userProfilesMap.set(userId, null);
-		}
+	const rightSideHoverManager = createHoverManager({
+		hoverZone: 200, 
+		minScreenWidth: 700,
+		debounceDelay: 100,
+		controls: ['rightSidenav'],
+		direction: 'right',
 	});
 
-	// Process in batches of 5
-	const batchSize = 5;
-	for (let i = 0; i < fetchPromises.length; i += batchSize) {
-		const batch = fetchPromises.slice(i, i + batchSize);
-		await Promise.all(batch);
-	}
+	const { 
+		hoverState: rightSideHoverState, 
+		handleMenuLeave: handleRightSideLeave, 
+		toggleMenu: toggleRightSide 
+	} = rightSideHoverManager;
 
-	userProfilesMap = new Map(userProfilesMap);
-}
+
+		
+	async function fetchUserProfiles(userIds: string[]): Promise<void> {
+		const fetchPromises = userIds.map(async (userId) => {
+			try {
+				const userData = await getPublicUserData(userId);
+				userProfilesMap.set(userId, userData);
+			} catch (error) {
+				console.error(`Error fetching profile for user ${userId}:`, error);
+				userProfilesMap.set(userId, null);
+			}
+		});
+
+		// Process in batches of 5
+		const batchSize = 5;
+		for (let i = 0; i < fetchPromises.length; i += batchSize) {
+			const batch = fetchPromises.slice(i, i + batchSize);
+			await Promise.all(batch);
+		}
+
+		userProfilesMap = new Map(userProfilesMap);
+	}
 
 	function openPostModal() {
 		if (!$currentUser) {
@@ -642,6 +633,36 @@ $: if (typeof window !== 'undefined') {
 		triggerExists: !!document.getElementById('loading-trigger')
 	});
 }
+	$: homeDebugItems = [
+		{ label: 'Observer', value: infiniteScrollManager ? '✅' : '❌' },
+		{ label: 'Attached', value: infiniteScrollManager?.isObserverAttached ? '✅' : '❌' },
+		{ label: 'Trigger', value: document?.getElementById('home-loading-trigger') ? '✅' : '❌' },
+		{ label: 'Has More (local)', value: homeHasMore ? '✅' : '❌' },
+		{ label: 'Loading (local)', value: homeLoadingMore ? '⏳' : '💤' },
+		{ label: 'Has More (store)', value: $postStore.hasMore ? '✅' : '❌' },
+		{ label: 'Posts', value: $postStore.posts.length }
+	];
+	
+	$: homeDebugButtons = [
+		{
+			label: 'Manual Load More',
+			action: () => {
+				console.log('🚀 Manual trigger loadMorePosts from local function');
+				loadMoreHomePosts();
+			}
+		},
+		{
+			label: 'Recreate Scroll',
+			action: () => {
+				console.log('🔄 Recreate infinite scroll');
+				setupInfiniteScroll();
+				if (infiniteScrollManager) {
+					infiniteScrollManager.attachWithRetry(5, 50);
+				}
+			},
+			color: '#28a745'
+		}
+	];
 onMount(async () => {
 	console.log('🔄 Home page mounted - setting up...');
 	rightSideCleanup = rightSideHoverManager.initialize();
@@ -707,17 +728,33 @@ $: {
 	class="home-container"
 	class:hide-left-sidebar={!$showSidenav}
 	class:drawer-visible={$showSidenav}
+	class:hide-right-sidebar={!$showRightSidenav}
+	class:drawer-right-visible={$showRightSidenav}
+	
 >
 	<!-- Left Sidebar Component -->
-
-	<PostSidenav />
+	 <div class="side-menu">
+		<PostSidenav />	
+	</div>
 
 	<!-- Main Content -->
-	<main class="main-content">
+	<main class="main-content"
+		class:hide-left-sidebar={!$showSidenav}
+		class:drawer-visible={$showSidenav}
+		class:hide-right-sidebar={!$showRightSidenav}
+		class:drawer-right-visible={$showRightSidenav}
+
+	>
 		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
 		<img src={Italian} alt="Notes illustration" class="illustration right" /> -->
-		<div class="main-wrapper">
+		<div class="main-wrapper"
+			class:hide-left-sidebar={!$showSidenav}
+			class:drawer-visible={$showSidenav}
+			class:hide-right-sidebar={!$showRightSidenav}
+			class:drawer-right-visible={$showRightSidenav}
+			
+		>
 			<!-- Error Display -->
 			{#if error}
 				<div class="error-message">
@@ -772,18 +809,17 @@ $: {
 			/>
 		{/if}
 	{/each}
-	
 	<!-- Use store values instead of local variables -->
 {#if homeHasMore}
 		<div id="home-loading-trigger" class="loading-trigger">
 			{#if homeLoadingMore}
 				<div class="loading-indicator">
-					<div class="trigger-loader" in:fly={{ y:50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
+					<div class="trigger-loader" in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
 					<!-- <span>Loading more posts...</span> -->
 				</div>
 			{:else}
 				<div class="loading-indicator" >
-					<div class="trigger-loader" in:fly={{ y:50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
+					<div class="trigger-loader" in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
 					<!-- <span>Scroll for more...</span> -->
 				</div>
 			{/if}
@@ -826,43 +862,45 @@ $: {
 		</div>
 	{/if}
 </div>
-<!-- {#if browser}
-<div style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;">
-	<div>🔄 Scroll Debug</div>
-	<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
-	<div>Attached: {infiniteScrollManager?.isObserverAttached ? '✅' : '❌'}</div>
-	<div>Trigger: {document?.getElementById('home-loading-trigger') ? '✅' : '❌'}</div>
-	<div>Has More (local): {homeHasMore ? '✅' : '❌'}</div>
-	<div>Loading (local): {homeLoadingMore ? '⏳' : '💤'}</div>
-	<div>Has More (store): {$postStore.hasMore ? '✅' : '❌'}</div>
-	<div>Posts: {$postStore.posts.length}</div>
-	<div style="margin-top: 10px;">
-		<button 
-			style="background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
-			on:click={() => {
-				console.log('🚀 Manual trigger loadMorePosts from local function');
-				loadMoreHomePosts();
-			}}
-		>
-			Manual Load More
-		</button>
-	</div>
-	<div style="margin-top: 5px;">
-		<button 
-			style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
-			on:click={() => {
-				console.log('🔄 Recreate infinite scroll');
-				setupInfiniteScroll();
-				if (infiniteScrollManager) {
-					infiniteScrollManager.attachWithRetry(5, 50);
-				}
-			}}
-		>
-			Recreate Scroll
-		</button>
-	</div>
-</div>
-{/if} -->
+{#if $showDebug}
+	{#if browser}
+		<div style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;">
+			<div>🔄 Scroll Debug</div>
+			<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
+			<div>Attached: {infiniteScrollManager?.isObserverAttached ? '✅' : '❌'}</div>
+			<div>Trigger: {document?.getElementById('home-loading-trigger') ? '✅' : '❌'}</div>
+			<div>Has More (local): {homeHasMore ? '✅' : '❌'}</div>
+			<div>Loading (local): {homeLoadingMore ? '⏳' : '💤'}</div>
+			<div>Has More (store): {$postStore.hasMore ? '✅' : '❌'}</div>
+			<div>Posts: {$postStore.posts.length}</div>
+			<div style="margin-top: 10px;">
+				<button 
+					style="background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
+					on:click={() => {
+						console.log('🚀 Manual trigger loadMorePosts from local function');
+						loadMoreHomePosts();
+					}}
+				>
+					Manual Load More
+				</button>
+			</div>
+			<div style="margin-top: 5px;">
+				<button 
+					style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
+					on:click={() => {
+						console.log('🔄 Recreate infinite scroll');
+						setupInfiniteScroll();
+						if (infiniteScrollManager) {
+							infiniteScrollManager.attachWithRetry(5, 50);
+						}
+					}}
+				>
+					Recreate Scroll
+				</button>
+			</div>
+		</div>
+	{/if}
+{/if}
 <!-- Arrow indicator for scroll position -->
 <!-- <div style="position: fixed; bottom: 100px; right: 10px; z-index: 9999;">
 	{#if hasMore && !loadingMore}
@@ -885,6 +923,16 @@ $: {
 	on:submit={debugAllEvents}
 	on:*={debugAllEvents}
 />
+{#if showDebug}
+	<Debugger
+		showDebug={$showDebug}
+		title="🔄 Scroll Debug"
+		debugItems={homeDebugItems}
+		buttons={homeDebugButtons}
+		fontSize="14px"
+		minWidth="200px"
+	/>
+{/if}
 
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
@@ -899,6 +947,12 @@ $: {
 		margin-bottom: 2rem;
 		padding-bottom: 3rem;
 		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
+		&.hide-left-sidebar {
+			justify-content: flex-end;
+		}
+		&.hide-right-sidebar {
+			justify-content: center;
+		}
 	}
 	@keyframes bounce {
 		0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
@@ -911,22 +965,42 @@ $: {
 		to { transform: rotate(360deg); }
 	}
 	.drawer-visible.home-container {
-		justify-content: space-around;
+		justify-content: space-between;
+		&.hide-right-sidebar {
+		justify-content: space-between;
+		}
+	}
+	.drawer-visible {
+
+		&.hide-right-sidebar {
+			justify-content: flex-start !important;
+			max-width: 100%;
+			&.main-content {
+			justify-content: flex-start !important;
+				& .main-wrapper {
+					max-width: 600px;
+				}
+			}
+		}
 	}
 	main {
 		width: 100%;
 		display: flex;
+		
 	}
 	.main-content {
 		flex: 1;
 		padding: 0.5rem;
-		max-width: 100vh;
+		margin-bottom: 3rem !important;
 		width: 100%;
+		max-width: 100vw;
 		overflow-y: auto;
 		overflow-x: hidden;
 		margin-bottom: 0;
-		justify-content: center;
-
+		justify-content: flex;
+		&.hide-left-sidebar {
+			justify-content: flex-start;
+		}
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -943,8 +1017,7 @@ $: {
 		margin: 0 auto;
 	}
 	.loading-trigger {
-		height: 100px !important;
-		margin-bottom: 100px;
+		height: 100% !important;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -978,8 +1051,9 @@ $: {
     100% {box-shadow: 0 0 0 40px var(--primary-color)}
 }
 	.side-menu {
-		max-width: 25vw;
-		width: 100%;
+		display: flex;
+		width: auto;
+		margin-bottom: 3rem;
 	}
 
 	.create-post {
@@ -1184,8 +1258,8 @@ $: {
 			display: flex;
 		}
 		.side-menu {
-			max-width: 75vw;
 			width: 100%;
+			max-width: 400px;
 		}
 	}
 </style>

@@ -29,6 +29,10 @@ interface UserRecord {
 	verified: boolean;
 	description: string;
 	role: string;
+  status: string;
+  followers: string[];
+  following: string[];
+  last_login: string;
 	created: string;
 }
 
@@ -169,7 +173,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
       const result = await pbTryCatch(
         pb.collection('users').getList(1, MAX_BATCH_SIZE, {
           filter,
-          fields: 'id,username,name,avatar,verified,description,role,created',
+          fields: 'id,username,name,avatar,verified,description,role,status,last_login,followers,following,created',
           requestKey: null
         }),
         'fetch users'
@@ -185,6 +189,10 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
           verified: user.verified || false,
           description: user.description || '',
           role: user.role || 'user',
+          status: user.status || 'offline',
+          last_login: user.last_login || '',
+          followers: user.followers || [],
+          following: user.following || [],
           created: user.created
         }));
         break;

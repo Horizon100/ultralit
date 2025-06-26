@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { DMConversation } from '$lib/types/types';
 	import DMHeader from './DMHeader.svelte';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { createEventDispatcher } from 'svelte';
 	export let conversations: DMConversation[] = [];
 
 	export let currentUserId: string;
 	export let searchQuery = '';
 	export let isOpen = true;
+	export let loading = false;
 
 	const dispatch = createEventDispatcher<{
 		selectChat: { conversationId: string };
@@ -60,22 +61,22 @@
 </script>
 
 <div class="dm-chat-drawer" class:closed={!isOpen}>
+	{#if isOpen}
 	<div class="drawer-header">
 		<div class="header-title">
 			<h2>Messages</h2>
 			<button class="new-chat-btn" on:click={handleNewChat} title="New conversation">
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				{@html getIcon('MessageCirclePlus')}
 			</button>
 		</div>
 		
 		<div class="search-container">
 			<div class="search-input-wrapper">
-				<svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-					<path d="21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<div class="icon-wrapper">
+					<div class="search-icon">
+						{@html getIcon('Search')}
+					</div>	
+				</div>
 				<input
 					bind:this={searchInput}
 					bind:value={searchQuery}
@@ -86,28 +87,29 @@
 				/>
 				{#if searchQuery}
 					<button class="clear-search" on:click={() => { searchQuery = ''; handleSearch(); }}>
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-							<path d="18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						{@html getIcon('X')}
 					</button>
 				{/if}
 			</div>
 		</div>
 	</div>
+	{/if}
 
-	<div class="conversations-list">
+	<div class="conversations-list" class:closed={!isOpen}>
 		{#if filteredConversations.length === 0}
-			<div class="empty-state">
-				{#if searchQuery}
-					<div class="empty-icon">🔍</div>
-					<p>No conversations found</p>
-					<small>Try adjusting your search</small>
-				{:else}
-					<div class="empty-icon">💬</div>
-					<p>No conversations yet</p>
-					<small>Start a new conversation</small>
+				{#if isOpen}
+					<div class="empty-state">
+						{#if searchQuery}
+							<div class="empty-icon">🔍</div>
+							<p>No conversations found</p>
+							<small>Try adjusting your search</small>
+						{:else}
+							<div class="empty-icon">💬</div>
+							<p>No conversations yet</p>
+							<small>Start a new conversation</small>
+						{/if}
+					</div>
 				{/if}
-			</div>
 		{:else}
 			{#each filteredConversations as conversation (conversation.id)}
 				<div 
@@ -162,18 +164,19 @@
 	.dm-chat-drawer {
 		width: auto;
         max-width: 250px;
-		border-right: 1px solid var(--line-color);
 		display: flex;
 		flex-direction: column;
-		transition: transform 0.3s ease;
+		transition: all	0.3s ease;	
+		padding: 0.5rem;
 
 		&.closed {
-            width: 100px;
+            width: 4rem;
+			padding: 0;
 		}
 	}
 
 	.drawer-header {
-		padding: 16px;
+		padding: 0.5rem;
 		border-bottom: 1px solid var(--line-color);
 	}
 
@@ -213,31 +216,47 @@
 	}
 
 	.search-container {
-		margin-bottom: 8px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
 	}
 
 	.search-input-wrapper {
 		position: relative;
 		display: flex;
 		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.icon-wrapper {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+
 	}
 
 	.search-icon {
-		position: absolute;
-		left: 12px;
+		position: relative;
 		color: var(--placeholder-color);
 		z-index: 1;
+		width: 1rem;
+		display: flex;
 	}
 
 	.search-input {
-		width: 100%;
+		width: auto;
 		background: var(--secondary-color);
 		border: 1px solid var(--line-color);
-		border-radius: 20px;
-		padding: 8px 12px 8px 36px;
+		border-radius: 1rem;
 		color: var(--text-color);
-		font-size: 14px;
-
+		font-size: 0.8rem;
+		display: flex;
+		padding: 0.2rem 0.5rem;
+		height: 100%;
 		&::placeholder {
 			color: var(--placeholder-color);
 		}
@@ -268,6 +287,10 @@
 	.conversations-list {
 		flex: 1;
 		overflow-y: auto;
+		&.closed {
+			background-color: red;
+			margin-top: 3rem;
+		}
 
 		&::-webkit-scrollbar {
 			width: 6px;
@@ -287,11 +310,12 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		height: 200px;
 		color: var(--placeholder-color);
 		text-align: center;
-		padding: 20px;
+		padding: 0;
+		padding-top: 1rem;
 
 		.empty-icon {
 			font-size: 32px;

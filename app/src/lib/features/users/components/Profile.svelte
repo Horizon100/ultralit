@@ -65,21 +65,21 @@
 	interface StyleOption {
 		name: string;
 		value: string;
-		icon: any;
+		icon: IconName;
 	}
 	$: console.log('User data:', user);
 
 
-	const styles: StyleOption[] = [
-	{ name: 'Daylight Delight', value: 'default', icon: 'Sun' },
-	{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' },
-	{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' },
-	{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' },
-	{ name: 'Laser Focus', value: 'focus', icon: 'Focus' },
-	{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' },
-	{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' },
-	{ name: 'Bone Tone', value: 'bone', icon: 'Bone' }
-	];
+const styles: StyleOption[] = [
+    { name: 'Daylight Delight', value: 'default', icon: 'Sun' },
+    { name: 'Midnight Madness', value: 'dark', icon: 'Moon' },
+    { name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' },
+    { name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' },
+    { name: 'Laser Focus', value: 'focus', icon: 'Focus' },
+    { name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' },
+    { name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' },
+    { name: 'Bone Tone', value: 'bone', icon: 'Bone' }
+];
 
 	const dispatch = createEventDispatcher();
 

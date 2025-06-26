@@ -40,8 +40,8 @@ export interface User extends RecordModel {
 	network_preferences: string[];
 	preferences: string[];
 	messages: string[];
-	last_login: Date;
-	status: 'online' | 'offline' | 'away';
+	last_login: string;
+	status: 'online' | 'offline';
 	bookmarks: string[];
 	favoriteThreads: string[];
 	timer_sessions: TimerSessionSummary[];
@@ -51,6 +51,7 @@ export interface User extends RecordModel {
 	activated_features: string[];
 	theme_preference?: string;
 	wallpaper_preference: string[];
+	profileWallpaper: string;
 	created: string;
 	updated: string;
 	id: string;
@@ -65,6 +66,8 @@ export interface User extends RecordModel {
 	taskAssignments: string[];
 	projects: string[];
 	hero: string;
+	followers: string[];
+	following: string[];
 	userTaskStatus: {
 		backlog: number;
 		todo: number;
@@ -90,12 +93,7 @@ export interface DMMessage {
 export interface DMConversation {
 	id: string;
 	content: DMMessage[];
-	user: {
-		id: string;
-		name: string;
-		avatar?: string;
-		status?: 'online' | 'offline' | 'away';
-	};
+	user: ConversationUser;
 	lastMessage?: {
 		content: string;
 		timestamp: Date;
@@ -103,6 +101,13 @@ export interface DMConversation {
 	};
 	unreadCount: number;
 	isActive?: boolean;
+}
+export interface ConversationUser {
+	id: string;
+	name: string;
+	avatar?: string;
+	status?: 'online' | 'offline';
+	username?: string;
 }
 export interface PublicUserProfile {
 	id: string;
@@ -114,9 +119,11 @@ export interface PublicUserProfile {
 	verified: boolean;
 	description: string;
 	role: string;
-	last_login: Date;
+	last_login: string;
 	perks: string[];
 	taskAssignments: string[];
+	followers: string[];
+	following: string[];
 	userTaskStatus: {
 		backlog: number;
 		todo: number;

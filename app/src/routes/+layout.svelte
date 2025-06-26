@@ -52,7 +52,8 @@
 		showOverlay,
 		showSettings,
 		showEditor,
-		showExplorer
+		showExplorer,
+		showDebug
 	} from '$lib/stores/sidenavStore';
 	import Toast from '$lib/components/modals/Toast.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -607,8 +608,9 @@ let pageCleanup: (() => void) | null = null;
 				</button>
 				{/if}
 
+
 				<!-- Home Route Navigation -->
-{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
+				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
 					<button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -1227,7 +1229,6 @@ let pageCleanup: (() => void) | null = null;
 	{#if showStyles}
 		<div
 			class="style-overlay"
-			on:click={handleOverlayClick}
 			transition:fly={{ x: -200, duration: 300 }}
 		>
 			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
@@ -1276,11 +1277,8 @@ let pageCleanup: (() => void) | null = null;
 		<div
 			class="navigator-menu"
 			class:expanded={isNavExpanded}
-			on:mouseenter={() => (
-				isLogoHovered = true
-			)}
+
 			on:mouseleave={() => {
-				isLogoHovered = false;
 				handlePageMenuLeave();
 			}}
 			in:fly={{ x: -100, duration: 300, delay: 100 }}
@@ -1298,6 +1296,55 @@ let pageCleanup: (() => void) | null = null;
 				<img src={horizon100} alt="Horizon100" class="logo" />
 				<h2>vRAZUM</h2>
 			</div>
+			<button
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={$showDebug}
+				class:reveal-active={$showDebug}
+				use:swipeGesture={{
+					threshold: 50,
+					enableVisualFeedback: true,
+					onSwipeLeft: () => {
+						console.log('🟢 Right button swiped left - showing right sidenav');
+						if (innerWidth <= 450) {
+							sidenavStore.hideLeft();
+							sidenavStore.hideInput();
+						}
+						if (!$showDebug) {
+							sidenavStore.toggleRight();
+						}
+						isNavExpanded = false;
+					},
+					onSwipeRight: () => {
+						console.log('🟢 Right button swiped right - hiding right sidenav');
+						if ($showDebug) {
+							sidenavStore.hideRight();
+						}
+						isNavExpanded = false;
+					}
+				}}
+				on:click={(event) => {
+					event.preventDefault();
+					if (innerWidth <= 450) {
+						// Mobile: close others first
+						sidenavStore.hideLeft();
+						sidenavStore.hideInput();
+					}
+					sidenavStore.toggleDebug();
+					isNavExpanded = false;
+				}}
+			>
+				{#if $showSettings}
+					{@html getIcon('AlertCircle')}
+				{:else}
+					{@html getIcon('AlertCircle')}
+				{/if}
+				{#if isNavExpanded}
+					<span class="nav-text">{$t('nav.debug')}</span>
+				{/if}
+			</button>
+
+
 			<a
 				class="shortcut"
 				class:expanded={isNavExpanded}
@@ -1531,7 +1578,7 @@ let pageCleanup: (() => void) | null = null;
 			top: 0;
 			padding: 0.5rem;
 			gap: 1rem;
-			bottom: 3.5rem;
+			bottom: 3rem;
 			left: 0;
 			width: auto;
 			background: var(--primary-color);
@@ -3215,12 +3262,9 @@ let pageCleanup: (() => void) | null = null;
 		border-radius: 1rem !important;
 		background: var(--bg-color) !important;
 		width: auto !important;
-		max-width: 150px;
-
+		max-width: 3rem;
 		flex: 1;
 		height: 2rem !important;
-		padding: 0.5rem;
-		margin: 0.5rem 1rem;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 		&:hover {
 			animation: none;
@@ -3243,7 +3287,176 @@ let pageCleanup: (() => void) | null = null;
 			overflow-y: hidden;
 		}
 
+		.navigator-menu {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-end;
+			position: absolute;
+			flex: 1;
+			height: auto;
+			padding: 0.5rem;
+			gap: 1rem;
+			bottom: 4rem;
+			left: 0;
+			top: auto;
+			width: auto;
+			background: transparent;
+			padding-bottom: 0;
+			z-index: 9999;
+			border-right: none;
+			border-radius: 2rem;
+			&:hover {
+				width: auto !important;
+			}
+			& button.shortcut {
+				padding: 0;
+				margin: 0;
+				background: transparent;
+				border: 1px solid transparent;
+				width: 60px;
+				height: 60px;
+				& .user-avatar {
+					width: 60px !important;
+					height: 60px !important;
+					border-radius: 50%;
+					object-fit: cover;
+				}
+				& .nav-text {
+					display: none;
+				}
+				& .icon {
+					display: none;
+				}
+				& .tracker {
+					display: none;
+				}
+				
+				&:hover {
 
+					& .nav-text {
+						display: flex;
+					}
+					& .icon {
+						display: flex;
+					}
+					& .tracker {
+						display: flex;
+					}
+				}
+			}
+			button.user-wrapper {
+				display: flex;
+				flex-direction: row !important;
+				align-items: flex-start;
+				justify-content: flex-end;
+				background: transparent !important;
+				height: auto;
+				width: 100%;
+				gap: 0;
+			}
+			.user-shortcuts {
+				display: flex;
+				align-items: center;
+				width: 100%;
+				border: 1px solid var(--line-color);
+				gap: 0.5rem;
+				border-radius: 2rem;
+				transition: all 0.2s ease;
+				
+				&:hover {
+					transform: scale(1.05);
+					padding-right: 1rem;
+					width: 200px !important;
+					background: var(--primary-color);
+					box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+
+				}
+			}
+			&.expanded {
+				width: 200px !important;
+				& button.shortcut {
+				padding: 0;
+				margin: 0;
+				background: transparent;
+				border: 1px solid transparent;
+				width: 100%;
+				height: 60px;
+				.user-shortcuts {
+					width: 200px;
+					&:hover {
+						transform: translateX(1rem);
+						padding-right: 0;
+
+					}
+
+				}
+
+				
+
+					& .nav-text {
+						display: flex;
+					}
+					& .icon {
+						display: flex;
+					}
+					& .tracker {
+						display: flex;
+					}
+				
+			}
+				& a {
+					flex-direction: row !important;
+					width: 100% !important;
+					border-radius: 3rem;
+				}
+				& .nav-text {
+					display: flex;
+				}
+				& .logo-container {
+					width: 200px !important;
+				}
+				& h2 {
+					display: flex !important;
+				}
+				
+			}
+			&  a {
+				display: flex;
+				justify-content: center;
+				color: var(--placeholder-color);
+				width: 60px !important;
+				height: 60px;
+				gap: 0.5rem !important;
+				background: var(--primary-color);
+				opacity: 1;
+				border-radius: 50%;
+				border: 1px solid var(--line-color);
+				align-items: center;
+				/* padding: 20px; */
+				text-decoration: none;
+				// transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+				transform: all 0.4s ease;
+				box-shadow: -20px 40px 40px 60px rgba(0, 0, 0, 0.1);
+
+				&:hover {
+					box-shadow: -20px 40px 40px 60px rgba(251, 245, 245, 0.1);
+					color: var(--tertiary-color);
+					opacity: 100%;
+					cursor: pointer;
+				}
+				& .nav-text {
+					display: none;
+				}
+				
+			}
+			& .logo-container {
+				position: relative;
+				top: 0.5rem;
+				left: 0;
+				width: 80px;
+			}
+		}
 		.illustration {
 			position: fixed;
 			width: auto;

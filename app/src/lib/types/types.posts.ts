@@ -96,3 +96,12 @@ export type PostStoreState = {
 	hasMore: boolean;
 	error: string | null;
 };
+
+export interface TimelinePost extends PostWithInteractions {
+	isRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
+}

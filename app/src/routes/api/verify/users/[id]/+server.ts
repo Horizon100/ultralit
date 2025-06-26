@@ -16,6 +16,7 @@ export const GET: RequestHandler = async ({ params }) =>
       verified?: boolean;
       theme_preference?: string;
       wallpaper_preference?: string;
+      profileWallpaper?: string;
       model?: string | null;
       selected_provider?: string | null;
       prompt_preference?: string;
@@ -23,6 +24,8 @@ export const GET: RequestHandler = async ({ params }) =>
       model_preference?: string;
       avatar?: string;
       taskAssignments?: string[];
+      last_login?: string;
+      status?: 'online' | 'offline';
       userTaskStatus?: {
         backlog: number;
         todo: number;
@@ -107,6 +110,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
       verified?: boolean;
       theme_preference?: string;
       wallpaper_preference?: string;
+      profileWallpaper?: string;
       model?: string | null;
       selected_provider?: string | null;
       prompt_preference?: string;
@@ -153,6 +157,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
         verified: user.verified || false,
         theme_preference: user.theme_preference || '',
         wallpaper_preference: user.wallpaper_preference || '',
+        profileWallpaper: user.profileWallpaper || '',
         model: user.model || null,
         selected_provider: user.selected_provider || null,
         prompt_preference: user.prompt_preference || '',
@@ -224,6 +229,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
         'model_preference',
         'theme_preference',
         'wallpaper_preference',
+        'profileWallpaper',
         'taskAssignments',
         'userTaskStatus'
       ] as const;

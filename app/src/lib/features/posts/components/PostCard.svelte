@@ -13,7 +13,7 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getExpandedUserAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { formatFileSize } from '$lib/utils/fileHandlers';
-	import { slide, fade } from 'svelte/transition'; 
+	import { slide, fly, fade } from 'svelte/transition'; 
 	import {
 		initAudioState,
 		registerAudioElement,
@@ -44,6 +44,8 @@
 	export let isOwnRepost: boolean = false;
 	export let isComment: boolean = false;
 	export let isQuote: boolean = false;
+
+	export let hideHeaderOnScroll: boolean = false;
 
 	let showTooltip = false;
 	let tooltipTimeout: NodeJS.Timeout;
@@ -462,7 +464,10 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	});
 </script>
 
-<article class="post-card" class:comment={isComment}>
+<article class="post-card" 
+	class:comment={isComment}
+
+>
 	{#if isRepost}
 		<div class="repost-indicator">
 			{@html getIcon('Repeat', { size: 14 })}
@@ -474,8 +479,8 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 			<span>{$t('posts.youReposted')}</span>
 		</div>
 	{/if}
-	<div class="post-header">
-		<a href="/{post.author_username}" class="avatar-link">
+	<div class="post-header" class:scrolled={hideHeaderOnScroll}>
+		<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
 			<img
 				src={post.author_avatar
 					? `${pocketbaseUrl}/api/files/users/${post.user}/${post.author_avatar}`
@@ -491,7 +496,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		</a>
 		<div class="post-meta">
 			<!-- Make author name clickable -->
-			<a href="/{post.author_username || post.expand?.user?.username}" class="author-link">
+			<a href="/{post.author_username || post.expand?.user?.username}" class="author-link" class:hidden={hideHeaderOnScroll}>
 				<div class="post-author">
 					{post.author_name ||
 						post.author_username ||
@@ -852,14 +857,25 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		border-bottom: 1px solid var(--line-color);
 		padding: 0.5rem 0;
 		transition: all 0.2s ease;
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 
 	.post-header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		margin-top: 0.5rem;
-		margin-bottom: 0.5rem;
+		padding: 0 0.5rem;
+		margin: 0;
+		height: auto;
+		gap: 0.75rem;
+
+	}
+	.post-header.scrolled {
+		padding: 0;
+		& .avatar-link {
+			display: none;
+		}
 	}
 
 	/* Avatar link styles */
@@ -873,7 +889,13 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	.avatar-link:hover {
 		transform: scale(1.05);
 	}
-
+.avatar-link.hidden,
+	.author-link.hidden {
+		opacity: 0;
+		transform: translateY(-10px);
+		transition: opacity 0.2s ease, transform 0.2s ease;
+		pointer-events: none;
+	}
 	.post-avatar {
 		width: 40px;
 		height: 40px;
@@ -906,6 +928,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		justify-content: flex-start;
 		gap: 1rem;
 		flex: 1;
 	}
@@ -913,6 +936,9 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	.post-timestamp {
 		color: var(--placeholder-color);
 		font-size: 0.85rem;
+		display: flex;
+		justify-content: flex-end;
+		width: 100%;
 	}
 
 	.post-options {
@@ -948,7 +974,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	.post-content {
 		color: var(--text-color);
 		line-height: 1.5;
-		margin-bottom: 1rem;
+		margin-bottom: 0;
 		padding: 0.5rem;
 		text-align: left;
 	}

@@ -25,7 +25,8 @@ export default {
 		searchProjects: 'Search projects...',
 		welcome: 'Welcome',
 		signup: 'Sign Up',
-		quickAccess: 'Quick Access'
+		quickAccess: 'Quick Access',
+		debug: 'Debug'
 	},
 	generic: {
 		created: 'Created',
@@ -72,7 +73,7 @@ export default {
 		repostedBy: 'Reposted by',
 		youReposted: 'You reposted this',
 		post: 'post',
-		posts: 'Posts',
+		posts: 'posts',
 		postsFrom: 'posts from',
 		postRead: 'read',
 		postUpvote: 'Like',
@@ -95,7 +96,7 @@ export default {
 		noReplies: 'No replies',
 		interactPrompt: 'Please sign in to interact with posts',
 		media: 'media',
-		likes: 'Likes',
+		likes: 'likes',
 		historySignin: 'Sign in to browse this user`s complete post history',
 		seeAll: 'See all'
 	},
@@ -426,6 +427,12 @@ export default {
 		]
 	},
 	dates: {
+		minute: 'minute',
+		minutes: 'minutes',
+		minutesAgo: 'minutes ago',
+		hour: 'hour',
+		hours: 'hours',
+		hoursAgo: 'h ago',
 		day: 'day',
 		days: 'days',
 		dayAgo: 'day ago',
@@ -603,8 +610,8 @@ export default {
 		update: 'Update',
 		upload: 'Upload',
 		not_available: 'Not available',
-		followers: 'Followers',
-		following: 'Following',
+		followers: 'followers',
+		following: 'following',
 		follow: 'Follow',
 		favorites: 'Favorites'
 	},

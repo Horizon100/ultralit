@@ -105,7 +105,7 @@ export class InfiniteScrollManager {
 			this.log('✅ Observer attached to trigger');
 			return true;
 		} else {
-			this.log('❌ Trigger element not found or observer not created');
+			// this.log('❌ Trigger element not found or observer not created');
 			return false;
 		}
 	}

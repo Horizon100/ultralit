@@ -21,7 +21,11 @@ const sanitizeUserData = (user: User | null): Partial<User> | null => {
 		prompt_preference: user.prompt_preference,
 		sysprompt_preference: user.sysprompt_preference,
 		model_preference: user.model_preference,
-		wallpaper_preference: user.wallpaper_preference
+		wallpaper_preference: user.wallpaper_preference,
+		status: user.status,
+		last_login: user.last_login,
+		followers: user.followers,
+		following: user.following
 	};
 };
 
@@ -66,6 +70,29 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		console.log('✅ Authentication successful!');
 		console.log('User ID:', authData.record.id);
 
+		// Update user status and last_login after successful authentication
+		try {
+			await pb.collection('users').update(authData.record.id, {
+				last_login: new Date().toISOString(),
+				status: 'online'
+			});
+			console.log('✅ Updated user status to online and last_login');
+		} catch (updateError) {
+			console.warn('⚠️ Failed to update user status:', updateError);
+			// Don't fail the login if status update fails
+		}
+
+		// Fetch the updated user data to include status and last_login
+		let finalUserData = authData.record;
+		try {
+			const updatedUser = await pb.collection('users').getOne<User>(authData.record.id);
+			finalUserData = updatedUser;
+			console.log('✅ Fetched updated user data with status:', updatedUser.status);
+		} catch (fetchError) {
+			console.warn('⚠️ Failed to fetch updated user data:', fetchError);
+			// Use original auth data if fetch fails
+		}
+
 		// Create minimal auth data for cookie (this is the key fix!)
 		const minimalAuthData = createMinimalAuthData(pb.authStore);
 		const authCookieValue = JSON.stringify(minimalAuthData);
@@ -93,7 +120,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		return json({
 			success: true,
-			user: sanitizeUserData(authData.record), // Full user data in response
+			user: sanitizeUserData(finalUserData), // Use updated user data with status
 			token: pb.authStore.token
 		});
 	} catch (error) {

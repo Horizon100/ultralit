@@ -25,14 +25,14 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		
 		console.log('🔍 API username:', username, 'offset:', offset, 'limit:', limit);
 
-		// Check if user is authenticated
 		const isAuthenticated = !!locals.user;
 		const currentUserId = locals.user?.id;
 
-		// Find user by username
 		const userResult = await pbTryCatch(
 			pb.collection('users').getList(1, 1, {
-				filter: `username = "${username}"`
+				filter: `username = "${username}"`,
+				// ADD status and last_login here:
+				fields: 'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,created,updated,status,last_login,followers,following'
 			}),
 			'fetch user by username'
 		);
@@ -259,7 +259,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		let profile = null;
 		if (offset === 0) {
 			const profileResult = await pbTryCatch(
-				pb.collection('user_profiles').getList(1, 1, {
+				pb.collection('users').getList(1, 1, {
 					filter: `user = "${user.id}"`
 				}),
 				'fetch user profile'
@@ -278,6 +278,15 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 				name: user.name,
 				email: user.email,
 				avatar: user.avatar,
+				description: user.description,
+				profileWallpaper: user.profileWallpaper || '', 
+				wallpaper_preference: user.wallpaper_preference || '',
+				status: user.status || 'offline',
+				followers: user.followers || [],
+				following: user.following || [],
+				follower_count: (user.followers || []).length,
+				following_count: (user.following || []).length,
+				last_login: user.last_login,
 				created: user.created,
 				updated: user.updated
 			},

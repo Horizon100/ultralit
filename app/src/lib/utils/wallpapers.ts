@@ -52,7 +52,7 @@ const autoWallpapers: Wallpaper[] = Object.entries(wallpaperModules).map(([path,
 	)
 		category = 'scholars';
 
-	console.log(`Creating wallpaper: ${filename} -> ${name} (${category})`);
+	// console.log(`Creating wallpaper: ${filename} -> ${name} (${category})`);
 
 	return {
 		id: filename,

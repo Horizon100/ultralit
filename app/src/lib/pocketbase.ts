@@ -1,7 +1,6 @@
 import { writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import type { AuthModel } from 'pocketbase';
-import PocketBase from 'pocketbase';
 import type { User } from '$lib/types/types';
 import { pbTryCatch, isSuccess, isFailure, storageTryCatch, clientTryCatch, fetchTryCatch, rateLimitTryCatch, fileTryCatch } from '$lib/utils/errorUtils';
 interface RequestInitCustom {
@@ -198,7 +197,72 @@ export async function ensureAuthenticated(): Promise<boolean> {
 
 	return authCheckInProgress;
 }
+export async function updateUserStatus(userId: string, status: 'online' | 'offline'): Promise<boolean> {
+	const updateResult = await clientTryCatch(
+		(async () => {
+			const url = `/api/users/${userId}`;
+			console.log('🔍 Calling user update API:', url, 'status:', status);
+			
+			const response = await fetch(url, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ 
+					status,
+					last_login: new Date().toISOString()
+				}),
+				credentials: 'include'
+			});
 
+			if (!response.ok) {
+				console.error('Status update failed:', response.status, response.statusText);
+				throw new Error(`Update failed with status: ${response.status}`);
+			}
+
+			const data = await response.json();
+			console.log('📥 Status update response:', data);
+			
+			if (!data.success) {
+				throw new Error(data.error || 'Unknown error during status update');
+			}
+
+			return data.user;
+		})(),
+		'Update user status'
+	);
+
+	if (!updateResult.success) {
+		console.error('Status update error:', updateResult.error);
+		return false;
+	}
+
+	const updatedUser = updateResult.data;
+
+	// Update current user if it's the same user
+	const currentUserValue = get(currentUser);
+	if (currentUserValue && userId === currentUserValue.id) {
+		currentUser.update(user => {
+			if (!user) return user;
+			return {
+				...user,
+				status: updatedUser.status,
+				last_login: updatedUser.last_login
+			};
+		});
+		
+		// Update auth cache
+		if (cachedAuthState && cachedAuthState.user) {
+			cachedAuthState.user = { 
+				...cachedAuthState.user, 
+				status: updatedUser.status,
+				last_login: updatedUser.last_login
+			};
+		}
+	}
+
+	return true;
+}
 // Alternative approach: Use clientTryCatch instead for cleaner handling
 export async function ensureAuthenticatedV2(): Promise<boolean> {
 	// If there's already an auth check in progress, return that promise
@@ -414,6 +478,7 @@ export async function signIn(
 		// Clear auth cache and set new user
 		clearAuthCache();
 		currentUser.set(data.user);
+await updateUserStatus(data.user.id, 'online');
 
 		console.log('Sign-in successful');
 		return {
@@ -497,6 +562,7 @@ export async function signOut(): Promise<void> {
 	// Always clear local data (even if server request failed)
 	clearAuthCache();
 	currentUser.set(null);
+	await updateUserStatus('offline');
 
 	// Clear stored auth data safely
 	storageTryCatch(
@@ -546,6 +612,9 @@ const fetchOptions: RequestInitCustom = {
 	}
 
 	const data = result.data;
+	console.log('🔍 Full API response:', data);
+	console.log('🔍 data.user:', data.user);
+	console.log('🔍 data.success:', data.success);
 	if (!data.success) {
 		throw new Error(data.error || 'Unknown error');
 	}
@@ -884,6 +953,134 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 		return null;
 	}
 }
+// Add these functions to your lib/pocketbase.ts file
+
+export async function uploadProfileWallpaper(userId: string, file: File): Promise<User | null> {
+    const uploadResult = await fileTryCatch(
+        (async () => {
+            const formData = new FormData();
+            formData.append('profileWallpaper', file); // This field is already handled in your verify endpoint
+
+            const url = `/api/verify/users/${userId}`; // Use the existing verify endpoint
+            const response = await fetch(url, {
+                method: 'PATCH',
+                body: formData,
+                credentials: 'include',
+                signal: AbortSignal.timeout(30000)
+            });
+
+            if (!response.ok) {
+                console.error('Wallpaper upload failed:', response.status, response.statusText);
+                throw new Error(`Upload failed with status: ${response.status}`);
+            }
+
+            const data = await response.json();
+			console.log('🔍 Description API response:', data);
+
+            if (!data.success) throw new Error(data.error || 'Unknown error during upload');
+
+		return data.user || data.data || { id: userId, profileWallpaper: 'uploaded' };
+        })(),
+        file.name,
+        5
+    );
+
+    if (!uploadResult.success) {
+        console.error('Wallpaper upload error:', uploadResult.error);
+        throw new Error(uploadResult.error);
+    }
+
+    const updatedUser = uploadResult.data;
+
+    // if (!updatedUser || !updatedUser.id) {
+    //     console.error('No user data returned from upload');
+    //     throw new Error('Upload succeeded but no user data returned');
+    // }
+	if (!updatedUser) {
+		console.warn('No user data returned, but upload may have succeeded');
+		return null;
+	}
+    // Update current user if it's the same user
+    if (userId === updatedUser.id) {
+        currentUser.update(user => {
+            if (!user) return user;
+            return {
+                ...user,
+				profileWallpaper: updatedUser?.profileWallpaper || 'uploaded'
+            };
+        });
+        
+        if (cachedAuthState) {
+            cachedAuthState.user = { 
+                ...cachedAuthState.user, 
+				profileWallpaper: updatedUser?.profileWallpaper || 'uploaded'
+            };
+        }
+    }
+
+    return updatedUser;
+}
+
+export async function updateUserDescription(userId: string, description: string): Promise<boolean> {
+	const updateResult = await clientTryCatch(
+		(async () => {
+			const url = `/api/users/${userId}/description`;
+			const response = await fetch(url, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ description }),
+				credentials: 'include'
+			});
+
+			if (!response.ok) {
+				console.error('Description update failed:', response.status, response.statusText);
+				throw new Error(`Update failed with status: ${response.status}`);
+			}
+
+			const data = await response.json();
+			if (!data.success) {
+				throw new Error(data.error || 'Unknown error during update');
+			}
+
+			return data.user || data.data || { id: userId, description: description };
+		})(),
+		'Update user description'
+	);
+
+	if (!updateResult.success) {
+		console.error('Description update error:', updateResult.error);
+		return false;
+	}
+
+	const updatedUser = updateResult.data;
+
+
+
+	// Update current user if it's the same user
+	const currentUserValue = get(currentUser);
+	if (currentUserValue && userId === currentUserValue.id) {
+		currentUser.update(user => {
+			if (!user) return user;
+			return {
+				...user,
+				description: updatedUser.description
+			};
+		});
+		
+		// Update auth cache
+		if (cachedAuthState && cachedAuthState.user) {
+			cachedAuthState.user = { 
+				...cachedAuthState.user, 
+				description: updatedUser.description 
+			};
+		}
+	}
+
+	return true;
+}
+
 
 /**
  * Request a password reset email for the specified user

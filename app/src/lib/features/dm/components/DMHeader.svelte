@@ -23,7 +23,7 @@
 			</div>
 		{/if}
 		{#if showStatus && 'status' in user && user.status}
-			<div class="status-indicator" class:online={user.status === 'online'} class:away={user.status === 'away'} class:offline={user.status === 'offline'}></div>
+			<div class="status-indicator" class:online={user.status === 'online'}></div>
 		{/if}
 	</div>
 	<div class="user-info">
@@ -40,12 +40,12 @@
 	.dm-header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
+		gap: 0.5rem;
+		padding: 0.5rem;
 		background: var(--bg-color);
 		border-bottom: 1px solid var(--line-color);
 		transition: background-color 0.2s ease;
-
+		height: 3rem;
 		&.clickable {
 			cursor: pointer;
 			
@@ -90,17 +90,8 @@
 		height: 12px;
 		border-radius: 50%;
 		border: 2px solid var(--bg-color);
-
 		&.online {
 			background: #4ade80;
-		}
-
-		&.away {
-			background: #fbbf24;
-		}
-
-		&.offline {
-			background: #6b7280;
 		}
 	}
 

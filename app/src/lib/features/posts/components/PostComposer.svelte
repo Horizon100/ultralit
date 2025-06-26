@@ -373,10 +373,11 @@ async function handleSubmit() {
 		font-family: var(--font-family);
 	}
 	.post-composer {
-		background: var(--primary-color);
-		border-radius: 2rem;
+		// background: var(--primary-color);
+		border-radius: 2rem !important;
 		padding: 1rem;
 		height: auto;
+		backdrop-filter: blur(50px);
 	}
 
 	.composer-header {

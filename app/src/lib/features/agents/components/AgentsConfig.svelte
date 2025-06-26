@@ -434,6 +434,7 @@
 		{:else if filteredAgents.length === 0}
 			<p>No agents found. Create a new agent to get started.</p>
 		{:else}
+
 			<div class="button-grid" transition:fade={{ duration: 300 }}>
 				{#each filteredAgents as agent (agent.id)}
 					<div class="agent-item">
@@ -482,6 +483,31 @@
 					</div>
 				{/each}
 			</div>
+						<div class="search-and-sort-container">
+				<div class="search-container">
+					{@html getIcon('Search', { size: 24 })}
+					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
+				</div>
+			<div class="options">
+				<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
+					{@html getIcon('Filter', { size: 24 })}
+					{showFilters ? 'Hide' : 'Filters'}
+				</button>
+				<div class="sort-container">
+					<select bind:value={sortOption}>
+						{#each sortOptions as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</div>
+					<!-- <h2>Agents</h2> -->
+					{#if !showCreateForm}
+						<button class="create-button" on:click={showCreate}>
+							{@html getIcon('Plus', { size: 24 })}
+						</button>
+					{/if}
+			</div>
+		</div>
 		{/if}
 
 		<!-- <p>Configure your agents to handle different types of tasks.</p> -->
@@ -553,35 +579,11 @@
 					</div>
 				</div>
 
-				<div class="search-container">
-					{@html getIcon('Search', { size: 24 })}
-					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
-				</div>
+
 			</div>
 		{/if}
-		<div class="search-and-sort-container">
-			<div class="options">
-				<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
-					{@html getIcon('Filter', { size: 24 })}
-					{showFilters ? 'Hide' : 'Filters'}
-				</button>
-				<div class="sort-container">
-					<select bind:value={sortOption}>
-						{#each sortOptions as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="container-row">
-					<!-- <h2>Agents</h2> -->
-					{#if !showCreateForm}
-						<button class="create-button" on:click={showCreate}>
-							{@html getIcon('Plus', { size: 24 })}
-						</button>
-					{/if}
-				</div>
-			</div>
-		</div>
+
+
 	</div>
 
 	{#if showCreateForm}
@@ -880,6 +882,7 @@
 		overflow-x: hidden;
 		scrollbar-width: thin;
 		scrollbar-color: var(--secondary-color) transparent;
+		
 	}
 
 	.form-column {
@@ -1086,13 +1089,13 @@
 		}
 	}
 	select {
-		padding: 0.5rem;
+		padding: 0 0.5rem;
 		border: 1px solid var(--line-color);
 		background: var(--bg-color);
 		color: var(--text-color);
 		font-size: 1rem;
 		width: auto;
-		height: 3rem;
+		height: 2rem;
 		border-radius: 1rem;
 		transition: all 0.3s ease-in;
 		&:hover {
@@ -1117,18 +1120,28 @@
 	.button-grid {
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
-		align-items: stretch;
-		height: 90vh;
+		height: 82vh !important;
 		width: calc(100% - 2rem);
 		gap: 0.5rem;
 		padding: 0.5rem;
 		/* border-radius: 12px; */
 		/* max-width: 300px; */
 		/* background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 90%); */
-		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Adds a soft shadow for depth */
-		overflow-y: auto;
+		// box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Adds a soft shadow for depth */
+		overflow-y: scroll;
 		overflow-x: hidden;
+
+		&::-webkit-scrollbar {
+			width: 0.25rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 
 		/* max-height: 80vh; Limits the height to prevent excessive scrolling */
 	}
@@ -1210,12 +1223,13 @@
 		color: var(--tertiary-color);
 		display: flex;
 		align-items: center;
+		padding: 0;
 		justify-content: center;
 		border-radius: 50%;
 		border: none; /* Optional */
 		padding: 0.5rem;
-		width: 3rem;
-		height: 3rem;
+		width: 2rem;
+		height: 2rem;
 		cursor: pointer;
 	}
 
@@ -1474,25 +1488,19 @@
 		justify-content: center;
 		align-items: center;
 		display: flex;
-		bottom: 180px;
-		left: 30%;
+
 		color: var(--text-color);
 		/* width: calc(100vh - 40px); */
 		/* height: 50px; */
-		display: flex;
 		flex-direction: row;
-		gap: 1rem;
-		padding: 10px;
-		border-radius: 20px;
-		background: var(--primary-color);
+		gap: 0.5rem;
 		z-index: 1002;
-		background-color: rgb(58, 50, 50);
-		width: 100%;
+		width: calc(100% - 1rem);
 	}
 
 	.sort-container {
 		display: flex;
-		height: 3rem;
+		height: auto;
 		padding: 0;
 		margin: 0;
 		/* align-items: center; */
@@ -1500,13 +1508,14 @@
 		/* width: 50%;; */
 	}
 
+
 	.options {
 		display: flex;
 		flex-direction: row;
-		justify-content: center;
+		justify-content: space-between;
 		align-items: center;
 		gap: 0.5rem;
-		width: 100%;
+		width: calc(100% - 1rem);
 		height: auto;
 	}
 
@@ -1698,12 +1707,14 @@
 
 	.search-and-sort-container {
 		display: flex;
-		flex-direction: row;
-		position: absolute;
+		flex-direction: column;
+		position: relative;
 		justify-content: center;
-
+		width: 100%;
+		gap: 0.5rem;
 		left: 0;
 		bottom: 0;
+		margin-top: 1rem;
 		align-items: center;
 		/* width: 100%; */
 	}
@@ -1740,23 +1751,23 @@
 		/* display: flex; */
 		/* align-items: center; */
 		gap: 5px;
-		padding: 0.5rem;
-		background-color: var(--bg-color);
+		padding: 0.5rem 1rem;
+		height: 2rem;
+		background-color: var(--secondary-color);
 		color: var(--placeholder-color);
 		border: none;
 		border-radius: 0.5rem;
-		height: 3rem;
 		cursor: pointer;
 		transition: background-color 0.3s;
 		width: 100px;
 	}
 
 	.filter-toggle-button:hover {
-		background-color: black;
+		background: var(--primary-color);
 	}
 
 	.filter-toggle-button.active {
-		background-color: #1f1f1f;
+		background-color: var(--tertiary-color);
 	}
 
 	.filter-group {

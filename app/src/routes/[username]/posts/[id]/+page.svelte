@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { fly } from 'svelte/transition';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
@@ -9,7 +10,7 @@
 	import PostComposer from '$lib/features/posts/components/PostComposer.svelte';
 	import PostSidenav from '$lib/features/posts/components/PostSidenav.svelte';
 	import PostTrends from '$lib/features/posts/components/PostTrends.svelte';
-	import { showSidenav } from '$lib/stores/sidenavStore';
+	import { showSidenav, showRightSidenav, showSettings, showInput } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import BackButton from '$lib/components/buttons/BackButton.svelte';
 	import { postStore } from '$lib/stores/postStore';
@@ -32,7 +33,15 @@
 	let lastCommentTime = 0;
 	let mounted = false;
 
-	// Get params from URL
+	let scrollY = 0;
+	let isScrolled = false;
+
+	const SCROLL_THRESHOLD = 100;
+
+	$: {
+		isScrolled = scrollY > SCROLL_THRESHOLD;
+		// console.log('Scroll update:', { scrollY, isScrolled, threshold: SCROLL_THRESHOLD });
+	}
 	$: username = $page.params.username;
 	$: postId = $page.params.id;
 
@@ -575,6 +584,44 @@ onMount(() => {
 	console.log('🏗️ Component mounted');
 	mounted = true; // This will trigger the reactive statement to fetch data
 
+	// Debug: Find what's actually scrolling
+	const checkScrollableElements = () => {
+		const elements = [
+			document.documentElement,
+			document.body,
+			document.querySelector('.post-content-wrapper'), // Adjust selector as needed
+			document.querySelector('.main-wrapper'),
+			document.querySelector('.post-content')
+		];
+		
+		elements.forEach((el, index) => {
+			if (el) {
+				console.log(`Element ${index}:`, {
+					element: el.className || el.tagName,
+					scrollTop: el.scrollTop,
+					scrollHeight: el.scrollHeight,
+					clientHeight: el.clientHeight,
+					isScrollable: el.scrollHeight > el.clientHeight
+				});
+			}
+		});
+	};
+	
+	// Check initially and on scroll
+	checkScrollableElements();
+	
+	// Add scroll listeners to different elements to see which one actually scrolls
+	const scrollHandler = (e) => {
+		// console.log('Scroll detected on:', e.target.className || e.target.tagName, 'ScrollTop:', e.target.scrollTop);
+		// Update our scroll variable manually
+		scrollY = e.target.scrollTop;
+	};
+	
+	// Try different scroll targets
+	document.addEventListener('scroll', scrollHandler, true); // Use capture phase
+	document.querySelector('.post-content-wrapper')?.addEventListener('scroll', scrollHandler);
+	document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
+
 	// Wait for elements to be ready
 	setTimeout(() => {
 		if (commentsElement && postCardElement) {
@@ -599,18 +646,28 @@ onMount(() => {
 			observer.observe(commentsElement);
 
 			// Cleanup
-			return () => observer.disconnect();
+			return () => {
+				observer.disconnect();
+				document.removeEventListener('scroll', scrollHandler, true);
+				document.querySelector('.post-content-wrapper')?.removeEventListener('scroll', scrollHandler);
+				document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
+			};
 		}
 	}, 100);
 });
 </script>
+<svelte:window bind:scrollY />
 
 <svelte:head>
 	<title>{post ? `${user?.name || user?.username} - Post` : 'Post'}</title>
 	<meta name="description" content={post ? post.content : 'View post details'} />
 </svelte:head>
 
-<div class="post-detail-container" class:hide-left-sidebar={!$showSidenav}>
+<div class="post-detail-container" 
+	class:hide-left-sidebar={!$showSidenav}
+	class:nav-visible={$showSettings}
+	in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
+	>
 	<!-- Left Sidebar Component -->
 	{#if $showSidenav}
 		<div class="sidebar-container">
@@ -619,10 +676,13 @@ onMount(() => {
 	{/if}
 
 	<!-- Main Content -->
-	<div class="post-content-wrapper">
+	<div class="post-content-wrapper" 
+	class:nav-visible={$showSettings}
+		in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
+
+	>
 		<!-- Header with back button -->
 		<header class="post-header">
-			<BackButton />
 
 			<!-- {#if user}
 				<div class="header-user">
@@ -690,7 +750,20 @@ onMount(() => {
 			</div>
 		{:else if post}
 			<main class="post-detail-main">
-				<div bind:this={postCardElement} class="post-card-container">
+				<div class="comments-header">
+					<BackButton />
+					<h3 class="comments-title">
+						{comments.length > 0
+							? `${comments.length} ${comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}`
+							: $t('posts.noReplies')}
+					</h3>
+				</div>
+				{#if !isScrolled}
+				<div bind:this={postCardElement} 
+					class="post-card-container"
+					in:fly={{ y: -50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
+
+				>
 					{#if post.quotedPost}
 						<PostQuoteCard
 							{post}
@@ -709,10 +782,14 @@ onMount(() => {
 						/>
 					{/if}
 				</div>
+				{/if}
 
 				<!-- Comment Composer -->
-				{#if showComposer && $currentUser}
-					<div class="comment-composer">
+				{#if $showInput && $currentUser}
+					<div class="comment-composer" 
+						in:fly={{ y: -50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
+
+					>
 						<PostComposer
 							parentId={post.id}
 							placeholder={replyPlaceholder}
@@ -722,41 +799,43 @@ onMount(() => {
 				{/if}
 
 				<!-- Comments Section -->
-				<section class="comments-section" bind:this={commentsElement}>
-					<h3 class="comments-title">
-						{comments.length > 0
-							? `${comments.length} ${comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}`
-							: $t('posts.noReplies')}
-					</h3>
-
-					{#each comments as comment (comment.id)}
-						{#if comment.quotedPost}
-							<PostQuoteCard
-								post={comment}
-								on:interact={handlePostInteraction}
-								on:comment={handleComment}
-								on:quote={handleQuote}
-							/>
-						{:else}
-							<PostCard
-								post={comment}
-								showActions={true}
-								isComment={true}
-								on:interact={handlePostInteraction}
-								on:comment={handleComment}
-								on:quote={handleQuote}
-							/>
-						{/if}
-					{/each}
-				</section>
+{#if comments && comments.length > 0}
+    <section 
+		class="comments-section" 
+		class:scrolled={isScrolled}
+        bind:this={commentsElement}
+        in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }}
+    >
+        {#each comments as comment (comment.id)}
+            {#if comment.quotedPost}
+                <PostQuoteCard
+                    post={comment}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                />
+            {:else}
+                <PostCard
+                    post={comment}
+                    showActions={true}
+                    isComment={true}
+                    on:interact={handlePostInteraction}
+                    on:comment={handleComment}
+                    on:quote={handleQuote}
+                />
+            {/if}
+        {/each}
+    </section>
+{/if}
 			</main>
 		{/if}
 	</div>
 
-	<!-- Right Sidebar Component -->
-	<div class="sidebar-container">
-		<PostTrends on:followUser={handleFollowUser} />
-	</div>
+	{#if $showRightSidenav}
+		<div class="sidebar-container">
+			<PostTrends on:followUser={handleFollowUser} />
+		</div>
+	{/if}
 </div>
 
 {#if showAuthModal}
@@ -791,6 +870,10 @@ onMount(() => {
 	* {
 		font-family: var(--font-family);
 	}
+
+	main {
+		transition: all 0.3s ease;
+	}
 	/* Layout styles */
 	.post-detail-container {
 		display: flex;
@@ -798,16 +881,27 @@ onMount(() => {
 		min-height: 100vh;
 		width: 100%;
 		background-color: var(--primary-color);
-	}
+		transition: all	0.3s ease;
 
-	.post-detail-container.hide-left-sidebar .post-content-wrapper {
-		margin-left: 0;
 	}
+	// .post-detail-container.nav-visible .post-content-wrapper {
+	// 	left: 3rem;
+	// 	width: 50%;
+	// 	transition: all 0.3s ease;
+	// 	& .post-detail-main {
+	// 		margin-left: 5rem !important;
+	// 		padding: 0 0.5rem;
+	// 	}
+	// }
+	// .post-detail-container.hide-left-sidebar .post-content-wrapper {
+	// 	margin-left: 0;
+	// }
 
 	.sidebar-container {
 		position: sticky;
 		top: 0;
 		height: 100vh;
+		display: flex;
 	}
 
 	.post-content-wrapper {
@@ -816,12 +910,17 @@ onMount(() => {
 		flex-direction: column;
 		align-items: center;
 		padding: 0.5rem;
-		max-width: 100%;
+		max-width: calc(100% - 2rem);
+				transition: all 0.3s ease;
+
 	}
+
+
 
 	/* Header styles */
 	.post-header {
 		width: 100%;
+		max-width: 800px;
 		display: flex;
 		align-items: center;
 		justify-content: left;
@@ -923,13 +1022,27 @@ onMount(() => {
 		opacity: 0.9;
 	}
 
+	.back-btn {
+		position: fixed;
+		top: 10vh;
+		left: 0;
+		width: 60px;
+		height: 3rem;
+		background-color: red;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
 	/* Post detail styles */
 	.post-detail-main {
 		width: 100%;
 		max-width: 800px;
+		height: calc(100% - 2rem);
 		display: flex;
 		flex-direction: column;
-		gap: 1.5rem;
+		justify-content: flex-start;
+		align-items: stretch;
+		gap: 0;
 	}
 
 	.main-post {
@@ -1023,15 +1136,14 @@ onMount(() => {
 	/* Comment styles */
 	.comment-composer {
 		width: 100%;
-		margin-bottom: 1rem;
 	}
 
 	.comments-section {
 		width: auto;
-		height: 71vh;
+		height: 100%;
 		margin-left: 0;
 		background: var(--bg-gradient);
-		padding: 2rem;
+		padding: 0.5rem 1rem;
 		border-radius: 2rem;
 		margin-bottom: 2rem;
 		scroll-behavior: smooth;
@@ -1051,13 +1163,21 @@ onMount(() => {
 		}
 	}
 
+	.comments-header {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0;
+		margin: 0;
+	}
+
 	.comments-title {
-		font-size: 1.2rem;
+		font-size: 1.1rem;
 		font-weight: 600;
 		color: var(--text-color);
-		margin-bottom: 1.5rem;
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid var(--line-color);
+		padding: 0;
+		margin: 0;
 	}
 
 	.auth-modal {
@@ -1282,32 +1402,42 @@ onMount(() => {
 		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 		will-change: transform;
 	}
+	/* Dark mode adjustments */
+	:global([data-theme='dark']) .skeleton-shimmer {
+		--skeleton-base: #2a2a2a;
+		--skeleton-highlight: #3a3a3a;
+	}
 
-	/* Smooth transition for mobile */
+	:global([data-theme='light']) .skeleton-shimmer {
+		--skeleton-base: #f0f0f0;
+		--skeleton-highlight: #e0e0e0;
+	}
+
+	@media (max-width: 1000px) {
+		.post-detail-main {
+			padding: 0;
+		}
+	}
 	@media (max-width: 768px) {
 		.post-card-container {
 			transition: transform 0.25s ease-out;
 		}
-	}
-	/* Mobile Responsive - matches existing mobile styles */
-	@media (max-width: 768px) {
 		.skeleton-container {
-			padding: 0.5rem; /* Same as .post-content-wrapper mobile */
+			padding: 0.5rem;
 		}
 
 		.skeleton-post {
-			padding: 1rem; /* Same as .main-post mobile */
+			padding: 1rem; 
 		}
 
-		/* Header skeleton mobile adjustments */
 		.skeleton-header .skeleton-avatar {
-			width: 28px; /* Slightly smaller for mobile */
+			width: 28px; 
 			height: 28px;
 		}
 
 		/* Post skeleton mobile adjustments */
 		.skeleton-post-header .skeleton-avatar {
-			width: 40px; /* Smaller for mobile */
+			width: 40px;
 			height: 40px;
 		}
 
@@ -1325,7 +1455,7 @@ onMount(() => {
 		}
 
 		.skeleton-text-line {
-			height: 16px; /* Matches mobile post content */
+			height: 16px;
 		}
 
 		.skeleton-actions {
@@ -1334,23 +1464,11 @@ onMount(() => {
 		}
 
 		.skeleton-action {
-			width: 50px; /* Smaller for mobile */
+			width: 50px;
 			height: 28px;
 		}
-	}
 
-	/* Dark mode adjustments */
-	:global([data-theme='dark']) .skeleton-shimmer {
-		--skeleton-base: #2a2a2a;
-		--skeleton-highlight: #3a3a3a;
-	}
 
-	:global([data-theme='light']) .skeleton-shimmer {
-		--skeleton-base: #f0f0f0;
-		--skeleton-highlight: #e0e0e0;
-	}
-	/* Mobile responsive */
-	@media (max-width: 768px) {
 		.post-content-wrapper {
 			padding: 0.5rem;
 		}

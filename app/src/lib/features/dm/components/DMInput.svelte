@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
+	import { getIcon } from '$lib/utils/lucideIcons';
 
 	export let value = '';
 	export let placeholder = 'Type a message...';
@@ -60,9 +61,7 @@
 			class:has-content={value.trim()}
 			on:click={sendMessage}
 		>
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
-			</svg>
+			{@html getIcon('Send', { size: 16 })}
 		</button>
 	</div>
 	{#if maxLength}
@@ -76,24 +75,25 @@
 	@use 'src/lib/styles/themes.scss' as *;
 
 	.dm-input-container {
-		padding: 16px;
-		background: var(--bg-color);
+		padding: 0.25rem 0.5rem;
+		border: 1px solid transparent;
 		border-top: 1px solid var(--line-color);
+		transition: all 0.3s ease;
+		opacity: 0.7;
+		&:focus-within {
+			box-shadow: 0 30px 140px 50px rgba(255, 255, 255, 0.22);
+			opacity: 1;
+			background: var(--bg-color);
+		}
 	}
 
 	.input-wrapper {
 		display: flex;
 		align-items: flex-end;
 		gap: 8px;
-		background: var(--primary-color);
-		border-radius: 24px;
-		padding: 8px 12px;
-		border: 1px solid var(--line-color);
+		padding: 0.5rem;
 		transition: border-color 0.2s ease;
-
-		&:focus-within {
-			border-color: var(--tertiary-color);
-		}
+		
 	}
 
 	.message-input {
@@ -107,9 +107,21 @@
 		resize: none;
 		min-height: 20px;
 		max-height: 120px;
-		overflow-y: auto;
 		padding: 8px 0;
-
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: auto;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 		&::placeholder {
 			color: var(--placeholder-color);
 		}
@@ -120,8 +132,9 @@
 		}
 	}
 
+
 	.send-button {
-		background: var(--secondary-color);
+			background: transparent;
 		border: none;
 		border-radius: 50%;
 		width: 36px;
@@ -141,8 +154,7 @@
 		}
 
 		&.has-content {
-			background: var(--tertiary-color);
-			color: var(--primary-color);
+			color: var(--tertiary-color);
 		}
 
 		&:disabled {

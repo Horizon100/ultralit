@@ -10,7 +10,7 @@
 	interface Style {
 		name: string;
 		value: Theme;
-		icon: any;
+		icon: IconName;
 		description: string;
 		dummyContent: string;
 	}
@@ -117,7 +117,7 @@
 				on:mouseenter={() => handleHover(style)}
 				on:mouseleave={handleMouseLeave}
 			>
-				<svelte:component this={style.icon} size={20} />
+				{@html getIcon(style.icon, { size: 20 })}
 				<span>{style.name}</span>
 			</button>
 		{/each}

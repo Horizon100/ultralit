@@ -3,12 +3,16 @@
 	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import { showSettings } from '$lib/stores/sidenavStore';
 
 	// export let innerWidth: number;
 </script>
 
 {#if $showSidenav}
-	<aside class="left-sidebar" transition:fly={{ x: -300, duration: 300 }}>
+	<aside class="left-sidebar" 
+	class:drawer-visible={$showSettings}
+	transition:fly={{ x: -300, duration: 300 }}
+	>
 		<div class="sidebar-content">
 			<nav class="sidebar-nav">
 				<h3>{$t('nav.quickAccess')}</h3>
@@ -72,12 +76,18 @@
 	}
 	.left-sidebar {
 		width: 250px;
-		height: 92vh;
-		position: sticky;
+		height: 100%;
+		position: relative;
 		top: 0;
 		overflow-y: auto;
 		border-right: 1px solid var(--line-color);
+		transition: all 0.3s ease;
 		// background: var(--bg-gradient-right);
+	}
+
+	.left-sidebar.drawer-visible {
+		left: 4.5rem;
+		padding: 1rem;
 	}
 
 	.sidebar-content {
