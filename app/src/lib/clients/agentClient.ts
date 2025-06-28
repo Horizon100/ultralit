@@ -4,7 +4,9 @@ import { fetchTryCatch, validationTryCatch, isFailure, type Result } from '$lib/
 import type { AIAgent, RoleType } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 
-export async function createAgent(agentData: Partial<AIAgent> | FormData): Promise<Result<AIAgent, string>> {
+export async function createAgent(
+	agentData: Partial<AIAgent> | FormData
+): Promise<Result<AIAgent, string>> {
 	// Validate user authentication
 	const userValidation = validationTryCatch(() => {
 		const user = get(currentUser);
@@ -23,7 +25,7 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
 	if (agentData instanceof FormData) {
 		// Handle FormData for file uploads
 		const formData = agentData;
-		
+
 		// Add user data
 		formData.append('user_id', user.id);
 		formData.append('owner', user.id);
@@ -87,9 +89,10 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
 		// Parse position if it's a string
 		const agent = {
 			...result.data.data,
-			position: typeof result.data.data.position === 'string'
-				? JSON.parse(result.data.data.position)
-				: result.data.data.position
+			position:
+				typeof result.data.data.position === 'string'
+					? JSON.parse(result.data.data.position)
+					: result.data.data.position
 		};
 
 		return { data: agent, error: null, success: true };
@@ -120,7 +123,7 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
 				finalAgentData.role = lowerRole as RoleType;
 			}
 		}
-		
+
 		if (finalAgentData.user_input) {
 			const lowerUserInput = (finalAgentData.user_input as string).toLowerCase();
 			// Type-safe assignment with validation
@@ -156,9 +159,10 @@ export async function createAgent(agentData: Partial<AIAgent> | FormData): Promi
 		// Parse position if it's a string
 		const agent = {
 			...result.data.data,
-			position: typeof result.data.data.position === 'string'
-				? JSON.parse(result.data.data.position)
-				: result.data.data.position
+			position:
+				typeof result.data.data.position === 'string'
+					? JSON.parse(result.data.data.position)
+					: result.data.data.position
 		};
 
 		return { data: agent, error: null, success: true };
@@ -196,9 +200,10 @@ export const updateAgentDebounced = debounce(
 
 			const agent = {
 				...result.data.data,
-				position: typeof result.data.data.position === 'string'
-					? JSON.parse(result.data.data.position)
-					: result.data.data.position
+				position:
+					typeof result.data.data.position === 'string'
+						? JSON.parse(result.data.data.position)
+						: result.data.data.position
 			};
 
 			return { data: agent, error: null, success: true };
@@ -236,9 +241,10 @@ export const updateAgentDebounced = debounce(
 
 			const agent = {
 				...result.data.data,
-				position: typeof result.data.data.position === 'string'
-					? JSON.parse(result.data.data.position)
-					: result.data.data.position
+				position:
+					typeof result.data.data.position === 'string'
+						? JSON.parse(result.data.data.position)
+						: result.data.data.position
 			};
 
 			return { data: agent, error: null, success: true };
@@ -277,22 +283,20 @@ export async function getAgentById(id: string): Promise<Result<AIAgent, string>>
 
 	const agent = {
 		...result.data.data,
-		position: typeof result.data.data.position === 'string'
-			? JSON.parse(result.data.data.position)
-			: result.data.data.position
+		position:
+			typeof result.data.data.position === 'string'
+				? JSON.parse(result.data.data.position)
+				: result.data.data.position
 	};
 
 	return { data: agent, error: null, success: true };
 }
 
 export async function deleteAgent(id: string): Promise<Result<boolean, string>> {
-	const result = await fetchTryCatch<{ success: boolean; error?: string }>(
-		`/api/agents/${id}`,
-		{
-			method: 'DELETE',
-			credentials: 'include'
-		}
-	);
+	const result = await fetchTryCatch<{ success: boolean; error?: string }>(`/api/agents/${id}`, {
+		method: 'DELETE',
+		credentials: 'include'
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };

@@ -109,13 +109,16 @@ async function main() {
 
 		// Authenticate as a user (not as PocketBase admin)
 		console.log('Authenticating as user with admin role...');
-		const authResult = await tryCatch(
-			pb.collection('users').authWithPassword(email, password)
-		);
+		const authResult = await tryCatch(pb.collection('users').authWithPassword(email, password));
 
 		if (isFailure(authResult)) {
 			console.error('Authentication failed:', authResult.error);
-			if (authResult.error && typeof authResult.error === 'object' && 'status' in authResult.error && authResult.error.status === 400) {
+			if (
+				authResult.error &&
+				typeof authResult.error === 'object' &&
+				'status' in authResult.error &&
+				authResult.error.status === 400
+			) {
 				console.error('Invalid credentials or user does not exist.');
 			}
 			process.exit(1);

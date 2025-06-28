@@ -15,8 +15,6 @@ interface ThreadResponse {
 	thread?: Threads;
 }
 
-
-
 export class ThreadService {
 	private static isLoadingThreads = false;
 	private static lastLoadedProjectId: string | null = null;
@@ -382,15 +380,18 @@ export class ThreadService {
 	 */
 	static async deleteThread(threadId: string): Promise<boolean> {
 		try {
-			const success = await deleteThread(threadId);
-			if (success) {
+			const result = await deleteThread(threadId);
+			if (result.success) {
 				threadsStore.update((state) => ({
 					...state,
 					threads: state.threads.filter((t) => t.id !== threadId),
 					currentThreadId: state.currentThreadId === threadId ? null : state.currentThreadId
 				}));
+				return true;
+			} else {
+				console.error('Error deleting thread:', result.error);
+				return false;
 			}
-			return success;
 		} catch (error) {
 			console.error('Error deleting thread:', error);
 			return false;
@@ -459,11 +460,12 @@ export class ThreadService {
 	/**
 	 * Verifies if user has access to a thread
 	 */
-private static async verifyThreadAccess(thread: Threads, userId: string): Promise<boolean> {
+	private static async verifyThreadAccess(thread: Threads, userId: string): Promise<boolean> {
 		// Get project access
 		let hasProjectAccess = false;
 		if (thread.project) {
-			const projectId = typeof thread.project === 'string' ? thread.project : (thread.project as { id: string }).id;
+			const projectId =
+				typeof thread.project === 'string' ? thread.project : (thread.project as { id: string }).id;
 
 			try {
 				const projectResponse = await fetch(`/api/projects/${projectId}/threads`, {
@@ -498,7 +500,12 @@ private static async verifyThreadAccess(thread: Threads, userId: string): Promis
 			((typeof thread.members === 'string' && thread.members.includes(userId)) ||
 				(Array.isArray(thread.members) &&
 					thread.members.some((m: unknown) =>
-						typeof m === 'string' ? m === userId : (typeof m === 'object' && m !== null && 'id' in m && (m as { id: string }).id === userId)
+						typeof m === 'string'
+							? m === userId
+							: typeof m === 'object' &&
+								m !== null &&
+								'id' in m &&
+								(m as { id: string }).id === userId
 					)));
 
 		// Allow access if user is creator, op, member, or has project access
@@ -508,7 +515,7 @@ private static async verifyThreadAccess(thread: Threads, userId: string): Promis
 	/**
 	 * Handles project context for a thread
 	 */
-private static async handleProjectContext(project: string | { id: string }): Promise<void> {
+	private static async handleProjectContext(project: string | { id: string }): Promise<void> {
 		const projectId = typeof project === 'string' ? project : project.id;
 		await projectStore.setCurrentProject(projectId);
 
@@ -538,7 +545,6 @@ private static async handleProjectContext(project: string | { id: string }): Pro
 	private static async loadThreadMessages(threadId: string): Promise<void> {
 		try {
 			await messagesStore.fetchMessages(threadId);
-
 		} catch (err) {
 			console.error('Error loading messages:', err);
 		}

@@ -37,7 +37,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
 		const { id } = params;
 		const data = await request.json();
 
-		const repositoryResult = await pbTryCatch(pb.collection('repositories').getOne(id), 'fetch repository');
+		const repositoryResult = await pbTryCatch(
+			pb.collection('repositories').getOne(id),
+			'fetch repository'
+		);
 		const repository = unwrap(repositoryResult);
 
 		const isOwner = repository.createdBy === locals.user.id;
@@ -49,13 +52,17 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
 
 		const updatedData = {
 			repoName: data.repoName || repository.repoName,
-			repoDescription: data.repoDescription !== undefined ? data.repoDescription : repository.repoDescription,
+			repoDescription:
+				data.repoDescription !== undefined ? data.repoDescription : repository.repoDescription,
 			repoCollaborators: data.repoCollaborators || repository.repoCollaborators,
 			defaultBranch: data.defaultBranch || repository.defaultBranch,
 			isPublic: data.isPublic !== undefined ? data.isPublic : repository.isPublic
 		};
 
-		const updateResult = await pbTryCatch(pb.collection('repositories').update(id, updatedData), 'update repository');
+		const updateResult = await pbTryCatch(
+			pb.collection('repositories').update(id, updatedData),
+			'update repository'
+		);
 		const updatedRepository = unwrap(updateResult);
 
 		return updatedRepository;
@@ -69,7 +76,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) =>
 		}
 		const { id } = params;
 
-		const repositoryResult = await pbTryCatch(pb.collection('repositories').getOne(id), 'fetch repository');
+		const repositoryResult = await pbTryCatch(
+			pb.collection('repositories').getOne(id),
+			'fetch repository'
+		);
 		const repository = unwrap(repositoryResult);
 
 		if (repository.createdBy !== locals.user.id) {

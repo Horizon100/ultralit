@@ -141,25 +141,25 @@
 		class={overlayContent === 'Agents' ? 'active' : ''}
 		on:click={() => toggleOverlay('Agents')}
 	>
-			<span class="nav-icon">
-				{@html getIcon('Bot', { size: 24 })}
-			</span>
+		<span class="nav-icon">
+			{@html getIcon('Bot', { size: 24 })}
+		</span>
 	</button>
 	<button
 		class={overlayContent === 'Models' ? 'active' : ''}
 		on:click={() => toggleOverlay('Models')}
 	>
-			<span class="nav-icon">
-				{@html getIcon('Settings2', { size: 24 })}
-			</span>
+		<span class="nav-icon">
+			{@html getIcon('Settings2', { size: 24 })}
+		</span>
 	</button>
 	<button
 		class={overlayContent === 'Actions' ? 'active' : ''}
 		on:click={() => toggleOverlay('Actions')}
 	>
-			<span class="nav-icon">
-				{@html getIcon('Wrench', { size: 24 })}
-			</span>
+		<span class="nav-icon">
+			{@html getIcon('Wrench', { size: 24 })}
+		</span>
 	</button>
 </nav>
 {#if showH2}

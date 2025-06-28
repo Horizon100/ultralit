@@ -32,9 +32,9 @@
 		return String(value);
 	}
 
-	async function handleButtonClick(button: typeof buttons[0]) {
+	async function handleButtonClick(button: (typeof buttons)[0]) {
 		const result = await clientTryCatch(
-			typeof button.action === 'function' ? button.action() : Promise.resolve(button.action),
+			Promise.resolve(typeof button.action === 'function' ? button.action() : button.action),
 			`Debug button action: ${button.label}`
 		);
 
@@ -46,24 +46,28 @@
 
 {#if showDebug}
 	{#if browser}
-		<div 
+		<div
 			class="debugger-panel"
 			style="position: fixed; {position} background: rgba(51, 51, 51, 0.95); color: white; padding: 15px; font-size: {fontSize}; z-index: 9999; border-radius: 8px; min-width: {minWidth}; max-width: {maxWidth};"
 		>
 			<div style="font-weight: bold; margin-bottom: 8px;">{title}</div>
-			
+
 			{#each debugItems as item}
 				<div class="debugger-row" style="margin-bottom: 2px;">
-					<strong>{item.label}:</strong> {formatValue(item.value)}
+					<strong>{item.label}:</strong>
+					{formatValue(item.value)}
 				</div>
 			{/each}
-			
+
 			{#if buttons.length > 0}
-				<div style="margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 8px;">
+				<div
+					style="margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 8px;"
+				>
 					{#each buttons as button}
-						<button 
+						<button
 							class="debugger-button"
-							style="background: {button.color || '#007bff'}; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; margin-bottom: 5px;"
+							style="background: {button.color ||
+								'#007bff'}; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; margin-bottom: 5px;"
 							on:click={() => handleButtonClick(button)}
 						>
 							{button.label}
@@ -71,7 +75,7 @@
 					{/each}
 				</div>
 			{/if}
-			
+
 			<!-- Slot for custom content -->
 			<slot />
 		</div>

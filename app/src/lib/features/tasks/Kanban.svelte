@@ -47,7 +47,7 @@
 	});
 	import AIChat from '../ai/components/chat/AIChat.svelte';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
-	
+
 	let project = null;
 	let isAuthenticated = false;
 	let isAuthenticating = true;
@@ -181,42 +181,42 @@
 		const h = hash % 360;
 		return `hsl(${h}, 70%, 60%)`;
 	}
-async function getUserName(userId: string | undefined): Promise<string> {
-	if (!userId) return 'Unassigned';
+	async function getUserName(userId: string | undefined): Promise<string> {
+		if (!userId) return 'Unassigned';
 
-	// Check if we already have this username in cache
-	if (userNameCache.has(userId)) {
-		return userNameCache.get(userId) || 'Unknown';
-	}
-
-	try {
-		// Use your existing public user data endpoint
-		const response = await fetch(`/api/verify/users/${userId}/public`);
-
-		if (!response.ok) {
-			console.log(`User fetch failed for ID ${userId}: ${response.status}`);
-			return 'Unknown';
+		// Check if we already have this username in cache
+		if (userNameCache.has(userId)) {
+			return userNameCache.get(userId) || 'Unknown';
 		}
 
-		const data = await response.json();
+		try {
+			// Use your existing public user data endpoint
+			const response = await fetch(`/api/verify/users/${userId}/public`);
 
-		// Handle the response format from your verify endpoint
-		if (data.success && data.data) {
-			const userData = data.data; // Changed from data.user to data.data
-			const userName = userData.name || userData.username || userData.email || 'Unknown';
+			if (!response.ok) {
+				console.log(`User fetch failed for ID ${userId}: ${response.status}`);
+				return 'Unknown';
+			}
 
-			// Cache the result for future use
-			userNameCache.set(userId, userName);
-			return userName;
-		} else {
-			console.log('Unexpected user data format:', data);
+			const data = await response.json();
+
+			// Handle the response format from your verify endpoint
+			if (data.success && data.data) {
+				const userData = data.data; // Changed from data.user to data.data
+				const userName = userData.name || userData.username || userData.email || 'Unknown';
+
+				// Cache the result for future use
+				userNameCache.set(userId, userName);
+				return userName;
+			} else {
+				console.log('Unexpected user data format:', data);
+				return 'Unknown';
+			}
+		} catch (err) {
+			console.error('Error fetching user data:', err);
 			return 'Unknown';
 		}
-	} catch (err) {
-		console.error('Error fetching user data:', err);
-		return 'Unknown';
 	}
-}
 	// Load data from PocketBase
 
 	async function loadTasks(projectId: string | null) {
@@ -356,51 +356,51 @@ async function getUserName(userId: string | undefined): Promise<string> {
 			isLoading.set(false);
 		}
 	}
-async function loadTags(projectId: string | null) {
-	try {
-		// Always use the general tags endpoint, ignore projectId
-		const url = '/api/tags';
+	async function loadTags(projectId: string | null) {
+		try {
+			// Always use the general tags endpoint, ignore projectId
+			const url = '/api/tags';
 
-		console.log('Loading tags from:', url);
+			console.log('Loading tags from:', url);
 
-		const response = await fetch(url);
-		console.log('Tags response status:', response.status);
+			const response = await fetch(url);
+			console.log('Tags response status:', response.status);
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			console.error('Tags fetch failed:', response.status, errorText);
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('Tags fetch failed:', response.status, errorText);
 
-			// If the endpoint doesn't exist, return empty tags instead of failing
-			if (response.status === 404) {
-				console.log('Tags endpoint not found, returning empty tags');
-				tags.set([]);
-				return;
+				// If the endpoint doesn't exist, return empty tags instead of failing
+				if (response.status === 404) {
+					console.log('Tags endpoint not found, returning empty tags');
+					tags.set([]);
+					return;
+				}
+
+				throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
 			}
 
-			throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
+			const contentType = response.headers.get('content-type');
+			if (!contentType || !contentType.includes('application/json')) {
+				const responseText = await response.text();
+				console.error('Tags response is not JSON:', responseText);
+				throw new Error('Invalid response format for tags');
+			}
+
+			const data = await response.json();
+			console.log('Tags data loaded:', data);
+
+			tags.set(data.items || []);
+			console.log('Tags loaded successfully');
+		} catch (err) {
+			console.error('Error loading tags:', err);
+			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
+
+			// Set empty tags so the component doesn't break
+			tags.set([]);
+			throw err;
 		}
-
-		const contentType = response.headers.get('content-type');
-		if (!contentType || !contentType.includes('application/json')) {
-			const responseText = await response.text();
-			console.error('Tags response is not JSON:', responseText);
-			throw new Error('Invalid response format for tags');
-		}
-
-		const data = await response.json();
-		console.log('Tags data loaded:', data);
-
-		tags.set(data.items || []);
-		console.log('Tags loaded successfully');
-	} catch (err) {
-		console.error('Error loading tags:', err);
-		console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
-
-		// Set empty tags so the component doesn't break
-		tags.set([]);
-		throw err;
 	}
-}
 
 	async function saveTag(tag: Tag) {
 		try {
@@ -1335,60 +1335,62 @@ async function loadTags(projectId: string | null) {
 		}
 	}
 
-async function handleTaskAssigned(detail: { taskId: string; userId: string }) {
-	const { taskId, userId } = detail;
+	async function handleTaskAssigned(detail: { taskId: string; userId: string }) {
+		const { taskId, userId } = detail;
 
-	const result = await clientTryCatch(
-		async () => {
-			if (selectedTask && selectedTask.id === taskId) {
-				selectedTask.assignedTo = userId;
-				selectedTask = { ...selectedTask };
-			}
+		const result = await clientTryCatch(
+			(async () => {
+				if (selectedTask && selectedTask.id === taskId) {
+					selectedTask.assignedTo = userId;
+					selectedTask = { ...selectedTask };
+				}
 
-			await updateTaskAssignment(taskId, userId);
+				await updateTaskAssignment(taskId, userId);
 
-			columns.update((cols) => {
-				return cols.map((col) => ({
-					...col,
-					tasks: col.tasks.map((task) =>
-						task.id === taskId ? { ...task, assignedTo: userId } : task
-					)
-				}));
-			});
-		},
-		'Failed to handle task assignment'
-	);
+				columns.update((cols) => {
+					return cols.map((col) => ({
+						...col,
+						tasks: col.tasks.map((task) =>
+							task.id === taskId ? { ...task, assignedTo: userId } : task
+						)
+					}));
+				});
+			})(),
+			'Failed to handle task assignment'
+		);
 
-	if (!result.success) {
-		console.error('Error handling task assignment:', result.error);
+		if (!result.success) {
+			console.error('Error handling task assignment:', result.error);
+		}
 	}
-}
 
-async function handleTaskUnassigned(taskId: string) {
-	const result = await clientTryCatch(
-		async () => {
-			if (selectedTask && selectedTask.id === taskId) {
-				selectedTask.assignedTo = '';
-				selectedTask = { ...selectedTask };
-			}
+	async function handleTaskUnassigned(taskId: string) {
+		const result = await clientTryCatch(
+			(async () => {
+				if (selectedTask && selectedTask.id === taskId) {
+					selectedTask.assignedTo = '';
+					selectedTask = { ...selectedTask };
+				}
 
-			await updateTaskAssignment(taskId, '');
+				await updateTaskAssignment(taskId, '');
 
-			// Update in columns
-			columns.update((cols) => {
-				return cols.map((col) => ({
-					...col,
-					tasks: col.tasks.map((task) => (task.id === taskId ? { ...task, assignedTo: '' } : task))
-				}));
-			});
-		},
-		'Failed to handle task unassignment'
-	);
+				// Update in columns
+				columns.update((cols) => {
+					return cols.map((col) => ({
+						...col,
+						tasks: col.tasks.map((task) =>
+							task.id === taskId ? { ...task, assignedTo: '' } : task
+						)
+					}));
+				});
+			})(),
+			'Failed to handle task unassignment'
+		);
 
-	if (!result.success) {
-		console.error('Error handling task unassignment:', result.error);
+		if (!result.success) {
+			console.error('Error handling task unassignment:', result.error);
+		}
 	}
-}
 
 	function searchTasks(query: string) {
 		if (!query.trim()) {
@@ -1836,9 +1838,9 @@ async function handleTaskUnassigned(taskId: string) {
 				>
 					<span class="toggle-icon">
 						{#if allColumnsOpen}
-							{@html getIcon('EyeOff', {size: 16})}
+							{@html getIcon('EyeOff', { size: 16 })}
 						{:else}
-							{@html getIcon('Layers', {size: 16})}
+							{@html getIcon('Layers', { size: 16 })}
 						{/if}
 					</span>
 					<span class="toggle-label">
@@ -1894,17 +1896,17 @@ async function handleTaskUnassigned(taskId: string) {
 					on:click={(e) => togglePriorityView(e)}
 					title="Toggle priority view"
 				>
-				<span 
-				class={[
-					TaskViewMode.highPriority,
-					TaskViewMode.mediumPriority,
-					TaskViewMode.LowPriority
-				].includes(taskViewMode)
-					? 'active'
-					: ''}
-				>
-				{@html getIcon('Flag')}
-				</span>
+					<span
+						class={[
+							TaskViewMode.highPriority,
+							TaskViewMode.mediumPriority,
+							TaskViewMode.LowPriority
+						].includes(taskViewMode)
+							? 'active'
+							: ''}
+					>
+						{@html getIcon('Flag')}
+					</span>
 					{#if taskViewMode === TaskViewMode.highPriority}
 						<span></span>
 						<span class="count-badge">{highPriorityCount}</span>
@@ -1922,7 +1924,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'all')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('ListCollapse', {size: 16})}
+					{@html getIcon('ListCollapse', { size: 16 })}
 					<span class="count-badge">{totalTaskCount}</span>
 				</button>
 				<button
@@ -1931,7 +1933,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'parents')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('FolderGit', {size: 16})}
+					{@html getIcon('FolderGit', { size: 16 })}
 					<span class="count-badge">{parentTaskCount}</span>
 				</button>
 				<button
@@ -1940,7 +1942,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:mouseenter={() => (hoveredButton = 'subtasks')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('GitFork', {size: 16})}
+					{@html getIcon('GitFork', { size: 16 })}
 					<span class="count-badge">{subtaskCount}</span>
 				</button>
 				<button
@@ -1949,7 +1951,7 @@ async function handleTaskUnassigned(taskId: string) {
 					on:click={toggleTagFilter}
 					title="Tags"
 				>
-					{@html getIcon('Filter', {size: 16})}
+					{@html getIcon('Filter', { size: 16 })}
 				</button>
 			</div>
 			{#if showTagFilter}
@@ -2096,7 +2098,7 @@ async function handleTaskUnassigned(taskId: string) {
 											{#if hasSubtasks(task.id)}
 												<div class="task-badge subtasks">
 													<span class="task-icon">
-														{@html getIcon('ClipboardList', {size: 16})}
+														{@html getIcon('ClipboardList', { size: 16 })}
 													</span>
 													{countSubtasks(task.id)}
 													<span>{$t('tasks.subtasks')}</span>
@@ -2179,7 +2181,7 @@ async function handleTaskUnassigned(taskId: string) {
 														{tag.name}
 													</span>
 												{/each}
-												  	{@html getIcon('TagIcon', {size: 16})}
+												{@html getIcon('TagIcon', { size: 16 })}
 												{#if task.tags.length > 0}
 													<span class="tag-count">{task.tags.length}</span>
 												{/if}
@@ -2445,7 +2447,7 @@ async function handleTaskUnassigned(taskId: string) {
 										{processWordCrop(subtask.title)}
 									</div>
 									<div class="subtask-status">{subtask.status}</div>
-									{@html getIcon('ChevronRight', {size: 16})}
+									{@html getIcon('ChevronRight', { size: 16 })}
 								</div>
 							{/each}
 						</div>
@@ -2898,10 +2900,10 @@ async function handleTaskUnassigned(taskId: string) {
 		border-left: 0.5rem solid var(--color-todo);
 	}
 	.task-card.status-inprogress {
-		border-left: 0.5rem solid  var(--color-inprogress);
+		border-left: 0.5rem solid var(--color-inprogress);
 	}
 	.task-card.status-review {
-		border-left: 0.5rem solid  var(--color-review);
+		border-left: 0.5rem solid var(--color-review);
 	}
 	.task-card.status-done {
 		border-left: 0.5rem solid var(--color-done);
@@ -3198,7 +3200,7 @@ async function handleTaskUnassigned(taskId: string) {
 	.task-card {
 		// background: var(--secondary-color);
 		border-top: 1px solid var(--line-color);
-				border-bottom: 1px solid var(--line-color);
+		border-bottom: 1px solid var(--line-color);
 
 		border-left: 0.5rem solid var(--line-color);
 		// margin-bottom: 0.5rem;
@@ -3218,7 +3220,7 @@ async function handleTaskUnassigned(taskId: string) {
 			overflow: hidden;
 			white-space: nowrap;
 			text-overflow: ellipsis;
-    		word-break: keep-all;  
+			word-break: keep-all;
 		}
 	}
 	.task-card:active {
@@ -3258,8 +3260,6 @@ async function handleTaskUnassigned(taskId: string) {
 			overflow: hidden !important;
 			// padding: 0.5rem;
 		}
-
-
 	}
 
 	.task-card:active {
@@ -3476,10 +3476,9 @@ async function handleTaskUnassigned(taskId: string) {
 				display: flex;
 				font-size: 0.7rem !important;
 				letter-spacing: 0;
-				white-space: nowrap;     
-				word-break: keep-all;   
+				white-space: nowrap;
+				word-break: keep-all;
 				text-overflow: ellipsis;
-
 			}
 		}
 	}

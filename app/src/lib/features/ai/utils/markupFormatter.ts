@@ -1,11 +1,11 @@
 // MarkupFormatter.ts - Utility for handling markup formatting and text operations
 import { extractPlainTextFromHtml } from '$lib/features/ai/utils/markdownProcessor';
-import { 
-	clientTryCatch, 
+import {
+	clientTryCatch,
 	validationTryCatch,
-	isSuccess, 
+	isSuccess,
 	isFailure,
-	type Result 
+	type Result
 } from '$lib/utils/errorUtils';
 
 export class MarkupFormatter {
@@ -25,8 +25,6 @@ export class MarkupFormatter {
 		if (isFailure(validation)) {
 			return { data: null, error: validation.error, success: false };
 		}
-
-
 
 		const result = validationTryCatch(() => {
 			return extractPlainTextFromHtml(html);

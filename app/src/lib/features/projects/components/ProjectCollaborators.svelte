@@ -356,7 +356,7 @@
 				disabled={isLoading}
 			/>
 			<button class="add" on:click={addCollaborator} disabled={isLoading}>
-				  {@html getIcon('Users')}
+				{@html getIcon('Users')}
 				+
 			</button>
 		</span>

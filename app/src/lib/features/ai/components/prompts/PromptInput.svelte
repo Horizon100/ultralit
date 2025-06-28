@@ -111,31 +111,33 @@
 	}
 
 	async function setPromptPreference(promptId: string): Promise<void> {
-		const result = await clientTryCatch((async () => {
-			if ($currentUser?.id) {
-				await updateUser($currentUser.id, {
-					prompt_preference: [promptId]
-				});
+		const result = await clientTryCatch(
+			(async () => {
+				if ($currentUser?.id) {
+					await updateUser($currentUser.id, {
+						prompt_preference: [promptId]
+					});
 
-				// Update local state
-				activePromptId = promptId;
+					// Update local state
+					activePromptId = promptId;
 
-				const updatedUser = await getUserById($currentUser.id, true);
-				if (updatedUser) {
-					currentUser.set(updatedUser);
+					const updatedUser = await getUserById($currentUser.id, true);
+					if (updatedUser) {
+						currentUser.set(updatedUser);
+					}
+
+					console.log('Prompt preferences updated successfully:', [promptId]);
+				} else {
+					throw new Error('User not authenticated');
 				}
-
-				console.log('Prompt preferences updated successfully:', [promptId]);
-			} else {
-				throw new Error('User not authenticated');
-			}
-		})(), `Setting prompt preference to ${promptId}`);
+			})(),
+			`Setting prompt preference to ${promptId}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error updating prompt preference:', result.error);
 		}
 	}
-
 
 	onMount(async () => {
 		try {

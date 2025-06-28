@@ -7,11 +7,11 @@
 	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';
 	import type { GameHero, GameOrganization } from '$lib/types/types.game';
 	import Background from '$lib/assets/maps/pixelmap.svg';
-	import { 
-		clientTryCatch, 
-		fetchTryCatch, 
+	import {
+		clientTryCatch,
+		fetchTryCatch,
 		validationTryCatch,
-		isSuccess, 
+		isSuccess,
 		isFailure,
 		type Result
 	} from '$lib/utils/errorUtils';
@@ -27,187 +27,181 @@
 	let hero: GameHero | null = null;
 	let organizations: GameOrganization[] = [];
 
-async function loadGameState(): Promise<Result<void, string>> {
-	console.log('[DEBUG] Starting game state check...');
-	
-	// Validate user authentication
-	const userValidation = validationTryCatch(() => {
-		const user = get(currentUser);
-		if (!user) {
-			throw new Error('User not found despite authentication');
-		}
-		return user;
-	}, 'user authentication');
+	async function loadGameState(): Promise<Result<void, string>> {
+		console.log('[DEBUG] Starting game state check...');
 
-	if (isFailure(userValidation)) {
-		console.error('[DEBUG]', userValidation.error);
-		return { data: null, error: userValidation.error, success: false };
+		// Validate user authentication
+		const userValidation = validationTryCatch(() => {
+			const user = get(currentUser);
+			if (!user) {
+				throw new Error('User not found despite authentication');
+			}
+			return user;
+		}, 'user authentication');
+
+		if (isFailure(userValidation)) {
+			console.error('[DEBUG]', userValidation.error);
+			return { data: null, error: userValidation.error, success: false };
+		}
+
+		const user = userValidation.data;
+		isChecking = true;
+
+		try {
+			// Always try to load hero first
+			console.log('[DEBUG] Loading hero...');
+			const heroResult = await clientTryCatch(
+				gameService.getOrCreateHero(user.id),
+				'Loading game hero'
+			);
+
+			if (isSuccess(heroResult)) {
+				hero = heroResult.data;
+				console.log('[DEBUG] Hero loaded:', hero);
+			} else {
+				console.error('[DEBUG] Error loading hero:', heroResult.error);
+				needsHero = true;
+				return { data: null, error: heroResult.error, success: false };
+			}
+
+			// Try to load organizations, but don't fail if they don't exist
+			console.log('[DEBUG] Loading organizations...');
+			const orgResult = await fetchTryCatch<{ data: GameOrganization[] }>(
+				'/api/game/organizations'
+			);
+
+			if (isSuccess(orgResult)) {
+				organizations = orgResult.data.data || [];
+				console.log('[DEBUG] Organizations loaded:', organizations.length);
+			} else {
+				console.log('[DEBUG] Organizations fetch failed:', orgResult.error);
+				organizations = [];
+			}
+
+			// Set organization state
+			needsWorld = organizations.length === 0;
+
+			return { data: undefined, error: null, success: true };
+		} finally {
+			isChecking = false;
+		}
 	}
 
-	const user = userValidation.data;
-	isChecking = true;
+	async function createWorld(): Promise<Result<void, string>> {
+		console.log('[DEBUG] Creating organization...');
 
-	try {
-		// Always try to load hero first
-		console.log('[DEBUG] Loading hero...');
+		const createResult = await fetchTryCatch<any>('/api/game/initialize', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({})
+		});
+
+		if (isSuccess(createResult)) {
+			console.log('[DEBUG] World created successfully');
+			toast.success('World created successfully!');
+
+			// Reload organizations
+			const reloadResult = await loadGameState();
+			if (isFailure(reloadResult)) {
+				toast.warning('World created but failed to reload data');
+			}
+			return reloadResult;
+		}
+
+		toast.error(`Failed to create world: ${createResult.error}`);
+		return { data: null, error: createResult.error, success: false };
+	}
+
+	async function createHero(): Promise<Result<void, string>> {
+		console.log('[DEBUG] Creating hero...');
+
+		const userValidation = validationTryCatch(() => {
+			const user = get(currentUser);
+			if (!user) {
+				throw new Error('User not authenticated');
+			}
+			return user;
+		}, 'user authentication');
+
+		if (isFailure(userValidation)) {
+			toast.error('Authentication error - please refresh the page');
+			return { data: null, error: userValidation.error, success: false };
+		}
+
+		const user = userValidation.data;
+
 		const heroResult = await clientTryCatch(
 			gameService.getOrCreateHero(user.id),
-			'Loading game hero'
+			'Creating game hero'
 		);
 
 		if (isSuccess(heroResult)) {
 			hero = heroResult.data;
-			console.log('[DEBUG] Hero loaded:', hero);
-		} else {
-			console.error('[DEBUG] Error loading hero:', heroResult.error);
-			needsHero = true;
-			return { data: null, error: heroResult.error, success: false };
+			console.log('[DEBUG] Hero created successfully');
+			toast.success('Hero created successfully!');
+			needsHero = false;
+			return { data: undefined, error: null, success: true };
 		}
 
-		// Try to load organizations, but don't fail if they don't exist
-		console.log('[DEBUG] Loading organizations...');
-		const orgResult = await fetchTryCatch<{ data: GameOrganization[] }>(
-			'/api/game/organizations'
-		);
-
-		if (isSuccess(orgResult)) {
-			organizations = orgResult.data.data || [];
-			console.log('[DEBUG] Organizations loaded:', organizations.length);
-		} else {
-			console.log('[DEBUG] Organizations fetch failed:', orgResult.error);
-			organizations = [];
-		}
-
-		// Set organization state
-		needsWorld = organizations.length === 0;
-		
-		return { data: undefined, error: null, success: true };
-	} finally {
-		isChecking = false;
+		toast.error(`Failed to create hero: ${heroResult.error}`);
+		return { data: null, error: heroResult.error, success: false };
 	}
-}
+	async function selectOrganization(org: GameOrganization): Promise<Result<void, string>> {
+		console.log('[DEBUG] Selecting organization:', org.name);
 
-async function createWorld(): Promise<Result<void, string>> {
-    console.log('[DEBUG] Creating organization...');
-    
-    const createResult = await fetchTryCatch<any>(
-        '/api/game/initialize',
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        }
-    );
+		const userValidation = validationTryCatch(() => {
+			const user = get(currentUser);
+			if (!user) {
+				throw new Error('User not authenticated');
+			}
+			return user;
+		}, 'user authentication');
 
-    if (isSuccess(createResult)) {
-        console.log('[DEBUG] World created successfully');
-        toast.success('World created successfully!');
-        
-        // Reload organizations
-        const reloadResult = await loadGameState();
-        if (isFailure(reloadResult)) {
-            toast.warning('World created but failed to reload data');
-        }
-        return reloadResult;
-    }
+		if (isFailure(userValidation)) {
+			toast.error('Authentication error - please refresh the page');
+			return { data: null, error: userValidation.error, success: false };
+		}
 
-    toast.error(`Failed to create world: ${createResult.error}`);
-    return { data: null, error: createResult.error, success: false };
-}
+		const user = userValidation.data;
 
-async function createHero(): Promise<Result<void, string>> {
-    console.log('[DEBUG] Creating hero...');
-    
-    const userValidation = validationTryCatch(() => {
-        const user = get(currentUser);
-        if (!user) {
-            throw new Error('User not authenticated');
-        }
-        return user;
-    }, 'user authentication');
+		const updateResult = await fetchTryCatch<any>(`/api/game/heroes/${user.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				currentOrganization: org.id
+			})
+		});
 
-    if (isFailure(userValidation)) {
-        toast.error('Authentication error - please refresh the page');
-        return { data: null, error: userValidation.error, success: false };
-    }
+		if (isSuccess(updateResult)) {
+			console.log('[DEBUG] Hero organization updated successfully');
+			toast.success(`Joined ${org.name}!`);
 
-    const user = userValidation.data;
+			// Update local hero object
+			if (hero) {
+				hero.currentOrganization = org.id;
+			}
 
-    const heroResult = await clientTryCatch(
-        gameService.getOrCreateHero(user.id),
-        'Creating game hero'
-    );
+			// Navigate to organization
+			goto(`/game/organization/${org.id}`);
+			return { data: undefined, error: null, success: true };
+		}
 
-    if (isSuccess(heroResult)) {
-        hero = heroResult.data;
-        console.log('[DEBUG] Hero created successfully');
-        toast.success('Hero created successfully!');
-        needsHero = false;
-        return { data: undefined, error: null, success: true };
-    }
+		toast.error(`Failed to join ${org.name}: ${updateResult.error}`);
+		return { data: null, error: updateResult.error, success: false };
+	}
 
-    toast.error(`Failed to create hero: ${heroResult.error}`);
-    return { data: null, error: heroResult.error, success: false };
-}
-async function selectOrganization(org: GameOrganization): Promise<Result<void, string>> {
-    console.log('[DEBUG] Selecting organization:', org.name);
-    
-    const userValidation = validationTryCatch(() => {
-        const user = get(currentUser);
-        if (!user) {
-            throw new Error('User not authenticated');
-        }
-        return user;
-    }, 'user authentication');
+	onMount(async () => {
+		const result = await loadGameState();
 
-    if (isFailure(userValidation)) {
-        toast.error('Authentication error - please refresh the page');
-        return { data: null, error: userValidation.error, success: false };
-    }
+		if (isFailure(result)) {
+			toast.error(`Failed to load game: ${result.error}`);
+		}
 
-    const user = userValidation.data;
-
-    const updateResult = await fetchTryCatch<any>(
-        `/api/game/heroes/${user.id}`,
-        {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                currentOrganization: org.id
-            })
-        }
-    );
-
-    if (isSuccess(updateResult)) {
-        console.log('[DEBUG] Hero organization updated successfully');
-        toast.success(`Joined ${org.name}!`);
-        
-        // Update local hero object
-        if (hero) {
-            hero.currentOrganization = org.id;
-        }
-
-        // Navigate to organization
-        goto(`/game/organization/${org.id}`);
-        return { data: undefined, error: null, success: true };
-    }
-
-    toast.error(`Failed to join ${org.name}: ${updateResult.error}`);
-    return { data: null, error: updateResult.error, success: false };
-}
-
-onMount(async () => {
-    const result = await loadGameState();
-    
-    if (isFailure(result)) {
-        toast.error(`Failed to load game: ${result.error}`);
-    }
-    
-    // Check for server-side errors
-    if ($page.status >= 400) {
-        toast.error('Failed to load user data. Please try refreshing the page.');
-    }
-});
+		// Check for server-side errors
+		if ($page.status >= 400) {
+			toast.error('Failed to load user data. Please try refreshing the page.');
+		}
+	});
 </script>
 
 <div class="game-wrapper">

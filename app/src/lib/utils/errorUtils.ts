@@ -15,9 +15,7 @@ export type Failure<E> = { data: null; error: E; success: false };
 export type Result<T, E = Error> = Success<T> | Failure<E>;
 
 // Main wrapper function for async operations
-export async function tryCatch<T, E = Error>(
-	promise: Promise<T>
-): Promise<Result<T, E>> {
+export async function tryCatch<T, E = Error>(promise: Promise<T>): Promise<Result<T, E>> {
 	try {
 		const data = await promise;
 		return { data, error: null, success: true };
@@ -51,11 +49,11 @@ export async function apiTryCatch<T>(
 		});
 	} catch (error) {
 		console.error(`API Error: ${errorMessage}`, error);
-		
+
 		// Handle different error types
 		let status = errorStatus;
 		let message = errorMessage;
-		
+
 		if (error instanceof Error) {
 			// Check for common PocketBase errors
 			if (error.message.includes('not found') || error.message.includes('404')) {
@@ -69,7 +67,7 @@ export async function apiTryCatch<T>(
 				message = 'Forbidden';
 			}
 		}
-		
+
 		return json(
 			{
 				success: false,
@@ -85,11 +83,7 @@ export async function userApiTryCatch<T>(
 	promiseOrFn: Promise<T> | (() => Promise<T>),
 	operation: string = 'user operation'
 ): Promise<Response> {
-	return apiTryCatch(
-		promiseOrFn,
-		`Failed to perform ${operation}`,
-		404
-	);
+	return apiTryCatch(promiseOrFn, `Failed to perform ${operation}`, 404);
 }
 
 // Client-side error handler with optional logging
@@ -102,21 +96,17 @@ export async function clientTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		
+
 		if (logMessage) {
 			console.error(`${logMessage}:`, error);
 		}
-		
+
 		return { data: null, error: errorMessage, success: false };
 	}
 }
 
 // Storage operation wrapper (localStorage, etc.)
-export function storageTryCatch<T>(
-	operation: () => T,
-	fallback: T,
-	logMessage?: string
-): T {
+export function storageTryCatch<T>(operation: () => T, fallback: T, logMessage?: string): T {
 	try {
 		return operation();
 	} catch (error) {
@@ -136,28 +126,28 @@ export async function fetchTryCatch<T>(
 	try {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), timeout);
-		
+
 		const response = await fetch(url, {
 			...options,
 			signal: controller.signal
 		});
-		
+
 		clearTimeout(timeoutId);
-		
+
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
-		
+
 		const contentType = response.headers.get('content-type');
 		if (!contentType || !contentType.includes('application/json')) {
 			throw new Error(`Unexpected content type: ${contentType}`);
 		}
-		
+
 		const data = await response.json();
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'Network request failed';
-		
+
 		if (error instanceof Error) {
 			if (error.name === 'AbortError') {
 				errorMessage = 'Request timed out';
@@ -165,7 +155,7 @@ export async function fetchTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		return { data: null, error: errorMessage, success: false };
 	}
 }
@@ -180,7 +170,7 @@ export async function pbTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = `Failed to perform ${operation}`;
-		
+
 		if (error instanceof Error) {
 			// Handle specific PocketBase errors
 			if (error.message.includes('not found')) {
@@ -193,7 +183,7 @@ export async function pbTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`PocketBase Error (${operation}):`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -232,7 +222,7 @@ export function validationTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'Validation failed';
-		
+
 		if (error instanceof Error) {
 			// Handle Zod errors
 			if (error.name === 'ZodError') {
@@ -245,7 +235,7 @@ export function validationTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`Validation Error${fieldName ? ` (${fieldName})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -262,7 +252,7 @@ export async function fileTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'File operation failed';
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('size') || msg.includes('large')) {
@@ -277,7 +267,7 @@ export async function fileTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`File Error${filename ? ` (${filename})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -293,7 +283,7 @@ export function websocketTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'WebSocket operation failed';
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('connection') || msg.includes('connect')) {
@@ -306,7 +296,7 @@ export function websocketTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`WebSocket Error${connectionName ? ` (${connectionName})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -322,7 +312,7 @@ export async function dbConstraintTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'Database operation failed';
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('unique') || msg.includes('duplicate')) {
@@ -337,7 +327,7 @@ export async function dbConstraintTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`Database Constraint Error${entityName ? ` (${entityName})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -353,7 +343,7 @@ export async function rateLimitTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'Request failed';
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
@@ -364,7 +354,7 @@ export async function rateLimitTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error('Rate Limit Error:', error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -381,7 +371,7 @@ export async function paymentTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = 'Payment failed';
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('insufficient') || msg.includes('declined')) {
@@ -396,7 +386,7 @@ export async function paymentTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`Payment Error${amount ? ` (${amount} ${currency || ''})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}
@@ -413,7 +403,7 @@ export async function thirdPartyApiTryCatch<T>(
 		return { data, error: null, success: true };
 	} catch (error) {
 		let errorMessage = `${serviceName} service error`;
-		
+
 		if (error instanceof Error) {
 			const msg = error.message.toLowerCase();
 			if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
@@ -430,7 +420,7 @@ export async function thirdPartyApiTryCatch<T>(
 				errorMessage = error.message;
 			}
 		}
-		
+
 		console.error(`${serviceName} API Error${endpoint ? ` (${endpoint})` : ''}:`, error);
 		return { data: null, error: errorMessage, success: false };
 	}

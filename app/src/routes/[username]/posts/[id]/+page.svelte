@@ -45,62 +45,65 @@
 	$: username = $page.params.username;
 	$: postId = $page.params.id;
 
-async function fetchPostData() {
-	if (!postId) return;
+	async function fetchPostData() {
+		if (!postId) return;
 
-	const result = await clientTryCatch((async () => {
-		loading = true;
-		error = '';
+		const result = await clientTryCatch(
+			(async () => {
+				loading = true;
+				error = '';
 
-		const fetchResult = await fetchTryCatch<{
-			post: any;
-			comments: any[];
-			user: any;
-			error?: string;
-		}>(`/api/posts/${postId}`);
+				const fetchResult = await fetchTryCatch<{
+					post: any;
+					comments: any[];
+					user: any;
+					error?: string;
+				}>(`/api/posts/${postId}`);
 
-		if (isFailure(fetchResult)) {
-			throw new Error(`Failed to load post: ${fetchResult.error}`);
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to load post: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
+
+				if (data.error) {
+					throw new Error(data.error);
+				}
+
+				// Ensure we have the required data
+				if (!data.post) {
+					throw new Error('Post not found');
+				}
+
+				if (!data.user) {
+					throw new Error('Post author not found');
+				}
+
+				post = data.post;
+				comments = data.comments || [];
+				user = data.user;
+
+				// Verify the username matches the post's author (only if username is provided in URL)
+				if (username && user && user.username !== username) {
+					throw new Error('Post not found');
+				}
+
+				return { post, comments, user };
+			})(),
+			`Fetching post data for ${postId}`
+		);
+
+		if (isFailure(result)) {
+			console.error('Error fetching post data:', result.error);
+			error = result.error;
+			// Reset state on error
+			post = null;
+			comments = [];
+			user = null;
 		}
 
-		const data = fetchResult.data;
-
-		if (data.error) {
-			throw new Error(data.error);
-		}
-
-		// Ensure we have the required data
-		if (!data.post) {
-			throw new Error('Post not found');
-		}
-
-		if (!data.user) {
-			throw new Error('Post author not found');
-		}
-
-		post = data.post;
-		comments = data.comments || [];
-		user = data.user;
-
-		// Verify the username matches the post's author (only if username is provided in URL)
-		if (username && user && user.username !== username) {
-			throw new Error('Post not found');
-		}
-
-		return { post, comments, user };
-	})(), `Fetching post data for ${postId}`);
-
-	if (isFailure(result)) {
-		console.error('Error fetching post data:', result.error);
-		error = result.error;
-		// Reset state on error
-		post = null;
-		comments = [];
-		user = null;
+		loading = false;
 	}
-
-	loading = false;
-}
 
 	// Handle scroll detection
 	function handleScroll() {
@@ -139,245 +142,243 @@ async function fetchPostData() {
 		});
 	}
 
-async function handlePostInteraction(
-	event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
-) {
-	if (!$currentUser) {
-		alert($t('posts.interactPrompt'));
-		return;
+	async function handlePostInteraction(
+		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
+	) {
+		if (!$currentUser) {
+			alert($t('posts.interactPrompt'));
+			return;
+		}
+
+		const { postId, action } = event.detail;
+
+		// Extract real post ID if it's a composite key (for consistency with home page)
+		const realPostId = extractRealPostId(postId);
+
+		console.log('Post detail interaction:', {
+			receivedPostId: postId,
+			realPostId,
+			action,
+			isCompositeKey: postId !== realPostId
+		});
+
+		const result = await clientTryCatch(
+			(async () => {
+				let fetchResult;
+				let optimisticUpdate = null;
+
+				// Apply optimistic updates first for better UX
+				if (action === 'upvote') {
+					optimisticUpdate = applyOptimisticUpvote(realPostId);
+				} else if (action === 'repost') {
+					optimisticUpdate = applyOptimisticRepost(realPostId);
+				}
+
+				try {
+					switch (action) {
+						case 'upvote':
+							fetchResult = await fetchTryCatch<{
+								success: boolean;
+								data: {
+									upvoted: boolean;
+									upvoteCount: number;
+									downvoteCount: number;
+								};
+							}>(`/api/posts/${realPostId}/upvote`, {
+								method: 'PATCH',
+								credentials: 'include'
+							});
+
+							if (isFailure(fetchResult)) {
+								throw new Error(`Failed to upvote post: ${fetchResult.error}`);
+							}
+
+							// Use the response structure that matches your API
+							const upvoteData = fetchResult.data.data || fetchResult.data;
+							updatePostState(realPostId, 'upvote', upvoteData);
+							break;
+
+						case 'repost':
+							fetchResult = await fetchTryCatch<{
+								success: boolean;
+								data: {
+									reposted: boolean;
+									repostCount: number;
+								};
+							}>(`/api/posts/${realPostId}/repost`, {
+								method: 'POST',
+								credentials: 'include'
+							});
+
+							if (isFailure(fetchResult)) {
+								throw new Error(`Failed to repost: ${fetchResult.error}`);
+							}
+
+							const repostData = fetchResult.data.data || fetchResult.data;
+							updatePostState(realPostId, 'repost', repostData);
+							break;
+
+						case 'share':
+							// Use the postStore method for consistency
+							const shareResult = await postStore.sharePost(realPostId, post?.author_username);
+
+							// Handle share result similar to home page
+							if (shareResult.copied) {
+								console.log('Link copied to clipboard!');
+							}
+							break;
+
+						case 'read':
+							await postStore.markAsRead(realPostId);
+							updatePostState(realPostId, 'read', { hasRead: true });
+							break;
+					}
+
+					console.log(`${action} successful for post ${realPostId}`);
+					return true;
+				} catch (error) {
+					// Revert optimistic updates on error
+					if (optimisticUpdate) {
+						revertOptimisticUpdate(optimisticUpdate);
+					}
+					throw error;
+				}
+			})(),
+			`Handling ${action} interaction for post ${realPostId}`
+		);
+
+		if (isFailure(result)) {
+			console.error(`Error ${action}ing post:`, result.error);
+			alert(`Failed to ${action} post: ${result.error}`);
+		}
 	}
 
-	const { postId, action } = event.detail;
-	
-	// Extract real post ID if it's a composite key (for consistency with home page)
-	const realPostId = extractRealPostId(postId);
-	
-	console.log('Post detail interaction:', {
-		receivedPostId: postId,
-		realPostId,
-		action,
-		isCompositeKey: postId !== realPostId
-	});
+	// Helper function to extract real post ID (same as home page)
+	function extractRealPostId(postId: string): string {
+		if (postId.startsWith('repost_')) {
+			const parts = postId.split('_');
+			if (parts.length >= 2) {
+				return parts[1];
+			}
+		}
+		return postId;
+	}
 
-	const result = await clientTryCatch((async () => {
-		let fetchResult;
-		let optimisticUpdate = null;
+	// Optimistic update functions for better UX
+	function applyOptimisticUpvote(postId: string) {
+		const originalState = { post: { ...post }, comments: [...comments] };
 
-		// Apply optimistic updates first for better UX
+		if (postId === post?.id) {
+			post = {
+				...post,
+				upvote: !post.upvote,
+				upvoteCount: post.upvote ? (post.upvoteCount || 1) - 1 : (post.upvoteCount || 0) + 1,
+				downvote: false // Remove downvote when upvoting
+			};
+		} else {
+			comments = comments.map((comment) => {
+				if (comment.id === postId) {
+					return {
+						...comment,
+						upvote: !comment.upvote,
+						upvoteCount: comment.upvote
+							? (comment.upvoteCount || 1) - 1
+							: (comment.upvoteCount || 0) + 1,
+						downvote: false
+					};
+				}
+				return comment;
+			});
+		}
+
+		return originalState;
+	}
+
+	function applyOptimisticRepost(postId: string) {
+		const originalState = { post: { ...post }, comments: [...comments] };
+
+		if (postId === post?.id) {
+			post = {
+				...post,
+				repost: !post.repost,
+				repostCount: post.repost ? (post.repostCount || 1) - 1 : (post.repostCount || 0) + 1
+			};
+		} else {
+			comments = comments.map((comment) => {
+				if (comment.id === postId) {
+					return {
+						...comment,
+						repost: !comment.repost,
+						repostCount: comment.repost
+							? (comment.repostCount || 1) - 1
+							: (comment.repostCount || 0) + 1
+					};
+				}
+				return comment;
+			});
+		}
+
+		return originalState;
+	}
+
+	function revertOptimisticUpdate(originalState: any) {
+		post = originalState.post;
+		comments = originalState.comments;
+	}
+
+	// Unified function to update post state with server response
+	function updatePostState(postId: string, action: string, data: any) {
 		if (action === 'upvote') {
-			optimisticUpdate = applyOptimisticUpvote(realPostId);
+			if (postId === post?.id) {
+				post = {
+					...post,
+					upvote: data.upvoted,
+					upvoteCount: data.upvoteCount,
+					downvote: data.upvoted ? false : post.downvote,
+					downvoteCount: data.downvoteCount || post.downvoteCount
+				};
+			} else {
+				comments = comments.map((comment) => {
+					if (comment.id === postId) {
+						return {
+							...comment,
+							upvote: data.upvoted,
+							upvoteCount: data.upvoteCount,
+							downvote: data.upvoted ? false : comment.downvote,
+							downvoteCount: data.downvoteCount || comment.downvoteCount
+						};
+					}
+					return comment;
+				});
+			}
 		} else if (action === 'repost') {
-			optimisticUpdate = applyOptimisticRepost(realPostId);
-		}
-
-		try {
-			switch (action) {
-				case 'upvote':
-					fetchResult = await fetchTryCatch<{
-						success: boolean;
-						data: {
-							upvoted: boolean;
-							upvoteCount: number;
-							downvoteCount: number;
-						}
-					}>(`/api/posts/${realPostId}/upvote`, {
-						method: 'PATCH',
-						credentials: 'include'
-					});
-
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to upvote post: ${fetchResult.error}`);
+			if (postId === post?.id) {
+				post = {
+					...post,
+					repost: data.reposted,
+					repostCount: data.repostCount
+				};
+			} else {
+				comments = comments.map((comment) => {
+					if (comment.id === postId) {
+						return {
+							...comment,
+							repost: data.reposted,
+							repostCount: data.repostCount
+						};
 					}
-
-					// Use the response structure that matches your API
-					const upvoteData = fetchResult.data.data || fetchResult.data;
-					updatePostState(realPostId, 'upvote', upvoteData);
-					break;
-
-				case 'repost':
-					fetchResult = await fetchTryCatch<{
-						success: boolean;
-						data: {
-							reposted: boolean;
-							repostCount: number;
-						}
-					}>(`/api/posts/${realPostId}/repost`, {
-						method: 'POST',
-						credentials: 'include'
-					});
-
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to repost: ${fetchResult.error}`);
-					}
-
-					const repostData = fetchResult.data.data || fetchResult.data;
-					updatePostState(realPostId, 'repost', repostData);
-					break;
-
-				case 'share':
-					// Use the postStore method for consistency
-					const shareResult = await postStore.sharePost(realPostId, post?.author_username);
-					
-					// Handle share result similar to home page
-					if (shareResult.copied) {
-						console.log('Link copied to clipboard!');
-					}
-					break;
-
-				case 'read':
-					await postStore.markAsRead(realPostId);
-					updatePostState(realPostId, 'read', { hasRead: true });
-					break;
+					return comment;
+				});
 			}
-
-			console.log(`${action} successful for post ${realPostId}`);
-			return true;
-
-		} catch (error) {
-			// Revert optimistic updates on error
-			if (optimisticUpdate) {
-				revertOptimisticUpdate(optimisticUpdate);
-			}
-			throw error;
-		}
-	})(), `Handling ${action} interaction for post ${realPostId}`);
-
-	if (isFailure(result)) {
-		console.error(`Error ${action}ing post:`, result.error);
-		alert(`Failed to ${action} post: ${result.error}`);
-	}
-}
-
-// Helper function to extract real post ID (same as home page)
-function extractRealPostId(postId: string): string {
-	if (postId.startsWith('repost_')) {
-		const parts = postId.split('_');
-		if (parts.length >= 2) {
-			return parts[1];
-		}
-	}
-	return postId;
-}
-
-// Optimistic update functions for better UX
-function applyOptimisticUpvote(postId: string) {
-	const originalState = { post: { ...post }, comments: [...comments] };
-	
-	if (postId === post?.id) {
-		post = {
-			...post,
-			upvote: !post.upvote,
-			upvoteCount: post.upvote 
-				? (post.upvoteCount || 1) - 1 
-				: (post.upvoteCount || 0) + 1,
-			downvote: false // Remove downvote when upvoting
-		};
-	} else {
-		comments = comments.map((comment) => {
-			if (comment.id === postId) {
-				return {
-					...comment,
-					upvote: !comment.upvote,
-					upvoteCount: comment.upvote 
-						? (comment.upvoteCount || 1) - 1 
-						: (comment.upvoteCount || 0) + 1,
-					downvote: false
+		} else if (action === 'read') {
+			if (postId === post?.id) {
+				post = {
+					...post,
+					hasRead: data.hasRead
 				};
 			}
-			return comment;
-		});
-	}
-	
-	return originalState;
-}
-
-function applyOptimisticRepost(postId: string) {
-	const originalState = { post: { ...post }, comments: [...comments] };
-	
-	if (postId === post?.id) {
-		post = {
-			...post,
-			repost: !post.repost,
-			repostCount: post.repost 
-				? (post.repostCount || 1) - 1 
-				: (post.repostCount || 0) + 1
-		};
-	} else {
-		comments = comments.map((comment) => {
-			if (comment.id === postId) {
-				return {
-					...comment,
-					repost: !comment.repost,
-					repostCount: comment.repost 
-						? (comment.repostCount || 1) - 1 
-						: (comment.repostCount || 0) + 1
-				};
-			}
-			return comment;
-		});
-	}
-	
-	return originalState;
-}
-
-function revertOptimisticUpdate(originalState: any) {
-	post = originalState.post;
-	comments = originalState.comments;
-}
-
-// Unified function to update post state with server response
-function updatePostState(postId: string, action: string, data: any) {
-	if (action === 'upvote') {
-		if (postId === post?.id) {
-			post = {
-				...post,
-				upvote: data.upvoted,
-				upvoteCount: data.upvoteCount,
-				downvote: data.upvoted ? false : post.downvote,
-				downvoteCount: data.downvoteCount || post.downvoteCount
-			};
-		} else {
-			comments = comments.map((comment) => {
-				if (comment.id === postId) {
-					return {
-						...comment,
-						upvote: data.upvoted,
-						upvoteCount: data.upvoteCount,
-						downvote: data.upvoted ? false : comment.downvote,
-						downvoteCount: data.downvoteCount || comment.downvoteCount
-					};
-				}
-				return comment;
-			});
-		}
-	} else if (action === 'repost') {
-		if (postId === post?.id) {
-			post = {
-				...post,
-				repost: data.reposted,
-				repostCount: data.repostCount
-			};
-		} else {
-			comments = comments.map((comment) => {
-				if (comment.id === postId) {
-					return {
-						...comment,
-						repost: data.reposted,
-						repostCount: data.repostCount
-					};
-				}
-				return comment;
-			});
-		}
-	} else if (action === 'read') {
-		if (postId === post?.id) {
-			post = {
-				...post,
-				hasRead: data.hasRead
-			};
 		}
 	}
-}
 	// Handle comment button clicks
 	function handleComment(event: CustomEvent<{ postId: string }>) {
 		const { postId } = event.detail;
@@ -398,156 +399,162 @@ function updatePostState(postId: string, action: string, data: any) {
 	}
 
 	// Handle quote submissions
-async function handleQuote(
-	event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
-) {
-	if (!$currentUser) {
-		alert($t('posts.interactPrompt'));
-		return;
-	}
+	async function handleQuote(
+		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
+	) {
+		if (!$currentUser) {
+			alert($t('posts.interactPrompt'));
+			return;
+		}
 
-	const result = await clientTryCatch((async () => {
-		console.log('Creating quote post:', event.detail);
+		const result = await clientTryCatch(
+			(async () => {
+				console.log('Creating quote post:', event.detail);
 
-		const formData = new FormData();
-		formData.append('content', event.detail.content);
+				const formData = new FormData();
+				formData.append('content', event.detail.content);
 
-		event.detail.attachments.forEach((file, index) => {
-			formData.append(`attachment_${index}`, file);
-		});
+				event.detail.attachments.forEach((file, index) => {
+					formData.append(`attachment_${index}`, file);
+				});
 
-		const fetchResult = await fetchTryCatch<any>(
-			`/api/posts/${event.detail.quotedPostId}/quote`,
-			{
-				method: 'POST',
-				body: formData,
-				credentials: 'include'
-			}
+				const fetchResult = await fetchTryCatch<any>(
+					`/api/posts/${event.detail.quotedPostId}/quote`,
+					{
+						method: 'POST',
+						body: formData,
+						credentials: 'include'
+					}
+				);
+
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to quote post: ${fetchResult.error}`);
+				}
+
+				const result = fetchResult.data;
+				console.log('Quote post created successfully:', result);
+
+				/*
+				 * Optionally refresh or navigate
+				 * await fetchPostData();
+				 */
+
+				return result;
+			})(),
+			`Creating quote for post ${event.detail.quotedPostId}`
 		);
 
-		if (isFailure(fetchResult)) {
-			throw new Error(`Failed to quote post: ${fetchResult.error}`);
+		if (isFailure(result)) {
+			console.error('Error quoting post:', result.error);
+			alert(`Failed to quote post: ${result.error}`);
 		}
-
-		const result = fetchResult.data;
-		console.log('Quote post created successfully:', result);
-
-		/*
-		 * Optionally refresh or navigate
-		 * await fetchPostData();
-		 */
-
-		return result;
-	})(), `Creating quote for post ${event.detail.quotedPostId}`);
-
-	if (isFailure(result)) {
-		console.error('Error quoting post:', result.error);
-		alert(`Failed to quote post: ${result.error}`);
 	}
-}
-$: if (mounted && username && postId) {
-	console.log('🔄 Reactive fetchPostData triggered by username/postId change');
-	// Check if we just added a comment - if so, don't refetch
-	if (Date.now() - lastCommentTime < 5000) {
-		console.log('⏸️ Skipping fetchPostData - comment was just added');
-	} else {
-		console.log('📡 Fetching post data...');
-		fetchPostData();
+	$: if (mounted && username && postId) {
+		console.log('🔄 Reactive fetchPostData triggered by username/postId change');
+		// Check if we just added a comment - if so, don't refetch
+		if (Date.now() - lastCommentTime < 5000) {
+			console.log('⏸️ Skipping fetchPostData - comment was just added');
+		} else {
+			console.log('📡 Fetching post data...');
+			fetchPostData();
+		}
 	}
-}
 
-$: if (comments && commentSubmitted) {
-	console.log('🔄 Comments array updated, count:', comments.length);
-	// Reset flag after a brief delay to avoid infinite loops
-	setTimeout(() => {
-		commentSubmitted = false;
-	}, 100);
-}
-$: if (comments) {
-	console.log('📊 Comments array changed. Length:', comments.length);
-	console.log('📝 Comment IDs:', comments.map(c => c.id));
-}
+	$: if (comments && commentSubmitted) {
+		console.log('🔄 Comments array updated, count:', comments.length);
+		// Reset flag after a brief delay to avoid infinite loops
+		setTimeout(() => {
+			commentSubmitted = false;
+		}, 100);
+	}
+	$: if (comments) {
+		console.log('📊 Comments array changed. Length:', comments.length);
+		console.log(
+			'📝 Comment IDs:',
+			comments.map((c) => c.id)
+		);
+	}
 
 	// Handle comment submission
-async function handleCommentSubmit(
-	event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
-) {
-	if (!$currentUser) {
-		console.error($t('generic.userNotLoggedIn'));
-		return;
-	}
-
-	console.log('🚀 Starting comment submission...');
-
-	const result = await clientTryCatch((async () => {
-		const fetchResult = await fetchTryCatch<{
-			success: boolean;
-			comment: any;
-			message?: string;
-		}>(`/api/posts/${post.id}/comments`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				content: event.detail.content,
-				user: $currentUser.id
-			}),
-			credentials: 'include'
-		});
-
-		if (isFailure(fetchResult)) {
-			throw new Error(`Failed to create comment: ${fetchResult.error}`);
+	async function handleCommentSubmit(
+		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
+	) {
+		if (!$currentUser) {
+			console.error($t('generic.userNotLoggedIn'));
+			return;
 		}
 
-		const result = fetchResult.data;
+		console.log('🚀 Starting comment submission...');
 
-		if (result.success && result.comment) {
-			console.log('📝 New comment received from API:', result.comment);
-			
-			// Set timestamp to prevent reactive fetchPostData
-			lastCommentTime = Date.now();
-			commentSubmitted = true;
-			
-			// Ensure we don't have duplicates
-			const existingIds = new Set(comments.map(c => c.id));
-			if (!existingIds.has(result.comment.id)) {
-				// Force array reactivity by creating completely new array
-				const newComments = [...comments, result.comment];
-				comments = newComments;
-				console.log('✅ Comment added to array. New length:', comments.length);
-			} else {
-				console.log('⚠️ Comment already exists in array');
-			}
+		const result = await clientTryCatch(
+			(async () => {
+				const fetchResult = await fetchTryCatch<{
+					success: boolean;
+					comment: any;
+					message?: string;
+				}>(`/api/posts/${post.id}/comments`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						content: event.detail.content,
+						user: $currentUser.id
+					}),
+					credentials: 'include'
+				});
 
-			// Update post count
-			if (post) {
-				post = { 
-					...post, 
-					commentCount: (post.commentCount || 0) + 1 
-				};
-				console.log('📈 Updated post comment count:', post.commentCount);
-			}
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to create comment: ${fetchResult.error}`);
+				}
 
-			showComposer = false;
-			
-			// Reset flag after delay
-			setTimeout(() => {
-				commentSubmitted = false;
-			}, 1000);
+				const result = fetchResult.data;
+
+				if (result.success && result.comment) {
+					console.log('📝 New comment received from API:', result.comment);
+
+					// Set timestamp to prevent reactive fetchPostData
+					lastCommentTime = Date.now();
+					commentSubmitted = true;
+
+					// Ensure we don't have duplicates
+					const existingIds = new Set(comments.map((c) => c.id));
+					if (!existingIds.has(result.comment.id)) {
+						// Force array reactivity by creating completely new array
+						const newComments = [...comments, result.comment];
+						comments = newComments;
+						console.log('✅ Comment added to array. New length:', comments.length);
+					} else {
+						console.log('⚠️ Comment already exists in array');
+					}
+
+					// Update post count
+					if (post) {
+						post = {
+							...post,
+							commentCount: (post.commentCount || 0) + 1
+						};
+						console.log('📈 Updated post comment count:', post.commentCount);
+					}
+
+					showComposer = false;
+
+					// Reset flag after delay
+					setTimeout(() => {
+						commentSubmitted = false;
+					}, 1000);
+				}
+
+				return result;
+			})(),
+			`Creating comment for post ${post.id}`
+		);
+
+		if (isFailure(result)) {
+			console.error($t('posts.errorComment'), result.error);
+			alert(`Failed to add comment: ${result.error}`);
 		}
-
-		return result;
-	})(), `Creating comment for post ${post.id}`);
-
-	if (isFailure(result)) {
-		console.error($t('posts.errorComment'), result.error);
-		alert(`Failed to add comment: ${result.error}`);
 	}
-}
-
-
-
 
 	function handleFollowUser(event: CustomEvent) {
 		console.log($t('posts.followUser'), event.detail.userId);
@@ -557,105 +564,112 @@ async function handleCommentSubmit(
 
 	$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
 		setTimeout(async () => {
-			const result = await clientTryCatch((async () => {
-				await postStore.markAsRead(post.id);
-				
-				// Update local post state
-				const fetchResult = await fetchTryCatch<{ post: any }>(
-					`/api/posts/${post.id}`
-				);
+			const result = await clientTryCatch(
+				(async () => {
+					await postStore.markAsRead(post.id);
 
-				if (isFailure(fetchResult)) {
-					throw new Error(`Failed to fetch updated post: ${fetchResult.error}`);
-				}
+					// Update local post state
+					const fetchResult = await fetchTryCatch<{ post: any }>(`/api/posts/${post.id}`);
 
-				const data = fetchResult.data;
-				post = data.post;
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to fetch updated post: ${fetchResult.error}`);
+					}
 
-				return data;
-			})(), `Marking post ${post.id} as read`);
+					const data = fetchResult.data;
+					post = data.post;
+
+					return data;
+				})(),
+				`Marking post ${post.id} as read`
+			);
 
 			if (isFailure(result)) {
 				console.error('Error marking post as read:', result.error);
 			}
 		}, 2000);
 	}
-onMount(() => {
-	console.log('🏗️ Component mounted');
-	mounted = true; // This will trigger the reactive statement to fetch data
+	onMount(() => {
+		console.log('🏗️ Component mounted');
+		mounted = true; // This will trigger the reactive statement to fetch data
 
-	// Debug: Find what's actually scrolling
-	const checkScrollableElements = () => {
-		const elements = [
-			document.documentElement,
-			document.body,
-			document.querySelector('.post-content-wrapper'), // Adjust selector as needed
-			document.querySelector('.main-wrapper'),
-			document.querySelector('.post-content')
-		];
-		
-		elements.forEach((el, index) => {
-			if (el) {
-				console.log(`Element ${index}:`, {
-					element: el.className || el.tagName,
-					scrollTop: el.scrollTop,
-					scrollHeight: el.scrollHeight,
-					clientHeight: el.clientHeight,
-					isScrollable: el.scrollHeight > el.clientHeight
-				});
-			}
-		});
-	};
-	
-	// Check initially and on scroll
-	checkScrollableElements();
-	
-	// Add scroll listeners to different elements to see which one actually scrolls
-	const scrollHandler = (e) => {
-		// console.log('Scroll detected on:', e.target.className || e.target.tagName, 'ScrollTop:', e.target.scrollTop);
-		// Update our scroll variable manually
-		scrollY = e.target.scrollTop;
-	};
-	
-	// Try different scroll targets
-	document.addEventListener('scroll', scrollHandler, true); // Use capture phase
-	document.querySelector('.post-content-wrapper')?.addEventListener('scroll', scrollHandler);
-	document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
+		// Debug: Find what's actually scrolling
+		const checkScrollableElements = () => {
+			const elements = [
+				document.documentElement,
+				document.body,
+				document.querySelector('.post-content-wrapper'), // Adjust selector as needed
+				document.querySelector('.main-wrapper'),
+				document.querySelector('.post-content')
+			];
 
-	// Wait for elements to be ready
-	setTimeout(() => {
-		if (commentsElement && postCardElement) {
-			const observer = new IntersectionObserver(
-				(entries) => {
-					entries.forEach((entry) => {
-						if (entry.isIntersecting) {
-							// Comments are visible - scale down post
-							postCardElement.style.transform = 'scale(0.9)';
-							postCardElement.style.transition = 'transform 0.4s ease';
-						} else {
-							// Comments not visible - scale back up
-							postCardElement.style.transform = 'scale(1)';
-						}
+			elements.forEach((el, index) => {
+				if (el) {
+					console.log(`Element ${index}:`, {
+						element: el.className || el.tagName,
+						scrollTop: el.scrollTop,
+						scrollHeight: el.scrollHeight,
+						clientHeight: el.clientHeight,
+						isScrollable: el.scrollHeight > el.clientHeight
 					});
-				},
-				{
-					threshold: 0.3 // Trigger when 30% of comments are visible
 				}
-			);
+			});
+		};
 
-			observer.observe(commentsElement);
+		// Check initially and on scroll
+		checkScrollableElements();
 
-			// Cleanup
-			return () => {
-				observer.disconnect();
-				document.removeEventListener('scroll', scrollHandler, true);
-				document.querySelector('.post-content-wrapper')?.removeEventListener('scroll', scrollHandler);
-				document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
-			};
-		}
-	}, 100);
-});
+		// Add scroll listeners to different elements to see which one actually scrolls
+		const scrollHandler = (e: Event) => {
+			/*
+			 * console.log('Scroll detected on:', e.target.className || e.target.tagName, 'ScrollTop:', e.target.scrollTop);
+			 * Update our scroll variable manually
+			 */
+			const target = e.target as HTMLElement;
+			scrollY = target.scrollTop;
+		};
+
+		// Try different scroll targets
+		document.addEventListener('scroll', scrollHandler, true); // Use capture phase
+		document.querySelector('.post-content-wrapper')?.addEventListener('scroll', scrollHandler);
+		document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
+
+		// Wait for elements to be ready
+		setTimeout(() => {
+			if (commentsElement && postCardElement) {
+				const observer = new IntersectionObserver(
+					(entries) => {
+						entries.forEach((entry) => {
+							if (entry.isIntersecting) {
+								// Comments are visible - scale down post
+								postCardElement.style.transform = 'scale(0.9)';
+								postCardElement.style.transition = 'transform 0.4s ease';
+							} else {
+								// Comments not visible - scale back up
+								postCardElement.style.transform = 'scale(1)';
+							}
+						});
+					},
+					{
+						threshold: 0.3 // Trigger when 30% of comments are visible
+					}
+				);
+
+				observer.observe(commentsElement);
+
+				// Cleanup
+				return () => {
+					observer.disconnect();
+					document.removeEventListener('scroll', scrollHandler, true);
+					document
+						.querySelector('.post-content-wrapper')
+						?.removeEventListener('scroll', scrollHandler);
+					document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
+				};
+			}
+		}, 100);
+	});
 </script>
+
 <svelte:window bind:scrollY />
 
 <svelte:head>
@@ -663,11 +677,13 @@ onMount(() => {
 	<meta name="description" content={post ? post.content : 'View post details'} />
 </svelte:head>
 
-<div class="post-detail-container" 
+<div
+	class="post-detail-container"
 	class:hide-left-sidebar={!$showSidenav}
 	class:nav-visible={$showSettings}
-	in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
-	>
+	in:fly={{ y: 50, duration: 300 }}
+	out:fly={{ y: -50, duration: 200 }}
+>
 	<!-- Left Sidebar Component -->
 	{#if $showSidenav}
 		<div class="sidebar-container">
@@ -676,14 +692,14 @@ onMount(() => {
 	{/if}
 
 	<!-- Main Content -->
-	<div class="post-content-wrapper" 
-	class:nav-visible={$showSettings}
-		in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
-
+	<div
+		class="post-content-wrapper"
+		class:nav-visible={$showSettings}
+		in:fly={{ y: 50, duration: 300 }}
+		out:fly={{ y: -50, duration: 200 }}
 	>
 		<!-- Header with back button -->
 		<header class="post-header">
-
 			<!-- {#if user}
 				<div class="header-user">
 					<img
@@ -759,36 +775,38 @@ onMount(() => {
 					</h3>
 				</div>
 				{#if !isScrolled}
-				<div bind:this={postCardElement} 
-					class="post-card-container"
-					in:fly={{ y: -50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
-
-				>
-					{#if post.quotedPost}
-						<PostQuoteCard
-							{post}
-							on:interact={handlePostInteraction}
-							on:comment={handleComment}
-							on:quote={handleQuote}
-						/>
-					{:else}
-						<PostCard
-							{post}
-							showActions={true}
-							isPreview={false}
-							on:interact={handlePostInteraction}
-							on:comment={handleComment}
-							on:quote={handleQuote}
-						/>
-					{/if}
-				</div>
+					<div
+						bind:this={postCardElement}
+						class="post-card-container"
+						in:fly={{ y: -50, duration: 300 }}
+						out:fly={{ y: -50, duration: 200 }}
+					>
+						{#if post.quotedPost}
+							<PostQuoteCard
+								{post}
+								on:interact={handlePostInteraction}
+								on:comment={handleComment}
+								on:quote={handleQuote}
+							/>
+						{:else}
+							<PostCard
+								{post}
+								showActions={true}
+								isPreview={false}
+								on:interact={handlePostInteraction}
+								on:comment={handleComment}
+								on:quote={handleQuote}
+							/>
+						{/if}
+					</div>
 				{/if}
 
 				<!-- Comment Composer -->
 				{#if $showInput && $currentUser}
-					<div class="comment-composer" 
-						in:fly={{ y: -50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}
-
+					<div
+						class="comment-composer"
+						in:fly={{ y: -50, duration: 300 }}
+						out:fly={{ y: -50, duration: 200 }}
 					>
 						<PostComposer
 							parentId={post.id}
@@ -799,34 +817,35 @@ onMount(() => {
 				{/if}
 
 				<!-- Comments Section -->
-{#if comments && comments.length > 0}
-    <section 
-		class="comments-section" 
-		class:scrolled={isScrolled}
-        bind:this={commentsElement}
-        in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }}
-    >
-        {#each comments as comment (comment.id)}
-            {#if comment.quotedPost}
-                <PostQuoteCard
-                    post={comment}
-                    on:interact={handlePostInteraction}
-                    on:comment={handleComment}
-                    on:quote={handleQuote}
-                />
-            {:else}
-                <PostCard
-                    post={comment}
-                    showActions={true}
-                    isComment={true}
-                    on:interact={handlePostInteraction}
-                    on:comment={handleComment}
-                    on:quote={handleQuote}
-                />
-            {/if}
-        {/each}
-    </section>
-{/if}
+				{#if comments && comments.length > 0}
+					<section
+						class="comments-section"
+						class:scrolled={isScrolled}
+						bind:this={commentsElement}
+						in:fly={{ y: 200, duration: 300 }}
+						out:fly={{ y: 200, duration: 200 }}
+					>
+						{#each comments as comment (comment.id)}
+							{#if comment.quotedPost}
+								<PostQuoteCard
+									post={comment}
+									on:interact={handlePostInteraction}
+									on:comment={handleComment}
+									on:quote={handleQuote}
+								/>
+							{:else}
+								<PostCard
+									post={comment}
+									showActions={true}
+									isComment={true}
+									on:interact={handlePostInteraction}
+									on:comment={handleComment}
+									on:quote={handleQuote}
+								/>
+							{/if}
+						{/each}
+					</section>
+				{/if}
 			</main>
 		{/if}
 	</div>
@@ -881,8 +900,7 @@ onMount(() => {
 		min-height: 100vh;
 		width: 100%;
 		background-color: var(--primary-color);
-		transition: all	0.3s ease;
-
+		transition: all 0.3s ease;
 	}
 	// .post-detail-container.nav-visible .post-content-wrapper {
 	// 	left: 3rem;
@@ -911,11 +929,8 @@ onMount(() => {
 		align-items: center;
 		padding: 0.5rem;
 		max-width: calc(100% - 2rem);
-				transition: all 0.3s ease;
-
+		transition: all 0.3s ease;
 	}
-
-
 
 	/* Header styles */
 	.post-header {
@@ -1427,11 +1442,11 @@ onMount(() => {
 		}
 
 		.skeleton-post {
-			padding: 1rem; 
+			padding: 1rem;
 		}
 
 		.skeleton-header .skeleton-avatar {
-			width: 28px; 
+			width: 28px;
 			height: 28px;
 		}
 
@@ -1467,7 +1482,6 @@ onMount(() => {
 			width: 50px;
 			height: 28px;
 		}
-
 
 		.post-content-wrapper {
 			padding: 0.5rem;

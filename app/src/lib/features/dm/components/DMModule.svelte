@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import type { DMConversation, DMMessage, User } from '$lib/types/types';
-    import { currentUser } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import DMChat from '$lib/features/dm/components/DMChat.svelte';
 	import DMChatDrawer from '$lib/features/dm/components/DMDrawer.svelte';
 	import { getIcon } from '$lib/utils/lucideIcons';
@@ -23,9 +23,9 @@
 	let selectedConversation: DMConversation | null = null;
 	let messages: DMMessage[] = [];
 	let loading = false;
-	let initialLoading = true; 
+	let initialLoading = true;
 	let loadingConversations = false;
-	let loadingMessages = false; 
+	let loadingMessages = false;
 	let sendingMessage = false;
 	let error = '';
 
@@ -45,15 +45,17 @@
 
 			conversations = result.conversations.map((conv: any) => ({
 				...conv,
-				lastMessage: conv.lastMessage ? {
-					...conv.lastMessage,
-					timestamp: new Date(conv.lastMessage.timestamp)
-				} : undefined
+				lastMessage: conv.lastMessage
+					? {
+							...conv.lastMessage,
+							timestamp: new Date(conv.lastMessage.timestamp)
+						}
+					: undefined
 			}));
 
 			// Mark active conversation
 			if (initialConversationId) {
-				conversations = conversations.map(conv => ({
+				conversations = conversations.map((conv) => ({
 					...conv,
 					isActive: conv.id === initialConversationId
 				}));
@@ -61,9 +63,11 @@
 
 			// Show success toast only if conversations were loaded
 			if (conversations.length > 0) {
-				toast.success(`Loaded ${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`, 2000);
+				toast.success(
+					`Loaded ${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`,
+					2000
+				);
 			}
-
 		} catch (err) {
 			console.error('Error loading conversations:', err);
 			const errorMessage = err instanceof Error ? err.message : 'Failed to load conversations';
@@ -78,7 +82,7 @@
 		if (!$currentUser) return;
 
 		try {
-			loadingMessages = true; 
+			loadingMessages = true;
 			error = '';
 
 			const response = await fetch(`/api/dm?receiverId=${partnerId}&perPage=100`);
@@ -94,9 +98,10 @@
 				updated: msg.updated
 			}));
 
-			// Show success toast for message loading (optional, might be too verbose)
-			// toast.info(`Loaded ${messages.length} message${messages.length !== 1 ? 's' : ''}`, 1500);
-
+			/*
+			 * Show success toast for message loading (optional, might be too verbose)
+			 * toast.info(`Loaded ${messages.length} message${messages.length !== 1 ? 's' : ''}`, 1500);
+			 */
 		} catch (err) {
 			console.error('Error loading messages:', err);
 			const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
@@ -105,13 +110,12 @@
 		} finally {
 			loading = false;
 			loadingMessages = false;
-
 		}
 	}
 
 	async function findOrCreateConversationWithUser(userId: string) {
-		const existingConv = conversations.find(conv => conv.user.id === userId);
-		
+		const existingConv = conversations.find((conv) => conv.user.id === userId);
+
 		if (existingConv) {
 			// Found existing conversation, select it
 			selectConversationById(existingConv.id);
@@ -140,20 +144,20 @@
 		conversations = [simulatedConversation, ...conversations];
 		selectedConversation = simulatedConversation;
 		messages = [];
-		conversations = conversations.map(conv => ({
+		conversations = conversations.map((conv) => ({
 			...conv,
 			isActive: conv.id === simulatedConversation.id
 		}));
 	}
 
 	function selectConversationById(convId: string) {
-		const conversation = conversations.find(conv => conv.id === convId);
+		const conversation = conversations.find((conv) => conv.id === convId);
 		if (conversation) {
 			selectedConversation = conversation;
 			loadMessages(conversation.user.id);
-			
+
 			// Update active state
-			conversations = conversations.map(conv => ({
+			conversations = conversations.map((conv) => ({
 				...conv,
 				isActive: conv.id === convId
 			}));
@@ -209,14 +213,16 @@
 				// Reload conversations to get the real conversation that was just created
 				await loadConversations();
 				// Try to find the new conversation with this user
-				const newConv = conversations.find(conv => conv.user.id === selectedConversation!.user.id);
+				const newConv = conversations.find(
+					(conv) => conv.user.id === selectedConversation!.user.id
+				);
 				if (newConv) {
 					selectedConversation = newConv;
 					toast.success('Conversation started!', 2000);
 				}
 			} else {
 				// Update existing conversation's last message
-				const updatedConversations = conversations.map(conv => {
+				const updatedConversations = conversations.map((conv) => {
 					if (conv.id === selectedConversation!.id) {
 						return {
 							...conv,
@@ -232,9 +238,10 @@
 				conversations = updatedConversations;
 			}
 
-			// Optional: Show success toast for message sent
-			// toast.success('Message sent', 1000);
-
+			/*
+			 * Optional: Show success toast for message sent
+			 * toast.success('Message sent', 1000);
+			 */
 		} catch (err) {
 			console.error('Error sending message:', err);
 			const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
@@ -260,7 +267,7 @@
 
 	export function startNewConversation(userId: string) {
 		// Create or find conversation with specific user
-		const existingConv = conversations.find(conv => conv.user.id === userId);
+		const existingConv = conversations.find((conv) => conv.user.id === userId);
 		if (existingConv) {
 			selectConversationById(existingConv.id);
 		} else {
@@ -273,29 +280,33 @@
 		loadConversations();
 	}
 
-
 	$: if (initialConversationId && conversations.length > 0) {
 		selectConversationById(initialConversationId);
-	} else if (!initialConversationId && user && conversations.length > 0 && $currentUser && user.id !== $currentUser.id) {
+	} else if (
+		!initialConversationId &&
+		user &&
+		conversations.length > 0 &&
+		$currentUser &&
+		user.id !== $currentUser.id
+	) {
 		findOrCreateConversationWithUser(user.id);
 	}
 
-
-onMount(async () => {
-	if ($currentUser && shouldLoadConversations) {
-		initialLoading = true;
-		try {
-			await loadConversations();
-			if (!initialConversationId && user && user.id !== $currentUser?.id) {
-				await findOrCreateConversationWithUser(user.id);
-			} else if (initialConversationId) {
-				selectConversationById(initialConversationId);
+	onMount(async () => {
+		if ($currentUser && shouldLoadConversations) {
+			initialLoading = true;
+			try {
+				await loadConversations();
+				if (!initialConversationId && user && user.id !== $currentUser?.id) {
+					await findOrCreateConversationWithUser(user.id);
+				} else if (initialConversationId) {
+					selectConversationById(initialConversationId);
+				}
+			} finally {
+				initialLoading = false;
 			}
-		} finally {
-			initialLoading = false;
 		}
-	}
-});
+	});
 </script>
 
 {#if initialLoading}
@@ -312,7 +323,7 @@ onMount(async () => {
 		{#if error}
 			<div class="error-banner">
 				<span>{error}</span>
-				<button on:click={() => error = ''}>×</button>
+				<button on:click={() => (error = '')}>×</button>
 			</div>
 		{/if}
 
@@ -333,11 +344,7 @@ onMount(async () => {
 				</button>
 			{/if}
 
-			<div class="chat-area" 
-				class:expanded={!isDrawerOpen}
-
-			>
-
+			<div class="chat-area" class:expanded={!isDrawerOpen}>
 				{#if selectedConversation}
 					<DMChat
 						user={selectedConversation.user}
@@ -347,8 +354,6 @@ onMount(async () => {
 						onMarkAsRead={handleMarkAsRead}
 						showHeader={showChatHeader}
 						loading={loadingMessages}
-
-
 					/>
 				{:else}
 					<div class="no-conversation">
@@ -393,13 +398,12 @@ onMount(async () => {
 	.dm-module {
 		position: relative;
 		overflow: hidden;
-        display: flex;
-        justify-content: center;
-        width: auto;
+		display: flex;
+		justify-content: center;
+		width: auto;
 		height: auto;
-        flex: 1;
-
-    }
+		flex: 1;
+	}
 
 	.dm-error {
 		display: flex;
@@ -436,10 +440,10 @@ onMount(async () => {
 	.dm-layout {
 		display: flex;
 		height: 100%;
-        width:100%;
-        flex: 1;
-        align-items: flex-start;
-        justify-content: flex-start;
+		width: 100%;
+		flex: 1;
+		align-items: flex-start;
+		justify-content: flex-start;
 		position: relative;
 	}
 
@@ -448,38 +452,36 @@ onMount(async () => {
 		flex-direction: row;
 		position: relative;
 		height: 100%;
-        width: auto;
-        flex: 1;
-        margin-left: 0;
-        margin-right: 0;
+		width: auto;
+		flex: 1;
+		margin-left: 0;
+		margin-right: 0;
 
 		&.expanded {
 			width: 100%;
-
 		}
 	}
 	.dm-layout.no-drawer .chat-area {
-	width: 100%;
-	border-left: none;
-}
+		width: 100%;
+		border-left: none;
+	}
 
-.loading-overlay {
-	position: absolute !important;
-	top: 0;
-	left: 50%;
-	width: 100%;
-	height: 100%;
-	z-index: 100;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-direction: column;
-	background-color: transparent !important;
-}
-.loading-spinner {
-	position: relative !important;
-}
-
+	.loading-overlay {
+		position: absolute !important;
+		top: 0;
+		left: 50%;
+		width: 100%;
+		height: 100%;
+		z-index: 100;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		background-color: transparent !important;
+	}
+	.loading-spinner {
+		position: relative !important;
+	}
 
 	.drawer-toggle {
 		position: absolute;
@@ -533,13 +535,12 @@ onMount(async () => {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-        width: 100% !important;
+		width: 100% !important;
 	}
 
 	.no-conversation-content {
 		text-align: center;
 		width: 100% !important;
-
 	}
 
 	.no-conversation-icon {
@@ -601,8 +602,12 @@ onMount(async () => {
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	* {
@@ -623,8 +628,8 @@ onMount(async () => {
 			z-index: 100;
 		}
 
-		.drawer-close {
-			// display: none;
-		}
+		// .drawer-close {
+		// 	// display: none;
+		// }
 	}
 </style>

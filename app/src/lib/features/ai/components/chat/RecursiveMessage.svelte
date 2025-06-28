@@ -134,31 +134,34 @@
 	async function submitReply() {
 		if (!replyText.trim() || isSubmitting) return;
 
-		const result = await clientTryCatch((async () => {
-			isSubmitting = true;
+		const result = await clientTryCatch(
+			(async () => {
+				isSubmitting = true;
 
-			const { messagesToSend, contextMessage } = prepareReplyContext(
-				replyText,
-				message.id,
-				allMessages,
-				aiModel,
-				promptType
-			);
+				const { messagesToSend, contextMessage } = prepareReplyContext(
+					replyText,
+					message.id,
+					allMessages,
+					aiModel,
+					promptType
+				);
 
-			await sendMessage(replyText, message.id, messagesToSend);
+				await sendMessage(replyText, message.id, messagesToSend);
 
-			// Clear the input and hide it
-			replyText = '';
-			showReplyInput = false;
+				// Clear the input and hide it
+				replyText = '';
+				showReplyInput = false;
 
-			// Make sure any nested replies container is visible after sending
-			if (hiddenReplies.has(message.id)) {
-				hiddenReplies.delete(message.id);
-				hiddenReplies = new Set(hiddenReplies);
-			}
+				// Make sure any nested replies container is visible after sending
+				if (hiddenReplies.has(message.id)) {
+					hiddenReplies.delete(message.id);
+					hiddenReplies = new Set(hiddenReplies);
+				}
 
-			return true; // Success indicator
-		})(), `Submitting reply to message ${message.id}`);
+				return true; // Success indicator
+			})(),
+			`Submitting reply to message ${message.id}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error sending reply:', result.error);

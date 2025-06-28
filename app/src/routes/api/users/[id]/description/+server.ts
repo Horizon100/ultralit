@@ -25,10 +25,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 		// Parse and validate request body
-		const bodyResult = await pbTryCatch(
-			request.json(),
-			'parse request body'
-		);
+		const bodyResult = await pbTryCatch(request.json(), 'parse request body');
 
 		if (!bodyResult.success) {
 			throw error(400, 'Invalid request body');
@@ -71,7 +68,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 		return {
-			user: updateResult.data 
+			user: updateResult.data
 		};
 	}, 'Failed to update description');
 };

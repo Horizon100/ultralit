@@ -25,10 +25,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 		// Parse form data with validation
-		const formDataResult = await fileTryCatch(
-			request.formData(),
-			'wallpaper-upload'
-		);
+		const formDataResult = await fileTryCatch(request.formData(), 'wallpaper-upload');
 
 		if (!formDataResult.success) {
 			throw error(400, formDataResult.error);
@@ -85,7 +82,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 		return {
-			user: updateResult.data 
+			user: updateResult.data
 		};
 	}, 'Failed to upload wallpaper');
 };

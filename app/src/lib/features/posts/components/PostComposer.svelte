@@ -81,43 +81,110 @@
 		attachments = attachments.filter((_, i) => i !== index);
 	}
 
-async function handleSubmit() {
-	console.log('🎮🎮🎮 POST COMPOSER SUBMIT - START');
-	console.log('📝 Content:', content);
-	console.log('📎 Attachments:', attachments);
-	console.log('🔗 Parent ID:', parentId);
-	
-	if (!content.trim() || isSubmitting) {
-		console.log('❌ Cannot submit: no content or already submitting');
-		return;
-	}
+	async function handleSubmit() {
+		console.log('🎮🎮🎮 POST COMPOSER SUBMIT - START');
+		console.log('📝 Content:', content);
+		console.log('📎 Attachments:', attachments);
+		console.log('🔗 Parent ID:', parentId);
 
-	// Check if this is a comment (has parentId) - if so, dispatch event instead of direct API call
-	if (parentId) {
-		console.log('📤 This is a comment - dispatching submit event to parent');
-		
-		let processedAttachments = attachments;
-
-		// Show conversion progress for videos
-		if (attachments.some((f) => f.type.startsWith('video/'))) {
-			console.log('Converting videos...');
-			processedAttachments = await processVideoAttachments(attachments);
-			console.log('Video conversion complete');
+		if (!content.trim() || isSubmitting) {
+			console.log('❌ Cannot submit: no content or already submitting');
+			return;
 		}
 
-		const submitData = {
-			content: content.trim(),
-			attachments: processedAttachments,
-			parentId
-		};
-		
-		console.log('📤 Dispatching submit event with data:', submitData);
-		
+		// Check if this is a comment (has parentId) - if so, dispatch event instead of direct API call
+		if (parentId) {
+			console.log('📤 This is a comment - dispatching submit event to parent');
+
+			let processedAttachments = attachments;
+
+			// Show conversion progress for videos
+			if (attachments.some((f) => f.type.startsWith('video/'))) {
+				console.log('Converting videos...');
+				processedAttachments = await processVideoAttachments(attachments);
+				console.log('Video conversion complete');
+			}
+
+			const submitData = {
+				content: content.trim(),
+				attachments: processedAttachments,
+				parentId
+			};
+
+			console.log('📤 Dispatching submit event with data:', submitData);
+
+			try {
+				dispatch('submit', submitData);
+				console.log('✅ POST COMPOSER: Submit event dispatched successfully');
+
+				// Reset form after dispatching
+				content = '';
+				attachments = [];
+				willGenerateTags = false;
+				if (fileInput) fileInput.value = '';
+
+				// Reset textarea height
+				if (textareaElement) {
+					textareaElement.style.height = 'auto';
+				}
+			} catch (error) {
+				console.error('❌ POST COMPOSER: Error dispatching submit event:', error);
+			}
+
+			console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Comment dispatched)');
+			return;
+		}
+
+		// Original logic for top-level posts (no parentId)
+		console.log('📝 This is a top-level post - using direct API call');
+
+		isSubmitting = true;
+		const shouldTag = enableAutoTagging && willGenerateTags;
+		const contentToTag = content.trim(); // Store content before reset
+
 		try {
-			dispatch('submit', submitData);
-			console.log('✅ POST COMPOSER: Submit event dispatched successfully');
-			
-			// Reset form after dispatching
+			let processedAttachments = attachments;
+
+			// Show conversion progress for videos
+			if (attachments.some((f) => f.type.startsWith('video/'))) {
+				console.log('Converting videos...');
+				processedAttachments = await processVideoAttachments(attachments);
+				console.log('Video conversion complete');
+			}
+
+			// Use postStore.addPost for proper reactivity instead of direct API call
+			console.log('Creating post via postStore...');
+			const newPost = await postStore.addPost(contentToTag, processedAttachments, parentId);
+
+			const postId = newPost.id;
+			console.log('Post created successfully with ID:', postId);
+
+			// Dispatch post creation event
+			dispatch('postCreated', { postId, post: newPost });
+
+			// Handle auto-tagging if enabled and we have a valid post ID
+			if (shouldTag && postId && $currentUser?.id) {
+				console.log('Starting auto-tagging for post:', postId);
+
+				// Use the fixed async tagging function
+				try {
+					const modelToUse = taggingModel || defaultModel;
+
+					// Call the async tagging function - this will run in background
+					processPostTaggingAsync(contentToTag, postId, modelToUse, $currentUser.id);
+
+					// Dispatch tagging started event
+					dispatch('taggingComplete', { postId, success: true });
+					console.log('Auto-tagging initiated successfully for post:', postId);
+				} catch (taggingError) {
+					console.error('Error starting auto-tagging:', taggingError);
+					dispatch('taggingComplete', { postId, success: false });
+				}
+			} else if (shouldTag && !postId) {
+				console.error('Cannot start auto-tagging: no post ID received');
+			}
+
+			// Reset form
 			content = '';
 			attachments = [];
 			willGenerateTags = false;
@@ -127,87 +194,15 @@ async function handleSubmit() {
 			if (textareaElement) {
 				textareaElement.style.height = 'auto';
 			}
-		} catch (error) {
-			console.error('❌ POST COMPOSER: Error dispatching submit event:', error);
+		} catch (err) {
+			console.error('Error submitting post:', err);
+			alert('Failed to create post: ' + (err instanceof Error ? err.message : 'Unknown error'));
+		} finally {
+			isSubmitting = false;
 		}
-		
-		console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Comment dispatched)');
-		return;
+
+		console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Top-level post)');
 	}
-
-	// Original logic for top-level posts (no parentId)
-	console.log('📝 This is a top-level post - using direct API call');
-	
-	isSubmitting = true;
-	const shouldTag = enableAutoTagging && willGenerateTags;
-	const contentToTag = content.trim(); // Store content before reset
-
-	try {
-		let processedAttachments = attachments;
-
-		// Show conversion progress for videos
-		if (attachments.some((f) => f.type.startsWith('video/'))) {
-			console.log('Converting videos...');
-			processedAttachments = await processVideoAttachments(attachments);
-			console.log('Video conversion complete');
-		}
-
-		// Use postStore.addPost for proper reactivity instead of direct API call
-		console.log('Creating post via postStore...');
-		const newPost = await postStore.addPost(
-			contentToTag,
-			processedAttachments,
-			parentId
-		);
-
-		const postId = newPost.id;
-		console.log('Post created successfully with ID:', postId);
-
-		// Dispatch post creation event
-		dispatch('postCreated', { postId, post: newPost });
-
-		// Handle auto-tagging if enabled and we have a valid post ID
-		if (shouldTag && postId && $currentUser?.id) {
-			console.log('Starting auto-tagging for post:', postId);
-			
-			// Use the fixed async tagging function
-			try {
-				const modelToUse = taggingModel || defaultModel;
-				
-				// Call the async tagging function - this will run in background
-				processPostTaggingAsync(contentToTag, postId, modelToUse, $currentUser.id);
-				
-				// Dispatch tagging started event
-				dispatch('taggingComplete', { postId, success: true });
-				console.log('Auto-tagging initiated successfully for post:', postId);
-				
-			} catch (taggingError) {
-				console.error('Error starting auto-tagging:', taggingError);
-				dispatch('taggingComplete', { postId, success: false });
-			}
-		} else if (shouldTag && !postId) {
-			console.error('Cannot start auto-tagging: no post ID received');
-		}
-
-		// Reset form
-		content = '';
-		attachments = [];
-		willGenerateTags = false;
-		if (fileInput) fileInput.value = '';
-
-		// Reset textarea height
-		if (textareaElement) {
-			textareaElement.style.height = 'auto';
-		}
-	} catch (err) {
-		console.error('Error submitting post:', err);
-		alert('Failed to create post: ' + (err instanceof Error ? err.message : 'Unknown error'));
-	} finally {
-		isSubmitting = false;
-	}
-	
-	console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Top-level post)');
-}
 
 	// Renamed function to avoid conflict
 	async function handleAutoTagging(postId: string, postContent: string) {
@@ -228,7 +223,6 @@ async function handleSubmit() {
 			// Don't wait for completion, just indicate it started
 			dispatch('taggingComplete', { postId, success: true });
 			console.log('Auto-tagging initiated for post:', postId);
-			
 		} catch (error) {
 			console.error('Auto-tagging failed for post:', postId, error);
 			dispatch('taggingComplete', { postId, success: false });

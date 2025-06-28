@@ -7,113 +7,112 @@ import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 const pb = new PocketBase(pocketbaseUrl);
 
 interface MessageCounts {
-  [threadId: string]: number;
+	[threadId: string]: number;
 }
 
 interface BatchResult {
-  counts: MessageCounts;
-  totalThreads: number;
+	counts: MessageCounts;
+	totalThreads: number;
 }
 
 function createMessageCountsStore() {
-  const { subscribe, set, update } = writable<MessageCounts>({});
+	const { subscribe, set, update } = writable<MessageCounts>({});
 
-  let batchSize = 50; // Default batch size for pagination
-  let isFetching = false;
+	let batchSize = 50; // Default batch size for pagination
+	let isFetching = false;
 
-  return {
-    subscribe,
+	return {
+		subscribe,
 
-    async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
-      if (isFetching) return { counts: {}, totalThreads: 0 };
-      isFetching = true;
+		async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
+			if (isFetching) return { counts: {}, totalThreads: 0 };
+			isFetching = true;
 
-      const counts: MessageCounts = {};
+			const counts: MessageCounts = {};
 
-      try {
-        const start = (page - 1) * batchSize;
-        const batchThreads = threads.slice(start, start + batchSize);
+			try {
+				const start = (page - 1) * batchSize;
+				const batchThreads = threads.slice(start, start + batchSize);
 
-        // Use Promise.all with clientTryCatch to catch errors per thread count fetch
-        const results = await Promise.all(
-          batchThreads.map(async (thread) => {
-            const result = await clientTryCatch(
-              pb.collection('messages').getList(1, 1, {
-                filter: `thread = "${thread.id}"`,
-                $autoCancel: false
-              }),
-              `Error fetching count for thread ${thread.id}`
-            );
+				// Use Promise.all with clientTryCatch to catch errors per thread count fetch
+				const results = await Promise.all(
+					batchThreads.map(async (thread) => {
+						const result = await clientTryCatch(
+							pb.collection('messages').getList(1, 1, {
+								filter: `thread = "${thread.id}"`,
+								$autoCancel: false
+							}),
+							`Error fetching count for thread ${thread.id}`
+						);
 
-            if (isSuccess(result)) {
-              return { threadId: thread.id, count: result.data.totalItems };
-            } else {
-              console.error(result.error);
-              return { threadId: thread.id, count: 0 };
-            }
-          })
-        );
+						if (isSuccess(result)) {
+							return { threadId: thread.id, count: result.data.totalItems };
+						} else {
+							console.error(result.error);
+							return { threadId: thread.id, count: 0 };
+						}
+					})
+				);
 
-        results.forEach(({ threadId, count }) => {
-          counts[threadId] = count;
-        });
+				results.forEach(({ threadId, count }) => {
+					counts[threadId] = count;
+				});
 
-        update((current) => ({ ...current, ...counts }));
+				update((current) => ({ ...current, ...counts }));
 
-        return {
-          counts,
-          totalThreads: threads.length
-        };
-      } finally {
-        isFetching = false;
-      }
-    },
+				return {
+					counts,
+					totalThreads: threads.length
+				};
+			} finally {
+				isFetching = false;
+			}
+		},
 
-    async updateCount(threadId: string): Promise<number> {
-      const result = await clientTryCatch(
-        pb.collection('messages').getList(1, 1, {
-          filter: `thread = "${threadId}"`,
-          $autoCancel: false
-        }),
-        `Error updating count for thread ${threadId}`
-      );
+		async updateCount(threadId: string): Promise<number> {
+			const result = await clientTryCatch(
+				pb.collection('messages').getList(1, 1, {
+					filter: `thread = "${threadId}"`,
+					$autoCancel: false
+				}),
+				`Error updating count for thread ${threadId}`
+			);
 
-      if (isSuccess(result)) {
-        const count = result.data.totalItems;
-        update((counts) => ({ ...counts, [threadId]: count }));
-        return count;
-      } else {
-        console.error(result.error);
-        return 0;
-      }
-    },
+			if (isSuccess(result)) {
+				const count = result.data.totalItems;
+				update((counts) => ({ ...counts, [threadId]: count }));
+				return count;
+			} else {
+				console.error(result.error);
+				return 0;
+			}
+		},
 
-    increment(threadId: string) {
-      update((counts) => ({
-        ...counts,
-        [threadId]: (counts[threadId] || 0) + 1
-      }));
-    },
+		increment(threadId: string) {
+			update((counts) => ({
+				...counts,
+				[threadId]: (counts[threadId] || 0) + 1
+			}));
+		},
 
-    decrement(threadId: string) {
-      update((counts) => ({
-        ...counts,
-        [threadId]: Math.max(0, (counts[threadId] || 1) - 1)
-      }));
-    },
+		decrement(threadId: string) {
+			update((counts) => ({
+				...counts,
+				[threadId]: Math.max(0, (counts[threadId] || 1) - 1)
+			}));
+		},
 
-    setBatchSize(size: number) {
-      batchSize = size;
-    },
+		setBatchSize(size: number) {
+			batchSize = size;
+		},
 
-    reset() {
-      set({});
-    }
-  };
+		reset() {
+			set({});
+		}
+	};
 }
 
 export const messageCountsStore = createMessageCountsStore();
-
 
 export function getCountColor(count: number): string {
 	// Define min and max counts for scaling

@@ -45,37 +45,42 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch((async () => {
-				const fetchResult = await fetchTryCatch<ModelListResponse>(
-					'https://api.openai.com/v1/models',
-					{
-						headers: { Authorization: `Bearer ${apiKey}` }
+			const result = await clientTryCatch(
+				(async () => {
+					const fetchResult = await fetchTryCatch<ModelListResponse>(
+						'https://api.openai.com/v1/models',
+						{
+							headers: { Authorization: `Bearer ${apiKey}` }
+						}
+					);
+
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to fetch OpenAI models: ${fetchResult.error}`);
 					}
-				);
 
-				if (isFailure(fetchResult)) {
-					throw new Error(`Failed to fetch OpenAI models: ${fetchResult.error}`);
-				}
-
-				const data = fetchResult.data;
-				return data.data
-					.filter((model: OpenAIModel) => model.id.includes('gpt') && !model.id.includes('instruct'))
-					.map((model: OpenAIModel) => ({
-						id: `openai-${model.id}`,
-						name: model.id,
-						provider: 'openai' as ProviderType,
-						api_key: apiKey,
-						base_url: 'https://api.openai.com/v1',
-						api_type: model.id,
-						api_version: '',
-						description: `OpenAI ${model.id} model`,
-						user: [],
-						created: new Date(model.created * 1000).toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'models',
-						collectionName: 'models'
-					}));
-			})(), 'Fetching OpenAI models');
+					const data = fetchResult.data;
+					return data.data
+						.filter(
+							(model: OpenAIModel) => model.id.includes('gpt') && !model.id.includes('instruct')
+						)
+						.map((model: OpenAIModel) => ({
+							id: `openai-${model.id}`,
+							name: model.id,
+							provider: 'openai' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.openai.com/v1',
+							api_type: model.id,
+							api_version: '',
+							description: `OpenAI ${model.id} model`,
+							user: [],
+							created: new Date(model.created * 1000).toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						}));
+				})(),
+				'Fetching OpenAI models'
+			);
 
 			if (isFailure(result)) {
 				throw new Error(result.error);
@@ -102,55 +107,58 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch((async () => {
-				return [
-					{
-						id: 'anthropic-claude-3-opus',
-						name: 'Claude 3 Opus',
-						provider: 'anthropic' as ProviderType,
-						api_key: apiKey,
-						base_url: 'https://api.anthropic.com/v1',
-						api_type: 'claude-3-opus-20240229',
-						api_version: '2024-02-29',
-						description: 'Most capable Claude model for complex tasks',
-						user: [],
-						created: new Date().toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'models',
-						collectionName: 'models'
-					},
-					{
-						id: 'anthropic-claude-3-sonnet',
-						name: 'Claude 3 Sonnet',
-						provider: 'anthropic' as ProviderType,
-						api_key: apiKey,
-						base_url: 'https://api.anthropic.com/v1',
-						api_type: 'claude-3-sonnet-20240229',
-						api_version: '2024-02-29',
-						description: 'Balanced model for most tasks',
-						user: [],
-						created: new Date().toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'models',
-						collectionName: 'models'
-					},
-					{
-						id: 'anthropic-claude-3-haiku',
-						name: 'Claude 3 Haiku',
-						provider: 'anthropic' as ProviderType,
-						api_key: apiKey,
-						base_url: 'https://api.anthropic.com/v1',
-						api_type: 'claude-3-haiku-20240307',
-						api_version: '2024-03-07',
-						description: 'Fastest Claude model for simple tasks',
-						user: [],
-						created: new Date().toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'models',
-						collectionName: 'models'
-					}
-				];
-			})(), 'Fetching Anthropic models');
+			const result = await clientTryCatch(
+				(async () => {
+					return [
+						{
+							id: 'anthropic-claude-3-opus',
+							name: 'Claude 3 Opus',
+							provider: 'anthropic' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.anthropic.com/v1',
+							api_type: 'claude-3-opus-20240229',
+							api_version: '2024-02-29',
+							description: 'Most capable Claude model for complex tasks',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						},
+						{
+							id: 'anthropic-claude-3-sonnet',
+							name: 'Claude 3 Sonnet',
+							provider: 'anthropic' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.anthropic.com/v1',
+							api_type: 'claude-3-sonnet-20240229',
+							api_version: '2024-02-29',
+							description: 'Balanced model for most tasks',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						},
+						{
+							id: 'anthropic-claude-3-haiku',
+							name: 'Claude 3 Haiku',
+							provider: 'anthropic' as ProviderType,
+							api_key: apiKey,
+							base_url: 'https://api.anthropic.com/v1',
+							api_type: 'claude-3-haiku-20240307',
+							api_version: '2024-03-07',
+							description: 'Fastest Claude model for simple tasks',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'models',
+							collectionName: 'models'
+						}
+					];
+				})(),
+				'Fetching Anthropic models'
+			);
 
 			if (isFailure(result)) {
 				throw new Error(result.error);
@@ -200,72 +208,72 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch((async () => {
-				const fetchResult = await fetchTryCatch<ModelListResponse>(
-					'https://api.x.ai/v1/models',
-					{
+			const result = await clientTryCatch(
+				(async () => {
+					const fetchResult = await fetchTryCatch<ModelListResponse>('https://api.x.ai/v1/models', {
 						headers: { Authorization: `Bearer ${apiKey}` }
-					}
-				);
+					});
 
-				if (isFailure(fetchResult)) {
-					// Check if it's a rate limit error
-					if (fetchResult.error.includes('429') || fetchResult.error.includes('rate limit')) {
-						console.warn('Grok API rate limited, returning default models');
-						return [
-							{
-								id: 'grok-grok-1',
-								name: 'Grok-1',
-								provider: 'grok' as ProviderType,
-								api_key: apiKey,
-								base_url: 'https://api.x.ai/v1',
-								api_type: 'grok-1',
-								api_version: '',
-								description: 'Grok-1 model by X.AI',
-								user: [],
-								created: new Date().toISOString(),
-								updated: new Date().toISOString(),
-								collectionId: 'models',
-								collectionName: 'models'
-							},
-							{
-								id: 'grok-grok-beta',
-								name: 'Grok Beta',
-								provider: 'grok' as ProviderType,
-								api_key: apiKey,
-								base_url: 'https://api.x.ai/v1',
-								api_type: 'grok-beta',
-								api_version: '',
-								description: 'Grok Beta model by X.AI',
-								user: [],
-								created: new Date().toISOString(),
-								updated: new Date().toISOString(),
-								collectionId: 'models',
-								collectionName: 'models'
-							}
-						];
-					}
-					
-					throw new Error(`Failed to fetch Grok models: ${fetchResult.error}`);
-				}
+					if (isFailure(fetchResult)) {
+						// Check if it's a rate limit error
+						if (fetchResult.error.includes('429') || fetchResult.error.includes('rate limit')) {
+							console.warn('Grok API rate limited, returning default models');
+							return [
+								{
+									id: 'grok-grok-1',
+									name: 'Grok-1',
+									provider: 'grok' as ProviderType,
+									api_key: apiKey,
+									base_url: 'https://api.x.ai/v1',
+									api_type: 'grok-1',
+									api_version: '',
+									description: 'Grok-1 model by X.AI',
+									user: [],
+									created: new Date().toISOString(),
+									updated: new Date().toISOString(),
+									collectionId: 'models',
+									collectionName: 'models'
+								},
+								{
+									id: 'grok-grok-beta',
+									name: 'Grok Beta',
+									provider: 'grok' as ProviderType,
+									api_key: apiKey,
+									base_url: 'https://api.x.ai/v1',
+									api_type: 'grok-beta',
+									api_version: '',
+									description: 'Grok Beta model by X.AI',
+									user: [],
+									created: new Date().toISOString(),
+									updated: new Date().toISOString(),
+									collectionId: 'models',
+									collectionName: 'models'
+								}
+							];
+						}
 
-				const data = fetchResult.data;
-				return data.data.map((model: OpenAIModel) => ({
-					id: `grok-${model.id}`,
-					name: model.id,
-					provider: 'grok' as ProviderType,
-					api_key: apiKey,
-					base_url: 'https://api.x.ai/v1',
-					api_type: model.id,
-					api_version: '',
-					description: `Grok ${model.id} model`,
-					user: [],
-					created: new Date(model.created * 1000).toISOString(),
-					updated: new Date().toISOString(),
-					collectionId: 'models',
-					collectionName: 'models'
-				}));
-			})(), 'Fetching Grok models');
+						throw new Error(`Failed to fetch Grok models: ${fetchResult.error}`);
+					}
+
+					const data = fetchResult.data;
+					return data.data.map((model: OpenAIModel) => ({
+						id: `grok-${model.id}`,
+						name: model.id,
+						provider: 'grok' as ProviderType,
+						api_key: apiKey,
+						base_url: 'https://api.x.ai/v1',
+						api_type: model.id,
+						api_version: '',
+						description: `Grok ${model.id} model`,
+						user: [],
+						created: new Date(model.created * 1000).toISOString(),
+						updated: new Date().toISOString(),
+						collectionId: 'models',
+						collectionName: 'models'
+					}));
+				})(),
+				'Fetching Grok models'
+			);
 
 			if (isFailure(result)) {
 				// Final fallback for any other errors
@@ -289,7 +297,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						}
 					];
 				}
-				
+
 				throw new Error(result.error);
 			}
 
@@ -310,35 +318,38 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch((async () => {
-				const fetchResult = await fetchTryCatch<ModelListResponse>(
-					'https://api.deepseek.com/v1/models',
-					{
-						headers: { Authorization: `Bearer ${apiKey}` }
+			const result = await clientTryCatch(
+				(async () => {
+					const fetchResult = await fetchTryCatch<ModelListResponse>(
+						'https://api.deepseek.com/v1/models',
+						{
+							headers: { Authorization: `Bearer ${apiKey}` }
+						}
+					);
+
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to fetch Deepseek models: ${fetchResult.error}`);
 					}
-				);
 
-				if (isFailure(fetchResult)) {
-					throw new Error(`Failed to fetch Deepseek models: ${fetchResult.error}`);
-				}
-
-				const data = fetchResult.data;
-				return data.data.map((model: OpenAIModel) => ({
-					id: `deepseek-${model.id}`,
-					name: model.id,
-					provider: 'deepseek' as ProviderType,
-					api_key: apiKey,
-					base_url: 'https://api.deepseek.com/v1',
-					api_type: model.id,
-					api_version: '',
-					description: `Deepseek ${model.id} model`,
-					user: [],
-					created: new Date().toISOString(),
-					updated: new Date().toISOString(),
-					collectionId: 'models',
-					collectionName: 'models'
-				}));
-			})(), 'Fetching Deepseek models');
+					const data = fetchResult.data;
+					return data.data.map((model: OpenAIModel) => ({
+						id: `deepseek-${model.id}`,
+						name: model.id,
+						provider: 'deepseek' as ProviderType,
+						api_key: apiKey,
+						base_url: 'https://api.deepseek.com/v1',
+						api_type: model.id,
+						api_version: '',
+						description: `Deepseek ${model.id} model`,
+						user: [],
+						created: new Date().toISOString(),
+						updated: new Date().toISOString(),
+						collectionId: 'models',
+						collectionName: 'models'
+					}));
+				})(),
+				'Fetching Deepseek models'
+			);
 
 			if (isFailure(result)) {
 				throw new Error(result.error);
@@ -353,27 +364,33 @@ export const fetchAllProviderModels = async (
 	selectedProviders: ProviderType[],
 	apiKeys: Record<ProviderType, string>
 ): Promise<AIModel[]> => {
-	const result = await clientTryCatch((async () => {
-		const modelPromises = selectedProviders.map(async (provider) => {
-			if (!apiKeys[provider]) {
-				return [];
-			}
+	const result = await clientTryCatch(
+		(async () => {
+			const modelPromises = selectedProviders.map(async (provider) => {
+				if (!apiKeys[provider]) {
+					return [];
+				}
 
-			const providerResult = await clientTryCatch((async () => {
-				return await providers[provider].fetchModels(apiKeys[provider]);
-			})(), `Fetching models for ${provider}`);
+				const providerResult = await clientTryCatch(
+					(async () => {
+						return await providers[provider].fetchModels(apiKeys[provider]);
+					})(),
+					`Fetching models for ${provider}`
+				);
 
-			if (isFailure(providerResult)) {
-				console.error(`Error fetching ${provider} models:`, providerResult.error);
-				return [];
-			}
+				if (isFailure(providerResult)) {
+					console.error(`Error fetching ${provider} models:`, providerResult.error);
+					return [];
+				}
 
-			return providerResult.data;
-		});
+				return providerResult.data;
+			});
 
-		const results = await Promise.all(modelPromises);
-		return results.flat();
-	})(), 'Fetching models from all providers');
+			const results = await Promise.all(modelPromises);
+			return results.flat();
+		})(),
+		'Fetching models from all providers'
+	);
 
 	if (isFailure(result)) {
 		console.error('Error fetching models from providers:', result.error);
@@ -385,27 +402,27 @@ export const fetchAllProviderModels = async (
 
 export function getProviderFromModel(modelName: string): ProviderType {
 	const model = modelName.toLowerCase();
-	
+
 	if (model.includes('gpt') || model.includes('o1') || model.includes('openai')) {
 		return 'openai';
 	}
-	
+
 	if (model.includes('claude') || model.includes('anthropic')) {
 		return 'anthropic';
 	}
-	
+
 	if (model.includes('gemini') || model.includes('bard') || model.includes('google')) {
 		return 'google';
 	}
-	
+
 	if (model.includes('grok') || model.includes('x-ai')) {
 		return 'grok';
 	}
-	
+
 	if (model.includes('deepseek')) {
 		return 'deepseek';
 	}
-	
+
 	return 'openai';
 }
 

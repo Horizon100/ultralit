@@ -48,7 +48,6 @@
 			bind:value
 			{placeholder}
 			{disabled}
-			{maxLength}
 			on:keydown={handleKeydown}
 			on:input={handleInput}
 			rows="1"
@@ -93,7 +92,6 @@
 		gap: 8px;
 		padding: 0.5rem;
 		transition: border-color 0.2s ease;
-		
 	}
 
 	.message-input {
@@ -132,9 +130,8 @@
 		}
 	}
 
-
 	.send-button {
-			background: transparent;
+		background: transparent;
 		border: none;
 		border-radius: 50%;
 		width: 36px;

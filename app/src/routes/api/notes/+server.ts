@@ -6,32 +6,32 @@ import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 import type { RecordModel } from 'pocketbase';
 
 export const GET: RequestHandler = async ({ url, locals }) =>
-  apiTryCatch(async () => {
-    if (!locals.user) {
-      throw new Error('Unauthorized');
-    }
-    const userId = locals.user.id;
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
+		const userId = locals.user.id;
 
-    const folderId = url.searchParams.get('folderId');
-    if (folderId === null) {
-      throw new Error('Folder ID parameter is required');
-    }
+		const folderId = url.searchParams.get('folderId');
+		if (folderId === null) {
+			throw new Error('Folder ID parameter is required');
+		}
 
-    const filter =
-      folderId === ''
-        ? `createdBy="${userId}" && folder=""`
-        : `createdBy="${userId}" && folder="${folderId}"`;
+		const filter =
+			folderId === ''
+				? `createdBy="${userId}" && folder=""`
+				: `createdBy="${userId}" && folder="${folderId}"`;
 
-    const notes = await pbTryCatch(
-      pb.collection('notes').getFullList({
-        filter,
-        sort: '-created',
-        expand: 'createdBy,attachments'
-      })
-    );
+		const notes = await pbTryCatch(
+			pb.collection('notes').getFullList({
+				filter,
+				sort: '-created',
+				expand: 'createdBy,attachments'
+			})
+		);
 
-    return json({ success: true, notes: unwrap(notes) as RecordModel[] });
-  });
+		return json({ success: true, notes: unwrap(notes) as RecordModel[] });
+	});
 
 export const POST: RequestHandler = async ({ request, locals }) =>
 	apiTryCatch(async () => {

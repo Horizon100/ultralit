@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 		const limit = parseInt(url.searchParams.get('limit') || '10');
 		const page = Math.floor(offset / limit) + 1;
-		
+
 		console.log('🔍 API username:', username, 'offset:', offset, 'limit:', limit);
 
 		const isAuthenticated = !!locals.user;
@@ -32,7 +32,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 			pb.collection('users').getList(1, 1, {
 				filter: `username = "${username}"`,
 				// ADD status and last_login here:
-				fields: 'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,created,updated,status,last_login,followers,following'
+				fields:
+					'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,created,updated,status,last_login,followers,following'
 			}),
 			'fetch user by username'
 		);
@@ -46,7 +47,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 		// Fetch posts with proper interaction data
 		console.log('📊 Fetching ALL posts for user...');
-		
+
 		const [originalPostsResult, repostedPostsResult] = await Promise.all([
 			pbTryCatch(
 				pb.collection('posts').getList(1, 200, {
@@ -93,7 +94,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 			// Calculate user interaction state
 			const upvote = isAuthenticated && currentUserId ? upvotedBy.includes(currentUserId) : false;
-			const downvote = isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
+			const downvote =
+				isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
 			const repost = isAuthenticated && currentUserId ? repostedBy.includes(currentUserId) : false;
 			const hasRead = isAuthenticated && currentUserId ? readBy.includes(currentUserId) : false;
 			const share = isAuthenticated && currentUserId ? sharedBy.includes(currentUserId) : false;
@@ -105,7 +107,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 			allPosts.push({
 				...post,
 				isRepost: false,
-				
+
 				// User interaction state
 				upvote,
 				downvote,
@@ -159,8 +161,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 				// Calculate user interaction state for reposts
 				const upvote = isAuthenticated && currentUserId ? upvotedBy.includes(currentUserId) : false;
-				const downvote = isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
-				const repostState = isAuthenticated && currentUserId ? repostedBy.includes(currentUserId) : false;
+				const downvote =
+					isAuthenticated && currentUserId ? downvotedBy.includes(currentUserId) : false;
+				const repostState =
+					isAuthenticated && currentUserId ? repostedBy.includes(currentUserId) : false;
 				const hasRead = isAuthenticated && currentUserId ? readBy.includes(currentUserId) : false;
 				const share = isAuthenticated && currentUserId ? sharedBy.includes(currentUserId) : false;
 				const quote = isAuthenticated && currentUserId ? quotedBy.includes(currentUserId) : false;
@@ -176,7 +180,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 					repostedBy_username: user.username,
 					repostedBy_name: user.name,
 					repostedBy_avatar: user.avatar,
-					
+
 					// User interaction state
 					upvote,
 					downvote,
@@ -269,7 +273,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 			}
 		}
 
-		console.log(`✅ API: Returning ${postsReturned} posts out of ${totalPosts} total, hasMore: ${hasMore}`);
+		console.log(
+			`✅ API: Returning ${postsReturned} posts out of ${totalPosts} total, hasMore: ${hasMore}`
+		);
 
 		return {
 			user: {
@@ -279,7 +285,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 				email: user.email,
 				avatar: user.avatar,
 				description: user.description,
-				profileWallpaper: user.profileWallpaper || '', 
+				profileWallpaper: user.profileWallpaper || '',
 				wallpaper_preference: user.wallpaper_preference || '',
 				status: user.status || 'offline',
 				followers: user.followers || [],

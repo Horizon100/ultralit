@@ -19,25 +19,25 @@ interface AgentStoreState {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-    throw new Error(errorData.error || `API request failed with status ${response.status}`);
-  }
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+		throw new Error(errorData.error || `API request failed with status ${response.status}`);
+	}
 
-  const result: ApiResponse<T> = await response.json();
-  console.log('Raw API response:', result); // Debug log
-  
-  if (!result.success) {
-    throw new Error(result.error || 'API request failed');
-  }
+	const result: ApiResponse<T> = await response.json();
+	console.log('Raw API response:', result); // Debug log
 
-  if (result.data === undefined || result.data === null) {
-    console.error('API returned undefined/null data:', result);
-    throw new Error('API returned no data');
-  }
+	if (!result.success) {
+		throw new Error(result.error || 'API request failed');
+	}
 
-  console.log('Extracted data:', result.data); // Debug log
-  return result.data;
+	if (result.data === undefined || result.data === null) {
+		console.error('API returned undefined/null data:', result);
+		throw new Error('API returned no data');
+	}
+
+	console.log('Extracted data:', result.data); // Debug log
+	return result.data;
 }
 
 function createAgentStore() {
@@ -75,7 +75,9 @@ function createAgentStore() {
 			if (isSuccess(result)) {
 				update((state) => ({
 					...state,
-					agents: state.agents.map((agent) => (agent.id === id ? { ...agent, ...result.data } : agent)),
+					agents: state.agents.map((agent) =>
+						agent.id === id ? { ...agent, ...result.data } : agent
+					),
 					updateStatus: 'Agent updated successfully'
 				}));
 			} else {
@@ -91,87 +93,90 @@ function createAgentStore() {
 	return {
 		subscribe,
 
-loadAgents: async (userId?: string): Promise<AIAgent[]> => {
-  update((state) => ({ ...state, isLoading: true }));
+		loadAgents: async (userId?: string): Promise<AIAgent[]> => {
+			update((state) => ({ ...state, isLoading: true }));
 
-  const result = await clientTryCatch(
-    (async () => {
-      console.log('Loading agents for user:', userId);
-      const response = await fetch('/api/agents', {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      // Debug: Let's see the raw response
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText);
-      
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-        console.log('Parsed response data:', responseData);
-        console.log('Response data type:', typeof responseData);
-        console.log('Response data keys:', Object.keys(responseData));
-        
-        if (responseData.data) {
-          console.log('Data field exists:', responseData.data);
-          console.log('Data field type:', typeof responseData.data);
-          console.log('Is data an array?', Array.isArray(responseData.data));
-        } else {
-          console.log('No data field found in response');
-        }
-      } catch (e) {
-        console.error('Failed to parse JSON:', e);
-        throw new Error('Invalid JSON response');
-      }
+			const result = await clientTryCatch(
+				(async () => {
+					console.log('Loading agents for user:', userId);
+					const response = await fetch('/api/agents', {
+						method: 'GET',
+						credentials: 'include'
+					});
 
-      if (!response.ok) {
-        throw new Error(responseData.error || `API request failed with status ${response.status}`);
-      }
+					// Debug: Let's see the raw response
+					const responseText = await response.text();
+					console.log('Raw response text:', responseText);
 
-      if (!responseData.success) {
-        throw new Error(responseData.error || 'API request failed');
-      }
+					let responseData;
+					try {
+						responseData = JSON.parse(responseText);
+						console.log('Parsed response data:', responseData);
+						console.log('Response data type:', typeof responseData);
+						console.log('Response data keys:', Object.keys(responseData));
 
-      const agents = responseData.data;
-      console.log('Final agents data:', agents);
+						if (responseData.data) {
+							console.log('Data field exists:', responseData.data);
+							console.log('Data field type:', typeof responseData.data);
+							console.log('Is data an array?', Array.isArray(responseData.data));
+						} else {
+							console.log('No data field found in response');
+						}
+					} catch (e) {
+						console.error('Failed to parse JSON:', e);
+						throw new Error('Invalid JSON response');
+					}
 
-      // Check if agents is actually an array before mapping
-      if (!Array.isArray(agents)) {
-        console.error('Expected agents to be an array, got:', typeof agents, agents);
-        throw new Error('Invalid response format: expected array of agents');
-      }
+					if (!response.ok) {
+						throw new Error(
+							responseData.error || `API request failed with status ${response.status}`
+						);
+					}
 
-      // Parse position strings to objects if needed
-      const parsedAgents = agents.map((agent) => ({
-        ...agent,
-        position: typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
-      }));
+					if (!responseData.success) {
+						throw new Error(responseData.error || 'API request failed');
+					}
 
-      return parsedAgents;
-    })(),
-    'Error loading agents'
-  );
+					const agents = responseData.data;
+					console.log('Final agents data:', agents);
 
-  if (isSuccess(result)) {
-    set({
-      agents: result.data,
-      updateStatus: 'Agents loaded successfully',
-      isLoading: false
-    });
-    setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-    return result.data;
-  } else {
-    console.error(result.error);
-    set({
-      agents: [],
-      updateStatus: result.error ?? 'Failed to load agents',
-      isLoading: false
-    });
-    setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-    return [];
-  }
-},
+					// Check if agents is actually an array before mapping
+					if (!Array.isArray(agents)) {
+						console.error('Expected agents to be an array, got:', typeof agents, agents);
+						throw new Error('Invalid response format: expected array of agents');
+					}
+
+					// Parse position strings to objects if needed
+					const parsedAgents = agents.map((agent) => ({
+						...agent,
+						position:
+							typeof agent.position === 'string' ? JSON.parse(agent.position) : agent.position
+					}));
+
+					return parsedAgents;
+				})(),
+				'Error loading agents'
+			);
+
+			if (isSuccess(result)) {
+				set({
+					agents: result.data,
+					updateStatus: 'Agents loaded successfully',
+					isLoading: false
+				});
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return result.data;
+			} else {
+				console.error(result.error);
+				set({
+					agents: [],
+					updateStatus: result.error ?? 'Failed to load agents',
+					isLoading: false
+				});
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return [];
+			}
+		},
 		createAgent: async (agentData: Partial<AIAgent> | FormData): Promise<AIAgent | null> => {
 			const result = await clientTryCatch(
 				(async () => {
@@ -184,7 +189,7 @@ loadAgents: async (userId?: string): Promise<AIAgent[]> => {
 							? {}
 							: {
 									'Content-Type': 'application/json'
-							  },
+								},
 						body: isFormData ? agentData : JSON.stringify(agentData)
 					});
 
@@ -244,7 +249,7 @@ loadAgents: async (userId?: string): Promise<AIAgent[]> => {
 										'Content-Type': 'application/json'
 									},
 									body: JSON.stringify(agentData)
-							  }),
+								}),
 						...(isFormData ? { body: agentData } : {})
 					});
 

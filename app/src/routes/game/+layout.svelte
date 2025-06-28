@@ -8,7 +8,15 @@
 	import { goto } from '$app/navigation';
 	import AddHero from '$lib/features/game/components/AddHero.svelte';
 
-	export let data;
+	// Type the data prop
+	interface LayoutData {
+		user?: {
+			id: string;
+			// Add other user properties as needed
+		} | null;
+	}
+
+	export let data: LayoutData;
 
 	function setupKeyboardShortcuts() {
 		const handleKeydown = (event: KeyboardEvent) => {
@@ -27,7 +35,6 @@
 					break;
 				case '?':
 					event.preventDefault();
-
 					break;
 			}
 		};
@@ -40,7 +47,7 @@
 	}
 
 	async function leaveCurrentLocation() {
-		const $gameStore = get(gameStore); // Changed from gameState to gameStore
+		const $gameStore = get(gameStore);
 		if ($gameStore.heroPawn && data.user) {
 			await gameService.leaveCurrentLocation(data.user.id);
 			if ($gameStore.currentView === 'dialog') {

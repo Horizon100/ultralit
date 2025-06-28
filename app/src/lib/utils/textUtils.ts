@@ -55,10 +55,7 @@ export class TextUtils {
 	static async formatContent(content: string): Promise<string> {
 		if (!content || typeof content !== 'string') return content || '';
 
-		const result = await clientTryCatch(
-			processMarkdown(content),
-			'Markdown processing'
-		);
+		const result = await clientTryCatch(processMarkdown(content), 'Markdown processing');
 
 		return unwrapOr(result, content);
 	}

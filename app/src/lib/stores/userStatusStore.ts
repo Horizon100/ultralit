@@ -18,19 +18,22 @@ export const userStatusStore = writable<Map<string, UserStatusInfo>>(new Map());
 const STATUS_CACHE_DURATION = 30000;
 
 // Function to fetch and update a user's status
-export async function fetchUserStatus(userId: string, forceRefresh: boolean = false): Promise<UserStatusInfo | null> {
+export async function fetchUserStatus(
+	userId: string,
+	forceRefresh: boolean = false
+): Promise<UserStatusInfo | null> {
 	console.log('🔍 fetchUserStatus called with userId:', userId, 'forceRefresh:', forceRefresh);
-	
+
 	// Check cache first unless force refresh
 	if (!forceRefresh) {
 		let cachedStatus: UserStatusInfo | null = null;
-		userStatusStore.subscribe(statusMap => {
+		userStatusStore.subscribe((statusMap) => {
 			const cached = statusMap.get(userId);
 			if (cached && Date.now() - cached.lastUpdated < STATUS_CACHE_DURATION) {
 				cachedStatus = cached;
 			}
 		})();
-		
+
 		if (cachedStatus) {
 			console.log('📋 Using cached status for user:', userId, cachedStatus);
 			return cachedStatus;
@@ -38,7 +41,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 	}
 
 	console.log('🌐 Making API request for user data:', userId);
-	
+
 	const result = await fetchTryCatch<{
 		success: boolean;
 		user?: {
@@ -55,7 +58,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 			method: 'GET',
 			credentials: 'include',
 			headers: {
-				'Accept': 'application/json',
+				Accept: 'application/json',
 				'Cache-Control': 'no-cache'
 			}
 		},
@@ -64,7 +67,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 
 	if (!isSuccess(result)) {
 		console.error('❌ Error fetching user data:', result.error);
-		
+
 		// Set as offline if fetch fails
 		const offlineStatus: UserStatusInfo = {
 			userId,
@@ -74,7 +77,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 			lastUpdated: Date.now()
 		};
 
-		userStatusStore.update(statusMap => {
+		userStatusStore.update((statusMap) => {
 			statusMap.set(userId, offlineStatus);
 			console.log('💾 Updated store with offline status. Store size:', statusMap.size);
 			return new Map(statusMap);
@@ -85,7 +88,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 
 	console.log('📥 Raw API response:', result.data);
 	const responseData = result.data;
-	
+
 	// Handle the response from /api/users/[id]
 	if (!responseData.success || !responseData.user) {
 		console.error('❌ Invalid response structure:', responseData);
@@ -104,7 +107,7 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 	console.log('✅ Processed status info:', statusInfo);
 
 	// Update the store
-	userStatusStore.update(statusMap => {
+	userStatusStore.update((statusMap) => {
 		statusMap.set(userId, statusInfo);
 		console.log('💾 Updated store with new status. Store size:', statusMap.size);
 		console.log('📊 Store contents:', Array.from(statusMap.entries()));
@@ -117,8 +120,8 @@ export async function fetchUserStatus(userId: string, forceRefresh: boolean = fa
 // Function to get status from store
 export function getUserStatus(userId: string): UserStatusInfo | null {
 	let status: UserStatusInfo | null = null;
-	
-	userStatusStore.subscribe(statusMap => {
+
+	userStatusStore.subscribe((statusMap) => {
 		status = statusMap.get(userId) || null;
 	})();
 
@@ -128,7 +131,7 @@ export function getUserStatus(userId: string): UserStatusInfo | null {
 // Function to update current user's status
 export async function updateMyStatus(userId: string, status: UserStatus): Promise<boolean> {
 	console.log('🔄 Updating status for user:', userId, 'to:', status);
-	
+
 	const result = await fetchTryCatch<{
 		success: boolean;
 		data?: {
@@ -156,11 +159,11 @@ export async function updateMyStatus(userId: string, status: UserStatus): Promis
 	}
 
 	const responseData = result.data;
-	const success = responseData.success && responseData.data?.success;
-	
+	const success = Boolean(responseData.success && responseData.data?.success);
+
 	if (success) {
 		// Update the store with the new status
-		userStatusStore.update(statusMap => {
+		userStatusStore.update((statusMap) => {
 			const existing = statusMap.get(userId);
 			if (existing) {
 				statusMap.set(userId, {
@@ -173,14 +176,14 @@ export async function updateMyStatus(userId: string, status: UserStatus): Promis
 		});
 		console.log('✅ Status updated successfully');
 	}
-	
+
 	return success;
 }
 
 // Function to start periodic status checking for a user
 export function startStatusPolling(userId: string, intervalMs: number = 30000): () => void {
 	console.log('⏰ Starting status polling for user:', userId, 'interval:', intervalMs);
-	
+
 	// Initial fetch
 	fetchUserStatus(userId);
 
@@ -200,7 +203,7 @@ export function startStatusPolling(userId: string, intervalMs: number = 30000): 
 // Function to clear expired cache entries
 export function clearExpiredStatusCache(): void {
 	const now = Date.now();
-	userStatusStore.update(statusMap => {
+	userStatusStore.update((statusMap) => {
 		for (const [userId, statusInfo] of statusMap.entries()) {
 			if (now - statusInfo.lastUpdated > STATUS_CACHE_DURATION * 2) {
 				statusMap.delete(userId);
@@ -225,7 +228,7 @@ export function clearAllStatusData(): void {
 
 // Debug function to log store contents
 export function debugStatusStore(): void {
-	userStatusStore.subscribe(statusMap => {
+	userStatusStore.subscribe((statusMap) => {
 		console.log('🐛 Status Store Debug:');
 		console.log('📊 Store size:', statusMap.size);
 		console.log('👥 Users in store:', Array.from(statusMap.keys()));

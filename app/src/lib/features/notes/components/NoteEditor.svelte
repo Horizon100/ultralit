@@ -522,6 +522,7 @@
 		setTimeout(() => (showH2 = true), 50);
 	});
 </script>
+
 <div class="container" on:click={hideContextMenu}>
 	{#if $showExplorer}
 		<div class="explorer">
@@ -788,7 +789,6 @@
 		<img src={Headmaster} alt="Notes illustration" class="illustration" />
 	</div>
 {/if}
-
 
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;

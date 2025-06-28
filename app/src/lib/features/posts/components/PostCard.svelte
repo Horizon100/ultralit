@@ -3,7 +3,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
-	import type { Tag, AIAgent} from '$lib/types/types'; // Add this import
+	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
 	import ShareModal from '$lib/components/modals/ShareModal.svelte';
@@ -13,7 +13,7 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getExpandedUserAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { formatFileSize } from '$lib/utils/fileHandlers';
-	import { slide, fly, fade } from 'svelte/transition'; 
+	import { slide, fly, fade } from 'svelte/transition';
 	import {
 		initAudioState,
 		registerAudioElement,
@@ -61,38 +61,39 @@
 	let tagsLoaded = false;
 	let agentsExpanded = false;
 
-$: postAgentIds = post.agents || [];
-$: availableAgents = $agentStore.agents || [];
-$: activeAgents = availableAgents.filter(agent => agent.status === 'active');
+	$: postAgentIds = post.agents || [];
+	$: availableAgents = $agentStore.agents || [];
+	$: activeAgents = availableAgents.filter((agent) => agent.status === 'active');
 
-$: postAgents = postAgentIds
-	.map(agentId => activeAgents.find(agent => agent.id === agentId))
-	.filter((agent): agent is AIAgent => agent !== undefined);
+	$: postAgents = postAgentIds
+		.map((agentId) => activeAgents.find((agent) => agent.id === agentId))
+		.filter((agent): agent is AIAgent => agent !== undefined);
 
-$: totalAgentIds = postAgentIds.length; 
-$: agentCount = postAgents.length; 
-$: displayedAgents = postAgents.slice(0, 5); // Sh
-$: agentsTitle = totalAgentIds === 0
-	? 'No agents assigned'
-	: agentCount === 0
-		? `${totalAgentIds} agents (none active)`
-		: agentCount === totalAgentIds
-			? agentCount === 1
-				? '1 active agent'
-				: `${agentCount} active agents`
-			: `${agentCount} of ${totalAgentIds} agents active`;
-function handleAgents() {
-	console.log('=== AGENT DEBUG ===');
-	console.log('Post agent IDs:', postAgentIds);
-	console.log('Available agents in store:', availableAgents.length);
-	console.log('Available agent details:', availableAgents);
-	console.log('Active agents in store:', activeAgents.length);
-	console.log('Active agent details:', activeAgents);
-	console.log('Matched post agents:', postAgents);
-	console.log('Agent count:', agentCount);
-	agentsExpanded = !agentsExpanded;
-	console.log('Agents expanded:', agentsExpanded);
-}
+	$: totalAgentIds = postAgentIds.length;
+	$: agentCount = postAgents.length;
+	$: displayedAgents = postAgents.slice(0, 5); // Sh
+	$: agentsTitle =
+		totalAgentIds === 0
+			? 'No agents assigned'
+			: agentCount === 0
+				? `${totalAgentIds} agents (none active)`
+				: agentCount === totalAgentIds
+					? agentCount === 1
+						? '1 active agent'
+						: `${agentCount} active agents`
+					: `${agentCount} of ${totalAgentIds} agents active`;
+	function handleAgents() {
+		console.log('=== AGENT DEBUG ===');
+		console.log('Post agent IDs:', postAgentIds);
+		console.log('Available agents in store:', availableAgents.length);
+		console.log('Available agent details:', availableAgents);
+		console.log('Active agents in store:', activeAgents.length);
+		console.log('Active agent details:', activeAgents);
+		console.log('Matched post agents:', postAgents);
+		console.log('Agent count:', agentCount);
+		agentsExpanded = !agentsExpanded;
+		console.log('Agents expanded:', agentsExpanded);
+	}
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
@@ -157,42 +158,42 @@ function handleAgents() {
 		// If different year, show: "15. March 2023"
 		return `${day}. ${monthName} ${year}`;
 	}
-async function toggleAgentAssignment(agentId: string) {
-	console.log('Toggling agent assignment:', agentId);
-	
-	const isCurrentlyAssigned = postAgentIds.includes(agentId);
-	let newAgentIds: string[];
-	
-	if (isCurrentlyAssigned) {
-		// Remove agent
-		newAgentIds = postAgentIds.filter(id => id !== agentId);
-	} else {
-		// Add agent
-		newAgentIds = [...postAgentIds, agentId];
-	}
-	
-	try {
-		const response = await fetch(`/api/posts/${post.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			credentials: 'include',
-			body: JSON.stringify({
-				agents: newAgentIds
-			})
-		});
-		
-		if (response.ok) {
-			// Update local state
-			post.agents = newAgentIds;
-			const agent = activeAgents.find(a => a.id === agentId);
-			console.log(`✅ ${isCurrentlyAssigned ? 'Unassigned' : 'Assigned'} agent:`, agent?.name);
+	async function toggleAgentAssignment(agentId: string) {
+		console.log('Toggling agent assignment:', agentId);
+
+		const isCurrentlyAssigned = postAgentIds.includes(agentId);
+		let newAgentIds: string[];
+
+		if (isCurrentlyAssigned) {
+			// Remove agent
+			newAgentIds = postAgentIds.filter((id) => id !== agentId);
 		} else {
-			console.error('Failed to update agent assignment');
+			// Add agent
+			newAgentIds = [...postAgentIds, agentId];
 		}
-	} catch (error) {
-		console.error('Error updating agent assignment:', error);
+
+		try {
+			const response = await fetch(`/api/posts/${post.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({
+					agents: newAgentIds
+				})
+			});
+
+			if (response.ok) {
+				// Update local state
+				post.agents = newAgentIds;
+				const agent = activeAgents.find((a) => a.id === agentId);
+				console.log(`✅ ${isCurrentlyAssigned ? 'Unassigned' : 'Assigned'} agent:`, agent?.name);
+			} else {
+				console.error('Failed to update agent assignment');
+			}
+		} catch (error) {
+			console.error('Error updating agent assignment:', error);
+		}
 	}
-}
 	function handleInteraction(action: 'upvote' | 'repost' | 'read') {
 		dispatch('interact', { postId: post.id, action });
 	}
@@ -201,10 +202,10 @@ async function toggleAgentAssignment(agentId: string) {
 		dispatch('comment', { postId: post.id });
 	}
 
-function handleShare() {
-	// Open the share modal instead of directly sharing
-	showShareModal = true;
-}
+	function handleShare() {
+		// Open the share modal instead of directly sharing
+		showShareModal = true;
+	}
 	// Updated handleTags function for inline expansion
 	async function handleTags() {
 		if (tagCount === 0) return;
@@ -219,73 +220,81 @@ function handleShare() {
 
 	// Fetch tag details
 
-async function fetchTagDetails() {
-	if (!hasTagIds || tagsLoaded || loadingTags) return;
+	async function fetchTagDetails() {
+		if (!hasTagIds || tagsLoaded || loadingTags) return;
 
-	loadingTags = true;
+		loadingTags = true;
 
-	const result = await clientTryCatch((async () => {
-		console.log('Fetching tag details for post:', post.id, post.tags);
+		const result = await clientTryCatch(
+			(async () => {
+				console.log('Fetching tag details for post:', post.id, post.tags);
 
-		// Ensure post.tags is an array
-		const tagIds = Array.isArray(post.tags) ? post.tags : [];
-		
-		if (tagIds.length === 0) {
-			console.warn('No tag IDs found');
-			return [];
-		}
+				// Ensure post.tags is an array
+				const tagIds = Array.isArray(post.tags) ? post.tags : [];
 
-		// Fetch details for each tag ID
-		const tagPromises = tagIds.map(async (tagId) => {
-			const tagResult = await clientTryCatch((async () => {
-				const response = await fetch(`/api/tags/${tagId}`, {
-					credentials: 'include'
+				if (tagIds.length === 0) {
+					console.warn('No tag IDs found');
+					return [];
+				}
+
+				// Fetch details for each tag ID
+				const tagPromises = tagIds.map(async (tagId) => {
+					const tagResult = await clientTryCatch(
+						(async () => {
+							const response = await fetch(`/api/tags/${tagId}`, {
+								credentials: 'include'
+							});
+
+							if (!response.ok) {
+								throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+							}
+
+							const responseData = await response.json();
+
+							/*
+							 * Your API might return { success: true, data: tag } or just the tag directly
+							 * Handle both cases
+							 */
+							if (responseData.success && responseData.data) {
+								return responseData.data;
+							} else if (responseData.id) {
+								// Direct tag object
+								return responseData;
+							} else {
+								throw new Error('Invalid response format');
+							}
+						})(),
+						`Fetching tag ${tagId}`
+					);
+
+					if (isFailure(tagResult)) {
+						console.error(`Error fetching tag ${tagId}:`, tagResult.error);
+						return null;
+					}
+
+					return tagResult.data;
 				});
 
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-				}
+				const results = await Promise.all(tagPromises);
+				const validTags = results.filter(Boolean); // Remove null results
+				tagDetails = validTags;
+				tagsLoaded = true;
 
-				const responseData = await response.json();
-				
-				// Your API might return { success: true, data: tag } or just the tag directly
-				// Handle both cases
-				if (responseData.success && responseData.data) {
-					return responseData.data;
-				} else if (responseData.id) {
-					// Direct tag object
-					return responseData;
-				} else {
-					throw new Error('Invalid response format');
-				}
-			})(), `Fetching tag ${tagId}`);
+				console.log('Fetched tag details:', tagDetails);
+				return validTags;
+			})(),
+			`Fetching tag details for post ${post.id}`
+		);
 
-			if (isFailure(tagResult)) {
-				console.error(`Error fetching tag ${tagId}:`, tagResult.error);
-				return null;
-			}
+		if (isFailure(result)) {
+			console.error('Error fetching tag details:', result.error);
+			// Set empty array on error so UI doesn't stay in loading state
+			tagDetails = [];
+		}
 
-			return tagResult.data;
-		});
-
-		const results = await Promise.all(tagPromises);
-		const validTags = results.filter(Boolean); // Remove null results
-		tagDetails = validTags;
-		tagsLoaded = true;
-
-		console.log('Fetched tag details:', tagDetails);
-		return validTags;
-	})(), `Fetching tag details for post ${post.id}`);
-
-	if (isFailure(result)) {
-		console.error('Error fetching tag details:', result.error);
-		// Set empty array on error so UI doesn't stay in loading state
-		tagDetails = [];
+		// Always reset loading state
+		loadingTags = false;
 	}
-
-	// Always reset loading state
-	loadingTags = false;
-}
 	// Handle clicking on individual tags
 	function handleTagClick(tag: Tag, event: MouseEvent) {
 		event.stopPropagation();
@@ -311,120 +320,118 @@ async function fetchTagDetails() {
 		return colors[index % colors.length];
 	}
 
+	async function handleCopyLink() {
+		try {
+			// Pass the username to sharePost for proper URL construction
+			const result = await postStore.sharePost(post.id, post.author_username);
 
-
-async function handleCopyLink() {
-	try {
-		// Pass the username to sharePost for proper URL construction
-		const result = await postStore.sharePost(post.id, post.author_username);
-		
-		if (result.copied) {
-			// Success - link copied successfully with normal methods
-			toast.success(result.message || 'Link copied to clipboard!');
-		} else {
-			// Normal copy failed - try aggressive copy method
-			console.log('🚀 Normal copy failed, trying aggressive copy...');
-			const aggressiveSuccess = await tryAggressiveCopy(result.url);
-			
-			if (aggressiveSuccess) {
-				// Aggressive copy worked
-				if (result.shareCount !== undefined) {
-					toast.success('Post shared and link copied to clipboard!');
-				} else {
-					toast.success('Link copied to clipboard!');
-				}
+			if (result.copied) {
+				// Success - link copied successfully with normal methods
+				toast.success(result.message || 'Link copied to clipboard!');
 			} else {
-				// All copy methods failed
-				if (result.shareCount !== undefined) {
-					toast.success('Post shared successfully!');
-					toast.warning('Could not copy link automatically', 3000);
+				// Normal copy failed - try aggressive copy method
+				console.log('🚀 Normal copy failed, trying aggressive copy...');
+				const aggressiveSuccess = await tryAggressiveCopy(result.url);
+
+				if (aggressiveSuccess) {
+					// Aggressive copy worked
+					if ('shareCount' in result && result.shareCount !== undefined) {
+						toast.success('Post shared and link copied to clipboard!');
+					} else {
+						toast.success('Link copied to clipboard!');
+					}
 				} else {
-					toast.error('Could not copy link to clipboard');
+					// All copy methods failed
+					if ('shareCount' in result && result.shareCount !== undefined) {
+						toast.success('Post shared successfully!');
+						toast.warning('Could not copy link automatically', 3000);
+					} else {
+						toast.error('Could not copy link to clipboard');
+					}
 				}
 			}
+		} catch (error) {
+			console.error('Error sharing post:', error);
+			toast.error('Sharing failed');
 		}
-	} catch (error) {
-		console.error('Error sharing post:', error);
-		toast.error('Sharing failed');
-	}
-	
-	// Always close the modal
-	showShareModal = false;
-}
 
-// Simplified aggressive copy method (remove the modal parts)
-async function tryAggressiveCopy(text: string): Promise<boolean> {
-	console.log('🚀 Trying aggressive copy methods...');
-	
-	// Method 1: Try clipboard API again (might work in different context)
-	try {
-		await navigator.clipboard.writeText(text);
-		console.log('✅ Clipboard API worked in aggressive context');
-		return true;
-	} catch (e) {
-		console.log('❌ Clipboard API still blocked');
+		// Always close the modal
+		showShareModal = false;
 	}
-	
-	// Method 2: Use a hidden input with different timing and focus
-	try {
-		const input = document.createElement('input');
-		input.type = 'text';
-		input.value = text;
-		input.style.cssText = 'position: absolute; left: -9999px; top: -9999px; opacity: 0;';
-		
-		document.body.appendChild(input);
-		
-		// Give it time to be added to DOM
-		await new Promise(resolve => setTimeout(resolve, 50));
-		
-		// Try to give it focus and select
-		input.focus();
-		input.select();
-		input.setSelectionRange(0, text.length);
-		
-		// Small delay before copy attempt
-		await new Promise(resolve => setTimeout(resolve, 10));
-		
-		const success = document.execCommand('copy');
-		document.body.removeChild(input);
-		
-		if (success) {
-			console.log('✅ Aggressive copy method succeeded');
+
+	// Simplified aggressive copy method (remove the modal parts)
+	async function tryAggressiveCopy(text: string): Promise<boolean> {
+		console.log('🚀 Trying aggressive copy methods...');
+
+		// Method 1: Try clipboard API again (might work in different context)
+		try {
+			await navigator.clipboard.writeText(text);
+			console.log('✅ Clipboard API worked in aggressive context');
 			return true;
-		} else {
-			console.log('❌ Aggressive copy method failed: execCommand returned false');
+		} catch (e) {
+			console.log('❌ Clipboard API still blocked');
 		}
-	} catch (e) {
-		console.log('❌ Aggressive copy method failed with error:', e);
-	}
-	
-	// Method 3: Try with textarea instead of input
-	try {
-		const textarea = document.createElement('textarea');
-		textarea.value = text;
-		textarea.style.cssText = 'position: fixed; left: -9999px; top: -9999px; opacity: 0;';
-		
-		document.body.appendChild(textarea);
-		await new Promise(resolve => setTimeout(resolve, 50));
-		
-		textarea.focus();
-		textarea.select();
-		
-		await new Promise(resolve => setTimeout(resolve, 10));
-		
-		const success = document.execCommand('copy');
-		document.body.removeChild(textarea);
-		
-		if (success) {
-			console.log('✅ Textarea copy method succeeded');
-			return true;
+
+		// Method 2: Use a hidden input with different timing and focus
+		try {
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = text;
+			input.style.cssText = 'position: absolute; left: -9999px; top: -9999px; opacity: 0;';
+
+			document.body.appendChild(input);
+
+			// Give it time to be added to DOM
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			// Try to give it focus and select
+			input.focus();
+			input.select();
+			input.setSelectionRange(0, text.length);
+
+			// Small delay before copy attempt
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			const success = document.execCommand('copy');
+			document.body.removeChild(input);
+
+			if (success) {
+				console.log('✅ Aggressive copy method succeeded');
+				return true;
+			} else {
+				console.log('❌ Aggressive copy method failed: execCommand returned false');
+			}
+		} catch (e) {
+			console.log('❌ Aggressive copy method failed with error:', e);
 		}
-	} catch (e) {
-		console.log('❌ Textarea copy method failed:', e);
+
+		// Method 3: Try with textarea instead of input
+		try {
+			const textarea = document.createElement('textarea');
+			textarea.value = text;
+			textarea.style.cssText = 'position: fixed; left: -9999px; top: -9999px; opacity: 0;';
+
+			document.body.appendChild(textarea);
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			textarea.focus();
+			textarea.select();
+
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			const success = document.execCommand('copy');
+			document.body.removeChild(textarea);
+
+			if (success) {
+				console.log('✅ Textarea copy method succeeded');
+				return true;
+			}
+		} catch (e) {
+			console.log('❌ Textarea copy method failed:', e);
+		}
+
+		return false;
 	}
-	
-	return false;
-}
 
 	function handleQuote() {
 		showQuoteModal = true;
@@ -436,18 +443,20 @@ async function tryAggressiveCopy(text: string): Promise<boolean> {
 		dispatch('quote', event.detail);
 		showQuoteModal = false;
 	}
-// $: {
-//     debugCount++;
-//     console.log(`PostCard render #${debugCount} for post ${post.id}:`, {
-//         upvoteCount: post.upvoteCount,
-//         calculatedUpvoteCount: upvoteCount,
-//         upvote: post.upvote,
-//         fullPost: post
-//     });
-// }
+	/*
+	 * $: {
+	 *     debugCount++;
+	 *     console.log(`PostCard render #${debugCount} for post ${post.id}:`, {
+	 *         upvoteCount: post.upvoteCount,
+	 *         calculatedUpvoteCount: upvoteCount,
+	 *         upvote: post.upvote,
+	 *         fullPost: post
+	 *     });
+	 * }
+	 */
 
-
-$: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ? post.upvoteCount : 0;
+	$: upvoteCount =
+		post.upvoteCount !== undefined && post.upvoteCount !== null ? post.upvoteCount : 0;
 	$: shareTitle = $t('generic.share') as string;
 	$: upvoteTitle = $t('posts.postUpvote') as string;
 	$: repostTitle = $t('posts.repost') as string;
@@ -464,10 +473,7 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	});
 </script>
 
-<article class="post-card" 
-	class:comment={isComment}
-
->
+<article class="post-card" class:comment={isComment}>
 	{#if isRepost}
 		<div class="repost-indicator">
 			{@html getIcon('Repeat', { size: 14 })}
@@ -496,7 +502,11 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		</a>
 		<div class="post-meta">
 			<!-- Make author name clickable -->
-			<a href="/{post.author_username || post.expand?.user?.username}" class="author-link" class:hidden={hideHeaderOnScroll}>
+			<a
+				href="/{post.author_username || post.expand?.user?.username}"
+				class="author-link"
+				class:hidden={hideHeaderOnScroll}
+			>
 				<div class="post-author">
 					{post.author_name ||
 						post.author_username ||
@@ -646,60 +656,64 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		</div>
 	{/if}
 
-{#if agentsExpanded}
-	<div class="agents-row" transition:slide={{ duration: 200 }}>
-		{#if activeAgents.length === 0}
-			<div class="no-agents-message">
-				<p>No active agents available</p>
-				<p><small>Total agents in store: {availableAgents.length}</small></p>
-			</div>
-		{:else}
-			<div class="agents-header">
-				<span class="agents-title">Click agents to assign/unassign:</span>
-			</div>
-			{#each activeAgents.slice(0, 5) as agent (agent.id)}
-				<div 
-					class="agent-avatar clickable"
-					class:assigned={postAgentIds.includes(agent.id)}
-					title="{agent.name} - Click to {postAgentIds.includes(agent.id) ? 'unassign' : 'assign'}"
-					on:click={() => toggleAgentAssignment(agent.id)}
-					on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
-					role="button"
-					tabindex="0"
-					animate:flip={{ duration: 200 }}
-				>
-					{#if agent.avatar}
-						<img 
-							src="{pocketbaseUrl}/api/files/ai_agents/{agent.id}/{agent.avatar}"
-							alt={agent.name}
-							class="avatar-image"
-						/>
-					{:else}
-						<div class="avatar-fallback">
-							{agent.name.charAt(0).toUpperCase()}
-						</div>
-					{/if}
-					<span class="agent-name">{agent.name}</span>
-					{#if postAgentIds.includes(agent.id)}
-						<div class="assigned-indicator">✓</div>
-					{/if}
+	{#if agentsExpanded}
+		<div class="agents-row" transition:slide={{ duration: 200 }}>
+			{#if activeAgents.length === 0}
+				<div class="no-agents-message">
+					<p>No active agents available</p>
+					<p><small>Total agents in store: {availableAgents.length}</small></p>
 				</div>
-			{/each}
-			
-			{#if activeAgents.length > 5}
-				<div class="agent-overflow" title={`+${activeAgents.length - 5} more agents available`}>
-					<span class="overflow-count">+{activeAgents.length - 5}</span>
+			{:else}
+				<div class="agents-header">
+					<span class="agents-title">Click agents to assign/unassign:</span>
 				</div>
-			{/if}
+				{#each activeAgents.slice(0, 5) as agent (agent.id)}
+					<div
+						class="agent-avatar clickable"
+						class:assigned={postAgentIds.includes(agent.id)}
+						title="{agent.name} - Click to {postAgentIds.includes(agent.id)
+							? 'unassign'
+							: 'assign'}"
+						on:click={() => toggleAgentAssignment(agent.id)}
+						on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
+						role="button"
+						tabindex="0"
+						animate:flip={{ duration: 200 }}
+					>
+						{#if agent.avatar}
+							<img
+								src="{pocketbaseUrl}/api/files/ai_agents/{agent.id}/{agent.avatar}"
+								alt={agent.name}
+								class="avatar-image"
+							/>
+						{:else}
+							<div class="avatar-fallback">
+								{agent.name.charAt(0).toUpperCase()}
+							</div>
+						{/if}
+						<span class="agent-name">{agent.name}</span>
+						{#if postAgentIds.includes(agent.id)}
+							<div class="assigned-indicator">✓</div>
+						{/if}
+					</div>
+				{/each}
 
-			{#if postAgentIds.length > 0}
-				<div class="agents-summary">
-					<small>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small>
-				</div>
+				{#if activeAgents.length > 5}
+					<div class="agent-overflow" title={`+${activeAgents.length - 5} more agents available`}>
+						<span class="overflow-count">+{activeAgents.length - 5}</span>
+					</div>
+				{/if}
+
+				{#if postAgentIds.length > 0}
+					<div class="agents-summary">
+						<small
+							>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small
+						>
+					</div>
+				{/if}
 			{/if}
-		{/if}
-	</div>
-{/if}
+		</div>
+	{/if}
 	{#if showActions}
 		<div class="post-actions">
 			<button class="action-button comment" title="Comment" on:click={handleComment}>
@@ -717,15 +731,15 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 				<span>{post.repostCount || 0}</span>
 			</button>
 
-		<button
-			class="action-button upvote"
-			class:active={post.upvote}
-			on:click={() => handleInteraction('upvote')}
-			title={upvoteTitle}
-		>
-			{@html getIcon('Heart', { size: 16 })}
-			<span>{upvoteCount}</span>
-		</button>
+			<button
+				class="action-button upvote"
+				class:active={post.upvote}
+				on:click={() => handleInteraction('upvote')}
+				title={upvoteTitle}
+			>
+				{@html getIcon('Heart', { size: 16 })}
+				<span>{upvoteCount}</span>
+			</button>
 
 			<button
 				class="action-button share"
@@ -767,25 +781,25 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 					</span>
 				{/if}
 			</button>
-<button
-		class="action-button agents"
-		class:expanded={agentsExpanded}
-		class:has-agents={agentCount > 0}
-		class:no-agents={agentCount === 0}
-		title={agentsTitle}
-		on:click={handleAgents}
-	>
-	{@html getIcon('Bot', { size: 16 })}
-	<span class="agent-count">{activeAgents.length}</span>
+			<button
+				class="action-button agents"
+				class:expanded={agentsExpanded}
+				class:has-agents={agentCount > 0}
+				class:no-agents={agentCount === 0}
+				title={agentsTitle}
+				on:click={handleAgents}
+			>
+				{@html getIcon('Bot', { size: 16 })}
+				<span class="agent-count">{activeAgents.length}</span>
 
-		<span class="expand-icon">
-			{#if agentsExpanded}
-				{@html getIcon('ChevronDown', { size: 12 })}
-			{:else}
-				{@html getIcon('ChevronRight', { size: 12 })}
-			{/if}
-		</span>
-	</button>
+				<span class="expand-icon">
+					{#if agentsExpanded}
+						{@html getIcon('ChevronDown', { size: 12 })}
+					{:else}
+						{@html getIcon('ChevronRight', { size: 12 })}
+					{/if}
+				</span>
+			</button>
 		</div>
 
 		<!-- Expanded tags section -->
@@ -869,7 +883,6 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		margin: 0;
 		height: auto;
 		gap: 0.75rem;
-
 	}
 	.post-header.scrolled {
 		padding: 0;
@@ -889,11 +902,13 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 	.avatar-link:hover {
 		transform: scale(1.05);
 	}
-.avatar-link.hidden,
+	.avatar-link.hidden,
 	.author-link.hidden {
 		opacity: 0;
 		transform: translateY(-10px);
-		transition: opacity 0.2s ease, transform 0.2s ease;
+		transition:
+			opacity 0.2s ease,
+			transform 0.2s ease;
 		pointer-events: none;
 	}
 	.post-avatar {
@@ -1124,9 +1139,6 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		border-left-color: var(--primary-color);
 	}
 
-
-
-
 	.action-button:hover {
 		background-color: var(--hover-bg, #f3f4f6);
 		color: var(--text-primary, #111827);
@@ -1234,60 +1246,60 @@ $: upvoteCount = (post.upvoteCount !== undefined && post.upvoteCount !== null) ?
 		pointer-events: none;
 	}
 	.agent-avatar.clickable {
-	cursor: pointer;
-	position: relative;
-	border: 2px solid transparent;
-	border-radius: 8px;
-	padding: 4px;
-	transition: all 0.2s ease;
-}
+		cursor: pointer;
+		position: relative;
+		border: 2px solid transparent;
+		border-radius: 8px;
+		padding: 4px;
+		transition: all 0.2s ease;
+	}
 
-.agent-avatar.clickable:hover {
-	transform: translateY(-2px);
-	border-color: var(--accent-color, #3b82f6);
-	background-color: var(--accent-bg-light, #f0f9ff);
-}
+	.agent-avatar.clickable:hover {
+		transform: translateY(-2px);
+		border-color: var(--accent-color, #3b82f6);
+		background-color: var(--accent-bg-light, #f0f9ff);
+	}
 
-.agent-avatar.assigned {
-	border-color: var(--success-color, #10b981);
-	background-color: var(--success-bg, #ecfdf5);
-}
+	.agent-avatar.assigned {
+		border-color: var(--success-color, #10b981);
+		background-color: var(--success-bg, #ecfdf5);
+	}
 
-.assigned-indicator {
-	position: absolute;
-	top: -2px;
-	right: -2px;
-	background-color: var(--success-color, #10b981);
-	color: white;
-	border-radius: 50%;
-	width: 16px;
-	height: 16px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 10px;
-	font-weight: bold;
-}
+	.assigned-indicator {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		background-color: var(--success-color, #10b981);
+		color: white;
+		border-radius: 50%;
+		width: 16px;
+		height: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 10px;
+		font-weight: bold;
+	}
 
-.agents-header {
-	width: 100%;
-	margin-bottom: 0.5rem;
-}
+	.agents-header {
+		width: 100%;
+		margin-bottom: 0.5rem;
+	}
 
-.agents-title {
-	font-size: 0.75rem;
-	color: var(--text-muted, #6b7280);
-	font-weight: 500;
-}
+	.agents-title {
+		font-size: 0.75rem;
+		color: var(--text-muted, #6b7280);
+		font-weight: 500;
+	}
 
-.agents-summary {
-	width: 100%;
-	text-align: center;
-	margin-top: 0.5rem;
-	padding-top: 0.5rem;
-	border-top: 1px solid var(--border-color, #e5e7eb);
-	color: var(--text-muted, #6b7280);
-}
+	.agents-summary {
+		width: 100%;
+		text-align: center;
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--border-color, #e5e7eb);
+		color: var(--text-muted, #6b7280);
+	}
 	/* Mobile responsive */
 	@media (max-width: 768px) {
 		.post-card {

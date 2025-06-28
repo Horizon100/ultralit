@@ -133,9 +133,9 @@
 					on:mouseleave={() => (favoritesHovered = false)}
 				>
 					<span class="star-filter" class:active={$threadsStore.showFavoriteThreads}>
-					{@html getIcon('Star', { size: 18 })}
-					</span>				
-				{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
+						{@html getIcon('Star', { size: 18 })}
+					</span>
+					{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 						<span class="tooltip tooltip-delayed" in:fade>
 							{$t('profile.favorites') || 'Favorite Threads'}
 						</span>
@@ -234,9 +234,8 @@
 												class="action-btn"
 												on:click|stopPropagation={(e) => handleFavoriteThread(e, thread)}
 											>
-												
 												<span class="star-icon" class:favorited={isThreadFavorited(thread.id)}>
-												{@html getIcon('Star', { size: 16 })}
+													{@html getIcon('Star', { size: 16 })}
 												</span>
 											</button>
 										</div>
@@ -633,15 +632,15 @@
 		fill: none;
 		transition: fill 0.2s ease;
 	}
-	
+
 	.star-icon.favorited :global(svg) {
 		fill: currentColor;
 	}
-	  .star-filter :global(svg) {
+	.star-filter :global(svg) {
 		fill: none;
 		transition: fill 0.2s ease;
 	}
-	
+
 	.star-filter.active :global(svg) {
 		fill: currentColor;
 	}

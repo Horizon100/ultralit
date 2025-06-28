@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { User, PublicUserProfile, UserProfile } from '$lib/types/types';
+	import type { User, PublicUserProfile, UserProfile, ConversationUser } from '$lib/types/types';
 
-	export let user: User | PublicUserProfile | UserProfile;
+	export let user: User | PublicUserProfile | UserProfile | ConversationUser;
 	export let showStatus = true;
 	export let clickable = false;
 	export let onClick: (() => void) | undefined = undefined;
@@ -11,15 +11,33 @@
 			onClick();
 		}
 	}
+
+	function getDisplayName(user: User | PublicUserProfile | UserProfile | ConversationUser): string {
+		const name = user.name || ('username' in user ? user.username : '');
+		return name || 'Unknown User';
+	}
+
+	function getAvatarSrc(
+		user: User | PublicUserProfile | UserProfile | ConversationUser
+	): string | null {
+		if ('avatarUrl' in user && user.avatarUrl) return user.avatarUrl;
+		if ('avatar' in user && user.avatar) return user.avatar;
+		return null;
+	}
 </script>
 
-<div class="dm-header" class:clickable on:click={handleClick} role={clickable ? 'button' : undefined}>
+<div
+	class="dm-header"
+	class:clickable
+	on:click={handleClick}
+	role={clickable ? 'button' : undefined}
+>
 	<div class="avatar-container">
-		{#if user.avatar || user.avatarUrl}
-			<img src={user.avatarUrl || user.avatar} alt={user.name || user.username} class="avatar" />
+		{#if getAvatarSrc(user)}
+			<img src={getAvatarSrc(user)} alt={getDisplayName(user)} class="avatar" />
 		{:else}
 			<div class="avatar-placeholder">
-				{(user.name || user.username).charAt(0).toUpperCase()}
+				{getDisplayName(user).charAt(0).toUpperCase()}
 			</div>
 		{/if}
 		{#if showStatus && 'status' in user && user.status}
@@ -27,7 +45,7 @@
 		{/if}
 	</div>
 	<div class="user-info">
-		<h3 class="username">{user.name || user.username}</h3>
+		<h3 class="username">{getDisplayName(user)}</h3>
 		{#if showStatus && 'status' in user && user.status}
 			<span class="status-text">{user.status}</span>
 		{/if}
@@ -48,7 +66,7 @@
 		height: 3rem;
 		&.clickable {
 			cursor: pointer;
-			
+
 			&:hover {
 				background: var(--secondary-color);
 			}

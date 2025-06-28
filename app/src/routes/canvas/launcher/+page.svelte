@@ -95,7 +95,7 @@
 			{#if isNarrowScreen}
 				<button class="toggle-nav" on:click={toggleNav}>
 					<span class="nav-icon">
-						{@html getIcon('SquareMenu', { size: 24 })}						
+						{@html getIcon('SquareMenu', { size: 24 })}
 					</span>
 				</button>
 			{/if}

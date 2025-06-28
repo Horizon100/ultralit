@@ -256,10 +256,7 @@ export class UIUtils {
 	 * Copies text to clipboard
 	 */
 	static async copyToClipboard(text: string): Promise<Result<boolean, string>> {
-		const result = await clientTryCatch(
-			navigator.clipboard.writeText(text),
-			'Clipboard operation'
-		);
+		const result = await clientTryCatch(navigator.clipboard.writeText(text), 'Clipboard operation');
 
 		if (isSuccess(result)) {
 			return { data: true, error: null, success: true };

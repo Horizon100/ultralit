@@ -14,11 +14,14 @@ function createPromptInputStore() {
 		updatePrompt: (id: string, updatedPrompt: Partial<PromptInput>) =>
 			update((prompts) => prompts.map((p) => (p.id === id ? { ...p, ...updatedPrompt } : p))),
 		loadPrompts: async () => {
-			const result = await clientTryCatch((async () => {
-				const userPrompts = await fetchUserPrompts();
-				set(userPrompts);
-				return userPrompts;
-			})(), 'Loading user prompts');
+			const result = await clientTryCatch(
+				(async () => {
+					const userPrompts = await fetchUserPrompts();
+					set(userPrompts);
+					return userPrompts;
+				})(),
+				'Loading user prompts'
+			);
 
 			if (isFailure(result)) {
 				console.error('Failed to load prompts:', result.error);

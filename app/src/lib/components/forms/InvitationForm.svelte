@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { t } from '$lib/stores/translationStore';
-	import {
-		signIn,
-		signUp as registerUser,
-	} from '$lib/pocketbase';
+	import { signIn, signUp as registerUser } from '$lib/pocketbase';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { browser } from '$app/environment';
@@ -12,7 +9,6 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { fade, slide, fly } from 'svelte/transition';
 	import Google from '$lib/assets/icons/auth/google.svg';
-
 
 	let email: string = '';
 	let password: string = '';
@@ -30,7 +26,6 @@
 	function close() {
 		dispatch('close');
 	}
-
 	async function checkInvitationCode() {
 		if (!invitationCode) {
 			errorMessage = 'Please enter an invitation code';
@@ -41,16 +36,15 @@
 		errorMessage = '';
 
 		try {
-			// Use the client-side utility that calls the API
-			const validCode = await validateInvitationCode(invitationCode);
+			const result = await validateInvitationCode(invitationCode);
 
-			if (validCode) {
+			if (result.success && result.data) {
 				isCodeValid = true;
-				validInvitationId = validCode.id ?? null;
+				validInvitationId = result.data.id ?? null;
 				successMessage = 'Invitation code accepted! Please continue with registration.';
-				console.log('Valid invitation code:', validCode);
+				console.log('Valid invitation code:', result.data);
 			} else {
-				errorMessage = 'Invalid or already used invitation code';
+				errorMessage = result.error || 'Invalid or already used invitation code';
 				isCodeValid = false;
 			}
 		} catch (err) {
@@ -61,7 +55,6 @@
 			isCheckingCode = false;
 		}
 	}
-
 	export async function login(): Promise<void> {
 		if (!browser) return;
 

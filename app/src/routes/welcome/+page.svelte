@@ -28,7 +28,6 @@
 	let showNewsletterPopup = false;
 	let navigationFlagChecked = false;
 
-
 	type PricingPlan = {
 		name: string;
 		description: string;
@@ -154,7 +153,7 @@
 						false,
 						'Failed to check navigation flag'
 					);
-					
+
 					navigationFlagChecked = true; // Mark that we've checked the flag
 
 					if (!directNavigation) {

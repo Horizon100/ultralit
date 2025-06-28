@@ -44,27 +44,28 @@ export class ChatCopyHandler {
 	 * @param event - The copy event
 	 */
 	private handleCopy(event: ClipboardEvent): void {
-		// Get the currently selected text
 		const selection = window.getSelection();
 		if (!selection) return;
 
 		const selectedText = selection.toString();
 		if (!selectedText) return;
 
-		// If HTML is being copied, replace it with plain text
 		if (selection.rangeCount > 0) {
 			const range = selection.getRangeAt(0);
 			const container = document.createElement('div');
 			container.appendChild(range.cloneContents());
 
-			// Only process if there's HTML content
 			if (container.innerHTML !== container.textContent) {
-				// Get plain text version
-				const plainText = MarkupFormatter.stripHtml(container.innerHTML);
+				const stripResult = MarkupFormatter.stripHtml(container.innerHTML);
 
-				// Replace the clipboard data with plain text
-				event.clipboardData?.setData('text/plain', plainText);
-				event.preventDefault(); // Prevent the default copy behavior
+				if (stripResult.success) {
+					event.clipboardData?.setData('text/plain', stripResult.data);
+					event.preventDefault();
+				} else {
+					console.error('Error stripping HTML:', stripResult.error);
+					event.clipboardData?.setData('text/plain', container.textContent || selectedText);
+					event.preventDefault();
+				}
 			}
 		}
 	}

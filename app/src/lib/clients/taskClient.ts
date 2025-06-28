@@ -3,12 +3,12 @@ import { get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import { currentUser } from '$lib/pocketbase';
 import type { KanbanTask, KanbanColumn, Task, InternalChatMessage } from '$lib/types/types';
-import { 
-	clientTryCatch, 
+import {
+	clientTryCatch,
 	validationTryCatch,
-	isSuccess, 
+	isSuccess,
 	isFailure,
-	type Result 
+	type Result
 } from '$lib/utils/errorUtils';
 interface RawTaskData {
 	id: string;
@@ -244,7 +244,8 @@ export async function createTaskFromMessage(
 
 		if (!title) {
 			// Fallback if no sentence structure
-			title = validMessage.content.substring(0, 47) + (validMessage.content.length > 47 ? '...' : '');
+			title =
+				validMessage.content.substring(0, 47) + (validMessage.content.length > 47 ? '...' : '');
 		}
 
 		return {
@@ -293,10 +294,7 @@ export async function createTaskFromMessage(
 	const newTask = taskCreationResult.data;
 
 	// Save the task
-	const saveResult = await clientTryCatch(
-		saveTask(newTask),
-		'Saving task to database'
-	);
+	const saveResult = await clientTryCatch(saveTask(newTask), 'Saving task to database');
 
 	if (isFailure(saveResult)) {
 		return { data: null, error: saveResult.error, success: false };

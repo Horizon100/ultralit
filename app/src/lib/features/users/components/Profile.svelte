@@ -69,17 +69,16 @@
 	}
 	$: console.log('User data:', user);
 
-
-const styles: StyleOption[] = [
-    { name: 'Daylight Delight', value: 'default', icon: 'Sun' },
-    { name: 'Midnight Madness', value: 'dark', icon: 'Moon' },
-    { name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' },
-    { name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' },
-    { name: 'Laser Focus', value: 'focus', icon: 'Focus' },
-    { name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' },
-    { name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' },
-    { name: 'Bone Tone', value: 'bone', icon: 'Bone' }
-];
+	const styles: StyleOption[] = [
+		{ name: 'Daylight Delight', value: 'default', icon: 'Sun' },
+		{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' },
+		{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' },
+		{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' },
+		{ name: 'Laser Focus', value: 'focus', icon: 'Focus' },
+		{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' },
+		{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' },
+		{ name: 'Bone Tone', value: 'bone', icon: 'Bone' }
+	];
 
 	const dispatch = createEventDispatcher();
 
@@ -163,33 +162,36 @@ const styles: StyleOption[] = [
 	}
 
 	async function saveChanges(): Promise<void> {
-		const result = await clientTryCatch((async () => {
-			if (!user?.id) {
-				throw new Error('User ID not available');
-			}
+		const result = await clientTryCatch(
+			(async () => {
+				if (!user?.id) {
+					throw new Error('User ID not available');
+				}
 
-			const updatedUser = await updateUser(user.id, {
-				name: editedUser.name,
-				username: editedUser.username,
-				description: editedUser.description
-			});
+				const updatedUser = await updateUser(user.id, {
+					name: editedUser.name,
+					username: editedUser.username,
+					description: editedUser.description
+				});
 
-			// Update both user and completeUserData
-			user = { ...user, ...updatedUser };
-			completeUserData = {
-				...completeUserData,
-				...updatedUser,
-				name: updatedUser.name || completeUserData?.name || '',
-				username: updatedUser.username || completeUserData?.username || '',
-				description: updatedUser.description || completeUserData?.description || ''
-			};
+				// Update both user and completeUserData
+				user = { ...user, ...updatedUser };
+				completeUserData = {
+					...completeUserData,
+					...updatedUser,
+					name: updatedUser.name || completeUserData?.name || '',
+					username: updatedUser.username || completeUserData?.username || '',
+					description: updatedUser.description || completeUserData?.description || ''
+				};
 
-			isEditing = false;
-			showSaveConfirmation = true;
-			setTimeout(() => (showSaveConfirmation = false), 2000);
+				isEditing = false;
+				showSaveConfirmation = true;
+				setTimeout(() => (showSaveConfirmation = false), 2000);
 
-			return updatedUser;
-		})(), `Saving changes for user ${user?.id}`);
+				return updatedUser;
+			})(),
+			`Saving changes for user ${user?.id}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error updating user:', result.error);
@@ -265,146 +267,153 @@ const styles: StyleOption[] = [
 		return '';
 	}
 
-async function loadUserStats(): Promise<void> {
-	const result = await clientTryCatch((async () => {
-		if (!user?.id) {
-			console.error('loadUserStats: User ID not available', { user });
-			throw new Error('User ID not available');
-		}
-
-		console.log('loadUserStats: Starting with user ID:', user.id);
-
-		// Try to refresh user data, but don't fail if it doesn't work
-		let refreshedUser = null;
-		try {
-			refreshedUser = await getUserById(user.id);
-			console.log('loadUserStats: getUserById result:', refreshedUser);
-		} catch (error) {
-			console.error('loadUserStats: getUserById failed:', error);
-			// Continue with existing user data instead of failing
-			console.log('loadUserStats: Continuing with existing user data');
-		}
-
-		// Use refreshed data if available, otherwise keep existing user data
-		if (refreshedUser) {
-			// Preserve the avatar URL if it already exists
-			const existingAvatarUrl = user.avatarUrl;
-
-			// Update user data
-			user = refreshedUser;
-			editedUser = { ...refreshedUser };
-
-			// Restore or set avatar URL
-			if (existingAvatarUrl) {
-				user.avatarUrl = existingAvatarUrl;
-			} else if (user.avatar) {
-				user.avatarUrl = getAvatarUrl(user);
-			}
-			console.log('loadUserStats: User data updated successfully');
-		} else {
-			console.log('loadUserStats: Using existing user data');
-		}
-
-		// Fetch stats from our API endpoint
-		console.log('loadUserStats: Fetching stats for user ID:', user.id);
-		
-		const statsResult = await fetchTryCatch<{
-			success: boolean;
-			threadCount?: number;
-			messageCount?: number;
-			taskCount?: number;
-			tagCount?: number;
-			timerCount?: number;
-			lastActive?: string;
-			error?: string;
-		}>(`/api/verify/users/${user.id}/stats`, {
-			credentials: 'include'
-		});
-
-		if (isFailure(statsResult)) {
-			console.error('loadUserStats: Failed to fetch stats:', statsResult.error);
-			// Keep the default values
-			return { userRefreshed: !!refreshedUser, statsLoaded: false };
-		}
-
-		const statsData = statsResult.data;
-		console.log('loadUserStats: Received stats data:', statsData);
-
-		if (statsData.success) {
-			// Update the stats with real data
-			threadCount = statsData.threadCount || 0;
-			messageCount = statsData.messageCount || 0;
-			taskCount = statsData.taskCount || 0;
-			tagCount = statsData.tagCount || 0;
-			timerCount = statsData.timerCount || 0;
-
-			if (statsData.lastActive) {
-				const dateResult = tryCatchSync(() => new Date(statsData.lastActive!));
-				if (isFailure(dateResult)) {
-					console.error('loadUserStats: Error parsing lastActive date:', dateResult.error);
-					lastActive = user.updated ? new Date(user.updated) : new Date();
-				} else {
-					lastActive = dateResult.data;
+	async function loadUserStats(): Promise<void> {
+		const result = await clientTryCatch(
+			(async () => {
+				if (!user?.id) {
+					console.error('loadUserStats: User ID not available', { user });
+					throw new Error('User ID not available');
 				}
-			} else {
-				lastActive = user.updated ? new Date(user.updated) : new Date();
-			}
 
-			console.log('loadUserStats: Updated stats values:', {
-				threadCount,
-				messageCount,
-				taskCount,
-				tagCount,
-				timerCount,
-				lastActive
-			});
+				console.log('loadUserStats: Starting with user ID:', user.id);
 
-			return { userRefreshed: !!refreshedUser, statsLoaded: true };
-		} else {
-			console.error('loadUserStats: Stats API returned error:', statsData.error);
-			// Keep the default values or set fallbacks
-			return { userRefreshed: !!refreshedUser, statsLoaded: false };
+				// Try to refresh user data, but don't fail if it doesn't work
+				let refreshedUser = null;
+				try {
+					refreshedUser = await getUserById(user.id);
+					console.log('loadUserStats: getUserById result:', refreshedUser);
+				} catch (error) {
+					console.error('loadUserStats: getUserById failed:', error);
+					// Continue with existing user data instead of failing
+					console.log('loadUserStats: Continuing with existing user data');
+				}
+
+				// Use refreshed data if available, otherwise keep existing user data
+				if (refreshedUser) {
+					// Preserve the avatar URL if it already exists
+					const existingAvatarUrl = user.avatarUrl;
+
+					// Update user data
+					user = refreshedUser;
+					editedUser = { ...refreshedUser };
+
+					// Restore or set avatar URL
+					if (existingAvatarUrl) {
+						user.avatarUrl = existingAvatarUrl;
+					} else if (user.avatar) {
+						user.avatarUrl = getAvatarUrl(user);
+					}
+					console.log('loadUserStats: User data updated successfully');
+				} else {
+					console.log('loadUserStats: Using existing user data');
+				}
+
+				// Fetch stats from our API endpoint
+				console.log('loadUserStats: Fetching stats for user ID:', user.id);
+
+				const statsResult = await fetchTryCatch<{
+					success: boolean;
+					threadCount?: number;
+					messageCount?: number;
+					taskCount?: number;
+					tagCount?: number;
+					timerCount?: number;
+					lastActive?: string;
+					error?: string;
+				}>(`/api/verify/users/${user.id}/stats`, {
+					credentials: 'include'
+				});
+
+				if (isFailure(statsResult)) {
+					console.error('loadUserStats: Failed to fetch stats:', statsResult.error);
+					// Keep the default values
+					return { userRefreshed: !!refreshedUser, statsLoaded: false };
+				}
+
+				const statsData = statsResult.data;
+				console.log('loadUserStats: Received stats data:', statsData);
+
+				if (statsData.success) {
+					// Update the stats with real data
+					threadCount = statsData.threadCount || 0;
+					messageCount = statsData.messageCount || 0;
+					taskCount = statsData.taskCount || 0;
+					tagCount = statsData.tagCount || 0;
+					timerCount = statsData.timerCount || 0;
+
+					if (statsData.lastActive) {
+						const dateResult = tryCatchSync(() => new Date(statsData.lastActive!));
+						if (isFailure(dateResult)) {
+							console.error('loadUserStats: Error parsing lastActive date:', dateResult.error);
+							lastActive = user.updated ? new Date(user.updated) : new Date();
+						} else {
+							lastActive = dateResult.data;
+						}
+					} else {
+						lastActive = user.updated ? new Date(user.updated) : new Date();
+					}
+
+					console.log('loadUserStats: Updated stats values:', {
+						threadCount,
+						messageCount,
+						taskCount,
+						tagCount,
+						timerCount,
+						lastActive
+					});
+
+					return { userRefreshed: !!refreshedUser, statsLoaded: true };
+				} else {
+					console.error('loadUserStats: Stats API returned error:', statsData.error);
+					// Keep the default values or set fallbacks
+					return { userRefreshed: !!refreshedUser, statsLoaded: false };
+				}
+			})(),
+			`Loading user stats for ${user?.id}`
+		);
+
+		if (isFailure(result)) {
+			console.error('loadUserStats: Error loading user data or stats:', result.error);
+			// Don't throw here, just log the error and continue
 		}
-	})(), `Loading user stats for ${user?.id}`);
-
-	if (isFailure(result)) {
-		console.error('loadUserStats: Error loading user data or stats:', result.error);
-		// Don't throw here, just log the error and continue
 	}
-}
 
 	async function fetchCompleteUserData(userId: string): Promise<UserData> {
-		const result = await clientTryCatch((async () => {
-			isLoading = true;
-			
-			const fetchResult = await fetchTryCatch<{ user: any }>(
-				`/api/verify/users/${userId}`
-			);
+		const result = await clientTryCatch(
+			(async () => {
+				isLoading = true;
 
-			if (isFailure(fetchResult)) {
-				throw new Error(`Failed to fetch user data: ${fetchResult.error}`);
-			}
+				const fetchResult = await fetchTryCatch<{ user: any }>(`/api/verify/users/${userId}`);
 
-			const data = fetchResult.data;
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to fetch user data: ${fetchResult.error}`);
+				}
 
-			// Merge with basic user data
-			const completeUser = await getUserById(userId);
+				const data = fetchResult.data;
 
-			return {
-				...completeUser,
-				...data.user,
-				// Ensure critical fields are always set
-				name:
-					data.user?.name ||
-					completeUser?.name ||
-					completeUser?.fullName ||
-					completeUser?.displayName ||
-					'',
-				username:
-					data.user?.username || completeUser?.username || completeUser?.email?.split('@')[0] || '',
-				description: data.user?.description || completeUser?.description || ''
-			};
-		})(), `Fetching complete user data for ${userId}`);
+				// Merge with basic user data
+				const completeUser = await getUserById(userId);
+
+				return {
+					...completeUser,
+					...data.user,
+					// Ensure critical fields are always set
+					name:
+						data.user?.name ||
+						completeUser?.name ||
+						completeUser?.fullName ||
+						completeUser?.displayName ||
+						'',
+					username:
+						data.user?.username ||
+						completeUser?.username ||
+						completeUser?.email?.split('@')[0] ||
+						'',
+					description: data.user?.description || completeUser?.description || ''
+				};
+			})(),
+			`Fetching complete user data for ${userId}`
+		);
 
 		// Always set isLoading to false
 		isLoading = false;
@@ -442,12 +451,12 @@ async function loadUserStats(): Promise<void> {
 
 		const result = tryCatchSync(() => {
 			const date = new Date(dateString);
-			
+
 			// Check if the date is valid
 			if (isNaN(date.getTime())) {
 				throw new Error('Invalid date string');
 			}
-			
+
 			return date.toLocaleString();
 		});
 
@@ -541,8 +550,7 @@ async function loadUserStats(): Promise<void> {
 							{$t('profile.close')}
 						</span>
 					</button>
-				{:else}
-				{/if}
+				{:else}{/if}
 			</div>
 		</div>
 
@@ -613,10 +621,9 @@ async function loadUserStats(): Promise<void> {
 								on:click={() => switchTab('theme')}
 								title="Theme"
 							>
-							{@html getIcon(
-							styles.find((s) => s.value === $currentTheme)?.icon || 'Sun', 
-							{ size: 20 }
-							)}
+								{@html getIcon(styles.find((s) => s.value === $currentTheme)?.icon || 'Sun', {
+									size: 20
+								})}
 							</button>
 							<button
 								class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"

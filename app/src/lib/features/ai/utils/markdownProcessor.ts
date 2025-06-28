@@ -1,9 +1,9 @@
 // markdownProcessor.ts
 import { marked } from 'marked';
-import { 
-	clientTryCatch, 
+import {
+	clientTryCatch,
 	validationTryCatch,
-	isSuccess, 
+	isSuccess,
 	isFailure,
 	unwrapOr
 } from '$lib/utils/errorUtils';
@@ -39,8 +39,6 @@ function safeStringify(value: unknown): string {
 	// For primitives, convert to string
 	return String(value);
 }
-
-
 
 /**
  * Highlight code based on language
@@ -99,7 +97,6 @@ renderer.codespan = function ({ text }: { text: string }) {
 // Set the custom renderer
 marked.setOptions({ renderer });
 
-
 /**
  * Format a table element for plain text representation
  * @param table The HTML table element
@@ -126,8 +123,6 @@ function formatTableForPlainText(table: HTMLTableElement): void {
 	// Add an extra newline after the table
 	table.appendChild(document.createTextNode('\n\n'));
 }
-
-
 
 /**
  * Svelte action to add copy buttons to code blocks

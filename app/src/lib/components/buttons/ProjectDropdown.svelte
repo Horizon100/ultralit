@@ -25,12 +25,15 @@
 	async function ensureProjectsLoaded() {
 		if (!projectsLoaded) {
 			console.log('Loading projects on first interaction...');
-			
-			const result = await clientTryCatch((async () => {
-				await projectStore.loadProjects();
-				projectsLoaded = true;
-				return true;
-			})(), 'Loading projects');
+
+			const result = await clientTryCatch(
+				(async () => {
+					await projectStore.loadProjects();
+					projectsLoaded = true;
+					return true;
+				})(),
+				'Loading projects'
+			);
 
 			if (isFailure(result)) {
 				console.error('Error loading projects:', result.error);
@@ -47,54 +50,60 @@
 
 	async function handleSelectProject(projectId: string | null) {
 		console.log('Selecting project:', projectId === null ? 'Home (unassigned)' : projectId);
-		
-		const result = await clientTryCatch((async () => {
-			isExpanded = false;
-			isLoading = true;
 
-			// Clear current thread first
-			threadsStore.update((state) => ({
-				...state,
-				currentThreadId: null,
-				threads: [],
-				filteredThreads: []
-			}));
+		const result = await clientTryCatch(
+			(async () => {
+				isExpanded = false;
+				isLoading = true;
 
-			await projectStore.setCurrentProject(projectId);
+				// Clear current thread first
+				threadsStore.update((state) => ({
+					...state,
+					currentThreadId: null,
+					threads: [],
+					filteredThreads: []
+				}));
 
-			console.log(`Loading ${projectId ? 'project' : 'unassigned'} threads...`);
-			
-			const threadsResult = await clientTryCatch((async () => {
-				await loadThreads(projectId);
+				await projectStore.setCurrentProject(projectId);
 
-				threadsStore.update((state) => {
-					const threadsForProject = projectId
-						? state.threads.filter((thread) => thread.project_id === projectId)
-						: state.threads.filter((thread) => !thread.project_id);
-					console.log(
-						`Filtered to ${threadsForProject.length} threads for project ${projectId || 'unassigned'}`
-					);
+				console.log(`Loading ${projectId ? 'project' : 'unassigned'} threads...`);
 
-					return {
-						...state,
-						threads: threadsForProject,
-						filteredThreads: threadsForProject
-					};
-				});
+				const threadsResult = await clientTryCatch(
+					(async () => {
+						await loadThreads(projectId);
 
-				console.log(
-					'Threads loaded successfully for:',
-					projectId ? `project ${projectId}` : 'unassigned threads'
+						threadsStore.update((state) => {
+							const threadsForProject = projectId
+								? state.threads.filter((thread) => thread.project_id === projectId)
+								: state.threads.filter((thread) => !thread.project_id);
+							console.log(
+								`Filtered to ${threadsForProject.length} threads for project ${projectId || 'unassigned'}`
+							);
+
+							return {
+								...state,
+								threads: threadsForProject,
+								filteredThreads: threadsForProject
+							};
+						});
+
+						console.log(
+							'Threads loaded successfully for:',
+							projectId ? `project ${projectId}` : 'unassigned threads'
+						);
+						return true;
+					})(),
+					`Loading threads for project ${projectId || 'unassigned'}`
 				);
+
+				if (isFailure(threadsResult)) {
+					console.error('Error loading threads:', threadsResult.error);
+				}
+
 				return true;
-			})(), `Loading threads for project ${projectId || 'unassigned'}`);
-
-			if (isFailure(threadsResult)) {
-				console.error('Error loading threads:', threadsResult.error);
-			}
-
-			return true;
-		})(), `Selecting project ${projectId || 'unassigned'}`);
+			})(),
+			`Selecting project ${projectId || 'unassigned'}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Project selection error:', result.error);
@@ -108,24 +117,27 @@
 
 		if (!projectName.trim()) return;
 
-		const result = await clientTryCatch((async () => {
-			isCreatingProject = true;
-			await ensureProjectsLoaded();
-			
-			const newProject = await projectStore.addProject({
-				name: projectName.trim(),
-				description: ''
-			});
+		const result = await clientTryCatch(
+			(async () => {
+				isCreatingProject = true;
+				await ensureProjectsLoaded();
 
-			if (newProject) {
-				newProjectName = '';
-				isCreatingProject = false;
-				isExpanded = false;
-				await handleSelectProject(newProject.id);
-			}
+				const newProject = await projectStore.addProject({
+					name: projectName.trim(),
+					description: ''
+				});
 
-			return newProject;
-		})(), `Creating new project "${projectName}"`);
+				if (newProject) {
+					newProjectName = '';
+					isCreatingProject = false;
+					isExpanded = false;
+					await handleSelectProject(newProject.id);
+				}
+
+				return newProject;
+			})(),
+			`Creating new project "${projectName}"`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error creating project:', result.error);
@@ -139,34 +151,37 @@
 
 		if (!projectId) return;
 
-		const result = await clientTryCatch((async () => {
-			const user = get(currentUser);
-			if (!user) throw new Error('User not authenticated');
+		const result = await clientTryCatch(
+			(async () => {
+				const user = get(currentUser);
+				if (!user) throw new Error('User not authenticated');
 
-			const storeState = get(projectStore);
-			const project = storeState.threads.find((p) => p.id === projectId);
+				const storeState = get(projectStore);
+				const project = storeState.threads.find((p) => p.id === projectId);
 
-			if (!project) {
-				throw new Error('Project not found');
-			}
+				if (!project) {
+					throw new Error('Project not found');
+				}
 
-			if (project.owner !== user.id) {
-				throw new Error('Only the project owner can delete this project.');
-			}
+				if (project.owner !== user.id) {
+					throw new Error('Only the project owner can delete this project.');
+				}
 
-			const confirmed = confirm(
-				'Are you sure you want to delete this project? This action cannot be undone.'
-			);
-			if (!confirmed) return false;
+				const confirmed = confirm(
+					'Are you sure you want to delete this project? This action cannot be undone.'
+				);
+				if (!confirmed) return false;
 
-			const success = await projectStore.deleteProject(projectId);
+				const success = await projectStore.deleteProject(projectId);
 
-			if (success && $projectStore.currentProjectId === projectId) {
-				await handleSelectProject(null);
-			}
+				if (success && $projectStore.currentProjectId === projectId) {
+					await handleSelectProject(null);
+				}
 
-			return success;
-		})(), `Deleting project ${projectId}`);
+				return success;
+			})(),
+			`Deleting project ${projectId}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error deleting project:', result.error);
@@ -194,6 +209,7 @@
 		return () => document.removeEventListener('click', handleClickOutside);
 	});
 </script>
+
 <div class="dropdown-container" bind:this={dropdownContainer}>
 	<span class="dropdown-wrapper">
 		<button

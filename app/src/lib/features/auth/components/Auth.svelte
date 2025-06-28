@@ -26,12 +26,7 @@
 	import Google from '$lib/assets/icons/auth/google.svg';
 	import Microsoft from '$lib/assets/icons/auth/microsoft.svg';
 	import Yandex from '$lib/assets/icons/auth/yandex.svg';
-	import { 
-		clientTryCatch, 
-		validationTryCatch,
-		isSuccess, 
-		isFailure 
-	} from '$lib/utils/errorUtils';
+	import { clientTryCatch, validationTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	// Form state
@@ -145,64 +140,65 @@
 		showInvitationOverlay = false;
 		showPasswordReset = false;
 	}
-export async function login(): Promise<void> {
-	if (!browser) return;
+	export async function login(): Promise<void> {
+		if (!browser) return;
 
-	errorMessage = '';
-	isLoading = true;
+		errorMessage = '';
+		isLoading = true;
 
-	try {
-		// Validation
-		const validationResult = validationTryCatch(() => {
-			if (!email || !password) {
-				throw new Error('Email and password are required');
+		try {
+			// Validation
+			const validationResult = validationTryCatch(() => {
+				if (!email || !password) {
+					throw new Error('Email and password are required');
+				}
+				if (!email.includes('@')) {
+					throw new Error('Please enter a valid email address');
+				}
+				if (password.length < 6) {
+					throw new Error('Password must be at least 6 characters long');
+				}
+			});
+
+			if (isFailure(validationResult)) {
+				errorMessage = validationResult.error;
+				return;
 			}
-			if (!email.includes('@')) {
-				throw new Error('Please enter a valid email address');
-			}
-			if (password.length < 6) {
-				throw new Error('Password must be at least 6 characters long');
-			}
-		});
 
-		if (isFailure(validationResult)) {
-			errorMessage = validationResult.error;
-			return;
-		}
+			console.log('Starting login process...');
 
-		console.log('Starting login process...');
-		
-		// Attempt sign in
-		const signInResult = await clientTryCatch(signIn(email, password));
+			// Attempt sign in
+			const signInResult = await clientTryCatch(signIn(email, password));
 
-		if (isSuccess(signInResult)) {
-			const authData = signInResult.data;
-			
-			if (authData) {
-				console.log('Login successful, navigating...');
-				errorMessage = '';
-				await tick();
+			if (isSuccess(signInResult)) {
+				const authData = signInResult.data;
 
-				// Close modal and dispatch success
-				dispatch('close');
-				dispatch('success');
+				if (authData) {
+					console.log('Login successful, navigating...');
+					errorMessage = '';
+					await tick();
 
-				// Navigate to home page
-				await goto('/home');
+					// Close modal and dispatch success
+					dispatch('close');
+					dispatch('success');
+
+					// Navigate to home page
+					await goto('/home');
+				} else {
+					errorMessage = 'Login failed. Please check your credentials.';
+				}
 			} else {
-				errorMessage = 'Login failed. Please check your credentials.';
+				console.error('Login error:', signInResult.error);
+				errorMessage = signInResult.error;
 			}
-		} else {
-			console.error('Login error:', signInResult.error);
-			errorMessage = signInResult.error;
+		} catch (err) {
+			console.error('Unexpected login error:', err);
+			errorMessage =
+				err instanceof Error ? err.message : 'An unexpected error occurred during login';
+		} finally {
+			isLoading = false;
 		}
-	} catch (err) {
-		console.error('Unexpected login error:', err);
-		errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during login';
-	} finally {
-		isLoading = false;
 	}
-}
 
 	export async function signUp(): Promise<void> {
 		if (!browser) return;

@@ -20,7 +20,13 @@
 	} from '$lib/stores/gameStore';
 	import type { GameBuilding, GameRoad as GameRoadType, GameHero } from '$lib/types/types.game';
 
-	export let data;
+	interface PageData {
+		user?: {
+			id: string;
+		} | null;
+	}
+
+	export let data: PageData;
 
 	// Grid configuration
 	const GRID_SIZE = 64; // Size of each grid cell in pixels

@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 		// Parse request data first
 		const requestData = await request.json();
-		
+
 		// Then validate it
 		const requestDataResult = validationTryCatch(() => {
 			if (!requestData.postId) {
@@ -38,10 +38,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		console.log('Adding post to tag:', { tagId, postId });
 
 		// Get the current tag
-		const tagResult = await pbTryCatch(
-			pb.collection('tags').getOne(tagId),
-			'fetch tag'
-		);
+		const tagResult = await pbTryCatch(pb.collection('tags').getOne(tagId), 'fetch tag');
 
 		if (!tagResult.success) {
 			throw new Error(tagResult.error);
@@ -101,10 +98,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		console.log('Getting posts for tag:', { tagId, limit, offset, page });
 
 		// Get the tag to access taggedPosts
-		const tagResult = await pbTryCatch(
-			pb.collection('tags').getOne(tagId),
-			'fetch tag for posts'
-		);
+		const tagResult = await pbTryCatch(pb.collection('tags').getOne(tagId), 'fetch tag for posts');
 
 		if (!tagResult.success) {
 			throw new Error(tagResult.error);

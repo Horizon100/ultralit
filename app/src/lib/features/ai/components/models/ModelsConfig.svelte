@@ -93,18 +93,27 @@
 
 		try {
 			if (selectedModel) {
-				const updatedModel = await updateModel(selectedModel.id, modelData);
-				modelStore.updateModel(selectedModel.id, updatedModel);
+				const result = await updateModel(selectedModel.id, modelData);
+				if (result.success) {
+					modelStore.updateModel(selectedModel.id, result.data);
+				} else {
+					throw new Error(result.error);
+				}
 			} else {
-				const newModel = await createModel(modelData, $currentUser.id);
-				modelStore.addModel(newModel);
+				const result = await createModel(modelData, $currentUser.id);
+				if (result.success) {
+					modelStore.addModel(result.data);
+				} else {
+					throw new Error(result.error);
+				}
 			}
 			showCreateForm = false;
 			selectedModel = null;
 			resetForm();
 		} catch (error) {
 			console.error('Error saving model:', error);
-			updateStatus = 'Error saving model. Please try again.';
+			updateStatus =
+				error instanceof Error ? error.message : 'Error saving model. Please try again.';
 		}
 	}
 

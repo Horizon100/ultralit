@@ -1,15 +1,13 @@
 import type { AIModel, ProviderType } from '$lib/types/types';
-import { 
-	fetchTryCatch, 
-	validationTryCatch,
-	isFailure,
-	type Result 
-} from '$lib/utils/errorUtils';
+import { fetchTryCatch, validationTryCatch, isFailure, type Result } from '$lib/utils/errorUtils';
 
 /**
  * Creates a new AI model via API
  */
-export async function createModel(modelData: Partial<AIModel>, userId: string): Promise<Result<AIModel, string>> {
+export async function createModel(
+	modelData: Partial<AIModel>,
+	userId: string
+): Promise<Result<AIModel, string>> {
 	// Validate inputs
 	const validation = validationTryCatch(() => {
 		if (!userId) {
@@ -56,7 +54,10 @@ export async function createModel(modelData: Partial<AIModel>, userId: string): 
 /**
  * Updates an existing AI model via API
  */
-export async function updateModel(id: string, modelData: Partial<AIModel>): Promise<Result<AIModel, string>> {
+export async function updateModel(
+	id: string,
+	modelData: Partial<AIModel>
+): Promise<Result<AIModel, string>> {
 	// Validate inputs
 	const validation = validationTryCatch(() => {
 		if (!id) {
@@ -165,7 +166,11 @@ export async function fetchUserModels(userId: string): Promise<Result<AIModel[],
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to fetch user models', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to fetch user models',
+			success: false
+		};
 	}
 
 	return { data: result.data.models || [], error: null, success: true };
@@ -224,7 +229,11 @@ export async function importProviderModel(
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to import provider model', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to import provider model',
+			success: false
+		};
 	}
 
 	if (!result.data.model) {
@@ -270,7 +279,11 @@ export async function fetchProviderModels(
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to fetch provider models', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to fetch provider models',
+			success: false
+		};
 	}
 
 	return { data: result.data.models || [], error: null, success: true };
@@ -311,7 +324,11 @@ export async function deleteProviderModels(
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to delete provider models', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to delete provider models',
+			success: false
+		};
 	}
 
 	return { data: true, error: null, success: true };
@@ -320,7 +337,10 @@ export async function deleteProviderModels(
 /**
  * Saves a model to the database via API
  */
-export async function saveModelToDB(model: AIModel, userId: string): Promise<Result<AIModel, string>> {
+export async function saveModelToDB(
+	model: AIModel,
+	userId: string
+): Promise<Result<AIModel, string>> {
 	// Validate inputs
 	const validation = validationTryCatch(() => {
 		if (!model) {

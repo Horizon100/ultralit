@@ -17,15 +17,18 @@ export interface InvitationCode {
  * @param code The invitation code to validate
  * @returns The invitation code record if valid, null if invalid
  */
-export async function validateInvitationCode(code: string): Promise<Result<InvitationCode | null, string>> {
-	const result = await fetchTryCatch<{ success: boolean; invitationCode?: InvitationCode; message?: string }>(
-		`/api/verify/invitation-codes/validate`,
-		{
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ code })
-		}
-	);
+export async function validateInvitationCode(
+	code: string
+): Promise<Result<InvitationCode | null, string>> {
+	const result = await fetchTryCatch<{
+		success: boolean;
+		invitationCode?: InvitationCode;
+		message?: string;
+	}>(`/api/verify/invitation-codes/validate`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ code })
+	});
 
 	if (isSuccess(result)) {
 		const invitationCode = result.data.success ? result.data.invitationCode || null : null;
@@ -41,7 +44,10 @@ export async function validateInvitationCode(code: string): Promise<Result<Invit
  * @param userId The ID of the user who used the code
  * @returns Result object with success status
  */
-export async function markInvitationCodeAsUsed(codeId: string, userId: string): Promise<Result<boolean, string>> {
+export async function markInvitationCodeAsUsed(
+	codeId: string,
+	userId: string
+): Promise<Result<boolean, string>> {
 	const result = await fetchTryCatch<{ success: boolean; message?: string }>(
 		`/api/verify/invitation-codes/${codeId}/use`,
 		{

@@ -39,8 +39,8 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 
 		const tags = unwrap(result);
 
-		return json({ 
-			success: true, 
+		return json({
+			success: true,
 			items: tags.items,
 			totalItems: tags.totalItems,
 			totalPages: tags.totalPages
@@ -76,7 +76,9 @@ export const POST: RequestHandler = async ({ request, locals }) =>
 
 		// Check if tag already exists for this user
 		try {
-			const existingTag = await pb.collection('tags').getFirstListItem(`name = "${tagData.name}" && createdBy = "${locals.user.id}"`);
+			const existingTag = await pb
+				.collection('tags')
+				.getFirstListItem(`name = "${tagData.name}" && createdBy = "${locals.user.id}"`);
 			console.log('Tag already exists:', tagData.name);
 			return json({ success: true, data: existingTag });
 		} catch (error) {

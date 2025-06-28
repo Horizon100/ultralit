@@ -17,7 +17,7 @@ export class DateUtils {
 
 		messages.forEach((message) => {
 			const messageDate = new Date(message.created).setHours(0, 0, 0, 0);
-			let dateKey = new Date(messageDate).toISOString().split('T')[0];
+			const dateKey = new Date(messageDate).toISOString().split('T')[0];
 			let displayDate: string;
 
 			if (messageDate === today) {

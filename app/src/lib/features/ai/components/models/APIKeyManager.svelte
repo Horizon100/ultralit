@@ -50,11 +50,14 @@
 		verifying[service] = true;
 		errors[service] = '';
 
-		const result = await fetchTryCatch<{ success: boolean; error?: string }>(`/api/verify/${service}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ key })
-		});
+		const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+			`/api/verify/${service}`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ key })
+			}
+		);
 
 		if (isSuccess(result)) {
 			if (result.data.success) {
@@ -70,12 +73,11 @@
 
 		verifying[service] = false;
 	}
-
 	async function removeKey(service: keyof ApiKeys) {
-		const result = await fetchTryCatch(apiKey.deleteKey(service as string));
-
-		if (!isSuccess(result)) {
-			console.error(`Error removing ${service} key:`, result.error);
+		try {
+			await apiKey.deleteKey(service as string);
+		} catch (error) {
+			console.error(`Error removing ${service} key:`, error);
 		}
 	}
 </script>
@@ -86,7 +88,7 @@
 	{#each Object.entries(services) as [service, config]}
 		<div class="key-section" transition:slide>
 			<div class="key-header">
-				<svelte:component this={config.icon} size={20} />
+				{@html getIcon(config.icon, { size: 20 })}
 				<h3>{config.name}</h3>
 			</div>
 
@@ -126,7 +128,7 @@
 							class="toggle-visibility"
 							on:click={() => (showKeys[service] = !showKeys[service])}
 						>
-							{@html getIcon(showKeys[service] ? 'EyeOff' : 'Eye', { size: 16 })}						
+							{@html getIcon(showKeys[service] ? 'EyeOff' : 'Eye', { size: 16 })}
 						</button>
 					</div>
 

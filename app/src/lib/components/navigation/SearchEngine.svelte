@@ -593,8 +593,6 @@
 	class:size-large={size === 'large'}
 >
 	<div class="search-input-container" bind:this={dropdownContainer}>
-
-
 		{#if isExpanded && hasResults()}
 			<div
 				class="search-results"
@@ -604,8 +602,6 @@
 				on:mouseenter|stopPropagation={() => (isMouseInside = true)}
 				on:mouseleave|stopPropagation={() => (isMouseInside = false)}
 			>
-
-
 				<div class="results-container">
 					<!-- Project Results -->
 					{#if projectResults.length > 0 && (activeTab === 'projects' || activeTab === 'all')}
@@ -933,7 +929,7 @@
 				</div>
 			</div>
 		{/if}
-				<div class="input-wrapper" class:expanded={isExpanded}>
+		<div class="input-wrapper" class:expanded={isExpanded}>
 			<!-- <Search class="search-icon" size={size === 'small' ? 16 : size === 'large' ? 20 : 20} /> -->
 			<input
 				bind:this={searchInput}
@@ -982,7 +978,6 @@
 			border-radius: 1rem;
 			padding: 0;
 			gap: 0;
-			
 		}
 
 		& .input-wrapper {

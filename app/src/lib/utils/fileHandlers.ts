@@ -2,7 +2,11 @@ import type { TextFile } from '$lib/types/types';
 import { fileTryCatch, type Result } from '$lib/utils/errorUtils';
 import { uploadedFiles } from '../stores/fileStore';
 
-export async function handleFileUpload(files: File[], x: number, y: number): Promise<Result<void, string>> {
+export async function handleFileUpload(
+	files: File[],
+	x: number,
+	y: number
+): Promise<Result<void, string>> {
 	const result = await fileTryCatch(
 		(async () => {
 			console.log(`Attempting to upload ${files.length} file(s)`);

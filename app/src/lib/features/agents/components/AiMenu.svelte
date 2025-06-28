@@ -148,7 +148,6 @@
 	.content {
 		position: relative;
 		height: 84vh; /* Adjust based on your tabs and search height */
-
 	}
 
 	.content > div {

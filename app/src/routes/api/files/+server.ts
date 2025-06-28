@@ -12,7 +12,10 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 
 		if (!repository) throw new Error('Repository parameter is required');
 
-		const repoResult = await pbTryCatch(pb.collection('repositories').getOne(repository), 'fetch repository');
+		const repoResult = await pbTryCatch(
+			pb.collection('repositories').getOne(repository),
+			'fetch repository'
+		);
 		const repoRecord = unwrap(repoResult);
 
 		const isOwner = repoRecord.createdBy === locals.user.id;
@@ -21,7 +24,10 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 
 		if (!isOwner && !isCollaborator && !isPublic) throw new Error('Access denied');
 
-		const filterParts = [`repository="${repository}"`, `branch="${branch || repoRecord.defaultBranch}"`];
+		const filterParts = [
+			`repository="${repository}"`,
+			`branch="${branch || repoRecord.defaultBranch}"`
+		];
 		if (path) filterParts.push(`path="${path}"`);
 		const filter = filterParts.join(' && ');
 
@@ -45,9 +51,13 @@ export const POST: RequestHandler = async ({ request }) =>
 		const data = await request.json();
 		const userId = pb.authStore.model.id;
 
-		if (!data.name || !data.repository || !data.path) throw new Error('File name, repository, and path are required');
+		if (!data.name || !data.repository || !data.path)
+			throw new Error('File name, repository, and path are required');
 
-		const repoResult = await pbTryCatch(pb.collection('repositories').getOne(data.repository), 'fetch repository');
+		const repoResult = await pbTryCatch(
+			pb.collection('repositories').getOne(data.repository),
+			'fetch repository'
+		);
 		const repository = unwrap(repoResult);
 
 		const isOwner = repository.createdBy === userId;
@@ -65,7 +75,8 @@ export const POST: RequestHandler = async ({ request }) =>
 		);
 
 		const existingFiles = unwrap(existingFilesResult);
-		if (existingFiles.totalItems > 0) throw new Error('A file with this name already exists in this location');
+		if (existingFiles.totalItems > 0)
+			throw new Error('A file with this name already exists in this location');
 
 		const fileExtension = data.name.split('.').pop()?.toLowerCase() || '';
 		const languageMap: Record<string, string> = {

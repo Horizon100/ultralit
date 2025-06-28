@@ -55,65 +55,71 @@
 		return content.substring(0, maxLength) + '...';
 	}
 
-	$: filteredConversations = conversations.filter(conv => 
+	$: filteredConversations = conversations.filter((conv) =>
 		(conv.user.name || conv.user.username || '').toLowerCase().includes(searchQuery.toLowerCase())
 	);
 </script>
 
 <div class="dm-chat-drawer" class:closed={!isOpen}>
 	{#if isOpen}
-	<div class="drawer-header">
-		<div class="header-title">
-			<h2>Messages</h2>
-			<button class="new-chat-btn" on:click={handleNewChat} title="New conversation">
-				{@html getIcon('MessageCirclePlus')}
-			</button>
-		</div>
-		
-		<div class="search-container">
-			<div class="search-input-wrapper">
-				<div class="icon-wrapper">
-					<div class="search-icon">
-						{@html getIcon('Search')}
-					</div>	
+		<div class="drawer-header">
+			<div class="header-title">
+				<h2>Messages</h2>
+				<button class="new-chat-btn" on:click={handleNewChat} title="New conversation">
+					{@html getIcon('MessageCirclePlus')}
+				</button>
+			</div>
+
+			<div class="search-container">
+				<div class="search-input-wrapper">
+					<div class="icon-wrapper">
+						<div class="search-icon">
+							{@html getIcon('Search')}
+						</div>
+					</div>
+					<input
+						bind:this={searchInput}
+						bind:value={searchQuery}
+						on:input={handleSearch}
+						type="text"
+						placeholder="Search conversations..."
+						class="search-input"
+					/>
+					{#if searchQuery}
+						<button
+							class="clear-search"
+							on:click={() => {
+								searchQuery = '';
+								handleSearch();
+							}}
+						>
+							{@html getIcon('X')}
+						</button>
+					{/if}
 				</div>
-				<input
-					bind:this={searchInput}
-					bind:value={searchQuery}
-					on:input={handleSearch}
-					type="text"
-					placeholder="Search conversations..."
-					class="search-input"
-				/>
-				{#if searchQuery}
-					<button class="clear-search" on:click={() => { searchQuery = ''; handleSearch(); }}>
-						{@html getIcon('X')}
-					</button>
-				{/if}
 			</div>
 		</div>
-	</div>
 	{/if}
 
 	<div class="conversations-list" class:closed={!isOpen}>
 		{#if filteredConversations.length === 0}
-				{#if isOpen}
-					<div class="empty-state">
-						{#if searchQuery}
-							<div class="empty-icon">🔍</div>
-							<p>No conversations found</p>
-							<small>Try adjusting your search</small>
-						{:else}
-							<div class="empty-icon">💬</div>
-							<p>No conversations yet</p>
-							<small>Start a new conversation</small>
-						{/if}
-					</div>
-				{/if}
+			{#if isOpen}
+				<div class="empty-state">
+					{#if searchQuery}
+						<div class="empty-icon">🔍</div>
+						<p>No conversations found</p>
+						<small>Try adjusting your search</small>
+					{:else}
+						<div class="empty-icon">💬</div>
+						<p>No conversations yet</p>
+						<small>Start a new conversation</small>
+					{/if}
+				</div>
+			{/if}
 		{:else}
 			{#each filteredConversations as conversation (conversation.id)}
-				<div 
-					class="conversation-item" 
+				<div
+					class="conversation-item"
 					class:active={conversation.isActive}
 					class:unread={conversation.unreadCount > 0}
 					on:click={() => handleChatSelect(conversation.id)}
@@ -121,18 +127,14 @@
 					tabindex="0"
 					on:keydown={(e) => e.key === 'Enter' && handleChatSelect(conversation.id)}
 				>
-					<DMHeader 
-						user={conversation.user} 
-						showStatus={true} 
-						clickable={false}
-					/>
-					
+					<DMHeader user={conversation.user} showStatus={true} clickable={false} />
+
 					<div class="conversation-preview">
 						{#if conversation.lastMessage}
 							<div class="last-message">
 								<span class="message-text">
 									{#if conversation.lastMessage.senderId === currentUserId}
-										You: 
+										You:
 									{/if}
 									{truncateMessage(conversation.lastMessage.content)}
 								</span>
@@ -145,7 +147,7 @@
 								<span class="message-text">No messages yet</span>
 							</div>
 						{/if}
-						
+
 						{#if conversation.unreadCount > 0}
 							<div class="unread-badge">
 								{conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
@@ -163,14 +165,14 @@
 
 	.dm-chat-drawer {
 		width: auto;
-        max-width: 250px;
+		max-width: 250px;
 		display: flex;
 		flex-direction: column;
-		transition: all	0.3s ease;	
+		transition: all 0.3s ease;
 		padding: 0.5rem;
 
 		&.closed {
-            width: 4rem;
+			width: 4rem;
 			padding: 0;
 		}
 	}
@@ -185,7 +187,7 @@
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: 16px;
-        margin-right: 4rem;
+		margin-right: 4rem;
 
 		h2 {
 			margin: 0;
@@ -236,7 +238,6 @@
 		justify-content: center;
 		width: 100%;
 		height: 100%;
-
 	}
 
 	.search-icon {
@@ -346,7 +347,7 @@
 
 		&.active {
 			background: var(--tertiary-color);
-			
+
 			:global(.dm-header) {
 				background: transparent;
 			}
@@ -433,20 +434,19 @@
 		font-family: var(--font-family);
 	}
 
-    @media (max-width: 1000px) {
-        
-	.dm-chat-drawer {
-		width: auto;
-        max-width: 250px;
-		background: var(--bg-color);
-		border-right: 1px solid var(--line-color);
-		display: flex;
-		flex-direction: column;
-		transition: transform 0.3s ease;
+	@media (max-width: 1000px) {
+		.dm-chat-drawer {
+			width: auto;
+			max-width: 250px;
+			background: var(--bg-color);
+			border-right: 1px solid var(--line-color);
+			display: flex;
+			flex-direction: column;
+			transition: transform 0.3s ease;
 
-		&.closed {
-            width: 100px;
+			&.closed {
+				width: 100px;
+			}
 		}
 	}
-    }
 </style>

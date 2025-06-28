@@ -49,27 +49,6 @@
 		}
 	}
 
-	async function enterBuilding(building: GameBuilding) {
-		try {
-			// Update hero position to building
-			if (data.user) {
-				await fetch(`/api/game/heroes/${data.user.id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						currentBuilding: building.id,
-						position: building.position
-					})
-				});
-			}
-
-			// Navigate to building
-			goto(`/game/buildings/${building.id}`);
-		} catch (err) {
-			console.error('Failed to enter building:', err);
-		}
-	}
-
 	onMount(() => {
 		loadOrganization();
 	});

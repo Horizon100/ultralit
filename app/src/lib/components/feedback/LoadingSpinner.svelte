@@ -2,7 +2,6 @@
 	import { isLoading } from '$lib/stores/loadingStore';
 	import { fade } from 'svelte/transition';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
 </script>
 
 {#if $isLoading}

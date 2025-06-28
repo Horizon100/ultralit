@@ -111,7 +111,6 @@
 	} from '$lib/stores/sidenavStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-
 	type MessageContent = string | Scenario[] | Task[] | AIAgent | NetworkData;
 
 	let documentClickListener: ((e: MouseEvent) => void) | null = null;
@@ -423,18 +422,17 @@
 		handleTextareaBlur();
 	};
 
-
 	async function fetchPromptFromAPI(promptId: string | null) {
-	if (!promptId) return null;
+		if (!promptId) return null;
 
-	const { success, data, error } = await fetchTryCatch(`/api/prompts/${promptId}`);
+		const { success, data, error } = await fetchTryCatch(`/api/prompts/${promptId}`);
 
-	if (success && data) {
-		return data;
-	} else {
-		console.error('Failed to fetch prompt:', error);
-		return null;
-	}
+		if (success && data) {
+			return data;
+		} else {
+			console.error('Failed to fetch prompt:', error);
+			return null;
+		}
 	}
 
 	// Function to load the prompt immediately
@@ -712,7 +710,6 @@
 						promptId = user.prompt_preference;
 					}
 
-
 					if (promptId) {
 						const promptResult = await fetchTryCatch<{ prompt: string; data?: { prompt: string } }>(
 							`/api/prompts/${promptId}`,
@@ -778,16 +775,16 @@
 			}
 
 			await handleThreadNameUpdate(currentThreadId!);
-			} catch (error) {
-				console.error('Unexpected error in handleSendMessage:', error);
-				handleError(error instanceof Error ? error.message : String(error));
-			} finally {
-				try {
-					cleanup();
-				} catch (cleanupError) {
-					console.warn('Error during cleanup:', cleanupError);
-				}
+		} catch (error) {
+			console.error('Unexpected error in handleSendMessage:', error);
+			handleError(error instanceof Error ? error.message : String(error));
+		} finally {
+			try {
+				cleanup();
+			} catch (cleanupError) {
+				console.warn('Error during cleanup:', cleanupError);
 			}
+		}
 	}
 
 	async function replyToMessage(
@@ -1203,7 +1200,7 @@
 				} else {
 					console.error(`Failed to fetch threads for project ${projectId}:`, result.error);
 					fetchedThreads = [];
-				}				
+				}
 				console.log(`Fetched ${fetchedThreads.length} threads for project ${projectId}`);
 			}
 
@@ -1649,206 +1646,215 @@
 
 	// Thread management functions
 
-async function handleLoadThread(threadId: string) {
-	const loadResult = await clientTryCatch(
-		(async () => {
-			isLoadingMessages = true;
+	async function handleLoadThread(threadId: string) {
+		const loadResult = await clientTryCatch(
+			(async () => {
+				isLoadingMessages = true;
 
-			threadsStore.update((state) => ({
-				...state,
-				showThreadList: true
-			}));
-
-			// Ensure user is authenticated
-			await ensureAuthenticated();
-			const currentUserId = $currentUser?.id;
-			if (!currentUserId) {
-				throw new Error('User not authenticated');
-			}
-
-			// Fetch thread through API endpoint
-			const threadResult = await fetchTryCatch<{ success: boolean; thread: Threads; error?: string }>(
-				`/api/keys/threads/${threadId}`,
-				{ method: 'GET', credentials: 'include' }
-			);
-
-			if (isFailure(threadResult)) {
-				throw new Error(threadResult.error);
-			}
-
-			const threadData = threadResult.data;
-			if (!threadData.success) {
-				throw new Error(threadData.error || 'Failed to fetch thread');
-			}
-
-			const thread = threadData.thread;
-			console.log('Thread loaded:', thread);
-
-			// Get project access
-			let hasProjectAccess = false;
-			if (thread.project) {
-			    const projectId = typeof thread.project === 'string' ? thread.project : (thread.project as { id: string }).id;
-
-			const projectResult = await clientTryCatch<{ success: boolean; data: Projects }>(
-			    fetchTryCatch<{ success: boolean; data: Projects }>(
-			        `/api/projects/${projectId}/threads`,
-			        { method: 'GET', credentials: 'include' }
-				).then(fetchResult => {
-					if (isFailure(fetchResult)) {
-						throw new Error(fetchResult.error);
-					}
-					return fetchResult.data;
-				}),
-				'Error fetching project'
-			);
-
-				if (isSuccess(projectResult)) {
-					const projectData = projectResult.data;
-					if (projectData.success) {
-						const project = projectData.data;
-	hasProjectAccess =
-		project.owner === currentUserId ||
-		(Array.isArray(project.collaborators) && project.collaborators.includes(currentUserId));
-					}
-				}
-			}
-
-			// Verify thread ownership/access
-			const isCreator = thread.user === currentUserId;
-			const isOp =
-				thread.op === currentUserId || (thread.expand?.op && thread.expand.op.id === currentUserId);
-
-			// Check if user is a member
-			const isMember =
-				thread.members &&
-				((typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
-					(Array.isArray(thread.members) &&
-						thread.members.some((m: any) =>
-							typeof m === 'string' ? m === currentUserId : m.id === currentUserId
-						)));
-
-			// Allow access if user is creator, op, member, or has project access
-			if (!isCreator && !isOp && !isMember && !hasProjectAccess) {
-				console.error('Access denied to thread');
-				throw new Error('Unauthorized thread access');
-			}
-
-			// Update stores
-			await threadsStore.setCurrentThread(threadId);
-
-			// Handle project context
-			if (thread.project) {
-				const projectId =
-					typeof thread.project === 'string'
-						? thread.project
-						: (thread.project as { id: string }).id;				
-						await projectStore.setCurrentProject(projectId);
-
-				const projectThreadsResult = await clientTryCatch<{ success: boolean; threads: Threads[] }>(
-					fetchTryCatch<{ success: boolean; threads: Threads[] }>(
-						`/api/projects/${projectId}/threads`,
-						{ method: 'GET', credentials: 'include' }
-					).then(fetchResult => {
-						if (isFailure(fetchResult)) {
-							throw new Error(fetchResult.error);
-						}
-						return fetchResult.data;
-					}),
-					'Error fetching project threads'
-				);
-
-				if (isSuccess(projectThreadsResult)) {
-					const projectThreadsData = projectThreadsResult.data;
-					if (projectThreadsData.success) {
-						threadsStore.update((state) => ({
-							...state,
-							threads: projectThreadsData.threads
-						}));
-					}
-				}
-			}
-
-			// Update local state
-			currentThreadId = thread.id;
-			currentThread = thread as Threads;
-
-			// Fetch messages with real-time updates
-			const messagesResult = await clientTryCatch(
-				messagesStore.fetchMessages(threadId),
-				'Error loading messages'
-			);
-
-			if (isSuccess(messagesResult)) {
-				const messages = messagesResult.data;
-
-				// Map messages
-				chatMessages = messages.map((msg) => ({
-					role: msg.type === 'human' ? 'user' : 'assistant',
-					content: msg.text,
-					id: msg.id,
-					isTyping: false,
-					text: msg.text,
-					user: msg.user,
-					created: msg.created,
-					updated: msg.updated,
-					parent_msg: msg.parent_msg,
-					prompt_type: msg.prompt_type as PromptType,
-					prompt_input: msg.prompt_input,
-					provider: msg.provider,
-					model: msg.model,
-					collectionId: msg.collectionId || 'defaultCollectionId',
-					collectionName: msg.collectionName || 'defaultCollectionName'
+				threadsStore.update((state) => ({
+					...state,
+					showThreadList: true
 				}));
 
-				// Set up a subscription to message store changes
-				messagesStore.subscribe((state) => {
-					if (currentThreadId === threadId) {
-						chatMessages = state.messages.map((msg) => ({
-							role: msg.type === 'human' ? 'user' : 'assistant',
-							content: msg.text,
-							id: msg.id,
-							isTyping: false,
-							text: msg.text,
-							user: msg.user,
-							created: msg.created,
-							updated: msg.updated,
-							parent_msg: msg.parent_msg,
-							prompt_type: (msg.prompt_type as PromptType) || null,
-							prompt_input: msg.prompt_input,
-							provider: msg.provider,
-							model: msg.model,
-							collectionId: msg.collectionId || 'defaultCollectionId',
-							collectionName: msg.collectionName || 'defaultCollectionName'
-						}));
+				// Ensure user is authenticated
+				await ensureAuthenticated();
+				const currentUserId = $currentUser?.id;
+				if (!currentUserId) {
+					throw new Error('User not authenticated');
+				}
+
+				// Fetch thread through API endpoint
+				const threadResult = await fetchTryCatch<{
+					success: boolean;
+					thread: Threads;
+					error?: string;
+				}>(`/api/keys/threads/${threadId}`, { method: 'GET', credentials: 'include' });
+
+				if (isFailure(threadResult)) {
+					throw new Error(threadResult.error);
+				}
+
+				const threadData = threadResult.data;
+				if (!threadData.success) {
+					throw new Error(threadData.error || 'Failed to fetch thread');
+				}
+
+				const thread = threadData.thread;
+				console.log('Thread loaded:', thread);
+
+				// Get project access
+				let hasProjectAccess = false;
+				if (thread.project) {
+					const projectId =
+						typeof thread.project === 'string'
+							? thread.project
+							: (thread.project as { id: string }).id;
+
+					const projectResult = await clientTryCatch<{ success: boolean; data: Projects }>(
+						fetchTryCatch<{ success: boolean; data: Projects }>(
+							`/api/projects/${projectId}/threads`,
+							{ method: 'GET', credentials: 'include' }
+						).then((fetchResult) => {
+							if (isFailure(fetchResult)) {
+								throw new Error(fetchResult.error);
+							}
+							return fetchResult.data;
+						}),
+						'Error fetching project'
+					);
+
+					if (isSuccess(projectResult)) {
+						const projectData = projectResult.data;
+						if (projectData.success) {
+							const project = projectData.data;
+							hasProjectAccess =
+								project.owner === currentUserId ||
+								(Array.isArray(project.collaborators) &&
+									project.collaborators.includes(currentUserId));
+						}
 					}
-				});
+				}
+
+				// Verify thread ownership/access
+				const isCreator = thread.user === currentUserId;
+				const isOp =
+					thread.op === currentUserId ||
+					(thread.expand?.op && thread.expand.op.id === currentUserId);
+
+				// Check if user is a member
+				const isMember =
+					thread.members &&
+					((typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
+						(Array.isArray(thread.members) &&
+							thread.members.some((m: any) =>
+								typeof m === 'string' ? m === currentUserId : m.id === currentUserId
+							)));
+
+				// Allow access if user is creator, op, member, or has project access
+				if (!isCreator && !isOp && !isMember && !hasProjectAccess) {
+					console.error('Access denied to thread');
+					throw new Error('Unauthorized thread access');
+				}
+
+				// Update stores
+				await threadsStore.setCurrentThread(threadId);
+
+				// Handle project context
+				if (thread.project) {
+					const projectId =
+						typeof thread.project === 'string'
+							? thread.project
+							: (thread.project as { id: string }).id;
+					await projectStore.setCurrentProject(projectId);
+
+					const projectThreadsResult = await clientTryCatch<{
+						success: boolean;
+						threads: Threads[];
+					}>(
+						fetchTryCatch<{ success: boolean; threads: Threads[] }>(
+							`/api/projects/${projectId}/threads`,
+							{ method: 'GET', credentials: 'include' }
+						).then((fetchResult) => {
+							if (isFailure(fetchResult)) {
+								throw new Error(fetchResult.error);
+							}
+							return fetchResult.data;
+						}),
+						'Error fetching project threads'
+					);
+
+					if (isSuccess(projectThreadsResult)) {
+						const projectThreadsData = projectThreadsResult.data;
+						if (projectThreadsData.success) {
+							threadsStore.update((state) => ({
+								...state,
+								threads: projectThreadsData.threads
+							}));
+						}
+					}
+				}
+
+				// Update local state
+				currentThreadId = thread.id;
+				currentThread = thread as Threads;
+
+				// Fetch messages with real-time updates
+				const messagesResult = await clientTryCatch(
+					messagesStore.fetchMessages(threadId),
+					'Error loading messages'
+				);
+
+				if (isSuccess(messagesResult)) {
+					const messages = messagesResult.data;
+
+					// Map messages
+					chatMessages = messages.map((msg) => ({
+						role: msg.type === 'human' ? 'user' : 'assistant',
+						content: msg.text,
+						id: msg.id,
+						isTyping: false,
+						text: msg.text,
+						user: msg.user,
+						created: msg.created,
+						updated: msg.updated,
+						parent_msg: msg.parent_msg,
+						prompt_type: msg.prompt_type as PromptType,
+						prompt_input: msg.prompt_input,
+						provider: msg.provider,
+						model: msg.model,
+						collectionId: msg.collectionId || 'defaultCollectionId',
+						collectionName: msg.collectionName || 'defaultCollectionName'
+					}));
+
+					// Set up a subscription to message store changes
+					messagesStore.subscribe((state) => {
+						if (currentThreadId === threadId) {
+							chatMessages = state.messages.map((msg) => ({
+								role: msg.type === 'human' ? 'user' : 'assistant',
+								content: msg.text,
+								id: msg.id,
+								isTyping: false,
+								text: msg.text,
+								user: msg.user,
+								created: msg.created,
+								updated: msg.updated,
+								parent_msg: msg.parent_msg,
+								prompt_type: (msg.prompt_type as PromptType) || null,
+								prompt_input: msg.prompt_input,
+								provider: msg.provider,
+								model: msg.model,
+								collectionId: msg.collectionId || 'defaultCollectionId',
+								collectionName: msg.collectionName || 'defaultCollectionName'
+							}));
+						}
+					});
+				}
+
+				showSysPrompt = false;
+				showPromptCatalog = false;
+				showModelSelector = false;
+				showBookmarks = false;
+				showCollaborators = false;
+				showCites = false;
+				return thread;
+			})(),
+			`Error loading thread ${threadId}`
+		);
+
+		if (isFailure(loadResult)) {
+			if (loadResult.error.includes('Unauthorized')) {
+				await threadsStore.setCurrentThread(null);
+				chatMessages = [];
+				currentThreadId = null;
+				currentThread = null;
 			}
-
-			showSysPrompt = false;
-			showPromptCatalog = false;
-			showModelSelector = false;
-			showBookmarks = false;
-			showCollaborators = false;
-			showCites = false;
-			return thread;
-		})(),
-		`Error loading thread ${threadId}`
-	);
-
-	if (isFailure(loadResult)) {
-		if (loadResult.error.includes('Unauthorized')) {
-			await threadsStore.setCurrentThread(null);
-			chatMessages = [];
-			currentThreadId = null;
-			currentThread = null;
+			isLoadingMessages = false;
+			return null;
 		}
-		isLoadingMessages = false;
-		return null;
-	}
 
-	isLoadingMessages = false;
-	return loadResult.data;
-}
+		isLoadingMessages = false;
+		return loadResult.data;
+	}
 	async function handleCreateNewThread(message = '') {
 		if (isCreatingThread) return null;
 
@@ -2413,22 +2419,22 @@ async function handleLoadThread(threadId: string) {
 				console.log('onMount initiated');
 				document.addEventListener('click', handleReplyableClick);
 
-            if (!$currentUser) {
-                isAuthenticated = await ensureAuthenticated();
-                if (!isAuthenticated) {
-                    console.error('Authentication failed in AIChat');
-                    return;
-                }
-            } else {
-                isAuthenticated = true;
-            }
+				if (!$currentUser) {
+					isAuthenticated = await ensureAuthenticated();
+					if (!isAuthenticated) {
+						console.error('Authentication failed in AIChat');
+						return;
+					}
+				} else {
+					isAuthenticated = true;
+				}
 
-            if ($currentUser && $currentUser.id) {
-                console.log('Current user in AIChat:', $currentUser);
-                updateAvatarUrl();
-                name = $currentUser.name || $currentUser.email;
-                loadUserPrompt();
-            }
+				if ($currentUser && $currentUser.id) {
+					console.log('Current user in AIChat:', $currentUser);
+					updateAvatarUrl();
+					name = $currentUser.name || $currentUser.email;
+					loadUserPrompt();
+				}
 
 				if ($currentUser && $currentUser.id && !modelInitialized) {
 					console.log('Initializing models for user:', $currentUser.id);
@@ -2654,7 +2660,7 @@ async function handleLoadThread(threadId: string) {
 								on:mouseleave={() => (favoritesHovered = false)}
 							>
 								<span class="favorite-filter" class:active={$threadsStore.showFavoriteThreads}>
-								{@html getIcon('Star', { size: 18 })}
+									{@html getIcon('Star', { size: 18 })}
 								</span>
 								{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 									<span class="tooltip tooltip-delayed" in:fade>
@@ -2800,9 +2806,12 @@ async function handleLoadThread(threadId: string) {
 															class="action-btn"
 															on:click|stopPropagation={(e) => onFavoriteThread(e, thread)}
 														>
-														<span class="star-icon" class:favorited={isThreadFavorited(thread.id)}>
-														{@html getIcon('Star', { size: 16 })}
-														</span>
+															<span
+																class="star-icon"
+																class:favorited={isThreadFavorited(thread.id)}
+															>
+																{@html getIcon('Star', { size: 16 })}
+															</span>
 														</button>
 													</div>
 												</div>
@@ -2836,7 +2845,6 @@ async function handleLoadThread(threadId: string) {
 					>
 						{#if currentThread}
 							<div class="chat-header-thread">
-
 								{#if currentThread && (currentThread.user === userId || currentThread.op === userId)}
 									{#if isUpdatingThreadName}
 										<div class="spinner-container">
@@ -3010,7 +3018,9 @@ async function handleLoadThread(threadId: string) {
 													on:keydown={(e) => {
 														if (e.key === 'Enter' && !e.shiftKey) {
 															e.preventDefault();
-															!isLoading && handleSendMessage();
+															if (!isLoading) {
+																handleSendMessage();
+															}
 														}
 													}}
 													on:focus={onTextareaFocus}
@@ -3028,7 +3038,6 @@ async function handleLoadThread(threadId: string) {
 												<div class="btn-row" transition:slide>
 													<div class="submission" class:visible={isTextareaFocused}>
 														{#if isTextareaFocused}
-
 															<button
 																class="btn"
 																transition:slide
@@ -3301,7 +3310,9 @@ async function handleLoadThread(threadId: string) {
 											on:keydown={(e) => {
 												if (e.key === 'Enter' && !e.shiftKey) {
 													e.preventDefault();
-													!isLoading && handleSendMessage();
+													if (!isLoading) {
+														handleSendMessage();
+													}
 												}
 											}}
 											on:focus={onTextareaFocus}
@@ -3363,7 +3374,7 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																{@html getIcon('BookmarkCheckIcon', { size: 20 })}																
+																{@html getIcon('BookmarkCheckIcon', { size: 20 })}
 															{:else}
 																{@html getIcon('Bookmark', { size: 20 })}
 															{/if}
@@ -3415,7 +3426,7 @@ async function handleLoadThread(threadId: string) {
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																{@html getIcon('Brain', { size: 20 })}																
+																{@html getIcon('Brain', { size: 20 })}
 															{:else}
 																{@html getIcon('Brain', { size: 16 })}
 															{/if}
@@ -3454,7 +3465,9 @@ async function handleLoadThread(threadId: string) {
 										on:keydown={(e) => {
 											if (e.key === 'Enter' && !e.shiftKey) {
 												e.preventDefault();
-												!isLoading && handleSendMessage();
+												if (!isLoading) {
+													handleSendMessage();
+												}
 											}
 										}}
 										on:focus={onTextareaFocus}
@@ -3489,7 +3502,6 @@ async function handleLoadThread(threadId: string) {
 															{/if}
 														{/if}
 													</button>
-
 												{/if}
 
 												<button class="btn" transition:slide>
@@ -3569,24 +3581,24 @@ async function handleLoadThread(threadId: string) {
 
 	// }
 
-	  .star-icon :global(svg) {
+	.star-icon :global(svg) {
 		fill: none;
 		transition: fill 0.2s ease;
 	}
-	
+
 	.star-icon.favorited :global(svg) {
 		fill: currentColor;
 	}
-	  .favorite-filter :global(svg) {
+	.favorite-filter :global(svg) {
 		fill: none;
 		transition: fill 0.2s ease;
 		cursor: pointer;
 	}
-	
+
 	.favorite-filter.active :global(svg) {
 		fill: currentColor;
 	}
-	
+
 	/* Optional: Add hover effect */
 	.favorite-filter:hover :global(svg) {
 		opacity: 0.7;

@@ -2,11 +2,11 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
-import { 
-	clientTryCatch, 
-	fetchTryCatch, 
-	tryCatchSync, 
-	validationTryCatch 
+import {
+	clientTryCatch,
+	fetchTryCatch,
+	tryCatchSync,
+	validationTryCatch
 } from '$lib/utils/errorUtils';
 
 export interface ApiKeys {
@@ -17,117 +17,132 @@ export interface ApiKeys {
 	deepseek?: string;
 	[key: string]: string | undefined;
 }
+
+type ApiKeyResponse = {
+	success: boolean;
+	data?: Record<string, string>;
+	keys?: Record<string, string>;
+	error?: string;
+};
+type KeysData =
+	| Record<string, string>
+	| {
+			success: boolean;
+			data?: Record<string, string>;
+			keys?: Record<string, string>;
+			[key: string]: unknown;
+	  };
 export async function debugCompleteApiKeyFlow() {
-  console.log('=== COMPLETE API KEY FLOW DEBUG ===');
-  
-  // Step 1: Test the raw server endpoint
-  console.log('1. Testing raw server endpoint...');
-  try {
-    const response = await fetch('/api/keys', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('   - Status:', response.status);
-    console.log('   - OK:', response.ok);
-    
-    const rawData = await response.json();
-    console.log('   - Raw response:', rawData);
-    console.log('   - Raw type:', typeof rawData);
-    console.log('   - Raw keys:', Object.keys(rawData || {}));
-    
-    // Step 2: Test fetchTryCatch wrapper
-    console.log('2. Testing with fetchTryCatch...');
-    const fetchResult = await fetch('/api/keys', { credentials: 'include' });
-    const fetchData = await fetchResult.json();
-    
-    console.log('   - fetchTryCatch would receive:', fetchData);
-    
-    // Step 3: Simulate the store's processing logic
-    console.log('3. Simulating store processing...');
-    let keys = fetchData;
-    
-    if (keys && typeof keys === 'object') {
-      console.log('   - Keys is object, checking structure...');
-      
-      if (keys.success && keys.data && typeof keys.data === 'object') {
-        console.log('   - Found keys.success + keys.data structure');
-        keys = keys.data;
-        console.log('   - Extracted keys from data:', Object.keys(keys));
-      } else if (keys.success && keys.keys && typeof keys.keys === 'object') {
-        console.log('   - Found keys.success + keys.keys structure'); 
-        keys = keys.keys;
-        console.log('   - Extracted keys from keys:', Object.keys(keys));
-      } else if (!keys.success && !keys.data) {
-        console.log('   - Using keys directly (no wrapper)');
-        console.log('   - Direct keys:', Object.keys(keys));
-      } else {
-        console.log('   - Unexpected structure, using empty object');
-        console.log('   - Available fields:', Object.keys(keys));
-        keys = {};
-      }
-    }
-    
-    // Step 4: Test validation
-    console.log('4. Testing validation...');
-    const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
-    const cleanKeys = {};
-    
-    Object.entries(keys).forEach(([provider, key]) => {
-      console.log(`   - Checking ${provider}: ${typeof key}, valid provider: ${validProviders.includes(provider)}, has value: ${!!key}`);
-      if (validProviders.includes(provider) && typeof key === 'string' && key.length > 0) {
-        cleanKeys[provider] = key;
-        console.log(`   - ✅ Added ${provider} to clean keys`);
-      } else {
-        console.log(`   - ❌ Rejected ${provider}`);
-      }
-    });
-    
-    console.log('5. Final clean keys:', cleanKeys);
-    console.log('6. Clean keys count:', Object.keys(cleanKeys).length);
-    
-    return cleanKeys;
-    
-  } catch (error) {
-    console.error('Error in flow debug:', error);
-  }
+	console.log('=== COMPLETE API KEY FLOW DEBUG ===');
+
+	// Step 1: Test the raw server endpoint
+	console.log('1. Testing raw server endpoint...');
+	try {
+		const response = await fetch('/api/keys', {
+			method: 'GET',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+
+		console.log('   - Status:', response.status);
+		console.log('   - OK:', response.ok);
+
+		const rawData = await response.json();
+		console.log('   - Raw response:', rawData);
+		console.log('   - Raw type:', typeof rawData);
+		console.log('   - Raw keys:', Object.keys(rawData || {}));
+
+		// Step 2: Test fetchTryCatch wrapper
+		console.log('2. Testing with fetchTryCatch...');
+		const fetchResult = await fetch('/api/keys', { credentials: 'include' });
+		const fetchData = await fetchResult.json();
+
+		console.log('   - fetchTryCatch would receive:', fetchData);
+
+		// Step 3: Simulate the store's processing logic
+		console.log('3. Simulating store processing...');
+		let keys: KeysData = fetchData;
+
+		if (keys && typeof keys === 'object') {
+			console.log('   - Keys is object, checking structure...');
+
+			if (keys.success && keys.data && typeof keys.data === 'object') {
+				console.log('   - Found keys.success + keys.data structure');
+				keys = keys.data;
+				console.log('   - Extracted keys from data:', Object.keys(keys));
+			} else if (keys.success && keys.keys && typeof keys.keys === 'object') {
+				console.log('   - Found keys.success + keys.keys structure');
+				keys = keys.keys;
+				console.log('   - Extracted keys from keys:', Object.keys(keys));
+			} else if (!keys.success && !keys.data) {
+				console.log('   - Using keys directly (no wrapper)');
+				console.log('   - Direct keys:', Object.keys(keys));
+			} else {
+				console.log('   - Unexpected structure, using empty object');
+				console.log('   - Available fields:', Object.keys(keys));
+				keys = {};
+			}
+		}
+
+		// Step 4: Test validation
+		console.log('4. Testing validation...');
+		const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
+		const cleanKeys: Record<string, string> = {};
+
+		Object.entries(keys).forEach(([provider, key]) => {
+			console.log(
+				`   - Checking ${provider}: ${typeof key}, valid provider: ${validProviders.includes(provider)}, has value: ${!!key}`
+			);
+			if (validProviders.includes(provider) && typeof key === 'string' && key.length > 0) {
+				cleanKeys[provider] = key;
+				console.log(`   - ✅ Added ${provider} to clean keys`);
+			} else {
+				console.log(`   - ❌ Rejected ${provider}`);
+			}
+		});
+
+		console.log('5. Final clean keys:', cleanKeys);
+		console.log('6. Clean keys count:', Object.keys(cleanKeys).length);
+
+		return cleanKeys;
+	} catch (error) {
+		console.error('Error in flow debug:', error);
+	}
 }
 
 // Also add this function to test if you have any keys stored at all:
 export async function testAddApiKey() {
-  console.log('=== TESTING ADD API KEY ===');
-  
-  try {
-    // Add a test key
-    const response = await fetch('/api/keys', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        service: 'openai',
-        key: 'sk-test-key-123456789' // Replace with a real key if you want to test
-      })
-    });
-    
-    console.log('Add key response status:', response.status);
-    const addResult = await response.json();
-    console.log('Add key result:', addResult);
-    
-    // Now test fetching keys again
-    const fetchResponse = await fetch('/api/keys', {
-      credentials: 'include'
-    });
-    const fetchResult = await fetchResponse.json();
-    console.log('Keys after adding:', fetchResult);
-    
-  } catch (error) {
-    console.error('Error testing add key:', error);
-  }
+	console.log('=== TESTING ADD API KEY ===');
+
+	try {
+		// Add a test key
+		const response = await fetch('/api/keys', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({
+				service: 'openai',
+				key: 'sk-test-key-123456789' // Replace with a real key if you want to test
+			})
+		});
+
+		console.log('Add key response status:', response.status);
+		const addResult = await response.json();
+		console.log('Add key result:', addResult);
+
+		// Now test fetching keys again
+		const fetchResponse = await fetch('/api/keys', {
+			credentials: 'include'
+		});
+		const fetchResult = await fetchResponse.json();
+		console.log('Keys after adding:', fetchResult);
+	} catch (error) {
+		console.error('Error testing add key:', error);
+	}
 }
 
 function createApiKeyStore() {
@@ -143,7 +158,7 @@ function createApiKeyStore() {
 
 	function shouldLoadKeys(): boolean {
 		if (!browser) return false;
-		
+
 		const result = tryCatchSync(() => {
 			return chatPages.some((path) => window.location.pathname.startsWith(path));
 		});
@@ -156,109 +171,119 @@ function createApiKeyStore() {
 		return result.data;
 	}
 
-async function loadKeys(force = false) {
-	// Only load if we're on a page that needs API keys (unless forced)
-	if (!force && !shouldLoadKeys()) {
-		console.log('Skipping API key loading - not on a chat page');
-		return;
-	}
+	async function loadKeys(force = false) {
+		// Only load if we're on a page that needs API keys (unless forced)
+		if (!force && !shouldLoadKeys()) {
+			console.log('Skipping API key loading - not on a chat page');
+			return;
+		}
 
-	if (!browser || (initialized && !force) || loading) return;
-	loading = true;
-	setLoading(true);
+		if (!browser || (initialized && !force) || loading) return;
+		loading = true;
+		setLoading(true);
 
-	const result = await clientTryCatch(
-		(async () => {
-			const isAuthenticated = await ensureAuthenticated();
-			if (!isAuthenticated) {
-				set({});
-				return;
-			}
+		const result = await clientTryCatch(
+			(async () => {
+				const isAuthenticated = await ensureAuthenticated();
+				if (!isAuthenticated) {
+					set({});
+					return;
+				}
 
-			const response = await fetchTryCatch<any>(
-				'/api/keys',
-				{
+				const response = await fetchTryCatch<ApiKeyResponse>('/api/keys', {
 					credentials: 'include'
-				}
-			);
+				});
 
-			if (!response.success) {
-				console.error('Failed to load API keys:', response.error);
-				set({});
-				return;
-			}
+				if (!response.success) {
+					console.error('Failed to load API keys:', response.error);
+					set({});
+					return;
+				}
 
-			// FIXED: Extract the actual keys from the API response
-			let keys = response.data;
-			
-			// Handle different possible response structures from your API
-			if (keys && typeof keys === 'object') {
-				// If response is {success: true, data: {actualKeys}}, extract the keys
-				if (keys.success && keys.data && typeof keys.data === 'object') {
-					keys = keys.data;
-					console.log('Extracted API keys from response.data:', Object.keys(keys));
-				}
-				// If response is {success: true, keys: {actualKeys}}, extract the keys  
-				else if (keys.success && keys.keys && typeof keys.keys === 'object') {
-					keys = keys.keys;
-					console.log('Extracted API keys from response.keys:', Object.keys(keys));
-				}
-				// If response already contains the keys directly
-				else if (!keys.success && !keys.data) {
-					console.log('Using API keys directly from response:', Object.keys(keys));
-				}
-				// If response is still wrapped, log and use empty object
-				else {
-					console.warn('Unexpected API key response structure:', keys);
-					console.log('Setting empty keys object');
+				let keys: KeysData = response.data;
+
+				if (keys && typeof keys === 'object') {
+					// If response is {success: true, data: {actualKeys}}, extract the keys
+					if (
+						'success' in keys &&
+						keys.success &&
+						'data' in keys &&
+						keys.data &&
+						typeof keys.data === 'object'
+					) {
+						keys = keys.data;
+						console.log('Extracted API keys from response.data:', Object.keys(keys));
+					}
+					// If response is {success: true, keys: {actualKeys}}, extract the keys
+					else if (
+						'success' in keys &&
+						keys.success &&
+						'keys' in keys &&
+						keys.keys &&
+						typeof keys.keys === 'object'
+					) {
+						keys = keys.keys;
+						console.log('Extracted API keys from response.keys:', Object.keys(keys));
+					}
+					// If response already contains the keys directly
+					else if (!('success' in keys) && !('data' in keys)) {
+						console.log('Using API keys directly from response:', Object.keys(keys));
+					}
+					// If response is still wrapped, log and use empty object
+					else {
+						console.warn('Unexpected API key response structure:', keys);
+						console.log('Setting empty keys object');
+						keys = {};
+					}
+				} else {
+					console.warn('Invalid API key response - not an object:', typeof keys);
 					keys = {};
 				}
-			} else {
-				console.warn('Invalid API key response - not an object:', typeof keys);
-				keys = {};
-			}
 
-			console.log('Final API keys to store:', Object.keys(keys));
+				console.log('Final API keys to store:', Object.keys(keys));
 
-			// Validate keys format
-			const validationResult = validationTryCatch(() => {
-				if (typeof keys !== 'object' || keys === null) {
-					throw new Error('Invalid keys format received');
-				}
-				
-				// Filter out any non-string values and non-provider keys
-				const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
-				const cleanKeys: ApiKeys = {};
-				
-				Object.entries(keys).forEach(([provider, key]) => {
-					if (validProviders.includes(provider) && typeof key === 'string' && key.length > 0) {
-						cleanKeys[provider] = key;
+				// Validate keys format
+				const validationResult = validationTryCatch(() => {
+					if (typeof keys !== 'object' || keys === null) {
+						throw new Error('Invalid keys format received');
 					}
+
+					// Filter out any non-string values and non-provider keys
+					const validProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
+					const cleanKeys: ApiKeys = {};
+
+					Object.entries(keys).forEach(([provider, key]) => {
+						if (validProviders.includes(provider) && typeof key === 'string' && key.length > 0) {
+							cleanKeys[provider] = key;
+						}
+					});
+
+					return cleanKeys;
 				});
-				
-				return cleanKeys;
-			});
 
-			if (validationResult.success) {
-				set(validationResult.data);
-				initialized = true;
-				console.log('Successfully loaded API keys for providers:', Object.keys(validationResult.data));
-			} else {
-				console.warn('Invalid keys format received:', keys);
-				set({});
-			}
-		})(),
-		'Failed to load API keys'
-	);
+				if (validationResult.success) {
+					set(validationResult.data);
+					initialized = true;
+					console.log(
+						'Successfully loaded API keys for providers:',
+						Object.keys(validationResult.data)
+					);
+				} else {
+					console.warn('Invalid keys format received:', keys);
+					set({});
+				}
+			})(),
+			'Failed to load API keys'
+		);
 
-	if (!result.success) {
-		console.error('Error loading API keys:', result.error);
-		set({});
+		if (!result.success) {
+			console.error('Error loading API keys:', result.error);
+			set({});
+		}
+
+		loading = false;
+		setLoading(false);
 	}
-
-	loading = false;
-	setLoading(false);
-}
 
 	// Subscribe to user changes, but only load keys if on appropriate page
 	currentUser.subscribe((user) => {
@@ -303,15 +328,12 @@ async function loadKeys(force = false) {
 				(async () => {
 					console.log(`Setting API key for provider: ${provider}`);
 
-					const response = await fetchTryCatch<unknown>(
-						'/api/keys',
-						{
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include',
-							body: JSON.stringify({ service: provider, key })
-						}
-					);
+					const response = await fetchTryCatch<ApiKeyResponse>('/api/keys', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify({ service: provider, key })
+					});
 
 					if (!response.success) {
 						throw new Error(response.error);
@@ -341,13 +363,10 @@ async function loadKeys(force = false) {
 				(async () => {
 					console.log(`Deleting API key for provider: ${provider}`);
 
-					const response = await fetchTryCatch<unknown>(
-						`/api/keys?service=${provider}`,
-						{
-							method: 'DELETE',
-							credentials: 'include'
-						}
-					);
+					const response = await fetchTryCatch<ApiKeyResponse>(`/api/keys?service=${provider}`, {
+						method: 'DELETE',
+						credentials: 'include'
+					});
 
 					if (!response.success) {
 						throw new Error(response.error);

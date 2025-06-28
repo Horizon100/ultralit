@@ -150,6 +150,7 @@ export class UserService {
 			name: user.name || user.username || '',
 			username: user.username,
 			email: user.email,
+			avatar: user.avatar,
 			avatarUrl: this.getAvatarUrl(user)
 		};
 	}
@@ -161,6 +162,7 @@ export class UserService {
 			name: user.name || user.username,
 			username: user.username,
 			email: user.email,
+			avatar: user.avatar,
 			avatarUrl: user.avatarUrl || this.getAvatarUrl(user)
 		};
 	}
@@ -244,8 +246,8 @@ export class UserService {
 			verified: user.verified || false,
 			description: user.description || '',
 			role: user.role || '',
-			last_login: user.last_login || new Date(),
-			perks: [], // Default empty array
+			last_login: user.last_login || new Date().toISOString(),
+			perks: [],
 			taskAssignments: user.taskAssignments || [],
 			userTaskStatus: user.userTaskStatus || {
 				backlog: 0,
@@ -261,7 +263,9 @@ export class UserService {
 			},
 			userProjects: user.projects || [],
 			hero: user.hero || '',
-			created: user.created || ''
+			created: user.created || '',
+			followers: user.followers || [],
+			following: user.following || []
 		};
 	}
 

@@ -24,9 +24,13 @@
 			<div class="provider-status">
 				<span>{name}</span>
 				{#if $apiKey[provider]}
-					<span class="status-icon success">{@html getIcon('CheckCircle2', { size: 16, color: 'green' })}</span>
+					<span class="status-icon success"
+						>{@html getIcon('CheckCircle2', { size: 16, color: 'green' })}</span
+					>
 				{:else}
-					<span class="status-icon error">{@html getIcon('XCircle', { size: 16, color: 'red' })}</span>
+					<span class="status-icon error"
+						>{@html getIcon('XCircle', { size: 16, color: 'red' })}</span
+					>
 				{/if}
 			</div>
 		{/each}

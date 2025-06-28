@@ -1,10 +1,10 @@
 import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { PublicUserProfile } from '$lib/types/types';
+import type { PublicUserProfile, User } from '$lib/types/types';
 
 // Helper function to convert user record to PublicUserProfile
-function userToPublicProfile(user: any): PublicUserProfile {
+function userToPublicProfile(user: User): PublicUserProfile {
 	return {
 		id: user.id,
 		username: user.username || '',
@@ -18,6 +18,8 @@ function userToPublicProfile(user: any): PublicUserProfile {
 		last_login: user.last_login || '',
 		perks: user.perks || [],
 		taskAssignments: user.taskAssignments || [],
+		followers: user.followers || [],
+		following: user.following || [],
 		userTaskStatus: user.userTaskStatus || {
 			backlog: 0,
 			todo: 0,
@@ -32,7 +34,7 @@ function userToPublicProfile(user: any): PublicUserProfile {
 		},
 		userProjects: user.userProjects || [],
 		hero: user.hero || '',
-		created: user.created
+		created: user.created || ''
 	};
 }
 
@@ -42,7 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	try {
 		// Get the target user to access their followers and following arrays
-		const targetUser = await pb.collection('users').getOne(targetUserId, {
+		const targetUser = await pb.collection('users').getOne<User>(targetUserId, {
 			fields: 'id,followers,following'
 		});
 
@@ -57,9 +59,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		let followers: PublicUserProfile[] = [];
 		if (followerIds.length > 0) {
 			const followerFilter = followerIds.map((id: string) => `id = "${id}"`).join(' || ');
-			const followerRecords = await pb.collection('users').getList(1, 100, {
+			const followerRecords = await pb.collection('users').getList<User>(1, 100, {
 				filter: followerFilter,
-				fields: 'id,username,name,email,avatar,verified,description,role,last_login,perks,taskAssignments,userTaskStatus,userProjects,hero,created'
+				fields:
+					'id,username,name,email,avatar,verified,description,role,last_login,perks,taskAssignments,userTaskStatus,userProjects,hero,created,followers,following'
 			});
 			followers = followerRecords.items.map(userToPublicProfile);
 		}
@@ -68,9 +71,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		let following: PublicUserProfile[] = [];
 		if (followingIds.length > 0) {
 			const followingFilter = followingIds.map((id: string) => `id = "${id}"`).join(' || ');
-			const followingRecords = await pb.collection('users').getList(1, 100, {
+			const followingRecords = await pb.collection('users').getList<User>(1, 100, {
 				filter: followingFilter,
-				fields: 'id,username,name,email,avatar,verified,description,role,last_login,perks,taskAssignments,userTaskStatus,userProjects,hero,created'
+				fields:
+					'id,username,name,email,avatar,verified,description,role,last_login,perks,taskAssignments,userTaskStatus,userProjects,hero,created,followers,following'
 			});
 			following = followingRecords.items.map(userToPublicProfile);
 		}
@@ -113,10 +117,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 		// Get both users
 		const [currentUserRecord, targetUserRecord] = await Promise.all([
-			pb.collection('users').getOne(currentUser.id, {
+			pb.collection('users').getOne<User>(currentUser.id, {
 				fields: 'id,following'
 			}),
-			pb.collection('users').getOne(targetUserId, {
+			pb.collection('users').getOne<User>(targetUserId, {
 				fields: 'id,followers'
 			})
 		]);
@@ -174,7 +178,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		});
 	} catch (err) {
 		console.error('Error updating follow relationship:', err);
-		
+
 		// Log detailed error information
 		if (err && typeof err === 'object') {
 			console.error('Full error object:', JSON.stringify(err, null, 2));
@@ -182,7 +186,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				console.error('Error response:', err.response);
 			}
 		}
-		
+
 		return json(
 			{
 				success: false,

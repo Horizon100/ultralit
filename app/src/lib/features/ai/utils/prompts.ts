@@ -96,11 +96,13 @@ export function getPromptDescription(promptType: PromptType | string | null): st
 
 export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
 	if (!userId) return [];
-	
-	const { data, error, success } = await clientTryCatch(fetch(`/api/prompts?userId=${userId}`).then(res => {
-		if (!res.ok) throw new Error(`Failed to fetch prompts: ${res.statusText}`);
-		return res.json();
-	}));
+
+	const { data, error, success } = await clientTryCatch(
+		fetch(`/api/prompts?userId=${userId}`).then((res) => {
+			if (!res.ok) throw new Error(`Failed to fetch prompts: ${res.statusText}`);
+			return res.json();
+		})
+	);
 
 	if (success && data) {
 		return data;
@@ -112,10 +114,12 @@ export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
 export async function fetchSystemPrompt(promptId: string): Promise<string | null> {
 	if (!promptId) return null;
 
-	const { data, error, success } = await clientTryCatch(fetch(`/api/prompts/${promptId}`).then(res => {
-		if (!res.ok) throw new Error(`Failed to fetch prompt: ${res.statusText}`);
-		return res.json();
-	}));
+	const { data, error, success } = await clientTryCatch(
+		fetch(`/api/prompts/${promptId}`).then((res) => {
+			if (!res.ok) throw new Error(`Failed to fetch prompt: ${res.statusText}`);
+			return res.json();
+		})
+	);
 
 	if (success && data) {
 		return data.data?.prompt || null;

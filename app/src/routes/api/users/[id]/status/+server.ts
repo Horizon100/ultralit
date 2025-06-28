@@ -17,8 +17,10 @@ export const GET: RequestHandler = async ({ params }) => {
 			fields: 'id,status,last_login,followers,following,name,username'
 		});
 
-		// Calculate if user is actually online based on last_login
-		// Consider user online if they were active in the last 5 minutes
+		/*
+		 * Calculate if user is actually online based on last_login
+		 * Consider user online if they were active in the last 5 minutes
+		 */
 		const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 		const lastLogin = new Date(user.last_login);
 		const isOnline = user.status === 'online' && lastLogin > fiveMinutesAgo;
@@ -35,7 +37,7 @@ export const GET: RequestHandler = async ({ params }) => {
 // Allow updating current user's status
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	console.log('🔍 === STATUS PATCH ENDPOINT HIT ===');
-	
+
 	try {
 		return await apiTryCatch(async () => {
 			console.log('🔍 === STATUS PATCH DEBUG START ===');
@@ -95,31 +97,37 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 					status: updatedUser.status,
 					last_login: updatedUser.last_login
 				});
-} catch (updateError) {
-	console.error('❌ PocketBase update failed with error:', updateError);
-	
-	// Log the FULL error response to see exactly what PocketBase is rejecting
-	console.error('❌ Full error response:', JSON.stringify(updateError.response, null, 2));
-	console.error('❌ Error data:', JSON.stringify(updateError.data, null, 2));
-	console.error('❌ Original error data:', JSON.stringify(updateError.originalError, null, 2));
-	
-	throw new Error(`PocketBase update failed: ${updateError.message}`);
-}
+			} catch (updateError: unknown) {
+				const error = updateError as any; // Type assertion for PocketBase error
+				console.error('❌ PocketBase update failed with error:', updateError);
+
+				// Log the FULL error response to see exactly what PocketBase is rejecting
+				console.error('❌ Full error response:', JSON.stringify(error.response, null, 2));
+				console.error('❌ Error data:', JSON.stringify(error.data, null, 2));
+				console.error('❌ Original error data:', JSON.stringify(error.originalError, null, 2));
+
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+				throw new Error(`PocketBase update failed: ${errorMessage}`);
+			}
 			console.log('🔍 === STATUS PATCH DEBUG END ===');
 
-			return { 
-				success: true, 
+			return {
+				success: true,
 				user: updatedUser,
 				status: updatedUser.status,
 				last_login: updatedUser.last_login,
 				timestamp: new Date().toISOString()
 			};
 		}, 'update user status');
-	} catch (outerError) {
+	} catch (outerError: unknown) {
 		console.error('❌ OUTER ERROR in status PATCH:', outerError);
-		return json({
-			success: false,
-			error: `Status update failed: ${outerError.message}`
-		}, { status: 500 });
+		const errorMessage = outerError instanceof Error ? outerError.message : 'Unknown error';
+		return json(
+			{
+				success: false,
+				error: `Status update failed: ${errorMessage}`
+			},
+			{ status: 500 }
+		);
 	}
 };

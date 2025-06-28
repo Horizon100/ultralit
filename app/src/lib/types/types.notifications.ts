@@ -10,7 +10,7 @@ export interface IdeNotification {
 	autoClose?: boolean;
 	action?: {
 		label: string;
-		icon?: IconName;  
+		icon?: IconName;
 		onClick: () => void;
 	};
 }

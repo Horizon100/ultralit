@@ -18,9 +18,9 @@
 		dispatch('comment', event.detail);
 	}
 	$: repostCount = post.repostCount || 0;
-$: upvoteCount = post.upvoteCount || 0;
-$: shareCount = post.shareCount || 0;
-$: commentCount = post.commentCount || 0;
+	$: upvoteCount = post.upvoteCount || 0;
+	$: shareCount = post.shareCount || 0;
+	$: commentCount = post.commentCount || 0;
 </script>
 
 <article class="repost-wrapper">

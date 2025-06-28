@@ -1,11 +1,7 @@
 import type { Threads } from '$lib/types/types';
 import { currentUser } from '$lib/pocketbase';
 import { get } from 'svelte/store';
-import { 
-	fetchTryCatch, 
-	validationTryCatch, 
-	isFailure 
-} from '$lib/utils/errorUtils';
+import { fetchTryCatch, validationTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 export interface FavoriteHandlerOptions {
 	thread: Threads | null;
@@ -23,7 +19,7 @@ export async function handleFavoriteThread({
 	// Validate required parameters
 	const validation = validationTryCatch(() => {
 		const user = get(currentUser);
-		
+
 		console.log('handleFavoriteThread called:', {
 			user: user?.id,
 			thread: thread?.id,
@@ -81,7 +77,7 @@ export async function handleFavoriteThread({
 	// Validate API response
 	const responseValidation = validationTryCatch(() => {
 		const result = apiResult.data;
-		
+
 		if (!result.success) {
 			throw new Error(result.message || 'Favorite thread operation failed');
 		}

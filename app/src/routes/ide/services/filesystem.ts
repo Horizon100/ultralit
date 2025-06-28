@@ -19,10 +19,12 @@ export function getFileSystem() {
 	async function getFiles(): Promise<FileSystem> {
 		if (!browser) return defaultFiles;
 
-		const result = await clientTryCatch(Promise.resolve().then(() => {
-			const stored = localStorage.getItem(STORAGE_KEY);
-			return stored ? JSON.parse(stored) : defaultFiles;
-		}));
+		const result = await clientTryCatch(
+			Promise.resolve().then(() => {
+				const stored = localStorage.getItem(STORAGE_KEY);
+				return stored ? JSON.parse(stored) : defaultFiles;
+			})
+		);
 		if (isFailure(result)) {
 			return defaultFiles;
 		}
@@ -31,9 +33,11 @@ export function getFileSystem() {
 
 	async function saveFiles(files: FileSystem): Promise<void> {
 		if (!browser) return;
-		await clientTryCatch(Promise.resolve().then(() => {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-		}));
+		await clientTryCatch(
+			Promise.resolve().then(() => {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+			})
+		);
 	}
 
 	async function createFile(filename: string, content: string): Promise<void> {

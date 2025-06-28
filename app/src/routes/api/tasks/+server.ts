@@ -78,7 +78,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		}
 
 		const data = await request.json();
-		
+
 		if (!data.id) {
 			return new Response(JSON.stringify({ error: 'Task ID is required' }), {
 				status: 400,
@@ -99,7 +99,6 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		const updatedTask = await pb.collection('tasks').update(data.id, data);
 
 		return json(updatedTask);
-
 	} catch (err) {
 		console.error('❌ Error updating task:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to update task';
@@ -140,7 +139,6 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
 		await pb.collection('tasks').delete(taskId);
 
 		return json({ success: true });
-
 	} catch (err) {
 		console.error('❌ Error deleting task:', err);
 		const errorMessage = err instanceof Error ? err.message : 'Failed to delete task';

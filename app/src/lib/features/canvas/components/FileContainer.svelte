@@ -61,16 +61,16 @@
 		if (fileType === 'application/pdf') return 'FileText';
 		if (fileType.includes('word')) return 'FileText';
 		if (fileType.includes('sheet') || fileType.includes('excel') || fileType.includes('csv'))
-		return 'FileSpreadsheet';
+			return 'FileSpreadsheet';
 		if (fileType.startsWith('audio/')) return 'Headphones';
 		if (fileType.startsWith('video/')) return 'Video';
 		if (
-		fileType === 'text/plain' ||
-		fileType === 'application/json' ||
-		fileType === 'text/javascript' ||
-		fileType === 'text/csv'
+			fileType === 'text/plain' ||
+			fileType === 'application/json' ||
+			fileType === 'text/javascript' ||
+			fileType === 'text/csv'
 		)
-		return 'Code';
+			return 'Code';
 		if (fileType.includes('presentation') || fileType.includes('powerpoint')) return 'Presentation';
 		return 'FileText';
 	}
@@ -164,12 +164,12 @@
 		}
 	}
 
-	function getYouTubeEmbedUrl(url: string) {
-		const videoId = url.match(
-			/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=))([\w\-]{10,12})\b/
-		);
-		return videoId ? `https://www.youtube.com/embed/${videoId[1]}` : null;
-	}
+	// function getYouTubeEmbedUrl(url: string) {
+	// 	const videoId = url.match(
+	// 		/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=))([\w-]{10,12})\b/
+	// 	);
+	// 	return videoId ? `https://www.youtube.com/embed/${videoId[1]}` : null;
+	// }
 
 	function convertCSVToTable(csv: string) {
 		const rows = csv.split('\n');
@@ -204,7 +204,7 @@
 		}
 	});
 
-  $: fileIconName = getFileIcon(fileType); // Returns IconName string instead of component
+	$: fileIconName = getFileIcon(fileType); // Returns IconName string instead of component
 </script>
 
 <div
@@ -224,7 +224,7 @@
 >
 	<div class="file-header">
 		<div class="file-icon">
-		{@html getIcon(fileIconName, { size: 24, color: 'gray' })}
+			{@html getIcon(fileIconName, { size: 24, color: 'gray' })}
 		</div>
 		<span class="file-name">{fileName}</span>
 		<button

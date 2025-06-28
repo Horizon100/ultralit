@@ -69,77 +69,76 @@
 		loadData();
 	});
 
-async function loadData() {
-	isLoading.set(true);
-	error.set(null);
+	async function loadData() {
+		isLoading.set(true);
+		error.set(null);
 
-	try {
-		// Load tasks
-		await loadTasks();
+		try {
+			// Load tasks
+			await loadTasks();
 
-		// Load tags
-		await loadTags();
+			// Load tags
+			await loadTags();
 
-		// Update month groups for grouped view - only after tasks are loaded
-		updateMonthGroups();
-		updateCalendarGrid();
-		isLoading.set(false);
-	} catch (err: any) {
-		console.error('Error loading data:', err);
-		error.set(err instanceof Error ? err.message : 'Failed to load data');
-		isLoading.set(false);
-	}
-}
-
-async function loadTasks() {
-	try {
-		let url = '/api/tasks';
-		if (currentProjectId) {
-			url = `/api/projects/${currentProjectId}/tasks`;
+			// Update month groups for grouped view - only after tasks are loaded
+			updateMonthGroups();
+			updateCalendarGrid();
+			isLoading.set(false);
+		} catch (err: any) {
+			console.error('Error loading data:', err);
+			error.set(err instanceof Error ? err.message : 'Failed to load data');
+			isLoading.set(false);
 		}
+	}
 
-		const response = await fetch(url);
-		if (!response.ok) throw new Error('Failed to fetch tasks');
+	async function loadTasks() {
+		try {
+			let url = '/api/tasks';
+			if (currentProjectId) {
+				url = `/api/projects/${currentProjectId}/tasks`;
+			}
 
-		const data = await response.json();
+			const response = await fetch(url);
+			if (!response.ok) throw new Error('Failed to fetch tasks');
 
-		// Add safety check for data.items
-		if (!data || !Array.isArray(data.items)) {
-			console.warn('Invalid API response format:', data);
+			const data = await response.json();
+
+			// Add safety check for data.items
+			if (!data || !Array.isArray(data.items)) {
+				console.warn('Invalid API response format:', data);
+				tasks.set([]);
+				return;
+			}
+
+			// Process tasks
+			const tasksList = data.items.map((task: any) => ({
+				id: task.id,
+				title: task.title,
+				taskDescription: task.taskDescription || '',
+				creationDate: new Date(task.created),
+				due_date: task.due_date ? new Date(task.due_date) : null,
+				tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
+				attachments: [],
+				project_id: task.project_id,
+				createdBy: task.createdBy,
+				allocatedAgents: task.allocatedAgents || [],
+				status: task.status,
+				priority: task.priority || 'medium',
+				prompt: task.prompt || '',
+				context: task.context || '',
+				task_outcome: task.task_outcome || '',
+				dependencies: task.dependencies || [],
+				agentMessages: task.agentMessages || []
+			}));
+
+			tasks.set(tasksList);
+		} catch (err) {
+			console.error('Error loading tasks:', err);
+			// Set empty array on error to prevent further issues
 			tasks.set([]);
-			return;
+			throw err;
 		}
-
-		// Process tasks
-		const tasksList = data.items.map((task: any) => ({
-			id: task.id,
-			title: task.title,
-			taskDescription: task.taskDescription || '',
-			creationDate: new Date(task.created),
-			due_date: task.due_date ? new Date(task.due_date) : null,
-			tags: task.taskTags || (task.taggedTasks ? task.taggedTasks.split(',') : []),
-			attachments: [],
-			project_id: task.project_id,
-			createdBy: task.createdBy,
-			allocatedAgents: task.allocatedAgents || [],
-			status: task.status,
-			priority: task.priority || 'medium',
-			prompt: task.prompt || '',
-			context: task.context || '',
-			task_outcome: task.task_outcome || '',
-			dependencies: task.dependencies || [],
-			agentMessages: task.agentMessages || []
-		}));
-
-		tasks.set(tasksList);
-	} catch (err) {
-		console.error('Error loading tasks:', err);
-		// Set empty array on error to prevent further issues
-		tasks.set([]);
-		throw err;
 	}
-}
-
 
 	async function loadTags() {
 		try {
@@ -160,77 +159,77 @@ async function loadTasks() {
 	}
 
 	// Group tasks by month for the month view
-function updateMonthGroups() {
-	const taskList = get(tasks);
-	
-	// Add null check to prevent errors
-	if (!taskList || !Array.isArray(taskList)) {
-		monthGroups.set({
-			'no-date': {
-				name: 'No Due Date',
-				tasks: []
+	function updateMonthGroups() {
+		const taskList = get(tasks);
+
+		// Add null check to prevent errors
+		if (!taskList || !Array.isArray(taskList)) {
+			monthGroups.set({
+				'no-date': {
+					name: 'No Due Date',
+					tasks: []
+				}
+			});
+			return;
+		}
+
+		// Fixed syntax - use type assertion instead of type annotation
+		const groups = {} as Record<string, { name: string; tasks: KanbanTask[] }>;
+
+		// First ensure we have the "no-date" group
+		groups['no-date'] = {
+			name: 'No Due Date',
+			tasks: []
+		};
+
+		taskList.forEach((task) => {
+			if (task.due_date) {
+				try {
+					// Safely convert to Date object
+					let dateObj: Date;
+
+					if (task.due_date instanceof Date) {
+						dateObj = task.due_date;
+					} else if (typeof task.due_date === 'string') {
+						dateObj = new Date(task.due_date);
+					} else {
+						// If conversion fails, add to no-date group
+						groups['no-date'].tasks.push(task);
+						console.warn(`Invalid date format for task ${task.id}:`, task.due_date);
+						return;
+					}
+
+					// Check if date is valid
+					if (isNaN(dateObj.getTime())) {
+						groups['no-date'].tasks.push(task);
+						console.warn(`Invalid date for task ${task.id}:`, task.due_date);
+						return;
+					}
+
+					const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}`;
+					const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+					if (!groups[monthKey]) {
+						groups[monthKey] = {
+							name: monthName,
+							tasks: []
+						};
+					}
+
+					groups[monthKey].tasks.push(task);
+				} catch (err) {
+					// If any error occurs, add to no-date group
+					groups['no-date'].tasks.push(task);
+					console.error(`Error processing date for task ${task.id}:`, err);
+				}
+			} else {
+				// Tasks without due dates
+				groups['no-date'].tasks.push(task);
 			}
 		});
-		return;
+
+		monthGroups.set(groups);
 	}
-
-	// Fixed syntax - use type assertion instead of type annotation
-	const groups = {} as Record<string, { name: string; tasks: KanbanTask[] }>;
-
-	// First ensure we have the "no-date" group
-	groups['no-date'] = {
-		name: 'No Due Date',
-		tasks: []
-	};
-
-	taskList.forEach((task) => {
-		if (task.due_date) {
-			try {
-				// Safely convert to Date object
-				let dateObj: Date;
-
-				if (task.due_date instanceof Date) {
-					dateObj = task.due_date;
-				} else if (typeof task.due_date === 'string') {
-					dateObj = new Date(task.due_date);
-				} else {
-					// If conversion fails, add to no-date group
-					groups['no-date'].tasks.push(task);
-					console.warn(`Invalid date format for task ${task.id}:`, task.due_date);
-					return;
-				}
-
-				// Check if date is valid
-				if (isNaN(dateObj.getTime())) {
-					groups['no-date'].tasks.push(task);
-					console.warn(`Invalid date for task ${task.id}:`, task.due_date);
-					return;
-				}
-
-				const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}`;
-				const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
-
-				if (!groups[monthKey]) {
-					groups[monthKey] = {
-						name: monthName,
-						tasks: []
-					};
-				}
-
-				groups[monthKey].tasks.push(task);
-			} catch (err) {
-				// If any error occurs, add to no-date group
-				groups['no-date'].tasks.push(task);
-				console.error(`Error processing date for task ${task.id}:`, err);
-			}
-		} else {
-			// Tasks without due dates
-			groups['no-date'].tasks.push(task);
-		}
-	});
-
-	monthGroups.set(groups);
-}
 	async function updateTaskDueDate(taskId: string, dueDate: Date | null) {
 		try {
 			const response = await fetch(`/api/tasks/${taskId}`, {
@@ -251,103 +250,103 @@ function updateMonthGroups() {
 			throw err;
 		}
 	}
-function updateCalendarGrid() {
-	const taskList = get(tasks);
-	
-	// Add null check to prevent the error
-	if (!taskList || !Array.isArray(taskList)) {
+	function updateCalendarGrid() {
+		const taskList = get(tasks);
+
+		// Add null check to prevent the error
+		if (!taskList || !Array.isArray(taskList)) {
+			calendarGrid.set({
+				days: [],
+				month: currentDate.toLocaleString('default', { month: 'long' }),
+				year: currentDate.getFullYear()
+			});
+			return;
+		}
+
+		const year = currentDate.getFullYear();
+		const month = currentDate.getMonth();
+
+		// Get first day of month
+		const firstDay = new Date(year, month, 1);
+		// Get last day of month
+		const lastDay = new Date(year, month + 1, 0);
+
+		/*
+		 * Get day of week of first day (0 = Sunday, 6 = Saturday)
+		 * Convert to Monday = 0, Sunday = 6 format
+		 */
+		const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+		// Create array of days
+		const days: Day[] = [];
+
+		// Add days from previous month to fill first week
+		const daysFromPrevMonth = firstDayOfWeek;
+		for (let i = daysFromPrevMonth - 1; i >= 0; i--) {
+			const date = new Date(year, month, -i);
+			days.push({
+				date,
+				dayOfMonth: date.getDate(),
+				isCurrentMonth: false,
+				tasks: taskList.filter((task) => {
+					if (!task.due_date) return false;
+					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+					return (
+						taskDate.getDate() === date.getDate() &&
+						taskDate.getMonth() === date.getMonth() &&
+						taskDate.getFullYear() === date.getFullYear()
+					);
+				})
+			});
+		}
+
+		// Add all days of current month
+		const daysInMonth = lastDay.getDate();
+		for (let i = 1; i <= daysInMonth; i++) {
+			const date = new Date(year, month, i);
+			days.push({
+				date,
+				dayOfMonth: i,
+				isCurrentMonth: true,
+				tasks: taskList.filter((task) => {
+					if (!task.due_date) return false;
+					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+					return (
+						taskDate.getDate() === i &&
+						taskDate.getMonth() === month &&
+						taskDate.getFullYear() === year
+					);
+				})
+			});
+		}
+
+		// Add days from next month to complete grid (typically 42 days total for 6 weeks)
+		const totalDaysNeeded = 42;
+		const daysFromNextMonth = totalDaysNeeded - days.length;
+		for (let i = 1; i <= daysFromNextMonth; i++) {
+			const date = new Date(year, month + 1, i);
+			days.push({
+				date,
+				dayOfMonth: i,
+				isCurrentMonth: false,
+				tasks: taskList.filter((task) => {
+					if (!task.due_date) return false;
+					const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
+					return (
+						taskDate.getDate() === i &&
+						taskDate.getMonth() === month + 1 &&
+						taskDate.getFullYear() === year
+					);
+				})
+			});
+		}
+
 		calendarGrid.set({
-			days: [],
-			month: currentDate.toLocaleString('default', { month: 'long' }),
-			year: currentDate.getFullYear()
-		});
-		return;
-	}
-	
-	const year = currentDate.getFullYear();
-	const month = currentDate.getMonth();
-
-	// Get first day of month
-	const firstDay = new Date(year, month, 1);
-	// Get last day of month
-	const lastDay = new Date(year, month + 1, 0);
-
-	/*
-	 * Get day of week of first day (0 = Sunday, 6 = Saturday)
-	 * Convert to Monday = 0, Sunday = 6 format
-	 */
-	const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
-
-	// Create array of days
-	const days: Day[] = [];
-
-	// Add days from previous month to fill first week
-	const daysFromPrevMonth = firstDayOfWeek;
-	for (let i = daysFromPrevMonth - 1; i >= 0; i--) {
-		const date = new Date(year, month, -i);
-		days.push({
-			date,
-			dayOfMonth: date.getDate(),
-			isCurrentMonth: false,
-			tasks: taskList.filter((task) => {
-				if (!task.due_date) return false;
-				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-				return (
-					taskDate.getDate() === date.getDate() &&
-					taskDate.getMonth() === date.getMonth() &&
-					taskDate.getFullYear() === date.getFullYear()
-				);
-			})
+			days,
+			month: firstDay.toLocaleString('default', { month: 'long' }),
+			year
 		});
 	}
-
-	// Add all days of current month
-	const daysInMonth = lastDay.getDate();
-	for (let i = 1; i <= daysInMonth; i++) {
-		const date = new Date(year, month, i);
-		days.push({
-			date,
-			dayOfMonth: i,
-			isCurrentMonth: true,
-			tasks: taskList.filter((task) => {
-				if (!task.due_date) return false;
-				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-				return (
-					taskDate.getDate() === i &&
-					taskDate.getMonth() === month &&
-					taskDate.getFullYear() === year
-				);
-			})
-		});
-	}
-
-	// Add days from next month to complete grid (typically 42 days total for 6 weeks)
-	const totalDaysNeeded = 42;
-	const daysFromNextMonth = totalDaysNeeded - days.length;
-	for (let i = 1; i <= daysFromNextMonth; i++) {
-		const date = new Date(year, month + 1, i);
-		days.push({
-			date,
-			dayOfMonth: i,
-			isCurrentMonth: false,
-			tasks: taskList.filter((task) => {
-				if (!task.due_date) return false;
-				const taskDate = task.due_date instanceof Date ? task.due_date : new Date(task.due_date);
-				return (
-					taskDate.getDate() === i &&
-					taskDate.getMonth() === month + 1 &&
-					taskDate.getFullYear() === year
-				);
-			})
-		});
-	}
-
-	calendarGrid.set({
-		days,
-		month: firstDay.toLocaleString('default', { month: 'long' }),
-		year
-	});
-}
 
 	// Add these navigation functions
 	function previousMonth() {
@@ -827,7 +826,9 @@ function updateCalendarGrid() {
 							{#each $tags as tag}
 								<button
 									class="tag-modal"
-									class:selected={selectedTask.tags && Array.isArray(selectedTask.tags) && selectedTask.tags.includes(tag.id)}
+									class:selected={selectedTask.tags &&
+										Array.isArray(selectedTask.tags) &&
+										selectedTask.tags.includes(tag.id)}
 									on:click={() => {
 										if (selectedTask?.tags) {
 											if (selectedTask.tags.includes(tag.id)) {
@@ -1190,8 +1191,7 @@ function updateCalendarGrid() {
 		justify-content: flex-end;
 		align-items: center;
 		z-index: 1000;
-				padding: 1rem;
-
+		padding: 1rem;
 	}
 
 	.modal-container {
@@ -1298,8 +1298,8 @@ function updateCalendarGrid() {
 			// border: 1px solid var(--line-color);
 			&:focus {
 				width: auto;
-			font-size: 0.8rem !important;
-			text-justify: center;
+				font-size: 0.8rem !important;
+				text-justify: center;
 				padding: 1rem;
 				background: var(--secondary-color);
 				border: 1px solid var(--line-color);
@@ -1557,7 +1557,7 @@ function updateCalendarGrid() {
 		align-items: center;
 		gap: 1rem;
 		& h3 {
-		font-size: 0.8rem;
+			font-size: 0.8rem;
 			margin: 0;
 			padding: 0;
 		}

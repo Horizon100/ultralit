@@ -31,7 +31,7 @@ export interface Post {
 	sharedBy: string[];
 	quotedBy: string[];
 	readBy: string[];
-	 agents?: string[];
+	agents?: string[];
 	upvoteCount: number;
 	downvoteCount: number;
 	repostCount: number;

@@ -7,43 +7,45 @@ export interface ConvertedVideo {
 	formats: Array<{ file: File; mimeType: string }>;
 }
 
-
 export async function convertVideoToMultipleFormats(
-  videoFile: File
+	videoFile: File
 ): Promise<Result<ConvertedVideo, Error>> {
-	return tryCatch((async () => {
-		console.log(`Converting video: ${videoFile.name}`);
+	return tryCatch(
+		(async () => {
+			console.log(`Converting video: ${videoFile.name}`);
 
-		const result: ConvertedVideo = {
-		original: videoFile,
-		formats: []
-		};
+			const result: ConvertedVideo = {
+				original: videoFile,
+				formats: []
+			};
 
-		result.formats.push({ file: videoFile, mimeType: videoFile.type });
+			result.formats.push({ file: videoFile, mimeType: videoFile.type });
 
-		if (!videoFile.type.startsWith('video/')) {
-		return result;
-		}
+			if (!videoFile.type.startsWith('video/')) {
+				return result;
+			}
 
-		if (videoFile.type !== 'video/mp4') {
-		const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
-		if (mp4File) {
-			result.mp4 = mp4File;
-			result.formats.push({ file: mp4File, mimeType: 'video/mp4' });
-		}
-		}
+			if (videoFile.type !== 'video/mp4') {
+				const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
+				if (mp4File) {
+					result.mp4 = mp4File;
+					result.formats.push({ file: mp4File, mimeType: 'video/mp4' });
+				}
+			}
 
-		if (videoFile.type !== 'video/webm') {
-		const webmFile = await convertVideoToFormat(videoFile, 'video/webm');
-		if (webmFile) {
-			result.webm = webmFile;
-			result.formats.push({ file: webmFile, mimeType: 'video/webm' });
-		}
-		}
+			if (videoFile.type !== 'video/webm') {
+				const webmFile = await convertVideoToFormat(videoFile, 'video/webm');
+				if (webmFile) {
+					result.webm = webmFile;
+					result.formats.push({ file: webmFile, mimeType: 'video/webm' });
+				}
+			}
 
-		console.log(`Video conversion complete. Generated ${result.formats.length} formats`);
-		return result;
-	})());}
+			console.log(`Video conversion complete. Generated ${result.formats.length} formats`);
+			return result;
+		})()
+	);
+}
 
 export function canConvertVideo(): boolean {
 	try {
@@ -222,21 +224,22 @@ async function convertVideoToFormat(videoFile: File, targetMimeType: string): Pr
 		video.load();
 	});
 }
-export async function convertVideoToUniversalFormat(
-	videoFile: File
-	): Promise<Result<File, Error>> {
-	return tryCatch((async () => {
-		console.log(`Converting ${videoFile.name} to universal format...`);
+export async function convertVideoToUniversalFormat(videoFile: File): Promise<Result<File, Error>> {
+	return tryCatch(
+		(async () => {
+			console.log(`Converting ${videoFile.name} to universal format...`);
 
-		const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
-		if (mp4File && mp4File.size > 0) {
-		console.log('Conversion successful!');
-		return mp4File;
-		} else {
-		console.log('Conversion failed or produced empty file, using original');
-		return videoFile;
-		}
-	})());}
+			const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
+			if (mp4File && mp4File.size > 0) {
+				console.log('Conversion successful!');
+				return mp4File;
+			} else {
+				console.log('Conversion failed or produced empty file, using original');
+				return videoFile;
+			}
+		})()
+	);
+}
 
 // Updated process function
 export async function processVideoAttachments(files: File[]): Promise<File[]> {
@@ -247,12 +250,12 @@ export async function processVideoAttachments(files: File[]): Promise<File[]> {
 			console.log(`Processing video: ${file.name}`);
 
 			const result = await convertVideoToUniversalFormat(file);
-		if (result.success) {
-			processedFiles.push(result.data);
-		} else {
-			console.error('Video conversion failed:', result.error);
-			processedFiles.push(file); // fallback original file
-		}
+			if (result.success) {
+				processedFiles.push(result.data);
+			} else {
+				console.error('Video conversion failed:', result.error);
+				processedFiles.push(file); // fallback original file
+			}
 		} else {
 			processedFiles.push(file);
 		}

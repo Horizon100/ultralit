@@ -10,21 +10,14 @@ import {
 	fetchProjectCollaborators
 } from '$lib/clients/projectClient';
 import { currentUser } from '$lib/pocketbase';
-import { 
-	storageTryCatch, 
-	fetchTryCatch, 
-	clientTryCatch, 
-	validationTryCatch,
-	isSuccess, 
-	isFailure 
-} from '$lib/utils/errorUtils';
+import { storageTryCatch, fetchTryCatch, clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 const STORAGE_KEY = 'currentProjectId';
 
 // Helper functions for localStorage persistence
 function saveCurrentProjectToStorage(projectId: string | null): void {
 	if (typeof window === 'undefined') return;
-	
+
 	storageTryCatch(
 		() => {
 			if (projectId) {
@@ -42,7 +35,7 @@ function saveCurrentProjectToStorage(projectId: string | null): void {
 
 function loadCurrentProjectFromStorage(): string | null {
 	if (typeof window === 'undefined') return null;
-	
+
 	return storageTryCatch(
 		() => {
 			const projectId = localStorage.getItem(STORAGE_KEY);
@@ -79,7 +72,6 @@ function createProjectStore() {
 	const storeObj = {
 		subscribe,
 		update,
-
 		loadProjects: async (): Promise<Projects[]> => {
 			const loadResult = await clientTryCatch(
 				(async () => {
@@ -88,10 +80,19 @@ function createProjectStore() {
 						throw new Error('User not authenticated');
 					}
 
-					const projects = await fetchProjects();
+					// fetchProjects returns Result<Projects[], string>
+					const projectsResult = await fetchProjects();
+
+					// Check if fetchProjects failed
+					if (isFailure(projectsResult)) {
+						throw new Error(projectsResult.error);
+					}
+
+					// Now we have the actual Projects[] array
+					const projects = projectsResult.data;
 
 					// Filter projects based on permissions
-					const filteredProjects = projects.filter((project) => {
+					const filteredProjects = projects.filter((project: Projects) => {
 						return (
 							project.owner === user.id ||
 							(Array.isArray(project.collaborators) && project.collaborators.includes(user.id))
@@ -123,7 +124,6 @@ function createProjectStore() {
 
 			return loadResult.data;
 		},
-
 		addProject: async (projectData: Partial<Projects>): Promise<Projects | null> => {
 			const addResult = await clientTryCatch(
 				(async () => {
@@ -138,7 +138,16 @@ function createProjectStore() {
 						owner: user.id // Always set owner to current user
 					};
 
-					const newProject = await createProject(dataWithOwner);
+					// createProject returns Result<Projects, string>
+					const createResult = await createProject(dataWithOwner);
+
+					// Check if createProject failed
+					if (isFailure(createResult)) {
+						throw new Error(createResult.error);
+					}
+
+					// Now we have the actual Projects object
+					const newProject = createResult.data;
 
 					// Reload projects using storeObj reference instead of this
 					await storeObj.loadProjects();
@@ -292,10 +301,10 @@ function createProjectStore() {
 
 					let currentProject = project;
 					if (!currentProject) {
-						const fetchResult = await fetchTryCatch<{ 
-							success: boolean; 
-							data: Projects; 
-							error?: string 
+						const fetchResult = await fetchTryCatch<{
+							success: boolean;
+							data: Projects;
+							error?: string;
 						}>(`/api/projects/${id}`, {
 							method: 'GET',
 							credentials: 'include'
@@ -396,6 +405,25 @@ function createProjectStore() {
 			}
 		},
 
+		setSearchQuery: (query: string) => {
+			store.update((state) => ({
+				...state,
+				searchQuery: query
+			}));
+		},
+
+		reset: () => {
+			store.update((state) => ({
+				...state,
+				currentProjectId: null,
+				currentProject: null,
+				messages: [],
+				updateStatus: '',
+				isProjectLoaded: false,
+				collaborators: []
+			}));
+		},
+
 		loadCollaborators: async (projectId: string) => {
 			const loadResult = await clientTryCatch(
 				(async () => {
@@ -411,7 +439,16 @@ function createProjectStore() {
 						updateStatus: 'Loading collaborators...'
 					}));
 
-					let collaborators = await fetchProjectCollaborators(projectId);
+					// fetchProjectCollaborators returns Result<User[], string>
+					const collaboratorsResult = await fetchProjectCollaborators(projectId);
+
+					// Check if fetchProjectCollaborators failed
+					if (isFailure(collaboratorsResult)) {
+						throw new Error(collaboratorsResult.error);
+					}
+
+					// Now we have the actual User[] array
+					let collaborators = collaboratorsResult.data;
 
 					console.log('Loaded collaborators:', collaborators);
 
@@ -447,25 +484,6 @@ function createProjectStore() {
 			return loadResult.data;
 		},
 
-		setSearchQuery: (query: string) => {
-			store.update((state) => ({
-				...state,
-				searchQuery: query
-			}));
-		},
-
-		reset: () => {
-			store.update((state) => ({
-				...state,
-				currentProjectId: null,
-				currentProject: null,
-				messages: [],
-				updateStatus: '',
-				isProjectLoaded: false,
-				collaborators: []
-			}));
-		},
-
 		addCollaborator: async (projectId: string, userId: string) => {
 			const addResult = await clientTryCatch(
 				(async () => {
@@ -485,13 +503,26 @@ function createProjectStore() {
 						throw new Error('Only the project owner can add collaborators');
 					}
 
-					const updatedProject = await addCollaboratorToProject(projectId, userId);
-					const collaborators = await fetchProjectCollaborators(projectId);
+					// Handle addCollaboratorToProject result
+					const updateResult = await addCollaboratorToProject(projectId, userId);
+					if (isFailure(updateResult)) {
+						throw new Error(updateResult.error);
+					}
+					const updatedProject = updateResult.data;
+
+					// Handle fetchProjectCollaborators result
+					const collaboratorsResult = await fetchProjectCollaborators(projectId);
+					if (isFailure(collaboratorsResult)) {
+						throw new Error(collaboratorsResult.error);
+					}
+					const collaborators = collaboratorsResult.data;
 
 					store.update((state) => ({
 						...state,
 						collaborators,
-						threads: state.threads.map((t) => (t.id === projectId ? { ...t, ...updatedProject } : t)),
+						threads: state.threads.map((t) =>
+							t.id === projectId ? { ...t, ...updatedProject } : t
+						),
 						updateStatus: 'Collaborator added successfully'
 					}));
 					setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
@@ -523,21 +554,30 @@ function createProjectStore() {
 						throw new Error('Project not found');
 					}
 
-					/*
-					 * Only the owner should be able to remove collaborators
-					 * Or users can remove themselves
-					 */
 					if (project.owner !== user.id && userId !== user.id) {
 						throw new Error('Only the project owner can remove collaborators');
 					}
 
-					const updatedProject = await removeCollaboratorFromProject(projectId, userId);
-					const collaborators = await fetchProjectCollaborators(projectId);
+					// Handle removeCollaboratorFromProject result
+					const updateResult = await removeCollaboratorFromProject(projectId, userId);
+					if (isFailure(updateResult)) {
+						throw new Error(updateResult.error);
+					}
+					const updatedProject = updateResult.data;
+
+					// Handle fetchProjectCollaborators result
+					const collaboratorsResult = await fetchProjectCollaborators(projectId);
+					if (isFailure(collaboratorsResult)) {
+						throw new Error(collaboratorsResult.error);
+					}
+					const collaborators = collaboratorsResult.data;
 
 					store.update((state) => ({
 						...state,
 						collaborators,
-						threads: state.threads.map((t) => (t.id === projectId ? { ...t, ...updatedProject } : t)),
+						threads: state.threads.map((t) =>
+							t.id === projectId ? { ...t, ...updatedProject } : t
+						),
 						updateStatus: 'Collaborator removed successfully'
 					}));
 					setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);

@@ -1,4 +1,4 @@
-import type { CodeFiles, CodeFolders, Repository, CodeCommits} from '$lib/types/types.ide';
+import type { CodeFiles, CodeFolders, Repository, CodeCommits } from '$lib/types/types.ide';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
 // Repository operations

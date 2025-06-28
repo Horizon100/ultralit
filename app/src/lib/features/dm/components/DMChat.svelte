@@ -1,5 +1,11 @@
 <script lang="ts">
-	import type { User, PublicUserProfile, UserProfile, DMMessage, ConversationUser} from '$lib/types/types';
+	import type {
+		User,
+		PublicUserProfile,
+		UserProfile,
+		DMMessage,
+		ConversationUser
+	} from '$lib/types/types';
 	import DMHeader from './DMHeader.svelte';
 	import DMInput from './DMInput.svelte';
 	import { onMount, afterUpdate } from 'svelte';
@@ -47,10 +53,10 @@
 	}
 
 	function formatTime(date: Date): string {
-		return date.toLocaleTimeString('en-US', { 
-			hour: '2-digit', 
+		return date.toLocaleTimeString('en-US', {
+			hour: '2-digit',
 			minute: '2-digit',
-			hour12: false 
+			hour12: false
 		});
 	}
 
@@ -64,53 +70,54 @@
 		} else if (date.toDateString() === yesterday.toDateString()) {
 			return 'Yesterday';
 		} else {
-			return date.toLocaleDateString('en-US', { 
-				month: 'short', 
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
 				day: 'numeric',
 				year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
 			});
 		}
 	}
 
-	function shouldShowDateSeparator(currentMessage: DMMessage, previousMessage: DMMessage | undefined): boolean {
+	function shouldShowDateSeparator(
+		currentMessage: DMMessage,
+		previousMessage: DMMessage | undefined
+	): boolean {
 		if (!previousMessage) return true;
-		
+
 		const currentDate = new Date(currentMessage.created);
 		const previousDate = new Date(previousMessage.created);
-		
+
 		return currentDate.toDateString() !== previousDate.toDateString();
 	}
 
 	// Mark messages as read when they come into view
 	$: if (messages.length && onMarkAsRead) {
 		const unreadMessages = messages
-			.filter(msg => msg.senderId !== currentUserId)
-			.map(msg => msg.id);
-		
+			.filter((msg) => msg.senderId !== currentUserId)
+			.map((msg) => msg.id);
+
 		if (unreadMessages.length) {
 			onMarkAsRead(unreadMessages);
 		}
 	}
 </script>
 
-<div class="dm-chat"
->
+<div class="dm-chat">
 	{#if showHeader}
 		<div class="chat-header">
 			<DMHeader {user} showStatus={true} />
 		</div>
 	{/if}
-	<div 
-		class="messages-container" 
+	<div
+		class="messages-container"
 		class:no-header={!showHeader}
-		
 		bind:this={messagesContainer}
 		on:scroll={handleScroll}
 	>
 		{#if loading && messages.length === 0}
-				<div class="loading-overlay">
-					<div class="loader-spinner"></div>
-				</div>
+			<div class="loading-overlay">
+				<div class="loader-spinner"></div>
+			</div>
 		{:else if messages.length === 0}
 			<div class="empty-state">
 				<div class="empty-icon">💬</div>
@@ -123,12 +130,11 @@
 						<span>{formatDate(new Date(message.created))}</span>
 					</div>
 				{/if}
-				
-				<div 
-					class="message" 
+
+				<div
+					class="message"
 					class:own={message.senderId === currentUserId}
 					class:other={message.senderId !== currentUserId}
-
 				>
 					<div class="message-content">
 						<p>{message.content}</p>
@@ -141,11 +147,8 @@
 		{/if}
 	</div>
 
-	<div class="chat-input"
-		in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }}
-
-	>
-		<DMInput 
+	<div class="chat-input" in:fly={{ y: 200, duration: 300 }} out:fly={{ y: 200, duration: 200 }}>
+		<DMInput
 			placeholder="Message {user.name || user.username}..."
 			on:send={handleSendMessage}
 			maxLength={1000}
@@ -187,9 +190,9 @@
 			border-radius: 4px;
 		}
 	}
-.messages-container.no-header {
-	height: 100%;
-}
+	.messages-container.no-header {
+		height: 100%;
+	}
 	.empty-state {
 		display: flex;
 		flex-direction: column;

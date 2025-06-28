@@ -23,11 +23,20 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		return userProfileCache.get(userId) || null;
 	}
 
+	// Define the expected user data structure
+	interface UserData {
+		id: string;
+		name?: string;
+		username?: string;
+		email?: string;
+		avatar?: string;
+	}
+
 	const result = await clientTryCatch(
-		fetchTryCatch<ApiResponse<any>>(`/api/users/${userId}`, {
+		fetchTryCatch<ApiResponse<UserData>>(`/api/users/${userId}`, {
 			method: 'GET',
 			credentials: 'include'
-		}).then(fetchResult => {
+		}).then((fetchResult) => {
 			if (isFailure(fetchResult)) {
 				throw new Error(fetchResult.error);
 			}
@@ -41,8 +50,17 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		return null;
 	}
 
-	// Handle the response structure consistently
-	const userData = result.data.user || result.data;
+	// Handle the response structure consistently - properly type the userData
+	let userData: UserData;
+
+	if (result.data.user) {
+		userData = result.data.user;
+	} else if (result.data.data) {
+		userData = result.data.data;
+	} else {
+		// Assume result.data is directly the user data
+		userData = result.data as UserData;
+	}
 
 	if (!userData || !userData.id) {
 		userProfileCache.set(userId, null);
@@ -53,8 +71,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 	const profile: UserProfile = {
 		id: userData.id,
 		name: userData.name || userData.username || 'User',
-		username: userData.username,
-		email: userData.email,
+		username: userData.username || '',
+		email: userData.email || '',
+		avatar: userData.avatar || '',
 		avatarUrl: userData.avatar
 			? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
 			: ''
@@ -80,7 +99,7 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
 		fetchTryCatch<PublicUserProfile>(`/api/users/${userId}/public`, {
 			method: 'GET',
 			credentials: 'include'
-		}).then(fetchResult => {
+		}).then((fetchResult) => {
 			if (isFailure(fetchResult)) {
 				throw new Error(fetchResult.error);
 			}
@@ -97,8 +116,8 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
 	// Create profile object with processed avatar URL
 	const publicProfile: PublicUserProfile = {
 		...result.data,
-		avatarUrl: result.data.avatar 
-			? `${pocketbaseUrl}/api/files/users/${result.data.id}/${result.data.avatar}` 
+		avatarUrl: result.data.avatar
+			? `${pocketbaseUrl}/api/files/users/${result.data.id}/${result.data.avatar}`
 			: null
 	};
 
@@ -129,7 +148,7 @@ export async function getPublicUserProfiles(
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({ userIds: uncachedIds })
-			}).then(fetchResult => {
+			}).then((fetchResult) => {
 				if (isFailure(fetchResult)) {
 					// Check if it's a 404 (endpoint doesn't exist)
 					if (fetchResult.error.includes('404') || fetchResult.error.includes('not found')) {
@@ -164,10 +183,10 @@ export async function getPublicUserProfiles(
 					getPublicUserProfile(userId),
 					`Error fetching profile for ${userId}`
 				);
-				
-				return { 
-					userId, 
-					profile: isSuccess(profileResult) ? profileResult.data : null 
+
+				return {
+					userId,
+					profile: isSuccess(profileResult) ? profileResult.data : null
 				};
 			};
 

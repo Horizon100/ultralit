@@ -19,57 +19,60 @@
 		uploadError = '';
 		const newAttachments: Attachment[] = [];
 
-		const result = await clientTryCatch((async () => {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
+		const result = await clientTryCatch(
+			(async () => {
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
 
-				// Create FormData for the file upload
-				const formData = new FormData();
-				formData.append('file', file);
-				formData.append('fileName', file.name);
+					// Create FormData for the file upload
+					const formData = new FormData();
+					formData.append('file', file);
+					formData.append('fileName', file.name);
 
-				// Upload to your API endpoint
-				const uploadResult = await fetchTryCatch<{
-					id: string;
-					file: string;
-					fileName: string;
-					url: string;
-					note?: string;
-					error?: string;
-				}>('/api/attachments', {
-					method: 'POST',
-					body: formData
-				});
+					// Upload to your API endpoint
+					const uploadResult = await fetchTryCatch<{
+						id: string;
+						file: string;
+						fileName: string;
+						url: string;
+						note?: string;
+						error?: string;
+					}>('/api/attachments', {
+						method: 'POST',
+						body: formData
+					});
 
-				if (isFailure(uploadResult)) {
-					throw new Error(`Failed to upload ${file.name}: ${uploadResult.error}`);
+					if (isFailure(uploadResult)) {
+						throw new Error(`Failed to upload ${file.name}: ${uploadResult.error}`);
+					}
+
+					const uploadedFile = uploadResult.data;
+
+					// Create attachment object matching your interface
+					const attachment: Attachment = {
+						id: uploadedFile.id,
+						file: uploadedFile.file,
+						fileName: uploadedFile.fileName,
+						url: uploadedFile.url,
+						note: uploadedFile.note || '',
+						createdBy: '', // This will be set by the server
+						created: new Date().toISOString(),
+						updated: new Date().toISOString()
+					};
+
+					newAttachments.push(attachment);
 				}
 
-				const uploadedFile = uploadResult.data;
+				uploadedAttachments = [...uploadedAttachments, ...newAttachments];
+				dispatch('upload', uploadedAttachments);
 
-				// Create attachment object matching your interface
-				const attachment: Attachment = {
-					id: uploadedFile.id,
-					file: uploadedFile.file,
-					fileName: uploadedFile.fileName,
-					url: uploadedFile.url,
-					note: uploadedFile.note || '',
-					createdBy: '', // This will be set by the server
-					created: new Date().toISOString(),
-					updated: new Date().toISOString()
-				};
+				// Clear the file input
+				files = undefined as any;
 
-				newAttachments.push(attachment);
-			}
-
-			uploadedAttachments = [...uploadedAttachments, ...newAttachments];
-			dispatch('upload', uploadedAttachments);
-
-			// Clear the file input
-			files = undefined as any;
-			
-			return newAttachments;
-		})(), `Uploading ${files.length} file(s)`);
+				return newAttachments;
+			})(),
+			`Uploading ${files.length} file(s)`
+		);
 
 		if (isFailure(result)) {
 			console.error('Upload error:', result.error);
@@ -80,24 +83,27 @@
 	}
 
 	async function deleteAttachment(attachmentId: string) {
-		const result = await clientTryCatch((async () => {
-			const deleteResult = await fetchTryCatch<{ error?: string }>(
-				`/api/attachments/${attachmentId}`,
-				{
-					method: 'DELETE'
+		const result = await clientTryCatch(
+			(async () => {
+				const deleteResult = await fetchTryCatch<{ error?: string }>(
+					`/api/attachments/${attachmentId}`,
+					{
+						method: 'DELETE'
+					}
+				);
+
+				if (isFailure(deleteResult)) {
+					throw new Error(`Failed to delete attachment: ${deleteResult.error}`);
 				}
-			);
 
-			if (isFailure(deleteResult)) {
-				throw new Error(`Failed to delete attachment: ${deleteResult.error}`);
-			}
+				// Remove from local array
+				uploadedAttachments = uploadedAttachments.filter((att) => att.id !== attachmentId);
+				dispatch('upload', uploadedAttachments);
 
-			// Remove from local array
-			uploadedAttachments = uploadedAttachments.filter((att) => att.id !== attachmentId);
-			dispatch('upload', uploadedAttachments);
-			
-			return true;
-		})(), `Deleting attachment ${attachmentId}`);
+				return true;
+			})(),
+			`Deleting attachment ${attachmentId}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Delete error:', result.error);

@@ -89,7 +89,8 @@ export async function prepareMessagesWithCustomPrompts(
 						CRITICAL: 'Analyze critically, identify flaws, and suggest improvements.',
 						INTERVIEW: 'Ask probing questions to gather more information.'
 					};
-					const systemPrompt = SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
+					const systemPrompt =
+						SYSTEM_PROMPTS[user.sysprompt_preference as keyof typeof SYSTEM_PROMPTS];
 					if (systemPrompt) allPrompts.push(systemPrompt);
 				} else {
 					const systemPromptResult = await clientTryCatch(
@@ -124,7 +125,9 @@ export async function prepareMessagesWithCustomPrompts(
 				);
 
 				if (promptResults.success) {
-					const validPrompts = promptResults.data.filter((prompt): prompt is string => prompt !== null);
+					const validPrompts = promptResults.data.filter(
+						(prompt): prompt is string => prompt !== null
+					);
 					allPrompts.push(...validPrompts);
 				} else {
 					console.error('Error fetching user prompts:', promptResults.error);

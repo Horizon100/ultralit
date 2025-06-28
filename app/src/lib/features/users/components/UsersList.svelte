@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { followStore, fetchFollowData, getFollowers, getFollowing, toggleFollowUser } from '$lib/stores/followStore';
+	import {
+		followStore,
+		fetchFollowData,
+		getFollowers,
+		getFollowing,
+		toggleFollowUser
+	} from '$lib/stores/followStore';
 	import { userStatusStore, fetchUserStatus } from '$lib/stores/userStatusStore';
 	import type { PublicUserProfile, User } from '$lib/types/types';
 	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
@@ -35,7 +41,10 @@
 		{ label: 'Loading', value: loading },
 		{ label: 'Error', value: error || 'none' },
 		{ label: 'Following Users', value: followingUsers.size },
-		{ label: 'Show Button Condition', value: listType === 'followers' && $currentUser && $currentUser.id !== userId },
+		{
+			label: 'Show Button Condition',
+			value: listType === 'followers' && $currentUser && $currentUser.id !== userId
+		},
 		{ label: 'Is Following Profile Owner', value: isFollowingProfileOwner },
 		{ label: 'Processing Main Follow', value: processingMainFollow },
 		{ label: 'Store Subscribed', value: unsubscribe ? 'yes' : 'no' }
@@ -81,8 +90,10 @@
 		} else {
 			users = getFollowing(userId);
 		}
-		// Don't stay in loading state if we successfully loaded (even if empty)
-		// loading should only be true if we haven't attempted to load yet
+		/*
+		 * Don't stay in loading state if we successfully loaded (even if empty)
+		 * loading should only be true if we haven't attempted to load yet
+		 */
 		console.log(`🔄 Reactive update - ${listType}:`, {
 			usersCount: users.length,
 			loading,
@@ -102,18 +113,17 @@
 	}
 
 	// Auto-generated empty messages
-	$: defaultEmptyMessage = listType === 'followers' 
-		? 'No followers yet' 
-		: 'Not following anyone yet';
+	$: defaultEmptyMessage =
+		listType === 'followers' ? 'No followers yet' : 'Not following anyone yet';
 
 	$: displayEmptyMessage = emptyMessage || defaultEmptyMessage;
 
 	async function loadUsers() {
 		loading = true;
 		error = null;
-		
+
 		console.log(`📋 Loading ${listType} for user:`, userId);
-		
+
 		const followDataResult = await clientTryCatch(
 			fetchFollowData(userId),
 			`Loading ${listType} data`
@@ -127,7 +137,7 @@
 
 		const followData = followDataResult.data;
 		console.log('📥 Follow data received:', followData);
-		
+
 		if (!followData) {
 			error = `Failed to load ${listType}`;
 			loading = false;
@@ -136,18 +146,16 @@
 
 		// Fetch status for all users if showStatus is enabled
 		if (showStatus) {
-			const userIds = listType === 'followers' 
-				? followData.followers.map(u => u.id)
-				: followData.following.map(u => u.id);
-			
+			const userIds =
+				listType === 'followers'
+					? followData.followers.map((u) => u.id)
+					: followData.following.map((u) => u.id);
+
 			console.log(`🔍 Fetching status for ${userIds.length} users`);
-			
+
 			// Fetch status for each user (in parallel)
 			const statusPromises = userIds.map(async (id) => {
-				const result = await clientTryCatch(
-					fetchUserStatus(id),
-					`Fetching status for user ${id}`
-				);
+				const result = await clientTryCatch(fetchUserStatus(id), `Fetching status for user ${id}`);
 				if (isFailure(result)) {
 					console.warn(`Failed to fetch status for user ${id}:`, result.error);
 				}
@@ -166,28 +174,28 @@
 
 	async function updateFollowingStatus() {
 		if (!$currentUser) return;
-		
+
 		const result = await clientTryCatch(
 			fetchFollowData($currentUser.id),
 			'Updating following status'
 		);
 
 		if (isSuccess(result) && result.data) {
-			followingUsers = new Set(result.data.following.map(u => u.id));
+			followingUsers = new Set(result.data.following.map((u) => u.id));
 		}
 	}
 
 	async function handleFollowToggle(targetUser: PublicUserProfile) {
 		if (!$currentUser || processingFollow.has(targetUser.id)) return;
-		
+
 		processingFollow.add(targetUser.id);
 		processingFollow = new Set(processingFollow); // Trigger reactivity
-		
+
 		const isCurrentlyFollowing = followingUsers.has(targetUser.id);
 		const action = isCurrentlyFollowing ? 'unfollow' : 'follow';
-		
+
 		console.log(`🔄 ${action}ing user:`, targetUser.username);
-		
+
 		const result = await clientTryCatch(
 			toggleFollowUser($currentUser.id, targetUser.id, action),
 			`${action}ing user ${targetUser.username}`
@@ -201,7 +209,7 @@
 				followingUsers.delete(targetUser.id);
 			}
 			followingUsers = new Set(followingUsers); // Trigger reactivity
-			
+
 			console.log(`✅ Successfully ${action}ed user:`, targetUser.username);
 		} else if (isFailure(result)) {
 			console.error(`❌ Failed to ${action} user:`, result.error);
@@ -213,13 +221,13 @@
 
 	async function handleMainFollowToggle() {
 		if (!$currentUser || processingMainFollow || $currentUser.id === userId) return;
-		
+
 		processingMainFollow = true;
-		
+
 		const action = isFollowingProfileOwner ? 'unfollow' : 'follow';
-		
+
 		console.log(`🔄 ${action}ing profile owner:`, userId);
-		
+
 		const result = await clientTryCatch(
 			toggleFollowUser($currentUser.id, userId, action),
 			`${action}ing profile owner`
@@ -234,7 +242,7 @@
 			}
 			followingUsers = new Set(followingUsers); // Trigger reactivity
 			isFollowingProfileOwner = !isFollowingProfileOwner;
-			
+
 			console.log(`✅ Successfully ${action}ed profile owner`);
 		} else if (isFailure(result)) {
 			console.error(`❌ Failed to ${action} profile owner:`, result.error);
@@ -251,9 +259,9 @@
 
 	function getUserStatus(userId: string): 'online' | 'offline' | undefined {
 		if (!showStatus) return undefined;
-		
+
 		let status: 'online' | 'offline' | undefined;
-		userStatusStore.subscribe(statusMap => {
+		userStatusStore.subscribe((statusMap) => {
 			const userStatus = statusMap.get(userId);
 			status = userStatus?.status;
 		})();
@@ -265,7 +273,7 @@
 
 	onMount(() => {
 		loadUsers();
-		
+
 		// Subscribe to store changes
 		unsubscribe = followStore.subscribe(() => {
 			// This will trigger reactive updates
@@ -288,9 +296,7 @@
 	{:else if error}
 		<div class="error-state">
 			<p class="error-message">{error}</p>
-			<button class="retry-button" on:click={loadUsers}>
-				Try Again
-			</button>
+			<button class="retry-button" on:click={loadUsers}> Try Again </button>
 		</div>
 	{:else}
 		<!-- Main follow button for followers list -->
@@ -326,7 +332,12 @@
 			<div class="users-container">
 				{#each users as user (user.id)}
 					<div class="user-item">
-						<div class="user-header" class:clickable={!!onUserClick} on:click|stopPropagation={() => handleUserClick(user)} role={!!onUserClick ? 'button' : undefined}>
+						<div
+							class="user-header"
+							class:clickable={!!onUserClick}
+							on:click|stopPropagation={() => handleUserClick(user)}
+							role={onUserClick ? 'button' : undefined}
+						>
 							<div class="avatar-header">
 								{#if user.avatar || user.avatarUrl}
 									<img
@@ -342,7 +353,10 @@
 									</div>
 								{/if}
 								{#if showStatus && getUserStatus(user.id)}
-									<div class="status-indicator" class:online={getUserStatus(user.id) === 'online'}></div>
+									<div
+										class="status-indicator"
+										class:online={getUserStatus(user.id) === 'online'}
+									></div>
 								{/if}
 							</div>
 							<div class="user-info">
@@ -352,7 +366,7 @@
 								{/if}
 							</div>
 						</div>
-						
+
 						{#if showFollowButton && $currentUser && $currentUser.id !== user.id}
 							<div class="follow-action">
 								<button
@@ -381,12 +395,7 @@
 
 <!-- Debug panel - only shows when showDebug is true -->
 {#if $showDebug}
-	<Debugger 
-		showDebug={$showDebug}
-		title="🔧 UserList Debug"
-		debugItems={debugItems}
-		buttons={debugButtons}
-	/>
+	<Debugger showDebug={$showDebug} title="🔧 UserList Debug" {debugItems} buttons={debugButtons} />
 {/if}
 
 <style>
@@ -416,8 +425,12 @@
 	}
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 
 	.error-state {
@@ -533,12 +546,11 @@
 			width: 2.5rem;
 			height: 2.5rem;
 			object-fit: cover;
-					border-radius: 50%;
+			border-radius: 50%;
 
 			border: 1px solid var(--bg-color);
 		}
 	}
-
 
 	.avatar {
 		width: 2.5rem;
@@ -572,7 +584,6 @@
 	.status-indicator.online {
 		background: #28a745;
 		border: 2px solid var(--bg-color);
-
 	}
 
 	.user-info {

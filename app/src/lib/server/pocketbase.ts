@@ -1,6 +1,6 @@
 import PocketBase from 'pocketbase';
 import { ClientResponseError } from 'pocketbase';
-import type { User} from '$lib/types/types';
+import type { User } from '$lib/types/types';
 import type { Cookies } from '@sveltejs/kit';
 import { pbTryCatch } from '$lib/utils/errorUtils';
 
@@ -58,7 +58,10 @@ export async function ensureAuthenticated(cookies?: Cookies): Promise<boolean> {
 		return false;
 	}
 
-	const refreshResult = await pbTryCatch(pb.collection('users').authRefresh(), 'refresh auth token');
+	const refreshResult = await pbTryCatch(
+		pb.collection('users').authRefresh(),
+		'refresh auth token'
+	);
 	if (refreshResult.success) {
 		console.log('Auth token refreshed successfully');
 		return pb.authStore.isValid;
@@ -91,7 +94,10 @@ export async function signUp(email: string, password: string): Promise<User | nu
 }
 
 export async function signIn(email: string, password: string): Promise<User | null> {
-	const result = await pbTryCatch(pb.collection('users').authWithPassword<User>(email, password), 'sign-in');
+	const result = await pbTryCatch(
+		pb.collection('users').authWithPassword<User>(email, password),
+		'sign-in'
+	);
 	if (result.success) {
 		return result.data.record;
 	} else {
@@ -167,10 +173,13 @@ export async function getPublicUserData(userId: string): Promise<Partial<User> |
 }
 
 export async function authenticateWithGoogle() {
-	const result = await pbTryCatch(pb.collection('users').authWithOAuth2({
-		provider: 'google',
-		createData: {}
-	}), 'google authentication');
+	const result = await pbTryCatch(
+		pb.collection('users').authWithOAuth2({
+			provider: 'google',
+			createData: {}
+		}),
+		'google authentication'
+	);
 	if (result.success) {
 		return result.data;
 	} else {
@@ -180,7 +189,10 @@ export async function authenticateWithGoogle() {
 }
 
 export async function requestPasswordReset(email: string): Promise<boolean> {
-	const result = await pbTryCatch(pb.collection('users').requestPasswordReset(email), 'password reset request');
+	const result = await pbTryCatch(
+		pb.collection('users').requestPasswordReset(email),
+		'password reset request'
+	);
 	if (result.success) {
 		return true;
 	} else {

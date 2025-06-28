@@ -378,7 +378,6 @@
 				);
 				agentStore.updateAgent(selectedAgent.id, updatedAgent);
 			} else {
-				// For creation, use the createAgent function from agentClient
 				const newAgent = await createAgent(
 					avatarFile
 						? (() => {
@@ -394,7 +393,11 @@
 							})()
 						: agentData
 				);
-				agentStore.addAgent(newAgent);
+				if (newAgent.success) {
+					agentStore.addAgent(newAgent.data);
+				} else {
+					console.error('Failed to create agent:', newAgent.error);
+				}
 			}
 			showCreateForm = false;
 			selectedAgent = null;
@@ -434,26 +437,24 @@
 		{:else if filteredAgents.length === 0}
 			<p>No agents found. Create a new agent to get started.</p>
 		{:else}
-
 			<div class="button-grid" transition:fade={{ duration: 300 }}>
 				{#each filteredAgents as agent (agent.id)}
 					<div class="agent-item">
 						<div class="agent-wrapper">
-
-						<div class="avatar-container">
-							{#if agent.avatar}
-								<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
-							{:else}
-								<div class="avatar-placeholder">
-									{@html getIcon('Bot', { size: 20 })}
-								</div>
-							{/if}
+							<div class="avatar-container">
+								{#if agent.avatar}
+									<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+								{:else}
+									<div class="avatar-placeholder">
+										{@html getIcon('Bot', { size: 20 })}
+									</div>
+								{/if}
+							</div>
+							<div class="name-container">
+								<div class="status-badge {agent.status}">{agent.status}</div>
+								<div class="agent-name">{agent.name}</div>
+							</div>
 						</div>
-						<div class="name-container">
-							<div class="status-badge {agent.status}">{agent.status}</div>
-							<div class="agent-name">{agent.name}</div>
-						</div>
-												</div>
 
 						<div class="container-row">
 							<div class="data-counts">
@@ -479,35 +480,34 @@
 								</button>
 							</div>
 						</div>
-
 					</div>
 				{/each}
 			</div>
-						<div class="search-and-sort-container">
+			<div class="search-and-sort-container">
 				<div class="search-container">
 					{@html getIcon('Search', { size: 24 })}
 					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
 				</div>
-			<div class="options">
-				<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
-					{@html getIcon('Filter', { size: 24 })}
-					{showFilters ? 'Hide' : 'Filters'}
-				</button>
-				<div class="sort-container">
-					<select bind:value={sortOption}>
-						{#each sortOptions as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-				</div>
+				<div class="options">
+					<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
+						{@html getIcon('Filter', { size: 24 })}
+						{showFilters ? 'Hide' : 'Filters'}
+					</button>
+					<div class="sort-container">
+						<select bind:value={sortOption}>
+							{#each sortOptions as option}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+					</div>
 					<!-- <h2>Agents</h2> -->
 					{#if !showCreateForm}
 						<button class="create-button" on:click={showCreate}>
 							{@html getIcon('Plus', { size: 24 })}
 						</button>
 					{/if}
+				</div>
 			</div>
-		</div>
 		{/if}
 
 		<!-- <p>Configure your agents to handle different types of tasks.</p> -->
@@ -531,7 +531,7 @@
 									class:active={selectedRole === role}
 									on:click={() => (selectedRole = role)}
 								>
-									<svelte:component this={roleIcons[role]} size={24} />
+									{@html getIcon(roleIcons[role], { size: 24 })}
 									<span>{role}</span>
 								</button>
 							{/each}
@@ -553,7 +553,7 @@
 									class:active={selectedStatus === status}
 									on:click={() => (selectedStatus = status)}
 								>
-									<svelte:component this={statusIcons[status]} size={16} />
+									{@html getIcon(statusIcons[status], { size: 16 })}
 									{#if selectedStatus == status}
 										<span>{status}</span>
 									{/if}
@@ -578,12 +578,8 @@
 						</div>
 					</div>
 				</div>
-
-
 			</div>
 		{/if}
-
-
 	</div>
 
 	{#if showCreateForm}
@@ -602,7 +598,7 @@
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"
@@ -774,7 +770,7 @@
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"
@@ -882,7 +878,6 @@
 		overflow-x: hidden;
 		scrollbar-width: thin;
 		scrollbar-color: var(--secondary-color) transparent;
-		
 	}
 
 	.form-column {
@@ -1419,7 +1414,6 @@
 		justify-content: flex-start;
 		gap: 0.5rem;
 		width: 100%;
-
 	}
 	.name-container {
 		display: flex;
@@ -1435,7 +1429,7 @@
 		display: flex;
 		flex-direction: row;
 		width: auto;
-		
+
 		margin-left: 0;
 		text-align: left;
 		align-items: center;
@@ -1507,7 +1501,6 @@
 		/* margin-bottom: 10px; */
 		/* width: 50%;; */
 	}
-
 
 	.options {
 		display: flex;

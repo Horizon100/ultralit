@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		console.log('Trying exact match search...');
 		const exactMatches = await pb.collection('users').getList(1, 100, {
 			filter: `name = "${sanitizedSearch}" || username = "${sanitizedSearch}" || id = "${sanitizedSearch}"`,
-			fields: publicFields 
+			fields: publicFields
 		});
 
 		console.log(`Found ${exactMatches.totalItems} exact matches`);
@@ -58,7 +58,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				username: user.username,
 				avatar: user.avatar,
 				created: user.created,
-				status: user.status,          
+				status: user.status,
 				last_login: user.last_login,
 				followers: user.followers,
 				following: user.following

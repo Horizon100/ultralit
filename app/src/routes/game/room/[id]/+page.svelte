@@ -1,4 +1,3 @@
-<!-- src/routes/game/room/[id]/+page.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -6,7 +5,13 @@
 	import type { GameRoom, GameTable, GameHero } from '$lib/types/types.game';
 	import { gameStore } from '$lib/stores/gameStore';
 
-	export let data;
+	interface PageData {
+		user?: {
+			id: string;
+		} | null;
+	}
+
+	export let data: PageData;
 
 	let room: GameRoom | null = null;
 	let tables: GameTable[] = [];
@@ -19,7 +24,6 @@
 			loading = true;
 			const roomId = $page.params.id;
 
-			// Fetch room details
 			const roomResponse = await fetch(`/api/game/rooms/${roomId}`);
 			if (!roomResponse.ok) {
 				throw new Error('Failed to load room');
@@ -27,7 +31,6 @@
 			const roomData = await roomResponse.json();
 			room = roomData.data;
 
-			// Fetch tables for this room
 			const tablesResponse = await fetch(`/api/game/tables?room=${roomId}`);
 			if (!tablesResponse.ok) {
 				throw new Error('Failed to load tables');
@@ -35,11 +38,9 @@
 			const tablesData = await tablesResponse.json();
 			tables = tablesData.data;
 
-			// Fetch active heroes in this room
 			await loadActiveHeroes();
 
-			// Update game state
-			gameStore.update((state: any) => ({
+			gameStore.update((state) => ({
 				...state,
 				currentView: 'table',
 				currentRoom: room
@@ -68,7 +69,6 @@
 
 	async function joinTable(table: GameTable) {
 		try {
-			// Update hero position to table
 			if (data.user) {
 				await fetch(`/api/game/heroes/${data.user.id}`, {
 					method: 'PATCH',

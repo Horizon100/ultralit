@@ -21,10 +21,7 @@ export const GET: RequestHandler = async ({ params, cookies }) =>
 			throw new Error('Invalid prompt ID');
 		}
 
-		const result = await pbTryCatch(
-			pb.collection('prompts').getOne(params.id),
-			'fetch prompt'
-		);
+		const result = await pbTryCatch(pb.collection('prompts').getOne(params.id), 'fetch prompt');
 		const prompt = unwrap(result);
 
 		if (prompt.createdBy !== userId) {

@@ -31,7 +31,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			perPage: messages.perPage,
 			totalItems: messages.totalItems
 		});
-
 	} catch (error) {
 		console.error('Error fetching DM messages:', error);
 		return json({ error: 'Failed to fetch messages' }, { status: 500 });
@@ -71,7 +70,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 		return json({ message }, { status: 201 });
-
 	} catch (error) {
 		console.error('Error creating DM message:', error);
 		return json({ error: 'Failed to create message' }, { status: 500 });
@@ -100,7 +98,6 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
 		await pb.collection('dm_messages').delete(messageId);
 
 		return json({ success: true });
-
 	} catch (error) {
 		console.error('Error deleting DM message:', error);
 		return json({ error: 'Failed to delete message' }, { status: 500 });

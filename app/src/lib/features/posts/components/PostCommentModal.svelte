@@ -24,55 +24,55 @@
 		}
 	}
 
-function handleCommentSubmit(
-	event: CustomEvent<{
-		content: string;
-		attachments?: File[] | FileList | null;
-		parentId?: string;
-	}>
-) {
-	console.log('🔥🔥🔥 MODAL COMMENT SUBMIT - START');
-	console.log('📝 Raw event detail:', event.detail);
-	console.log('📋 Post:', post);
-	console.log('📊 Event type:', event.type);
-	console.log('📊 Event constructor:', event.constructor.name);
-	
-	if (!post) {
-		console.error('❌ No post available');
-		return;
-	}
+	function handleCommentSubmit(
+		event: CustomEvent<{
+			content: string;
+			attachments?: File[] | FileList | null;
+			parentId?: string;
+		}>
+	) {
+		console.log('🔥🔥🔥 MODAL COMMENT SUBMIT - START');
+		console.log('📝 Raw event detail:', event.detail);
+		console.log('📋 Post:', post);
+		console.log('📊 Event type:', event.type);
+		console.log('📊 Event constructor:', event.constructor.name);
 
-	let attachments: File[] = [];
-	const eventAttachments = event.detail.attachments;
-
-	if (eventAttachments) {
-		if (eventAttachments instanceof FileList) {
-			attachments = Array.from(eventAttachments);
-		} else if (Array.isArray(eventAttachments)) {
-			attachments = eventAttachments;
-		} else {
-			attachments = [eventAttachments as File];
+		if (!post) {
+			console.error('❌ No post available');
+			return;
 		}
-	}
 
-	const commentData = {
-		content: event.detail.content,
-		attachments,
-		parentId: post.id
-	};
-	
-	console.log('📤 About to dispatch comment event with:', commentData);
-	console.log('📤 Dispatch function exists:', typeof dispatch);
-	
-	try {
-		dispatch('comment', commentData);
-		console.log('✅ Comment event dispatched successfully');
-	} catch (error) {
-		console.error('❌ Error dispatching comment event:', error);
+		let attachments: File[] = [];
+		const eventAttachments = event.detail.attachments;
+
+		if (eventAttachments) {
+			if (eventAttachments instanceof FileList) {
+				attachments = Array.from(eventAttachments);
+			} else if (Array.isArray(eventAttachments)) {
+				attachments = eventAttachments;
+			} else {
+				attachments = [eventAttachments as File];
+			}
+		}
+
+		const commentData = {
+			content: event.detail.content,
+			attachments,
+			parentId: post.id
+		};
+
+		console.log('📤 About to dispatch comment event with:', commentData);
+		console.log('📤 Dispatch function exists:', typeof dispatch);
+
+		try {
+			dispatch('comment', commentData);
+			console.log('✅ Comment event dispatched successfully');
+		} catch (error) {
+			console.error('❌ Error dispatching comment event:', error);
+		}
+
+		console.log('🔥🔥🔥 MODAL COMMENT SUBMIT - END');
 	}
-	
-	console.log('🔥🔥🔥 MODAL COMMENT SUBMIT - END');
-}
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			handleClose();

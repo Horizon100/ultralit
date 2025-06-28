@@ -17,7 +17,13 @@
 	import { createAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
 	import Connector from '$lib/features/canvas/components/Connector.svelte';
-	import { isSuccess, unwrapOr, clientTryCatch, isFailure, tryCatchSync } from '$lib/utils/errorUtils';
+	import {
+		isSuccess,
+		unwrapOr,
+		clientTryCatch,
+		isFailure,
+		tryCatchSync
+	} from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let svgElement: SVGSVGElement;
@@ -34,14 +40,13 @@
 	let isConnecting = false;
 	let connectingStart: { shapeId: string; point: string } | null = null;
 	let agents: AIAgent[] = [];
-	let selectedShape: Shape | null = null;
 
 	let selectedShapeId: string | null = null;
 	/*
 	 * export let startPoint: string;
 	 * export let endPoint: string;
 	 */
-
+	export let selectedShape: Shape | AIAgent | null = null;
 	export let shape: Shape;
 	export let scale: number;
 
@@ -117,6 +122,10 @@
 
 	const leftMenuOpenedByToggle = writable(false);
 	const rightMenuOpenedByToggle = writable(false);
+
+	function isAIAgent(item: Shape | AIAgent | null): item is AIAgent {
+		return item !== null && 'name' in item && 'description' in item;
+	}
 
 	function toggleLeftSideMenu() {
 		showLeftSideMenu = !showLeftSideMenu;
@@ -277,55 +286,58 @@
 	}
 
 	// Shape handling
-async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
-	const result = await clientTryCatch((async () => {
-		const { shape, x, y } = event.detail;
-		const newShape: Shape & { opacity: any } = {
-			...shape,
-			id: `${shape.id}-${Date.now()}`,
-			x,
-			y,
-			opacity: tweened(0, {
-				duration: 300,
-				easing: cubicOut
-			})
-		};
-		shapes = [...shapes, newShape];
-		newShape.opacity.set(1);
+	async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
+		const result = await clientTryCatch(
+			(async () => {
+				const { shape, x, y } = event.detail;
+				const newShape: Shape & { opacity: any } = {
+					...shape,
+					id: `${shape.id}-${Date.now()}`,
+					x,
+					y,
+					opacity: tweened(0, {
+						duration: 300,
+						easing: cubicOut
+					})
+				};
+				shapes = [...shapes, newShape];
+				newShape.opacity.set(1);
 
-		if (shape.id === 'Agent') {
-			const agentData: Partial<AIAgent> = {
-				name: `Agent ${Date.now()}`,
-				prompt: '',
-				description: '',
-				avatar: '',
-				role: undefined,
-				capabilities: [],
-				focus: 'processor',
-				status: 'active',
-				tags: [],
-				performance: 0,
-				version: '1.0',
-				position: { x, y },
-				expanded: false
-			};
+				if (shape.id === 'Agent') {
+					const agentData: Partial<AIAgent> = {
+						name: `Agent ${Date.now()}`,
+						prompt: '',
+						description: '',
+						avatar: '',
+						role: undefined,
+						capabilities: [],
+						focus: 'processor',
+						status: 'active',
+						tags: [],
+						performance: 0,
+						version: '1.0',
+						position: { x, y },
+						expanded: false
+					};
 
-			const createResult = await createAgent(agentData);
-			if (isFailure(createResult)) {
-				throw new Error(`Failed to create agent: ${createResult.error}`);
-			}
+					const createResult = await createAgent(agentData);
+					if (isFailure(createResult)) {
+						throw new Error(`Failed to create agent: ${createResult.error}`);
+					}
 
-			agentStore.addAgent(createResult.data);
-			console.log('Agent created and added to store:', createResult.data);
+					agentStore.addAgent(createResult.data);
+					console.log('Agent created and added to store:', createResult.data);
+				}
+
+				return true;
+			})(),
+			`Adding shape ${event.detail.shape.id} at (${event.detail.x}, ${event.detail.y})`
+		);
+
+		if (isFailure(result)) {
+			console.error('Error creating agent:', result.error);
 		}
-
-		return true;
-	})(), `Adding shape ${event.detail.shape.id} at (${event.detail.x}, ${event.detail.y})`);
-
-	if (isFailure(result)) {
-		console.error('Error creating agent:', result.error);
 	}
-}
 
 	function handleCanvasClick(event: MouseEvent) {
 		const clickedElement = event.target as Element;
@@ -429,74 +441,77 @@ async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: n
 		return nearestPoint;
 	}
 
-function handleDrop(event: DragEvent) {
-	event.preventDefault();
+	function handleDrop(event: DragEvent) {
+		event.preventDefault();
 
-	if (event.dataTransfer) {
-		const shapeData = event.dataTransfer.getData('application/json');
+		if (event.dataTransfer) {
+			const shapeData = event.dataTransfer.getData('application/json');
 
-		if (shapeData) {
-			const result = tryCatchSync(() => {
-				const shape = JSON.parse(shapeData) as Shape;
-				if (svgElement) {
-					const rect = svgElement.getBoundingClientRect();
-					const x = (event.clientX - rect.left - $offsetX) / scale;
-					const y = (event.clientY - rect.top - $offsetY) / scale;
+			if (shapeData) {
+				const result = tryCatchSync(() => {
+					const shape = JSON.parse(shapeData) as Shape;
+					if (svgElement) {
+						const rect = svgElement.getBoundingClientRect();
+						const x = (event.clientX - rect.left - $offsetX) / scale;
+						const y = (event.clientY - rect.top - $offsetY) / scale;
 
-					const newShape = addShapeToCanvas(shape, x, y);
-					if (shape.id === 'Agent') {
-						createAgentInDatabase(x, y);
+						const newShape = addShapeToCanvas(shape, x, y);
+						if (shape.id === 'Agent') {
+							createAgentInDatabase(x, y);
+						}
+
+						// Select the new shape and open left side menu
+						selectedShapeId = newShape.id;
+						openLeftSideMenu(newShape);
 					}
+					return true;
+				});
 
-					// Select the new shape and open left side menu
-					selectedShapeId = newShape.id;
-					openLeftSideMenu(newShape);
+				if (isFailure(result)) {
+					console.error('Error parsing shape data:', result.error);
 				}
-				return true;
-			}, );
-
-			if (isFailure(result)) {
-				console.error('Error parsing shape data:', result.error);
 			}
 		}
 	}
-}
 
-async function createAgentInDatabase(x: number, y: number) {
-	const result = await clientTryCatch((async () => {
-		const agentData: Partial<AIAgent> = {
-			name: `Agent ${Date.now()}`,
-			prompt: '',
-			description: '',
-			avatar: '',
-			role: undefined,
-			capabilities: [],
-			focus: 'processor',
-			status: 'active',
-			tags: [],
-			performance: 0,
-			version: '1.0',
-			position: { x, y },
-			expanded: false
-		};
+	async function createAgentInDatabase(x: number, y: number) {
+		const result = await clientTryCatch(
+			(async () => {
+				const agentData: Partial<AIAgent> = {
+					name: `Agent ${Date.now()}`,
+					prompt: '',
+					description: '',
+					avatar: '',
+					role: undefined,
+					capabilities: [],
+					focus: 'processor',
+					status: 'active',
+					tags: [],
+					performance: 0,
+					version: '1.0',
+					position: { x, y },
+					expanded: false
+				};
 
-		const createResult = await createAgent(agentData);
-		
-		if (isFailure(createResult)) {
-			throw new Error(`Failed to create agent: ${createResult.error}`);
+				const createResult = await createAgent(agentData);
+
+				if (isFailure(createResult)) {
+					throw new Error(`Failed to create agent: ${createResult.error}`);
+				}
+
+				const createdAgent = createResult.data;
+				agentStore.addAgent(createdAgent);
+
+				console.log('Agent created and added to store:', createdAgent);
+				return createdAgent;
+			})(),
+			`Creating agent at position (${x}, ${y})`
+		);
+
+		if (isFailure(result)) {
+			console.error('Error creating agent:', result.error);
 		}
-
-		const createdAgent = createResult.data;
-		agentStore.addAgent(createdAgent);
-
-		console.log('Agent created and added to store:', createdAgent);
-		return createdAgent;
-	})(), `Creating agent at position (${x}, ${y})`);
-
-	if (isFailure(result)) {
-		console.error('Error creating agent:', result.error);
 	}
-}
 
 	function addShapeToCanvas(shape: Shape, x: number, y: number) {
 		console.log('Adding shape to canvas:', { shape, x, y });
@@ -635,9 +650,8 @@ async function createAgentInDatabase(x: number, y: number) {
 	<LeftSideMenu
 		width={$leftSideMenuWidth}
 		on:mouseleave={handleLeftSideMenuLeave}
-		{selectedShape}
+		selectedShape={isAIAgent(selectedShape) ? selectedShape : null}
 		on:click={toggleLeftSideMenu}
-
 	/>
 	<div class="layout-container">
 		<div class="svg-wrapper" style="flex: 1; display: flex;">

@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { KanbanTask, Tag as TagType } from '$lib/types/types';
-	import {clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let messageContent: string = '';
@@ -81,14 +81,17 @@
 
 		isSubmitting = true;
 
-		const result = await clientTryCatch((async () => {
-			dispatch('save', task);
+		const result = await clientTryCatch(
+			(async () => {
+				dispatch('save', task);
 
-			// Close the modal
-			closeModal();
-			
-			return true;
-		})(), `Submitting task "${task.title}"`);
+				// Close the modal
+				closeModal();
+
+				return true;
+			})(),
+			`Submitting task "${task.title}"`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error creating task:', result.error);

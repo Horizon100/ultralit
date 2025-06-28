@@ -112,7 +112,9 @@ const createModelStore = () => {
 				});
 
 				if (!userUpdateResponse.ok) {
-					throw new Error(`Failed to update user's selected model: ${userUpdateResponse.statusText}`);
+					throw new Error(
+						`Failed to update user's selected model: ${userUpdateResponse.statusText}`
+					);
 				}
 
 				update((state) => {
@@ -136,7 +138,14 @@ const createModelStore = () => {
 		if (isSuccess(result)) {
 			return result.data;
 		} else {
-			console.error('Error setting selected model:', result.error, 'Model:', model, 'UserId:', userId);
+			console.error(
+				'Error setting selected model:',
+				result.error,
+				'Model:',
+				model,
+				'UserId:',
+				userId
+			);
 			update((state) => ({ ...state, isOffline: true }));
 			return false;
 		}
@@ -150,7 +159,8 @@ const createModelStore = () => {
 				credentials: 'include',
 				body: JSON.stringify({ selected_provider: provider })
 			}).then(async (response) => {
-				if (!response.ok) throw new Error(`Failed to update selected provider: ${response.statusText}`);
+				if (!response.ok)
+					throw new Error(`Failed to update selected provider: ${response.statusText}`);
 
 				update((state) => ({
 					...state,
@@ -236,67 +246,77 @@ const createModelStore = () => {
 					await apiKey.ensureLoaded();
 					const availableKeys = get(apiKey);
 
-const userResponse = await fetch(`/api/verify/users/${userId}`, {
-    method: 'GET',
-    credentials: 'include'
-});
+					const userResponse = await fetch(`/api/verify/users/${userId}`, {
+						method: 'GET',
+						credentials: 'include'
+					});
 
-if (!userResponse.ok) {
-    throw new Error(`Failed to fetch user data: ${userResponse.statusText}`);
-}
+					if (!userResponse.ok) {
+						throw new Error(`Failed to fetch user data: ${userResponse.statusText}`);
+					}
 
-const userData = await userResponse.json();
-console.log('🔍 User data response:', userData); // Debug log
+					const userData = await userResponse.json();
+					console.log('🔍 User data response:', userData); // Debug log
 
-if (!userData.success) {
-    throw new Error(userData.error || 'Failed to get user data');
-}
+					if (!userData.success) {
+						throw new Error(userData.error || 'Failed to get user data');
+					}
 
-// FIXED: Handle the actual response structure from your API
-let user;
-if (userData.user && typeof userData.user === 'object') {
-    // Your API returns: {success: true, user: {actualUserData}}
-    user = userData.user;
-    console.log('👤 User object extracted from userData.user:', user);
-} else if (userData.data && typeof userData.data === 'object') {
-    // Fallback: {success: true, data: {actualUserData}}
-    user = userData.data;
-    console.log('👤 User object extracted from userData.data:', user);
-} else {
-    // Direct user object
-    user = userData;
-    console.log('👤 User object used directly:', user);
-}
+					// FIXED: Handle the actual response structure from your API
+					let user;
+					if (userData.user && typeof userData.user === 'object') {
+						// Your API returns: {success: true, user: {actualUserData}}
+						user = userData.user;
+						console.log('👤 User object extracted from userData.user:', user);
+					} else if (userData.data && typeof userData.data === 'object') {
+						// Fallback: {success: true, data: {actualUserData}}
+						user = userData.data;
+						console.log('👤 User object extracted from userData.data:', user);
+					} else {
+						// Direct user object
+						user = userData;
+						console.log('👤 User object used directly:', user);
+					}
 
-// Safety check for user object
-if (!user || typeof user !== 'object') {
-    console.warn('⚠️ User object is invalid, using defaults');
-    console.log('⚠️ Received user object:', user);
-    user = {}; // Default empty object
-}
+					// Safety check for user object
+					if (!user || typeof user !== 'object') {
+						console.warn('⚠️ User object is invalid, using defaults');
+						console.log('⚠️ Received user object:', user);
+						user = {}; // Default empty object
+					}
 
-// Extract user properties safely - with better logging
-console.log('🔍 Full user object keys:', Object.keys(user || {}));
-console.log('🔍 Raw user.selected_provider:', user.selected_provider);
-console.log('🔍 Raw user.model:', user.model);
+					// Extract user properties safely - with better logging
+					console.log('🔍 Full user object keys:', Object.keys(user || {}));
+					console.log('🔍 Raw user.selected_provider:', user.selected_provider);
+					console.log('🔍 Raw user.model:', user.model);
 
-const selectedProvider = (user.selected_provider as ProviderType) || null;
-const selectedModelId = user.model || null;
+					const selectedProvider = (user.selected_provider as ProviderType) || null;
+					const selectedModelId = user.model || null;
 
-console.log('🎯 Selected provider:', selectedProvider, 'Selected model ID:', selectedModelId);
+					console.log(
+						'🎯 Selected provider:',
+						selectedProvider,
+						'Selected model ID:',
+						selectedModelId
+					);
 
-// If no provider/model is set, we'll need to initialize defaults later
-if (!selectedProvider && !selectedModelId) {
-    console.log('💡 User has no provider/model set - will initialize defaults');
-}
+					// If no provider/model is set, we'll need to initialize defaults later
+					if (!selectedProvider && !selectedModelId) {
+						console.log('💡 User has no provider/model set - will initialize defaults');
+					}
 					await loadModels(userId);
 
 					let validProvider = selectedProvider;
 
-					const availableKeyProviders = Object.keys(availableKeys).filter((k) => !!availableKeys[k]);
+					const availableKeyProviders = Object.keys(availableKeys).filter(
+						(k) => !!availableKeys[k]
+					);
 
 					if (!selectedProvider) {
-						validProvider = availableKeyProviders.length > 0 ? (availableKeyProviders[0] as ProviderType) : 'openai';
+						validProvider =
+							availableKeyProviders.length > 0
+								? (availableKeyProviders[0] as ProviderType)
+								: 'openai';
 
 						await setSelectedProvider(userId, validProvider);
 					}

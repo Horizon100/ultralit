@@ -91,31 +91,34 @@
 		console.log('Input promptType:', promptType);
 		console.log('Current $currentUser:', $currentUser);
 
-		const result = await clientTryCatch((async () => {
-			if ($currentUser?.id) {
-				console.log('Calling updateUser with:', {
-					userId: $currentUser.id,
-					data: { sysprompt_preference: promptType }
-				});
+		const result = await clientTryCatch(
+			(async () => {
+				if ($currentUser?.id) {
+					console.log('Calling updateUser with:', {
+						userId: $currentUser.id,
+						data: { sysprompt_preference: promptType }
+					});
 
-				const updateResult = await updateUser($currentUser.id, {
-					sysprompt_preference: promptType
-				});
-				console.log('updateUser result:', updateResult);
+					const updateResult = await updateUser($currentUser.id, {
+						sysprompt_preference: promptType
+					});
+					console.log('updateUser result:', updateResult);
 
-				// Check what's actually in the database now
-				const freshUser = await getUserById($currentUser.id, true);
-				console.log('Fresh user data from DB:', freshUser);
-				console.log('Fresh sysprompt_preference:', freshUser?.sysprompt_preference);
+					// Check what's actually in the database now
+					const freshUser = await getUserById($currentUser.id, true);
+					console.log('Fresh user data from DB:', freshUser);
+					console.log('Fresh sysprompt_preference:', freshUser?.sysprompt_preference);
 
-				if (freshUser) {
-					currentUser.set(freshUser);
-					console.log('Updated currentUser store, new value:', $currentUser);
+					if (freshUser) {
+						currentUser.set(freshUser);
+						console.log('Updated currentUser store, new value:', $currentUser);
+					}
+				} else {
+					throw new Error('User not authenticated');
 				}
-			} else {
-				throw new Error('User not authenticated');
-			}
-		})(), `Setting system prompt preference to ${promptType}`);
+			})(),
+			`Setting system prompt preference to ${promptType}`
+		);
 
 		if (isFailure(result)) {
 			console.error('Error in setSysPromptPreference:', result.error);

@@ -120,7 +120,6 @@
 		}
 	}
 
-
 	async function handleModelSelection(model: AIModel) {
 		const enrichedModel: AIModel = {
 			...model,

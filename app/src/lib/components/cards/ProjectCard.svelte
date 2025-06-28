@@ -23,7 +23,6 @@
 	import ProjectDeadlines from '$lib/features/projects/components/ProjectDeadlines.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-	
 	export let projectId: string | undefined = undefined;
 	export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
 	export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
@@ -1277,8 +1276,6 @@
 		width: 100%;
 		color: var(--accent-color);
 		text-align: left;
-
-
 	}
 	.project-sidenav {
 		display: flex;

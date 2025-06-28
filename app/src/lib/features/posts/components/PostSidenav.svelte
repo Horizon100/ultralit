@@ -9,9 +9,10 @@
 </script>
 
 {#if $showSidenav}
-	<aside class="left-sidebar" 
-	class:drawer-visible={$showSettings}
-	transition:fly={{ x: -300, duration: 300 }}
+	<aside
+		class="left-sidebar"
+		class:drawer-visible={$showSettings}
+		transition:fly={{ x: -300, duration: 300 }}
 	>
 		<div class="sidebar-content">
 			<nav class="sidebar-nav">

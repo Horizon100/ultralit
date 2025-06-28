@@ -4,13 +4,13 @@ import { currentUser, getUserById } from '$lib/pocketbase';
 import { processMarkdown } from '$lib/features/ai/utils/markdownProcessor';
 import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
 import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
-import { 
-	fetchTryCatch, 
+import {
+	fetchTryCatch,
 	validationTryCatch,
 	isFailure,
 	clientTryCatch,
 	isSuccess,
-	type Result 
+	type Result
 } from '$lib/utils/errorUtils';
 
 let isLoadingAllThreads = false;
@@ -46,7 +46,6 @@ export const threadListVisibility = {
 	toggle: toggleThreadList
 };
 
-
 /**
  * Fetch threads for a project from the API
  * @param projectId Project ID
@@ -75,7 +74,9 @@ function validateAuthentication() {
 	}, 'user authentication');
 }
 
-export async function fetchThreads(projectId: string | null = null): Promise<Result<Threads[], string>> {
+export async function fetchThreads(
+	projectId: string | null = null
+): Promise<Result<Threads[], string>> {
 	const user = get(currentUser);
 
 	if (!user?.token) {
@@ -99,14 +100,11 @@ export async function fetchThreads(projectId: string | null = null): Promise<Res
 		headers['Authorization'] = `Bearer ${user.token}`;
 	}
 
-	const result = await fetchTryCatch<{ threads?: Threads[]; error?: string }>(
-		url,
-		{
-			method: 'GET',
-			credentials: 'include',
-			headers
-		}
-	);
+	const result = await fetchTryCatch<{ threads?: Threads[]; error?: string }>(url, {
+		method: 'GET',
+		credentials: 'include',
+		headers
+	});
 
 	if (isFailure(result)) {
 		console.error('Error fetching threads:', result.error);
@@ -136,14 +134,11 @@ export async function fetchAllThreads(): Promise<Result<Threads[], string>> {
 		headers['Authorization'] = `Bearer ${user.token}`;
 	}
 
-	const result = await fetchTryCatch<{ threads?: Threads[]; error?: string }>(
-		url,
-		{
-			method: 'GET',
-			credentials: 'include',
-			headers
-		}
-	);
+	const result = await fetchTryCatch<{ threads?: Threads[]; error?: string }>(url, {
+		method: 'GET',
+		credentials: 'include',
+		headers
+	});
 
 	if (isFailure(result)) {
 		console.error('Error fetching all threads:', result.error);
@@ -155,9 +150,9 @@ export async function fetchAllThreads(): Promise<Result<Threads[], string>> {
 	return { data: threads, error: null, success: true };
 }
 
-
-
-export async function fetchMessagesForThread(threadId: string): Promise<Result<Messages[], string>> {
+export async function fetchMessagesForThread(
+	threadId: string
+): Promise<Result<Messages[], string>> {
 	if (isFetching) {
 		console.warn('Prevented recursive fetch for thread', threadId);
 		return { data: null, error: 'Fetch already in progress', success: false };
@@ -180,23 +175,24 @@ export async function fetchMessagesForThread(threadId: string): Promise<Result<M
 			success: boolean;
 			messages?: Messages[];
 			message?: string;
-		}>(
-			`/api/keys/threads/${threadId}/messages`,
-			{
-				method: 'GET',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
-				}
+		}>(`/api/keys/threads/${threadId}/messages`, {
+			method: 'GET',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
 			}
-		);
+		});
 
 		if (isFailure(result)) {
 			return { data: null, error: result.error, success: false };
 		}
 
 		if (!result.data.success) {
-			return { data: null, error: result.data.message || 'Failed to fetch messages', success: false };
+			return {
+				data: null,
+				error: result.data.message || 'Failed to fetch messages',
+				success: false
+			};
 		}
 
 		const messages = result.data.messages || [];
@@ -218,8 +214,6 @@ export async function fetchMessagesForThread(threadId: string): Promise<Result<M
 		isFetching = false;
 	}
 }
-
-
 
 export async function resetThread(threadId: string): Promise<Result<void, string>> {
 	const authValidation = validateAuthentication();
@@ -262,13 +256,10 @@ export async function deleteThread(id: string): Promise<Result<boolean, string>>
 	const result = await fetchTryCatch<{
 		success: boolean;
 		error?: string;
-	}>(
-		`/api/keys/threads/${id}`,
-		{
-			method: 'DELETE',
-			credentials: 'include'
-		}
-	);
+	}>(`/api/keys/threads/${id}`, {
+		method: 'DELETE',
+		credentials: 'include'
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };
@@ -281,15 +272,11 @@ export async function deleteThread(id: string): Promise<Result<boolean, string>>
 	return { data: true, error: null, success: true };
 }
 
-
-
 function invalidateThreadCache(threadId: string) {
 	messageCache.delete(threadId);
 }
 
 let isFetching = false;
-
-
 
 // Function to get the current thread state
 export function getCurrentThread(): Threads | null {
@@ -327,18 +314,15 @@ export async function createThread(threadData: Partial<Threads>): Promise<Result
 		success: boolean;
 		thread?: Threads;
 		message?: string;
-	}>(
-		'/api/threads',
-		{
-			method: 'POST',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${user.token}`
-			},
-			body: JSON.stringify(newThread)
-		}
-	);
+	}>('/api/threads', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${user.token}`
+		},
+		body: JSON.stringify(newThread)
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };
@@ -361,7 +345,10 @@ export async function createThread(threadData: Partial<Threads>): Promise<Result
 	return { data: createdThread, error: null, success: true };
 }
 
-export async function updateMessage(id: string, data: Partial<Messages>): Promise<Result<Messages, string>> {
+export async function updateMessage(
+	id: string,
+	data: Partial<Messages>
+): Promise<Result<Messages, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -379,17 +366,14 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
 		success: boolean;
 		message?: Messages;
 		error?: string;
-	}>(
-		`/api/keys/messages/${id}`,
-		{
-			method: 'PATCH',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(processedData)
-		}
-	);
+	}>(`/api/keys/messages/${id}`, {
+		method: 'PATCH',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(processedData)
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };
@@ -413,7 +397,10 @@ export async function updateMessage(id: string, data: Partial<Messages>): Promis
 	return { data: updatedMessage, error: null, success: true };
 }
 
-export async function updateThread(id: string, changes: Partial<Threads>): Promise<Result<Threads, string>> {
+export async function updateThread(
+	id: string,
+	changes: Partial<Threads>
+): Promise<Result<Threads, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -436,18 +423,15 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
 		success: boolean;
 		thread?: Threads;
 		message?: string;
-	}>(
-		`/api/threads/${id}`,
-		{
-			method: 'PATCH',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${user.token}`
-			},
-			body: JSON.stringify(changes)
-		}
-	);
+	}>(`/api/threads/${id}`, {
+		method: 'PATCH',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${user.token}`
+		},
+		body: JSON.stringify(changes)
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };
@@ -472,7 +456,6 @@ export async function updateThread(id: string, changes: Partial<Threads>): Promi
 
 	return { data: updatedThread, error: null, success: true };
 }
-
 
 export async function loadThreads(projectId: string | null): Promise<Result<void, string>> {
 	const now = Date.now();
@@ -545,14 +528,14 @@ export async function loadThreads(projectId: string | null): Promise<Result<void
 
 	if (isFailure(loadOperation)) {
 		console.error('Error in loadThreads:', loadOperation.error);
-		
+
 		threadsStore.update((state) => ({
 			...state,
 			isLoading: false,
 			error: loadOperation.error,
 			updateStatus: 'Failed to load threads'
 		}));
-		
+
 		return { data: null, error: loadOperation.error, success: false };
 	}
 
@@ -624,7 +607,8 @@ export async function addMessageToThread(
 
 				if (isSuccess(promptResult)) {
 					console.log('Prompt fetch data:', promptResult.data);
-					processedMessage.prompt_input = promptResult.data.data?.prompt || promptResult.data.prompt;
+					processedMessage.prompt_input =
+						promptResult.data.data?.prompt || promptResult.data.prompt;
 					console.log('Set prompt_input to:', processedMessage.prompt_input);
 				} else {
 					console.log('Prompt fetch failed:', promptResult.error);
@@ -657,7 +641,11 @@ export async function addMessageToThread(
 	console.log('API response:', messageResult.data);
 
 	if (!messageResult.data.success) {
-		return { data: null, error: messageResult.data.error || 'Failed to create message', success: false };
+		return {
+			data: null,
+			error: messageResult.data.error || 'Failed to create message',
+			success: false
+		};
 	}
 
 	const createdMessage = messageResult.data.message;
@@ -747,7 +735,7 @@ export async function autoUpdateThreadName(
 
 	if (!threadExists) {
 		console.log(`Thread ${threadId} not found in store, fetching before naming`);
-		
+
 		const threadFetchResult = await fetchTryCatch<{
 			success: boolean;
 			thread?: Threads;
@@ -761,7 +749,11 @@ export async function autoUpdateThreadName(
 			}
 		});
 
-		if (isSuccess(threadFetchResult) && threadFetchResult.data.success && threadFetchResult.data.thread) {
+		if (
+			isSuccess(threadFetchResult) &&
+			threadFetchResult.data.success &&
+			threadFetchResult.data.thread
+		) {
 			// Validate that thread exists before using it
 			const fetchedThread = threadFetchResult.data.thread;
 			if (fetchedThread) {
@@ -773,8 +765,8 @@ export async function autoUpdateThreadName(
 				console.log(`Added thread ${threadId} to store`);
 			}
 		} else {
-			const errorMessage = isFailure(threadFetchResult) 
-				? threadFetchResult.error 
+			const errorMessage = isFailure(threadFetchResult)
+				? threadFetchResult.error
 				: 'Thread not found';
 			console.error('Error fetching thread before naming:', errorMessage);
 		}
@@ -809,7 +801,11 @@ export async function autoUpdateThreadName(
 	}
 
 	if (!updatedThreadResult.data.success) {
-		return { data: null, error: updatedThreadResult.data.message || 'Failed to fetch updated thread', success: false };
+		return {
+			data: null,
+			error: updatedThreadResult.data.message || 'Failed to fetch updated thread',
+			success: false
+		};
 	}
 
 	// Update the thread in the store to ensure consistency
@@ -824,7 +820,9 @@ export async function autoUpdateThreadName(
 	return { data: updatedThread || null, error: null, success: true };
 }
 
-export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Result<Messages[], string>> {
+export async function fetchMessagesForBookmark(
+	bookmarkId: string
+): Promise<Result<Messages[], string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -851,7 +849,11 @@ export async function fetchMessagesForBookmark(bookmarkId: string): Promise<Resu
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.message || 'Failed to fetch bookmarked messages', success: false };
+		return {
+			data: null,
+			error: result.data.message || 'Failed to fetch bookmarked messages',
+			success: false
+		};
 	}
 
 	const messages = result.data.messages || [];

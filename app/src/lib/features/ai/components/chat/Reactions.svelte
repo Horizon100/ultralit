@@ -20,10 +20,8 @@
 	let showSelectionTooltip = false;
 	let selectionTooltipText = '';
 
-
-
-		type Reaction = {
-		symbol: IconName;  // ← Changed from component to IconName
+	type Reaction = {
+		symbol: IconName; // ← Changed from component to IconName
 		action: string;
 		label: string;
 		isIcon: boolean;
@@ -33,7 +31,7 @@
 	// Updated reactions array with IconName strings
 	const reactions: Reaction[] = [
 		{
-			symbol: 'Bookmark',  // ← String instead of component
+			symbol: 'Bookmark', // ← String instead of component
 			action: 'bookmark',
 			label: 'Bookmark',
 			isIcon: true,

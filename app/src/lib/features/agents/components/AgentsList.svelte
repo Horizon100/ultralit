@@ -49,12 +49,12 @@
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-		const statusIcons: Record<string, IconName> = {
-			active: 'Activity',
-			inactive: 'Compass',
-			maintenance: 'ServerCog',
-			paused: 'OctagonPause'
-		};
+	const statusIcons: Record<string, IconName> = {
+		active: 'Activity',
+		inactive: 'Compass',
+		maintenance: 'ServerCog',
+		paused: 'OctagonPause'
+	};
 
 	const agentUserInputs: { value: 'end' | 'never' | 'always'; label: string }[] = [
 		{ value: 'end', label: 'end' },
@@ -237,7 +237,6 @@
 		selectedAgent = null;
 		resetForm();
 	}
-
 
 	async function handleDelete(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
@@ -501,7 +500,7 @@
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"
@@ -655,7 +654,7 @@
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"

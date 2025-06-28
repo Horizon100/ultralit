@@ -276,7 +276,7 @@
 			</span>
 
 			<span class="dropdown-icon" class:rotated={isExpanded}>
-				{@html getIcon('ChevronDown', { size: 16 })}	
+				{@html getIcon('ChevronDown', { size: 16 })}
 			</span>
 		</button>
 	</span>

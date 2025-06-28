@@ -6,7 +6,6 @@
 	import { get } from 'svelte/store';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-
 	interface Style {
 		name: string;
 		value: Theme;

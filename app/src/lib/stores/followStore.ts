@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
-import { clientTryCatch, fetchTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
-import type { User, PublicUserProfile } from '$lib/types/types';
+import { fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
+import type { PublicUserProfile } from '$lib/types/types';
 
 export interface FollowRelationship {
 	userId: string;
@@ -24,19 +24,22 @@ export const followStore = writable<Map<string, FollowData>>(new Map());
 const FOLLOW_CACHE_DURATION = 5 * 60 * 1000;
 
 // Function to get follow data for a user
-export async function fetchFollowData(userId: string, forceRefresh: boolean = false): Promise<FollowData | null> {
+export async function fetchFollowData(
+	userId: string,
+	forceRefresh: boolean = false
+): Promise<FollowData | null> {
 	console.log('🔍 fetchFollowData called with userId:', userId, 'forceRefresh:', forceRefresh);
-	
+
 	// Check cache first unless force refresh
 	if (!forceRefresh) {
 		let cachedData: FollowData | null = null;
-		followStore.subscribe(dataMap => {
+		followStore.subscribe((dataMap) => {
 			const cached = dataMap.get(userId);
 			if (cached && Date.now() - cached.lastFetched < FOLLOW_CACHE_DURATION) {
 				cachedData = cached;
 			}
 		})();
-		
+
 		if (cachedData) {
 			console.log('📋 Using cached follow data for user:', userId);
 			return cachedData;
@@ -44,7 +47,7 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 	}
 
 	console.log('🌐 Making API request for follow data:', userId);
-	
+
 	const result = await fetchTryCatch<{
 		success: boolean;
 		data?: {
@@ -60,11 +63,11 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 			method: 'GET',
 			credentials: 'include',
 			headers: {
-				'Accept': 'application/json',
+				Accept: 'application/json',
 				'Cache-Control': 'no-cache'
 			}
 		},
-		10000 // 10 second timeout
+		10000
 	);
 
 	if (isFailure(result)) {
@@ -74,30 +77,27 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 
 	console.log('📥 Raw follow API response:', result.data);
 	const responseData = result.data;
-	
+
 	if (!responseData.success || !responseData.data) {
 		console.error('❌ Invalid follow response structure:', responseData);
 		return null;
 	}
 
 	const { followers, following } = responseData.data;
-	
-	// Create relationship map
+
 	const relationships = new Map<string, FollowRelationship>();
-	
-	// Add follower relationships
-	followers.forEach(follower => {
+
+	followers.forEach((follower) => {
 		relationships.set(follower.id, {
 			userId,
 			targetUserId: follower.id,
-			isFollowing: following.some(f => f.id === follower.id),
+			isFollowing: following.some((f) => f.id === follower.id),
 			isFollower: true,
 			lastUpdated: Date.now()
 		});
 	});
-	
-	// Add following relationships (if not already added)
-	following.forEach(followedUser => {
+
+	following.forEach((followedUser) => {
 		if (!relationships.has(followedUser.id)) {
 			relationships.set(followedUser.id, {
 				userId,
@@ -107,9 +107,10 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 				lastUpdated: Date.now()
 			});
 		} else {
-			// Update existing relationship
-			const existing = relationships.get(followedUser.id)!;
-			existing.isFollowing = true;
+			const existing = relationships.get(followedUser.id);
+			if (existing) {
+				existing.isFollowing = true;
+			}
 		}
 	});
 
@@ -127,7 +128,7 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 	});
 
 	// Update the store
-	followStore.update(dataMap => {
+	followStore.update((dataMap) => {
 		dataMap.set(userId, followData);
 		console.log('💾 Updated follow store. Store size:', dataMap.size);
 		return new Map(dataMap);
@@ -137,9 +138,13 @@ export async function fetchFollowData(userId: string, forceRefresh: boolean = fa
 }
 
 // Function to follow/unfollow a user
-export async function toggleFollowUser(currentUserId: string, targetUserId: string, action: 'follow' | 'unfollow'): Promise<boolean> {
+export async function toggleFollowUser(
+	currentUserId: string,
+	targetUserId: string,
+	action: 'follow' | 'unfollow'
+): Promise<boolean> {
 	console.log(`🔄 ${action} user:`, { currentUserId, targetUserId });
-	
+
 	const result = await fetchTryCatch<{
 		success: boolean;
 		data?: {
@@ -168,19 +173,19 @@ export async function toggleFollowUser(currentUserId: string, targetUserId: stri
 	}
 
 	const responseData = result.data;
-	const success = responseData.success && responseData.data;
-	
+	const success = responseData.success && !!responseData.data;
+
 	if (success) {
 		console.log(`✅ Successfully ${action}ed user`);
-		
+
 		// Clear cache for both users to force refresh on next fetch
-		followStore.update(dataMap => {
+		followStore.update((dataMap) => {
 			dataMap.delete(currentUserId);
 			dataMap.delete(targetUserId);
 			console.log('🗑️ Cleared follow cache for both users to force refresh');
 			return new Map(dataMap);
 		});
-		
+
 		// Optionally refresh both users' data immediately
 		setTimeout(async () => {
 			await Promise.allSettled([
@@ -189,15 +194,15 @@ export async function toggleFollowUser(currentUserId: string, targetUserId: stri
 			]);
 		}, 100);
 	}
-	
+
 	return success;
 }
 
 // Function to get followers for a user
 export function getFollowers(userId: string): PublicUserProfile[] {
 	let followers: PublicUserProfile[] = [];
-	
-	followStore.subscribe(dataMap => {
+
+	followStore.subscribe((dataMap) => {
 		const data = dataMap.get(userId);
 		if (data) {
 			followers = data.followers;
@@ -210,8 +215,8 @@ export function getFollowers(userId: string): PublicUserProfile[] {
 // Function to get following for a user
 export function getFollowing(userId: string): PublicUserProfile[] {
 	let following: PublicUserProfile[] = [];
-	
-	followStore.subscribe(dataMap => {
+
+	followStore.subscribe((dataMap) => {
 		const data = dataMap.get(userId);
 		if (data) {
 			following = data.following;
@@ -224,11 +229,11 @@ export function getFollowing(userId: string): PublicUserProfile[] {
 // Function to check if user A is following user B
 export function isFollowing(userAId: string, userBId: string): boolean {
 	let following = false;
-	
-	followStore.subscribe(dataMap => {
+
+	followStore.subscribe((dataMap) => {
 		const data = dataMap.get(userAId);
 		if (data) {
-			following = data.following.some(user => user.id === userBId);
+			following = data.following.some((user) => user.id === userBId);
 		}
 	})();
 
@@ -238,8 +243,8 @@ export function isFollowing(userAId: string, userBId: string): boolean {
 // Function to get relationship between two users
 export function getRelationship(userId: string, targetUserId: string): FollowRelationship | null {
 	let relationship: FollowRelationship | null = null;
-	
-	followStore.subscribe(dataMap => {
+
+	followStore.subscribe((dataMap) => {
 		const data = dataMap.get(userId);
 		if (data) {
 			relationship = data.relationships.get(targetUserId) || null;
@@ -258,7 +263,7 @@ export async function refreshFollowData(userId: string): Promise<FollowData | nu
 // Function to clear follow data for a user
 export function clearFollowData(userId: string): void {
 	console.log('🗑️ Clearing follow data for user:', userId);
-	followStore.update(dataMap => {
+	followStore.update((dataMap) => {
 		dataMap.delete(userId);
 		return new Map(dataMap);
 	});
@@ -273,7 +278,7 @@ export function clearAllFollowData(): void {
 // Function to start periodic follow data polling
 export function startFollowPolling(userId: string, intervalMs: number = 5 * 60 * 1000): () => void {
 	console.log('⏰ Starting follow polling for user:', userId, 'interval:', intervalMs);
-	
+
 	// Initial fetch
 	fetchFollowData(userId);
 
@@ -293,7 +298,7 @@ export function startFollowPolling(userId: string, intervalMs: number = 5 * 60 *
 // Function to clear expired cache entries
 export function clearExpiredFollowCache(): void {
 	const now = Date.now();
-	followStore.update(dataMap => {
+	followStore.update((dataMap) => {
 		for (const [userId, followData] of dataMap.entries()) {
 			if (now - followData.lastFetched > FOLLOW_CACHE_DURATION * 2) {
 				dataMap.delete(userId);
@@ -306,7 +311,7 @@ export function clearExpiredFollowCache(): void {
 
 // Debug function to log store contents
 export function debugFollowStore(): void {
-	followStore.subscribe(dataMap => {
+	followStore.subscribe((dataMap) => {
 		console.log('🐛 Follow Store Debug:');
 		console.log('📊 Store size:', dataMap.size);
 		console.log('👥 Users in store:', Array.from(dataMap.keys()));

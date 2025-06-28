@@ -27,78 +27,81 @@
 	}>();
 
 	async function startRecording() {
-		const result = await clientTryCatch((async () => {
-			const stream = await navigator.mediaDevices.getUserMedia({
-				audio: {
-					echoCancellation: true,
-					noiseSuppression: true,
-					sampleRate: 44100
-				}
-			});
-
-			// Try different formats based on browser support
-			const mimeTypeResult = tryCatchSync(() => {
-				let mimeType = 'audio/webm;codecs=opus';
-				if (!MediaRecorder.isTypeSupported(mimeType)) {
-					mimeType = 'audio/webm';
-				}
-				if (!MediaRecorder.isTypeSupported(mimeType)) {
-					mimeType = 'audio/mp4';
-				}
-				if (!MediaRecorder.isTypeSupported(mimeType)) {
-					mimeType = 'audio/ogg;codecs=opus';
-				}
-				if (!MediaRecorder.isTypeSupported(mimeType)) {
-					mimeType = ''; // Let browser choose
-				}
-				return mimeType;
-			});
-
-			const mimeType = isFailure(mimeTypeResult) ? '' : mimeTypeResult.data;
-
-			// Create MediaRecorder with the supported format
-			mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-
-			audioChunks = [];
-			recordingTime = 0;
-
-			mediaRecorder.ondataavailable = (event) => {
-				if (event.data.size > 0) {
-					audioChunks.push(event.data);
-				}
-			};
-
-			mediaRecorder.onstop = () => {
-				const blobResult = tryCatchSync(() => {
-					// Use the actual mimeType that was selected, not hardcoded
-					const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
-					const url = URL.createObjectURL(blob);
-					return { blob, url };
+		const result = await clientTryCatch(
+			(async () => {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					audio: {
+						echoCancellation: true,
+						noiseSuppression: true,
+						sampleRate: 44100
+					}
 				});
 
-				if (isFailure(blobResult)) {
-					console.error('Error creating audio blob:', blobResult.error);
-					return;
-				}
+				// Try different formats based on browser support
+				const mimeTypeResult = tryCatchSync(() => {
+					let mimeType = 'audio/webm;codecs=opus';
+					if (!MediaRecorder.isTypeSupported(mimeType)) {
+						mimeType = 'audio/webm';
+					}
+					if (!MediaRecorder.isTypeSupported(mimeType)) {
+						mimeType = 'audio/mp4';
+					}
+					if (!MediaRecorder.isTypeSupported(mimeType)) {
+						mimeType = 'audio/ogg;codecs=opus';
+					}
+					if (!MediaRecorder.isTypeSupported(mimeType)) {
+						mimeType = ''; // Let browser choose
+					}
+					return mimeType;
+				});
 
-				recordedAudio = blobResult.data.blob;
-				audioUrl = blobResult.data.url;
+				const mimeType = isFailure(mimeTypeResult) ? '' : mimeTypeResult.data;
 
-				// Stop all tracks to release microphone
-				stream.getTracks().forEach((track) => track.stop());
-			};
+				// Create MediaRecorder with the supported format
+				mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 
-			mediaRecorder.start();
-			isRecording = true;
+				audioChunks = [];
+				recordingTime = 0;
 
-			// Start recording timer
-			recordingInterval = setInterval(() => {
-				recordingTime++;
-			}, 1000);
+				mediaRecorder.ondataavailable = (event) => {
+					if (event.data.size > 0) {
+						audioChunks.push(event.data);
+					}
+				};
 
-			dispatch('recordingStart');
-			return true;
-		})(), 'Starting audio recording');
+				mediaRecorder.onstop = () => {
+					const blobResult = tryCatchSync(() => {
+						// Use the actual mimeType that was selected, not hardcoded
+						const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+						const url = URL.createObjectURL(blob);
+						return { blob, url };
+					});
+
+					if (isFailure(blobResult)) {
+						console.error('Error creating audio blob:', blobResult.error);
+						return;
+					}
+
+					recordedAudio = blobResult.data.blob;
+					audioUrl = blobResult.data.url;
+
+					// Stop all tracks to release microphone
+					stream.getTracks().forEach((track) => track.stop());
+				};
+
+				mediaRecorder.start();
+				isRecording = true;
+
+				// Start recording timer
+				recordingInterval = setInterval(() => {
+					recordingTime++;
+				}, 1000);
+
+				dispatch('recordingStart');
+				return true;
+			})(),
+			'Starting audio recording'
+		);
 
 		if (isFailure(result)) {
 			console.error('Error accessing microphone:', result.error);

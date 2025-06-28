@@ -25,37 +25,37 @@
 		quote: { content: string; attachments: File[]; quotedPostId: string };
 	}>();
 
-async function fetchQuotedPost() {
-	if (!post.quotedPost) {
+	async function fetchQuotedPost() {
+		if (!post.quotedPost) {
+			loadingQuotedPost = false;
+			return;
+		}
+
+		const result = await fetchTryCatch<{ post: PostWithInteractions }>(
+			`/api/posts/${post.quotedPost}`,
+			{ method: 'GET', credentials: 'include' }
+		);
+
+		if (isSuccess(result)) {
+			if (result.data?.post) {
+				quotedPost = result.data.post;
+				console.log('Quoted post loaded successfully');
+			} else {
+				console.warn('No post data in response');
+				quotedPost = null;
+			}
+		} else {
+			console.error('Failed to fetch quoted post:', result.error);
+			if (result.error.includes('404')) {
+				console.warn('Quoted post not found (404)');
+				quotedPost = null;
+			} else {
+				// optional: show toast or fallback UI
+			}
+		}
+
 		loadingQuotedPost = false;
-		return;
 	}
-
-	const result = await fetchTryCatch<{ post: PostWithInteractions }>(
-		`/api/posts/${post.quotedPost}`,
-		{ method: 'GET', credentials: 'include' }
-	);
-
-	if (isSuccess(result)) {
-		if (result.data?.post) {
-			quotedPost = result.data.post;
-			console.log('Quoted post loaded successfully');
-		} else {
-			console.warn('No post data in response');
-			quotedPost = null;
-		}
-	} else {
-		console.error('Failed to fetch quoted post:', result.error);
-		if (result.error.includes('404')) {
-			console.warn('Quoted post not found (404)');
-			quotedPost = null;
-		} else {
-			// optional: show toast or fallback UI
-		}
-	}
-
-	loadingQuotedPost = false;
-}
 
 	function handleInteraction(
 		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>

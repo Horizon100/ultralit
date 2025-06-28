@@ -7,19 +7,19 @@ interface ObserverOptions {
 export interface InfiniteScrollConfig {
 	// Required: function to load more data
 	loadMore: () => Promise<unknown> | unknown;
-	
+
 	// Required: check if more data is available
 	hasMore: () => boolean;
-	
+
 	// Required: check if currently loading
 	isLoading: () => boolean;
-	
+
 	// Optional: custom trigger element ID (defaults to 'loading-trigger')
 	triggerId?: string;
-	
+
 	// Optional: intersection observer options
 	observerOptions?: ObserverOptions;
-	
+
 	// Optional: debug logging
 	debug?: boolean;
 }
@@ -52,39 +52,36 @@ export class InfiniteScrollManager {
 			this.observer.disconnect();
 		}
 
-		this.observer = new IntersectionObserver(
-			(entries) => {
-				entries.forEach((entry) => {
-					this.log('🔍 Intersection event:', {
-						isIntersecting: entry.isIntersecting,
-						intersectionRatio: entry.intersectionRatio,
-						target: entry.target.id,
-						hasMore: this.config.hasMore(),
-						isLoading: this.config.isLoading(),
-						boundingRect: {
-							top: entry.boundingClientRect.top,
-							bottom: entry.boundingClientRect.bottom,
-							height: entry.boundingClientRect.height
-						}
-					});
-
-					if (entry.isIntersecting) {
-						this.log('🎯 Element is visible!');
-
-						if (this.config.hasMore() && !this.config.isLoading()) {
-							this.log('🚀 Conditions met - triggering loadMore...');
-							this.config.loadMore();
-						} else {
-							this.log('⛔ Conditions not met:', {
-								hasMore: this.config.hasMore(),
-								isLoading: this.config.isLoading()
-							});
-						}
+		this.observer = new IntersectionObserver((entries) => {
+			entries.forEach((entry) => {
+				this.log('🔍 Intersection event:', {
+					isIntersecting: entry.isIntersecting,
+					intersectionRatio: entry.intersectionRatio,
+					target: entry.target.id,
+					hasMore: this.config.hasMore(),
+					isLoading: this.config.isLoading(),
+					boundingRect: {
+						top: entry.boundingClientRect.top,
+						bottom: entry.boundingClientRect.bottom,
+						height: entry.boundingClientRect.height
 					}
 				});
-			},
-			this.config.observerOptions
-		);
+
+				if (entry.isIntersecting) {
+					this.log('🎯 Element is visible!');
+
+					if (this.config.hasMore() && !this.config.isLoading()) {
+						this.log('🚀 Conditions met - triggering loadMore...');
+						this.config.loadMore();
+					} else {
+						this.log('⛔ Conditions not met:', {
+							hasMore: this.config.hasMore(),
+							isLoading: this.config.isLoading()
+						});
+					}
+				}
+			});
+		}, this.config.observerOptions);
 
 		this.log('✅ Observer created');
 	}

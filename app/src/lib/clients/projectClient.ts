@@ -4,12 +4,7 @@ import { marked } from 'marked';
 import { get } from 'svelte/store';
 import { threadsStore } from '$lib/stores/threadsStore';
 // import { threadListVisibility } from '$lib/clients/threadsClient';
-import { 
-	fetchTryCatch, 
-	validationTryCatch,
-	isFailure,
-	type Result 
-} from '$lib/utils/errorUtils';
+import { fetchTryCatch, validationTryCatch, isFailure, type Result } from '$lib/utils/errorUtils';
 
 marked.setOptions({
 	gfm: true,
@@ -19,7 +14,6 @@ marked.setOptions({
 	 * mangle: false
 	 */
 });
-
 
 function validateAuthentication() {
 	return validationTryCatch(() => {
@@ -54,7 +48,9 @@ export async function fetchProjects(): Promise<Result<Projects[], string>> {
 	return { data: result.data.data, error: null, success: true };
 }
 
-export async function fetchThreadsForProject(projectId: string): Promise<Result<Threads[], string>> {
+export async function fetchThreadsForProject(
+	projectId: string
+): Promise<Result<Threads[], string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -64,21 +60,21 @@ export async function fetchThreadsForProject(projectId: string): Promise<Result<
 	const endpoint = `/api/projects/${projectId}/threads`;
 	console.log(`Fetching threads from endpoint: ${endpoint}`);
 
-	const result = await fetchTryCatch<{
-		threads?: Threads[];
-		data?: Threads[];
-		error?: string;
-	} | Threads[]>(
-		endpoint,
-		{
-			method: 'GET',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${user.token}`
-			}
+	const result = await fetchTryCatch<
+		| {
+				threads?: Threads[];
+				data?: Threads[];
+				error?: string;
+		  }
+		| Threads[]
+	>(endpoint, {
+		method: 'GET',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${user.token}`
 		}
-	);
+	});
 
 	if (isFailure(result)) {
 		console.error(`Error fetching threads for project ${projectId}:`, result.error);
@@ -122,7 +118,9 @@ export async function fetchThreadsForProject(projectId: string): Promise<Result<
 	return { data: threads, error: null, success: true };
 }
 
-export async function createProject(projectData: Partial<Projects>): Promise<Result<Projects, string>> {
+export async function createProject(
+	projectData: Partial<Projects>
+): Promise<Result<Projects, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -155,7 +153,10 @@ export async function createProject(projectData: Partial<Projects>): Promise<Res
 	return { data: result.data.data, error: null, success: true };
 }
 
-export async function updateProject(id: string, changes: Partial<Projects>): Promise<Result<Projects, string>> {
+export async function updateProject(
+	id: string,
+	changes: Partial<Projects>
+): Promise<Result<Projects, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -190,13 +191,10 @@ export async function deleteProject(id: string): Promise<Result<void, string>> {
 		return { data: null, error: authValidation.error, success: false };
 	}
 
-	const result = await fetchTryCatch<{ success: boolean; error?: string }>(
-		`/api/projects/${id}`,
-		{
-			method: 'DELETE',
-			credentials: 'include'
-		}
-	);
+	const result = await fetchTryCatch<{ success: boolean; error?: string }>(`/api/projects/${id}`, {
+		method: 'DELETE',
+		credentials: 'include'
+	});
 
 	if (isFailure(result)) {
 		return { data: null, error: result.error, success: false };
@@ -251,7 +249,10 @@ export async function resetProject(projectId: string): Promise<Result<void, stri
 	return { data: undefined, error: null, success: true };
 }
 
-export async function removeThreadFromProject(threadId: string, projectId: string): Promise<Result<void, string>> {
+export async function removeThreadFromProject(
+	threadId: string,
+	projectId: string
+): Promise<Result<void, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -270,13 +271,20 @@ export async function removeThreadFromProject(threadId: string, projectId: strin
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to remove thread from project', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to remove thread from project',
+			success: false
+		};
 	}
 
 	return { data: undefined, error: null, success: true };
 }
 
-export async function addThreadToProject(threadId: string, projectId: string): Promise<Result<void, string>> {
+export async function addThreadToProject(
+	threadId: string,
+	projectId: string
+): Promise<Result<void, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -299,7 +307,11 @@ export async function addThreadToProject(threadId: string, projectId: string): P
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to add thread to project', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to add thread to project',
+			success: false
+		};
 	}
 
 	return { data: undefined, error: null, success: true };
@@ -331,13 +343,19 @@ export async function addCollaboratorToProject(
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to add collaborator to project', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to add collaborator to project',
+			success: false
+		};
 	}
 
 	return { data: result.data.data, error: null, success: true };
 }
 
-export async function fetchProjectCollaborators(projectId: string): Promise<Result<User[], string>> {
+export async function fetchProjectCollaborators(
+	projectId: string
+): Promise<Result<User[], string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -359,14 +377,21 @@ export async function fetchProjectCollaborators(projectId: string): Promise<Resu
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to fetch project collaborators', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to fetch project collaborators',
+			success: false
+		};
 	}
 
 	console.log('Total users found:', result.data.data.length);
 	return { data: result.data.data, error: null, success: true };
 }
 
-export async function isUserCollaborator(projectId: string, userId: string): Promise<Result<boolean, string>> {
+export async function isUserCollaborator(
+	projectId: string,
+	userId: string
+): Promise<Result<boolean, string>> {
 	const authValidation = validateAuthentication();
 	if (isFailure(authValidation)) {
 		return { data: null, error: authValidation.error, success: false };
@@ -376,13 +401,10 @@ export async function isUserCollaborator(projectId: string, userId: string): Pro
 		success: boolean;
 		isCollaborator: boolean;
 		error?: string;
-	}>(
-		`/api/projects/${projectId}/collaborators/${userId}`,
-		{
-			method: 'GET',
-			credentials: 'include'
-		}
-	);
+	}>(`/api/projects/${projectId}/collaborators/${userId}`, {
+		method: 'GET',
+		credentials: 'include'
+	});
 
 	if (isFailure(result)) {
 		console.error('Error checking if user is a collaborator:', result.error);
@@ -390,7 +412,11 @@ export async function isUserCollaborator(projectId: string, userId: string): Pro
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to check if user is a collaborator', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to check if user is a collaborator',
+			success: false
+		};
 	}
 
 	return { data: result.data.isCollaborator, error: null, success: true };
@@ -418,7 +444,11 @@ export async function removeCollaboratorFromProject(
 	}
 
 	if (!result.data.success) {
-		return { data: null, error: result.data.error || 'Failed to remove collaborator from project', success: false };
+		return {
+			data: null,
+			error: result.data.error || 'Failed to remove collaborator from project',
+			success: false
+		};
 	}
 
 	return { data: result.data.data, error: null, success: true };

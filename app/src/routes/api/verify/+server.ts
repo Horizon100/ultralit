@@ -3,10 +3,10 @@ import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
 import type { User } from '$lib/types/types';
 import type { Cookies } from '@sveltejs/kit';
-import { 
-	apiTryCatch, 
-	pbTryCatch, 
-	tryCatchSync, 
+import {
+	apiTryCatch,
+	pbTryCatch,
+	tryCatchSync,
 	validationTryCatch,
 	isSuccess,
 	isFailure,
@@ -127,7 +127,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	// Health check via query param or path
 	if (check === 'health' || endpoint === 'health') {
 		return apiTryCatch(
-			pbServer.checkPocketBaseConnection().then(isHealthy => ({
+			pbServer.checkPocketBaseConnection().then((isHealthy) => ({
 				success: isHealthy,
 				message: isHealthy ? 'PocketBase is healthy' : 'PocketBase is not healthy'
 			})),
@@ -137,48 +137,52 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 	// Auth check endpoint
 	if (endpoint === 'auth-check') {
-		return apiTryCatch(async () => {
-			console.log('=== AUTH CHECK ===');
-			
-			const authCookie = cookies.get('pb_auth');
-			console.log('Auth cookie exists:', !!authCookie);
+		return apiTryCatch(
+			async () => {
+				console.log('=== AUTH CHECK ===');
 
-			if (!authCookie) {
-				console.log('No auth cookie found');
-				throw new Error('No authentication cookie found');
-			}
+				const authCookie = cookies.get('pb_auth');
+				console.log('Auth cookie exists:', !!authCookie);
 
-			const authData = parseAuthCookie(authCookie);
-			if (!authData) {
-				console.log('Invalid auth data structure in cookie');
-				cookies.delete('pb_auth', { path: '/' });
-				throw new Error('Invalid auth cookie format');
-			}
+				if (!authCookie) {
+					console.log('No auth cookie found');
+					throw new Error('No authentication cookie found');
+				}
 
-			// Clear and reload auth to ensure we're using the cookie data
-			pbServer.pb.authStore.clear();
-			pbServer.pb.authStore.save(authData.token, authData.model);
+				const authData = parseAuthCookie(authCookie);
+				if (!authData) {
+					console.log('Invalid auth data structure in cookie');
+					cookies.delete('pb_auth', { path: '/' });
+					throw new Error('Invalid auth cookie format');
+				}
 
-			console.log('Auth data loaded from cookie, valid:', pbServer.pb.authStore.isValid);
+				// Clear and reload auth to ensure we're using the cookie data
+				pbServer.pb.authStore.clear();
+				pbServer.pb.authStore.save(authData.token, authData.model);
 
-			// Check authentication
-			const isAuthenticated = await pbServer.ensureAuthenticated();
-			console.log('ensureAuthenticated result:', isAuthenticated);
+				console.log('Auth data loaded from cookie, valid:', pbServer.pb.authStore.isValid);
 
-			if (!isAuthenticated) {
-				cookies.delete('pb_auth', { path: '/' });
-				throw new Error('Authentication failed');
-			}
+				// Check authentication
+				const isAuthenticated = await pbServer.ensureAuthenticated();
+				console.log('ensureAuthenticated result:', isAuthenticated);
 
-			// Update the cookie with refreshed token if needed
-			updateAuthCookie(cookies);
+				if (!isAuthenticated) {
+					cookies.delete('pb_auth', { path: '/' });
+					throw new Error('Authentication failed');
+				}
 
-			return {
-				success: true,
-				user: sanitizeUserData(pbServer.pb.authStore.model),
-				token: pbServer.pb.authStore.token
-			};
-		}, 'Authentication check failed', 401);
+				// Update the cookie with refreshed token if needed
+				updateAuthCookie(cookies);
+
+				return {
+					success: true,
+					user: sanitizeUserData(pbServer.pb.authStore.model),
+					token: pbServer.pb.authStore.token
+				};
+			},
+			'Authentication check failed',
+			401
+		);
 	}
 
 	// User count endpoint
@@ -190,47 +194,50 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	}
 
 	// Handle user endpoints
-const userMatch = /^users\/([^/]+)(?:\/(.+))?$/.exec(endpoint);
-if (userMatch) {
-    const userId = userMatch[1];
-    const action = userMatch[2];
+	const userMatch = /^users\/([^/]+)(?:\/(.+))?$/.exec(endpoint);
+	if (userMatch) {
+		const userId = userMatch[1];
+		const action = userMatch[2];
 
-    if (action === 'public') {
-        return apiTryCatch(async () => {
-            const userData = await pbServer.getPublicUserData(userId);
-            return { success: true, user: userData };
-        }, 'Failed to get public user data');
-    } else if (!action) {
-        // FIX: Use the same pattern as your individual user endpoint
-        return apiTryCatch(async () => {
-            const userResult = await pbTryCatch(pbServer.pb.collection('users').getOne(userId), 'fetch user');
-            const user = unwrap(userResult);
-            
-            // Use the same sanitizeUser function from your individual endpoint
-            const sanitizedUser = {
-                id: user.id,
-                name: user.name || '',
-                username: user.username || '',
-                email: user.email || '',
-                description: user.description || '',
-                role: user.role || '',
-                created: user.created || '',
-                updated: user.updated || '',
-                verified: user.verified || false,
-                theme_preference: user.theme_preference || '',
-                wallpaper_preference: user.wallpaper_preference || '',
-                model: user.model || null,
-                selected_provider: user.selected_provider || null,
-                prompt_preference: user.prompt_preference || '',
-                sysprompt_preference: user.sysprompt_preference || '',
-                model_preference: user.model_preference,
-                // ... add other fields as needed
-            };
-            
-            return { success: true, user: sanitizedUser };
-        }, 'Failed to get user');
-    }
-}
+		if (action === 'public') {
+			return apiTryCatch(async () => {
+				const userData = await pbServer.getPublicUserData(userId);
+				return { success: true, user: userData };
+			}, 'Failed to get public user data');
+		} else if (!action) {
+			// FIX: Use the same pattern as your individual user endpoint
+			return apiTryCatch(async () => {
+				const userResult = await pbTryCatch(
+					pbServer.pb.collection('users').getOne(userId),
+					'fetch user'
+				);
+				const user = unwrap(userResult);
+
+				// Use the same sanitizeUser function from your individual endpoint
+				const sanitizedUser = {
+					id: user.id,
+					name: user.name || '',
+					username: user.username || '',
+					email: user.email || '',
+					description: user.description || '',
+					role: user.role || '',
+					created: user.created || '',
+					updated: user.updated || '',
+					verified: user.verified || false,
+					theme_preference: user.theme_preference || '',
+					wallpaper_preference: user.wallpaper_preference || '',
+					model: user.model || null,
+					selected_provider: user.selected_provider || null,
+					prompt_preference: user.prompt_preference || '',
+					sysprompt_preference: user.sysprompt_preference || '',
+					model_preference: user.model_preference
+					// ... add other fields as needed
+				};
+
+				return { success: true, user: sanitizedUser };
+			}, 'Failed to get user');
+		}
+	}
 
 	console.log('No matching route for GET', url.pathname);
 	return json({ success: false, error: 'Invalid endpoint' }, { status: 404 });
@@ -256,93 +263,101 @@ export const POST: RequestHandler = async ({ request, url, cookies }) => {
 
 	// Sign up endpoint
 	if (endpoint === 'signup') {
-		return apiTryCatch(async () => {
-			const body = await request.json();
-			
-			const validationResult = validationTryCatch(() => {
-				if (!body.email || !body.password) {
-					throw new Error('Email and password are required');
+		return apiTryCatch(
+			async () => {
+				const body = await request.json();
+
+				const validationResult = validationTryCatch(() => {
+					if (!body.email || !body.password) {
+						throw new Error('Email and password are required');
+					}
+
+					if (typeof body.email !== 'string' || typeof body.password !== 'string') {
+						throw new Error('Email and password must be strings');
+					}
+
+					// Validate email format
+					if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+						throw new Error('Invalid email format');
+					}
+
+					// Validate password strength
+					if (body.password.length < 8) {
+						throw new Error('Password must be at least 8 characters');
+					}
+
+					return { email: body.email, password: body.password };
+				}, 'signup credentials');
+
+				if (isFailure(validationResult)) {
+					throw new Error(validationResult.error);
 				}
 
-				if (typeof body.email !== 'string' || typeof body.password !== 'string') {
-					throw new Error('Email and password must be strings');
+				const { email, password } = validationResult.data;
+
+				const user = await pbServer.signUp(email, password);
+				if (!user) {
+					throw new Error('Failed to create user');
 				}
 
-				// Validate email format
-				if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
-					throw new Error('Invalid email format');
-				}
+				// Automatically sign in after successful signup
+				const authData = await pbServer.signIn(email, password);
 
-				// Validate password strength
-				if (body.password.length < 8) {
-					throw new Error('Password must be at least 8 characters');
-				}
+				// Save auth to cookies
+				updateAuthCookie(cookies);
 
-				return { email: body.email, password: body.password };
-			}, 'signup credentials');
-
-			if (isFailure(validationResult)) {
-				throw new Error(validationResult.error);
-			}
-
-			const { email, password } = validationResult.data;
-
-			const user = await pbServer.signUp(email, password);
-			if (!user) {
-				throw new Error('Failed to create user');
-			}
-
-			// Automatically sign in after successful signup
-			const authData = await pbServer.signIn(email, password);
-
-			// Save auth to cookies
-			updateAuthCookie(cookies);
-
-			return {
-				success: true,
-				user: sanitizeUserData(user),
-				authData
-			};
-		}, 'Sign-up failed', 400);
+				return {
+					success: true,
+					user: sanitizeUserData(user),
+					authData
+				};
+			},
+			'Sign-up failed',
+			400
+		);
 	}
 
 	// Sign in endpoint
 	if (endpoint === 'signin') {
-		return apiTryCatch(async () => {
-			const body = await request.json();
-			
-			const validationResult = validationTryCatch(() => {
-				if (!body.email || !body.password) {
-					throw new Error('Email and password are required');
+		return apiTryCatch(
+			async () => {
+				const body = await request.json();
+
+				const validationResult = validationTryCatch(() => {
+					if (!body.email || !body.password) {
+						throw new Error('Email and password are required');
+					}
+
+					if (typeof body.email !== 'string' || typeof body.password !== 'string') {
+						throw new Error('Email and password must be strings');
+					}
+
+					return { email: body.email, password: body.password };
+				}, 'signin credentials');
+
+				if (isFailure(validationResult)) {
+					throw new Error(validationResult.error);
 				}
 
-				if (typeof body.email !== 'string' || typeof body.password !== 'string') {
-					throw new Error('Email and password must be strings');
+				const { email, password } = validationResult.data;
+
+				const authData = await pbServer.signIn(email, password);
+				if (!authData) {
+					throw new Error('Authentication failed');
 				}
 
-				return { email: body.email, password: body.password };
-			}, 'signin credentials');
+				// Save auth to cookies
+				updateAuthCookie(cookies);
 
-			if (isFailure(validationResult)) {
-				throw new Error(validationResult.error);
-			}
-
-			const { email, password } = validationResult.data;
-
-			const authData = await pbServer.signIn(email, password);
-			if (!authData) {
-				throw new Error('Authentication failed');
-			}
-
-			// Save auth to cookies
-			updateAuthCookie(cookies);
-
-			return {
-				success: true,
-				user: sanitizeUserData(pbServer.pb.authStore.model as User),
-				authData
-			};
-		}, 'Authentication failed', 401);
+				return {
+					success: true,
+					user: sanitizeUserData(pbServer.pb.authStore.model as User),
+					authData
+				};
+			},
+			'Authentication failed',
+			401
+		);
 	}
 
 	// Sign out endpoint
@@ -380,30 +395,34 @@ export const PATCH: RequestHandler = async ({ request, url, cookies }) => {
 	const userMatch = /^users\/([^/]+)$/.exec(endpoint);
 	if (userMatch) {
 		const userId = userMatch[1];
-		
-		return apiTryCatch(async () => {
-			let userData;
 
-			// Handle both FormData and JSON
-			const contentType = request.headers.get('content-type');
-			if (contentType && contentType.includes('multipart/form-data')) {
-				userData = await request.formData();
-			} else {
-				userData = await request.json();
-			}
+		return apiTryCatch(
+			async () => {
+				let userData;
 
-			const updatedUser = await pbServer.updateUser(userId, userData);
+				// Handle both FormData and JSON
+				const contentType = request.headers.get('content-type');
+				if (contentType && contentType.includes('multipart/form-data')) {
+					userData = await request.formData();
+				} else {
+					userData = await request.json();
+				}
 
-			// Update the cookie if it's the current user
-			if (pbServer.pb.authStore.model?.id === userId) {
-				updateAuthCookie(cookies);
-			}
+				const updatedUser = await pbServer.updateUser(userId, userData);
 
-			return {
-				success: true,
-				user: sanitizeUserData(updatedUser)
-			};
-		}, 'Failed to update user', 400);
+				// Update the cookie if it's the current user
+				if (pbServer.pb.authStore.model?.id === userId) {
+					updateAuthCookie(cookies);
+				}
+
+				return {
+					success: true,
+					user: sanitizeUserData(updatedUser)
+				};
+			},
+			'Failed to update user',
+			400
+		);
 	}
 
 	console.log('No matching route for PATCH', url.pathname);

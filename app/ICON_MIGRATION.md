@@ -1,6 +1,7 @@
 # Lucide to Local Icons Migration Guide
 
 ## What Changed
+
 - Replaced lucide-svelte imports with local SVG icons
 - Created a TypeScript utility that provides icons as strings
 - Reduced bundle size by including only used icons
@@ -8,18 +9,23 @@
 ## Migration Steps
 
 ### 1. Replace Import Statements
+
 **Before:**
+
 ```typescript
 import { Bot, Settings, Plus } from 'lucide-svelte';
 ```
 
 **After:**
+
 ```typescript
 import { getIcon } from '$lib/utils/lucideIcons';
 ```
 
 ### 2. Update Icon Usage
+
 **Before:**
+
 ```svelte
 <Bot size={24} />
 <Settings class="text-blue-500" />
@@ -27,6 +33,7 @@ import { getIcon } from '$lib/utils/lucideIcons';
 ```
 
 **After:**
+
 ```svelte
 {@html getIcon('Bot', { size: 24 })}
 <span class="text-blue-500">{@html getIcon('Settings')}</span>
@@ -34,15 +41,17 @@ import { getIcon } from '$lib/utils/lucideIcons';
 ```
 
 ### 3. With Type Safety
+
 ```typescript
 import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 // TypeScript will autocomplete available icon names
-const iconName: IconName = 'Bot'; 
+const iconName: IconName = 'Bot';
 const iconSvg = getIcon(iconName, { size: 32, color: '#3b82f6' });
 ```
 
 ## Available Icons
+
 - Activity
 - AlertCircle
 - ArrowDown
@@ -254,11 +263,13 @@ const iconSvg = getIcon(iconName, { size: 32, color: '#3b82f6' });
 - ZapOff
 
 ## Bundle Size Impact
+
 - Before: ~418KB (estimated full Lucide bundle)
 - After: ~104.5KB (only used icons)
 - Savings: ~313.5KB
 
 ## Adding New Icons
+
 1. Add the icon import to your component: `import { NewIcon } from 'lucide-svelte';`
 2. Run: `yarn extract-icons`
 3. The script will download any new icons automatically

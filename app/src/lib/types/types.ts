@@ -102,6 +102,12 @@ export interface DMConversation {
 	unreadCount: number;
 	isActive?: boolean;
 }
+export interface DMMessageWithExpand extends DMMessage {
+	expand?: {
+		senderId?: User;
+		receiverId?: User;
+	};
+}
 export interface ConversationUser {
 	id: string;
 	name: string;
@@ -146,6 +152,7 @@ export interface UserProfile {
 	username: string;
 	email: string;
 	avatarUrl: string;
+	avatar: string;
 }
 
 export interface Prompt {

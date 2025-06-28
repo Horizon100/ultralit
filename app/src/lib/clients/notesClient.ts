@@ -8,13 +8,10 @@ type ApiResponse<T> = {
 
 export const notesClient = {
 	async getFolders(): Promise<Folders[]> {
-		const result = await fetchTryCatch<ApiResponse<{ folders: Folders[] }>>(
-			'/api/notes/folders',
-			{
-				method: 'GET',
-				credentials: 'include'
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ folders: Folders[] }>>('/api/notes/folders', {
+			method: 'GET',
+			credentials: 'include'
+		});
 
 		if (isFailure(result)) {
 			console.error('Error fetching folders:', result.error);
@@ -29,17 +26,14 @@ export const notesClient = {
 	},
 
 	async createFolder(folderData: Partial<Folders>): Promise<Folders> {
-		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>(
-			'/api/notes/folders',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				credentials: 'include',
-				body: JSON.stringify(folderData)
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>('/api/notes/folders', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify(folderData)
+		});
 
 		if (isFailure(result)) {
 			console.error('Error creating folder:', result.error);
@@ -54,17 +48,14 @@ export const notesClient = {
 	},
 
 	async updateFolder(id: string, folderData: Partial<Folders>): Promise<Folders> {
-		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>(
-			'/api/notes/folders',
-			{
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				credentials: 'include',
-				body: JSON.stringify({ id, ...folderData })
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ folder: Folders }>>('/api/notes/folders', {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({ id, ...folderData })
+		});
 
 		if (isFailure(result)) {
 			console.error('Error updating folder:', result.error);
@@ -79,7 +70,7 @@ export const notesClient = {
 	},
 
 	async deleteFolder(id: string): Promise<boolean> {
-	const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(
+		const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(
 			`/api/notes/folders?id=${id}`,
 			{
 				method: 'DELETE',
@@ -121,13 +112,10 @@ export const notesClient = {
 	},
 
 	async getNote(id: string): Promise<Notes> {
-		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
-			`/api/notes/${id}`,
-			{
-				method: 'GET',
-				credentials: 'include'
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(`/api/notes/${id}`, {
+			method: 'GET',
+			credentials: 'include'
+		});
 
 		if (isFailure(result)) {
 			console.error('Error fetching note:', result.error);
@@ -142,17 +130,14 @@ export const notesClient = {
 	},
 
 	async createNote(noteData: Partial<Notes>): Promise<Notes> {
-		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
-			'/api/notes',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				credentials: 'include',
-				body: JSON.stringify(noteData)
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>('/api/notes', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify(noteData)
+		});
 
 		if (isFailure(result)) {
 			console.error('Error creating note:', result.error);
@@ -167,17 +152,14 @@ export const notesClient = {
 	},
 
 	async updateNote(id: string, noteData: Partial<Notes>): Promise<Notes> {
-		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>(
-			'/api/notes',
-			{
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				credentials: 'include',
-				body: JSON.stringify({ id, ...noteData })
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<{ note: Notes }>>('/api/notes', {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include',
+			body: JSON.stringify({ id, ...noteData })
+		});
 
 		if (isFailure(result)) {
 			console.error('Error updating note:', result.error);
@@ -192,13 +174,10 @@ export const notesClient = {
 	},
 
 	async deleteNote(id: string): Promise<boolean> {
-	const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(
-			`/api/notes?id=${id}`,
-			{
-				method: 'DELETE',
-				credentials: 'include'
-			}
-		);
+		const result = await fetchTryCatch<ApiResponse<Record<string, never>>>(`/api/notes?id=${id}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
 
 		if (isFailure(result)) {
 			console.error('Error deleting note:', result.error);
@@ -241,14 +220,11 @@ export const notesClient = {
 		console.log('Uploading attachment:', { noteId, fileName: file.name });
 
 		const result = await fileTryCatch(
-			fetchTryCatch<ApiResponse<{ attachment: Attachment }>>(
-				'/api/attachments',
-				{
-					method: 'POST',
-					credentials: 'include',
-					body: formData
-				}
-			).then(fetchResult => {
+			fetchTryCatch<ApiResponse<{ attachment: Attachment }>>('/api/attachments', {
+				method: 'POST',
+				credentials: 'include',
+				body: formData
+			}).then((fetchResult) => {
 				if (isFailure(fetchResult)) {
 					throw new Error(fetchResult.error);
 				}

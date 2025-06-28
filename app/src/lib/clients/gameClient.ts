@@ -151,12 +151,12 @@ class GameClient {
 			console.log(`[GAME CLIENT] Position synced successfully`);
 		} else {
 			console.error(`[GAME CLIENT] Failed to sync position: ${result.error}`);
-			
+
 			// Set offline status for network-related errors
 			if (result.error.includes('timeout') || result.error.includes('Network')) {
 				this.isOnline = false;
 			}
-			
+
 			// Retry on failure (could implement exponential backoff)
 			this.scheduleRetrySync(userId);
 		}

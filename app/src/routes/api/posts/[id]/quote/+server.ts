@@ -29,7 +29,7 @@ export const POST: RequestHandler = async (event) =>
 
 		const quotedPostId = params.id;
 		if (!quotedPostId) {
-		throw new Error('Missing post id param');
+			throw new Error('Missing post id param');
 		}
 		const userId = locals.user.id;
 		const formData = await request.formData();

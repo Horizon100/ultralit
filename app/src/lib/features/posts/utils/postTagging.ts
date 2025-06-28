@@ -8,10 +8,7 @@ import { fetchAIResponse } from '$lib/clients/aiClient';
 import { modelStore } from '$lib/stores/modelStore';
 import { apiKey } from '$lib/stores/apiKeyStore';
 import { get } from 'svelte/store';
-import { 
-	clientTryCatch,
-	fetchTryCatch
-} from '$lib/utils/errorUtils';
+import { clientTryCatch, fetchTryCatch } from '$lib/utils/errorUtils';
 
 export interface GeneratedTag {
 	name: string;
@@ -67,15 +64,18 @@ export async function generatePostTags(
 ): Promise<GeneratedTag[]> {
 	try {
 		console.log('🔄 Starting tag generation with AI infrastructure...');
-		
+
 		// Force API keys to load regardless of page
 		console.log('🔑 Force loading API keys...');
 		await apiKey.loadKeys(true); // Force load with true parameter
 		const availableKeys = get(apiKey);
-		console.log('🔑 Available API key providers:', Object.keys(availableKeys).filter(k => availableKeys[k]));
-		
+		console.log(
+			'🔑 Available API key providers:',
+			Object.keys(availableKeys).filter((k) => availableKeys[k])
+		);
+
 		// Check if we have any API keys available
-		const hasApiKeys = Object.values(availableKeys).some(key => key && key.length > 0);
+		const hasApiKeys = Object.values(availableKeys).some((key) => key && key.length > 0);
 		if (!hasApiKeys) {
 			console.error('❌ No API keys configured for any provider');
 			console.log('💡 Configure API keys in user settings or manually set for testing:');
@@ -87,7 +87,7 @@ export async function generatePostTags(
 		let modelToUse = model;
 		if (!model || !availableKeys[model.provider]) {
 			console.log('🔄 Current model provider has no API key, finding alternative...');
-			
+
 			// Try to get the user's selected model from modelStore
 			const modelState = get(modelStore);
 			if (modelState.selectedModel && availableKeys[modelState.selectedModel.provider]) {
@@ -96,18 +96,22 @@ export async function generatePostTags(
 			} else {
 				// Find any provider with an API key
 				const availableProvider = Object.keys(availableKeys).find(
-					provider => availableKeys[provider] && availableKeys[provider].length > 0
+					(provider) => availableKeys[provider] && availableKeys[provider].length > 0
 				);
-				
+
 				if (availableProvider) {
 					// Create a simple model for this provider
 					modelToUse = {
 						...defaultModel,
 						provider: availableProvider as any,
-						api_type: availableProvider === 'openai' ? 'gpt-3.5-turbo' :
-								 availableProvider === 'anthropic' ? 'claude-3-haiku-20240307' :
-								 availableProvider === 'deepseek' ? 'deepseek-chat' :
-								 'gpt-3.5-turbo'
+						api_type:
+							availableProvider === 'openai'
+								? 'gpt-3.5-turbo'
+								: availableProvider === 'anthropic'
+									? 'claude-3-haiku-20240307'
+									: availableProvider === 'deepseek'
+										? 'deepseek-chat'
+										: 'gpt-3.5-turbo'
 					};
 					console.log('✅ Using fallback model for provider:', availableProvider);
 				} else {
@@ -158,7 +162,7 @@ Return only the tag names, one per line.`,
 		];
 
 		console.log('🤖 Sending tagging request to AI using fetchAIResponse');
-		
+
 		// Use your existing AI client
 		const responseText = await fetchAIResponse(messages, modelToUse, userId);
 		console.log('✅ AI response text from fetchAIResponse:', responseText);
@@ -188,7 +192,6 @@ Return only the tag names, one per line.`,
 
 		console.log('✅ Generated tags successfully:', generatedTags);
 		return generatedTags;
-		
 	} catch (error) {
 		console.error('❌ Error generating tags with AI client:', error);
 		return [];
@@ -206,7 +209,7 @@ export async function checkExistingTags(
 		const newTags: string[] = [];
 
 		// Load tags created by the current user (use createdBy filter)
-		const response = await fetchTryCatch<{success: boolean, items: Tag[]}>(
+		const response = await fetchTryCatch<{ success: boolean; items: Tag[] }>(
 			'/api/tags?filter=createdBy',
 			{ method: 'GET' }
 		);
@@ -222,9 +225,7 @@ export async function checkExistingTags(
 		// Check each tag name against existing tags (case-insensitive since API stores lowercase)
 		tagNames.forEach((tagName) => {
 			const normalizedTagName = tagName.toLowerCase().trim();
-			const existingTag = allTags.find(
-				(tag) => tag.name.toLowerCase() === normalizedTagName
-			);
+			const existingTag = allTags.find((tag) => tag.name.toLowerCase() === normalizedTagName);
 
 			if (existingTag) {
 				existing.push(existingTag);
@@ -236,7 +237,6 @@ export async function checkExistingTags(
 		});
 
 		return { existing, new: newTags };
-
 	} catch (error) {
 		console.error('Error checking existing tags:', error);
 		return { existing: [], new: tagNames };
@@ -252,22 +252,19 @@ export async function createNewTags(tagNames: string[], userId: string): Promise
 	for (const tagName of tagNames) {
 		try {
 			console.log(`Creating new tag: ${tagName}`);
-			
-			const response = await fetchTryCatch<{success: boolean, data: Tag}>(
-				'/api/tags',
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						name: tagName.trim(),
-						color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`,
-						tagDescription: '',
-						createdBy: userId,
-						selected: false,
-						taggedPosts: [] // Initialize empty array
-					})
-				}
-			);
+
+			const response = await fetchTryCatch<{ success: boolean; data: Tag }>('/api/tags', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: tagName.trim(),
+					color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`,
+					tagDescription: '',
+					createdBy: userId,
+					selected: false,
+					taggedPosts: [] // Initialize empty array
+				})
+			});
 
 			if (response.success && response.data.success && response.data.data) {
 				const newTag = response.data.data;
@@ -276,12 +273,16 @@ export async function createNewTags(tagNames: string[], userId: string): Promise
 			} else if (response.success && response.data.data && response.data.data.id) {
 				// Handle case where tag already exists (API returns existing tag)
 				const existingTag = response.data.data;
-				console.log('✅ Tag already exists, using existing:', existingTag.name, 'with ID:', existingTag.id);
+				console.log(
+					'✅ Tag already exists, using existing:',
+					existingTag.name,
+					'with ID:',
+					existingTag.id
+				);
 				createdTags.push(existingTag);
 			} else {
 				console.error('❌ Failed to create tag:', tagName, 'Response:', response);
 			}
-
 		} catch (error) {
 			console.error('❌ Error creating tag:', tagName, error);
 		}
@@ -343,9 +344,9 @@ export async function handlePostTagging(
 		// Check which tags already exist
 		console.log('🔍 Checking for existing tags...');
 		const { existing, new: newTagNames } = await checkExistingTags(tagNames);
-		console.log('📊 Tag analysis:', { 
-			existing: existing.map(t => t.name), 
-			new: newTagNames 
+		console.log('📊 Tag analysis:', {
+			existing: existing.map((t) => t.name),
+			new: newTagNames
 		});
 
 		// Create new tags if needed
@@ -353,7 +354,10 @@ export async function handlePostTagging(
 		if (newTagNames.length > 0) {
 			console.log('🆕 Creating new tags:', newTagNames);
 			createdTags = await createNewTags(newTagNames, userId);
-			console.log('✅ Created tags:', createdTags.map(t => t.name));
+			console.log(
+				'✅ Created tags:',
+				createdTags.map((t) => t.name)
+			);
 		}
 
 		// Combine existing and created tags
@@ -389,7 +393,6 @@ export async function handlePostTagging(
 			success: true,
 			tagIds
 		};
-		
 	} catch (error) {
 		console.error('❌ Error in handlePostTagging:', error);
 		return {
@@ -410,20 +413,20 @@ export async function processPostTaggingAsync(
 	model: AIModel,
 	userId: string
 ): Promise<void> {
-	console.log('🔄 processPostTaggingAsync called with:', { 
-		contentLength: content?.length, 
-		postId, 
-		modelId: model?.id, 
-		userId 
+	console.log('🔄 processPostTaggingAsync called with:', {
+		contentLength: content?.length,
+		postId,
+		modelId: model?.id,
+		userId
 	});
 
 	// Run tagging in background without blocking the main post creation flow
 	setTimeout(async () => {
 		console.log('🔄 Starting background tagging process...');
-		
+
 		try {
 			const result = await handlePostTagging(content, postId, model, userId);
-			
+
 			if (result.success) {
 				console.log('✅ Background post tagging completed successfully:', result);
 			} else {

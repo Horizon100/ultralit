@@ -33,23 +33,23 @@
 		}
 	});
 
-async function loadChildAgents() {
-	loading = true;
-	showLoading();
+	async function loadChildAgents() {
+		loading = true;
+		showLoading();
 
-	const result = await clientTryCatch(agentStore.loadAgents(userId), 'Failed to load agents');
+		const result = await clientTryCatch(agentStore.loadAgents(userId), 'Failed to load agents');
 
-	if (isSuccess(result)) {
-		childAgents = result.data.filter((agent: AIAgent) => agent.parent_agent === parentAgent.id);
-	} else {
-		console.error('loadAgents failed:', result.error);
-		childAgents = [];
-		handleError(result.error);
+		if (isSuccess(result)) {
+			childAgents = result.data.filter((agent: AIAgent) => agent.parent_agent === parentAgent.id);
+		} else {
+			console.error('loadAgents failed:', result.error);
+			childAgents = [];
+			handleError(result.error);
+		}
+
+		loading = false;
+		hideLoading();
 	}
-
-	loading = false;
-	hideLoading();
-}
 
 	async function updateParentAgent() {
 		const result = await updateAgent(parentAgent.id, {
@@ -68,7 +68,6 @@ async function loadChildAgents() {
 		await updateParentAgent();
 	}
 
-
 	async function handleDeleteChildAgent(agent: AIAgent) {
 		if (!confirm(`Are you sure you want to delete ${agent.name}?`)) return;
 
@@ -77,7 +76,10 @@ async function loadChildAgents() {
 		if (isSuccess(deleteResult)) {
 			childAgents = childAgents.filter((a) => a.id !== agent.id);
 
-			const updateResult = await clientTryCatch(updateParentAgent(), 'Failed to update parent agent');
+			const updateResult = await clientTryCatch(
+				updateParentAgent(),
+				'Failed to update parent agent'
+			);
 			if (!isSuccess(updateResult)) {
 				handleError(updateResult.error);
 			}
@@ -158,8 +160,7 @@ async function loadChildAgents() {
 								</button>
 								<button on:click={() => handleOpenChildAgentOverlay(agent)}>
 									{@html getIcon('Plus', { size: 16 })}
-								</button
-								>
+								</button>
 							</div>
 						</div>
 					{/each}

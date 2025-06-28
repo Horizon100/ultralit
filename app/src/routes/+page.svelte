@@ -13,10 +13,11 @@
 
 	onMount(async () => {
 		if (browser) {
-			const { success, error: err, data: user } = await clientTryCatch(
-				Promise.resolve($currentUser),
-				'Authentication check failed'
-			);
+			const {
+				success,
+				error: err,
+				data: user
+			} = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
 
 			if (success && user) {
 				await goto('/home');
@@ -27,7 +28,7 @@
 
 			isLoading = false;
 		}
-});
+	});
 </script>
 
 {#if isLoading}

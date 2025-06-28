@@ -18,12 +18,12 @@
 	import { ensureAuthenticated } from '$lib/pocketbase';
 	import { currentFolderNotes } from '$lib/stores/notesStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { 
-		clientTryCatch, 
-		thirdPartyApiTryCatch, 
+	import {
+		clientTryCatch,
+		thirdPartyApiTryCatch,
 		fileTryCatch,
-		isSuccess, 
-		isFailure 
+		isSuccess,
+		isFailure
 	} from '$lib/utils/errorUtils';
 	let draggedItem: { item: Folders | Notes; isFolder: boolean } | null = null;
 	let dragOverFolder: Folders | null = null;
@@ -111,68 +111,68 @@
 		}
 	}
 
-async function handleContextMenuOption(option: string) {
-	hideContextMenu();
-	let prompt = '';
-	
-	switch (option) {
-		case 'joke':
-			prompt = 'Tell me a short joke';
-			break;
-		case 'fact':
-			prompt = 'Tell me an interesting fact';
-			break;
-		case 'summarize':
-			prompt = `Summarize the following text: "${selectedText}"`;
-			break;
-		case 'criticize':
-			prompt = `Provide a critical analysis of the following text: "${selectedText}"`;
-			break;
-		case 'uploadImage':
-			handleImageUpload(fileInput);
-			return;
-		case 'alignLeft':
-		case 'alignCenter':
-		case 'alignRight':
-			handleImageAlign(
-				option.replace('align', '').toLowerCase() as 'left' | 'center' | 'right',
-				updateNoteContent
+	async function handleContextMenuOption(option: string) {
+		hideContextMenu();
+		let prompt = '';
+
+		switch (option) {
+			case 'joke':
+				prompt = 'Tell me a short joke';
+				break;
+			case 'fact':
+				prompt = 'Tell me an interesting fact';
+				break;
+			case 'summarize':
+				prompt = `Summarize the following text: "${selectedText}"`;
+				break;
+			case 'criticize':
+				prompt = `Provide a critical analysis of the following text: "${selectedText}"`;
+				break;
+			case 'uploadImage':
+				handleImageUpload(fileInput);
+				return;
+			case 'alignLeft':
+			case 'alignCenter':
+			case 'alignRight':
+				handleImageAlign(
+					option.replace('align', '').toLowerCase() as 'left' | 'center' | 'right',
+					updateNoteContent
+				);
+				return;
+		}
+
+		if (prompt) {
+			const currentAIModel: AIModel = getCurrentAIModel();
+
+			const aiResult = await thirdPartyApiTryCatch(
+				fetchAIResponse(
+					[
+						{
+							role: 'user',
+							content: prompt,
+							provider: currentAIModel.provider,
+							model: currentAIModel.id
+						}
+					],
+					currentAIModel,
+					'user123'
+				),
+				currentAIModel.provider || 'AI Service',
+				'text generation'
 			);
-			return;
-	}
 
-	if (prompt) {
-		const currentAIModel: AIModel = getCurrentAIModel();
-		
-		const aiResult = await thirdPartyApiTryCatch(
-			fetchAIResponse(
-				[
-					{
-						role: 'user',
-						content: prompt,
-						provider: currentAIModel.provider,
-						model: currentAIModel.id
-					}
-				],
-				currentAIModel,
-				'user123'
-			),
-			currentAIModel.provider || 'AI Service',
-			'text generation'
-		);
-
-		if (isSuccess(aiResult)) {
-			if (option === 'summarize' || option === 'criticize') {
-				wrapSelectedTextWithAIAnalysis(aiResult.data, option);
+			if (isSuccess(aiResult)) {
+				if (option === 'summarize' || option === 'criticize') {
+					wrapSelectedTextWithAIAnalysis(aiResult.data, option);
+				} else {
+					insertTextAtCursorWithAnimation(aiResult.data);
+				}
 			} else {
-				insertTextAtCursorWithAnimation(aiResult.data);
+				console.error('Error fetching AI response:', aiResult.error);
+				insertTextAtCursorWithAnimation(`Error: ${aiResult.error}`);
 			}
-		} else {
-			console.error('Error fetching AI response:', aiResult.error);
-			insertTextAtCursorWithAnimation(`Error: ${aiResult.error}`);
 		}
 	}
-}
 
 	function handleDragEnter(event: DragEvent) {
 		event.preventDefault();
@@ -235,39 +235,39 @@ async function handleContextMenuOption(option: string) {
 			updateNoteContent();
 		}
 	}
-async function uploadAttachment(file: File) {
-	if (!currentNote) {
-		console.warn('No current note selected for attachment upload');
-		return;
+	async function uploadAttachment(file: File) {
+		if (!currentNote) {
+			console.warn('No current note selected for attachment upload');
+			return;
+		}
+
+		console.log('Uploading file:', file.name, 'to note:', currentNote.id);
+
+		const uploadResult = await fileTryCatch(
+			notesClient.uploadAttachment(currentNote.id, file),
+			file.name
+		);
+
+		if (isFailure(uploadResult)) {
+			console.error('Error uploading attachment:', uploadResult.error);
+			return;
+		}
+
+		console.log('Uploaded attachment:', uploadResult.data);
+
+		// Fetch the updated note
+		const noteResult = await clientTryCatch(
+			notesClient.getNote(currentNote.id),
+			'Fetching updated note'
+		);
+
+		if (isSuccess(noteResult)) {
+			// Update the current note in the store
+			notesStore.updateNote(currentNote.id, noteResult.data);
+		} else {
+			console.error('Error fetching updated note:', noteResult.error);
+		}
 	}
-
-	console.log('Uploading file:', file.name, 'to note:', currentNote.id);
-
-	const uploadResult = await fileTryCatch(
-		notesClient.uploadAttachment(currentNote.id, file),
-		file.name
-	);
-
-	if (isFailure(uploadResult)) {
-		console.error('Error uploading attachment:', uploadResult.error);
-		return;
-	}
-
-	console.log('Uploaded attachment:', uploadResult.data);
-
-	// Fetch the updated note
-	const noteResult = await clientTryCatch(
-		notesClient.getNote(currentNote.id),
-		'Fetching updated note'
-	);
-
-	if (isSuccess(noteResult)) {
-		// Update the current note in the store
-		notesStore.updateNote(currentNote.id, noteResult.data);
-	} else {
-		console.error('Error fetching updated note:', noteResult.error);
-	}
-}
 
 	function toggleAttachments() {
 		attachmentsVisible = !attachmentsVisible;
@@ -316,20 +316,20 @@ async function uploadAttachment(file: File) {
 		loadAttachments(currentNote.id);
 	}
 
-async function loadAttachments(noteId: string) {
-	const attachmentsResult = await clientTryCatch(
-		notesClient.getAttachments(noteId),
-		'Loading attachments'
-	);
+	async function loadAttachments(noteId: string) {
+		const attachmentsResult = await clientTryCatch(
+			notesClient.getAttachments(noteId),
+			'Loading attachments'
+		);
 
-	if (isSuccess(attachmentsResult)) {
-		if (currentNote) {
-			notesStore.updateNote(noteId, { attachments: attachmentsResult.data });
+		if (isSuccess(attachmentsResult)) {
+			if (currentNote) {
+				notesStore.updateNote(noteId, { attachments: attachmentsResult.data });
+			}
+		} else {
+			console.error('Error loading attachments:', attachmentsResult.error);
 		}
-	} else {
-		console.error('Error loading attachments:', attachmentsResult.error);
 	}
-}
 
 	function getCurrentAIModel(): AIModel {
 		return {
@@ -545,7 +545,7 @@ async function loadAttachments(noteId: string) {
 	<div class="explorer">
 		<div class="explorer-header">
 			<span class:active={activeSection === 'folders'} on:click={() => (activeSection = 'folders')}>
-				<span class="nav-icon">{@html getIcon('Folder', { size: 24 })}</span>				
+				<span class="nav-icon">{@html getIcon('Folder', { size: 24 })}</span>
 			</span>
 			<span class:active={activeSection === 'search'} on:click={() => (activeSection = 'search')}>
 				<span class="nav-icon">{@html getIcon('Search', { size: 24 })}</span>
@@ -565,7 +565,6 @@ async function loadAttachments(noteId: string) {
 				</span>
 				<span on:click={(e) => createNewNote(e)}>
 					<span class="nav-icon">{@html getIcon('Plus', { size: 24 })}</span>
-
 				</span>
 				<span>
 					<span class="nav-icon">{@html getIcon('ListFilter', { size: 24 })}</span>

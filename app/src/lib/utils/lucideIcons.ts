@@ -209,469 +209,678 @@ import ChartNoAxesGanttSvg from '../assets/icons/lucide/chart-no-axes-gantt.svg?
 import KanbanSquareIconSvg from '../assets/icons/lucide/kanban-square-icon.svg?raw';
 import NewIconSvg from '../assets/icons/lucide/new-icon.svg?raw';
 
-export type IconName = 'User2' | 'UserCheckIcon' | 'Users' | 'ArrowLeft' | 'Key' | 'CheckCircle2' | 'XCircle' | 'Check' | 'Search' | 'Trash2' | 'Plus' | 'ChevronLeft' | 'PackageOpen' | 'Package' | 'Mic' | 'Square' | 'Play' | 'Pause' | 'X' | 'VolumeX' | 'Volume1' | 'Volume2' | 'Tag' | 'ChevronDown' | 'Filter' | 'Timer' | 'TimerOff' | 'Box' | 'MessageCircleMore' | 'PackagePlus' | 'Pen' | 'InfoIcon' | 'ChartBarBig' | 'Logs' | 'BrainCircuit' | 'CalendarClock' | 'ChevronRight' | 'FolderGit' | 'Info' | 'Save' | 'Send' | 'Paperclip' | 'PlugZap' | 'ZapOff' | 'Bookmark' | 'BookmarkCheckIcon' | 'Braces' | 'Command' | 'Brain' | 'TrashIcon' | 'MessageCirclePlus' | 'Star' | 'RefreshCcw' | 'AlertCircle' | 'CheckCircle' | 'Bot' | 'File' | 'LogIn' | 'MailPlus' | 'Loader2' | 'Settings' | 'Link' | 'Quote' | 'ArrowRight' | 'Book' | 'MessageCircle' | 'CheckSquare' | 'Layers' | 'MessagesSquare' | 'Edit2' | 'CopyPlus' | 'ArrowUpDown' | 'Upload' | 'Activity' | 'Compass' | 'ServerCog' | 'OctagonPause' | 'Cpu' | 'HeadphonesIcon' | 'ShieldCheck' | 'CircleOff' | 'Wrench' | 'Target' | 'Settings2' | 'SquareMenu' | 'FilePenLine' | 'ChevronUp' | 'Trash' | 'Calendar' | 'ListTree' | 'MessageSquareText' | 'BookmarkMinus' | 'BookmarkX' | 'SquarePlay' | 'Unlink' | 'MessageSquare' | 'PlusCircle' | 'BotIcon' | 'Copy' | 'ListTodo' | 'Eye' | 'EyeOff' | 'Calculator' | 'CalendarCheck' | 'GitCompare' | 'SplitSquareVertical' | 'Minimize' | 'HelpCircle' | 'Camera' | 'UserPlus' | 'LogOut' | 'SignalHigh' | 'Circle' | 'Triangle' | 'Hexagon' | 'Pencil' | 'Database' | 'FileText' | 'Image' | 'FileSpreadsheet' | 'Headphones' | 'Video' | 'Maximize2' | 'Minimize2' | 'Code' | 'Presentation' | 'MoreVertical' | 'FileIcon' | 'Folder' | 'FolderPlus' | 'ListFilter' | 'Heart' | 'Repeat' | 'Share' | 'MoreHorizontal' | 'EyeIcon' | 'TagsIcon' | 'Sparkles' | 'TrendingUp' | 'Share2' | 'PlusSquareIcon' | 'Clock' | 'Flag' | 'User' | 'ArrowDown' | 'ClipboardList' | 'TagIcon' | 'CirclePlay' | 'GitFork' | 'LayoutList' | 'ListCollapse' | 'PlayCircleIcon' | 'Tags' | 'Group' | 'LogOutIcon' | 'Languages' | 'Palette' | 'Bone' | 'TextCursorIcon' | 'UserCircle' | 'MailCheck' | 'Mail' | 'KeyIcon' | 'Cake' | 'History' | 'Shield' | 'SettingsIcon' | 'WallpaperIcon' | 'Moon' | 'Sun' | 'Sunset' | 'Sunrise' | 'Focus' | 'Bold' | 'Gauge' | 'CalendarDays' | 'SortAsc' | 'SortDesc' | 'PanelLeftClose' | 'PanelLeftOpen' | 'Component' | 'SquareKanban' | 'Combine' | 'KanbanSquare' | 'Github' | 'Gamepad' | 'Gamepad2' | 'HomeIcon' | 'LucideHome' | 'FilterIcon' | 'ScanFace' | 'ListX' | 'MessageCircleOff' | 'ListCollapseIcon' | 'CalendarOff' | 'Notebook' | 'NotebookPen' | 'MapPin' | 'UserIcon' | 'BrainCog' | 'Maximize' | 'Workflow' | 'PanelLeft' | 'GitBranchPlus' | 'FilePlus' | 'ChartAreaIcon' | 'ChartNoAxesGantt' | 'KanbanSquareIcon' | 'NewIcon';
+export type IconName =
+	| 'User2'
+	| 'UserCheckIcon'
+	| 'Users'
+	| 'ArrowLeft'
+	| 'Key'
+	| 'CheckCircle2'
+	| 'XCircle'
+	| 'Check'
+	| 'Search'
+	| 'Trash2'
+	| 'Plus'
+	| 'ChevronLeft'
+	| 'PackageOpen'
+	| 'Package'
+	| 'Mic'
+	| 'Square'
+	| 'Play'
+	| 'Pause'
+	| 'X'
+	| 'VolumeX'
+	| 'Volume1'
+	| 'Volume2'
+	| 'Tag'
+	| 'ChevronDown'
+	| 'Filter'
+	| 'Timer'
+	| 'TimerOff'
+	| 'Box'
+	| 'MessageCircleMore'
+	| 'PackagePlus'
+	| 'Pen'
+	| 'InfoIcon'
+	| 'ChartBarBig'
+	| 'Logs'
+	| 'BrainCircuit'
+	| 'CalendarClock'
+	| 'ChevronRight'
+	| 'FolderGit'
+	| 'Info'
+	| 'Save'
+	| 'Send'
+	| 'Paperclip'
+	| 'PlugZap'
+	| 'ZapOff'
+	| 'Bookmark'
+	| 'BookmarkCheckIcon'
+	| 'Braces'
+	| 'Command'
+	| 'Brain'
+	| 'TrashIcon'
+	| 'MessageCirclePlus'
+	| 'Star'
+	| 'RefreshCcw'
+	| 'AlertCircle'
+	| 'CheckCircle'
+	| 'Bot'
+	| 'File'
+	| 'LogIn'
+	| 'MailPlus'
+	| 'Loader2'
+	| 'Settings'
+	| 'Link'
+	| 'Quote'
+	| 'ArrowRight'
+	| 'Book'
+	| 'MessageCircle'
+	| 'CheckSquare'
+	| 'Layers'
+	| 'MessagesSquare'
+	| 'Edit2'
+	| 'CopyPlus'
+	| 'ArrowUpDown'
+	| 'Upload'
+	| 'Activity'
+	| 'Compass'
+	| 'ServerCog'
+	| 'OctagonPause'
+	| 'Cpu'
+	| 'HeadphonesIcon'
+	| 'ShieldCheck'
+	| 'CircleOff'
+	| 'Wrench'
+	| 'Target'
+	| 'Settings2'
+	| 'SquareMenu'
+	| 'FilePenLine'
+	| 'ChevronUp'
+	| 'Trash'
+	| 'Calendar'
+	| 'ListTree'
+	| 'MessageSquareText'
+	| 'BookmarkMinus'
+	| 'BookmarkX'
+	| 'SquarePlay'
+	| 'Unlink'
+	| 'MessageSquare'
+	| 'PlusCircle'
+	| 'BotIcon'
+	| 'Copy'
+	| 'ListTodo'
+	| 'Eye'
+	| 'EyeOff'
+	| 'Calculator'
+	| 'CalendarCheck'
+	| 'GitCompare'
+	| 'SplitSquareVertical'
+	| 'Minimize'
+	| 'HelpCircle'
+	| 'Camera'
+	| 'UserPlus'
+	| 'LogOut'
+	| 'SignalHigh'
+	| 'Circle'
+	| 'Triangle'
+	| 'Hexagon'
+	| 'Pencil'
+	| 'Database'
+	| 'FileText'
+	| 'Image'
+	| 'FileSpreadsheet'
+	| 'Headphones'
+	| 'Video'
+	| 'Maximize2'
+	| 'Minimize2'
+	| 'Code'
+	| 'Presentation'
+	| 'MoreVertical'
+	| 'FileIcon'
+	| 'Folder'
+	| 'FolderPlus'
+	| 'ListFilter'
+	| 'Heart'
+	| 'Repeat'
+	| 'Share'
+	| 'MoreHorizontal'
+	| 'EyeIcon'
+	| 'TagsIcon'
+	| 'Sparkles'
+	| 'TrendingUp'
+	| 'Share2'
+	| 'PlusSquareIcon'
+	| 'Clock'
+	| 'Flag'
+	| 'User'
+	| 'ArrowDown'
+	| 'ClipboardList'
+	| 'TagIcon'
+	| 'CirclePlay'
+	| 'GitFork'
+	| 'LayoutList'
+	| 'ListCollapse'
+	| 'PlayCircleIcon'
+	| 'Tags'
+	| 'Group'
+	| 'LogOutIcon'
+	| 'Languages'
+	| 'Palette'
+	| 'Bone'
+	| 'TextCursorIcon'
+	| 'UserCircle'
+	| 'MailCheck'
+	| 'Mail'
+	| 'KeyIcon'
+	| 'Cake'
+	| 'History'
+	| 'Shield'
+	| 'SettingsIcon'
+	| 'WallpaperIcon'
+	| 'Moon'
+	| 'Sun'
+	| 'Sunset'
+	| 'Sunrise'
+	| 'Focus'
+	| 'Bold'
+	| 'Gauge'
+	| 'CalendarDays'
+	| 'SortAsc'
+	| 'SortDesc'
+	| 'PanelLeftClose'
+	| 'PanelLeftOpen'
+	| 'Component'
+	| 'SquareKanban'
+	| 'Combine'
+	| 'KanbanSquare'
+	| 'Github'
+	| 'Gamepad'
+	| 'Gamepad2'
+	| 'HomeIcon'
+	| 'LucideHome'
+	| 'FilterIcon'
+	| 'ScanFace'
+	| 'ListX'
+	| 'MessageCircleOff'
+	| 'ListCollapseIcon'
+	| 'CalendarOff'
+	| 'Notebook'
+	| 'NotebookPen'
+	| 'MapPin'
+	| 'UserIcon'
+	| 'BrainCog'
+	| 'Maximize'
+	| 'Workflow'
+	| 'PanelLeft'
+	| 'GitBranchPlus'
+	| 'FilePlus'
+	| 'ChartAreaIcon'
+	| 'ChartNoAxesGantt'
+	| 'KanbanSquareIcon'
+	| 'NewIcon';
 
 export interface IconOptions {
-  size?: number;
-  color?: string;
-  strokeWidth?: number;
+	size?: number;
+	color?: string;
+	strokeWidth?: number;
 }
 
 const iconMap: Record<IconName, string> = {
-  'User2': User2Svg,
-  'UserCheckIcon': UserCheckIconSvg,
-  'Users': UsersSvg,
-  'ArrowLeft': ArrowLeftSvg,
-  'Key': KeySvg,
-  'CheckCircle2': CheckCircle2Svg,
-  'XCircle': XCircleSvg,
-  'Check': CheckSvg,
-  'Search': SearchSvg,
-  'Trash2': Trash2Svg,
-  'Plus': PlusSvg,
-  'ChevronLeft': ChevronLeftSvg,
-  'PackageOpen': PackageOpenSvg,
-  'Package': PackageSvg,
-  'Mic': MicSvg,
-  'Square': SquareSvg,
-  'Play': PlaySvg,
-  'Pause': PauseSvg,
-  'X': XSvg,
-  'VolumeX': VolumeXSvg,
-  'Volume1': Volume1Svg,
-  'Volume2': Volume2Svg,
-  'Tag': TagSvg,
-  'ChevronDown': ChevronDownSvg,
-  'Filter': FilterSvg,
-  'Timer': TimerSvg,
-  'TimerOff': TimerOffSvg,
-  'Box': BoxSvg,
-  'MessageCircleMore': MessageCircleMoreSvg,
-  'PackagePlus': PackagePlusSvg,
-  'Pen': PenSvg,
-  'InfoIcon': InfoIconSvg,
-  'ChartBarBig': ChartBarBigSvg,
-  'Logs': LogsSvg,
-  'BrainCircuit': BrainCircuitSvg,
-  'CalendarClock': CalendarClockSvg,
-  'ChevronRight': ChevronRightSvg,
-  'FolderGit': FolderGitSvg,
-  'Info': InfoSvg,
-  'Save': SaveSvg,
-  'Send': SendSvg,
-  'Paperclip': PaperclipSvg,
-  'PlugZap': PlugZapSvg,
-  'ZapOff': ZapOffSvg,
-  'Bookmark': BookmarkSvg,
-  'BookmarkCheckIcon': BookmarkCheckIconSvg,
-  'Braces': BracesSvg,
-  'Command': CommandSvg,
-  'Brain': BrainSvg,
-  'TrashIcon': TrashIconSvg,
-  'MessageCirclePlus': MessageCirclePlusSvg,
-  'Star': StarSvg,
-  'RefreshCcw': RefreshCcwSvg,
-  'AlertCircle': AlertCircleSvg,
-  'CheckCircle': CheckCircleSvg,
-  'Bot': BotSvg,
-  'File': FileSvg,
-  'LogIn': LogInSvg,
-  'MailPlus': MailPlusSvg,
-  'Loader2': Loader2Svg,
-  'Settings': SettingsSvg,
-  'Link': LinkSvg,
-  'Quote': QuoteSvg,
-  'ArrowRight': ArrowRightSvg,
-  'Book': BookSvg,
-  'MessageCircle': MessageCircleSvg,
-  'CheckSquare': CheckSquareSvg,
-  'Layers': LayersSvg,
-  'MessagesSquare': MessagesSquareSvg,
-  'Edit2': Edit2Svg,
-  'CopyPlus': CopyPlusSvg,
-  'ArrowUpDown': ArrowUpDownSvg,
-  'Upload': UploadSvg,
-  'Activity': ActivitySvg,
-  'Compass': CompassSvg,
-  'ServerCog': ServerCogSvg,
-  'OctagonPause': OctagonPauseSvg,
-  'Cpu': CpuSvg,
-  'HeadphonesIcon': HeadphonesIconSvg,
-  'ShieldCheck': ShieldCheckSvg,
-  'CircleOff': CircleOffSvg,
-  'Wrench': WrenchSvg,
-  'Target': TargetSvg,
-  'Settings2': Settings2Svg,
-  'SquareMenu': SquareMenuSvg,
-  'FilePenLine': FilePenLineSvg,
-  'ChevronUp': ChevronUpSvg,
-  'Trash': TrashSvg,
-  'Calendar': CalendarSvg,
-  'ListTree': ListTreeSvg,
-  'MessageSquareText': MessageSquareTextSvg,
-  'BookmarkMinus': BookmarkMinusSvg,
-  'BookmarkX': BookmarkXSvg,
-  'SquarePlay': SquarePlaySvg,
-  'Unlink': UnlinkSvg,
-  'MessageSquare': MessageSquareSvg,
-  'PlusCircle': PlusCircleSvg,
-  'BotIcon': BotIconSvg,
-  'Copy': CopySvg,
-  'ListTodo': ListTodoSvg,
-  'Eye': EyeSvg,
-  'EyeOff': EyeOffSvg,
-  'Calculator': CalculatorSvg,
-  'CalendarCheck': CalendarCheckSvg,
-  'GitCompare': GitCompareSvg,
-  'SplitSquareVertical': SplitSquareVerticalSvg,
-  'Minimize': MinimizeSvg,
-  'HelpCircle': HelpCircleSvg,
-  'Camera': CameraSvg,
-  'UserPlus': UserPlusSvg,
-  'LogOut': LogOutSvg,
-  'SignalHigh': SignalHighSvg,
-  'Circle': CircleSvg,
-  'Triangle': TriangleSvg,
-  'Hexagon': HexagonSvg,
-  'Pencil': PencilSvg,
-  'Database': DatabaseSvg,
-  'FileText': FileTextSvg,
-  'Image': ImageSvg,
-  'FileSpreadsheet': FileSpreadsheetSvg,
-  'Headphones': HeadphonesSvg,
-  'Video': VideoSvg,
-  'Maximize2': Maximize2Svg,
-  'Minimize2': Minimize2Svg,
-  'Code': CodeSvg,
-  'Presentation': PresentationSvg,
-  'MoreVertical': MoreVerticalSvg,
-  'FileIcon': FileIconSvg,
-  'Folder': FolderSvg,
-  'FolderPlus': FolderPlusSvg,
-  'ListFilter': ListFilterSvg,
-  'Heart': HeartSvg,
-  'Repeat': RepeatSvg,
-  'Share': ShareSvg,
-  'MoreHorizontal': MoreHorizontalSvg,
-  'EyeIcon': EyeIconSvg,
-  'TagsIcon': TagsIconSvg,
-  'Sparkles': SparklesSvg,
-  'TrendingUp': TrendingUpSvg,
-  'Share2': Share2Svg,
-  'PlusSquareIcon': PlusSquareIconSvg,
-  'Clock': ClockSvg,
-  'Flag': FlagSvg,
-  'User': UserSvg,
-  'ArrowDown': ArrowDownSvg,
-  'ClipboardList': ClipboardListSvg,
-  'TagIcon': TagIconSvg,
-  'CirclePlay': CirclePlaySvg,
-  'GitFork': GitForkSvg,
-  'LayoutList': LayoutListSvg,
-  'ListCollapse': ListCollapseSvg,
-  'PlayCircleIcon': PlayCircleIconSvg,
-  'Tags': TagsSvg,
-  'Group': GroupSvg,
-  'LogOutIcon': LogOutIconSvg,
-  'Languages': LanguagesSvg,
-  'Palette': PaletteSvg,
-  'Bone': BoneSvg,
-  'TextCursorIcon': TextCursorIconSvg,
-  'UserCircle': UserCircleSvg,
-  'MailCheck': MailCheckSvg,
-  'Mail': MailSvg,
-  'KeyIcon': KeyIconSvg,
-  'Cake': CakeSvg,
-  'History': HistorySvg,
-  'Shield': ShieldSvg,
-  'SettingsIcon': SettingsIconSvg,
-  'WallpaperIcon': WallpaperIconSvg,
-  'Moon': MoonSvg,
-  'Sun': SunSvg,
-  'Sunset': SunsetSvg,
-  'Sunrise': SunriseSvg,
-  'Focus': FocusSvg,
-  'Bold': BoldSvg,
-  'Gauge': GaugeSvg,
-  'CalendarDays': CalendarDaysSvg,
-  'SortAsc': SortAscSvg,
-  'SortDesc': SortDescSvg,
-  'PanelLeftClose': PanelLeftCloseSvg,
-  'PanelLeftOpen': PanelLeftOpenSvg,
-  'Component': ComponentSvg,
-  'SquareKanban': SquareKanbanSvg,
-  'Combine': CombineSvg,
-  'KanbanSquare': KanbanSquareSvg,
-  'Github': GithubSvg,
-  'Gamepad': GamepadSvg,
-  'Gamepad2': Gamepad2Svg,
-  'HomeIcon': HomeIconSvg,
-  'LucideHome': LucideHomeSvg,
-  'FilterIcon': FilterIconSvg,
-  'ScanFace': ScanFaceSvg,
-  'ListX': ListXSvg,
-  'MessageCircleOff': MessageCircleOffSvg,
-  'ListCollapseIcon': ListCollapseIconSvg,
-  'CalendarOff': CalendarOffSvg,
-  'Notebook': NotebookSvg,
-  'NotebookPen': NotebookPenSvg,
-  'MapPin': MapPinSvg,
-  'UserIcon': UserIconSvg,
-  'BrainCog': BrainCogSvg,
-  'Maximize': MaximizeSvg,
-  'Workflow': WorkflowSvg,
-  'PanelLeft': PanelLeftSvg,
-  'GitBranchPlus': GitBranchPlusSvg,
-  'FilePlus': FilePlusSvg,
-  'ChartAreaIcon': ChartAreaIconSvg,
-  'ChartNoAxesGantt': ChartNoAxesGanttSvg,
-  'KanbanSquareIcon': KanbanSquareIconSvg,
-  'NewIcon': NewIconSvg
+	User2: User2Svg,
+	UserCheckIcon: UserCheckIconSvg,
+	Users: UsersSvg,
+	ArrowLeft: ArrowLeftSvg,
+	Key: KeySvg,
+	CheckCircle2: CheckCircle2Svg,
+	XCircle: XCircleSvg,
+	Check: CheckSvg,
+	Search: SearchSvg,
+	Trash2: Trash2Svg,
+	Plus: PlusSvg,
+	ChevronLeft: ChevronLeftSvg,
+	PackageOpen: PackageOpenSvg,
+	Package: PackageSvg,
+	Mic: MicSvg,
+	Square: SquareSvg,
+	Play: PlaySvg,
+	Pause: PauseSvg,
+	X: XSvg,
+	VolumeX: VolumeXSvg,
+	Volume1: Volume1Svg,
+	Volume2: Volume2Svg,
+	Tag: TagSvg,
+	ChevronDown: ChevronDownSvg,
+	Filter: FilterSvg,
+	Timer: TimerSvg,
+	TimerOff: TimerOffSvg,
+	Box: BoxSvg,
+	MessageCircleMore: MessageCircleMoreSvg,
+	PackagePlus: PackagePlusSvg,
+	Pen: PenSvg,
+	InfoIcon: InfoIconSvg,
+	ChartBarBig: ChartBarBigSvg,
+	Logs: LogsSvg,
+	BrainCircuit: BrainCircuitSvg,
+	CalendarClock: CalendarClockSvg,
+	ChevronRight: ChevronRightSvg,
+	FolderGit: FolderGitSvg,
+	Info: InfoSvg,
+	Save: SaveSvg,
+	Send: SendSvg,
+	Paperclip: PaperclipSvg,
+	PlugZap: PlugZapSvg,
+	ZapOff: ZapOffSvg,
+	Bookmark: BookmarkSvg,
+	BookmarkCheckIcon: BookmarkCheckIconSvg,
+	Braces: BracesSvg,
+	Command: CommandSvg,
+	Brain: BrainSvg,
+	TrashIcon: TrashIconSvg,
+	MessageCirclePlus: MessageCirclePlusSvg,
+	Star: StarSvg,
+	RefreshCcw: RefreshCcwSvg,
+	AlertCircle: AlertCircleSvg,
+	CheckCircle: CheckCircleSvg,
+	Bot: BotSvg,
+	File: FileSvg,
+	LogIn: LogInSvg,
+	MailPlus: MailPlusSvg,
+	Loader2: Loader2Svg,
+	Settings: SettingsSvg,
+	Link: LinkSvg,
+	Quote: QuoteSvg,
+	ArrowRight: ArrowRightSvg,
+	Book: BookSvg,
+	MessageCircle: MessageCircleSvg,
+	CheckSquare: CheckSquareSvg,
+	Layers: LayersSvg,
+	MessagesSquare: MessagesSquareSvg,
+	Edit2: Edit2Svg,
+	CopyPlus: CopyPlusSvg,
+	ArrowUpDown: ArrowUpDownSvg,
+	Upload: UploadSvg,
+	Activity: ActivitySvg,
+	Compass: CompassSvg,
+	ServerCog: ServerCogSvg,
+	OctagonPause: OctagonPauseSvg,
+	Cpu: CpuSvg,
+	HeadphonesIcon: HeadphonesIconSvg,
+	ShieldCheck: ShieldCheckSvg,
+	CircleOff: CircleOffSvg,
+	Wrench: WrenchSvg,
+	Target: TargetSvg,
+	Settings2: Settings2Svg,
+	SquareMenu: SquareMenuSvg,
+	FilePenLine: FilePenLineSvg,
+	ChevronUp: ChevronUpSvg,
+	Trash: TrashSvg,
+	Calendar: CalendarSvg,
+	ListTree: ListTreeSvg,
+	MessageSquareText: MessageSquareTextSvg,
+	BookmarkMinus: BookmarkMinusSvg,
+	BookmarkX: BookmarkXSvg,
+	SquarePlay: SquarePlaySvg,
+	Unlink: UnlinkSvg,
+	MessageSquare: MessageSquareSvg,
+	PlusCircle: PlusCircleSvg,
+	BotIcon: BotIconSvg,
+	Copy: CopySvg,
+	ListTodo: ListTodoSvg,
+	Eye: EyeSvg,
+	EyeOff: EyeOffSvg,
+	Calculator: CalculatorSvg,
+	CalendarCheck: CalendarCheckSvg,
+	GitCompare: GitCompareSvg,
+	SplitSquareVertical: SplitSquareVerticalSvg,
+	Minimize: MinimizeSvg,
+	HelpCircle: HelpCircleSvg,
+	Camera: CameraSvg,
+	UserPlus: UserPlusSvg,
+	LogOut: LogOutSvg,
+	SignalHigh: SignalHighSvg,
+	Circle: CircleSvg,
+	Triangle: TriangleSvg,
+	Hexagon: HexagonSvg,
+	Pencil: PencilSvg,
+	Database: DatabaseSvg,
+	FileText: FileTextSvg,
+	Image: ImageSvg,
+	FileSpreadsheet: FileSpreadsheetSvg,
+	Headphones: HeadphonesSvg,
+	Video: VideoSvg,
+	Maximize2: Maximize2Svg,
+	Minimize2: Minimize2Svg,
+	Code: CodeSvg,
+	Presentation: PresentationSvg,
+	MoreVertical: MoreVerticalSvg,
+	FileIcon: FileIconSvg,
+	Folder: FolderSvg,
+	FolderPlus: FolderPlusSvg,
+	ListFilter: ListFilterSvg,
+	Heart: HeartSvg,
+	Repeat: RepeatSvg,
+	Share: ShareSvg,
+	MoreHorizontal: MoreHorizontalSvg,
+	EyeIcon: EyeIconSvg,
+	TagsIcon: TagsIconSvg,
+	Sparkles: SparklesSvg,
+	TrendingUp: TrendingUpSvg,
+	Share2: Share2Svg,
+	PlusSquareIcon: PlusSquareIconSvg,
+	Clock: ClockSvg,
+	Flag: FlagSvg,
+	User: UserSvg,
+	ArrowDown: ArrowDownSvg,
+	ClipboardList: ClipboardListSvg,
+	TagIcon: TagIconSvg,
+	CirclePlay: CirclePlaySvg,
+	GitFork: GitForkSvg,
+	LayoutList: LayoutListSvg,
+	ListCollapse: ListCollapseSvg,
+	PlayCircleIcon: PlayCircleIconSvg,
+	Tags: TagsSvg,
+	Group: GroupSvg,
+	LogOutIcon: LogOutIconSvg,
+	Languages: LanguagesSvg,
+	Palette: PaletteSvg,
+	Bone: BoneSvg,
+	TextCursorIcon: TextCursorIconSvg,
+	UserCircle: UserCircleSvg,
+	MailCheck: MailCheckSvg,
+	Mail: MailSvg,
+	KeyIcon: KeyIconSvg,
+	Cake: CakeSvg,
+	History: HistorySvg,
+	Shield: ShieldSvg,
+	SettingsIcon: SettingsIconSvg,
+	WallpaperIcon: WallpaperIconSvg,
+	Moon: MoonSvg,
+	Sun: SunSvg,
+	Sunset: SunsetSvg,
+	Sunrise: SunriseSvg,
+	Focus: FocusSvg,
+	Bold: BoldSvg,
+	Gauge: GaugeSvg,
+	CalendarDays: CalendarDaysSvg,
+	SortAsc: SortAscSvg,
+	SortDesc: SortDescSvg,
+	PanelLeftClose: PanelLeftCloseSvg,
+	PanelLeftOpen: PanelLeftOpenSvg,
+	Component: ComponentSvg,
+	SquareKanban: SquareKanbanSvg,
+	Combine: CombineSvg,
+	KanbanSquare: KanbanSquareSvg,
+	Github: GithubSvg,
+	Gamepad: GamepadSvg,
+	Gamepad2: Gamepad2Svg,
+	HomeIcon: HomeIconSvg,
+	LucideHome: LucideHomeSvg,
+	FilterIcon: FilterIconSvg,
+	ScanFace: ScanFaceSvg,
+	ListX: ListXSvg,
+	MessageCircleOff: MessageCircleOffSvg,
+	ListCollapseIcon: ListCollapseIconSvg,
+	CalendarOff: CalendarOffSvg,
+	Notebook: NotebookSvg,
+	NotebookPen: NotebookPenSvg,
+	MapPin: MapPinSvg,
+	UserIcon: UserIconSvg,
+	BrainCog: BrainCogSvg,
+	Maximize: MaximizeSvg,
+	Workflow: WorkflowSvg,
+	PanelLeft: PanelLeftSvg,
+	GitBranchPlus: GitBranchPlusSvg,
+	FilePlus: FilePlusSvg,
+	ChartAreaIcon: ChartAreaIconSvg,
+	ChartNoAxesGantt: ChartNoAxesGanttSvg,
+	KanbanSquareIcon: KanbanSquareIconSvg,
+	NewIcon: NewIconSvg
 };
 
 export function getIcon(name: IconName, options: IconOptions = {}): string {
-  const { size = 24, color = 'currentColor', strokeWidth = 2 } = options;
-  
-  let svg = iconMap[name];
-  if (!svg) {
-    console.warn(`Icon "${name}" not found`);
-    return '';
-  }
-  
-  // Update SVG attributes
-  svg = svg
-    .replace(/width="[^"]*"/g, `width="${size}"`)
-    .replace(/height="[^"]*"/g, `height="${size}"`)
-    .replace(/stroke="[^"]*"/g, `stroke="${color}"`)
-    .replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
-  
-  // Ensure the SVG has proper attributes if they're missing
-  if (!svg.includes('width=')) {
-    svg = svg.replace('<svg', `<svg width="${size}"`);
-  }
-  if (!svg.includes('height=')) {
-    svg = svg.replace('<svg', `<svg height="${size}"`);
-  }
-  if (!svg.includes('stroke=') && !svg.includes('fill=')) {
-    svg = svg.replace('<svg', `<svg stroke="${color}"`);
-  }
-  
-  return svg;
+	const { size = 24, color = 'currentColor', strokeWidth = 2 } = options;
+
+	let svg = iconMap[name];
+	if (!svg) {
+		console.warn(`Icon "${name}" not found`);
+		return '';
+	}
+
+	// Update SVG attributes
+	svg = svg
+		.replace(/width="[^"]*"/g, `width="${size}"`)
+		.replace(/height="[^"]*"/g, `height="${size}"`)
+		.replace(/stroke="[^"]*"/g, `stroke="${color}"`)
+		.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
+
+	// Ensure the SVG has proper attributes if they're missing
+	if (!svg.includes('width=')) {
+		svg = svg.replace('<svg', `<svg width="${size}"`);
+	}
+	if (!svg.includes('height=')) {
+		svg = svg.replace('<svg', `<svg height="${size}"`);
+	}
+	if (!svg.includes('stroke=') && !svg.includes('fill=')) {
+		svg = svg.replace('<svg', `<svg stroke="${color}"`);
+	}
+
+	return svg;
 }
 
 export const availableIcons: IconName[] = [
-  'User2',
-  'UserCheckIcon',
-  'Users',
-  'ArrowLeft',
-  'Key',
-  'CheckCircle2',
-  'XCircle',
-  'Check',
-  'Search',
-  'Trash2',
-  'Plus',
-  'ChevronLeft',
-  'PackageOpen',
-  'Package',
-  'Mic',
-  'Square',
-  'Play',
-  'Pause',
-  'X',
-  'VolumeX',
-  'Volume1',
-  'Volume2',
-  'Tag',
-  'ChevronDown',
-  'Filter',
-  'Timer',
-  'TimerOff',
-  'Box',
-  'MessageCircleMore',
-  'PackagePlus',
-  'Pen',
-  'InfoIcon',
-  'ChartBarBig',
-  'Logs',
-  'BrainCircuit',
-  'CalendarClock',
-  'ChevronRight',
-  'FolderGit',
-  'Info',
-  'Save',
-  'Send',
-  'Paperclip',
-  'PlugZap',
-  'ZapOff',
-  'Bookmark',
-  'BookmarkCheckIcon',
-  'Braces',
-  'Command',
-  'Brain',
-  'TrashIcon',
-  'MessageCirclePlus',
-  'Star',
-  'RefreshCcw',
-  'AlertCircle',
-  'CheckCircle',
-  'Bot',
-  'File',
-  'LogIn',
-  'MailPlus',
-  'Loader2',
-  'Settings',
-  'Link',
-  'Quote',
-  'ArrowRight',
-  'Book',
-  'MessageCircle',
-  'CheckSquare',
-  'Layers',
-  'MessagesSquare',
-  'Edit2',
-  'CopyPlus',
-  'ArrowUpDown',
-  'Upload',
-  'Activity',
-  'Compass',
-  'ServerCog',
-  'OctagonPause',
-  'Cpu',
-  'HeadphonesIcon',
-  'ShieldCheck',
-  'CircleOff',
-  'Wrench',
-  'Target',
-  'Settings2',
-  'SquareMenu',
-  'FilePenLine',
-  'ChevronUp',
-  'Trash',
-  'Calendar',
-  'ListTree',
-  'MessageSquareText',
-  'BookmarkMinus',
-  'BookmarkX',
-  'SquarePlay',
-  'Unlink',
-  'MessageSquare',
-  'PlusCircle',
-  'BotIcon',
-  'Copy',
-  'ListTodo',
-  'Eye',
-  'EyeOff',
-  'Calculator',
-  'CalendarCheck',
-  'GitCompare',
-  'SplitSquareVertical',
-  'Minimize',
-  'HelpCircle',
-  'Camera',
-  'UserPlus',
-  'LogOut',
-  'SignalHigh',
-  'Circle',
-  'Triangle',
-  'Hexagon',
-  'Pencil',
-  'Database',
-  'FileText',
-  'Image',
-  'FileSpreadsheet',
-  'Headphones',
-  'Video',
-  'Maximize2',
-  'Minimize2',
-  'Code',
-  'Presentation',
-  'MoreVertical',
-  'FileIcon',
-  'Folder',
-  'FolderPlus',
-  'ListFilter',
-  'Heart',
-  'Repeat',
-  'Share',
-  'MoreHorizontal',
-  'EyeIcon',
-  'TagsIcon',
-  'Sparkles',
-  'TrendingUp',
-  'Share2',
-  'PlusSquareIcon',
-  'Clock',
-  'Flag',
-  'User',
-  'ArrowDown',
-  'ClipboardList',
-  'TagIcon',
-  'CirclePlay',
-  'GitFork',
-  'LayoutList',
-  'ListCollapse',
-  'PlayCircleIcon',
-  'Tags',
-  'Group',
-  'LogOutIcon',
-  'Languages',
-  'Palette',
-  'Bone',
-  'TextCursorIcon',
-  'UserCircle',
-  'MailCheck',
-  'Mail',
-  'KeyIcon',
-  'Cake',
-  'History',
-  'Shield',
-  'SettingsIcon',
-  'WallpaperIcon',
-  'Moon',
-  'Sun',
-  'Sunset',
-  'Sunrise',
-  'Focus',
-  'Bold',
-  'Gauge',
-  'CalendarDays',
-  'SortAsc',
-  'SortDesc',
-  'PanelLeftClose',
-  'PanelLeftOpen',
-  'Component',
-  'SquareKanban',
-  'Combine',
-  'KanbanSquare',
-  'Github',
-  'Gamepad',
-  'Gamepad2',
-  'HomeIcon',
-  'LucideHome',
-  'FilterIcon',
-  'ScanFace',
-  'ListX',
-  'MessageCircleOff',
-  'ListCollapseIcon',
-  'CalendarOff',
-  'Notebook',
-  'NotebookPen',
-  'MapPin',
-  'UserIcon',
-  'BrainCog',
-  'Maximize',
-  'Workflow',
-  'PanelLeft',
-  'GitBranchPlus',
-  'FilePlus',
-  'ChartAreaIcon',
-  'ChartNoAxesGantt',
-  'KanbanSquareIcon',
-  'NewIcon'
+	'User2',
+	'UserCheckIcon',
+	'Users',
+	'ArrowLeft',
+	'Key',
+	'CheckCircle2',
+	'XCircle',
+	'Check',
+	'Search',
+	'Trash2',
+	'Plus',
+	'ChevronLeft',
+	'PackageOpen',
+	'Package',
+	'Mic',
+	'Square',
+	'Play',
+	'Pause',
+	'X',
+	'VolumeX',
+	'Volume1',
+	'Volume2',
+	'Tag',
+	'ChevronDown',
+	'Filter',
+	'Timer',
+	'TimerOff',
+	'Box',
+	'MessageCircleMore',
+	'PackagePlus',
+	'Pen',
+	'InfoIcon',
+	'ChartBarBig',
+	'Logs',
+	'BrainCircuit',
+	'CalendarClock',
+	'ChevronRight',
+	'FolderGit',
+	'Info',
+	'Save',
+	'Send',
+	'Paperclip',
+	'PlugZap',
+	'ZapOff',
+	'Bookmark',
+	'BookmarkCheckIcon',
+	'Braces',
+	'Command',
+	'Brain',
+	'TrashIcon',
+	'MessageCirclePlus',
+	'Star',
+	'RefreshCcw',
+	'AlertCircle',
+	'CheckCircle',
+	'Bot',
+	'File',
+	'LogIn',
+	'MailPlus',
+	'Loader2',
+	'Settings',
+	'Link',
+	'Quote',
+	'ArrowRight',
+	'Book',
+	'MessageCircle',
+	'CheckSquare',
+	'Layers',
+	'MessagesSquare',
+	'Edit2',
+	'CopyPlus',
+	'ArrowUpDown',
+	'Upload',
+	'Activity',
+	'Compass',
+	'ServerCog',
+	'OctagonPause',
+	'Cpu',
+	'HeadphonesIcon',
+	'ShieldCheck',
+	'CircleOff',
+	'Wrench',
+	'Target',
+	'Settings2',
+	'SquareMenu',
+	'FilePenLine',
+	'ChevronUp',
+	'Trash',
+	'Calendar',
+	'ListTree',
+	'MessageSquareText',
+	'BookmarkMinus',
+	'BookmarkX',
+	'SquarePlay',
+	'Unlink',
+	'MessageSquare',
+	'PlusCircle',
+	'BotIcon',
+	'Copy',
+	'ListTodo',
+	'Eye',
+	'EyeOff',
+	'Calculator',
+	'CalendarCheck',
+	'GitCompare',
+	'SplitSquareVertical',
+	'Minimize',
+	'HelpCircle',
+	'Camera',
+	'UserPlus',
+	'LogOut',
+	'SignalHigh',
+	'Circle',
+	'Triangle',
+	'Hexagon',
+	'Pencil',
+	'Database',
+	'FileText',
+	'Image',
+	'FileSpreadsheet',
+	'Headphones',
+	'Video',
+	'Maximize2',
+	'Minimize2',
+	'Code',
+	'Presentation',
+	'MoreVertical',
+	'FileIcon',
+	'Folder',
+	'FolderPlus',
+	'ListFilter',
+	'Heart',
+	'Repeat',
+	'Share',
+	'MoreHorizontal',
+	'EyeIcon',
+	'TagsIcon',
+	'Sparkles',
+	'TrendingUp',
+	'Share2',
+	'PlusSquareIcon',
+	'Clock',
+	'Flag',
+	'User',
+	'ArrowDown',
+	'ClipboardList',
+	'TagIcon',
+	'CirclePlay',
+	'GitFork',
+	'LayoutList',
+	'ListCollapse',
+	'PlayCircleIcon',
+	'Tags',
+	'Group',
+	'LogOutIcon',
+	'Languages',
+	'Palette',
+	'Bone',
+	'TextCursorIcon',
+	'UserCircle',
+	'MailCheck',
+	'Mail',
+	'KeyIcon',
+	'Cake',
+	'History',
+	'Shield',
+	'SettingsIcon',
+	'WallpaperIcon',
+	'Moon',
+	'Sun',
+	'Sunset',
+	'Sunrise',
+	'Focus',
+	'Bold',
+	'Gauge',
+	'CalendarDays',
+	'SortAsc',
+	'SortDesc',
+	'PanelLeftClose',
+	'PanelLeftOpen',
+	'Component',
+	'SquareKanban',
+	'Combine',
+	'KanbanSquare',
+	'Github',
+	'Gamepad',
+	'Gamepad2',
+	'HomeIcon',
+	'LucideHome',
+	'FilterIcon',
+	'ScanFace',
+	'ListX',
+	'MessageCircleOff',
+	'ListCollapseIcon',
+	'CalendarOff',
+	'Notebook',
+	'NotebookPen',
+	'MapPin',
+	'UserIcon',
+	'BrainCog',
+	'Maximize',
+	'Workflow',
+	'PanelLeft',
+	'GitBranchPlus',
+	'FilePlus',
+	'ChartAreaIcon',
+	'ChartNoAxesGantt',
+	'KanbanSquareIcon',
+	'NewIcon'
 ];
 
 export default {
-  getIcon,
-  availableIcons
+	getIcon,
+	availableIcons
 };

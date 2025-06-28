@@ -5,12 +5,9 @@ import { get } from 'svelte/store';
 import { fetchTryCatch, clientTryCatch } from '$lib/utils/errorUtils';
 
 export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
-	const result = await fetchTryCatch<PromptInput[]>(
-		`/api/prompts?userId=${userId}`,
-		{
-			method: 'GET'
-		}
-	);
+	const result = await fetchTryCatch<PromptInput[]>(`/api/prompts?userId=${userId}`, {
+		method: 'GET'
+	});
 
 	if (!result.success) {
 		console.error('Error fetching user prompts:', result.error);
@@ -21,12 +18,9 @@ export async function fetchUserPrompts(userId: string): Promise<PromptInput[]> {
 }
 
 export async function fetchSystemPrompt(promptId: string): Promise<string | null> {
-	const result = await fetchTryCatch<{ data?: { prompt?: string } }>(
-		`/api/prompts/${promptId}`,
-		{
-			method: 'GET'
-		}
-	);
+	const result = await fetchTryCatch<{ data?: { prompt?: string } }>(`/api/prompts/${promptId}`, {
+		method: 'GET'
+	});
 
 	if (!result.success) {
 		console.error('Error fetching system prompt:', result.error);

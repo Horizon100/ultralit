@@ -27,7 +27,6 @@ export const GET: RequestHandler = async ({ cookies }) => {
 			'fetch prompts'
 		);
 
-		return unwrap(result); 
-		
+		return unwrap(result);
 	}, 'Failed to fetch prompts');
 };

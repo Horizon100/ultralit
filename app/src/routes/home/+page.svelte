@@ -4,7 +4,7 @@
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
 	import type { User, UserProfile, Threads, Messages } from '$lib/types/types';
-	import type { PostWithInteractions, PostStoreState, TimelinePost} from '$lib/types/types.posts';
+	import type { PostWithInteractions, PostStoreState, TimelinePost } from '$lib/types/types.posts';
 	import { postStore } from '$lib/stores/postStore';
 	import { pocketbaseUrl, getPublicUserData, currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
@@ -27,17 +27,17 @@
 	import type { AIModel } from '$lib/types/types';
 	import { get } from 'svelte/store';
 	import { toast } from '$lib/utils/toastUtils';
-	import { 
-		clientTryCatch, 
+	import {
+		clientTryCatch,
 		validationTryCatch,
-		isSuccess, 
+		isSuccess,
 		isFailure,
 		type Result
 	} from '$lib/utils/errorUtils';
 	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
 	import { browser } from '$app/environment';
 	import { createHoverManager } from '$lib/utils/hoverUtils';
-	import { showSidenav, showInput, showRightSidenav, showDebug} from '$lib/stores/sidenavStore';
+	import { showSidenav, showInput, showRightSidenav, showDebug } from '$lib/stores/sidenavStore';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
@@ -46,9 +46,9 @@
 	let homeLoading = false;
 	let homeCurrentOffset = 0;
 	let homePosts: PostWithInteractions[] = [];
-	let postComposerRef: any; 
-	let enableAutoTagging = true; 
-	let taggingModel: AIModel | null = null; 
+	let postComposerRef: any;
+	let enableAutoTagging = true;
+	let taggingModel: AIModel | null = null;
 	let showPostModal = false;
 	let isCommentModalOpen = false;
 	let selectedPost: PostWithInteractions | null = null;
@@ -62,21 +62,19 @@
 	const HOME_POSTS_PER_PAGE = 10;
 
 	const rightSideHoverManager = createHoverManager({
-		hoverZone: 200, 
+		hoverZone: 200,
 		minScreenWidth: 700,
 		debounceDelay: 100,
 		controls: ['rightSidenav'],
-		direction: 'right',
+		direction: 'right'
 	});
 
-	const { 
-		hoverState: rightSideHoverState, 
-		handleMenuLeave: handleRightSideLeave, 
-		toggleMenu: toggleRightSide 
+	const {
+		hoverState: rightSideHoverState,
+		handleMenuLeave: handleRightSideLeave,
+		toggleMenu: toggleRightSide
 	} = rightSideHoverManager;
 
-
-		
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
 		const fetchPromises = userIds.map(async (userId) => {
 			try {
@@ -121,8 +119,10 @@
 
 			console.log('Post created successfully:', newPost.id);
 
-			// Handle auto-tagging if enabled and conditions are met
-			// Only tag main posts (not comments) that meet minimum requirements
+			/*
+			 * Handle auto-tagging if enabled and conditions are met
+			 * Only tag main posts (not comments) that meet minimum requirements
+			 */
 			if (enableAutoTagging && shouldGenerateTags(content) && get(currentUser)?.id && !parentId) {
 				console.log('Starting auto-tagging for post:', newPost.id);
 
@@ -150,93 +150,92 @@
 			console.error('Error creating post:', err);
 		}
 	}
-function handleTaggingComplete(event) {
-	const { postId, success } = event.detail;
-	
-	if (success) {
-		console.log('✅ Tags generated successfully for post:', postId);
-	} else {
-		console.log('❌ Auto-tagging failed for post:', postId);
+	function handleTaggingComplete(event: CustomEvent<{ postId: string; success: boolean }>) {
+		const { postId, success } = event.detail;
+
+		if (success) {
+			console.log('✅ Tags generated successfully for post:', postId);
+		} else {
+			console.log('❌ Auto-tagging failed for post:', postId);
+		}
 	}
-}
 
+	async function handlePostInteraction(
+		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
+	) {
+		const { postId, action } = event.detail;
 
-async function handlePostInteraction(
-  event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
-) {
-  const { postId, action } = event.detail;
-  
-  // Extract real post ID if it's a composite key
-  const realPostId = extractRealPostId(postId);
-  
-  console.log('🎯 Handling interaction:', {
-    receivedPostId: postId,
-    realPostId,
-    action,
-    isCompositeKey: postId !== realPostId
-  });
+		// Extract real post ID if it's a composite key
+		const realPostId = extractRealPostId(postId);
 
-  try {
-    // Actions that require authentication
-    if ((action === 'upvote' || action === 'repost' || action === 'read') && !$currentUser) {
-      toast.warning('Please sign in to interact with posts');
-      return;
-    }
+		console.log('🎯 Handling interaction:', {
+			receivedPostId: postId,
+			realPostId,
+			action,
+			isCompositeKey: postId !== realPostId
+		});
 
-    // Process the actions using the real post ID
-    if (action === 'upvote') {
-      const result = await postStore.toggleUpvote(realPostId);
-      // Update local state if needed
-      updateLocalPostState(realPostId, 'upvote', result);
-    } else if (action === 'repost') {
-      const result = await postStore.toggleRepost(realPostId);
-      updateLocalPostState(realPostId, 'repost', result);
-      if (result.reposted) {
-        toast.success('Post reposted!');
-      } else {
-        toast.info('Repost removed');
-      }
-    }
-    // ... rest of your actions
-  } catch (err) {
-    console.error(`Error ${action}ing post:`, err);
-    // Your existing error handling
-  }
-}
+		try {
+			// Actions that require authentication
+			if ((action === 'upvote' || action === 'repost' || action === 'read') && !$currentUser) {
+				toast.warning('Please sign in to interact with posts');
+				return;
+			}
 
-// Helper function to extract real post ID from composite keys
-function extractRealPostId(postId: string): string {
-  if (postId.startsWith('repost_')) {
-    // Format: repost_originalPostId_repostedBy_created
-    const parts = postId.split('_');
-    if (parts.length >= 2) {
-      return parts[1]; // Original post ID
-    }
-  }
-  return postId; // Already a real post ID
-}
+			// Process the actions using the real post ID
+			if (action === 'upvote') {
+				const result = await postStore.toggleUpvote(realPostId);
+				// Update local state if needed
+				updateLocalPostState(realPostId, 'upvote', result);
+			} else if (action === 'repost') {
+				const result = await postStore.toggleRepost(realPostId);
+				updateLocalPostState(realPostId, 'repost', result);
+				if (result.reposted) {
+					toast.success('Post reposted!');
+				} else {
+					toast.info('Repost removed');
+				}
+			}
+			// ... rest of your actions
+		} catch (err) {
+			console.error(`Error ${action}ing post:`, err);
+			// Your existing error handling
+		}
+	}
 
-// Helper function to update local state (if you're using homePosts)
-function updateLocalPostState(realPostId: string, action: string, result: any) {
-  if (action === 'upvote' && homePosts.length > 0) {
-    homePosts = homePosts.map(post => {
-      // Update both original posts and reposts of the same post
-      const shouldUpdate = post.id === realPostId || 
-                          (post.isRepost && post.originalPostId === realPostId);
-      
-      if (shouldUpdate) {
-        return {
-          ...post,
-          upvote: result.upvoted,
-          upvoteCount: result.upvoteCount,
-          downvote: result.upvoted ? false : post.downvote,
-          downvoteCount: result.downvoteCount || post.downvoteCount
-        };
-      }
-      return post;
-    });
-  }
-}
+	// Helper function to extract real post ID from composite keys
+	function extractRealPostId(postId: string): string {
+		if (postId.startsWith('repost_')) {
+			// Format: repost_originalPostId_repostedBy_created
+			const parts = postId.split('_');
+			if (parts.length >= 2) {
+				return parts[1]; // Original post ID
+			}
+		}
+		return postId; // Already a real post ID
+	}
+
+	// Helper function to update local state (if you're using homePosts)
+	function updateLocalPostState(realPostId: string, action: string, result: any) {
+		if (action === 'upvote' && homePosts.length > 0) {
+			homePosts = homePosts.map((post) => {
+				// Update both original posts and reposts of the same post
+				const shouldUpdate =
+					post.id === realPostId || (post.isRepost && post.originalPostId === realPostId);
+
+				if (shouldUpdate) {
+					return {
+						...post,
+						upvote: result.upvoted,
+						upvoteCount: result.upvoteCount,
+						downvote: result.upvoted ? false : post.downvote,
+						downvoteCount: result.downvoteCount || post.downvoteCount
+					};
+				}
+				return post;
+			});
+		}
+	}
 
 	// Handle opening comment modal (from PostCard)
 	function handleComment(event: CustomEvent<{ postId: string }>) {
@@ -253,110 +252,112 @@ function updateLocalPostState(realPostId: string, action: string, result: any) {
 		}
 	}
 
-// Handle submitting a comment (from PostCommentModal)
-async function handleCommentSubmit(
-	event: CustomEvent<{ content: string; attachments: File[]; parentId: string }>
-): Promise<Result<void, string>> {
-	const { content, attachments, parentId } = event.detail;
-	
-	console.log('🔥 COMMENT SUBMIT DEBUG START');
-	console.log('📝 Comment data:', { content, attachments, parentId });
-	console.log('📋 Selected post:', selectedPost);
+	// Handle submitting a comment (from PostCommentModal)
+	async function handleCommentSubmit(
+		event: CustomEvent<{ content: string; attachments: File[]; parentId: string }>
+	): Promise<Result<void, string>> {
+		const { content, attachments, parentId } = event.detail;
 
-	// Store the post data IMMEDIATELY before any async operations
-	const postForRedirect = selectedPost;
-	console.log('💾 Stored post for redirect:', postForRedirect);
+		console.log('🔥 COMMENT SUBMIT DEBUG START');
+		console.log('📝 Comment data:', { content, attachments, parentId });
+		console.log('📋 Selected post:', selectedPost);
 
-	// Validate user authentication
-	const userValidation = validationTryCatch(() => {
-		if (!$currentUser) {
-			throw new Error('User not logged in');
+		// Store the post data IMMEDIATELY before any async operations
+		const postForRedirect = selectedPost;
+		console.log('💾 Stored post for redirect:', postForRedirect);
+
+		// Validate user authentication
+		const userValidation = validationTryCatch(() => {
+			if (!$currentUser) {
+				throw new Error('User not logged in');
+			}
+			return $currentUser;
+		}, 'user authentication');
+
+		if (isFailure(userValidation)) {
+			console.error('❌ User validation failed:', userValidation.error);
+			return { data: null, error: userValidation.error, success: false };
 		}
-		return $currentUser;
-	}, 'user authentication');
 
-	if (isFailure(userValidation)) {
-		console.error('❌ User validation failed:', userValidation.error);
-		return { data: null, error: userValidation.error, success: false };
-	}
+		console.log('✅ User validation passed:', userValidation.data);
 
-	console.log('✅ User validation passed:', userValidation.data);
+		// Add the comment
+		console.log('📤 Adding comment...');
+		const commentResult = await clientTryCatch(
+			postStore.addPost(content, attachments, parentId),
+			'Adding comment'
+		);
 
-	// Add the comment
-	console.log('📤 Adding comment...');
-	const commentResult = await clientTryCatch(
-		postStore.addPost(content, attachments, parentId),
-		'Adding comment'
-	);
+		if (isFailure(commentResult)) {
+			console.error('❌ Error posting comment:', commentResult.error);
+			return { data: null, error: commentResult.error, success: false };
+		}
 
-	if (isFailure(commentResult)) {
-		console.error('❌ Error posting comment:', commentResult.error);
-		return { data: null, error: commentResult.error, success: false };
-	}
+		console.log('✅ Comment added successfully:', commentResult.data);
 
-	console.log('✅ Comment added successfully:', commentResult.data);
+		// Close the modal after successful comment
+		console.log('🔒 Closing modal...');
+		isCommentModalOpen = false;
+		selectedPost = null; // Clear this early
 
-	// Close the modal after successful comment
-	console.log('🔒 Closing modal...');
-	isCommentModalOpen = false;
-	selectedPost = null; // Clear this early
-	
-	// DEBUG: Check if stored post exists and has required data
-	console.log('🔍 REDIRECT DEBUG:');
-	console.log('postForRedirect exists:', !!postForRedirect);
-	console.log('postForRedirect value:', postForRedirect);
-	
-	if (postForRedirect) {
-		console.log('📊 postForRedirect fields:');
-		console.log('- id:', postForRedirect.id);
-		console.log('- author_username:', postForRedirect.author_username);
-		console.log('- expand:', postForRedirect.expand);
-		console.log('- expand.user:', postForRedirect.expand?.user);
-		console.log('- expand.user.username:', postForRedirect.expand?.user?.username);
-		
-		// Get username from the post data
-		const username = postForRedirect.author_username || postForRedirect.expand?.user?.username;
-		console.log('🎯 Extracted username:', username);
-		
-		if (username) {
-			const redirectUrl = `/${username}/posts/${postForRedirect.id}`;
-			console.log('🚀 Attempting redirect to:', redirectUrl);
-			
-			try {
-				await goto(redirectUrl);
-				console.log('✅ Redirect successful');
-			} catch (error) {
-				console.error('❌ Redirect failed:', error);
+		// DEBUG: Check if stored post exists and has required data
+		console.log('🔍 REDIRECT DEBUG:');
+		console.log('postForRedirect exists:', !!postForRedirect);
+		console.log('postForRedirect value:', postForRedirect);
+
+		if (postForRedirect) {
+			console.log('📊 postForRedirect fields:');
+			console.log('- id:', postForRedirect.id);
+			console.log('- author_username:', postForRedirect.author_username);
+			console.log('- expand:', postForRedirect.expand);
+			console.log('- expand.user:', postForRedirect.expand?.user);
+			console.log('- expand.user.username:', postForRedirect.expand?.user?.username);
+
+			// Get username from the post data
+			const username = postForRedirect.author_username || postForRedirect.expand?.user?.username;
+			console.log('🎯 Extracted username:', username);
+
+			if (username) {
+				const redirectUrl = `/${username}/posts/${postForRedirect.id}`;
+				console.log('🚀 Attempting redirect to:', redirectUrl);
+
+				try {
+					await goto(redirectUrl);
+					console.log('✅ Redirect successful');
+				} catch (error) {
+					console.error('❌ Redirect failed:', error);
+				}
+			} else {
+				console.warn('⚠️ Username not found in post data, cannot redirect');
+				console.log('Available post data keys:', Object.keys(postForRedirect));
+
+				// Try alternative fields
+				console.log('Alternative username sources:');
+				console.log('- user field:', postForRedirect.user);
+				console.log('- author_name:', postForRedirect.author_name);
+
+				// If you have the user ID, you might need to fetch the username
+				if (postForRedirect.user && typeof postForRedirect.user === 'string') {
+					console.log('🔄 Could fetch username using user ID:', postForRedirect.user);
+
+					/*
+					 * You could fetch the username here if needed:
+					 * const userData = await getPublicUserData(postForRedirect.user);
+					 * if (userData?.username) {
+					 *     const redirectUrl = `/${userData.username}/posts/${postForRedirect.id}`;
+					 *     await goto(redirectUrl);
+					 * }
+					 */
+				}
 			}
 		} else {
-			console.warn('⚠️ Username not found in post data, cannot redirect');
-			console.log('Available post data keys:', Object.keys(postForRedirect));
-			
-			// Try alternative fields
-			console.log('Alternative username sources:');
-			console.log('- user field:', postForRedirect.user);
-			console.log('- author_name:', postForRedirect.author_name);
-			
-			// If you have the user ID, you might need to fetch the username
-			if (postForRedirect.user && typeof postForRedirect.user === 'string') {
-				console.log('🔄 Could fetch username using user ID:', postForRedirect.user);
-				
-				// You could fetch the username here if needed:
-				// const userData = await getPublicUserData(postForRedirect.user);
-				// if (userData?.username) {
-				//     const redirectUrl = `/${userData.username}/posts/${postForRedirect.id}`;
-				//     await goto(redirectUrl);
-				// }
-			}
+			console.error('❌ postForRedirect is null/undefined - cannot redirect');
 		}
-	} else {
-		console.error('❌ postForRedirect is null/undefined - cannot redirect');
-	}
-	
-	console.log('🔥 COMMENT SUBMIT DEBUG END');
 
-	return { data: undefined, error: null, success: true };
-}
+		console.log('🔥 COMMENT SUBMIT DEBUG END');
+
+		return { data: undefined, error: null, success: true };
+	}
 	async function handleQuote(event: CustomEvent): Promise<Result<void, string>> {
 		// Validate user authentication
 		const userValidation = validationTryCatch(() => {
@@ -400,239 +401,235 @@ async function handleCommentSubmit(
 		console.log('Following user profile:', userProfile);
 	}
 
-$: {
-	homeHasMore = $postStore.hasMore;
-	homeLoadingMore = $postStore.loadingMore;
-	homeLoading = $postStore.loading;
-	
-	// DEBUG: Let's see what's happening
-	console.log('🔍 HOME STATE SYNC:', {
-		'Store hasMore': $postStore.hasMore,
-		'Store loadingMore': $postStore.loadingMore,
-		'Store posts.length': $postStore.posts.length,
-		'Local homeHasMore': homeHasMore,
-		'Local homeLoadingMore': homeLoadingMore
-	});
-}
+	$: {
+		homeHasMore = $postStore.hasMore;
+		homeLoadingMore = $postStore.loadingMore;
+		homeLoading = $postStore.loading;
 
-async function fetchHomePosts(offset = 0, append = false) {
-	if (!browser) return;
-
-	if (!append) {
-		homeLoading = true;
-		homeCurrentOffset = 0;
-		homeHasMore = true;
-		homePosts = [];
-	} else {
-		homeLoadingMore = true;
+		// DEBUG: Let's see what's happening
+		console.log('🔍 HOME STATE SYNC:', {
+			'Store hasMore': $postStore.hasMore,
+			'Store loadingMore': $postStore.loadingMore,
+			'Store posts.length': $postStore.posts.length,
+			'Local homeHasMore': homeHasMore,
+			'Local homeLoadingMore': homeLoadingMore
+		});
 	}
 
-	try {
-		console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
-		
-		const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
-		const data = await response.json();
-
-		if (!response.ok) {
-			throw new Error(data.error || 'Failed to load posts');
-		}
-
-		// Handle the double nesting from apiTryCatch
-		const actualData = data.data || data;
-		const newPosts = actualData.posts || [];
+	async function fetchHomePosts(offset = 0, append = false) {
+		if (!browser) return;
 
 		if (!append) {
-			homePosts = newPosts;
+			homeLoading = true;
+			homeCurrentOffset = 0;
+			homeHasMore = true;
+			homePosts = [];
 		} else {
-			const existingIds = new Set(homePosts.map(p => p.id));
-			const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
-			homePosts = [...homePosts, ...uniqueNewPosts];
-			console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+			homeLoadingMore = true;
 		}
 
-		// Update pagination state like username page
-		const newPostsCount = newPosts.length;
-		
-		// Use server's hasMore if available, otherwise calculate
-		if (actualData.hasMore !== undefined) {
-			homeHasMore = actualData.hasMore;
-		} else {
-			homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
-		}
-		
-		// Update offset for next request
-		homeCurrentOffset = append ? 
-			homeCurrentOffset + newPostsCount : 
-			newPostsCount;
+		try {
+			console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
 
-		console.log('📊 Home posts updated:', {
-			postsCount: homePosts.length,
-			newPostsCount,
-			hasMore: homeHasMore,
-			currentOffset: homeCurrentOffset
+			const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Failed to load posts');
+			}
+			const actualData = data.data || data;
+			const newPosts = actualData.posts || [];
+
+			if (!append) {
+				homePosts = newPosts;
+			} else {
+				const existingIds = new Set(homePosts.map((p: any) => p.id));
+				const uniqueNewPosts = newPosts.filter((p: any) => !existingIds.has(p.id));
+				homePosts = [...homePosts, ...uniqueNewPosts];
+				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+			}
+
+			const newPostsCount = newPosts.length;
+
+			if (actualData.hasMore !== undefined) {
+				homeHasMore = actualData.hasMore;
+			} else {
+				homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
+			}
+
+			// Update offset for next request
+			homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
+
+			console.log('📊 Home posts updated:', {
+				postsCount: homePosts.length,
+				newPostsCount,
+				hasMore: homeHasMore,
+				currentOffset: homeCurrentOffset
+			});
+		} catch (err) {
+			console.error('Error fetching home posts:', err);
+		} finally {
+			homeLoading = false;
+			homeLoadingMore = false;
+		}
+	}
+
+	// Load more function like username page
+	async function loadMoreHomePosts() {
+		if (homeLoadingMore || !homeHasMore) {
+			console.log('⛔ Load more skipped:', { homeLoadingMore, homeHasMore });
+			return;
+		}
+
+		console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
+		await fetchHomePosts(homeCurrentOffset, true);
+	}
+
+	// Setup infinite scroll exactly like username page
+	function setupInfiniteScroll() {
+		if (infiniteScrollManager) {
+			infiniteScrollManager.destroy();
+		}
+
+		infiniteScrollManager = new InfiniteScrollManager({
+			loadMore: async () => {
+				try {
+					await loadMoreHomePosts();
+				} catch (error) {
+					console.error('Error loading more home posts:', error);
+				}
+			},
+			hasMore: () => homeHasMore,
+			isLoading: () => homeLoadingMore,
+			triggerId: 'home-loading-trigger',
+			debug: true
 		});
 
-	} catch (err) {
-		console.error('Error fetching home posts:', err);
-	} finally {
-		homeLoading = false;
-		homeLoadingMore = false;
-	}
-}
-
-// Load more function like username page
-async function loadMoreHomePosts() {
-	if (homeLoadingMore || !homeHasMore) {
-		console.log('⛔ Load more skipped:', { homeLoadingMore, homeHasMore });
-		return;
+		infiniteScrollManager.setup();
+		return infiniteScrollManager;
 	}
 
-	console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
-	await fetchHomePosts(homeCurrentOffset, true);
-}
+	function handlePostCreated(
+		event: CustomEvent<{ postId: string; post: string; success: boolean }>
+	) {
+		const { postId, post } = event.detail;
 
-// Setup infinite scroll exactly like username page
-function setupInfiniteScroll() {
-	if (infiniteScrollManager) {
-		infiniteScrollManager.destroy();
+		if (!post || !postId) {
+			console.log('❌ Invalid post data received');
+			return;
+		}
+
+		console.log('✅ Post created successfully:', postId);
+		/*
+		 * Note: PostComposer already called postStore.addPost, so the post is already in the store
+		 * This event is just for additional side effects if needed
+		 */
+	}
+	function debugAllEvents(event: any) {
+		console.log('🔥 ALL EVENTS DEBUG:', {
+			type: event.type,
+			detail: event.detail,
+			target: event.target?.tagName,
+			currentTarget: event.currentTarget?.tagName
+		});
 	}
 
-	infiniteScrollManager = new InfiniteScrollManager({
-		loadMore: async () => {
-			try {
-				await loadMoreHomePosts();
-			} catch (error) {
-				console.error('Error loading more home posts:', error);
-			}
-		},
-		hasMore: () => homeHasMore,
-		isLoading: () => homeLoadingMore,
-		triggerId: 'home-loading-trigger',
-		debug: true
-	});
+	$: posts = $postStore.posts;
+	$: loading = $postStore.loading;
+	$: loadingMore = $postStore.loadingMore;
+	$: hasMore = $postStore.hasMore;
+	$: error = $postStore.error;
 
-	infiniteScrollManager.setup();
-	return infiniteScrollManager;
-}
+	// ADD THIS: Deduplicate posts to prevent duplicate keys
+	$: uniquePosts = posts.reduce((acc: TimelinePost[], post: TimelinePost, index: number) => {
+		const postKey = post.isRepost
+			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+			: post.id;
 
+		const existingIndex = acc.findIndex((p: TimelinePost) => {
+			const existingKey = p.isRepost
+				? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
+				: p.id;
+			return existingKey === postKey;
+		});
 
-function handlePostCreated(event) {
-	const { postId, post } = event.detail;
-	
-	if (!post || !postId) {
-		console.log('❌ Invalid post data received');
-		return;
-	}
-	
-	console.log('✅ Post created successfully:', postId);
-	// Note: PostComposer already called postStore.addPost, so the post is already in the store
-	// This event is just for additional side effects if needed
-}
-function debugAllEvents(event: any) {
-	console.log('🔥 ALL EVENTS DEBUG:', {
-		type: event.type,
-		detail: event.detail,
-		target: event.target?.tagName,
-		currentTarget: event.currentTarget?.tagName
-	});
-}
+		if (existingIndex === -1) {
+			acc.push(post);
+		} else {
+			console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
+		}
 
-$: posts = $postStore.posts;
-$: loading = $postStore.loading;
-$: loadingMore = $postStore.loadingMore;
-$: hasMore = $postStore.hasMore;
-$: error = $postStore.error;
+		return acc;
+	}, []);
 
-// ADD THIS: Deduplicate posts to prevent duplicate keys
-$: uniquePosts = posts.reduce((acc: TimelinePost[], post: TimelinePost, index: number) => {
-	const postKey = post.isRepost 
-		? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}` 
-		: post.id;
-	
-	const existingIndex = acc.findIndex((p: TimelinePost) => {
-		const existingKey = p.isRepost 
-			? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}` 
-			: p.id;
-		return existingKey === postKey;
-	});
-	
-	if (existingIndex === -1) {
-		acc.push(post);
-	} else {
-		console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
-	}
-	
-	return acc;
-}, []);
-
-$: userIds = [
-	...new Set(
-		uniquePosts.flatMap((post: TimelinePost) => {
-			const ids = [post.user];
-			if (post.repostedBy && Array.isArray(post.repostedBy)) {
-				ids.push(...post.repostedBy);
-			}
-			return ids;
-		})
-	)
-];
-// CHANGE THIS: Use uniquePosts instead of posts for enhancedPosts
-$: enhancedPosts = homePosts.map((post) => {
-  const authorProfile = userProfilesMap.get(post.user);
-  
-  const enhancedPost = {
-    ...post,
-    // Ensure ID is always the real post ID for interactions
-    id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
-    // Keep track of original data for display
-    _isRepost: post.isRepost,
-    _originalId: post.id,
-    _displayKey: post.isRepost 
-      ? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}` 
-      : post.id
-  };
-
-  if (authorProfile) {
-    return {
-      ...enhancedPost,
-      authorProfile,
-      author_name: authorProfile.name || post.author_name,
-      author_username: authorProfile.username || post.author_username,
-      author_avatar: authorProfile.avatar || post.author_avatar
-    };
-  }
-
-  return enhancedPost;
-});
-
-// CHANGE THIS: Use uniquePosts.length instead of posts.length
-$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
-	const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
-
-	if (missingUserIds.length > 0) {
-		loadingProfiles = true;
-		fetchUserProfiles(missingUserIds)
-			.then(() => {
-				loadingProfiles = false;
+	$: userIds = [
+		...new Set(
+			uniquePosts.flatMap((post: TimelinePost) => {
+				const ids = [post.user];
+				if (post.repostedBy && Array.isArray(post.repostedBy)) {
+					ids.push(...post.repostedBy);
+				}
+				return ids;
 			})
-			.catch((err) => {
-				console.error('Error fetching user profiles:', err);
-				loadingProfiles = false;
-			});
-	}
-}
+		)
+	];
+	// CHANGE THIS: Use uniquePosts instead of posts for enhancedPosts
+	$: enhancedPosts = homePosts.map((post) => {
+		const authorProfile = userProfilesMap.get(post.user);
 
-// CHANGE THIS: Use uniquePosts.length in logging
-$: if (typeof window !== 'undefined') {
-	console.log('📊 Current state:', {
-		totalPosts: posts.length,
-		uniquePostsCount: uniquePosts.length,
-		duplicatesRemoved: posts.length - uniquePosts.length,
-		hasMore: $postStore.hasMore,
-		loadingMore: $postStore.loadingMore,
-		triggerExists: !!document.getElementById('loading-trigger')
+		const enhancedPost = {
+			...post,
+			// Ensure ID is always the real post ID for interactions
+			id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
+			// Keep track of original data for display
+			_isRepost: post.isRepost,
+			_originalId: post.id,
+			_displayKey: post.isRepost
+				? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+				: post.id
+		};
+
+		if (authorProfile) {
+			return {
+				...enhancedPost,
+				authorProfile,
+				author_name: authorProfile.name || post.author_name,
+				author_username: authorProfile.username || post.author_username,
+				author_avatar: authorProfile.avatar || post.author_avatar
+			};
+		}
+
+		return enhancedPost;
 	});
-}
+
+	// CHANGE THIS: Use uniquePosts.length instead of posts.length
+	$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
+		const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
+
+		if (missingUserIds.length > 0) {
+			loadingProfiles = true;
+			fetchUserProfiles(missingUserIds)
+				.then(() => {
+					loadingProfiles = false;
+				})
+				.catch((err) => {
+					console.error('Error fetching user profiles:', err);
+					loadingProfiles = false;
+				});
+		}
+	}
+
+	// CHANGE THIS: Use uniquePosts.length in logging
+	$: if (typeof window !== 'undefined') {
+		console.log('📊 Current state:', {
+			totalPosts: posts.length,
+			uniquePostsCount: uniquePosts.length,
+			duplicatesRemoved: posts.length - uniquePosts.length,
+			hasMore: $postStore.hasMore,
+			loadingMore: $postStore.loadingMore,
+			triggerExists: !!document.getElementById('loading-trigger')
+		});
+	}
 	$: homeDebugItems = [
 		{ label: 'Observer', value: infiniteScrollManager ? '✅' : '❌' },
 		{ label: 'Attached', value: infiniteScrollManager?.isObserverAttached ? '✅' : '❌' },
@@ -642,7 +639,7 @@ $: if (typeof window !== 'undefined') {
 		{ label: 'Has More (store)', value: $postStore.hasMore ? '✅' : '❌' },
 		{ label: 'Posts', value: $postStore.posts.length }
 	];
-	
+
 	$: homeDebugButtons = [
 		{
 			label: 'Manual Load More',
@@ -663,57 +660,62 @@ $: if (typeof window !== 'undefined') {
 			color: '#28a745'
 		}
 	];
-onMount(async () => {
-	console.log('🔄 Home page mounted - setting up...');
-	rightSideCleanup = rightSideHoverManager.initialize();
+	onMount(() => {
+		console.log('🔄 Home page mounted - setting up...');
+		rightSideCleanup = rightSideHoverManager.initialize();
 
-	// Fetch initial data like username page
-	await fetchHomePosts(0, false);
+		// Setup async initialization
+		(async () => {
+			// Fetch initial data like username page
+			await fetchHomePosts(0, false);
 
-	// Setup infinite scroll
-	console.log('🔧 Setting up infinite scroll...');
-	setupInfiniteScroll();
-	
-	// Try to attach with retries
-	if (infiniteScrollManager) {
-		infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-			if (success) {
-				console.log('✅ Infinite scroll ready!');
-			} else {
-				console.error('❌ Failed to setup infinite scroll');
+			// Setup infinite scroll
+			console.log('🔧 Setting up infinite scroll...');
+			setupInfiniteScroll();
+
+			// Try to attach with retries
+			if (infiniteScrollManager) {
+				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+					if (success) {
+						console.log('✅ Infinite scroll ready!');
+					} else {
+						console.error('❌ Failed to setup infinite scroll');
+					}
+				});
 			}
-		});
-	}
 
-	console.log('✅ Home page setup complete');
+			console.log('✅ Home page setup complete');
+		})();
 
-	// Cleanup function
-	return () => {
-		console.log('🧹 Cleaning up infinite scroll...');
-		if (infiniteScrollManager) {
-			infiniteScrollManager.destroy();
-			infiniteScrollManager = null;
+		// Cleanup function (returned synchronously)
+		return () => {
+			console.log('🧹 Cleaning up infinite scroll...');
+			if (infiniteScrollManager) {
+				infiniteScrollManager.destroy();
+				infiniteScrollManager = null;
+			}
+		};
+	});
+	onDestroy(() => {
+		if (rightSideCleanup) {
+			rightSideCleanup();
 		}
-	};
-});
-onDestroy(() => {
-	if (rightSideCleanup) {
-		rightSideCleanup();
+	});
+	$: {
+		console.log('🔄 REACTIVE STATE UPDATE:');
+		console.log('   Posts count:', posts.length);
+		console.log('   Loading:', loading);
+		console.log('   LoadingMore:', $postStore.loadingMore);
+		console.log('   HasMore:', $postStore.hasMore);
+		console.log('   Error:', error);
+		console.log('   Enhanced posts count:', enhancedPosts.length);
+
+		if (posts.length === 0 && !loading && !error) {
+			console.log(
+				'⚠️ EMPTY STATE: No posts, not loading, no error - this suggests API returned empty result'
+			);
+		}
 	}
-});
-$: {
-	console.log('🔄 REACTIVE STATE UPDATE:');
-	console.log('   Posts count:', posts.length);
-	console.log('   Loading:', loading);
-	console.log('   LoadingMore:', $postStore.loadingMore);
-	console.log('   HasMore:', $postStore.hasMore);
-	console.log('   Error:', error);
-	console.log('   Enhanced posts count:', enhancedPosts.length);
-	
-	if (posts.length === 0 && !loading && !error) {
-		console.log('⚠️ EMPTY STATE: No posts, not loading, no error - this suggests API returned empty result');
-	}
-}
 
 	/*
 	 * Reactive statements for debugging
@@ -730,30 +732,29 @@ $: {
 	class:drawer-visible={$showSidenav}
 	class:hide-right-sidebar={!$showRightSidenav}
 	class:drawer-right-visible={$showRightSidenav}
-	
 >
 	<!-- Left Sidebar Component -->
-	 <div class="side-menu">
-		<PostSidenav />	
+	<div class="side-menu">
+		<PostSidenav />
 	</div>
 
 	<!-- Main Content -->
-	<main class="main-content"
+	<main
+		class="main-content"
 		class:hide-left-sidebar={!$showSidenav}
 		class:drawer-visible={$showSidenav}
 		class:hide-right-sidebar={!$showRightSidenav}
 		class:drawer-right-visible={$showRightSidenav}
-
 	>
 		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
 		<img src={Italian} alt="Notes illustration" class="illustration right" /> -->
-		<div class="main-wrapper"
+		<div
+			class="main-wrapper"
 			class:hide-left-sidebar={!$showSidenav}
 			class:drawer-visible={$showSidenav}
 			class:hide-right-sidebar={!$showRightSidenav}
 			class:drawer-right-visible={$showRightSidenav}
-			
 		>
 			<!-- Error Display -->
 			{#if error}
@@ -772,65 +773,73 @@ $: {
 			{/if}
 
 			<!-- Posts Feed -->
-<section class="posts-feed">
-{#each enhancedPosts as post (post._displayKey || post.id)}		
-{#if post.isRepost}
-			<RepostCard
-				{post}
-				repostedBy={{
-					id: $currentUser?.id,
-					username: $currentUser?.username,
-					name: $currentUser?.name,
-					avatar: $currentUser?.avatar
-				}}
-				on:interact={handlePostInteraction}
-				on:comment={handleComment}
-				on:quote={handleQuote}
-			/>
-		{:else if post.quotedPost}
-			<PostQuoteCard
-				{post}
-				quotedBy={{
-					id: post.user,
-					username: post.author_username,
-					name: post.author_name,
-					avatar: post.author_avatar
-				}}
-				on:interact={handlePostInteraction}
-				on:comment={handleComment}
-				on:quote={handleQuote}
-			/>
-		{:else}
-			<PostCard
-				{post}
-				on:interact={handlePostInteraction}
-				on:comment={handleComment}
-				on:quote={handleQuote}
-			/>
-		{/if}
-	{/each}
-	<!-- Use store values instead of local variables -->
-{#if homeHasMore}
-		<div id="home-loading-trigger" class="loading-trigger">
-			{#if homeLoadingMore}
-				<div class="loading-indicator">
-					<div class="trigger-loader" in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
-					<!-- <span>Loading more posts...</span> -->
-				</div>
-			{:else}
-				<div class="loading-indicator" >
-					<div class="trigger-loader" in:fly={{ y: 50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}></div>
-					<!-- <span>Scroll for more...</span> -->
-				</div>
-			{/if}
-		</div>
-	{:else if $postStore.posts.length > 0}
-		<div class="end-of-posts" style="text-align: center; padding: 20px; color: #666;">
-			<p>No more posts to load</p>
-			<p>Total posts: {$postStore.posts.length}</p>
-		</div>
-	{/if}
-</section>
+			<section class="posts-feed">
+				{#each enhancedPosts as post (post._displayKey || post.id)}
+					{#if post.isRepost}
+						<RepostCard
+							{post}
+							repostedBy={{
+								id: $currentUser?.id,
+								username: $currentUser?.username,
+								name: $currentUser?.name,
+								avatar: $currentUser?.avatar
+							}}
+							on:interact={handlePostInteraction}
+							on:comment={handleComment}
+							on:quote={handleQuote}
+						/>
+					{:else if post.quotedPost}
+						<PostQuoteCard
+							{post}
+							quotedBy={{
+								id: post.user,
+								username: post.author_username,
+								name: post.author_name,
+								avatar: post.author_avatar
+							}}
+							on:interact={handlePostInteraction}
+							on:comment={handleComment}
+							on:quote={handleQuote}
+						/>
+					{:else}
+						<PostCard
+							{post}
+							on:interact={handlePostInteraction}
+							on:comment={handleComment}
+							on:quote={handleQuote}
+						/>
+					{/if}
+				{/each}
+				<!-- Use store values instead of local variables -->
+				{#if homeHasMore}
+					<div id="home-loading-trigger" class="loading-trigger">
+						{#if homeLoadingMore}
+							<div class="loading-indicator">
+								<div
+									class="trigger-loader"
+									in:fly={{ y: 50, duration: 300 }}
+									out:fly={{ y: -50, duration: 200 }}
+								></div>
+								<!-- <span>Loading more posts...</span> -->
+							</div>
+						{:else}
+							<div class="loading-indicator">
+								<div
+									class="trigger-loader"
+									in:fly={{ y: 50, duration: 300 }}
+									out:fly={{ y: -50, duration: 200 }}
+								></div>
+								<!-- <span>Scroll for more...</span> -->
+							</div>
+						{/if}
+					</div>
+				{:else if $postStore.posts.length > 0}
+					<div class="end-of-posts" style="text-align: center; padding: 20px; color: #666;">
+						<p>No more posts to load</p>
+						<p>Total posts: {$postStore.posts.length}</p>
+					</div>
+				{/if}
+			</section>
 			{#if $showInput && $currentUser}
 				<div class="composer-overlay">
 					<div
@@ -853,7 +862,8 @@ $: {
 
 	<!-- Right Sidebar Component -->
 	{#if $showRightSidenav && $currentUser}
-		<div class="side-menu"
+		<div
+			class="side-menu"
 			on:mouseleave={() => {
 				handleRightSideLeave();
 			}}
@@ -864,7 +874,9 @@ $: {
 </div>
 {#if $showDebug}
 	{#if browser}
-		<div style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;">
+		<div
+			style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;"
+		>
 			<div>🔄 Scroll Debug</div>
 			<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
 			<div>Attached: {infiniteScrollManager?.isObserverAttached ? '✅' : '❌'}</div>
@@ -874,7 +886,7 @@ $: {
 			<div>Has More (store): {$postStore.hasMore ? '✅' : '❌'}</div>
 			<div>Posts: {$postStore.posts.length}</div>
 			<div style="margin-top: 10px;">
-				<button 
+				<button
 					style="background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
 					on:click={() => {
 						console.log('🚀 Manual trigger loadMorePosts from local function');
@@ -885,7 +897,7 @@ $: {
 				</button>
 			</div>
 			<div style="margin-top: 5px;">
-				<button 
+				<button
 					style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
 					on:click={() => {
 						console.log('🔄 Recreate infinite scroll');
@@ -955,28 +967,41 @@ $: {
 		}
 	}
 	@keyframes bounce {
-		0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-		40% { transform: translateY(-10px); }
-		60% { transform: translateY(-5px); }
+		0%,
+		20%,
+		50%,
+		80%,
+		100% {
+			transform: translateY(0);
+		}
+		40% {
+			transform: translateY(-10px);
+		}
+		60% {
+			transform: translateY(-5px);
+		}
 	}
-	
+
 	@keyframes spin {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 	.drawer-visible.home-container {
 		justify-content: space-between;
 		&.hide-right-sidebar {
-		justify-content: space-between;
+			justify-content: space-between;
 		}
 	}
 	.drawer-visible {
-
 		&.hide-right-sidebar {
 			justify-content: flex-start !important;
 			max-width: 100%;
 			&.main-content {
-			justify-content: flex-start !important;
+				justify-content: flex-start !important;
 				& .main-wrapper {
 					max-width: 600px;
 				}
@@ -986,7 +1011,6 @@ $: {
 	main {
 		width: 100%;
 		display: flex;
-		
 	}
 	.main-content {
 		flex: 1;
@@ -1025,31 +1049,33 @@ $: {
 		position: relative;
 	}
 
-.trigger-loader {
-  width: 20px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--tertiary-color);
-  box-shadow: 0 0 0 0 var(--tertiary-color);
-  animation: l2 1.5s infinite linear;
-  position: relative;
-}
-.trigger-loader:before,
-.trigger-loader:after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: 0 0 0 0 var(--tertiary-color);
-  animation: inherit;
-  animation-delay: -0.5s;
-}
-.trigger-loader:after {
-  animation-delay: -1s;
-}
-@keyframes l2 {
-    100% {box-shadow: 0 0 0 40px var(--primary-color)}
-}
+	.trigger-loader {
+		width: 20px;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background: var(--tertiary-color);
+		box-shadow: 0 0 0 0 var(--tertiary-color);
+		animation: l2 1.5s infinite linear;
+		position: relative;
+	}
+	.trigger-loader:before,
+	.trigger-loader:after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		box-shadow: 0 0 0 0 var(--tertiary-color);
+		animation: inherit;
+		animation-delay: -0.5s;
+	}
+	.trigger-loader:after {
+		animation-delay: -1s;
+	}
+	@keyframes l2 {
+		100% {
+			box-shadow: 0 0 0 40px var(--primary-color);
+		}
+	}
 	.side-menu {
 		display: flex;
 		width: auto;

@@ -5,41 +5,41 @@ import type { RequestHandler } from './$types';
 import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ url, locals }) =>
-  apiTryCatch(async () => {
-    if (!locals.user) {
-      throw new Error('Unauthorized');
-    }
+	apiTryCatch(async () => {
+		if (!locals.user) {
+			throw new Error('Unauthorized');
+		}
 
-    const userId = locals.user.id;
+		const userId = locals.user.id;
 
-    const ids = url.searchParams.get('ids');
-    if (!ids) {
-      throw new Error('No IDs provided');
-    }
+		const ids = url.searchParams.get('ids');
+		if (!ids) {
+			throw new Error('No IDs provided');
+		}
 
-    const idArray = ids.split(',').filter(Boolean);
-    if (idArray.length === 0) {
-      return json({ items: [] });
-    }
+		const idArray = ids.split(',').filter(Boolean);
+		if (idArray.length === 0) {
+			return json({ items: [] });
+		}
 
-    const tasks = await pb.collection('tasks').getList(1, idArray.length, {
-      filter: idArray.map((id) => `id="${id}"`).join(' || '),
-      expand: 'project_id'
-    });
+		const tasks = await pb.collection('tasks').getList(1, idArray.length, {
+			filter: idArray.map((id) => `id="${id}"`).join(' || '),
+			expand: 'project_id'
+		});
 
-    const accessibleTasks = tasks.items.filter((task) => {
-      if (task.createdBy === userId) return true;
+		const accessibleTasks = tasks.items.filter((task) => {
+			if (task.createdBy === userId) return true;
 
-      if (task.project_id && task.expand?.project_id) {
-        const project = task.expand.project_id;
-        return (
-          project.owner === userId ||
-          (project.collaborators && project.collaborators.includes(userId))
-        );
-      }
+			if (task.project_id && task.expand?.project_id) {
+				const project = task.expand.project_id;
+				return (
+					project.owner === userId ||
+					(project.collaborators && project.collaborators.includes(userId))
+				);
+			}
 
-      return false;
-    });
+			return false;
+		});
 
-    return json({ ...tasks, items: accessibleTasks });
-  }, 'Failed to fetch batch tasks');
+		return json({ ...tasks, items: accessibleTasks });
+	}, 'Failed to fetch batch tasks');

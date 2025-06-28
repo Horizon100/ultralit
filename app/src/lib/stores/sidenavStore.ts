@@ -24,7 +24,7 @@ function createSidenavStore() {
 		showExplorer: false,
 		showEditor: false,
 		showSearch: false,
-		showDebug: false,
+		showDebug: false
 	});
 
 	return {
@@ -65,7 +65,7 @@ function createSidenavStore() {
 		showSearch: () => update((state) => ({ ...state, showSearch: true })),
 		hideSearch: () => update((state) => ({ ...state, showSearch: false })),
 		toggleSearch: () => update((state) => ({ ...state, showSearch: !state.showSearch })),
-		
+
 		showDebug: () => update((state) => ({ ...state, showDebug: true })),
 		hideDebug: () => update((state) => ({ ...state, showDebug: false })),
 		toggleDebug: () => update((state) => ({ ...state, showDebug: !state.showDebug })),
@@ -100,7 +100,6 @@ function createSidenavStore() {
 		setExplorer: (value: boolean) => update((state) => ({ ...state, showExplorer: value })),
 		setSearch: (value: boolean) => update((state) => ({ ...state, showSearch: value })),
 		setDebug: (value: boolean) => update((state) => ({ ...state, showDebug: value }))
-
 	};
 }
 

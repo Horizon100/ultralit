@@ -3,23 +3,27 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	return apiTryCatch(async () => {
-		if (!locals.user) {
-			throw new Error('Unauthorized');
-		}
+	return apiTryCatch(
+		async () => {
+			if (!locals.user) {
+				throw new Error('Unauthorized');
+			}
 
-		const searchTerm = url.searchParams.get('q');
+			const searchTerm = url.searchParams.get('q');
 
-		if (!searchTerm) {
-			throw new Error('Search term is required');
-		}
+			if (!searchTerm) {
+				throw new Error('Search term is required');
+			}
 
-		const notes = await pb.collection('notes').getFullList({
-			filter: `createdBy="${locals.user.id}" && (title ~ "${searchTerm}" || content ~ "${searchTerm}")`,
-			sort: '-created',
-			expand: 'createdBy,attachments'
-		});
+			const notes = await pb.collection('notes').getFullList({
+				filter: `createdBy="${locals.user.id}" && (title ~ "${searchTerm}" || content ~ "${searchTerm}")`,
+				sort: '-created',
+				expand: 'createdBy,attachments'
+			});
 
-		return { notes };
-	}, 'Failed to search notes', 500);
+			return { notes };
+		},
+		'Failed to search notes',
+		500
+	);
 };

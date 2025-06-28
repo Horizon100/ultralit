@@ -32,42 +32,42 @@
 		timerStore.startTracking();
 	}
 
-async function stopAndSaveTracking() {
-	if (!$currentUser) {
+	async function stopAndSaveTracking() {
+		if (!$currentUser) {
+			timerStore.stopTracking();
+			return;
+		}
+
+		const sessionData = timerStore.getCurrentSession();
 		timerStore.stopTracking();
-		return;
-	}
 
-	const sessionData = timerStore.getCurrentSession();
-	timerStore.stopTracking();
+		if (sessionData && sessionData.duration > 0) {
+			const result = await clientTryCatch(
+				(async () => {
+					const fetchResult = await fetchTryCatch<any>(`/api/users/${$currentUser.id}/tracking`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify(sessionData)
+					});
 
-	if (sessionData && sessionData.duration > 0) {
-		const result = await clientTryCatch((async () => {
-			const fetchResult = await fetchTryCatch<any>(
-				`/api/users/${$currentUser.id}/tracking`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(sessionData)
-				}
+					if (isFailure(fetchResult)) {
+						throw new Error(`Failed to save timer session: ${fetchResult.error}`);
+					}
+
+					const result = fetchResult.data;
+					console.log('Timer session saved:', result);
+					return result;
+				})(),
+				`Saving timer session for user ${$currentUser.id}`
 			);
 
-			if (isFailure(fetchResult)) {
-				throw new Error(`Failed to save timer session: ${fetchResult.error}`);
+			if (isFailure(result)) {
+				console.error('Error saving timer session:', result.error);
 			}
-
-			const result = fetchResult.data;
-			console.log('Timer session saved:', result);
-			return result;
-		})(), `Saving timer session for user ${$currentUser.id}`);
-
-		if (isFailure(result)) {
-			console.error('Error saving timer session:', result.error);
 		}
 	}
-}
 
 	async function handleBeforeUnload() {
 		if (isTracking && $currentUser) {

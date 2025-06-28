@@ -11,12 +11,9 @@ export async function fetchTaskHierarchyData(
 		params.append('project_id', projectId);
 	}
 
-	const result = await fetchTryCatch<HierarchyData>(
-		`/api/tasks/hierarchy?${params}`,
-		{
-			method: 'GET'
-		}
-	);
+	const result = await fetchTryCatch<HierarchyData>(`/api/tasks/hierarchy?${params}`, {
+		method: 'GET'
+	});
 
 	if (!result.success) {
 		console.error('Error fetching task hierarchy data:', result.error);

@@ -126,7 +126,7 @@
 		threadListVisibility,
 		updateThread,
 		addMessageToThread,
-		deleteThread,
+		deleteThread
 	} from '$lib/clients/threadsClient';
 
 	// ===== POCKETBASE IMPORTS =====
@@ -134,7 +134,6 @@
 		pocketbaseUrl,
 		getUserById,
 		getPublicUsersBatch,
-		updateAIAgent,
 		checkPocketBaseConnection,
 		updateUser
 	} from '$lib/pocketbase';
@@ -762,7 +761,7 @@
 							class:selected={$sortOptionInfo.value === option.value}
 							on:click={() => UIUtils.setSortOption(option.value)}
 						>
-							<svelte:component this={option.icon} />
+							{@html getIcon(option.icon, { size: 16 })}
 							<span>{option.label}</span>
 							{#if $sortOptionInfo.value === option.value}
 								<span class="check-icon">

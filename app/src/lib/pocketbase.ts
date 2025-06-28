@@ -2,7 +2,15 @@ import { writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import type { AuthModel } from 'pocketbase';
 import type { User } from '$lib/types/types';
-import { pbTryCatch, isSuccess, isFailure, storageTryCatch, clientTryCatch, fetchTryCatch, rateLimitTryCatch, fileTryCatch } from '$lib/utils/errorUtils';
+import {
+	isSuccess,
+	isFailure,
+	storageTryCatch,
+	clientTryCatch,
+	fetchTryCatch,
+	rateLimitTryCatch,
+	fileTryCatch
+} from '$lib/utils/errorUtils';
 interface RequestInitCustom {
 	method?: string;
 	headers?: Record<string, string>;
@@ -59,13 +67,6 @@ currentUser.subscribe((user) => {
 	}
 });
 
-
-
-
-
-
-
-
 // ============= Authentication API Calls =============
 
 export async function checkPocketBaseConnection(): Promise<boolean> {
@@ -93,7 +94,6 @@ export function getFileUrl(
 	if (!filename) return '';
 	return `${pocketbaseUrl}/api/files/${collection}/${record.id}/${filename}`;
 }
-
 
 export async function ensureAuthenticated(): Promise<boolean> {
 	// If there's already an auth check in progress, return that promise
@@ -141,11 +141,11 @@ export async function ensureAuthenticated(): Promise<boolean> {
 		// Handle successful fetch
 		if (isSuccess(authResult)) {
 			const wrappedResponse = authResult.data;
-			
+
 			// The response is wrapped by apiTryCatch, so we need to access the nested data
 			if (wrappedResponse.success && wrappedResponse.data) {
 				const actualData = wrappedResponse.data;
-				
+
 				if (actualData.success && actualData.user) {
 					console.log('Authentication confirmed by server');
 
@@ -197,18 +197,21 @@ export async function ensureAuthenticated(): Promise<boolean> {
 
 	return authCheckInProgress;
 }
-export async function updateUserStatus(userId: string, status: 'online' | 'offline'): Promise<boolean> {
+export async function updateUserStatus(
+	userId: string,
+	status: 'online' | 'offline'
+): Promise<boolean> {
 	const updateResult = await clientTryCatch(
 		(async () => {
 			const url = `/api/users/${userId}`;
 			console.log('🔍 Calling user update API:', url, 'status:', status);
-			
+
 			const response = await fetch(url, {
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({ 
+				body: JSON.stringify({
 					status,
 					last_login: new Date().toISOString()
 				}),
@@ -222,7 +225,7 @@ export async function updateUserStatus(userId: string, status: 'online' | 'offli
 
 			const data = await response.json();
 			console.log('📥 Status update response:', data);
-			
+
 			if (!data.success) {
 				throw new Error(data.error || 'Unknown error during status update');
 			}
@@ -242,7 +245,7 @@ export async function updateUserStatus(userId: string, status: 'online' | 'offli
 	// Update current user if it's the same user
 	const currentUserValue = get(currentUser);
 	if (currentUserValue && userId === currentUserValue.id) {
-		currentUser.update(user => {
+		currentUser.update((user) => {
 			if (!user) return user;
 			return {
 				...user,
@@ -250,11 +253,11 @@ export async function updateUserStatus(userId: string, status: 'online' | 'offli
 				last_login: updatedUser.last_login
 			};
 		});
-		
+
 		// Update auth cache
 		if (cachedAuthState && cachedAuthState.user) {
-			cachedAuthState.user = { 
-				...cachedAuthState.user, 
+			cachedAuthState.user = {
+				...cachedAuthState.user,
 				status: updatedUser.status,
 				last_login: updatedUser.last_login
 			};
@@ -314,11 +317,11 @@ export async function ensureAuthenticatedV2(): Promise<boolean> {
 		// Handle successful fetch with clientTryCatch
 		if (isSuccess(authResult)) {
 			const wrappedResponse = authResult.data as ApiResponse<{ success: boolean; user?: User }>;
-			
+
 			// Handle the apiTryCatch wrapped response
 			if (wrappedResponse.success && wrappedResponse.data) {
 				const actualData = wrappedResponse.data;
-				
+
 				if (actualData.success && actualData.user) {
 					console.log('Authentication confirmed by server');
 
@@ -345,7 +348,7 @@ export async function ensureAuthenticatedV2(): Promise<boolean> {
 
 		// Handle clientTryCatch errors
 		console.error('Auth check failed:', authResult.error);
-		
+
 		// Check if it's a timeout error
 		if (authResult.error.includes('timed out')) {
 			console.warn('Auth check timed out - server may be slow');
@@ -377,8 +380,8 @@ async function fetchFreshUserData(userId: string): Promise<User> {
 		throw new Error(`Failed to fetch user data: ${response.status}`);
 	}
 
-	const wrappedResponse = await response.json() as ApiResponse<User>;
-	
+	const wrappedResponse = (await response.json()) as ApiResponse<User>;
+
 	// Handle apiTryCatch wrapped response
 	if (wrappedResponse.success && wrappedResponse.data) {
 		return wrappedResponse.data;
@@ -392,10 +395,7 @@ export async function refreshCurrentUser(): Promise<void> {
 	const user = get(currentUser);
 	if (!user?.id) return;
 
-	const result = await clientTryCatch(
-		fetchFreshUserData(user.id),
-		'refresh current user'
-	);
+	const result = await clientTryCatch(fetchFreshUserData(user.id), 'refresh current user');
 
 	if (isSuccess(result)) {
 		currentUser.set(result.data);
@@ -451,7 +451,12 @@ export async function signIn(
 
 	console.log(`Signing in (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
-	const result = await fetchTryCatch<{ success: boolean; user?: User; token?: string; error?: string }>(
+	const result = await fetchTryCatch<{
+		success: boolean;
+		user?: User;
+		token?: string;
+		error?: string;
+	}>(
 		'/api/verify/signin',
 		{
 			method: 'POST',
@@ -464,7 +469,7 @@ export async function signIn(
 
 	if (isSuccess(result)) {
 		const data = result.data;
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Unknown error');
 		}
@@ -478,7 +483,7 @@ export async function signIn(
 		// Clear auth cache and set new user
 		clearAuthCache();
 		currentUser.set(data.user);
-await updateUserStatus(data.user.id, 'online');
+		await updateUserStatus(data.user.id, 'online');
 
 		console.log('Sign-in successful');
 		return {
@@ -520,7 +525,7 @@ export async function signUp(email: string, password: string): Promise<User | nu
 
 	if (isSuccess(result)) {
 		const data = result.data;
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Unknown error during sign-up');
 		}
@@ -530,7 +535,7 @@ export async function signUp(email: string, password: string): Promise<User | nu
 		// Clear auth cache and set new user
 		clearAuthCache();
 		currentUser.set(data.user);
-		return data.user
+		return data.user;
 	}
 
 	// Log error and return null (matching original behavior)
@@ -561,8 +566,14 @@ export async function signOut(): Promise<void> {
 
 	// Always clear local data (even if server request failed)
 	clearAuthCache();
+	const currentUserValue = get(currentUser);
+	const userId = currentUserValue?.id;
+
 	currentUser.set(null);
-	await updateUserStatus('offline');
+
+	if (userId) {
+		await updateUserStatus(userId, 'offline');
+	}
 
 	// Clear stored auth data safely
 	storageTryCatch(
@@ -579,24 +590,22 @@ export async function signOut(): Promise<void> {
 	console.log('Sign-out completed successfully');
 }
 
-
 export async function updateUser(id: string, userData: FormData | Partial<User>): Promise<User> {
 	console.log('Updating user at:', `/api/verify/users/${id}`);
 
 	const isFormData = userData instanceof FormData;
 	const timeout = isFormData ? 30000 : 10000; // 30s for files, 10s for JSON
 
-const fetchOptions: RequestInitCustom = {
-	method: 'PATCH',
-	credentials: 'include',
-	...(isFormData 
-		? { body: userData }
-		: {
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(userData)
-		}
-	)
-};
+	const fetchOptions: RequestInitCustom = {
+		method: 'PATCH',
+		credentials: 'include',
+		...(isFormData
+			? { body: userData }
+			: {
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(userData)
+				})
+	};
 
 	const result = await fetchTryCatch<{ success: boolean; user: User; error?: string }>(
 		`/api/verify/users/${id}`,
@@ -643,7 +652,7 @@ export async function getUserById(
 	bypassCache: boolean = false
 ): Promise<User | null> {
 	console.log('getUserById: Starting with userId:', userId, 'bypassCache:', bypassCache);
-	
+
 	const now = Date.now();
 	const cachedUser = userCache.get(userId);
 	if (!bypassCache && cachedUser && now - cachedUser.timestamp < CACHE_DURATION) {
@@ -653,7 +662,12 @@ export async function getUserById(
 
 	console.log('getUserById: Making API request to /api/verify/users/' + userId + '/public');
 
-	const result = await fetchTryCatch<{ success: boolean; user?: User; data?: User; error?: string }>(
+	const result = await fetchTryCatch<{
+		success: boolean;
+		user?: User;
+		data?: User;
+		error?: string;
+	}>(
 		`/api/verify/users/${userId}/public`,
 		{
 			method: 'GET',
@@ -677,7 +691,7 @@ export async function getUserById(
 
 	// Try different possible response structures
 	let userData: User | null = null;
-	
+
 	if (data.user) {
 		console.log('getUserById: Found user data in data.user');
 		userData = data.user;
@@ -686,7 +700,7 @@ export async function getUserById(
 		userData = data.data;
 	} else {
 		// Maybe the user data is directly in the response (excluding success field)
-		const { success, error, ...possibleUserData } = data;
+		const { success: _, error: __, ...possibleUserData } = data;
 		if (Object.keys(possibleUserData).length > 0) {
 			console.log('getUserById: Found user data in root level');
 			userData = possibleUserData as User;
@@ -702,7 +716,6 @@ export async function getUserById(
 	userCache.set(userId, { data: userData, timestamp: now });
 	return userData;
 }
-
 
 const pendingRequests = new Map<string, Promise<Partial<User>[]>>();
 
@@ -748,7 +761,13 @@ async function executeUserBatchRequest(userIds: string[]): Promise<Partial<User>
 	const user = get(currentUser);
 
 	const result = await rateLimitTryCatch(
-		fetchTryCatch<{ success: boolean; users: Partial<User>[]; meta?: any; error?: string; message?: string }>(
+		fetchTryCatch<{
+			success: boolean;
+			users: Partial<User>[];
+			meta?: { cached?: boolean; responseTime?: number };
+			error?: string;
+			message?: string;
+		}>(
 			url,
 			{
 				method: 'POST',
@@ -762,7 +781,7 @@ async function executeUserBatchRequest(userIds: string[]): Promise<Partial<User>
 				body: JSON.stringify({ userIds })
 			},
 			15000 // 15 second timeout
-		).then(fetchResult => {
+		).then((fetchResult) => {
 			if (!isSuccess(fetchResult)) {
 				throw new Error(fetchResult.error);
 			}
@@ -821,10 +840,10 @@ export async function getPublicUserByUsername(username: string): Promise<Partial
 	}
 
 	const data = result.data;
-	
+
 	// Type-safe way to handle the potential wrapper
 	let actualData: UserProfileResponse;
-	
+
 	if ('data' in data && typeof data.data === 'object' && data.data !== null) {
 		// It's wrapped by apiTryCatch
 		actualData = data.data as UserProfileResponse;
@@ -832,7 +851,7 @@ export async function getPublicUserByUsername(username: string): Promise<Partial
 		// It's not wrapped
 		actualData = data as UserProfileResponse;
 	}
-	
+
 	if (!actualData || !actualData.user) {
 		console.error('User not found in response:', actualData);
 		return null;
@@ -956,69 +975,65 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 // Add these functions to your lib/pocketbase.ts file
 
 export async function uploadProfileWallpaper(userId: string, file: File): Promise<User | null> {
-    const uploadResult = await fileTryCatch(
-        (async () => {
-            const formData = new FormData();
-            formData.append('profileWallpaper', file); // This field is already handled in your verify endpoint
+	const uploadResult = await fileTryCatch(
+		(async () => {
+			const formData = new FormData();
+			formData.append('profileWallpaper', file); // This field is already handled in your verify endpoint
 
-            const url = `/api/verify/users/${userId}`; // Use the existing verify endpoint
-            const response = await fetch(url, {
-                method: 'PATCH',
-                body: formData,
-                credentials: 'include',
-                signal: AbortSignal.timeout(30000)
-            });
+			const url = `/api/verify/users/${userId}`; // Use the existing verify endpoint
+			const response = await fetch(url, {
+				method: 'PATCH',
+				body: formData,
+				credentials: 'include',
+				signal: AbortSignal.timeout(30000)
+			});
 
-            if (!response.ok) {
-                console.error('Wallpaper upload failed:', response.status, response.statusText);
-                throw new Error(`Upload failed with status: ${response.status}`);
-            }
+			if (!response.ok) {
+				console.error('Wallpaper upload failed:', response.status, response.statusText);
+				throw new Error(`Upload failed with status: ${response.status}`);
+			}
 
-            const data = await response.json();
+			const data = await response.json();
 			console.log('🔍 Description API response:', data);
 
-            if (!data.success) throw new Error(data.error || 'Unknown error during upload');
+			if (!data.success) throw new Error(data.error || 'Unknown error during upload');
 
-		return data.user || data.data || { id: userId, profileWallpaper: 'uploaded' };
-        })(),
-        file.name,
-        5
-    );
+			return data.user || data.data || { id: userId, profileWallpaper: 'uploaded' };
+		})(),
+		file.name,
+		5
+	);
 
-    if (!uploadResult.success) {
-        console.error('Wallpaper upload error:', uploadResult.error);
-        throw new Error(uploadResult.error);
-    }
+	if (!uploadResult.success) {
+		console.error('Wallpaper upload error:', uploadResult.error);
+		throw new Error(uploadResult.error);
+	}
 
-    const updatedUser = uploadResult.data;
+	const updatedUser = uploadResult.data;
 
-    // if (!updatedUser || !updatedUser.id) {
-    //     console.error('No user data returned from upload');
-    //     throw new Error('Upload succeeded but no user data returned');
-    // }
 	if (!updatedUser) {
 		console.warn('No user data returned, but upload may have succeeded');
 		return null;
 	}
-    // Update current user if it's the same user
-    if (userId === updatedUser.id) {
-        currentUser.update(user => {
-            if (!user) return user;
-            return {
-                ...user,
+	// Update current user if it's the same user
+	if (userId === updatedUser.id) {
+		currentUser.update((user) => {
+			if (!user) return user;
+			return {
+				...user,
 				profileWallpaper: updatedUser?.profileWallpaper || 'uploaded'
-            };
-        });
-        
-        if (cachedAuthState) {
-            cachedAuthState.user = { 
-                ...cachedAuthState.user, 
-				profileWallpaper: updatedUser?.profileWallpaper || 'uploaded'
-            };
-        }
-    }
+			};
+		});
 
-    return updatedUser;
+		if (cachedAuthState) {
+			cachedAuthState.user = {
+				...cachedAuthState.user,
+				profileWallpaper: updatedUser?.profileWallpaper || 'uploaded'
+			};
+		}
+	}
+
+	return updatedUser;
 }
 
 export async function updateUserDescription(userId: string, description: string): Promise<boolean> {
@@ -1056,31 +1071,28 @@ export async function updateUserDescription(userId: string, description: string)
 
 	const updatedUser = updateResult.data;
 
-
-
 	// Update current user if it's the same user
 	const currentUserValue = get(currentUser);
 	if (currentUserValue && userId === currentUserValue.id) {
-		currentUser.update(user => {
+		currentUser.update((user) => {
 			if (!user) return user;
 			return {
 				...user,
 				description: updatedUser.description
 			};
 		});
-		
+
 		// Update auth cache
 		if (cachedAuthState && cachedAuthState.user) {
-			cachedAuthState.user = { 
-				...cachedAuthState.user, 
-				description: updatedUser.description 
+			cachedAuthState.user = {
+				...cachedAuthState.user,
+				description: updatedUser.description
 			};
 		}
 	}
 
 	return true;
 }
-
 
 /**
  * Request a password reset email for the specified user
@@ -1117,5 +1129,3 @@ export async function requestPasswordReset(email: string): Promise<boolean> {
 export function unsubscribeFromChanges(unsubscribe: () => void): void {
 	unsubscribe();
 }
-
-

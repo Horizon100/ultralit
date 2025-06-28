@@ -5,8 +5,7 @@
 	import { projectStore } from '$lib/stores/projectStore';
 	import { get } from 'svelte/store';
 	import type { User, KanbanColumn } from '$lib/types/types';
-		import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let taskId: string;
 	export let assignedTo: string = '';

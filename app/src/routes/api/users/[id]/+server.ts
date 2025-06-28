@@ -159,23 +159,23 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				}
 			}
 		});
-} catch (err) {
-	console.error('Error updating user data:', err);
-	
-	// Log detailed error information
-	if (err && typeof err === 'object') {
-		console.error('Full error object:', JSON.stringify(err, null, 2));
-		if ('response' in err) {
-			console.error('Error response:', err.response);
+	} catch (err) {
+		console.error('Error updating user data:', err);
+
+		// Log detailed error information
+		if (err && typeof err === 'object') {
+			console.error('Full error object:', JSON.stringify(err, null, 2));
+			if ('response' in err) {
+				console.error('Error response:', err.response);
+			}
 		}
+
+		return json(
+			{
+				success: false,
+				error: err instanceof Error ? err.message : 'Failed to update user'
+			},
+			{ status: 400 }
+		);
 	}
-	
-	return json(
-		{
-			success: false,
-			error: err instanceof Error ? err.message : 'Failed to update user'
-		},
-		{ status: 400 }
-	);
-}
 };

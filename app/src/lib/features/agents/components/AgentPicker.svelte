@@ -47,12 +47,12 @@
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
 
-		const statusIcons: Record<string, IconName> = {
-			active: 'Activity',
-			inactive: 'Compass',
-			maintenance: 'ServerCog',
-			paused: 'OctagonPause'
-		};
+	const statusIcons: Record<string, IconName> = {
+		active: 'Activity',
+		inactive: 'Compass',
+		maintenance: 'ServerCog',
+		paused: 'OctagonPause'
+	};
 
 	const agentUserInputs: { value: 'end' | 'never' | 'always'; label: string }[] = [
 		{ value: 'end', label: 'end' },
@@ -70,10 +70,10 @@
 	];
 
 	const roleIcons: Record<string, IconName> = {
-	hub: 'Cpu',
-	proxy: 'ShieldCheck',
-	assistant: 'HeadphonesIcon',
-	moderator: 'AlertCircle'
+		hub: 'Cpu',
+		proxy: 'ShieldCheck',
+		assistant: 'HeadphonesIcon',
+		moderator: 'AlertCircle'
 	};
 
 	function toggleFilters() {
@@ -235,8 +235,6 @@
 		resetForm();
 	}
 
-
-
 	async function handleDelete(agent: AIAgent) {
 		if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
 			try {
@@ -261,69 +259,69 @@
 		if (uploadInput) uploadInput.click();
 	}
 
-async function handleSubmit() {
-	if (!agentName || !selectedRole) {
-		updateStatus = 'Please fill in all required fields.';
-		return;
-	}
-
-	const agentData: Partial<AIAgent> = {
-		name: agentName,
-		description: agentDescription,
-		max_attempts: agentMaxAttempts,
-		user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
-		prompt: agentPrompt,
-		model: agentModel,
-		actions: agentActions,
-		role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
-		status: 'inactive',
-		tags: selectedTags
-	};
-
-	try {
-		console.log('Submitting agent data:', agentData);
-
-		const formData = new FormData();
-		if (avatarFile) {
-			formData.append('avatar', avatarFile);
-		}
-		for (const [key, value] of Object.entries(agentData)) {
-			formData.append(key, JSON.stringify(value));
+	async function handleSubmit() {
+		if (!agentName || !selectedRole) {
+			updateStatus = 'Please fill in all required fields.';
+			return;
 		}
 
-		if (selectedAgent) {
-			const updateResult = await updateAgent(selectedAgent.id, formData);
-			if (!isSuccess(updateResult)) {
-				throw new Error(updateResult.error);
+		const agentData: Partial<AIAgent> = {
+			name: agentName,
+			description: agentDescription,
+			max_attempts: agentMaxAttempts,
+			user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
+			prompt: agentPrompt,
+			model: agentModel,
+			actions: agentActions,
+			role: selectedRole.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+			status: 'inactive',
+			tags: selectedTags
+		};
+
+		try {
+			console.log('Submitting agent data:', agentData);
+
+			const formData = new FormData();
+			if (avatarFile) {
+				formData.append('avatar', avatarFile);
 			}
-		} else {
-			const createResult = await createAgent(formData);
-			if (isSuccess(createResult)) {
-				agentStore.addAgent(createResult.data);
+			for (const [key, value] of Object.entries(agentData)) {
+				formData.append(key, JSON.stringify(value));
+			}
+
+			if (selectedAgent) {
+				const updateResult = await updateAgent(selectedAgent.id, formData);
+				if (!isSuccess(updateResult)) {
+					throw new Error(updateResult.error);
+				}
 			} else {
-				throw new Error(createResult.error);
+				const createResult = await createAgent(formData);
+				if (isSuccess(createResult)) {
+					agentStore.addAgent(createResult.data);
+				} else {
+					throw new Error(createResult.error);
+				}
 			}
+
+			// Reset UI state
+			showCreateForm = false;
+			selectedAgent = null;
+			resetForm();
+			avatarFile = null;
+			await loadAgents();
+		} catch (error) {
+			console.error('Error saving agent:', error);
+
+			if (error instanceof ClientResponseError) {
+				console.error('Response data:', error.data);
+				console.error('Status code:', error.status);
+			} else if (error instanceof Error) {
+				console.error('Error message:', error.message);
+			}
+
+			updateStatus = 'Error saving agent. Please try again.';
 		}
-
-		// Reset UI state
-		showCreateForm = false;
-		selectedAgent = null;
-		resetForm();
-		avatarFile = null;
-		await loadAgents();
-	} catch (error) {
-		console.error('Error saving agent:', error);
-
-		if (error instanceof ClientResponseError) {
-			console.error('Response data:', error.data);
-			console.error('Status code:', error.status);
-		} else if (error instanceof Error) {
-			console.error('Error message:', error.message);
-		}
-
-		updateStatus = 'Error saving agent. Please try again.';
 	}
-}
 	function showRoleInfo() {
 		// Implement role info modal or tooltip
 	}
@@ -357,7 +355,7 @@ async function handleSubmit() {
 								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									{@html getIcon('Bot', { size: 48 })}	
+									{@html getIcon('Bot', { size: 48 })}
 								</div>
 							{/if}
 						</div>
@@ -506,7 +504,7 @@ async function handleSubmit() {
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"
@@ -659,7 +657,7 @@ async function handleSubmit() {
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}	
+							{@html getIcon('Upload', { size: 24 })}
 						</div>
 						<input
 							type="file"

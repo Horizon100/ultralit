@@ -58,12 +58,12 @@
 	import Toast from '$lib/components/modals/Toast.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { swipeGesture } from '$lib/utils/swipeGesture';
-	import { 
-		clientTryCatch, 
-		fetchTryCatch, 
+	import {
+		clientTryCatch,
+		fetchTryCatch,
 		storageTryCatch,
-		isSuccess, 
-		isFailure 
+		isSuccess,
+		isFailure
 	} from '$lib/utils/errorUtils';
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 
@@ -112,34 +112,32 @@
 
 	// Styles configuration
 	const styles = [
-	{ name: 'Daylight Delight', value: 'default', icon: 'Sun' as IconName },
-	{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' as IconName },
-	{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' as IconName },
-	{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' as IconName },
-	{ name: 'Laser Focus', value: 'focus', icon: 'Focus' as IconName },
-	{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' as IconName },
-	{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' as IconName },
-	{ name: 'Bone Tone', value: 'bone', icon: 'Bone' as IconName },
-	{ name: 'Ivory Tower', value: 'ivoryx', icon: 'Component' as IconName }
+		{ name: 'Daylight Delight', value: 'default', icon: 'Sun' as IconName },
+		{ name: 'Midnight Madness', value: 'dark', icon: 'Moon' as IconName },
+		{ name: 'Sunrise Surprise', value: 'light', icon: 'Sunrise' as IconName },
+		{ name: 'Sunset Serenade', value: 'sunset', icon: 'Sunset' as IconName },
+		{ name: 'Laser Focus', value: 'focus', icon: 'Focus' as IconName },
+		{ name: 'Bold & Beautiful', value: 'bold', icon: 'Bold' as IconName },
+		{ name: 'Turbo Mode', value: 'turbo', icon: 'Gauge' as IconName },
+		{ name: 'Bone Tone', value: 'bone', icon: 'Bone' as IconName },
+		{ name: 'Ivory Tower', value: 'ivoryx', icon: 'Component' as IconName }
 	];
 
-const pageHoverManager = createHoverManager({
-	hoverZone: 50,
-	minScreenWidth: 700,
-	debounceDelay: 100,
-	controls: ['settings'],
-	direction: 'left'
-});
+	const pageHoverManager = createHoverManager({
+		hoverZone: 50,
+		minScreenWidth: 700,
+		debounceDelay: 100,
+		controls: ['settings'],
+		direction: 'left'
+	});
 
-const { 
-	hoverState: pageHoverState, 
-	handleMenuLeave: handlePageMenuLeave, 
-	toggleMenu: togglePageMenu 
-} = pageHoverManager;
+	const {
+		hoverState: pageHoverState,
+		handleMenuLeave: handlePageMenuLeave,
+		toggleMenu: togglePageMenu
+	} = pageHoverManager;
 
-
-
-let pageCleanup: (() => void) | null = null;
+	let pageCleanup: (() => void) | null = null;
 
 	// Functions
 	function getRandomQuote(): string {
@@ -291,10 +289,7 @@ let pageCleanup: (() => void) | null = null;
 	}
 
 	async function logout() {
-		const result = await clientTryCatch(
-			signOut(),
-			'User logout'
-		);
+		const result = await clientTryCatch(signOut(), 'User logout');
 
 		if (isSuccess(result)) {
 			showProfile = false;
@@ -303,10 +298,10 @@ let pageCleanup: (() => void) | null = null;
 			console.error('Error during logout:', result.error);
 		}
 	}
-	function isUsernameRoute(path: string): boolean {
-		// Match /username or /username/posts or /username/posts/id
-		return /^\/[^\/]+(?:\/posts(?:\/[^\/]+)?)?$/.test(path);
-	}
+	// function isUsernameRoute(path: string): boolean {
+	// 	// Match /username or /username/posts or /username/posts/id
+	// 	return /^\/[^\/]+(?:\/posts(?:\/[^\/]+)?)?$/.test(path);
+	// }
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
 	$: {
 		if ($currentUser?.wallpaper_preference) {
@@ -331,11 +326,8 @@ let pageCleanup: (() => void) | null = null;
 
 			// Initialize theme and language (global)
 			currentTheme.initialize();
-			
-			const languageResult = await clientTryCatch(
-				initializeLanguage(),
-				'Language initialization'
-			);
+
+			const languageResult = await clientTryCatch(initializeLanguage(), 'Language initialization');
 
 			if (isFailure(languageResult)) {
 				console.error('Failed to initialize language:', languageResult.error);
@@ -384,7 +376,7 @@ let pageCleanup: (() => void) | null = null;
 
 				// Force refresh user data to get wallpaper_preference
 				console.log('🔄 Fetching fresh user data with wallpaper_preference...');
-				
+
 				const userDataResult = await fetchTryCatch<{ success: boolean; user: any }>(
 					`/api/verify/users/${$currentUser.id}`,
 					{
@@ -396,7 +388,10 @@ let pageCleanup: (() => void) | null = null;
 					console.log('📦 Fresh user data:', userDataResult.data);
 
 					if (userDataResult.data.success && userDataResult.data.user) {
-						console.log('🎯 Fresh wallpaper_preference:', userDataResult.data.user.wallpaper_preference);
+						console.log(
+							'🎯 Fresh wallpaper_preference:',
+							userDataResult.data.user.wallpaper_preference
+						);
 						// Update the currentUser store with fresh data
 						currentUser.set(userDataResult.data.user);
 						console.log('✅ Updated currentUser store with fresh data');
@@ -503,9 +498,7 @@ let pageCleanup: (() => void) | null = null;
 	{/if}
 	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
 	<header>
-		{#if $currentUser}
-
-		{:else}
+		{#if $currentUser}{:else}
 			<span class="header-auth">
 				<button
 					class="nav-link login"
@@ -526,7 +519,6 @@ let pageCleanup: (() => void) | null = null;
 				</span>
 			</span>
 		{/if}
-
 	</header>
 	<nav style="z-index: 1000;"></nav>
 	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
@@ -556,58 +548,54 @@ let pageCleanup: (() => void) | null = null;
 					</button>
 				{/if}
 				{#if !($showSettings && isNavExpanded)}
-
-				<button
-					class="nav-button drawer"
-					class:expanded={isNavExpanded}
-					class:active={$showSettings}
-					class:reveal-active={$showSettings}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeRight: () => {
-							console.log('🟢 Left button swiped right - showing sidenav');
+					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showSettings}
+						class:reveal-active={$showSettings}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeRight: () => {
+								console.log('🟢 Left button swiped right - showing sidenav');
+								if (innerWidth <= 450) {
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
+								if (!$showSettings) {
+									sidenavStore.toggleSettings();
+								}
+								isNavExpanded = false;
+							},
+							onSwipeLeft: () => {
+								console.log('🟢 Left button swiped left - hiding sidenav');
+								if ($showSettings) {
+									sidenavStore.hideSettings();
+								}
+								isNavExpanded = false;
+							}
+						}}
+						on:click={(event) => {
+							event.preventDefault();
 							if (innerWidth <= 450) {
+								// Mobile: close others first
 								sidenavStore.hideInput();
 								sidenavStore.hideRight();
 							}
-							if (!$showSettings) {
-								sidenavStore.toggleSettings();
-							}
+							sidenavStore.toggleSettings();
 							isNavExpanded = false;
-						},
-						onSwipeLeft: () => {
-							console.log('🟢 Left button swiped left - hiding sidenav');
-							if ($showSettings) {
-								sidenavStore.hideSettings();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideInput();
-							sidenavStore.hideRight();
-						}
-						sidenavStore.toggleSettings();
-						isNavExpanded = false;
-					}}
-				>
-					{#if $showSettings}
-					{@html getIcon('ChevronLeft')}
-
-					{:else}
-					{@html getIcon('MoreVertical')}
-
-					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.sidebar')}</span>
-					{/if}
-				</button>
+						}}
+					>
+						{#if $showSettings}
+							{@html getIcon('ChevronLeft')}
+						{:else}
+							{@html getIcon('MoreVertical')}
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.sidebar')}</span>
+						{/if}
+					</button>
 				{/if}
-
 
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
@@ -650,11 +638,9 @@ let pageCleanup: (() => void) | null = null;
 						}}
 					>
 						{#if $showSidenav}
-						{@html getIcon('ChevronLeft')}
-
+							{@html getIcon('ChevronLeft')}
 						{:else}
-						{@html getIcon('Filter')}
-
+							{@html getIcon('Filter')}
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -1138,7 +1124,7 @@ let pageCleanup: (() => void) | null = null;
 						{/if}
 					</button>
 				{/if}
-								<button
+				<button
 					class="nav-button drawer"
 					class:expanded={isNavExpanded}
 					class:active={$showSearch}
@@ -1214,7 +1200,6 @@ let pageCleanup: (() => void) | null = null;
 		</div>
 	{/if}
 
-
 	{#if showLanguageNotification}
 		<div class="language-overlay" transition:fade={{ duration: 300 }}>
 			<div class="language-notification" transition:fade={{ duration: 300 }}>
@@ -1227,10 +1212,7 @@ let pageCleanup: (() => void) | null = null;
 	{/if}
 
 	{#if showStyles}
-		<div
-			class="style-overlay"
-			transition:fly={{ x: -200, duration: 300 }}
-		>
+		<div class="style-overlay" transition:fly={{ x: -200, duration: 300 }}>
 			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
         <X size={24} />
     </button> -->
@@ -1273,11 +1255,9 @@ let pageCleanup: (() => void) | null = null;
 	</main>
 	<Toast />
 	{#if $showSettings}
-		
 		<div
 			class="navigator-menu"
 			class:expanded={isNavExpanded}
-
 			on:mouseleave={() => {
 				handlePageMenuLeave();
 			}}
@@ -1344,7 +1324,6 @@ let pageCleanup: (() => void) | null = null;
 				{/if}
 			</button>
 
-
 			<a
 				class="shortcut"
 				class:expanded={isNavExpanded}
@@ -1358,8 +1337,7 @@ let pageCleanup: (() => void) | null = null;
 			>
 				{@html getIcon('Compass')}
 				<span class="nav-text">{$t('nav.chat')}</span>
-				{#if isNavExpanded}
-				{/if}
+				{#if isNavExpanded}{/if}
 			</a>
 			<a
 				class="shortcut"
@@ -1374,8 +1352,7 @@ let pageCleanup: (() => void) | null = null;
 			>
 				{@html getIcon('Command')}
 				<span class="nav-text">{$t('nav.tools')}</span>
-				{#if isNavExpanded}
-				{/if}
+				{#if isNavExpanded}{/if}
 			</a>
 			<!-- <a
 				class="shortcut"
@@ -1433,8 +1410,7 @@ let pageCleanup: (() => void) | null = null;
 			>
 				{@html getIcon('Github')}
 				<span class="nav-text">GitHub</span>
-				{#if isNavExpanded}
-				{/if}
+				{#if isNavExpanded}{/if}
 			</a>
 			<button
 				class="shortcut"
@@ -1503,7 +1479,6 @@ let pageCleanup: (() => void) | null = null;
 							{@html getIcon('LogOutIcon', { size: 16 })}
 						</span>
 					</div>
-
 				</div>
 			</button>
 
@@ -1513,20 +1488,20 @@ let pageCleanup: (() => void) | null = null;
 		</div>
 	{/if}
 	{#if showProfile}
-	<div
-		class="profile-overlay"
-		on:click={handleOverlayClick}
-		transition:fly={{ y: -200, duration: 300 }}
-	>
-		<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
-			<Profile
-				user={$currentUser}
-				onClose={() => (showProfile = false)}
-				onStyleClick={handleStyleClick}
-			/>
+		<div
+			class="profile-overlay"
+			on:click={handleOverlayClick}
+			transition:fly={{ y: -200, duration: 300 }}
+		>
+			<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+				<Profile
+					user={$currentUser}
+					onClose={() => (showProfile = false)}
+					onStyleClick={handleStyleClick}
+				/>
+			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
 	{#if $showSearch}
 		<!-- Search wrapper - hidden when logo is hovered -->
 		<div
@@ -1536,11 +1511,7 @@ let pageCleanup: (() => void) | null = null;
 			class:dropdown-open={isDropdownOpen}
 			class:search-open={isSearchFocused}
 		>
-				<SearchEngine
-					size="large"
-					placeholder={searchPlaceholder}
-					bind:isFocused={isSearchFocused}
-				/>
+			<SearchEngine size="large" placeholder={searchPlaceholder} bind:isFocused={isSearchFocused} />
 		</div>
 	{/if}
 	<footer>
@@ -1568,90 +1539,89 @@ let pageCleanup: (() => void) | null = null;
 		gap: 1rem;
 		margin-bottom: 0;
 	}
-		.navigator-menu {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: flex-end;
-			position: absolute;
-			flex: 1;
-			top: 0;
-			padding: 0.5rem;
-			gap: 1rem;
-			bottom: 3rem;
-			left: 0;
-			width: auto;
-			background: var(--primary-color);
-			padding-bottom: 4rem;
-			z-index: 9999;
-			border-right: 1px solid var(--secondary-color);
+	.navigator-menu {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		position: absolute;
+		flex: 1;
+		top: 0;
+		padding: 0.5rem;
+		gap: 1rem;
+		bottom: 3rem;
+		left: 0;
+		width: auto;
+		background: var(--primary-color);
+		padding-bottom: 4rem;
+		z-index: 9999;
+		border-right: 1px solid var(--secondary-color);
+
+		&:hover {
+			width: auto !important;
+		}
+		& button.shortcut {
+			padding: 0;
+			margin: 0;
+			background: transparent;
+			border: 1px solid transparent;
+			width: 60px;
+			height: 60px;
+			& .user-avatar {
+				width: 60px !important;
+				height: 60px !important;
+				border-radius: 50%;
+				object-fit: cover;
+			}
+			& .nav-text {
+				display: none;
+			}
+			& .icon {
+				display: none;
+			}
+			& .tracker {
+				display: none;
+			}
 
 			&:hover {
-				width: auto !important;
-			}
-			& button.shortcut {
-				padding: 0;
-				margin: 0;
-				background: transparent;
-				border: 1px solid transparent;
-				width: 60px;
-				height: 60px;
-				& .user-avatar {
-					width: 60px !important;
-					height: 60px !important;
-					border-radius: 50%;
-					object-fit: cover;
-				}
 				& .nav-text {
-					display: none;
+					display: flex;
 				}
 				& .icon {
-					display: none;
+					display: flex;
 				}
 				& .tracker {
-					display: none;
-				}
-				
-				&:hover {
-
-					& .nav-text {
-						display: flex;
-					}
-					& .icon {
-						display: flex;
-					}
-					& .tracker {
-						display: flex;
-					}
+					display: flex;
 				}
 			}
-			button.user-wrapper {
-				display: flex;
-				flex-direction: row !important;
-				align-items: flex-start;
-				justify-content: flex-end;
-				background: transparent !important;
-				height: auto;
-				width: 100%;
-				gap: 0;
+		}
+		button.user-wrapper {
+			display: flex;
+			flex-direction: row !important;
+			align-items: flex-start;
+			justify-content: flex-end;
+			background: transparent !important;
+			height: auto;
+			width: 100%;
+			gap: 0;
+		}
+		.user-shortcuts {
+			display: flex;
+			align-items: center;
+			width: 100%;
+			border: 1px solid var(--line-color);
+			gap: 0.5rem;
+			border-radius: 2rem;
+			transition: all 0.2s ease;
+			&:hover {
+				transform: translateX(4rem);
+				padding-right: 1rem;
+				background: var(--primary-color);
 			}
-			.user-shortcuts {
-				display: flex;
-				align-items: center;
-				width: 100%;
-				border: 1px solid var(--line-color);
-				gap: 0.5rem;
-				border-radius: 2rem;
-				transition: all 0.2s ease;
-				&:hover {
-					transform: translateX(4rem);
-					padding-right: 1rem;
-					background: var(--primary-color);
-				}
-			}
-			&.expanded {
-				width: 200px !important;
-				& button.shortcut {
+		}
+		&.expanded {
+			width: 200px !important;
+			& button.shortcut {
 				padding: 0;
 				margin: 0;
 				background: transparent;
@@ -1663,72 +1633,65 @@ let pageCleanup: (() => void) | null = null;
 					&:hover {
 						transform: translateX(1rem);
 						padding-right: 0;
-
 					}
-
 				}
 
-				
-
-					& .nav-text {
-						display: flex;
-					}
-					& .icon {
-						display: flex;
-					}
-					& .tracker {
-						display: flex;
-					}
-				
-			}
-				& a {
-					flex-direction: row !important;
-					width: 100% !important;
-					border-radius: 3rem;
-				}
 				& .nav-text {
 					display: flex;
 				}
-				& .logo-container {
-					width: 200px !important;
+				& .icon {
+					display: flex;
 				}
-				& h2 {
-					display: flex !important;
+				& .tracker {
+					display: flex;
 				}
-				
 			}
-			&  a {
+			& a {
+				flex-direction: row !important;
+				width: 100% !important;
+				border-radius: 3rem;
+			}
+			& .nav-text {
 				display: flex;
-				justify-content: center;
-				color: var(--placeholder-color);
-				width: 60px !important;
-				height: 60px;
-				gap: 0.5rem !important;
-				background: var(--primary-color);
-				opacity: 0.5;
-				border-radius: 50%;
-				border: 1px solid var(--line-color);
-				align-items: center;
-				/* padding: 20px; */
-				text-decoration: none;
-				transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-				&:hover {
-					color: var(--tertiary-color);
-					opacity: 100%;
-					cursor: pointer;
-				}
-				& .nav-text {
-					display: none;
-				}
-				
 			}
 			& .logo-container {
-				position: absolute;
-				top: 0.5rem;
-				left: 0;
-				width: 80px;
+				width: 200px !important;
+			}
+			& h2 {
+				display: flex !important;
 			}
 		}
+		& a {
+			display: flex;
+			justify-content: center;
+			color: var(--placeholder-color);
+			width: 60px !important;
+			height: 60px;
+			gap: 0.5rem !important;
+			background: var(--primary-color);
+			opacity: 0.5;
+			border-radius: 50%;
+			border: 1px solid var(--line-color);
+			align-items: center;
+			/* padding: 20px; */
+			text-decoration: none;
+			transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+			&:hover {
+				color: var(--tertiary-color);
+				opacity: 100%;
+				cursor: pointer;
+			}
+			& .nav-text {
+				display: none;
+			}
+		}
+		& .logo-container {
+			position: absolute;
+			top: 0.5rem;
+			left: 0;
+			width: 80px;
+		}
+	}
 	button {
 		transition: all 0.3s ease;
 		&.icon {
@@ -1773,14 +1736,14 @@ let pageCleanup: (() => void) | null = null;
 			&:hover {
 				backdrop-filter: blur(10px);
 				width: auto;
-				padding: 0.5rem; 
+				padding: 0.5rem;
 				height: auto;
 				flex-direction: row;
 				border-left: 4px solid var(--tertiary-color);
 				background: var(--primary-color);
 				justify-content: space-around;
 				border-radius: 3rem 0 0 3rem !important;
-				
+
 				.shortcut-buttons {
 					display: flex;
 				}
@@ -1795,11 +1758,11 @@ let pageCleanup: (() => void) | null = null;
 			}
 		}
 	}
-			img.logo {
-				width: 2rem;
-				height: 2rem;
-				position: relative;
-			}
+	img.logo {
+		width: 2rem;
+		height: 2rem;
+		position: relative;
+	}
 
 	.auth-overlay {
 		top: 0;
@@ -1841,7 +1804,7 @@ let pageCleanup: (() => void) | null = null;
 		margin: 0;
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
 		z-index: 1002;
-		
+
 		transition: all 0.3s ease;
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
 	}
@@ -2642,7 +2605,7 @@ let pageCleanup: (() => void) | null = null;
 		transform: none !important;
 		will-change: auto;
 		pointer-events: auto;
-		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); 
+		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 
 		/* Lock positioning */
 		transform: translateZ(0) !important;
@@ -2671,8 +2634,6 @@ let pageCleanup: (() => void) | null = null;
 	// .sidenav:hover {
 	//   /* backdrop-filter: blur(10px); */
 	// }
-
-
 
 	.nav-button {
 		display: flex;
@@ -2823,7 +2784,7 @@ let pageCleanup: (() => void) | null = null;
 			align-items: flex-start;
 			width: auto;
 			max-width: 500px;
-			
+
 			&:hover {
 				flex-direction: column !important;
 				justify-content: flex-start;
@@ -3042,8 +3003,6 @@ let pageCleanup: (() => void) | null = null;
 		margin-bottom: 1rem;
 	}
 
-
-
 	.nav-button,
 	.thread-toggle,
 	.close-button {
@@ -3254,7 +3213,6 @@ let pageCleanup: (() => void) | null = null;
 	.nav-button.reveal {
 		&.reveal-active {
 			background: var(--primary-color);
-
 		}
 	}
 	.nav-button.drawer.active {
@@ -3331,9 +3289,8 @@ let pageCleanup: (() => void) | null = null;
 				& .tracker {
 					display: none;
 				}
-				
-				&:hover {
 
+				&:hover {
 					& .nav-text {
 						display: flex;
 					}
@@ -3363,36 +3320,31 @@ let pageCleanup: (() => void) | null = null;
 				gap: 0.5rem;
 				border-radius: 2rem;
 				transition: all 0.2s ease;
-				
+
 				&:hover {
 					transform: scale(1.05);
 					padding-right: 1rem;
 					width: 200px !important;
 					background: var(--primary-color);
 					box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-
 				}
 			}
 			&.expanded {
 				width: 200px !important;
 				& button.shortcut {
-				padding: 0;
-				margin: 0;
-				background: transparent;
-				border: 1px solid transparent;
-				width: 100%;
-				height: 60px;
-				.user-shortcuts {
-					width: 200px;
-					&:hover {
-						transform: translateX(1rem);
-						padding-right: 0;
-
+					padding: 0;
+					margin: 0;
+					background: transparent;
+					border: 1px solid transparent;
+					width: 100%;
+					height: 60px;
+					.user-shortcuts {
+						width: 200px;
+						&:hover {
+							transform: translateX(1rem);
+							padding-right: 0;
+						}
 					}
-
-				}
-
-				
 
 					& .nav-text {
 						display: flex;
@@ -3403,8 +3355,7 @@ let pageCleanup: (() => void) | null = null;
 					& .tracker {
 						display: flex;
 					}
-				
-			}
+				}
 				& a {
 					flex-direction: row !important;
 					width: 100% !important;
@@ -3419,9 +3370,8 @@ let pageCleanup: (() => void) | null = null;
 				& h2 {
 					display: flex !important;
 				}
-				
 			}
-			&  a {
+			& a {
 				display: flex;
 				justify-content: center;
 				color: var(--placeholder-color);
@@ -3448,7 +3398,6 @@ let pageCleanup: (() => void) | null = null;
 				& .nav-text {
 					display: none;
 				}
-				
 			}
 			& .logo-container {
 				position: relative;
@@ -3909,8 +3858,6 @@ let pageCleanup: (() => void) | null = null;
 			backdrop-filter: none;
 			background: transparent;
 		}
-
-
 
 		.project {
 			margin-left: 0;

@@ -79,16 +79,16 @@ const sidenavControls: SidenavControls = {
 };
 
 export function createHoverManager(config: HoverConfig) {
-	const { 
-		hoverZone = 50, 
-		minScreenWidth = 700, 
-		debounceDelay = 100, 
+	const {
+		hoverZone = 50,
+		minScreenWidth = 700,
+		debounceDelay = 100,
 		controls = [],
 		direction = 'left',
 		extendedZone,
 		extendCondition
 	} = config;
-	
+
 	// Store for tracking hover state
 	const hoverState = writable<HoverState>({
 		isHovering: false,
@@ -117,39 +117,39 @@ export function createHoverManager(config: HoverConfig) {
 
 	// Show all controlled sidebars
 	function showControlledSidebars() {
-		controls.forEach(controlName => {
+		controls.forEach((controlName) => {
 			sidenavControls[controlName]?.show();
 		});
 	}
 
 	// Hide all controlled sidebars
 	function hideControlledSidebars() {
-		controls.forEach(controlName => {
+		controls.forEach((controlName) => {
 			sidenavControls[controlName]?.hide();
 		});
 	}
 
 	// Toggle all controlled sidebars
 	function toggleControlledSidebars() {
-		controls.forEach(controlName => {
+		controls.forEach((controlName) => {
 			sidenavControls[controlName]?.toggle();
 		});
 	}
 
 	// Check if mouse is in hover zone based on direction
 	function isInHoverZone(clientX: number, clientY: number): boolean {
-		const currentZone = (extendCondition && extendCondition()) ? 
-			(extendedZone || window.innerHeight) : hoverZone;
+		const currentZone =
+			extendCondition && extendCondition() ? extendedZone || window.innerHeight : hoverZone;
 
 		switch (direction) {
 			case 'left':
 				return clientX <= currentZone;
 			case 'right':
-				return clientX >= (window.innerWidth - currentZone);
+				return clientX >= window.innerWidth - currentZone;
 			case 'top':
 				return clientY <= currentZone;
 			case 'bottom':
-				return clientY >= (window.innerHeight - currentZone);
+				return clientY >= window.innerHeight - currentZone;
 			default:
 				return false;
 		}
@@ -159,9 +159,9 @@ export function createHoverManager(config: HoverConfig) {
 		if (!isScreenWidthValid()) return;
 
 		clearTimeouts();
-		
+
 		hoverTimeout = setTimeout(() => {
-			hoverState.update(state => ({
+			hoverState.update((state) => ({
 				...state,
 				isHovering: true
 			}));
@@ -174,9 +174,9 @@ export function createHoverManager(config: HoverConfig) {
 		if (!isScreenWidthValid()) return;
 
 		clearTimeouts();
-		
+
 		leaveTimeout = setTimeout(() => {
-			hoverState.update(state => {
+			hoverState.update((state) => {
 				// Only hide if not opened by toggle
 				if (!state.isOpenedByToggle) {
 					hideControlledSidebars();
@@ -195,7 +195,7 @@ export function createHoverManager(config: HoverConfig) {
 
 	// Toggle menu manually (e.g., by button click)
 	function toggleMenu() {
-		hoverState.update(state => {
+		hoverState.update((state) => {
 			const newToggleState = !state.isOpenedByToggle;
 			if (newToggleState) {
 				showControlledSidebars();
@@ -212,14 +212,14 @@ export function createHoverManager(config: HoverConfig) {
 	// Set up mouse move listener for edge detection
 	function setupEdgeDetection(element?: HTMLElement) {
 		const targetElement = element || (typeof document !== 'undefined' ? document.body : null);
-		
+
 		if (!targetElement) return () => {};
 
 		function handleMouseMove(event: MouseEvent) {
 			if (!isScreenWidthValid()) return;
 
 			const { clientX, clientY } = event;
-			
+
 			// Check if mouse is in the hover zone based on direction
 			if (isInHoverZone(clientX, clientY)) {
 				handleEdgeHover();
@@ -238,7 +238,7 @@ export function createHoverManager(config: HoverConfig) {
 	// Handle window resize to check screen width
 	function handleResize() {
 		if (!isScreenWidthValid()) {
-			hoverState.update(state => {
+			hoverState.update((state) => {
 				if (!state.isOpenedByToggle) {
 					hideControlledSidebars();
 				}
@@ -255,7 +255,7 @@ export function createHoverManager(config: HoverConfig) {
 		if (typeof window === 'undefined') return () => {};
 
 		window.addEventListener('resize', handleResize);
-		
+
 		return () => {
 			window.removeEventListener('resize', handleResize);
 		};

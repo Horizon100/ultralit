@@ -93,40 +93,39 @@
 		}
 	});
 
-async function initializePage() {
-    isLoading = true;
-    authError = false;
+	async function initializePage() {
+		isLoading = true;
+		authError = false;
 
-    try {
-        // Wait for authentication first
-        const authenticated = await ensureAuthenticated();
-        if (!authenticated) {
-            authError = true;
-            isLoading = false;
-            return;
-        }
+		try {
+			// Wait for authentication first
+			const authenticated = await ensureAuthenticated();
+			if (!authenticated) {
+				authError = true;
+				isLoading = false;
+				return;
+			}
 
-        user = $currentUser;
-        if (!user) {
-            authError = true;
-            isLoading = false;
-            return;
-        }
+			user = $currentUser;
+			if (!user) {
+				authError = true;
+				isLoading = false;
+				return;
+			}
 
-        userId = user.id;
-        
-        // Small delay to ensure everything is properly set
-        setTimeout(() => {
-            showPage = true;
-            isLoading = false;
-        }, 50);
+			userId = user.id;
 
-    } catch (error) {
-        console.error('Authentication error:', error);
-        authError = true;
-        isLoading = false;
-    }
-}
+			// Small delay to ensure everything is properly set
+			setTimeout(() => {
+				showPage = true;
+				isLoading = false;
+			}, 50);
+		} catch (error) {
+			console.error('Authentication error:', error);
+			authError = true;
+			isLoading = false;
+		}
+	}
 	function handleTaskClick(event: CustomEvent) {
 		const { task, name } = event.detail;
 		console.log('Task clicked:', name, task);
@@ -137,8 +136,6 @@ async function initializePage() {
 		showTaskModal = false;
 		selectedTask = null;
 	}
-
-
 
 	function closeTaskList() {
 		showTaskList = false;
@@ -179,34 +176,34 @@ async function initializePage() {
 			question: 0
 		}
 	} as InternalChatMessage;
-onMount(async () => {
-    initializePage();
-    
-    console.log('Starting hierarchy data fetch...');
-    
-    const hierarchyResult = await clientTryCatch(
-        fetchTaskHierarchyData('status', currentProjectId ?? undefined),
-        'Failed to load hierarchy data.'
-    );
+	onMount(async () => {
+		initializePage();
 
-    console.log('Hierarchy result:', hierarchyResult);
+		console.log('Starting hierarchy data fetch...');
 
-    if (isSuccess(hierarchyResult)) {
-        // Check if the data indicates an error
-        if (hierarchyResult.data.name === "No status data available") {
-            console.log('Data indicates error - showing toast');
-            toast.error('Failed to load hierarchy data. Please login in.');
-            hierarchyData = hierarchyResult.data;
-        } else {
-            console.log('Success - setting data');
-            hierarchyData = hierarchyResult.data;
-        }
-    } else {
-        console.log('Failure - showing toast and setting fallback');
-        toast.error('Failed to load hierarchy data.');
-        hierarchyData = { name: 'No data available', children: [] };
-    }
-});
+		const hierarchyResult = await clientTryCatch(
+			fetchTaskHierarchyData('status', currentProjectId ?? undefined),
+			'Failed to load hierarchy data.'
+		);
+
+		console.log('Hierarchy result:', hierarchyResult);
+
+		if (isSuccess(hierarchyResult)) {
+			// Check if the data indicates an error
+			if (hierarchyResult.data.name === 'No status data available') {
+				console.log('Data indicates error - showing toast');
+				toast.error('Failed to load hierarchy data. Please login in.');
+				hierarchyData = hierarchyResult.data;
+			} else {
+				console.log('Success - setting data');
+				hierarchyData = hierarchyResult.data;
+			}
+		} else {
+			console.log('Failure - showing toast and setting fallback');
+			toast.error('Failed to load hierarchy data.');
+			hierarchyData = { name: 'No data available', children: [] };
+		}
+	});
 </script>
 
 {#if showPage}
@@ -263,15 +260,21 @@ onMount(async () => {
 				{:else}{/if}
 
 				{#if showOverlay && user && !authError}
-    <div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-        <AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
-    </div>
-{:else if authError}
-    <div class="auth-error">
-        <p>Authentication failed. Please refresh the page.</p>
-        <button on:click={() => window.location.reload()}>Refresh</button>
-    </div>
-{/if}
+					<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+						<AIChat
+							message={defaultMessage}
+							{threadId}
+							initialMessageId={messageId}
+							{aiModel}
+							{userId}
+						/>
+					</div>
+				{:else if authError}
+					<div class="auth-error">
+						<p>Authentication failed. Please refresh the page.</p>
+						<button on:click={() => window.location.reload()}>Refresh</button>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Tab Panels -->
@@ -308,7 +311,6 @@ onMount(async () => {
 					</div>
 				{/if}
 			</div>
-
 		</main>
 	</div>
 {/if}
@@ -378,7 +380,6 @@ onMount(async () => {
 	</div>
 {/if}
 
-
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
 
@@ -414,7 +415,7 @@ onMount(async () => {
 		z-index: 10000;
 		backdrop-filter: blur(3px);
 		width: auto;
-		max-width:700px;
+		max-width: 700px;
 		border-radius: 2rem;
 		justify-content: center;
 		align-items: center;
@@ -435,19 +436,19 @@ onMount(async () => {
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		right:600px;
+		right: 600px;
 		left: 450px;
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
 	}
-		.chat {
-			width: 100% !important;
-			max-width: 600px;
-			position: absolute;
-			display: flex;
-			right: 0.5rem;
-			top: 0;
-			z-index: 9999;
-		}
+	.chat {
+		width: 100% !important;
+		max-width: 600px;
+		position: absolute;
+		display: flex;
+		right: 0.5rem;
+		top: 0;
+		z-index: 9999;
+	}
 	.icicle-container {
 		width: 100vw; /* Full viewport width */
 		height: 100vh; /* Full viewport height */

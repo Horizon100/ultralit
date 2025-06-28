@@ -11,7 +11,7 @@
 		"strict": true,
 		"verbatimModuleSyntax": true,
 		"allowImportingTsExtensions": true,
-    	"allowArbitraryExtensions": true,
+		"allowArbitraryExtensions": true
 		// "baseUrl": ".",
 		// "paths": {
 		//     "@/*": ["./*"],

@@ -11,11 +11,11 @@ import { defaultModel } from '$lib/features/ai/utils/models';
 import { getPrompt, prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
-import { 
-	fetchTryCatch, 
-	clientTryCatch, 
-	validationTryCatch, 
-	thirdPartyApiTryCatch 
+import {
+	fetchTryCatch,
+	clientTryCatch,
+	validationTryCatch,
+	thirdPartyApiTryCatch
 } from '$lib/utils/errorUtils';
 
 export async function fetchAIResponse(
@@ -96,10 +96,7 @@ export async function fetchAIResponse(
 	if (!userApiKey) {
 		console.log(`No API key found for provider: ${provider}, checking alternatives...`);
 
-		const loadResult = await clientTryCatch(
-			apiKey.ensureLoaded(),
-			'Failed to load API keys'
-		);
+		const loadResult = await clientTryCatch(apiKey.ensureLoaded(), 'Failed to load API keys');
 
 		if (!loadResult.success) {
 			throw new Error(loadResult.error);
@@ -140,56 +137,56 @@ export async function fetchAIResponse(
 		throw new Error(`No API key found for provider: ${modelToUse.provider}`);
 	}
 
-const response = await fetch('/api/ai', {
-    method: 'POST',
-    headers: {
-        ...(attachment ? {} : { 'Content-Type': 'application/json' }),
-    },
-    body: requestBody
-});
+	const response = await fetch('/api/ai', {
+		method: 'POST',
+		headers: {
+			...(attachment ? {} : { 'Content-Type': 'application/json' })
+		},
+		body: requestBody
+	});
 
-console.log('🤖 Raw fetch response status:', response.status);
-console.log('🤖 Raw fetch response ok:', response.ok);
+	console.log('🤖 Raw fetch response status:', response.status);
+	console.log('🤖 Raw fetch response ok:', response.ok);
 
-if (!response.ok) {
-    const errorText = await response.text();
-    console.error('API error:', response.status, errorText);
-    throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-}
+	if (!response.ok) {
+		const errorText = await response.text();
+		console.error('API error:', response.status, errorText);
+		throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+	}
 
-const responseData = await response.json();
-console.log('🤖 Full AI response data:', responseData);
+	const responseData = await response.json();
+	console.log('🤖 Full AI response data:', responseData);
 
-// Handle different possible response structures
-let finalResponse: string;
+	// Handle different possible response structures
+	let finalResponse: string;
 
-if (responseData.response && typeof responseData.response === 'string') {
-    finalResponse = responseData.response;
-    console.log('✅ Found response in responseData.response');
-} else if (responseData.content && typeof responseData.content === 'string') {
-    finalResponse = responseData.content;
-    console.log('✅ Found response in responseData.content');
-} else if (responseData.message && typeof responseData.message === 'string') {
-    finalResponse = responseData.message;
-    console.log('✅ Found response in responseData.message');
-} else if (responseData.text && typeof responseData.text === 'string') {
-    finalResponse = responseData.text;
-    console.log('✅ Found response in responseData.text');
-} else if (responseData.data && typeof responseData.data === 'string') {
-    finalResponse = responseData.data;
-    console.log('✅ Found response in responseData.data');
-} else if (typeof responseData === 'string') {
-    finalResponse = responseData;
-    console.log('✅ Response data is direct string');
-} else {
-    console.error('❌ Could not find response text in any expected field');
-    console.error('❌ Available fields:', Object.keys(responseData || {}));
-    console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
-    throw new Error('Could not extract response text from AI API response');
-}
+	if (responseData.response && typeof responseData.response === 'string') {
+		finalResponse = responseData.response;
+		console.log('✅ Found response in responseData.response');
+	} else if (responseData.content && typeof responseData.content === 'string') {
+		finalResponse = responseData.content;
+		console.log('✅ Found response in responseData.content');
+	} else if (responseData.message && typeof responseData.message === 'string') {
+		finalResponse = responseData.message;
+		console.log('✅ Found response in responseData.message');
+	} else if (responseData.text && typeof responseData.text === 'string') {
+		finalResponse = responseData.text;
+		console.log('✅ Found response in responseData.text');
+	} else if (responseData.data && typeof responseData.data === 'string') {
+		finalResponse = responseData.data;
+		console.log('✅ Found response in responseData.data');
+	} else if (typeof responseData === 'string') {
+		finalResponse = responseData;
+		console.log('✅ Response data is direct string');
+	} else {
+		console.error('❌ Could not find response text in any expected field');
+		console.error('❌ Available fields:', Object.keys(responseData || {}));
+		console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
+		throw new Error('Could not extract response text from AI API response');
+	}
 
-console.log('🎯 Final extracted response:', finalResponse);
-return finalResponse;
+	console.log('🎯 Final extracted response:', finalResponse);
+	return finalResponse;
 }
 
 export async function handleStartPromptClick(
@@ -205,19 +202,16 @@ export async function handleStartPromptClick(
 }> {
 	let currentThreadId = threadId;
 	if (!currentThreadId) {
-		const response = await fetchTryCatch<{ id: string }>(
-			'/api/threads',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-					userId
-				})
-			}
-		);
+		const response = await fetchTryCatch<{ id: string }>('/api/threads', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+				userId
+			})
+		});
 
 		if (!response.success) {
 			throw new Error(response.error);
@@ -226,21 +220,18 @@ export async function handleStartPromptClick(
 		currentThreadId = response.data.id;
 	}
 
-	const userMessageResponse = await fetchTryCatch<{ id: string }>(
-		'/api/messages',
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				text: promptText,
-				type: 'human',
-				thread: currentThreadId,
-				parent_msg: null
-			})
-		}
-	);
+	const userMessageResponse = await fetchTryCatch<{ id: string }>('/api/messages', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			text: promptText,
+			type: 'human',
+			thread: currentThreadId,
+			parent_msg: null
+		})
+	});
 
 	if (!userMessageResponse.success) {
 		throw new Error(userMessageResponse.error);
@@ -259,22 +250,19 @@ export async function handleStartPromptClick(
 
 	const aiResponseText = await fetchAIResponse(messages, aiModel, userId);
 
-	const assistantMessageResponse = await fetchTryCatch<{ id: string }>(
-		'/api/messages',
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				text: aiResponseText,
-				type: 'robot',
-				thread: currentThreadId,
-				parent_msg: userMessage.id,
-				model: aiModel.api_type
-			})
-		}
-	);
+	const assistantMessageResponse = await fetchTryCatch<{ id: string }>('/api/messages', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			text: aiResponseText,
+			type: 'robot',
+			thread: currentThreadId,
+			parent_msg: userMessage.id,
+			model: aiModel.api_type
+		})
+	});
 
 	if (!assistantMessageResponse.success) {
 		throw new Error(assistantMessageResponse.error);
@@ -283,18 +271,15 @@ export async function handleStartPromptClick(
 	const assistantMessage = assistantMessageResponse.data;
 
 	if (!threadId) {
-		const updateResult = await fetchTryCatch<unknown>(
-			`/api/threads/${currentThreadId}`,
-			{
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
-				})
-			}
-		);
+		const updateResult = await fetchTryCatch<unknown>(`/api/threads/${currentThreadId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+			})
+		});
 
 		if (!updateResult.success) {
 			console.warn('Failed to update thread title:', updateResult.error);
@@ -602,17 +587,13 @@ export async function generateTaskFromMessage(taskDetails: {
 	};
 
 	const responseResult = await clientTryCatch(
-		fetchAIResponse(
-			[systemPrompt, userPrompt],
-			taskDetails.model,
-			taskDetails.userId
-		),
+		fetchAIResponse([systemPrompt, userPrompt], taskDetails.model, taskDetails.userId),
 		'Failed to generate task from message'
 	);
 
 	if (!responseResult.success) {
 		console.error('Error in generateTaskFromMessage:', responseResult.error);
-		
+
 		const cleanContent = taskDetails.content.replace(/<\/?[^>]+(>|$)/g, '');
 		const fallbackTitle = extractTaskTitle(cleanContent);
 
@@ -676,20 +657,17 @@ export async function fetchDualAIResponses(
 		throw new Error(validationResult.error);
 	}
 
-	const response = await fetchTryCatch<{ id: string }>(
-		'/api/threads',
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-				userId,
-				temporary: true
-			})
-		}
-	);
+	const response = await fetchTryCatch<{ id: string }>('/api/threads', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+			userId,
+			temporary: true
+		})
+	});
 
 	if (!response.success) {
 		throw new Error(response.error);
@@ -745,19 +723,16 @@ export async function saveSelectedResponse(
 }> {
 	let currentThreadId: string;
 	if (!threadId) {
-		const response = await fetchTryCatch<{ id: string }>(
-			'/api/threads',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
-					userId
-				})
-			}
-		);
+		const response = await fetchTryCatch<{ id: string }>('/api/threads', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : ''),
+				userId
+			})
+		});
 
 		if (!response.success) {
 			throw new Error(response.error);
@@ -767,40 +742,34 @@ export async function saveSelectedResponse(
 	} else {
 		currentThreadId = threadId;
 
-		const updateResult = await fetchTryCatch<unknown>(
-			`/api/threads/${threadId}`,
-			{
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					temporary: false,
-					title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
-				})
-			}
-		);
+		const updateResult = await fetchTryCatch<unknown>(`/api/threads/${threadId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				temporary: false,
+				title: promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')
+			})
+		});
 
 		if (!updateResult.success) {
 			console.warn('Failed to update thread:', updateResult.error);
 		}
 	}
 
-	const userMessageResponse = await fetchTryCatch<{ id: string }>(
-		'/api/messages',
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				text: promptText,
-				type: 'human',
-				thread: currentThreadId,
-				parent_msg: null
-			})
-		}
-	);
+	const userMessageResponse = await fetchTryCatch<{ id: string }>('/api/messages', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			text: promptText,
+			type: 'human',
+			thread: currentThreadId,
+			parent_msg: null
+		})
+	});
 
 	if (!userMessageResponse.success) {
 		throw new Error(userMessageResponse.error);
@@ -808,23 +777,20 @@ export async function saveSelectedResponse(
 
 	const userMessage = userMessageResponse.data;
 
-	const assistantMessageResponse = await fetchTryCatch<{ id: string }>(
-		'/api/messages',
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				text: selectedResponse,
-				type: 'robot',
-				thread: currentThreadId,
-				parent_msg: userMessage.id,
-				model: model.api_type,
-				system_prompt: systemPrompt
-			})
-		}
-	);
+	const assistantMessageResponse = await fetchTryCatch<{ id: string }>('/api/messages', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			text: selectedResponse,
+			type: 'robot',
+			thread: currentThreadId,
+			parent_msg: userMessage.id,
+			model: model.api_type,
+			system_prompt: systemPrompt
+		})
+	});
 
 	if (!assistantMessageResponse.success) {
 		throw new Error(assistantMessageResponse.error);
