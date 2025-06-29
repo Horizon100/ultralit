@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { currentUser } from '$lib/pocketbase';
@@ -20,6 +21,7 @@
 	import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
 	import { clientTryCatch, storageTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import type { FeatureCardType, PricingPlan, Task } from '$lib/types/types';
 
 	let pageReady = false;
 	let redirectedFromLogin = false;
@@ -28,14 +30,6 @@
 	let showNewsletterPopup = false;
 	let navigationFlagChecked = false;
 
-	type PricingPlan = {
-		name: string;
-		description: string;
-		price: string;
-		month: string;
-		button: string;
-		features: string[];
-	};
 	// Animation states
 	let showContent = false;
 	let showFade = false;
@@ -125,8 +119,8 @@
 		// Force page reload to ensure proper state after logout
 		setTimeout(() => window.location.reload(), 100);
 	}
-	$: featureCards = $t('features.cards') as any[];
-	$: pricingPlans = $t('pricing.plans') as any[];
+	$: featureCards = $t('features.cards') as PricingPlan[];
+	$: pricingPlans = $t('pricing.plans') as FeatureCardType[];
 	$: introText = $t('landing.introText') as string;
 
 	$: if (
@@ -213,7 +207,7 @@
 		<div class="center-container" transition:fade={{ duration: 300 }}>
 			<div class="loading-overlay">
 				<div class="spinner">
-					<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
+					<span class="bot-icon"><Icon name="Bot" size={80} /></span>
 				</div>
 			</div>
 		</div>
@@ -296,7 +290,7 @@
 
 									<div class="cta-buttons">
 										<button on:click={subscribeToNewsletter}>
-											{@html getIcon('Mail', { size: 30 })}
+											<Icon name="Mail" size={30} />
 											{$t('landing.subscribing')}
 										</button>
 										<NewsletterPopup bind:showPopup={showNewsletterPopup} />
@@ -313,7 +307,7 @@
 											rel="noopener noreferrer"
 										>
 											<button>
-												{@html getIcon('Github', { size: 30 })}
+												<Icon name="Github" size={30} />
 												GitHub
 											</button>
 										</a>
@@ -350,7 +344,7 @@
 											<div class="list">
 												{#each plan.features as feature}
 													<span>
-														{@html getIcon('CheckCircle', { size: 30 })}
+														<Icon name="CheckCircle" size={30} />
 														{feature}
 													</span>
 												{/each}

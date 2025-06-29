@@ -1,5 +1,6 @@
 <!-- RecordButton.svelte -->
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { clientTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -229,7 +230,7 @@
 			title="Stop recording"
 			{disabled}
 		>
-			{@html getIcon('Square', { size })}
+			<Icon name="Square" {size} />
 		</button>
 		<span class="recording-time">{formatRecordingTime(recordingTime)}</span>
 		<button
@@ -238,7 +239,7 @@
 			type="button"
 			title="Cancel recording"
 		>
-			{@html getIcon('X', { size })}
+			<Icon name="X" {size} />
 		</button>
 	</div>
 {:else if recordedAudio}
@@ -250,9 +251,9 @@
 			title={isPlayingRecording ? 'Pause' : 'Play recording'}
 		>
 			{#if isPlayingRecording}
-				{@html getIcon('Pause', { size })}
+				<Icon name="Pause" {size} />
 			{:else}
-				{@html getIcon('Play', { size })}
+				<Icon name="Play" {size} />
 			{/if}
 		</button>
 		<span class="recording-duration">{formatRecordingTime(recordingTime)}</span>
@@ -270,7 +271,7 @@
 			type="button"
 			title="Delete recording"
 		>
-			{@html getIcon('X', { size })}
+			<Icon name="X" {size} />
 		</button>
 	</div>
 {:else}
@@ -281,7 +282,7 @@
 		title="Record voice message"
 		{disabled}
 	>
-		{@html getIcon('Mic', { size })}
+		<Icon name="Mic" {size} />
 	</button>
 {/if}
 

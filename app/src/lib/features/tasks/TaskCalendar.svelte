@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { writable, get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
@@ -858,8 +859,7 @@
 							}
 						}}
 					>
-						{@html getIcon('Trash2')}
-						<span>Delete</span>
+						<Icon name="Trash2" /> <span>Delete</span>
 					</button>
 					<span>
 						<button class="action-btn cancel" on:click={closeModal}>Cancel</button>

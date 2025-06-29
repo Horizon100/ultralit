@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { invalidateAll } from '$app/navigation';
@@ -33,7 +34,7 @@
 </script>
 
 <button class="back-button {className}" on:click={handleBack} type="button" aria-label="Go back">
-	{@html getIcon('ArrowLeft', { size })}
+	<Icon name="ArrowLeft" {size} />
 	{#if showText}
 		<span class="back-text">{text}</span>
 	{/if}

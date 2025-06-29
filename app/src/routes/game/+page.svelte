@@ -5,7 +5,12 @@
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';
-	import type { GameHero, GameOrganization } from '$lib/types/types.game';
+	import type {
+		GameHero,
+		GameOrganization,
+		CreateWorldResponse,
+		UpdateHeroResponse
+	} from '$lib/types/types.game';
 	import Background from '$lib/assets/maps/pixelmap.svg';
 	import {
 		clientTryCatch,
@@ -90,7 +95,7 @@
 	async function createWorld(): Promise<Result<void, string>> {
 		console.log('[DEBUG] Creating organization...');
 
-		const createResult = await fetchTryCatch<any>('/api/game/initialize', {
+		const createResult = await fetchTryCatch<CreateWorldResponse>('/api/game/initialize', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({})
@@ -164,7 +169,7 @@
 
 		const user = userValidation.data;
 
-		const updateResult = await fetchTryCatch<any>(`/api/game/heroes/${user.id}`, {
+		const updateResult = await fetchTryCatch<UpdateHeroResponse>(`/api/game/heroes/${user.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({

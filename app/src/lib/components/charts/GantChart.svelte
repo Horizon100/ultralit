@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { writable, get } from 'svelte/store';
 	import { slide, fade } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
@@ -607,7 +608,7 @@
 												handleTaskClick(task);
 											}}
 										>
-											{@html getIcon('Info')}
+											<Icon name="Info" />
 										</button>
 									</div>
 
@@ -650,7 +651,7 @@
 					<div class="task-info-header">
 						<h3>{selectedTask.title}</h3>
 						<button class="close-btn" on:click={closeTaskInfo}>
-							{@html getIcon('X', { size: 16 })}
+							<Icon name="X" size={16} />
 						</button>
 					</div>
 

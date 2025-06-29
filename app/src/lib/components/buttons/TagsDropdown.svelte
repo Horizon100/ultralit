@@ -1,5 +1,6 @@
 <!-- src/lib/components/dropdowns/TagsDropdown.svelte -->
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { getRandomBrightColor } from '$lib/utils/colorUtils';
 	import { currentUser } from '$lib/pocketbase';
@@ -7,6 +8,10 @@
 	import { get } from 'svelte/store';
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import type { Tag } from '$lib/types/types';
+	interface TagsResponse {
+		items: Tag[];
+	}
 
 	const dispatch = createEventDispatcher();
 
@@ -27,8 +32,8 @@
 	let searchQuery = '';
 	let isLoading = false;
 	let error: string | null = null;
-	let tags: any[] = [];
-	let filteredTags: any[] = [];
+	let tags: Tag[] = [];
+	let filteredTags: Tag[] = [];
 	let hoveredTagId: string | null = null;
 
 	// When selectedTags changes, dispatch the event
@@ -81,9 +86,9 @@
 		}
 	}
 
-	async function saveTag(tag: any) {
+	async function saveTag(tag: Tag) {
 		try {
-			const tagData: Record<string, any> = {
+			const tagData: Record<string, unknown> = {
 				name: tag.name,
 				tagDescription: tag.tagDescription || '',
 				color: tag.color,
@@ -126,20 +131,22 @@
 			isCreatingTag = true;
 
 			const tagColor = getRandomBrightColor(newTagName.trim());
-			const newTag = {
-				id: `local_tag_${Date.now()}`,
+
+			// Create a partial tag for creation (without RecordModel fields)
+			const newTagData = {
 				name: newTagName.trim(),
 				tagDescription: '',
 				color: tagColor,
-				createdBy: get(currentUser)?.id,
-				selected: false
+				createdBy: get(currentUser)?.id || '',
+				selected: false,
+				...(currentProjectId && { taggedProjects: currentProjectId })
 			};
 
-			// Add to local state immediately for responsiveness
-			tags = [...tags, newTag];
+			// Save to backend first to get the complete Tag object
+			const savedTag = await saveTag(newTagData as Tag);
 
-			// Save to backend
-			const savedTag = await saveTag(newTag);
+			// Add to local state
+			tags = [...tags, savedTag];
 
 			// Clear input
 			newTagName = '';
@@ -276,7 +283,7 @@
 			</span>
 
 			<span class="dropdown-icon" class:rotated={isExpanded}>
-				{@html getIcon('ChevronDown', { size: 16 })}
+				<Icon name="ChevronDown" size={16} />
 			</span>
 		</button>
 	</span>
@@ -290,7 +297,7 @@
 			<div class="dropdown-header">
 				<div class="search-bar">
 					<span>
-						{@html getIcon('Search', { size: 16 })}
+						<Icon name="Search" size={16} />
 					</span>
 					<input type="text" bind:value={searchQuery} placeholder="Search tags" />
 				</div>
@@ -298,7 +305,7 @@
 				<div class="header-actions">
 					{#if selectedTags.length > 0}
 						<button class="clear-btn" on:click={clearAllTags} title="Clear all selected tags">
-							{@html getIcon('X', { size: 14 })}
+							<Icon name="X" size={14} />
 						</button>
 					{/if}
 
@@ -308,7 +315,7 @@
 						disabled={isLoading}
 						title="Add new tag"
 					>
-						{@html getIcon('Plus', { size: 16 })}
+						<Icon name="Plus" size={16} />
 					</button>
 				</div>
 			</div>
@@ -330,7 +337,7 @@
 						disabled={!newTagName.trim() || isLoading}
 						on:click={handleCreateNewTag}
 					>
-						{@html getIcon('Check', { size: 16 })}
+						<Icon name="Check" size={16} />
 					</button>
 				</div>
 			{/if}
@@ -373,7 +380,7 @@
 										on:click|stopPropagation={(e) => handleDeleteTag(e, tag.id)}
 										title="Delete tag"
 									>
-										{@html getIcon('Trash2', { size: 14 })}
+										<Icon name="Trash2" size={14} />
 									</button>
 								</div>
 							{/if}

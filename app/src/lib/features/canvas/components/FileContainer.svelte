@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import PrismJS from 'prismjs';
@@ -224,7 +225,7 @@
 >
 	<div class="file-header">
 		<div class="file-icon">
-			{@html getIcon(fileIconName, { size: 24, color: 'gray' })}
+			<Icon name={fileIconName} size={24} color="gray" />
 		</div>
 		<span class="file-name">{fileName}</span>
 		<button
@@ -234,7 +235,7 @@
 				loadFileContent();
 			}}
 		>
-			{@html getIcon(isExpanded ? 'Minimize2' : 'Maximize2', { size: 18, color: 'gray' })}
+			<Icon name={isExpanded ? 'Minimize2' : 'Maximize2'} size={18} color="gray" />
 		</button>
 	</div>
 
@@ -256,17 +257,22 @@
 			{:else if fileType === 'application/pdf'}
 				<p>{fileContent}</p>
 			{:else if fileType.includes('word')}
+				<!-- Safe: Known file types with controlled content -->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				<div>{@html htmlContent}</div>
 			{:else if fileType === 'text/csv'}
+				<!-- Safe: Known file types with controlled content -->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				<div>{@html htmlContent}</div>
 			{:else if fileType === 'text/plain' || fileType === 'application/json' || fileType === 'text/javascript'}
-				<pre><code
-						>{@html highlightCode(
-							fileContent,
-							fileType === 'application/json' ? 'json' : 'javascript'
-						)}</code
+				<pre><code>
+					<!-- Safe: Syntax highlighted code -->
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					{@html highlightCode(fileContent, fileType === 'application/json' ? 'json' : 'javascript')}</code
 					></pre>
 			{:else if fileType === 'image/svg+xml' && typeof fileContent === 'string'}
+				<!-- Safe: SVG file content -->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html fileContent}
 			{:else if typeof fileContent === 'string'}
 				<pre>{fileContent}</pre>

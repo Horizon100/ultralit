@@ -1,22 +1,27 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
+	interface DebugItem {
+		label: string;
+		value: unknown;
+	}
 
-	// Props
-	export let showDebug: boolean = true;
-	export let title: string = '🔧 Debug Panel';
-	export let debugItems: Array<{ label: string; value: any }> = [];
-	export let buttons: Array<{
+	interface DebugButton {
 		label: string;
 		action: () => void | Promise<void>;
 		color?: string;
-	}> = [];
+	}
+	// Props
+	export let showDebug: boolean = true;
+	export let title: string = '🔧 Debug Panel';
+	export let debugItems: DebugItem[] = [];
+	export let buttons: DebugButton[] = [];
 	export let position: string = 'top: 10px; right: 10px;';
 	export let minWidth: string = '250px';
 	export let maxWidth: string = '300px';
 	export let fontSize: string = '12px';
 
-	function formatValue(value: any): string {
+	function formatValue(value: unknown): string {
 		if (typeof value === 'boolean') {
 			return value ? '✅' : '❌';
 		}

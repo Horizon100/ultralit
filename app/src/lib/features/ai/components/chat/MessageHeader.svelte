@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let role: 'user' | 'assistant' | 'thinking';
@@ -39,7 +40,7 @@
 		</div>
 	{:else if role === 'thinking'}
 		<span class="role">
-			{@html getIcon('Bot', { size: 50, color: 'white' })}
+			<Icon name="Bot" size={50} color="white" />
 		</span>
 	{/if}
 </div>

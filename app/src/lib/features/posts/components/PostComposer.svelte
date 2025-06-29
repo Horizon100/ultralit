@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
@@ -14,6 +15,7 @@
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { postStore } from '$lib/stores/postStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import type { PostWithInteractions } from '$lib/types/types.posts';
 
 	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
 	export let buttonText: string = $t('posts.postButton') as string;
@@ -33,7 +35,7 @@
 
 	const dispatch = createEventDispatcher<{
 		submit: { content: string; attachments: File[]; parentId?: string };
-		postCreated: { postId: string; post: any };
+		postCreated: { postId: string; post: PostWithInteractions };
 		taggingComplete: { postId: string; success: boolean };
 	}>();
 	let textareaElement: HTMLTextAreaElement;
@@ -278,12 +280,12 @@
 								type="button"
 								title="Remove image"
 							>
-								{@html getIcon('X', { size: 16 })}
+								<Icon name="X" size={16} />
 							</button>
 						</div>
 					{:else}
 						<div class="attachment-file-preview">
-							{@html getIcon('Paperclip', { size: 16 })}
+							<Icon name="Paperclip" size={16} />
 							<span class="attachment-name">{file.name}</span>
 							<button
 								class="remove-attachment"
@@ -291,7 +293,7 @@
 								type="button"
 								title="Remove file"
 							>
-								{@html getIcon('X', { size: 16 })}
+								<Icon name="X" size={16} />
 							</button>
 						</div>
 					{/if}
@@ -304,7 +306,7 @@
 	{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
 		<div class="tagging-status">
 			<div class="tagging-indicator">
-				{@html getIcon('Tag', { size: 14 })}
+				<Icon name="Tag" size={14} />
 				{#if isGeneratingTags}
 					<span class="tagging-text generating">Generating tags...</span>
 				{:else if willGenerateTags}
@@ -332,7 +334,7 @@
 					title="Add attachments"
 					disabled={disabled || isSubmitting}
 				>
-					{@html getIcon('Paperclip', { size: 16 })}
+					<Icon name="Paperclip" size={16} />
 					{#if attachments.length > 0}
 						<span class="attachment-count">{attachments.length}</span>
 					{/if}

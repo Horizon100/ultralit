@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
-
+	type HierarchyNode = d3.HierarchyNode<DataNode>;
+	type HierarchyCircularNode = d3.HierarchyCircularNode<DataNode>;
 	interface DataNode {
 		name: string;
 		value?: number;
@@ -103,7 +104,7 @@
 		svg.on('click', (event) => zoom(event, root));
 
 		let focus = root;
-		let view: [number, number, number];
+		let view: [number, number, number] = [0, 0, width];
 
 		const zoomTo = (v: [number, number, number]) => {
 			const k = width / v[2];
@@ -114,7 +115,7 @@
 			node.attr('r', (d) => d.r * k);
 		};
 
-		const zoom = (event: any, d: any) => {
+		const zoom = (event: MouseEvent, d: HierarchyCircularNode) => {
 			const focus0 = focus;
 			focus = d;
 
@@ -127,10 +128,11 @@
 				});
 
 			label
-				.filter(function (d) {
+				.filter(function (d: HierarchyCircularNode) {
 					return d.parent === focus || (this as SVGTextElement)?.style?.display === 'inline';
 				})
-				.transition(transition as any)
+				.transition()
+				.duration(event.altKey ? 7500 : 750)
 				.style('fill-opacity', (d) => (d.parent === focus ? 1 : 0))
 				.on('start', function (d) {
 					const element = this as SVGTextElement;

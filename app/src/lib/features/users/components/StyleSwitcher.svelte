@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { currentTheme, type Theme } from '$lib/stores/themeStore';
@@ -116,7 +117,7 @@
 				on:mouseenter={() => handleHover(style)}
 				on:mouseleave={handleMouseLeave}
 			>
-				{@html getIcon(style.icon, { size: 20 })}
+				<Icon name={style.icon} size={20} />
 				<span>{style.name}</span>
 			</button>
 		{/each}

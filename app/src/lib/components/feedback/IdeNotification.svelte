@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { NotificationType, IdeNotification } from '$lib/types/types.notifications';
@@ -76,12 +77,12 @@
 			<div class="icon" style="color: {getIconColor(notification.type)}">
 				{#if notification.type === 'loading'}
 					<span class="spinner">
-						{@html getIcon('RefreshCcw', { size: 18 })}
+						<Icon name="RefreshCcw" size={18} />
 					</span>
 				{:else if notification.type === 'success'}
-					{@html getIcon('CheckCircle', { size: 18 })}
+					<Icon name="CheckCircle" size={18} />
 				{:else if notification.type === 'error'}
-					{@html getIcon('AlertCircle', { size: 18 })}
+					<Icon name="AlertCircle" size={18} />
 				{:else if notification.type === 'info'}
 					<svg
 						width="18"
@@ -118,7 +119,7 @@
 				on:click={() => removeNotification(notification.id)}
 				aria-label="Close notification"
 			>
-				{@html getIcon('X', { size: 16 })}
+				<Icon name="X" size={16} />
 			</button>
 		</div>
 	{/each}

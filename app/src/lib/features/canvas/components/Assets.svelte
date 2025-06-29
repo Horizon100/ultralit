@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import AgentThumbnail from '$lib/assets/thumbnails/agent-thumbnail.svg';
@@ -456,6 +457,8 @@
 									}
 								}}
 							>
+								<!-- Safe: Shape SVG -->
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 								{@html shape.svg}
 							</div>
 						{/each}

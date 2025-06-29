@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
@@ -48,14 +49,14 @@
 			<div class="modal-header">
 				<h2>{$t('generic.share')} {$t('posts.post')}</h2>
 				<button class="close-button" on:click={handleClose}>
-					{@html getIcon('X', { size: 20 })}
+					<Icon name="X" size={20} />
 				</button>
 			</div>
 
 			<div class="modal-body">
 				<button class="share-option" on:click={handleCopyLink}>
 					<div class="option-icon">
-						{@html getIcon('Link', { size: 20 })}
+						<Icon name="Link" size={20} />
 					</div>
 					<div class="option-text">
 						<div class="option-title">{$t('posts.copyLink')}</div>
@@ -66,7 +67,7 @@
 				{#if $currentUser}
 					<button class="share-option" on:click={handleQuote}>
 						<div class="option-icon">
-							{@html getIcon('Quote', { size: 20 })}
+							<Icon name="Quote" size={20} />
 						</div>
 						<div class="option-text">
 							<div class="option-title">{$t('posts.quote')} {$t('posts.post')}</div>

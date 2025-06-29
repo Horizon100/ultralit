@@ -241,6 +241,8 @@
 
 {#if svgContent}
 	<div class="icon-container" role="img" aria-label={name}>
+		<!-- Safe: SVG content from controlled icon imports -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html svgContent}
 	</div>
 {:else}

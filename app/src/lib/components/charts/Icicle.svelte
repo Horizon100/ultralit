@@ -24,7 +24,7 @@
 		taskClicked: { task: NonNullable<HierarchyData['taskData']>; name: string };
 	}>();
 
-	let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+	let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
 	let root: IcicleNode;
 	let originalRoot: IcicleNode;
 	let color: d3.ScaleOrdinal<string, string>;
@@ -151,7 +151,7 @@
 		svg.attr('transform', `scale(${scale})`);
 		dispatch('zoom', { scale });
 	}
-	function clicked(event: Event, p: any) {
+	function clicked(event: Event, p: IcicleNode) {
 		// If clicking on the current root (leftmost, full-height section), go back
 		if (p === root && clickedStack.length > 0) {
 			const previousRoot = clickedStack.pop();
@@ -183,11 +183,11 @@
 		animateTransition(p);
 	}
 
-	function animateTransition(p: any) {
-		const t = svg.transition().duration(400);
+	function animateTransition(p: IcicleNode) {
+		const duration = 400;
 
-		// Calculate new positions - stretch vertically (height), keep horizontal proportions
-		root.each((d: any) => {
+		// Calculate new positions - stretch vertically (full height), keep horizontal proportions
+		root.each((d: IcicleNode) => {
 			// For vertical stretching (full height)
 			const relativeX = (Number(d.x0) - Number(p.x0)) / (Number(p.x1) - Number(p.x0));
 			const relativeXEnd = (Number(d.x1) - Number(p.x0)) / (Number(p.x1) - Number(p.x0));
@@ -213,101 +213,58 @@
 			}
 		});
 
-		const cell = svg.selectAll('g');
+		const cell = svg.selectAll<SVGGElement, IcicleNode>('g');
 
 		// Animate positions
 		cell
-			.transition(t as any)
-			.attr('transform', (d: any) => `translate(${d.target?.y0 ?? d.y0},${d.target?.x0 ?? d.x0})`);
+			.transition()
+			.duration(duration)
+			.attr('transform', (d) => `translate(${d.target?.y0 ?? d.y0},${d.target?.x0 ?? d.x0})`);
 
 		// Animate rectangles
 		cell
-			.select('rect')
-			.transition(t as any)
-			.attr('width', (d: any) => (d.target?.y1 ?? d.y1) - (d.target?.y0 ?? d.y0) - 1)
-			.attr('height', (d: any) => rectHeight(d.target ?? d));
+			.select<SVGRectElement>('rect')
+			.transition()
+			.duration(duration)
+			.attr('width', (d) => (d.target?.y1 ?? d.y1) - (d.target?.y0 ?? d.y0) - 1)
+			.attr('height', (d) => rectHeight(d.target ?? d));
 
 		// Animate text visibility
 		cell
-			.select('text')
-			.transition(t as any)
-			.attr('fill-opacity', (d: any) => +labelVisible(d.target ?? d));
+			.select<SVGTextElement>('text')
+			.transition()
+			.duration(duration)
+			.attr('fill-opacity', (d) => +labelVisible(d.target ?? d));
 
 		cell
-			.select('tspan')
-			.transition(t as any)
-			.attr('fill-opacity', (d: any) => labelVisible(d.target ?? d) * 0.7);
+			.select<SVGTSpanElement>('tspan')
+			.transition()
+			.duration(duration)
+			.attr('fill-opacity', (d) => labelVisible(d.target ?? d) * 0.7);
 	}
-	// Function to go back to the previous hierarchy level
-	function goBack() {
-		if (clickedStack.length === 0) return;
-
-		// Pop the last node from the stack
-		const previousRoot = clickedStack.pop();
-		if (!previousRoot) return;
-
-		root = previousRoot;
-
-		// Calculate positions for going back
-		const t = svg.transition().duration(750);
-
-		// Reset target positions to original positions
-		root.each((d: any) => {
-			d.target = {
-				x0: Number(d.x0),
-				x1: Number(d.x1),
-				y0: Number(d.y0),
-				y1: Number(d.y1)
-			};
-		});
-
-		const cell = svg.selectAll('g');
-
-		// Animate back to previous positions
-		cell
-			.transition(t as any)
-			.attr('transform', (d: any) => `translate(${d.target?.y0 ?? d.y0},${d.target?.x0 ?? d.x0})`);
-
-		cell
-			.select('rect')
-			.transition(t as any)
-			.attr('height', (d: any) => rectHeight(d.target ?? d));
-
-		cell
-			.select('text')
-			.transition(t as any)
-			.attr('fill-opacity', (d: any) => +labelVisible(d.target ?? d));
-
-		cell
-			.select('tspan')
-			.transition(t as any)
-			.attr('fill-opacity', (d: any) => labelVisible(d.target ?? d) * 0.7);
+	function rectHeight(
+		d: IcicleNode | { x0: number; x1: number; y0: number; y1: number; data?: HierarchyData }
+	): number {
+		// Check if it's a target object or full node
+		if ('data' in d && d.data) {
+			return d.data.taskId ? 80 : d.x1 - d.x0;
+		}
+		// For target objects, assume no taskId (use regular height)
+		return d.x1 - d.x0;
 	}
 
-	// Function to go back to the root
-	function goToRoot() {
-		if (!originalRoot || root === originalRoot) return;
-
-		// Clear the stack and go back to original root
-		clickedStack = [];
-		root = originalRoot;
-
-		// Re-render the entire chart from the root
-		renderChart();
-	}
-
-	function rectHeight(d: IcicleNode): number {
-		return d.data.taskId ? 80 : d.x1 - d.x0;
-	}
-
-	function labelVisible(d: any): number {
+	function labelVisible(
+		d:
+			| IcicleNode
+			| { x0: number; x1: number; y0: number; y1: number; children?: unknown; data?: HierarchyData }
+	): number {
 		const y0 = Number(d.y0);
 		const y1 = Number(d.y1);
 		const x0 = Number(d.x0);
 		const x1 = Number(d.x1);
 
 		// Always show labels for tasks
-		if (!d.children && d.data.taskId) {
+		if ('data' in d && d.data && !('children' in d && d.children) && d.data.taskId) {
 			return 1;
 		}
 

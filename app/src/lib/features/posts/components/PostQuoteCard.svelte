@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
@@ -129,7 +130,7 @@
 <div class="quote-card">
 	<!-- Quote header showing who quoted -->
 	<div class="quote-header">
-		{@html getIcon('Quote', { size: 14 })}
+		<Icon name="Quote" size={14} />
 		<span>{$t('posts.quotedBy')} {quotedBy.name || quotedBy.username || 'Unknown User'}</span>
 	</div>
 

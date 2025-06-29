@@ -16,13 +16,19 @@
 	import { postStore } from '$lib/stores/postStore';
 	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import type { User } from '$lib/types/types';
+	import type {
+		Post,
+		PostWithInteractions,
+		Comment,
+		CommentWithInteractions
+	} from '$lib/types/types.posts';
 	// State
 	let loading = true;
 	let error = '';
-	let post: any = null;
-	let comments: any[] = [];
-	let user: any = null;
+	let post: PostWithInteractions | null = null;
+	let comments: CommentWithInteractions[] = [];
+	let user: User | null = null;
 	let showComposer = false;
 	let showAuthModal = false;
 	let authAction = '';
@@ -54,9 +60,9 @@
 				error = '';
 
 				const fetchResult = await fetchTryCatch<{
-					post: any;
-					comments: any[];
-					user: any;
+					post: PostWithInteractions;
+					comments: CommentWithInteractions[];
+					user: User;
 					error?: string;
 				}>(`/api/posts/${postId}`);
 
@@ -264,11 +270,13 @@
 		return postId;
 	}
 
-	// Optimistic update functions for better UX
 	function applyOptimisticUpvote(postId: string) {
-		const originalState = { post: { ...post }, comments: [...comments] };
+		const originalState = {
+			post: post ? ({ ...post } as PostWithInteractions) : null,
+			comments: [...comments]
+		};
 
-		if (postId === post?.id) {
+		if (postId === post?.id && post) {
 			post = {
 				...post,
 				upvote: !post.upvote,
@@ -295,9 +303,12 @@
 	}
 
 	function applyOptimisticRepost(postId: string) {
-		const originalState = { post: { ...post }, comments: [...comments] };
+		const originalState = {
+			post: post ? ({ ...post } as PostWithInteractions) : null,
+			comments: [...comments]
+		};
 
-		if (postId === post?.id) {
+		if (postId === post?.id && post) {
 			post = {
 				...post,
 				repost: !post.repost,
@@ -321,7 +332,10 @@
 		return originalState;
 	}
 
-	function revertOptimisticUpdate(originalState: any) {
+	function revertOptimisticUpdate(originalState: {
+		post: PostWithInteractions | null;
+		comments: CommentWithInteractions[];
+	}) {
 		post = originalState.post;
 		comments = originalState.comments;
 	}
@@ -390,7 +404,7 @@
 		}
 
 		// If it's the main post, show composer
-		if (postId === post.id) {
+		if (postId === post?.id) {
 			showComposer = !showComposer;
 		} else {
 			// For comments, you could navigate to that comment or show a modal
@@ -475,12 +489,17 @@
 		);
 	}
 
-	// Handle comment submission
 	async function handleCommentSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
 	) {
 		if (!$currentUser) {
 			console.error($t('generic.userNotLoggedIn'));
+			return;
+		}
+
+		// Add null check for post
+		if (!post) {
+			console.error('No post available for commenting');
 			return;
 		}
 
@@ -490,7 +509,7 @@
 			(async () => {
 				const fetchResult = await fetchTryCatch<{
 					success: boolean;
-					comment: any;
+					comment: CommentWithInteractions;
 					message?: string;
 				}>(`/api/posts/${post.id}/comments`, {
 					method: 'POST',
@@ -528,7 +547,7 @@
 						console.log('⚠️ Comment already exists in array');
 					}
 
-					// Update post count
+					// Update post count - add null check
 					if (post) {
 						post = {
 							...post,
@@ -555,7 +574,6 @@
 			alert(`Failed to add comment: ${result.error}`);
 		}
 	}
-
 	function handleFollowUser(event: CustomEvent) {
 		console.log($t('posts.followUser'), event.detail.userId);
 	}
@@ -564,12 +582,17 @@
 
 	$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
 		setTimeout(async () => {
+			// Add additional null check inside timeout
+			if (!post) return;
+
 			const result = await clientTryCatch(
 				(async () => {
 					await postStore.markAsRead(post.id);
 
 					// Update local post state
-					const fetchResult = await fetchTryCatch<{ post: any }>(`/api/posts/${post.id}`);
+					const fetchResult = await fetchTryCatch<{ post: PostWithInteractions }>(
+						`/api/posts/${post.id}`
+					);
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch updated post: ${fetchResult.error}`);

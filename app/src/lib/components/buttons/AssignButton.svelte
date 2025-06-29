@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { updateTask } from '$lib/clients/taskClient';
 	import { currentUser } from '$lib/pocketbase';
@@ -308,8 +309,7 @@
 						×
 					</button>
 				{:else}
-					{@html getIcon('Users')}
-					<span> Assign </span>
+					<Icon name="Users" /> <span> Assign </span>
 				{/if}
 			</button>
 		{:else}

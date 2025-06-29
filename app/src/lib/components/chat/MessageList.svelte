@@ -2,6 +2,7 @@
 	import { createEventDispatcher, onMount, afterUpdate } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { t } from '$lib/stores/translationStore';
+	import type { User } from '$lib/types/types';
 	import MessageProcessor from '$lib/features/ai/components/chat/MessageProcessor.svelte';
 	import RecursiveMessage from '$lib/features/ai/components/chat/RecursiveMessage.svelte';
 	import { DateUtils } from '$lib/utils/dateUtils';
@@ -33,15 +34,12 @@
 	$: groupedMessages = DateUtils.groupMessagesByDate(chatMessages);
 
 	// Event handlers
-	function getAvatarUrl(user: any): string {
-		// This should be passed as a prop or imported from UserService
+	function getAvatarUrl(user: User): string {
 		return user?.avatar ? `/api/files/users/${user.id}/${user.avatar}` : '';
 	}
 
 	function processMessageContentWithReplyable(content: string, messageId: string): Promise<string> {
-		// Delegate to parent or service
 		dispatch('processMessageContent', { content, messageId });
-		// Return a resolved promise with empty string or handle the actual processing
 		return Promise.resolve('');
 	}
 
@@ -52,7 +50,7 @@
 	function replyToMessage(
 		text: string,
 		parentMsgId?: string,
-		contextMessages?: any[]
+		contextMessages?: InternalChatMessage[]
 	): Promise<void> {
 		dispatch('replyToMessage', { text, parentMsgId, contextMessages });
 		return Promise.resolve();

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { AIAgent, AIModel, Actions } from '$lib/types/types';
@@ -355,7 +356,7 @@
 								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									{@html getIcon('Bot', { size: 48 })}
+									<Icon name="Bot" size={48} />
 								</div>
 							{/if}
 						</div>
@@ -363,24 +364,24 @@
 						<div class="container-row">
 							<div class="data-counts">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									{@html getIcon('Trash2', { size: 24 })}
+									<Icon name="Trash2" size={24} />
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									{@html getIcon('Settings', { size: 24 })}
+									<Icon name="Settings" size={24} />
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									{@html getIcon('RefreshCcw', { size: 24 })}
+									<Icon name="RefreshCcw" size={24} />
 								</button>
 							</div>
 							<div class="action-buttons">
 								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									{@html getIcon('Trash2', { size: 24 })}
+									<Icon name="Trash2" size={24} />
 								</button>
 								<button class="mini-button" on:click={() => showEdit(agent)}>
-									{@html getIcon('Settings', { size: 24 })}
+									<Icon name="Settings" size={24} />
 								</button>
 								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									{@html getIcon('RefreshCcw', { size: 24 })}
+									<Icon name="RefreshCcw" size={24} />
 								</button>
 							</div>
 						</div>
@@ -459,7 +460,7 @@
 				</div>
 
 				<div class="search-container">
-					{@html getIcon('Search', { size: 24 })}
+					<Icon name="Search" size={24} />
 					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
 				</div>
 			</div>
@@ -467,7 +468,7 @@
 		<div class="search-and-sort-container">
 			<div class="options">
 				<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
-					{@html getIcon('Filter', { size: 24 })}
+					<Icon name="Filter" size={24} />
 					{showFilters ? 'Hide' : 'Filters'}
 				</button>
 				<div class="sort-container">
@@ -481,7 +482,7 @@
 					<!-- <h2>Agents</h2> -->
 					{#if !showCreateForm}
 						<button class="create-button" on:click={showCreate}>
-							{@html getIcon('Plus', { size: 24 })}
+							<Icon name="Plus" size={24} />
 						</button>
 					{/if}
 				</div>
@@ -500,11 +501,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								{@html getIcon('Bot', { size: 48 })}
+								<Icon name="Bot" size={48} />
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}
+							<Icon name="Upload" size={24} />
 						</div>
 						<input
 							type="file"
@@ -629,13 +630,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					{@html getIcon('ArrowLeft', { size: 24 })}
+					<Icon name="ArrowLeft" size={24} />
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						{@html getIcon('RefreshCcw', { size: 24 })}
+						<Icon name="RefreshCcw" size={24} />
 					{:else}
-						{@html getIcon('Plus', { size: 24 })}
+						<Icon name="Plus" size={24} />
 					{/if}
 				</button>
 			</div>
@@ -653,11 +654,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								{@html getIcon('Bot', { size: 48 })}
+								<Icon name="Bot" size={48} />
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}
+							<Icon name="Upload" size={24} />
 						</div>
 						<input
 							type="file"
@@ -714,13 +715,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					{@html getIcon('ArrowLeft', { size: 24 })}
+					<Icon name="ArrowLeft" size={24} />
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						{@html getIcon('RefreshCcw', { size: 24 })}
+						<Icon name="RefreshCcw" size={24} />
 					{:else}
-						{@html getIcon('Plus', { size: 24 })}
+						<Icon name="Plus" size={24} />
 					{/if}
 				</button>
 			</div>

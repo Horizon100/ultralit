@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { currentUser, checkPocketBaseConnection, updateUser } from '$lib/pocketbase';
 	import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
 	import { get, writable, derived } from 'svelte/store';
@@ -39,7 +40,8 @@
 		AIAgent,
 		Threads,
 		Messages,
-		ProviderType
+		ProviderType,
+		ThreadMember
 	} from '$lib/types/types';
 	import { projectStore } from '$lib/stores/projectStore';
 	import {
@@ -153,8 +155,6 @@
 	let isLoadingThreads = false;
 	let isLoadingProject = false;
 	let modelInitialized = false;
-	let userProfileCache: Map<string, UserProfile | null> = new Map();
-	let messageSubscription: any = null;
 	let date = new Date();
 	let locale = localeFromDateFnsLocale(hy);
 	/*
@@ -789,8 +789,8 @@
 
 	async function replyToMessage(
 		text: string,
-		parent_msg?: string,
-		contextMessages?: any[]
+		parent_msg?: string
+		// contextMessages?: any[]
 	): Promise<void> {
 		const replyText = text;
 		const parentMessageId = parent_msg || '';
@@ -1144,7 +1144,7 @@
 		}));
 
 		try {
-			let fetchedThreads: any[] = [];
+			let fetchedThreads: Threads[] = [];
 
 			if (isLoadingAllThreads) {
 				// Extract threads from all projects
@@ -1157,7 +1157,6 @@
 				// Collect all unique threads from all projects
 				const allThreadsMap = new Map();
 
-				// First add existing threads from threadsStore if any
 				if (existingThreads.length > 0) {
 					console.log(`Using ${existingThreads.length} existing threads from threadsStore`);
 					existingThreads.forEach((thread) => {
@@ -1516,11 +1515,9 @@
 				collaborators: false
 			};
 
-			// If the section was previously closed, open it
 			if (!sections[section]) {
 				newSections[section] = true;
 
-				// Remove any existing click listener
 				if (documentClickListener) {
 					window.removeEventListener('click', documentClickListener);
 				}
@@ -1528,7 +1525,6 @@
 				// Create a new click listener
 				documentClickListener = (e: MouseEvent) => {
 					const target = e.target as HTMLElement;
-					// Check if the click was outside the section content and toggle buttons
 					if (
 						!target.closest('.btn-ai') &&
 						!target.closest('.section-content') &&
@@ -1726,7 +1722,7 @@
 					thread.members &&
 					((typeof thread.members === 'string' && thread.members.includes(currentUserId)) ||
 						(Array.isArray(thread.members) &&
-							thread.members.some((m: any) =>
+							thread.members.some((m: ThreadMember | string) =>
 								typeof m === 'string' ? m === currentUserId : m.id === currentUserId
 							)));
 
@@ -2033,7 +2029,7 @@
 		}
 	}
 
-	function getAvatarUrl(user: any): string {
+	function getAvatarUrl(user: User): string {
 		if (!user) return '';
 
 		// If avatarUrl is already provided (e.g., from social login)
@@ -2149,8 +2145,8 @@
 
 	$: updateFavoriteThreadState($currentUser);
 
-	function groupThreadsByTime(threads: any[]) {
-		const grouped: { [key: string]: any[] } = {};
+	function groupThreadsByTime(threads: Threads[]) {
+		const grouped: { [key: string]: Threads[] } = {};
 
 		threads.forEach((thread) => {
 			const date = thread.updated ? new Date(thread.updated) : new Date(thread.created);
@@ -2189,17 +2185,15 @@
 			$t('dates.yearAgo') as string
 		];
 
-		const sortedGroups: { group: string; threads: any[] }[] = [];
+		const sortedGroups: { group: string; threads: Threads[] }[] = [];
 		const groupOrder = getGroupOrder();
 
-		// Add groups that exist in our threads
 		groupOrder.forEach((group) => {
 			if (grouped[group] && grouped[group].length > 0) {
 				sortedGroups.push({ group, threads: grouped[group] });
 			}
 		});
 
-		// Add any remaining groups (like multiple years ago)
 		Object.keys(grouped).forEach((group) => {
 			if (!groupOrder.includes(group) && grouped[group].length > 0) {
 				sortedGroups.push({ group, threads: grouped[group] });
@@ -2215,7 +2209,6 @@
 	$: {
 		const storeState = $threadsStore;
 		if (storeState) {
-			// threads = storeState.threads; // <-- DELETE THIS LINE
 			currentThreadId = storeState.currentThreadId;
 
 			// Update currentThread when the store changes
@@ -2331,8 +2324,9 @@
 
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 	$: selectedIcon = $promptStore?.selectedPromptId
-		? availablePrompts.find((option) => option.value === $promptStore.promptType)?.icon
-		: null;
+		? (availablePrompts.find((option) => option.value === $promptStore.promptType)
+				?.icon as IconName)
+		: 'Braces';
 	$: selectedModelName = $modelStore?.selectedModel?.name || '';
 	$: {
 		if ($expandedSections.models) {
@@ -2631,12 +2625,12 @@
 								{#if isCreatingThread}
 									<div class="spinner2" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
 										<span class="bot-icon">
-											{@html getIcon('Bot', { size: 16 })}
+											<Icon name="Bot" size={16} />
 										</span>
 									</div>
 								{:else}
 									<div class="icon" in:fade>
-										{@html getIcon('MessageCirclePlus', { size: 16 })}
+										<Icon name="MessageCirclePlus" size={16} />
 										{#if createHovered}
 											<span class="tooltip tooltip-delayed" in:fade>
 												{$t('tooltip.newThread')}
@@ -2660,7 +2654,7 @@
 								on:mouseleave={() => (favoritesHovered = false)}
 							>
 								<span class="favorite-filter" class:active={$threadsStore.showFavoriteThreads}>
-									{@html getIcon('Star', { size: 18 })}
+									<Icon name="Star" size={18} />
 								</span>
 								{#if favoritesHovered && !$threadsStore.showFavoriteThreads}
 									<span class="tooltip tooltip-delayed" in:fade>
@@ -2685,7 +2679,7 @@
 									on:mouseenter={() => (searchHovered = true)}
 									on:mouseleave={() => (searchHovered = false)}
 								>
-									{@html getIcon('Search', { size: 16 })}
+									<Icon name="Search" size={16} />
 									{#if searchHovered && !isExpanded}
 										<span class="tooltip tooltip-delayed" in:fade>
 											{$t('nav.search') || 'Search threads'}
@@ -2717,10 +2711,10 @@
 										class:selected={$sortOptionInfo.value === option.value}
 										on:click={() => setSortOption(option.value)}
 									>
-										<svelte:component this={option.icon} />
+										<Icon name={option.icon} size={20} />
 										<span>{option.label}</span>
 										{#if $sortOptionInfo.value === option.value}
-											<span class="check-icon">{@html getIcon('Check', { size: 20 })}</span>
+											<span class="check-icon"><Icon name="Check" size={20} /></span>
 										{/if}
 									</button>
 								{/each}
@@ -2746,7 +2740,7 @@
 										>
 											<span>{user.name}</span>
 											{#if $selectedUserIds.has(user.id)}
-												<span class="check-icon">{@html getIcon('Check', { size: 16 })}</span>
+												<span class="check-icon"><Icon name="Check" size={16} /></span>
 											{/if}
 										</button>
 									{/each}
@@ -2800,7 +2794,7 @@
 															class="action-btn delete"
 															on:click|stopPropagation={(e) => handleDeleteThread(e, thread.id)}
 														>
-															{@html getIcon('Trash2', { size: 16 })}
+															<Icon name="Trash2" size={16} />
 														</button>
 														<button
 															class="action-btn"
@@ -2810,7 +2804,7 @@
 																class="star-icon"
 																class:favorited={isThreadFavorited(thread.id)}
 															>
-																{@html getIcon('Star', { size: 16 })}
+																<Icon name="Star" size={16} />
 															</span>
 														</button>
 													</div>
@@ -3003,7 +2997,7 @@
 														View/Edit Text ({userInput.length} chars)
 													</button>
 													<button class="text-trash-btn" on:click={() => (userInput = '')}>
-														{@html getIcon('Trash2', { size: 16 })}
+														<Icon name="Trash2" size={16} />
 													</button>
 												</div>
 											{:else}
@@ -3045,9 +3039,9 @@
 															>
 																<span class="icon">
 																	{#if $expandedSections.models}
-																		{@html getIcon('BookmarkCheckIcon', { size: 20 })}
+																		<Icon name="BookmarkCheckIcon" size={20} />
 																	{:else}
-																		{@html getIcon('Bookmark', { size: 20 })}
+																		<Icon name="Bookmark" size={20} />
 																	{/if}
 																</span>
 															</button>
@@ -3058,17 +3052,14 @@
 															>
 																<span class="icon">
 																	{#if $expandedSections.prompts}
-																		{@html getIcon('Braces', { size: 30 })}
+																		<Icon name="Braces" size={30} />
 																	{:else}
-																		{@html getIcon('Braces', { size: 20 })}
+																		<Icon name="Braces" size={20} />
 																	{/if}
 																</span>
 																{#if selectedPromptLabel}
 																	{#if selectedIcon}
-																		<svelte:component
-																			this={selectedIcon}
-																			color="var(--text-color)"
-																		/>
+																		<Icon name={selectedIcon} size={20} color="var(--text-color)" />
 																	{/if}
 																{/if}
 															</button>
@@ -3079,9 +3070,9 @@
 															>
 																<span class="icon">
 																	{#if $expandedSections.sysprompts}
-																		{@html getIcon('Command', { size: 24 })}
+																		<Icon name="Command" size={24} />
 																	{:else}
-																		{@html getIcon('Command', { size: 20 })}
+																		<Icon name="Command" size={20} />
 																	{/if}
 																</span>
 
@@ -3110,9 +3101,9 @@
 															>
 																<span class="icon">
 																	{#if $expandedSections.models}
-																		{@html getIcon('Brain', { size: 20 })}
+																		<Icon name="Brain" size={20} />
 																	{:else}
-																		{@html getIcon('Brain', { size: 16 })}
+																		<Icon name="Brain" size={16} />
 																	{/if}
 																	{#if selectedModelLabel}
 																		<p class="selector-lable">{selectedModelLabel}</p>
@@ -3126,7 +3117,7 @@
 																on:click={() => !isLoading && handleSendMessage()}
 																disabled={isLoading}
 															>
-																{@html getIcon('Send', { size: 20 })}
+																<Icon name="Send" size={20} />
 															</button>
 														{/if}
 													</div>
@@ -3295,7 +3286,7 @@
 												View/Edit Text ({userInput.length} chars)
 											</button>
 											<button class="text-trash-btn" on:click={() => (userInput = '')}>
-												{@html getIcon('Trash2', { size: 16 })}
+												<Icon name="Trash2" size={16} />
 											</button>
 										</div>
 									{:else}
@@ -3338,14 +3329,14 @@
 															on:click={toggleAiActive}
 														>
 															{#if $isAiActive}
-																{@html getIcon('PlugZap', { size: 20 })}
+																<Icon name="PlugZap" size={20} />
 																{#if createHovered}
 																	<span class="tooltip" in:fade>
 																		{$t('tooltip.pauseAi')}
 																	</span>
 																{/if}
 															{:else}
-																{@html getIcon('ZapOff', { size: 20 })}
+																<Icon name="ZapOff" size={20} />
 																{#if createHovered}
 																	<span class="tooltip" in:fade>
 																		{$t('tooltip.playAi')}
@@ -3360,9 +3351,9 @@
 														>
 															<span class="icon">
 																{#if $expandedSections.collaborators}
-																	{@html getIcon('Users', { size: 30 })}
+																	<Icon name="Users" size={30} />
 																{:else}
-																	{@html getIcon('Users', { size: 20 })}
+																	<Icon name="Users" size={20} />
 																{/if}
 															</span>
 														</button>
@@ -3374,9 +3365,9 @@
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																{@html getIcon('BookmarkCheckIcon', { size: 20 })}
+																<Icon name="BookmarkCheckIcon" size={20} />
 															{:else}
-																{@html getIcon('Bookmark', { size: 20 })}
+																<Icon name="Bookmark" size={20} />
 															{/if}
 														</span>
 													</button>
@@ -3387,14 +3378,14 @@
 													>
 														<span class="icon">
 															{#if $expandedSections.prompts}
-																{@html getIcon('Braces', { size: 30 })}
+																<Icon name="Braces" size={30} />
 															{:else}
-																{@html getIcon('Braces', { size: 20 })}
+																<Icon name="Braces" size={20} />
 															{/if}
 														</span>
 														{#if selectedPromptLabel}
 															{#if selectedIcon}
-																<svelte:component this={selectedIcon} color="var(--text-color)" />
+																<Icon name={selectedIcon || 'Braces'} size={20} />
 															{/if}
 														{/if}
 													</button>
@@ -3405,9 +3396,9 @@
 													>
 														<span class="icon">
 															{#if $expandedSections.sysprompts}
-																{@html getIcon('Command', { size: 30 })}
+																<Icon name="Command" size={30} />
 															{:else}
-																{@html getIcon('Command', { size: 20 })}
+																<Icon name="Command" size={20} />
 															{/if}
 														</span>
 
@@ -3426,9 +3417,9 @@
 													>
 														<span class="icon">
 															{#if $expandedSections.models}
-																{@html getIcon('Brain', { size: 20 })}
+																<Icon name="Brain" size={20} />
 															{:else}
-																{@html getIcon('Brain', { size: 16 })}
+																<Icon name="Brain" size={16} />
 															{/if}
 															{#if selectedModelLabel}
 																<p class="selector-lable">{selectedModelLabel}</p>
@@ -3442,7 +3433,7 @@
 														on:click={() => !isLoading && handleSendMessage()}
 														disabled={isLoading}
 													>
-														{@html getIcon('Send', { size: 20 })}
+														<Icon name="Send" size={20} />
 													</button>
 												{/if}
 											</div>
@@ -3487,14 +3478,14 @@
 														on:click={toggleAiActive}
 													>
 														{#if $isAiActive}
-															{@html getIcon('PlugZap', { size: 20 })}
+															<Icon name="PlugZap" size={20} />
 															{#if createHovered}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.pauseAi')}
 																</span>
 															{/if}
 														{:else}
-															{@html getIcon('ZapOff', { size: 20 })}
+															<Icon name="ZapOff" size={20} />
 															{#if createHovered}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.playAi')}
@@ -3505,7 +3496,7 @@
 												{/if}
 
 												<button class="btn" transition:slide>
-													{@html getIcon('Paperclip', { size: 20 })}
+													<Icon name="Paperclip" size={20} />
 												</button>
 												<button
 													class="btn send-btn"
@@ -3514,7 +3505,7 @@
 													on:click={() => !isLoading && handleSendMessage()}
 													disabled={isLoading}
 												>
-													{@html getIcon('Send', { size: 20 })}
+													<Icon name="Send" size={20} />
 												</button>
 											{/if}
 										</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 	import { promptInputStore } from '$lib/stores/promptInputStore';
 	import { createPrompt, deletePrompt, updatePrompt } from '$lib/clients/promptInputClient';
@@ -247,7 +248,7 @@
 							</button>
 						{:else if activeSysPrompt === name}
 							<span class="active-prompt-badge">
-								{@html getIcon('Check', { size: 20 })}
+								<Icon name="Check" size={20} />
 								Active
 							</span>
 						{:else}

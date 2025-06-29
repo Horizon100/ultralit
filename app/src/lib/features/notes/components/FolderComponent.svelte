@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Folders, Notes } from '$lib/types/types';
 	import { slide } from 'svelte/transition';
@@ -55,14 +56,14 @@
 	<div class="folder-title">
 		<span on:click={toggleFolder}>
 			{#if openFolders.has(folder.id)}
-				{@html getIcon('ChevronDown', { size: 16 })}
+				<Icon name="ChevronDown" size={16} />
 			{:else}
-				{@html getIcon('ChevronRight', { size: 16 })}
+				<Icon name="ChevronRight" size={16} />
 			{/if}
 			{folder.title}
 		</span>
 		<button class="context-menu-button" on:click|stopPropagation={showContextMenu}>
-			{@html getIcon('MoreVertical', { size: 16 })}
+			<Icon name="MoreVertical" size={16} />
 		</button>
 	</div>
 	{#if openFolders.has(folder.id)}

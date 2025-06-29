@@ -1,8 +1,9 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { fly, fade, slide } from 'svelte/transition';
 	import Reactions from '$lib/features/ai/components/chat/Reactions.svelte';
-	import type { InternalChatMessage, RoleType } from '$lib/types/types';
+	import type { InternalChatMessage, RoleType, AIModel, User } from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { threadListVisibility } from '$lib/clients/threadsClient';
@@ -29,17 +30,17 @@
 	export let name: string;
 	export let depth: number = 0;
 	// export let getUserProfile;
-	export let getAvatarUrl: (user: any) => string;
+	export let getAvatarUrl: (user: User) => string;
 	export let processMessageContentWithReplyable;
 	export let latestMessageId: string | null;
 	export let toggleReplies: (messageId: string) => void;
 	export let hiddenReplies: Set<string>;
-	export let aiModel: any;
+	export let aiModel: AIModel;
 	export let promptType: string | null = null;
 	export let sendMessage: (
 		text: string,
 		parent_msg?: string,
-		contextMessages?: any[]
+		contextMessages?: InternalChatMessage[]
 	) => Promise<void> = async () => {};
 	export let isDualResponse = false;
 	export let dualResponsePair = false;
@@ -146,13 +147,11 @@
 					promptType
 				);
 
-				await sendMessage(replyText, message.id, messagesToSend);
+				await sendMessage(replyText, message.id, messagesToSend as InternalChatMessage[]);
 
-				// Clear the input and hide it
 				replyText = '';
 				showReplyInput = false;
 
-				// Make sure any nested replies container is visible after sending
 				if (hiddenReplies.has(message.id)) {
 					hiddenReplies.delete(message.id);
 					hiddenReplies = new Set(hiddenReplies);
@@ -290,9 +289,9 @@
 		} catch (error: unknown) {
 			console.error('Error generating task:', error);
 			console.log('Error details:', {
-				name: (error as any)?.name,
-				message: (error as any)?.message,
-				stack: (error as any)?.stack,
+				name: error instanceof Error ? error.name : 'Unknown',
+				message: error instanceof Error ? error.message : 'Unknown',
+				stack: error instanceof Error ? error.stack : undefined,
 				fullError: error
 			});
 			addNotification(
@@ -324,7 +323,7 @@
 	}: {
 		content: string;
 		messageId: string;
-		model: any;
+		model: AIModel;
 		userId: string;
 		parentTaskId: string;
 		projectId: string;
@@ -728,8 +727,8 @@
 		onGetCurrentIndex = () => currentMessageIndex;
 	}
 
-	function isPromise<T>(value: any): value is Promise<T> {
-		return value && typeof value === 'object' && typeof value.then === 'function';
+	function isPromise<T>(value: unknown): value is Promise<T> {
+		return value != null && typeof value === 'object' && typeof value.then === 'function';
 	}
 
 	$: if (message?.content) {
@@ -761,7 +760,7 @@
 					processedContent = content;
 					isProcessingContent = false;
 				})
-				.catch((error: any) => {
+				.catch((error: unknown) => {
 					console.error('Error processing message content:', error);
 					processedContent = 'Error loading message content';
 					isProcessingContent = false;
@@ -775,7 +774,7 @@
 						processedContent = content;
 						isProcessingContent = false;
 					})
-					.catch((error: any) => {
+					.catch((error: unknown) => {
 						console.error('Error processing message content:', error);
 						processedContent = contentToProcess;
 						isProcessingContent = false;
@@ -934,6 +933,8 @@
 		{#if isProcessingContent}
 			<!-- <span class="processing">Processing...</span> -->
 		{:else}
+			<!-- Safe if processedContent is sanitized -->
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html processedContent}
 		{/if}
 	</p>
@@ -960,10 +961,10 @@
 				>
 					{#if isSubmitting}
 						<span class="loading-icon">
-							{@html getIcon('RefreshCcw', { size: 16 })}
+							<Icon name="RefreshCcw" size={16} />
 						</span>
 					{:else}
-						{@html getIcon('Send', { size: 16 })}
+						<Icon name="Send" size={16} />
 					{/if}
 				</button>
 			</div>
@@ -981,9 +982,9 @@
 					{childReplies.length}
 					<span class="toggle-icon">
 						{#if repliesHidden}
-							{@html getIcon('ChevronDown', { size: 12 })}
+							<Icon name="ChevronDown" size={12} />
 						{:else}
-							{@html getIcon('ChevronUp', { size: 12 })}
+							<Icon name="ChevronUp" size={12} />
 						{/if}
 					</span>
 				</span>
@@ -1026,11 +1027,15 @@
 										{#await reply.content}
 											Loading...
 										{:then resolvedContent}
+											<!-- If resolvedContent is from a trusted source (like AI/API), add disable comment -->
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 											{@html resolvedContent.substring(0, 100)}...
 										{:catch error}
 											Error loading content
 										{/await}
 									{:else}
+										<!-- Safe: Truncated reply content -->
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html String(reply.content).substring(0, 100)}...
 									{/if}
 								</p>

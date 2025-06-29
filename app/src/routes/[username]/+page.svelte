@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -977,13 +978,13 @@
 											}
 										}}
 									>
-										{@html getIcon('MessageSquare', { size: 16 })}
+										<Icon name="MessageSquare" size={16} />
 										{$t('chat.message')}
 									</button>
 								{:else}{/if}
 							{:else}
 								<button class="btn btn-primary" on:click={() => goto('/login')}>
-									{@html getIcon('UserIcon', { size: 16 })}
+									<Icon name="UserIcon" size={16} />
 									{$t('generic.signin')}
 								</button>
 							{/if}
@@ -1166,21 +1167,21 @@
 
 								<div class="user-meta">
 									<div class="meta-item">
-										{@html getIcon('Calendar', { size: 16 })}
+										<Icon name="Calendar" size={16} />
 										<span>{$t('profile.joined')} {formatJoinDate(user.created)}</span>
 										<div class="action-buttons"></div>
 									</div>
 
 									{#if profile?.location}
 										<div class="meta-item">
-											{@html getIcon('MapPin', { size: 16 })}
+											<Icon name="MapPin" size={16} />
 											<span>{profile.location}</span>
 										</div>
 									{/if}
 
 									{#if profile?.website}
 										<div class="meta-item">
-											{@html getIcon('Link', { size: 16 })}
+											<Icon name="Link" size={16} />
 											<a href={profile.website} target="_blank" rel="noopener noreferrer">
 												{profile.website}
 											</a>
@@ -1325,7 +1326,7 @@
 											}}
 										>
 											{followerCount}
-											{@html getIcon('User', { size: 16 })}
+											<Icon name="User" size={16} />
 											{$t('profile.followers')}
 										</button>
 										<button
@@ -1357,7 +1358,7 @@
 											}}
 										>
 											{followingCount}
-											{@html getIcon('User', { size: 16 })}
+											<Icon name="User" size={16} />
 											{$t('profile.following')}
 										</button>
 										{#if $currentUser}
@@ -1385,7 +1386,7 @@
 														}
 													}}
 												>
-													{@html getIcon('MessageSquare', { size: 16 })}
+													<Icon name="MessageSquare" size={16} />
 													{$t('chat.message')}
 												</button>
 											{:else}
@@ -1406,13 +1407,13 @@
 														}
 													}}
 												>
-													{@html getIcon('Settings', { size: 16 })}
+													<Icon name="Settings" size={16} />
 													{$t('profile.edit')}
 												</button>
 											{/if}
 										{:else}
 											<button class="btn btn-primary" on:click={() => goto('/login')}>
-												{@html getIcon('UserIcon', { size: 16 })}
+												<Icon name="UserIcon" size={16} />
 												{$t('generic.signin')}
 											</button>
 										{/if}

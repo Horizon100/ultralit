@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { KanbanTask, Tag as TagType } from '$lib/types/types';
@@ -108,11 +109,11 @@
 		<div class="modal-container" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="modal-header">
 				<h3>
-					{@html getIcon('ListTodo', { size: 20 })}
+					<Icon name="ListTodo" size={20} />
 					Create Task from Message
 				</h3>
 				<button class="close-btn" on:click={closeModal}>
-					{@html getIcon('X', { size: 20 })}
+					<Icon name="X" size={20} />
 				</button>
 			</div>
 
@@ -141,7 +142,7 @@
 
 				<div class="form-group">
 					<label>
-						{@html getIcon('Calendar', { size: 16 })}
+						<Icon name="Calendar" size={16} />
 						Set Deadline
 					</label>
 					<div class="deadline-buttons">
@@ -178,7 +179,7 @@
 
 				<div class="form-group">
 					<label>
-						{@html getIcon('CheckSquare', { size: 16 })}
+						<Icon name="CheckSquare" size={16} />
 						Priority
 					</label>
 					<div class="priority-buttons">
@@ -209,7 +210,7 @@
 				{#if tags && tags.length > 0}
 					<div class="form-group">
 						<label>
-							{@html getIcon('Tag', { size: 16 })}
+							<Icon name="Tag" size={16} />
 							Tags
 						</label>
 						<div class="tags-container">

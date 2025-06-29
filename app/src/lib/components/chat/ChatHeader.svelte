@@ -21,34 +21,13 @@
 	export let isMinimized = false;
 	export let promptSuggestions: string[] = [];
 
-	// Event dispatcher
 	const dispatch = createEventDispatcher();
 
-	// Event handlers
 	function startEditingThreadName() {
 		if (!currentThread) return;
-
-		// Check if current user is the owner
 		const isOwner = currentThread.user === userId || currentThread.op === userId;
 		if (!isOwner) return;
-
 		dispatch('startEditing', { threadName: currentThread.name || '' });
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			event.preventDefault();
-		} else if (event.key === 'Escape') {
-			event.preventDefault();
-			dispatch('cancelEditing');
-		}
-	}
-
-	function handleBlur() {
-		if (editedThreadName.trim() !== '') {
-		} else {
-			dispatch('cancelEditing');
-		}
 	}
 
 	function handlePromptSelection(promptText: string) {
@@ -59,7 +38,6 @@
 		dispatch('sendMessage', { message });
 	}
 
-	// Random generators (could be moved to utils)
 	function getRandomGreeting(): string {
 		return UIUtils.getRandomGreeting();
 	}

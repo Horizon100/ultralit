@@ -2,9 +2,10 @@
 	import { currentCite, availableCites, type Cite } from '$lib/stores/citeStore';
 	import { onMount, afterUpdate } from 'svelte';
 	import { messagesStore } from '$lib/stores/messagesStore';
+	import type { InternalChatMessage } from '$lib/types/types';
 
 	// This component can be added to your chat component to handle message processing
-	export let messages: any[] = [];
+	export const messages: InternalChatMessage[] = [];
 	let isTypingInProgress = false;
 
 	// Define base URLs for each source

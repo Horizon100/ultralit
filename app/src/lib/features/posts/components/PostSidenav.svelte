@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fly } from 'svelte/transition';
 	import { showSidenav, showInput, showRightSidenav } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
@@ -20,25 +21,25 @@
 				<ul>
 					<li>
 						<a href="/chat" class="sidebar-link">
-							{@html getIcon('MessageSquare', { size: 20 })}
+							<Icon name="MessageSquare" size={20} />
 							<span>{$t('nav.chat')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/lean" class="sidebar-link">
-							{@html getIcon('Calendar', { size: 20 })}
+							<Icon name="Calendar" size={20} />
 							<span>{$t('nav.tasks')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/canvas" class="sidebar-link">
-							{@html getIcon('Sparkles', { size: 20 })}
+							<Icon name="Sparkles" size={20} />
 							<span>{$t('nav.canvas')}</span>
 						</a>
 					</li>
 					<li>
 						<a href="/notes" class="sidebar-link">
-							{@html getIcon('MessageSquare', { size: 20 })}
+							<Icon name="MessageSquare" size={20} />
 							<span>{$t('nav.notes')}</span>
 						</a>
 					</li>

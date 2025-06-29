@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { DMConversation } from '$lib/types/types';
 	import DMHeader from './DMHeader.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -66,7 +67,7 @@
 			<div class="header-title">
 				<h2>Messages</h2>
 				<button class="new-chat-btn" on:click={handleNewChat} title="New conversation">
-					{@html getIcon('MessageCirclePlus')}
+					<Icon name="MessageCirclePlus" />
 				</button>
 			</div>
 
@@ -74,7 +75,7 @@
 				<div class="search-input-wrapper">
 					<div class="icon-wrapper">
 						<div class="search-icon">
-							{@html getIcon('Search')}
+							<Icon name="Search" />
 						</div>
 					</div>
 					<input
@@ -93,7 +94,7 @@
 								handleSearch();
 							}}
 						>
-							{@html getIcon('X')}
+							<Icon name="X" />
 						</button>
 					{/if}
 				</div>

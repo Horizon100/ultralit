@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		initAudioState,
@@ -283,9 +284,9 @@
 		<!-- Play/Pause Button -->
 		<button class="control-btn play-pause" on:click={handlePlayPause}>
 			{#if audioState.isPlaying}
-				{@html getIcon('Pause', { size: 20 })}
+				<Icon name="Pause" size={20} />
 			{:else}
-				{@html getIcon('Play', { size: 20 })}
+				<Icon name="Play" size={20} />
 			{/if}
 		</button>
 
@@ -293,9 +294,9 @@
 		<div class="volume-controls">
 			<button class="control-btn volume-btn" on:click={handleMuteClick}>
 				{#if audioState.isMuted || audioState.volume === 0}
-					{@html getIcon('VolumeX', { size: 16 })}
+					<Icon name="VolumeX" size={16} />
 				{:else}
-					{@html getIcon('Volume2', { size: 16 })}
+					<Icon name="Volume2" size={16} />
 				{/if}
 			</button>
 
@@ -317,7 +318,7 @@
 		<!-- Playback Speed Control -->
 		<div class="speed-control">
 			<button class="control-btn speed-btn" on:click={toggleSpeedMenu}>
-				{@html getIcon('Settings', { size: 16 })}
+				<Icon name="Settings" size={16} />
 				<span class="speed-label">{currentSpeed}x</span>
 			</button>
 

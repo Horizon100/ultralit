@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
@@ -356,8 +357,7 @@
 				disabled={isLoading}
 			/>
 			<button class="add" on:click={addCollaborator} disabled={isLoading}>
-				{@html getIcon('Users')}
-				+
+				<Icon name="Users" /> +
 			</button>
 		</span>
 	</div>

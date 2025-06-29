@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
 	import {} from '$lib/pocketbase';
@@ -111,13 +112,13 @@
 					/>
 					<span class="tag-edit-buttons">
 						<span class="save-tag-button" on:click={() => updateTag(tag)}>
-							{@html getIcon('Check')}
+							<Icon name="Check" />
 						</span>
 						<span
 							class="delete-tag-button"
 							on:click|stopPropagation={(event) => dispatch('deleteTag', { tagId: tag.id })}
 						>
-							{@html getIcon('Trash2')}
+							<Icon name="Trash2" />
 						</span>
 					</span>
 				</div>
@@ -130,14 +131,14 @@
 				>
 					{tag.name}
 					<span class="edit-tag" on:click|stopPropagation={() => startEditingTag(tag.id)}>
-						{@html getIcon('Pen', { size: 16 })}
+						<Icon name="Pen" size={16} />
 					</span>
 				</span>
 			{/if}
 		</div>
 	{/each}
 	<button class="add-tag" on:click={toggleTagCreation}>
-		{@html getIcon('Plus')}
+		<Icon name="Plus" />
 		{$t('threads.newTag')}
 	</button>
 	{#if editingTagIndex !== null}
@@ -162,7 +163,7 @@
 					newTagName = ''; // Clear the input
 				}}
 			>
-				{@html getIcon('Plus')}
+				<Icon name="Plus" />
 			</span>
 		</div>
 	{/if}

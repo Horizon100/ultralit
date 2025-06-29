@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
 	import type { Tag } from '$lib/types/types';
@@ -30,9 +31,9 @@
 			transition:fly={{ y: -300, duration: 300 }}
 		>
 			{#if isTags}
-				{@html getIcon('TagIcon', { color: 'var(--placeholder-color)' })}
+				<Icon name="TagIcon" color="var(--placeholder-color)" />
 			{:else}
-				{@html getIcon('Tags', { color: 'var(--tertiary-color)' })}
+				<Icon name="Tags" color="var(--tertiary-color)" />
 			{/if}
 		</button>
 		{#if showTagSelector}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { promptInputStore } from '$lib/stores/promptInputStore';
 	import { createPrompt, deletePrompt, updatePrompt } from '$lib/clients/promptInputClient';
@@ -280,7 +281,7 @@
 					<div class="button-container">
 						{#if activePromptId === prompt.id}
 							<span class="active-prompt-badge">
-								{@html getIcon('Check', { size: 16 })}
+								<Icon name="Check" size={16} />
 								Active
 							</span>
 						{:else}
@@ -289,10 +290,10 @@
 							</button>
 						{/if}
 						<button class="edit-button" on:click={() => handleEdit(prompt)}>
-							{@html getIcon('Pen', { size: 16 })}
+							<Icon name="Pen" size={16} />
 						</button>
 						<button class="delete-button" on:click={() => handleDelete(prompt.id)}>
-							{@html getIcon('Trash2', { size: 16 })}
+							<Icon name="Trash2" size={16} />
 						</button>
 					</div>
 				</div>

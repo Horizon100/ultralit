@@ -287,8 +287,8 @@ import { getIcon } from '$lib/utils/lucideIcons';
 
 **After:**
 \`\`\`svelte
-{@html getIcon('Bot', { size: 24 })}
-<span class="text-blue-500">{@html getIcon('Settings')}</span>
+<Icon name="Bot" size={24} />
+<span class="text-blue-500"><Icon name="Settings" /></span>
 {@html getIcon('Plus', { strokeWidth: 3 })}
 \`\`\`
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
@@ -626,7 +627,7 @@
 										{/if}
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</a>
 							{/each}
@@ -656,7 +657,7 @@
 										{/if}
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</a>
 							{/each}
@@ -704,7 +705,7 @@
 										</div>
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</a>
 							{/each}
@@ -748,7 +749,7 @@
 										</div>
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</a>
 							{/each}
@@ -800,7 +801,7 @@
 										</div>
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</a>
 							{/each}
@@ -844,7 +845,7 @@
 										</div>
 									</div>
 									<span class="result-arrow">
-										{@html getIcon('ArrowRight', { size: 14 })}
+										<Icon name="ArrowRight" size={14} />
 									</span>
 								</div>
 							{/each}
@@ -867,7 +868,7 @@
 							on:click|stopPropagation={() => setActiveTab('projects')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('Book', { size: 16 })}
+							<Icon name="Book" size={16} />
 							<span>{$t('profile.projects')} ({projectResults.length})</span>
 						</button>
 					{/if}
@@ -878,7 +879,7 @@
 							on:click|stopPropagation={() => setActiveTab('threads')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('MessagesSquare', { size: 16 })}
+							<Icon name="MessagesSquare" size={16} />
 							<span>{$t('threads.threads')} ({threadResults.length})</span>
 						</button>
 					{/if}
@@ -889,7 +890,7 @@
 							on:click|stopPropagation={() => setActiveTab('messages')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('MessageCircle', { size: 16 })}
+							<Icon name="MessageCircle" size={16} />
 							<span>{$t('chat.messages')} ({messageResults.length})</span>
 						</button>
 					{/if}
@@ -900,7 +901,7 @@
 							on:click|stopPropagation={() => setActiveTab('posts')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('Layers', { size: 16 })}
+							<Icon name="Layers" size={16} />
 							<span>{$t('posts.posts')} ({postResults.length})</span>
 						</button>
 					{/if}
@@ -911,7 +912,7 @@
 							on:click|stopPropagation={() => setActiveTab('tasks')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('CheckSquare', { size: 16 })}
+							<Icon name="CheckSquare" size={16} />
 							<span>{$t('tasks.title')} ({taskResults.length})</span>
 						</button>
 					{/if}
@@ -922,7 +923,7 @@
 							on:click|stopPropagation={() => setActiveTab('all')}
 							on:mousedown|stopPropagation={() => {}}
 						>
-							{@html getIcon('Layers', { size: 16 })}
+							<Icon name="Layers" size={16} />
 							<span>{$t('generic.all')} </span>
 						</button>
 					{/if}

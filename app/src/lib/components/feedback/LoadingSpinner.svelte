@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { isLoading } from '$lib/stores/loadingStore';
 	import { fade } from 'svelte/transition';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -8,7 +9,7 @@
 	<div class="center-container" transition:fade={{ duration: 600 }}>
 		<div class="loading-overlay" transition:fade={{ duration: 600 }}>
 			<div class="spinner">
-				<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
+				<span class="bot-icon"><Icon name="Bot" size={80} /></span>
 			</div>
 		</div>
 	</div>

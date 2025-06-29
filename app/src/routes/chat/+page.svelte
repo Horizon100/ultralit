@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
@@ -107,7 +108,7 @@
 		<div class="center-container" transition:fade={{ duration: 300 }}>
 			<div class="loading-overlay">
 				<div class="spinner">
-					<span class="bot-icon">{@html getIcon('Bot', { size: 80 })}</span>
+					<span class="bot-icon"><Icon name="Bot" size={80} /></span>
 				</div>
 			</div>
 		</div>

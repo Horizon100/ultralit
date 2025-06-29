@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
 	import { projectStore } from '$lib/stores/projectStore';
@@ -226,16 +227,16 @@
 						class:rotated={isExpanded}
 						on:click|preventDefault={() => !isLoading && handleSelectProject(null)}
 					>
-						{@html getIcon('ChevronLeft')}
+						<Icon name="ChevronLeft" />
 					</span>
 				{/if}
 				<span class="trigger-display" class:drawer-visible={$showThreadList}>
 					{#if $projectStore.currentProject}
 						<span class="active">
-							{@html getIcon('PackageOpen')}
+							<Icon name="PackageOpen" />
 						</span>
 					{:else}
-						{@html getIcon('Package')}
+						<Icon name="Package" />
 					{/if}
 					<span>
 						{$projectStore.currentProject?.name || $t('profile.projects')}
@@ -257,7 +258,7 @@
 		<div class="dropdown-content" transition:slide={{ duration: 200 }}>
 			<div class="dropdown-header">
 				<div class="search-bar">
-					{@html getIcon('Search')}
+					<Icon name="Search" />
 					<input type="text" bind:value={searchQuery} placeholder={searchPlaceholder} />
 				</div>
 				<button
@@ -265,7 +266,7 @@
 					on:click={() => (isCreatingProject = !isCreatingProject)}
 					disabled={isLoading}
 				>
-					{@html getIcon('Plus')}
+					<Icon name="Plus" />
 				</button>
 			</div>
 
@@ -286,7 +287,7 @@
 						disabled={!newProjectName.trim() || isLoading}
 						on:click={() => handleCreateNewProject(newProjectName)}
 					>
-						{@html getIcon('Check')}
+						<Icon name="Check" />
 					</button>
 				</div>
 			{/if}
@@ -311,7 +312,7 @@
 									disabled={isLoading}
 									on:click|stopPropagation={(e) => handleDeleteProject(e, project.id)}
 								>
-									{@html getIcon('Trash2')}
+									<Icon name="Trash2" />
 								</button>
 							</div>
 						</div>

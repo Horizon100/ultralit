@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -106,7 +107,7 @@
 
 			<button type="submit" class="reset-button" disabled={isLoading}>
 				{#if isLoading}
-					<span class="animate-spin">{@html getIcon('Loader2')}</span>
+					<span class="animate-spin"><Icon name="Loader2" /></span>
 				{:else}
 					{$t('profile.resetPassword')}
 				{/if}

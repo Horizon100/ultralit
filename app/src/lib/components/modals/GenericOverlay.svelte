@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -15,7 +16,7 @@
 <div class="generic-overlay" transition:fade={{ duration: 300 }}>
 	<div class="generic-content" transition:fly={{ y: 300, duration: 300 }}>
 		<button class="close-button" on:click={closeOverlay}>
-			{@html getIcon('X', { size: 30 })}
+			<Icon name="X" size={30} />
 		</button>
 		<h2>{title}</h2>
 		<div class="content">

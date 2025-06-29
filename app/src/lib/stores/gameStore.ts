@@ -11,6 +11,12 @@ import type {
 } from '$lib/types/types.game';
 
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
+interface ApiRequestOptions {
+	method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+	headers?: Record<string, string>;
+	body?: string;
+	signal?: AbortSignal;
+}
 
 // existing stores
 export const gameStore = writable<GameState>({
@@ -42,7 +48,7 @@ class GameService {
 		return GameService.instance;
 	}
 
-	private async apiCall(endpoint: string, options?: RequestInit) {
+	private async apiCall(endpoint: string, options?: ApiRequestOptions) {
 		const response = await fetch(endpoint, {
 			...options,
 			credentials: 'include',

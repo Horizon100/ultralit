@@ -2,13 +2,30 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
+import type { GameDialog } from '$lib/types/types.game';
+
+interface DialogRequest {
+	type: 'table' | 'private' | 'room';
+	participants: string[];
+	tableId?: string;
+	roomId?: string;
+}
+
+interface DialogCreateData {
+	type: 'table' | 'private' | 'room';
+	participants: string[];
+	currentThread: string;
+	isActive: boolean;
+	table?: string;
+	room?: string;
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.pb.authStore.isValid) {
 		throw error(401, 'Unauthorized');
 	}
 
-	const { type, participants, tableId, roomId } = await request.json();
+	const { type, participants, tableId, roomId }: DialogRequest = await request.json();
 
 	try {
 		// Create thread for dialog
@@ -21,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 		// Create dialog session
-		const dialogData: any = {
+		const dialogData: DialogCreateData = {
 			type,
 			participants,
 			currentThread: thread.id,
@@ -31,7 +48,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (tableId) dialogData.table = tableId;
 		if (roomId) dialogData.room = roomId;
 
-		const dialog = await pb.collection('game_dialog').create(dialogData);
+		const dialog = (await pb.collection('game_dialog').create(dialogData)) as GameDialog;
 
 		return json({ dialog });
 	} catch (err) {

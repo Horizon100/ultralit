@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { signIn, signUp as registerUser } from '$lib/pocketbase';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
@@ -171,18 +172,18 @@
 								{#if isCheckingCode}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											{@html getIcon('Bot')}
+											<Icon name="Bot" />
 										</div>
 									</div>
 								{:else}
-									{@html getIcon('ChevronRight')}
+									<Icon name="ChevronRight" />
 								{/if}
 							</button>
 						</span>
 					{:else}
 						<div class="code-valid" transition:fly={{ duration: 300 }}>
 							<span class="check-icon">
-								{@html getIcon('CheckCircle')}
+								<Icon name="CheckCircle" />
 							</span>
 							<h2>{$t('profile.invitationSuccess')}</h2>
 						</div>
@@ -230,14 +231,14 @@
 								{#if isLoading}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											{@html getIcon('Bot')}
+											<Icon name="Bot" />
 										</div>
 									</div>
 								{:else}
 									<span>
 										{$t('profile.signup')}
 									</span>
-									{@html getIcon('ChevronRight')}
+									<Icon name="ChevronRight" />
 								{/if}
 							</button>
 						</span>

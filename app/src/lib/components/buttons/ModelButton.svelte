@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fly } from 'svelte/transition';
 	import { apiKey } from '$lib/stores/apiKeyStore';
 	import { providers } from '$lib/features/ai/utils/providers';
@@ -12,7 +13,7 @@
 	on:click={() => (showKeyInput = !showKeyInput)}
 	transition:fly={{ y: -200, duration: 300 }}
 >
-	{@html getIcon('Key', { size: 24 })}
+	<Icon name="Key" size={24} />
 	<div class="key-statuses">
 		{#each Object.entries(providers) as [provider, config]}
 			<div class="provider-status">
@@ -23,12 +24,10 @@
 				<div class="status-wrapper">
 					{#if $apiKey[provider]}
 						<span class="status-icon success"
-							>{@html getIcon('CheckCircle2', { size: 16, color: 'green' })}</span
+							><Icon name="CheckCircle2" size={16} color="green" /></span
 						>
 					{:else}
-						<span class="status-icon error"
-							>{@html getIcon('XCircle', { size: 16, color: 'red' })}</span
-						>
+						<span class="status-icon error"><Icon name="XCircle" size={16} color="red" /></span>
 					{/if}
 				</div>
 			</div>

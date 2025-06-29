@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { newsletterStore } from '$lib/stores/newsletterStore';
 	import type { NewsletterPreferences } from '$lib/types/types.subscriptions';
@@ -39,7 +40,7 @@
 	<div class="overlay" transition:fade>
 		<div class="popup-container" transition:fly={{ y: 20 }}>
 			<button class="close-button" on:click={close}>
-				{@html getIcon('X', { size: 24 })}
+				<Icon name="X" size={24} />
 			</button>
 
 			{#if isSubmitted}

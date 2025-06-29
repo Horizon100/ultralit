@@ -21,6 +21,7 @@
 		showEditor,
 		showOverlay
 	} from '$lib/stores/sidenavStore';
+	import type { Task } from '$lib/types/types';
 	import NoteEditor from '$lib/features/notes/components/NoteEditor.svelte';
 	import { clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
@@ -28,10 +29,10 @@
 	import Toast from '$lib/components/modals/Toast.svelte';
 
 	let hierarchyData: HierarchyData = { name: 'Loading tasks...', children: [] };
-	let filteredTasks: any[] = [];
+	let filteredTasks: Task[] = [];
 	let showTaskList = false;
 	let taskListTitle = '';
-	let selectedTask: any = null;
+	let selectedTask: Task | null = null;
 	let showTaskModal = false;
 	let showPage = false;
 	let isLoading = true;
@@ -46,8 +47,10 @@
 	let userId: string = '';
 	let threadId: string | null = null;
 	let messageId: string | null = null;
+
 	const activeTab = writable<string>('kanban');
 	const tabTransition = writable<string | null>(null);
+
 	export const defaultAIModel: AIModel = {
 		id: 'default',
 		name: 'Default Model',

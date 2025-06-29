@@ -4,17 +4,18 @@
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import AddHero from '$lib/features/game/components/AddHero.svelte';
-
-	export let width: number;
-	export let buildingTypes: Array<{
+	interface BuildingType {
 		id: string;
 		name: string;
 		icon: string;
 		size: { width: number; height: number };
-	}> = [];
+	}
+
+	export let width: number;
+	export let buildingTypes: BuildingType[] = [];
 	export let selectedBuildingType: string = '';
 	export let isCreatingBuilding: boolean = false;
-	export let onSelectBuildingType: (buildingType: any) => void;
+	export let onSelectBuildingType: (buildingType: BuildingType) => void;
 	export let onCancelBuilding: () => void;
 
 	const dispatch = createEventDispatcher();

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	// ===== CORE SVELTE IMPORTS =====
 	import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
 	import { get, writable, derived } from 'svelte/store';
@@ -479,10 +480,6 @@
 		await UserService.onFavoriteThread(specificThread);
 	}
 
-	function getAvatarUrl(user: any): string {
-		return UserService.getAvatarUrl(user);
-	}
-
 	function startEditingThreadName() {
 		const permissions = UserService.getThreadPermissions(currentThread!, userId);
 		if (!permissions.canEdit) return;
@@ -509,7 +506,11 @@
 		);
 		chatStore.addMessage(errorMsg);
 	}
-	function handleReplyToMessage(text: string, parentMsgId: string, contextMessages: any[]) {
+	function handleReplyToMessage(
+		text: string,
+		parentMsgId: string,
+		contextMessages: InternalChatMessage[]
+	) {
 		// Implement reply functionality
 		console.log('Reply to message:', { text, parentMsgId, contextMessages });
 	}
@@ -761,11 +762,11 @@
 							class:selected={$sortOptionInfo.value === option.value}
 							on:click={() => UIUtils.setSortOption(option.value)}
 						>
-							{@html getIcon(option.icon, { size: 16 })}
+							<Icon name={option.icon} size={16} />
 							<span>{option.label}</span>
 							{#if $sortOptionInfo.value === option.value}
 								<span class="check-icon">
-									{@html getIcon('Check', { size: 16 })}
+									<Icon name="Check" size={16} />
 								</span>
 							{/if}
 						</button>
@@ -795,7 +796,7 @@
 								<span>{user.name}</span>
 								{#if $selectedUserIds.has(user.id)}
 									<span class="check-icon">
-										{@html getIcon('Check', { size: 16 })}
+										<Icon name="Check" size={16} />
 									</span>
 								{/if}
 							</button>

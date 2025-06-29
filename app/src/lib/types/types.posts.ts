@@ -1,3 +1,4 @@
+import type { User } from './types';
 export interface PostAttachment {
 	id: string;
 	post: string;
@@ -104,4 +105,73 @@ export interface TimelinePost extends PostWithInteractions {
 	repostedBy_username?: string;
 	repostedBy_name?: string;
 	repostedBy_avatar?: string;
+}
+
+export interface Comment {
+	id: string;
+	content: string;
+	author: User;
+	created: string;
+	updated: string;
+	postId: string;
+	parentId?: string;
+	upvote?: boolean;
+	downvote?: boolean;
+	repost?: boolean;
+	upvoteCount?: number;
+	downvoteCount?: number;
+	repostCount?: number;
+}
+
+export interface CommentWithInteractions extends Comment {
+	upvote: boolean;
+	downvote: boolean;
+	repost: boolean;
+	preview: boolean;
+	hasRead: boolean;
+	share: boolean;
+	quote: boolean;
+	upvoteCount: number;
+	downvoteCount: number;
+	repostCount: number;
+	commentCount: number;
+	shareCount: number;
+	tagCount: number;
+	quoteCount: number;
+	readCount: number;
+	quotedPost?: string;
+	upvotedBy: string[];
+	downvotedBy: string[];
+	repostedBy: string[];
+	commentedBy: string[];
+	sharedBy: string[];
+	quotedBy: string[];
+	readBy: string[];
+	agents?: string[];
+	parent: string;
+	children: string[];
+	tags: string[];
+	attachments?: PostAttachment[];
+	user: string;
+}
+export interface PostChild {
+	id: string;
+	user: string;
+	parent?: string;
+	content?: string;
+	created: string;
+	upvotedBy?: string[];
+	downvotedBy?: string[];
+	repostedBy?: string[];
+	readBy?: string[];
+	childrenIds?: string[];
+	commentCount: number;
+	upvote: boolean;
+	downvote: boolean;
+	repost: boolean;
+	hasRead: boolean;
+	author_name?: string;
+	author_username?: string;
+	author_avatar?: string;
+	children: PostChild[];
 }

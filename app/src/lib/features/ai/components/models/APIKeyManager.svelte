@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { apiKey, type ApiKeys } from '$lib/stores/apiKeyStore';
 	import { fade, slide } from 'svelte/transition';
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
@@ -88,7 +89,7 @@
 	{#each Object.entries(services) as [service, config]}
 		<div class="key-section" transition:slide>
 			<div class="key-header">
-				{@html getIcon(config.icon, { size: 20 })}
+				<Icon name={config.icon} size={20} />
 				<h3>{config.name}</h3>
 			</div>
 
@@ -99,11 +100,11 @@
 					<div class="key-display">
 						<span>••••••••</span>
 						<button class="remove-key" on:click={() => removeKey(service)} title="Remove key">
-							{@html getIcon('Trash2', { size: 16 })}
+							<Icon name="Trash2" size={16} />
 						</button>
 					</div>
 					<span class="verified">
-						{@html getIcon('Check', { size: 16 })}
+						<Icon name="Check" size={16} />
 					</span>
 				</div>
 			{:else}
@@ -128,7 +129,7 @@
 							class="toggle-visibility"
 							on:click={() => (showKeys[service] = !showKeys[service])}
 						>
-							{@html getIcon(showKeys[service] ? 'EyeOff' : 'Eye', { size: 16 })}
+							<Icon name={showKeys[service] ? 'EyeOff' : 'Eye'} size={16} />
 						</button>
 					</div>
 
@@ -143,7 +144,7 @@
 
 				{#if errors[service]}
 					<div class="error" transition:fade>
-						{@html getIcon('AlertCircle', { size: 16 })}
+						<Icon name="AlertCircle" size={16} />
 						<span>{errors[service]}</span>
 					</div>
 				{/if}

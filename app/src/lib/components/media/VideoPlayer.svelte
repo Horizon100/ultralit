@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
@@ -317,9 +318,9 @@
 					aria-label={isPlaying ? 'Pause' : 'Play'}
 				>
 					{#if isPlaying}
-						{@html getIcon('Pause', { size: 24 })}
+						<Icon name="Pause" size={24} />
 					{:else}
-						{@html getIcon('Play', { size: 24 })}
+						<Icon name="Play" size={24} />
 					{/if}
 				</button>
 			{/if}
@@ -332,9 +333,9 @@
 					aria-label={isMuted ? 'Unmute' : 'Mute'}
 				>
 					{#if isMuted}
-						{@html getIcon('VolumeX', { size: 20 })}
+						<Icon name="VolumeX" size={20} />
 					{:else}
-						{@html getIcon('Volume2', { size: 20 })}
+						<Icon name="Volume2" size={20} />
 					{/if}
 				</button>
 			</div>

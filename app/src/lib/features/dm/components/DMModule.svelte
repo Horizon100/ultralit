@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import type { DMConversation, DMMessage, User } from '$lib/types/types';
@@ -43,7 +44,7 @@
 				throw new Error(result.error || 'Failed to load conversations');
 			}
 
-			conversations = result.conversations.map((conv: any) => ({
+			conversations = result.conversations.map((conv: DMConversation) => ({
 				...conv,
 				lastMessage: conv.lastMessage
 					? {
@@ -92,7 +93,7 @@
 				throw new Error(result.error || 'Failed to load messages');
 			}
 
-			messages = result.messages.map((msg: any) => ({
+			messages = result.messages.map((msg: DMMessage) => ({
 				...msg,
 				created: msg.created,
 				updated: msg.updated
@@ -340,7 +341,7 @@
 			{/if}
 			{#if !isDrawerOpen && showDrawerToggle}
 				<button class="drawer-toggle" on:click={toggleDrawer}>
-					{@html getIcon('ListCollapse')}
+					<Icon name="ListCollapse" />
 				</button>
 			{/if}
 
@@ -385,7 +386,7 @@
 
 			{#if isDrawerOpen && showDrawerToggle}
 				<button class="drawer-close" on:click={toggleDrawer}>
-					{@html getIcon('ListX')}
+					<Icon name="ListX" />
 				</button>
 			{/if}
 		</div>

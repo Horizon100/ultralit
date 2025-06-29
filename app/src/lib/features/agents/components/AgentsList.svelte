@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import type { AIAgent, AIModel, Actions } from '$lib/types/types';
@@ -359,7 +360,7 @@
 								<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 							{:else}
 								<div class="avatar-placeholder">
-									{@html getIcon('Bot', { size: 20 })}
+									<Icon name="Bot" size={20} />
 								</div>
 							{/if}
 						</div>
@@ -367,13 +368,13 @@
 						<div class="status-badge {agent.status}">{agent.status}</div>
 						<div class="action-buttons" transition:fade={{ duration: 200 }}>
 							<button class="control-button" on:click|stopPropagation={() => showEdit(agent)}>
-								{@html getIcon('Settings', { size: 24 })}
+								<Icon name="Settings" size={24} />
 							</button>
 							<button
 								class="control-button-delete"
 								on:click|stopPropagation={() => handleDelete(agent)}
 							>
-								{@html getIcon('Trash2', { size: 24 })}
+								<Icon name="Trash2" size={24} />
 							</button>
 						</div>
 					</div>
@@ -386,12 +387,12 @@
 	<div class="bottom-container">
 		<div class="search-and-sort-container">
 			<div class="search-container">
-				{@html getIcon('Search', { size: 30 })}
+				<Icon name="Search" size={30} />
 				<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
 				<div class="container-row">
 					{#if !showCreateForm}
 						<button class="create-button" on:click={showCreate}>
-							{@html getIcon('Plus', { size: 24 })}
+							<Icon name="Plus" size={24} />
 						</button>
 					{/if}
 				</div>
@@ -423,7 +424,7 @@
 								class:active={!selectedRole}
 								on:click={() => selectRole(null)}
 							>
-								{@html getIcon('CircleOff', { size: 24 })}
+								<Icon name="CircleOff" size={24} />
 							</button>
 						</div>
 						<div class="filter-row">
@@ -448,7 +449,7 @@
 								class:active={!selectedStatus}
 								on:click={() => (selectedStatus = null)}
 							>
-								{@html getIcon('CircleOff', { size: 24 })}
+								<Icon name="CircleOff" size={24} />
 							</button>
 						</div>
 						<div class="filter-row">
@@ -496,11 +497,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								{@html getIcon('Bot', { size: 48 })}
+								<Icon name="Bot" size={48} />
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}
+							<Icon name="Upload" size={24} />
 						</div>
 						<input
 							type="file"
@@ -626,13 +627,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					{@html getIcon('ArrowLeft', { size: 24 })}
+					<Icon name="ArrowLeft" size={24} />
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						{@html getIcon('RefreshCcw', { size: 24 })}
+						<Icon name="RefreshCcw" size={24} />
 					{:else}
-						{@html getIcon('Plus', { size: 24 })}
+						<Icon name="Plus" size={24} />
 					{/if}
 				</button>
 			</div>
@@ -650,11 +651,11 @@
 							{:else if selectedAgent && selectedAgent.avatar}
 								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
-								{@html getIcon('Bot', { size: 48 })}
+								<Icon name="Bot" size={48} />
 							{/if}
 						</div>
 						<div class="upload-overlay">
-							{@html getIcon('Upload', { size: 24 })}
+							<Icon name="Upload" size={24} />
 						</div>
 						<input
 							type="file"
@@ -711,13 +712,13 @@
 
 			<div class="button-group">
 				<button class="cancel-button" on:click={handleCancel}>
-					{@html getIcon('ArrowLeft', { size: 24 })}
+					<Icon name="ArrowLeft" size={24} />
 				</button>
 				<button class="submit-button" on:click={handleSubmit}>
 					{#if selectedAgent}
-						{@html getIcon('RefreshCcw', { size: 24 })}
+						<Icon name="RefreshCcw" size={24} />
 					{:else}
-						{@html getIcon('Plus', { size: 24 })}
+						<Icon name="Plus" size={24} />
 					{/if}
 				</button>
 			</div>

@@ -32,31 +32,31 @@ export default [
 	},
 	{
 		rules: {
-			// Relax TypeScript rules (biggest source of errors)
-			'@typescript-eslint/no-unused-vars': 'warn',
+			// DISABLE rules that are noisy during development
+			'@typescript-eslint/no-unused-vars': 'off', // Very common during development
+			'svelte/valid-compile': 'off', // Disable unused export warnings for Svelte props
+
+			// SECURITY - Keep these as warnings (don't disable)
+			'svelte/no-at-html-tags': 'warn', // XSS protection - review each case
+
+			// TYPE SAFETY - Keep as warnings
 			'@typescript-eslint/no-explicit-any': 'warn',
-			'@typescript-eslint/ban-ts-comment': 'warn',
 			'@typescript-eslint/no-non-null-assertion': 'warn',
+			'@typescript-eslint/ban-ts-comment': 'warn',
 
-			// Relax Svelte accessibility rules (many A11y errors) - correct rule names
-			'svelte/valid-compile': 'warn',
-			'svelte/no-at-html-tags': 'warn', // This handles {@html} XSS warnings
-
-			// Relax general JS rules
+			// GENERAL - Relaxed
 			'no-case-declarations': 'warn',
 			'no-undef': 'warn',
 			'no-unreachable': 'warn',
 			'no-constant-condition': 'warn',
 			'no-empty': 'warn',
 			'no-prototype-builtins': 'warn',
+			'no-useless-escape': 'warn',
 
-			// Keep your custom comment rules but as warnings
-			'no-warning-comments': [
-				'warn',
-				{ terms: ['todo', 'fixme', '@ts-ignore'], location: 'anywhere' }
-			],
-			'multiline-comment-style': ['warn', 'starred-block'],
-			'spaced-comment': ['warn', 'always'],
+			// COMMENTS - Disable during development, enable for production
+			'no-warning-comments': 'off', // Allow TODO/FIXME during development
+			'multiline-comment-style': 'off', // Don't enforce comment style
+			'spaced-comment': 'off', // Don't enforce comment spacing
 			'no-multi-spaces': 'warn'
 		}
 	}

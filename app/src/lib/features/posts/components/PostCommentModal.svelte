@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import type { PostWithInteractions, PostAttachment } from '$lib/types/types.posts';
@@ -88,7 +89,7 @@
 			<div class="modal-header">
 				<h2>Reply to Post</h2>
 				<button class="close-button" on:click={handleClose}>
-					{@html getIcon('X', { size: 20 })}
+					<Icon name="X" size={20} />
 				</button>
 			</div>
 

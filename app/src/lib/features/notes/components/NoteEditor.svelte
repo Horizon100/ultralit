@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
 	import { elasticOut, elasticIn } from 'svelte/easing';
@@ -532,12 +533,12 @@
 					on:click={() => (activeSection = 'folders')}
 				>
 					<span class="nav-icon">
-						{@html getIcon('Folder', { size: 16 })}
+						<Icon name="Folder" size={16} />
 					</span>
 				</span>
 				<span class:active={activeSection === 'search'} on:click={() => (activeSection = 'search')}>
 					<span class="nav-icon">
-						{@html getIcon('Search', { size: 16 })}
+						<Icon name="Search" size={16} />
 					</span>
 				</span>
 				<span
@@ -545,7 +546,7 @@
 					on:click={() => (activeSection = 'bookmarks')}
 				>
 					<span class="nav-icon">
-						{@html getIcon('Bookmark', { size: 16 })}
+						<Icon name="Bookmark" size={16} />
 					</span>
 				</span>
 			</div>
@@ -554,17 +555,17 @@
 				<div class="explorer-nav" transition:slide>
 					<span on:click={addFolder}>
 						<span class="nav-icon">
-							{@html getIcon('FolderPlus', { size: 16 })}
+							<Icon name="FolderPlus" size={16} />
 						</span>
 					</span>
 					<span on:click={(e) => createNewNote(e)}>
 						<span class="nav-icon">
-							{@html getIcon('Plus', { size: 16 })}
+							<Icon name="Plus" size={16} />
 						</span>
 					</span>
 					<span>
 						<span class="nav-icon">
-							{@html getIcon('ListFilter', { size: 16 })}
+							<Icon name="ListFilter" size={16} />
 						</span>
 					</span>
 				</div>
@@ -582,9 +583,9 @@
 							<div class="folder-title">
 								<span on:click={() => toggleFolder(folder)}>
 									{#if openFolders.has(folder.id)}
-										{@html getIcon('ChevronDown', { size: 16 })}
+										<Icon name="ChevronDown" size={16} />
 									{:else}
-										{@html getIcon('ChevronRight', { size: 16 })}
+										<Icon name="ChevronRight" size={16} />
 									{/if}
 									{folder.title}
 								</span>
@@ -592,7 +593,7 @@
 									class="context-menu-button"
 									on:click|stopPropagation={(e) => showContextMenu(e, folder, true)}
 								>
-									{@html getIcon('MoreVertical', { size: 16 })}
+									<Icon name="MoreVertical" size={16} />
 								</button>
 							</div>
 							{#if openFolders.has(folder.id)}
@@ -661,7 +662,7 @@
 	<div class="content" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
 		<div class="tab-row">
 			<button class="new-tab" on:click={createNewNote}>
-				{@html getIcon('Plus', { size: 16 })}
+				<Icon name="Plus" size={16} />
 			</button>
 			{#each openTabs as tab (tab.id)}
 				<div
@@ -671,7 +672,7 @@
 				>
 					<span on:click={() => notesStore.setCurrentNote(tab)}>{tab.title}</span>
 					<button class="close-tab" on:click={() => closeTab(tab)}>
-						{@html getIcon('X', { size: 16 })}
+						<Icon name="X" size={16} />
 					</button>
 				</div>
 			{/each}
@@ -720,7 +721,7 @@
 				<div class="attachments-container" transition:slide>
 					{#each currentNote.attachments || [] as attachment}
 						<div class="attachment">
-							{@html getIcon('FileIcon', { size: 16 })}
+							<Icon name="FileIcon" size={16} />
 							<span>{attachment.fileName}</span>
 						</div>
 					{/each}
@@ -763,7 +764,7 @@
 			<div class="attachments-container" transition:slide>
 				{#each currentNote.attachments as attachment (attachment.id)}
 					<div class="attachment">
-						{@html getIcon('FileIcon', { size: 16 })}
+						<Icon name="FileIcon" size={16} />
 						<span>{attachment.fileName}</span>
 					</div>
 				{/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
@@ -506,14 +507,14 @@
 					in:fly={{ y: 0, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					{@html getIcon('LogIn', { size: 16 })}
+					<Icon name="LogIn" size={16} />
 					<span>
 						{$t('profile.login')}
 					</span>
 				</button>
 				<span class="auth-language">
 					<button class="nav-link language" on:click={handleLanguageChange}>
-						{@html getIcon('Languages', { size: 16 })}
+						<Icon name="Languages" size={16} />
 						<span>{$t('lang.flag')}</span>
 					</button>
 				</span>
@@ -541,9 +542,9 @@
 						}}
 					>
 						{#if isNavExpanded}
-							{@html getIcon('PanelLeftClose')}
+							<Icon name="PanelLeftClose" />
 						{:else}
-							{@html getIcon('PanelLeftOpen')}
+							<Icon name="PanelLeftOpen" />
 						{/if}
 					</button>
 				{/if}
@@ -587,9 +588,9 @@
 						}}
 					>
 						{#if $showSettings}
-							{@html getIcon('ChevronLeft')}
+							<Icon name="ChevronLeft" />
 						{:else}
-							{@html getIcon('MoreVertical')}
+							<Icon name="MoreVertical" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -638,9 +639,9 @@
 						}}
 					>
 						{#if $showSidenav}
-							{@html getIcon('ChevronLeft')}
+							<Icon name="ChevronLeft" />
 						{:else}
-							{@html getIcon('Filter')}
+							<Icon name="Filter" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -687,9 +688,9 @@
 						}}
 					>
 						{#if $showInput}
-							{@html getIcon('ChevronDown')}
+							<Icon name="ChevronDown" />
 						{:else}
-							{@html getIcon('MessageCirclePlus')}
+							<Icon name="MessageCirclePlus" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.compose')}</span>
@@ -736,9 +737,9 @@
 						}}
 					>
 						{#if $showRightSidenav}
-							{@html getIcon('ChevronRight')}
+							<Icon name="ChevronRight" />
 						{:else}
-							{@html getIcon('ScanFace')}
+							<Icon name="ScanFace" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -756,7 +757,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('HomeIcon')}
+						<Icon name="HomeIcon" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.home')}</span>
 						{/if}
@@ -775,9 +776,9 @@
 						}}
 					>
 						{#if $showThreadList}
-							{@html getIcon('ChevronLeft')}
+							<Icon name="ChevronLeft" />
 						{:else}
-							{@html getIcon('ListCollapse')}
+							<Icon name="ListCollapse" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.chat')}</span>
@@ -792,7 +793,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('SquareKanban')}
+						<Icon name="SquareKanban" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.kanban')}</span>
 						{/if}
@@ -806,7 +807,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('Gamepad2')}
+						<Icon name="Gamepad2" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.game')}</span>
 						{/if}
@@ -854,10 +855,9 @@
 						}}
 					>
 						{#if $showSidenav}
-							{@html getIcon('ListX')}
-							Stages
+							<Icon name="ListX" /> Stages
 						{:else}
-							{@html getIcon('ListFilter')}
+							<Icon name="ListFilter" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -903,9 +903,9 @@
 						}}
 					>
 						{#if $showRightSidenav}
-							{@html getIcon('CalendarOff')}
+							<Icon name="CalendarOff" />
 						{:else}
-							{@html getIcon('Calendar')}
+							<Icon name="Calendar" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -951,9 +951,9 @@
 						}}
 					>
 						{#if $showOverlay}
-							{@html getIcon('MessageCircleOff')}
+							<Icon name="MessageCircleOff" />
 						{:else}
-							{@html getIcon('MessageSquare')}
+							<Icon name="MessageSquare" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -973,9 +973,9 @@
 							}}
 						>
 							{#if $showThreadList}
-								{@html getIcon('ListCollapseIcon')}
+								<Icon name="ListCollapseIcon" />
 							{:else}
-								{@html getIcon('ListCollapse')}
+								<Icon name="ListCollapse" />
 							{/if}
 							{#if isNavExpanded}
 								<span class="nav-text">{$t('nav.chat')}</span>
@@ -1021,9 +1021,9 @@
 						}}
 					>
 						{#if $showEditor}
-							{@html getIcon('Notebook')}
+							<Icon name="Notebook" />
 						{:else}
-							{@html getIcon('NotebookPen')}
+							<Icon name="NotebookPen" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
@@ -1047,9 +1047,9 @@
 							}}
 						>
 							{#if $showExplorer}
-								{@html getIcon('ListCollapseIcon')}
+								<Icon name="ListCollapseIcon" />
 							{:else}
-								{@html getIcon('ListCollapse')}
+								<Icon name="ListCollapse" />
 							{/if}
 							{#if isNavExpanded}
 								<span class="nav-text">{$t('nav.chat')}</span>
@@ -1068,7 +1068,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('HomeIcon')}
+						<Icon name="HomeIcon" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.home')}</span>
 						{/if}
@@ -1082,7 +1082,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('MessageCircle')}
+						<Icon name="MessageCircle" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.chat')}</span>
 						{/if}
@@ -1096,7 +1096,7 @@
 							if (isNavExpanded) isNavExpanded = false;
 						}}
 					>
-						{@html getIcon('SquareKanban')}
+						<Icon name="SquareKanban" />
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.kanban')}</span>
 						{/if}
@@ -1115,9 +1115,9 @@
 						}}
 					>
 						{#if $showSidenav}
-							{@html getIcon('PanelLeftClose')}
+							<Icon name="PanelLeftClose" />
 						{:else}
-							{@html getIcon('Gamepad')}
+							<Icon name="Gamepad" />
 						{/if}
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.game')}</span>
@@ -1163,9 +1163,9 @@
 					}}
 				>
 					{#if $showInput}
-						{@html getIcon('ChevronDown')}
+						<Icon name="ChevronDown" />
 					{:else}
-						{@html getIcon('Search')}
+						<Icon name="Search" />
 					{/if}
 					{#if isNavExpanded}
 						<span class="nav-text">{$t('nav.compose')}</span>
@@ -1193,7 +1193,7 @@
 					in:fly={{ y: 50, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					{@html getIcon('X')}
+					<Icon name="X" />
 				</button>
 				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
 			</div>
@@ -1243,7 +1243,7 @@
 					in:fly={{ y: 50, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					{@html getIcon('X')}
+					<Icon name="X" />
 				</button>
 				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
 			</div>
@@ -1315,9 +1315,9 @@
 				}}
 			>
 				{#if $showSettings}
-					{@html getIcon('AlertCircle')}
+					<Icon name="AlertCircle" />
 				{:else}
-					{@html getIcon('AlertCircle')}
+					<Icon name="AlertCircle" />
 				{/if}
 				{#if isNavExpanded}
 					<span class="nav-text">{$t('nav.debug')}</span>
@@ -1335,8 +1335,7 @@
 					}
 				}}
 			>
-				{@html getIcon('Compass')}
-				<span class="nav-text">{$t('nav.chat')}</span>
+				<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
 				{#if isNavExpanded}{/if}
 			</a>
 			<a
@@ -1350,8 +1349,7 @@
 					}
 				}}
 			>
-				{@html getIcon('Command')}
-				<span class="nav-text">{$t('nav.tools')}</span>
+				<Icon name="Command" /> <span class="nav-text">{$t('nav.tools')}</span>
 				{#if isNavExpanded}{/if}
 			</a>
 			<!-- <a
@@ -1365,8 +1363,7 @@
 					}
 				}}
 			>
-				{@html getIcon('Gamepad')}
-				<span class="nav-text">{$t('nav.game')}</span>
+				<Icon name="Gamepad" />				<span class="nav-text">{$t('nav.game')}</span>
 				{#if isNavExpanded}
 				{/if}
 			</a>
@@ -1381,8 +1378,7 @@
 					}
 				}}
 			>
-				{@html getIcon('Code')}
-				<span class="nav-text">{$t('nav.ide')}</span>
+				<Icon name="Code" />				<span class="nav-text">{$t('nav.ide')}</span>
 				{#if isNavExpanded}
 				{/if}
 			</a>
@@ -1397,8 +1393,7 @@
 					}
 				}}
 			>
-				{@html getIcon('Combine')}
-				<span class="nav-text">{$t('nav.canvas')}</span>
+				<Icon name="Combine" />				<span class="nav-text">{$t('nav.canvas')}</span>
 				{#if isNavExpanded}
 				{/if}
 			</a> -->
@@ -1408,8 +1403,7 @@
 				rel="noopener noreferrer"
 				class:expanded={isNavExpanded}
 			>
-				{@html getIcon('Github')}
-				<span class="nav-text">GitHub</span>
+				<Icon name="Github" /> <span class="nav-text">GitHub</span>
 				{#if isNavExpanded}{/if}
 			</a>
 			<button
@@ -1476,7 +1470,7 @@
 								}
 							}}
 						>
-							{@html getIcon('LogOutIcon', { size: 16 })}
+							<Icon name="LogOutIcon" size={16} />
 						</span>
 					</div>
 				</div>

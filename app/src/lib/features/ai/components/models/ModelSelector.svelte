@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { AIModel, ProviderType } from '$lib/types/types';
 	import { fly } from 'svelte/transition';
@@ -373,7 +374,7 @@
 							<span class="model-name">{model.name}</span>
 							<span class="provider-badge">{providers[model.provider]?.name}</span>
 							<button class="star-button star-active" on:click={(e) => toggleFavorite(model, e)}>
-								{@html getIcon('Star', { size: 16, color: '#FFD700' })}
+								<Icon name="Star" size={16} color="#FFD700" />
 							</button>
 						</button>
 					{/each}
@@ -382,7 +383,7 @@
 				<div class="no-favorites">
 					<div class="small-spinner-container">
 						<div class="small-spinner">
-							{@html getIcon('Bot')}
+							<Icon name="Bot" />
 						</div>
 					</div>
 					<p>Star your favorite models to see them here</p>
@@ -409,11 +410,11 @@
 						<div class="provider-status">
 							{#if get(apiKey)[key]}
 								<div class="icon-wrapper success">
-									{@html getIcon('CheckCircle2')}
+									<Icon name="CheckCircle2" />
 								</div>
 							{:else}
 								<div class="icon-wrapper error">
-									{@html getIcon('XCircle', { size: 35 })}
+									<Icon name="XCircle" size={35} />
 								</div>
 							{/if}
 						</div>
@@ -426,7 +427,7 @@
 
 {#if isOffline}
 	<div class="offline-indicator">
-		{@html getIcon('XCircle', { size: 16, color: 'orange' })}
+		<Icon name="XCircle" size={16} color="orange" />
 		<span>Offline</span>
 	</div>
 {/if}
@@ -453,13 +454,13 @@
 								expandedModelList && handleDeleteAPIKey(expandedModelList)}
 							title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
 						>
-							{@html getIcon('Trash2', { size: 20 })}
+							<Icon name="Trash2" size={20} />
 						</button>
 					{/if}
 
 					<!-- Close button -->
 					<button class="close-btn" on:click={() => (expandedModelList = null)}>
-						{@html getIcon('XCircle', { size: 35 })}
+						<Icon name="XCircle" size={35} />
 					</button>
 				</div>
 			</div>
@@ -487,7 +488,7 @@
 								class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
 								on:click={(e) => toggleFavorite(model, e)}
 							>
-								{@html getIcon('Star', { size: 30 })}
+								<Icon name="Star" size={30} />
 							</span>
 							{model.name}
 						</button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	export let code: string;
 
 	function formatJSON(jsonString: string): string {
@@ -74,7 +75,12 @@
 </script>
 
 <pre class="json-container">
-  <code class="json-code">{@html formattedCode}</code>
+	
+  <code class="json-code">
+	<!-- Safe: Formatted JSON code -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html formattedCode}
+</code>
 </pre>
 
 <style lang="postcss">

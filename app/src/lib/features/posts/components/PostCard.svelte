@@ -1,8 +1,9 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
-	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
@@ -48,7 +49,6 @@
 	export let hideHeaderOnScroll: boolean = false;
 
 	let showTooltip = false;
-	let tooltipTimeout: NodeJS.Timeout;
 	let showShareModal = false;
 	let showQuoteModal = false;
 	let showTagsModal = false;
@@ -476,12 +476,12 @@
 <article class="post-card" class:comment={isComment}>
 	{#if isRepost}
 		<div class="repost-indicator">
-			{@html getIcon('Repeat', { size: 14 })}
+			<Icon name="Repeat" size={14} />
 			<span>{$t('posts.repostedBy')} {post.author_name || post.author_username}</span>
 		</div>
 	{:else if isOwnRepost}
 		<div class="repost-indicator own-repost">
-			{@html getIcon('Repeat', { size: 14 })}
+			<Icon name="Repeat" size={14} />
 			<span>{$t('posts.youReposted')}</span>
 		</div>
 	{/if}
@@ -519,7 +519,7 @@
 		</div>
 		{#if showActions}
 			<button class="post-options">
-				{@html getIcon('MoreHorizontal', { size: 16 })}
+				<Icon name="MoreHorizontal" size={16} />
 			</button>
 		{/if}
 	</div>
@@ -586,7 +586,7 @@
 							{:else}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<div class="attachment-file">
-										{@html getIcon('Paperclip', { size: 16 })}
+										<Icon name="Paperclip" size={16} />
 										<span>{attachment.original_name}</span>
 										{#if attachment.file_size}
 											<span class="filesize">({formatFileSize(attachment.file_size)})</span>
@@ -642,7 +642,7 @@
 								</div>
 							{:else}
 								<div class="attachment-file">
-									{@html getIcon('Paperclip', { size: 16 })}
+									<Icon name="Paperclip" size={16} />
 									<span>{attachment.original_name}</span>
 									{#if attachment.file_size}
 										<span class="filesize">({formatFileSize(attachment.file_size)})</span>
@@ -717,7 +717,7 @@
 	{#if showActions}
 		<div class="post-actions">
 			<button class="action-button comment" title="Comment" on:click={handleComment}>
-				{@html getIcon('MessageSquare', { size: 16 })}
+				<Icon name="MessageSquare" size={16} />
 				<span>{post.commentCount || 0}</span>
 			</button>
 
@@ -727,7 +727,7 @@
 				on:click={() => handleInteraction('repost')}
 				title={repostTitle}
 			>
-				{@html getIcon('Repeat', { size: 16 })}
+				<Icon name="Repeat" size={16} />
 				<span>{post.repostCount || 0}</span>
 			</button>
 
@@ -737,7 +737,7 @@
 				on:click={() => handleInteraction('upvote')}
 				title={upvoteTitle}
 			>
-				{@html getIcon('Heart', { size: 16 })}
+				<Icon name="Heart" size={16} />
 				<span>{upvoteCount}</span>
 			</button>
 
@@ -747,7 +747,7 @@
 				title={shareTitle}
 				on:click={handleShare}
 			>
-				{@html getIcon('Share', { size: 16 })}
+				<Icon name="Share" size={16} />
 				<span>{(post.shareCount || 0) + (post.quoteCount || 0)}</span>
 				{#if showTooltip}
 					<span class="tooltip">{$t('generic.copiedLink')} </span>
@@ -755,7 +755,7 @@
 			</button>
 			<!-- Read indicator -->
 			<div class="action-button read" title="{post.readCount || 0} readers">
-				{@html getIcon('EyeIcon', { size: 14 })}
+				<Icon name="EyeIcon" size={14} />
 				<span class="read-count">{post.readCount || 0}</span>
 			</div>
 			<!-- Updated tags button -->
@@ -768,15 +768,15 @@
 				on:click={handleTags}
 				disabled={tagCount === 0}
 			>
-				{@html getIcon('TagsIcon', { size: 16 })}
+				<Icon name="TagsIcon" size={16} />
 				<span class="tag-count">{tagCount}</span>
 
 				{#if tagCount > 0}
 					<span class="expand-icon">
 						{#if tagsExpanded}
-							{@html getIcon('ChevronDown', { size: 12 })}
+							<Icon name="ChevronDown" size={12} />
 						{:else}
-							{@html getIcon('ChevronRight', { size: 12 })}
+							<Icon name="ChevronRight" size={12} />
 						{/if}
 					</span>
 				{/if}
@@ -789,14 +789,14 @@
 				title={agentsTitle}
 				on:click={handleAgents}
 			>
-				{@html getIcon('Bot', { size: 16 })}
+				<Icon name="Bot" size={16} />
 				<span class="agent-count">{activeAgents.length}</span>
 
 				<span class="expand-icon">
 					{#if agentsExpanded}
-						{@html getIcon('ChevronDown', { size: 12 })}
+						<Icon name="ChevronDown" size={12} />
 					{:else}
-						{@html getIcon('ChevronRight', { size: 12 })}
+						<Icon name="ChevronRight" size={12} />
 					{/if}
 				</span>
 			</button>

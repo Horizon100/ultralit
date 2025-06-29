@@ -1,28 +1,7 @@
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import { apiTryCatch } from '$lib/utils/errorUtils';
-
-interface PostChild {
-	id: string;
-	user: string;
-	parent?: string;
-	content?: string;
-	created: string;
-	upvotedBy?: string[];
-	downvotedBy?: string[];
-	repostedBy?: string[];
-	readBy?: string[];
-	childrenIds?: string[];
-	commentCount: number;
-	upvote: boolean;
-	downvote: boolean;
-	repost: boolean;
-	hasRead: boolean;
-	author_name?: string;
-	author_username?: string;
-	author_avatar?: string;
-	children: PostChild[];
-}
+import type { PostChild } from '$lib/types/types.posts';
 
 interface UserData {
 	id: string;
@@ -31,15 +10,7 @@ interface UserData {
 	avatar?: string;
 }
 
-export const GET: RequestHandler = async ({
-	params,
-	url,
-	locals
-}: {
-	params: { id: string };
-	url: URL;
-	locals: App.Locals & { user?: { id: string } | null };
-}) => {
+export const GET: RequestHandler = async ({ params, url, locals }) => {
 	return apiTryCatch(
 		async () => {
 			if (!locals.user) {

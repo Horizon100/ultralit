@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { fade, slide, fly } from 'svelte/transition';
 	import {
@@ -484,14 +485,14 @@
 							{#if isLoading}
 								<div class="small-spinner-container">
 									<div class="small-spinner">
-										{@html getIcon('Bot')}
+										<Icon name="Bot" />
 									</div>
 								</div>
 							{:else}
 								<span>
 									{$t('profile.login')}
 								</span>
-								{@html getIcon('ChevronRight')}
+								<Icon name="ChevronRight" />
 							{/if}
 						</button>
 					</span>
@@ -507,7 +508,7 @@
 					{#if showPasswordReset}
 						<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
 							<button class="round-btn back" on:click={closePasswordReset}>
-								{@html getIcon('ChevronLeft')}
+								<Icon name="ChevronLeft" />
 							</button>
 							<input
 								type="email"
@@ -520,14 +521,14 @@
 								>{#if isLoading}
 									<div class="small-spinner-container">
 										<div class="small-spinner">
-											{@html getIcon('Bot')}
+											<Icon name="Bot" />
 										</div>
 									</div>
 								{:else}
 									<span>
 										{$t('profile.reset')}
 									</span>
-									{@html getIcon('ChevronRight')}
+									<Icon name="ChevronRight" />
 								{/if}
 							</button>
 						</span>
@@ -580,8 +581,7 @@
 		{logout}
 	/>
 	<button class="logout-button" on:click={logout} transition:fade={{ duration: 300 }}>
-		{@html getIcon('LogOut')}
-		<span>Logout</span>
+		<Icon name="LogOut" /> <span>Logout</span>
 	</button>
 {/if}
 

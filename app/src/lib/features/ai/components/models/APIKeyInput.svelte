@@ -17,7 +17,7 @@
 	let key = '';
 
 	function getProviderName(): string {
-		return (providers as any)[provider]?.name || provider;
+		return (providers as Record<string, { name: string }>)[provider]?.name || provider;
 	}
 
 	function handleSubmit(e: Event) {

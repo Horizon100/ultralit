@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { AIAgent, PartialAIAgent } from '$lib/types/types';
 	import { agentStore } from '$lib/stores/agentStore';
+	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 
 	export let selectedShape: AIAgent | null;
 	export let width: number;
@@ -26,15 +27,19 @@
 
 	async function updateAgent() {
 		if (editedAgent && selectedShape) {
-			try {
-				await agentStore.updateAgent(selectedShape.id, editedAgent);
+			const result = await clientTryCatch(
+				Promise.resolve(agentStore.updateAgent(selectedShape.id, editedAgent)),
+				'Updating agent'
+			);
+
+			if (isFailure(result)) {
+				updateMessage = `Error updating agent: ${result.error}`;
+				updateStatus = 'error';
+			} else {
 				updateMessage = 'Agent updated successfully';
 				updateStatus = 'success';
-			} catch (error: any) {
-				// Explicitly cast error to `any`
-				updateMessage = 'Error updating agent: ' + (error.message || 'Unknown error');
-				updateStatus = 'error';
 			}
+
 			setTimeout(() => {
 				updateMessage = '';
 				updateStatus = '';

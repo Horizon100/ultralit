@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
@@ -24,7 +25,7 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let projectId: string | undefined = undefined;
-	export let activeTab: 'info' | 'details' | 'stats' | 'members' = 'info';
+	export let activeTab: 'info' | 'details' | 'stats' | 'members' | null = 'info';
 	export let previousActiveTab: 'info' | 'details' | 'stats' | 'members' | null = null;
 	export let handleSendMessage: (message: string) => Promise<void>;
 	let isExpanded = false;
@@ -118,7 +119,7 @@
 		// When textarea gets focus, remember the current tab but set active to null
 		if (activeTab) {
 			previousActiveTab = activeTab;
-			activeTab = null as any; // Type assertion to handle null case
+			// activeTab = null as any; // Type assertion to handle null case
 		}
 	} else {
 		// When textarea loses focus, restore the previous tab if we have one
@@ -437,7 +438,7 @@
 							autofocus
 						/>
 						<button class="save-button" on:click={() => saveProjectEdit('name')}>
-							{@html getIcon('Check')}
+							<Icon name="Check" />
 						</button>
 					</div>
 				{:else if isExpanded}{:else}{/if}
@@ -447,7 +448,7 @@
 						on:click={() => setActiveTab('info')}
 					>
 						<span>
-							{@html getIcon('InfoIcon')}
+							<Icon name="InfoIcon" />
 							<p>
 								<!-- {$t('dashboard.projectInfo')} -->
 							</p>
@@ -458,7 +459,7 @@
 						on:click={() => setActiveTab('details')}
 					>
 						<span>
-							{@html getIcon('Logs')}
+							<Icon name="Logs" />
 							<p>
 								{$t('dashboard.projectDetails')}
 							</p>
@@ -469,7 +470,7 @@
 						on:click={() => setActiveTab('stats')}
 					>
 						<span>
-							{@html getIcon('ChartBarBig')}
+							<Icon name="ChartBarBig" />
 							<p>
 								{$t('dashboard.projectStats')}
 							</p>
@@ -480,7 +481,7 @@
 						on:click={() => setActiveTab('members')}
 					>
 						<span>
-							{@html getIcon('Users')}
+							<Icon name="Users" />
 							<p>
 								{$t('dashboard.projectMembers')}
 							</p>
@@ -502,7 +503,7 @@
 								></textarea>
 								<button class="save-button" on:click={() => saveProjectEdit('description')}>
 									{$t('tooltip.done')}
-									{@html getIcon('Check')}
+									<Icon name="Check" />
 								</button>
 							</div>
 						{:else if projectDescription}
@@ -524,7 +525,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															{@html getIcon('Pen')}
+															<Icon name="Pen" />
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -556,7 +557,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															{@html getIcon('Pen')}
+															<Icon name="Pen" />
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -589,7 +590,7 @@
 														on:mouseleave={() => (hoveredEdit = false)}
 													>
 														<div class="icon" in:fade>
-															{@html getIcon('Pen')}
+															<Icon name="Pen" />
 															{#if hoveredEdit}
 																<span class="tooltip" in:fade>
 																	{$t('tooltip.editDescription')}
@@ -624,7 +625,7 @@
 													on:mouseleave={() => (hoveredEdit = false)}
 												>
 													<div class="icon" in:fade>
-														{@html getIcon('Pen')}
+														<Icon name="Pen" />
 														{#if hoveredEdit}
 															<span class="tooltip" in:fade>
 																{$t('tooltip.editDescription')}
@@ -690,7 +691,7 @@
 															<div class="spinner"></div>
 														</div>
 													{:else}
-														{@html getIcon('BrainCircuit')}
+														<Icon name="BrainCircuit" />
 														{#if hoveredGenerate}
 															<span class="tooltip" in:fade>
 																{$t('tooltip.generateHints')}
@@ -747,7 +748,7 @@
 						{:else if isOwner}
 							<div class="add-description-container">
 								<button class="toggle-btn" on:click={() => handleEditProject('description')}>
-									{@html getIcon('Plus', { size: 14 })} Add description
+									<Icon name="Plus" size={14} /> Add description
 								</button>
 							</div>
 						{/if}

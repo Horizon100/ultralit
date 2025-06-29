@@ -140,3 +140,20 @@ export interface GameRoad {
 		animating: boolean;
 	};
 }
+export interface CreateWorldResponse {
+	success: boolean;
+	data?: {
+		organization: GameOrganization;
+		message: string;
+	};
+	error?: string;
+}
+
+export interface UpdateHeroResponse {
+	success: boolean;
+	data?: {
+		hero: GameHero;
+		message: string;
+	};
+	error?: string;
+}

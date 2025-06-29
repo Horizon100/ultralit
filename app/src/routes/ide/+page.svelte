@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { EditorState } from '@codemirror/state';
@@ -405,7 +406,7 @@
 
 				const newState = EditorState.create({
 					doc: editorView.state.doc,
-					extensions: [...basicExtensions, autosaveExtension] as any
+					extensions: [...basicExtensions, autosaveExtension]
 				});
 
 				editorView.setState(newState);
@@ -913,15 +914,15 @@
 	<div class="toolbar">
 		<div class="toolbar-left">
 			<button on:click={toggleSidebar} aria-label="Toggle Sidebar">
-				{@html getIcon('PanelLeft')}
+				<Icon name="PanelLeft" />
 			</button>
 
 			<button on:click={handleCreateRepository} aria-label="New Repository">
-				{@html getIcon('PackagePlus')}
+				<Icon name="PackagePlus" />
 			</button>
 
 			<button on:click={handleCreateBranch} aria-label="New Branch" disabled={!selectedRepo}>
-				{@html getIcon('GitBranchPlus')}
+				<Icon name="GitBranchPlus" />
 			</button>
 
 			<button
@@ -929,10 +930,10 @@
 				aria-label="New Folder"
 				disabled={!selectedRepo || !selectedBranch}
 			>
-				{@html getIcon('FolderPlus')}
+				<Icon name="FolderPlus" />
 			</button>
 			<button on:click={createNewFile} aria-label="New File">
-				{@html getIcon('FilePlus')}
+				<Icon name="FilePlus" />
 			</button>
 
 			{#if activeFile}
@@ -943,8 +944,7 @@
 		</div>
 		<div class="toolbar-right">
 			<button on:click={handleSaveFile} class="save-button" aria-label="Save File">
-				{@html getIcon('Save')}
-				Save
+				<Icon name="Save" /> Save
 			</button>
 			<button on:click={toggleTheme} aria-label="Toggle Theme">
 				{#if darkMode}
@@ -1013,7 +1013,7 @@
 				<div class="repository-list">
 					<span class="repo-header">
 						<span class="icon">
-							{@html getIcon('Package')}
+							<Icon name="Package" />
 						</span>
 						<h3>Repositories</h3>
 					</span>
@@ -1176,6 +1176,8 @@
 									<div class="ai-thinking">Thinking...</div>
 								{:else}
 									<div class="ai-markdown">
+										<!-- Safe: Processing AI response for code blocks -->
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html aiResponse.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')}
 									</div>
 								{/if}

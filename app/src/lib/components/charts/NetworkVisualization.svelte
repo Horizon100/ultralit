@@ -4,16 +4,11 @@
 	import * as d3 from 'd3';
 	export let networkData: NetworkData;
 
-	let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-
-	onMount(() => {
-		if (networkData && Array.isArray(networkData.nodes) && Array.isArray(networkData.edges)) {
-			svg = d3.select('svg');
-			drawNetwork();
-		} else {
-			console.error('Invalid networkData:', networkData);
-		}
-	});
+	let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
+	interface NetworkLink extends d3.SimulationLinkDatum<VisNode> {
+		source: VisNode;
+		target: VisNode;
+	}
 
 	function drawNetwork() {
 		svg.selectAll('*').remove();
@@ -26,7 +21,7 @@
 			.force(
 				'link',
 				d3
-					.forceLink<VisNode, d3.SimulationLinkDatum<VisNode>>(networkData.edges)
+					.forceLink<VisNode, NetworkLink>(networkData.edges)
 					.id((d) => d.id)
 					.distance(100)
 			)
@@ -66,16 +61,24 @@
 
 		simulation.on('tick', () => {
 			link
-				.attr('x1', (d: any) => d.source.x)
-				.attr('y1', (d: any) => d.source.y)
-				.attr('x2', (d: any) => d.target.x)
-				.attr('y2', (d: any) => d.target.y);
+				.attr('x1', (d: NetworkLink) => (d.source as VisNode).x || 0)
+				.attr('y1', (d: NetworkLink) => (d.source as VisNode).y || 0)
+				.attr('x2', (d: NetworkLink) => (d.target as VisNode).x || 0)
+				.attr('y2', (d: NetworkLink) => (d.target as VisNode).y || 0);
 
-			node.attr('cx', (d: VisNode) => d.x!).attr('cy', (d: VisNode) => d.y!);
+			node.attr('cx', (d: VisNode) => d.x || 0).attr('cy', (d: VisNode) => d.y || 0);
 
-			text.attr('x', (d: VisNode) => d.x!).attr('y', (d: VisNode) => d.y!);
+			text.attr('x', (d: VisNode) => d.x || 0).attr('y', (d: VisNode) => d.y || 0);
 		});
 	}
+	onMount(() => {
+		if (networkData && Array.isArray(networkData.nodes) && Array.isArray(networkData.edges)) {
+			svg = d3.select('svg');
+			drawNetwork();
+		} else {
+			console.error('Invalid networkData:', networkData);
+		}
+	});
 </script>
 
 <svg width="800" height="600"></svg>

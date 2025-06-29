@@ -12,6 +12,27 @@ export interface TimerSessionSummary {
 	totalDuration: number;
 	sessions: TimerSession[];
 }
+export interface FeatureCardType {
+	title: string;
+	description: string;
+	icon?: string;
+	button?: string;
+	name?: string;
+	month?: string;
+	price?: string;
+	features?: string[];
+}
+
+export interface PricingPlan {
+	name: string;
+	description: string;
+	price: string;
+	month: string;
+	button: string;
+	features: string[];
+	isPro?: boolean;
+	title?: string;
+}
 export interface HierarchyData {
 	name: string;
 	value?: number;
@@ -205,12 +226,14 @@ export interface ThreadStoreState {
 	currentProjectId?: string | null;
 	showFavoriteThreads: boolean;
 }
-
+export interface ThreadMember {
+	id: string;
+}
 export interface Threads extends RecordModel {
 	id: string;
 	name: string;
 	op: string;
-	members?: string | string[];
+	members?: string | (ThreadMember | string)[];
 	created: string;
 	updated: string;
 	last_message?: Messages;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { onMount } from 'svelte';
 	import { slide, fade, fly } from 'svelte/transition';
@@ -30,7 +31,7 @@
 	export let aiModel: AIModel;
 	export let selectedModelLabel = '';
 	export let selectedPromptLabel = '';
-	export let selectedIcon: any = null;
+	export let selectedIcon: IconName | null = null;
 	export let currentPlaceholder = '';
 	export let placeholderText = '';
 	export let showTextModal = false;
@@ -227,7 +228,7 @@
 						View/Edit Text ({userInput.length} chars)
 					</button>
 					<button class="text-trash-btn" on:click={clearUserInput}>
-						{@html getIcon('TrashIcon', { size: 16 })}
+						<Icon name="TrashIcon" size={16} />
 					</button>
 				</div>
 			{:else}
@@ -260,14 +261,14 @@
 								on:click={toggleAiActive}
 							>
 								{#if isAiActive}
-									{@html getIcon('PlugZap', { size: 20 })}
+									<Icon name="PlugZap" size={20} />
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.pauseAi')}
 										</span>
 									{/if}
 								{:else}
-									{@html getIcon('ZapOff', { size: 20 })}
+									<Icon name="ZapOff" size={20} />
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.playAi')}
@@ -285,9 +286,9 @@
 							>
 								<span class="icon">
 									{#if $expandedSections.collaborators}
-										{@html getIcon('Users', { size: 30 })}
+										<Icon name="Users" size={30} />
 									{:else}
-										{@html getIcon('Users', { size: 20 })}
+										<Icon name="Users" size={20} />
 									{/if}
 								</span>
 							</button>
@@ -302,9 +303,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.bookmarks}
-									{@html getIcon('BookmarkCheckIcon')}
+									<Icon name="BookmarkCheckIcon" />
 								{:else}
-									{@html getIcon('Bookmark')}
+									<Icon name="Bookmark" />
 								{/if}
 							</span>
 						</button>
@@ -318,9 +319,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.prompts}
-									{@html getIcon('Braces', { size: 30 })}
+									<Icon name="Braces" size={30} />
 								{:else}
-									{@html getIcon('Braces', { size: 20 })}
+									<Icon name="Braces" size={20} />
 								{/if}
 							</span>
 							{#if selectedPromptLabel && selectedIcon}
@@ -337,9 +338,9 @@
 						>
 							<span class="icon">
 								{#if $expandedSections.sysprompts}
-									{@html getIcon('Command', { size: 24 })}
+									<Icon name="Command" size={24} />
 								{:else}
-									{@html getIcon('Command', { size: 20 })}
+									<Icon name="Command" size={20} />
 								{/if}
 							</span>
 
@@ -368,7 +369,7 @@
 							on:click={() => toggleSection('models')}
 						>
 							<span class="icon">
-								{@html getIcon('Brain')}
+								<Icon name="Brain" />
 								{#if selectedModelLabel}
 									<p class="selector-lable">{selectedModelLabel}</p>
 								{/if}
@@ -384,7 +385,7 @@
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
-							{@html getIcon('Send')}
+							<Icon name="Send" />
 						</button>
 					</div>
 				</div>
@@ -421,14 +422,14 @@
 								on:click={toggleAiActive}
 							>
 								{#if isAiActive}
-									{@html getIcon('PlugZap', { size: 20 })}
+									<Icon name="PlugZap" size={20} />
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.pauseAi')}
 										</span>
 									{/if}
 								{:else}
-									{@html getIcon('ZapOff', { size: 20 })}
+									<Icon name="ZapOff" size={20} />
 									{#if createHovered}
 										<span class="tooltip" in:fade>
 											{$t('tooltip.playAi')}
@@ -440,7 +441,7 @@
 
 						<!-- Attachment Button -->
 						<button class="btn" type="button" transition:slide>
-							{@html getIcon('Paperclip')}
+							<Icon name="Paperclip" />
 						</button>
 
 						<!-- Send Button -->
@@ -452,7 +453,7 @@
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
-							{@html getIcon('Send')}
+							<Icon name="Send" />
 						</button>
 					{/if}
 				</div>

@@ -113,7 +113,7 @@ export async function deleteRepository(id: string): Promise<void> {
 }
 
 // Collaborator operations
-export async function getCollaborators(repositoryId: string): Promise<any[]> {
+export async function getCollaborators(repositoryId: string): Promise<Repository[]> {
 	const result = await clientTryCatch(fetch(`/api/repositories/${repositoryId}/collaborators`));
 	if (isSuccess(result)) {
 		const response = result.data;
@@ -128,7 +128,7 @@ export async function getCollaborators(repositoryId: string): Promise<any[]> {
 	}
 }
 
-export async function addCollaborator(repositoryId: string, userId: string): Promise<any> {
+export async function addCollaborator(repositoryId: string, userId: string): Promise<Repository> {
 	const result = await clientTryCatch(
 		fetch(`/api/repositories/${repositoryId}/collaborators`, {
 			method: 'POST',
@@ -151,7 +151,10 @@ export async function addCollaborator(repositoryId: string, userId: string): Pro
 	}
 }
 
-export async function removeCollaborator(repositoryId: string, userId: string): Promise<any> {
+export async function removeCollaborator(
+	repositoryId: string,
+	userId: string
+): Promise<Repository> {
 	const result = await clientTryCatch(
 		fetch(`/api/repositories/${repositoryId}/collaborators/${userId}`, {
 			method: 'DELETE'
@@ -428,7 +431,7 @@ export async function createCommit(data: Partial<CodeCommits>): Promise<CodeComm
 }
 
 // Branch operations
-export async function getBranches(repositoryId: string): Promise<any[]> {
+export async function getBranches(repositoryId: string): Promise<Repository[]> {
 	const result = await clientTryCatch(fetch(`/api/repositories/${repositoryId}/branches`));
 	if (isSuccess(result)) {
 		const response = result.data;
@@ -447,7 +450,7 @@ export async function createBranch(
 	repositoryId: string,
 	name: string,
 	sourceBranch: string
-): Promise<any> {
+): Promise<Repository> {
 	const result = await clientTryCatch(
 		fetch(`/api/repositories/${repositoryId}/branches`, {
 			method: 'POST',
@@ -473,7 +476,7 @@ export async function createBranch(
 	}
 }
 
-export async function setDefaultBranch(repositoryId: string, branch: string): Promise<any> {
+export async function setDefaultBranch(repositoryId: string, branch: string): Promise<Repository> {
 	const result = await clientTryCatch(
 		fetch(`/api/repositories/${repositoryId}/branches/${branch}`, {
 			method: 'PATCH',
@@ -521,7 +524,7 @@ export async function mergeBranches(
 	sourceBranch: string,
 	targetBranch: string,
 	commitMessage?: string
-): Promise<any> {
+): Promise<Repository> {
 	const result = await clientTryCatch(
 		fetch(`/api/repositories/${repositoryId}/merge`, {
 			method: 'POST',

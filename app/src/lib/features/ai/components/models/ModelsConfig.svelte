@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { AIModel, User } from '$lib/types/types';
@@ -136,7 +137,7 @@
 			<h2>Models</h2>
 			{#if !showCreateForm}
 				<button class="create-button" on:click={showCreate}>
-					{@html getIcon('Plus', { size: 24 })}
+					<Icon name="Plus" size={24} />
 				</button>
 			{/if}
 		</div>
@@ -155,7 +156,7 @@
 							{model.name}
 						</button>
 						<button class="delete-button" on:click={() => handleDelete(model)}>
-							{@html getIcon('Trash2', { size: 24 })}
+							<Icon name="Trash2" size={24} />
 						</button>
 					</div>
 				{/each}

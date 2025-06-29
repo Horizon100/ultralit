@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { onMount, tick } from 'svelte';
@@ -521,7 +522,7 @@
 		<div class="settings-row">
 			<div class="btn-row">
 				<button class="back-button" on:click={onClose}>
-					{@html getIcon('ChevronLeft', { size: 20 })}
+					<Icon name="ChevronLeft" size={20} />
 				</button>
 
 				<!-- Active tab title -->
@@ -546,7 +547,7 @@
 				{#if isEditing}
 					<button class="settings-button done" on:click={saveChanges}>
 						<span>
-							{@html getIcon('Save', { size: 16 })}
+							<Icon name="Save" size={16} />
 							{$t('profile.close')}
 						</span>
 					</button>
@@ -560,7 +561,7 @@
 				<div class="avatar-uploader-content" on:click|stopPropagation>
 					<div class="avatar-uploader-header">
 						<button class="close-button" on:click={toggleAvatarUploader}>
-							{@html getIcon('X', { size: 20 })}
+							<Icon name="X" size={20} />
 						</button>
 						<AvatarUploader
 							userId={user.id}
@@ -584,7 +585,7 @@
 								on:click={() => switchTab('profile')}
 								title="Profile"
 							>
-								{@html getIcon('User2', { size: 20 })}
+								<Icon name="User2" size={20} />
 							</button>
 						{:else}
 							<!-- All tabs when not editing -->
@@ -593,44 +594,45 @@
 								on:click={() => switchTab('profile')}
 								title="Profile"
 							>
-								{@html getIcon('User2', { size: 20 })}
+								<Icon name="User2" size={20} />
 							</button>
 							<button
 								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
 								on:click={() => switchTab('stats')}
 								title="Stats"
 							>
-								{@html getIcon('Layers', { size: 20 })}
+								<Icon name="Layers" size={20} />
 							</button>
 							<button
 								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
 								on:click={() => switchTab('tags')}
 								title="Tags"
 							>
-								{@html getIcon('Tags', { size: 20 })}
+								<Icon name="Tags" size={20} />
 							</button>
 							<button
 								class="tab-button {activeTab === 'settings' ? 'active' : ''}"
 								on:click={() => switchTab('settings')}
 								title="Settings"
 							>
-								{@html getIcon('Settings', { size: 20 })}
+								<Icon name="Settings" size={20} />
 							</button>
 							<button
 								class="tab-button {activeTab === 'theme' ? 'active' : ''}"
 								on:click={() => switchTab('theme')}
 								title="Theme"
 							>
-								{@html getIcon(styles.find((s) => s.value === $currentTheme)?.icon || 'Sun', {
-									size: 20
-								})}
+								<Icon
+									name={styles.find((s) => s.value === $currentTheme)?.icon || 'Sun'}
+									size={20}
+								/>
 							</button>
 							<button
 								class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"
 								on:click={() => switchTab('wallpaper')}
 								title="Wallpaper"
 							>
-								{@html getIcon('WallpaperIcon', { size: 20 })}
+								<Icon name="WallpaperIcon" size={20} />
 							</button>
 						{/if}
 					</div>
@@ -658,7 +660,7 @@
 											</div>
 										{/if}
 										<div class="avatar-overlay">
-											{@html getIcon('Camera', { size: 20 })}
+											<Icon name="Camera" size={20} />
 										</div>
 									</div>
 
@@ -822,15 +824,15 @@
 									<h3>Account Settings</h3>
 									<div class="settings-row">
 										<button class="settings-option" on:click={toggleEdit}>
-											{@html getIcon('Settings', { size: 20 })}
+											<Icon name="Settings" size={20} />
 											<span>Edit Profile</span>
 										</button>
 										<button class="settings-option" on:click={handleLanguageChange}>
-											{@html getIcon('Languages', { size: 20 })}
+											<Icon name="Languages" size={20} />
 											<span>Change Language ({$t('lang.flag')})</span>
 										</button>
 										<button class="settings-option logout" on:click={logout}>
-											{@html getIcon('LogOut', { size: 20 })}
+											<Icon name="LogOut" size={20} />
 											<span>Logout</span>
 										</button>
 									</div>
@@ -839,7 +841,7 @@
 									<h3>Profile</h3>
 									<div class="settings-row">
 										<button class="settings-option" on:click={toggleAvatarUploader}>
-											{@html getIcon('Camera', { size: 20 })}
+											<Icon name="Camera" size={20} />
 											<span>Change Avatar</span>
 										</button>
 									</div>

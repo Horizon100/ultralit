@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
@@ -600,8 +601,7 @@
 		<span class="collaborator-header">
 			<h3>{$t('dashboard.projectCollaborators')}</h3>
 			<button class="add-collaborator" on:click={addCollaborator} disabled={isLoading}>
-				{@html getIcon('Users')}
-				+
+				<Icon name="Users" /> +
 			</button>
 		</span>
 		<div class="add-collaborator-form">

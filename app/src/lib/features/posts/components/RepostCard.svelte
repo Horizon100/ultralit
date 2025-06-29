@@ -1,56 +1,67 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import { pocketbaseUrl } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import type { User } from '$lib/types/types';
 
-	export let post: any;
-	export let repostedBy: any;
+	export let post: PostWithInteractions;
+	export let repostedBy: User | null = null;
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{
+		interact: { postId: string; action: 'upvote' | 'repost' | 'share' | 'read' };
+		comment: { postId: string };
+	}>();
 
-	function handleInteract(event: any) {
+	function handleInteract(
+		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'share' | 'read' }>
+	) {
 		dispatch('interact', event.detail);
 	}
 
-	function handleComment(event: any) {
+	function handleComment(event: CustomEvent<{ postId: string }>) {
 		dispatch('comment', event.detail);
 	}
+
 	$: repostCount = post.repostCount || 0;
 	$: upvoteCount = post.upvoteCount || 0;
 	$: shareCount = post.shareCount || 0;
 	$: commentCount = post.commentCount || 0;
 </script>
 
-<article class="repost-wrapper">
-	<!-- Repost header -->
-	<div class="repost-header">
-		<a href="/{repostedBy.username}" class="reposter-link">
-			<img
-				src={repostedBy.avatar
-					? `${pocketbaseUrl}/api/files/users/${repostedBy.id}/${repostedBy.avatar}`
-					: ''}
-				alt="{repostedBy.name || repostedBy.username}'s avatar"
-				class="reposter-avatar"
-			/>
-		</a>
-		{@html getIcon('Repeat', { size: 16 })}
-		<a href="/{repostedBy.username}" class="reposter-name">
-			{repostedBy.name || repostedBy.username}
-			{$t('posts.reposted')}
-		</a>
-	</div>
+{#if repostedBy}
+	<article class="repost-wrapper">
+		<!-- Repost header -->
+		<div class="repost-header">
+			<a href="/{repostedBy.username}" class="reposter-link">
+				<img
+					src={repostedBy.avatar
+						? `${pocketbaseUrl}/api/files/users/${repostedBy.id}/${repostedBy.avatar}`
+						: ''}
+					alt="{repostedBy.name || repostedBy.username}'s avatar"
+					class="reposter-avatar"
+				/>
+			</a>
+			<Icon name="Repeat" size={16} />
+			<a href="/{repostedBy.username}" class="reposter-name">
+				{repostedBy.name || repostedBy.username}
+				{$t('posts.reposted')}
+			</a>
+		</div>
 
-	<!-- Original post -->
-	<PostCard
-		{post}
-		showActions={true}
-		isRepost={false}
-		on:interact={handleInteract}
-		on:comment={handleComment}
-	/>
-</article>
+		<!-- Original post -->
+		<PostCard
+			{post}
+			showActions={true}
+			isRepost={false}
+			on:interact={handleInteract}
+			on:comment={handleComment}
+		/>
+	</article>
+{/if}
 
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;

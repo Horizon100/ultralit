@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { writable, get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { slide, fly, fade } from 'svelte/transition';
@@ -1838,9 +1839,9 @@
 				>
 					<span class="toggle-icon">
 						{#if allColumnsOpen}
-							{@html getIcon('EyeOff', { size: 16 })}
+							<Icon name="EyeOff" size={16} />
 						{:else}
-							{@html getIcon('Layers', { size: 16 })}
+							<Icon name="Layers" size={16} />
 						{/if}
 					</span>
 					<span class="toggle-label">
@@ -1905,7 +1906,7 @@
 							? 'active'
 							: ''}
 					>
-						{@html getIcon('Flag')}
+						<Icon name="Flag" />
 					</span>
 					{#if taskViewMode === TaskViewMode.highPriority}
 						<span></span>
@@ -1924,7 +1925,7 @@
 					on:mouseenter={() => (hoveredButton = 'all')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('ListCollapse', { size: 16 })}
+					<Icon name="ListCollapse" size={16} />
 					<span class="count-badge">{totalTaskCount}</span>
 				</button>
 				<button
@@ -1933,7 +1934,7 @@
 					on:mouseenter={() => (hoveredButton = 'parents')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('FolderGit', { size: 16 })}
+					<Icon name="FolderGit" size={16} />
 					<span class="count-badge">{parentTaskCount}</span>
 				</button>
 				<button
@@ -1942,7 +1943,7 @@
 					on:mouseenter={() => (hoveredButton = 'subtasks')}
 					on:mouseleave={() => (hoveredButton = null)}
 				>
-					{@html getIcon('GitFork', { size: 16 })}
+					<Icon name="GitFork" size={16} />
 					<span class="count-badge">{subtaskCount}</span>
 				</button>
 				<button
@@ -1951,7 +1952,7 @@
 					on:click={toggleTagFilter}
 					title="Tags"
 				>
-					{@html getIcon('Filter', { size: 16 })}
+					<Icon name="Filter" size={16} />
 				</button>
 			</div>
 			{#if showTagFilter}
@@ -2079,6 +2080,8 @@
 									on:click={(e) => openModal(task, e)}
 								>
 									<h4>
+										<!-- Safe if processWordMinimize is controlled -->
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html processWordMinimize(task.title)}
 									</h4>
 
@@ -2098,7 +2101,7 @@
 											{#if hasSubtasks(task.id)}
 												<div class="task-badge subtasks">
 													<span class="task-icon">
-														{@html getIcon('ClipboardList', { size: 16 })}
+														<Icon name="ClipboardList" size={16} />
 													</span>
 													{countSubtasks(task.id)}
 													<span>{$t('tasks.subtasks')}</span>
@@ -2181,7 +2184,7 @@
 														{tag.name}
 													</span>
 												{/each}
-												{@html getIcon('TagIcon', { size: 16 })}
+												<Icon name="TagIcon" size={16} />
 												{#if task.tags.length > 0}
 													<span class="tag-count">{task.tags.length}</span>
 												{/if}
@@ -2323,7 +2326,7 @@
 						on:click={(e) =>
 							selectedTask?.parent_task && navigateToParentTask(selectedTask.parent_task, e)}
 					>
-						{@html getIcon('ChevronLeft', { size: 16 })}
+						<Icon name="ChevronLeft" size={16} />
 					</button>
 					<p>{selectedTask?.parent_task ? getParentTaskTitle(selectedTask.parent_task) : ''}</p>
 				</div>
@@ -2340,6 +2343,8 @@
 					/>
 				{:else}
 					<h1 on:click={() => (isEditingTitle = true)}>
+						<!-- Safe if processWordMinimize is controlled -->
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 						{@html processWordMinimize(selectedTask.title)}
 					</h1>
 				{/if}
@@ -2408,9 +2413,9 @@
 					{/if}
 					<button on:click={showAddTag ? addTag : toggleAddTag}>
 						{#if showAddTag}
-							{@html getIcon('ChevronLeft', { size: 16 })}
+							<Icon name="ChevronLeft" size={16} />
 						{:else}
-							{@html getIcon('Tags', { size: 16 })} +
+							<Icon name="Tags" size={16} /> +
 						{/if}
 					</button>
 				</div>
@@ -2447,7 +2452,7 @@
 										{processWordCrop(subtask.title)}
 									</div>
 									<div class="subtask-status">{subtask.status}</div>
-									{@html getIcon('ChevronRight', { size: 16 })}
+									<Icon name="ChevronRight" size={16} />
 								</div>
 							{/each}
 						</div>
@@ -2480,7 +2485,7 @@
 						class:selected={selectedStart === 0}
 					>
 						<span>
-							{@html getIcon('CirclePlay', { size: 20 })}
+							<Icon name="CirclePlay" size={20} />
 							{$t('dates.now')}
 						</span>
 					</button>
@@ -2542,7 +2547,7 @@
 						class="delete-task-btn"
 						on:click={(e) => selectedTask && openDeleteConfirm(selectedTask.id, e)}
 					>
-						{@html getIcon('Trash2', { size: 16 })}
+						<Icon name="Trash2" size={16} />
 						<span>{$t('generic.delete')}</span>
 					</button>
 				</div>

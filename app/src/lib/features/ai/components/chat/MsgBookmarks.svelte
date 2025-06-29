@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import type { Messages, User, Threads } from '$lib/types/types';
@@ -107,7 +108,7 @@
 							on:click={() => copyMessage(message)}
 							title="Copy to clipboard"
 						>
-							{@html getIcon('Copy', { size: 16 })}
+							<Icon name="Copy" size={16} />
 							{#if copyTooltips[message.id]}
 								<span class="tooltip">Copied!</span>
 							{/if}
@@ -121,10 +122,10 @@
 							>
 								{#if threadLoading[message.id]}
 									<span class="loading-spinner-small">
-										{@html getIcon('Loader2')}
+										<Icon name="Loader2" />
 									</span>
 								{:else}
-									{@html getIcon('MessageSquare', { size: 16 })}
+									<Icon name="MessageSquare" size={16} />
 									<span>Open Thread</span>
 								{/if}
 							</button>
@@ -132,7 +133,7 @@
 					</div>
 				</div>
 				<div class="message-content">
-					<p>{@html message.text}</p>
+					<p>{message.text}</p>
 				</div>
 				{#if message.attachments}
 					<div class="message-attachments">

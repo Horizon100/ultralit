@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { getIcon } from '$lib/utils/lucideIcons';
 
@@ -60,7 +61,7 @@
 			class:has-content={value.trim()}
 			on:click={sendMessage}
 		>
-			{@html getIcon('Send', { size: 16 })}
+			<Icon name="Send" size={16} />
 		</button>
 	</div>
 	{#if maxLength}

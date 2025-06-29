@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { uploadAvatar } from '$lib/pocketbase';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -120,7 +121,7 @@
 			<img src={previewUrl} alt="Avatar preview" class="avatar-preview" />
 			<div class="preview-actions">
 				<button class="cancel-button" on:click={cancelUpload} title={texts.cancel}>
-					{@html getIcon('XCircle', { size: 24 })}
+					<Icon name="XCircle" size={24} />
 				</button>
 				<button
 					class="upload-button"
@@ -134,7 +135,7 @@
 		</div>
 	{:else}
 		<div class="upload-prompt" on:click={triggerFileInput}>
-			{@html getIcon('Camera', { size: 24 })}
+			<Icon name="Camera" size={24} />
 			<span>{texts.upload_avatar}</span>
 		</div>
 	{/if}

@@ -185,15 +185,20 @@
 			// Process the actions using the real post ID
 			if (action === 'upvote') {
 				const result = await postStore.toggleUpvote(realPostId);
-				// Update local state if needed
-				updateLocalPostState(realPostId, 'upvote', result);
+				// Update local state only if result is not null
+				if (result) {
+					updateLocalPostState(realPostId, 'upvote', result);
+				}
 			} else if (action === 'repost') {
 				const result = await postStore.toggleRepost(realPostId);
-				updateLocalPostState(realPostId, 'repost', result);
-				if (result.reposted) {
-					toast.success('Post reposted!');
-				} else {
-					toast.info('Repost removed');
+				// Update local state only if result is not null
+				if (result) {
+					updateLocalPostState(realPostId, 'repost', result);
+					if (result.reposted) {
+						toast.success('Post reposted!');
+					} else {
+						toast.info('Repost removed');
+					}
 				}
 			}
 			// ... rest of your actions
@@ -216,7 +221,17 @@
 	}
 
 	// Helper function to update local state (if you're using homePosts)
-	function updateLocalPostState(realPostId: string, action: string, result: any) {
+	function updateLocalPostState(
+		realPostId: string,
+		action: string,
+		result: {
+			upvoted?: boolean;
+			upvoteCount?: number;
+			downvoteCount?: number;
+			reposted?: boolean;
+			repostCount?: number;
+		}
+	) {
 		if (action === 'upvote' && homePosts.length > 0) {
 			homePosts = homePosts.map((post) => {
 				// Update both original posts and reposts of the same post
@@ -226,8 +241,8 @@
 				if (shouldUpdate) {
 					return {
 						...post,
-						upvote: result.upvoted,
-						upvoteCount: result.upvoteCount,
+						upvote: result.upvoted || false,
+						upvoteCount: result.upvoteCount || post.upvoteCount,
 						downvote: result.upvoted ? false : post.downvote,
 						downvoteCount: result.downvoteCount || post.downvoteCount
 					};
@@ -262,7 +277,6 @@
 		console.log('📝 Comment data:', { content, attachments, parentId });
 		console.log('📋 Selected post:', selectedPost);
 
-		// Store the post data IMMEDIATELY before any async operations
 		const postForRedirect = selectedPost;
 		console.log('💾 Stored post for redirect:', postForRedirect);
 
@@ -443,8 +457,8 @@
 			if (!append) {
 				homePosts = newPosts;
 			} else {
-				const existingIds = new Set(homePosts.map((p: any) => p.id));
-				const uniqueNewPosts = newPosts.filter((p: any) => !existingIds.has(p.id));
+				const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
+				const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
 				homePosts = [...homePosts, ...uniqueNewPosts];
 				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
 			}
@@ -525,15 +539,14 @@
 		 * This event is just for additional side effects if needed
 		 */
 	}
-	function debugAllEvents(event: any) {
+	function debugAllEvents(event: Event) {
 		console.log('🔥 ALL EVENTS DEBUG:', {
 			type: event.type,
-			detail: event.detail,
-			target: event.target?.tagName,
-			currentTarget: event.currentTarget?.tagName
+			detail: (event as CustomEvent).detail,
+			target: (event.target as HTMLElement)?.tagName,
+			currentTarget: (event.currentTarget as HTMLElement)?.tagName
 		});
 	}
-
 	$: posts = $postStore.posts;
 	$: loading = $postStore.loading;
 	$: loadingMore = $postStore.loadingMore;

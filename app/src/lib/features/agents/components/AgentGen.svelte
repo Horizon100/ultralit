@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, createEventDispatcher } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { AIAgent, AIModel } from '$lib/types/types';
@@ -153,13 +154,13 @@
 							<p>{agent.description}</p>
 							<div class="agent-actions">
 								<button on:click={() => handleEditChildAgent(agent)}>
-									{@html getIcon('Edit2', { size: 16 })}
+									<Icon name="Edit2" size={16} />
 								</button>
 								<button on:click={() => handleDeleteChildAgent(agent)}>
-									{@html getIcon('Trash2', { size: 16 })}
+									<Icon name="Trash2" size={16} />
 								</button>
 								<button on:click={() => handleOpenChildAgentOverlay(agent)}>
-									{@html getIcon('Plus', { size: 16 })}
+									<Icon name="Plus" size={16} />
 								</button>
 							</div>
 						</div>

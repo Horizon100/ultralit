@@ -4,7 +4,7 @@
 	import type { InternalChatMessage, Messages, User } from '$lib/types/types';
 	import { MarkupFormatter } from '$lib/features/ai/utils/markupFormatter';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import Icon from '$lib/components/ui/Icon.svelte';
 	export let message: InternalChatMessage;
 	export let userId: string;
 	export let isDualResponse: boolean = false;
@@ -232,7 +232,7 @@
 					title={reaction.label}
 				>
 					<div class="reaction-content">
-						<svelte:component this={reaction.symbol} size={20} />
+						<Icon name={reaction.symbol} size={20} />
 					</div>
 				</button>
 			{/each}

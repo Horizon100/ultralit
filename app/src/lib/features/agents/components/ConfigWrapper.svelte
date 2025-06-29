@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy, createEventDispatcher, afterUpdate } from 'svelte';
 	import { get } from 'svelte/store';
 	import { elasticOut, elasticIn, quintOut } from 'svelte/easing';
@@ -132,7 +133,7 @@
 	{#if isNarrowScreen}
 		<button class="toggle-nav" on:click={toggleNav}>
 			<span class="nav-icon">
-				{@html getIcon('SquareMenu', { size: 24 })}
+				<Icon name="SquareMenu" size={24} />
 			</span>
 		</button>
 	{/if}
@@ -142,7 +143,7 @@
 		on:click={() => toggleOverlay('Agents')}
 	>
 		<span class="nav-icon">
-			{@html getIcon('Bot', { size: 24 })}
+			<Icon name="Bot" size={24} />
 		</span>
 	</button>
 	<button
@@ -150,7 +151,7 @@
 		on:click={() => toggleOverlay('Models')}
 	>
 		<span class="nav-icon">
-			{@html getIcon('Settings2', { size: 24 })}
+			<Icon name="Settings2" size={24} />
 		</span>
 	</button>
 	<button
@@ -158,7 +159,7 @@
 		on:click={() => toggleOverlay('Actions')}
 	>
 		<span class="nav-icon">
-			{@html getIcon('Wrench', { size: 24 })}
+			<Icon name="Wrench" size={24} />
 		</span>
 	</button>
 </nav>
@@ -188,7 +189,7 @@
 			>
 				<div class="overlay-content" on:click|stopPropagation transition:slide={{ duration: 200 }}>
 					<button class="close-button" on:click={closeOverlay} transition:fade={{ duration: 300 }}>
-						{@html getIcon('X', { size: 30 })}
+						<Icon name="X" size={30} />
 					</button>
 
 					{#key overlayContent}

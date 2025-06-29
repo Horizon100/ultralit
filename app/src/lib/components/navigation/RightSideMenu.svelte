@@ -2,10 +2,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import type { Shape } from '$lib/types/types';
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
 
 	export let width: number;
-	export let handleAddShape: (event: CustomEvent<{ shape: any; x: number; y: number }>) => void;
+	export let handleAddShape: (event: CustomEvent<{ shape: Shape; x: number; y: number }>) => void;
 	export let userId: string;
 
 	const dispatch = createEventDispatcher();

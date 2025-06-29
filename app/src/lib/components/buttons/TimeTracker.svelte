@@ -1,7 +1,8 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import type { User } from '$lib/types/types';
+	import type { User, TimerSession } from '$lib/types/types';
 	import { page } from '$app/stores';
 	import { timerStore } from '$lib/stores/timerStore';
 	import { browser } from '$app/environment';
@@ -44,13 +45,16 @@
 		if (sessionData && sessionData.duration > 0) {
 			const result = await clientTryCatch(
 				(async () => {
-					const fetchResult = await fetchTryCatch<any>(`/api/users/${$currentUser.id}/tracking`, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify(sessionData)
-					});
+					const fetchResult = await fetchTryCatch<TimerSession>(
+						`/api/users/${$currentUser.id}/tracking`,
+						{
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify(sessionData)
+						}
+					);
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to save timer session: ${fetchResult.error}`);
@@ -103,12 +107,12 @@
 	>
 		{#if isTracking}
 			<span class="timer-icon">
-				{@html getIcon('TimerOff', { size: 16 })}
+				<Icon name="TimerOff" size={16} />
 			</span>
 			<span class="timer"> Stop </span>
 		{:else}
 			<span class="timer-icon">
-				{@html getIcon('Timer', { size: 16 })}
+				<Icon name="Timer" size={16} />
 			</span>
 			<span class="timer"> Start </span>
 		{/if}

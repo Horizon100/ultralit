@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { currentUser } from '$lib/pocketbase';
@@ -153,7 +154,7 @@
 		</div>
 	{:else if sortedTasks.length === 0}
 		<div class="empty-state" transition:fade>
-			{@html getIcon('Calendar', { size: 48, strokeWidth: 1.5 })}
+			<Icon name="Calendar" size={48} strokeWidth={1.5} />
 			<p>No tasks found for this project</p>
 			<span class="sub-text">Tasks will appear here once they're created</span>
 		</div>
@@ -182,33 +183,33 @@
 						<div class="task-meta">
 							{#if task.due_date}
 								<span class="due-date" class:overdue={isOverdue(task.due_date)}>
-									{@html getIcon('Clock', { size: 14 })}
+									<Icon name="Clock" size={14} />
 									{formatDate(task.due_date)}
 								</span>
 							{:else}
 								<span class="no-due-date">
-									{@html getIcon('Clock', { size: 14 })}
+									<Icon name="Clock" size={14} />
 									No deadline
 								</span>
 							{/if}
 
 							{#if task.priority && task.priority !== 'low'}
 								<span class="priority-indicator {getPriorityClass(task.priority)}">
-									{@html getIcon('Flag', { size: 14 })}
+									<Icon name="Flag" size={14} />
 									{task.priority}
 								</span>
 							{/if}
 
 							{#if task.assignedTo}
 								<span class="assigned-to">
-									{@html getIcon('User', { size: 14 })}
+									<Icon name="User" size={14} />
 									Assigned
 								</span>
 							{/if}
 						</div>
 					</div>
 					<span class="chevron">
-						{@html getIcon('ChevronRight', { size: 16 })}
+						<Icon name="ChevronRight" size={16} />
 					</span>
 				</div>
 			{/each}

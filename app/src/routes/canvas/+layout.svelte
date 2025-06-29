@@ -1,6 +1,7 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-	import { tweened } from 'svelte/motion';
+	import { tweened, type Tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import { fly, fade } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
@@ -25,6 +26,9 @@
 		tryCatchSync
 	} from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	interface ShapeWithAnimation extends Shape {
+		opacity: Tweened<number>;
+	}
 
 	let svgElement: SVGSVGElement;
 	let viewBox = '0 0 2000 857';
@@ -290,7 +294,7 @@
 		const result = await clientTryCatch(
 			(async () => {
 				const { shape, x, y } = event.detail;
-				const newShape: Shape & { opacity: any } = {
+				const newShape: ShapeWithAnimation = {
 					...shape,
 					id: `${shape.id}-${Date.now()}`,
 					x,
@@ -300,6 +304,7 @@
 						easing: cubicOut
 					})
 				};
+
 				shapes = [...shapes, newShape];
 				newShape.opacity.set(1);
 
@@ -455,7 +460,18 @@
 						const x = (event.clientX - rect.left - $offsetX) / scale;
 						const y = (event.clientY - rect.top - $offsetY) / scale;
 
-						const newShape = addShapeToCanvas(shape, x, y);
+						const newShape: ShapeWithAnimation = {
+							...shape,
+							id: `${shape.id}-${Date.now()}`,
+							x,
+							y,
+							opacity: tweened(0, {
+								duration: 300,
+								easing: cubicOut
+							})
+						};
+						shapes = [...shapes, newShape];
+
 						if (shape.id === 'Agent') {
 							createAgentInDatabase(x, y);
 						}
@@ -516,8 +532,7 @@
 	function addShapeToCanvas(shape: Shape, x: number, y: number) {
 		console.log('Adding shape to canvas:', { shape, x, y });
 
-		// Add the shape to the shapes array
-		const newShape: Shape & { opacity: any } = {
+		const newShape: ShapeWithAnimation = {
 			...shape,
 			id: `${shape.id}-${Date.now()}`,
 			x,
@@ -717,6 +732,8 @@
 					on:mouseleave={() => (showConnectionPoints = false)}
 				>
 					<div class="shape-content">
+						<!-- Safe: Component template -->
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 						{@html shape.component?.template || ''}
 					</div>
 					{#if showConnectionPoints}
@@ -757,17 +774,16 @@
 			<span>{$zoomLevel.toFixed(0)}%</span>
 			<button on:click={zoomIn}>+</button>
 			<button on:click={resetZoom}>
-				{@html getIcon('Maximize')}
+				<Icon name="Maximize" />
 			</button>
 		</span>
 		<button on:click={toggleRightSideMenu}>
 			<span class="open-button">
 				{#if showRightSideMenu}
-					{@html getIcon('BrainCog')}
-					Agents
-					{@html getIcon('X')}
+					<Icon name="BrainCog" /> Agents
+					<Icon name="X" />
 				{:else}
-					{@html getIcon('BrainCog')}
+					<Icon name="BrainCog" />
 				{/if}
 			</span>
 		</button>
