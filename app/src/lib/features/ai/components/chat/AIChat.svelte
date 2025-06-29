@@ -74,7 +74,6 @@
 	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
 	import { processMarkdown, enhanceCodeBlocks } from '$lib/features/ai/utils/markdownProcessor';
 	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte';
-	import { hy } from 'date-fns/locale';
 	import {
 		isTextareaFocused,
 		handleTextareaFocus,
@@ -156,7 +155,6 @@
 	let isLoadingProject = false;
 	let modelInitialized = false;
 	let date = new Date();
-	let locale = localeFromDateFnsLocale(hy);
 	/*
 	 * let deg = 0;
 	 * Chat-related state
