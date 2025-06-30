@@ -244,20 +244,16 @@ export const POST: RequestHandler = async (event) =>
 			}
 
 			console.log('🔍 AI API Debug - Final response ready, returning success');
-return { response, success: true };
+return { response };
 		} catch (aiError) {
-			console.error('🔍 AI API Debug - Error calling AI provider:', aiError);
-			console.error('🔍 AI API Debug - Error details:', {
-				name: aiError instanceof Error ? aiError.name : 'Unknown',
-				message: aiError instanceof Error ? aiError.message : String(aiError),
-				stack: aiError instanceof Error ? aiError.stack : undefined
-			});
+    console.error('🔍 AI API Debug - Error calling AI provider:', aiError);
+    console.error('🔍 AI API Debug - Error details:', {
+        name: aiError instanceof Error ? aiError.name : 'Unknown',
+        message: aiError instanceof Error ? aiError.message : String(aiError),
+        stack: aiError instanceof Error ? aiError.stack : undefined
+    });
 
-			return json({
-				success: false,
-				error: `AI provider error: ${aiError instanceof Error ? aiError.message : String(aiError)}`,
-				provider: model.provider,
-				model: model.api_type
-			});
-		}
+    // CHANGE FROM return json({...}) TO throw new Error
+    throw new Error(`AI provider error: ${aiError instanceof Error ? aiError.message : String(aiError)}`);
+}
 	}, 'Internal AI API error');

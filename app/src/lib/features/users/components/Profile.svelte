@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { onMount, tick } from 'svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { currentUser, refreshCurrentUser, pocketbaseUrl, uploadAvatar, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';
@@ -18,16 +18,18 @@
 	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
 	import { clientTryCatch, fetchTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
 	import type { User } from '$lib/types/types';
+	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+	import { refreshAvatar } from '$lib/stores/avatarStore';
 
 	export let user: User | null;
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
 
 	let isLoading = false;
-
 	let completeUser: User | null = null;
 	let showAvatarUploader = false;
-
+	let fileInput: HTMLInputElement | undefined;
+	let isUploading = false;
 	let showSaveConfirmation = false;
 	let showKeyInput = false;
 	let isEditing = false;
@@ -110,23 +112,87 @@
 	function toggleAvatarUploader(): void {
 		showAvatarUploader = !showAvatarUploader;
 	}
-	function handleAvatarUploadSuccess(): void {
-		showAvatarUploader = false;
-		if (user?.id) {
-			getUserById(user.id, true).then((refreshedUser) => {
-				if (refreshedUser) {
-					user = refreshedUser;
-					if (user.avatar) {
-						user.avatarUrl = getAvatarUrl(user);
-					}
-				}
-			});
-		}
-	}
+let avatarTimestamp = Date.now();
 
+function handleAvatarUploadSuccess(): void {
+	console.log('Avatar upload completed successfully');
+	showAvatarUploader = false;
+	
+	// Just force avatar refresh with cache busting - no API calls
+	avatarTimestamp = Date.now();
+	
+	// Don't call getUserById or refreshCurrentUser - they're timing out
+	// The avatar API endpoint will serve the new avatar automatically
+	console.log('Avatar timestamp updated to:', avatarTimestamp);
+}
 	function handleAvatarUploadError(error: string): void {
 		console.error('Avatar upload error:', error);
 	}
+function handleAvatarClick() {
+		console.log('Avatar clicked, fileInput:', fileInput);
+		if (fileInput) {
+			fileInput.click();
+		}
+	}
+async function handleFileChange(event: Event) {
+	console.log('File change triggered');
+	const input = event.target as HTMLInputElement;
+	const file = input.files?.[0];
+	
+	if (!file) {
+		console.log('No file selected');
+		return;
+	}
+	
+	console.log('File selected:', file.name, file.size, file.type);
+	
+	// Validate file
+	if (!file.type.startsWith('image/')) {
+		alert('Please select an image file');
+		return;
+	}
+	
+	if (file.size > 5 * 1024 * 1024) {
+		alert('Image must be less than 5MB');
+		return;
+	}
+
+	const userId = (user || $currentUser)?.id;
+	console.log('Uploading for user:', userId);
+	
+	if (!userId) {
+		console.log('No user ID found');
+		return;
+	}
+
+
+	try {
+		isUploading = true;
+		console.log('Starting upload...');
+		await uploadAvatar(userId, file);
+		console.log('Upload successful');
+		
+		const timestamp = Date.now();
+		
+		// Update the profile modal avatar
+		const avatarImg = document.querySelector('.avatar') as HTMLImageElement;
+		if (avatarImg) {
+			avatarImg.src = `/api/users/${userId}/avatar?t=${timestamp}`;
+		}
+		
+		// Dispatch custom event to update layout avatar
+		window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+			detail: { userId, timestamp } 
+		}));
+		
+	} catch (error) {
+		console.error('Upload failed:', error);
+		alert('Upload failed. Please try again.');
+	} finally {
+		isUploading = false;
+		input.value = ''; // Reset input
+	}
+}
 	function handleWallpaperChangeEvent(event: CustomEvent) {
 		const { wallpaperPreference } = event.detail;
 		console.log('Wallpaper changed:', wallpaperPreference);
@@ -246,19 +312,7 @@
 
 	$: placeholderText = getRandomQuote();
 
-	function getAvatarUrl(user: User): string {
-		if (!user) return '';
 
-		if (user.avatarUrl) return user.avatarUrl;
-
-		if (user.avatar) {
-			if (user.id && (user.collectionId || 'users')) {
-				return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
-			}
-		}
-
-		return '';
-	}
 
 	async function loadUserStats(): Promise<void> {
 		const result = await clientTryCatch(
@@ -467,8 +521,9 @@
 				sysprompt_preference: '',
 				projects: [],
 				hero: '',
+				api_keys: [],
 				followers: [],
-				following: []
+				following: [],
 			} as User;
 		}
 
@@ -686,26 +741,39 @@
 						<div class="profile-header">
 							<div class="info-column">
 								<div class="header-wrapper">
-									<div
-										class="avatar-container"
-										on:click={toggleAvatarUploader}
-										role="button"
-										tabindex="0"
-									>
-										{#if $currentUser && getAvatarUrl($currentUser)}
-											<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
-										{:else}
-											<div class="default-avatar">
-												{($currentUser?.name ||
-													$currentUser?.username ||
-													$currentUser?.email ||
-													'?')[0]?.toUpperCase()}
-											</div>
-										{/if}
-										<div class="avatar-overlay">
-											<Icon name="Camera" size={20} />
-										</div>
-									</div>
+								<div
+									class="avatar-container"
+									role="button"
+									tabindex="0"
+								>
+								<input
+	type="file"
+	accept="image/*"
+	bind:this={fileInput}
+	on:change={handleFileChange}
+	style="display: none;"
+/>
+{#if (user || $currentUser)?.id}
+	<img 
+		src="/api/users/{(user || $currentUser).id}/avatar" 
+		alt="User avatar" 
+		class="avatar {isUploading ? 'uploading' : ''}"
+		on:click={handleAvatarClick} 
+	/>
+{:else}
+	<div class="default-avatar" on:click={handleAvatarClick}>
+		{((user || $currentUser)?.name ||
+			(user || $currentUser)?.username ||
+			(user || $currentUser)?.email ||
+			'?')[0]?.toUpperCase()}
+	</div>
+{/if}
+
+<!-- Make the overlay clickable too -->
+<div class="avatar-overlay" on:click={handleAvatarClick}>
+	<Icon name="Camera" size={20} />
+</div>
+								</div>
 
 									<div class="info-wrapper">
 										<div class="info-row">
@@ -720,9 +788,9 @@
 												/>
 											{:else}
 												<span class="row">
-													<span class="username"
-														>{user.username || user.email.split('@')[0] || 'Not set'}</span
-													>
+													<span class="username">
+														{user.username || user.email?.split('@')[0] || 'Not set'}
+													</span>
 													<span class="meta role">
 														{displayUser?.role || $t('profile.not_available')}
 													</span>

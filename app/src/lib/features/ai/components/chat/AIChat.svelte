@@ -39,8 +39,9 @@
 		showTextModal,
 		textTooLong
 	} from '$lib/stores/uiStore';
+	import { sidenavStore,showSettings, showThreadList } from '$lib/stores/sidenavStore';
 	import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
-	import { threadsStore, showThreadList, ThreadSortOption } from '$lib/stores/threadsStore';
+	import { threadsStore, ThreadSortOption } from '$lib/stores/threadsStore';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { t } from '$lib/stores/translationStore';
@@ -75,6 +76,7 @@
 		formatContentSync,
 		getRelativeTime
 	} from '$lib/utils/formatters';
+	import { createHoverManager } from '$lib/utils/hoverUtils';
 
 	// ===== COMPOSABLE IMPORTS =====
 	import { useReplyHandling } from '$lib/composables/useReplyHandling';
@@ -269,12 +271,27 @@
 		| 'summary' = 'initial';
 	let guidance: Guidance | null = null;
 	let filteredThreads: Threads[] = [];
+	let pageCleanup: (() => void) | null = null;
 
 	// ===== CONSTANTS =====
 	const dispatch = createEventDispatcher();
 	const isAiActive = writable(true);
 	const smoothSlideIn = { duration: 350, easing: cubicOut, x: -300 };
 	const smoothSlideOut = { duration: 300, easing: cubicIn, x: -300 };
+
+	const pageHoverManager = createHoverManager({
+		hoverZone: 50,
+		minScreenWidth: 700,
+		debounceDelay: 100,
+		controls: ['threadList'],
+		direction: 'left'
+	});
+
+	const {
+		hoverState: pageHoverState,
+		handleMenuLeave: handlePageMenuLeave,
+		toggleMenu: togglePageMenu
+	} = pageHoverManager;
 
 	// ===== REACTIVE STATEMENTS (simplified) =====
 	$: filteredThreads = (() => {
@@ -360,7 +377,7 @@
 	const onTextareaFocus = () => {
 		handleTextareaFocus();
 		uiStore.closeAllInputRelatedSections();
-		threadsStore.setThreadListVisibility(false);
+		sidenavStore.hideThreadList();
 		uiStore.setCurrentPlaceholder(PromptService.getRandomQuote());
 	};
 
@@ -579,7 +596,8 @@ async function handleLoadThread(threadId: string) {
 	// ===== LIFECYCLE HOOKS =====
 onMount(async () => {
 	console.log('Starting app initialization...');
-	
+	pageCleanup = pageHoverManager.initialize();
+
 	try {
 		// 1. Initialize the core application first
 		messagesStore.setSelectedDate(new Date().toISOString());
@@ -667,6 +685,9 @@ onMount(async () => {
 		clearReplyState();
 		if (hideTimeout) {
 			clearTimeout(hideTimeout);
+		}
+		if (pageCleanup) {
+			pageCleanup();
 		}
 	});
 
@@ -806,20 +827,25 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 }
 
 
-	// ===== THREAD LIST VISIBILITY =====
-	$: if ($isTextareaFocused && $showThreadList) {
-		threadsStore.setThreadListVisibility(false);
-	}
+
 </script>
 
 {#if $currentUser}
-	<div class="chat-interface" in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}>
+	<div class="chat-interface" 
+		in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}
+		class:nav-open={$showSettings}
+					on:mouseleave={() => {
+				handlePageMenuLeave();
+			}}
+	>
 		<div
 			class="chat-container"
 			transition:fly={{ x: 300, duration: 300 }}
 			class:drawer-visible={$showThreadList}
+
 		>
 			<!-- Thread Sidebar Component -->
+			 
 			<ThreadSidebar
 				{threads}
 				{currentThreadId}
@@ -836,6 +862,7 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 				on:deleteThread={(e) => handleDeleteThread(e.detail.event, e.detail.threadId)}
 				on:favoriteThread={(e) => onFavoriteThread(e.detail.event, e.detail.thread)}
 				on:searchChange={(e) => handleSearchChange(e.detail.query)}
+
 			>
 				<!-- Sort Options Slot -->
 				<div slot="sortOptions">
@@ -2024,18 +2051,26 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 		height: 60px;
 		padding: 0;
 	}
+	.chat-interface {
+		display: flex;
 
+		max-width: 1600px;
+		width: 100%;
+	}
+	.chat-interface.nav-open {
+	}
 	.chat-container {
 		flex-grow: 1;
 		display: flex;
-		flex-direction: column;
-		position: absolute;
+		flex-direction: row;
+		position: relative;
+		justify-content: center;
 		transition: all 0.3s ease-in-out;
 		overflow-y: hidden;
 		overflow-x: hidden;
 		// /* left: 20%; */
 		width: 100%;
-		max-width: 1000px;
+		padding: 1rem;
 		// background: rgba(0, 0, 0, 0.2);
 		top: 0;
 		left: auto;
@@ -2064,8 +2099,8 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 		margin-top: 0;
 		// animation: pulsateShadow 1.5s infinite alternate;
 		// background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
-
-		height: auto;
+		width: 100%;
+		height: 100%;
 		// width: 50%;
 		// margin: 0 1rem;
 		// margin-left: 25%;
@@ -2164,7 +2199,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			right: 0;
 			margin-right: 0;
 			width: auto;
-			left: 250px;
 		}
 		& .chat-header {
 			right: 0;
@@ -3614,7 +3648,7 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			// background: var(--bg-gradient);
 			justify-content: flex-start;
 			// align-items: center;
-			width: calc(100%) !important;
+			width: 100% !important;
 			margin-left: 0 !important;
 			height: auto;
 			margin-top: 0;
@@ -3736,7 +3770,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 		.drawer-visible .chat-container {
 			display: flex;
 			z-index: -1;
-			left: 250px !important;
 			width: 100% !important;
 		}
 		.drawer-visible .thread-filtered-results {
@@ -3747,7 +3780,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			backdrop-filter: blur(10px);
 			overflow-x: hidden;
 			overflow-y: auto;
-
 			&::-webkit-scrollbar {
 				width: 0.5rem;
 				background-color: transparent;

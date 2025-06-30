@@ -8,30 +8,17 @@
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import { showOverlay } from '$lib/stores/sidenavStore';
+	import { defaultModel } from '$lib/features/ai/utils/models';
 
+	let user = $currentUser;
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-	// Default AI model configuration
-	export const defaultAIModel: AIModel = {
-		id: 'default',
-		name: 'Default Model',
-		api_key: '',
-		base_url: 'https://api.openai.com/v1',
-		api_type: 'gpt-3.5-turbo',
-		api_version: 'v1',
-		description: 'Default AI Model',
-		user: [],
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		provider: 'openai',
-		collectionId: '',
-		collectionName: ''
-	};
 
 	// Declare variables first
 	export let userId: string = '';
-	export let aiModel = defaultAIModel;
+	export let aiModel = defaultModel;
 	export let threadId: string | null = null;
 	export let messageId: string | null = null;
 	export let initialMessage: InternalChatMessage | null = null;
@@ -73,12 +60,7 @@
 			}
 
 			userId = $currentUser.id;
-
-			/*
-			 * Get URL parameters
-			 * threadId = $page.url.searchParams.get('threadId');
-			 * messageId = $page.url.searchParams.get('messageId');
-			 */
+			user = $currentUser; // Update user variable
 
 			pageReady = true;
 		} catch (e) {
@@ -92,17 +74,14 @@
 		}
 	});
 
-	$: userId = $currentUser?.id ?? '';
+	$: {
+		if ($currentUser && !userId) {
+			userId = $currentUser.id;
+			user = $currentUser;
+		}
+	}
 </script>
 
-<!-- {#if wallpaperSrc}
-  <img
-    src={wallpaperSrc}
-    alt="Background illustration"
-    class="illustration"
-    in:fade={{ duration: 1000, delay: 200 }}
-  />
-{/if} -->
 {#if pageReady}
 	{#if isLoading}
 		<div class="center-container" transition:fade={{ duration: 300 }}>
@@ -112,13 +91,22 @@
 				</div>
 			</div>
 		</div>
-	{:else}
-		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
+	{:else if error}
+		<div class="error-container">
+			<p>{error}</p>
+		</div>
+	{:else if user}
+		<div class="chat" in:fly={{ y: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+			<AIChat
+				message={defaultMessage}
+				{threadId}
+				initialMessageId={messageId}
+				{aiModel}
+				{userId}
+			/>
 		</div>
 	{/if}
 {/if}
-
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
 	* {
@@ -241,9 +229,12 @@
 	}
 
 	.chat {
-		position: fixed !important;
 		display: flex;
-		left: 10rem !important;
+		position: relative;
+		justify-content: center;
+		width: 100%;
+		margin-top: 1rem !important;
+		margin-bottom: 0 !important;
 	}
 
 	.user-container {

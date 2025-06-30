@@ -259,7 +259,6 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: red;
 
 		:global(svg) {
 			display: block;

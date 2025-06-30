@@ -17,7 +17,8 @@ export function getAvatarUrl(user: User): string {
 	const userId = user.id;
 	const collectionId = user.collectionId || 'users';
 
-	if (!avatar || !userId) {
+	// Filter out placeholder values
+	if (!avatar || !userId || avatar === 'uploaded') {
 		avatarUrlCache.set(cacheKey, '');
 		return '';
 	}
@@ -43,8 +44,8 @@ export function getExpandedUserAvatarUrl(expandedUser: {
 	name?: string;
 	username?: string;
 	avatar?: string;
-}): string {
-	if (!expandedUser?.avatar || !expandedUser?.id) {
+}, timestamp?: number): string {
+	if (!expandedUser?.avatar || !expandedUser?.id || expandedUser.avatar === 'uploaded') {
 		return '';
 	}
 
@@ -54,7 +55,14 @@ export function getExpandedUserAvatarUrl(expandedUser: {
 	}
 
 	// Build the avatar URL from PocketBase
-	return `${pocketbaseUrl}/api/files/users/${expandedUser.id}/${expandedUser.avatar}`;
+	let avatarUrl = `${pocketbaseUrl}/api/files/users/${expandedUser.id}/${expandedUser.avatar}`;
+	
+	// Add timestamp for cache busting if provided
+	if (timestamp) {
+		avatarUrl = `${avatarUrl}?t=${timestamp}`;
+	}
+
+	return avatarUrl;
 }
 
 const agentAvatarUrlCache = new Map<string, string>();
@@ -74,7 +82,7 @@ export function getAgentAvatarUrl(agent: AIAgent): string {
 	const agentId = agent.id;
 	const collectionId = agent.collectionId || 'ai_agents';
 
-	if (!avatar || !agentId) {
+	if (!avatar || !agentId || avatar === 'uploaded') {
 		agentAvatarUrlCache.set(cacheKey, '');
 		return '';
 	}

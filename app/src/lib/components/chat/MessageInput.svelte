@@ -284,7 +284,7 @@ $: {
 						<!-- AI Toggle Button (only for existing threads) -->
 						{#if currentThreadId && !isPlaceholder}
 							<button
-								class="btn"
+								class="btn model"
 								type="button"
 								on:mouseenter={() => (createHovered = true)}
 								on:mouseleave={() => (createHovered = false)}
@@ -309,7 +309,7 @@ $: {
 
 							<!-- Collaborators Button -->
 							<button
-								class="btn"
+								class="btn model"
 								type="button"
 								transition:slide
 								on:click={() => toggleSection('collaborators')}
@@ -326,23 +326,24 @@ $: {
 
 						<!-- Bookmarks Button -->
 						<button
-							class="btn"
+							class="btn model"
 							type="button"
 							transition:slide
 							on:click={() => toggleSection('bookmarks')}
+							
 						>
 							<span class="icon">
 								{#if $expandedSections.bookmarks}
-									<Icon name="BookmarkCheckIcon" />
+									<Icon name="BookmarkCheckIcon" size={30} />
 								{:else}
-									<Icon name="Bookmark" />
+									<Icon name="Bookmark" size={20}/>
 								{/if}
 							</span>
 						</button>
 
 						<!-- Prompts Button -->
 						<button
-							class="btn"
+							class="btn model"
 							type="button"
 							transition:slide
 							on:click={() => toggleSection('prompts')}
@@ -526,7 +527,7 @@ $: {
 			height: 2rem;
 			transition: all 0.3s ease;
 			border: none;
-
+			z-index: 9999;
 			&:hover {
 				cursor: pointer;
 				transform: scale(1.3);
@@ -642,14 +643,12 @@ $: {
 		}
 
 		&.send-btn {
-			background-color: var(--tertiary-color);
-			width: 2rem;
-			height: 2rem;
-			border-radius: 50%;
+			border-radius: 1rem;
+			width: 3rem !important;
+			height: 3rem !important;
+			background: var(--bg-color) !important;
 			&:hover {
-				cursor: pointer;
-				transform: scale(1.3);
-				background: var(--bg-gradient-left);
+				transform: scale(1.1);
 			}
 		}
 	}
@@ -681,7 +680,7 @@ $: {
 		margin-bottom: 0;
 		border: 1px solid var(--line-color);
 		transition: all 0.2s ease;
-		backdrop-filter: blur(10px);
+		// backdrop-filter: blur(10px);
 		border-radius: 2rem;
 		align-items: center;
 		// backdrop-filter: blur(4px);
@@ -788,7 +787,7 @@ $: {
 		height: auto;
 		right: auto;
 		left: auto;
-		bottom: 0;
+		bottom: 1rem;
 		margin-bottom: 0;
 		overflow-y: none;
 		// backdrop-filter: blur(4px);
@@ -888,7 +887,6 @@ $: {
 			margin-top: 0;
 			margin-bottom: 0;
 			font-size: 1rem !important;
-			z-index: 9999;
 			height: 100vh;
 			// background: var(--bg-gradient-left);
 			&:focus {
@@ -1041,12 +1039,12 @@ $: {
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		height: auto;
+		height: 100%;
 		gap: 2rem;
 		width: 3rem !important;
 		margin-right: 1rem;
 		margin-bottom: 0.5rem;
-		// z-index: 8000;
+		z-index: 8000;
 		// background: var(--bg-gradient-r);
 	}
 	.submission {
@@ -1056,7 +1054,7 @@ $: {
 		margin: 0;
 		padding: 0;
 		width: 3rem !important;
-		height: auto;
+		height: 100%;
 		justify-content: center;
 		align-self: flex-end;
 		// padding: 0.5rem;

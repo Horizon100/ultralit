@@ -27,6 +27,7 @@
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { toast } from '$lib/utils/toastUtils';
 	import Toast from '$lib/components/modals/Toast.svelte';
+	import { defaultModel } from '$lib/features/ai/utils/models';
 
 	let hierarchyData: HierarchyData = { name: 'Loading tasks...', children: [] };
 	let filteredTasks: Task[] = [];
@@ -51,22 +52,8 @@
 	const activeTab = writable<string>('kanban');
 	const tabTransition = writable<string | null>(null);
 
-	export const defaultAIModel: AIModel = {
-		id: 'default',
-		name: 'Default Model',
-		api_key: '',
-		base_url: 'https://api.openai.com/v1',
-		api_type: 'gpt-3.5-turbo',
-		api_version: 'v1',
-		description: 'Default AI Model',
-		user: [],
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		provider: 'openai',
-		collectionId: '',
-		collectionName: ''
-	};
-	let aiModel = defaultAIModel;
+
+let aiModel = defaultModel;
 
 	function switchTab(tabName: string) {
 		tabTransition.set(tabName);
@@ -251,18 +238,14 @@
 				<div class="kanban-wrapper">
 					<Kanban />
 				</div>
-				{#if $showRightSidenav}
-					<div class="calendar-wrapper">
-						<TaskCalendar />
-					</div>
-				{:else}{/if}
-				{#if $showEditor}
+
+				<!-- {#if $showEditor}
 					<div class="notes-wrapper">
 						<NoteEditor />
 					</div>
-				{:else}{/if}
+				{:else}{/if} -->
 
-				{#if $showOverlay && user && !authError}
+				<!-- {#if $showOverlay && user && !authError}
 					<div class="chat" in:fly={{ y: 200, duration: 400 }} out:fade={{ duration: 300 }}>
 						<AIChat
 							message={defaultMessage}
@@ -277,7 +260,7 @@
 						<p>Authentication failed. Please refresh the page.</p>
 						<button on:click={() => window.location.reload()}>Refresh</button>
 					</div>
-				{/if}
+				{/if} -->
 			</div>
 
 			<!-- Tab Panels -->

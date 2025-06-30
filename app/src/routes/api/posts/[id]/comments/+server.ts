@@ -6,7 +6,7 @@ import type { Post, PostAttachment, PostWithInteractionsExtended } from '$lib/ty
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	try {
 		const postId = params.id;
-		const limit = parseInt(url.searchParams.get('limit') || '20');
+		const limit = parseInt(url.searchParams.get('limit') || '40');
 
 		console.log(`Fetching comments for post ${postId}`);
 

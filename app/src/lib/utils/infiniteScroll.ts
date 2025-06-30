@@ -122,7 +122,7 @@ export class InfiniteScrollManager {
 	}
 
 	// Try to attach with retries (useful for when DOM isn't ready)
-	attachWithRetry(maxAttempts = 10, delayMs = 100): Promise<boolean> {
+	attachWithRetry(maxAttempts = 40, delayMs = 100): Promise<boolean> {
 		return new Promise((resolve) => {
 			let attempts = 0;
 

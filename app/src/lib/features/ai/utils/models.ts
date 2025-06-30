@@ -17,21 +17,21 @@ export const availableModels: AIModel[] = [
 		collectionId: 'models',
 		collectionName: 'models'
 	},
-	{
-		id: 'claude-3-opus',
-		name: 'Claude 3 Opus',
-		provider: 'anthropic' as ProviderType,
-		api_key: '',
-		base_url: 'https://api.anthropic.com/v1',
-		api_type: 'claude-3-opus',
-		api_version: '2024-02-29',
-		description: 'Most capable Claude model for complex tasks',
-		user: [],
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		collectionId: 'models',
-		collectionName: 'models'
-	},
+{
+    id: 'claude-3-haiku',
+    name: 'Claude 3 Haiku',
+    provider: 'anthropic' as ProviderType,
+    api_key: '',
+    base_url: 'https://api.anthropic.com/v1',
+    api_type: 'claude-3-haiku-20240307',  // Changed from 'claude-3-opus'
+    api_version: '2024-03-07',            // Changed from '2024-02-29'
+    description: 'Fastest Claude model for simple tasks',
+    user: [],
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    collectionId: 'models',
+    collectionName: 'models'
+},
 	{
 		id: 'deepseek-deepseek-chat',
 		name: 'Deepseek Chat',
@@ -49,5 +49,7 @@ export const availableModels: AIModel[] = [
 	}
 ];
 
-export const defaultModel: AIModel =
-	availableModels.find((model) => model.provider === 'deepseek') || availableModels[0];
+export const defaultModel: AIModel = 
+    availableModels.find((model) => model.provider === 'anthropic') || 
+    availableModels.find((model) => model.provider === 'deepseek') || 
+    availableModels[0];

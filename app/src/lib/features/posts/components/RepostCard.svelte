@@ -37,22 +37,21 @@
 	$: commentCount = post.commentCount || 0;
 </script>
 
-{#if repostedBy}
+{#if repostedBy && repostedBy.id}
 	<article class="repost-wrapper">
 		<!-- Repost header -->
 		<div class="repost-header">
-			<a href="/{repostedBy.username}" class="reposter-link">
+			<a href="/{repostedBy.username || repostedBy.id}" class="reposter-link">
+				<!-- Use the same avatar endpoint as your layout -->
 				<img
-					src={repostedBy.avatar
-						? `${pocketbaseUrl}/api/files/users/${repostedBy.id}/${repostedBy.avatar}`
-						: ''}
-					alt="{repostedBy.name || repostedBy.username}'s avatar"
+					src="/api/users/{repostedBy.id}/avatar"
+					alt="{repostedBy.name || repostedBy.username || 'User'}'s avatar"
 					class="reposter-avatar"
 				/>
 			</a>
 			<Icon name="Repeat" size={16} />
-			<a href="/{repostedBy.username}" class="reposter-name">
-				{repostedBy.name || repostedBy.username}
+			<a href="/{repostedBy.username || repostedBy.id}" class="reposter-name">
+				{repostedBy.name || repostedBy.username || 'User'}
 				{$t('posts.reposted')}
 			</a>
 		</div>

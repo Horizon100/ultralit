@@ -205,7 +205,7 @@ export async function prepareMessagesWithCustomPrompts(
 	const combinedPromptContent = allPrompts.join('\n\n');
 
 	// Get provider from the first message or use a default
-	const provider = messages[0]?.provider || 'openai';
+	const provider = messages[0]?.provider || 'deepseek';
 
 	if (systemMessageIndex >= 0) {
 		messages[systemMessageIndex] = {

@@ -30,7 +30,9 @@
 		applyTagFilterToColumns
 	} from '$lib/clients/taskClient';
 	import TagsDropdown from '$lib/components/buttons/TagsDropdown.svelte';
+	import TaskCalendar from '$lib/features/tasks/TaskCalendar.svelte';
 	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
+	import { defaultModel } from '../ai/utils/models';
 	import {
 		sidenavStore,
 		showSidenav,
@@ -42,6 +44,7 @@
 	} from '$lib/stores/sidenavStore';
 	import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
+	import { createHoverManager } from '$lib/utils/hoverUtils';
 
 	let currentProjectId: string | null = null;
 	projectStore.subscribe((state) => {
@@ -69,6 +72,7 @@
 	let messageId: string | null = null;
 	let initialMessage: InternalChatMessage | null = null;
 	let localUsersCache = new Map<string, { name: string; avatar?: string; id: string }>();
+	let pageCleanup: (() => void) | null = null;
 
 	enum TaskViewMode {
 		All = 'all',
@@ -83,23 +87,24 @@
 	let usersMap = new Map();
 	let isLoadingUsers = false;
 
+	const pageHoverManager = createHoverManager({
+		hoverZone: 50,
+		minScreenWidth: 700,
+		debounceDelay: 100,
+		controls: ['sidenav'],
+		direction: 'left'
+	});
+
+	const {
+		hoverState: pageHoverState,
+		handleMenuLeave: handlePageMenuLeave,
+		toggleMenu: togglePageMenu
+	} = pageHoverManager;
+	
+
 	const userNameCache = new Map<string, string>();
-	export const defaultAIModel: AIModel = {
-		id: 'default',
-		name: 'Default Model',
-		api_key: '',
-		base_url: 'https://api.openai.com/v1',
-		api_type: 'gpt-3.5-turbo',
-		api_version: 'v1',
-		description: 'Default AI Model',
-		user: [],
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		provider: 'openai',
-		collectionId: '',
-		collectionName: ''
-	};
-	let aiModel = defaultAIModel;
+
+	let aiModel = defaultModel;
 
 	const statusMapping = {
 		Backlog: 'backlog',
@@ -1875,8 +1880,16 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 			question: 0
 		}
 	} as InternalChatMessage;
+	onMount(() => {
 
-	onDestroy(unsubscribe);
+		pageCleanup = pageHoverManager.initialize();
+	});
+onDestroy(() => {
+    unsubscribe();
+    if (pageCleanup) {
+        pageCleanup();
+    }
+});
 </script>
 
 {#if $isLoading}
@@ -1889,343 +1902,356 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		<button on:click={() => loadData(get(projectStore).currentProjectId)}> Retry </button>
 	</div>
 {:else}
-	{#if $showSidenav}
-		<div class="column-wrapper">
-			<div class="column-view-controls" transition:fly={{ x: -300, duration: 300 }}>
-				<button
-					class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
-					on:click={toggleAllColumns}
-					aria-label={toggleLabel}
-				>
-					<span class="toggle-icon">
-						{#if allColumnsOpen}
-							<Icon name="EyeOff" size={16} />
-						{:else}
-							<Icon name="Layers" size={16} />
-						{/if}
-					</span>
-					<span class="toggle-label">
-						{allColumnsOpen ? $t('button.tags') : $t('button.tags')}
-					</span>
-				</button>
+	<div class="lean-container"
+		class:nav-open={$showSettings}
 
-				{#each $columns as column}
-					<button
-						class="toggle-btn toggle-{column.status} {column.isOpen
-							? 'active-' + column.status
-							: ''}"
-						on:click={() => toggleColumn(column.id)}
-						on:dragover={(e) => handleButtonDragOver(e, column.id)}
-						on:dragleave={handleButtonDragLeave}
-						on:drop={(e) => handleButtonDrop(e, column.id)}
-					>
-						<span>{column.title}</span>
-						{#if column.tasks.length > 0}
-							<span class="count-badge">{column.tasks.length}</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-			<div class="view-controls">
-				<div class="tooltip-container">
-					<span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
-						{$t('generic.show')}
-						{$t('generic.all')}
-						{$t('tasks.tasks')}
-					</span>
-					<span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
-						{$t('generic.show')}
-						{$t('tasks.parent')}
-						{$t('tasks.tasks')}
-						{$t('generic.only')}
-					</span>
-					<span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
-						{$t('generic.show')}
-						{$t('tasks.subtasks')}
-						{$t('dates.days')}
-					</span>
+	>
+		{#if $showSidenav}
+			<div class="column-wrapper"
+				on:mouseleave={() => {
+					handlePageMenuLeave();
+				}}
+			>
+				<div class="calendar-container">
+					<TaskCalendar />
+
 				</div>
-
-				<button
-					class="priority-toggle {taskViewMode === TaskViewMode.highPriority
-						? 'high'
-						: taskViewMode === TaskViewMode.mediumPriority
-							? 'medium'
-							: taskViewMode === TaskViewMode.LowPriority
-								? 'low'
-								: ''}"
-					on:click={(e) => togglePriorityView(e)}
-					title="Toggle priority view"
-				>
-					<span
-						class={[
-							TaskViewMode.highPriority,
-							TaskViewMode.mediumPriority,
-							TaskViewMode.LowPriority
-						].includes(taskViewMode)
-							? 'active'
-							: ''}
+				<div class="column-view-controls" transition:fly={{ x: -300, duration: 300 }}>
+					<button
+						class="toggle-btn columns {allColumnsOpen ? 'active' : ''}"
+						on:click={toggleAllColumns}
+						aria-label={toggleLabel}
 					>
-						<Icon name="Flag" />
-					</span>
-					{#if taskViewMode === TaskViewMode.highPriority}
-						<span></span>
-						<span class="count-badge">{highPriorityCount}</span>
-					{:else if taskViewMode === TaskViewMode.mediumPriority}
-						<span></span>
-						<span class="count-badge">{mediumPriorityCount}</span>
-					{:else if taskViewMode === TaskViewMode.LowPriority}
-						<span></span>
-						<span class="count-badge">{lowPriorityCount}</span>
-					{/if}
-				</button>
-				<button
-					class:active={taskViewMode === TaskViewMode.All}
-					on:click={() => toggleTaskView(TaskViewMode.All)}
-					on:mouseenter={() => (hoveredButton = 'all')}
-					on:mouseleave={() => (hoveredButton = null)}
-				>
-					<Icon name="ListCollapse" size={16} />
-					<span class="count-badge">{totalTaskCount}</span>
-				</button>
-				<button
-					class:active={taskViewMode === TaskViewMode.OnlyParentTasks}
-					on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
-					on:mouseenter={() => (hoveredButton = 'parents')}
-					on:mouseleave={() => (hoveredButton = null)}
-				>
-					<Icon name="FolderGit" size={16} />
-					<span class="count-badge">{parentTaskCount}</span>
-				</button>
-				<button
-					class:active={taskViewMode === TaskViewMode.OnlySubtasks}
-					on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
-					on:mouseenter={() => (hoveredButton = 'subtasks')}
-					on:mouseleave={() => (hoveredButton = null)}
-				>
-					<Icon name="GitFork" size={16} />
-					<span class="count-badge">{subtaskCount}</span>
-				</button>
-				<button
-					class="filter-toggle"
-					class:active={showTagFilter}
-					on:click={toggleTagFilter}
-					title="Tags"
-				>
-					<Icon name="Filter" size={16} />
-				</button>
-			</div>
-			{#if showTagFilter}
-				<div class="tag-filter-container" in:slide={{ duration: 150 }}>
-					<div class="tag-filter-options">
-						<TagsDropdown
-							bind:selectedTags={selectedTagIds}
-							{currentProjectId}
-							mode="task"
-							isFilterMode={true}
-							placeholder={tagPlaceholder}
-							showSelectedCount={true}
-							on:tagsChanged={handleTagsChanged}
-						/>
+						<span class="toggle-icon">
+							{#if allColumnsOpen}
+								<Icon name="EyeOff" size={16} />
+							{:else}
+								<Icon name="Layers" size={16} />
+							{/if}
+						</span>
+						<span class="toggle-label">
+							{allColumnsOpen ? $t('button.tags') : $t('button.tags')}
+						</span>
+					</button>
 
-						<div class="match-options">
-							<label class="toggle-label">
-								<input
-									type="checkbox"
-									bind:checked={requireAllTags}
-									on:change={toggleRequireAllTags}
-								/>
-								<span>{$t('generic.match')}</span>
-							</label>
-						</div>
+					{#each $columns as column}
+						<button
+							class="toggle-btn toggle-{column.status} {column.isOpen
+								? 'active-' + column.status
+								: ''}"
+							on:click={() => toggleColumn(column.id)}
+							on:dragover={(e) => handleButtonDragOver(e, column.id)}
+							on:dragleave={handleButtonDragLeave}
+							on:drop={(e) => handleButtonDrop(e, column.id)}
+						>
+							<span>{column.title}</span>
+							{#if column.tasks.length > 0}
+								<span class="count-badge">{column.tasks.length}</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+				<div class="view-controls">
+					<div class="tooltip-container">
+						<span class="shared-tooltip" class:visible={hoveredButton === 'all'}>
+							{$t('generic.show')}
+							{$t('generic.all')}
+							{$t('tasks.tasks')}
+						</span>
+						<span class="shared-tooltip" class:visible={hoveredButton === 'parents'}>
+							{$t('generic.show')}
+							{$t('tasks.parent')}
+							{$t('tasks.tasks')}
+							{$t('generic.only')}
+						</span>
+						<span class="shared-tooltip" class:visible={hoveredButton === 'subtasks'}>
+							{$t('generic.show')}
+							{$t('tasks.subtasks')}
+							{$t('dates.days')}
+						</span>
 					</div>
 
-					<!-- Show active filters summary -->
-					{#if selectedTagIds.length > 0}
-						<div class="active-filters" transition:slide={{ duration: 150 }}>
-							<span class="filter-label">{$t('generic.filter')}</span>
-							<div class="filter-tags">
-								{#each $tags.filter((tag) => selectedTagIds.includes(tag.id)) as tag}
-									<span class="filter-tag" style="background-color: {tag.color}">
-										{tag.name}
-									</span>
-								{/each}
+					<button
+						class="priority-toggle {taskViewMode === TaskViewMode.highPriority
+							? 'high'
+							: taskViewMode === TaskViewMode.mediumPriority
+								? 'medium'
+								: taskViewMode === TaskViewMode.LowPriority
+									? 'low'
+									: ''}"
+						on:click={(e) => togglePriorityView(e)}
+						title="Toggle priority view"
+					>
+						<span
+							class={[
+								TaskViewMode.highPriority,
+								TaskViewMode.mediumPriority,
+								TaskViewMode.LowPriority
+							].includes(taskViewMode)
+								? 'active'
+								: ''}
+						>
+							<Icon name="Flag" />
+						</span>
+						{#if taskViewMode === TaskViewMode.highPriority}
+							<span></span>
+							<span class="count-badge">{highPriorityCount}</span>
+						{:else if taskViewMode === TaskViewMode.mediumPriority}
+							<span></span>
+							<span class="count-badge">{mediumPriorityCount}</span>
+						{:else if taskViewMode === TaskViewMode.LowPriority}
+							<span></span>
+							<span class="count-badge">{lowPriorityCount}</span>
+						{/if}
+					</button>
+					<button
+						class:active={taskViewMode === TaskViewMode.All}
+						on:click={() => toggleTaskView(TaskViewMode.All)}
+						on:mouseenter={() => (hoveredButton = 'all')}
+						on:mouseleave={() => (hoveredButton = null)}
+					>
+						<Icon name="ListCollapse" size={16} />
+						<span class="count-badge">{totalTaskCount}</span>
+					</button>
+					<button
+						class:active={taskViewMode === TaskViewMode.OnlyParentTasks}
+						on:click={() => toggleTaskView(TaskViewMode.OnlyParentTasks)}
+						on:mouseenter={() => (hoveredButton = 'parents')}
+						on:mouseleave={() => (hoveredButton = null)}
+					>
+						<Icon name="FolderGit" size={16} />
+						<span class="count-badge">{parentTaskCount}</span>
+					</button>
+					<button
+						class:active={taskViewMode === TaskViewMode.OnlySubtasks}
+						on:click={() => toggleTaskView(TaskViewMode.OnlySubtasks)}
+						on:mouseenter={() => (hoveredButton = 'subtasks')}
+						on:mouseleave={() => (hoveredButton = null)}
+					>
+						<Icon name="GitFork" size={16} />
+						<span class="count-badge">{subtaskCount}</span>
+					</button>
+					<button
+						class="filter-toggle"
+						class:active={showTagFilter}
+						on:click={toggleTagFilter}
+						title="Tags"
+					>
+						<Icon name="Filter" size={16} />
+					</button>
+				</div>
+				{#if showTagFilter}
+					<div class="tag-filter-container" in:slide={{ duration: 150 }}>
+						<div class="tag-filter-options">
+							<TagsDropdown
+								bind:selectedTags={selectedTagIds}
+								{currentProjectId}
+								mode="task"
+								isFilterMode={true}
+								placeholder={tagPlaceholder}
+								showSelectedCount={true}
+								on:tagsChanged={handleTagsChanged}
+							/>
+
+							<div class="match-options">
+								<label class="toggle-label">
+									<input
+										type="checkbox"
+										bind:checked={requireAllTags}
+										on:change={toggleRequireAllTags}
+									/>
+									<span>{$t('generic.match')}</span>
+								</label>
 							</div>
 						</div>
-					{/if}
-				</div>
-			{/if}
-			<div class="input-wrapper">
-				<div class="global-task-input">
-					<!-- <span>
-							<Search />
-						</span> -->
-					<input
-						transition:fade={{ duration: 150 }}
-						type="text"
-						bind:value={searchQuery}
-						on:input={() => {
-							searchTasks(searchQuery);
-							if (searchQuery && !allColumnsOpen) {
-								toggleAllColumns();
-							}
-						}}
-						placeholder={searchPlaceholder}
-						class="search-input"
-					/>
-					{#if searchQuery}
-						<button
-							class="clear-search"
-							on:click={() => {
-								searchQuery = '';
-								applyFilters();
+
+						<!-- Show active filters summary -->
+						{#if selectedTagIds.length > 0}
+							<div class="active-filters" transition:slide={{ duration: 150 }}>
+								<span class="filter-label">{$t('generic.filter')}</span>
+								<div class="filter-tags">
+									{#each $tags.filter((tag) => selectedTagIds.includes(tag.id)) as tag}
+										<span class="filter-tag" style="background-color: {tag.color}">
+											{tag.name}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+				<div class="input-wrapper">
+					<div class="global-task-input">
+						<!-- <span>
+								<Search />
+							</span> -->
+						<input
+							transition:fade={{ duration: 150 }}
+							type="text"
+							bind:value={searchQuery}
+							on:input={() => {
+								searchTasks(searchQuery);
+								if (searchQuery && !allColumnsOpen) {
+									toggleAllColumns();
+								}
 							}}
-						>
-							✕
-						</button>
-					{/if}
-				</div>
-				<div class="global-task-input">
-					<!-- <span>
-							<PlusCircle />
-						</span> -->
-					<textarea
-						placeholder={addPlaceholder}
-						on:keydown={(e) => addGlobalTask(e)}
-						class="global-task-input"
-					></textarea>
+							placeholder={searchPlaceholder}
+							class="search-input"
+						/>
+						{#if searchQuery}
+							<button
+								class="clear-search"
+								on:click={() => {
+									searchQuery = '';
+									applyFilters();
+								}}
+							>
+								✕
+							</button>
+						{/if}
+					</div>
+					<div class="global-task-input">
+						<!-- <span>
+								<PlusCircle />
+							</span> -->
+						<textarea
+							placeholder={addPlaceholder}
+							on:keydown={(e) => addGlobalTask(e)}
+							class="global-task-input"
+						></textarea>
+					</div>
 				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+		<div
+			class="kanban-container"
+			in:fly={{ y: -400, duration: 400 }}
+			out:fade={{ duration: 300 }}
+			class:drawer-visible={$showSidenav}
 
+		>
+			<div class="kanban-board" class:drawer-visible={$showThreadList}>
+				{#each $columns as column}
+					<div
+						class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}"
+						on:dragover={handleDragOver}
+						in:fly={{ x: -400, duration: 400 }}
+						out:fly={{ x: -100, duration: 300 }}
+						on:drop={(e) => handleDrop(e, column.id)}
+					>
+						<!-- <button type="button" class="column-header header-{column.status} {column.isOpen ? 'active-'+column.status : ''}" on:click={() => toggleColumn(column.id)}>
+				</button> -->
 
-	<div
-		class="kanban-container"
-		in:fly={{ y: -400, duration: 400 }}
-		out:fade={{ duration: 300 }}
-		class:drawer-visible={$showSidenav}
-	>
-		<div class="kanban-board" class:drawer-visible={$showThreadList}>
-			{#each $columns as column}
-				<div
-					class="kanban-column column-{column.status} {column.isOpen ? 'expanded' : 'collapsed'}"
-					on:dragover={handleDragOver}
-					in:fly={{ x: -400, duration: 400 }}
-					out:fly={{ x: -100, duration: 300 }}
-					on:drop={(e) => handleDrop(e, column.id)}
-				>
-					<!-- <button type="button" class="column-header header-{column.status} {column.isOpen ? 'active-'+column.status : ''}" on:click={() => toggleColumn(column.id)}>
-            </button> -->
+						{#if column.isOpen}
+							<span class="column-title">
+								{column.title}
+							</span>
+							<div
+								class="task-list"
+								in:slide={{ duration: 300, axis: 'x' }}
+								out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
+							>
+								{#each column.tasks as task}
+									<div
+										class="task-card status-{task.status}"
+										draggable="true"
+										on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
+										on:dragend={handleDragEnd}
+										on:click={(e) => openModal(task, e)}
+									>
+										<h4>
+											<!-- Safe if processWordMinimize is controlled -->
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+											{@html processWordMinimize(task.title)}
+										</h4>
 
-					{#if column.isOpen}
-						<span class="column-title">
-							{column.title}
-						</span>
-						<div
-							class="task-list"
-							in:slide={{ duration: 300, axis: 'x' }}
-							out:slide={{ duration: 300, easing: elasticOut, axis: 'x' }}
-						>
-							{#each column.tasks as task}
-								<div
-									class="task-card status-{task.status}"
-									draggable="true"
-									on:dragstart={(e) => handleDragStart(e, task.id, column.id)}
-									on:dragend={handleDragEnd}
-									on:click={(e) => openModal(task, e)}
-								>
-									<h4>
-										<!-- Safe if processWordMinimize is controlled -->
-										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-										{@html processWordMinimize(task.title)}
-									</h4>
+										{#if task.parent_task}
+											<div class="task-badge">
+												{#await getParentTaskTitle(task.parent_task) then title}
+													{title}
+												{/await}
+											</div>
+										{/if}
 
-									{#if task.parent_task}
-										<div class="task-badge">
-											{#await getParentTaskTitle(task.parent_task) then title}
-												{title}
-											{/await}
-										</div>
-									{/if}
+										<p class="description">{task.taskDescription}</p>
 
-									<p class="description">{task.taskDescription}</p>
-
-									{#if task.createdBy}
-										<div class="task-creator">
-											{#if hasSubtasks(task.id)}
-												<div class="task-badge subtasks">
-													<span class="task-icon">
-														<Icon name="ClipboardList" size={16} />
-													</span>
-													{countSubtasks(task.id)}
-													<span>{$t('tasks.subtasks')}</span>
-												</div>
-											{/if}
-
-											<!-- Creator info -->
-											<span>
-												{#if getUserAvatar(task.createdBy)}
-													<img
-														src={getUserAvatar(task.createdBy)}
-														alt="Avatar"
-														class="user-avatar"
-														on:error={handleAvatarError}
-													/>
-													<span class="avatar-initials" style="display: none;">
-														{getUserInitial(task.createdBy)}
-													</span>
-												{:else}
-													<span class="avatar-initials">
-														{getUserInitial(task.createdBy)}
-													</span>
+										{#if task.createdBy}
+											<div class="task-creator">
+												{#if hasSubtasks(task.id)}
+													<div class="task-badge subtasks">
+														<span class="task-icon">
+															<Icon name="ClipboardList" size={16} />
+														</span>
+														{countSubtasks(task.id)}
+														<span>{$t('tasks.subtasks')}</span>
+													</div>
 												{/if}
-												<span class="username">
-													{getUserDisplayName(task.createdBy)}
-												</span>
-											</span>
 
-											<!-- Assigned to info -->
-											<span>
-												{#if task.assignedTo}
-													{#if getUserAvatar(task.assignedTo)}
+												<!-- Creator info -->
+												<span>
+													{#if getUserAvatar(task.createdBy)}
 														<img
-															src={getUserAvatar(task.assignedTo)}
+															src={getUserAvatar(task.createdBy)}
 															alt="Avatar"
 															class="user-avatar"
 															on:error={handleAvatarError}
 														/>
 														<span class="avatar-initials" style="display: none;">
-															{getUserInitial(task.assignedTo)}
+															{getUserInitial(task.createdBy)}
 														</span>
 													{:else}
 														<span class="avatar-initials">
-															{getUserInitial(task.assignedTo)}
+															{getUserInitial(task.createdBy)}
 														</span>
 													{/if}
 													<span class="username">
-														{getUserDisplayName(task.assignedTo)}
+														{getUserDisplayName(task.createdBy)}
 													</span>
-												{:else}
-													<span class="no-assignment">{$t('tasks.notAssigned')}</span>
-												{/if}
-											</span>
-										</div>
-									{/if}
+												</span>
 
-									{#if task.attachments && task.attachments.length > 0}
-										<div class="attachment-indicator">
-											📎 {task.attachments.length}
-										</div>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			{/each}
+												<!-- Assigned to info -->
+												<span>
+													{#if task.assignedTo}
+														{#if getUserAvatar(task.assignedTo)}
+															<img
+																src={getUserAvatar(task.assignedTo)}
+																alt="Avatar"
+																class="user-avatar"
+																on:error={handleAvatarError}
+															/>
+															<span class="avatar-initials" style="display: none;">
+																{getUserInitial(task.assignedTo)}
+															</span>
+														{:else}
+															<span class="avatar-initials">
+																{getUserInitial(task.assignedTo)}
+															</span>
+														{/if}
+														<span class="username">
+															{getUserDisplayName(task.assignedTo)}
+														</span>
+													{:else}
+														<span class="no-assignment">{$t('tasks.notAssigned')}</span>
+													{/if}
+												</span>
+											</div>
+										{/if}
+
+										{#if task.attachments && task.attachments.length > 0}
+											<div class="attachment-indicator">
+												📎 {task.attachments.length}
+											</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
+
 {/if}
 
 {#if isModalOpen && selectedTask}
@@ -2521,36 +2547,54 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		display: flex;
 		flex-direction: row;
 		transition: all 0.2s ease;
-		height: 95vh;
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+
+		height: calc(100vh - 1rem);
 		width: auto;
-		margin-left: 0rem !important;
-		// overflow-x: scroll;
-		// &::-webkit-scrollbar {
-		// 	width: 0.5rem;
-		// 	background-color: transparent;
-		// }
-		// &::-webkit-scrollbar-track {
-		// 	background: transparent;
-		// }
-		// &::-webkit-scrollbar-thumb {
-		// 	background: var(--placeholder-color);
-		// 	border-radius: 1rem;
-		// }
+		margin-left: 3rem !important;
+		overflow-x: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--placeholder-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.column-wrapper {
 		display: flex;
 		flex-direction: column;
 		align-items: space-between;
-		justify-content: space-between;
-		height: calc(100% - 1rem);
+		justify-content: flex-start;
+		height: calc(100% - 3rem);
+		padding: 0.5rem;
+		gap: 2rem;
+	}
+	.lean-container {
+		display: flex;
+	}
+	.lean-container.nav-open {
+		margin-left: 5rem;
+	}
+	.column-wrapper.nav-open {
+		margin-left: 5rem;
+		padding: 0.5rem;
+		& .kanban-container.nav-open {
+			margin-left: 0 !important;
+		}
 	}
 	.input-wrapper {
 		display: flex;
 		width: auto;
 		flex-direction: column;
-		justify-content: center;
-		height: auto;
+		justify-content: flex-end;
+		height: 100%;
 		gap: 0.5rem;
 	}
 	p {
@@ -2625,18 +2669,17 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		display: flex;
 		flex-direction: row;
 		position: relative;
-		bottom: 0;
 		left: auto;
 		right: auto;
 		margin-left: auto;
 		max-width: 400px;
-		margin-bottom: 0;
 		gap: 1rem;
 		justify-content: center;
 		height: auto;
 		border-radius: 2rem;
 		font-size: 1.2rem;
 		margin-left: 0.5rem;
+
 		padding-inline-start: 0.5rem;
 		background: var(--secondary-color);
 		border-color: 1px solid var(--line-color) !important;
@@ -2723,7 +2766,7 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.4);
 	}
 	.drawer-visible.kanban-container {
-		height: 95vh;
+		height: calc(100vh - 1rem);
 	}
 
 	.kanban-board {
@@ -2780,7 +2823,7 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		// border: 1px solid var(--secondary-color);
 		border-radius: 2rem;
 		transition: all 0.3s ease;
-		height: 100%;
+		height: auto;
 
 		&:hover {
 			// border: 1px solid var(--secondary-color);
@@ -2989,7 +3032,7 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
-		height: 100%;
+		height: auto;
 		padding: 0 0.5rem;
 		border-radius: 2rem;
 		gap: 0.5rem;
@@ -3967,7 +4010,7 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 	.view-controls {
 		position: relative;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: stretch;
 		width: 100%;
 		height: auto;
@@ -4007,6 +4050,12 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		color: #28a745;
 	}
 
+	.calendar-container {
+		display: flex;
+		flex-direction: column;
+		max-width: 350px;
+		
+	}
 	.column-view-controls {
 		display: flex;
 		flex-direction: column;

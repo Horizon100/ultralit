@@ -91,7 +91,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 			throw new Error('Tag ID is required');
 		}
 
-		const limit = parseInt(url.searchParams.get('limit') || '20');
+		const limit = parseInt(url.searchParams.get('limit') || '40');
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 		const page = Math.floor(offset / limit) + 1;
 

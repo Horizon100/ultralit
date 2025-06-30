@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { sidenavStore } from '$lib/stores/sidenavStore';
 
+
 export interface HoverConfig {
 	hoverZone: number; // Width/height of the hover zone in pixels
 	minScreenWidth: number; // Minimum screen width for hover to be active
@@ -27,6 +28,8 @@ export interface SidenavControls {
 	explorer: { show: () => void; hide: () => void; toggle: () => void };
 	editor: { show: () => void; hide: () => void; toggle: () => void };
 	search: { show: () => void; hide: () => void; toggle: () => void };
+	threadList: { show: () => void; hide: () => void; toggle: () => void };
+
 }
 
 // Create mapping of control names to store methods
@@ -75,6 +78,11 @@ const sidenavControls: SidenavControls = {
 		show: () => sidenavStore.showSearch(),
 		hide: () => sidenavStore.hideSearch(),
 		toggle: () => sidenavStore.toggleSearch()
+	},
+	threadList: {
+		show: () => sidenavStore.showThreadList(),
+		hide: () => sidenavStore.hideThreadList(),
+		toggle: () => sidenavStore.toggleThreadList()
 	}
 };
 

@@ -77,67 +77,78 @@ const saveModelToPocketBase = async (model: AIModel, userId: string): Promise<AI
 };
 
 async function loadModels(userId: string): Promise<boolean> {
-	console.log('🔍 loadModels called for userId:', userId);
-	
-	const result = await clientTryCatch(
-		(async () => {
-			const connectionResponse = await fetch('/api/verify/health');
-			const connectionData = await connectionResponse.json();
-			if (!connectionData.success) throw new Error('PocketBase not available');
+    console.log('🔍 loadModels called for userId:', userId);
+    
+    const result = await clientTryCatch(
+        (async () => {
+            const connectionResponse = await fetch('/api/verify/health');
+            const connectionData = await connectionResponse.json();
+            if (!connectionData.success) throw new Error('PocketBase not available');
 
-			console.log('🔍 Fetching models from API for userId:', userId);
-			const response = await fetch(`/api/ai/models?userId=${userId}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
+            console.log('🔍 Fetching models from API for userId:', userId);
+            const response = await fetch(`/api/ai/models?userId=${userId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
 
-			console.log('🔍 Models API response status:', response.status);
-			if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
+            console.log('🔍 Models API response status:', response.status);
+            if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
 
-			const data = await response.json();
-			console.log('🔍 Raw models API response:', data);
-			
-			if (!data.success) throw new Error(data.error || 'Failed to load models');
+            const data = await response.json();
+            console.log('🔍 Raw models API response:', data);
+            
+            if (!data.success) throw new Error(data.error || 'Failed to load models');
 
-			// FIX: Handle the wrapped response structure like your AI client
-			let models: AIModel[] = [];
-			if (data.data && data.data.models) {
-				models = data.data.models;
-			} else if (data.models) {
-				models = data.models;
-			} else if (data.data && Array.isArray(data.data)) {
-				models = data.data;
-			} else {
-				console.log('❌ Unexpected models API structure:', data);
-				models = [];
-			}
-			
-			console.log('🔍 Loaded models from API:', models?.length || 0, 'models');
-			
-			if (models && models.length > 0) {
-				console.log('🔍 Model details:', models.map(m => `${m.provider}-${m.name}-${m.id}`));
-			} else {
-				console.log('❌ No models returned from API');
-			}
+            let models: AIModel[] = [];
+            if (data.data && data.data.models) {
+                models = data.data.models;
+            } else if (data.models) {
+                models = data.models;
+            } else if (data.data && Array.isArray(data.data)) {
+                models = data.data;
+            } else {
+                console.log('❌ Unexpected models API structure:', data);
+                models = [];
+            }
+            
+            console.log('🔍 Loaded models from API:', models?.length || 0, 'models');
+            
+            // Filter models by available API keys
+            const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek']
+                .filter(provider => apiKey.hasKey(provider));
+            
+            const filteredModels = models.filter((model: AIModel) => {
+                const hasKey = availableKeyProviders.includes(model.provider);
+                if (!hasKey) {
+                    console.log(`🚫 Filtered out ${model.name} - no key for ${model.provider}`);
+                }
+                return hasKey;
+            });
+            
+            console.log('🔍 Filtered models:', filteredModels?.length || 0, 'models');
+            
+            if (filteredModels && filteredModels.length > 0) {
+                console.log('🔍 Valid model details:', filteredModels.map(m => `${m.provider}-${m.name}-${m.id}`));
+            }
 
-			update((state) => ({
-				...state,
-				models: models || [],
-				isOffline: false,
-				updateStatus: ''
-			}));
-			
-			return true;
-		})()
-	);
+            update((state) => ({
+                ...state,
+                models: filteredModels || [],
+                isOffline: false,
+                updateStatus: ''
+            }));
+            
+            return true;
+        })()
+    );
 
-	if (isSuccess(result)) {
-		return result.data;
-	} else {
-		console.warn('❌ Failed to load models:', result.error);
-		update((state) => ({ ...state, isOffline: true }));
-		return false;
-	}
+    if (isSuccess(result)) {
+        return result.data;
+    } else {
+        console.warn('❌ Failed to load models:', result.error);
+        update((state) => ({ ...state, isOffline: true }));
+        return false;
+    }
 }
 
 async function setSelectedModel(userId: string, model: AIModel): Promise<boolean> {
@@ -353,137 +364,148 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 		},
 
 async initialize(userId: string): Promise<AIModel | null> {
-	if (!userId) {
-		console.error('No user ID provided for model initialization');
-		return null;
-	}
+    if (!userId) {
+        console.error('No user ID provided for model initialization');
+        return null;
+    }
 
-	const result = await clientTryCatch(
-		(async () => {
-			// Ensure API keys are loaded first
-			console.log('🔍 Ensuring API keys are loaded...');
-			await apiKey.ensureLoaded();
-			
-			const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek']
-				.filter(provider => apiKey.hasKey(provider));
-			
-			console.log('🔍 Available API key providers:', availableKeyProviders);
+    const result = await clientTryCatch(
+        (async () => {
+            // Ensure API keys are loaded first
+            console.log('🔍 Ensuring API keys are loaded...');
+            await apiKey.ensureLoaded();
+            
+            const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek']
+                .filter(provider => apiKey.hasKey(provider));
+            
+            console.log('🔍 Available API key providers:', availableKeyProviders);
 
-			// Load existing models from database FIRST
-			console.log('🔍 Loading models from database...');
-			await loadModels(userId);
-			
-			// Get current state and LOG EVERYTHING
-			let currentState: any = null;
-			const unsubscribe = subscribe((state) => {
-				currentState = state;
-			});
-			unsubscribe();
+            // Load existing models from database
+            console.log('🔍 Loading models from database...');
+            await loadModels(userId);
+            
+            // Get current state
+            let currentState: any = null;
+            const unsubscribe = subscribe((state) => {
+                currentState = state;
+            });
+            unsubscribe();
 
-			console.log('🔍 LOADED MODELS COUNT:', currentState?.models?.length || 0);
-			console.log('🔍 LOADED MODELS DETAILS:', currentState?.models?.map((m: AIModel) => 
-				`${m.provider}-${m.name}-${m.id}`
-			) || []);
+            console.log('🔍 LOADED MODELS COUNT:', currentState?.models?.length || 0);
 
-			// Get user preferences
-			const userResponse = await fetch(`/api/verify/users/${userId}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
+            // FILTER MODELS BY AVAILABLE API KEYS
+            const validModels = (currentState?.models || []).filter((model: AIModel) => {
+                const hasKey = availableKeyProviders.includes(model.provider);
+                if (!hasKey) {
+                    console.log(`🚫 Filtering out model ${model.name} - no API key for ${model.provider}`);
+                }
+                return hasKey;
+            });
 
-			if (!userResponse.ok) {
-				throw new Error(`Failed to fetch user data: ${userResponse.statusText}`);
-			}
+            console.log('🔍 VALID MODELS (with API keys):', validModels.length);
+            console.log('🔍 VALID MODEL DETAILS:', validModels.map((m: AIModel) => 
+                `${m.provider}-${m.name}-${m.id}`
+            ));
 
-		const userData = await userResponse.json();
-		console.log('🔍 User data response:', userData);
+            // Update store with filtered models
+            update((state) => ({
+                ...state,
+                models: validModels
+            }));
 
-		// Extract user object correctly
-		let user: User;
-		if (userData.success && userData.data && userData.data.user) {
-			user = userData.data.user;  // This should now work correctly
-			console.log('👤 User object extracted from userData.data.user:', user);
-		} else {
-			console.error('❌ Unexpected user data structure:', userData);
-			user = {} as User;
-		}
+            // Get user preferences
+            const userResponse = await fetch(`/api/verify/users/${userId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
 
-		const selectedProvider = user.selected_provider || null;
-		const selectedModelId = user.model || null;
+            if (!userResponse.ok) {
+                throw new Error(`Failed to fetch user data: ${userResponse.statusText}`);
+            }
 
-		console.log('🎯 User preferences - Provider:', selectedProvider, 'Model ID:', selectedModelId);
+            const userData = await userResponse.json();
+            console.log('🔍 User data response:', userData);
 
-			// CHECK IF WE HAVE ANY MODELS AT ALL
-			if (!currentState?.models || currentState.models.length === 0) {
-				console.log('❌ NO MODELS LOADED FROM DATABASE - this is the problem!');
-				// Don't create models here, just use fallback
-				return defaultModel;
-			}
+            let user: User;
+            if (userData.success && userData.data && userData.data.user) {
+                user = userData.data.user;
+                console.log('👤 User object extracted:', user);
+            } else {
+                console.error('❌ Unexpected user data structure:', userData);
+                user = {} as User;
+            }
 
-			// If user has selected model, try to find it
-			if (selectedModelId) {
-				const foundModel = currentState.models.find((m: AIModel) => m.id === selectedModelId);
-				if (foundModel) {
-					console.log('✅ Found user\'s selected model:', foundModel.id, foundModel.name);
-					return foundModel;
-				} else {
-					console.log('⚠️ User\'s selected model not found in loaded models');
-				}
-			}
+            const selectedProvider = user.selected_provider || null;
+            const selectedModelId = user.model || null;
 
-			// Find valid provider
-			let validProvider = selectedProvider;
-			if (!selectedProvider || !apiKey.hasKey(selectedProvider)) {
-				validProvider = availableKeyProviders.length > 0
-					? (availableKeyProviders[0] as ProviderType)
-					: 'openai';
-				console.log('🔄 Using fallback provider:', validProvider);
-			}
+            console.log('🎯 User preferences - Provider:', selectedProvider, 'Model ID:', selectedModelId);
 
-			// Look for ANY model for this provider
-			const providerModels = currentState.models.filter((m: AIModel) => m.provider === validProvider);
-			console.log(`🔍 Found ${providerModels.length} models for provider ${validProvider}`);
-			
-			if (providerModels.length > 0) {
-				const selectedModel = providerModels[0];
-				console.log('✅ Using existing model:', selectedModel.id, selectedModel.name);
-				await setSelectedModel(userId, selectedModel);
-				return selectedModel;
-			}
+            // If no valid models, use default from available provider
+            if (validModels.length === 0) {
+                console.log('❌ NO VALID MODELS - using default from available provider');
+                
+                // Find default model for available provider
+                const preferredProviders = ['anthropic', 'deepseek', 'grok'];
+                for (const provider of preferredProviders) {
+                    if (availableKeyProviders.includes(provider)) {
+                        console.log(`✅ Using default model for available provider: ${provider}`);
+                        
+                        // Use default from availableModels for this provider
+                        const defaultForProvider = availableModels.find(m => m.provider === provider);
+                        if (defaultForProvider) {
+                            return defaultForProvider;
+                        }
+                    }
+                }
+                
+                return defaultModel;
+            }
 
-			// Look for ANY model with any available provider
-			for (const provider of availableKeyProviders) {
-				const models = currentState.models.filter((m: AIModel) => m.provider === provider);
-				if (models.length > 0) {
-					console.log(`✅ Using model from available provider ${provider}:`, models[0].id);
-					await setSelectedModel(userId, models[0]);
-					return models[0];
-				}
-			}
+            // If user has selected model, try to find it in valid models
+            if (selectedModelId) {
+                const foundModel = validModels.find((m: AIModel) => m.id === selectedModelId);
+                if (foundModel) {
+                    console.log('✅ Found user\'s selected model:', foundModel.id, foundModel.name);
+                    return foundModel;
+                } else {
+                    console.log('⚠️ User\'s selected model not found in valid models');
+                }
+            }
 
-			// If we get here, we have loaded models but none match available providers
-			console.log('⚠️ Have models but none match available API key providers');
-			console.log('⚠️ Available providers:', availableKeyProviders);
-			console.log('⚠️ Model providers:', currentState.models.map((m: AIModel) => m.provider));
-			
-			// Just use the first available model
-			if (currentState.models.length > 0) {
-				console.log('✅ Using first available model:', currentState.models[0].id);
-				return currentState.models[0];
-			}
+            // Prioritize providers: anthropic > deepseek > grok > others
+            const preferredProviders = ['anthropic', 'deepseek', 'grok'];
+            
+            for (const provider of preferredProviders) {
+                if (availableKeyProviders.includes(provider)) {
+                    const providerModels = validModels.filter((m: AIModel) => m.provider === provider);
+                    if (providerModels.length > 0) {
+                        const selectedModel = providerModels[0];
+                        console.log(`✅ Auto-selecting model from preferred provider ${provider}:`, selectedModel.name);
+                        await setSelectedModel(userId, selectedModel);
+                        return selectedModel;
+                    }
+                }
+            }
 
-			// Last resort
-			console.log('❌ No models found at all, using default');
-			return defaultModel;
-		})()
-	);
+            // Use first valid model
+            if (validModels.length > 0) {
+                console.log('✅ Using first valid model:', validModels[0].name);
+                await setSelectedModel(userId, validModels[0]);
+                return validModels[0];
+            }
 
-	if (isSuccess(result)) {
-		return result.data;
-	} else {
-		console.error('Error initializing model selection:', result.error);
-		return defaultModel;
-	}
+            // Last resort
+            console.log('❌ No valid models found, using default');
+            return defaultModel;
+        })()
+    );
+
+    if (isSuccess(result)) {
+        return result.data;
+    } else {
+        console.error('Error initializing model selection:', result.error);
+        return defaultModel;
+    }
 }
 	};
 };

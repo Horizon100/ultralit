@@ -38,7 +38,7 @@
 		languages,
 		initializeLanguage
 	} from '$lib/stores/languageStore';
-	import { threadsStore, showThreadList } from '$lib/stores/threadsStore';
+	import { threadsStore } from '$lib/stores/threadsStore';
 	import { isNavigating } from '$lib/stores/navigationStore';
 	import { t } from '$lib/stores/translationStore';
 	import { timerStore } from '$lib/stores/timerStore';
@@ -55,7 +55,8 @@
 		showSettings,
 		showEditor,
 		showExplorer,
-		showDebug
+		showDebug,
+		showThreadList
 	} from '$lib/stores/sidenavStore';
 	import Toast from '$lib/components/modals/Toast.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -75,7 +76,7 @@
 	export let isSearchFocused = false;
 
 	// Local state
-
+	let avatarTimestamp = Date.now();
 	let showLanguageNotification = false;
 	let selectedLanguageName = '';
 	let isStylesOpen = false;
@@ -138,6 +139,7 @@
 		handleMenuLeave: handlePageMenuLeave,
 		toggleMenu: togglePageMenu
 	} = pageHoverManager;
+	
 
 	let pageCleanup: (() => void) | null = null;
 
@@ -150,6 +152,10 @@
 		}
 
 		return 'The question of whether a computer can think is no more interesting than the question of whether a submarine can swim. - Edsger W. Dijkstra';
+	}
+	function handleAvatarUpdate(event: CustomEvent) {
+		console.log('🔄 Layout received avatar update event');
+		avatarTimestamp = event.detail.timestamp;
 	}
 	function toggleSidenav() {
 		sidenavStore.toggle();
@@ -319,6 +325,9 @@
 	}
 
 	onMount(() => {
+		if (browser) {
+			window.addEventListener('avatarUpdated', handleAvatarUpdate);
+		}
 		let unsubscribe: (() => void) | undefined;
 		let themeUnsubscribe: (() => void) | undefined;
 		pageCleanup = pageHoverManager.initialize();
@@ -457,6 +466,9 @@
 		};
 	});
 	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+		}
 		if (pageCleanup) {
 			pageCleanup();
 		}
@@ -524,16 +536,10 @@
 	</header>
 	<nav style="z-index: 1000;"></nav>
 	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
-		<div
-			class="navigation-buttons"
-			class:hidden={isNarrowScreen}
-			in:fly={{ x: -200, duration: 300 }}
-			out:fly={{ x: 200, duration: 300 }}
-		>
-			{#if $currentUser}
-				{#if $showSettings && !isNavExpanded}
+			<div class="toggle-container">
 					<button
-						class="nav-button toggle"
+						class="nav-button drawer"
+
 						on:click={() => {
 							toggleNav();
 							if (showProfile || showAuthModal) {
@@ -548,9 +554,7 @@
 							<Icon name="PanelLeftOpen" />
 						{/if}
 					</button>
-				{/if}
-				{#if !($showSettings && isNavExpanded)}
-					<button
+					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showSettings}
@@ -596,8 +600,17 @@
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
 						{/if}
-					</button>
-				{/if}
+					</button> -->
+				</div>
+		<div
+			class="navigation-buttons"
+			class:hidden={isNarrowScreen}
+			in:fly={{ x: -200, duration: 300 }}
+			out:fly={{ x: 200, duration: 300 }}
+		>
+			{#if $currentUser}
+
+
 
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
@@ -750,21 +763,9 @@
 
 				<!-- Chat Route Navigation -->
 				{#if currentPath === '/chat'}
-					<button
-						class="nav-button"
-						class:expanded={isNavExpanded}
-						on:click={() => {
-							navigateTo('/home');
-							if (isNavExpanded) isNavExpanded = false;
-						}}
-					>
-						<Icon name="HomeIcon" />
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.home')}</span>
-						{/if}
-					</button>
 
-					<button
+
+					<!-- <button
 						class="nav-button drawer reveal"
 						class:expanded={isNavExpanded}
 						class:active={true}
@@ -784,40 +785,14 @@
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.chat')}</span>
 						{/if}
-					</button>
+					</button> -->
 
-					<button
-						class="nav-button"
-						class:expanded={isNavExpanded}
-						on:click={() => {
-							navigateTo('/lean');
-							if (isNavExpanded) isNavExpanded = false;
-						}}
-					>
-						<Icon name="SquareKanban" />
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.kanban')}</span>
-						{/if}
-					</button>
 
-					<button
-						class="nav-button"
-						class:expanded={isNavExpanded}
-						on:click={() => {
-							navigateTo('/game');
-							if (isNavExpanded) isNavExpanded = false;
-						}}
-					>
-						<Icon name="Gamepad2" />
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.game')}</span>
-						{/if}
-					</button>
 				{/if}
 
 				<!-- Kanban/Lean Route Navigation -->
 				{#if currentPath === '/lean'}
-					<button
+					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showSidenav}
@@ -863,9 +838,9 @@
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.sidebar')}</span>
 						{/if}
-					</button>
+					</button> -->
 
-					<button
+					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showRightSidenav}
@@ -911,9 +886,12 @@
 						{#if isNavExpanded}
 							<span class="nav-text">{$t('nav.profile')}</span>
 						{/if}
-					</button>
+					</button> -->
 
-					<button
+
+				{/if}
+				{#if currentPath === '/chat'}
+					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showOverlay}
@@ -960,30 +938,30 @@
 							<span class="nav-text">{$t('nav.profile')}</span>
 						{/if}
 					</button>
-					{#if $showOverlay}
-						<button
-							class="nav-button drawer"
-							class:expanded={isNavExpanded}
-							class:active={$showThreadList}
-							class:reveal-active={activeRevealButton === 'chat'}
-							on:click={(event) => {
-								event.preventDefault();
-								activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
-								toggleThreadList();
-								isNavExpanded = false;
-							}}
-						>
-							{#if $showThreadList}
-								<Icon name="ListCollapseIcon" />
-							{:else}
-								<Icon name="ListCollapse" />
-							{/if}
-							{#if isNavExpanded}
-								<span class="nav-text">{$t('nav.chat')}</span>
-							{/if}
-						</button>
-					{/if}
+				{#if $showOverlay}
 					<button
+						class="nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showThreadList}
+						class:reveal-active={activeRevealButton === 'chat'}
+						on:click={(event) => {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+							sidenavStore.toggleThreadList(); // Use sidenavStore instead of toggleThreadList()
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showThreadList}
+							<Icon name="ListCollapseIcon" />
+						{:else}
+							<Icon name="ListCollapse" />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.chat')}</span>
+						{/if}
+					</button>
+				{/if} -->
+					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showEditor}
@@ -1056,9 +1034,8 @@
 								<span class="nav-text">{$t('nav.chat')}</span>
 							{/if}
 						</button>
-					{/if}
+					{/if} -->
 				{/if}
-
 				<!-- Game Route Navigation -->
 				{#if currentPath.startsWith('/game')}
 					<button
@@ -1125,7 +1102,7 @@
 						{/if}
 					</button>
 				{/if}
-				<button
+				<!-- <button
 					class="nav-button drawer"
 					class:expanded={isNavExpanded}
 					class:active={$showSearch}
@@ -1171,7 +1148,7 @@
 					{#if isNavExpanded}
 						<span class="nav-text">{$t('nav.compose')}</span>
 					{/if}
-				</button>
+				</button> -->
 			{:else}
 				<!-- Unauthenticated state -->
 				<!-- <LogIn /> -->
@@ -1353,6 +1330,20 @@
 				<Icon name="Command" /> <span class="nav-text">{$t('nav.tools')}</span>
 				{#if isNavExpanded}{/if}
 			</a>
+			<a
+				class="shortcut"
+				class:expanded={isNavExpanded}
+				class:active={currentPath === '/chat'}
+				on:click={() => {
+					navigateTo('/chat');
+					if (isNavExpanded) {
+						isNavExpanded = false;
+					}
+				}}
+			>
+				<Icon name="MessageSquare" /> <span class="nav-text">{$t('nav.chat')}</span> 
+				{#if isNavExpanded}{/if}
+			</a>
 			<!-- <a
 				class="shortcut"
 				class:expanded={isNavExpanded}
@@ -1442,18 +1433,16 @@
 			>
 				<div class="user-wrapper">
 					<div class="user-shortcuts">
-						{#if $currentUser && getAvatarUrl($currentUser)}
-							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
+						{#if $currentUser?.id}
+							<img 
+								src="/api/users/{$currentUser.id}/avatar?t={avatarTimestamp}" 
+								alt="User avatar" 
+								class="user-avatar" 
+							/>
 						{:else}
-							<div class="default-avatar">
-								{($currentUser?.name ||
-									$currentUser?.username ||
-									$currentUser?.email ||
-									'?')[0]?.toUpperCase()}
-							</div>
+							<div class="default-avatar">?</div>
 						{/if}
-
-						<span class="nav-text">{username} </span>
+						<!-- <span class="nav-text">{username} </span> -->
 						<div class="tracker">
 							<TimeTracker />
 						</div>
@@ -1547,10 +1536,9 @@
 		bottom: 3rem;
 		left: 0;
 		width: auto;
-		background: var(--primary-color);
-		padding-bottom: 4rem;
+		// background: var(--primary-color);
 		z-index: 9999;
-		border-right: 1px solid var(--secondary-color);
+		// border-right: 1px solid var(--secondary-color);
 
 		&:hover {
 			width: auto !important;
@@ -1609,7 +1597,7 @@
 			border-radius: 2rem;
 			transition: all 0.2s ease;
 			&:hover {
-				transform: translateX(4rem);
+				transform: translateX(2rem);
 				padding-right: 1rem;
 				background: var(--primary-color);
 			}
@@ -1699,6 +1687,17 @@
 			align-items: center;
 			justify-content: center;
 		}
+	}
+
+	.toggle-container {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		height: 3rem;
+		gap: 1rem;
+		position: fixed;
+		left: 1rem;
 	}
 
 	.nav-button {
@@ -2612,6 +2611,10 @@
 			justify-content: flex-end;
 			align-items: stretch;
 			flex-direction: column;
+			& .toggle-container {
+				align-items: center;
+				width: 150px;
+			}
 
 			// backdrop-filter: blur(30px);
 			// border-right: 1px solid var(--bg-color);
@@ -2622,6 +2625,7 @@
 				touch-action: none;
 				transform: none !important;
 				max-width: 100%;
+				margin-left: 10rem;
 			}
 		}
 	}
@@ -3031,7 +3035,7 @@
 	}
 
 	.thread-list-visible .thread-toggle {
-		left: 310px;
+		left: 0;
 	}
 
 	.nav-button:hover,
@@ -3208,16 +3212,16 @@
 	.nav-button.reveal {
 		&.reveal-active {
 			background: var(--primary-color);
+			
 		}
 	}
-	.nav-button.drawer.active {
+	.nav-button.drawer.active,
+	.nav-button.toggle.active {
 		border: 1px solid var(--secondary-color);
 		border-radius: 1rem !important;
 		background: var(--bg-color) !important;
 		width: auto !important;
-		max-width: 3rem;
-		flex: 1;
-		height: 2rem !important;
+		height: 3rem !important;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 		&:hover {
 			animation: none;
@@ -3336,7 +3340,7 @@
 					.user-shortcuts {
 						width: 200px;
 						&:hover {
-							transform: translateX(1rem);
+							transform: translateX(0.5rem);
 							padding-right: 0;
 						}
 					}

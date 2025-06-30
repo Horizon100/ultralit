@@ -431,7 +431,7 @@ function createPostStore() {
 			return result.data;
 		},
 
-		fetchPosts: async (limit = 10, offset = 0, parentId?: string) => {
+		fetchPosts: async (limit = 20, offset = 0, parentId?: string) => {
 			const result = await clientTryCatch(
 				(async () => {
 					console.log('fetchPosts called:', { limit, offset, parentId });

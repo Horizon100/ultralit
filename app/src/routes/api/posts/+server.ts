@@ -25,7 +25,7 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 
 			const isAuthenticated = !!locals.user;
 
-			const limit = parseInt(url.searchParams.get('limit') || '20');
+			const limit = parseInt(url.searchParams.get('limit') || '40');
 			const offset = parseInt(url.searchParams.get('offset') || '0');
 			const parent = url.searchParams.get('parent');
 

@@ -8,6 +8,7 @@
 	 * Let's not use the translation store directly since it's causing errors
 	 * We'll use fallback texts instead
 	 */
+	export { triggerFileInput };
 
 	export let userId: string;
 	export let onSuccess: () => void = () => {};

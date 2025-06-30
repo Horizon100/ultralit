@@ -3,14 +3,14 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fly, fade, slide } from 'svelte/transition';
 	import { swipeGesture } from '$lib/utils/swipeGesture';
-	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
+	import { threadsStore } from '$lib/stores/threadsStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import { UserService } from '$lib/services/userService';
 	import type { Threads, SwipeConfig } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import { showThreadList } from '$lib/stores/sidenavStore';
 
 	// Props
 	export let threads: Threads[] = [];
@@ -94,7 +94,6 @@
 	}
 </script>
 
-{#if $showThreadList}
 	<div
 		class="drawer"
 		transition:fly={{ x: -300, duration: 300 }}
@@ -250,7 +249,6 @@
 			{/if}
 		</div>
 	</div>
-{/if}
 
 <style lang="scss">
 	$breakpoint-sm: 576px;
@@ -275,6 +273,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
+
 		width: auto;
 		margin-left: 0;
 		margin-right: 0;
@@ -302,7 +301,7 @@
 		// z-index: 11;
 		transform: translateZ(0);
 		backface-visibility: hidden;
-
+		
 		touch-action: pan-y;
 		transition: box-shadow 0.2s ease-out;
 		--drawer-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -318,7 +317,7 @@
 		left: 0;
 		margin-bottom: 0;
 		margin-left: 0;
-		height: calc(100% - 6rem);
+		height: 100%;
 		width: 250px;
 		scrollbar: {
 			width: 1px;
@@ -719,7 +718,6 @@
 		display: flex;
 		flex-direction: row;
 		left: 0;
-		margin-right: 2rem;
 		padding: 0.5rem;
 
 		& input {
@@ -928,15 +926,7 @@
 		.thread-filtered-results {
 			margin-bottom: 0rem;
 		}
-		.drawer {
-			margin-left: 0;
-			left: 0;
-			position: relative;
-			top: 0 !important;
-			margin-top: 0 !important;
-			margin-bottom: 6rem !important;
-			height: auto !important;
-		}
+
 
 		.drawer-visible .drawer {
 			margin-left: 0;
@@ -979,7 +969,6 @@
 
 		.drawer-toolbar {
 			width: auto;
-			margin-bottom: 1rem;
 			left: 0;
 			right: 0;
 			margin-top: 0;

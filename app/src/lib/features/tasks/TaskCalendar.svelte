@@ -928,7 +928,7 @@
 	}
 	.task-calendar-container {
 		height: auto;
-		width: 100%;
+		width: auto;
 		display: flex;
 		backdrop-filter: blur(10px);
 		flex-direction: column;
@@ -1494,10 +1494,9 @@
 		padding-inline-end: 1rem;
 		padding-inline-start: 1rem;
 		gap: 1rem;
-		justify-content: flex-end;
+		justify-content: flex-start;
 		height: auto;
-		width: calc(50% - 2rem);
-		margin-left: 50%;
+		width: auto;
 		align-items: center;
 	}
 	.calendar-controls {
@@ -1551,8 +1550,8 @@
 	}
 
 	.calendar-day {
-		height: 100px;
-		width: 100%;
+		height: auto;
+		width: auto;
 		border: 1px solid var(--line-color);
 		padding: 0.5rem;
 		position: relative;

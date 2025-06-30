@@ -1238,11 +1238,11 @@
 											<span class="placeholder-text">Add a description...</span>
 										{/if}
 
-										{#if isCurrentUser && showDescriptionEdit}
+										<!-- {#if isCurrentUser && showDescriptionEdit}
 											<div class="edit-hint" transition:fade={{ duration: 150 }}>
 												✏️ Click to edit
 											</div>
-										{/if}
+										{/if} -->
 									</div>
 								{/if}
 								<div class="content-nav">
