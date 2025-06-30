@@ -2,13 +2,13 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import { currentUser } from '$lib/pocketbase'; // Import the current user store
 	import { t } from '$lib/stores/translationStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	export let isOpen: boolean = false;
-	export let post: PostWithInteractions | null = null;
+	export let post: PostWithInteractions | CommentWithInteractions | null = null;
 
 	const dispatch = createEventDispatcher<{
 		close: void;

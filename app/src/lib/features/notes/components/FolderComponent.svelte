@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
-	import type { Folders, Notes } from '$lib/types/types';
+	import type { Folders, Notes, FolderEventDetail } from '$lib/types/types';
 	import { slide } from 'svelte/transition';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
@@ -12,12 +12,17 @@
 	export let dragOverFolder: Folders | null;
 	export let notes: Notes[];
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{
+		folderEvent: FolderEventDetail;
+	}>();
 
 	$: childFolders = folders.filter((f) => f.parentId === folder.id);
 
-	function dispatchFolderEvent(type: string, detail: any) {
-		dispatch('folderEvent', { type, detail });
+	function dispatchFolderEvent<T extends FolderEventDetail['type']>(
+		type: T,
+		detail: Extract<FolderEventDetail, { type: T }>['detail']
+	) {
+		dispatch('folderEvent', { type, detail } as FolderEventDetail);
 	}
 
 	function toggleFolder() {

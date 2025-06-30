@@ -95,8 +95,8 @@ export function createHoverManager(config: HoverConfig) {
 		isOpenedByToggle: false
 	});
 
-	let hoverTimeout: NodeJS.Timeout | null = null;
-	let leaveTimeout: NodeJS.Timeout | null = null;
+	let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
+	let leaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Clear any pending timeouts
 	function clearTimeouts() {

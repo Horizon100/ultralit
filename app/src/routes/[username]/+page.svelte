@@ -31,14 +31,7 @@
 		showOverlay
 	} from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
-	import {
-		fetchUserStatus,
-		userStatusStore,
-		startStatusPolling,
-		refreshUserStatus,
-		clearAllStatusData,
-		debugStatusStore
-	} from '$lib/stores/userStatusStore';
+	import { userStatusStore } from '$lib/stores/userStatusStore';
 	import { browser } from '$app/environment';
 	import BackButton from '$lib/components/buttons/BackButton.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -46,7 +39,7 @@
 	import { toast } from '$lib/utils/toastUtils';
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import type { AIModel, User, PublicUserProfile } from '$lib/types/types';
-	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import type { PostWithInteractions, PostUpdateData } from '$lib/types/types.posts';
 	import { InfiniteScrollManager } from '$lib/utils/infiniteScroll';
 	import DMModule from '$lib/features/dm/components/DMModule.svelte';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
@@ -59,13 +52,10 @@
 	let loading = true;
 	let error = '';
 	let user: User | null = null;
-	let profile: any = null;
-
+	let profile: PublicUserProfile | null = null;
 	let userStatus: 'online' | 'offline' = 'offline';
 	let statusFetchAttempts = 0;
 	let lastStatusFetch: string | null = null;
-	let statusSubscriptionActive = false;
-
 	let isCurrentUser = false;
 	let showWallpaperUpload = false;
 	let showDescriptionEdit = false;
@@ -80,13 +70,6 @@
 	let profileLoadingMore = false;
 	let profileHasMore = true;
 	let profileCurrentOffset = 0;
-	let postComposerRef: any;
-	let enableAutoTagging = true;
-	let taggingModel: AIModel | null = null;
-	let showPostModal = false;
-	let isCommentModalOpen = false;
-	let selectedPost: PostWithInteractions | null = null;
-	let loadingProfiles = false;
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
 	let scrollY = 0;
 	let isScrolled = false;
@@ -161,12 +144,14 @@
 					status: user?.status,
 					last_login: user?.last_login,
 					followers: followerCount,
-					following: followingCount
+					following: followingCount,
+					location: user?.location,
+					website: user?.website
 				});
 			} else {
 				const newPosts = actualData.posts || [];
-				const existingIds = new Set(userPosts.map((p: any) => p.id));
-				const uniqueNewPosts = newPosts.filter((p: any) => !existingIds.has(p.id));
+				const existingIds = new Set(userPosts.map((p: PostWithInteractions) => p.id));
+				const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
 				userPosts = [...userPosts, ...uniqueNewPosts];
 				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
 			}
@@ -326,12 +311,12 @@
 
 			try {
 				switch (action) {
-					case 'upvote':
+					case 'upvote': {
 						const upvoteResult = await postStore.toggleUpvote(realPostId);
 						updateLocalPostState(realPostId, 'upvote', upvoteResult);
 						break;
-
-					case 'repost':
+					}
+					case 'repost': {
 						const repostResult = await postStore.toggleRepost(realPostId);
 						updateLocalPostState(realPostId, 'repost', repostResult);
 						if (repostResult.reposted) {
@@ -340,13 +325,13 @@
 							toast.info('Repost removed');
 						}
 						break;
-
-					case 'read':
+					}
+					case 'read': {
 						await postStore.markAsRead(realPostId);
 						updateLocalPostState(realPostId, 'read', { hasRead: true });
 						break;
-
-					case 'share':
+					}
+					case 'share': {
 						const targetPost = userPosts.find(
 							(p) => p.id === realPostId || (p.isRepost && p.originalPostId === realPostId)
 						);
@@ -375,6 +360,7 @@
 							}
 						}
 						break;
+					}
 				}
 
 				console.log(`${action} successful for post ${realPostId}`);
@@ -388,22 +374,26 @@
 			console.error(`Error ${action}ing post:`, err);
 
 			switch (action) {
-				case 'upvote':
+				case 'upvote': {
 					toast.error('Failed to upvote post');
 					break;
-				case 'repost':
+				}
+				case 'repost': {
 					toast.error('Failed to repost');
 					break;
-				case 'read':
+				}
+				case 'read': {
 					toast.error('Failed to mark as read');
 					break;
-				case 'share':
+				}
+				case 'share': {
 					toast.error('Failed to share post');
 					const postUrl = `${window.location.origin}/posts/${realPostId}`;
 					setTimeout(() => {
 						toast.info(`Manual copy: ${postUrl}`, 10000);
 					}, 500);
 					break;
+				}
 				default:
 					toast.error(`Failed to ${action} post`);
 			}
@@ -463,35 +453,48 @@
 		userPosts = originalPosts;
 	}
 
-	function updateLocalPostState(postId: string, action: string, data: any) {
+	function updateLocalPostState(postId: string, action: string, data: PostUpdateData | null) {
+		// Add null check
+		if (!data) return;
+
 		userPosts = userPosts.map((post) => {
 			const shouldUpdate = post.id === postId || (post.isRepost && post.originalPostId === postId);
 
 			if (!shouldUpdate) return post;
 
 			switch (action) {
-				case 'upvote':
-					return {
-						...post,
-						upvote: data.upvoted,
-						upvoteCount: data.upvoteCount,
-						downvote: data.upvoted ? false : post.downvote,
-						downvoteCount: data.downvoteCount || post.downvoteCount
-					};
-
-				case 'repost':
-					return {
-						...post,
-						repost: data.reposted,
-						repostCount: data.repostCount
-					};
-
-				case 'read':
-					return {
-						...post,
-						hasRead: data.hasRead
-					};
-
+				case 'upvote': {
+					// Type guard to ensure we have upvote data
+					if ('upvoted' in data && 'upvoteCount' in data) {
+						return {
+							...post,
+							upvote: data.upvoted,
+							upvoteCount: data.upvoteCount,
+							downvote: data.upvoted ? false : post.downvote,
+							downvoteCount: data.downvoteCount || post.downvoteCount
+						};
+					}
+					return post;
+				}
+				case 'repost': {
+					if ('reposted' in data && 'repostCount' in data) {
+						return {
+							...post,
+							repost: data.reposted,
+							repostCount: data.repostCount
+						};
+					}
+					return post;
+				}
+				case 'read': {
+					if ('hasRead' in data) {
+						return {
+							...post,
+							hasRead: data.hasRead
+						};
+					}
+					return post;
+				}
 				default:
 					return post;
 			}
@@ -993,7 +996,6 @@
 								class="tab"
 								on:click={(event) => {
 									event.preventDefault();
-									// Close any open overlays or inputs
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
@@ -1011,7 +1013,6 @@
 								class="tab"
 								on:click={(event) => {
 									event.preventDefault();
-									// Close any open overlays or inputs
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
@@ -1028,7 +1029,6 @@
 								class="tab"
 								on:click={(event) => {
 									event.preventDefault();
-									// Close any open overlays or inputs
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
@@ -1172,18 +1172,18 @@
 										<div class="action-buttons"></div>
 									</div>
 
-									{#if profile?.location}
+									{#if user?.location}
 										<div class="meta-item">
 											<Icon name="MapPin" size={16} />
-											<span>{profile.location}</span>
+											<span>{user.location}</span>
 										</div>
 									{/if}
 
-									{#if profile?.website}
+									{#if user?.website}
 										<div class="meta-item">
 											<Icon name="Link" size={16} />
-											<a href={profile.website} target="_blank" rel="noopener noreferrer">
-												{profile.website}
+											<a href={user.website} target="_blank" rel="noopener noreferrer">
+												{user.website}
 											</a>
 										</div>
 									{/if}
@@ -1251,7 +1251,6 @@
 											class="tab active"
 											on:click={(event) => {
 												event.preventDefault();
-												// Close any open overlays or inputs
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
@@ -1268,7 +1267,6 @@
 											class="tab"
 											on:click={(event) => {
 												event.preventDefault();
-												// Close any open overlays or inputs
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
@@ -1284,7 +1282,6 @@
 											class="tab"
 											on:click={(event) => {
 												event.preventDefault();
-												// Close any open overlays or inputs
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
@@ -1393,7 +1390,6 @@
 												<button
 													class="tab"
 													on:click={() => {
-														// Close any open overlays or inputs first
 														if ($showInput) {
 															sidenavStore.hideInput();
 														}
@@ -1438,12 +1434,14 @@
 									{#if post._isRepost}
 										<RepostCard
 											{post}
-											repostedBy={{
-												id: post.repostedBy_id,
-												username: post.repostedBy_username,
-												name: post.repostedBy_name,
-												avatar: post.repostedBy_avatar
-											}}
+											repostedBy={post.repostedBy_id
+												? {
+														id: post.repostedBy_id,
+														username: post.repostedBy_username ?? 'unknown',
+														name: post.repostedBy_name,
+														avatar: post.repostedBy_avatar
+													}
+												: null}
 											on:interact={handlePostInteraction}
 											on:comment={handleComment}
 											on:quote={handleQuote}

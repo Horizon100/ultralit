@@ -2,7 +2,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
-import type { User } from '$lib/types/types';
+import type { User, PocketBaseAuthStore } from '$lib/types/types';
 
 // Cache sanitized user data function
 const sanitizeUserData = (user: User | null): Partial<User> | null => {
@@ -24,12 +24,14 @@ const sanitizeUserData = (user: User | null): Partial<User> | null => {
 		wallpaper_preference: user.wallpaper_preference,
 		status: user.status,
 		last_login: user.last_login,
+		location: user.location,
+		website: user.website,
 		followers: user.followers,
 		following: user.following
 	};
 };
 
-const createMinimalAuthData = (authStore: any) => {
+const createMinimalAuthData = (authStore: PocketBaseAuthStore) => {
 	return {
 		token: authStore.token,
 		// Only store essential user fields to keep cookie size down

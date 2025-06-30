@@ -9,7 +9,7 @@ import type {
 	GameDialog,
 	GameRoad
 } from '$lib/types/types.game';
-
+import { get } from 'svelte/store';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 interface ApiRequestOptions {
 	method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -314,18 +314,13 @@ class GameService {
 		}
 	}
 
-	// Leave current location (room, table, or building)
 	async leaveCurrentLocation(userId: string) {
 		const result = await clientTryCatch(
 			(async () => {
-				let currentState: GameState;
-				const unsubscribe = gameStore.subscribe((state) => {
-					currentState = state;
-				});
-				unsubscribe();
+				const currentState = get(gameStore);
 
-				if (currentState!.currentRoom) {
-					const room = currentState!.currentRoom;
+				if (currentState.currentRoom) {
+					const room = currentState.currentRoom;
 					const updatedMembers = (room.activeMembers || []).filter((id) => id !== userId);
 
 					await this.apiCall(`/api/game/rooms/${room.id}`, {

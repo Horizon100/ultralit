@@ -38,7 +38,7 @@
 	import { agentStore } from '$lib/stores/agentStore'; // Add this import
 	import { active } from 'd3';
 
-	export let post: PostWithInteractions;
+	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
 	export let isRepost: boolean = false;
 	export let isPreview: boolean = false;

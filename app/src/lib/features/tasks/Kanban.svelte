@@ -4,7 +4,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { slide, fly, fade } from 'svelte/transition';
 	import { elasticOut, cubicIn, cubicOut, quintOut } from 'svelte/easing';
-	import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { getAvatarUrl } from '../users/utils/avatarHandling';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type {
@@ -39,16 +40,13 @@
 		showOverlay,
 		showSettings
 	} from '$lib/stores/sidenavStore';
-
 	import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
-	import { assign } from 'lodash-es';
+	import { clientTryCatch } from '$lib/utils/errorUtils';
+
 	let currentProjectId: string | null = null;
 	projectStore.subscribe((state) => {
 		currentProjectId = state.currentProjectId;
 	});
-	import AIChat from '../ai/components/chat/AIChat.svelte';
-	import { clientTryCatch } from '$lib/utils/errorUtils';
-
 	let project = null;
 	let isAuthenticated = false;
 	let isAuthenticating = true;
@@ -70,6 +68,8 @@
 	let threadId: string | null = null;
 	let messageId: string | null = null;
 	let initialMessage: InternalChatMessage | null = null;
+	let localUsersCache = new Map<string, { name: string; avatar?: string; id: string }>();
+
 	enum TaskViewMode {
 		All = 'all',
 		OnlySubtasks = 'subtasks',
@@ -80,6 +80,8 @@
 	}
 	let taskViewMode = TaskViewMode.All;
 	let allTasksBackup: KanbanTask[] = [];
+	let usersMap = new Map();
+	let isLoadingUsers = false;
 
 	const userNameCache = new Map<string, string>();
 	export const defaultAIModel: AIModel = {
@@ -182,42 +184,7 @@
 		const h = hash % 360;
 		return `hsl(${h}, 70%, 60%)`;
 	}
-	async function getUserName(userId: string | undefined): Promise<string> {
-		if (!userId) return 'Unassigned';
 
-		// Check if we already have this username in cache
-		if (userNameCache.has(userId)) {
-			return userNameCache.get(userId) || 'Unknown';
-		}
-
-		try {
-			// Use your existing public user data endpoint
-			const response = await fetch(`/api/verify/users/${userId}/public`);
-
-			if (!response.ok) {
-				console.log(`User fetch failed for ID ${userId}: ${response.status}`);
-				return 'Unknown';
-			}
-
-			const data = await response.json();
-
-			// Handle the response format from your verify endpoint
-			if (data.success && data.data) {
-				const userData = data.data; // Changed from data.user to data.data
-				const userName = userData.name || userData.username || userData.email || 'Unknown';
-
-				// Cache the result for future use
-				userNameCache.set(userId, userName);
-				return userName;
-			} else {
-				console.log('Unexpected user data format:', data);
-				return 'Unknown';
-			}
-		} catch (err) {
-			console.error('Error fetching user data:', err);
-			return 'Unknown';
-		}
-	}
 	// Load data from PocketBase
 
 	async function loadTasks(projectId: string | null) {
@@ -457,7 +424,7 @@
 			console.log(`Updating tags for task ${taskId} with:`, tagIds);
 
 			// Prepare the update data
-			const updateData: any = {
+			const updateData: Partial<Task> & { taggedTasks: string } = {
 				taggedTasks: tagIds.join(','),
 				taskTags: tagIds
 			};
@@ -773,11 +740,11 @@
 		}
 
 		if (obj instanceof Date) {
-			return new Date(obj.getTime()) as any;
+			return new Date(obj.getTime()) as T;
 		}
 
 		if (Array.isArray(obj)) {
-			return obj.map((item) => deepCopy(item)) as any;
+			return obj.map((item) => deepCopy(item)) as T;
 		}
 
 		if (obj instanceof Object) {
@@ -1682,7 +1649,6 @@
 				}));
 			});
 
-			// Debounce the API update to avoid too many requests
 			if (task._updateTimeout) {
 				clearTimeout(task._updateTimeout);
 			}
@@ -1740,30 +1706,122 @@
 		// Update backend
 		updateTaskTags(task.id, newTags);
 	}
+
+
+
+
+function populateUserCacheFromTasks() {
+	// This assumes your tasks already have user information embedded
+	// If they don't, we'll just use current user info
+	const currentUserId = $currentUser?.id;
+	const currentUserData = $currentUser;
+	
+	if (currentUserId && currentUserData) {
+		localUsersCache.set(currentUserId, {
+			id: currentUserData.id,
+			name: currentUserData.name || currentUserData.username || currentUserData.email || 'You',
+			avatar: currentUserData.avatar
+		});
+	}
+	
+	// For other users, create placeholder entries
+	const allUserIds = [
+		...new Set([
+			...allTasksBackup.map(task => task.createdBy).filter(Boolean),
+			...allTasksBackup.map(task => task.assignedTo).filter(Boolean)
+		])
+	];
+	
+	allUserIds.forEach(userId => {
+		if (userId && !localUsersCache.has(userId) && userId !== currentUserId) {
+			// Create placeholder - no API call
+			localUsersCache.set(userId, {
+				id: userId,
+				name: 'User',
+				avatar: undefined
+			});
+		}
+	});
+	
+	// Trigger reactivity
+	localUsersCache = localUsersCache;
+}
+
+// Helper functions - NO API CALLS
+function getUser(userId: string): { name: string; avatar?: string; id: string } | null {
+	if (!userId) return null;
+	
+	// Check current user first
+	if ($currentUser?.id === userId) {
+		return {
+			id: $currentUser.id,
+			name: $currentUser.name || $currentUser.username || $currentUser.email || 'You',
+			avatar: $currentUser.avatar
+		};
+	}
+	
+	// Check local cache
+	return localUsersCache.get(userId) || null;
+}
+
+function getUserDisplayName(userId: string): string {
+	const user = getUser(userId);
+	if (!user) return 'Unknown';
+	
+	return user.name;
+}
+
+function getUserAvatar(userId: string): string {
+	const user = getUser(userId);
+	if (!user || !user.avatar) return '';
+	
+	// Use the avatar URL utility
+	return getAvatarUrl({
+		id: user.id,
+		avatar: user.avatar,
+		collectionId: 'users'
+	} as any);
+}
+
+function getUserInitial(userId: string): string {
+	const user = getUser(userId);
+	if (!user) return 'U';
+	
+	return user.name.charAt(0).toUpperCase();
+}
+	
 	$: tagPlaceholder = $t('tasks.tags') as string;
 	$: searchPlaceholder = $t('nav.search') as string;
 	$: addPlaceholder = $t('tasks.add') as string;
 
-	$: descriptionText =
-		selectedTask?.taskDescription || ($t('tasks.addDescription') as string) || 'Add Description';
+	$: descriptionText = selectedTask?.taskDescription || $t('tasks.addDescription') || 'Add Description';
+
 
 	$: toggleLabel = allColumnsOpen
 		? ($t('generic.collapseAll') as string) || 'Collapse All'
 		: ($t('generic.expandAll') as string) || 'Expand All';
 
-	$: hasProjectContext =
-		(selectedTask?.project_id && selectedTask.project_id !== '') ||
-		(currentProjectId && currentProjectId !== '');
+$: hasProjectContext = Boolean(
+	(selectedTask?.project_id && selectedTask.project_id !== '') ||
+	(currentProjectId && currentProjectId !== '')
+);
+$: allUserIds = [
+	...new Set([
+		...allTasksBackup.map(task => task.createdBy).filter(Boolean),
+		...allTasksBackup.map(task => task.assignedTo).filter(Boolean)
+	])
+];
 
-	// Reactive statement for conditional loading
-	$: {
-		if (currentProjectId) {
-			loadData(currentProjectId);
-		} else {
-			loadData(currentProjectId);
-		}
+
+let lastLoadedProjectId: string | null = null;
+
+$: if (currentProjectId !== lastLoadedProjectId) {
+	lastLoadedProjectId = currentProjectId;
+	if (currentProjectId) {
+		loadData(currentProjectId);
 	}
-
+	// Don't load data when currentProjectId is null/empty
+}
 	// Reactive statement for taskTags with null check
 	$: taskTags = selectedTask ? $tags.filter((tag) => selectedTask?.tags?.includes(tag.id)) : [];
 
@@ -1775,7 +1833,9 @@
 		},
 		{} as Record<string, number>
 	);
-
+	$: if (allTasksBackup.length > 0) {
+		populateUserCacheFromTasks();
+	}
 	$: totalTaskCount = allTasksBackup.length;
 
 	$: parentTaskCount = allTasksBackup.filter((task) =>
@@ -2038,11 +2098,7 @@
 			</div>
 		</div>
 	{/if}
-	<!-- {#if $showOverlay}
-		<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
-		</div>
-	{/if} -->
+
 
 	<div
 		class="kanban-container"
@@ -2095,7 +2151,6 @@
 
 									<p class="description">{task.taskDescription}</p>
 
-									<!-- Replace the existing task-creator code block in your card view -->
 									{#if task.createdBy}
 										<div class="task-creator">
 											{#if hasSubtasks(task.id)}
@@ -2108,191 +2163,54 @@
 												</div>
 											{/if}
 
+											<!-- Creator info -->
 											<span>
-												<img
-													src={`/api/users/${task.createdBy}/avatar`}
-													alt="Avatar"
-													class="user-avatar"
-													on:error={handleImageError}
-												/>
-												<span class="username">
-													{#await getUserName(task.createdBy) then username}
-														{username}
-													{/await}
-												</span>
-											</span>
-
-											<span>
-												{#if task.assignedTo}
+												{#if getUserAvatar(task.createdBy)}
 													<img
-														src={`/api/users/${task.assignedTo}/avatar`}
+														src={getUserAvatar(task.createdBy)}
 														alt="Avatar"
 														class="user-avatar"
 														on:error={handleAvatarError}
 													/>
 													<span class="avatar-initials" style="display: none;">
-														{#await getUserName(task.assignedTo) then username}
-															{username?.charAt(0)?.toUpperCase() || 'U'}
-														{/await}
+														{getUserInitial(task.createdBy)}
 													</span>
+												{:else}
+													<span class="avatar-initials">
+														{getUserInitial(task.createdBy)}
+													</span>
+												{/if}
+												<span class="username">
+													{getUserDisplayName(task.createdBy)}
+												</span>
+											</span>
+
+											<!-- Assigned to info -->
+											<span>
+												{#if task.assignedTo}
+													{#if getUserAvatar(task.assignedTo)}
+														<img
+															src={getUserAvatar(task.assignedTo)}
+															alt="Avatar"
+															class="user-avatar"
+															on:error={handleAvatarError}
+														/>
+														<span class="avatar-initials" style="display: none;">
+															{getUserInitial(task.assignedTo)}
+														</span>
+													{:else}
+														<span class="avatar-initials">
+															{getUserInitial(task.assignedTo)}
+														</span>
+													{/if}
 													<span class="username">
-														{#await getUserName(task.assignedTo) then username}
-															{username || $t('tasks.assigned')}
-														{/await}
+														{getUserDisplayName(task.assignedTo)}
 													</span>
 												{:else}
 													<span class="no-assignment">{$t('tasks.notAssigned')}</span>
 												{/if}
 											</span>
-
-											<!-- Priority flag with click to toggle -->
-											<span
-												class="priority-flag {task.priority}"
-												on:click={(e) => togglePriority(task, e)}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="16"
-													height="16"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												>
-													<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"
-													></path>
-													<line x1="4" y1="22" x2="4" y2="15"></line>
-												</svg>
-												<span class="priority-name">
-													{task.priority}
-												</span>
-											</span>
-
-											<div class="tag-list" on:click={(e) => e.stopPropagation()}>
-												{#each $tags as tag}
-													<span
-														class="tag-card {task.tags.includes(tag.id)
-															? 'selected'
-															: 'unselected'}"
-														style="background-color: {task.tags.includes(tag.id)
-															? tag.color
-															: 'rgba(128,128,128,0.2)'}"
-														on:click={(e) => handleTagClick(e, task, tag)}
-													>
-														{tag.name}
-													</span>
-												{/each}
-												<Icon name="TagIcon" size={16} />
-												{#if task.tags.length > 0}
-													<span class="tag-count">{task.tags.length}</span>
-												{/if}
-											</div>
 										</div>
-										<span class="timeline-container">
-											<span class="timeline-wrapper">
-												{#if task.start_date}
-													{@const daysUntilStart = Math.ceil(
-														(task.start_date.getTime() - new Date().getTime()) /
-															(1000 * 60 * 60 * 24)
-													)}
-													{#if daysUntilStart < 0}
-														<span class="date-status overdue"
-															>{$t('tasks.postponed')}
-															{Math.abs(daysUntilStart)}
-															{$t('dates.days')}</span
-														>
-													{:else if daysUntilStart === 0}
-														<span class="date-status due-today"
-															>{$t('tasks.start')} {$t('dates.today')}</span
-														>
-													{:else if daysUntilStart <= 30}
-														<span class="date-status upcoming"
-															>Starts in {daysUntilStart}
-															{daysUntilStart === 1 ? $t('dates.day') : $t('dates.days')}</span
-														>
-													{/if}
-												{/if}
-
-												{#if task.start_date}
-													<div class="timeline">
-														<span
-															class="date-part"
-															on:wheel={(e) =>
-																handleDateScroll(e, task.start_date, 'day', task, 'start_date')}
-															title="Scroll to change day (hold Shift for precision)"
-															>{task.start_date.getDate()}</span
-														>
-														<span
-															class="month-part"
-															on:wheel={(e) =>
-																handleDateScroll(e, task.start_date, 'month', task, 'start_date')}
-															title="Scroll to change month (hold Shift for precision)"
-															>{task.start_date.toLocaleString('default', { month: 'short' })}</span
-														>
-														<span
-															class="year-part"
-															on:wheel={(e) =>
-																handleDateScroll(e, task.start_date, 'year', task, 'start_date')}
-															title="Scroll to change year (hold Shift for precision)"
-															>{task.start_date.getFullYear()}</span
-														>
-													</div>
-												{/if}
-												<!-- <span class="timeline">
-                    <ArrowDown/>
-
-                </span> -->
-											</span>
-											<span class="timeline-wrapper">
-												<!-- Display date status (overdue, due today, upcoming) -->
-												{#if task.due_date}
-													{@const daysUntilDue = Math.ceil(
-														(task.due_date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-													)}
-													{#if daysUntilDue < 0}
-														<span class="date-status overdue"
-															>{$t('tasks.hold')} {Math.abs(daysUntilDue)} {$t('dates.days')}</span
-														>
-													{:else if daysUntilDue === 0}
-														<span class="date-status due-today"
-															>{$t('tasks.due')} {$t('dates.today')}</span
-														>
-													{:else if daysUntilDue <= 30}
-														<span class="date-status upcoming"
-															>Review in {daysUntilDue}
-															{daysUntilDue === 1 ? $t('dates.day') : $t('dates.days')}</span
-														>
-													{/if}
-												{/if}
-												{#if task.due_date}
-													<div class="timeline">
-														<span
-															class="date-part"
-															on:wheel|capture|preventDefault|stopPropagation={(e) =>
-																handleDateScroll(e, task.due_date, 'day', task, 'due_date')}
-															title="Scroll to change day (hold Shift for precision)"
-															>{task.due_date.getDate()}</span
-														>
-														<span
-															class="month-part"
-															on:wheel|capture|preventDefault|stopPropagation={(e) =>
-																handleDateScroll(e, task.due_date, 'month', task, 'due_date')}
-															title="Scroll to change month (hold Shift for precision)"
-															>{task.due_date.toLocaleString('default', { month: 'short' })}</span
-														>
-														<span
-															class="year-part"
-															on:wheel|capture|preventDefault|stopPropagation={(e) =>
-																handleDateScroll(e, task.due_date, 'year', task, 'due_date')}
-															title="Scroll to change year (hold Shift for precision)"
-															>{task.due_date.getFullYear()}</span
-														>
-													</div>
-												{/if}
-											</span>
-										</span>
 									{/if}
 
 									{#if task.attachments && task.attachments.length > 0}
@@ -2844,14 +2762,12 @@
 		font-weight: bold;
 		font-size: 0.9em;
 		opacity: 0.8;
-		// or any other styles you want just for the symbols
 	}
 	:global(.styled-word) {
 		color: var(--tertiary-color) !important;
 		font-weight: bold;
 		font-size: 0.9em;
 		opacity: 0.8;
-		// or any other styles you want just for the symbols
 	}
 	.kanban-column {
 		border-radius: 5px;

@@ -10,6 +10,52 @@ import { threadsStore } from './threadsStore';
 import { currentUser } from '$lib/pocketbase';
 import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 
+// Add this class at the top of messagesStore.ts, before createMessagesStore()
+class MessagesFetchManager {
+	private static fetchingThreads = new Set<string>();
+
+	static async safeFetchMessages(threadId: string): Promise<Messages[]> {
+		if (this.fetchingThreads.has(threadId)) {
+			throw new Error('Fetch already in progress');
+		}
+
+		this.fetchingThreads.add(threadId);
+		try {
+			console.log(`Fetching messages for thread ${threadId}`);
+			const fetchResult = await fetchMessagesForThread(threadId);
+
+			// Handle if fetchMessagesForThread returns a Result type
+			let messages: Messages[];
+			if (
+				fetchResult &&
+				typeof fetchResult === 'object' &&
+				'success' in fetchResult &&
+				'data' in fetchResult &&
+				'error' in fetchResult &&
+				typeof (fetchResult as { success: unknown }).success === 'boolean'
+			) {
+				// This is a Result type
+				const resultType = fetchResult as {
+					success: boolean;
+					data: Messages[];
+					error: unknown;
+				};
+				if (!resultType.success) {
+					throw new Error(String(resultType.error));
+				}
+				messages = resultType.data;
+			} else {
+				// This is the actual data
+				messages = fetchResult as unknown as Messages[];
+			}
+
+			return messages || [];
+		} finally {
+			this.fetchingThreads.delete(threadId);
+		}
+	}
+}
+
 function createMessagesStore() {
 	const store = writable<{
 		messages: Messages[];
@@ -138,61 +184,47 @@ function createMessagesStore() {
 			return result.data;
 		},
 
-		fetchMessages: async (threadId: string) => {
-			const result = await clientTryCatch(
-				(async () => {
-					const currentState = get(store);
-					if (currentState.currentThreadId === threadId && currentState.messages.length > 0) {
-						console.log('Skipping fetch - already have messages for this thread');
-						return currentState.messages;
-					}
-
-					console.log(`Fetching messages for thread ${threadId}`);
-					const fetchResult = await fetchMessagesForThread(threadId);
-
-					// Handle if fetchMessagesForThread returns a Result type
-					let messages: Messages[];
-					if (
-						fetchResult &&
-						typeof fetchResult === 'object' &&
-						'success' in fetchResult &&
-						'data' in fetchResult &&
-						'error' in fetchResult &&
-						typeof (fetchResult as { success: unknown }).success === 'boolean'
-					) {
-						// This is a Result type
-						const resultType = fetchResult as {
-							success: boolean;
-							data: Messages[];
-							error: unknown;
-						};
-						if (!resultType.success) {
-							throw new Error(String(resultType.error));
-						}
-						messages = resultType.data;
-					} else {
-						// This is the actual data
-						messages = fetchResult as unknown as Messages[];
-					}
-
-					update((state) => ({
-						...state,
-						messages: messages || [],
-						currentThreadId: threadId
-					}));
-
-					return messages;
-				})(),
-				`Fetching messages for thread ${threadId}`
-			);
-
-			if (isFailure(result)) {
-				console.error('Error fetching messages:', result.error);
-				throw new Error(result.error);
+fetchMessages: async (threadId: string) => {
+	const result = await clientTryCatch(
+		(async () => {
+			const currentState = get(store);
+			
+			// Only skip if we actually have messages AND it's the same thread
+			if (currentState.currentThreadId === threadId && 
+				currentState.messages.length > 0 && 
+				!currentState.loading) {
+				console.log('Skipping fetch - already have messages for this thread');
+				return currentState.messages;
 			}
 
-			return result.data;
-		},
+			// ALWAYS fetch fresh messages when switching threads
+			console.log(`Fetching messages for thread ${threadId}`);
+			
+			// Set loading state immediately
+			update(state => ({ ...state, loading: true, currentThreadId: threadId }));
+
+			const messages = await MessagesFetchManager.safeFetchMessages(threadId);
+
+			update((state) => ({
+				...state,
+				messages: messages || [],
+				currentThreadId: threadId,
+				loading: false
+			}));
+
+			return messages;
+		})(),
+		`Fetching messages for thread ${threadId}`
+	);
+
+	if (isFailure(result)) {
+		update(state => ({ ...state, loading: false }));
+		console.error('Error fetching messages:', result.error);
+		throw new Error(result.error);
+	}
+
+	return result.data;
+},
 
 		saveMessage: async (message: Partial<Messages>, threadId: string) => {
 			const result = await clientTryCatch(

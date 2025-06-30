@@ -6,7 +6,7 @@
 	import type { AIModel, InternalChatMessage } from '$lib/types/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import AIChat from '$lib/features/ai/components/chat/AIChatCopy.svelte';
+	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
 	let isLoading = true;

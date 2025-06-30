@@ -39,14 +39,13 @@
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 	import { showSidenav, showInput, showRightSidenav, showDebug } from '$lib/stores/sidenavStore';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
-
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
 	let homeHasMore = true;
 	let homeLoadingMore = false;
 	let homeLoading = false;
 	let homeCurrentOffset = 0;
 	let homePosts: PostWithInteractions[] = [];
-	let postComposerRef: any;
+	let postComposerRef: PostComposer | null = null;
 	let enableAutoTagging = true;
 	let taggingModel: AIModel | null = null;
 	let showPostModal = false;
@@ -123,15 +122,14 @@
 			 * Handle auto-tagging if enabled and conditions are met
 			 * Only tag main posts (not comments) that meet minimum requirements
 			 */
-			if (enableAutoTagging && shouldGenerateTags(content) && get(currentUser)?.id && !parentId) {
+			const currentUserData = get(currentUser);
+			if (enableAutoTagging && shouldGenerateTags(content) && currentUserData?.id && !parentId) {
 				console.log('Starting auto-tagging for post:', newPost.id);
 
 				try {
-					// Use the tagging model or fall back to default
 					const modelToUse = taggingModel || defaultModel;
 
-					await processPostTaggingAsync(content, newPost.id, modelToUse, get(currentUser)!.id);
-
+					await processPostTaggingAsync(content, newPost.id, modelToUse, currentUserData.id);
 					console.log('Auto-tagging initiated for post:', newPost.id);
 				} catch (taggingError) {
 					console.error('Auto-tagging failed for post:', newPost.id, taggingError);
@@ -140,7 +138,7 @@
 				const reasons = [];
 				if (!enableAutoTagging) reasons.push('auto-tagging disabled');
 				if (!shouldGenerateTags(content)) reasons.push('content too short');
-				if (!get(currentUser)?.id) reasons.push('user not authenticated');
+				if (!currentUserData?.id) reasons.push('user not authenticated');
 
 				if (reasons.length > 0) {
 					console.log('Auto-tagging skipped:', reasons.join(', '));

@@ -2,7 +2,7 @@
 import { pb } from '$lib/server/pocketbase';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { TimerSession } from '$lib/types/types';
+import type { TimerSession, TimerSessionSummary } from '$lib/types/types';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	try {
-		let data;
+		let data: { date: string; startTime: string; endTime: string; duration: number };
 
 		// Handle both regular JSON requests and sendBeacon blob requests
 		const contentType = request.headers.get('content-type');
@@ -64,7 +64,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		};
 
 		// Get existing timer sessions or create empty array
-		const currentSessions = user.timer_sessions || [];
+		const currentSessions: TimerSession[] = user.timer_sessions || [];
 
 		// Check for duplicate sessions (same startTime)
 		const isDuplicate = currentSessions.some(
@@ -123,7 +123,7 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
 			throw error(404, 'User not found');
 		}
 
-		const sessions = user.timer_sessions || [];
+		const sessions: TimerSession[] = user.timer_sessions || [];
 
 		// Optional: Filter by date if requested
 		const dateFilter = url.searchParams.get('date');
@@ -142,20 +142,23 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
 			0
 		);
 
-		// Group sessions by date for summary
-		const sessionsByDate = filteredSessions.reduce((acc: any, session: TimerSession) => {
-			const date = session.date;
-			if (!acc[date]) {
-				acc[date] = {
-					date,
-					totalDuration: 0,
-					sessions: []
-				};
-			}
-			acc[date].totalDuration += session.duration;
-			acc[date].sessions.push(session);
-			return acc;
-		}, {});
+		// Group sessions by date for summary - now properly typed
+		const sessionsByDate = filteredSessions.reduce(
+			(acc: Record<string, TimerSessionSummary>, session: TimerSession) => {
+				const date = session.date;
+				if (!acc[date]) {
+					acc[date] = {
+						date,
+						totalDuration: 0,
+						sessions: []
+					};
+				}
+				acc[date].totalDuration += session.duration;
+				acc[date].sessions.push(session);
+				return acc;
+			},
+			{}
+		);
 
 		return json({
 			success: true,

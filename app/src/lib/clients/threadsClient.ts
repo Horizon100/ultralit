@@ -25,7 +25,31 @@ const messageCache = new Map<
 		timestamp: number;
 	}
 >();
+class ClientFetchManager {
+	private static pendingFetches = new Map<string, Promise<Messages[]>>();
 
+	static async debouncedFetchMessages(threadId: string): Promise<Messages[]> {
+		const existingRequest = this.pendingFetches.get(threadId);
+		if (existingRequest) {
+			console.log(`Prevented recursive fetch for thread ${threadId}`);
+			return await existingRequest;
+		}
+
+		const requestPromise = this.executeFetch(threadId);
+		this.pendingFetches.set(threadId, requestPromise);
+
+		try {
+			return await requestPromise;
+		} finally {
+			this.pendingFetches.delete(threadId);
+		}
+	}
+
+	private static async executeFetch(threadId: string): Promise<Messages[]> {
+		// Your existing fetchMessagesForThread implementation here
+		// Move the actual fetch logic into this method
+	}
+}
 // Thread list visibility functions
 export function isThreadListVisible(): boolean {
 	return get(showThreadList);
@@ -150,32 +174,11 @@ export async function fetchAllThreads(): Promise<Result<Threads[], string>> {
 	return { data: threads, error: null, success: true };
 }
 
-export async function fetchMessagesForThread(
-	threadId: string
-): Promise<Result<Messages[], string>> {
-	if (isFetching) {
-		console.warn('Prevented recursive fetch for thread', threadId);
-		return { data: null, error: 'Fetch already in progress', success: false };
-	}
-
-	const authValidation = validateAuthentication();
-	if (isFailure(authValidation)) {
-		return { data: null, error: authValidation.error, success: false };
-	}
-
+export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
+	console.log(`🔍 threadsClient.fetchMessagesForThread: Starting fetch for thread ${threadId}`);
+	
 	try {
-		isFetching = true;
-
-		const cached = messageCache.get(threadId);
-		if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-			return { data: cached.messages, error: null, success: true };
-		}
-
-		const result = await fetchTryCatch<{
-			success: boolean;
-			messages?: Messages[];
-			message?: string;
-		}>(`/api/keys/threads/${threadId}/messages`, {
+		const response = await fetch(`/api/keys/threads/${threadId}/messages`, {
 			method: 'GET',
 			credentials: 'include',
 			headers: {
@@ -183,35 +186,25 @@ export async function fetchMessagesForThread(
 			}
 		});
 
-		if (isFailure(result)) {
-			return { data: null, error: result.error, success: false };
+		console.log(`🔍 threadsClient.fetchMessagesForThread: Response status:`, response.status);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 
-		if (!result.data.success) {
-			return {
-				data: null,
-				error: result.data.message || 'Failed to fetch messages',
-				success: false
-			};
+		const data = await response.json();
+		console.log(`🔍 threadsClient.fetchMessagesForThread: Response data:`, data);
+
+		if (data.success) {
+			const messages = data.messages || [];
+			console.log(`🔍 threadsClient.fetchMessagesForThread: Returning ${messages.length} messages`);
+			return messages;
+		} else {
+			throw new Error(data.error || 'Failed to fetch messages');
 		}
-
-		const messages = result.data.messages || [];
-		// Fix: await the processMarkdown function if it returns a Promise
-		const processedMessages = await Promise.all(
-			messages.map(async (message: Messages) => ({
-				...message,
-				text: await processMarkdown(message.text)
-			}))
-		);
-
-		messageCache.set(threadId, {
-			messages: processedMessages,
-			timestamp: Date.now()
-		});
-
-		return { data: processedMessages, error: null, success: true };
-	} finally {
-		isFetching = false;
+	} catch (error) {
+		console.error(`🔍 threadsClient.fetchMessagesForThread: Error:`, error);
+		throw error;
 	}
 }
 

@@ -2,24 +2,30 @@
 <script lang="ts">
 	import { gameStore, gameRoomStore } from '$lib/stores/gameStore';
 	import Room from './Room.svelte';
-	import type { GameBuilding, GameRoom as GameRoomType } from '$lib/types/types.game';
+	import type { GameBuilding, GameRoom as GameRoomType, GamePageData } from '$lib/types/types.game';
 
 	export let container: GameBuilding;
-	export let gridSize: number;
-	export let data: any;
+	export let gridSize: { width: number; height: number };
+	export let data: GamePageData | null = null;
 	export let isInsideBuilding: boolean;
 
 	let isHovered = false;
 	let isActive = false;
 	let isExpanded = false;
 
-	// Convert building position to grid coordinates
-	$: gridX = pixelToGrid(container.position.x);
-	$: gridY = pixelToGrid(container.position.y);
+		// Convert building position to grid coordinates
+	$: gridX = pixelToGridX(container.position.x);
+	$: gridY = pixelToGridY(container.position.y);
 
 	// Get rooms for this map container
 	$: rooms = $gameRoomStore.filter((room) => room.building === container.id);
-
+	$: roomData = data
+		? {
+				building: container,
+				rooms: data.rooms || [],
+				heroPosition: { x: 4 * 32, y: 7 * 32 }
+			}
+		: null;
 	function getIconForType(type: GameBuilding['type']) {
 		switch (type) {
 			case 'office':
@@ -72,9 +78,13 @@
 				return '🚪';
 		}
 	}
-	function pixelToGrid(pixel: number): number {
-		return Math.floor(pixel / gridSize);
-	}
+function pixelToGridX(pixel: number): number {
+    return Math.floor(pixel / gridSize.width);
+}
+
+function pixelToGridY(pixel: number): number {
+    return Math.floor(pixel / gridSize.height);
+}
 	async function enterBuilding() {
 		isExpanded = true;
 		isInsideBuilding = true;
@@ -168,9 +178,10 @@
 <Room
 	currentMap={container}
 	{isExpanded}
-	{data}
+	data={roomData}
 	{gridSize}
-	{pixelToGrid}
+	{pixelToGridX}
+	{pixelToGridY}
 	{gridX}
 	{gridY}
 	on:selectRoom={handleRoomSelection}

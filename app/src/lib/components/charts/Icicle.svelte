@@ -65,8 +65,8 @@
 			.sum((d) => d.value ?? 0)
 			.sort((a, b) => b.height - a.height || (b.value ?? 0) - (a.value ?? 0));
 
-		root = d3.partition().size([height, ((hierarchy.height + 1) * width) / 4])(
-			hierarchy as any
+		root = d3.partition<HierarchyData>().size([height, ((hierarchy.height + 1) * width) / 4])(
+			hierarchy
 		) as IcicleNode;
 
 		// Store the original root for navigation

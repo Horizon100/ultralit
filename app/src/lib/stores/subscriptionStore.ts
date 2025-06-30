@@ -55,7 +55,10 @@ function createSubscriptionStore() {
 				});
 
 				update((subs) => [...subs, subscription]);
-				await sendVerificationEmail(email, subscription.metadata.verificationToken!);
+				const verificationToken = subscription.metadata.verificationToken;
+				if (verificationToken) {
+					await sendVerificationEmail(email, verificationToken);
+				}
 				return subscription;
 			} catch (err) {
 				console.error('Subscription creation failed:', err);

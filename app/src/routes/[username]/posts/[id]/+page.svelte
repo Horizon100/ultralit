@@ -21,8 +21,14 @@
 		Post,
 		PostWithInteractions,
 		Comment,
-		CommentWithInteractions
+		CommentWithInteractions,
+		UpvoteResponse,
+		RepostResponse,
+		MarkAsReadResponse,
+		QuotePostResponse,
+		PostUpdateData
 	} from '$lib/types/types.posts';
+
 	// State
 	let loading = true;
 	let error = '';
@@ -182,15 +188,8 @@
 
 				try {
 					switch (action) {
-						case 'upvote':
-							fetchResult = await fetchTryCatch<{
-								success: boolean;
-								data: {
-									upvoted: boolean;
-									upvoteCount: number;
-									downvoteCount: number;
-								};
-							}>(`/api/posts/${realPostId}/upvote`, {
+						case 'upvote': {
+							fetchResult = await fetchTryCatch<UpvoteResponse>(`/api/posts/${realPostId}/upvote`, {
 								method: 'PATCH',
 								credentials: 'include'
 							});
@@ -199,19 +198,13 @@
 								throw new Error(`Failed to upvote post: ${fetchResult.error}`);
 							}
 
-							// Use the response structure that matches your API
-							const upvoteData = fetchResult.data.data || fetchResult.data;
+							const upvoteData = fetchResult.data;
 							updatePostState(realPostId, 'upvote', upvoteData);
 							break;
+						}
 
-						case 'repost':
-							fetchResult = await fetchTryCatch<{
-								success: boolean;
-								data: {
-									reposted: boolean;
-									repostCount: number;
-								};
-							}>(`/api/posts/${realPostId}/repost`, {
+						case 'repost': {
+							fetchResult = await fetchTryCatch<RepostResponse>(`/api/posts/${realPostId}/repost`, {
 								method: 'POST',
 								credentials: 'include'
 							});
@@ -220,11 +213,12 @@
 								throw new Error(`Failed to repost: ${fetchResult.error}`);
 							}
 
-							const repostData = fetchResult.data.data || fetchResult.data;
+							const repostData = fetchResult.data;
 							updatePostState(realPostId, 'repost', repostData);
 							break;
+						}
 
-						case 'share':
+						case 'share': {
 							// Use the postStore method for consistency
 							const shareResult = await postStore.sharePost(realPostId, post?.author_username);
 
@@ -233,11 +227,13 @@
 								console.log('Link copied to clipboard!');
 							}
 							break;
+						}
 
-						case 'read':
+						case 'read': {
 							await postStore.markAsRead(realPostId);
 							updatePostState(realPostId, 'read', { hasRead: true });
 							break;
+						}
 					}
 
 					console.log(`${action} successful for post ${realPostId}`);
@@ -340,55 +336,57 @@
 		comments = originalState.comments;
 	}
 
-	// Unified function to update post state with server response
-	function updatePostState(postId: string, action: string, data: any) {
+	function updatePostState(postId: string, action: string, data: PostUpdateData) {
 		if (action === 'upvote') {
+			const upvoteData = data as Pick<UpvoteResponse, 'upvoted' | 'upvoteCount' | 'downvoteCount'>;
 			if (postId === post?.id) {
 				post = {
 					...post,
-					upvote: data.upvoted,
-					upvoteCount: data.upvoteCount,
-					downvote: data.upvoted ? false : post.downvote,
-					downvoteCount: data.downvoteCount || post.downvoteCount
+					upvote: upvoteData.upvoted,
+					upvoteCount: upvoteData.upvoteCount,
+					downvote: upvoteData.upvoted ? false : post.downvote,
+					downvoteCount: upvoteData.downvoteCount || post.downvoteCount
 				};
 			} else {
 				comments = comments.map((comment) => {
 					if (comment.id === postId) {
 						return {
 							...comment,
-							upvote: data.upvoted,
-							upvoteCount: data.upvoteCount,
-							downvote: data.upvoted ? false : comment.downvote,
-							downvoteCount: data.downvoteCount || comment.downvoteCount
+							upvote: upvoteData.upvoted,
+							upvoteCount: upvoteData.upvoteCount,
+							downvote: upvoteData.upvoted ? false : comment.downvote,
+							downvoteCount: upvoteData.downvoteCount || comment.downvoteCount
 						};
 					}
 					return comment;
 				});
 			}
 		} else if (action === 'repost') {
+			const repostData = data as Pick<RepostResponse, 'reposted' | 'repostCount'>;
 			if (postId === post?.id) {
 				post = {
 					...post,
-					repost: data.reposted,
-					repostCount: data.repostCount
+					repost: repostData.reposted,
+					repostCount: repostData.repostCount
 				};
 			} else {
 				comments = comments.map((comment) => {
 					if (comment.id === postId) {
 						return {
 							...comment,
-							repost: data.reposted,
-							repostCount: data.repostCount
+							repost: repostData.reposted,
+							repostCount: repostData.repostCount
 						};
 					}
 					return comment;
 				});
 			}
 		} else if (action === 'read') {
+			const readData = data as Pick<MarkAsReadResponse, 'hasRead'>;
 			if (postId === post?.id) {
 				post = {
 					...post,
-					hasRead: data.hasRead
+					hasRead: readData.hasRead
 				};
 			}
 		}
@@ -432,7 +430,7 @@
 					formData.append(`attachment_${index}`, file);
 				});
 
-				const fetchResult = await fetchTryCatch<any>(
+				const fetchResult = await fetchTryCatch<QuotePostResponse>(
 					`/api/posts/${event.detail.quotedPostId}/quote`,
 					{
 						method: 'POST',

@@ -12,6 +12,9 @@ import { availableModels, defaultModel } from '$lib/features/ai/utils/models';
 import { UserService } from '$lib/services/userService';
 import { ThreadService } from '$lib/services/threadService';
 import { PromptService } from '$lib/services/promptService';
+import { debugApiKeys } from '$lib/clients/aiClient';
+import { debugCompleteApiKeyFlow } from '$lib/stores/apiKeyStore';
+
 import type {
 	AIModel,
 	ProviderType,
@@ -42,6 +45,7 @@ export function useLifecycleManagement() {
 	 * Initializes the entire application
 	 */
 	async function initializeApp(
+		
 		textareaElement: HTMLTextAreaElement | null,
 		chatMessagesDiv: HTMLDivElement | null,
 		currentThreadId: string | null,
@@ -51,6 +55,7 @@ export function useLifecycleManagement() {
 	): Promise<void> {
 		try {
 			console.log('onMount initiated');
+			await debugApiKeys();
 
 			// Authentication
 			state.isAuthenticated = await ensureAuthenticated();
@@ -118,34 +123,124 @@ export function useLifecycleManagement() {
 	/**
 	 * Initializes AI models for the user
 	 */
-	async function initializeModels(
-		userId: string,
-		currentAiModel: AIModel
-	): Promise<AIModel | null> {
-		try {
-			console.log('Initializing models for user:', userId);
-			await modelStore.initialize(userId);
-			return currentAiModel;
-		} catch (error) {
-			console.error('Error initializing models:', error);
+// Update for src/lib/composables/useLifecycleManagement.ts - initializeModels function
+async function initializeModels(
+	userId: string,
+	currentAiModel: AIModel
+): Promise<AIModel | null> {
+	try {
+		console.log('Initializing models for user:', userId);
+		        await debugCompleteApiKeyFlow();
 
-			// Fallback model selection
-			if (!currentAiModel?.api_type) {
-				await apiKey.ensureLoaded();
-				const availableKeys = get(apiKey);
-				const providersWithKeys = Object.keys(availableKeys).filter((p) => !!availableKeys[p]);
-				const validProvider =
-					providersWithKeys.length > 0 ? (providersWithKeys[0] as ProviderType) : 'deepseek';
+console.log('🔍 Ensuring API keys loaded in lifecycle...');
+await apiKey.ensureLoaded();
 
-				const fallbackModel =
-					availableModels.find((m) => m.provider === validProvider) || defaultModel;
-				console.log('Using fallback model after initialization error:', fallbackModel);
-				return fallbackModel;
-			}
+// Add debugging
+console.log('🔍 Testing API key store after ensureLoaded...');
+const providers = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
+providers.forEach(provider => {
+    const hasKey = apiKey.hasKey(provider);
+    console.log(`🔍 After ensureLoaded - ${provider}: hasKey=${hasKey}`);
+});
 
-			return currentAiModel;
+const availableProviders = providers.filter(provider => apiKey.hasKey(provider));
+console.log('🔍 Lifecycle - Available API key providers:', availableProviders);
+
+// If still empty, force load
+if (availableProviders.length === 0) {
+    console.log('🔍 No keys found, force loading...');
+    await apiKey.loadKeys(true);
+    
+    const availableAfterForce = providers.filter(provider => apiKey.hasKey(provider));
+    console.log('🔍 Available providers after force load:', availableAfterForce);
+}
+		// If no API keys, can't initialize properly
+		if (availableProviders.length === 0) {
+			console.log('❌ No API keys available in lifecycle, using default model');
+			return defaultModel;
 		}
+		
+		// Load existing models from database
+		await modelStore.loadModels(userId);
+		
+		// Get current state after loading
+		let currentState: any = null;
+		const unsubscribe = modelStore.subscribe((state) => {
+			currentState = state;
+		});
+		unsubscribe();
+		
+		console.log('Loaded models from database:', currentState?.models?.length || 0);
+		console.log('Loaded model details:', currentState?.models?.map((m: AIModel) => `${m.provider}-${m.name}-${m.id}`) || []);
+		
+		// If no models loaded, let the model store initialize handle it
+		if (!currentState?.models || currentState.models.length === 0) {
+			console.log('No models loaded, letting model store initialize handle it');
+			const initializedModel = await modelStore.initialize(userId);
+			console.log('Initialized model:', initializedModel?.id);
+			return initializedModel;
+		}
+		
+		// Check if current AI model already exists in the loaded models
+		let existingModel: AIModel | null = null;
+		
+		if (currentAiModel?.id && currentState?.models) {
+			existingModel = currentState.models.find((m: AIModel) => m.id === currentAiModel.id) || null;
+			console.log('Found existing model by ID:', existingModel?.id);
+		}
+		
+		if (!existingModel && currentAiModel && currentState?.models) {
+			existingModel = currentState.models.find((m: AIModel) => 
+				m.provider === currentAiModel.provider &&
+				m.api_type === currentAiModel.api_type &&
+				m.name === currentAiModel.name
+			) || null;
+			console.log('Found existing model by properties:', existingModel?.id);
+		}
+		
+		if (existingModel) {
+			console.log('Using existing model:', existingModel.id);
+			await modelStore.setSelectedModel(userId, existingModel);
+			return existingModel;
+		}
+		
+		// Look for any model that matches available providers
+		for (const provider of availableProviders) {
+			const providerModels = currentState.models.filter((m: AIModel) => m.provider === provider);
+			if (providerModels.length > 0) {
+				console.log(`Using existing model for available provider ${provider}:`, providerModels[0].id);
+				await modelStore.setSelectedModel(userId, providerModels[0]);
+				return providerModels[0];
+			}
+		}
+		
+		// If no matching models found, let model store initialize create one
+		console.log('No matching models found, letting model store initialize');
+		const initializedModel = await modelStore.initialize(userId);
+		console.log('Initialized model:', initializedModel?.id);
+		
+		return initializedModel;
+	} catch (error) {
+		console.error('Error initializing models:', error);
+
+		// Fallback model selection with fixed API key access
+		if (!currentAiModel?.api_type) {
+			await apiKey.ensureLoaded();
+			
+			// Use the store methods instead of get(apiKey)
+			const availableProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek']
+				.filter(provider => apiKey.hasKey(provider));
+			
+			const validProvider = availableProviders.length > 0 ? availableProviders[0] as ProviderType : 'deepseek';
+
+			const fallbackModel = availableModels.find((m) => m.provider === validProvider) || defaultModel;
+			console.log('Using fallback model after initialization error:', fallbackModel);
+			return fallbackModel;
+		}
+
+		return currentAiModel;
 	}
+}
 
 	/**
 	 * Initializes projects and threads

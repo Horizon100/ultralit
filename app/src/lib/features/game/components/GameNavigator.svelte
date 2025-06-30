@@ -21,10 +21,13 @@
 		GameOrganization,
 		GameBuilding,
 		GameRoad,
-		GameHero
+		GameRoom,
+		GameHero,
+		GameBuildingType,
+		GamePageData
 	} from '$lib/types/types.game';
 
-	export let data: any;
+	export let data: GamePageData;
 
 	// World grid configuration
 	const WORLD_GRID_SIZE = 50;
@@ -34,7 +37,7 @@
 	// Game state
 	let organizations: GameOrganization[] = [];
 	let buildings: GameBuilding[] = [];
-	let rooms: any[] = [];
+	let rooms: GameRoom[] = [];
 	let loading = true;
 	let isCreatingBuilding = false;
 	let selectedBuildingType = '';
@@ -205,7 +208,7 @@
 	}
 
 	// Building creation functions
-	function selectBuildingType(buildingType: any) {
+	function selectBuildingType(buildingType: GameBuildingType) {
 		selectedBuildingType = buildingType.id;
 		isCreatingBuilding = true;
 		console.log('Selected building type:', buildingType.name);
@@ -307,7 +310,6 @@
 			console.log('Total rooms created successfully:', createdRooms.length);
 			console.log('Created room IDs:', createdRooms);
 
-			// Update the building with room references if any rooms were created
 			if (createdRooms.length > 0) {
 				console.log('\n--- Updating building with room references ---');
 				try {
@@ -623,7 +625,6 @@
 				);
 			});
 
-			// Block movement only if inside building but NOT in any room/lobby
 			return !isInRoom;
 		});
 	}

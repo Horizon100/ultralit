@@ -28,6 +28,7 @@
 		AVAILABLE_WALLPAPERS
 	} from '$lib/utils/wallpapers';
 	import type { WallpaperPreference } from '$lib/utils/wallpapers';
+	import type { User, PromptSelectEvent, PromptAuxClickEvent } from '$lib/types/types';
 	// Stores
 	import { currentUser, refreshCurrentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
@@ -106,8 +107,8 @@
 
 	// Event handling
 	const dispatch = createEventDispatcher<{
-		promptSelect: any;
-		promptAuxclick: any;
+		promptSelect: PromptSelectEvent;
+		promptAuxclick: PromptAuxClickEvent;
 		threadListToggle: void;
 	}>();
 
@@ -253,7 +254,7 @@
 		toggleThreadList();
 	}
 
-	function getAvatarUrl(user: any): string {
+	function getAvatarUrl(user: User): string {
 		if (!user) return '';
 
 		// If avatarUrl is already provided (e.g., from social login)
@@ -378,7 +379,7 @@
 				// Force refresh user data to get wallpaper_preference
 				console.log('🔄 Fetching fresh user data with wallpaper_preference...');
 
-				const userDataResult = await fetchTryCatch<{ success: boolean; user: any }>(
+				const userDataResult = await fetchTryCatch<{ success: boolean; user: User }>(
 					`/api/verify/users/${$currentUser.id}`,
 					{
 						credentials: 'include'
@@ -1441,7 +1442,7 @@
 			>
 				<div class="user-wrapper">
 					<div class="user-shortcuts">
-						{#if getAvatarUrl($currentUser)}
+						{#if $currentUser && getAvatarUrl($currentUser)}
 							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="user-avatar" />
 						{:else}
 							<div class="default-avatar">

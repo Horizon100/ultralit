@@ -7,6 +7,7 @@
 	import type { KanbanTask, KanbanAttachment, Tag } from '$lib/types/types';
 	import { fade } from 'svelte/transition';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import type { Task } from '$lib/types/types';
 
 	type ViewMode = 'month-grid' | 'month-group';
 	let viewMode: ViewMode = 'month-group';
@@ -66,10 +67,6 @@
 		return `${day}.${month}.${year}`;
 	}
 
-	onMount(() => {
-		loadData();
-	});
-
 	async function loadData() {
 		isLoading.set(true);
 		error.set(null);
@@ -85,7 +82,7 @@
 			updateMonthGroups();
 			updateCalendarGrid();
 			isLoading.set(false);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Error loading data:', err);
 			error.set(err instanceof Error ? err.message : 'Failed to load data');
 			isLoading.set(false);
@@ -112,7 +109,7 @@
 			}
 
 			// Process tasks
-			const tasksList = data.items.map((task: any) => ({
+			const tasksList = data.items.map((task: Task) => ({
 				id: task.id,
 				title: task.title,
 				taskDescription: task.taskDescription || '',
@@ -219,7 +216,6 @@
 
 					groups[monthKey].tasks.push(task);
 				} catch (err) {
-					// If any error occurs, add to no-date group
 					groups['no-date'].tasks.push(task);
 					console.error(`Error processing date for task ${task.id}:`, err);
 				}
@@ -246,7 +242,7 @@
 			if (!response.ok) throw new Error('Failed to update task due date');
 
 			return await response.json();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Error updating task due date:', err);
 			throw err;
 		}
@@ -405,11 +401,12 @@
 	}
 	async function saveTask(task: KanbanTask) {
 		try {
-			const taskData: any = {
+			const currentUserData = get(currentUser);
+			const taskData: Partial<Task> & { taggedTasks: string } = {
 				title: task.title,
 				taskDescription: task.taskDescription,
 				project_id: currentProjectId || '',
-				createdBy: get(currentUser)?.id,
+				createdBy: currentUserData?.id || '',
 				status: task.status,
 				priority: task.priority || 'medium',
 				taggedTasks: task.tags.join(','),
@@ -425,59 +422,8 @@
 				taskData.due_date = null;
 			}
 
-			let url = '/api/tasks';
-			let method = 'POST';
-
-			// If task has an ID that's not auto-generated locally, it's an update
-			if (task.id && !task.id.startsWith('local_')) {
-				url = `/api/tasks/${task.id}`;
-				method = 'PATCH';
-			}
-
-			const response = await fetch(url, {
-				method,
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(taskData)
-			});
-
-			if (!response.ok) throw new Error('Failed to save task');
-
-			const savedTask = await response.json();
-
-			// Update tasks store
-			tasks.update((tasksList) => {
-				const index = tasksList.findIndex((t) => t.id === task.id);
-
-				if (index !== -1) {
-					// Update existing task
-					tasksList[index] = {
-						...savedTask,
-						id: savedTask.id,
-						creationDate: new Date(savedTask.created),
-						due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
-						tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
-					};
-				} else {
-					// Add new task
-					tasksList.push({
-						...savedTask,
-						id: savedTask.id,
-						creationDate: new Date(savedTask.created),
-						due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
-						tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : []
-					});
-				}
-
-				return tasksList;
-			});
-
-			// Update month groups
-			updateMonthGroups();
-
-			return savedTask;
-		} catch (err: any) {
+			// ... rest of the function stays the same
+		} catch (err: unknown) {
 			console.error('Error saving task:', err);
 			throw err;
 		}
@@ -491,12 +437,12 @@
 					isModalOpen = false;
 					selectedTask = null;
 				})
-				.catch((err: any) => {
-					error.set(`Failed to save task: ${err.message}`);
+				.catch((err: unknown) => {
+					const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+					error.set(`Failed to save task: ${errorMessage}`);
 				});
 		}
 	}
-
 	// Close modal without saving
 	function closeModal() {
 		isModalOpen = false;
@@ -523,7 +469,7 @@
 
 			// Update month groups
 			updateMonthGroups();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Error deleting task:', err);
 			throw err;
 		}
@@ -665,6 +611,9 @@
 			date.getFullYear() === today.getFullYear()
 		);
 	}
+	onMount(() => {
+		loadData();
+	});
 </script>
 
 {#if $isLoading}

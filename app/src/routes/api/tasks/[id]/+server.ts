@@ -2,12 +2,7 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
-
-// Type for PocketBase errors
-interface PocketBaseError extends Error {
-	status?: number;
-	data?: unknown;
-}
+import type { PocketBaseError } from '$lib/types/types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -22,9 +17,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		const task = await pb.collection('tasks').getOne(params.id);
 		return json(task);
 	} catch (err) {
-		// PocketBase returns 404 for both not found and unauthorized
 		const pbError = err as PocketBaseError;
-		if (pbError.status === 404) {
+		if (pbError.response?.code === 404) {
 			return new Response(
 				JSON.stringify({
 					error: 'Task not found or access denied'
@@ -61,7 +55,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		return json(updatedTask);
 	} catch (err) {
 		const pbError = err as PocketBaseError;
-		if (pbError.status === 404) {
+		if (pbError.response?.code === 404) {
 			return new Response(
 				JSON.stringify({
 					error: 'Task not found or access denied'
@@ -104,7 +98,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ success: true });
 	} catch (err) {
 		const pbError = err as PocketBaseError;
-		if (pbError.status === 404) {
+		if (pbError.response?.code === 404) {
 			return new Response(
 				JSON.stringify({
 					error:

@@ -3,6 +3,7 @@ import { pb } from '$lib/server/pocketbase';
 import type { AIModel } from '$lib/types/types';
 import type { RequestHandler } from './$types';
 import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
+import { json } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ url, locals }) =>
 	apiTryCatch(async () => {
@@ -61,7 +62,7 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 			});
 
 			const sanitizedModels = models.map(({ api_key, ...rest }) => rest);
-			return { success: true, models: sanitizedModels };
+return json({ success: true, models: sanitizedModels });
 		}
 
 		const userId = params.userId || url.searchParams.get('userId');

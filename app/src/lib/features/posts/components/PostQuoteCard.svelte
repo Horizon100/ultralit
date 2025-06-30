@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import { postStore } from '$lib/stores/postStore';
@@ -9,7 +9,7 @@
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-	export let post: PostWithInteractions;
+	export let post: PostWithInteractions | CommentWithInteractions;
 	export let quotedBy: {
 		id?: string;
 		username?: string;

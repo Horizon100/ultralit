@@ -7,7 +7,7 @@
 		upload: Attachment[];
 	}>();
 
-	let files: FileList;
+	let files: FileList | undefined;
 	let uploadedAttachments: Attachment[] = [];
 	let isUploading = false;
 	let uploadError = '';
@@ -66,8 +66,7 @@
 				uploadedAttachments = [...uploadedAttachments, ...newAttachments];
 				dispatch('upload', uploadedAttachments);
 
-				// Clear the file input
-				files = undefined as any;
+				files = undefined;
 
 				return newAttachments;
 			})(),

@@ -102,7 +102,7 @@
 									<span
 										class="prompt"
 										on:click={() => handlePromptSelection(prompt)}
-										on:keydown={(e) => e.key === 'Enter' && handlePromptSelection(prompt)}
+										on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && handlePromptSelection(prompt)}
 										role="button"
 										tabindex="0"
 									>

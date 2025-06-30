@@ -4,7 +4,7 @@
 	import type { GameBuilding } from '$lib/types/types.game';
 
 	export let building: GameBuilding;
-	export let gridSize: number;
+	export let gridSize: { width: number; height: number };
 
 	const dispatch = createEventDispatcher();
 
@@ -14,8 +14,9 @@
 	$: buildingStyle = `
 		left: ${building.position.x}px;
 		top: ${building.position.y}px;
-		width: ${building.size.width * gridSize}px;
-		height: ${building.size.height * gridSize}px;
+		width: ${building.size.width * gridSize.width}px;
+		height: ${building.size.height * gridSize.height}px;
+
 	`;
 
 	function handleClick() {

@@ -1,7 +1,7 @@
 // Updated postTagging.ts to use your AI infrastructure properly
 
 import { ensureAuthenticated } from '$lib/pocketbase';
-import type { AIModel, RoleType, Tag, AIMessage } from '$lib/types/types';
+import type { AIModel, RoleType, Tag, AIMessage, ProviderType } from '$lib/types/types';
 import { defaultModel } from '$lib/features/ai/utils/models';
 import { postStore } from '$lib/stores/postStore';
 import { fetchAIResponse } from '$lib/clients/aiClient';
@@ -74,7 +74,6 @@ export async function generatePostTags(
 			Object.keys(availableKeys).filter((k) => availableKeys[k])
 		);
 
-		// Check if we have any API keys available
 		const hasApiKeys = Object.values(availableKeys).some((key) => key && key.length > 0);
 		if (!hasApiKeys) {
 			console.error('❌ No API keys configured for any provider');
@@ -103,7 +102,7 @@ export async function generatePostTags(
 					// Create a simple model for this provider
 					modelToUse = {
 						...defaultModel,
-						provider: availableProvider as any,
+						provider: availableProvider as ProviderType,
 						api_type:
 							availableProvider === 'openai'
 								? 'gpt-3.5-turbo'

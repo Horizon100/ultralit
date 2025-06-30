@@ -187,6 +187,10 @@
 	async function handleSendMessage(message: string) {
 		if (!selectedConversation || !$currentUser) return;
 
+		// Store in local variables to satisfy TypeScript
+		const currentConversation = selectedConversation;
+		const currentUser = $currentUser;
+
 		try {
 			sendingMessage = true;
 			const response = await fetch('/api/dm', {
@@ -196,7 +200,7 @@
 				},
 				body: JSON.stringify({
 					content: message,
-					receiverId: selectedConversation.user.id
+					receiverId: currentConversation.user.id
 				})
 			});
 
@@ -210,13 +214,11 @@
 			messages = [...messages, result.message];
 
 			// If this was a temporary conversation, update it with the real conversation data
-			if (selectedConversation.id.startsWith('temp-')) {
+			if (currentConversation.id.startsWith('temp-')) {
 				// Reload conversations to get the real conversation that was just created
 				await loadConversations();
 				// Try to find the new conversation with this user
-				const newConv = conversations.find(
-					(conv) => conv.user.id === selectedConversation!.user.id
-				);
+				const newConv = conversations.find((conv) => conv.user.id === currentConversation.user.id);
 				if (newConv) {
 					selectedConversation = newConv;
 					toast.success('Conversation started!', 2000);
@@ -224,13 +226,13 @@
 			} else {
 				// Update existing conversation's last message
 				const updatedConversations = conversations.map((conv) => {
-					if (conv.id === selectedConversation!.id) {
+					if (conv.id === currentConversation.id) {
 						return {
 							...conv,
 							lastMessage: {
 								content: message,
 								timestamp: new Date(),
-								senderId: $currentUser!.id
+								senderId: currentUser.id
 							}
 						};
 					}

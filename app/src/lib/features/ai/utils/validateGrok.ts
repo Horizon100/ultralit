@@ -40,7 +40,7 @@ export async function grok(key: string): Promise<{ isValid: boolean; errorMessag
 		} else {
 			return { isValid: false, errorMessage: 'Unexpected response structure' };
 		}
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.error('Grok validation error:', err);
 		return { isValid: false, errorMessage: `Failed to fetch: ${(err as Error).message}` };
 	}

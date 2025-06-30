@@ -6,8 +6,8 @@
 
 	let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
 	interface NetworkLink extends d3.SimulationLinkDatum<VisNode> {
-		source: VisNode;
-		target: VisNode;
+		source: string | VisNode;
+		target: string | VisNode;
 	}
 
 	function drawNetwork() {

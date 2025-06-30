@@ -36,7 +36,9 @@ export const GET: RequestHandler = async ({ url }) => {
 				status: user.status,
 				last_login: user.last_login,
 				followers: user.followers,
-				following: user.following
+				following: user.following,
+				location: user.location,
+				website: user.website
 			}));
 
 			console.log('Returning exact matches:', filteredResults.length);
@@ -61,7 +63,9 @@ export const GET: RequestHandler = async ({ url }) => {
 				status: user.status,
 				last_login: user.last_login,
 				followers: user.followers,
-				following: user.following
+				following: user.following,
+				location: user.location,
+				website: user.website
 			}));
 
 			console.log('Returning contains matches:', filteredResults.length);
@@ -101,7 +105,9 @@ export const GET: RequestHandler = async ({ url }) => {
 				status: user.status,
 				last_login: user.last_login,
 				followers: user.followers,
-				following: user.following
+				following: user.following,
+				location: user.location,
+				website: user.website
 			}));
 
 			return json(filteredResults, { status: 200 });

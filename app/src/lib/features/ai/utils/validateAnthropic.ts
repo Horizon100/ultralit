@@ -15,11 +15,14 @@ export async function anthropic(key: string): Promise<{ isValid: boolean; errorM
 		});
 
 		return { isValid: msg !== undefined }; // Return true if message creation is successful
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.error('Anthropic validation error:', err);
 
+		// Type guard to check if err is an Error object
+		const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+
 		// Check if it's the low credit balance error and display a relevant message
-		if (err.message.includes('Your credit balance is too low')) {
+		if (errorMessage.includes('Your credit balance is too low')) {
 			return {
 				isValid: false,
 				errorMessage:
@@ -28,6 +31,6 @@ export async function anthropic(key: string): Promise<{ isValid: boolean; errorM
 		}
 
 		// Handle any other errors generically
-		return { isValid: false, errorMessage: `An error occurred: ${err.message}` };
+		return { isValid: false, errorMessage: `An error occurred: ${errorMessage}` };
 	}
 }

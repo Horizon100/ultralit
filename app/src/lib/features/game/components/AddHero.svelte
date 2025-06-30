@@ -9,17 +9,7 @@
 	let searchQuery = '';
 	let searchResults: GameHero[] = [];
 	let isSearching = false;
-	let searchTimeout: NodeJS.Timeout;
-
-	// Reactive search when query changes
-	$: if (searchQuery.trim().length >= 2) {
-		clearTimeout(searchTimeout);
-		searchTimeout = setTimeout(() => {
-			searchHeroes(searchQuery);
-		}, 300); // Debounce search
-	} else {
-		searchResults = [];
-	}
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async function searchHeroes(query: string) {
 		if (!query.trim() || query.length < 2) return;
@@ -155,6 +145,15 @@
 		if (event.key === 'Escape') {
 			closeSearch();
 		}
+	}
+
+	$: if (searchQuery.trim().length >= 2) {
+		if (searchTimeout) clearTimeout(searchTimeout);
+		searchTimeout = setTimeout(() => {
+			searchHeroes(searchQuery);
+		}, 300);
+	} else {
+		searchResults = [];
 	}
 </script>
 

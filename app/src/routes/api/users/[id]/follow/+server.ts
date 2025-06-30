@@ -17,6 +17,8 @@ function userToPublicProfile(user: User): PublicUserProfile {
 		role: user.role || 'user',
 		last_login: user.last_login || '',
 		perks: user.perks || [],
+		location: user.location || '',
+		website: user.website || '',
 		taskAssignments: user.taskAssignments || [],
 		followers: user.followers || [],
 		following: user.following || [],

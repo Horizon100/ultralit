@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import type { Tag, Projects, Task } from '$lib/types/types';
+	import type { Tag, Projects, Task, Threads } from '$lib/types/types';
 
 	// Props
 	export let selectedTagId: string | null = null;
@@ -10,7 +10,7 @@
 	let tags: Tag[] = [];
 	let projects: Record<string, Projects> = {};
 	let tasks: Record<string, Task> = {};
-	let threads: Record<string, any> = {}; // Adjust type based on your Thread interface
+	let threads: Record<string, Threads> = {};
 	let isLoading = true;
 	let error: string | null = null;
 	let editingTag: Tag | null = null;
@@ -150,7 +150,7 @@
 								? projectsData.data
 								: [];
 
-					projectItems.forEach((project: any) => {
+					projectItems.forEach((project: Projects) => {
 						projects[project.id] = project;
 					});
 				}
@@ -173,7 +173,7 @@
 								? tasksData.data
 								: [];
 
-					taskItems.forEach((task: any) => {
+					taskItems.forEach((task: Task) => {
 						tasks[task.id] = task;
 					});
 				}
@@ -198,7 +198,7 @@
 								? threadsData.data
 								: [];
 
-					threadItems.forEach((thread: any) => {
+					threadItems.forEach((thread: Threads) => {
 						threads[thread.id] = thread;
 					});
 				}

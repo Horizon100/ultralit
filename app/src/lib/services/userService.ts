@@ -116,6 +116,7 @@ export class UserService {
 	private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 	private static batchRequestTimer: ReturnType<typeof setTimeout> | null = null;
 	private static pendingBatchUsers: Set<string> = new Set();
+	private static isCurrentlyBatching = false;
 
 	/**
 	 * Preloads user profiles for messages with deduplication
@@ -166,10 +167,16 @@ export class UserService {
 			avatarUrl: user.avatarUrl || this.getAvatarUrl(user)
 		};
 	}
-	/**
+/**
 	 * Preloads user profiles using batch fetching with improved caching
 	 */
 	static async preloadUserProfilesBatch(messages: InternalChatMessage[]): Promise<void> {
+		// Prevent multiple simultaneous batch requests
+		if (this.isCurrentlyBatching) {
+			console.log('Batch request already in progress, skipping...');
+			return;
+		}
+
 		const userIds = new Set<string>();
 
 		messages.forEach((message) => {
@@ -186,25 +193,15 @@ export class UserService {
 			return;
 		}
 
-		// Use debounced batch fetching
-		await this.debouncedBatchFetch(Array.from(userIds));
-	}
+		console.log(`Need to load ${userIds.size} user profiles`);
 
-	/**
-	 * Check if user is cached and cache is fresh
-	 */
-	private static isUserCached(userId: string): boolean {
-		if (!this.userProfileCache.has(userId)) {
-			return false;
+		// Set flag to prevent concurrent requests
+		this.isCurrentlyBatching = true;
+		try {
+			await this.debouncedBatchFetch(Array.from(userIds));
+		} finally {
+			this.isCurrentlyBatching = false;
 		}
-
-		const timestamp = this.cacheTimestamps.get(userId);
-		if (!timestamp) {
-			return false;
-		}
-
-		// Check if cache is still fresh
-		return Date.now() - timestamp < this.CACHE_TTL;
 	}
 
 	/**
@@ -226,12 +223,72 @@ export class UserService {
 				this.pendingBatchUsers.clear();
 
 				if (batchIds.length > 0) {
+					console.log(`Executing batch fetch for ${batchIds.length} users`);
 					await this.batchFetchUsers(batchIds);
 				}
 				resolve();
 			}, 50); // 50ms debounce
 		});
 	}
+
+	private static async batchFetchUsers(userIds: string[]): Promise<void> {
+		if (userIds.length === 0) return;
+
+		const cacheKey = `batch_${userIds.sort().join(',')}`;
+
+		try {
+			await RequestManager.debouncedRequest(cacheKey, async () => {
+				console.log(`Batch fetching ${userIds.length} users:`, userIds);
+
+				// This is where the API call happens - make sure it doesn't loop
+				const profiles = await getPublicUsersBatch(userIds);
+
+				// Update cache with fetched profiles
+				userIds.forEach((userId, index) => {
+					const partialUser = profiles[index] || null;
+					const publicProfile = partialUser ? this.convertUserToPublicProfile(partialUser) : null;
+					this.userProfileCache.set(userId, this.transformPublicUserToProfile(publicProfile));
+					this.cacheTimestamps.set(userId, Date.now());
+				});
+
+				console.log(`Successfully cached ${userIds.length} user profiles`);
+				return profiles;
+			});
+		} catch (error) {
+			console.error('Error in batch fetch users:', error);
+
+			// Cache null results to prevent repeated failed requests
+			userIds.forEach((userId) => {
+				if (!this.userProfileCache.has(userId)) {
+					this.userProfileCache.set(userId, null);
+					this.cacheTimestamps.set(userId, Date.now());
+				}
+			});
+		}
+	}
+
+
+	/**
+	 * Check if user is cached and cache is fresh
+	 */
+	private static isUserCached(userId: string): boolean {
+		if (!this.userProfileCache.has(userId)) {
+			return false;
+		}
+
+		const timestamp = this.cacheTimestamps.get(userId);
+		if (!timestamp) {
+			return false;
+		}
+
+		// Check if cache is still fresh
+		return Date.now() - timestamp < this.CACHE_TTL;
+	}
+
+	/**
+	 * Debounced batch fetching to prevent multiple simultaneous requests
+	 */
+
 
 	private static convertUserToPublicProfile(user: Partial<User>): PublicUserProfile | null {
 		if (!user.id || !user.username) return null;
@@ -264,44 +321,13 @@ export class UserService {
 			userProjects: user.projects || [],
 			hero: user.hero || '',
 			created: user.created || '',
+			location: user.location || '',
+			website: user.website || '',
 			followers: user.followers || [],
 			following: user.following || []
 		};
 	}
 
-	private static async batchFetchUsers(userIds: string[]): Promise<void> {
-		if (userIds.length === 0) return;
-
-		const cacheKey = `batch_${userIds.sort().join(',')}`;
-
-		try {
-			await RequestManager.debouncedRequest(cacheKey, async () => {
-				console.log(`Batch fetching ${userIds.length} users:`, userIds);
-
-				const profiles = await getPublicUsersBatch(userIds);
-
-				// Update cache with fetched profiles
-				userIds.forEach((userId, index) => {
-					const partialUser = profiles[index] || null;
-					const publicProfile = partialUser ? this.convertUserToPublicProfile(partialUser) : null;
-					this.userProfileCache.set(userId, this.transformPublicUserToProfile(publicProfile));
-					this.cacheTimestamps.set(userId, Date.now());
-				});
-
-				return profiles;
-			});
-		} catch (error) {
-			console.error('Error in batch fetch users:', error);
-
-			// Cache null results to prevent repeated failed requests
-			userIds.forEach((userId) => {
-				if (!this.userProfileCache.has(userId)) {
-					this.userProfileCache.set(userId, null);
-					this.cacheTimestamps.set(userId, Date.now());
-				}
-			});
-		}
-	}
 
 	/**
 	 * Checks if a thread is favorited by the current user

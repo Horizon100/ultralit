@@ -475,12 +475,13 @@
 			case 'add':
 				createNewNote(new MouseEvent('click'), contextMenuFolder.id);
 				break;
-			case 'rename':
+			case 'rename': {
 				const newName = prompt('Enter new folder name:', contextMenuFolder.title);
 				if (newName) {
 					notesStore.updateFolder(contextMenuFolder.id, { title: newName });
 				}
 				break;
+			}
 			case 'delete':
 				if (confirm('Are you sure you want to delete this folder and all its notes?')) {
 					notesStore.deleteFolder(contextMenuFolder.id);
@@ -495,12 +496,13 @@
 		if (!contextMenuNote) return;
 
 		switch (action) {
-			case 'rename':
+			case 'rename': {
 				const newTitle = prompt('Enter new note title:', contextMenuNote.title);
 				if (newTitle) {
 					notesStore.updateNote(contextMenuNote.id, { title: newTitle });
 				}
 				break;
+			}
 			case 'delete':
 				if (confirm('Are you sure you want to delete this note?')) {
 					notesStore.deleteNote(contextMenuNote.id, contextMenuNote.folder);

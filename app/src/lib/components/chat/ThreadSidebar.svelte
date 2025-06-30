@@ -8,14 +8,9 @@
 	import { t } from '$lib/stores/translationStore';
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import { UserService } from '$lib/services/userService';
-	import type { Threads } from '$lib/types/types';
+	import type { Threads, SwipeConfig } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-	interface SwipeConfig {
-		threshold?: number;
-		direction?: 'horizontal' | 'vertical' | 'both';
-		touchTarget?: HTMLElement;
-	}
 
 	// Props
 	export let threads: Threads[] = [];

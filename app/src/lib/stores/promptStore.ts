@@ -4,6 +4,7 @@ import type { PromptType, AIMessage, AIModel } from '$lib/types/types';
 import { currentUser } from '$lib/pocketbase';
 import { fetchSystemPrompt } from '$lib/features/ai/utils/prompts';
 import { tryCatchSync, clientTryCatch, fetchTryCatch } from '$lib/utils/errorUtils';
+import type { User } from '$lib/types/types';
 
 let manualUpdate = false;
 
@@ -46,7 +47,7 @@ export function setSystemPrompt(promptType: PromptType) {
 	}
 }
 
-export async function initPromptStores(userData: any) {
+export async function initPromptStores(userData: User) {
 	if (!userData || manualUpdate) return;
 
 	const result = tryCatchSync(() => {

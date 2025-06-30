@@ -78,12 +78,18 @@
 	}
 	$: showButtons = localIsFocused || $isTextareaFocused;
 
+	let inputTimeout: ReturnType<typeof setTimeout>;
+
 	function handleInput(event: Event) {
 		const target = event.currentTarget as HTMLTextAreaElement;
-		adjustFontSize(target);
-		textTooLong = target.value.length > MAX_VISIBLE_CHARS;
 		userInput = target.value;
-		console.log('Input changed:', userInput);
+		
+		// Debounce expensive operations
+		clearTimeout(inputTimeout);
+		inputTimeout = setTimeout(() => {
+			adjustFontSize(target);
+			textTooLong = target.value.length > MAX_VISIBLE_CHARS;
+		}, 100);
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -101,7 +107,7 @@
 	}
 
 	function toggleSection(section: string) {
-		console.log('Toggling section:', section);
+		// console.log('Toggling section:', section);
 		dispatch('toggleSection', { section });
 	}
 
@@ -111,10 +117,19 @@
 		dispatch('toggleAiActive');
 	}
 
-	function handleModelSelection(event: CustomEvent) {
-		console.log('Model selected:', event.detail);
-		dispatch('modelSelection', { model: event.detail });
+function handleModelSelection(event: CustomEvent) {
+	console.log('🔄 MessageInput handleModelSelection - event.detail:', event.detail);
+	
+	// Add safety check before dispatching
+	if (!event.detail) {
+		console.error('❌ No event detail in MessageInput handleModelSelection');
+		return;
 	}
+	
+	// Pass through the exact same structure
+	console.log('✅ MessageInput dispatching model selection');
+	dispatch('modelSelection', event.detail); // Pass through unchanged
+}
 
 	function handleSysPromptSelect(event: CustomEvent) {
 		console.log('Sys prompt selected:', event.detail);
@@ -147,6 +162,21 @@
 		console.log('Text modal opened');
 		dispatch('textModalOpen');
 	}
+	let cachedShowButtons = false;
+let cachedProjectId = '';
+
+$: {
+	// Only update if actually changed
+	const newShowButtons = localIsFocused || $isTextareaFocused;
+	if (newShowButtons !== cachedShowButtons) {
+		cachedShowButtons = newShowButtons;
+	}
+	
+	const newProjectId = $threadsStore.currentThread?.project_id || '';
+	if (newProjectId !== cachedProjectId) {
+		cachedProjectId = newProjectId;
+	}
+}
 
 	$: placeholderText = (currentManualPlaceholder as string) || '';
 
@@ -154,7 +184,7 @@
 	export { textareaElement };
 
 	// Debug reactive statement
-	$: console.log('MessageInput props:', { isPlaceholder, currentThreadId, isAiActive });
+	// $: console.log('MessageInput props:', { isPlaceholder, currentThreadId, isAiActive });
 	onMount(() => {
 		document.addEventListener('click', handleClickOutside);
 		return () => {
@@ -750,7 +780,7 @@
 	}
 	.input-container-start {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		position: absolute;
 
 		width: 100%;
@@ -758,7 +788,7 @@
 		height: auto;
 		right: auto;
 		left: auto;
-		bottom: 5rem;
+		bottom: 0;
 		margin-bottom: 0;
 		overflow-y: none;
 		// backdrop-filter: blur(4px);

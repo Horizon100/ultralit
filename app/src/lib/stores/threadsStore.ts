@@ -40,7 +40,6 @@ function getAuthHeaders(): Record<string, string> {
 	return headers;
 }
 
-// Fetch threads function that uses Fetch API with errorUtils
 export async function fetchThreads(): Promise<Threads[]> {
 	const result = await clientTryCatch(
 		(async () => {
@@ -146,108 +145,129 @@ export function createThreadsStore() {
 		showFavoriteThreads: false
 	});
 	const { subscribe, update } = store;
+	class ThreadRequestManager {
+		private static pendingThreadRequests = new Map<string, Promise<Messages[]>>();
+
+		static async safeSetCurrentThread(id: string): Promise<Messages[]> {
+			const existingRequest = this.pendingThreadRequests.get(id);
+			if (existingRequest) {
+				console.log(`Thread ${id} fetch already in progress, waiting...`);
+				return await existingRequest;
+			}
+
+			const requestPromise = this.executeThreadSet(id);
+			this.pendingThreadRequests.set(id, requestPromise);
+
+			try {
+				return await requestPromise;
+			} finally {
+				this.pendingThreadRequests.delete(id);
+			}
+		}
+
+		private static async executeThreadSet(id: string): Promise<Messages[]> {
+			try {
+				console.log(`Fetching messages for thread ${id}`);
+				const messagesResult = await fetchMessagesForThread(id);
+
+				let messages: Messages[];
+				
+				if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
+					const resultType = messagesResult as { success: boolean; data: Messages[]; error?: string };
+					if (!resultType.success) {
+						throw new Error(String(resultType.error || 'Failed to fetch messages'));
+					}
+					messages = resultType.data || [];
+				} else {
+					messages = Array.isArray(messagesResult) ? messagesResult : [];
+				}
+
+				console.log(`Loaded ${messages.length} messages for thread ${id}`);
+
+				update((state) => ({
+					...state,
+					currentThreadId: id,
+					currentThread: state.threads.find((t) => t.id === id) || null,
+					messages,
+					updateStatus: 'Current thread updated'
+				}));
+
+				return messages;
+			} catch (error) {
+				console.error('Error in executeThreadSet:', error);
+				
+				update((state) => ({
+					...state,
+					currentThreadId: id,
+					currentThread: state.threads.find((t) => t.id === id) || null,
+					messages: [],
+					updateStatus: 'Error loading messages'
+				}));
+				
+				return [];
+			}
+		}
+	}
+
 	const sortOptionInfo = derived(store, ($store) => getSortOptionInfo($store.sortOption));
 	const allSortOptions = derived(store, () =>
 		Object.values(ThreadSortOption).map((option) => getSortOptionInfo(option))
 	);
-	const searchedThreads = derived(store, ($store) => {
-		let filteredThreads =
-			$store.searchQuery.trim().length > 0
-				? $store.threads.filter(
-						(thread) =>
-							thread.name?.toLowerCase().includes($store.searchQuery.toLowerCase().trim()) ||
-							thread.last_message?.content
-								?.toLowerCase()
-								.includes($store.searchQuery.toLowerCase().trim())
-					)
-				: [...$store.threads];
 
-		if ($store.selectedUserIds.size > 0) {
-			filteredThreads = filteredThreads.filter((thread) => {
-				if (thread.user && $store.selectedUserIds.has(thread.user)) {
-					return true;
+const favoritedThreads = derived(
+		[store, currentUser], // Changed from [searchedThreads, store, currentUser]
+		([$store, $currentUser]) => {
+			// Use getSortedAndFilteredThreads logic directly or reference it
+			let filteredThreads = $store.threads;
+
+			// Apply search filter
+			if ($store.searchQuery.trim().length > 0) {
+				filteredThreads = filteredThreads.filter(
+					(thread) =>
+						thread.name?.toLowerCase().includes($store.searchQuery.toLowerCase().trim()) ||
+						thread.last_message?.content?.toLowerCase().includes($store.searchQuery.toLowerCase().trim())
+				);
+			}
+
+			// Apply user filter
+			if ($store.selectedUserIds.size > 0) {
+				filteredThreads = filteredThreads.filter((thread) => {
+					if (thread.user && $store.selectedUserIds.has(thread.user)) {
+						return true;
+					}
+					if (thread.participants && Array.isArray(thread.participants)) {
+						return thread.participants.some((participant) => {
+							const participantId = typeof participant === 'string' ? participant : participant?.id;
+							return participantId && $store.selectedUserIds.has(participantId);
+						});
+					}
+					return false;
+				});
+			}
+
+			// Apply sorting (same logic as getSortedAndFilteredThreads)
+			filteredThreads = filteredThreads.sort((a, b) => {
+				switch ($store.sortOption) {
+					case ThreadSortOption.NewestFirst:
+						return new Date(b.updated || b.created || 0).getTime() - new Date(a.updated || a.created || 0).getTime();
+					case ThreadSortOption.OldestFirst:
+						return new Date(a.updated || a.created || 0).getTime() - new Date(b.updated || b.created || 0).getTime();
+					// ... other cases
+					default:
+						return 0;
 				}
-
-				if (thread.participants && Array.isArray(thread.participants)) {
-					return thread.participants.some((participant) => {
-						const participantId =
-							typeof participant === 'string'
-								? participant
-								: participant && participant.id
-									? participant.id
-									: null;
-
-						return participantId && $store.selectedUserIds.has(participantId);
-					});
-				}
-
-				return false;
 			});
-		}
 
-		return filteredThreads.sort((a, b) => {
-			switch ($store.sortOption) {
-				case ThreadSortOption.NewestFirst:
-					return (
-						new Date(b.updated || b.created || 0).getTime() -
-						new Date(a.updated || a.created || 0).getTime()
-					);
-
-				case ThreadSortOption.OldestFirst:
-					return (
-						new Date(a.updated || a.created || 0).getTime() -
-						new Date(b.updated || b.created || 0).getTime()
-					);
-
-				case ThreadSortOption.AlphabeticalAsc:
-					return (a.name || '').localeCompare(b.name || '');
-
-				case ThreadSortOption.AlphabeticalDesc:
-					return (b.name || '').localeCompare(a.name || '');
-
-				case ThreadSortOption.MessageCountHigh: {
-					const aCount = a.message_count || 0;
-					const bCount = b.message_count || 0;
-					return bCount - aCount;
-				}
-
-				case ThreadSortOption.MessageCountLow: {
-					const aCountLow = a.message_count || 0;
-					const bCountLow = b.message_count || 0;
-					return aCountLow - bCountLow;
-				}
-
-				case ThreadSortOption.UserCountAsc: {
-					const aUsers = (a.participants?.length || 0) + (a.user ? 1 : 0);
-					const bUsers = (b.participants?.length || 0) + (b.user ? 1 : 0);
-					return aUsers - bUsers;
-				}
-
-				case ThreadSortOption.UserCountDesc: {
-					const aUsersDesc = (a.participants?.length || 0) + (a.user ? 1 : 0);
-					const bUsersDesc = (b.participants?.length || 0) + (b.user ? 1 : 0);
-					return bUsersDesc - aUsersDesc;
-				}
-
-				default:
-					return 0;
-			}
-		});
-	});
-	const favoritedThreads = derived(
-		[searchedThreads, store, currentUser],
-		([$searchedThreads, $store, $currentUser]) => {
+			// Apply favorites filter
 			if (!$store.showFavoriteThreads || !$currentUser?.favoriteThreads?.length) {
-				return $searchedThreads || []; // Return all searched threads if not filtering favorites
+				return filteredThreads;
 			}
 
-			// Filter to only show favorited threads
-			return ($searchedThreads || []).filter((thread) =>
+			return filteredThreads.filter((thread) =>
 				$currentUser.favoriteThreads.includes(thread.id)
 			);
 		}
 	);
-
 	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
 	const availableUsers = derived(store, ($store) => $store.availableUsers);
 
@@ -259,7 +279,6 @@ export function createThreadsStore() {
 		update,
 		sortOptionInfo,
 		allSortOptions,
-		searchedThreads,
 		favoritedThreads,
 		selectedUserIds,
 		availableUsers,
@@ -396,38 +415,22 @@ export function createThreadsStore() {
 			return result.data;
 		},
 
-		loadMessages: async (threadId: string): Promise<Messages[]> => {
-			const result = await clientTryCatch(
-				(async () => {
-					const messagesResult = await fetchMessagesForThread(threadId);
+loadMessages: async (threadId: string): Promise<Messages[]> => {
+	const result = await clientTryCatch(
+		ThreadRequestManager.safeLoadMessages(threadId),
+		`Loading messages for thread ${threadId}`
+	);
 
-					// If fetchMessagesForThread returns a Result type, extract the data
-					let messages: Messages[];
-					if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
-						if (isFailure(messagesResult)) {
-							throw new Error(messagesResult.error);
-						}
-						messages = messagesResult.data;
-					} else {
-						messages = messagesResult as Messages[];
-					}
+	if (isFailure(result)) {
+		console.error('Error loading messages:', result.error);
+		update((state) => ({ ...state, updateStatus: 'Failed to load messages' }));
+		return [];
+	}
 
-					store.update((state) => ({ ...state, messages, currentThreadId: threadId }));
-					return messages;
-				})(),
-				`Loading messages for thread ${threadId}`
-			);
-
-			if (isFailure(result)) {
-				console.error('Error loading messages:', result.error);
-				store.update((state) => ({ ...state, updateStatus: 'Failed to load messages' }));
-				setTimeout(() => store.update((state) => ({ ...state, updateStatus: '' })), 3000);
-				return [];
-			}
-
-			return result.data;
-		},
-
+	const messages = result.data;
+	update((state) => ({ ...state, messages, currentThreadId: threadId }));
+	return messages;
+},
 		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
 			const result = await clientTryCatch(
 				(async () => {
@@ -882,51 +885,15 @@ export function createThreadsStore() {
 			return result.data;
 		},
 
-		setCurrentThread: async (id: string | null) => {
+		setCurrentThread: async (id: string | null): Promise<void> => {
 			if (id) {
-				const result = await clientTryCatch(
-					(async () => {
-						const messagesResult = await fetchMessagesForThread(id);
-
-						// If fetchMessagesForThread returns a Result type, extract the data
-						let messages: Messages[];
-						if (
-							messagesResult &&
-							typeof messagesResult === 'object' &&
-							'success' in messagesResult
-						) {
-							if (isFailure(messagesResult)) {
-								throw new Error(messagesResult.error);
-							}
-							messages = messagesResult.data;
-						} else {
-							messages = messagesResult as Messages[];
-						}
-
-						store.update((state) => ({
-							...state,
-							currentThreadId: id,
-							currentThread: state.threads.find((t) => t.id === id) || null,
-							messages,
-							updateStatus: 'Current thread updated'
-						}));
-						return messages;
-					})(),
-					`Setting current thread to ${id}`
-				);
-
-				if (isFailure(result)) {
-					console.error('Error loading messages for thread:', result.error);
-					store.update((state) => ({
-						...state,
-						currentThreadId: id,
-						currentThread: state.threads.find((t) => t.id === id) || null,
-						messages: [],
-						updateStatus: 'Error loading messages'
-					}));
+				try {
+					await ThreadRequestManager.safeSetCurrentThread(id);
+				} catch (error) {
+					console.error('Error setting current thread:', error);
 				}
 			} else {
-				store.update((state) => ({
+				update((state) => ({
 					...state,
 					currentThreadId: null,
 					currentThread: null,

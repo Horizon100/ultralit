@@ -25,6 +25,8 @@ export const GET: RequestHandler = async ({ params, locals }) =>
 			description: user.description || '',
 			role: user.role,
 			last_login: user.last_login,
+			location: user.location,
+			website: user.website,
 			followers: user.followers || [],
 			following: user.following || [],
 			status: user.status,

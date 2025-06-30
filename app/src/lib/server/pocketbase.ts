@@ -92,7 +92,31 @@ export async function signUp(email: string, password: string): Promise<User | nu
 		return null;
 	}
 }
+export async function validateAdminToken(token: string): Promise<boolean> {
+	try {
+		// Option A: Check for master admin key (for development/emergency access)
+		if (token === process.env.ADMIN_MASTER_KEY && process.env.ADMIN_MASTER_KEY) {
+			return true;
+		}
 
+		// Option B: Try to authenticate as a regular user and check admin role
+		try {
+			pb.authStore.save(token);
+			const authData = await pb.collection('users').authRefresh();
+
+			// Check if user has admin role
+			return authData.record?.role === 'admin' || authData.record?.is_admin === true;
+		} catch (userError) {
+			// Clear the invalid token
+			pb.authStore.clear();
+			console.error('Token validation failed:', userError);
+			return false;
+		}
+	} catch (error) {
+		console.error('Admin token validation error:', error);
+		return false;
+	}
+}
 export async function signIn(email: string, password: string): Promise<User | null> {
 	const result = await pbTryCatch(
 		pb.collection('users').authWithPassword<User>(email, password),

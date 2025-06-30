@@ -1,7 +1,7 @@
 <!-- src/lib/features/game/components/MapGrid.svelte -->
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import type { GamePosition, GameTile } from '$lib/types/types.game';
+	import type { GamePosition, GameTile, GameRoad } from '$lib/types/types.game';
 
 	export let width: number;
 	export let height: number;
@@ -47,7 +47,7 @@
 	}
 
 	// Generate road cell class
-	export function getRoadCellClass(gridX: number, gridY: number, roads: any[] = []): string {
+	export function getRoadCellClass(gridX: number, gridY: number, roads: GameRoad[] = []): string {
 		if (!roads || roads.length === 0) return '';
 
 		const isOnRoad = roads.some((road) => {
@@ -66,7 +66,7 @@
 		return `road-cell ${roadType}`;
 	}
 
-	function determineRoadType(gridX: number, gridY: number, roads: any[]): string {
+	function determineRoadType(gridX: number, gridY: number, roads: GameRoad[]): string {
 		let hasNorth = false,
 			hasSouth = false,
 			hasEast = false,

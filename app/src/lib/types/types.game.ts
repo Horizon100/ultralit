@@ -157,3 +157,25 @@ export interface UpdateHeroResponse {
 	};
 	error?: string;
 }
+export interface GameBuildingType {
+	id: string;
+	name: string;
+	description?: string;
+}
+export interface GamePageData {
+	user: GameHero;
+	organization?: GameOrganization;
+	buildings?: GameBuilding[];
+	buildingTypes?: GameBuildingType[];
+	rooms?: GameRoom[];
+}
+export interface BuildingCell {
+	type: 'empty' | 'wall' | 'room' | 'corridor' | 'lobby' | 'entrance';
+	room?: GameRoom | null;
+	roomIndex?: number;
+}
+export interface GameRoomData {
+	building: GameBuilding;
+	rooms: GameRoom[];
+	heroPosition?: { x: number; y: number };
+}

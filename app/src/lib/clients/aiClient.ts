@@ -91,104 +91,147 @@ export async function fetchAIResponse(
 	const provider = modelToUse.provider || 'openai';
 	console.log('Provider:', provider);
 
-	const userApiKey = get(apiKey)[provider] || '';
+console.log('Ensuring API keys are loaded...');
+await apiKey.ensureLoaded();
 
-	if (!userApiKey) {
-		console.log(`No API key found for provider: ${provider}, checking alternatives...`);
+let userApiKey = apiKey.getKey(provider);
 
-		const loadResult = await clientTryCatch(apiKey.ensureLoaded(), 'Failed to load API keys');
-
-		if (!loadResult.success) {
-			throw new Error(loadResult.error);
+if (!userApiKey) {
+	console.log(`No API key found for provider: ${provider}, checking alternatives...`);
+	
+	// Check which providers have keys
+	const availableProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek']
+		.filter(p => apiKey.hasKey(p));
+	
+	if (availableProviders.length > 0) {
+		const fallbackProvider = availableProviders[0] as ProviderType;
+		console.log(`Falling back to provider: ${fallbackProvider}`);
+		
+		modelToUse.provider = fallbackProvider;
+		
+		if (fallbackProvider === 'openai') {
+			modelToUse.api_type = 'gpt-3.5-turbo';
+		} else if (fallbackProvider === 'anthropic') {
+			modelToUse.api_type = 'claude-3-sonnet-20240229';
+		} else if (fallbackProvider === 'deepseek') {
+			modelToUse.api_type = 'deepseek-chat';
 		}
-
-		const refreshedKeys = get(apiKey);
-
-		if (refreshedKeys[provider]) {
-			console.log(`Found key for ${provider} after refresh`);
-		} else {
-			const availableProviders = Object.entries(refreshedKeys)
-				.filter(([, keyValue]) => !!keyValue)
-				.map(([providerName]) => providerName as ProviderType)
-				.filter((providerName): providerName is ProviderType =>
-					['openai', 'anthropic', 'google', 'grok', 'deepseek'].includes(providerName)
-				);
-			if (availableProviders.length > 0) {
-				const fallbackProvider = availableProviders[0];
-				console.log(`Falling back to provider: ${fallbackProvider}`);
-
-				modelToUse.provider = fallbackProvider;
-
-				if (fallbackProvider === 'openai') {
-					modelToUse.api_type = 'gpt-3.5-turbo';
-				} else if (fallbackProvider === 'anthropic') {
-					modelToUse.api_type = 'claude-3-sonnet-20240229';
-				} else if (fallbackProvider === 'deepseek') {
-					modelToUse.api_type = 'deepseek-chat';
-				}
-			} else {
-				throw new Error(`No API keys available for any provider`);
-			}
-		}
-	}
-
-	const finalApiKey = get(apiKey)[modelToUse.provider] || '';
-	if (!finalApiKey) {
-		throw new Error(`No API key found for provider: ${modelToUse.provider}`);
-	}
-
-	const response = await fetch('/api/ai', {
-		method: 'POST',
-		headers: {
-			...(attachment ? {} : { 'Content-Type': 'application/json' })
-		},
-		body: requestBody
-	});
-
-	console.log('🤖 Raw fetch response status:', response.status);
-	console.log('🤖 Raw fetch response ok:', response.ok);
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		console.error('API error:', response.status, errorText);
-		throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-	}
-
-	const responseData = await response.json();
-	console.log('🤖 Full AI response data:', responseData);
-
-	// Handle different possible response structures
-	let finalResponse: string;
-
-	if (responseData.response && typeof responseData.response === 'string') {
-		finalResponse = responseData.response;
-		console.log('✅ Found response in responseData.response');
-	} else if (responseData.content && typeof responseData.content === 'string') {
-		finalResponse = responseData.content;
-		console.log('✅ Found response in responseData.content');
-	} else if (responseData.message && typeof responseData.message === 'string') {
-		finalResponse = responseData.message;
-		console.log('✅ Found response in responseData.message');
-	} else if (responseData.text && typeof responseData.text === 'string') {
-		finalResponse = responseData.text;
-		console.log('✅ Found response in responseData.text');
-	} else if (responseData.data && typeof responseData.data === 'string') {
-		finalResponse = responseData.data;
-		console.log('✅ Found response in responseData.data');
-	} else if (typeof responseData === 'string') {
-		finalResponse = responseData;
-		console.log('✅ Response data is direct string');
+		
+		userApiKey = apiKey.getKey(fallbackProvider);
 	} else {
-		console.error('❌ Could not find response text in any expected field');
-		console.error('❌ Available fields:', Object.keys(responseData || {}));
-		console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
-		throw new Error('Could not extract response text from AI API response');
+		throw new Error('No API keys available for any provider. Please add API keys in settings.');
 	}
-
-	console.log('🎯 Final extracted response:', finalResponse);
-	return finalResponse;
 }
 
+const finalApiKey = apiKey.getKey(modelToUse.provider);
+if (!finalApiKey) {
+	throw new Error(`No API key found for provider: ${modelToUse.provider}. Please add an API key for this provider.`);
+}
+
+const response = await fetch('/api/ai', {
+	method: 'POST',
+	headers: {
+		...(attachment ? {} : { 'Content-Type': 'application/json' })
+	},
+	body: requestBody
+});
+
+console.log('🤖 Raw fetch response status:', response.status);
+console.log('🤖 Raw fetch response ok:', response.ok);
+
+if (!response.ok) {
+	const errorText = await response.text();
+	console.error('API error:', response.status, errorText);
+	throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+}
+
+const responseData = await response.json();
+console.log('🤖 Full AI response data:', responseData);
+
+// Debug lines
+console.log('🔍 CLIENT DEBUG - Full response structure:', JSON.stringify(responseData, null, 2));
+console.log('🔍 CLIENT DEBUG - Response keys:', Object.keys(responseData || {}));
+console.log('🔍 CLIENT DEBUG - Response type:', typeof responseData);
+console.log('🔍 CLIENT DEBUG - responseData.response exists:', !!responseData.response);
+console.log('🔍 CLIENT DEBUG - responseData.response type:', typeof responseData.response);
+
+// Handle different possible response structures
+let finalResponse: string;
+
+// Check for wrapped response first (apiTryCatch format)
+if (responseData.success && responseData.data && typeof responseData.data === 'object') {
+	const wrappedData = responseData.data;
+	if (wrappedData.response && typeof wrappedData.response === 'string') {
+		finalResponse = wrappedData.response;
+		console.log('✅ Found response in responseData.data.response');
+	} else if (wrappedData.content && typeof wrappedData.content === 'string') {
+		finalResponse = wrappedData.content;
+		console.log('✅ Found response in responseData.data.content');
+	} else if (wrappedData.message && typeof wrappedData.message === 'string') {
+		finalResponse = wrappedData.message;
+		console.log('✅ Found response in responseData.data.message');
+	} else if (wrappedData.text && typeof wrappedData.text === 'string') {
+		finalResponse = wrappedData.text;
+		console.log('✅ Found response in responseData.data.text');
+	}
+} else if (responseData.response && typeof responseData.response === 'string') {
+	finalResponse = responseData.response;
+	console.log('✅ Found response in responseData.response');
+} else if (responseData.content && typeof responseData.content === 'string') {
+	finalResponse = responseData.content;
+	console.log('✅ Found response in responseData.content');
+} else if (responseData.message && typeof responseData.message === 'string') {
+	finalResponse = responseData.message;
+	console.log('✅ Found response in responseData.message');
+} else if (responseData.text && typeof responseData.text === 'string') {
+	finalResponse = responseData.text;
+	console.log('✅ Found response in responseData.text');
+} else if (responseData.data && typeof responseData.data === 'string') {
+	finalResponse = responseData.data;
+	console.log('✅ Found response in responseData.data');
+} else if (typeof responseData === 'string') {
+	finalResponse = responseData;
+	console.log('✅ Response data is direct string');
+} else {
+	console.error('❌ Could not find response text in any expected field');
+	console.error('❌ Available fields:', Object.keys(responseData || {}));
+	console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
+	throw new Error('Could not extract response text from AI API response');
+}
+
+console.log('🎯 Final extracted response:', finalResponse);
+return finalResponse;
+}
+export async function debugApiKeys() {
+	console.log('=== API KEY DEBUG ===');
+	
+	try {
+		await apiKey.ensureLoaded();
+		
+		const providers = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
+		
+		console.log('Testing each provider:');
+		providers.forEach(provider => {
+			const hasKey = apiKey.hasKey(provider);
+			const keyValue = apiKey.getKey(provider);
+			console.log(`${provider}: hasKey=${hasKey}, key=${keyValue ? `${keyValue.substring(0, 10)}...` : 'none'}`);
+		});
+
+		// Test the raw API endpoint
+		console.log('Testing raw API endpoint...');
+		const response = await fetch('/api/keys', {
+			method: 'GET',
+			credentials: 'include'
+		});
+		
+		console.log('API response status:', response.status);
+		const data = await response.json();
+		console.log('API response data:', data);
+		
+	} catch (error) {
+		console.error('Error in API key debug:', error);
+	}
+}
 export async function handleStartPromptClick(
 	promptText: string,
 	threadId: string | null,

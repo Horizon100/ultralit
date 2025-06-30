@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import type { RequestHandler } from './$types';
+import type { Task } from '$lib/types/types';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	try {
@@ -21,7 +22,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		// Transform the data to match your KanbanTask interface expectations
 		const transformedTasks = {
 			...tasks,
-			items: tasks.items.map((task: any) => ({
+			items: (tasks.items as Task[]).map((task: Task) => ({
 				...task,
 				// Map your existing fields to expected hierarchy fields
 				owner: task.createdBy,

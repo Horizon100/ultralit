@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { pb } from '$lib/server/pocketbase';
+import { pb, validateAdminToken } from '$lib/server/pocketbase'; // or '$lib/server/pocketbase'
 import {
 	createInvitationCodes,
 	getUnusedInvitationCodes,
@@ -17,10 +17,6 @@ export const GET: RequestHandler = async ({ url, request, locals }) =>
 			throw new Error('Unauthorized');
 		}
 
-		/*
-		 * Verify admin token (implement proper admin validation)
-		 * This is a placeholder - implement your actual admin validation
-		 */
 		const token = authHeader.split('Bearer ')[1];
 		const isAdmin = await validateAdminToken(token);
 
@@ -50,10 +46,6 @@ export const POST: RequestHandler = async ({ request, locals }) =>
 			throw new Error('Unauthorized');
 		}
 
-		/*
-		 * Verify admin token (implement proper admin validation)
-		 * This is a placeholder - implement your actual admin validation
-		 */
 		const token = authHeader.split('Bearer ')[1];
 		const isAdmin = await validateAdminToken(token);
 
@@ -77,29 +69,3 @@ export const POST: RequestHandler = async ({ request, locals }) =>
 			codes
 		};
 	}, 'Failed to generate invitation codes');
-
-/*
- * Helper function to validate admin token
- * Replace this with your actual admin validation logic
- */
-async function validateAdminToken(token: string): Promise<boolean> {
-	try {
-		/*
-		 * This is a placeholder - implement your actual admin validation
-		 * For example, verify the token against your admin authentication system
-		 * or check if the user has admin role in your database
-		 */
-
-		/*
-		 * Example implementation:
-		 * const result = await pb.admins.authWithToken(token);
-		 * return !!result;
-		 */
-
-		// For now, just return false to be safe
-		return false;
-	} catch (error) {
-		console.error('Error validating admin token:', error);
-		return false;
-	}
-}

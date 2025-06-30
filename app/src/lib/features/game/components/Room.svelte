@@ -4,13 +4,17 @@
 	import { gameRoomStore, gameStore } from '$lib/stores/gameStore';
 	import { get } from 'svelte/store';
 	import { gameClient } from '$lib/clients/gameClient';
-	import type { GameBuilding, GameRoom } from '$lib/types/types.game';
+	import type { GameBuilding, GameRoom, BuildingCell, GameRoomData } from '$lib/types/types.game';
 
 	export let currentMap: GameBuilding | null = null;
 	export let isExpanded: boolean = false;
-	export const data: any = undefined;
-	export const gridSize: any = undefined;
-	export const pixelToGrid: (pixel: number) => number = () => 0;
+	export let data: GameRoomData | null = null;
+	export let gridSize: { width: number; height: number };
+	
+	export const pixelToGridX = (pixel: number): number => Math.floor(pixel / gridSize.width);
+	export const pixelToGridY = (pixel: number): number => Math.floor(pixel / gridSize.height);
+
+
 	export let gridX: number;
 	export let gridY: number;
 
@@ -82,12 +86,6 @@
 		});
 
 		return layout;
-	}
-
-	interface BuildingCell {
-		type: 'empty' | 'wall' | 'room' | 'corridor' | 'lobby' | 'entrance';
-		room?: GameRoom | null;
-		roomIndex?: number;
 	}
 
 	// Movement with smaller increments

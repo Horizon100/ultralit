@@ -8,6 +8,7 @@
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import { formatDate } from '$lib/utils/formatters';
 	import { useScrollManagement } from '$lib/composables/useScrollManagement';
+	import { MessageService } from '$lib/services/messageService';
 	import type { InternalChatMessage, AIModel, PromptType } from '$lib/types/types';
 
 	// Props
@@ -34,14 +35,7 @@
 	$: groupedMessages = DateUtils.groupMessagesByDate(chatMessages);
 
 	// Event handlers
-	function getAvatarUrl(user: User): string {
-		return user?.avatar ? `/api/files/users/${user.id}/${user.avatar}` : '';
-	}
 
-	function processMessageContentWithReplyable(content: string, messageId: string): Promise<string> {
-		dispatch('processMessageContent', { content, messageId });
-		return Promise.resolve('');
-	}
 
 	function toggleReplies(messageId: string): void {
 		dispatch('toggleReplies', { messageId });
@@ -50,7 +44,7 @@
 	function replyToMessage(
 		text: string,
 		parentMsgId?: string,
-		contextMessages?: InternalChatMessage[]
+    	contextMessages?: Partial<InternalChatMessage>[] | { role: string; content: string; model?: string }[]
 	): Promise<void> {
 		dispatch('replyToMessage', { text, parentMsgId, contextMessages });
 		return Promise.resolve();
@@ -107,8 +101,6 @@
 						allMessages={chatMessages}
 						{userId}
 						{name}
-						{getAvatarUrl}
-						{processMessageContentWithReplyable}
 						{latestMessageId}
 						{toggleReplies}
 						{hiddenReplies}
@@ -164,7 +156,7 @@
 		justify-content: center;
 		align-items: stretch;
 		height: auto;
-		max-height: 85vh;
+		max-height: 79vh;
 		width: 100%;
 		max-width: 1000px;
 		// scrollbar-width: 2px;

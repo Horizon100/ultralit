@@ -30,7 +30,7 @@ export function handleTextareaBlur(
 	options: {
 		getRandomQuestions?: () => string;
 		getRandomQuote?: () => string;
-		t?: any;
+		t?: (key: string) => string;
 	} = {}
 ) {
 	hideTimeout = setTimeout(() => {

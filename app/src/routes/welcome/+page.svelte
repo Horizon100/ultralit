@@ -119,8 +119,8 @@
 		// Force page reload to ensure proper state after logout
 		setTimeout(() => window.location.reload(), 100);
 	}
-	$: featureCards = $t('features.cards') as PricingPlan[];
-	$: pricingPlans = $t('pricing.plans') as FeatureCardType[];
+	$: featureCards = $t('features.cards') as FeatureCardType[];
+	$: pricingPlans = $t('pricing.plans') as PricingPlan[];
 	$: introText = $t('landing.introText') as string;
 
 	$: if (

@@ -45,8 +45,7 @@
 		posts: true
 	};
 
-	// Debounce timer
-	let searchTimer: NodeJS.Timeout;
+	let searchTimer: ReturnType<typeof setTimeout>;
 
 	$: {
 		if (searchTimer) clearTimeout(searchTimer);
@@ -1178,8 +1177,8 @@
 			padding-top: 0.5rem;
 		}
 	}
-	.post-result {
-	}
+	// .post-result {
+	// }
 	a {
 		color: var(--tertiary-color);
 	}

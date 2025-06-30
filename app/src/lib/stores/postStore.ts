@@ -3,86 +3,21 @@ import type { Post, PostWithInteractions, PostStoreState } from '$lib/types/type
 import { currentUser } from '$lib/pocketbase';
 import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 import { copyToClipboard } from '$lib/utils/clipboardUtils';
+import type {
+	PostsApiResponse,
+	PostUpdateResponse,
+	PostTagStatsResponse,
+	QuotePostResponse,
+	AddCommentResponse,
+	FetchChildrenResponse,
+	UpvoteResponse,
+	RepostResponse,
+	TagPostResponse,
+	MarkAsReadResponse,
+	UpdatePostResponse,
+	DeletePostResponse
+} from '$lib/types/types.posts';
 
-interface PostsApiResponse {
-	success: boolean;
-	posts: PostWithInteractions[];
-	totalPages: number;
-	totalItems: number;
-	filters?: {
-		tag?: string;
-		tags?: string[];
-		parent?: string;
-	};
-}
-interface PostUpdateResponse {
-	success: boolean;
-	id: string;
-	tags: string[];
-	tagCount: number;
-}
-interface PostTagStatsResponse {
-	success: boolean;
-	stats: {
-		tagId: string;
-		tagName: string;
-		postCount: number;
-	}[];
-}
-// Add these interfaces with your other interfaces
-interface QuotePostResponse {
-	success: boolean;
-	post: PostWithInteractions;
-	quoteCount: number;
-	quotedBy: string[];
-}
-
-interface AddCommentResponse {
-	success: boolean;
-	comment: PostWithInteractions;
-	message?: string;
-}
-
-interface FetchChildrenResponse {
-	success: boolean;
-	children: PostWithInteractions[];
-	totalCount?: number;
-}
-interface UpvoteResponse {
-	success: boolean;
-	upvoted: boolean;
-	upvoteCount: number;
-	downvoteCount: number;
-	downvoted: boolean;
-}
-
-interface RepostResponse {
-	success: boolean;
-	reposted: boolean;
-	repostCount: number;
-	repostedBy: string[];
-}
-interface TagPostResponse {
-	success: boolean;
-	message?: string;
-}
-interface MarkAsReadResponse {
-	success: boolean;
-	hasRead: boolean;
-	readCount: number;
-}
-
-interface UpdatePostResponse {
-	success: boolean;
-	id: string;
-	content?: string;
-	tags?: string[];
-}
-
-interface DeletePostResponse {
-	success: boolean;
-	message?: string;
-}
 function createPostStore() {
 	const store = writable<PostStoreState>({
 		posts: [],

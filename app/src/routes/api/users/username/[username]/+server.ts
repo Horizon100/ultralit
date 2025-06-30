@@ -33,7 +33,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 				filter: `username = "${username}"`,
 				// ADD status and last_login here:
 				fields:
-					'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,created,updated,status,last_login,followers,following'
+					'id,username,name,email,avatar,description,profileWallpaper,wallpaper_preference,created,updated,status,last_login,followers,followin,location,website,model_preference,taskAssignments,userTaskStatus,hero'
 			}),
 			'fetch user by username'
 		);
@@ -293,6 +293,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 				follower_count: (user.followers || []).length,
 				following_count: (user.following || []).length,
 				last_login: user.last_login,
+				location: user.location || '',
+				website: user.website || '',
 				created: user.created,
 				updated: user.updated
 			},

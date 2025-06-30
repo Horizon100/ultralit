@@ -33,6 +33,7 @@
 	import { getLanguageHighlighting } from './themes/highlighting';
 	import { clientTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import DOMPurify from 'dompurify';
 
 	let editorElement: HTMLElement;
 	let editorView: EditorView;
@@ -406,7 +407,7 @@
 
 				const newState = EditorState.create({
 					doc: editorView.state.doc,
-					extensions: [...basicExtensions, autosaveExtension]
+					extensions: [...basicExtensions, autosaveExtension] as any
 				});
 
 				editorView.setState(newState);
@@ -815,6 +816,10 @@
 		}
 	}
 
+	$: sanitizedHtml = DOMPurify.sanitize(
+		aiResponse.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+	);
+
 	onMount(async () => {
 		if (browser) {
 			// Load repositories
@@ -944,7 +949,8 @@
 		</div>
 		<div class="toolbar-right">
 			<button on:click={handleSaveFile} class="save-button" aria-label="Save File">
-				<Icon name="Save" /> Save
+				<Icon name="Save" />
+				Save
 			</button>
 			<button on:click={toggleTheme} aria-label="Toggle Theme">
 				{#if darkMode}
@@ -1176,9 +1182,7 @@
 									<div class="ai-thinking">Thinking...</div>
 								{:else}
 									<div class="ai-markdown">
-										<!-- Safe: Processing AI response for code blocks -->
-										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-										{@html aiResponse.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')}
+										{@html sanitizedHtml}
 									</div>
 								{/if}
 							</div>

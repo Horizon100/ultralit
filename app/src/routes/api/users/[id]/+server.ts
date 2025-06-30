@@ -33,6 +33,8 @@ export const GET: RequestHandler = async ({ params }) => {
 				last_login: user.last_login || '',
 				followers: user.followers || [],
 				following: user.following || [],
+				location: user.location || '',
+				website: user.website || '',
 				userTaskStatus: user.userTaskStatus || {
 					backlog: 0,
 					todo: 0,
@@ -78,6 +80,8 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			hero?: string;
 			status?: string;
 			last_login?: string;
+			location?: string;
+			website?: string;
 			userTaskStatus?: {
 				backlog: number;
 				todo: number;
@@ -96,31 +100,30 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		if ('model_preference' in data) {
 			updateData.model_preference = data.model_preference;
 		}
-
 		if ('taskAssignments' in data) {
 			updateData.taskAssignments = data.taskAssignments;
 		}
-
 		if ('hero' in data) {
 			updateData.hero = data.hero;
 		}
-
 		if ('status' in data) {
 			updateData.status = data.status;
 		}
-
 		if ('last_login' in data) {
 			updateData.last_login = data.last_login;
 		}
-
 		if ('userTaskStatus' in data) {
 			updateData.userTaskStatus = data.userTaskStatus;
 		}
-
+		if ('location' in data) {
+			updateData.location = data.location;
+		}
+		if ('website' in data) {
+			updateData.website = data.website;
+		}
 		if ('wallpaper_preference' in data) {
 			updateData.wallpaper_preference = data.wallpaper_preference;
 		}
-
 		if (Object.keys(updateData).length === 0) {
 			return json(
 				{
@@ -145,6 +148,8 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				last_login: updated.last_login || '',
 				followers: updated.followers || [],
 				following: updated.following || [],
+				location: updated.location || '',
+				website: updated.website || '',
 				userTaskStatus: updated.userTaskStatus || {
 					backlog: 0,
 					todo: 0,

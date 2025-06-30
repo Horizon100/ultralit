@@ -272,6 +272,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				last_login: user.last_login || '',
 				followers: user.followers || [],
 				following: user.following || [],
+				location: user.location,
+				website: user.website,
 				created: user.created,
 				updated: user.updated
 			},

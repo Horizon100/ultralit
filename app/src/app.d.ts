@@ -2,8 +2,14 @@
 
 declare namespace svelteHTML {
 	interface HTMLAttributes<T> {
-	  // Allow any attribute on HTML elements
-	  [key: string]: any;
+		// This covers ALL data-* attributes automatically
+		[key: `data-${string}`]: string | number | boolean | undefined;
+		
+		// This covers ALL aria-* attributes automatically  
+		[key: `aria-${string}`]: string | number | boolean | undefined;
+		
+		// This covers ALL use:* actions automatically
+		[key: `use:${string}`]: unknown;
 	}
 	
 	// Add specific typing for elements you use with bind:this

@@ -235,70 +235,29 @@ export class ThreadService {
 	/**
 	 * Loads a specific thread and its messages
 	 */
-	static async loadThread(threadId: string): Promise<Threads | null> {
-		try {
-			messagesStore.setLoading(true);
+static async loadThread(threadId: string): Promise<Threads | null> {
+	
+	try {
+		const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
+			method: 'GET',
+			credentials: 'include'
+		});
 
-			threadsStore.update((state) => ({
-				...state,
-				showThreadList: true
-			}));
-
-			// Ensure user is authenticated
-			await ensureAuthenticated();
-			const currentUserId = get(currentUser)?.id;
-			if (!currentUserId) {
-				throw new Error('User not authenticated');
-			}
-
-			// Fetch thread through API endpoint
-			const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
-				method: 'GET',
-				credentials: 'include'
-			});
-
-			if (!threadResponse.ok) {
-				throw new Error('Failed to fetch thread');
-			}
-
-			const threadData = await threadResponse.json();
-			if (!threadData.success) {
-				throw new Error(threadData.error || 'Failed to fetch thread');
-			}
-
-			const thread = threadData.thread;
-			console.log('Thread loaded:', thread);
-
-			// Verify thread access
-			const hasAccess = await this.verifyThreadAccess(thread, currentUserId);
-			if (!hasAccess) {
-				console.error('Access denied to thread');
-				throw new Error('Unauthorized thread access');
-			}
-
-			// Update stores
-			await threadsStore.setCurrentThread(threadId);
-
-			// Handle project context
-			if (thread.project) {
-				await this.handleProjectContext(thread.project);
-			}
-
-			// Fetch and map messages
-			await this.loadThreadMessages(threadId);
-
-			return thread as Threads;
-		} catch (error) {
-			console.error(`Error loading thread ${threadId}:`, error);
-			if (error instanceof Error && error.message.includes('Unauthorized')) {
-				await threadsStore.setCurrentThread(null);
-				await threadsStore.clearCurrentThread();
-			}
-			return null;
-		} finally {
-			messagesStore.setLoading(false);
+		if (!threadResponse.ok) {
+			throw new Error('Failed to fetch thread');
 		}
+
+		const threadData = await threadResponse.json();
+		if (!threadData.success) {
+			throw new Error(threadData.error || 'Failed to fetch thread');
+		}
+
+		return threadData.thread as Threads;
+	} catch (error) {
+		console.error(`Error loading thread ${threadId}:`, error);
+		return null;
 	}
+}
 
 	/**
 	 * Creates a new thread

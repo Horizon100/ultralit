@@ -115,9 +115,9 @@ export class DateUtils {
 	/**
 	 * Groups threads by time periods
 	 */
-	static groupThreadsByTime(threads: any[]) {
+	static groupThreadsByTime(threads: Threads[]) {
 		const $t = get(t);
-		const grouped: { [key: string]: any[] } = {};
+		const grouped: { [key: string]: Threads[] } = {};
 
 		threads.forEach((thread) => {
 			const date = thread.updated ? new Date(thread.updated) : new Date(thread.created);
@@ -156,7 +156,7 @@ export class DateUtils {
 			$t('dates.yearAgo') as string
 		];
 
-		const sortedGroups: { group: string; threads: any[] }[] = [];
+		const sortedGroups: { group: string; threads: Threads[] }[] = [];
 		const groupOrder = getGroupOrder();
 
 		// Add groups that exist in our threads

@@ -17,34 +17,27 @@
 	import WallpaperSelector from '$lib/features/users/components/WallpaperSelector.svelte';
 	import TimeTracker from '$lib/components/buttons/TimeTracker.svelte';
 	import { clientTryCatch, fetchTryCatch, tryCatchSync, isFailure } from '$lib/utils/errorUtils';
-	interface UserData {
-		id: string;
-		avatarUrl?: string;
-		email?: string;
-		name?: string;
-		username?: string;
-		description?: string;
-		role?: string;
-		created?: string;
-		updated?: string;
-		verified?: boolean;
-		// Add other fields you expect from the API
-	}
+	import type { User } from '$lib/types/types';
 
-	export let user: any;
-
+	export let user: User | null;
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
 
 	let isLoading = false;
 
-	let completeUserData: UserData | null = null;
+	let completeUser: User | null = null;
 	let showAvatarUploader = false;
 
 	let showSaveConfirmation = false;
 	let showKeyInput = false;
 	let isEditing = false;
-	let editedUser = user ? { ...user } : {};
+	let editedUser: Partial<User> = user
+		? { ...user }
+		: {
+				name: '',
+				username: '',
+				description: ''
+			};
 	let showLanguageNotification = false;
 	let showLanguageSelector = false;
 	let selectedLanguageName = '';
@@ -161,7 +154,6 @@
 	function switchTab(tab: string): void {
 		activeTab = tab;
 	}
-
 	async function saveChanges(): Promise<void> {
 		const result = await clientTryCatch(
 			(async () => {
@@ -175,15 +167,15 @@
 					description: editedUser.description
 				});
 
-				// Update both user and completeUserData
+				// Update both user and completeUser with proper typing
 				user = { ...user, ...updatedUser };
-				completeUserData = {
-					...completeUserData,
+				completeUser = {
+					...completeUser,
 					...updatedUser,
-					name: updatedUser.name || completeUserData?.name || '',
-					username: updatedUser.username || completeUserData?.username || '',
-					description: updatedUser.description || completeUserData?.description || ''
-				};
+					name: updatedUser.name || completeUser?.name || '',
+					username: updatedUser.username || completeUser?.username || '',
+					description: updatedUser.description || completeUser?.description || ''
+				} as User;
 
 				isEditing = false;
 				showSaveConfirmation = true;
@@ -254,7 +246,7 @@
 
 	$: placeholderText = getRandomQuote();
 
-	function getAvatarUrl(user: any): string {
+	function getAvatarUrl(user: User): string {
 		if (!user) return '';
 
 		if (user.avatarUrl) return user.avatarUrl;
@@ -343,7 +335,8 @@
 					timerCount = statsData.timerCount || 0;
 
 					if (statsData.lastActive) {
-						const dateResult = tryCatchSync(() => new Date(statsData.lastActive!));
+						const lastActiveValue = statsData.lastActive;
+						const dateResult = tryCatchSync(() => new Date(lastActiveValue));
 						if (isFailure(dateResult)) {
 							console.error('loadUserStats: Error parsing lastActive date:', dateResult.error);
 							lastActive = user.updated ? new Date(user.updated) : new Date();
@@ -379,12 +372,12 @@
 		}
 	}
 
-	async function fetchCompleteUserData(userId: string): Promise<UserData> {
+	async function fetchCompleteUser(userId: string): Promise<User> {
 		const result = await clientTryCatch(
 			(async () => {
 				isLoading = true;
 
-				const fetchResult = await fetchTryCatch<{ user: any }>(`/api/verify/users/${userId}`);
+				const fetchResult = await fetchTryCatch<{ user: User }>(`/api/verify/users/${userId}`);
 
 				if (isFailure(fetchResult)) {
 					throw new Error(`Failed to fetch user data: ${fetchResult.error}`);
@@ -425,8 +418,58 @@
 				id: userId,
 				name: '',
 				username: '',
-				description: ''
-			};
+				description: '',
+				email: '',
+				emailVisibility: false,
+				avatar: '',
+				role: '',
+				created: '',
+				updated: '',
+				verified: false,
+				theme_preference: '',
+				wallpaper_preference: [],
+				profileWallpaper: '',
+				model_preference: [],
+				taskAssignments: [],
+				userTaskStatus: {
+					backlog: 0,
+					todo: 0,
+					focus: 0,
+					inprogress: 0,
+					done: 0,
+					hold: 0,
+					postpone: 0,
+					cancel: 0,
+					review: 0,
+					delegate: 0,
+					archive: 0
+				},
+				collectionId: '',
+				collectionName: 'users',
+				network_preferences: [],
+				preferences: [],
+				messages: [],
+				last_login: '',
+				location: '',
+				website: '',
+				status: 'offline' as const,
+				bookmarks: [],
+				favoriteThreads: [],
+				timer_sessions: [],
+				token_balance: 0,
+				lifetime_tokens: 0,
+				current_subscription: '',
+				activated_features: [],
+				keys: [],
+				selected_provider: '',
+				model: '',
+				prompt_preference: [],
+				sysprompt_preference: '',
+				projects: [],
+				hero: '',
+				followers: [],
+				following: []
+			} as User;
 		}
 
 		return result.data;
@@ -434,8 +477,8 @@
 
 	$: if (user?.id) {
 		isLoading = true;
-		fetchCompleteUserData(user.id).then((data) => {
-			completeUserData = data;
+		fetchCompleteUser(user.id).then((data) => {
+			completeUser = data;
 			editedUser = {
 				name: data.name,
 				username: data.username,
@@ -445,7 +488,7 @@
 		});
 	}
 
-	$: displayUser = completeUserData || user;
+	$: displayUser = completeUser || user;
 
 	function formatDate(dateString?: string): string {
 		if (!dateString) return 'Not available';
@@ -476,20 +519,20 @@
 				// Fetch complete user data in parallel
 				const [completeUser, verifiedData] = await Promise.all([
 					getUserById(user.id),
-					fetchCompleteUserData(user.id)
+					fetchCompleteUser(user.id)
 				]);
 
 				// Safely extract user data from verifiedData
-				const verifiedUserData =
-					verifiedData && typeof verifiedData === 'object' && 'user' in verifiedData
-						? (verifiedData as { user: UserData }).user
-						: (verifiedData as UserData);
 
+				const verifiedUser =
+					verifiedData && typeof verifiedData === 'object' && 'user' in verifiedData
+						? (verifiedData as unknown as { user: User }).user
+						: verifiedData;
 				// Merge all data sources
 				user = {
 					...user,
 					...completeUser,
-					...(verifiedUserData || {}),
+					...(verifiedUser || {}),
 					name: completeUser?.name || completeUser?.fullName || completeUser?.displayName || '',
 					username: completeUser?.username || completeUser?.email?.split('@')[0] || '',
 					description: completeUser?.description || ''
@@ -649,7 +692,7 @@
 										role="button"
 										tabindex="0"
 									>
-										{#if getAvatarUrl($currentUser)}
+										{#if $currentUser && getAvatarUrl($currentUser)}
 											<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
 										{:else}
 											<div class="default-avatar">
@@ -681,7 +724,7 @@
 														>{user.username || user.email.split('@')[0] || 'Not set'}</span
 													>
 													<span class="meta role">
-														{displayUser.role || $t('profile.not_available')}
+														{displayUser?.role || $t('profile.not_available')}
 													</span>
 												</span>
 											{/if}
@@ -707,8 +750,8 @@
 										</div>
 										<div class="info-row">
 											<span class="meta">
-												{displayUser.email || $t('profile.not_available')}
-												{#if displayUser.verified}
+												{displayUser?.email || $t('profile.not_available')}
+												{#if displayUser?.verified}
 													<!-- <MailCheck size={16} class="verified-icon" /> -->
 												{/if}
 											</span>

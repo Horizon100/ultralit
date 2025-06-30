@@ -87,7 +87,7 @@
 			}
 
 			switch (action) {
-				case 'bookmark':
+				case 'bookmark': {
 					const user = $currentUser;
 					if (!user) return;
 
@@ -143,8 +143,9 @@
 						showBookmarkTooltip = false;
 					}, 1000);
 					break;
+				}
 
-				case 'copy':
+				case 'copy': {
 					await MarkupFormatter.copyAsPlainText(message.text || message.content);
 
 					showCopiedTooltip = true;
@@ -152,14 +153,16 @@
 						showCopiedTooltip = false;
 					}, 1000);
 					break;
+				}
 
-				case 'reply':
+				case 'reply': {
 					dispatch('reply', {
 						messageId: message.id
 					});
 					break;
+				}
 
-				case 'task':
+				case 'task': {
 					dispatch('createTask', {
 						messageId: message.id,
 						content: message.content,
@@ -173,7 +176,9 @@
 						showTaskTooltip = false;
 					}, 1000);
 					break;
-				case 'selectResponse':
+				}
+
+				case 'selectResponse': {
 					dispatch('selectResponse', {
 						messageId: message.id,
 						content: message.content,
@@ -187,9 +192,9 @@
 						showSelectionTooltip = false;
 					}, 1000);
 					break;
+				}
 			}
 		} catch (error) {
-			console.error('Error handling reaction:', error);
 			console.error('Error handling reaction:', error);
 			const errorMessage = error instanceof Error ? error.message : 'Failed to process request';
 			dispatch('notification', {

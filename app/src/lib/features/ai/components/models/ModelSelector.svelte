@@ -121,36 +121,37 @@
 		}
 	}
 
-	async function handleModelSelection(model: AIModel) {
-		const enrichedModel: AIModel = {
-			...model,
-			provider: model.provider
-		};
+async function handleModelSelection(model: AIModel) {
+	const enrichedModel: AIModel = {
+		...model,
+		provider: model.provider
+	};
 
-		console.log('Selected model with provider:', enrichedModel.provider);
+	console.log('Selected model with provider:', enrichedModel.provider);
 
-		if ($currentUser) {
-			try {
-				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
-				if (success) {
-					selectedModel = enrichedModel;
-					console.log('Saved model selection to model store');
-
-					currentProvider = model.provider as ProviderType;
-				}
-			} catch (error) {
-				console.warn('Error selecting model:', error);
+	if ($currentUser) {
+		try {
+			const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
+			if (success) {
+				selectedModel = enrichedModel;
+				console.log('Saved model selection to model store');
+				currentProvider = model.provider as ProviderType;
 			}
-		} else {
-			selectedModel = enrichedModel;
-			currentProvider = model.provider as ProviderType;
+		} catch (error) {
+			console.warn('Error selecting model:', error);
 		}
-
-		expandedModelList = null;
-
-		// Dispatch the selection event
-		dispatch('select', enrichedModel);
+	} else {
+		selectedModel = enrichedModel;
+		currentProvider = model.provider as ProviderType;
 	}
+
+	expandedModelList = null;
+
+	// FIX: Dispatch the selection event with the correct structure
+	dispatch('select', { 
+		model: enrichedModel  // Wrap the model in an object
+	});
+}
 
 	async function loadProviderModels(provider: ProviderType) {
 		isLoadingModels = true;

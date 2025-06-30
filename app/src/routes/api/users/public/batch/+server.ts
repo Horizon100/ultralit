@@ -3,41 +3,13 @@ import { pb } from '$lib/server/pocketbase';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { apiTryCatch, pbTryCatch } from '$lib/utils/errorUtils';
-interface CacheData<T> {
-	data: T;
-	timestamp: number;
-}
-
-interface BatchRequestBody {
-	userIds: string[];
-}
-
-interface UserRecord {
-	id: string;
-	username: string;
-	name: string;
-	avatar: string;
-	verified: boolean;
-	description: string;
-	role: string;
-	status: string;
-	followers: string[];
-	following: string[];
-	last_login: string;
-	created: string;
-}
-
-interface BatchResponse {
-	success: boolean;
-	users: (UserRecord | null)[];
-	meta: {
-		requested: number;
-		found: number;
-		cached: boolean;
-		requestId?: string;
-		responseTime?: number;
-	};
-}
+import type {
+	User,
+	PublicUserProfile,
+	CacheData,
+	BatchRequestBody,
+	BatchResponse
+} from '$lib/types/types';
 
 // Module-level constants are fine
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -47,6 +19,46 @@ const CACHE_TTL = 60 * 1000; // 1 minute cache
 // Module-level Maps are fine (they're declarations, not executable code)
 const rateLimits = new Map<string, { count: number; resetTime: number }>();
 const requestCache = new Map<string, CacheData<BatchResponse>>();
+
+// Helper function to convert User to PublicUserProfile
+function toPublicUserProfile(user: User): PublicUserProfile {
+	return {
+		id: user.id,
+		username: user.username,
+		name: user.name || '',
+		email: user.email,
+		avatar: user.avatar,
+		avatarUrl: user.avatar
+			? `${pb.baseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`
+			: null,
+		verified: user.verified,
+		description: user.description,
+		role: user.role,
+		last_login: user.last_login,
+		perks: user.activated_features || [],
+		taskAssignments: user.taskAssignments || [],
+		followers: user.followers || [],
+		following: user.following || [],
+		userTaskStatus: user.userTaskStatus || {
+			backlog: 0,
+			todo: 0,
+			focus: 0,
+			inprogress: 0,
+			done: 0,
+			hold: 0,
+			postpone: 0,
+			cancel: 0,
+			review: 0,
+			delegate: 0,
+			archive: 0
+		},
+		userProjects: user.projects || [],
+		hero: user.hero || '',
+		location: user.location || '',
+		website: user.website || '',
+		created: user.created
+	};
+}
 
 export const POST: RequestHandler = async ({ request, locals, getClientAddress }) =>
 	apiTryCatch(async () => {
@@ -157,35 +169,22 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 		console.log(`[${requestId}] Querying database with filter: ${filter}`);
 
 		// Retry logic for PocketBase requests
-		let users: UserRecord[] | undefined;
+		let users: User[] | undefined;
 		const maxRetries = 2;
 		for (let retryCount = 0; retryCount <= maxRetries; retryCount++) {
 			const result = await pbTryCatch(
 				pb.collection('users').getList(1, MAX_BATCH_SIZE, {
 					filter,
 					fields:
-						'id,username,name,avatar,verified,description,role,status,last_login,followers,following,created',
+						'id,username,name,email,avatar,verified,description,role,status,last_login,followers,following,created,activated_features,taskAssignments,projects,hero,userTaskStatus,location,website,collectionId',
 					requestKey: null
 				}),
 				'fetch users'
 			);
 
 			if (result.success) {
-				// result.data.items is RecordModel[], but we want UserRecord[]
-				users = result.data.items.map((user) => ({
-					id: user.id,
-					username: user.username || '',
-					name: user.name || '',
-					avatar: user.avatar || '',
-					verified: user.verified || false,
-					description: user.description || '',
-					role: user.role || 'user',
-					status: user.status || 'offline',
-					last_login: user.last_login || '',
-					followers: user.followers || [],
-					following: user.following || [],
-					created: user.created
-				}));
+				// Convert RecordModel[] to User[]
+				users = result.data.items as User[];
 				break;
 			}
 
@@ -209,10 +208,11 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 			throw new Error('Failed to fetch users after retries');
 		}
 
-		// Order results according to requested IDs, insert null for missing users
-		const orderedResults: (UserRecord | null)[] = cleanUserIds.map(
-			(requestedId) => users?.find((u) => u.id === requestedId) || null
-		);
+		// Convert to PublicUserProfile and order results according to requested IDs
+		const orderedResults: (PublicUserProfile | null)[] = cleanUserIds.map((requestedId) => {
+			const user = users?.find((u) => u.id === requestedId);
+			return user ? toPublicUserProfile(user) : null;
+		});
 
 		// Build response
 		const response: BatchResponse = {

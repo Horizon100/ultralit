@@ -244,7 +244,7 @@ export const POST: RequestHandler = async (event) =>
 			}
 
 			console.log('🔍 AI API Debug - Final response ready, returning success');
-			return json({ response, success: true });
+return { response, success: true };
 		} catch (aiError) {
 			console.error('🔍 AI API Debug - Error calling AI provider:', aiError);
 			console.error('🔍 AI API Debug - Error details:', {

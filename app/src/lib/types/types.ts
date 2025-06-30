@@ -1,6 +1,48 @@
 import type { RecordModel } from 'pocketbase';
 import type { ThreadSortOption } from '$lib/stores/threadsStore';
 
+export interface PocketBaseError {
+	response?: {
+		code: number;
+		message: string;
+		data?: Record<string, unknown>;
+	};
+	data?: Record<string, unknown>;
+	originalError?: Record<string, unknown>;
+	message?: string;
+}
+
+export interface PocketBaseAuthStore {
+	token: string | null;
+	model?: {
+		id?: string;
+		email?: string;
+		username?: string;
+		name?: string;
+		collectionId?: string;
+		[key: string]: unknown;
+	} | null;
+}
+export interface CacheData<T> {
+	data: T;
+	timestamp: number;
+}
+
+export interface BatchRequestBody {
+	userIds: string[];
+}
+
+export interface BatchResponse {
+	success: boolean;
+	users: (PublicUserProfile | null)[];
+	meta: {
+		requested: number;
+		found: number;
+		cached: boolean;
+		requestId?: string;
+		responseTime?: number;
+	};
+}
 export interface TimerSession {
 	date: string;
 	startTime: string;
@@ -20,6 +62,7 @@ export interface FeatureCardType {
 	name?: string;
 	month?: string;
 	price?: string;
+	isPro?: boolean;
 	features?: string[];
 }
 
@@ -78,7 +121,7 @@ export interface User extends RecordModel {
 	id: string;
 	collectionId: string;
 	collectionName: string;
-	keys: string[];
+	api_keys: string[];
 	selected_provider?: string;
 	model?: string;
 	prompt_preference: string[];
@@ -93,6 +136,7 @@ export interface User extends RecordModel {
 		backlog: number;
 		todo: number;
 		focus: number;
+		inprogress: number;
 		done: number;
 		hold: number;
 		postpone: number;
@@ -101,6 +145,50 @@ export interface User extends RecordModel {
 		delegate: number;
 		archive: number;
 	};
+	location?: string;
+	website?: string;
+}
+
+export interface PublicUserProfile {
+	id: string;
+	username: string;
+	name: string;
+	email: string;
+	avatar: string;
+	avatarUrl: string | null;
+	verified: boolean;
+	description: string;
+	role: string;
+	last_login: string;
+	perks: string[];
+	taskAssignments: string[];
+	followers: string[];
+	following: string[];
+	userTaskStatus: {
+		backlog: number;
+		todo: number;
+		focus: number;
+		done: number;
+		hold: number;
+		postpone: number;
+		cancel: number;
+		review: number;
+		delegate: number;
+		archive: number;
+	};
+	userProjects: string[];
+	hero: string;
+	location: string;
+	website: string;
+	created: string;
+}
+export interface UserProfile {
+	id: string;
+	name: string;
+	username: string;
+	email: string;
+	avatarUrl: string;
+	avatar: string;
 }
 export interface DMMessage {
 	id: string;
@@ -136,46 +224,6 @@ export interface ConversationUser {
 	status?: 'online' | 'offline';
 	username?: string;
 }
-export interface PublicUserProfile {
-	id: string;
-	username: string;
-	name: string;
-	email: string;
-	avatar: string;
-	avatarUrl: string | null;
-	verified: boolean;
-	description: string;
-	role: string;
-	last_login: string;
-	perks: string[];
-	taskAssignments: string[];
-	followers: string[];
-	following: string[];
-	userTaskStatus: {
-		backlog: number;
-		todo: number;
-		focus: number;
-		done: number;
-		hold: number;
-		postpone: number;
-		cancel: number;
-		review: number;
-		delegate: number;
-		archive: number;
-	};
-	userProjects: string[];
-	hero: string;
-	created: string;
-}
-export interface UserProfile {
-	id: string;
-	name: string;
-	username: string;
-	email: string;
-	avatarUrl: string;
-	avatar: string;
-}
-
 export interface Prompt {
 	value: PromptType;
 	label: string;
@@ -196,6 +244,25 @@ export interface PromptInput {
 
 export type PromptType = 'NORMAL' | 'CONCISE' | 'CRITICAL' | 'INTERVIEW';
 
+export interface PromptState {
+	promptType: PromptType;
+	currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
+	scenarios: Scenario[];
+	tasks: Task[];
+	guidance: Guidance | null;
+	selectedScenario: Scenario | null;
+	selectedTask: Task | null;
+	summary: string;
+	networkData: string;
+}
+export interface PromptSelectEvent {
+	promptId: string;
+	promptText: string;
+}
+export interface PromptAuxClickEvent {
+	promptId: string;
+	event: MouseEvent;
+}
 export interface ThreadGroup {
 	group: string;
 	threads: Threads[];
@@ -485,11 +552,14 @@ export interface VisNode {
 	x?: number;
 	y?: number;
 }
-
+export interface NetworkEdge {
+    source: string; 
+    target: string;
+}
 export interface NetworkData {
 	id?: string;
 	nodes: VisNode[];
-	edges: { source: string; target: string }[];
+    edges: NetworkEdge[]; 
 	rootAgent: VisNode;
 	childAgents: VisNode[];
 	tasks: Task[];
@@ -692,6 +762,21 @@ export interface Tag extends RecordModel {
 	thread_id: string[];
 	user: string;
 }
+
+export type FolderEventDetail = 
+    | { type: 'select'; detail: Folders }
+    | { type: 'toggle'; detail: string }
+    | { type: 'rename'; detail: Folders }
+    | { type: 'delete'; detail: string }
+    | { type: 'create'; detail: { parentId: string; name: string } }
+    | { type: 'move'; detail: { folderId: string; newParentId: string } }
+    | { type: 'toggleFolder'; detail: Folders }
+    | { type: 'handleDragStart'; detail: { event: DragEvent; item: Folders | Notes; isFolder: boolean } }
+    | { type: 'handleDragOver'; detail: { event: DragEvent; folder: Folders } }
+    | { type: 'handleDrop'; detail: { event: DragEvent; folder: Folders } }
+    | { type: 'showContextMenu'; detail: { event: MouseEvent; item: Folders | Notes; isFolder: boolean } }
+    | { type: 'openNote'; detail: Notes };
+		
 export type Folders = {
 	id: string;
 	title: string;
@@ -727,6 +812,7 @@ export type Notes = {
 	attachments?: Attachment[];
 	order: number;
 	project?: Projects;
+	parentId?: string;
 };
 
 export type NoteRecord = Notes & {
@@ -848,6 +934,19 @@ export interface Projects extends RecordModel {
 	aiSuggestions: string[];
 }
 
+export interface ProjectStatsData {
+	messageCount?: number;
+	documentCount?: number;
+	collaboratorCount?: number;
+	completionPercentage?: number;
+	lastActive?: string;
+}
+
+export interface ProjectStatsResponse {
+	success: boolean;
+	data?: ProjectStatsData;
+	error?: string;
+}
 export interface ExpandedSections {
 	prompts: boolean;
 	sysprompts: boolean;
@@ -857,17 +956,7 @@ export interface ExpandedSections {
 	collaborators: boolean;
 }
 
-export interface PromptState {
-	promptType: PromptType;
-	currentStage: 'initial' | 'scenarios' | 'guidance' | 'tasks' | 'refinement' | 'final' | 'summary';
-	scenarios: Scenario[];
-	tasks: Task[];
-	guidance: Guidance | null;
-	selectedScenario: Scenario | null;
-	selectedTask: Task | null;
-	summary: string;
-	networkData: string;
-}
+
 
 export interface UIState {
 	isLoading: boolean;
@@ -912,4 +1001,10 @@ export interface Perk extends RecordModel {
 	perkIcon: string;
 	filterConditions: PerkFilterCondition[];
 	achievedBy?: string[];
+}
+
+export interface SwipeConfig {
+	threshold?: number;
+	direction?: 'horizontal' | 'vertical' | 'both';
+	touchTarget?: HTMLElement;
 }

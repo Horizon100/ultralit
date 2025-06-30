@@ -48,27 +48,41 @@ export async function generateThreadName(
 			console.log('Sending prompt for thread name generation:', messages);
 
 			// Direct API call to bypass fetchAIResponse and prompts
-			const fetchResult = await fetchTryCatch<{ response: string }>('/api/ai', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					messages,
-					model: modelToUse,
-					userId
-				})
-			});
+const fetchResult = await fetchTryCatch('/api/ai', {
+	method: 'POST',
+	headers: { 'Content-Type': 'application/json' },
+	body: JSON.stringify({
+		messages,
+		model: modelToUse,
+		userId
+	})
+});
 
-			if (isFailure(fetchResult)) {
-				throw new Error(`Failed to generate thread name: ${fetchResult.error}`);
-			}
+if (isFailure(fetchResult)) {
+	throw new Error(`Failed to generate thread name: ${fetchResult.error}`);
+}
 
-			const data = fetchResult.data;
-			console.log('Received thread name suggestion:', data.response);
+const data: any = fetchResult.data;
 
-			const cleanName = data.response
-				.replace(/^["']|["']$/g, '')
-				.trim()
-				.slice(0, 50);
+// FIX: Handle the wrapped response format like in your main AI client
+let responseText: string;
+if (data && typeof data === 'object' && data.success && data.data && data.data.response) {
+	responseText = data.data.response;
+} else if (data && typeof data === 'object' && data.response) {
+	responseText = data.response;
+} else {
+	console.error('Unexpected response format for thread naming:', data);
+	throw new Error('Could not extract response from thread naming API');
+}
+
+console.log('Received thread name suggestion:', responseText);
+
+const cleanName = responseText
+	.replace(/^["']|["']$/g, '')
+	.trim()
+	.slice(0, 50);
+
+
 
 			console.log('Cleaned thread name:', cleanName);
 			return cleanName || 'New Conversation';

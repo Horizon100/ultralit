@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
-	import type { Perk, PerkFilterCondition, TimerSession } from '$lib/types/types';
+	import type {
+		Perk,
+		PerkFilterCondition,
+		TimerSession,
+		TimerSessionSummary
+	} from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
 	import { PERKS, INCREMENTS } from '$lib/features/users/utils/perks';
@@ -369,7 +374,7 @@
 
 		const result = await fetchTryCatch<{
 			success: boolean;
-			sessions?: any[];
+			sessions?: TimerSession[];
 			totalDuration?: number;
 		}>(`/api/users/${$currentUser.id}/tracking`, {
 			credentials: 'include'

@@ -262,8 +262,8 @@
 					</div>
 				{:else}{/if}
 
-				{#if showOverlay && user && !authError}
-					<div class="chat" in:fly={{ x: 200, duration: 400 }} out:fade={{ duration: 300 }}>
+				{#if $showOverlay && user && !authError}
+					<div class="chat" in:fly={{ y: 200, duration: 400 }} out:fade={{ duration: 300 }}>
 						<AIChat
 							message={defaultMessage}
 							{threadId}
@@ -445,8 +445,8 @@
 	}
 	.chat {
 		width: 100% !important;
-		max-width: 600px;
-		position: absolute;
+		max-width: 1200px ;
+
 		display: flex;
 		right: 0.5rem;
 		top: 0;

@@ -81,8 +81,8 @@
 				// Support both array and { data: array } formats
 				if (Array.isArray(result.data)) {
 					collaborators = result.data;
-				} else if (result.data && Array.isArray((result.data as any).data)) {
-					collaborators = (result.data as any).data;
+				} else if (result.data && Array.isArray((result.data as User).data)) {
+					collaborators = (result.data as User).data;
 				} else {
 					console.error('Unexpected collaborators data structure:', result.data);
 					collaborators = [];
@@ -150,7 +150,6 @@
 			const users = await response.json();
 			console.log('Search API response:', users);
 
-			// Check if we have any users returned
 			if (Array.isArray(users) && users.length > 0) {
 				console.log('Total users found:', users.length);
 

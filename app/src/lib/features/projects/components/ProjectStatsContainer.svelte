@@ -3,7 +3,7 @@
 	import { t } from '$lib/stores/translationStore';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { fetchTryCatch, isSuccess } from '$lib/utils/errorUtils';
-
+	import type { ProjectStatsData, ProjectStatsResponse } from '$lib/types/types';
 	// Stats variables
 	let messageCount = 0;
 	let collaboratorCount = 0;
@@ -42,13 +42,10 @@
 		completionPercentage = 0;
 		lastActive = null;
 
-		const result = await fetchTryCatch<{ success: boolean; data?: any; error?: string }>(
-			`/api/projects/${id}/stats`,
-			{
-				method: 'GET',
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
+		const result = await fetchTryCatch<ProjectStatsResponse>(`/api/projects/${id}/stats`, {
+			method: 'GET',
+			headers: { 'Content-Type': 'application/json' }
+		});
 
 		if (isSuccess(result)) {
 			const { success, data } = result.data;

@@ -9,7 +9,12 @@
 	import type { User } from '$lib/types/types';
 
 	export let post: PostWithInteractions;
-	export let repostedBy: User | null = null;
+	export let repostedBy: {
+		id?: string;
+		username?: string;
+		name?: string;
+		avatar?: string;
+	} | null = null;
 
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'share' | 'read' };

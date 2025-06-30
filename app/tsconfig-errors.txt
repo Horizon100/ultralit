@@ -1,0 +1,29 @@
+R
+====================================
+Loading svelte-check in workspace: /Users/jr/Repositories/ultralit/app
+Getting Svelte diagnostics...
+
+/Users/jr/Repositories/ultralit/app/src/lib/services/userService.ts:239:3
+Error: Type '{ id: string; username: string; name: string; email: string; avatar: string; avatarUrl: any; verified: boolean; description: string; role: string; last_login: string; perks: never[]; taskAssignments: string[]; ... 5 more ...; following: string[]; }' is missing the following properties from type 'PublicUserProfile': location, website 
+
+		return {
+			id: user.id,
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/features/ai/components/chat/AIChatCopy.svelte:756:6
+Error: Type 'boolean' has no properties in common with type 'SwipeConfig'. (ts)
+				{showUserFilter}
+				{drawerSwipeConfig}
+				on:createThread={handleCreateNewThread}
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/features/game/components/MapView.svelte:178:3
+Error: Type 'number' is not assignable to type '{ width: number; height: number; }'. (ts)
+	data={roomData}
+	{gridSize}
+	{pixelToGrid}
+
+
+====================================
+svelte-check found 3 errors and 16852 warnings in 130 files
+Check completed successfully!

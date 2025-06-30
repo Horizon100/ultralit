@@ -153,6 +153,23 @@ export interface CommentWithInteractions extends Comment {
 	tags: string[];
 	attachments?: PostAttachment[];
 	user: string;
+	author_name?: string;
+	author_username?: string;
+	author_avatar?: string;
+	isRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
+	expand?: {
+		user?: {
+			id: string;
+			name?: string;
+			username?: string;
+			avatar?: string;
+		};
+	};
 }
 export interface PostChild {
 	id: string;
@@ -175,3 +192,86 @@ export interface PostChild {
 	author_avatar?: string;
 	children: PostChild[];
 }
+
+export interface PostsApiResponse {
+	success: boolean;
+	posts: PostWithInteractions[];
+	totalPages: number;
+	totalItems: number;
+	filters?: {
+		tag?: string;
+		tags?: string[];
+		parent?: string;
+	};
+}
+export interface PostUpdateResponse {
+	success: boolean;
+	id: string;
+	tags: string[];
+	tagCount: number;
+}
+export interface PostTagStatsResponse {
+	success: boolean;
+	stats: {
+		tagId: string;
+		tagName: string;
+		postCount: number;
+	}[];
+}
+export interface QuotePostResponse {
+	success: boolean;
+	post: PostWithInteractions;
+	quoteCount: number;
+	quotedBy: string[];
+}
+
+export interface AddCommentResponse {
+	success: boolean;
+	comment: PostWithInteractions;
+	message?: string;
+}
+
+export interface FetchChildrenResponse {
+	success: boolean;
+	children: PostWithInteractions[];
+	totalCount?: number;
+}
+export interface UpvoteResponse {
+	success: boolean;
+	upvoted: boolean;
+	upvoteCount: number;
+	downvoteCount: number;
+	downvoted: boolean;
+}
+
+export interface RepostResponse {
+	success: boolean;
+	reposted: boolean;
+	repostCount: number;
+	repostedBy: string[];
+}
+export interface TagPostResponse {
+	success: boolean;
+	message?: string;
+}
+export interface MarkAsReadResponse {
+	success: boolean;
+	hasRead: boolean;
+	readCount: number;
+}
+
+export interface UpdatePostResponse {
+	success: boolean;
+	id: string;
+	content?: string;
+	tags?: string[];
+}
+
+export interface DeletePostResponse {
+	success: boolean;
+	message?: string;
+}
+export type PostUpdateData =
+	| Pick<UpvoteResponse, 'upvoted' | 'upvoteCount' | 'downvoteCount'>
+	| Pick<RepostResponse, 'reposted' | 'repostCount'>
+	| Pick<MarkAsReadResponse, 'hasRead'>;

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
-import type { User } from '$lib/types/types';
+import type { User, PocketBaseError } from '$lib/types/types';
 import { apiTryCatch } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -98,16 +98,34 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 					last_login: updatedUser.last_login
 				});
 			} catch (updateError: unknown) {
-				const error = updateError as any; // Type assertion for PocketBase error
 				console.error('❌ PocketBase update failed with error:', updateError);
 
-				// Log the FULL error response to see exactly what PocketBase is rejecting
-				console.error('❌ Full error response:', JSON.stringify(error.response, null, 2));
-				console.error('❌ Error data:', JSON.stringify(error.data, null, 2));
-				console.error('❌ Original error data:', JSON.stringify(error.originalError, null, 2));
+				// Type guard to check if it's a PocketBase error
+				function isPocketBaseError(error: unknown): error is PocketBaseError {
+					return (
+						typeof error === 'object' &&
+						error !== null &&
+						('response' in error || 'data' in error || 'originalError' in error)
+					);
+				}
 
-				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-				throw new Error(`PocketBase update failed: ${errorMessage}`);
+				if (isPocketBaseError(updateError)) {
+					// Log the FULL error response to see exactly what PocketBase is rejecting
+					console.error('❌ Full error response:', JSON.stringify(updateError.response, null, 2));
+					console.error('❌ Error data:', JSON.stringify(updateError.data, null, 2));
+					console.error(
+						'❌ Original error data:',
+						JSON.stringify(updateError.originalError, null, 2)
+					);
+
+					const errorMessage =
+						updateError.message || updateError.response?.message || 'PocketBase error';
+					throw new Error(`PocketBase update failed: ${errorMessage}`);
+				} else if (updateError instanceof Error) {
+					throw new Error(`PocketBase update failed: ${updateError.message}`);
+				} else {
+					throw new Error('PocketBase update failed: Unknown error');
+				}
 			}
 			console.log('🔍 === STATUS PATCH DEBUG END ===');
 
