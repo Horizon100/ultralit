@@ -11,7 +11,7 @@
 	} from '$lib/types/types';
 	import Calendar from '$lib/components/data/Calendar.svelte';
 
-	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { currentUser, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { SYSTEM_PROMPTS, availablePrompts } from '$lib/features/ai/utils/prompts';
 	import {
 		promptStore,

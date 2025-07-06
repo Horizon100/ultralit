@@ -56,7 +56,7 @@ function createPostStore() {
 					console.log('Adding tags to post:', { postId, tagIds });
 
 					// Update the post with new tags
-					const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}`, {
+const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}/tags`, {
 						method: 'PATCH',
 						headers: {
 							'Content-Type': 'application/json'
@@ -216,114 +216,62 @@ function createPostStore() {
 			return result.data;
 		},
 
-		/**
-		 * Replace all tags on a post (used by auto-tagging)
-		 */
-		setPostTags: async (postId: string, newTagIds: string[]) => {
-			const result = await clientTryCatch(
-				(async () => {
-					const user = get(currentUser);
-					if (!user?.id) {
-						throw new Error('User not authenticated');
-					}
-
-					console.log('Setting post tags:', { postId, newTagIds });
-
-					// Get current post to find existing tags for cleanup
-					const currentState = get(store);
-					const currentPost = currentState.posts.find((p) => p.id === postId);
-					const currentTags: string[] = currentPost?.tags || [];
-
-					// Update the post with new tags
-					const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}`, {
-						method: 'PATCH',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							tags: newTagIds,
-							tagCount: newTagIds.length
-						}),
-						credentials: 'include'
-					});
-
-					if (isFailure(postUpdateResult)) {
-						throw new Error(`Failed to set post tags: ${postUpdateResult.error}`);
-					}
-
-					const updatedPost = postUpdateResult.data;
-
-					// Update local store immediately
-					update((state) => ({
-						...state,
-						posts: state.posts.map((post) =>
-							post.id === postId
-								? {
-										...post,
-										tags: newTagIds,
-										tagCount: newTagIds.length
-									}
-								: post
-						)
-					}));
-
-					const tagsToRemove = currentTags.filter((tagId: string) => !newTagIds.includes(tagId));
-					const tagsToAdd = newTagIds.filter((tagId: string) => !currentTags.includes(tagId));
-
-					// Remove old tag relationships
-					Promise.all(
-						tagsToRemove.map(async (tagId: string) => {
-							const removeResult = await fetchTryCatch<PostUpdateResponse>(
-								`/api/tags/${tagId}/posts/${postId}`,
-								{
-									method: 'DELETE',
-									credentials: 'include'
-								}
-							);
-
-							if (isFailure(removeResult)) {
-								console.error(
-									`Failed to remove post reference from tag ${tagId}:`,
-									removeResult.error
-								);
-							}
-						})
-					);
-
-					// Add new tag relationships
-					Promise.all(
-						tagsToAdd.map(async (tagId: string) => {
-							const addResult = await fetchTryCatch<PostUpdateResponse>(
-								`/api/tags/${tagId}/posts`,
-								{
-									method: 'POST',
-									headers: {
-										'Content-Type': 'application/json'
-									},
-									body: JSON.stringify({ postId }),
-									credentials: 'include'
-								}
-							);
-
-							if (isFailure(addResult)) {
-								console.error(`Failed to add post reference to tag ${tagId}:`, addResult.error);
-							}
-						})
-					);
-
-					console.log('Successfully set post tags:', postId);
-					return updatedPost;
-				})(),
-				`Setting tags for post ${postId}`
-			);
-
-			if (isFailure(result)) {
-				console.error('Error setting post tags:', result.error);
-				throw new Error(result.error);
+	setPostTags: async (postId: string, newTagIds: string[]) => {
+	const result = await clientTryCatch(
+		(async () => {
+			const user = get(currentUser);
+			if (!user?.id) {
+				throw new Error('User not authenticated');
 			}
 
-			return result.data;
-		},
+			console.log('Setting post tags:', { postId, newTagIds });
+
+			// Update the post with new tags - USE THE CORRECT ENDPOINT
+			const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}/tags`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					tags: newTagIds,
+					tagCount: newTagIds.length
+				}),
+				credentials: 'include'
+			});
+
+			if (isFailure(postUpdateResult)) {
+				throw new Error(`Failed to set post tags: ${postUpdateResult.error}`);
+			}
+
+			const updatedPost = postUpdateResult.data;
+
+			// Update local store immediately
+			update((state) => ({
+				...state,
+				posts: state.posts.map((post) =>
+					post.id === postId
+						? {
+								...post,
+								tags: newTagIds,
+								tagCount: newTagIds.length
+							}
+						: post
+				)
+			}));
+
+			console.log('Successfully set post tags:', postId);
+			return updatedPost;
+		})(),
+		`Setting tags for post ${postId}`
+	);
+
+	if (isFailure(result)) {
+		console.error('Error setting post tags:', result.error);
+		throw new Error(result.error);
+	}
+
+	return result.data;
+},
 
 		/**
 		 * Fetch posts by tag

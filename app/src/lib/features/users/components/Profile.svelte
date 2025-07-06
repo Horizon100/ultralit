@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { onMount, tick } from 'svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { currentUser, refreshCurrentUser, pocketbaseUrl, uploadAvatar, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { currentUser, refreshCurrentUser, uploadAvatar, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';

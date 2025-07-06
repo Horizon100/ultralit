@@ -1,10 +1,10 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get} from 'svelte/store';
 import PocketBase from 'pocketbase';
-import { pocketbaseUrl } from '$lib/pocketbase';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
 import type { Threads } from '$lib/types/types';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
-const pb = new PocketBase(pocketbaseUrl);
+const pb = new PocketBase(get(pocketbaseUrl));
 
 interface MessageCounts {
 	[threadId: string]: number;

@@ -1,29 +1,107 @@
-R
+
 ====================================
 Loading svelte-check in workspace: /Users/jr/Repositories/ultralit/app
 Getting Svelte diagnostics...
 
-/Users/jr/Repositories/ultralit/app/src/lib/services/userService.ts:239:3
-Error: Type '{ id: string; username: string; name: string; email: string; avatar: string; avatarUrl: any; verified: boolean; description: string; role: string; last_login: string; perks: never[]; taskAssignments: string[]; ... 5 more ...; following: string[]; }' is missing the following properties from type 'PublicUserProfile': location, website 
+/Users/jr/Repositories/ultralit/app/src/lib/clients/threadsClient.ts:48:55
+Error: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value. 
 
-		return {
-			id: user.id,
+	private static async executeFetch(threadId: string): Promise<Messages[]> {
+		// Your existing fetchMessagesForThread implementation here
 
 
-/Users/jr/Repositories/ultralit/app/src/lib/features/ai/components/chat/AIChatCopy.svelte:756:6
-Error: Type 'boolean' has no properties in common with type 'SwipeConfig'. (ts)
+/Users/jr/Repositories/ultralit/app/src/lib/stores/threadsStore.ts:176:25
+Error: Conversion of type 'Messages[] & Record<"success", unknown>' to type '{ success: boolean; data: Messages[]; error?: string | undefined; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'data' is missing in type 'Messages[] & Record<"success", unknown>' but required in type '{ success: boolean; data: Messages[]; error?: string | undefined; }'. 
+				if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
+					const resultType = messagesResult as { success: boolean; data: Messages[]; error?: string };
+					if (!resultType.success) {
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/stores/threadsStore.ts:420:24
+Error: Property 'safeLoadMessages' does not exist on type 'typeof ThreadRequestManager'. 
+	const result = await clientTryCatch(
+		ThreadRequestManager.safeLoadMessages(threadId),
+		`Loading messages for thread ${threadId}`
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/stores/threadsStore.ts:431:33
+Error: Type 'unknown' is not assignable to type 'Messages[]'. 
+	const messages = result.data;
+	update((state) => ({ ...state, messages, currentThreadId: threadId }));
+	return messages;
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/stores/threadsStore.ts:432:2
+Error: Type 'unknown' is not assignable to type 'Messages[]'. 
+	update((state) => ({ ...state, messages, currentThreadId: threadId }));
+	return messages;
+},
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/composables/useLifecycleManagement.ts:198:92
+Error: 'modelToUse' is possibly 'null'. 
+                        modelToUse = providerModels[0];
+                        console.log(`Selected model from preferred provider ${provider}:`, modelToUse.name);
+                        break;
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/composables/useLifecycleManagement.ts:208:53
+Error: 'modelToUse' is possibly 'null'. 
+            modelToUse = validModels[0];
+            console.log('Using first valid model:', modelToUse.name);
+        }
+
+
+/Users/jr/Repositories/ultralit/app/src/lib/features/ai/components/chat/AIChat.svelte:859:5
+Error: Object literal may only specify known properties, and '"swipeConfig"' does not exist in type '{ threads?: Threads[] | undefined; currentThreadId?: string | null | undefined; isCreatingThread?: boolean | undefined; isLoadingProject?: boolean | undefined; isLoadingThreads?: boolean | undefined; ... 5 more ...; focusOnMount?: ((node: HTMLElement) => void) | undefined; }'. (ts)
 				{showUserFilter}
-				{drawerSwipeConfig}
+				swipeConfig={drawerSwipeConfig}
 				on:createThread={handleCreateNewThread}
 
 
-/Users/jr/Repositories/ultralit/app/src/lib/features/game/components/MapView.svelte:178:3
+/Users/jr/Repositories/ultralit/app/src/lib/features/tasks/Kanban.svelte:2376:24
+Error: Argument of type '{}' is not assignable to parameter of type 'string'. (ts)
+					<div class="description-display" on:click={() => (isEditingDescription = true)}>
+						{capitalizeFirst(descriptionText)}
+					</div>
+
+
+/Users/jr/Repositories/ultralit/app/src/routes/+layout.svelte:329:11
+Error: No overload matches this call.
+  Overload 1 of 2, '(type: keyof WindowEventMap, listener: (this: Window, ev: Event | MouseEvent | UIEvent | ErrorEvent | ProgressEvent<EventTarget> | ... 24 more ... | StorageEvent) => any, options?: boolean | ... 1 more ... | undefined): void', gave the following error.
+    Argument of type '"avatarUpdated"' is not assignable to parameter of type 'keyof WindowEventMap'.
+  Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions | undefined): void', gave the following error.
+    Argument of type '(event: CustomEvent<any>) => void' is not assignable to parameter of type 'EventListenerOrEventListenerObject'.
+      Type '(event: CustomEvent<any>) => void' is not assignable to type 'EventListener'.
+        Types of parameters 'event' and 'evt' are incompatible.
+          Type 'Event' is missing the following properties from type 'CustomEvent<any>': detail, initCustomEvent (ts)
+		if (browser) {
+			window.addEventListener('avatarUpdated', handleAvatarUpdate);
+		}
+
+
+/Users/jr/Repositories/ultralit/app/src/routes/+layout.svelte:470:11
+Error: No overload matches this call.
+  Overload 1 of 2, '(type: keyof WindowEventMap, listener: (this: Window, ev: Event | MouseEvent | UIEvent | ErrorEvent | ProgressEvent<EventTarget> | ... 24 more ... | StorageEvent) => any, options?: boolean | ... 1 more ... | undefined): void', gave the following error.
+    Argument of type '"avatarUpdated"' is not assignable to parameter of type 'keyof WindowEventMap'.
+  Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions | undefined): void', gave the following error.
+    Argument of type '(event: CustomEvent<any>) => void' is not assignable to parameter of type 'EventListenerOrEventListenerObject'.
+      Type '(event: CustomEvent<any>) => void' is not assignable to type 'EventListener'.
+        Types of parameters 'event' and 'evt' are incompatible.
+          Type 'Event' is missing the following properties from type 'CustomEvent<any>': detail, initCustomEvent (ts)
+		if (browser) {
+			window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+		}
+
+
+/Users/jr/Repositories/ultralit/app/src/routes/game/navigator/+page.svelte:344:26
 Error: Type 'number' is not assignable to type '{ width: number; height: number; }'. (ts)
-	data={roomData}
-	{gridSize}
-	{pixelToGrid}
+			{#each buildings as container}
+				<MapView {container} gridSize={GRID_SIZE} {data} bind:isInsideBuilding />
+			{/each}
 
 
 ====================================
-svelte-check found 3 errors and 16852 warnings in 130 files
+svelte-check found 12 errors and 16502 warnings in 131 files
 Check completed successfully!

@@ -30,7 +30,7 @@
 	import type { WallpaperPreference } from '$lib/utils/wallpapers';
 	import type { User, PromptSelectEvent, PromptAuxClickEvent } from '$lib/types/types';
 	// Stores
-	import { currentUser, refreshCurrentUser, pocketbaseUrl, signOut } from '$lib/pocketbase';
+	import { currentUser, refreshCurrentUser, signOut } from '$lib/pocketbase';
 	import { currentTheme } from '$lib/stores/themeStore';
 	import {
 		currentLanguage,
@@ -260,20 +260,6 @@
 		toggleThreadList();
 	}
 
-	function getAvatarUrl(user: User): string {
-		if (!user) return '';
-
-		// If avatarUrl is already provided (e.g., from social login)
-		if (user.avatarUrl) return user.avatarUrl;
-
-		// For PocketBase avatars
-		if (user.avatar) {
-			return `${pocketbaseUrl}/api/files/${user.collectionId || 'users'}/${user.id}/${user.avatar}`;
-		}
-
-		// Fallback - no avatar
-		return '';
-	}
 
 	async function handleLanguageChange() {
 		showLanguageNotification = true;

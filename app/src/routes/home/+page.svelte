@@ -6,7 +6,7 @@
 	import type { User, UserProfile, Threads, Messages } from '$lib/types/types';
 	import type { PostWithInteractions, PostStoreState, TimelinePost } from '$lib/types/types.posts';
 	import { postStore } from '$lib/stores/postStore';
-	import { pocketbaseUrl, getPublicUserData, currentUser } from '$lib/pocketbase';
+	import { getPublicUserData, currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
 	import PostComposer from '$lib/features/posts/components/PostComposer.svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
@@ -21,7 +21,8 @@
 	import { swipeGesture } from '$lib/utils/swipeGesture';
 	import {
 		processPostTaggingAsync,
-		shouldGenerateTags
+		shouldGenerateTags,
+		type LocalTaggingOptions
 	} from '$lib/features/posts/utils/postTagging';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 	import type { AIModel } from '$lib/types/types';
@@ -39,6 +40,8 @@
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 	import { showSidenav, showInput, showRightSidenav, showDebug } from '$lib/stores/sidenavStore';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
+import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilterStore';
+
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
 	let homeHasMore = true;
 	let homeLoadingMore = false;
@@ -47,7 +50,7 @@
 	let homePosts: PostWithInteractions[] = [];
 	let postComposerRef: PostComposer | null = null;
 	let enableAutoTagging = true;
-	let taggingModel: AIModel | null = null;
+	let taggingModel: string = 'qwen2.5:0.5b';
 	let showPostModal = false;
 	let isCommentModalOpen = false;
 	let selectedPost: PostWithInteractions | null = null;
@@ -55,25 +58,29 @@
 	let userProfilesMap: Map<string, Partial<User> | null> = new Map();
 	let loadingMore = false;
 	let hasMore = true;
-	let rightSideCleanup: (() => void) | null = null;
+	// let rightSideCleanup: (() => void) | null = null;
 	let currentOffset = 0;
+	export  let selectedLocalModel = 'qwen2.5:0.5b';
 
 	const HOME_POSTS_PER_PAGE = 10;
 
-	const rightSideHoverManager = createHoverManager({
-		hoverZone: 200,
-		minScreenWidth: 700,
-		debounceDelay: 100,
-		controls: ['rightSidenav'],
-		direction: 'right'
-	});
+	// const rightSideHoverManager = createHoverManager({
+	// 	hoverZone: 200,
+	// 	minScreenWidth: 700,
+	// 	debounceDelay: 100,
+	// 	controls: ['rightSidenav'],
+	// 	direction: 'right'
+	// });
 
-	const {
-		hoverState: rightSideHoverState,
-		handleMenuLeave: handleRightSideLeave,
-		toggleMenu: toggleRightSide
-	} = rightSideHoverManager;
-
+	// const {
+	// 	hoverState: rightSideHoverState,
+	// 	handleMenuLeave: handleRightSideLeave,
+	// 	toggleMenu: toggleRightSide
+	// } = rightSideHoverManager;
+  function handleModelSelect(event: CustomEvent<{ model: string }>) {
+    selectedLocalModel = event.detail.model;
+    console.log('🔄 Model updated on home page:', selectedLocalModel);
+  }
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
 		const fetchPromises = userIds.map(async (userId) => {
 			try {
@@ -106,48 +113,69 @@
 	function closePostModal() {
 		showPostModal = false;
 	}
+function syncPostsForTags(homePosts: PostWithInteractions[]) {
+	// Update the postStore with your home posts data so tagFilterStore can access them
+	postStore.setPosts(homePosts);
+	
+	// Trigger tag count update
+	tagFilterStore.updateTagCounts();
+}
+async function handlePostSubmit(
+	event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
+) {
+	try {
+		const { content, attachments, parentId } = event.detail;
 
-	async function handlePostSubmit(
-		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
-	) {
-		try {
-			const { content, attachments, parentId } = event.detail;
+		// Create the post first (existing functionality)
+		const newPost = await postStore.addPost(content, attachments, parentId);
 
-			// Create the post first (existing functionality)
-			const newPost = await postStore.addPost(content, attachments, parentId);
+		console.log('Post created successfully:', newPost.id);
 
-			console.log('Post created successfully:', newPost.id);
+		/*
+		 * Handle auto-tagging if enabled and conditions are met
+		 * Only tag main posts (not comments) that meet minimum requirements
+		 */
+		const currentUserData = get(currentUser);
+		if (enableAutoTagging && shouldGenerateTags(content) && currentUserData?.id && !parentId) {
+			console.log('Starting auto-tagging for post:', newPost.id);
 
-			/*
-			 * Handle auto-tagging if enabled and conditions are met
-			 * Only tag main posts (not comments) that meet minimum requirements
-			 */
-			const currentUserData = get(currentUser);
-			if (enableAutoTagging && shouldGenerateTags(content) && currentUserData?.id && !parentId) {
-				console.log('Starting auto-tagging for post:', newPost.id);
+			try {
+				// Build tagging options for local AI
+				const taggingOptions: LocalTaggingOptions = {
+					model: taggingModel || 'qwen2.5:0.5b',
+					maxTags: 5,
+					temperature: 0.3,
+					includeAttachments: true,
+					ocrLanguage: 'eng+fin+rus',
+					ocrEngine: 'tesseract'
+				};
 
-				try {
-					const modelToUse = taggingModel || defaultModel;
-
-					await processPostTaggingAsync(content, newPost.id, modelToUse, currentUserData.id);
-					console.log('Auto-tagging initiated for post:', newPost.id);
-				} catch (taggingError) {
-					console.error('Auto-tagging failed for post:', newPost.id, taggingError);
-				}
-			} else if (!parentId) {
-				const reasons = [];
-				if (!enableAutoTagging) reasons.push('auto-tagging disabled');
-				if (!shouldGenerateTags(content)) reasons.push('content too short');
-				if (!currentUserData?.id) reasons.push('user not authenticated');
-
-				if (reasons.length > 0) {
-					console.log('Auto-tagging skipped:', reasons.join(', '));
-				}
+				// Use the new local tagging function
+				await processPostTaggingAsync(
+					content, 
+					newPost.id, 
+					currentUserData.id, 
+					attachments, // Pass attachments for text extraction
+					taggingOptions
+				);
+				console.log('Local auto-tagging initiated for post:', newPost.id);
+			} catch (taggingError) {
+				console.error('Auto-tagging failed for post:', newPost.id, taggingError);
 			}
-		} catch (err) {
-			console.error('Error creating post:', err);
+		} else if (!parentId) {
+			const reasons = [];
+			if (!enableAutoTagging) reasons.push('auto-tagging disabled');
+			if (!shouldGenerateTags(content)) reasons.push('content too short');
+			if (!currentUserData?.id) reasons.push('user not authenticated');
+
+			if (reasons.length > 0) {
+				console.log('Auto-tagging skipped:', reasons.join(', '));
+			}
 		}
+	} catch (err) {
+		console.error('Error creating post:', err);
 	}
+}
 	function handleTaggingComplete(event: CustomEvent<{ postId: string; success: boolean }>) {
 		const { postId, success } = event.detail;
 
@@ -428,63 +456,69 @@
 		});
 	}
 
-	async function fetchHomePosts(offset = 0, append = false) {
-		if (!browser) return;
+async function fetchHomePosts(offset = 0, append = false) {
+	if (!browser) return;
+
+	if (!append) {
+		homeLoading = true;
+		homeCurrentOffset = 0;
+		homeHasMore = true;
+		homePosts = [];
+	} else {
+		homeLoadingMore = true;
+	}
+
+	try {
+		console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
+
+		const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
+		const data = await response.json();
+
+		if (!response.ok) {
+			throw new Error(data.error || 'Failed to load posts');
+		}
+		const actualData = data.data || data;
+		const newPosts = actualData.posts || [];
 
 		if (!append) {
-			homeLoading = true;
-			homeCurrentOffset = 0;
-			homeHasMore = true;
-			homePosts = [];
+			homePosts = newPosts;
 		} else {
-			homeLoadingMore = true;
+			const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
+			const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
+			homePosts = [...homePosts, ...uniqueNewPosts];
+			console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
 		}
 
-		try {
-			console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
+		const newPostsCount = newPosts.length;
 
-			const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || 'Failed to load posts');
-			}
-			const actualData = data.data || data;
-			const newPosts = actualData.posts || [];
-
-			if (!append) {
-				homePosts = newPosts;
-			} else {
-				const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
-				const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
-				homePosts = [...homePosts, ...uniqueNewPosts];
-				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
-			}
-
-			const newPostsCount = newPosts.length;
-
-			if (actualData.hasMore !== undefined) {
-				homeHasMore = actualData.hasMore;
-			} else {
-				homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
-			}
-
-			// Update offset for next request
-			homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
-
-			console.log('📊 Home posts updated:', {
-				postsCount: homePosts.length,
-				newPostsCount,
-				hasMore: homeHasMore,
-				currentOffset: homeCurrentOffset
-			});
-		} catch (err) {
-			console.error('Error fetching home posts:', err);
-		} finally {
-			homeLoading = false;
-			homeLoadingMore = false;
+		if (actualData.hasMore !== undefined) {
+			homeHasMore = actualData.hasMore;
+		} else {
+			homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
 		}
+
+		// Update offset for next request
+		homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
+
+		console.log('📊 Home posts updated:', {
+			postsCount: homePosts.length,
+			newPostsCount,
+			hasMore: homeHasMore,
+			currentOffset: homeCurrentOffset
+		});
+
+		// ADD THIS: Sync with postStore for tags after successful fetch
+		if (homePosts && homePosts.length > 0) {
+			syncPostsForTags(homePosts);
+		}
+
+	} catch (err) {
+		console.error('Error fetching home posts:', err);
+	} finally {
+		homeLoading = false;
+		homeLoadingMore = false;
 	}
+}
 
 	// Load more function like username page
 	async function loadMoreHomePosts() {
@@ -545,90 +579,110 @@
 			currentTarget: (event.currentTarget as HTMLElement)?.tagName
 		});
 	}
-	$: posts = $postStore.posts;
-	$: loading = $postStore.loading;
-	$: loadingMore = $postStore.loadingMore;
-	$: hasMore = $postStore.hasMore;
-	$: error = $postStore.error;
+// Replace your reactive statements with this corrected version:
 
-	// ADD THIS: Deduplicate posts to prevent duplicate keys
-	$: uniquePosts = posts.reduce((acc: TimelinePost[], post: TimelinePost, index: number) => {
-		const postKey = post.isRepost
-			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
-			: post.id;
+$: posts = $postStore.posts;
+$: loading = $postStore.loading;
+$: loadingMore = $postStore.loadingMore;
+$: hasMore = $postStore.hasMore;
+$: error = $postStore.error;
 
-		const existingIndex = acc.findIndex((p: TimelinePost) => {
-			const existingKey = p.isRepost
-				? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
-				: p.id;
-			return existingKey === postKey;
-		});
+// Get filtered posts from the store (this will be homePosts after sync)
+$: filteredHomePosts = $filteredPosts;
 
-		if (existingIndex === -1) {
-			acc.push(post);
-		} else {
-			console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
-		}
+// Use filteredHomePosts for deduplication instead of posts
+$: uniquePosts = filteredHomePosts.reduce((acc: TimelinePost[], post: TimelinePost, index: number) => {
+	const postKey = post.isRepost
+		? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+		: post.id;
 
-		return acc;
-	}, []);
-
-	$: userIds = [
-		...new Set(
-			uniquePosts.flatMap((post: TimelinePost) => {
-				const ids = [post.user];
-				if (post.repostedBy && Array.isArray(post.repostedBy)) {
-					ids.push(...post.repostedBy);
-				}
-				return ids;
-			})
-		)
-	];
-	// CHANGE THIS: Use uniquePosts instead of posts for enhancedPosts
-	$: enhancedPosts = homePosts.map((post) => {
-		const authorProfile = userProfilesMap.get(post.user);
-
-		const enhancedPost = {
-			...post,
-			// Ensure ID is always the real post ID for interactions
-			id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
-			// Keep track of original data for display
-			_isRepost: post.isRepost,
-			_originalId: post.id,
-			_displayKey: post.isRepost
-				? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
-				: post.id
-		};
-
-		if (authorProfile) {
-			return {
-				...enhancedPost,
-				authorProfile,
-				author_name: authorProfile.name || post.author_name,
-				author_username: authorProfile.username || post.author_username,
-				author_avatar: authorProfile.avatar || post.author_avatar
-			};
-		}
-
-		return enhancedPost;
+	const existingIndex = acc.findIndex((p: TimelinePost) => {
+		const existingKey = p.isRepost
+			? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
+			: p.id;
+		return existingKey === postKey;
 	});
 
-	// CHANGE THIS: Use uniquePosts.length instead of posts.length
-	$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
-		const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
-
-		if (missingUserIds.length > 0) {
-			loadingProfiles = true;
-			fetchUserProfiles(missingUserIds)
-				.then(() => {
-					loadingProfiles = false;
-				})
-				.catch((err) => {
-					console.error('Error fetching user profiles:', err);
-					loadingProfiles = false;
-				});
-		}
+	if (existingIndex === -1) {
+		acc.push(post);
+	} else {
+		console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
 	}
+
+	return acc;
+}, []);
+
+$: userIds = [
+	...new Set(
+		uniquePosts.flatMap((post: TimelinePost) => {
+			const ids = [post.user];
+			if (post.repostedBy && Array.isArray(post.repostedBy)) {
+				ids.push(...post.repostedBy);
+			}
+			return ids;
+		})
+	)
+];
+
+// FIXED: Use uniquePosts (which are now filtered) instead of homePosts
+$: enhancedPosts = uniquePosts.map((post) => {
+	const authorProfile = userProfilesMap.get(post.user);
+
+	const enhancedPost = {
+		...post,
+		// Ensure ID is always the real post ID for interactions
+		id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
+		// Keep track of original data for display
+		_isRepost: post.isRepost,
+		_originalId: post.id,
+		_displayKey: post.isRepost
+			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+			: post.id
+	};
+
+	if (authorProfile) {
+		return {
+			...enhancedPost,
+			authorProfile,
+			author_name: authorProfile.name || post.author_name,
+			author_username: authorProfile.username || post.author_username,
+			author_avatar: authorProfile.avatar || post.author_avatar
+		};
+	}
+
+	return enhancedPost;
+});
+
+// User profile fetching logic
+$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
+	const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
+
+	if (missingUserIds.length > 0) {
+		loadingProfiles = true;
+		fetchUserProfiles(missingUserIds)
+			.then(() => {
+				loadingProfiles = false;
+			})
+			.catch((err) => {
+				console.error('Error fetching user profiles:', err);
+				loadingProfiles = false;
+			});
+	}
+}
+
+// Debug the filtering chain
+$: {
+	console.log('🏠 Filtering chain debug:', {
+		postStoreLength: $postStore.posts.length,
+		filteredHomePostsLength: filteredHomePosts.length,
+		uniquePostsLength: uniquePosts.length,
+		enhancedPostsLength: enhancedPosts.length,
+		selectedTags: $selectedTags,
+		selectedTagsLength: $selectedTags.length
+	});
+}
+
+// Remove the displayPosts line - you don't need it anymore since enhancedPosts is now filtered
 
 	// CHANGE THIS: Use uniquePosts.length in logging
 	$: if (typeof window !== 'undefined') {
@@ -671,46 +725,69 @@
 			color: '#28a745'
 		}
 	];
-	onMount(() => {
-		console.log('🔄 Home page mounted - setting up...');
-		rightSideCleanup = rightSideHoverManager.initialize();
+onMount(() => {
+	console.log('🔄 Home page mounted - setting up...');
 
-		// Setup async initialization
-		(async () => {
-			// Fetch initial data like username page
-			await fetchHomePosts(0, false);
+	// Setup async initialization
+	(async () => {
+		// Choose one approach:
+		
+		// Option A: Keep your existing fetchHomePosts but sync for tags
+		await fetchHomePosts(0, false);
+		
+		// Option B: Use postStore directly and sync variables
+		// await fetchHomePostsViaStore(0, false);
 
-			// Setup infinite scroll
-			console.log('🔧 Setting up infinite scroll...');
-			setupInfiniteScroll();
+		// Setup infinite scroll
+		console.log('🔧 Setting up infinite scroll...');
+		setupInfiniteScroll();
 
-			// Try to attach with retries
-			if (infiniteScrollManager) {
-				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-					if (success) {
-						console.log('✅ Infinite scroll ready!');
-					} else {
-						console.error('❌ Failed to setup infinite scroll');
-					}
-				});
-			}
-
-			console.log('✅ Home page setup complete');
-		})();
-
-		// Cleanup function (returned synchronously)
-		return () => {
-			console.log('🧹 Cleaning up infinite scroll...');
-			if (infiniteScrollManager) {
-				infiniteScrollManager.destroy();
-				infiniteScrollManager = null;
-			}
-		};
-	});
-	onDestroy(() => {
-		if (rightSideCleanup) {
-			rightSideCleanup();
+		// Try to attach with retries
+		if (infiniteScrollManager) {
+			infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+				if (success) {
+					console.log('✅ Infinite scroll ready!');
+				} else {
+					console.error('❌ Failed to setup infinite scroll');
+				}
+			});
 		}
+
+		console.log('✅ Home page setup complete');
+	})();
+
+	// Cleanup function
+	return () => {
+		console.log('🧹 Cleaning up infinite scroll...');
+		if (infiniteScrollManager) {
+			infiniteScrollManager.destroy();
+			infiniteScrollManager = null;
+		}
+	};
+});
+
+// Update your infinite scroll loadMore function
+const loadMore = async (): Promise<void> => {
+	try {
+		// Option A: Use your existing loadMore logic but sync for tags
+		await fetchHomePosts(homeCurrentOffset, true);
+		
+		// Option B: Use postStore loadMorePosts (alternative approach)
+		// await postStore.loadMorePosts(10);
+		// const storeState = get(postStore);
+		// homePosts = storeState.posts;
+		// homeLoadingMore = storeState.loadingMore;
+		// homeHasMore = storeState.hasMore;
+		
+		console.log('✅ Loaded more posts');
+	} catch (error) {
+		console.error('❌ Error loading more posts:', error);
+	}
+};
+	onDestroy(() => {
+		// if (rightSideCleanup) {
+		// 	rightSideCleanup();
+		// }
 	});
 	$: {
 		console.log('🔄 REACTIVE STATE UPDATE:');
@@ -743,11 +820,18 @@
 	class:drawer-visible={$showSidenav}
 	class:hide-right-sidebar={!$showRightSidenav}
 	class:drawer-right-visible={$showRightSidenav}
+	class:drawers-visible={$showSidenav && $showRightSidenav}
 >
 	<!-- Left Sidebar Component -->
-	<div class="side-menu">
+	 {#if $showSidenav}
+	<div class="side-menu"
+		class:hide-sidemenu={$showRightSidenav}
+		class:drawers-visible={$showSidenav && $showRightSidenav}
+
+	>
 		<PostSidenav />
 	</div>
+	{/if}
 
 	<!-- Main Content -->
 	<main
@@ -756,6 +840,7 @@
 		class:drawer-visible={$showSidenav}
 		class:hide-right-sidebar={!$showRightSidenav}
 		class:drawer-right-visible={$showRightSidenav}
+
 	>
 		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
@@ -815,6 +900,7 @@
 					{:else}
 						<PostCard
 							{post}
+  selectedLocalModel={selectedLocalModel}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}
@@ -874,12 +960,14 @@
 	<!-- Right Sidebar Component -->
 	{#if $showRightSidenav && $currentUser}
 		<div
-			class="side-menu"
-			on:mouseleave={() => {
-				handleRightSideLeave();
-			}}
+			class="side-right-menu"
+			class:hide-sidemenu={$showSidenav}
+			class:drawers-visible={$showSidenav && $showRightSidenav}
 		>
-			<AiMenu width={400} userId={$currentUser.id} />
+			<AiMenu 
+			userId={$currentUser.id}
+			on:modelSelect={handleModelSelect} 
+			/>
 		</div>
 	{/if}
 </div>
@@ -970,6 +1058,7 @@
 		margin-bottom: 2rem;
 		padding-bottom: 3rem;
 		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
+		
 		&.hide-left-sidebar {
 			justify-content: flex-end;
 		}
@@ -1087,10 +1176,10 @@
 			box-shadow: 0 0 0 40px var(--primary-color);
 		}
 	}
-	.side-menu {
+	.side-menu, .side-right-menu {
 		display: flex;
+		justify-content: center;
 		width: auto;
-		margin-bottom: 3rem;
 	}
 
 	.create-post {
@@ -1293,10 +1382,112 @@
 		main {
 			width: 100%;
 			display: flex;
+			
 		}
-		.side-menu {
+
+		.side-menu, .side-right-menu {
 			width: 100%;
-			max-width: 400px;
+
+		}
+		.home-container.drawers-visible {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: center;
+				width: calc(100% - 2rem);
+				transition: all 0.3s ease;
+				padding: 1rem;
+
+				
+			}
+		.side-right-menu.drawers-visible {
+			transform: perspective(75em) rotateY(-10deg);
+			transition: all 0.3s ease;
+			width: 100%;
+			position: relative;
+			border: 1px solid var(--line-color);
+			border-radius: 1rem;
+			padding: 1rem;
+			
+			&:hover {
+				z-index: 1;
+				transform: scale(1.05) perspective(75em) rotateY(-10deg);
+			}
+			}
+			.side-menu.drawers-visible {
+			transition: all 0.3s ease;
+			transform: perspective(75em) rotateY(-10deg);
+			width: 100%;
+			position: relative;
+			border: 1px solid var(--line-color);
+			border-radius: 1rem;
+			padding: 1rem;
+			&:hover {
+				z-index: 1;
+				transform: scale(1.1) perspective(75em) rotateY(-10deg);
+			}
+			}
+	}
+
+		@media (max-width: 768px) {
+		.home-container.drawers-visible {
+				display: flex;
+				flex-direction: column;
+				justify-content: flex-start;
+				align-items: center;
+				transition: all 0.3s ease;
+				padding: 3rem;
+				
+			}
+		.side-right-menu.drawers-visible {
+			transform: perspective(75em) rotateX(-20deg);
+			transition: all 0.3s ease;
+			width: 100%;
+			&:hover {
+				z-index: 1;
+				transform: scale(1.1) perspective(75em) rotateX(0deg);
+			}
+			}
+			.side-menu.drawers-visible {
+			transition: all 0.3s ease;
+			transform: perspective(75em) rotateX(-20deg);
+			&:hover {
+				z-index: 1;
+				transform: scale(1.1) perspective(75em) rotateX(0deg);
+			}
+			}
+			.main-content {
+				width: 100%;
+				height: 100%;
+				display: flex;
+			}
+			.main-content.drawer-visible {
+				// display: none;
+			}
+
+			.main-content.drawer-right-visible {
+				display: none;
+			}
+			.side-menu {
+				justify-content: center;
+				align-items: center;
+				margin: 0;
+				padding: 0;
+			}
+			// .side-menu.hide-sidemenu {
+			// 	// transform: translate(-50%);
+			// }
+			// .side-right-menu.hide-sidemenu {
+			// 	display: none;
+			// }
+
+		}
+			@media (max-width: 768px) {
+		.home-container.drawers-visible {
+			padding: 0.5rem;
+			transition: all 0.3s ease;
+
 		}
 	}
+
 </style>

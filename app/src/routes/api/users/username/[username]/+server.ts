@@ -1,18 +1,8 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/server/pocketbase';
 import { pbTryCatch, apiTryCatch } from '$lib/utils/errorUtils';
-import type { PostWithInteractionsExtended } from '$lib/types/types.posts';
+import type { ProfilePost } from '$lib/types/types.posts';
 
-// Extended type to include the additional fields your logic adds
-interface ProfilePost extends PostWithInteractionsExtended {
-	isRepost: boolean;
-	isOwnRepost?: boolean;
-	originalPostId?: string;
-	repostedBy_id?: string;
-	repostedBy_username?: string;
-	repostedBy_name?: string;
-	repostedBy_avatar?: string;
-}
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	return apiTryCatch(async () => {

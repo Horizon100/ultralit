@@ -9,7 +9,8 @@
 	} from '$lib/stores/followStore';
 	import { userStatusStore, fetchUserStatus } from '$lib/stores/userStatusStore';
 	import type { PublicUserProfile, User } from '$lib/types/types';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import { sidenavStore, showDebug } from '$lib/stores/sidenavStore';
 	import { clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import Debugger from '$lib/components/modals/Debugger.svelte';

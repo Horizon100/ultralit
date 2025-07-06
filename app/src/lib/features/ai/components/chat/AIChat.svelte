@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	// ===== CORE SVELTE IMPORTS =====
 	import { onMount, afterUpdate, createEventDispatcher, onDestroy, tick } from 'svelte';
 	import { get, writable, derived } from 'svelte/store';
 	import { fade, fly, scale, slide } from 'svelte/transition';

@@ -4,17 +4,19 @@
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
 	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
-	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
-	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
+	import type { Tag, AIAgent} from '$lib/types/types'; // Add this import
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
 	import ShareModal from '$lib/components/modals/ShareModal.svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import { flip } from 'svelte/animate';
 	import { t } from '$lib/stores/translationStore';
-	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getExpandedUserAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { formatFileSize } from '$lib/utils/fileHandlers';
 	import { slide, fly, fade } from 'svelte/transition';
+	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+	import Avatar from '$lib/features/users/components/Avatar.svelte';
+
 	import {
 		initAudioState,
 		registerAudioElement,
@@ -36,7 +38,7 @@
 	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { toast } from '$lib/utils/toastUtils';
 	import { agentStore } from '$lib/stores/agentStore'; // Add this import
-	import { active } from 'd3';
+	import LocalAIAnalysisModal from '$lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte';
 
 	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
@@ -47,11 +49,13 @@
 	export let isQuote: boolean = false;
 
 	export let hideHeaderOnScroll: boolean = false;
+export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
 	let showTooltip = false;
 	let showShareModal = false;
 	let showQuoteModal = false;
 	let showTagsModal = false;
+	let showAIAnalysisModal = false;
 	let debugCount = 0;
 
 	// Tags expansion state
@@ -94,6 +98,11 @@
 		agentsExpanded = !agentsExpanded;
 		console.log('Agents expanded:', agentsExpanded);
 	}
+	function handleAIAnalysis(event: CustomEvent) {
+		console.log('AI Analysis complete:', event.detail);
+		// Optional: Show toast notification
+		toast.success(`Analysis complete using ${selectedLocalModel}`);
+	}
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
@@ -110,7 +119,10 @@
 		const postUrl = `/${post.author_username}/posts/${post.id}`;
 		goto(postUrl);
 	}
-
+	function handleModelSelect(event: CustomEvent<{ model: string }>) {
+	selectedLocalModel = event.detail.model;
+	console.log('🔄 Model updated to:', selectedLocalModel);
+	}
 	function formatTimestamp(timestamp: string): string {
 		const date = new Date(timestamp);
 		const now = new Date();
@@ -455,12 +467,41 @@
 	 * }
 	 */
 
-	$: upvoteCount =
-		post.upvoteCount !== undefined && post.upvoteCount !== null ? post.upvoteCount : 0;
-	$: shareTitle = $t('generic.share') as string;
-	$: upvoteTitle = $t('posts.postUpvote') as string;
-	$: repostTitle = $t('posts.repost') as string;
-	$: tagsTitle = tagsExpanded ? 'Hide tags' : `Show ${tagCount} tags`;
+    $: upvoteCount = post.upvoteCount !== undefined && post.upvoteCount !== null ? post.upvoteCount : 0;
+    $: shareTitle = $t('generic.share') as string;
+    $: upvoteTitle = $t('posts.postUpvote') as string;
+    $: repostTitle = $t('posts.repost') as string;
+    $: tagsTitle = tagsExpanded ? 'Hide tags' : `Show ${tagCount} tags`;
+    
+    $: postAuthor = {
+        id: post.user,
+        avatar: post.author_avatar,
+        collectionId: '_pb_users_auth_'
+    };
+    
+    $: expandedUser = post.expand?.user ? {
+        id: post.expand.user.id,
+        avatar: post.expand.user.avatar,
+        collectionId: '_pb_users_auth_' 
+    } : null;
+    
+    $: {
+        console.log('🔍 Post Data Debug:', {
+            post,
+            user: post.user,
+            author_username: post.author_username,
+            author_name: post.author_name,
+            expand_user: post.expand?.user
+        });
+    }
+    
+    $: avatarUserData = {
+        id: post.user,
+        avatar: post.author_avatar,
+        username: post.author_username || post.expand?.user?.username,
+        name: post.author_name || post.expand?.user?.name
+    };
+    
 
 	onDestroy(() => {
 		if (post.attachments) {
@@ -486,20 +527,13 @@
 		</div>
 	{/if}
 	<div class="post-header" class:scrolled={hideHeaderOnScroll}>
-		<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
-			<img
-				src={post.author_avatar
-					? `${pocketbaseUrl}/api/files/users/${post.user}/${post.author_avatar}`
-					: post.expand?.user
-						? getExpandedUserAvatarUrl(post.expand.user)
-						: '/api/placeholder/40/40'}
-				alt="{post.author_username ||
-					post.author_name ||
-					post.expand?.user?.username ||
-					'Unknown'}'s avatar"
-				class="post-avatar"
-			/>
-		</a>
+<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
+    <Avatar 
+        user={avatarUserData} 
+        size={40} 
+        className="post-avatar" 
+    />
+</a>
 		<div class="post-meta">
 			<!-- Make author name clickable -->
 			<a
@@ -800,6 +834,14 @@
 					{/if}
 				</span>
 			</button>
+			<button 
+					class="action-button"
+					on:click={() => showAIAnalysisModal = true}
+					title="Analyze with Local AI"
+					disabled={!post.content?.trim()}
+					>
+					<Icon name="Brain" size={12} />
+				</button>
 		</div>
 
 		<!-- Expanded tags section -->
@@ -841,6 +883,14 @@
 		{/if}
 	{/if}
 </article>
+
+<LocalAIAnalysisModal
+  bind:isOpen={showAIAnalysisModal}
+  {post}
+  selectedModel={selectedLocalModel}
+  on:close={() => showAIAnalysisModal = false}
+  on:analyzed={handleAIAnalysis}
+/>
 
 <ShareModal
 	bind:isOpen={showShareModal}

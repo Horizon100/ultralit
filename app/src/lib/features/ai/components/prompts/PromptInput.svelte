@@ -11,7 +11,7 @@
 	} from '$lib/types/types';
 	import Calendar from '$lib/components/data/Calendar.svelte';
 
-	import { currentUser, pocketbaseUrl, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import { currentUser, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 

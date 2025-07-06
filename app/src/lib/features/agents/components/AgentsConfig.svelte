@@ -6,7 +6,9 @@
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
-	import { currentUser, pocketbaseUrl, getFileUrl } from '$lib/pocketbase';
+	import { currentUser, getFileUrl } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+	import { get } from 'svelte/store';
 	import PocketBase from 'pocketbase';
 	import { createAgent, updateAgent, deleteAgent } from '$lib/clients/agentClient';
 	import { ClientResponseError } from 'pocketbase';
@@ -46,7 +48,8 @@
 	let selectedTags: string[] = [];
 	let showFilters = false;
 	let selectedAIModel: AIModel;
-	const pb = new PocketBase(pocketbaseUrl);
+
+	const pb = new PocketBase(get(pocketbaseUrl));
 
 	const MIN_ATTEMPTS = 1;
 	const MAX_ATTEMPTS = 20;
@@ -438,6 +441,31 @@
 		{:else if filteredAgents.length === 0}
 			<p>No agents found. Create a new agent to get started.</p>
 		{:else}
+					<div class="search-and-sort-container">
+				<div class="search-container">
+					<Icon name="Search" size={24} />
+					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
+				</div>
+				<div class="options">
+					<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
+						<Icon name="Filter" size={24} />
+						{showFilters ? 'Hide' : 'Filters'}
+					</button>
+					<div class="sort-container">
+						<select bind:value={sortOption}>
+							{#each sortOptions as option}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+					</div>
+					<!-- <h2>Agents</h2> -->
+					{#if !showCreateForm}
+						<button class="create-button" on:click={showCreate}>
+							<Icon name="Plus" size={24} />
+						</button>
+					{/if}
+				</div>
+			</div>
 			<div class="button-grid" transition:fade={{ duration: 300 }}>
 				{#each filteredAgents as agent (agent.id)}
 					<div class="agent-item">
@@ -484,31 +512,7 @@
 					</div>
 				{/each}
 			</div>
-			<div class="search-and-sort-container">
-				<div class="search-container">
-					<Icon name="Search" size={24} />
-					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
-				</div>
-				<div class="options">
-					<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
-						<Icon name="Filter" size={24} />
-						{showFilters ? 'Hide' : 'Filters'}
-					</button>
-					<div class="sort-container">
-						<select bind:value={sortOption}>
-							{#each sortOptions as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
-						</select>
-					</div>
-					<!-- <h2>Agents</h2> -->
-					{#if !showCreateForm}
-						<button class="create-button" on:click={showCreate}>
-							<Icon name="Plus" size={24} />
-						</button>
-					{/if}
-				</div>
-			</div>
+
 		{/if}
 
 		<!-- <p>Configure your agents to handle different types of tasks.</p> -->
@@ -879,6 +883,7 @@
 		overflow-x: hidden;
 		scrollbar-width: thin;
 		scrollbar-color: var(--secondary-color) transparent;
+
 	}
 
 	.form-column {

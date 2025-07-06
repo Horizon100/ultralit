@@ -9,9 +9,9 @@
 		signIn,
 		signUp as registerUser,
 		signOut,
-		pocketbaseUrl,
 		requestPasswordReset
 	} from '$lib/pocketbase';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
 
 	import Profile from '$lib/features/users/components/Profile.svelte';
 	import Terms from '$lib/features/legal/components/Terms.svelte';

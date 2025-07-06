@@ -5,7 +5,6 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { fly, fade } from 'svelte/transition';
 	import {
-		pocketbaseUrl,
 		currentUser,
 		getPublicUserData,
 		getPublicUserByUsername,
@@ -14,6 +13,8 @@
 		uploadProfileWallpaper,
 		updateUserDescription
 	} from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+
 	import { createEventDispatcher } from 'svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import RepostCard from '$lib/features/posts/components/RepostCard.svelte';
@@ -44,9 +45,11 @@
 	import DMModule from '$lib/features/dm/components/DMModule.svelte';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import UsersList from '$lib/features/users/components/UsersList.svelte';
+    import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 
 	export let data;
 
+    let wallpaperError = false;
 	let dmModule: DMModule;
 	let selectedUserId: string | null = null;
 	let loading = true;
@@ -673,9 +676,14 @@
 			cancelEdit();
 		}
 	}
-	$: wallpaperUrl = user?.profileWallpaper
-		? `${pocketbaseUrl}/api/files/users/${user.id}/${user.profileWallpaper}?t=${Date.now()}`
-		: '';
+    $: wallpaperUrl = user?.profileWallpaper && user.profileWallpaper !== 'uploaded' && !wallpaperError
+        ? `${$pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.profileWallpaper}?t=${Date.now()}`
+        : '';
+    
+    // Reset error when user or wallpaper changes
+    $: if (user?.profileWallpaper) {
+        wallpaperError = false;
+    }
 	$: profileDebugItems = [
 		{ label: 'Observer', value: infiniteScrollManager ? '✅' : '❌' },
 		{ label: 'ScrollY', value: scrollY },
@@ -808,6 +816,8 @@
 
 		console.log('👤 Calculated status:', userStatus);
 	}
+	$: userAvatarUrl = getAvatarUrl(user);
+
 	onMount(() => {
 		console.log('=== USERNAME PAGE MOUNT START ===');
 
@@ -940,10 +950,9 @@
 					<BackButton />
 					<div class="avatar-header">
 						<div class="status-indicator" class:online={userStatus === 'online'}></div>
+
 						<img
-							src={user.avatar
-								? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
-								: '/api/placeholder/120/120'}
+							src={userAvatarUrl || '/api/placeholder/120/120'}
 							alt="{user.name || user.username}'s avatar"
 							class="sticky-avatar"
 						/>
@@ -1150,13 +1159,11 @@
 						{/if}
 						<div class="profile-info">
 							<div class="avatar-section">
-								<img
-									src={user.avatar
-										? `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`
-										: '/api/placeholder/120/120'}
-									alt="{user.name || user.username}'s avatar"
-									class="profile-avatar"
-								/>
+							<img
+								src={userAvatarUrl || '/api/placeholder/120/120'}
+								alt="{user.name || user.username}'s avatar"
+								class="profile-avatar"
+							/>
 							</div>
 
 							<div class="user-details">

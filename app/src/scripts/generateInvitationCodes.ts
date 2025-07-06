@@ -21,7 +21,7 @@ function createPrompt() {
  * Prompt for PocketBase URL
  */
 async function getPocketBaseUrl(): Promise<string> {
-	const defaultUrl = process.env.VITE_POCKETBASE_URL || 'http://172.104.188.44:80';
+	const defaultUrl = process.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
 	const rl = createPrompt();
 
 	return new Promise((resolve) => {

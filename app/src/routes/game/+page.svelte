@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { gameService } from '$lib/stores/gameStore';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';

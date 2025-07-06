@@ -11,6 +11,8 @@ import {
 	rateLimitTryCatch,
 	fileTryCatch
 } from '$lib/utils/errorUtils';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
+
 interface RequestInitCustom {
 	method?: string;
 	headers?: Record<string, string>;
@@ -38,8 +40,6 @@ const AUTH_CHECK_COOLDOWN = 5000;
 let cachedAuthState: { isValid: boolean; user: User; timestamp: number } | null = null;
 const AUTH_CACHE_DURATION = 60000; // 1 minute cache
 
-// Export PocketBase URL for UI components (avatar display, etc.)
-export const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL;
 
 // Client-side user store
 export const currentUser = writable<User | null>(null);

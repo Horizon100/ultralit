@@ -3,7 +3,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { fly } from 'svelte/transition';
-	import { pocketbaseUrl, currentUser } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostQuoteCard from '$lib/features/posts/components/PostQuoteCard.svelte';

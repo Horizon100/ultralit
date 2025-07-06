@@ -1,5 +1,7 @@
 import { get } from 'svelte/store';
-import { currentUser, getUserById, getPublicUsersBatch, pocketbaseUrl } from '$lib/pocketbase';
+import { currentUser, getUserById, getPublicUsersBatch } from '$lib/pocketbase';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
+
 import { handleFavoriteThread } from '$lib/utils/favoriteHandlers';
 import type {
 	User,
@@ -30,7 +32,7 @@ class RequestManager {
 				return `${pocketbaseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
 			} else {
 				// Fallback for PublicUserProfile (no collectionId)
-				return `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`;
+				return `${pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.avatar}`;
 			}
 		}
 
@@ -405,7 +407,7 @@ export class UserService {
 				return `${pocketbaseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
 			} else {
 				// Fallback for PublicUserProfile (no collectionId)
-				return `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`;
+				return `${pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.avatar}`;
 			}
 		}
 
@@ -419,7 +421,7 @@ export class UserService {
 	static updateAvatarUrl(): string | null {
 		const user = get(currentUser);
 		if (user && user.avatar) {
-			return `${pocketbaseUrl}/api/files/users/${user.id}/${user.avatar}`;
+			return `${pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.avatar}`;
 		}
 		return null;
 	}

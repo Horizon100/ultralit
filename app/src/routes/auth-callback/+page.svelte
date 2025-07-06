@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import PocketBase from 'pocketbase';
 	import type { User } from '$lib/types/types';
 
@@ -38,7 +40,7 @@
 				: 'https://vrazum.com/auth-callback';
 
 			// Create a PocketBase instance
-			const pb = new PocketBase(pocketbaseUrl);
+			const pb = new PocketBase(get(pocketbaseUrl));
 
 			// Complete the OAuth flow
 			const authData = await pb.collection('users').authWithOAuth2Code(

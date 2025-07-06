@@ -1,4 +1,4 @@
-ru$ prettier --write . && eslint . --fix
+$ prettier --write . && eslint . --fix
 .prettierrc.json 17ms (unchanged)
 .stylelintrc.json 1ms (unchanged)
 eslint.config.js 11ms (unchanged)

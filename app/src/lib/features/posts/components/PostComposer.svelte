@@ -8,7 +8,8 @@
 	import RecordButton from '$lib/components/buttons/RecordButton.svelte';
 	import {
 		processPostTaggingAsync,
-		shouldGenerateTags
+		shouldGenerateTags,
+		type LocalTaggingOptions
 	} from '$lib/features/posts/utils/postTagging';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 	import type { AIModel } from '$lib/types/types';
@@ -24,7 +25,12 @@
 	export let parentId: string | undefined = undefined;
 	export let showAttachments: boolean = true;
 	export let enableAutoTagging: boolean = true;
-	export let taggingModel: AIModel | null = null;
+	export let taggingModel: string = 'qwen2.5:0.5b'; 
+	export let includeAttachmentText: boolean = true;
+	export let ocrLanguage: string = 'eng+fin+rus';
+	export let ocrEngine: 'tesseract' | 'easyocr' = 'tesseract';
+	export let maxTags: number = 5; 
+	export let taggingTemperature: number = 0.3; 
 
 	let content = initialContent;
 	let attachments: File[] = [];
@@ -164,26 +170,43 @@
 			// Dispatch post creation event
 			dispatch('postCreated', { postId, post: newPost });
 
-			// Handle auto-tagging if enabled and we have a valid post ID
 			if (shouldTag && postId && $currentUser?.id) {
-				console.log('Starting auto-tagging for post:', postId);
+				console.log('🏷️ Starting local auto-tagging for post:', postId);
 
-				// Use the fixed async tagging function
 				try {
-					const modelToUse = taggingModel || defaultModel;
+					// Build tagging options for local AI
+					const taggingOptions: LocalTaggingOptions = {
+						model: taggingModel,
+						maxTags: maxTags,
+						temperature: taggingTemperature,
+						includeAttachments: includeAttachmentText,
+						ocrLanguage: ocrLanguage,
+						ocrEngine: ocrEngine
+					};
 
-					// Call the async tagging function - this will run in background
-					processPostTaggingAsync(contentToTag, postId, modelToUse, $currentUser.id);
+					console.log('🏷️ Tagging options:', taggingOptions);
+
+					// Store attachments for tagging before they get reset
+					const attachmentsToTag = [...attachments];
+
+					// Call the local async tagging function with attachments
+					processPostTaggingAsync(
+						contentToTag, 
+						postId, 
+						$currentUser.id, 
+						attachmentsToTag, 
+						taggingOptions
+					);
 
 					// Dispatch tagging started event
 					dispatch('taggingComplete', { postId, success: true });
-					console.log('Auto-tagging initiated successfully for post:', postId);
+					console.log('🏷️ Local auto-tagging initiated successfully for post:', postId);
 				} catch (taggingError) {
-					console.error('Error starting auto-tagging:', taggingError);
+					console.error('❌ Error starting local auto-tagging:', taggingError);
 					dispatch('taggingComplete', { postId, success: false });
 				}
 			} else if (shouldTag && !postId) {
-				console.error('Cannot start auto-tagging: no post ID received');
+				console.error('❌ Cannot start auto-tagging: no post ID received');
 			}
 
 			// Reset form
@@ -205,45 +228,28 @@
 
 		console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Top-level post)');
 	}
+function supportsTextExtraction(file: File): boolean {
+	return file.type.startsWith('image/') || 
+	       file.type === 'application/pdf' || 
+	       file.type.startsWith('text/');
+}
 
-	// Renamed function to avoid conflict
-	async function handleAutoTagging(postId: string, postContent: string) {
-		if (!enableAutoTagging || !shouldGenerateTags(postContent) || !$currentUser?.id) {
-			return;
+
+
+		function getFilePreview(file: File): string {
+		if (file.type.startsWith('image/')) {
+			return URL.createObjectURL(file);
 		}
-
-		isGeneratingTags = true;
-
-		try {
-			console.log('Starting auto-tagging for post:', postId);
-
-			const modelToUse = taggingModel || defaultModel;
-
-			// Use the async tagging function - this runs in background
-			processPostTaggingAsync(postContent, postId, modelToUse, $currentUser.id);
-
-			// Don't wait for completion, just indicate it started
-			dispatch('taggingComplete', { postId, success: true });
-			console.log('Auto-tagging initiated for post:', postId);
-		} catch (error) {
-			console.error('Auto-tagging failed for post:', postId, error);
-			dispatch('taggingComplete', { postId, success: false });
-		} finally {
-			// Always reset generating state
-			isGeneratingTags = false;
-		}
+		return '';
 	}
 
 	$: if (initialContent && !content) {
 		content = initialContent;
 	}
 
-	function getFilePreview(file: File): string {
-		if (file.type.startsWith('image/')) {
-			return URL.createObjectURL(file);
-		}
-		return '';
-	}
+	$: extractableFiles = attachments.filter(supportsTextExtraction).length;
+
+
 </script>
 
 <div class="post-composer">
@@ -303,18 +309,23 @@
 	{/if}
 
 	<!-- Auto-tagging indicator -->
-	{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
-		<div class="tagging-status">
-			<div class="tagging-indicator">
-				<Icon name="Tag" size={14} />
-				{#if isGeneratingTags}
-					<span class="tagging-text generating">Generating tags...</span>
-				{:else if willGenerateTags}
-					<span class="tagging-text ready">Auto-tags will be generated</span>
-				{/if}
-			</div>
+{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
+	<div class="tagging-status">
+		<div class="tagging-indicator">
+			<Icon name="Tag" size={14} />
+			{#if isGeneratingTags}
+				<span class="tagging-text generating">Generating tags...</span>
+			{:else if willGenerateTags}
+				<span class="tagging-text ready">
+					Auto-tags will be generated
+					{#if includeAttachmentText && extractableFiles > 0}
+						(including {extractableFiles} attachment{extractableFiles > 1 ? 's' : ''})
+					{/if}
+				</span>
+			{/if}
 		</div>
-	{/if}
+	</div>
+{/if}
 
 	<div class="composer-actions">
 		{#if showAttachments}

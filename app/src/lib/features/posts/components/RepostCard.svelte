@@ -2,7 +2,6 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
-	import { pocketbaseUrl } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type { PostWithInteractions } from '$lib/types/types.posts';

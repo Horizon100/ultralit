@@ -1,6 +1,6 @@
 <!-- src/lib/features/game/components/Hero.svelte -->
 <script lang="ts">
-	import { pocketbaseUrl } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import type { GameHero } from '$lib/types/types.game';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
 	import Google from '$lib/assets/icons/auth/google.svg';
 	import { authenticateWithGoogleOAuth } from '$lib/pocketbase';
 

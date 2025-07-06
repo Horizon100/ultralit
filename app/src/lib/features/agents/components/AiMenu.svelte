@@ -5,21 +5,27 @@
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
 	import AgentsConfig from './AgentsConfig.svelte';
 	import PromptCatalog from '$lib/features/ai/components/prompts/PromptInput.svelte';
+ 	 import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
 
-	export let width: number;
 	export let userId: string;
 
 	const dispatch = createEventDispatcher();
 
-	let activeTab: 'assets' | 'assistant' = 'assets';
+	let activeTab: 'local' | 'assets' | 'assistant' = 'local';
+	let selectedLocalModel: string = 'qwen2.5:0.5b';
 
-	function setActiveTab(tab: 'assets' | 'assistant') {
+	function setActiveTab(tab: 'local'|'assets' | 'assistant') {
 		activeTab = tab;
 	}
 	function handlePromptSelect(event: CustomEvent) {
 		console.log('Prompt selected:', event.detail);
 		dispatch('promptSelect', { prompt: event.detail });
 	}
+	function handleLocalModelSelect() {
+		console.log('Local model selected:', selectedLocalModel);
+		dispatch('modelSelect', { model: selectedLocalModel });
+	}
+	
 	const slideTransition = (p0: HTMLDivElement, { duration = 180, delay = 0, direction = 1 }) => {
 		return {
 			delay,
@@ -27,8 +33,8 @@
 			css: (t: number) => {
 				const eased = cubicOut(t);
 				return `
-          transform: translateX(${(1 - eased) * 360 * direction}%) rotateX(${(1 - eased) * 360 * direction}deg);
-          opacity: ${eased};
+          		transform: translateX(${(1 - eased) * 360 * direction}%) rotateX(${(1 - eased) * 360 * direction}deg);
+          		opacity: ${eased};
         `;
 			}
 		};
@@ -37,25 +43,44 @@
 
 <div
 	class="side-menu"
-	style="width: {width}px;"
 	on:mouseleave={() => dispatch('mouseleave')}
 	role="complementary"
 	in:fly={{ x: 50, duration: 300, delay: 300 }}
 	out:fly={{ x: 50, duration: 300 }}
 >
 	<div class="tabs">
-		<button class:active={activeTab === 'assets'} on:click={() => setActiveTab('assets')}
-			>Assets</button
+		<button 
+			class:active={activeTab === 'local'} 
+			on:click={() => setActiveTab('local')}
 		>
-
-		<button class:active={activeTab === 'assistant'} on:click={() => setActiveTab('assistant')}
-			>Assistant</button
+			Local AI
+		</button>
+		<button 
+			class:active={activeTab === 'assets'} 
+			on:click={() => setActiveTab('assets')}
 		>
+			Assets
+		</button>
+		<button 
+			class:active={activeTab === 'assistant'} 
+			on:click={() => setActiveTab('assistant')}
+		>
+			Assistant
+		</button>
 	</div>
 
-	<div class="content">
-		{#if activeTab === 'assets'}
+<div class="content">
+		{#if activeTab === 'local'}
 			<div in:slideTransition={{ direction: -1 }} out:slideTransition={{ direction: 1 }}>
+				<LocalModelSelector 
+					bind:selectedModel={selectedLocalModel}
+					on:change={handleLocalModelSelect}
+					showDetails={true}
+					placeholder="Choose your local AI model..."
+				/>
+			</div>
+		{:else if activeTab === 'assets'}
+			<div in:slideTransition={{ direction: 0 }} out:slideTransition={{ direction: 0 }}>
 				<AgentsConfig />
 			</div>
 		{:else if activeTab === 'assistant'}
@@ -75,10 +100,10 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		width: auto;
-		max-width: auto;
+		width: 100%;
 		background-color: rgba(54, 63, 63, 0.1);
 		backdrop-filter: blur(3px);
+		
 		transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		overflow: hidden;
 		// perspective: 1000px;
@@ -147,7 +172,21 @@
 
 	.content {
 		position: relative;
-		height: 84vh; /* Adjust based on your tabs and search height */
+		height: 84vh;
+				scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.content > div {
@@ -157,15 +196,34 @@
 		backface-visibility: hidden;
 	}
 	@media (max-width: 1000px) {
-		.side-menu {
-			display: flex;
-			flex-direction: column;
-			height: 100%;
-			backdrop-filter: blur(3px);
+
+		.left-sidebar {
 			background: var(--primary-color);
-			transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
-			overflow: hidden;
-			// perspective: 1000px;
+			height: 80vh;
+			width: 100%;
+			margin: 2rem;
+			border-radius: 0.5rem;
 		}
+	}
+
+	@media (max-width: 768px) {
+		.side-menu {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			position: relative;
+			overflow-y: auto;
+			border-right: 1px solid var(--line-color);
+			border-radius: 0.5rem;
+			box-shadow: rgba(29, 28, 28, 0.5) 10px 10px 10px 10px, rgba(29, 28, 28, 0.5) 0px 10px 10px;
+			transition: all 0.3s ease;
+
+		}
+
+			.content {
+		position: relative;
+		height: 50vh;
+	}
+
 	}
 </style>

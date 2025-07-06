@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import type {
 		Perk,
 		PerkFilterCondition,

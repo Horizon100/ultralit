@@ -1,11 +1,11 @@
 // stores/subscriptionStore.ts
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import PocketBase from 'pocketbase';
-import { pocketbaseUrl } from '$lib/pocketbase';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
 import type { Subscription } from '$lib/types/types.subscriptions';
 
 // Create PocketBase instance
-const pb = new PocketBase(pocketbaseUrl);
+const pb = new PocketBase(get(pocketbaseUrl));
 
 export interface SubscriptionPreferences {
 	newsletter: boolean;

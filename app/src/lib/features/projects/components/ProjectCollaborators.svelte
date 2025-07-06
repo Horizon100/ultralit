@@ -2,7 +2,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { projectStore } from '$lib/stores/projectStore';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import type { User, Projects } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
 	import { fetchTryCatch, clientTryCatch, isSuccess } from '$lib/utils/errorUtils';

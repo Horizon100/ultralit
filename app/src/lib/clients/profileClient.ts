@@ -1,4 +1,4 @@
-import { pocketbaseUrl } from '$lib/pocketbase';
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
 import type { UserProfile, PublicUserProfile } from '$lib/types/types';
 import { fetchTryCatch, clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 
@@ -75,7 +75,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 		email: userData.email || '',
 		avatar: userData.avatar || '',
 		avatarUrl: userData.avatar
-			? `${pocketbaseUrl}/api/files/users/${userData.id}/${userData.avatar}`
+			? `${pocketbaseUrl}/api/files/_pb_users_auth_/${userData.id}/${userData.avatar}`
 			: ''
 	};
 
@@ -117,7 +117,7 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
 	const publicProfile: PublicUserProfile = {
 		...result.data,
 		avatarUrl: result.data.avatar
-			? `${pocketbaseUrl}/api/files/users/${result.data.id}/${result.data.avatar}`
+			? `${pocketbaseUrl}/api/files/_pb_users_auth_/${result.data.id}/${result.data.avatar}`
 			: null
 	};
 
@@ -166,7 +166,7 @@ export async function getPublicUserProfiles(
 			batchResult.data.forEach((profile: PublicUserProfile & { avatar?: string }) => {
 				// Process avatar URL if needed
 				if (profile.avatar) {
-					profile.avatarUrl = `${pocketbaseUrl}/api/files/users/${profile.id}/${profile.avatar}`;
+					profile.avatarUrl = `${pocketbaseUrl}/api/files/_pb_users_auth_/${profile.id}/${profile.avatar}`;
 				} else {
 					profile.avatarUrl = null;
 				}

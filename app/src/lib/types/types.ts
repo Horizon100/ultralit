@@ -431,7 +431,7 @@ export interface AIMessage {
 	prompt_input?: string;
 }
 
-export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek';
+export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek' | 'local';
 
 export interface AIModel extends RecordModel {
 	id: string;

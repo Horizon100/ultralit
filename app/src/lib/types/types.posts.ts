@@ -90,6 +90,18 @@ export interface PostWithInteractionsExtended extends PostWithInteractions {
 	};
 }
 
+
+export interface ProfilePost extends PostWithInteractionsExtended {
+	isRepost: boolean;
+	isOwnRepost?: boolean;
+	originalPostId?: string;
+	repostedBy_id?: string;
+	repostedBy_username?: string;
+	repostedBy_name?: string;
+	repostedBy_avatar?: string;
+}
+
+
 export type PostStoreState = {
 	posts: PostWithInteractions[];
 	loading: boolean;

@@ -200,6 +200,8 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 		const userId = locals.user.id;
 		const action = url.searchParams.get('action');
 
+		console.log('🔗 PATCH called with:', { postId, userId, action });
+
 		const post = unwrap(await pbTryCatch(pb.collection('posts').getOne<Post>(postId), 'get post'));
 
 		// Handle different actions
@@ -237,13 +239,15 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 			}
 		}
 
-		// Handle tag updates (for auto-tagging)
+		// Handle tag updates (for auto-tagging) - this runs when no action or update-tags action
 		if (action === 'update-tags' || !action) {
 			try {
 				const requestData = await request.json();
+				console.log('🔗 Request data received:', requestData);
 
 				// Check if this is a tag update request
 				if (requestData.tags !== undefined) {
+					console.log('🔗 This is a tag update request');
 					console.log('Updating post tags:', { postId, tags: requestData.tags });
 
 					// Verify user has permission to modify this post
@@ -267,19 +271,28 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 					);
 
 					console.log('Successfully updated post tags:', postId);
+					console.log('Updated post object:', updatedPost);
+					console.log('Updated post tags field:', updatedPost.tags);
+					console.log('Updated post tagCount field:', updatedPost.tagCount);
 
-					return json({
+					const response = {
 						success: true,
 						data: updatedPost
-					});
+					};
+
+					console.log('Returning response:', response);
+					return json(response);
+				} else {
+					console.log('🔗 Not a tag update request, proceeding to vote handling');
 				}
 			} catch (jsonError) {
-				// If JSON parsing fails, fall through to vote handling
+				console.error('🔗 JSON parsing failed:', jsonError);
 				console.log('No JSON body found, treating as vote request');
 			}
 		}
 
-		// Handle upvote action (default behavior)
+		// Handle upvote action (default behavior) - only reached if not a tag update
+		console.log('🔗 Handling vote action');
 		let upvotedBy = post.upvotedBy || [];
 		let downvotedBy = post.downvotedBy || [];
 		let upvoted = false;
@@ -306,6 +319,7 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 			)
 		);
 
+		console.log('🔗 Vote update completed');
 		return json({
 			success: true,
 			upvoted,
@@ -315,6 +329,8 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 			downvotedBy: updatedPost.downvotedBy
 		});
 	}, 'Failed to update post');
+
+	
 export const DELETE: RequestHandler = async ({ params, locals }) =>
 	apiTryCatch(async () => {
 		if (!locals.user) throw new Error('Unauthorized');

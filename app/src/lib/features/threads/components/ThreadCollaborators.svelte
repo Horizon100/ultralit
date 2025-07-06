@@ -3,7 +3,9 @@
 	import { onMount } from 'svelte';
 	import { projectStore } from '$lib/stores/projectStore';
 	import { threadsStore } from '$lib/stores/threadsStore';
-	import { currentUser, pocketbaseUrl } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
+	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+
 	import { fade, fly, scale, slide } from 'svelte/transition';
 	import type { User, Projects, Threads } from '$lib/types/types';
 	import { t } from '$lib/stores/translationStore';
