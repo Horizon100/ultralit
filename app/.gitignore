@@ -12,6 +12,7 @@
 /dist
 /package-lock.json
 *.d.ts
+deploy-security.sh
 
 # Environment variables
 .env
