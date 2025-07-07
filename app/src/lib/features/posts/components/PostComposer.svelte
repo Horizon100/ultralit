@@ -631,8 +631,8 @@ function supportsTextExtraction(file: File): boolean {
 		position: absolute;
 		top: -8px;
 		right: -8px;
-		background: #3b82f6;
-		color: white;
+		background: var(--tertiary-color);
+		color: var(--primary-color);
 		border-radius: 50%;
 		width: 18px;
 		height: 18px;

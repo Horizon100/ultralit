@@ -16,6 +16,7 @@ export interface PostAttachment {
 	file_size: number;
 	original_name: string;
 	mime_type: string;
+	tags: string[];
 	created: string;
 	updated: string;
 }

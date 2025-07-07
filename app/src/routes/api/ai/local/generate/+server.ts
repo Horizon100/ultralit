@@ -10,8 +10,32 @@ import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
 
 const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
 
+// Extended request type for image analysis
+interface ExtendedGenerateRequest extends GenerateRequest {
+  image_url?: string;
+  is_image_analysis?: boolean;
+}
 
+// Function to convert image URL to base64
+async function imageUrlToBase64(imageUrl: string): Promise<string> {
+  try {
+    console.log('🖼️ Converting image URL to base64:', imageUrl);
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
 
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    
+    console.log('🖼️ Image converted to base64, size:', base64.length);
+    return base64;
+  } catch (error) {
+    console.error('🖼️ Image conversion error:', error);
+    throw new Error(`Failed to convert image: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 export const POST: RequestHandler = async (event) =>
   apiTryCatch(async () => {
@@ -19,25 +43,31 @@ export const POST: RequestHandler = async (event) =>
 
     // Authentication (same pattern as your main AI API)
     const authCookie = cookies.get('pb_auth');
+    console.log('🔍 Auth cookie exists:', !!authCookie);
+
     if (!authCookie) throw new Error('User not authenticated');
-    
+
     let authData;
     try {
-      authData = JSON.parse(authCookie);
-      pbServer.pb.authStore.save(authData.token, authData.model);
-    } catch {
-      throw new Error('Failed to parse auth cookie');
+        authData = JSON.parse(authCookie);
+        console.log('🔍 Parsed auth data:', { hasToken: !!authData.token, hasModel: !!authData.model });
+        pbServer.pb.authStore.save(authData.token, authData.model);
+    } catch (parseError) {
+        console.error('🔍 Auth cookie parse error:', parseError);
+        throw new Error('Failed to parse auth cookie');
     }
-    
+
+    console.log('🔍 Auth store valid after save:', pbServer.pb.authStore.isValid);
+
     if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
-    
+
     const user = pbServer.pb.authStore.model;
     if (!user || !user.id) throw new Error('Invalid user session');
 
     console.log('🔍 Local AI Generate - User ID:', user.id);
 
     // Parse request
-    const body: GenerateRequest = await request.json();
+    const body: ExtendedGenerateRequest = await request.json();
     const { 
       prompt, 
       model = 'qwen2.5:0.5b', 
@@ -45,24 +75,41 @@ export const POST: RequestHandler = async (event) =>
       temperature,
       max_tokens,
       stream = false,
-      auto_optimize = true
+      auto_optimize = true,
+      image_url,
+      is_image_analysis = false
     } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       throw new Error('Invalid or missing prompt');
     }
 
-    console.log('🔍 Local AI Generate - Model:', model, 'Auto-optimize:', auto_optimize);
+    console.log('🔍 Local AI Generate - Model:', model, 'Auto-optimize:', auto_optimize, 'Image analysis:', is_image_analysis);
 
     // Build parameters
-    let params: LocalModelParams = {
+    let params: LocalModelParams & { images?: string[] } = {
       model,
       prompt,
       stream
     };
 
-    // Auto-optimize parameters based on content
-    if (auto_optimize) {
+    // Handle image analysis
+    if (is_image_analysis && image_url) {
+      console.log('🖼️ Processing image analysis with moondream');
+      
+      // Convert image to base64
+      const base64Image = await imageUrlToBase64(image_url);
+      
+      // Add image to parameters for moondream
+      params.images = [base64Image];
+      
+      // Use specific parameters for vision models
+      params.temperature = temperature || 0.1;
+      params.max_tokens = max_tokens || 200;
+      
+      console.log('🖼️ Image analysis params set');
+    } else if (auto_optimize && !is_image_analysis) {
+      // Auto-optimize parameters based on content (only for text analysis)
       const context = ContextAnalyzer.analyzeMessage(prompt);
       const optimizedParams = ContextAnalyzer.getOptimalParams(context);
       
@@ -85,7 +132,8 @@ export const POST: RequestHandler = async (event) =>
       model: params.model,
       temperature: params.temperature,
       max_tokens: params.max_tokens,
-      system: params.system ? 'Set' : 'None'
+      system: params.system ? 'Set' : 'None',
+      hasImages: !!params.images?.length
     });
 
     try {
@@ -96,7 +144,7 @@ export const POST: RequestHandler = async (event) =>
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(params),
-        signal: AbortSignal.timeout(60000), // 60 second timeout
+        signal: AbortSignal.timeout(is_image_analysis ? 120000 : 60000), // Longer timeout for image analysis
       });
 
       if (!response.ok) {
@@ -126,7 +174,8 @@ export const POST: RequestHandler = async (event) =>
           eval_duration: data.eval_duration
         },
         context: data.context, // For conversation continuity
-        provider: 'local'
+        provider: 'local',
+        is_image_analysis
       };
 
     } catch (aiError) {

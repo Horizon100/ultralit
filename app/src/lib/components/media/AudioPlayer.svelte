@@ -22,6 +22,7 @@
 	export let audioSrc: string;
 	export let mimeType: string;
 	export let fileName: string;
+$: console.log('🎵 AudioPlayer received props:', { attachmentId, audioSrc, mimeType, fileName });
 
 	let audioElement: HTMLAudioElement;
 	let isDragging = false;
@@ -222,31 +223,78 @@
 	 */
 </script>
 
-<!-- Hidden audio element for actual playback -->
+<!-- Enhanced debug version of audio element -->
 <audio
 	bind:this={audioElement}
 	preload="auto"
+	on:loadstart={() => console.log('🎵 Audio loadstart:', audioSrc)}
 	on:loadedmetadata={() => {
+		console.log('🎵 Audio loadedmetadata:', {
+			duration: audioElement?.duration,
+			readyState: audioElement?.readyState,
+			networkState: audioElement?.networkState
+		});
+		handleAudioLoaded(attachmentId);
+		updateDuration();
+	}}
+	on:loadeddata={() => {
+		console.log('🎵 Audio loadeddata');
+		handleAudioLoaded(attachmentId);
+		updateDuration();
+	}}
+	on:canplay={() => console.log('🎵 Audio canplay')}
+	on:canplaythrough={() => {
+		console.log('🎵 Audio canplaythrough');
 		handleAudioLoaded(attachmentId);
 		updateDuration();
 	}}
 	on:timeupdate={() => handleTimeUpdate(attachmentId)}
 	on:ended={() => handleAudioEnded(attachmentId)}
-	on:play={() => pauseOtherAudioPlayers(attachmentId)}
-	on:loadeddata={() => {
-		handleAudioLoaded(attachmentId);
+	on:play={() => {
+		console.log('🎵 Audio play event');
+		pauseOtherAudioPlayers(attachmentId);
+	}}
+	on:pause={() => console.log('🎵 Audio pause event')}
+	on:error={(e) => {
+		console.error('🎵 Audio error:', e);
+		console.error('🎵 Audio error details:', {
+			error: audioElement?.error,
+			networkState: audioElement?.networkState,
+			readyState: audioElement?.readyState,
+			src: audioSrc
+		});
+	}}
+	on:stalled={() => console.log('🎵 Audio stalled')}
+	on:suspend={() => console.log('🎵 Audio suspend')}
+	on:abort={() => console.log('🎵 Audio abort')}
+	on:emptied={() => console.log('🎵 Audio emptied')}
+	on:durationchange={() => {
+		console.log('🎵 Audio durationchange:', audioElement?.duration);
 		updateDuration();
 	}}
-	on:canplaythrough={() => {
-		handleAudioLoaded(attachmentId);
+	on:progress={() => {
+		console.log('🎵 Audio progress');
 		updateDuration();
 	}}
-	on:durationchange={() => updateDuration()}
-	on:progress={() => updateDuration()}
+	on:waiting={() => console.log('🎵 Audio waiting')}
+	on:seeking={() => console.log('🎵 Audio seeking')}
+	on:seeked={() => console.log('🎵 Audio seeked')}
 >
 	<source src={audioSrc} type={mimeType} />
 	Your browser does not support the audio element.
 </audio>
+
+<!-- Add debug info to the UI temporarily -->
+<!-- <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-size: 12px; border-radius: 4px;">
+	<strong>Debug Info:</strong><br>
+	Source: {audioSrc}<br>
+	MIME Type: {mimeType}<br>
+	Audio Element Ready State: {audioElement?.readyState || 'Not loaded'}<br>
+	Audio Element Network State: {audioElement?.networkState || 'Not loaded'}<br>
+	Audio Element Error: {audioElement?.error?.message || 'None'}<br>
+	Duration: {audioElement?.duration || 'Unknown'}<br>
+	Can Play: {audioElement?.readyState >= 3 ? 'Yes' : 'No'}
+</div> -->
 
 <!-- Custom Audio Player UI -->
 <div class="custom-audio-player">

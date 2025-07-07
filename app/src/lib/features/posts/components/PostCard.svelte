@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
+	
 	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import type { Tag, AIAgent} from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
@@ -590,33 +591,34 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 							{#if attachment.file_type === 'image'}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<img
-										src="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
+										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
 										alt={attachment.original_name}
 										class="attachment-image"
 									/>
 								</a>
-							{:else if attachment.file_type === 'video'}
-								<div class="attachment-video" on:click|stopPropagation>
-									<VideoPlayer
-										src="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
-										mimeType={attachment.mime_type}
-										autoplay={!isComment}
-										showControls={true}
-										loop={true}
-										muted={true}
-										threshold={0.8}
-										className="post-video-player"
-									/>
-								</div>
-							{:else if attachment.file_type === 'audio'}
-								<div class="attachment-audio" on:click|stopPropagation>
-									<AudioPlayer
-										attachmentId={attachment.id}
-										audioSrc="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
-										mimeType={attachment.mime_type}
-										fileName={attachment.original_name}
-									/>
-								</div>
+{:else if attachment.file_type === 'video'}
+    <div class="attachment-video" on:click|stopPropagation>
+        <VideoPlayer
+            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+            mimeType={attachment.mime_type}
+            autoplay={!isComment}
+            showControls={true}
+            loop={true}
+            muted={true}
+            threshold={0.8}
+            className="post-video-player"
+        />
+    </div>
+{:else if attachment.file_type === 'audio'}
+    <div class="attachment-audio" on:click|stopPropagation>
+
+        <AudioPlayer
+            attachmentId={attachment.id}
+            audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+            mimeType={attachment.mime_type}
+            fileName={attachment.original_name}
+        />
+    </div>
 							{:else}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<div class="attachment-file">
@@ -643,46 +645,47 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 					{#each post.attachments as attachment}
 						<div class="attachment">
 							{#if attachment.file_type === 'image'}
-								<img
-									src="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
-									alt={attachment.original_name}
-									class="attachment-image"
-								/>
-							{:else if attachment.file_type === 'video'}
-								<div class="attachment-video">
-									<VideoPlayer
-										src="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
-										mimeType={attachment.mime_type}
-										autoplay={false}
-										showControls={true}
-										loop={false}
-										muted={false}
-										className="comment-video-player"
-									/>
-								</div>
-							{:else if attachment.file_type === 'audio'}
-								<div class="attachment-audio">
-									<AudioPlayer
-										attachmentId={attachment.id}
-										audioSrc="{pocketbaseUrl}/api/files/posts_attachments/{attachment.id}/{attachment.file_path}"
-										mimeType={attachment.mime_type}
-										fileName={attachment.original_name}
-									/>
-									<!-- <div class="media-info">
-									<Paperclip size={12} />
-									<span class="filename">{attachment.original_name}</span>
-									<span class="filesize">({formatFileSize(attachment.file_size)})</span>
-								</div> -->
-								</div>
-							{:else}
-								<div class="attachment-file">
-									<Icon name="Paperclip" size={16} />
-									<span>{attachment.original_name}</span>
-									{#if attachment.file_size}
-										<span class="filesize">({formatFileSize(attachment.file_size)})</span>
-									{/if}
-								</div>
-							{/if}
+    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+        <img
+            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+            alt={attachment.original_name}
+            class="attachment-image"
+        />
+    </a>
+{:else if attachment.file_type === 'video'}
+    <div class="attachment-video" on:click|stopPropagation>
+        <VideoPlayer
+            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+            mimeType={attachment.mime_type}
+            autoplay={!isComment}
+            showControls={true}
+            loop={true}
+            muted={true}
+            threshold={0.8}
+            className="post-video-player"
+        />
+    </div>
+{:else if attachment.file_type === 'audio'}
+    <div class="attachment-audio" on:click|stopPropagation>
+        
+        <AudioPlayer
+            attachmentId={attachment.id}
+            audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+            mimeType={attachment.mime_type}
+            fileName={attachment.original_name}
+        />
+    </div>
+{:else}
+    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+        <div class="attachment-file">
+            <Icon name="Paperclip" size={16} />
+            <span>{attachment.original_name}</span>
+            {#if attachment.file_size}
+                <span class="filesize">({formatFileSize(attachment.file_size)})</span>
+            {/if}
+        </div>
+    </a>
+{/if}
 						</div>
 					{/each}
 				</div>
@@ -787,6 +790,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 					<span class="tooltip">{$t('generic.copiedLink')} </span>
 				{/if}
 			</button>
+			
 			<!-- Read indicator -->
 			<div class="action-button read" title="{post.readCount || 0} readers">
 				<Icon name="EyeIcon" size={14} />
