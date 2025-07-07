@@ -6,6 +6,9 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"dev:linux": "yarn install --check-files && vite dev",
+		"dev:mac": "yarn install --check-files && vite dev",
+		"postinstall": "node scripts/install-platform-deps.js",
 		"test": "npm run test:integration && npm run test:unit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -93,7 +96,6 @@
 		"@codemirror/language": "6.11.0",
 		"@codemirror/theme-one-dark": "6.1.2",
 		"@codemirror/view": "6.36.7",
-		"@esbuild/darwin-arm64": "0.21.5",
 		"@floating-ui/dom": "1.6.8",
 		"@fortawesome/fontawesome-free": "^6.6.0",
 		"@joint/core": "^4.0.4",
@@ -152,6 +154,15 @@
 		"uuid": "^11.1.0",
 		"yaml": "^2.4.2",
 		"zod": "^3.25.74"
+	},
+	"optionalDependencies": {
+		"@esbuild/darwin-arm64": "0.21.5",
+		"@esbuild/darwin-x64": "0.21.5",
+		"@esbuild/linux-arm64": "0.21.5",
+		"@esbuild/linux-x64": "0.21.5",
+		"@esbuild/win32-arm64": "0.21.5",
+		"@esbuild/win32-ia32": "0.21.5",
+		"@esbuild/win32-x64": "0.21.5"
 	},
 	"resolutions": {
 		"@codemirror/state": "6.5.2",
