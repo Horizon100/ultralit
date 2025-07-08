@@ -585,8 +585,8 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 
 		addComment: async (
 			parentId: string,
-			content: string
-			// attachments?: File[] | FileList | null
+			content: string,
+			attachments?: File[] | FileList | null
 		) => {
 			const result = await clientTryCatch(
 				(async () => {
@@ -650,7 +650,7 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 				throw new Error(result.error);
 			}
 
-			return result.data;
+	return await postStore.addPost(content, attachments, parentId);
 		},
 
 		fetchChildren: async (postId: string, limit = 20, depth = 1) => {

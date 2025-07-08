@@ -9,6 +9,8 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 	try {
 		const formData = await request.formData();
 		const videoFile = formData.get('video') as File;
+		const userAgent = request.headers.get('user-agent') || '';
+		const forceH264 = formData.get('forceH264') === 'true';
 		
 		if (!videoFile) {
 			return json({ error: 'No video file provided' }, { status: 400 });
@@ -19,12 +21,31 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 			return json({ error: 'File is not a video' }, { status: 400 });
 		}
 
+		// Determine if we need Safari-compatible conversion
+		const isSafariUser = userAgent.includes('Safari') && !userAgent.includes('Chrome');
+		const needsConversion = forceH264 || isSafariUser;
+
 		// Forward the file to the video converter service
 		const converterFormData = new FormData();
 		converterFormData.append('video', videoFile);
-		converterFormData.append('outputFormat', 'mp4');
-		converterFormData.append('codec', 'h264');
-		converterFormData.append('quality', 'medium');
+		
+		if (needsConversion) {
+			converterFormData.append('outputFormat', 'mp4');
+			converterFormData.append('codec', 'libx264');
+			converterFormData.append('profile', 'baseline');
+			converterFormData.append('level', '3.1');
+			converterFormData.append('pixelFormat', 'yuv420p');
+			converterFormData.append('crf', '25');
+			converterFormData.append('preset', 'medium');
+			converterFormData.append('audioCodec', 'aac');
+			converterFormData.append('audioBitrate', '128k');
+			converterFormData.append('audioSampleRate', '44100');
+			converterFormData.append('audioChannels', '2');
+			converterFormData.append('movflags', '+faststart');
+		} else {
+			// Keep original format for modern browsers
+			converterFormData.append('outputFormat', 'mp4');
+		}
 
 		const response = await fetch(`${VIDEO_CONVERTER_URL}/convert`, {
 			method: 'POST',
@@ -43,16 +64,18 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 		// Create a new File object with the converted video
 		const originalName = videoFile.name;
 		const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
-		const convertedFileName = `${nameWithoutExt}.mp4`;
+		const outputFormat = 'mp4'; // Always MP4 for now
+		const convertedFileName = `${nameWithoutExt}.${outputFormat}`;
 
 		// Return the converted video as a response
 		return new Response(convertedVideoBlob, {
 			status: 200,
 			headers: {
-				'Content-Type': 'video/mp4',
+				'Content-Type': `video/${outputFormat}`,
 				'Content-Disposition': `attachment; filename="${convertedFileName}"`,
 				'X-Original-Name': originalName,
-				'X-Converted-Name': convertedFileName
+				'X-Converted-Name': convertedFileName,
+				'X-Safari-Compatible': needsConversion ? 'true' : 'false'
 			}
 		});
 

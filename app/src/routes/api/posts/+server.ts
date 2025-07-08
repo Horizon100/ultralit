@@ -37,34 +37,6 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 				`Fetching posts: limit=${limit}, offset=${offset}, page=${page}, parent=${parent}`
 			);
 
-			// First, let's see what's actually in the database WITHOUT any filters
-			try {
-				const allPostsTest = (await pb.collection('posts').getList(1, 5, {
-					sort: '-created'
-					// NO FILTER - see everything
-				})) as PBListResult<Post>;
-
-				console.log('📊 TOTAL POSTS IN DATABASE:', allPostsTest.totalItems);
-				console.log(
-					'📊 SAMPLE POSTS (no filter):',
-					allPostsTest.items.map((p) => ({
-						id: p.id,
-						content: p.content?.substring(0, 50),
-						parent: p.parent || '(empty/null)',
-						user: p.user,
-						created: p.created
-					}))
-				);
-
-				// Check what parent values actually exist
-				const parentValues = allPostsTest.items.map((p) => p.parent);
-				console.log('📊 Parent field values found:', parentValues);
-				console.log('📊 Empty parent count:', parentValues.filter((p) => !p || p === '').length);
-				console.log('📊 Non-empty parent count:', parentValues.filter((p) => p && p !== '').length);
-			} catch (error) {
-				console.error('❌ Error checking database:', error);
-			}
-
 			let filter = '';
 			if (parent) {
 				// Getting comments for a specific post
@@ -89,16 +61,11 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 
 			// Make the actual query
 			const postsResult = (await pb.collection('posts').getList(page, limit, {
-				filter: filter || undefined, // Don't pass empty string
+				filter: filter || undefined,
 				sort: '-created'
 			})) as PBListResult<Post>;
 
-			console.log(
-				'🎯 FINAL RESULT:',
-				postsResult.totalItems,
-				'posts found with filter:',
-				filter || '(none)'
-			);
+			console.log('🎯 FINAL RESULT:', postsResult.totalItems, 'posts found');
 
 			const userIds = [...new Set(postsResult.items.map((post: Post) => post.user))];
 
@@ -256,6 +223,13 @@ export const POST: RequestHandler = async (event) =>
 			const user = formData.get('user') as string;
 			const parent = (formData.get('parent') as string) || '';
 
+			console.log('Form data received:', { 
+				content: content?.substring(0, 50) + '...', 
+				user, 
+				parent: parent || '(empty)',
+				hasParent: !!parent
+			});
+
 			if (!content || !content.trim()) {
 				throw new Error('Content is required');
 			}
@@ -287,16 +261,26 @@ export const POST: RequestHandler = async (event) =>
 				quotedPost: ''
 			};
 
+			// FIXED: Only set parent if it exists and is not empty
 			if (parent && parent.trim()) {
 				postData.parent = parent.trim();
+				console.log('✅ Setting parent:', parent.trim());
+			} else {
+				// Explicitly set empty parent for main posts
+				postData.parent = '';
+				console.log('✅ Creating main post (no parent)');
 			}
+
+			console.log('Creating post with data:', postData);
 
 			const newPost = (await pb.collection('posts').create(postData)) as Post;
 
-			console.log(`Post created with ID: ${newPost.id}`);
+			console.log(`✅ Post created with ID: ${newPost.id}, parent: ${newPost.parent || '(none)'}`);
 
+			// Update parent post if this is a comment
 			if (parent && parent.trim()) {
 				try {
+					console.log('🔄 Updating parent post:', parent);
 					const parentPost = (await pb.collection('posts').getOne(parent)) as Post;
 					const children = parentPost.children || [];
 					const commentedBy = parentPost.commentedBy || [];
@@ -310,12 +294,14 @@ export const POST: RequestHandler = async (event) =>
 						commentCount: (parentPost.commentCount || 0) + 1
 					});
 
-					console.log(`Updated parent post ${parent} with new child ${newPost.id}`);
+					console.log(`✅ Updated parent post ${parent} with new child ${newPost.id}`);
 				} catch (parentError) {
-					console.error('Error updating parent post:', parentError);
+					console.error('❌ Error updating parent post:', parentError);
+					// Don't throw here - the comment was created successfully
 				}
 			}
 
+			// Handle attachments
 			const attachments: PostAttachment[] = [];
 			for (const [key, file] of formData.entries()) {
 				if (key.startsWith('attachment_') && file instanceof File) {
@@ -334,13 +320,14 @@ export const POST: RequestHandler = async (event) =>
 							.collection('posts_attachments')
 							.create(attachmentFormData)) as PostAttachment;
 						attachments.push(attachment);
-						console.log(`Attachment created with ID: ${attachment.id}`);
+						console.log(`✅ Attachment created with ID: ${attachment.id}`);
 					} catch (attachmentError) {
-						console.error('Error creating attachment:', attachmentError);
+						console.error('❌ Error creating attachment:', attachmentError);
 					}
 				}
 			}
 
+			// Get user data for the response
 			const userData = (await pb.collection('users').getOne(locals.user.id, {
 				fields: 'id,username,name,avatar'
 			})) as User;
@@ -360,7 +347,7 @@ export const POST: RequestHandler = async (event) =>
 				attachments
 			};
 
-			console.log('Post creation successful');
+			console.log('✅ Post creation successful:', result.id);
 			return result;
 		},
 		'Failed to create post',

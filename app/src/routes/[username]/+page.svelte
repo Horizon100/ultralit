@@ -14,7 +14,6 @@
 		updateUserDescription
 	} from '$lib/pocketbase';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
-
 	import { createEventDispatcher } from 'svelte';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import RepostCard from '$lib/features/posts/components/RepostCard.svelte';
