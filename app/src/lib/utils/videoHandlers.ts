@@ -1,9 +1,9 @@
+// src/lib/utils/videoHandlers.ts
 import { tryCatch, type Result } from '$lib/utils/errorUtils';
 
 export interface ConvertedVideo {
 	original: File;
-	mp4?: File;
-	webm?: File;
+	converted?: File;
 	formats: Array<{ file: File; mimeType: string }>;
 }
 
@@ -19,25 +19,15 @@ export async function convertVideoToMultipleFormats(
 				formats: []
 			};
 
+			// Always include original
 			result.formats.push({ file: videoFile, mimeType: videoFile.type });
 
-			if (!videoFile.type.startsWith('video/')) {
-				return result;
-			}
-
-			if (videoFile.type !== 'video/mp4') {
-				const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
-				if (mp4File) {
-					result.mp4 = mp4File;
-					result.formats.push({ file: mp4File, mimeType: 'video/mp4' });
-				}
-			}
-
-			if (videoFile.type !== 'video/webm') {
-				const webmFile = await convertVideoToFormat(videoFile, 'video/webm');
-				if (webmFile) {
-					result.webm = webmFile;
-					result.formats.push({ file: webmFile, mimeType: 'video/webm' });
+			// Only convert if it's a video file and not already MP4
+			if (videoFile.type.startsWith('video/') && videoFile.type !== 'video/mp4') {
+				const convertedFile = await convertVideoToUniversalFormat(videoFile);
+				if (convertedFile.success) {
+					result.converted = convertedFile.data;
+					result.formats.push({ file: convertedFile.data, mimeType: 'video/mp4' });
 				}
 			}
 
@@ -48,200 +38,76 @@ export async function convertVideoToMultipleFormats(
 }
 
 export function canConvertVideo(): boolean {
-	try {
-		const canvas = document.createElement('canvas');
-		const stream = canvas.captureStream();
-
-		const mp4Support = MediaRecorder.isTypeSupported('video/mp4');
-		const webmSupport = MediaRecorder.isTypeSupported('video/webm');
-
-		return mp4Support || webmSupport;
-	} catch {
-		return false;
-	}
+	// Since we're using server-side conversion, we can always convert
+	return true;
 }
 
 export function detectVideoIssues(videoFile: File): string[] {
 	const issues: string[] = [];
 
-	// Check for problematic combinations
-	if (videoFile.type === 'video/quicktime' && videoFile.size > 20 * 1024 * 1024) {
-		issues.push('Large MOV files may not play in all browsers');
+	// Check for problematic formats that our server will handle
+	if (videoFile.type === 'video/quicktime' && videoFile.size > 50 * 1024 * 1024) {
+		issues.push('Large MOV files will be converted to MP4 for better compatibility');
 	}
 
 	if (
 		videoFile.name.toLowerCase().includes('hevc') ||
 		videoFile.name.toLowerCase().includes('h265')
 	) {
-		issues.push('H.265/HEVC videos may not play in all browsers');
+		issues.push('H.265/HEVC videos will be converted to H.264 for better compatibility');
+	}
+
+	if (videoFile.size > 100 * 1024 * 1024) {
+		issues.push('Files larger than 100MB may take longer to process');
 	}
 
 	return issues;
 }
 
-// Better conversion function that actually re-encodes
-async function convertVideoToFormat(videoFile: File, targetMimeType: string): Promise<File | null> {
-	return new Promise((resolve) => {
-		const video = document.createElement('video');
-		video.crossOrigin = 'anonymous';
-		video.muted = true;
-
-		video.onloadeddata = () => {
-			const canvas = document.createElement('canvas');
-			const ctx = canvas.getContext('2d');
-			if (!ctx) {
-				resolve(null);
-				return;
-			}
-
-			// Set reasonable dimensions for compatibility
-			const maxWidth = 1280;
-			const maxHeight = 720;
-			const aspectRatio = video.videoWidth / video.videoHeight;
-
-			if (video.videoWidth > maxWidth) {
-				canvas.width = maxWidth;
-				canvas.height = maxWidth / aspectRatio;
-			} else if (video.videoHeight > maxHeight) {
-				canvas.height = maxHeight;
-				canvas.width = maxHeight * aspectRatio;
-			} else {
-				canvas.width = video.videoWidth;
-				canvas.height = video.videoHeight;
-			}
-
-			const stream = canvas.captureStream(24); // 24fps for better compatibility
-
-			// Choose the most compatible codec
-			let mimeType = '';
-			if (targetMimeType.includes('mp4')) {
-				// Try different MP4 options in order of compatibility
-				const mp4Options = [
-					'video/mp4;codecs=avc1.42E01E', // H.264 baseline (most compatible)
-					'video/mp4;codecs=avc1.4D401E', // H.264 main
-					'video/mp4'
-				];
-
-				for (const option of mp4Options) {
-					if (MediaRecorder.isTypeSupported(option)) {
-						mimeType = option;
-						break;
-					}
-				}
-			} else if (targetMimeType.includes('webm')) {
-				const webmOptions = [
-					'video/webm;codecs=vp8', // More compatible than VP9
-					'video/webm;codecs=vp9',
-					'video/webm'
-				];
-
-				for (const option of webmOptions) {
-					if (MediaRecorder.isTypeSupported(option)) {
-						mimeType = option;
-						break;
-					}
-				}
-			}
-
-			if (!mimeType) {
-				console.log('No supported codec found for', targetMimeType);
-				resolve(null);
-				return;
-			}
-
-			console.log('Using codec:', mimeType);
-
-			const mediaRecorder = new MediaRecorder(stream, {
-				mimeType,
-				videoBitsPerSecond: 800000 // 800kbps for good quality/compatibility balance
-			});
-
-			const chunks: Blob[] = [];
-			const startTime = 0;
-
-			mediaRecorder.ondataavailable = (event) => {
-				if (event.data.size > 0) {
-					chunks.push(event.data);
-				}
-			};
-
-			mediaRecorder.onstop = () => {
-				const blob = new Blob(chunks, { type: targetMimeType });
-				const extension = targetMimeType.includes('webm') ? 'webm' : 'mp4';
-				const fileName = videoFile.name.replace(/\.[^/.]+$/, `.converted.${extension}`);
-				const convertedFile = new File([blob], fileName, { type: targetMimeType });
-
-				console.log(`Conversion complete: ${videoFile.name} -> ${convertedFile.name}`);
-				console.log(
-					`Original: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB -> Converted: ${(convertedFile.size / 1024 / 1024).toFixed(2)}MB`
-				);
-
-				resolve(convertedFile);
-			};
-
-			mediaRecorder.onerror = (e) => {
-				console.error('MediaRecorder error:', e);
-				resolve(null);
-			};
-
-			// Start recording
-			mediaRecorder.start(1000); // 1-second chunks
-			video.currentTime = 0;
-			video.play();
-
-			const renderFrame = () => {
-				if (!video.paused && !video.ended && mediaRecorder.state === 'recording') {
-					// Draw current frame to canvas
-					ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-					requestAnimationFrame(renderFrame);
-				} else if (video.ended || video.currentTime >= Math.min(video.duration, 60)) {
-					// Stop recording when video ends or after 60 seconds max
-					if (mediaRecorder.state === 'recording') {
-						mediaRecorder.stop();
-					}
-				}
-			};
-
-			// Start rendering frames
-			renderFrame();
-
-			// Safety timeout - stop after 2 minutes regardless
-			setTimeout(() => {
-				if (mediaRecorder.state === 'recording') {
-					console.log('Conversion timeout, stopping...');
-					mediaRecorder.stop();
-				}
-			}, 120000);
-		};
-
-		video.onerror = (e) => {
-			console.error('Video loading error for conversion:', e);
-			resolve(null);
-		};
-
-		// Load the video
-		video.src = URL.createObjectURL(videoFile);
-		video.load();
-	});
-}
+// Server-side conversion function
 export async function convertVideoToUniversalFormat(videoFile: File): Promise<Result<File, Error>> {
 	return tryCatch(
 		(async () => {
 			console.log(`Converting ${videoFile.name} to universal format...`);
 
-			const mp4File = await convertVideoToFormat(videoFile, 'video/mp4');
-			if (mp4File && mp4File.size > 0) {
-				console.log('Conversion successful!');
-				return mp4File;
-			} else {
-				console.log('Conversion failed or produced empty file, using original');
-				return videoFile;
+			// Create FormData for the API request
+			const formData = new FormData();
+			formData.append('video', videoFile);
+
+			// Call our SvelteKit API route
+			const response = await fetch('/api/video/convert', {
+				method: 'POST',
+				body: formData
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || 'Video conversion failed');
 			}
+
+			// Get the converted video blob
+			const convertedBlob = await response.blob();
+			
+			// Get original and converted names from headers
+			const originalName = response.headers.get('X-Original-Name') || videoFile.name;
+			const convertedName = response.headers.get('X-Converted-Name') || 
+				videoFile.name.replace(/\.[^/.]+$/, '.mp4');
+
+			// Create File object from blob
+			const convertedFile = new File([convertedBlob], convertedName, { 
+				type: 'video/mp4',
+				lastModified: Date.now()
+			});
+
+			console.log('Server-side conversion successful!');
+			console.log(`Original: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB -> Converted: ${(convertedFile.size / 1024 / 1024).toFixed(2)}MB`);
+			
+			return convertedFile;
 		})()
 	);
 }
 
-// Updated process function
+// Updated process function with better error handling
 export async function processVideoAttachments(files: File[]): Promise<File[]> {
 	const processedFiles: File[] = [];
 
@@ -249,12 +115,24 @@ export async function processVideoAttachments(files: File[]): Promise<File[]> {
 		if (file.type.startsWith('video/')) {
 			console.log(`Processing video: ${file.name}`);
 
+			// Check if conversion is needed
+			if (file.type === 'video/mp4') {
+				// MP4 files don't need conversion
+				processedFiles.push(file);
+				console.log(`Skipping conversion for MP4 file: ${file.name}`);
+				continue;
+			}
+
+			// Try server-side conversion
 			const result = await convertVideoToUniversalFormat(file);
 			if (result.success) {
 				processedFiles.push(result.data);
+				console.log(`Successfully converted: ${file.name} -> ${result.data.name}`);
 			} else {
 				console.error('Video conversion failed:', result.error);
-				processedFiles.push(file); // fallback original file
+				// Fallback to original file
+				processedFiles.push(file);
+				console.log(`Using original file as fallback: ${file.name}`);
 			}
 		} else {
 			processedFiles.push(file);
@@ -262,4 +140,16 @@ export async function processVideoAttachments(files: File[]): Promise<File[]> {
 	}
 
 	return processedFiles;
+}
+
+// Utility function to check if server-side conversion is available
+export async function checkVideoConversionService(): Promise<boolean> {
+	try {
+		const response = await fetch('/api/video/convert', {
+			method: 'OPTIONS'
+		});
+		return response.ok;
+	} catch {
+		return false;
+	}
 }

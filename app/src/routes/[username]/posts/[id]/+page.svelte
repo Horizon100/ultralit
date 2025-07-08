@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
-
+import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostQuoteCard from '$lib/features/posts/components/PostQuoteCard.svelte';
@@ -29,6 +29,7 @@
 		QuotePostResponse,
 		PostUpdateData
 	} from '$lib/types/types.posts';
+import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Adjust import path as needed
 
 	// State
 	let loading = true;
@@ -119,31 +120,55 @@
 	}
 
 	// Handle scroll detection
-	function handleScroll() {
-		if (!postCardElement || !commentsElement) return;
+let showPDFReader = false;
+let currentPDFUrl = '';
 
-		const scrollTop = window.pageYOffset;
-		const commentsRect = commentsElement.getBoundingClientRect();
-		const windowHeight = window.innerHeight;
+function openPDFReader(attachmentData) {
+	currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+	showPDFReader = true;
+	isPDFReaderOpen.set(true); // Set global state
+}
 
-		// Check if comments section is taking up significant screen space
-		const commentsVisibleHeight = Math.max(
-			0,
-			Math.min(commentsRect.bottom, windowHeight) - Math.max(commentsRect.top, 0)
-		);
-		const commentsVisible = commentsVisibleHeight > windowHeight * 0.4; // 40% of screen
+function closePDFReader() {
+	showPDFReader = false;
+	currentPDFUrl = '';
+	isPDFReaderOpen.set(false); // Reset global state
+	// Ensure body scroll is restored (backup)
+	document.body.style.overflow = '';
+}
 
-		if (commentsVisible && !isScrollingIntoComments) {
-			// Scale down when entering comments
-			isScrollingIntoComments = true;
-			postCardElement.style.transform = 'scale(0.9)';
-			postCardElement.style.transformOrigin = 'center top';
-		} else if (!commentsVisible && isScrollingIntoComments) {
-			// Scale back up when leaving comments
-			isScrollingIntoComments = false;
-			postCardElement.style.transform = 'scale(1)';
-		}
+function getPDFUrl(attachmentData) {
+	return `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+}
+
+function handleScroll() {
+	// Don't handle scroll when PDF reader is open
+	if ($isPDFReaderOpen) return;
+	
+	if (!postCardElement || !commentsElement) return;
+
+	const scrollTop = window.pageYOffset;
+	const commentsRect = commentsElement.getBoundingClientRect();
+	const windowHeight = window.innerHeight;
+
+	// Check if comments section is taking up significant screen space
+	const commentsVisibleHeight = Math.max(
+		0,
+		Math.min(commentsRect.bottom, windowHeight) - Math.max(commentsRect.top, 0)
+	);
+	const commentsVisible = commentsVisibleHeight > windowHeight * 0.4; // 40% of screen
+
+	if (commentsVisible && !isScrollingIntoComments) {
+		// Scale down when entering comments
+		isScrollingIntoComments = true;
+		postCardElement.style.transform = 'scale(0.9)';
+		postCardElement.style.transformOrigin = 'center top';
+	} else if (!commentsVisible && isScrollingIntoComments) {
+		// Scale back up when leaving comments
+		isScrollingIntoComments = false;
+		postCardElement.style.transform = 'scale(1)';
 	}
+}
 
 	let scrollTimeout: number;
 	function throttledScroll() {
@@ -610,86 +635,97 @@
 			}
 		}, 2000);
 	}
-	onMount(() => {
-		console.log('🏗️ Component mounted');
-		mounted = true; // This will trigger the reactive statement to fetch data
 
-		// Debug: Find what's actually scrolling
-		const checkScrollableElements = () => {
-			const elements = [
-				document.documentElement,
-				document.body,
-				document.querySelector('.post-content-wrapper'), // Adjust selector as needed
-				document.querySelector('.main-wrapper'),
-				document.querySelector('.post-content')
-			];
+onMount(() => {
+	console.log('🏗️ Component mounted');
+	mounted = true; 
 
-			elements.forEach((el, index) => {
-				if (el) {
-					console.log(`Element ${index}:`, {
-						element: el.className || el.tagName,
-						scrollTop: el.scrollTop,
-						scrollHeight: el.scrollHeight,
-						clientHeight: el.clientHeight,
-						isScrollable: el.scrollHeight > el.clientHeight
-					});
-				}
-			});
-		};
+	const checkScrollableElements = () => {
+		const elements = [
+			document.documentElement,
+			document.body,
+			document.querySelector('.post-content-wrapper'),
+			document.querySelector('.main-wrapper'),
+			document.querySelector('.post-content')
+		];
 
-		// Check initially and on scroll
-		checkScrollableElements();
-
-		// Add scroll listeners to different elements to see which one actually scrolls
-		const scrollHandler = (e: Event) => {
-			/*
-			 * console.log('Scroll detected on:', e.target.className || e.target.tagName, 'ScrollTop:', e.target.scrollTop);
-			 * Update our scroll variable manually
-			 */
-			const target = e.target as HTMLElement;
-			scrollY = target.scrollTop;
-		};
-
-		// Try different scroll targets
-		document.addEventListener('scroll', scrollHandler, true); // Use capture phase
-		document.querySelector('.post-content-wrapper')?.addEventListener('scroll', scrollHandler);
-		document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
-
-		// Wait for elements to be ready
-		setTimeout(() => {
-			if (commentsElement && postCardElement) {
-				const observer = new IntersectionObserver(
-					(entries) => {
-						entries.forEach((entry) => {
-							if (entry.isIntersecting) {
-								// Comments are visible - scale down post
-								postCardElement.style.transform = 'scale(0.9)';
-								postCardElement.style.transition = 'transform 0.4s ease';
-							} else {
-								// Comments not visible - scale back up
-								postCardElement.style.transform = 'scale(1)';
-							}
-						});
-					},
-					{
-						threshold: 0.3 // Trigger when 30% of comments are visible
-					}
-				);
-
-				observer.observe(commentsElement);
-
-				// Cleanup
-				return () => {
-					observer.disconnect();
-					document.removeEventListener('scroll', scrollHandler, true);
-					document
-						.querySelector('.post-content-wrapper')
-						?.removeEventListener('scroll', scrollHandler);
-					document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
-				};
+		elements.forEach((el, index) => {
+			if (el) {
+				console.log(`Element ${index}:`, {
+					element: el.className || el.tagName,
+					scrollTop: el.scrollTop,
+					scrollHeight: el.scrollHeight,
+					clientHeight: el.clientHeight,
+					isScrollable: el.scrollHeight > el.clientHeight
+				});
 			}
-		}, 100);
-	});
+		});
+	};
+
+	// Check initially and on scroll
+	checkScrollableElements();
+
+	// Enhanced scroll handler with PDF reader isolation
+	const scrollHandler = (e: Event) => {
+		// Don't handle scroll when PDF reader is open
+		if ($isPDFReaderOpen) return;
+
+		const target = e.target as HTMLElement;
+		scrollY = target.scrollTop;
+	};
+
+	// Enhanced document scroll handler with PDF reader check
+	const handleDocumentScroll = (e: Event) => {
+		// Don't handle scroll when PDF reader is open
+		if ($isPDFReaderOpen) return;
+		
+		handleScroll(); // Your existing handleScroll function
+	};
+
+	// Add scroll listeners with PDF reader isolation
+	document.addEventListener('scroll', scrollHandler, true); // Use capture phase
+	document.addEventListener('scroll', handleDocumentScroll);
+	document.querySelector('.post-content-wrapper')?.addEventListener('scroll', scrollHandler);
+	document.querySelector('.main-wrapper')?.addEventListener('scroll', scrollHandler);
+
+	// Enhanced intersection observer with PDF reader check
+	setTimeout(() => {
+		if (commentsElement && postCardElement) {
+			const observer = new IntersectionObserver(
+				(entries) => {
+					// Don't handle intersection when PDF reader is open
+					if ($isPDFReaderOpen) return;
+
+					entries.forEach((entry) => {
+						if (entry.isIntersecting) {
+							// Comments are visible - scale down post
+							postCardElement.style.transform = 'scale(0.9)';
+							postCardElement.style.transition = 'transform 0.4s ease';
+							postCardElement.style.transformOrigin = 'center top';
+						} else {
+							// Comments not visible - scale back up
+							postCardElement.style.transform = 'scale(1)';
+						}
+					});
+				},
+				{
+					threshold: 0.3 // Trigger when 30% of comments are visible
+				}
+			);
+
+			observer.observe(commentsElement);
+
+			// Enhanced cleanup function
+			return () => {
+				observer.disconnect();
+				document.removeEventListener('scroll', scrollHandler, true);
+				document.removeEventListener('scroll', handleDocumentScroll);
+				document.querySelector('.post-content-wrapper')?.removeEventListener('scroll', scrollHandler);
+				document.querySelector('.main-wrapper')?.removeEventListener('scroll', scrollHandler);
+			};
+		}
+	}, 100);
+});
 </script>
 
 <svelte:window bind:scrollY />
@@ -796,7 +832,6 @@
 							: $t('posts.noReplies')}
 					</h3>
 				</div>
-				{#if !isScrolled}
 					<div
 						bind:this={postCardElement}
 						class="post-card-container"
@@ -821,7 +856,6 @@
 							/>
 						{/if}
 					</div>
-				{/if}
 
 				<!-- Comment Composer -->
 				{#if $showInput && $currentUser}
@@ -1438,6 +1472,7 @@
 	.post-card-container {
 		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 		will-change: transform;
+		background:none;
 	}
 	/* Dark mode adjustments */
 	:global([data-theme='dark']) .skeleton-shimmer {

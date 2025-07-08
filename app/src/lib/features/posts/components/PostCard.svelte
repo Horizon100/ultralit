@@ -4,7 +4,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
 	
-	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
+	import type { PostWithInteractions, CommentWithInteractions} from '$lib/types/types.posts';
 	import type { Tag, AIAgent} from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
@@ -17,6 +17,7 @@
 	import { slide, fly, fade } from 'svelte/transition';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
+import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 
 	import {
 		initAudioState,
@@ -40,6 +41,10 @@
 	import { toast } from '$lib/utils/toastUtils';
 	import { agentStore } from '$lib/stores/agentStore'; // Add this import
 	import LocalAIAnalysisModal from '$lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte';
+	import PDFThumbnail from '$lib/features/pdf/components/PDFThumbnail.svelte';
+	import PDFReader from '$lib/features/pdf/components/PDFReader.svelte';
+  
+
 
 	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
@@ -58,7 +63,8 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	let showTagsModal = false;
 	let showAIAnalysisModal = false;
 	let debugCount = 0;
-
+	let showPDFReader = false;
+	let currentPDFUrl = '';
 	// Tags expansion state
 	let tagsExpanded = false;
 	let tagDetails: Tag[] = [];
@@ -104,6 +110,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		// Optional: Show toast notification
 		toast.success(`Analysis complete using ${selectedLocalModel}`);
 	}
+	
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
@@ -120,6 +127,22 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		const postUrl = `/${post.author_username}/posts/${post.id}`;
 		goto(postUrl);
 	}
+	  
+  function openPDFReader(attachmentData) {
+    currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+    showPDFReader = true;
+  }
+  
+  function closePDFReader() {
+    showPDFReader = false;
+    currentPDFUrl = '';
+    // Ensure body scroll is restored (backup)
+    document.body.style.overflow = '';
+  }
+
+  function getPDFUrl(attachmentData) {
+    return `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+  }
 	function handleModelSelect(event: CustomEvent<{ model: string }>) {
 	selectedLocalModel = event.detail.model;
 	console.log('🔄 Model updated to:', selectedLocalModel);
@@ -619,6 +642,36 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
             fileName={attachment.original_name}
         />
     </div>
+		{:else if attachment.file_type === 'document'}
+								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+									<div class="attachment-file">
+  {#if attachment.mime_type === 'application/pdf'}
+    <div class="pdf-attachment">
+      <PDFThumbnail 
+        pdfUrl={getPDFUrl(attachment)} 
+        onClick={() => openPDFReader(attachment)}
+      />
+      <div class="pdf-info">
+        <span class="pdf-name">{attachment.original_name}</span>
+        {#if attachment.file_size}
+          <span class="filesize">({formatFileSize(attachment.file_size)})</span>
+        {/if}
+      </div>
+    </div>
+  {:else}
+    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+      <div class="attachment-file">
+        <Icon name="Paperclip" size={16} />
+        <span>{attachment.original_name}</span>
+        {#if attachment.file_size}
+          <span class="filesize">({formatFileSize(attachment.file_size)})</span>
+        {/if}
+      </div>
+    </a>
+  {/if}
+
+									</div>
+								</a>
 							{:else}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<div class="attachment-file">
@@ -887,7 +940,13 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		{/if}
 	{/if}
 </article>
-
+{#if showPDFReader}
+  <PDFReader 
+    pdfUrl={currentPDFUrl} 
+    onClose={closePDFReader}
+    enableAI={true}
+  />
+{/if}
 <LocalAIAnalysisModal
   bind:isOpen={showAIAnalysisModal}
   {post}
@@ -1076,11 +1135,11 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	.attachment-file {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		padding: 8px 12px;
-		background: var(--line-color);
-		border-radius: 8px;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
 		color: var(--text-color);
+
 		font-size: 0.9rem;
 	}
 
@@ -1351,9 +1410,35 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		text-align: center;
 		margin-top: 0.5rem;
 		padding-top: 0.5rem;
-		border-top: 1px solid var(--border-color, #e5e7eb);
+		border-top: 1px solid var(--line-color);
 		color: var(--text-muted, #6b7280);
 	}
+.pdf-attachment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+
+
+}
+
+  .pdf-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pdf-name {
+    font-weight: 500;
+    color: var(--placeholder-color);
+    font-size: 14px;
+  }
+
+  .filesize {
+    color: var(--placeholder-color);
+    font-size: 12px;
+  }
 	/* Mobile responsive */
 	@media (max-width: 768px) {
 		.post-card {

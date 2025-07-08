@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: host,
+      timeout: 300000,
       cors: {
         origin: mode === 'development' ? devOrigins : false,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
