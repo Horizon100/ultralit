@@ -10,18 +10,21 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 interface PDFExtractionResult {
-  text: string;
-  confidence?: number;
-  method: string;
-  pageCount?: number;
+	text: string;
+	confidence?: number;
+	method: string;
+	pageCount?: number;
 }
 
 /**
  * Extract text directly from PDF using PyMuPDF
  */
-async function extractDirectPDFText(pdfPath: string, maxLength: number): Promise<PDFExtractionResult> {
-  return new Promise((resolve, reject) => {
-    const pythonScript = `
+async function extractDirectPDFText(
+	pdfPath: string,
+	maxLength: number
+): Promise<PDFExtractionResult> {
+	return new Promise((resolve, reject) => {
+		const pythonScript = `
 import fitz  # PyMuPDF
 import sys
 import json
@@ -61,60 +64,60 @@ except Exception as e:
     sys.exit(1)
 `;
 
-    const python = spawn('python3', ['-c', pythonScript]);
-    let stdout = '';
-    let stderr = '';
+		const python = spawn('python3', ['-c', pythonScript]);
+		let stdout = '';
+		let stderr = '';
 
-    python.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+		python.stdout.on('data', (data) => {
+			stdout += data.toString();
+		});
 
-    python.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+		python.stderr.on('data', (data) => {
+			stderr += data.toString();
+		});
 
-    python.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const result = JSON.parse(stdout.trim());
-          if (result.error) {
-            reject(new Error(`PyMuPDF error: ${result.error}`));
-          } else {
-            resolve({
-              text: result.text || '',
-              method: result.method,
-              pageCount: result.pageCount
-            });
-          }
-        } catch (parseError) {
-          reject(new Error(`Failed to parse PyMuPDF output: ${parseError}`));
-        }
-      } else {
-        console.error('📄 PyMuPDF error:', stderr);
-        reject(new Error(`PyMuPDF failed with code ${code}: ${stderr}`));
-      }
-    });
+		python.on('close', (code) => {
+			if (code === 0) {
+				try {
+					const result = JSON.parse(stdout.trim());
+					if (result.error) {
+						reject(new Error(`PyMuPDF error: ${result.error}`));
+					} else {
+						resolve({
+							text: result.text || '',
+							method: result.method,
+							pageCount: result.pageCount
+						});
+					}
+				} catch (parseError) {
+					reject(new Error(`Failed to parse PyMuPDF output: ${parseError}`));
+				}
+			} else {
+				console.error('📄 PyMuPDF error:', stderr);
+				reject(new Error(`PyMuPDF failed with code ${code}: ${stderr}`));
+			}
+		});
 
-    python.on('error', (error) => {
-      console.error('📄 PyMuPDF spawn error:', error);
-      reject(new Error(`Failed to start PyMuPDF: ${error.message}`));
-    });
-  });
+		python.on('error', (error) => {
+			console.error('📄 PyMuPDF spawn error:', error);
+			reject(new Error(`Failed to start PyMuPDF: ${error.message}`));
+		});
+	});
 }
 
 /**
  * Extract text from PDF using OCR (for scanned PDFs)
  */
 async function extractPDFTextWithOCR(
-  pdfPath: string,
-  language: string,
-  engine: string,
-  maxLength: number,
-  tempDir: string
+	pdfPath: string,
+	language: string,
+	engine: string,
+	maxLength: number,
+	tempDir: string
 ): Promise<PDFExtractionResult> {
-  return new Promise((resolve, reject) => {
-    // First convert PDF to images, then OCR
-    const pythonScript = `
+	return new Promise((resolve, reject) => {
+		// First convert PDF to images, then OCR
+		const pythonScript = `
 import fitz  # PyMuPDF
 from PIL import Image
 import sys
@@ -130,11 +133,15 @@ try:
     
     all_text = []
     
-    ${engine === 'easyocr' ? `
+    ${
+			engine === 'easyocr'
+				? `
     # Initialize EasyOCR reader
     easyocr_langs = '${language}'.replace('eng', 'en').replace('fin', 'fi').replace('rus', 'ru').split('+')
     reader = easyocr.Reader(easyocr_langs)
-    ` : ''}
+    `
+				: ''
+		}
     
     # Process each page
     for page_num in range(min(page_count, 10)):  # Limit to first 10 pages for performance
@@ -147,15 +154,19 @@ try:
         pix.save(img_path)
         
         # Perform OCR
-        ${engine === 'easyocr' ? `
+        ${
+					engine === 'easyocr'
+						? `
         # EasyOCR
         results = reader.readtext(img_path)
         page_text = ' '.join([text for (bbox, text, confidence) in results])
-        ` : `
+        `
+						: `
         # Tesseract OCR
         image = Image.open(img_path)
         page_text = pytesseract.image_to_string(image, lang='${language}'.replace('+', '+'))
-        `}
+        `
+				}
         
         all_text.append(page_text)
         
@@ -187,128 +198,134 @@ except Exception as e:
     sys.exit(1)
 `;
 
-    const python = spawn('python3', ['-c', pythonScript]);
-    let stdout = '';
-    let stderr = '';
+		const python = spawn('python3', ['-c', pythonScript]);
+		let stdout = '';
+		let stderr = '';
 
-    python.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+		python.stdout.on('data', (data) => {
+			stdout += data.toString();
+		});
 
-    python.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+		python.stderr.on('data', (data) => {
+			stderr += data.toString();
+		});
 
-    python.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const result = JSON.parse(stdout.trim());
-          if (result.error) {
-            reject(new Error(`PDF OCR error: ${result.error}`));
-          } else {
-            resolve({
-              text: result.text || '',
-              method: result.method,
-              pageCount: result.pageCount
-            });
-          }
-        } catch (parseError) {
-          reject(new Error(`Failed to parse PDF OCR output: ${parseError}`));
-        }
-      } else {
-        console.error('📄 PDF OCR error:', stderr);
-        reject(new Error(`PDF OCR failed with code ${code}: ${stderr}`));
-      }
-    });
+		python.on('close', (code) => {
+			if (code === 0) {
+				try {
+					const result = JSON.parse(stdout.trim());
+					if (result.error) {
+						reject(new Error(`PDF OCR error: ${result.error}`));
+					} else {
+						resolve({
+							text: result.text || '',
+							method: result.method,
+							pageCount: result.pageCount
+						});
+					}
+				} catch (parseError) {
+					reject(new Error(`Failed to parse PDF OCR output: ${parseError}`));
+				}
+			} else {
+				console.error('📄 PDF OCR error:', stderr);
+				reject(new Error(`PDF OCR failed with code ${code}: ${stderr}`));
+			}
+		});
 
-    python.on('error', (error) => {
-      console.error('📄 PDF OCR spawn error:', error);
-      reject(new Error(`Failed to start PDF OCR: ${error.message}`));
-    });
-  });
+		python.on('error', (error) => {
+			console.error('📄 PDF OCR spawn error:', error);
+			reject(new Error(`Failed to start PDF OCR: ${error.message}`));
+		});
+	});
 }
 
 export const POST: RequestHandler = async (event) =>
-  apiTryCatch(async () => {
-    const { request, cookies } = event;
+	apiTryCatch(async () => {
+		const { request, cookies } = event;
 
-    // Authentication
-    const authCookie = cookies.get('pb_auth');
-    if (!authCookie) throw new Error('User not authenticated');
-    
-    let authData;
-    try {
-      authData = JSON.parse(authCookie);
-      pbServer.pb.authStore.save(authData.token, authData.model);
-    } catch {
-      throw new Error('Failed to parse auth cookie');
-    }
-    
-    if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
-    
-    const user = pbServer.pb.authStore.model;
-    if (!user || !user.id) throw new Error('Invalid user session');
+		// Authentication
+		const authCookie = cookies.get('pb_auth');
+		if (!authCookie) throw new Error('User not authenticated');
 
-    console.log('📄 PDF Extract - User ID:', user.id);
+		let authData;
+		try {
+			authData = JSON.parse(authCookie);
+			pbServer.pb.authStore.save(authData.token, authData.model);
+		} catch {
+			throw new Error('Failed to parse auth cookie');
+		}
 
-    // Parse form data
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const language = (formData.get('language') as string) || 'eng+fin+rus';
-    const engine = (formData.get('engine') as string) || 'tesseract';
-    const maxLength = parseInt((formData.get('maxLength') as string) || '2000');
+		if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 
-    if (!file) {
-      throw new Error('No file provided');
-    }
+		const user = pbServer.pb.authStore.model;
+		if (!user || !user.id) throw new Error('Invalid user session');
 
-    if (file.type !== 'application/pdf') {
-      throw new Error('File must be a PDF');
-    }
+		console.log('📄 PDF Extract - User ID:', user.id);
 
-    console.log('📄 PDF Extract - Processing:', file.name, 'Engine:', engine, 'Language:', language);
+		// Parse form data
+		const formData = await request.formData();
+		const file = formData.get('file') as File;
+		const language = (formData.get('language') as string) || 'eng+fin+rus';
+		const engine = (formData.get('engine') as string) || 'tesseract';
+		const maxLength = parseInt((formData.get('maxLength') as string) || '2000');
 
-    // Create temp directory
-    const tempDir = join(tmpdir(), 'pdf-extract-' + randomUUID());
-    await mkdir(tempDir, { recursive: true });
+		if (!file) {
+			throw new Error('No file provided');
+		}
 
-    // Save uploaded file
-    const inputPath = join(tempDir, 'input.pdf');
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(inputPath, fileBuffer);
+		if (file.type !== 'application/pdf') {
+			throw new Error('File must be a PDF');
+		}
 
-    let result: PDFExtractionResult;
+		console.log(
+			'📄 PDF Extract - Processing:',
+			file.name,
+			'Engine:',
+			engine,
+			'Language:',
+			language
+		);
 
-    try {
-      // Try direct text extraction first (faster)
-      result = await extractDirectPDFText(inputPath, maxLength);
-      
-      // If direct extraction fails or returns minimal text, try OCR
-      if (!result.text || result.text.trim().length < 50) {
-        console.log('📄 PDF Extract - Direct extraction insufficient, trying OCR...');
-        result = await extractPDFTextWithOCR(inputPath, language, engine, maxLength, tempDir);
-      }
+		// Create temp directory
+		const tempDir = join(tmpdir(), 'pdf-extract-' + randomUUID());
+		await mkdir(tempDir, { recursive: true });
 
-      console.log('📄 PDF Extract - Success:', {
-        textLength: result.text.length,
-        method: result.method,
-        pageCount: result.pageCount
-      });
+		// Save uploaded file
+		const inputPath = join(tempDir, 'input.pdf');
+		const fileBuffer = Buffer.from(await file.arrayBuffer());
+		await writeFile(inputPath, fileBuffer);
 
-      return {
-        text: result.text,
-        confidence: result.confidence,
-        method: result.method,
-        pageCount: result.pageCount
-      };
+		let result: PDFExtractionResult;
 
-    } finally {
-      // Cleanup temp files
-      try {
-        await unlink(inputPath);
-        // Note: Other temp files in tempDir will be cleaned up by system
-      } catch (cleanupError) {
-        console.warn('📄 PDF Extract - Cleanup warning:', cleanupError);
-      }
-    }
-  }, 'Internal PDF extraction error');
+		try {
+			// Try direct text extraction first (faster)
+			result = await extractDirectPDFText(inputPath, maxLength);
+
+			// If direct extraction fails or returns minimal text, try OCR
+			if (!result.text || result.text.trim().length < 50) {
+				console.log('📄 PDF Extract - Direct extraction insufficient, trying OCR...');
+				result = await extractPDFTextWithOCR(inputPath, language, engine, maxLength, tempDir);
+			}
+
+			console.log('📄 PDF Extract - Success:', {
+				textLength: result.text.length,
+				method: result.method,
+				pageCount: result.pageCount
+			});
+
+			return {
+				text: result.text,
+				confidence: result.confidence,
+				method: result.method,
+				pageCount: result.pageCount
+			};
+		} finally {
+			// Cleanup temp files
+			try {
+				await unlink(inputPath);
+				// Note: Other temp files in tempDir will be cleaned up by system
+			} catch (cleanupError) {
+				console.warn('📄 PDF Extract - Cleanup warning:', cleanupError);
+			}
+		}
+	}, 'Internal PDF extraction error');

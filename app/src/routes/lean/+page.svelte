@@ -24,7 +24,6 @@
 	import type { Task } from '$lib/types/types';
 	import NoteEditor from '$lib/features/notes/components/NoteEditor.svelte';
 	import { clientTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
-	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { toast } from '$lib/utils/toastUtils';
 	import Toast from '$lib/components/modals/Toast.svelte';
 	import { defaultModel } from '$lib/features/ai/utils/models';
@@ -52,8 +51,7 @@
 	const activeTab = writable<string>('kanban');
 	const tabTransition = writable<string | null>(null);
 
-
-let aiModel = defaultModel;
+	let aiModel = defaultModel;
 
 	function switchTab(tabName: string) {
 		tabTransition.set(tabName);
@@ -428,7 +426,7 @@ let aiModel = defaultModel;
 	}
 	.chat {
 		width: 100% !important;
-		max-width: 1200px ;
+		max-width: 1200px;
 
 		display: flex;
 		right: 0.5rem;

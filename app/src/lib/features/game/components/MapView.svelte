@@ -13,7 +13,7 @@
 	let isActive = false;
 	let isExpanded = false;
 
-		// Convert building position to grid coordinates
+	// Convert building position to grid coordinates
 	$: gridX = pixelToGridX(container.position.x);
 	$: gridY = pixelToGridY(container.position.y);
 
@@ -78,13 +78,13 @@
 				return '🚪';
 		}
 	}
-function pixelToGridX(pixel: number): number {
-    return Math.floor(pixel / gridSize.width);
-}
+	function pixelToGridX(pixel: number): number {
+		return Math.floor(pixel / gridSize.width);
+	}
 
-function pixelToGridY(pixel: number): number {
-    return Math.floor(pixel / gridSize.height);
-}
+	function pixelToGridY(pixel: number): number {
+		return Math.floor(pixel / gridSize.height);
+	}
 	async function enterBuilding() {
 		isExpanded = true;
 		isInsideBuilding = true;

@@ -22,7 +22,7 @@
 	export let audioSrc: string;
 	export let mimeType: string;
 	export let fileName: string;
-$: console.log('🎵 AudioPlayer received props:', { attachmentId, audioSrc, mimeType, fileName });
+	$: console.log('🎵 AudioPlayer received props:', { attachmentId, audioSrc, mimeType, fileName });
 
 	let audioElement: HTMLAudioElement;
 	let isDragging = false;

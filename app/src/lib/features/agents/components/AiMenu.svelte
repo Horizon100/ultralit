@@ -5,7 +5,7 @@
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
 	import AgentsConfig from './AgentsConfig.svelte';
 	import PromptCatalog from '$lib/features/ai/components/prompts/PromptInput.svelte';
- 	 import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
+	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
 
 	export let userId: string;
 
@@ -14,7 +14,7 @@
 	let activeTab: 'local' | 'assets' | 'assistant' = 'local';
 	let selectedLocalModel: string = 'qwen2.5:0.5b';
 
-	function setActiveTab(tab: 'local'|'assets' | 'assistant') {
+	function setActiveTab(tab: 'local' | 'assets' | 'assistant') {
 		activeTab = tab;
 	}
 	function handlePromptSelect(event: CustomEvent) {
@@ -25,7 +25,7 @@
 		console.log('Local model selected:', selectedLocalModel);
 		dispatch('modelSelect', { model: selectedLocalModel });
 	}
-	
+
 	const slideTransition = (p0: HTMLDivElement, { duration = 180, delay = 0, direction = 1 }) => {
 		return {
 			delay,
@@ -49,30 +49,21 @@
 	out:fly={{ x: 50, duration: 300 }}
 >
 	<div class="tabs">
-		<button 
-			class:active={activeTab === 'local'} 
-			on:click={() => setActiveTab('local')}
-		>
+		<button class:active={activeTab === 'local'} on:click={() => setActiveTab('local')}>
 			Local AI
 		</button>
-		<button 
-			class:active={activeTab === 'assets'} 
-			on:click={() => setActiveTab('assets')}
-		>
+		<button class:active={activeTab === 'assets'} on:click={() => setActiveTab('assets')}>
 			Assets
 		</button>
-		<button 
-			class:active={activeTab === 'assistant'} 
-			on:click={() => setActiveTab('assistant')}
-		>
+		<button class:active={activeTab === 'assistant'} on:click={() => setActiveTab('assistant')}>
 			Assistant
 		</button>
 	</div>
 
-<div class="content">
+	<div class="content">
 		{#if activeTab === 'local'}
 			<div in:slideTransition={{ direction: -1 }} out:slideTransition={{ direction: 1 }}>
-				<LocalModelSelector 
+				<LocalModelSelector
 					bind:selectedModel={selectedLocalModel}
 					on:change={handleLocalModelSelect}
 					showDetails={true}
@@ -101,9 +92,9 @@
 		flex-direction: column;
 		height: 100%;
 		width: 100%;
-		background-color: rgba(54, 63, 63, 0.1);
+		background-color: var(--bg-color);
 		backdrop-filter: blur(3px);
-		
+
 		transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		overflow: hidden;
 		// perspective: 1000px;
@@ -173,7 +164,7 @@
 	.content {
 		position: relative;
 		height: 84vh;
-				scroll-behavior: smooth;
+		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
 		&::-webkit-scrollbar {
@@ -196,7 +187,6 @@
 		backface-visibility: hidden;
 	}
 	@media (max-width: 1000px) {
-
 		.left-sidebar {
 			background: var(--primary-color);
 			height: 80vh;
@@ -215,15 +205,15 @@
 			overflow-y: auto;
 			border-right: 1px solid var(--line-color);
 			border-radius: 0.5rem;
-			box-shadow: rgba(29, 28, 28, 0.5) 10px 10px 10px 10px, rgba(29, 28, 28, 0.5) 0px 10px 10px;
+			box-shadow:
+				rgba(29, 28, 28, 0.5) 10px 10px 10px 10px,
+				rgba(29, 28, 28, 0.5) 0px 10px 10px;
 			transition: all 0.3s ease;
-
 		}
 
-			.content {
-		position: relative;
-		height: 50vh;
-	}
-
+		.content {
+			position: relative;
+			height: 50vh;
+		}
 	}
 </style>

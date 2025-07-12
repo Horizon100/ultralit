@@ -40,7 +40,6 @@ const AUTH_CHECK_COOLDOWN = 5000;
 let cachedAuthState: { isValid: boolean; user: User; timestamp: number } | null = null;
 const AUTH_CACHE_DURATION = 60000; // 1 minute cache
 
-
 // Client-side user store
 export const currentUser = writable<User | null>(null);
 
@@ -695,6 +694,9 @@ export async function getUserById(
 	if (data.user) {
 		console.log('getUserById: Found user data in data.user');
 		userData = data.user;
+	} else if (data.data?.user) {
+		console.log('getUserById: Found user data in data.data.user');
+		userData = data.data.user;
 	} else if (data.data) {
 		console.log('getUserById: Found user data in data.data');
 		userData = data.data;
@@ -948,7 +950,7 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 
 		const data = await response.json();
 		console.log('Upload response:', data);
-		
+
 		if (!data.success) {
 			throw new Error(data.error || 'Unknown error during upload');
 		}
@@ -957,7 +959,6 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 		// Just return a minimal success object and let the UI refresh separately
 		console.log('Avatar upload successful!');
 		return { id: userId, uploadSuccess: true } as any;
-		
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
 			throw new Error('Avatar upload timed out. Please try again.');

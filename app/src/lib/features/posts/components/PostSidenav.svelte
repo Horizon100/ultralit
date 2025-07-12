@@ -6,22 +6,38 @@
 	import { postStore } from '$lib/stores/postStore';
 	import { onMount } from 'svelte';
 	import { tagFilterStore, selectedTags, tagCounts } from '$lib/stores/tagFilterStore';
+	import {
+		attachmentFilterStore,
+		selectedAttachmentFilter,
+		attachmentFilterOptions,
+		type AttachmentFilterType
+	} from '$lib/stores/attachmentFilterStore';
+	import { filterStatus } from '$lib/stores/combinedFilterStore';
 
 	// Simple reactive statements
 	$: selectedTagsList = $selectedTags;
 	$: tagCountsList = $tagCounts;
 	$: hasSelectedTags = selectedTagsList.length > 0;
+	$: currentAttachmentFilter = $selectedAttachmentFilter;
+	$: status = $filterStatus;
+	$: if ($showSidenav && $postStore.posts.length > 0) {
+		console.log('🏷️ Sidenav became visible, updating tag counts...');
+		tagFilterStore.updateTagCounts();
+	}
 
 	// Watch for posts to be loaded and update tag counts
 	$: if ($postStore.posts && $postStore.posts.length > 0 && !$postStore.loading) {
 		console.log('🏷️ Posts loaded, updating tag counts...');
 		console.log('🏷️ Posts count:', $postStore.posts.length);
-		console.log('🏷️ Sample posts with tags:', $postStore.posts.slice(0, 5).map(p => ({ 
-			id: p.id, 
-			tags: p.tags,
-			tagCount: p.tagCount 
-		})));
-		
+		console.log(
+			'🏷️ Sample posts with tags:',
+			$postStore.posts.slice(0, 5).map((p) => ({
+				id: p.id,
+				tags: p.tags,
+				tagCount: p.tagCount
+			}))
+		);
+
 		// Update tag counts after posts are loaded
 		tagFilterStore.updateTagCounts();
 	}
@@ -30,13 +46,32 @@
 	onMount(() => {
 		console.log('🏷️ PostSidenav mounted');
 		console.log('🏷️ Initial posts in store:', $postStore.posts.length);
-		
-		// Only update if posts are already loaded
-		if ($postStore.posts.length > 0) {
-			console.log('🏷️ Posts already loaded, updating tag counts...');
-			tagFilterStore.updateTagCounts();
-		} else {
-			console.log('🏷️ No posts loaded yet, waiting for posts...');
+
+		// Force update tag counts when component mounts
+		console.log('🏷️ Force updating tag counts on mount...');
+		tagFilterStore.updateTagCounts();
+
+		// Also set up a retry mechanism
+		if ($postStore.posts.length === 0) {
+			console.log('🏷️ No posts loaded yet, setting up retry...');
+			let retryCount = 0;
+			const maxRetries = 10;
+
+			const retryUpdate = () => {
+				retryCount++;
+				console.log(`🏷️ Retry ${retryCount}: checking for posts...`);
+
+				if ($postStore.posts.length > 0) {
+					console.log('🏷️ Posts found, updating tag counts...');
+					tagFilterStore.updateTagCounts();
+				} else if (retryCount < maxRetries) {
+					setTimeout(retryUpdate, 200);
+				} else {
+					console.log('🏷️ Max retries reached, giving up');
+				}
+			};
+
+			setTimeout(retryUpdate, 200);
 		}
 	});
 
@@ -50,13 +85,30 @@
 		tagFilterStore.clearTags();
 	}
 
+	function handleAttachmentFilterChange(filterType: AttachmentFilterType) {
+		console.log('📎 Changing attachment filter to:', filterType);
+		attachmentFilterStore.setFilter(filterType);
+	}
+
+	function handleClearAllFilters() {
+		console.log('🔄 Clearing all filters');
+		tagFilterStore.clearTags();
+		attachmentFilterStore.resetFilter();
+	}
+
+	// Get filter counts for attachment types
+	$: attachmentFilterCounts =
+		$postStore.posts.length > 0 ? attachmentFilterStore.getFilterCounts($postStore.posts) : {};
+
 	// Debug reactive statement
 	$: {
-		console.log('🏷️ Tag counts state:', {
+		console.log('🏷️ Filter state:', {
 			tagCountsList: tagCountsList.length,
 			selectedTagsList: selectedTagsList.length,
 			postsCount: $postStore.posts.length,
-			loading: $postStore.loading
+			loading: $postStore.loading,
+			attachmentFilter: currentAttachmentFilter,
+			hasAnyFilter: status.hasAnyFilter
 		});
 	}
 </script>
@@ -64,18 +116,66 @@
 {#if $showSidenav}
 	<aside class="left-sidebar">
 		<div class="sidebar-content">
-			<div class="tags-section">
-				<div class="tags-header">
+			<!-- Filter Status Header -->
+
+			<!-- Attachment Filter Section -->
+			<div class="filter-section">
+				<div class="filter-header">
+					<h3>
+						<Icon name="Paperclip" size={20} />
+						<span>Content Type</span>
+					</h3>
+					{#if status.hasAnyFilter}
+						<div class="filter-status">
+							<div class="filter-status-header">
+								<!-- <span>Active Filters</span> -->
+							</div>
+							<button
+								class="clear-all-filters-btn"
+								on:click={handleClearAllFilters}
+								title="Clear all filters"
+							>
+								<Icon name="X" size={14} />
+								<span>Clear All</span>
+							</button>
+						</div>
+					{/if}
+				</div>
+
+				<div class="filter-container">
+					{#each attachmentFilterOptions as option (option.id)}
+						{@const count = attachmentFilterCounts[option.id] || 0}
+						<button
+							class="filter-button"
+							class:selected={currentAttachmentFilter === option.id}
+							class:disabled={count === 0 && option.id !== 'all'}
+							on:click={() => handleAttachmentFilterChange(option.id)}
+							disabled={count === 0 && option.id !== 'all'}
+							title={option.description}
+						>
+							<div class="filter-button-content">
+								<Icon name="Filter" size={16} />
+								<span class="filter-label">{option.label}</span>
+							</div>
+							<span class="filter-count">{count}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Tags Filter Section -->
+			<div class="filter-section">
+				<div class="filter-header">
 					<h3>
 						<Icon name="Tag" size={20} />
-						<span>Filter by Tags</span>
+						<span>Tags</span>
 					</h3>
-					
+
 					{#if hasSelectedTags}
-						<button 
-							class="clear-tags-btn"
+						<button
+							class="clear-all-filters-btn"
 							on:click={handleClearTags}
-							title="Clear all filters"
+							title="Clear tag filters"
 						>
 							<Icon name="X" size={16} />
 							<span>Clear ({selectedTagsList.length})</span>
@@ -89,27 +189,27 @@
 						<p>Loading posts...</p>
 					</div>
 				{:else if tagCountsList.length > 0}
-					<div class="tags-container">
+					<div class="filter-container">
 						{#each tagCountsList as { name, count } (name)}
 							<button
-								class="tag-button"
+								class="filter-button"
 								class:selected={selectedTagsList.includes(name)}
 								on:click={() => handleTagToggle(name)}
 								title="Filter posts with '{name}' tag"
 							>
 								<span class="tag-name">{name}</span>
-								<span class="tag-count">{count}</span>
+								<span class="filter-count">{count}</span>
 							</button>
 						{/each}
 					</div>
 				{:else if $postStore.posts.length === 0}
-					<div class="no-posts">
+					<div class="no-content">
 						<Icon name="MessageSquare" size={24} />
 						<p>No posts available</p>
-						<small>Create some posts to see tags here</small>
+						<small>Create some posts to see filters here</small>
 					</div>
 				{:else}
-					<div class="no-tags">
+					<div class="no-content">
 						<Icon name="Tag" size={24} />
 						<p>No tags found in posts</p>
 						<small>Add tags to your posts to filter them</small>
@@ -119,14 +219,13 @@
 				{#if hasSelectedTags}
 					<div class="filter-info">
 						<Icon name="Filter" size={14} />
-						<span>Showing posts with: {selectedTagsList.join(', ')}</span>
+						<span>Tags: {selectedTagsList.join(', ')}</span>
 					</div>
 				{/if}
 			</div>
 		</div>
 	</aside>
 {/if}
-
 
 <style lang="scss">
 	$breakpoint-sm: 576px;
@@ -139,10 +238,15 @@
 	}
 	.left-sidebar {
 		width: 100%;
-		height: 100%;
+		max-width: 400px;
+		height: auto;
 		position: relative;
+		background-color: var(--bg-color);
 		top: 0;
-		overflow-y: auto;
+		bottom: 0;
+		left: 0;
+		padding-left: 3rem;
+		overflow-y: hidden;
 		border-right: 1px solid var(--line-color);
 		transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		z-index: 1;
@@ -154,7 +258,7 @@
 	}
 
 	.sidebar-content {
-		padding: 1.5rem 1rem;
+		padding: 1rem;
 	}
 
 	.sidebar-nav h3 {
@@ -247,247 +351,257 @@
 		padding: 0;
 	}
 
-	.filter-status {
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   gap: 12px;
-   padding: 12px 16px;
-   margin-bottom: 16px;
-   background: var(--primary-light, #eff6ff);
-   border: 1px solid var(--primary-color, #3b82f6);
-   border-radius: 8px;
-   font-size: 14px;
-}
+	.filter-status,
+	.filter-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 0.5rem;
+		border-radius: 8px;
+		font-size: 14px;
+	}
 
-.filter-info {
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   flex: 1;
-}
+	.filter-info {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex: 1;
+		color: var(--tertiary-color) !important;
+		background: var(--primary-color) !important;
+		& span {
+			color: var(--tertiary-color);
+			font-style: italic;
+			letter-spacing: 0.1rem;
+		}
+	}
 
-.selected-tags {
-   display: flex;
-   gap: 6px;
-   flex-wrap: wrap;
-}
+	.selected-tags {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
 
-.selected-tag {
-   display: flex;
-   align-items: center;
-   gap: 4px;
-   padding: 2px 6px;
-   background: var(--primary-color, #3b82f6);
-   color: white;
-   border-radius: 12px;
-   font-size: 12px;
-   font-weight: 500;
-}
+	.selected-tag {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 2px 6px;
+		background: var(--primary-color);
+		color: var(--text-color);
+		border-radius: 12px;
+		font-size: 12px;
+		font-weight: 500;
+	}
 
-.remove-tag {
-   background: none;
-   border: none;
-   color: white;
-   cursor: pointer;
-   padding: 0;
-   display: flex;
-   align-items: center;
-   opacity: 0.8;
-}
+	.remove-tag {
+		background: none;
+		border: none;
+		color: white;
+		cursor: pointer;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		opacity: 0.8;
+	}
 
-.remove-tag:hover {
-   opacity: 1;
-}
+	.remove-tag:hover {
+		opacity: 1;
+	}
 
-.clear-all-btn {
-   display: flex;
-   align-items: center;
-   gap: 4px;
-   padding: 6px 12px;
-   background: white;
-   color: var(--primary-color, #3b82f6);
-   border: 1px solid var(--primary-color, #3b82f6);
-   border-radius: 6px;
-   cursor: pointer;
-   font-size: 12px;
-   font-weight: 500;
-   transition: all 0.2s ease;
-}
+	.clear-all-filters-btn {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 6px 12px;
+		background: var(--primary-color);
+		color: var(--placeholder-color);
+		border: 1px solid var(--primary-color, #3b82f6);
+		border-radius: 6px;
+		cursor: pointer;
+		font-size: 12px;
+		font-weight: 500;
+		transition: all 0.2s ease;
+	}
 
-.clear-all-btn:hover {
-   background: var(--primary-color, #3b82f6);
-   color: white;
-}
+	.clear-all-filters-btn:hover {
+		color: red;
+	}
 
-/* Sidebar Tag Styles */
-.tags-section {
-   display: flex;
-   flex-direction: column;
-   gap: 16px;
-}
+	/* Sidebar Tag Styles */
+	.tags-section {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		padding: 1rem;
+	}
 
-.tags-header {
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   gap: 12px;
-}
+	.tags-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
 
-.tags-header h3 {
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   margin: 0;
-   font-size: 16px;
-   font-weight: 600;
-   color: var(--text-primary, #1f2937);
-}
+	.tags-header h3 {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0;
+		font-size: 16px;
+		font-weight: 600;
+		color: var(--text-color);
+	}
 
-.clear-tags-btn {
-   display: flex;
-   align-items: center;
-   gap: 4px;
-   padding: 4px 8px;
-   background: var(--error-light, #fef2f2);
-   color: var(--error-dark, #dc2626);
-   border: 1px solid var(--error-light, #fecaca);
-   border-radius: 6px;
-   font-size: 12px;
-   cursor: pointer;
-   transition: all 0.2s ease;
-}
+	.filter-container {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		max-height: 90vh;
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
+	}
+	.filter-button-content {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
 
-.clear-tags-btn:hover {
-   background: var(--error-color, #dc2626);
-   color: white;
-}
+	.filter-button {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.5rem 0.75rem;
+		background: var(--secondary-color);
+		border: 1px solid var(--line-color);
+		color: var(--placeholder-color);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		text-align: left;
+		width: auto;
+	}
 
-.tags-container {
-   display: flex;
-   flex-direction: row;
-   flex-wrap: wrap;
-   gap: 0.5rem;
-   max-height: 60vh;
-   overflow-y: auto;
-}
+	.filter-button:hover {
+		background: var(--primary-color);
+		border-color: var(--line-color);
+		color: var(--text-color);
+		transform: translateY(-1px);
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
 
-.tag-button {
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   padding: 10px 12px;
-   background: var(--surface-secondary, #f9fafb);
-   border: 1px solid var(--border-color, #e5e7eb);
-   border-radius: 8px;
-   cursor: pointer;
-   transition: all 0.2s ease;
-   text-align: left;
-   width: auto;
-}
+	.filter-button.selected {
+		background: var(--primary-color);
 
-.tag-button:hover {
-   background: var(--primary-light, #eff6ff);
-   border-color: var(--primary-color, #3b82f6);
-   transform: translateY(-1px);
-   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+		color: var(--tertiary-color);
+		box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+	}
 
-.tag-button.selected {
-   background: var(--primary-color, #3b82f6);
-   border-color: var(--primary-color, #3b82f6);
-   color: white;
-   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
+	.tag-name {
+		font-weight: 500;
+		font-size: 14px;
+	}
 
-.tag-name {
-   font-weight: 500;
-   font-size: 14px;
-}
+	.filter-count {
+		background: rgba(255, 255, 255, 0.2);
+		padding: 2px 6px;
+		border-radius: 10px;
+		font-size: 12px;
+		font-weight: 600;
+		min-width: 20px;
+		text-align: center;
+	}
 
-.tag-count {
-   background: rgba(255, 255, 255, 0.2);
-   padding: 2px 6px;
-   border-radius: 10px;
-   font-size: 12px;
-   font-weight: 600;
-   min-width: 20px;
-   text-align: center;
-}
+	.filter-button:not(.selected) .filter-count {
+		background: var(--primary-color, #3b82f6);
+		color: white;
+	}
 
-.tag-button:not(.selected) .tag-count {
-   background: var(--primary-color, #3b82f6);
-   color: white;
-}
+	.no-tags {
+		text-align: center;
+		padding: 40px 20px;
+		color: var(--text-secondary, #6b7280);
+	}
 
-.no-tags {
-   text-align: center;
-   padding: 40px 20px;
-   color: var(--text-secondary, #6b7280);
-}
+	.no-tags p {
+		margin: 8px 0 4px 0;
+		font-weight: 500;
+	}
 
-.no-tags p {
-   margin: 8px 0 4px 0;
-   font-weight: 500;
-}
+	.no-tags small {
+		font-size: 12px;
+		opacity: 0.8;
+	}
 
-.no-tags small {
-   font-size: 12px;
-   opacity: 0.8;
-}
+	.filter-info {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		background: var(--primary-light, #eff6ff);
+		border: 1px solid var(--primary-color, #3b82f6);
+		border-radius: 6px;
+		font-size: 12px;
+		color: var(--primary-dark, #1d4ed8);
+	}
 
-.filter-info {
-   display: flex;
-   align-items: center;
-   gap: 6px;
-   padding: 8px 12px;
-   background: var(--primary-light, #eff6ff);
-   border: 1px solid var(--primary-color, #3b82f6);
-   border-radius: 6px;
-   font-size: 12px;
-   color: var(--primary-dark, #1d4ed8);
-}
+	/* Empty States */
+	.no-filtered-posts,
+	.no-posts {
+		text-align: center;
+		padding: 60px 20px;
+		color: var(--text-secondary, #6b7280);
+	}
 
-/* Empty States */
-.no-filtered-posts,
-.no-posts {
-   text-align: center;
-   padding: 60px 20px;
-   color: var(--text-secondary, #6b7280);
-}
+	.no-filtered-posts h3,
+	.no-posts h3 {
+		margin: 16px 0 8px 0;
+		color: var(--text-primary, #1f2937);
+	}
 
-.no-filtered-posts h3,
-.no-posts h3 {
-   margin: 16px 0 8px 0;
-   color: var(--text-primary, #1f2937);
-}
+	.show-all-btn {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 20px auto 0;
+		padding: 10px 20px;
+		background: var(--primary-color, #3b82f6);
+		color: white;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 500;
+		transition: background 0.2s ease;
+	}
 
-.show-all-btn {
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   margin: 20px auto 0;
-   padding: 10px 20px;
-   background: var(--primary-color, #3b82f6);
-   color: white;
-   border: none;
-   border-radius: 8px;
-   cursor: pointer;
-   font-weight: 500;
-   transition: background 0.2s ease;
-}
+	.show-all-btn:hover {
+		background: var(--primary-dark, #2563eb);
+	}
 
-.show-all-btn:hover {
-   background: var(--primary-dark, #2563eb);
-}
-
-.end-of-posts {
-   text-align: center;
-   padding: 20px;
-   color: var(--text-secondary, #6b7280);
-}
+	.end-of-posts {
+		text-align: center;
+		padding: 20px;
+		color: var(--text-secondary, #6b7280);
+	}
 
 	@media (max-width: 768px) {
+		.filter-container {
+			max-height: 40vh;
+		}
 		.left-sidebar {
 			width: 100%;
 			height: 100%;
@@ -495,27 +609,28 @@
 			position: relative;
 			overflow-y: auto;
 			border-radius: 0.5rem;
-			box-shadow: rgba(29, 28, 28, 0.5) 10px 10px 10px 10px, rgba(29, 28, 28, 0.5) 0px 10px 10px;
+			box-shadow:
+				rgba(29, 28, 28, 0.5) 10px 10px 10px 10px,
+				rgba(29, 28, 28, 0.5) 0px 10px 10px;
 			transition: all 0.3s ease;
-
 		}
-		   .filter-status {
+		.filter-status {
 			flex-direction: column;
 			align-items: stretch;
 			gap: 8px;
 		}
-		
+
 		.filter-info {
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 8px;
 		}
-		
+
 		.selected-tags {
 			width: 100%;
 		}
-		
-		.clear-all-btn {
+
+		.clear-all-filters-btn {
 			align-self: center;
 		}
 	}

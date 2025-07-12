@@ -44,11 +44,11 @@
 	import DMModule from '$lib/features/dm/components/DMModule.svelte';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import UsersList from '$lib/features/users/components/UsersList.svelte';
-    import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 
 	export let data;
 
-    let wallpaperError = false;
+	let wallpaperError = false;
 	let dmModule: DMModule;
 	let selectedUserId: string | null = null;
 	let loading = true;
@@ -675,14 +675,15 @@
 			cancelEdit();
 		}
 	}
-    $: wallpaperUrl = user?.profileWallpaper && user.profileWallpaper !== 'uploaded' && !wallpaperError
-        ? `${$pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.profileWallpaper}?t=${Date.now()}`
-        : '';
-    
-    // Reset error when user or wallpaper changes
-    $: if (user?.profileWallpaper) {
-        wallpaperError = false;
-    }
+	$: wallpaperUrl =
+		user?.profileWallpaper && user.profileWallpaper !== 'uploaded' && !wallpaperError
+			? `${$pocketbaseUrl}/api/files/_pb_users_auth_/${user.id}/${user.profileWallpaper}?t=${Date.now()}`
+			: '';
+
+	// Reset error when user or wallpaper changes
+	$: if (user?.profileWallpaper) {
+		wallpaperError = false;
+	}
 	$: profileDebugItems = [
 		{ label: 'Observer', value: infiniteScrollManager ? '✅' : '❌' },
 		{ label: 'ScrollY', value: scrollY },
@@ -1158,11 +1159,11 @@
 						{/if}
 						<div class="profile-info">
 							<div class="avatar-section">
-							<img
-								src={userAvatarUrl || '/api/placeholder/120/120'}
-								alt="{user.name || user.username}'s avatar"
-								class="profile-avatar"
-							/>
+								<img
+									src={userAvatarUrl || '/api/placeholder/120/120'}
+									alt="{user.name || user.username}'s avatar"
+									class="profile-avatar"
+								/>
 							</div>
 
 							<div class="user-details">

@@ -50,11 +50,11 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 			// Add tag filters if present
 			if (tagId) {
 				filter += ` && tags ~ "${tagId}"`;
-				console.log('🏷️ Added tag filter:', tagId);
+				// console.log('🏷️ Added tag filter:', tagId);
 			} else if (tagIds && tagIds.length > 0) {
 				const tagFilters = tagIds.map((tag) => `tags ~ "${tag}"`).join(' && ');
 				filter += ` && (${tagFilters})`;
-				console.log('🏷️ Added tags filter:', tagIds);
+				// console.log('🏷️ Added tags filter:', tagIds);
 			}
 
 			console.log('🎯 Final filter:', filter);
@@ -212,7 +212,12 @@ export const POST: RequestHandler = async (event) =>
 	apiTryCatch(
 		async () => {
 			const { request, locals } = event;
+
+			console.log('🔐 Auth check - locals.user:', locals.user ? 'EXISTS' : 'MISSING');
+			console.log('🔐 User ID:', locals.user?.id);
+
 			if (!locals.user) {
+				console.error('❌ No user in locals');
 				throw new Error('Unauthorized');
 			}
 
@@ -223,24 +228,30 @@ export const POST: RequestHandler = async (event) =>
 			const user = formData.get('user') as string;
 			const parent = (formData.get('parent') as string) || '';
 
-			console.log('Form data received:', { 
-				content: content?.substring(0, 50) + '...', 
-				user, 
+			console.log('Form data received:', {
+				content: content?.substring(0, 50) + '...',
+				user,
 				parent: parent || '(empty)',
-				hasParent: !!parent
+				hasParent: !!parent,
+				formDataUser: user,
+				localsUserId: locals.user.id
 			});
 
 			if (!content || !content.trim()) {
 				throw new Error('Content is required');
 			}
 
-			if (user !== locals.user.id) {
+			// Fix: Use locals.user.id instead of relying on form data
+			const userId = locals.user.id;
+
+			if (user && user !== userId) {
+				console.error('❌ User mismatch - Form user:', user, 'Locals user:', userId);
 				throw new Error('Unauthorized to create post for another user');
 			}
 
 			const postData: Partial<Post> = {
 				content: content.trim(),
-				user: locals.user.id,
+				user: userId, // Use locals.user.id directly
 				children: [],
 				upvotedBy: [],
 				downvotedBy: [],
@@ -286,7 +297,7 @@ export const POST: RequestHandler = async (event) =>
 					const commentedBy = parentPost.commentedBy || [];
 
 					if (!children.includes(newPost.id)) children.push(newPost.id);
-					if (!commentedBy.includes(locals.user.id)) commentedBy.push(locals.user.id);
+					if (!commentedBy.includes(userId)) commentedBy.push(userId);
 
 					await pb.collection('posts').update(parent, {
 						children,
@@ -306,7 +317,21 @@ export const POST: RequestHandler = async (event) =>
 			for (const [key, file] of formData.entries()) {
 				if (key.startsWith('attachment_') && file instanceof File) {
 					try {
-						console.log(`Processing attachment: ${file.name}`);
+						console.log(
+							`Processing attachment: ${file.name}, type: ${file.type}, size: ${file.size}`
+						);
+
+						// Add file type validation for video files
+						if (file.type.startsWith('video/')) {
+							console.log('📹 Processing video file:', file.name);
+
+							// Check file size (e.g., 50MB limit for videos)
+							const maxVideoSize = 50 * 1024 * 1024; // 50MB
+							if (file.size > maxVideoSize) {
+								console.warn(`⚠️ Video file too large: ${file.size} bytes`);
+								continue; // Skip this file or throw error
+							}
+						}
 
 						const attachmentFormData = new FormData();
 						attachmentFormData.append('post', newPost.id);
@@ -323,12 +348,13 @@ export const POST: RequestHandler = async (event) =>
 						console.log(`✅ Attachment created with ID: ${attachment.id}`);
 					} catch (attachmentError) {
 						console.error('❌ Error creating attachment:', attachmentError);
+						// Continue processing other attachments
 					}
 				}
 			}
 
 			// Get user data for the response
-			const userData = (await pb.collection('users').getOne(locals.user.id, {
+			const userData = (await pb.collection('users').getOne(userId, {
 				fields: 'id,username,name,avatar'
 			})) as User;
 

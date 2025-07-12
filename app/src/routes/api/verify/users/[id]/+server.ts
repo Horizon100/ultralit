@@ -16,11 +16,10 @@ export const GET: RequestHandler = async ({ params }) =>
 			);
 			const user = unwrap(userResult);
 
-			// Return the user data directly - don't sanitize away important fields
-			return { 
-				success: true, 
-				data: { 
-					user: user  // This matches the structure your model store expects
+			return {
+				success: true,
+				data: {
+					user: user
 				}
 			};
 		},
@@ -53,9 +52,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
 						if (value.size > MAX_FILE_SIZE && key === 'avatar') {
 							throw new Error('Avatar file size exceeds 2MB limit');
 						}
-						(updateData as any)[key] = value;
+						(updateData as User)[key] = value;
 					} else {
-						(updateData as any)[key] = value;
+						(updateData as User)[key] = value;
 					}
 				}
 			} else {
@@ -63,14 +62,26 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
 
 				// Use a more permissive approach - update any field that exists in the User type
 				const allowedFields = [
-					'name', 'username', 'description', 'email', 'model', 'selected_provider',
-					'theme_preference', 'wallpaper_preference', 'profileWallpaper', 'prompt_preference',
-					'sysprompt_preference', 'model_preference', 'taskAssignments', 'userTaskStatus'
+					'name',
+					'username',
+					'role',
+					'description',
+					'email',
+					'model',
+					'selected_provider',
+					'theme_preference',
+					'wallpaper_preference',
+					'profileWallpaper',
+					'prompt_preference',
+					'sysprompt_preference',
+					'model_preference',
+					'taskAssignments',
+					'userTaskStatus'
 				];
 
 				for (const field of allowedFields) {
 					if (field in data) {
-						(updateData as any)[field] = data[field];
+						(updateData as User)[field] = data[field];
 					}
 				}
 			}
@@ -81,10 +92,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) =>
 			);
 			const updated = unwrap(updatedResult);
 
-			return { 
-				success: true, 
-				data: { 
-					user: updated 
+			return {
+				success: true,
+				data: {
+					user: updated
 				}
 			};
 		},

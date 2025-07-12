@@ -36,7 +36,6 @@
 
 	// Event handlers
 
-
 	function toggleReplies(messageId: string): void {
 		dispatch('toggleReplies', { messageId });
 	}
@@ -44,7 +43,9 @@
 	function replyToMessage(
 		text: string,
 		parentMsgId?: string,
-    	contextMessages?: Partial<InternalChatMessage>[] | { role: string; content: string; model?: string }[]
+		contextMessages?:
+			| Partial<InternalChatMessage>[]
+			| { role: string; content: string; model?: string }[]
 	): Promise<void> {
 		dispatch('replyToMessage', { text, parentMsgId, contextMessages });
 		return Promise.resolve();

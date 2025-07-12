@@ -24,7 +24,6 @@ export async function fetchAIResponse(
 	userId: string,
 	attachment: File | null = null
 ): Promise<string> {
-	
 	const prepareResult = await clientTryCatch(
 		prepareMessagesWithCustomPrompts(messages),
 		'Failed to prepare messages with custom prompts'
@@ -48,22 +47,22 @@ export async function fetchAIResponse(
 
 	console.log('Original model:', model);
 
-let modelToUse: AIModel;
-if (!model || typeof model === 'string') {
-    console.log('Using default model due to invalid model data');
-    modelToUse = { ...defaultModel };
-} else {
-    modelToUse = {
-        ...model,
-        provider: model.provider || defaultModel.provider,
-        api_type: model.api_type || defaultModel.api_type,
-        base_url: model.base_url || defaultModel.base_url,
-        api_version: model.api_version || defaultModel.api_version,
-        api_key: model.api_key || defaultModel.api_key
-    };
-}
+	let modelToUse: AIModel;
+	if (!model || typeof model === 'string') {
+		console.log('Using default model due to invalid model data');
+		modelToUse = { ...defaultModel };
+	} else {
+		modelToUse = {
+			...model,
+			provider: model.provider || defaultModel.provider,
+			api_type: model.api_type || defaultModel.api_type,
+			base_url: model.base_url || defaultModel.base_url,
+			api_version: model.api_version || defaultModel.api_version,
+			api_key: model.api_key || defaultModel.api_key
+		};
+	}
 
-console.log('Initial model to use:', modelToUse);
+	console.log('Initial model to use:', modelToUse);
 
 	let requestBody: FormData | string;
 
@@ -92,146 +91,151 @@ console.log('Initial model to use:', modelToUse);
 	const provider = modelToUse.provider || 'deepseek';
 	console.log('Provider:', provider);
 
-console.log('Ensuring API keys are loaded...');
-await apiKey.ensureLoaded();
+	console.log('Ensuring API keys are loaded...');
+	await apiKey.ensureLoaded();
 
-console.log('Ensuring API keys are loaded...');
-await apiKey.ensureLoaded();
+	console.log('Ensuring API keys are loaded...');
+	await apiKey.ensureLoaded();
 
-// Check if we have an API key for the current provider
-let userApiKey = apiKey.getKey(modelToUse.provider);
+	// Check if we have an API key for the current provider
+	let userApiKey = apiKey.getKey(modelToUse.provider);
 
-if (!userApiKey) {
-    console.log(`No API key found for provider: ${modelToUse.provider}, checking alternatives...`);
-    
-    // Define provider fallback with their default models
-    const providerDefaults: Record<ProviderType, string> = {
-        openai: 'gpt-3.5-turbo',
-        anthropic: 'claude-3-haiku-20240307',
-        google: 'gemini-pro',
-        grok: 'grok-beta',
-        deepseek: 'deepseek-chat'
-    };
-    
-    // Check which providers have keys
-    const availableProviders = Object.keys(providerDefaults)
-        .filter(p => apiKey.hasKey(p as ProviderType)) as ProviderType[];
-    
-    if (availableProviders.length > 0) {
-        const fallbackProvider = availableProviders[0];
-        console.log(`Falling back to provider: ${fallbackProvider}`);
-        
-        // Update model to use fallback provider
-        modelToUse = {
-            ...modelToUse,
-            provider: fallbackProvider,
-            api_type: providerDefaults[fallbackProvider],
-            name: providerDefaults[fallbackProvider]
-        };
-        
-        userApiKey = apiKey.getKey(fallbackProvider);
-    } else {
-        throw new Error('No API keys available for any provider. Please add API keys in settings.');
-    }
-}
+	if (!userApiKey) {
+		console.log(`No API key found for provider: ${modelToUse.provider}, checking alternatives...`);
 
-// Final validation
-const finalApiKey = apiKey.getKey(modelToUse.provider);
-if (!finalApiKey) {
-    throw new Error(`No API key found for provider: ${modelToUse.provider}. Please add an API key for this provider.`);
-}
+		// Define provider fallback with their default models
+		const providerDefaults: Record<ProviderType, string> = {
+			openai: 'gpt-3.5-turbo',
+			anthropic: 'claude-3-haiku-20240307',
+			google: 'gemini-pro',
+			grok: 'grok-beta',
+			deepseek: 'deepseek-chat'
+		};
 
-console.log('Final model to use:', modelToUse);
-const response = await fetch('/api/ai', {
-	method: 'POST',
-	headers: {
-		...(attachment ? {} : { 'Content-Type': 'application/json' })
-	},
-	body: requestBody
-});
+		// Check which providers have keys
+		const availableProviders = Object.keys(providerDefaults).filter((p) =>
+			apiKey.hasKey(p as ProviderType)
+		) as ProviderType[];
 
-console.log('🤖 Raw fetch response status:', response.status);
-console.log('🤖 Raw fetch response ok:', response.ok);
+		if (availableProviders.length > 0) {
+			const fallbackProvider = availableProviders[0];
+			console.log(`Falling back to provider: ${fallbackProvider}`);
 
-if (!response.ok) {
-	const errorText = await response.text();
-	console.error('API error:', response.status, errorText);
-	throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-}
+			// Update model to use fallback provider
+			modelToUse = {
+				...modelToUse,
+				provider: fallbackProvider,
+				api_type: providerDefaults[fallbackProvider],
+				name: providerDefaults[fallbackProvider]
+			};
 
-const responseData = await response.json();
-console.log('🤖 Full AI response data:', responseData);
+			userApiKey = apiKey.getKey(fallbackProvider);
+		} else {
+			throw new Error('No API keys available for any provider. Please add API keys in settings.');
+		}
+	}
 
-// Debug lines
-console.log('🔍 CLIENT DEBUG - Full response structure:', JSON.stringify(responseData, null, 2));
-console.log('🔍 CLIENT DEBUG - Response keys:', Object.keys(responseData || {}));
-console.log('🔍 CLIENT DEBUG - Response type:', typeof responseData);
-console.log('🔍 CLIENT DEBUG - responseData.response exists:', !!responseData.response);
-console.log('🔍 CLIENT DEBUG - responseData.response type:', typeof responseData.response);
+	// Final validation
+	const finalApiKey = apiKey.getKey(modelToUse.provider);
+	if (!finalApiKey) {
+		throw new Error(
+			`No API key found for provider: ${modelToUse.provider}. Please add an API key for this provider.`
+		);
+	}
 
-// Handle different possible response structures
-// Initialize finalResponse with empty string at the beginning
-let finalResponse: string = '';
+	console.log('Final model to use:', modelToUse);
+	const response = await fetch('/api/ai', {
+		method: 'POST',
+		headers: {
+			...(attachment ? {} : { 'Content-Type': 'application/json' })
+		},
+		body: requestBody
+	});
 
-// Then in your response parsing logic, replace the if/else chain with:
-if (responseData.success && responseData.data && typeof responseData.data === 'object') {
-    const wrappedData = responseData.data;
-    if (wrappedData.response && typeof wrappedData.response === 'string') {
-        finalResponse = wrappedData.response;
-        console.log('✅ Found response in responseData.data.response');
-    } else if (wrappedData.content && typeof wrappedData.content === 'string') {
-        finalResponse = wrappedData.content;
-        console.log('✅ Found response in responseData.data.content');
-    } else if (wrappedData.message && typeof wrappedData.message === 'string') {
-        finalResponse = wrappedData.message;
-        console.log('✅ Found response in responseData.data.message');
-    } else if (wrappedData.text && typeof wrappedData.text === 'string') {
-        finalResponse = wrappedData.text;
-        console.log('✅ Found response in responseData.data.text');
-    }
-} else if (responseData.response && typeof responseData.response === 'string') {
-    finalResponse = responseData.response;
-    console.log('✅ Found response in responseData.response');
-} else if (responseData.content && typeof responseData.content === 'string') {
-    finalResponse = responseData.content;
-    console.log('✅ Found response in responseData.content');
-} else if (responseData.message && typeof responseData.message === 'string') {
-    finalResponse = responseData.message;
-    console.log('✅ Found response in responseData.message');
-} else if (responseData.text && typeof responseData.text === 'string') {
-    finalResponse = responseData.text;
-    console.log('✅ Found response in responseData.text');
-} else if (responseData.data && typeof responseData.data === 'string') {
-    finalResponse = responseData.data;
-    console.log('✅ Found response in responseData.data');
-} else if (typeof responseData === 'string') {
-    finalResponse = responseData;
-    console.log('✅ Response data is direct string');
-}
+	console.log('🤖 Raw fetch response status:', response.status);
+	console.log('🤖 Raw fetch response ok:', response.ok);
 
-// Add validation at the end
-if (!finalResponse) {
-    console.error('❌ Could not find response text in any expected field');
-    console.error('❌ Available fields:', Object.keys(responseData || {}));
-    console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
-    throw new Error('Could not extract response text from AI API response');
-}
-console.log('🎯 Final extracted response:', finalResponse);
-return finalResponse;
+	if (!response.ok) {
+		const errorText = await response.text();
+		console.error('API error:', response.status, errorText);
+		throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+	}
+
+	const responseData = await response.json();
+	console.log('🤖 Full AI response data:', responseData);
+
+	// Debug lines
+	console.log('🔍 CLIENT DEBUG - Full response structure:', JSON.stringify(responseData, null, 2));
+	console.log('🔍 CLIENT DEBUG - Response keys:', Object.keys(responseData || {}));
+	console.log('🔍 CLIENT DEBUG - Response type:', typeof responseData);
+	console.log('🔍 CLIENT DEBUG - responseData.response exists:', !!responseData.response);
+	console.log('🔍 CLIENT DEBUG - responseData.response type:', typeof responseData.response);
+
+	// Handle different possible response structures
+	// Initialize finalResponse with empty string at the beginning
+	let finalResponse: string = '';
+
+	// Then in your response parsing logic, replace the if/else chain with:
+	if (responseData.success && responseData.data && typeof responseData.data === 'object') {
+		const wrappedData = responseData.data;
+		if (wrappedData.response && typeof wrappedData.response === 'string') {
+			finalResponse = wrappedData.response;
+			console.log('✅ Found response in responseData.data.response');
+		} else if (wrappedData.content && typeof wrappedData.content === 'string') {
+			finalResponse = wrappedData.content;
+			console.log('✅ Found response in responseData.data.content');
+		} else if (wrappedData.message && typeof wrappedData.message === 'string') {
+			finalResponse = wrappedData.message;
+			console.log('✅ Found response in responseData.data.message');
+		} else if (wrappedData.text && typeof wrappedData.text === 'string') {
+			finalResponse = wrappedData.text;
+			console.log('✅ Found response in responseData.data.text');
+		}
+	} else if (responseData.response && typeof responseData.response === 'string') {
+		finalResponse = responseData.response;
+		console.log('✅ Found response in responseData.response');
+	} else if (responseData.content && typeof responseData.content === 'string') {
+		finalResponse = responseData.content;
+		console.log('✅ Found response in responseData.content');
+	} else if (responseData.message && typeof responseData.message === 'string') {
+		finalResponse = responseData.message;
+		console.log('✅ Found response in responseData.message');
+	} else if (responseData.text && typeof responseData.text === 'string') {
+		finalResponse = responseData.text;
+		console.log('✅ Found response in responseData.text');
+	} else if (responseData.data && typeof responseData.data === 'string') {
+		finalResponse = responseData.data;
+		console.log('✅ Found response in responseData.data');
+	} else if (typeof responseData === 'string') {
+		finalResponse = responseData;
+		console.log('✅ Response data is direct string');
+	}
+
+	// Add validation at the end
+	if (!finalResponse) {
+		console.error('❌ Could not find response text in any expected field');
+		console.error('❌ Available fields:', Object.keys(responseData || {}));
+		console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
+		throw new Error('Could not extract response text from AI API response');
+	}
+	console.log('🎯 Final extracted response:', finalResponse);
+	return finalResponse;
 }
 export async function debugApiKeys() {
 	console.log('=== API KEY DEBUG ===');
-	
+
 	try {
 		await apiKey.ensureLoaded();
-		
+
 		const providers = ['openai', 'anthropic', 'google', 'grok', 'deepseek'];
-		
+
 		console.log('Testing each provider:');
-		providers.forEach(provider => {
+		providers.forEach((provider) => {
 			const hasKey = apiKey.hasKey(provider);
 			const keyValue = apiKey.getKey(provider);
-			console.log(`${provider}: hasKey=${hasKey}, key=${keyValue ? `${keyValue.substring(0, 10)}...` : 'none'}`);
+			console.log(
+				`${provider}: hasKey=${hasKey}, key=${keyValue ? `${keyValue.substring(0, 10)}...` : 'none'}`
+			);
 		});
 
 		// Test the raw API endpoint
@@ -240,11 +244,10 @@ export async function debugApiKeys() {
 			method: 'GET',
 			credentials: 'include'
 		});
-		
+
 		console.log('API response status:', response.status);
 		const data = await response.json();
 		console.log('API response data:', data);
-		
 	} catch (error) {
 		console.error('Error in API key debug:', error);
 	}

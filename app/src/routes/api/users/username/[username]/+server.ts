@@ -3,7 +3,6 @@ import { pb } from '$lib/server/pocketbase';
 import { pbTryCatch, apiTryCatch } from '$lib/utils/errorUtils';
 import type { ProfilePost } from '$lib/types/types.posts';
 
-
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	return apiTryCatch(async () => {
 		const { username } = params;

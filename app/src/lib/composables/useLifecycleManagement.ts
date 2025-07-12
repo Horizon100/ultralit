@@ -45,7 +45,6 @@ export function useLifecycleManagement() {
 	 * Initializes the entire application
 	 */
 	async function initializeApp(
-		
 		textareaElement: HTMLTextAreaElement | null,
 		chatMessagesDiv: HTMLDivElement | null,
 		currentThreadId: string | null,
@@ -123,119 +122,120 @@ export function useLifecycleManagement() {
 	/**
 	 * Initializes AI models for the user
 	 */
-// Update for src/lib/composables/useLifecycleManagement.ts - initializeModels function
-async function initializeModels(
-    userId: string,
-    currentAiModel: AIModel
-): Promise<AIModel | null> {
-    try {
-        console.log('Initializing models for user:', userId);
-        await debugCompleteApiKeyFlow();
+	// Update for src/lib/composables/useLifecycleManagement.ts - initializeModels function
+	async function initializeModels(
+		userId: string,
+		currentAiModel: AIModel
+	): Promise<AIModel | null> {
+		try {
+			console.log('Initializing models for user:', userId);
+			await debugCompleteApiKeyFlow();
 
-        console.log('🔍 Ensuring API keys loaded in lifecycle...');
-        await apiKey.ensureLoaded();
+			console.log('🔍 Ensuring API keys loaded in lifecycle...');
+			await apiKey.ensureLoaded();
 
-        // Get available providers with keys
-        const providers = ['anthropic', 'deepseek', 'grok', 'google', 'openai']; // Prioritize non-OpenAI
-        const availableProviders = providers.filter(provider => apiKey.hasKey(provider));
-        console.log('🔍 Lifecycle - Available API key providers:', availableProviders);
+			// Get available providers with keys
+			const providers = ['anthropic', 'deepseek', 'grok', 'google', 'openai']; // Prioritize non-OpenAI
+			const availableProviders = providers.filter((provider) => apiKey.hasKey(provider));
+			console.log('🔍 Lifecycle - Available API key providers:', availableProviders);
 
-        // If no API keys, can't initialize properly
-        if (availableProviders.length === 0) {
-            console.log('❌ No API keys available in lifecycle, using default model');
-            return defaultModel;
-        }
+			// If no API keys, can't initialize properly
+			if (availableProviders.length === 0) {
+				console.log('❌ No API keys available in lifecycle, using default model');
+				return defaultModel;
+			}
 
-        // Load existing models from database
-        await modelStore.loadModels(userId);
+			// Load existing models from database
+			await modelStore.loadModels(userId);
 
-        // Get current state after loading
-        let currentState: any = null;
-        const unsubscribe = modelStore.subscribe((state) => {
-            currentState = state;
-        });
-        unsubscribe();
+			// Get current state after loading
+			let currentState: any = null;
+			const unsubscribe = modelStore.subscribe((state) => {
+				currentState = state;
+			});
+			unsubscribe();
 
-        console.log('Loaded models from database:', currentState?.models?.length || 0);
+			console.log('Loaded models from database:', currentState?.models?.length || 0);
 
-        // FILTER MODELS BY AVAILABLE API KEYS
-        const validModels = (currentState?.models || []).filter((model: AIModel) => {
-            const hasKey = availableProviders.includes(model.provider);
-            if (!hasKey) {
-                console.log(`🚫 Lifecycle filtering out ${model.name} - no key for ${model.provider}`);
-            }
-            return hasKey;
-        });
+			// FILTER MODELS BY AVAILABLE API KEYS
+			const validModels = (currentState?.models || []).filter((model: AIModel) => {
+				const hasKey = availableProviders.includes(model.provider);
+				if (!hasKey) {
+					console.log(`🚫 Lifecycle filtering out ${model.name} - no key for ${model.provider}`);
+				}
+				return hasKey;
+			});
 
-        console.log('Valid models with API keys:', validModels.length);
+			console.log('Valid models with API keys:', validModels.length);
 
-        // If no valid models, use model store initialize
-        if (validModels.length === 0) {
-            console.log('No valid models found, using model store initialize');
-            const initializedModel = await modelStore.initialize(userId);
-            console.log('Initialized model:', initializedModel?.name);
-            return initializedModel;
-        }
+			// If no valid models, use model store initialize
+			if (validModels.length === 0) {
+				console.log('No valid models found, using model store initialize');
+				const initializedModel = await modelStore.initialize(userId);
+				console.log('Initialized model:', initializedModel?.name);
+				return initializedModel;
+			}
 
-        // Check if current AI model is valid (has API key)
-        let modelToUse: AIModel | null = null;
+			// Check if current AI model is valid (has API key)
+			let modelToUse: AIModel | null = null;
 
-        if (currentAiModel?.id && availableProviders.includes(currentAiModel.provider)) {
-            // Current model is valid, try to find it in valid models
-            modelToUse = validModels.find((m: AIModel) => m.id === currentAiModel.id) || null;
-            console.log('Current model is valid and found:', modelToUse?.id);
-        }
+			if (currentAiModel?.id && availableProviders.includes(currentAiModel.provider)) {
+				// Current model is valid, try to find it in valid models
+				modelToUse = validModels.find((m: AIModel) => m.id === currentAiModel.id) || null;
+				console.log('Current model is valid and found:', modelToUse?.id);
+			}
 
-        if (!modelToUse) {
-            // Select first model from preferred providers
-            const preferredProviders = ['anthropic', 'deepseek', 'grok'];
-            
-            for (const provider of preferredProviders) {
-                if (availableProviders.includes(provider)) {
-                    const providerModels = validModels.filter((m: AIModel) => m.provider === provider);
-                    if (providerModels.length > 0) {
-                        modelToUse = providerModels[0];
-                        console.log(`Selected model from preferred provider ${provider}:`, modelToUse.name);
-                        break;
-                    }
-                }
-            }
-        }
+			if (!modelToUse) {
+				// Select first model from preferred providers
+				const preferredProviders = ['anthropic', 'deepseek', 'grok'];
 
-        if (!modelToUse && validModels.length > 0) {
-            // Use first valid model
-            modelToUse = validModels[0];
-            console.log('Using first valid model:', modelToUse.name);
-        }
+				for (const provider of preferredProviders) {
+					if (availableProviders.includes(provider)) {
+						const providerModels = validModels.filter((m: AIModel) => m.provider === provider);
+						if (providerModels.length > 0) {
+							modelToUse = providerModels[0];
+							console.log(`Selected model from preferred provider ${provider}:`, modelToUse.name);
+							break;
+						}
+					}
+				}
+			}
 
-        if (modelToUse) {
-            await modelStore.setSelectedModel(userId, modelToUse);
-            return modelToUse;
-        }
+			if (!modelToUse && validModels.length > 0) {
+				// Use first valid model
+				modelToUse = validModels[0];
+				console.log('Using first valid model:', modelToUse.name);
+			}
 
-        // Final fallback
-        console.log('No valid model found, using model store initialize as fallback');
-        const initializedModel = await modelStore.initialize(userId);
-        return initializedModel;
+			if (modelToUse) {
+				await modelStore.setSelectedModel(userId, modelToUse);
+				return modelToUse;
+			}
 
-    } catch (error) {
-        console.error('Error initializing models:', error);
+			// Final fallback
+			console.log('No valid model found, using model store initialize as fallback');
+			const initializedModel = await modelStore.initialize(userId);
+			return initializedModel;
+		} catch (error) {
+			console.error('Error initializing models:', error);
 
-        // Fallback to a model with available API key
-        await apiKey.ensureLoaded();
-        const availableProviders = ['anthropic', 'deepseek', 'grok', 'google', 'openai']
-            .filter(provider => apiKey.hasKey(provider));
+			// Fallback to a model with available API key
+			await apiKey.ensureLoaded();
+			const availableProviders = ['anthropic', 'deepseek', 'grok', 'google', 'openai'].filter(
+				(provider) => apiKey.hasKey(provider)
+			);
 
-        if (availableProviders.length > 0) {
-            const validProvider = availableProviders[0] as ProviderType;
-            const fallbackModel = availableModels.find((m) => m.provider === validProvider) || defaultModel;
-            console.log('Using fallback model after error:', fallbackModel.name);
-            return fallbackModel;
-        }
+			if (availableProviders.length > 0) {
+				const validProvider = availableProviders[0] as ProviderType;
+				const fallbackModel =
+					availableModels.find((m) => m.provider === validProvider) || defaultModel;
+				console.log('Using fallback model after error:', fallbackModel.name);
+				return fallbackModel;
+			}
 
-        return defaultModel;
-    }
-}
+			return defaultModel;
+		}
+	}
 
 	/**
 	 * Initializes projects and threads

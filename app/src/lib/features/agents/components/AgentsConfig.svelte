@@ -441,7 +441,7 @@
 		{:else if filteredAgents.length === 0}
 			<p>No agents found. Create a new agent to get started.</p>
 		{:else}
-					<div class="search-and-sort-container">
+			<div class="search-and-sort-container">
 				<div class="search-container">
 					<Icon name="Search" size={24} />
 					<input type="text" bind:value={searchQuery} placeholder="Search agents..." />
@@ -512,7 +512,6 @@
 					</div>
 				{/each}
 			</div>
-
 		{/if}
 
 		<!-- <p>Configure your agents to handle different types of tasks.</p> -->
@@ -883,7 +882,6 @@
 		overflow-x: hidden;
 		scrollbar-width: thin;
 		scrollbar-color: var(--secondary-color) transparent;
-
 	}
 
 	.form-column {

@@ -171,9 +171,13 @@ export function createThreadsStore() {
 				const messagesResult = await fetchMessagesForThread(id);
 
 				let messages: Messages[];
-				
+
 				if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
-					const resultType = messagesResult as { success: boolean; data: Messages[]; error?: string };
+					const resultType = messagesResult as {
+						success: boolean;
+						data: Messages[];
+						error?: string;
+					};
 					if (!resultType.success) {
 						throw new Error(String(resultType.error || 'Failed to fetch messages'));
 					}
@@ -195,7 +199,7 @@ export function createThreadsStore() {
 				return messages;
 			} catch (error) {
 				console.error('Error in executeThreadSet:', error);
-				
+
 				update((state) => ({
 					...state,
 					currentThreadId: id,
@@ -203,7 +207,7 @@ export function createThreadsStore() {
 					messages: [],
 					updateStatus: 'Error loading messages'
 				}));
-				
+
 				return [];
 			}
 		}
@@ -214,7 +218,7 @@ export function createThreadsStore() {
 		Object.values(ThreadSortOption).map((option) => getSortOptionInfo(option))
 	);
 
-const favoritedThreads = derived(
+	const favoritedThreads = derived(
 		[store, currentUser], // Changed from [searchedThreads, store, currentUser]
 		([$store, $currentUser]) => {
 			// Use getSortedAndFilteredThreads logic directly or reference it
@@ -225,7 +229,9 @@ const favoritedThreads = derived(
 				filteredThreads = filteredThreads.filter(
 					(thread) =>
 						thread.name?.toLowerCase().includes($store.searchQuery.toLowerCase().trim()) ||
-						thread.last_message?.content?.toLowerCase().includes($store.searchQuery.toLowerCase().trim())
+						thread.last_message?.content
+							?.toLowerCase()
+							.includes($store.searchQuery.toLowerCase().trim())
 				);
 			}
 
@@ -249,9 +255,15 @@ const favoritedThreads = derived(
 			filteredThreads = filteredThreads.sort((a, b) => {
 				switch ($store.sortOption) {
 					case ThreadSortOption.NewestFirst:
-						return new Date(b.updated || b.created || 0).getTime() - new Date(a.updated || a.created || 0).getTime();
+						return (
+							new Date(b.updated || b.created || 0).getTime() -
+							new Date(a.updated || a.created || 0).getTime()
+						);
 					case ThreadSortOption.OldestFirst:
-						return new Date(a.updated || a.created || 0).getTime() - new Date(b.updated || b.created || 0).getTime();
+						return (
+							new Date(a.updated || a.created || 0).getTime() -
+							new Date(b.updated || b.created || 0).getTime()
+						);
 					// ... other cases
 					default:
 						return 0;
@@ -263,9 +275,7 @@ const favoritedThreads = derived(
 				return filteredThreads;
 			}
 
-			return filteredThreads.filter((thread) =>
-				$currentUser.favoriteThreads.includes(thread.id)
-			);
+			return filteredThreads.filter((thread) => $currentUser.favoriteThreads.includes(thread.id));
 		}
 	);
 	const selectedUserIds = derived(store, ($store) => $store.selectedUserIds);
@@ -415,22 +425,22 @@ const favoritedThreads = derived(
 			return result.data;
 		},
 
-loadMessages: async (threadId: string): Promise<Messages[]> => {
-	const result = await clientTryCatch(
-		ThreadRequestManager.safeLoadMessages(threadId),
-		`Loading messages for thread ${threadId}`
-	);
+		loadMessages: async (threadId: string): Promise<Messages[]> => {
+			const result = await clientTryCatch(
+				ThreadRequestManager.safeLoadMessages(threadId),
+				`Loading messages for thread ${threadId}`
+			);
 
-	if (isFailure(result)) {
-		console.error('Error loading messages:', result.error);
-		update((state) => ({ ...state, updateStatus: 'Failed to load messages' }));
-		return [];
-	}
+			if (isFailure(result)) {
+				console.error('Error loading messages:', result.error);
+				update((state) => ({ ...state, updateStatus: 'Failed to load messages' }));
+				return [];
+			}
 
-	const messages = result.data;
-	update((state) => ({ ...state, messages, currentThreadId: threadId }));
-	return messages;
-},
+			const messages = result.data;
+			update((state) => ({ ...state, messages, currentThreadId: threadId }));
+			return messages;
+		},
 		addThread: async (threadData: Partial<Threads>): Promise<Threads | null> => {
 			const result = await clientTryCatch(
 				(async () => {

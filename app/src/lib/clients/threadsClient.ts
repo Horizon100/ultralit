@@ -176,7 +176,7 @@ export async function fetchAllThreads(): Promise<Result<Threads[], string>> {
 
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
 	console.log(`🔍 threadsClient.fetchMessagesForThread: Starting fetch for thread ${threadId}`);
-	
+
 	try {
 		const response = await fetch(`/api/keys/threads/${threadId}/messages`, {
 			method: 'GET',
@@ -269,7 +269,7 @@ function invalidateThreadCache(threadId: string) {
 	messageCache.delete(threadId);
 }
 
-let isFetching = false;
+const isFetching = false;
 
 // Function to get the current thread state
 export function getCurrentThread(): Threads | null {

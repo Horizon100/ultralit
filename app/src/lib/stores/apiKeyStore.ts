@@ -306,21 +306,21 @@ function createApiKeyStore() {
 		loadKeys,
 		isLoading: { subscribe: subscribeLoading },
 		// Add method to ensure keys are loaded when needed
-ensureLoaded: async () => {
-	const result = await clientTryCatch(
-		(async () => {
-			if (!initialized) {
-				console.log('🔍 API keys not initialized, loading now...');
-				await loadKeys(true); // Force load
-			}
-		})(),
-		'Failed to ensure keys are loaded'
-	);
+		ensureLoaded: async () => {
+			const result = await clientTryCatch(
+				(async () => {
+					if (!initialized) {
+						console.log('🔍 API keys not initialized, loading now...');
+						await loadKeys(true); // Force load
+					}
+				})(),
+				'Failed to ensure keys are loaded'
+			);
 
-	if (!result.success) {
-		console.error('Error ensuring keys are loaded:', result.error);
-	}
-},
+			if (!result.success) {
+				console.error('Error ensuring keys are loaded:', result.error);
+			}
+		},
 		setKey: async (provider: string, key: string) => {
 			loading = true;
 			setLoading(true);

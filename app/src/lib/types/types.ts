@@ -100,7 +100,7 @@ export interface User extends RecordModel {
 	verified: boolean;
 	name?: string;
 	avatar: string;
-	role: string;
+	role: 'admin' | 'tester' | 'client';
 	network_preferences: string[];
 	preferences: string[];
 	messages: string[];
@@ -553,13 +553,13 @@ export interface VisNode {
 	y?: number;
 }
 export interface NetworkEdge {
-    source: string; 
-    target: string;
+	source: string;
+	target: string;
 }
 export interface NetworkData {
 	id?: string;
 	nodes: VisNode[];
-    edges: NetworkEdge[]; 
+	edges: NetworkEdge[];
 	rootAgent: VisNode;
 	childAgents: VisNode[];
 	tasks: Task[];
@@ -763,20 +763,26 @@ export interface Tag extends RecordModel {
 	user: string;
 }
 
-export type FolderEventDetail = 
-    | { type: 'select'; detail: Folders }
-    | { type: 'toggle'; detail: string }
-    | { type: 'rename'; detail: Folders }
-    | { type: 'delete'; detail: string }
-    | { type: 'create'; detail: { parentId: string; name: string } }
-    | { type: 'move'; detail: { folderId: string; newParentId: string } }
-    | { type: 'toggleFolder'; detail: Folders }
-    | { type: 'handleDragStart'; detail: { event: DragEvent; item: Folders | Notes; isFolder: boolean } }
-    | { type: 'handleDragOver'; detail: { event: DragEvent; folder: Folders } }
-    | { type: 'handleDrop'; detail: { event: DragEvent; folder: Folders } }
-    | { type: 'showContextMenu'; detail: { event: MouseEvent; item: Folders | Notes; isFolder: boolean } }
-    | { type: 'openNote'; detail: Notes };
-		
+export type FolderEventDetail =
+	| { type: 'select'; detail: Folders }
+	| { type: 'toggle'; detail: string }
+	| { type: 'rename'; detail: Folders }
+	| { type: 'delete'; detail: string }
+	| { type: 'create'; detail: { parentId: string; name: string } }
+	| { type: 'move'; detail: { folderId: string; newParentId: string } }
+	| { type: 'toggleFolder'; detail: Folders }
+	| {
+			type: 'handleDragStart';
+			detail: { event: DragEvent; item: Folders | Notes; isFolder: boolean };
+	  }
+	| { type: 'handleDragOver'; detail: { event: DragEvent; folder: Folders } }
+	| { type: 'handleDrop'; detail: { event: DragEvent; folder: Folders } }
+	| {
+			type: 'showContextMenu';
+			detail: { event: MouseEvent; item: Folders | Notes; isFolder: boolean };
+	  }
+	| { type: 'openNote'; detail: Notes };
+
 export type Folders = {
 	id: string;
 	title: string;
@@ -956,8 +962,6 @@ export interface ExpandedSections {
 	collaborators: boolean;
 }
 
-
-
 export interface UIState {
 	isLoading: boolean;
 	isLoadingMessages: boolean;
@@ -976,8 +980,8 @@ export interface Reminder {
 	priority?: 'low' | 'medium' | 'high';
 	notes?: string;
 	listId?: string;
-	createdAt?: Date;
-	updatedAt?: Date;
+	created?: Date;
+	updated?: Date;
 	source: 'apple';
 }
 export interface ReminderList {

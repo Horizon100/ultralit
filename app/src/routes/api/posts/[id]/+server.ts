@@ -330,7 +330,6 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 		});
 	}, 'Failed to update post');
 
-	
 export const DELETE: RequestHandler = async ({ params, locals }) =>
 	apiTryCatch(async () => {
 		if (!locals.user) throw new Error('Unauthorized');

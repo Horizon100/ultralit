@@ -16,11 +16,14 @@
 		gameBuildingStore,
 		gameRoomStore,
 		gameRoadStore,
-		otherHeroesStore,
+		otherHeroesStore
 	} from '$lib/stores/gameStore';
-	import type { GameBuilding, GameRoad as GameRoadType, GameHero, GamePageData } from '$lib/types/types.game';
-
-
+	import type {
+		GameBuilding,
+		GameRoad as GameRoadType,
+		GameHero,
+		GamePageData
+	} from '$lib/types/types.game';
 
 	export let data: GamePageData;
 

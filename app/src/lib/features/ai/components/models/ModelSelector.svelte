@@ -121,36 +121,35 @@
 		}
 	}
 
-async function handleModelSelection(model: AIModel) {
-	const enrichedModel: AIModel = {
-		...model,
-		provider: model.provider
-	};
+	async function handleModelSelection(model: AIModel) {
+		const enrichedModel: AIModel = {
+			...model,
+			provider: model.provider
+		};
 
-	console.log('Selected model with provider:', enrichedModel.provider);
+		console.log('Selected model with provider:', enrichedModel.provider);
 
-	if ($currentUser) {
-		try {
-			const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
-			if (success) {
-				selectedModel = enrichedModel;
-				console.log('Saved model selection to model store');
-				currentProvider = model.provider as ProviderType;
+		if ($currentUser) {
+			try {
+				const success = await modelStore.setSelectedModel($currentUser.id, enrichedModel);
+				if (success) {
+					selectedModel = enrichedModel;
+					console.log('Saved model selection to model store');
+					currentProvider = model.provider as ProviderType;
+				}
+			} catch (error) {
+				console.warn('Error selecting model:', error);
 			}
-		} catch (error) {
-			console.warn('Error selecting model:', error);
+		} else {
+			selectedModel = enrichedModel;
+			currentProvider = model.provider as ProviderType;
 		}
-	} else {
-		selectedModel = enrichedModel;
-		currentProvider = model.provider as ProviderType;
+
+		expandedModelList = null;
+
+		// FIX: Dispatch the selection event with the correct structure
+		dispatch('select', enrichedModel); // Send the model directly
 	}
-
-	expandedModelList = null;
-
-	// FIX: Dispatch the selection event with the correct structure
-dispatch('select', enrichedModel);  // Send the model directly
-
-}
 
 	async function loadProviderModels(provider: ProviderType) {
 		isLoadingModels = true;
@@ -314,91 +313,97 @@ dispatch('select', enrichedModel);  // Send the model directly
 		);
 	}
 
-onMount(async () => {
-   if ($currentUser) {
-       console.log('Loading API keys and preferences on component mount...');
+	onMount(async () => {
+		if ($currentUser) {
+			console.log('Loading API keys and preferences on component mount...');
 
-       await loadUserModelPreferences();
-       await apiKey.ensureLoaded();
+			await loadUserModelPreferences();
+			await apiKey.ensureLoaded();
 
-       const availableKeys = get(apiKey);
-       const availableProviders = Object.entries(availableKeys)
-           .filter(([_, key]) => !!key)
-           .map(([provider]) => provider);
+			const availableKeys = get(apiKey);
+			const availableProviders = Object.entries(availableKeys)
+				.filter(([_, key]) => !!key)
+				.map(([provider]) => provider);
 
-       if (availableProviders.length > 0) {
-           await Promise.all(
-               availableProviders.map(async (providerKey) => {
-                   try {
-                       await loadProviderModels(providerKey as ProviderType);
-                   } catch (error) {
-                       console.error(`Error loading models for ${providerKey}:`, error);
-                   }
-               })
-           );
+			if (availableProviders.length > 0) {
+				await Promise.all(
+					availableProviders.map(async (providerKey) => {
+						try {
+							await loadProviderModels(providerKey as ProviderType);
+						} catch (error) {
+							console.error(`Error loading models for ${providerKey}:`, error);
+						}
+					})
+				);
 
-           updateFavoriteModels();
+				updateFavoriteModels();
 
-           // Auto-select a working model if none is selected or current model's provider has no key
-           if (!selectedModel || !availableKeys[selectedModel.provider]) {
-               const workingProviders = ['anthropic', 'deepseek', 'grok'];
-               let modelToSelect = null;
+				// Auto-select a working model if none is selected or current model's provider has no key
+				if (!selectedModel || !availableKeys[selectedModel.provider]) {
+					const workingProviders = ['anthropic', 'deepseek', 'grok'];
+					let modelToSelect = null;
 
-               // Try to find a model from working providers in priority order
-               for (const providerKey of workingProviders) {
-                   const provider = providerKey as ProviderType;
-                   if (availableKeys[provider] && availableProviderModels[provider]?.length > 0) {
-                       modelToSelect = availableProviderModels[provider][0];
-                       console.log(`Auto-selecting model from preferred provider ${provider}:`, modelToSelect);
-                       break;
-                   }
-               }
+					// Try to find a model from working providers in priority order
+					for (const providerKey of workingProviders) {
+						const provider = providerKey as ProviderType;
+						if (availableKeys[provider] && availableProviderModels[provider]?.length > 0) {
+							modelToSelect = availableProviderModels[provider][0];
+							console.log(
+								`Auto-selecting model from preferred provider ${provider}:`,
+								modelToSelect
+							);
+							break;
+						}
+					}
 
-               // Fallback to any available model if no preferred provider found
-               if (!modelToSelect) {
-                   for (const providerKey of availableProviders) {
-                       const provider = providerKey as ProviderType;
-                       if (availableProviderModels[provider]?.length > 0) {
-                           modelToSelect = availableProviderModels[provider][0];
-                           console.log(`Auto-selecting fallback model from provider ${provider}:`, modelToSelect);
-                           break;
-                       }
-                   }
-               }
+					// Fallback to any available model if no preferred provider found
+					if (!modelToSelect) {
+						for (const providerKey of availableProviders) {
+							const provider = providerKey as ProviderType;
+							if (availableProviderModels[provider]?.length > 0) {
+								modelToSelect = availableProviderModels[provider][0];
+								console.log(
+									`Auto-selecting fallback model from provider ${provider}:`,
+									modelToSelect
+								);
+								break;
+							}
+						}
+					}
 
-               // If we found a model to select, use it
-               if (modelToSelect) {
-                   console.log('Auto-selecting working model:', modelToSelect);
-                   selectedModel = modelToSelect;
-                   currentProvider = modelToSelect.provider as ProviderType;
-                   
-                   // Save to model store
-                   try {
-                       await modelStore.setSelectedModel($currentUser.id, modelToSelect);
-                       console.log('Saved auto-selected model to store');
-                   } catch (error) {
-                       console.warn('Error saving auto-selected model:', error);
-                   }
-                   
-                   // Dispatch selection to parent
-                   dispatch('select', modelToSelect);
-               }
-           }
-       }
+					// If we found a model to select, use it
+					if (modelToSelect) {
+						console.log('Auto-selecting working model:', modelToSelect);
+						selectedModel = modelToSelect;
+						currentProvider = modelToSelect.provider as ProviderType;
 
-       // Set initial provider
-       let initialProvider: string = selectedModel?.provider || provider || 'deepseek';
-       if (!availableKeys[initialProvider] && availableProviders.length > 0) {
-           initialProvider = availableProviders[0];
-       }
+						// Save to model store
+						try {
+							await modelStore.setSelectedModel($currentUser.id, modelToSelect);
+							console.log('Saved auto-selected model to store');
+						} catch (error) {
+							console.warn('Error saving auto-selected model:', error);
+						}
 
-       currentProvider = initialProvider as ProviderType;
-       isInitialized = true;
-   } else {
-       favoritesInitialized = true;
-       isInitialized = true;
-   }
-});
+						// Dispatch selection to parent
+						dispatch('select', modelToSelect);
+					}
+				}
+			}
+
+			// Set initial provider
+			let initialProvider: string = selectedModel?.provider || provider || 'deepseek';
+			if (!availableKeys[initialProvider] && availableProviders.length > 0) {
+				initialProvider = availableProviders[0];
+			}
+
+			currentProvider = initialProvider as ProviderType;
+			isInitialized = true;
+		} else {
+			favoritesInitialized = true;
+			isInitialized = true;
+		}
+	});
 </script>
 
 <div class="model-column">

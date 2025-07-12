@@ -17,6 +17,14 @@
 	import { postStore } from '$lib/stores/postStore';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type { PostWithInteractions } from '$lib/types/types.posts';
+	import {
+		processAttachmentTaggingAsync,
+		supportsTextExtraction,
+		supportsImageAnalysis,
+		isPdfFile,
+		type AttachmentTaggingOptions
+	} from '$lib/features/posts/utils/attachmentTagging';
+	import { extractPdfKeywords } from '$lib/utils/pdfKeywordExtractor';
 
 	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
 	export let buttonText: string = $t('posts.postButton') as string;
@@ -25,12 +33,18 @@
 	export let parentId: string | undefined = undefined;
 	export let showAttachments: boolean = true;
 	export let enableAutoTagging: boolean = true;
-	export let taggingModel: string = 'qwen2.5:0.5b'; 
+	export let taggingModel: string = 'qwen2.5:0.5b';
 	export let includeAttachmentText: boolean = true;
 	export let ocrLanguage: string = 'eng+fin+rus';
 	export let ocrEngine: 'tesseract' | 'easyocr' = 'tesseract';
-	export let maxTags: number = 5; 
-	export let taggingTemperature: number = 0.3; 
+	export let maxTags: number = 5;
+	export let taggingTemperature: number = 0.3;
+
+	export let enableAttachmentTagging: boolean = true;
+	export let attachmentTaggingModel: string = 'qwen2.5:0.5b';
+	export let attachmentImageDescriptionModel: string = 'moondream:latest';
+	export let attachmentMaxTags: number = 8;
+	export let attachmentTaggingTemperature: number = 0.3;
 
 	let content = initialContent;
 	let attachments: File[] = [];
@@ -38,6 +52,13 @@
 	let isSubmitting = false;
 	let isGeneratingTags = false;
 	let willGenerateTags = false;
+
+	let isGeneratingAttachmentTags = false;
+	let attachmentsWithTaggingSupport: Array<{
+		file: File;
+		supportsText: boolean;
+		supportsImage: boolean;
+	}> = [];
 
 	const dispatch = createEventDispatcher<{
 		submit: { content: string; attachments: File[]; parentId?: string };
@@ -94,9 +115,16 @@
 		console.log('📝 Content:', content);
 		console.log('📎 Attachments:', attachments);
 		console.log('🔗 Parent ID:', parentId);
+		console.log('👤 Current user:', $currentUser?.id);
 
 		if (!content.trim() || isSubmitting) {
 			console.log('❌ Cannot submit: no content or already submitting');
+			return;
+		}
+
+		if (!$currentUser?.id) {
+			console.error('❌ No authenticated user found');
+			alert('You must be logged in to create a post');
 			return;
 		}
 
@@ -129,6 +157,7 @@
 				content = '';
 				attachments = [];
 				willGenerateTags = false;
+				attachmentsWithTaggingSupport = [];
 				if (fileInput) fileInput.value = '';
 
 				// Reset textarea height
@@ -148,6 +177,16 @@
 
 		isSubmitting = true;
 		const shouldTag = enableAutoTagging && willGenerateTags;
+		const shouldTagAttachments =
+			enableAttachmentTagging &&
+			attachmentsWithTaggingSupport.some((a) => a.supportsText || a.supportsImage);
+
+		// Check if we have PDF files for tagging
+		const hasPdfFiles = attachments.some((file) => file.type === 'application/pdf');
+		const shouldTagPdf = hasPdfFiles && enableAttachmentTagging;
+
+		console.log('📄 PDF tagging check:', { hasPdfFiles, shouldTagPdf });
+
 		const contentToTag = content.trim(); // Store content before reset
 
 		try {
@@ -160,16 +199,75 @@
 				console.log('Video conversion complete');
 			}
 
-			// Use postStore.addPost for proper reactivity instead of direct API call
-			console.log('Creating post via postStore...');
-			const newPost = await postStore.addPost(contentToTag, processedAttachments, parentId);
+			// FIXED: Create FormData and make direct fetch with explicit cookie handling
+			console.log('🔧 Creating FormData for direct API call...');
+
+			const formData = new FormData();
+			formData.append('content', contentToTag);
+			formData.append('user', $currentUser.id);
+
+			// Add parent ID if this is a comment
+			if (parentId) {
+				formData.append('parent', parentId);
+			}
+
+			// Add attachments if any
+			if (processedAttachments.length > 0) {
+				processedAttachments.forEach((file, index) => {
+					formData.append(`attachment_${index}`, file);
+				});
+			}
+
+			console.log('📡 Making direct fetch request to /api/posts...');
+
+			// Make the request with explicit cookie handling
+			const response = await fetch('/api/posts', {
+				method: 'POST',
+				body: formData,
+				credentials: 'include', // Ensure cookies are sent
+				headers: {
+					// Don't set Content-Type - let browser set it for FormData
+					// 'Accept': 'application/json'
+				}
+			});
+
+			console.log('📡 Response status:', response.status);
+			console.log('📡 Response ok:', response.ok);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('❌ API Error Response:', errorText);
+				throw new Error(`HTTP ${response.status}: ${errorText}`);
+			}
+
+			const result = await response.json();
+			console.log('📡 API Response:', result);
+
+			// Handle the response - check if it's wrapped in apiTryCatch structure
+			let newPost;
+			if (result.success && result.data) {
+				// Response is wrapped in apiTryCatch structure
+				newPost = result.data;
+			} else if (result.id) {
+				// Direct post object
+				newPost = result;
+			} else {
+				throw new Error('Invalid response format from server');
+			}
 
 			const postId = newPost.id;
-			console.log('Post created successfully with ID:', postId);
+			console.log('✅ Post created successfully with ID:', postId);
+
+			// Update the post store manually since we bypassed it
+			postStore.update((state) => ({
+				...state,
+				posts: [newPost, ...state.posts]
+			}));
 
 			// Dispatch post creation event
 			dispatch('postCreated', { postId, post: newPost });
 
+			// Handle post content tagging
 			if (shouldTag && postId && $currentUser?.id) {
 				console.log('🏷️ Starting local auto-tagging for post:', postId);
 
@@ -191,10 +289,10 @@
 
 					// Call the local async tagging function with attachments
 					processPostTaggingAsync(
-						contentToTag, 
-						postId, 
-						$currentUser.id, 
-						attachmentsToTag, 
+						contentToTag,
+						postId,
+						$currentUser.id,
+						attachmentsToTag,
 						taggingOptions
 					);
 
@@ -209,10 +307,72 @@
 				console.error('❌ Cannot start auto-tagging: no post ID received');
 			}
 
+			// Handle attachment tagging (including PDF files)
+			if (
+				(shouldTagAttachments || shouldTagPdf) &&
+				newPost.attachments &&
+				newPost.attachments.length > 0
+			) {
+				console.log(
+					'🏷️ Starting attachment tagging for',
+					newPost.attachments.length,
+					'attachments'
+				);
+
+				try {
+					// Build attachment tagging options
+					const attachmentTaggingOptions: AttachmentTaggingOptions = {
+						model: attachmentTaggingModel,
+						maxTags: attachmentMaxTags,
+						temperature: attachmentTaggingTemperature,
+						imageDescriptionModel: attachmentImageDescriptionModel,
+						includeImageAnalysis: true,
+						ocrLanguage: ocrLanguage,
+						ocrEngine: ocrEngine
+					};
+
+					console.log('🏷️ Attachment tagging options:', attachmentTaggingOptions);
+
+					// Prepare attachment data for tagging
+					const attachmentsForTagging = newPost.attachments.map(
+						(attachment: any, index: number) => ({
+							id: attachment.id,
+							postId: postId,
+							attachment: attachments[index] // Use the original File object for PDF processing
+						})
+					);
+
+					// Log PDF files being processed
+					const pdfAttachments = attachmentsForTagging.filter(
+						({ attachment }) => attachment instanceof File && attachment.type === 'application/pdf'
+					);
+					if (pdfAttachments.length > 0) {
+						console.log(
+							'📄 Found',
+							pdfAttachments.length,
+							'PDF files for tagging:',
+							pdfAttachments.map((a) => a.attachment.name)
+						);
+					}
+
+					// Start async attachment tagging
+					processAttachmentTaggingAsync(attachmentsForTagging, attachmentTaggingOptions);
+
+					console.log(
+						'🏷️ Attachment tagging initiated for',
+						attachmentsForTagging.length,
+						'attachments'
+					);
+				} catch (attachmentTaggingError) {
+					console.error('❌ Error starting attachment tagging:', attachmentTaggingError);
+				}
+			}
+
 			// Reset form
 			content = '';
 			attachments = [];
 			willGenerateTags = false;
+			attachmentsWithTaggingSupport = [];
 			if (fileInput) fileInput.value = '';
 
 			// Reset textarea height
@@ -220,7 +380,7 @@
 				textareaElement.style.height = 'auto';
 			}
 		} catch (err) {
-			console.error('Error submitting post:', err);
+			console.error('❌ Error submitting post:', err);
 			alert('Failed to create post: ' + (err instanceof Error ? err.message : 'Unknown error'));
 		} finally {
 			isSubmitting = false;
@@ -228,15 +388,12 @@
 
 		console.log('🎮🎮🎮 POST COMPOSER SUBMIT - END (Top-level post)');
 	}
-function supportsTextExtraction(file: File): boolean {
-	return file.type.startsWith('image/') || 
-	       file.type === 'application/pdf' || 
-	       file.type.startsWith('text/');
-}
 
+	$: taggableAttachments = attachmentsWithTaggingSupport.filter(
+		(a) => a.supportsText || a.supportsImage
+	).length;
 
-
-		function getFilePreview(file: File): string {
+	function getFilePreview(file: File): string {
 		if (file.type.startsWith('image/')) {
 			return URL.createObjectURL(file);
 		}
@@ -249,7 +406,17 @@ function supportsTextExtraction(file: File): boolean {
 
 	$: extractableFiles = attachments.filter(supportsTextExtraction).length;
 
-
+	$: {
+		if (enableAttachmentTagging && attachments.length > 0) {
+			attachmentsWithTaggingSupport = attachments.map((file) => ({
+				file,
+				supportsText: supportsTextExtraction(file),
+				supportsImage: supportsImageAnalysis(file)
+			}));
+		} else {
+			attachmentsWithTaggingSupport = [];
+		}
+	}
 </script>
 
 <div class="post-composer">
@@ -289,10 +456,9 @@ function supportsTextExtraction(file: File): boolean {
 								<Icon name="X" size={16} />
 							</button>
 						</div>
-					{:else}
+					{:else if file.type.startsWith('application/pdf')}
 						<div class="attachment-file-preview">
-							<Icon name="Paperclip" size={16} />
-							<span class="attachment-name">{file.name}</span>
+							<!-- <Icon name="Paperclip" size={16} /> -->
 							<button
 								class="remove-attachment"
 								on:click={() => removeAttachment(index)}
@@ -301,6 +467,22 @@ function supportsTextExtraction(file: File): boolean {
 							>
 								<Icon name="X" size={16} />
 							</button>
+							<span class="attachment-badge"> PDF </span>
+
+							<span class="attachment-name">{file.name}</span>
+						</div>
+					{:else}
+						<div class="attachment-file-preview">
+							<button
+								class="remove-attachment"
+								on:click={() => removeAttachment(index)}
+								type="button"
+								title="Remove file"
+							>
+								<Icon name="X" size={16} />
+							</button>
+							<Icon name="Paperclip" size={16} />
+							<span class="attachment-name">{file.name}</span>
 						</div>
 					{/if}
 				</div>
@@ -309,23 +491,23 @@ function supportsTextExtraction(file: File): boolean {
 	{/if}
 
 	<!-- Auto-tagging indicator -->
-{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
-	<div class="tagging-status">
-		<div class="tagging-indicator">
-			<Icon name="Tag" size={14} />
-			{#if isGeneratingTags}
-				<span class="tagging-text generating">Generating tags...</span>
-			{:else if willGenerateTags}
-				<span class="tagging-text ready">
-					Auto-tags will be generated
-					{#if includeAttachmentText && extractableFiles > 0}
-						(including {extractableFiles} attachment{extractableFiles > 1 ? 's' : ''})
-					{/if}
-				</span>
-			{/if}
+	{#if enableAutoTagging && (willGenerateTags || isGeneratingTags)}
+		<div class="tagging-status">
+			<div class="tagging-indicator">
+				<Icon name="Tag" size={14} />
+				{#if isGeneratingTags}
+					<span class="tagging-text generating">Generating tags...</span>
+				{:else if willGenerateTags}
+					<span class="tagging-text ready">
+						Auto-tags will be generated
+						{#if includeAttachmentText && extractableFiles > 0}
+							(including {extractableFiles} attachment{extractableFiles > 1 ? 's' : ''})
+						{/if}
+					</span>
+				{/if}
+			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
 
 	<div class="composer-actions">
 		{#if showAttachments}
@@ -365,7 +547,8 @@ function supportsTextExtraction(file: File): boolean {
 			on:click={handleSubmit}
 			disabled={!content.trim() || isSubmitting || disabled}
 		>
-			{isSubmitting ? $t('posts.posting') : buttonText}
+			<Icon name="Send" size={16} />
+			{isSubmitting ? $t('posts.posting') : ''}
 		</button>
 	</div>
 </div>
@@ -381,10 +564,10 @@ function supportsTextExtraction(file: File): boolean {
 	}
 	.post-composer {
 		// background: var(--primary-color);
-		border-radius: 2rem !important;
+		background: transparent !important;
+		border-radius: 2rem 2rem 0 0 !important;
 		padding: 1rem;
 		height: auto;
-		backdrop-filter: blur(50px);
 	}
 
 	.composer-header {
@@ -457,18 +640,15 @@ function supportsTextExtraction(file: File): boolean {
 	}
 
 	.attachments-preview {
-		padding: 12px 16px;
+		padding: 0.5rem;
 		background: var(--bg-gradient);
-		border-radius: 8px;
-		margin-bottom: 12px;
+		border-radius: 1rem;
 	}
 
 	.attachment-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 6px 0;
-		border-bottom: 1px solid var(--line-color);
 	}
 
 	.attachment-item:last-child {
@@ -535,10 +715,15 @@ function supportsTextExtraction(file: File): boolean {
 	}
 
 	.post-button {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
 		background: var(--primary-color);
 		color: var(--placeholder-color);
 		border: none;
-		padding: 8px 24px;
+		padding: 0.75rem;
 		border-radius: 20px;
 		font-weight: 600;
 		cursor: pointer;
@@ -577,6 +762,19 @@ function supportsTextExtraction(file: File): boolean {
 		border: 1px solid var(--line-color);
 	}
 
+	.tagging-status {
+		font-size: 0.7rem;
+		user-select: none;
+		color: var(--tertiary-color);
+		margin-left: auto;
+		padding: 0.25rem;
+		margin-right: 0.5rem;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		font-style: italic;
+	}
+
 	.remove-attachment-image {
 		position: absolute;
 		top: -8px;
@@ -598,15 +796,37 @@ function supportsTextExtraction(file: File): boolean {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem;
+		padding: 0.25rem 0.5rem;
 		background: var(--secondary-color);
-		border-radius: 6px;
+		border-radius: 1rem;
 		border: 1px solid var(--line-color);
+		max-width: 200px;
+		transition: all 0.2s ease;
+		&:hover {
+			max-width: 600px;
+			& .attachment-name {
+				color: var(--text-color);
+				overflow: hidden;
+				text-overflow: none;
+				white-space: nowrap;
+				max-width: 100%;
+			}
+		}
+	}
+	.attachment-badge {
+		position: relative;
+		display: flex;
+		background: var(--bg-gradient-right);
+		color: var(--tertiary-color);
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--line-color);
+		font-size: 0.7rem;
 	}
 
 	.attachment-name {
 		flex: 1;
-		font-size: 0.875rem;
+		font-size: 0.8rem;
 		color: var(--text-color);
 	}
 
@@ -644,18 +864,66 @@ function supportsTextExtraction(file: File): boolean {
 
 	@media (max-width: 1000px) {
 		.post-composer {
-			background: var(--primary-color);
 			border-radius: 2rem;
 			margin-bottom: 0rem;
 			height: auto;
 		}
 	}
 	@media (max-width: 450px) {
+		.composer-header {
+			display: flex;
+			gap: 0.5rem;
+			margin-bottom: 0;
+		}
 		.post-composer {
-			background: var(--primary-color);
-			border-radius: 2rem;
+			border-radius: 1rem 1rem 0 0 !important;
 			margin-bottom: 2rem;
+
 			height: auto;
+		}
+		.composer-avatar {
+			width: 2rem;
+			height: 2rem;
+			border-radius: 50%;
+			object-fit: cover;
+			border: 1px solid var(--line-color);
+			flex-shrink: 0;
+			display: none;
+		}
+		.composer-textarea {
+			background: transparent;
+			border: none;
+			resize: none;
+			font-size: 0.8rem;
+			color: var(--text-color);
+			font-family: var(--font-family);
+			line-height: 1.5;
+			outline: none;
+			min-height: 2.5rem; /* Start with smaller min-height */
+			max-height: 50vh;
+			width: 100%;
+			margin-right: 0;
+			margin-left: 1rem;
+			box-sizing: border-box;
+			display: flex;
+			scroll-behavior: smooth;
+		}
+		.post-button {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: center;
+			gap: 0.5rem;
+			background: var(--primary-color);
+			color: var(--placeholder-color);
+			border: none;
+			padding: 0.75rem;
+			margin-right: 2rem;
+			border-radius: 20px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.15s ease;
+			opacity: 0.5;
 		}
 	}
 </style>

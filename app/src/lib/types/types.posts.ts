@@ -17,6 +17,8 @@ export interface PostAttachment {
 	original_name: string;
 	mime_type: string;
 	tags: string[];
+	tagCount?: number;
+	analysis?: string;
 	created: string;
 	updated: string;
 }
@@ -91,7 +93,6 @@ export interface PostWithInteractionsExtended extends PostWithInteractions {
 	};
 }
 
-
 export interface ProfilePost extends PostWithInteractionsExtended {
 	isRepost: boolean;
 	isOwnRepost?: boolean;
@@ -101,7 +102,6 @@ export interface ProfilePost extends PostWithInteractionsExtended {
 	repostedBy_name?: string;
 	repostedBy_avatar?: string;
 }
-
 
 export type PostStoreState = {
 	posts: PostWithInteractions[];

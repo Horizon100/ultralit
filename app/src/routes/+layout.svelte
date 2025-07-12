@@ -10,6 +10,8 @@
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
 	import { taskNotifications } from '$lib/stores/taskNotificationStore';
+	import { navigationStore } from '$lib/stores/navigationStore';
+
 	// Components
 	import Kanban from '$lib/features/tasks/Kanban.svelte';
 	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
@@ -97,6 +99,7 @@
 	let wallpaperSrc: string | null = null;
 	let preference: WallpaperPreference;
 	let isLogoHovered = false;
+	let scrollObserverCleanup: (() => void) | null = null;
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -105,7 +108,8 @@
 	$: showBottomButtons = currentPath === '/';
 	$: isNarrowScreen = innerWidth <= 1000;
 	$: user = $currentUser;
-
+	$: activeSection = $navigationStore.activeSection;
+	$: isScrolling = $navigationStore.isScrolling;
 	// Event handling
 	const dispatch = createEventDispatcher<{
 		promptSelect: PromptSelectEvent;
@@ -139,7 +143,6 @@
 		handleMenuLeave: handlePageMenuLeave,
 		toggleMenu: togglePageMenu
 	} = pageHoverManager;
-	
 
 	let pageCleanup: (() => void) | null = null;
 
@@ -189,6 +192,10 @@
 	}
 	function updateActiveSection(sectionId: string) {
 		activeSection = sectionId;
+	}
+	function handleSectionChange(event) {
+		const { sectionId } = event.detail;
+		updateActiveSection(sectionId);
 	}
 	function toggleNav() {
 		isNavExpanded = !isNavExpanded;
@@ -260,7 +267,6 @@
 		toggleThreadList();
 	}
 
-
 	async function handleLanguageChange() {
 		showLanguageNotification = true;
 
@@ -311,6 +317,8 @@
 	}
 
 	onMount(() => {
+		scrollObserverCleanup = navigationStore.initializeScrollObserver();
+
 		if (browser) {
 			window.addEventListener('avatarUpdated', handleAvatarUpdate);
 		}
@@ -458,6 +466,9 @@
 		if (pageCleanup) {
 			pageCleanup();
 		}
+		if (scrollObserverCleanup) {
+			scrollObserverCleanup();
+		}
 	});
 </script>
 
@@ -497,9 +508,64 @@
 		</div>
 	{/if}
 	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
-	<header>
-		{#if $currentUser}{:else}
+	{#if !$currentUser}
+		<header>
 			<span class="header-auth">
+				<div class="header-center">
+					<!-- Navigation anchor buttons -->
+					<div class="header-navigation">
+						<button
+							class="nav-anchor-btn"
+							on:click={() => navigationStore.scrollToSection('start')}
+							class:active={$navigationStore.activeSection === 'start'}
+							title="Go to Home"
+						>
+							<div class="header-logo" class:active={$navigationStore.activeSection === 'start'}>
+								<img src={horizon100} alt="Horizon100" class="logo" />
+								<h2>vRAZUM</h2>
+							</div>
+							<!-- <Icon name="Key" size={16} />
+				<span>Home</span> -->
+						</button>
+
+						<button
+							class="nav-anchor-btn"
+							on:click={() => navigationStore.scrollToSection('features')}
+							class:active={$navigationStore.activeSection === 'features'}
+							title="Go to Features"
+						>
+							<Icon name="Play" size={16} />
+							<span>Features</span>
+						</button>
+
+						<button
+							class="nav-anchor-btn"
+							on:click={() => navigationStore.scrollToSection('pricing')}
+							class:active={$navigationStore.activeSection === 'pricing'}
+							title="Go to Pricing"
+						>
+							$
+							<span>Pricing</span>
+						</button>
+
+						<button
+							class="nav-anchor-btn"
+							on:click={() => navigationStore.scrollToSection('integrations')}
+							class:active={$navigationStore.activeSection === 'integrations'}
+							title="Go to About"
+						>
+							<Icon name="Info" size={16} />
+							<span>About</span>
+						</button>
+					</div>
+				</div>
+
+				<span class="auth-language">
+					<button class="nav-link language" on:click={handleLanguageChange}>
+						<Icon name="Languages" size={16} />
+						<span>{$t('lang.flag')}</span>
+					</button>
+				</span>
 				<button
 					class="nav-link login"
 					on:click={() => toggleAuthOrProfile()}
@@ -507,40 +573,42 @@
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
 					<Icon name="LogIn" size={16} />
+
 					<span>
 						{$t('profile.login')}
 					</span>
 				</button>
-				<span class="auth-language">
-					<button class="nav-link language" on:click={handleLanguageChange}>
-						<Icon name="Languages" size={16} />
-						<span>{$t('lang.flag')}</span>
-					</button>
-				</span>
 			</span>
-		{/if}
-	</header>
-	<nav style="z-index: 1000;"></nav>
-	<div class="sidenav" class:expanded={isNavExpanded} transition:slide={{ duration: 300 }}>
-			<div class="toggle-container">
-					<button
-						class="nav-button drawer"
+		</header>
+	{/if}
 
-						on:click={() => {
-							toggleNav();
-							if (showProfile || showAuthModal) {
-								showProfile = false;
-								showAuthModal = false;
-							}
-						}}
-					>
-						{#if isNavExpanded}
-							<Icon name="PanelLeftClose" />
-						{:else}
-							<Icon name="PanelLeftOpen" />
-						{/if}
-					</button>
-					<!-- <button
+	<nav style="z-index: 1000;"></nav>
+	<div
+		class="sidenav"
+		class:expanded={isNavExpanded}
+		class:active={$showInput}
+		class:active-right={$showRightSidenav}
+		class:active-left={$showSidenav}
+		transition:slide={{ duration: 300 }}
+	>
+		<div class="toggle-container">
+			<button
+				class="nav-button drawer"
+				on:click={() => {
+					toggleNav();
+					if (showProfile || showAuthModal) {
+						showProfile = false;
+						showAuthModal = false;
+					}
+				}}
+			>
+				{#if isNavExpanded}
+					<Icon name="PanelLeftClose" />
+				{:else}
+					<Icon name="PanelLeftOpen" />
+				{/if}
+			</button>
+			<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showSettings}
@@ -587,23 +655,22 @@
 							<span class="nav-text">{$t('nav.sidebar')}</span>
 						{/if}
 					</button> -->
-				</div>
+		</div>
 		<div
 			class="navigation-buttons"
 			class:hidden={isNarrowScreen}
+			class:active={$showInput}
 			in:fly={{ x: -200, duration: 300 }}
 			out:fly={{ x: 200, duration: 300 }}
 		>
 			{#if $currentUser}
-
-
-
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
 					<button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showSidenav}
+						class:inactive={!$showSidenav}
 						class:reveal-active={$showSidenav}
 						use:swipeGesture={{
 							threshold: 50,
@@ -749,8 +816,6 @@
 
 				<!-- Chat Route Navigation -->
 				{#if currentPath === '/chat'}
-
-
 					<!-- <button
 						class="nav-button drawer reveal"
 						class:expanded={isNavExpanded}
@@ -772,8 +837,6 @@
 							<span class="nav-text">{$t('nav.chat')}</span>
 						{/if}
 					</button> -->
-
-
 				{/if}
 
 				<!-- Kanban/Lean Route Navigation -->
@@ -873,11 +936,9 @@
 							<span class="nav-text">{$t('nav.profile')}</span>
 						{/if}
 					</button> -->
-
-
 				{/if}
 				{#if currentPath === '/chat'}
-					<!-- <button
+					<button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
 						class:active={$showOverlay}
@@ -924,29 +985,29 @@
 							<span class="nav-text">{$t('nav.profile')}</span>
 						{/if}
 					</button>
-				{#if $showOverlay}
-					<button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showThreadList}
-						class:reveal-active={activeRevealButton === 'chat'}
-						on:click={(event) => {
-							event.preventDefault();
-							activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
-							sidenavStore.toggleThreadList(); // Use sidenavStore instead of toggleThreadList()
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showThreadList}
-							<Icon name="ListCollapseIcon" />
-						{:else}
-							<Icon name="ListCollapse" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.chat')}</span>
-						{/if}
-					</button>
-				{/if} -->
+					{#if $showOverlay}
+						<button
+							class="nav-button drawer"
+							class:expanded={isNavExpanded}
+							class:active={$showThreadList}
+							class:reveal-active={activeRevealButton === 'chat'}
+							on:click={(event) => {
+								event.preventDefault();
+								activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+								sidenavStore.toggleThreadList(); // Use sidenavStore instead of toggleThreadList()
+								isNavExpanded = false;
+							}}
+						>
+							{#if $showThreadList}
+								<Icon name="ListCollapseIcon" />
+							{:else}
+								<Icon name="ListCollapse" />
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('nav.chat')}</span>
+							{/if}
+						</button>
+					{/if}
 					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -1150,7 +1211,7 @@
 
 	{#if showAuthModal}
 		<div class="auth-overlay" on:click={handleOverlayClick} transition:fade={{ duration: 300 }}>
-			<div class="auth-content" transition:fade={{ duration: 300 }}>
+			<div class="auth-content" transition:fly={{ y: 300, duration: 300 }}>
 				<button
 					on:click={() => (showAuthModal = false)}
 					class="close-button"
@@ -1218,7 +1279,7 @@
 		<slot />
 	</main>
 	<Toast />
-	{#if $showSettings}
+	{#if $currentUser}
 		<div
 			class="navigator-menu"
 			class:expanded={isNavExpanded}
@@ -1327,7 +1388,7 @@
 					}
 				}}
 			>
-				<Icon name="MessageSquare" /> <span class="nav-text">{$t('nav.chat')}</span> 
+				<Icon name="MessageSquare" /> <span class="nav-text">{$t('nav.chat')}</span>
 				{#if isNavExpanded}{/if}
 			</a>
 			<!-- <a
@@ -1379,6 +1440,7 @@
 				href="https://github.com/Horizon100/ultralit"
 				target="_blank"
 				rel="noopener noreferrer"
+				class="shortcut"
 				class:expanded={isNavExpanded}
 			>
 				<Icon name="Github" /> <span class="nav-text">GitHub</span>
@@ -1420,10 +1482,10 @@
 				<div class="user-wrapper">
 					<div class="user-shortcuts">
 						{#if $currentUser?.id}
-							<img 
-								src="/api/users/{$currentUser.id}/avatar?t={avatarTimestamp}" 
-								alt="User avatar" 
-								class="user-avatar" 
+							<img
+								src="/api/users/{$currentUser.id}/avatar?t={avatarTimestamp}"
+								alt="User avatar"
+								class="user-avatar"
 							/>
 						{:else}
 							<div class="default-avatar">?</div>
@@ -1484,6 +1546,7 @@
 			<SearchEngine size="large" placeholder={searchPlaceholder} bind:isFocused={isSearchFocused} />
 		</div>
 	{/if}
+
 	<footer>
 		<!-- Footer content -->
 	</footer>
@@ -1520,25 +1583,32 @@
 		padding: 0.5rem;
 		gap: 1rem;
 		bottom: 3rem;
-		left: 0;
+		left: 0.5rem;
 		width: auto;
 		// background: var(--primary-color);
-		z-index: 9999;
+		z-index: 1;
 		// border-right: 1px solid var(--secondary-color);
 
 		&:hover {
-			width: auto !important;
+		}
+		& a.shortcut {
+			padding: 0;
+			margin: 0;
+			background: transparent;
+			border: 1px solid transparent;
+			width: 2rem !important;
+			height: 2rem !important;
 		}
 		& button.shortcut {
 			padding: 0;
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
-			width: 60px;
-			height: 60px;
+			width: 2rem;
+			height: 2rem;
 			& .user-avatar {
-				width: 60px !important;
-				height: 60px !important;
+				width: 2rem !important;
+				height: 2rem !important;
 				border-radius: 50%;
 				object-fit: cover;
 			}
@@ -1571,7 +1641,7 @@
 			justify-content: flex-end;
 			background: transparent !important;
 			height: auto;
-			width: 100%;
+			width: auto;
 			gap: 0;
 		}
 		.user-shortcuts {
@@ -1596,7 +1666,7 @@
 				background: transparent;
 				border: 1px solid transparent;
 				width: 100%;
-				height: 60px;
+				height: 3rem;
 				.user-shortcuts {
 					width: 200px;
 					&:hover {
@@ -1614,6 +1684,9 @@
 				& .tracker {
 					display: flex;
 				}
+				& .logo-container {
+					width: 200px !important;
+				}
 			}
 			& a {
 				flex-direction: row !important;
@@ -1623,9 +1696,7 @@
 			& .nav-text {
 				display: flex;
 			}
-			& .logo-container {
-				width: 200px !important;
-			}
+
 			& h2 {
 				display: flex !important;
 			}
@@ -1634,8 +1705,8 @@
 			display: flex;
 			justify-content: center;
 			color: var(--placeholder-color);
-			width: 60px !important;
-			height: 60px;
+			width: 2rem !important;
+			height: 2rem;
 			gap: 0.5rem !important;
 			background: var(--primary-color);
 			opacity: 0.5;
@@ -1658,7 +1729,7 @@
 			position: absolute;
 			top: 0.5rem;
 			left: 0;
-			width: 80px;
+			width: auto !important;
 		}
 	}
 	button {
@@ -1703,7 +1774,7 @@
 		user-select: none;
 		&.info.logo {
 			padding: 0;
-			width: 3rem;
+			width: 2rem;
 			position: absolute !important;
 			right: 0;
 			gap: 1.5rem;
@@ -1784,7 +1855,6 @@
 		margin: 0;
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
 		z-index: 1002;
-
 		transition: all 0.3s ease;
 		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
 	}
@@ -1802,9 +1872,9 @@
 
 	.profile-content {
 		position: relative;
-		width: auto;
-		height: calc(100vh - 3rem);
-		width: 500px;
+		width: 50vw;
+		height: calc(100vh - 5rem);
+		max-width: 1000px;
 		top: 0;
 		margin-bottom: auto;
 		padding: 0;
@@ -1817,7 +1887,7 @@
 		/* max-height: 90vh; */
 		overflow: none;
 		transition: all 0.3s ease;
-		backdrop-filter: blur(30px);
+		background: var(--primary-color);
 		border: 1px solid var(--secondary-color);
 	}
 
@@ -1849,11 +1919,26 @@
 		height: 100%;
 		height: auto;
 		left: 0;
+
 		top: 0;
 		bottom: 0;
 		position: fixed;
 		display: flex;
 		flex-grow: 1;
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	:global(.loading-spinner) {
@@ -1882,9 +1967,12 @@
 		display: flex;
 		flex-direction: row;
 		position: fixed;
+		z-index: 9999;
+		background: var(--bg-gradient);
 		top: 0;
 		left: 0;
-		width: 100%;
+		right: 1rem;
+		width: calc(100%);
 		justify-content: center;
 		align-items: center;
 		/* height: 80px; */
@@ -1925,8 +2013,10 @@
 		& .header-auth {
 			display: flex;
 			flex-direction: row;
-			position: absolute;
-			left: 0.5rem;
+			position: relative;
+			align-items: center;
+			justify-content: space-between;
+			width: 100%;
 		}
 		& .nav-link.home {
 			position: absolute;
@@ -1934,6 +2024,15 @@
 		}
 	}
 
+	.header-logo.active {
+		flex: 1;
+		justify-content: flex-start;
+
+		& h2 {
+			font-size: 2rem;
+			letter-spacing: 0.2rem !important;
+		}
+	}
 	.header-logo {
 		display: flex;
 		flex-direction: row;
@@ -1949,10 +2048,11 @@
 		height: auto;
 		user-select: none;
 		gap: 8px;
-		padding: 5px 10px;
-		color: white;
 		text-decoration: none;
 		font-size: 16px;
+		& h2 {
+			margin: 0;
+		}
 	}
 
 	.logo-container {
@@ -2178,12 +2278,14 @@
 		transition: all 0.3s ease;
 
 		&.login {
-			width: auto;
 			display: flex;
+			flex-direction: row;
+			padding: 0;
 			& span {
 				display: flex;
 				font-size: 0.7rem;
 				width: auto;
+				gap: 0.5rem;
 			}
 		}
 		&.language {
@@ -2368,11 +2470,11 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: space-between;
-		width: 60px;
+		width: 2rem;
 		// padding: 0 1rem;
 		position: relative;
 		// padding: 0.5rem 1rem;
-		height: 60px;
+		height: 2rem;
 		border: none;
 		border-radius: 50%;
 		// background: var(--secondary-color);
@@ -2545,14 +2647,13 @@
 	.navigation-buttons {
 		display: flex;
 		flex-direction: row;
-		gap: 0.5rem;
-		width: 100%;
-		max-width: 1000px;
+		gap: 2rem;
+		width: 100vw !important;
+		max-width: 600px;
 		justify-content: center;
 		align-items: center;
 		backdrop-filter: blur(3px);
 		// border: 1px solid var(--line-color);
-
 		border-bottom: 1px solid transparent;
 		// padding: 0.5rem;
 		overflow-x: hidden;
@@ -2561,19 +2662,34 @@
 			display: none;
 		}
 	}
+	.navigation-buttons.active {
+		width: 100%;
+		transition: width 0.3s ease-in-out;
+		background: var(--bg-gradient-r);
+		box-shadow: none;
+		border: none;
+	}
+	.sidenav.active-right,
+	.sidenav.active,
+	.sidenav.active-left {
+		border: none;
+		box-shadow: none;
+	}
 	.sidenav {
 		display: flex;
 		flex-direction: row;
 		align-items: flex-end;
 		justify-content: center;
-		position: fixed;
-		left: 0;
+		position: absolute;
+		left: auto;
 		right: 0 !important;
+		left: 0;
 		top: auto;
 		bottom: 0;
 		padding: 0;
-		z-index: 1000;
-		width: 100%;
+		z-index: 1;
+		flex: 1;
+
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -2586,10 +2702,10 @@
 		will-change: auto;
 		pointer-events: auto;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-
 		/* Lock positioning */
 		transform: translateZ(0) !important;
 		backface-visibility: hidden;
+
 		&.expanded {
 			width: 100%;
 
@@ -3011,8 +3127,8 @@
 	.nav-button.active {
 		border: 1px solid var(--secondary-color);
 		background: var(--bg-color);
-		width: 2.5rem;
-		height: 2.5rem;
+		width: 2rem;
+		height: 2rem;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 
 		&.expanded {
@@ -3187,8 +3303,8 @@
 	.nav-button.drawer {
 		left: 1rem;
 		bottom: 1rem;
-		height: 3rem !important;
-		width: 3rem !important;
+		height: 2rem !important;
+		width: 2rem !important;
 		color: var(--tertiary-color);
 		border: 1px solid transparent !important;
 		&.expanded {
@@ -3198,7 +3314,6 @@
 	.nav-button.reveal {
 		&.reveal-active {
 			background: var(--primary-color);
-			
 		}
 	}
 	.nav-button.drawer.active,
@@ -3206,8 +3321,7 @@
 		border: 1px solid var(--secondary-color);
 		border-radius: 1rem !important;
 		background: var(--bg-color) !important;
-		width: auto !important;
-		height: 3rem !important;
+		height: 2rem !important;
 		box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 		&:hover {
 			animation: none;
@@ -3225,43 +3339,136 @@
 			opacity 0.2s ease,
 			transform 0.2s ease;
 	}
-	@media (max-width: 1000px) {
-		main {
-			overflow-y: hidden;
+	.header-center {
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+		flex: 1;
+		justify-content: center;
+		transition: all 0.3s ease;
+		padding: auto;
+	}
+
+	.header-logo {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.header-navigation {
+		display: flex;
+		gap: 0.25rem;
+		transition: all 0.3s ease;
+		width: 100%;
+		margin-left: 1rem;
+	}
+
+	.nav-anchor-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		height: 3rem;
+		background: transparent;
+		border: 1px solid var(--primary-color);
+		border-radius: 6px;
+		color: var(--text-color);
+		background: var(--secondary-color);
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: all 0.3s ease;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.nav-anchor-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		border-color: var(--primary-color);
+		color: var(--tertiary-color);
+		transform: translateY(-1px);
+	}
+
+	.nav-anchor-btn.active {
+		background: transparent;
+		color: var(--text-color);
+		border: none;
+		font-size: 1.5rem;
+		letter-spacing: 0.2rem;
+		flex: 1;
+		padding: 0.5rem;
+		transition: all 0.1s ease;
+		justify-content: center;
+	}
+
+	.nav-anchor-btn span {
+		font-weight: 500;
+	}
+
+	@media (max-width: 768px) {
+		.header-center {
+			flex-direction: column;
+			gap: 0.75rem;
 		}
 
-		.navigator-menu {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: flex-end;
-			position: absolute;
-			flex: 1;
-			height: auto;
-			padding: 0.5rem;
+		.header-navigation {
+			gap: 0.125rem;
+		}
+
+		.nav-anchor-btn {
+			padding: 0.375rem 0.625rem;
+			font-size: 0.8rem;
+		}
+	}
+
+	@media (max-width: 600px) {
+		.nav-anchor-btn span {
+			display: none;
+		}
+
+		.nav-anchor-btn {
+			padding: 0.375rem;
+			min-width: 2.5rem;
+		}
+	}
+	@media (max-width: 1000px) {
+		main {
+		}
+		.header-center {
 			gap: 1rem;
-			bottom: 4rem;
-			left: 0;
-			top: auto;
-			width: auto;
-			background: transparent;
-			padding-bottom: 0;
-			z-index: 9999;
-			border-right: none;
-			border-radius: 2rem;
+		}
+
+		.nav-anchor-btn {
+			padding: 0.375rem 0.75rem;
+		}
+		.nav-link.login {
+			width: 2rem !important;
+			background: var(--primary-color);
+			border-radius: 1rem;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			position: absolute;
+
+			& span {
+				display: none;
+			}
+		}
+		.navigator-menu {
 			&:hover {
-				width: auto !important;
 			}
 			& button.shortcut {
+				display: flex;
+				justify-content: center;
+				align-items: center;
 				padding: 0;
 				margin: 0;
-				background: transparent;
 				border: 1px solid transparent;
-				width: 60px;
-				height: 60px;
+				width: 40px !important;
+				height: 40px !important;
 				& .user-avatar {
-					width: 60px !important;
-					height: 60px !important;
+					width: 40px !important;
+					height: 40px !important;
 					border-radius: 50%;
 					object-fit: cover;
 				}
@@ -3326,7 +3533,7 @@
 					.user-shortcuts {
 						width: 200px;
 						&:hover {
-							transform: translateX(0.5rem);
+							// transform: translateX(0.5rem);
 							padding-right: 0;
 						}
 					}
@@ -3340,6 +3547,9 @@
 					& .tracker {
 						display: flex;
 					}
+					& .logo-container {
+						width: 200px !important;
+					}
 				}
 				& a {
 					flex-direction: row !important;
@@ -3349,9 +3559,7 @@
 				& .nav-text {
 					display: flex;
 				}
-				& .logo-container {
-					width: 200px !important;
-				}
+
 				& h2 {
 					display: flex !important;
 				}
@@ -3386,7 +3594,7 @@
 			}
 			& .logo-container {
 				position: relative;
-				top: 0.5rem;
+				top: 0;
 				left: 0;
 				width: 80px;
 			}
@@ -3694,7 +3902,6 @@
 			display: flex;
 			justify-content: center;
 			// backdrop-filter: blur(30px);
-			background: var(--bg-gradient);
 			flex-direction: row;
 			height: auto;
 			overflow-x: hidden;
@@ -3726,8 +3933,10 @@
 			width: 100% !important;
 			right: 0;
 			left: 0;
+			margin-left: 2rem;
 			align-items: center;
-			justify-content: space-around;
+			justify-content: center;
+			gap: 5rem;
 		}
 
 		.bottom-buttons {
@@ -3746,9 +3955,11 @@
 		}
 		.profile-overlay {
 			margin-left: 0;
-			left: 0;
+			margin-top: 1rem !important;
+
+			left: 4rem !important;
 			height: auto;
-			width: 500px !important;
+			width: calc(100% - 5rem) !important;
 			backdrop-filter: blur(0);
 			background: var(--bg-color);
 		}
@@ -3774,6 +3985,7 @@
 			justify-content: center;
 			height: auto;
 		}
+
 		.nav-links {
 			margin: 0;
 			gap: 0;
@@ -3824,6 +4036,10 @@
 				}
 			}
 		}
+		.navigation-buttons {
+			margin-left: 3rem;
+			margin-right: 1rem;
+		}
 		.nav-link {
 			font-size: 0.8rem;
 			padding: 0 !important;
@@ -3852,6 +4068,29 @@
 		}
 	}
 	@media (max-width: 450px) {
+		.logo-container {
+			display: none;
+		}
+		.user-shortcuts {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			width: 40px !important;
+			justify-content: flex-end;
+			&:hover {
+				transform: scale(1) translateX(0) !important;
+				width: 100% !important;
+				padding: 0 !important;
+				position: absolute;
+				background-color: var(--secondary-color) !important;
+				margin: 0 !important;
+				left: auto !important;
+				right: 0 !important;
+				flex-direction: row;
+
+				box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
+			}
+		}
 		main {
 			background: var(--bg-gradient-r);
 			color: var(--text-color);
@@ -3866,6 +4105,30 @@
 			display: flex;
 			flex-grow: 1;
 			height: -webkit-fill-available;
+		}
+
+		.navigator-menu {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			flex: 1;
+			height: auto;
+			padding: 0;
+			gap: 1rem;
+			bottom: 0;
+			left: 0;
+			top: auto;
+			width: calc(100vw);
+			background: var(--bg-color);
+			border-top: none !important;
+			padding-bottom: 0;
+			z-index: 9999;
+			border-right: none;
+			border-radius: 0;
+			overflow-x: hidden;
+			overflow-y: hidden;
 		}
 
 		span.search-wrapper {
@@ -3897,41 +4160,51 @@
 		}
 		.nav-link.login {
 			span {
-				display: none;
+				display: flex;
 			}
 		}
 		.sidenav {
 			display: flex;
 			// backdrop-filter: blur(30px);
-			background: transparent;
-			flex-direction: row;
-			align-items: center;
+			flex-direction: column;
+			align-items: flex-end;
 			bottom: 0;
+			right: 0 !important;
+			margin-left: calc(100% - 3rem);
 			padding: 0;
-			height: 3rem;
-			position: absolute;
-			width: 99%;
-			margin-left: 0.5%;
+			height: auto;
+			position: fixed;
+			width: 3rem;
 			border-radius: 0;
 			flex: 1;
 			overflow-x: hidden !important;
+			background: transparent;
 			left: 0;
 			right: 0;
-			z-index: 10;
+			z-index: 1;
 			transition: all 0.1s ease-in;
+			box-shadow: none;
 
 			& .nav-button.info.user,
 			& .nav-button.drawer {
 				display: flex !important;
 				// display: none !important;
-				width: 2.5rem !important;
-				height: 2.5rem !important;
+				width: 2rem !important;
+				height: 2rem !important;
+				padding: 0.5rem;
+				background: var(--bg-color) !important;
+				transition: all 0.3s ease;
+				color: var(--placeholder-color) !important;
+				&.active {
+					background-color: var(--tertiary-color) !important;
+				}
 				&:hover {
+					box-shadow: none;
+					transform: none;
+					color: var(--tertiary-color) !important;
 					& .nav-button.info.user,
 					& .nav-button.drawer {
 						display: flex !important;
-						width: 3rem !important;
-						height: 3rem !important;
 					}
 				}
 				&.reveal {
@@ -3942,26 +4215,30 @@
 
 		.nav-button.drawer {
 			background-color: var(--primary-color) !important;
-			height: 3rem !important;
-			width: 3rem !important;
+			height: 2rem !important;
+			width: 2rem !important;
 		}
 
 		.nav-button.info {
 			top: 0;
 		}
-
 		.navigation-buttons {
 			display: flex;
-			flex-direction: row;
+			flex-direction: column;
 			// border: 1px solid var(--line-color);
-			gap: 0.5rem;
-			width: 100% !important;
-			height: 4rem;
+			gap: 0.25rem;
+			width: 3rem !important;
+			height: auto;
 			// background: var(--secondary-color);
 			border-radius: 0;
 			align-items: center;
-			justify-content: space-around;
+			justify-content: flex-end;
 			overflow: hidden;
+			overflow-x: hidden;
+			z-index: 1000;
+			backdrop-filter: none;
+			margin: 0;
+			margin-bottom: 2.5rem;
 			transition: all 0.2s ease;
 		}
 
@@ -3970,7 +4247,9 @@
 			margin: 0;
 			gap: 8px;
 		}
-
+		.toggle-container {
+			display: none;
+		}
 		.nav-button,
 		.thread-toggle,
 		.avatar-container {

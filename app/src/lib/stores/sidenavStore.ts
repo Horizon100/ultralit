@@ -74,7 +74,8 @@ function createSidenavStore() {
 
 		showThreadList: () => update((state) => ({ ...state, showThreadList: true })),
 		hideThreadList: () => update((state) => ({ ...state, showThreadList: false })),
-		toggleThreadList: () => update((state) => ({ ...state, showThreadList: !state.showThreadList })),
+		toggleThreadList: () =>
+			update((state) => ({ ...state, showThreadList: !state.showThreadList })),
 
 		// Legacy methods (for backward compatibility)
 		show: () => update((state) => ({ ...state, showSidenav: true })),

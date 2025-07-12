@@ -1,10 +1,18 @@
-import { writable, derived, get} from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
+import { browser } from '$app/environment';
 import PocketBase from 'pocketbase';
 import { pocketbaseUrl } from '$lib/stores/pocketbase';
 import type { Threads } from '$lib/types/types';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
 
-const pb = new PocketBase(get(pocketbaseUrl));
+// Only create PocketBase instance on client side or use fallback URL
+let pb: PocketBase;
+if (browser) {
+	pb = new PocketBase(get(pocketbaseUrl));
+} else {
+	// Server-side fallback - use environment variable or default
+	pb = new PocketBase(process.env.VITE_POCKETBASE_URL || 'http://localhost:8090');
+}
 
 interface MessageCounts {
 	[threadId: string]: number;
@@ -25,7 +33,8 @@ function createMessageCountsStore() {
 		subscribe,
 
 		async fetchBatch(threads: Threads[], page: number = 1): Promise<BatchResult> {
-			if (isFetching) return { counts: {}, totalThreads: 0 };
+			// Only run on client side
+			if (!browser || isFetching) return { counts: {}, totalThreads: 0 };
 			isFetching = true;
 
 			const counts: MessageCounts = {};
@@ -70,6 +79,8 @@ function createMessageCountsStore() {
 		},
 
 		async updateCount(threadId: string): Promise<number> {
+			if (!browser) return 0;
+
 			const result = await clientTryCatch(
 				pb.collection('messages').getList(1, 1, {
 					filter: `thread = "${threadId}"`,

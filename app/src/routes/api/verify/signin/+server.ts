@@ -111,7 +111,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// Set auth cookie with optimized settings
 		const cookieOptions = {
 			httpOnly: false,
-			secure: false, 
+			secure: false,
 			sameSite: 'lax' as const,
 			path: '/',
 			maxAge: 60 * 60 * 24 * 7 // 7 days

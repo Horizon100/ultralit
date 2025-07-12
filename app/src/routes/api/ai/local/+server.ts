@@ -11,75 +11,75 @@ import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
 const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
 
 interface TaggingRequest {
-  content: string;
-  attachmentTexts?: string[];
-  model?: string;
-  maxTags?: number;
-  temperature?: number;
+	content: string;
+	attachmentTexts?: string[];
+	model?: string;
+	maxTags?: number;
+	temperature?: number;
 }
 
 interface TaggingResponse {
-  tags: string[];
-  model: string;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  provider: string;
+	tags: string[];
+	model: string;
+	usage?: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
+	provider: string;
 }
 
 export const POST: RequestHandler = async (event) =>
-  apiTryCatch(async () => {
-    const { request, cookies } = event;
+	apiTryCatch(async () => {
+		const { request, cookies } = event;
 
-    // Authentication
-    const authCookie = cookies.get('pb_auth');
-    if (!authCookie) throw new Error('User not authenticated');
-    
-    let authData;
-    try {
-      authData = JSON.parse(authCookie);
-      pbServer.pb.authStore.save(authData.token, authData.model);
-    } catch {
-      throw new Error('Failed to parse auth cookie');
-    }
-    
-    if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
-    
-    const user = pbServer.pb.authStore.model;
-    if (!user || !user.id) throw new Error('Invalid user session');
+		// Authentication
+		const authCookie = cookies.get('pb_auth');
+		if (!authCookie) throw new Error('User not authenticated');
 
-    console.log('🏷️ Local AI Tagging - User ID:', user.id);
+		let authData;
+		try {
+			authData = JSON.parse(authCookie);
+			pbServer.pb.authStore.save(authData.token, authData.model);
+		} catch {
+			throw new Error('Failed to parse auth cookie');
+		}
 
-    // Parse request
-    const body: TaggingRequest = await request.json();
-    const { 
-      content, 
-      attachmentTexts = [],
-      model = 'qwen2.5:0.5b', 
-      maxTags = 5,
-      temperature = 0.3
-    } = body;
+		if (!pbServer.pb.authStore.isValid) throw new Error('User not authenticated');
 
-    if (!content || typeof content !== 'string') {
-      throw new Error('Invalid or missing content');
-    }
+		const user = pbServer.pb.authStore.model;
+		if (!user || !user.id) throw new Error('Invalid user session');
 
-    console.log('🏷️ Local AI Tagging - Model:', model, 'Max tags:', maxTags);
+		console.log('🏷️ Local AI Tagging - User ID:', user.id);
 
-    // Build combined content for tagging
-    let fullContent = content.trim();
-    
-    if (attachmentTexts.length > 0) {
-      const attachmentContent = attachmentTexts.join('\n\n').trim();
-      if (attachmentContent) {
-        fullContent += `\n\nAttachment content:\n${attachmentContent}`;
-      }
-    }
+		// Parse request
+		const body: TaggingRequest = await request.json();
+		const {
+			content,
+			attachmentTexts = [],
+			model = 'qwen2.5:0.5b',
+			maxTags = 5,
+			temperature = 0.3
+		} = body;
 
-    // Create tagging prompt
-    const systemPrompt = `You are a content tagging expert. Generate relevant, concise tags for social media posts and their attachments.
+		if (!content || typeof content !== 'string') {
+			throw new Error('Invalid or missing content');
+		}
+
+		console.log('🏷️ Local AI Tagging - Model:', model, 'Max tags:', maxTags);
+
+		// Build combined content for tagging
+		let fullContent = content.trim();
+
+		if (attachmentTexts.length > 0) {
+			const attachmentContent = attachmentTexts.join('\n\n').trim();
+			if (attachmentContent) {
+				fullContent += `\n\nAttachment content:\n${attachmentContent}`;
+			}
+		}
+
+		// Create tagging prompt
+		const systemPrompt = `You are a content tagging expert. Generate relevant, concise tags for social media posts and their attachments.
 
 Rules:
 - Generate ${maxTags} or fewer highly relevant tags
@@ -96,100 +96,99 @@ Examples:
 For "Just deployed my new React app with TypeScript" → react, typescript, deployment, webdev
 For "Beautiful sunset at the beach today" → photography, sunset, beach, nature`;
 
-    const userPrompt = `Generate relevant tags for this content:
+		const userPrompt = `Generate relevant tags for this content:
 
 "${fullContent}"
 
 Return only the tag names, one per line.`;
 
-    // Build parameters for local model
-    const params: LocalModelParams = {
-      model,
-      prompt: userPrompt,
-      system: systemPrompt,
-      stream: false,
-      temperature,
-      max_tokens: 150
-    };
+		// Build parameters for local model
+		const params: LocalModelParams = {
+			model,
+			prompt: userPrompt,
+			system: systemPrompt,
+			stream: false,
+			temperature,
+			max_tokens: 150
+		};
 
-    console.log('🏷️ Local AI Tagging - Generating tags with local model...');
+		console.log('🏷️ Local AI Tagging - Generating tags with local model...');
 
-    try {
-      // Call Ollama
-      const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params),
-        signal: AbortSignal.timeout(30000), // 30 second timeout for tagging
-      });
+		try {
+			// Call Ollama
+			const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(params),
+				signal: AbortSignal.timeout(30000) // 30 second timeout for tagging
+			});
 
-      if (!response.ok) {
-        throw new Error(`Ollama server error: ${response.status} ${response.statusText}`);
-      }
+			if (!response.ok) {
+				throw new Error(`Ollama server error: ${response.status} ${response.statusText}`);
+			}
 
-      const data: OllamaGenerateResponse = await response.json();
-      console.log('🏷️ Local AI Tagging - Response received, length:', data.response?.length);
+			const data: OllamaGenerateResponse = await response.json();
+			console.log('🏷️ Local AI Tagging - Response received, length:', data.response?.length);
 
-      if (!data.response) {
-        throw new Error('No response content from local model');
-      }
+			if (!data.response) {
+				throw new Error('No response content from local model');
+			}
 
-      // Parse AI response into tags - handle both line-separated and comma-separated
-      let tagNames: string[] = [];
-      
-      const responseText = data.response.trim();
-      
-      // First try splitting by newlines
-      const lineBasedTags = responseText
-        .split('\n')
-        .map((line: string) => line.trim().toLowerCase())
-        .filter((line: string) => line.length > 0)
-        .filter((line: string) => !line.includes('tag') && !line.includes(':'))
-        .map((line: string) => line.replace(/^[-*\d.]+\s*/, '')) // Remove any numbering
-        .map((line: string) => line.replace(/['"]/g, '')) // Remove quotes
-        .filter((tag: string) => tag.length >= 2);
-      
-      // If we got multiple lines, use them
-      if (lineBasedTags.length > 1) {
-        tagNames = lineBasedTags;
-      } else {
-        // Otherwise, try comma-separated parsing
-        const singleLine = lineBasedTags[0] || responseText;
-        tagNames = singleLine
-          .split(',')
-          .map((tag: string) => tag.trim().toLowerCase())
-          .filter((tag: string) => tag.length >= 2)
-          .filter((tag: string) => !tag.includes('tag') && !tag.includes(':'))
-          .map((tag: string) => tag.replace(/['"]/g, '')) // Remove quotes
-          .map((tag: string) => tag.replace(/^[-*\d.]+\s*/, '')); // Remove any numbering
-      }
-      
-      // Take only the requested number of tags
-      tagNames = tagNames.slice(0, maxTags);
+			// Parse AI response into tags - handle both line-separated and comma-separated
+			let tagNames: string[] = [];
 
-      console.log('🏷️ Local AI Tagging - Parsed tags:', tagNames);
+			const responseText = data.response.trim();
 
-      // Return response
-      const result: TaggingResponse = {
-        tags: tagNames,
-        model: data.model || model,
-        usage: {
-          prompt_tokens: data.prompt_eval_count || 0,
-          completion_tokens: data.eval_count || 0,
-          total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
-        },
-        provider: 'local'
-      };
+			// First try splitting by newlines
+			const lineBasedTags = responseText
+				.split('\n')
+				.map((line: string) => line.trim().toLowerCase())
+				.filter((line: string) => line.length > 0)
+				.filter((line: string) => !line.includes('tag') && !line.includes(':'))
+				.map((line: string) => line.replace(/^[-*\d.]+\s*/, '')) // Remove any numbering
+				.map((line: string) => line.replace(/['"]/g, '')) // Remove quotes
+				.filter((tag: string) => tag.length >= 2);
 
-      return result;
+			// If we got multiple lines, use them
+			if (lineBasedTags.length > 1) {
+				tagNames = lineBasedTags;
+			} else {
+				// Otherwise, try comma-separated parsing
+				const singleLine = lineBasedTags[0] || responseText;
+				tagNames = singleLine
+					.split(',')
+					.map((tag: string) => tag.trim().toLowerCase())
+					.filter((tag: string) => tag.length >= 2)
+					.filter((tag: string) => !tag.includes('tag') && !tag.includes(':'))
+					.map((tag: string) => tag.replace(/['"]/g, '')) // Remove quotes
+					.map((tag: string) => tag.replace(/^[-*\d.]+\s*/, '')); // Remove any numbering
+			}
 
-    } catch (aiError) {
-      console.error('🏷️ Local AI Tagging - Error calling Ollama:', aiError);
-      
-      throw new Error(
-        `Local AI tagging error: ${aiError instanceof Error ? aiError.message : String(aiError)}`
-      );
-    }
-  }, 'Internal local AI tagging error');
+			// Take only the requested number of tags
+			tagNames = tagNames.slice(0, maxTags);
+
+			console.log('🏷️ Local AI Tagging - Parsed tags:', tagNames);
+
+			// Return response
+			const result: TaggingResponse = {
+				tags: tagNames,
+				model: data.model || model,
+				usage: {
+					prompt_tokens: data.prompt_eval_count || 0,
+					completion_tokens: data.eval_count || 0,
+					total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
+				},
+				provider: 'local'
+			};
+
+			return result;
+		} catch (aiError) {
+			console.error('🏷️ Local AI Tagging - Error calling Ollama:', aiError);
+
+			throw new Error(
+				`Local AI tagging error: ${aiError instanceof Error ? aiError.message : String(aiError)}`
+			);
+		}
+	}, 'Internal local AI tagging error');

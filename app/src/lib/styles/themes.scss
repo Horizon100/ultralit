@@ -521,9 +521,9 @@ pre.code-block:hover .copy-code-button {
 
 /* Tab Styles */
 .tabs-container {
-	width: 100%;
-	max-width: 800px;
-	margin-bottom: 1rem;
+	display: flex;
+	flex-direction: row;
+	width: auto;
 }
 
 .tab-header {
@@ -536,7 +536,7 @@ pre.code-block:hover .copy-code-button {
 	flex-direction: column;
 	justify-content: flex-start;
 	align-items: flex-end;
-	position: absolute;
+	position: relative;
 	right: 0.5rem;
 	top: 0.5rem;
 	border-bottom: 1px solid var(--border-color);
@@ -584,10 +584,10 @@ pre.code-block:hover .copy-code-button {
 	}
 }
 
-.tab-content {
-	min-height: 300px;
-	margin-right: 2rem;
-}
+// .tab-content {
+// 	min-height: 300px;
+// 	margin-right: 2rem;
+// }
 
 .stats-tab {
 	padding: 1rem 0;

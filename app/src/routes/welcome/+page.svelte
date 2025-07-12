@@ -22,6 +22,7 @@
 	import { clientTryCatch, storageTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type { FeatureCardType, PricingPlan, Task } from '$lib/types/types';
+	import { createEventDispatcher } from 'svelte';
 
 	let pageReady = false;
 	let redirectedFromLogin = false;
@@ -48,6 +49,8 @@
 	let showTermsOverlay = false;
 	let showPrivacyOverlay = false;
 	let currentTip = '';
+
+	const dispatch = createEventDispatcher();
 
 	function getRandomTip() {
 		const tips = $t('landing.productivityTips') as string[];
@@ -90,6 +93,27 @@
 		if (event.target === event.currentTarget) {
 			$showAuth = false;
 		}
+	}
+	function scrollToSection(sectionId: string) {
+		const section = document.getElementById(sectionId);
+		if (section) {
+			section.scrollIntoView({ behavior: 'smooth' });
+			// Dispatch event to parent layout
+			dispatch('sectionChange', { sectionId });
+		}
+	}
+
+	// Navigation functions
+	function goToFeatures() {
+		scrollToSection('features');
+	}
+
+	function goToPricing() {
+		scrollToSection('pricing');
+	}
+
+	function goToAbout() {
+		scrollToSection('about');
 	}
 	function handlePlanClick(planName: string, e: Event) {
 		/*
@@ -551,6 +575,20 @@
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.content-wrapper {
@@ -559,6 +597,7 @@
 		align-items: center;
 		width: 100%;
 		gap: 10rem;
+		border-radius: 50%;
 		background: radial-gradient(
 			circle at center,
 			rgba(255, 255, 255, 0.2) 0%,
@@ -572,6 +611,7 @@
 		align-items: center;
 		padding: 0;
 		text-align: center;
+		border-radius: 10rem;
 		max-width: 1200px;
 		width: 100%;
 		height: 100vh;
@@ -1042,10 +1082,19 @@
 			border-radius: 40px;
 			height: auto;
 			width: auto;
+			scroll-behavior: smooth;
 			overflow-x: hidden;
-			scrollbar-width: thin;
-			scrollbar-color: #ffffff transparent;
-			overflow-y: auto;
+			&::-webkit-scrollbar {
+				width: 0.5rem;
+				background-color: transparent;
+			}
+			&::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			&::-webkit-scrollbar-thumb {
+				background: var(--secondary-color);
+				border-radius: 1rem;
+			}
 		}
 
 		.logo-container {

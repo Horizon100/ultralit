@@ -40,7 +40,13 @@
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 	import { showSidenav, showInput, showRightSidenav, showDebug } from '$lib/stores/sidenavStore';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
-import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilterStore';
+	import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilterStore';
+	import { combinedFilteredPosts, filterStatus } from '$lib/stores/combinedFilterStore';
+	import {
+		selectedAttachmentFilter,
+		attachmentFilterStore
+	} from '$lib/stores/attachmentFilterStore';
+	import Icon from '$lib/components/ui/Icon.svelte';
 
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
 	let homeHasMore = true;
@@ -60,7 +66,7 @@ import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilt
 	let hasMore = true;
 	// let rightSideCleanup: (() => void) | null = null;
 	let currentOffset = 0;
-	export  let selectedLocalModel = 'qwen2.5:0.5b';
+	export let selectedLocalModel = 'qwen2.5:0.5b';
 
 	const HOME_POSTS_PER_PAGE = 10;
 
@@ -77,10 +83,10 @@ import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilt
 	// 	handleMenuLeave: handleRightSideLeave,
 	// 	toggleMenu: toggleRightSide
 	// } = rightSideHoverManager;
-  function handleModelSelect(event: CustomEvent<{ model: string }>) {
-    selectedLocalModel = event.detail.model;
-    console.log('🔄 Model updated on home page:', selectedLocalModel);
-  }
+	function handleModelSelect(event: CustomEvent<{ model: string }>) {
+		selectedLocalModel = event.detail.model;
+		console.log('🔄 Model updated on home page:', selectedLocalModel);
+	}
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
 		const fetchPromises = userIds.map(async (userId) => {
 			try {
@@ -113,69 +119,75 @@ import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilt
 	function closePostModal() {
 		showPostModal = false;
 	}
-function syncPostsForTags(homePosts: PostWithInteractions[]) {
-	// Update the postStore with your home posts data so tagFilterStore can access them
-	postStore.setPosts(homePosts);
-	
-	// Trigger tag count update
-	tagFilterStore.updateTagCounts();
-}
-async function handlePostSubmit(
-	event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
-) {
-	try {
-		const { content, attachments, parentId } = event.detail;
 
-		// Create the post first (existing functionality)
-		const newPost = await postStore.addPost(content, attachments, parentId);
+	function syncPostsForTags(homePosts: PostWithInteractions[]) {
+		console.log('🔄 Syncing posts for tags:', homePosts.length);
 
-		console.log('Post created successfully:', newPost.id);
+		// Update the postStore with your home posts data so tagFilterStore can access them
+		postStore.setPosts(homePosts);
 
-		/*
-		 * Handle auto-tagging if enabled and conditions are met
-		 * Only tag main posts (not comments) that meet minimum requirements
-		 */
-		const currentUserData = get(currentUser);
-		if (enableAutoTagging && shouldGenerateTags(content) && currentUserData?.id && !parentId) {
-			console.log('Starting auto-tagging for post:', newPost.id);
-
-			try {
-				// Build tagging options for local AI
-				const taggingOptions: LocalTaggingOptions = {
-					model: taggingModel || 'qwen2.5:0.5b',
-					maxTags: 5,
-					temperature: 0.3,
-					includeAttachments: true,
-					ocrLanguage: 'eng+fin+rus',
-					ocrEngine: 'tesseract'
-				};
-
-				// Use the new local tagging function
-				await processPostTaggingAsync(
-					content, 
-					newPost.id, 
-					currentUserData.id, 
-					attachments, // Pass attachments for text extraction
-					taggingOptions
-				);
-				console.log('Local auto-tagging initiated for post:', newPost.id);
-			} catch (taggingError) {
-				console.error('Auto-tagging failed for post:', newPost.id, taggingError);
-			}
-		} else if (!parentId) {
-			const reasons = [];
-			if (!enableAutoTagging) reasons.push('auto-tagging disabled');
-			if (!shouldGenerateTags(content)) reasons.push('content too short');
-			if (!currentUserData?.id) reasons.push('user not authenticated');
-
-			if (reasons.length > 0) {
-				console.log('Auto-tagging skipped:', reasons.join(', '));
-			}
-		}
-	} catch (err) {
-		console.error('Error creating post:', err);
+		// Force trigger tag count update with a small delay to ensure store is updated
+		setTimeout(() => {
+			console.log('🏷️ Force updating tag counts after sync...');
+			tagFilterStore.updateTagCounts();
+		}, 100);
 	}
-}
+	async function handlePostSubmit(
+		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
+	) {
+		try {
+			const { content, attachments, parentId } = event.detail;
+
+			// Create the post first (existing functionality)
+			const newPost = await postStore.addPost(content, attachments, parentId);
+
+			console.log('Post created successfully:', newPost.id);
+
+			/*
+			 * Handle auto-tagging if enabled and conditions are met
+			 * Only tag main posts (not comments) that meet minimum requirements
+			 */
+			const currentUserData = get(currentUser);
+			if (enableAutoTagging && shouldGenerateTags(content) && currentUserData?.id && !parentId) {
+				console.log('Starting auto-tagging for post:', newPost.id);
+
+				try {
+					// Build tagging options for local AI
+					const taggingOptions: LocalTaggingOptions = {
+						model: taggingModel || 'qwen2.5:0.5b',
+						maxTags: 5,
+						temperature: 0.3,
+						includeAttachments: true,
+						ocrLanguage: 'eng+fin+rus',
+						ocrEngine: 'tesseract'
+					};
+
+					// Use the new local tagging function
+					await processPostTaggingAsync(
+						content,
+						newPost.id,
+						currentUserData.id,
+						attachments, // Pass attachments for text extraction
+						taggingOptions
+					);
+					console.log('Local auto-tagging initiated for post:', newPost.id);
+				} catch (taggingError) {
+					console.error('Auto-tagging failed for post:', newPost.id, taggingError);
+				}
+			} else if (!parentId) {
+				const reasons = [];
+				if (!enableAutoTagging) reasons.push('auto-tagging disabled');
+				if (!shouldGenerateTags(content)) reasons.push('content too short');
+				if (!currentUserData?.id) reasons.push('user not authenticated');
+
+				if (reasons.length > 0) {
+					console.log('Auto-tagging skipped:', reasons.join(', '));
+				}
+			}
+		} catch (err) {
+			console.error('Error creating post:', err);
+		}
+	}
 	function handleTaggingComplete(event: CustomEvent<{ postId: string; success: boolean }>) {
 		const { postId, success } = event.detail;
 
@@ -440,6 +452,13 @@ async function handlePostSubmit(
 		const userProfile = await getPublicUserData(userId);
 		console.log('Following user profile:', userProfile);
 	}
+	$: if ($showSidenav && homePosts.length > 0) {
+		console.log('🔄 Sidenav opened, syncing posts for tags...', homePosts.length);
+		syncPostsForTags(homePosts);
+	}
+	$: shouldDisableInfiniteScroll = currentFilterStatus.hasAnyFilter;
+
+	$: effectiveHasMore = shouldDisableInfiniteScroll ? false : $postStore.hasMore;
 
 	$: {
 		homeHasMore = $postStore.hasMore;
@@ -452,76 +471,84 @@ async function handlePostSubmit(
 			'Store loadingMore': $postStore.loadingMore,
 			'Store posts.length': $postStore.posts.length,
 			'Local homeHasMore': homeHasMore,
-			'Local homeLoadingMore': homeLoadingMore
+			'Local homeLoadingMore': homeLoadingMore,
+			'Filters active': currentFilterStatus.hasAnyFilter,
+			'Should disable scroll': shouldDisableInfiniteScroll,
+			'Effective hasMore': effectiveHasMore
 		});
 	}
 
-async function fetchHomePosts(offset = 0, append = false) {
-	if (!browser) return;
-
-	if (!append) {
-		homeLoading = true;
-		homeCurrentOffset = 0;
-		homeHasMore = true;
-		homePosts = [];
-	} else {
-		homeLoadingMore = true;
-	}
-
-	try {
-		console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
-
-		const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
-		const data = await response.json();
-
-		if (!response.ok) {
-			throw new Error(data.error || 'Failed to load posts');
-		}
-		const actualData = data.data || data;
-		const newPosts = actualData.posts || [];
+	async function fetchHomePosts(offset = 0, append = false) {
+		if (!browser) return;
 
 		if (!append) {
-			homePosts = newPosts;
+			homeLoading = true;
+			homeCurrentOffset = 0;
+			homeHasMore = true;
+			homePosts = [];
 		} else {
-			const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
-			const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
-			homePosts = [...homePosts, ...uniqueNewPosts];
-			console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+			homeLoadingMore = true;
 		}
 
-		const newPostsCount = newPosts.length;
+		try {
+			console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
 
-		if (actualData.hasMore !== undefined) {
-			homeHasMore = actualData.hasMore;
-		} else {
-			homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
+			const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Failed to load posts');
+			}
+			const actualData = data.data || data;
+			const newPosts = actualData.posts || [];
+
+			if (!append) {
+				homePosts = newPosts;
+			} else {
+				const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
+				const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
+				homePosts = [...homePosts, ...uniqueNewPosts];
+				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+			}
+
+			const newPostsCount = newPosts.length;
+
+			if (actualData.hasMore !== undefined) {
+				homeHasMore = actualData.hasMore;
+			} else {
+				homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
+			}
+
+			// Update offset for next request
+			homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
+
+			console.log('📊 Home posts updated:', {
+				postsCount: homePosts.length,
+				newPostsCount,
+				hasMore: homeHasMore,
+				currentOffset: homeCurrentOffset
+			});
+
+			// ADD THIS: Sync with postStore for tags after successful fetch
+			if (homePosts && homePosts.length > 0) {
+				syncPostsForTags(homePosts);
+			}
+		} catch (err) {
+			console.error('Error fetching home posts:', err);
+		} finally {
+			homeLoading = false;
+			homeLoadingMore = false;
 		}
-
-		// Update offset for next request
-		homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
-
-		console.log('📊 Home posts updated:', {
-			postsCount: homePosts.length,
-			newPostsCount,
-			hasMore: homeHasMore,
-			currentOffset: homeCurrentOffset
-		});
-
-		// ADD THIS: Sync with postStore for tags after successful fetch
-		if (homePosts && homePosts.length > 0) {
-			syncPostsForTags(homePosts);
-		}
-
-	} catch (err) {
-		console.error('Error fetching home posts:', err);
-	} finally {
-		homeLoading = false;
-		homeLoadingMore = false;
 	}
-}
 
 	// Load more function like username page
 	async function loadMoreHomePosts() {
+		// Don't load more if filters are active
+		if (shouldDisableInfiniteScroll) {
+			console.log('⛔ Load more disabled due to active filters');
+			return;
+		}
+
 		if (homeLoadingMore || !homeHasMore) {
 			console.log('⛔ Load more skipped:', { homeLoadingMore, homeHasMore });
 			return;
@@ -529,30 +556,6 @@ async function fetchHomePosts(offset = 0, append = false) {
 
 		console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
 		await fetchHomePosts(homeCurrentOffset, true);
-	}
-
-	// Setup infinite scroll exactly like username page
-	function setupInfiniteScroll() {
-		if (infiniteScrollManager) {
-			infiniteScrollManager.destroy();
-		}
-
-		infiniteScrollManager = new InfiniteScrollManager({
-			loadMore: async () => {
-				try {
-					await loadMoreHomePosts();
-				} catch (error) {
-					console.error('Error loading more home posts:', error);
-				}
-			},
-			hasMore: () => homeHasMore,
-			isLoading: () => homeLoadingMore,
-			triggerId: 'home-loading-trigger',
-			debug: true
-		});
-
-		infiniteScrollManager.setup();
-		return infiniteScrollManager;
 	}
 
 	function handlePostCreated(
@@ -579,110 +582,124 @@ async function fetchHomePosts(offset = 0, append = false) {
 			currentTarget: (event.currentTarget as HTMLElement)?.tagName
 		});
 	}
-// Replace your reactive statements with this corrected version:
+	// Replace your reactive statements with this corrected version:
 
-$: posts = $postStore.posts;
-$: loading = $postStore.loading;
-$: loadingMore = $postStore.loadingMore;
-$: hasMore = $postStore.hasMore;
-$: error = $postStore.error;
+	$: posts = $postStore.posts;
+	$: loading = $postStore.loading;
+	$: loadingMore = $postStore.loadingMore;
+	$: hasMore = $postStore.hasMore;
+	$: error = $postStore.error;
 
-// Get filtered posts from the store (this will be homePosts after sync)
-$: filteredHomePosts = $filteredPosts;
+	// Get filtered posts from the store (this will be homePosts after sync)
+	$: filteredHomePosts = $combinedFilteredPosts;
+	$: currentFilterStatus = $filterStatus;
+	$: currentAttachmentFilter = $selectedAttachmentFilter;
 
-// Use filteredHomePosts for deduplication instead of posts
-$: uniquePosts = filteredHomePosts.reduce((acc: TimelinePost[], post: TimelinePost, index: number) => {
-	const postKey = post.isRepost
-		? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
-		: post.id;
+	// Use filteredHomePosts for deduplication instead of posts
+	$: uniquePosts = filteredHomePosts.reduce(
+		(acc: TimelinePost[], post: TimelinePost, index: number) => {
+			const postKey = post.isRepost
+				? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+				: post.id;
 
-	const existingIndex = acc.findIndex((p: TimelinePost) => {
-		const existingKey = p.isRepost
-			? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
-			: p.id;
-		return existingKey === postKey;
-	});
-
-	if (existingIndex === -1) {
-		acc.push(post);
-	} else {
-		console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
-	}
-
-	return acc;
-}, []);
-
-$: userIds = [
-	...new Set(
-		uniquePosts.flatMap((post: TimelinePost) => {
-			const ids = [post.user];
-			if (post.repostedBy && Array.isArray(post.repostedBy)) {
-				ids.push(...post.repostedBy);
-			}
-			return ids;
-		})
-	)
-];
-
-// FIXED: Use uniquePosts (which are now filtered) instead of homePosts
-$: enhancedPosts = uniquePosts.map((post) => {
-	const authorProfile = userProfilesMap.get(post.user);
-
-	const enhancedPost = {
-		...post,
-		// Ensure ID is always the real post ID for interactions
-		id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
-		// Keep track of original data for display
-		_isRepost: post.isRepost,
-		_originalId: post.id,
-		_displayKey: post.isRepost
-			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
-			: post.id
-	};
-
-	if (authorProfile) {
-		return {
-			...enhancedPost,
-			authorProfile,
-			author_name: authorProfile.name || post.author_name,
-			author_username: authorProfile.username || post.author_username,
-			author_avatar: authorProfile.avatar || post.author_avatar
-		};
-	}
-
-	return enhancedPost;
-});
-
-// User profile fetching logic
-$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
-	const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
-
-	if (missingUserIds.length > 0) {
-		loadingProfiles = true;
-		fetchUserProfiles(missingUserIds)
-			.then(() => {
-				loadingProfiles = false;
-			})
-			.catch((err) => {
-				console.error('Error fetching user profiles:', err);
-				loadingProfiles = false;
+			const existingIndex = acc.findIndex((p: TimelinePost) => {
+				const existingKey = p.isRepost
+					? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
+					: p.id;
+				return existingKey === postKey;
 			});
-	}
-}
 
-// Debug the filtering chain
-$: {
-	console.log('🏠 Filtering chain debug:', {
-		postStoreLength: $postStore.posts.length,
-		filteredHomePostsLength: filteredHomePosts.length,
-		uniquePostsLength: uniquePosts.length,
-		enhancedPostsLength: enhancedPosts.length,
-		selectedTags: $selectedTags,
-		selectedTagsLength: $selectedTags.length
+			if (existingIndex === -1) {
+				acc.push(post);
+			} else {
+				console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
+			}
+
+			return acc;
+		},
+		[]
+	);
+
+	$: userIds = [
+		...new Set(
+			uniquePosts.flatMap((post: TimelinePost) => {
+				const ids = [post.user];
+				if (post.repostedBy && Array.isArray(post.repostedBy)) {
+					ids.push(...post.repostedBy);
+				}
+				return ids;
+			})
+		)
+	];
+
+	// FIXED: Use uniquePosts (which are now filtered) instead of homePosts
+	$: enhancedPosts = uniquePosts.map((post) => {
+		const authorProfile = userProfilesMap.get(post.user);
+
+		const enhancedPost = {
+			...post,
+			// Ensure ID is always the real post ID for interactions
+			id: post.isRepost && post.originalPostId ? post.originalPostId : post.id,
+			// Keep track of original data for display
+			_isRepost: post.isRepost,
+			_originalId: post.id,
+			_displayKey: post.isRepost
+				? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+				: post.id
+		};
+
+		if (authorProfile) {
+			return {
+				...enhancedPost,
+				authorProfile,
+				author_name: authorProfile.name || post.author_name,
+				author_username: authorProfile.username || post.author_username,
+				author_avatar: authorProfile.avatar || post.author_avatar
+			};
+		}
+
+		return enhancedPost;
 	});
-}
 
-// Remove the displayPosts line - you don't need it anymore since enhancedPosts is now filtered
+	// User profile fetching logic
+	$: if (uniquePosts.length > 0 && userIds.length > 0 && !loadingProfiles) {
+		const missingUserIds = userIds.filter((id) => !userProfilesMap.has(id));
+
+		if (missingUserIds.length > 0) {
+			loadingProfiles = true;
+			fetchUserProfiles(missingUserIds)
+				.then(() => {
+					loadingProfiles = false;
+				})
+				.catch((err) => {
+					console.error('Error fetching user profiles:', err);
+					loadingProfiles = false;
+				});
+		}
+	}
+
+	// Debug the filtering chain
+	$: {
+		console.log('🏠 Filtering chain debug:', {
+			postStoreLength: $postStore.posts.length,
+			filteredHomePostsLength: filteredHomePosts.length,
+			uniquePostsLength: uniquePosts.length,
+			enhancedPostsLength: enhancedPosts.length,
+			selectedTags: $selectedTags,
+			selectedTagsLength: $selectedTags.length,
+			attachmentFilter: currentAttachmentFilter,
+			hasTagFilter: currentFilterStatus.hasTagFilter,
+			hasAttachmentFilter: currentFilterStatus.hasAttachmentFilter,
+			hasAnyFilter: currentFilterStatus.hasAnyFilter
+		});
+	}
+	$: if (currentFilterStatus.hasAnyFilter) {
+		console.log('🔍 Active filters:', {
+			tags: currentFilterStatus.activeFilters.tags,
+			attachment: currentFilterStatus.activeFilters.attachment
+		});
+	}
+	// Remove the displayPosts line - you don't need it anymore since enhancedPosts is now filtered
 
 	// CHANGE THIS: Use uniquePosts.length in logging
 	$: if (typeof window !== 'undefined') {
@@ -725,65 +742,118 @@ $: {
 			color: '#28a745'
 		}
 	];
-onMount(() => {
-	console.log('🔄 Home page mounted - setting up...');
+	onMount(() => {
+		console.log('🔄 Home page mounted - setting up...');
 
-	// Setup async initialization
-	(async () => {
-		// Choose one approach:
-		
-		// Option A: Keep your existing fetchHomePosts but sync for tags
-		await fetchHomePosts(0, false);
-		
-		// Option B: Use postStore directly and sync variables
-		// await fetchHomePostsViaStore(0, false);
+		// Setup async initialization
+		(async () => {
+			// Choose one approach:
 
-		// Setup infinite scroll
-		console.log('🔧 Setting up infinite scroll...');
-		setupInfiniteScroll();
+			// Option A: Keep your existing fetchHomePosts but sync for tags
+			await fetchHomePosts(0, false);
 
-		// Try to attach with retries
-		if (infiniteScrollManager) {
-			infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-				if (success) {
-					console.log('✅ Infinite scroll ready!');
-				} else {
-					console.error('❌ Failed to setup infinite scroll');
-				}
-			});
-		}
+			// Option B: Use postStore directly and sync variables
+			// await fetchHomePostsViaStore(0, false);
 
-		console.log('✅ Home page setup complete');
-	})();
+			// Setup infinite scroll
+			console.log('🔧 Setting up infinite scroll...');
+			setupInfiniteScroll();
 
-	// Cleanup function
-	return () => {
-		console.log('🧹 Cleaning up infinite scroll...');
+			// Try to attach with retries
+			if (infiniteScrollManager) {
+				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+					if (success) {
+						console.log('✅ Infinite scroll ready!');
+					} else {
+						console.error('❌ Failed to setup infinite scroll');
+					}
+				});
+			}
+
+			console.log('✅ Home page setup complete');
+		})();
+
+		// Cleanup function
+		return () => {
+			console.log('🧹 Cleaning up infinite scroll...');
+			if (infiniteScrollManager) {
+				infiniteScrollManager.destroy();
+				infiniteScrollManager = null;
+			}
+		};
+	});
+
+	function setupInfiniteScroll() {
 		if (infiniteScrollManager) {
 			infiniteScrollManager.destroy();
-			infiniteScrollManager = null;
+		}
+
+		infiniteScrollManager = new InfiniteScrollManager({
+			loadMore: async () => {
+				try {
+					await loadMoreHomePosts();
+				} catch (error) {
+					console.error('Error loading more home posts:', error);
+				}
+			},
+			hasMore: () => effectiveHasMore, // Use effectiveHasMore instead of homeHasMore
+			isLoading: () => homeLoadingMore,
+			triggerId: 'home-loading-trigger',
+			debug: true
+		});
+
+		infiniteScrollManager.setup();
+		return infiniteScrollManager;
+	}
+
+	// Add this reactive statement to handle filter changes:
+	$: {
+		if (infiniteScrollManager) {
+			if (shouldDisableInfiniteScroll) {
+				console.log('🔇 Disabling infinite scroll due to active filters');
+				infiniteScrollManager.detach();
+			} else {
+				console.log('🔊 Re-enabling infinite scroll (no active filters)');
+				infiniteScrollManager.attachWithRetry(3, 100);
+			}
+		}
+	}
+
+	// Update your loadMore function in the InfiniteScrollManager:
+	const loadMore = async (): Promise<void> => {
+		// Skip if filters are active
+		if (shouldDisableInfiniteScroll) {
+			console.log('⛔ Load more skipped due to active filters');
+			return;
+		}
+
+		try {
+			await fetchHomePosts(homeCurrentOffset, true);
+			console.log('✅ Loaded more posts');
+		} catch (error) {
+			console.error('❌ Error loading more posts:', error);
 		}
 	};
-});
 
-// Update your infinite scroll loadMore function
-const loadMore = async (): Promise<void> => {
-	try {
-		// Option A: Use your existing loadMore logic but sync for tags
-		await fetchHomePosts(homeCurrentOffset, true);
-		
-		// Option B: Use postStore loadMorePosts (alternative approach)
-		// await postStore.loadMorePosts(10);
-		// const storeState = get(postStore);
-		// homePosts = storeState.posts;
-		// homeLoadingMore = storeState.loadingMore;
-		// homeHasMore = storeState.hasMore;
-		
-		console.log('✅ Loaded more posts');
-	} catch (error) {
-		console.error('❌ Error loading more posts:', error);
+	// Optional: Add a visual indicator when infinite scroll is disabled
+	$: infiniteScrollStatus = {
+		isDisabled: shouldDisableInfiniteScroll,
+		reason: shouldDisableInfiniteScroll
+			? `Infinite scroll disabled due to active ${currentFilterStatus.hasTagFilter ? 'tag' : ''}${currentFilterStatus.hasTagFilter && currentFilterStatus.hasAttachmentFilter ? ' and ' : ''}${currentFilterStatus.hasAttachmentFilter ? 'content type' : ''} filter${(currentFilterStatus.hasTagFilter && currentFilterStatus.hasAttachmentFilter) || (currentFilterStatus.hasTagFilter && $selectedTags.length > 1) ? 's' : ''}`
+			: 'Infinite scroll enabled'
+	};
+
+	// Debug logging for infinite scroll status
+	$: {
+		console.log('📜 Infinite scroll status:', {
+			disabled: infiniteScrollStatus.isDisabled,
+			reason: infiniteScrollStatus.reason,
+			hasTagFilter: currentFilterStatus.hasTagFilter,
+			hasAttachmentFilter: currentFilterStatus.hasAttachmentFilter,
+			selectedTagsCount: $selectedTags.length,
+			attachmentFilter: currentAttachmentFilter
+		});
 	}
-};
 	onDestroy(() => {
 		// if (rightSideCleanup) {
 		// 	rightSideCleanup();
@@ -823,14 +893,14 @@ const loadMore = async (): Promise<void> => {
 	class:drawers-visible={$showSidenav && $showRightSidenav}
 >
 	<!-- Left Sidebar Component -->
-	 {#if $showSidenav}
-	<div class="side-menu"
-		class:hide-sidemenu={$showRightSidenav}
-		class:drawers-visible={$showSidenav && $showRightSidenav}
-
-	>
-		<PostSidenav />
-	</div>
+	{#if $showSidenav}
+		<div
+			class="side-menu"
+			class:hide-sidemenu={$showRightSidenav}
+			class:drawers-visible={$showSidenav && $showRightSidenav}
+		>
+			<PostSidenav />
+		</div>
 	{/if}
 
 	<!-- Main Content -->
@@ -840,7 +910,6 @@ const loadMore = async (): Promise<void> => {
 		class:drawer-visible={$showSidenav}
 		class:hide-right-sidebar={!$showRightSidenav}
 		class:drawer-right-visible={$showRightSidenav}
-
 	>
 		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
@@ -900,40 +969,92 @@ const loadMore = async (): Promise<void> => {
 					{:else}
 						<PostCard
 							{post}
-  selectedLocalModel={selectedLocalModel}
+							{selectedLocalModel}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}
 						/>
 					{/if}
 				{/each}
-				<!-- Use store values instead of local variables -->
-				{#if homeHasMore}
-					<div id="home-loading-trigger" class="loading-trigger">
-						{#if homeLoadingMore}
-							<div class="loading-indicator">
-								<div
-									class="trigger-loader"
-									in:fly={{ y: 50, duration: 300 }}
-									out:fly={{ y: -50, duration: 200 }}
-								></div>
-								<!-- <span>Loading more posts...</span> -->
-							</div>
-						{:else}
-							<div class="loading-indicator">
-								<div
-									class="trigger-loader"
-									in:fly={{ y: 50, duration: 300 }}
-									out:fly={{ y: -50, duration: 200 }}
-								></div>
-								<!-- <span>Scroll for more...</span> -->
-							</div>
-						{/if}
+
+				<!-- Filter Status and Infinite Scroll Indicator -->
+				{#if shouldDisableInfiniteScroll && enhancedPosts.length > 0}
+					<div class="filter-status-indicator">
+						<div class="filter-status-content">
+							<Icon name="Filter" size={16} />
+							<span class="filter-message">
+								Infinite scroll disabled due to active {currentFilterStatus.hasTagFilter
+									? 'tag'
+									: ''}{currentFilterStatus.hasTagFilter && currentFilterStatus.hasAttachmentFilter
+									? ' and '
+									: ''}{currentFilterStatus.hasAttachmentFilter ? 'content type' : ''} filter{(currentFilterStatus.hasTagFilter &&
+									currentFilterStatus.hasAttachmentFilter) ||
+								(currentFilterStatus.hasTagFilter && $selectedTags.length > 1)
+									? 's'
+									: ''}
+							</span>
+							<button
+								class="clear-filters-btn"
+								on:click={() => {
+									tagFilterStore.clearTags();
+									attachmentFilterStore.resetFilter();
+								}}
+								title="Clear all filters to re-enable infinite scroll"
+							>
+								<Icon name="X" size={14} />
+								Clear Filters
+							</button>
+						</div>
 					</div>
-				{:else if $postStore.posts.length > 0}
-					<div class="end-of-posts" style="text-align: center; padding: 20px; color: #666;">
-						<p>No more posts to load</p>
-						<p>Total posts: {$postStore.posts.length}</p>
+				{/if}
+
+				<!-- Loading trigger - only show when infinite scroll is enabled -->
+				{#if !shouldDisableInfiniteScroll}
+					<!-- Use effectiveHasMore instead of homeHasMore -->
+					{#if effectiveHasMore}
+						<div id="home-loading-trigger" class="loading-trigger">
+							{#if homeLoadingMore}
+								<div class="loading-indicator">
+									<div
+										class="trigger-loader"
+										in:fly={{ y: 50, duration: 300 }}
+										out:fly={{ y: -50, duration: 200 }}
+									></div>
+									<!-- <span>Loading more posts...</span> -->
+								</div>
+							{:else}
+								<div class="loading-indicator">
+									<div
+										class="trigger-loader"
+										in:fly={{ y: 50, duration: 300 }}
+										out:fly={{ y: -50, duration: 200 }}
+									></div>
+									<!-- <span>Scroll for more...</span> -->
+								</div>
+							{/if}
+						</div>
+					{:else if $postStore.posts.length > 0}
+						<div class="end-of-posts" style="text-align: center; padding: 20px; color: #666;">
+							<p>No more posts to load</p>
+							<p>Total posts: {$postStore.posts.length}</p>
+						</div>
+					{/if}
+				{:else if enhancedPosts.length === 0}
+					<!-- Show when filters result in no posts -->
+					<div class="no-filtered-posts">
+						<Icon name="Search" size={48} />
+						<h3>No posts match your filters</h3>
+						<p>Try adjusting your tag or content type filters to see more posts.</p>
+						<button
+							class="clear-filters-btn primary"
+							on:click={() => {
+								tagFilterStore.clearTags();
+								attachmentFilterStore.resetFilter();
+							}}
+						>
+							<Icon name="RotateCcw" size={16} />
+							Clear All Filters
+						</button>
 					</div>
 				{/if}
 			</section>
@@ -964,10 +1085,7 @@ const loadMore = async (): Promise<void> => {
 			class:hide-sidemenu={$showSidenav}
 			class:drawers-visible={$showSidenav && $showRightSidenav}
 		>
-			<AiMenu 
-			userId={$currentUser.id}
-			on:modelSelect={handleModelSelect} 
-			/>
+			<AiMenu userId={$currentUser.id} on:modelSelect={handleModelSelect} />
 		</div>
 	{/if}
 </div>
@@ -1055,10 +1173,10 @@ const loadMore = async (): Promise<void> => {
 		justify-content: center;
 		height: 100vh;
 		width: 100%;
-		margin-bottom: 2rem;
-		padding-bottom: 3rem;
+		margin-bottom: 0;
+
 		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
-		
+
 		&.hide-left-sidebar {
 			justify-content: flex-end;
 		}
@@ -1134,7 +1252,14 @@ const loadMore = async (): Promise<void> => {
 			border-radius: 1rem;
 		}
 	}
-
+	.filter-status-indicator {
+		position: absolute;
+		bottom: 3rem;
+		right: 1rem;
+		font-style: italic;
+		font-size: 0.7rem;
+		display: none;
+	}
 	.main-wrapper {
 		width: 100%;
 		max-width: 600px;
@@ -1176,12 +1301,16 @@ const loadMore = async (): Promise<void> => {
 			box-shadow: 0 0 0 40px var(--primary-color);
 		}
 	}
-	.side-menu, .side-right-menu {
+	.side-menu,
+	.side-right-menu {
 		display: flex;
 		justify-content: center;
 		width: auto;
 	}
-
+	.side-right-menu {
+		width: 100%;
+		max-width: 600px;
+	}
 	.create-post {
 		margin-bottom: 2rem;
 	}
@@ -1328,15 +1457,19 @@ const loadMore = async (): Promise<void> => {
 	}
 	.composer-overlay {
 		position: absolute;
-		bottom: 3rem;
+		bottom: 1rem;
+		margin-bottom: 1rem;
 		left: 0;
 		width: 100%;
 		height: auto;
 		// background: rgba(0, 0, 0, 0.5);
+		border-radius: 2rem 2rem 0 0 !important;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		background-color: transparent;
 		z-index: 1000;
+
 		// padding: 1rem;
 	}
 	.composer-body {
@@ -1349,8 +1482,10 @@ const loadMore = async (): Promise<void> => {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		border-radius: 2rem;
-		border: 2px solid var(--line-color);
+		border-radius: 2rem 2rem 0 0;
+		backdrop-filter: blur(10px);
+		background: var(--bg-color);
+
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.5);
 	}
 
@@ -1382,24 +1517,23 @@ const loadMore = async (): Promise<void> => {
 		main {
 			width: 100%;
 			display: flex;
-			
 		}
-
-		.side-menu, .side-right-menu {
+		.composer-overlay {
+			bottom: 2rem;
+		}
+		.side-menu,
+		.side-right-menu {
 			width: 100%;
-
 		}
 		.home-container.drawers-visible {
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				width: calc(100% - 2rem);
-				transition: all 0.3s ease;
-				padding: 1rem;
-
-				
-			}
+			display: flex;
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			width: calc(100% - 2rem);
+			transition: all 0.3s ease;
+			padding: 1rem;
+		}
 		.side-right-menu.drawers-visible {
 			transform: perspective(75em) rotateY(-10deg);
 			transition: all 0.3s ease;
@@ -1408,13 +1542,13 @@ const loadMore = async (): Promise<void> => {
 			border: 1px solid var(--line-color);
 			border-radius: 1rem;
 			padding: 1rem;
-			
+
 			&:hover {
 				z-index: 1;
 				transform: scale(1.05) perspective(75em) rotateY(-10deg);
 			}
-			}
-			.side-menu.drawers-visible {
+		}
+		.side-menu.drawers-visible {
 			transition: all 0.3s ease;
 			transform: perspective(75em) rotateY(-10deg);
 			width: 100%;
@@ -1426,19 +1560,24 @@ const loadMore = async (): Promise<void> => {
 				z-index: 1;
 				transform: scale(1.1) perspective(75em) rotateY(-10deg);
 			}
-			}
+		}
+
+		.composer-overlay {
+			margin-left: 3rem;
+			width: calc(100% - 4rem);
+			bottom: 0;
+		}
 	}
 
-		@media (max-width: 768px) {
+	@media (max-width: 768px) {
 		.home-container.drawers-visible {
-				display: flex;
-				flex-direction: column;
-				justify-content: flex-start;
-				align-items: center;
-				transition: all 0.3s ease;
-				padding: 3rem;
-				
-			}
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			align-items: center;
+			transition: all 0.3s ease;
+			padding: 3rem;
+		}
 		.side-right-menu.drawers-visible {
 			transform: perspective(75em) rotateX(-20deg);
 			transition: all 0.3s ease;
@@ -1447,47 +1586,82 @@ const loadMore = async (): Promise<void> => {
 				z-index: 1;
 				transform: scale(1.1) perspective(75em) rotateX(0deg);
 			}
-			}
-			.side-menu.drawers-visible {
+		}
+		.side-menu.drawers-visible {
 			transition: all 0.3s ease;
 			transform: perspective(75em) rotateX(-20deg);
 			&:hover {
 				z-index: 1;
 				transform: scale(1.1) perspective(75em) rotateX(0deg);
 			}
-			}
-			.main-content {
-				width: 100%;
-				height: 100%;
-				display: flex;
-			}
-			.main-content.drawer-visible {
-				// display: none;
-			}
-
-			.main-content.drawer-right-visible {
-				display: none;
-			}
-			.side-menu {
-				justify-content: center;
-				align-items: center;
-				margin: 0;
-				padding: 0;
-			}
-			// .side-menu.hide-sidemenu {
-			// 	// transform: translate(-50%);
-			// }
-			// .side-right-menu.hide-sidemenu {
-			// 	display: none;
-			// }
-
 		}
-			@media (max-width: 768px) {
+		.main-content {
+			width: 100%;
+			height: 100%;
+			display: flex;
+		}
+		.main-content.drawer-visible {
+			// display: none;
+		}
+
+		.main-content.drawer-right-visible {
+			display: none;
+		}
+
+		.posts-feed {
+			margin-left: 2rem;
+		}
+		.side-menu {
+			justify-content: center;
+			align-items: center;
+			margin: 0;
+			padding: 0;
+		}
+		// .side-menu.hide-sidemenu {
+		// 	// transform: translate(-50%);
+		// }
+		// .side-right-menu.hide-sidemenu {
+		// 	display: none;
+		// }
+
 		.home-container.drawers-visible {
 			padding: 0.5rem;
 			transition: all 0.3s ease;
-
 		}
 	}
-
+	@media (max-width: 450px) {
+		.posts-feed {
+			margin-left: 0rem;
+		}
+		.composer-overlay {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			margin-left: 0;
+			margin-bottom: 0 !important;
+			width: auto;
+			height: auto;
+			// background: rgba(0, 0, 0, 0.5);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 1000;
+			// padding: 1rem;
+		}
+		.composer-body {
+			padding: 0;
+			overflow-y: auto;
+			flex: 1;
+			position: relative;
+			max-width: 600px;
+			width: 100%;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			border-radius: 1rem 1rem 0 0;
+			border: 2px solid var(--line-color);
+			box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.5);
+		}
+	}
 </style>

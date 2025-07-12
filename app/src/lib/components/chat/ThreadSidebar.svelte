@@ -10,7 +10,7 @@
 	import { UserService } from '$lib/services/userService';
 	import type { Threads, SwipeConfig } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { showThreadList } from '$lib/stores/sidenavStore';
+	import { showOverlay, showThreadList } from '$lib/stores/sidenavStore';
 
 	// Props
 	export let threads: Threads[] = [];
@@ -94,6 +94,7 @@
 	}
 </script>
 
+{#if $showOverlay}
 	<div
 		class="drawer"
 		transition:fly={{ x: -300, duration: 300 }}
@@ -249,6 +250,7 @@
 			{/if}
 		</div>
 	</div>
+{/if}
 
 <style lang="scss">
 	$breakpoint-sm: 576px;
@@ -301,7 +303,6 @@
 		// z-index: 11;
 		transform: translateZ(0);
 		backface-visibility: hidden;
-		
 		touch-action: pan-y;
 		transition: box-shadow 0.2s ease-out;
 		--drawer-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -927,7 +928,6 @@
 			margin-bottom: 0rem;
 		}
 
-
 		.drawer-visible .drawer {
 			margin-left: 0;
 			transform: translateX(0);
@@ -996,15 +996,16 @@
 	}
 
 	@media (max-width: 450px) {
-		.drawer-visible .thread-filtered-results {
+		.thread-filtered-results {
 			border: none;
-			padding: 0;
+			padding: 1rem !important;
 			margin-left: 0;
 			margin-right: 0;
 			border-radius: 0 2rem 2rem 0;
 			backdrop-filter: blur(10px);
 			overflow-x: hidden;
 			overflow-y: auto;
+			width: calc(100% - 2rem);
 			&::-webkit-scrollbar {
 				width: 0.5rem;
 				background-color: transparent;
@@ -1024,10 +1025,12 @@
 			display: none;
 		}
 
-		.drawer-visible .drawer {
+		.drawer-visible.drawer {
 			margin-left: 0;
-			width: 300px;
+			width: 500px;
 			transform: translateX(0);
+			left: 0 !important;
+			right: 0;
 			top: 3rem !important;
 			padding-top: 0;
 			margin-bottom: 6rem !important;
@@ -1040,7 +1043,7 @@
 			align-items: center;
 			overflow-x: hidden;
 			overflow-y: auto;
-			position: relative;
+			position: absolute;
 			// padding: 20px 10px;
 			// border-top-left-radius: 50px;
 			// background-color: var(--bg-color);
@@ -1050,7 +1053,7 @@
 			gap: 1px;
 			// left: 64px;
 			height: 100vh !important;
-			width: calc(100% - 1rem);
+			width: 100vw !important;
 			// height: 86%;
 			// background: var(bg-gradient-r);
 			// border-radius: var(--radius-l);

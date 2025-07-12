@@ -61,7 +61,9 @@ export default {
 		yes: 'Yes',
 		no: 'No',
 		on: 'On',
-		off: 'Off'
+		off: 'Off',
+		settings: 'Settings',
+		tags: 'Tags'
 	},
 	posts: {
 		loginPrompt: 'Please sign in to create a post.',
@@ -551,6 +553,7 @@ export default {
 	},
 
 	profile: {
+		profile: 'Profile',
 		name: 'Name',
 		username: 'Username',
 		email: 'Email',
@@ -573,6 +576,7 @@ export default {
 		clause: 'By using vRazum you automatically agree to our',
 		terms: 'Terms',
 		privacy: 'Privacy',
+		wallpaper: 'Wallpaper',
 		invitation: 'I have an invitation code',
 		invitationPlaceholder: 'Invitation code (12 characters)',
 		invitationSuccess: 'Invitation code accepted!',
@@ -613,7 +617,8 @@ export default {
 		followers: 'followers',
 		following: 'following',
 		follow: 'Follow',
-		favorites: 'Favorites'
+		favorites: 'Favorites',
+		stats: 'Stats'
 	},
 	button: {
 		tags: 'Tags'

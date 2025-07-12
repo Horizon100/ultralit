@@ -235,29 +235,28 @@ export class ThreadService {
 	/**
 	 * Loads a specific thread and its messages
 	 */
-static async loadThread(threadId: string): Promise<Threads | null> {
-	
-	try {
-		const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
-			method: 'GET',
-			credentials: 'include'
-		});
+	static async loadThread(threadId: string): Promise<Threads | null> {
+		try {
+			const threadResponse = await fetch(`/api/keys/threads/${threadId}`, {
+				method: 'GET',
+				credentials: 'include'
+			});
 
-		if (!threadResponse.ok) {
-			throw new Error('Failed to fetch thread');
+			if (!threadResponse.ok) {
+				throw new Error('Failed to fetch thread');
+			}
+
+			const threadData = await threadResponse.json();
+			if (!threadData.success) {
+				throw new Error(threadData.error || 'Failed to fetch thread');
+			}
+
+			return threadData.thread as Threads;
+		} catch (error) {
+			console.error(`Error loading thread ${threadId}:`, error);
+			return null;
 		}
-
-		const threadData = await threadResponse.json();
-		if (!threadData.success) {
-			throw new Error(threadData.error || 'Failed to fetch thread');
-		}
-
-		return threadData.thread as Threads;
-	} catch (error) {
-		console.error(`Error loading thread ${threadId}:`, error);
-		return null;
 	}
-}
 
 	/**
 	 * Creates a new thread

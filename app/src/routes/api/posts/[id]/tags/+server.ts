@@ -59,7 +59,7 @@ export const PATCH: RequestHandler = async ({ params, locals, request }) => {
 		// Update post with new tags
 		console.log('🏷️ === PERFORMING UPDATE ===');
 		const updatedPost = await pb.collection('posts').update(postId, updateData);
-		
+
 		console.log('🏷️ === AFTER UPDATE ===');
 		console.log('✅ Updated post result:', {
 			id: updatedPost.id,

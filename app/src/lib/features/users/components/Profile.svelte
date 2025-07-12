@@ -4,7 +4,14 @@
 	import { page } from '$app/stores';
 	import { onMount, tick } from 'svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { currentUser, refreshCurrentUser, uploadAvatar, updateUser, getUserById, signOut } from '$lib/pocketbase';
+	import {
+		currentUser,
+		refreshCurrentUser,
+		uploadAvatar,
+		updateUser,
+		getUserById,
+		signOut
+	} from '$lib/pocketbase';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 	import { currentLanguage, languages, setLanguage } from '$lib/stores/languageStore';
@@ -20,6 +27,7 @@
 	import type { User } from '$lib/types/types';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { refreshAvatar } from '$lib/stores/avatarStore';
+	import EmailModal from '$lib/features/email/components/EmailModal.svelte';
 
 	export let user: User | null;
 	export let onClose: () => void;
@@ -57,6 +65,9 @@
 	let tagCount = 0;
 	let timerCount: number = 0;
 	let lastActive: Date | null = null;
+
+	let showEmailModal = false;
+	$: currentUserId = $currentUser?.id || '';
 
 	interface StyleOption {
 		name: string;
@@ -112,87 +123,87 @@
 	function toggleAvatarUploader(): void {
 		showAvatarUploader = !showAvatarUploader;
 	}
-let avatarTimestamp = Date.now();
+	let avatarTimestamp = Date.now();
 
-function handleAvatarUploadSuccess(): void {
-	console.log('Avatar upload completed successfully');
-	showAvatarUploader = false;
-	
-	// Just force avatar refresh with cache busting - no API calls
-	avatarTimestamp = Date.now();
-	
-	// Don't call getUserById or refreshCurrentUser - they're timing out
-	// The avatar API endpoint will serve the new avatar automatically
-	console.log('Avatar timestamp updated to:', avatarTimestamp);
-}
+	function handleAvatarUploadSuccess(): void {
+		console.log('Avatar upload completed successfully');
+		showAvatarUploader = false;
+
+		// Just force avatar refresh with cache busting - no API calls
+		avatarTimestamp = Date.now();
+
+		// Don't call getUserById or refreshCurrentUser - they're timing out
+		// The avatar API endpoint will serve the new avatar automatically
+		console.log('Avatar timestamp updated to:', avatarTimestamp);
+	}
 	function handleAvatarUploadError(error: string): void {
 		console.error('Avatar upload error:', error);
 	}
-function handleAvatarClick() {
+	function handleAvatarClick() {
 		console.log('Avatar clicked, fileInput:', fileInput);
 		if (fileInput) {
 			fileInput.click();
 		}
 	}
-async function handleFileChange(event: Event) {
-	console.log('File change triggered');
-	const input = event.target as HTMLInputElement;
-	const file = input.files?.[0];
-	
-	if (!file) {
-		console.log('No file selected');
-		return;
-	}
-	
-	console.log('File selected:', file.name, file.size, file.type);
-	
-	// Validate file
-	if (!file.type.startsWith('image/')) {
-		alert('Please select an image file');
-		return;
-	}
-	
-	if (file.size > 5 * 1024 * 1024) {
-		alert('Image must be less than 5MB');
-		return;
-	}
+	async function handleFileChange(event: Event) {
+		console.log('File change triggered');
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
 
-	const userId = (user || $currentUser)?.id;
-	console.log('Uploading for user:', userId);
-	
-	if (!userId) {
-		console.log('No user ID found');
-		return;
-	}
-
-
-	try {
-		isUploading = true;
-		console.log('Starting upload...');
-		await uploadAvatar(userId, file);
-		console.log('Upload successful');
-		
-		const timestamp = Date.now();
-		
-		// Update the profile modal avatar
-		const avatarImg = document.querySelector('.avatar') as HTMLImageElement;
-		if (avatarImg) {
-			avatarImg.src = `/api/users/${userId}/avatar?t=${timestamp}`;
+		if (!file) {
+			console.log('No file selected');
+			return;
 		}
-		
-		// Dispatch custom event to update layout avatar
-		window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-			detail: { userId, timestamp } 
-		}));
-		
-	} catch (error) {
-		console.error('Upload failed:', error);
-		alert('Upload failed. Please try again.');
-	} finally {
-		isUploading = false;
-		input.value = ''; // Reset input
+
+		console.log('File selected:', file.name, file.size, file.type);
+
+		// Validate file
+		if (!file.type.startsWith('image/')) {
+			alert('Please select an image file');
+			return;
+		}
+
+		if (file.size > 5 * 1024 * 1024) {
+			alert('Image must be less than 5MB');
+			return;
+		}
+
+		const userId = (user || $currentUser)?.id;
+		console.log('Uploading for user:', userId);
+
+		if (!userId) {
+			console.log('No user ID found');
+			return;
+		}
+
+		try {
+			isUploading = true;
+			console.log('Starting upload...');
+			await uploadAvatar(userId, file);
+			console.log('Upload successful');
+
+			const timestamp = Date.now();
+
+			// Update the profile modal avatar
+			const avatarImg = document.querySelector('.avatar') as HTMLImageElement;
+			if (avatarImg) {
+				avatarImg.src = `/api/users/${userId}/avatar?t=${timestamp}`;
+			}
+
+			// Dispatch custom event to update layout avatar
+			window.dispatchEvent(
+				new CustomEvent('avatarUpdated', {
+					detail: { userId, timestamp }
+				})
+			);
+		} catch (error) {
+			console.error('Upload failed:', error);
+			alert('Upload failed. Please try again.');
+		} finally {
+			isUploading = false;
+			input.value = ''; // Reset input
+		}
 	}
-}
 	function handleWallpaperChangeEvent(event: CustomEvent) {
 		const { wallpaperPreference } = event.detail;
 		console.log('Wallpaper changed:', wallpaperPreference);
@@ -230,7 +241,8 @@ async function handleFileChange(event: Event) {
 				const updatedUser = await updateUser(user.id, {
 					name: editedUser.name,
 					username: editedUser.username,
-					description: editedUser.description
+					description: editedUser.description,
+					role: editedUser.role
 				});
 
 				// Update both user and completeUser with proper typing
@@ -240,7 +252,8 @@ async function handleFileChange(event: Event) {
 					...updatedUser,
 					name: updatedUser.name || completeUser?.name || '',
 					username: updatedUser.username || completeUser?.username || '',
-					description: updatedUser.description || completeUser?.description || ''
+					description: updatedUser.description || completeUser?.description || '',
+					role: updatedUser.role || completeUser?.role || ''
 				} as User;
 
 				isEditing = false;
@@ -311,8 +324,6 @@ async function handleFileChange(event: Event) {
 	}
 
 	$: placeholderText = getRandomQuote();
-
-
 
 	async function loadUserStats(): Promise<void> {
 		const result = await clientTryCatch(
@@ -431,13 +442,15 @@ async function handleFileChange(event: Event) {
 			(async () => {
 				isLoading = true;
 
-				const fetchResult = await fetchTryCatch<{ user: User }>(`/api/verify/users/${userId}`);
+				const fetchResult = await fetchTryCatch<{ success: boolean; data: { user: User } }>(
+					`/api/verify/users/${userId}`
+				);
 
 				if (isFailure(fetchResult)) {
 					throw new Error(`Failed to fetch user data: ${fetchResult.error}`);
 				}
 
-				const data = fetchResult.data;
+				const data = fetchResult.data.data;
 
 				// Merge with basic user data
 				const completeUser = await getUserById(userId);
@@ -457,7 +470,8 @@ async function handleFileChange(event: Event) {
 						completeUser?.username ||
 						completeUser?.email?.split('@')[0] ||
 						'',
-					description: data.user?.description || completeUser?.description || ''
+					description: data.user?.description || completeUser?.description || '',
+					role: data.user?.role || completeUser?.role || 'client'
 				};
 			})(),
 			`Fetching complete user data for ${userId}`
@@ -476,7 +490,7 @@ async function handleFileChange(event: Event) {
 				email: '',
 				emailVisibility: false,
 				avatar: '',
-				role: '',
+				role: 'client',
 				created: '',
 				updated: '',
 				verified: false,
@@ -523,13 +537,24 @@ async function handleFileChange(event: Event) {
 				hero: '',
 				api_keys: [],
 				followers: [],
-				following: [],
+				following: []
 			} as User;
 		}
 
 		return result.data;
 	}
 
+	function cancelEdit() {
+		descriptionValue = user?.description || '';
+	}
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			saveChanges();
+		} else if (event.key === 'Escape') {
+			cancelEdit();
+		}
+	}
 	$: if (user?.id) {
 		isLoading = true;
 		fetchCompleteUser(user.id).then((data) => {
@@ -623,26 +648,22 @@ async function handleFileChange(event: Event) {
 					<Icon name="ChevronLeft" size={20} />
 				</button>
 
-				<!-- Active tab title -->
-				{#if !isEditing}
-					<h4 class="active-tab-title">
-						{#if activeTab === 'profile'}
-							{$t('profile.profile') || 'Profile'}
-						{:else if activeTab === 'stats'}
-							{$t('profile.stats') || 'Stats'}
-						{:else if activeTab === 'tags'}
-							{$t('profile.tags') || 'Tags'}
-						{:else if activeTab === 'settings'}
-							{$t('profile.settings') || 'Settings'}
-						{:else if activeTab === 'theme'}
-							{$t('profile.theme') || 'Theme'}
-						{:else if activeTab === 'wallpaper'}
-							{$t('profile.wallpaper') || 'Wallpaper'}
-						{/if}
-					</h4>
-				{/if}
-
 				{#if isEditing}
+					<div class="info-row">
+						{#if isEditing}
+							<input
+								value={editedUser.name || editedUser.fullName || editedUser.displayName || ''}
+								on:input={(e) => {
+									if (e.target instanceof HTMLInputElement) {
+										editedUser.name = e.target.value;
+									}
+								}}
+							/>
+						{:else}
+							<span class="name">{user.name || user.fullName || user.displayName || 'Not set'}</span
+							>
+						{/if}
+					</div>
 					<button class="settings-button done" on:click={saveChanges}>
 						<span>
 							<Icon name="Save" size={16} />
@@ -654,126 +675,45 @@ async function handleFileChange(event: Event) {
 		</div>
 
 		<!-- Keep the avatar uploader modal section as is -->
-		{#if showAvatarUploader && user?.id}
-			<div class="avatar-uploader-modal" transition:fade={{ duration: 200 }}>
-				<div class="avatar-uploader-content" on:click|stopPropagation>
-					<div class="avatar-uploader-header">
-						<button class="close-button" on:click={toggleAvatarUploader}>
-							<Icon name="X" size={20} />
-						</button>
-						<AvatarUploader
-							userId={user.id}
-							onSuccess={handleAvatarUploadSuccess}
-							onError={handleAvatarUploadError}
-						/>
-					</div>
-				</div>
-			</div>
-		{/if}
+		{#if showAvatarUploader && user?.id}{/if}
 
 		{#if user}
 			<!-- Tab Navigation -->
 			<div class="tabs-container">
-				<div class="tab-header">
-					<div class="tabs-navigation">
-						{#if isEditing}
-							<!-- Show only basic tabs during editing -->
-							<button
-								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
-								on:click={() => switchTab('profile')}
-								title="Profile"
-							>
-								<Icon name="User2" size={20} />
-							</button>
-						{:else}
-							<!-- All tabs when not editing -->
-							<button
-								class="tab-button {activeTab === 'profile' ? 'active' : ''}"
-								on:click={() => switchTab('profile')}
-								title="Profile"
-							>
-								<Icon name="User2" size={20} />
-							</button>
-							<button
-								class="tab-button {activeTab === 'stats' ? 'active' : ''}"
-								on:click={() => switchTab('stats')}
-								title="Stats"
-							>
-								<Icon name="Layers" size={20} />
-							</button>
-							<button
-								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
-								on:click={() => switchTab('tags')}
-								title="Tags"
-							>
-								<Icon name="Tags" size={20} />
-							</button>
-							<button
-								class="tab-button {activeTab === 'settings' ? 'active' : ''}"
-								on:click={() => switchTab('settings')}
-								title="Settings"
-							>
-								<Icon name="Settings" size={20} />
-							</button>
-							<button
-								class="tab-button {activeTab === 'theme' ? 'active' : ''}"
-								on:click={() => switchTab('theme')}
-								title="Theme"
-							>
-								<Icon
-									name={styles.find((s) => s.value === $currentTheme)?.icon || 'Sun'}
-									size={20}
-								/>
-							</button>
-							<button
-								class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"
-								on:click={() => switchTab('wallpaper')}
-								title="Wallpaper"
-							>
-								<Icon name="WallpaperIcon" size={20} />
-							</button>
-						{/if}
-					</div>
-				</div>
-
 				<div class="tab-content">
 					{#if activeTab === 'profile'}
 						<div class="profile-header">
 							<div class="info-column">
 								<div class="header-wrapper">
-								<div
-									class="avatar-container"
-									role="button"
-									tabindex="0"
-								>
-								<input
-	type="file"
-	accept="image/*"
-	bind:this={fileInput}
-	on:change={handleFileChange}
-	style="display: none;"
-/>
-{#if (user || $currentUser)?.id}
-	<img 
-		src="/api/users/{(user || $currentUser).id}/avatar" 
-		alt="User avatar" 
-		class="avatar {isUploading ? 'uploading' : ''}"
-		on:click={handleAvatarClick} 
-	/>
-{:else}
-	<div class="default-avatar" on:click={handleAvatarClick}>
-		{((user || $currentUser)?.name ||
-			(user || $currentUser)?.username ||
-			(user || $currentUser)?.email ||
-			'?')[0]?.toUpperCase()}
-	</div>
-{/if}
+									<div class="avatar-container" role="button" tabindex="0">
+										<input
+											type="file"
+											accept="image/*"
+											bind:this={fileInput}
+											on:change={handleFileChange}
+											style="display: none;"
+										/>
+										{#if (user || $currentUser)?.id}
+											<img
+												src="/api/users/{(user || $currentUser).id}/avatar"
+												alt="User avatar"
+												class="avatar {isUploading ? 'uploading' : ''}"
+												on:click={handleAvatarClick}
+											/>
+										{:else}
+											<div class="default-avatar" on:click={handleAvatarClick}>
+												{((user || $currentUser)?.name ||
+													(user || $currentUser)?.username ||
+													(user || $currentUser)?.email ||
+													'?')[0]?.toUpperCase()}
+											</div>
+										{/if}
 
-<!-- Make the overlay clickable too -->
-<div class="avatar-overlay" on:click={handleAvatarClick}>
-	<Icon name="Camera" size={20} />
-</div>
-								</div>
+										<!-- Make the overlay clickable too -->
+										<div class="avatar-overlay" on:click={handleAvatarClick}>
+											<Icon name="Camera" size={20} />
+										</div>
+									</div>
 
 									<div class="info-wrapper">
 										<div class="info-row">
@@ -797,28 +737,10 @@ async function handleFileChange(event: Event) {
 												</span>
 											{/if}
 										</div>
-										<div class="info-row">
-											{#if isEditing}
-												<input
-													value={editedUser.name ||
-														editedUser.fullName ||
-														editedUser.displayName ||
-														''}
-													on:input={(e) => {
-														if (e.target instanceof HTMLInputElement) {
-															editedUser.name = e.target.value;
-														}
-													}}
-												/>
-											{:else}
-												<span class="name"
-													>{user.name || user.fullName || user.displayName || 'Not set'}</span
-												>
-											{/if}
-										</div>
+
 										<div class="info-row">
 											<span class="meta">
-												{displayUser?.email || $t('profile.not_available')}
+												{user.email}
 												{#if displayUser?.verified}
 													<!-- <MailCheck size={16} class="verified-icon" /> -->
 												{/if}
@@ -867,9 +789,9 @@ async function handleFileChange(event: Event) {
 										}}
 									></textarea>
 								{:else}
-									<span class="description">
-										{displayUser?.description || $t('profile.not_set')}
-									</span>
+									<!-- <span class="meta">
+										{displayUser?.description || $t('profile.not_available')}
+									</span> -->
 								{/if}
 							</div>
 
@@ -924,25 +846,25 @@ async function handleFileChange(event: Event) {
 								{lastActive}
 							/>
 						</div>
-					{:else if activeTab === 'tags'}
+						<!-- {:else if activeTab === 'tags'}
 						<div class="tags-tab" transition:fade={{ duration: 200 }}>
 							<TagEditor />
-						</div>
+						</div> -->
 					{:else if activeTab === 'settings'}
 						<div class="settings-tab" transition:fade={{ duration: 200 }}>
 							<div class="settings-content">
 								<div class="settings-section">
 									<h3>Account Settings</h3>
 									<div class="settings-row">
-										<button class="settings-option" on:click={toggleEdit}>
+										<button class="settings-button" on:click={toggleEdit}>
 											<Icon name="Settings" size={20} />
 											<span>Edit Profile</span>
 										</button>
-										<button class="settings-option" on:click={handleLanguageChange}>
+										<button class="settings-button" on:click={handleLanguageChange}>
 											<Icon name="Languages" size={20} />
 											<span>Change Language ({$t('lang.flag')})</span>
 										</button>
-										<button class="settings-option logout" on:click={logout}>
+										<button class="settings-button logout" on:click={logout}>
 											<Icon name="LogOut" size={20} />
 											<span>Logout</span>
 										</button>
@@ -951,10 +873,11 @@ async function handleFileChange(event: Event) {
 								<div class="settings-section">
 									<h3>Profile</h3>
 									<div class="settings-row">
-										<button class="settings-option" on:click={toggleAvatarUploader}>
-											<Icon name="Camera" size={20} />
-											<span>Change Avatar</span>
-										</button>
+										<AvatarUploader
+											userId={user.id}
+											onSuccess={handleAvatarUploadSuccess}
+											onError={handleAvatarUploadError}
+										/>
 									</div>
 								</div>
 							</div>
@@ -973,6 +896,81 @@ async function handleFileChange(event: Event) {
 								on:styleChange={handleWallpaperChangeEvent}
 							/>
 						</div>
+					{:else if activeTab === 'email'}
+						<div class="email-tab" transition:fade={{ duration: 200 }}>
+							<EmailModal userId={currentUserId} />
+						</div>
+					{/if}
+				</div>
+				<div class="tabs-navigation">
+					{#if isEditing}
+						<!-- Show only basic tabs during editing -->
+						<button
+							class="tab-button {activeTab === 'profile' ? 'active' : ''}"
+							on:click={() => switchTab('profile')}
+							title="Profile"
+						>
+							<Icon name="User2" size={20} />
+							<span>Profile</span>
+						</button>
+					{:else}
+						<!-- All tabs when not editing -->
+						<button
+							class="tab-button {activeTab === 'profile' ? 'active' : ''}"
+							on:click={() => switchTab('profile')}
+							title="Profile"
+						>
+							<Icon name="User2" size={20} />
+							<span>{$t('profile.profile')}</span>
+						</button>
+						<button
+							class="tab-button {activeTab === 'stats' ? 'active' : ''}"
+							on:click={() => switchTab('stats')}
+							title="Stats"
+						>
+							<Icon name="Layers" size={20} />
+							<span>{$t('generic.stats')}</span>
+						</button>
+						<!-- <button
+								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
+								on:click={() => switchTab('tags')}
+								title="Tags"
+							>
+								<Icon name="Tags" size={20} />
+								<span>{$t('generic.tags')}</span>
+							</button> -->
+						<button
+							class="tab-button {activeTab === 'settings' ? 'active' : ''}"
+							on:click={() => switchTab('settings')}
+							title="Settings"
+						>
+							<Icon name="Settings" size={20} />
+							<span>{$t('generic.settings')}</span>
+						</button>
+						<button
+							class="tab-button {activeTab === 'theme' ? 'active' : ''}"
+							on:click={() => switchTab('theme')}
+							title="Theme"
+						>
+							<Icon name={styles.find((s) => s.value === $currentTheme)?.icon || 'Sun'} size={20} />
+							<span>Theme</span>
+						</button>
+						<button
+							class="tab-button {activeTab === 'wallpaper' ? 'active' : ''}"
+							on:click={() => switchTab('wallpaper')}
+							title="Wallpaper"
+						>
+							<Icon name="WallpaperIcon" size={20} />
+							<span>{$t('profile.wallpaper')}</span>
+						</button>
+						<button
+							class="tab-button {activeTab === 'email' ? 'active' : ''}"
+							on:click={() => switchTab('email')}
+							title="Email"
+						>
+							<div class="tab-icon">@</div>
+							<span>{$t('profile.email')}</span>
+						</button>
 					{/if}
 				</div>
 			</div>
@@ -1005,32 +1003,21 @@ async function handleFileChange(event: Event) {
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	@use '../../../styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
+
 	.modal-overlay {
 		display: flex;
 		align-items: flex-start;
 		justify-content: flex-start;
-		width: 100%;
+		width: auto;
 		height: 100%;
 		border-radius: 2rem;
+		padding: 1rem 0;
 		transition: all 0.3s ease;
 		background: transparent;
-		overflow-x: hidden;
-		overflow-y: scroll;
-		&::-webkit-scrollbar {
-			width: 0.5rem;
-			background-color: transparent;
-		}
-		&::-webkit-scrollbar-track {
-			background: transparent;
-		}
-		&::-webkit-scrollbar-thumb {
-			background: var(--secondary-color);
-			border-radius: 1rem;
-		}
 	}
 
 	.btn-row {
@@ -1044,13 +1031,14 @@ async function handleFileChange(event: Event) {
 	}
 
 	.modal-content {
-		height: auto;
+		height: 100%;
+		margin-bottom: 3rem;
+		margin-left: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		align-items: center;
+		justify-content: flex-start;
+		align-items: flex-end;
 		width: 100%;
-		padding: 1rem;
 	}
 
 	.key-overlay {
@@ -1167,8 +1155,7 @@ async function handleFileChange(event: Event) {
 			}
 		}
 	}
-
-	.header-wrapper {
+	.url-button .header-wrapper {
 		display: flex;
 		flex-direction: row;
 		justify-content: flex-start;
@@ -1275,6 +1262,10 @@ async function handleFileChange(event: Event) {
 		align-items: top;
 		z-index: 1444;
 	}
+	.theme-tab {
+		display: flex;
+		justify-content: center;
+	}
 
 	.style-content {
 		display: flex;
@@ -1287,9 +1278,16 @@ async function handleFileChange(event: Event) {
 		width: 100%;
 	}
 
+	.tab-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.25rem;
+		font-weight: 200;
+	}
 	.profile-info {
 		margin-bottom: 1rem;
-		color: white;
+		color: var(--text-color);
 		margin: 0;
 		width: 100%;
 		height: 100%;
@@ -1312,7 +1310,7 @@ async function handleFileChange(event: Event) {
 
 		.info-row {
 			font-size: 1.2rem;
-			padding: 0.5rem 0.25rem;
+			padding: 1rem 0.25rem;
 			display: flex;
 			flex-direction: row;
 			align-items: center;
@@ -1498,6 +1496,32 @@ async function handleFileChange(event: Event) {
 		max-width: 800px;
 		gap: 1rem;
 		margin-bottom: 2rem;
+		z-index: 1000;
+	}
+	.tab-button.active {
+		background-color: var(--tertiary-color);
+		margin-top: 2rem;
+		margin-left: 1rem;
+		margin-right: -0.5rem;
+		left: auto;
+		width: 90%;
+		font-size: 1.5rem;
+		padding: 0.25rem;
+		border-radius: 2rem 0 0 2rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		& .tab-icon {
+			font-size: 1.5rem;
+		}
+	}
+	.tab-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.tab-button:hover {
+		background-color: var(--bg-color);
 	}
 	button.back-button {
 		display: flex;
@@ -1524,12 +1548,12 @@ async function handleFileChange(event: Event) {
 	button.settings-button {
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		border-radius: 1rem;
 		width: auto;
 		height: 2rem;
-		gap: 0.2rem;
-		background: var(--primary-color);
+		gap: 0.5rem;
+		background: var(--bg-gradient-right);
 		border: 1px solid var(--border-color);
 		color: var(--text-color);
 		transition: all 0.2s ease;
@@ -1713,7 +1737,28 @@ async function handleFileChange(event: Event) {
 		margin: 0;
 		font-size: 1.25rem;
 	}
+	.tab-content {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		flex: 1;
+		margin-top: 1rem;
+	}
+	.tabs-container {
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+		margin-right: 0;
+		display: flex;
+		position: relative;
+		justify-content: flex-end;
+		width: 100%;
+	}
 
+	.tabs-navigation {
+		display: flex;
+		flex-direction: column;
+		margin-top: 0;
+	}
 	@media (max-width: 1000px) {
 		.label {
 			font-weight: 300;

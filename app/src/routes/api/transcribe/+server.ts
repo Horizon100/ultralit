@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const WHISPER_DAEMON_URL = 'http://100.77.36.61:3001'; 
+const WHISPER_DAEMON_URL = 'http://100.77.36.61:3001';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -30,7 +30,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const result = await response.json();
 		return json(result);
-
 	} catch (err) {
 		console.error('Transcription API error:', err);
 		throw error(500, 'Internal server error');

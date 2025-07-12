@@ -100,7 +100,6 @@
 		handleMenuLeave: handlePageMenuLeave,
 		toggleMenu: togglePageMenu
 	} = pageHoverManager;
-	
 
 	const userNameCache = new Map<string, string>();
 
@@ -1712,121 +1711,117 @@
 		updateTaskTags(task.id, newTags);
 	}
 
+	function populateUserCacheFromTasks() {
+		// This assumes your tasks already have user information embedded
+		// If they don't, we'll just use current user info
+		const currentUserId = $currentUser?.id;
+		const currentUserData = $currentUser;
 
-
-
-function populateUserCacheFromTasks() {
-	// This assumes your tasks already have user information embedded
-	// If they don't, we'll just use current user info
-	const currentUserId = $currentUser?.id;
-	const currentUserData = $currentUser;
-	
-	if (currentUserId && currentUserData) {
-		localUsersCache.set(currentUserId, {
-			id: currentUserData.id,
-			name: currentUserData.name || currentUserData.username || currentUserData.email || 'You',
-			avatar: currentUserData.avatar
-		});
-	}
-	
-	// For other users, create placeholder entries
-	const allUserIds = [
-		...new Set([
-			...allTasksBackup.map(task => task.createdBy).filter(Boolean),
-			...allTasksBackup.map(task => task.assignedTo).filter(Boolean)
-		])
-	];
-	
-	allUserIds.forEach(userId => {
-		if (userId && !localUsersCache.has(userId) && userId !== currentUserId) {
-			// Create placeholder - no API call
-			localUsersCache.set(userId, {
-				id: userId,
-				name: 'User',
-				avatar: undefined
+		if (currentUserId && currentUserData) {
+			localUsersCache.set(currentUserId, {
+				id: currentUserData.id,
+				name: currentUserData.name || currentUserData.username || currentUserData.email || 'You',
+				avatar: currentUserData.avatar
 			});
 		}
-	});
-	
-	// Trigger reactivity
-	localUsersCache = localUsersCache;
-}
 
-// Helper functions - NO API CALLS
-function getUser(userId: string): { name: string; avatar?: string; id: string } | null {
-	if (!userId) return null;
-	
-	// Check current user first
-	if ($currentUser?.id === userId) {
-		return {
-			id: $currentUser.id,
-			name: $currentUser.name || $currentUser.username || $currentUser.email || 'You',
-			avatar: $currentUser.avatar
-		};
+		// For other users, create placeholder entries
+		const allUserIds = [
+			...new Set([
+				...allTasksBackup.map((task) => task.createdBy).filter(Boolean),
+				...allTasksBackup.map((task) => task.assignedTo).filter(Boolean)
+			])
+		];
+
+		allUserIds.forEach((userId) => {
+			if (userId && !localUsersCache.has(userId) && userId !== currentUserId) {
+				// Create placeholder - no API call
+				localUsersCache.set(userId, {
+					id: userId,
+					name: 'User',
+					avatar: undefined
+				});
+			}
+		});
+
+		// Trigger reactivity
+		localUsersCache = localUsersCache;
 	}
-	
-	// Check local cache
-	return localUsersCache.get(userId) || null;
-}
 
-function getUserDisplayName(userId: string): string {
-	const user = getUser(userId);
-	if (!user) return 'Unknown';
-	
-	return user.name;
-}
+	// Helper functions - NO API CALLS
+	function getUser(userId: string): { name: string; avatar?: string; id: string } | null {
+		if (!userId) return null;
 
-function getUserAvatar(userId: string): string {
-	const user = getUser(userId);
-	if (!user || !user.avatar) return '';
-	
-	// Use the avatar URL utility
-	return getAvatarUrl({
-		id: user.id,
-		avatar: user.avatar,
-		collectionId: 'users'
-	} as any);
-}
+		// Check current user first
+		if ($currentUser?.id === userId) {
+			return {
+				id: $currentUser.id,
+				name: $currentUser.name || $currentUser.username || $currentUser.email || 'You',
+				avatar: $currentUser.avatar
+			};
+		}
 
-function getUserInitial(userId: string): string {
-	const user = getUser(userId);
-	if (!user) return 'U';
-	
-	return user.name.charAt(0).toUpperCase();
-}
-	
+		// Check local cache
+		return localUsersCache.get(userId) || null;
+	}
+
+	function getUserDisplayName(userId: string): string {
+		const user = getUser(userId);
+		if (!user) return 'Unknown';
+
+		return user.name;
+	}
+
+	function getUserAvatar(userId: string): string {
+		const user = getUser(userId);
+		if (!user || !user.avatar) return '';
+
+		// Use the avatar URL utility
+		return getAvatarUrl({
+			id: user.id,
+			avatar: user.avatar,
+			collectionId: 'users'
+		} as any);
+	}
+
+	function getUserInitial(userId: string): string {
+		const user = getUser(userId);
+		if (!user) return 'U';
+
+		return user.name.charAt(0).toUpperCase();
+	}
+
 	$: tagPlaceholder = $t('tasks.tags') as string;
 	$: searchPlaceholder = $t('nav.search') as string;
 	$: addPlaceholder = $t('tasks.add') as string;
 
-	$: descriptionText = selectedTask?.taskDescription || $t('tasks.addDescription') || 'Add Description';
-
+	$: descriptionText =
+		selectedTask?.taskDescription || $t('tasks.addDescription') || 'Add Description';
 
 	$: toggleLabel = allColumnsOpen
 		? ($t('generic.collapseAll') as string) || 'Collapse All'
 		: ($t('generic.expandAll') as string) || 'Expand All';
 
-$: hasProjectContext = Boolean(
-	(selectedTask?.project_id && selectedTask.project_id !== '') ||
-	(currentProjectId && currentProjectId !== '')
-);
-$: allUserIds = [
-	...new Set([
-		...allTasksBackup.map(task => task.createdBy).filter(Boolean),
-		...allTasksBackup.map(task => task.assignedTo).filter(Boolean)
-	])
-];
+	$: hasProjectContext = Boolean(
+		(selectedTask?.project_id && selectedTask.project_id !== '') ||
+			(currentProjectId && currentProjectId !== '')
+	);
+	$: allUserIds = [
+		...new Set([
+			...allTasksBackup.map((task) => task.createdBy).filter(Boolean),
+			...allTasksBackup.map((task) => task.assignedTo).filter(Boolean)
+		])
+	];
 
+	let lastLoadedProjectId: string | null = null;
 
-let lastLoadedProjectId: string | null = null;
-
-$: if (currentProjectId !== lastLoadedProjectId) {
-	lastLoadedProjectId = currentProjectId;
-	if (currentProjectId) {
-		loadData(currentProjectId);
+	$: if (currentProjectId !== lastLoadedProjectId) {
+		lastLoadedProjectId = currentProjectId;
+		if (currentProjectId) {
+			loadData(currentProjectId);
+		}
+		// Don't load data when currentProjectId is null/empty
 	}
-	// Don't load data when currentProjectId is null/empty
-}
 	// Reactive statement for taskTags with null check
 	$: taskTags = selectedTask ? $tags.filter((tag) => selectedTask?.tags?.includes(tag.id)) : [];
 
@@ -1881,15 +1876,14 @@ $: if (currentProjectId !== lastLoadedProjectId) {
 		}
 	} as InternalChatMessage;
 	onMount(() => {
-
 		pageCleanup = pageHoverManager.initialize();
 	});
-onDestroy(() => {
-    unsubscribe();
-    if (pageCleanup) {
-        pageCleanup();
-    }
-});
+	onDestroy(() => {
+		unsubscribe();
+		if (pageCleanup) {
+			pageCleanup();
+		}
+	});
 </script>
 
 {#if $isLoading}
@@ -1902,19 +1896,16 @@ onDestroy(() => {
 		<button on:click={() => loadData(get(projectStore).currentProjectId)}> Retry </button>
 	</div>
 {:else}
-	<div class="lean-container"
-		class:nav-open={$showSettings}
-
-	>
+	<div class="lean-container" class:nav-open={$showSettings}>
 		{#if $showSidenav}
-			<div class="column-wrapper"
+			<div
+				class="column-wrapper"
 				on:mouseleave={() => {
 					handlePageMenuLeave();
 				}}
 			>
 				<div class="calendar-container">
 					<TaskCalendar />
-
 				</div>
 				<div class="column-view-controls" transition:fly={{ x: -300, duration: 300 }}>
 					<button
@@ -2128,7 +2119,6 @@ onDestroy(() => {
 			in:fly={{ y: -400, duration: 400 }}
 			out:fade={{ duration: 300 }}
 			class:drawer-visible={$showSidenav}
-
 		>
 			<div class="kanban-board" class:drawer-visible={$showThreadList}>
 				{#each $columns as column}
@@ -2251,7 +2241,6 @@ onDestroy(() => {
 			</div>
 		</div>
 	</div>
-
 {/if}
 
 {#if isModalOpen && selectedTask}
@@ -4054,7 +4043,6 @@ onDestroy(() => {
 		display: flex;
 		flex-direction: column;
 		max-width: 350px;
-		
 	}
 	.column-view-controls {
 		display: flex;

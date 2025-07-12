@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ url, locals, cookies }) =>
 
 		// Check authentication - prefer locals.user, fallback to cookies
 		let currentUserId: string;
-		
+
 		if (locals.user) {
 			currentUserId = locals.user.id;
 		} else {
@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ url, locals, cookies }) =>
 		const query = url.searchParams.get('q');
 		if (query) {
 			// Handle search functionality
-			const limit = url.searchParams.get('limit') || '10'; 
+			const limit = url.searchParams.get('limit') || '10';
 			const projectId = url.searchParams.get('project');
 
 			console.log('Search params:', { query, limit, projectId, currentUserId });
@@ -222,7 +222,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		}
 
-const messageData = {
+		const messageData = {
 			text: data.text || '',
 			user: data.user || currentUserId,
 			thread: data.thread || null,
@@ -237,10 +237,7 @@ const messageData = {
 			agent_relation: data.agent_relation || null
 		};
 
-		console.log(
-			'Messages POST: Creating message with data:',
-			JSON.stringify(messageData, null, 2)
-		);
+		console.log('Messages POST: Creating message with data:', JSON.stringify(messageData, null, 2));
 
 		try {
 			const message = await pb.collection('messages').create(messageData);

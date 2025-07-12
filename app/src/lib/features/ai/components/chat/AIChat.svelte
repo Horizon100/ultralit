@@ -11,26 +11,14 @@
 		chatMessages,
 		userInput,
 		isTypingInProgress,
-		typingMessageId,
-		thinkingMessageId,
-		activeReplyMenu,
 		quotedMessage,
 		isLoadingMessages
 	} from '$lib/stores/chatStore';
 	import {
 		uiStore,
 		expandedSections,
-		showPromptCatalog,
-		showModelSelector,
-		showCollaborators,
-		showBookmarks,
-		showCites,
-		showSysPrompt,
-		showAgentPicker,
 		isLoading,
-		isEditingThreadName,
 		searchQuery,
-		isThreadListVisible,
 		showFavoriteThreads,
 		currentPlaceholder,
 		isProcessingPromptClick,
@@ -38,7 +26,12 @@
 		showTextModal,
 		textTooLong
 	} from '$lib/stores/uiStore';
-	import { sidenavStore,showSettings, showThreadList } from '$lib/stores/sidenavStore';
+	import {
+		sidenavStore,
+		showSettings,
+		showThreadList,
+		showOverlay
+	} from '$lib/stores/sidenavStore';
 	import { currentUser, ensureAuthenticated } from '$lib/pocketbase';
 	import { threadsStore, ThreadSortOption } from '$lib/stores/threadsStore';
 	import { projectStore } from '$lib/stores/projectStore';
@@ -69,12 +62,7 @@
 	import { TextUtils } from '$lib/utils/textUtils';
 	import { DateUtils } from '$lib/utils/dateUtils';
 	import { UIUtils } from '$lib/utils/uiUtils';
-	import {
-		formatDate,
-		formatContent,
-		formatContentSync,
-		getRelativeTime
-	} from '$lib/utils/formatters';
+
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 
 	// ===== COMPOSABLE IMPORTS =====
@@ -88,70 +76,8 @@
 	import MessageList from '$lib/components/chat/MessageList.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 
-	// ===== EXISTING COMPONENT IMPORTS =====
-	import ProjectCard from '$lib/components/cards/ProjectCard.svelte';
-	import MsgBookmarks from '$lib/features/ai/components/chat/MsgBookmarks.svelte';
-	import ThreadCollaborators from '$lib/features/threads/components/ThreadCollaborators.svelte';
-	import PromptCatalog from '../prompts/PromptInput.svelte';
-	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
-	import MessageProcessor from '$lib/features/ai/components/chat/MessageProcessor.svelte';
-	import RecursiveMessage from '$lib/features/ai/components/chat/RecursiveMessage.svelte';
-	import SysPromptSelector from '../prompts/SysPromptSelector.svelte';
-	import Reactions from '$lib/features/ai/components/chat/Reactions.svelte';
-	import ReferenceSelector from '$lib/features/ai/components/chat/ReferenceSelector.svelte';
-	import AgentPicker from '$lib/features/agents/components/AgentPicker.svelte';
-
-	// ===== ICON IMPORTS =====
-
-	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
-	// ===== CLIENT IMPORTS =====
-	import {
-		fetchAIResponse,
-		generateTasks as generateTasksAPI,
-		createAIAgent
-	} from '$lib/clients/aiClient';
-	import {
-		fetchProjects,
-		resetProject,
-		fetchThreadsForProject,
-		updateProject,
-		removeThreadFromProject,
-		addThreadToProject
-	} from '$lib/clients/projectClient';
-	import {
-		fetchMessagesForBookmark,
-		fetchMessagesForThread,
-		resetThread,
-		createThread,
-		loadThreads,
-		threadListVisibility,
-		updateThread,
-		addMessageToThread,
-		deleteThread
-	} from '$lib/clients/threadsClient';
-
-
-
 	// ===== FEATURE UTILITY IMPORTS =====
-	import { updateThreadNameIfNeeded } from '$lib/features/threads/utils/threadNaming';
-	import { getRandomPrompts } from '$lib/features/ai/utils/startPrompts';
-	import { defaultModel, availableModels } from '$lib/features/ai/utils/models';
 	import { availablePrompts, getPrompt } from '$lib/features/ai/utils/prompts';
-	import { processMarkdown, enhanceCodeBlocks } from '$lib/features/ai/utils/markdownProcessor';
-	import { prepareReplyContext } from '$lib/features/ai/utils/handleReplyMessage';
-
-	// ===== DATE PICKER IMPORTS =====
-	import { DateInput, DatePicker, localeFromDateFnsLocale } from 'date-picker-svelte';
-	import { hy } from 'date-fns/locale';
-
-	// ===== GESTURE AND INTERACTION IMPORTS =====
-	import { swipeGesture } from '$lib/utils/swipeGesture';
-	import { useGlobalSwipe } from '$lib/utils/globalSwipe';
-	import { handleFavoriteThread } from '$lib/utils/favoriteHandlers';
-
-	// ===== ASSET IMPORTS =====
-	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 
 	// ===== TYPE IMPORTS =====
 	import type {
@@ -166,18 +92,6 @@
 		Task,
 		Attachment,
 		Guidance,
-		ThreadGroup,
-		MessageState,
-		PromptState,
-		UIState,
-		User,
-		UserProfile,
-		ChatMessage,
-		ThreadStoreState,
-		NetworkData,
-		AIAgent,
-		Network,
-		ProviderType,
 		ExpandedSections
 	} from '$lib/types/types';
 
@@ -402,97 +316,97 @@
 	function toggleSection(section: string) {
 		uiStore.toggleSection(section as keyof ExpandedSections);
 	}
-function handleModelSelection(event: CustomEvent) {
-	console.log('🔄 AIChat handleModelSelection - Raw event:', event);
-	console.log('🔄 AIChat handleModelSelection - event.detail:', event.detail);
-	
-	// Check the event structure
-	if (!event || !event.detail) {
-		console.error('❌ No event detail in AIChat handleModelSelection');
-		return;
+	function handleModelSelection(event: CustomEvent) {
+		console.log('🔄 AIChat handleModelSelection - Raw event:', event);
+		console.log('🔄 AIChat handleModelSelection - event.detail:', event.detail);
+
+		// Check the event structure
+		if (!event || !event.detail) {
+			console.error('❌ No event detail in AIChat handleModelSelection');
+			return;
+		}
+
+		// Handle both possible structures
+		let selectedModel: AIModel;
+
+		if (event.detail.model) {
+			// New format: { model: AIModel }
+			selectedModel = event.detail.model;
+			console.log('✅ Found model in event.detail.model:', selectedModel);
+		} else if (event.detail.provider) {
+			// Old format: direct AIModel
+			selectedModel = event.detail;
+			console.log('✅ Found model in event.detail (direct):', selectedModel);
+		} else {
+			console.error('❌ No valid model found in event:', event.detail);
+			return;
+		}
+
+		if (!selectedModel || !selectedModel.provider) {
+			console.error('❌ Selected model missing provider:', selectedModel);
+			return;
+		}
+
+		console.log('✅ Setting AI model in AIChat:', selectedModel.name);
+		aiModel = { ...selectedModel, provider: selectedModel.provider || 'openai' };
+		selectedModelLabel = aiModel.name || '';
+		uiStore.setExpandedSectionExclusive('models', false);
 	}
-	
-	// Handle both possible structures
-	let selectedModel: AIModel;
-	
-	if (event.detail.model) {
-		// New format: { model: AIModel }
-		selectedModel = event.detail.model;
-		console.log('✅ Found model in event.detail.model:', selectedModel);
-	} else if (event.detail.provider) {
-		// Old format: direct AIModel
-		selectedModel = event.detail;
-		console.log('✅ Found model in event.detail (direct):', selectedModel);
-	} else {
-		console.error('❌ No valid model found in event:', event.detail);
-		return;
-	}
-	
-	if (!selectedModel || !selectedModel.provider) {
-		console.error('❌ Selected model missing provider:', selectedModel);
-		return;
-	}
-	
-	console.log('✅ Setting AI model in AIChat:', selectedModel.name);
-	aiModel = { ...selectedModel, provider: selectedModel.provider || 'openai' };
-	selectedModelLabel = aiModel.name || '';
-	uiStore.setExpandedSectionExclusive('models', false);
-}
 
 	// ===== THREAD MANAGEMENT =====
-async function handleLoadThread(threadId: string) {
-	console.log('🔍 handleLoadThread called with:', threadId);
-	
-	try {
-		// Use only threadsStore
-		await threadsStore.setCurrentThread(threadId);
-		
-		// Get the loaded data from the store
-		const currentState = get(threadsStore);
-		console.log('🔍 threadsStore state after setCurrentThread:', {
-			currentThreadId: currentState.currentThreadId,
-			messagesCount: currentState.messages?.length || 0,
-			messages: currentState.messages
-		});
-		
-		currentThreadId = threadId;
-		currentThread = currentState.currentThread;
-		
-		// Map messages from threadsStore
-		const mappedMessages = currentState.messages.map((msg) => ({
-			role: (msg.type === 'human' ? 'user' : 'assistant') as RoleType,
-			content: msg.text,
-			id: msg.id,
-			isTyping: false,
-			text: msg.text,
-			user: msg.user,
-			created: msg.created,
-			updated: msg.updated,
-			parent_msg: msg.parent_msg,
-			prompt_type: msg.prompt_type as PromptType,
-			prompt_input: msg.prompt_input,
-			provider: msg.provider,
-			model: msg.model,
-			collectionId: msg.collectionId || 'defaultCollectionId',
-			collectionName: msg.collectionName || 'defaultCollectionName'
-		}));
+	async function handleLoadThread(threadId: string) {
+		console.log('🔍 handleLoadThread called with:', threadId);
 
-		console.log('🔍 Mapped messages:', mappedMessages.length, mappedMessages);
-		
-		chatStore.setMessages(mappedMessages);
-		
-		// Verify chatStore was updated
-		const chatState = get(chatStore);
-		console.log('🔍 chatStore after setMessages:', chatState.messages?.length || 0);
-		
-		uiStore.closeAllInputRelatedSections();
-		
-		return currentState.currentThread;
-	} catch (error) {
-		console.error('Error loading thread:', error);
-		return null;
+		try {
+			// Use only threadsStore
+			await threadsStore.setCurrentThread(threadId);
+
+			// Get the loaded data from the store
+			const currentState = get(threadsStore);
+			console.log('🔍 threadsStore state after setCurrentThread:', {
+				currentThreadId: currentState.currentThreadId,
+				messagesCount: currentState.messages?.length || 0,
+				messages: currentState.messages
+			});
+
+			currentThreadId = threadId;
+			currentThread = currentState.currentThread;
+
+			// Map messages from threadsStore
+			const mappedMessages = currentState.messages.map((msg) => ({
+				role: (msg.type === 'human' ? 'user' : 'assistant') as RoleType,
+				content: msg.text,
+				id: msg.id,
+				isTyping: false,
+				text: msg.text,
+				user: msg.user,
+				created: msg.created,
+				updated: msg.updated,
+				parent_msg: msg.parent_msg,
+				prompt_type: msg.prompt_type as PromptType,
+				prompt_input: msg.prompt_input,
+				provider: msg.provider,
+				model: msg.model,
+				collectionId: msg.collectionId || 'defaultCollectionId',
+				collectionName: msg.collectionName || 'defaultCollectionName'
+			}));
+
+			console.log('🔍 Mapped messages:', mappedMessages.length, mappedMessages);
+
+			chatStore.setMessages(mappedMessages);
+
+			// Verify chatStore was updated
+			const chatState = get(chatStore);
+			console.log('🔍 chatStore after setMessages:', chatState.messages?.length || 0);
+
+			uiStore.closeAllInputRelatedSections();
+
+			return currentState.currentThread;
+		} catch (error) {
+			console.error('Error loading thread:', error);
+			return null;
+		}
 	}
-}
 
 	async function handleCreateNewThread() {
 		try {
@@ -593,78 +507,77 @@ async function handleLoadThread(threadId: string) {
 
 	let deleteNotification = 'Are you sure you want to delete this thread?';
 	// ===== LIFECYCLE HOOKS =====
-onMount(async () => {
-	console.log('Starting app initialization...');
-	pageCleanup = pageHoverManager.initialize();
+	onMount(async () => {
+		console.log('Starting app initialization...');
+		pageCleanup = pageHoverManager.initialize();
 
-	try {
-		// 1. Initialize the core application first
-		messagesStore.setSelectedDate(new Date().toISOString());
-		await initializeApp(
-			textareaElement,
-			chatMessagesDiv,
-			currentThreadId,
-			aiModel,
-			(model) => {
-				aiModel = model;
-				selectedModelLabel = model.name || '';
-			},
-			handleSendMessage
-		);
+		try {
+			// 1. Initialize the core application first
+			messagesStore.setSelectedDate(new Date().toISOString());
+			await initializeApp(
+				textareaElement,
+				chatMessagesDiv,
+				currentThreadId,
+				aiModel,
+				(model) => {
+					aiModel = model;
+					selectedModelLabel = model.name || '';
+				},
+				handleSendMessage
+			);
 
-		// 2. Setup scroll management
-		if (chatMessagesDiv) {
-			const cleanup = setupScrollObserver(chatMessagesDiv);
-			addCleanupFunction(cleanup);
-		}
-
-		// 3. Setup project subscription
-		const unsubscribeProject = setupProjectSubscription(
-			(id) => (currentProjectId = id),
-			(editing) => uiStore.setEditingProjectName(editing),
-			(name) => {
-				/* handled in store */
-			},
-			(projectId) => ThreadService.loadProjectThreads(projectId ?? undefined),
-			$searchQuery
-		);
-		addCleanupFunction(unsubscribeProject);
-
-		// 4. Setup model subscription
-		const unsubscribeModel = modelStore.subscribe((state) => {
-			if (state.selectedModel && (!aiModel || aiModel.id !== state.selectedModel.id)) {
-				aiModel = state.selectedModel;
-				selectedModelLabel = aiModel.name || '';
+			// 2. Setup scroll management
+			if (chatMessagesDiv) {
+				const cleanup = setupScrollObserver(chatMessagesDiv);
+				addCleanupFunction(cleanup);
 			}
-		});
-		addCleanupFunction(unsubscribeModel);
 
-		// 5. Initialize prompts
-		promptSuggestions = PromptService.getRandomPrompts();
-		uiStore.setCurrentPlaceholder(PromptService.getRandomQuestion());
+			// 3. Setup project subscription
+			const unsubscribeProject = setupProjectSubscription(
+				(id) => (currentProjectId = id),
+				(editing) => uiStore.setEditingProjectName(editing),
+				(name) => {
+					/* handled in store */
+				},
+				(projectId) => ThreadService.loadProjectThreads(projectId ?? undefined),
+				$searchQuery
+			);
+			addCleanupFunction(unsubscribeProject);
 
-		// 6. Load user prompt data
-		await PromptService.loadUserPrompt();
-
-		// 7. ONLY NOW load user profiles for existing messages (if any)
-		// Wait a bit to ensure everything else is settled
-		setTimeout(async () => {
-			if ($chatMessages && $chatMessages.length > 0) {
-				console.log('Loading user profiles for existing messages...');
-				try {
-					await UserService.preloadUserProfilesBatch($chatMessages);
-				} catch (error) {
-					console.error('Error preloading user profiles:', error);
+			// 4. Setup model subscription
+			const unsubscribeModel = modelStore.subscribe((state) => {
+				if (state.selectedModel && (!aiModel || aiModel.id !== state.selectedModel.id)) {
+					aiModel = state.selectedModel;
+					selectedModelLabel = aiModel.name || '';
 				}
-			}
-		}, 500); // Wait 500ms after everything else is done
+			});
+			addCleanupFunction(unsubscribeModel);
 
-		console.log('App initialization completed successfully');
-		
-	} catch (error) {
-		console.error('Error during app initialization:', error);
-	}
-});
+			// 5. Initialize prompts
+			promptSuggestions = PromptService.getRandomPrompts();
+			uiStore.setCurrentPlaceholder(PromptService.getRandomQuestion());
+
+			// 6. Load user prompt data
+			await PromptService.loadUserPrompt();
+
+			// 7. ONLY NOW load user profiles for existing messages (if any)
+			// Wait a bit to ensure everything else is settled
+			setTimeout(async () => {
+				if ($chatMessages && $chatMessages.length > 0) {
+					console.log('Loading user profiles for existing messages...');
+					try {
+						await UserService.preloadUserProfilesBatch($chatMessages);
+					} catch (error) {
+						console.error('Error preloading user profiles:', error);
+					}
+				}
+			}, 500); // Wait 500ms after everything else is done
+
+			console.log('App initialization completed successfully');
+		} catch (error) {
+			console.error('Error during app initialization:', error);
+		}
+	});
 
 	afterUpdate(() => {
 		// Setup reply handlers
@@ -803,48 +716,47 @@ onMount(async () => {
 	} else if ($expandedSections.bookmarks) {
 		uiStore.setExpandedSectionExclusive('bookmarks', true);
 	}
-function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
-	if (set1.size !== set2.size) return false;
-	for (const item of set1) {
-		if (!set2.has(item)) return false;
+	function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
+		if (set1.size !== set2.size) return false;
+		for (const item of set1) {
+			if (!set2.has(item)) return false;
+		}
+		return true;
 	}
-	return true;
-}
-let lastProcessedMessageIds = new Set<string>();
-$: if ($chatMessages && $chatMessages.length > 0) {
-	// Check if messages actually changed (not just reactive update)
-	const currentMessageIds = new Set($chatMessages.map(m => m.id));
-	const hasNewMessages = $chatMessages.length !== lastMessageCount || 
-		!areSetsEqual(currentMessageIds, lastProcessedMessageIds);
-	
-	if (hasNewMessages) {
-		console.log('Messages changed, deduping...');
-		MessageService.dedupeCurrentMessages();
-		lastMessageCount = $chatMessages.length;
-		lastProcessedMessageIds = currentMessageIds;
+	let lastProcessedMessageIds = new Set<string>();
+	$: if ($chatMessages && $chatMessages.length > 0) {
+		// Check if messages actually changed (not just reactive update)
+		const currentMessageIds = new Set($chatMessages.map((m) => m.id));
+		const hasNewMessages =
+			$chatMessages.length !== lastMessageCount ||
+			!areSetsEqual(currentMessageIds, lastProcessedMessageIds);
+
+		if (hasNewMessages) {
+			console.log('Messages changed, deduping...');
+			MessageService.dedupeCurrentMessages();
+			lastMessageCount = $chatMessages.length;
+			lastProcessedMessageIds = currentMessageIds;
+		}
 	}
-}
-
-
-
 </script>
 
 {#if $currentUser}
-	<div class="chat-interface" 
-		in:fly={{ y: -200, duration: 300 }} out:fade={{ duration: 200 }}
+	<div
+		class="chat-interface"
+		in:fly={{ y: -200, duration: 300 }}
+		out:fade={{ duration: 200 }}
 		class:nav-open={$showSettings}
-					on:mouseleave={() => {
-				handlePageMenuLeave();
-			}}
+		on:mouseleave={() => {
+			handlePageMenuLeave();
+		}}
 	>
 		<div
 			class="chat-container"
 			transition:fly={{ x: 300, duration: 300 }}
-			class:drawer-visible={$showThreadList}
-
+			class:drawer-visible={$showOverlay}
 		>
 			<!-- Thread Sidebar Component -->
-			 
+
 			<ThreadSidebar
 				{threads}
 				{currentThreadId}
@@ -861,7 +773,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 				on:deleteThread={(e) => handleDeleteThread(e.detail.event, e.detail.threadId)}
 				on:favoriteThread={(e) => onFavoriteThread(e.detail.event, e.detail.thread)}
 				on:searchChange={(e) => handleSearchChange(e.detail.query)}
-
 			>
 				<!-- Sort Options Slot -->
 				<div slot="sortOptions">
@@ -915,6 +826,7 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			</ThreadSidebar>
 
 			<!-- Main Chat Area -->
+
 			<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
 				<div
 					class="chat-content"
@@ -3638,8 +3550,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			margin-top: 0;
 		}
 
-
-
 		.chat-content {
 			flex-grow: 1;
 			display: flex;
@@ -3799,9 +3709,22 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 	@media (max-width: 450px) {
 		.chat-messages {
 			top: 2rem;
+			padding: 0;
+			margin: 0;
+			width: 100% !important;
+			right: 0;
 		}
-		.drawer-visible .chat-content {
+		.chat-container {
+			width: 500px !important;
+			position: relative;
+		}
+		.chat-content {
+			margin: 0 !important;
+			border-radius: 0;
+		}
+		.drawer-visible .chat-interface {
 			border: 1px solid transparent;
+			display: none;
 		}
 
 		.message {

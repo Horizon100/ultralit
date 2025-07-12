@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	try {
 		const query = url.searchParams.get('q');
-		const limit = url.searchParams.get('limit') || '10'; 
+		const limit = url.searchParams.get('limit') || '10';
 		const projectId = url.searchParams.get('project');
 
 		console.log('Search params:', { query, limit, projectId });

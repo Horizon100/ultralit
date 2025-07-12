@@ -106,7 +106,7 @@
 </script>
 
 <div class="style-switcher">
-	<h2>{$t('nav.themes')}</h2>
+	<!-- <h2>{$t('nav.themes')}</h2> -->
 
 	<div class="style-list">
 		{#each styles as style}
@@ -135,7 +135,6 @@
 		margin: 0;
 		text-align: left;
 		left: 0;
-		gap: 0;
 		justify-content: center;
 		align-items: center;
 		font-size: var(--font-size-m);
@@ -143,7 +142,7 @@
 		// background: var(--bg-gradient-r);
 		border-radius: 2rem;
 		line-height: 1.5;
-		padding: 1rem;
+		padding: 0.5rem;
 		// animation: blink 3s ease infinite;
 	}
 
@@ -186,7 +185,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		margin: 0;
-		gap: 0;
+		gap: 0.5rem;
 		width: 100%;
 		text-align: center;
 		justify-content: center;
@@ -212,48 +211,48 @@
 		height: 50px;
 
 		&.default {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.dark {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.light {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.sunset {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.focus {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.bold {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 
 		&.turbo {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
 		&.bone {
-			background-color: var(--primary-color);
+			background-color: var(--bg-color);
 			color: var(--text-color);
 			font-family: var(--font-family);
 		}
@@ -271,7 +270,6 @@
 	@media (max-width: 1000px) {
 		.style-switcher {
 			flex-direction: column;
-			padding: 2rem;
 			width: auto;
 		}
 

@@ -3,7 +3,13 @@
 	import { onMount } from 'svelte';
 	import { fly, fade, slide } from 'svelte/transition';
 	import Reactions from '$lib/features/ai/components/chat/Reactions.svelte';
-	import type { InternalChatMessage, RoleType, AIModel, User, ProviderType } from '$lib/types/types';
+	import type {
+		InternalChatMessage,
+		RoleType,
+		AIModel,
+		User,
+		ProviderType
+	} from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { modelStore } from '$lib/stores/modelStore';
@@ -25,15 +31,14 @@
 	import { isFailure, clientTryCatch } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
-	import { MessageService } from '$lib/services/messageService'; 
+	import { MessageService } from '$lib/services/messageService';
 
 	export let message: InternalChatMessage;
-	
+
 	export let allMessages: InternalChatMessage[] = [];
 	export let userId: string;
 	export let name: string;
 	export let depth: number = 0;
-
 
 	export let latestMessageId: string | null;
 	export let toggleReplies: (messageId: string) => void;
@@ -43,7 +48,9 @@
 	export let sendMessage: (
 		text: string,
 		parent_msg?: string,
-		contextMessages?: Partial<InternalChatMessage>[] | { role: string; content: string; model?: string }[]
+		contextMessages?:
+			| Partial<InternalChatMessage>[]
+			| { role: string; content: string; model?: string }[]
 	) => Promise<void> = async () => {};
 	export let isDualResponse = false;
 	export let dualResponsePair = false;
@@ -185,147 +192,149 @@
 
 	//
 
-async function generateTask(taskDetails: {
-    messageId: string;
-    content: string;
-    model: string;
-    promptType: string;
-    threadId?: string;
-}) {
-    console.log('generateTask called with details:', taskDetails);
-    try {
-        const notificationId = addNotification('Generating parent task...', 'loading');
-        
-        // Ensure we have a proper AIModel object
-        let modelObject: AIModel;
-        
-        if (typeof aiModel === 'string') {
-            // Try to find the model in your model store
-            const foundModel = $modelStore.models.find(m => m.id === aiModel || m.api_type === aiModel);
-            
-            if (!foundModel) {
-                throw new Error(`Model ${aiModel} not found in model store`);
-            }
-            modelObject = foundModel;
-        } else {
-            modelObject = aiModel;
-        }
+	async function generateTask(taskDetails: {
+		messageId: string;
+		content: string;
+		model: string;
+		promptType: string;
+		threadId?: string;
+	}) {
+		console.log('generateTask called with details:', taskDetails);
+		try {
+			const notificationId = addNotification('Generating parent task...', 'loading');
 
-        // Use your existing generateTaskFromMessage function
-        const { title, description } = await generateTaskFromMessage({
-            content: taskDetails.content,
-            messageId: taskDetails.messageId,
-            model: modelObject,
-            userId: userId,
-            threadId: taskDetails.threadId || message.thread,
-            isParentTask: true
-        });
+			// Ensure we have a proper AIModel object
+			let modelObject: AIModel;
 
-        updateNotification(notificationId, {
-            message: 'Creating task...'
-        });
+			if (typeof aiModel === 'string') {
+				// Try to find the model in your model store
+				const foundModel = $modelStore.models.find(
+					(m) => m.id === aiModel || m.api_type === aiModel
+				);
 
-        const cleanTitle = title
-            .replace(/^\*\*Title:\*\*\s*/i, '')
-            .replace(/^Title:\s*/i, '')
-            .replace(/\*\*/g, '')
-            .replace(/^#+\s*/, '')
-            .trim();
+				if (!foundModel) {
+					throw new Error(`Model ${aiModel} not found in model store`);
+				}
+				modelObject = foundModel;
+			} else {
+				modelObject = aiModel;
+			}
 
-        console.log('Generated parent task title:', cleanTitle);
-        console.log('Generated parent task description:', description);
+			// Use your existing generateTaskFromMessage function
+			const { title, description } = await generateTaskFromMessage({
+				content: taskDetails.content,
+				messageId: taskDetails.messageId,
+				model: modelObject,
+				userId: userId,
+				threadId: taskDetails.threadId || message.thread,
+				isParentTask: true
+			});
 
-        const threadId = taskDetails.threadId || message.thread || '';
+			updateNotification(notificationId, {
+				message: 'Creating task...'
+			});
 
-        const newParentTask: KanbanTask = {
-            id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-            title: cleanTitle,
-            taskDescription: description,
-            creationDate: new Date(),
-            start_date: null,
-            due_date: null,
-            tags: [],
-            attachments: [],
-            project_id: currentProjectId || '',
-            createdBy: $currentUser?.id || '',
-            parent_task: undefined,
-            allocatedAgents: [],
-            status: 'backlog' as const,
-            priority: 'medium' as const,
-            prompt: getPromptFromThread(threadId, allMessages),
-            context: '',
-            task_outcome: '',
-            dependencies: [],
-            agentMessages: [taskDetails.messageId]
-        };
+			const cleanTitle = title
+				.replace(/^\*\*Title:\*\*\s*/i, '')
+				.replace(/^Title:\s*/i, '')
+				.replace(/\*\*/g, '')
+				.replace(/^#+\s*/, '')
+				.trim();
 
-        const projectId = currentProjectId || '';
-        console.log('Saving parent task with projectId:', projectId);
-        const savedParentTask = await saveTask(newParentTask);
-        console.log('Parent task saved successfully:', savedParentTask);
+			console.log('Generated parent task title:', cleanTitle);
+			console.log('Generated parent task description:', description);
 
-        const parentId = savedParentTask.id;
-        console.log('Using parent task ID for child tasks:', parentId);
-        
-        updateNotification(notificationId, {
-            message: 'Generating subtasks...'
-        });
+			const threadId = taskDetails.threadId || message.thread || '';
 
-        // Use your existing generateChildTasks function
-        const childTasks = await generateChildTasks({
-            content: taskDetails.content,
-            messageId: taskDetails.messageId,
-            model: modelObject,
-            userId: userId,
-            parentTaskId: parentId,
-            projectId: currentProjectId || ''
-        });
+			const newParentTask: KanbanTask = {
+				id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+				title: cleanTitle,
+				taskDescription: description,
+				creationDate: new Date(),
+				start_date: null,
+				due_date: null,
+				tags: [],
+				attachments: [],
+				project_id: currentProjectId || '',
+				createdBy: $currentUser?.id || '',
+				parent_task: undefined,
+				allocatedAgents: [],
+				status: 'backlog' as const,
+				priority: 'medium' as const,
+				prompt: getPromptFromThread(threadId, allMessages),
+				context: '',
+				task_outcome: '',
+				dependencies: [],
+				agentMessages: [taskDetails.messageId]
+			};
 
-        console.log(`Generated and saved ${childTasks.length} child tasks`);
-        updateNotification(notificationId, {
-            message: `Task "${cleanTitle}" created with ${childTasks.length} subtasks`,
-            type: 'success',
-            link: {
-                url: '/lean',
-                text: 'Open Tasks'
-            }
-        });
-        
-        dispatch('notification', {
-            message: `Task created with ${childTasks.length} subtasks`,
-            type: 'success'
-        });
+			const projectId = currentProjectId || '';
+			console.log('Saving parent task with projectId:', projectId);
+			const savedParentTask = await saveTask(newParentTask);
+			console.log('Parent task saved successfully:', savedParentTask);
 
-        return {
-            parentTask: savedParentTask,
-            childTasks: childTasks
-        };
-    } catch (error: unknown) {
-        console.error('Error generating task:', error);
-        console.log('Error details:', {
-            name: error instanceof Error ? error.name : 'Unknown',
-            message: error instanceof Error ? error.message : 'Unknown',
-            stack: error instanceof Error ? error.stack : undefined,
-            fullError: error
-        });
-        addNotification(
-            'Failed to create task: ' + (error instanceof Error ? error.message : 'Unknown error'),
-            'error'
-        );
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        dispatch('notification', {
-            message: 'Failed to create task: ' + errorMessage,
-            type: 'error'
-        });
+			const parentId = savedParentTask.id;
+			console.log('Using parent task ID for child tasks:', parentId);
 
-        // Show error tooltip
-        taskTooltipText = 'Failed to create task';
-        showTaskTooltip = true;
-        setTimeout(() => {
-            showTaskTooltip = false;
-        }, 2000);
-    }
-}
+			updateNotification(notificationId, {
+				message: 'Generating subtasks...'
+			});
+
+			// Use your existing generateChildTasks function
+			const childTasks = await generateChildTasks({
+				content: taskDetails.content,
+				messageId: taskDetails.messageId,
+				model: modelObject,
+				userId: userId,
+				parentTaskId: parentId,
+				projectId: currentProjectId || ''
+			});
+
+			console.log(`Generated and saved ${childTasks.length} child tasks`);
+			updateNotification(notificationId, {
+				message: `Task "${cleanTitle}" created with ${childTasks.length} subtasks`,
+				type: 'success',
+				link: {
+					url: '/lean',
+					text: 'Open Tasks'
+				}
+			});
+
+			dispatch('notification', {
+				message: `Task created with ${childTasks.length} subtasks`,
+				type: 'success'
+			});
+
+			return {
+				parentTask: savedParentTask,
+				childTasks: childTasks
+			};
+		} catch (error: unknown) {
+			console.error('Error generating task:', error);
+			console.log('Error details:', {
+				name: error instanceof Error ? error.name : 'Unknown',
+				message: error instanceof Error ? error.message : 'Unknown',
+				stack: error instanceof Error ? error.stack : undefined,
+				fullError: error
+			});
+			addNotification(
+				'Failed to create task: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'error'
+			);
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			dispatch('notification', {
+				message: 'Failed to create task: ' + errorMessage,
+				type: 'error'
+			});
+
+			// Show error tooltip
+			taskTooltipText = 'Failed to create task';
+			showTaskTooltip = true;
+			setTimeout(() => {
+				showTaskTooltip = false;
+			}, 2000);
+		}
+	}
 
 	async function generateChildTasks({
 		content,
@@ -734,72 +743,77 @@ async function generateTask(taskDetails: {
 			};
 		}
 	}
-function isPromise(value: unknown): value is Promise<unknown> {
-	return value != null && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
-}
+	function isPromise(value: unknown): value is Promise<unknown> {
+		return (
+			value != null &&
+			typeof value === 'object' &&
+			typeof (value as { then?: unknown }).then === 'function'
+		);
+	}
 
-async function processContent() {
-	if (!message?.content || isProcessingContent) return;
-	
-	console.log('Processing message:', message.id, 'Content:', message.content);
-	isProcessingContent = true;
+	async function processContent() {
+		if (!message?.content || isProcessingContent) return;
 
-	let contentToProcess: string = '';
+		console.log('Processing message:', message.id, 'Content:', message.content);
+		isProcessingContent = true;
 
-	try {
-		if (isPromise(message.content)) {
-			const resolvedContent = await message.content;
-			contentToProcess = String(resolvedContent || '');
-		} else {
-			contentToProcess = String(message.content || '');
+		let contentToProcess: string = '';
+
+		try {
+			if (isPromise(message.content)) {
+				const resolvedContent = await message.content;
+				contentToProcess = String(resolvedContent || '');
+			} else {
+				contentToProcess = String(message.content || '');
+			}
+
+			// Use the MessageService method directly
+			processedContent = await MessageService.processMessageContentWithReplyable(
+				contentToProcess,
+				message.id
+			);
+
+			console.log('Final processed content length:', processedContent.length);
+		} catch (error) {
+			console.error('Error processing message content:', error);
+			processedContent = contentToProcess || 'Error loading message content';
+		} finally {
+			isProcessingContent = false;
+		}
+	}
+	$: if (message?.id && message.id !== lastProcessedMessageId) {
+		lastProcessedMessageId = message.id;
+		processContent();
+	}
+
+	// Only ONE function export reactive statement
+	$: if (depth === 0) {
+		onScrollToMessage = scrollToMessage;
+		onGetVisibleMessages = getVisibleMessages;
+		onGetCurrentIndex = () => currentMessageIndex;
+	}
+
+	onMount(() => {
+		// Process content on mount if available (non-async)
+		if (message?.content && !processedContent) {
+			// Use setTimeout to avoid blocking
+			setTimeout(() => {
+				processContent();
+			}, 0);
 		}
 
-		// Use the MessageService method directly
-		processedContent = await MessageService.processMessageContentWithReplyable(contentToProcess, message.id);
-		
-		console.log('Final processed content length:', processedContent.length);
-	} catch (error) {
-		console.error('Error processing message content:', error);
-		processedContent = contentToProcess || 'Error loading message content';
-	} finally {
-		isProcessingContent = false;
-	}
-}
-$: if (message?.id && message.id !== lastProcessedMessageId) {
-	lastProcessedMessageId = message.id;
-	processContent();
-}
+		// Only set up scroll handler for depth-0 messages
+		if (depth === 0) {
+			const timeoutId = setTimeout(() => {
+				const cleanup = setupScrollHandler();
+				return cleanup;
+			}, 100);
 
-// Only ONE function export reactive statement
-$: if (depth === 0) {
-	onScrollToMessage = scrollToMessage;
-	onGetVisibleMessages = getVisibleMessages;
-	onGetCurrentIndex = () => currentMessageIndex;
-}
-
-
-onMount(() => {
-	// Process content on mount if available (non-async)
-	if (message?.content && !processedContent) {
-		// Use setTimeout to avoid blocking
-		setTimeout(() => {
-			processContent();
-		}, 0);
-	}
-
-	// Only set up scroll handler for depth-0 messages
-	if (depth === 0) {
-		const timeoutId = setTimeout(() => {
-			const cleanup = setupScrollHandler();
-			return cleanup;
-		}, 100);
-
-		return () => {
-			clearTimeout(timeoutId);
-		};
-	}
-});
-
+			return () => {
+				clearTimeout(timeoutId);
+			};
+		}
+	});
 </script>
 
 <div
@@ -820,25 +834,24 @@ onMount(() => {
 			<div class="user-header">
 				<div class="avatar-container">
 					{#if message.user}
-							{#if $currentUser && getAvatarUrl($currentUser)}
-								<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
-							{:else}
-								<div class="default-avatar">
-									{($currentUser?.name ||
-										$currentUser?.username ||
-										$currentUser?.email ||
-										'?')[0]?.toUpperCase()}
-								</div>
-							{/if}
-
+						{#if $currentUser && getAvatarUrl($currentUser)}
+							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
+						{:else}
+							<div class="default-avatar">
+								{($currentUser?.name ||
+									$currentUser?.username ||
+									$currentUser?.email ||
+									'?')[0]?.toUpperCase()}
+							</div>
+						{/if}
 					{/if}
 				</div>
 				<span class="role">
-{#if message.type === 'human' && message.user}
-	{$currentUser?.id === message.user ? $currentUser.name : name}
-{:else}
-	{name}
-{/if}
+					{#if message.type === 'human' && message.user}
+						{$currentUser?.id === message.user ? $currentUser.name : name}
+					{:else}
+						{name}
+					{/if}
 				</span>
 			</div>
 		{:else if message.role === 'assistant'}

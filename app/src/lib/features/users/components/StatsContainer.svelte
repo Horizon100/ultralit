@@ -780,7 +780,7 @@
 
 	.last-active {
 		color: #cccccc;
-		text-align: right;
+		text-align: center;
 		font-size: 0.9em;
 	}
 
@@ -1091,11 +1091,5 @@
 	.perk-description {
 		font-size: 0.6rem;
 		color: #cccccc;
-	}
-
-	.last-active {
-		color: #cccccc;
-		text-align: right;
-		font-size: 0.9em;
 	}
 </style>

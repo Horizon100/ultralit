@@ -83,7 +83,7 @@
 	function handleInput(event: Event) {
 		const target = event.currentTarget as HTMLTextAreaElement;
 		userInput = target.value;
-		
+
 		// Debounce expensive operations
 		clearTimeout(inputTimeout);
 		inputTimeout = setTimeout(() => {
@@ -117,19 +117,19 @@
 		dispatch('toggleAiActive');
 	}
 
-function handleModelSelection(event: CustomEvent) {
-	console.log('🔄 MessageInput handleModelSelection - event.detail:', event.detail);
-	
-	// Add safety check before dispatching
-	if (!event.detail) {
-		console.error('❌ No event detail in MessageInput handleModelSelection');
-		return;
+	function handleModelSelection(event: CustomEvent) {
+		console.log('🔄 MessageInput handleModelSelection - event.detail:', event.detail);
+
+		// Add safety check before dispatching
+		if (!event.detail) {
+			console.error('❌ No event detail in MessageInput handleModelSelection');
+			return;
+		}
+
+		// Pass through the exact same structure
+		console.log('✅ MessageInput dispatching model selection');
+		dispatch('modelSelection', event.detail); // Pass through unchanged
 	}
-	
-	// Pass through the exact same structure
-	console.log('✅ MessageInput dispatching model selection');
-	dispatch('modelSelection', event.detail); // Pass through unchanged
-}
 
 	function handleSysPromptSelect(event: CustomEvent) {
 		console.log('Sys prompt selected:', event.detail);
@@ -163,20 +163,20 @@ function handleModelSelection(event: CustomEvent) {
 		dispatch('textModalOpen');
 	}
 	let cachedShowButtons = false;
-let cachedProjectId = '';
+	let cachedProjectId = '';
 
-$: {
-	// Only update if actually changed
-	const newShowButtons = localIsFocused || $isTextareaFocused;
-	if (newShowButtons !== cachedShowButtons) {
-		cachedShowButtons = newShowButtons;
+	$: {
+		// Only update if actually changed
+		const newShowButtons = localIsFocused || $isTextareaFocused;
+		if (newShowButtons !== cachedShowButtons) {
+			cachedShowButtons = newShowButtons;
+		}
+
+		const newProjectId = $threadsStore.currentThread?.project_id || '';
+		if (newProjectId !== cachedProjectId) {
+			cachedProjectId = newProjectId;
+		}
 	}
-	
-	const newProjectId = $threadsStore.currentThread?.project_id || '';
-	if (newProjectId !== cachedProjectId) {
-		cachedProjectId = newProjectId;
-	}
-}
 
 	$: placeholderText = (currentManualPlaceholder as string) || '';
 
@@ -330,13 +330,12 @@ $: {
 							type="button"
 							transition:slide
 							on:click={() => toggleSection('bookmarks')}
-							
 						>
 							<span class="icon">
 								{#if $expandedSections.bookmarks}
 									<Icon name="BookmarkCheckIcon" size={30} />
 								{:else}
-									<Icon name="Bookmark" size={20}/>
+									<Icon name="Bookmark" size={20} />
 								{/if}
 							</span>
 						</button>
@@ -1148,14 +1147,13 @@ $: {
 		.input-container-start {
 			display: flex;
 			flex-direction: column;
-			position: relative;
 
 			width: calc(100%);
 			max-width: 1200px;
 			margin-top: 0;
 			height: auto;
 			right: 0;
-
+			bottom: 0 !important;
 			margin-bottom: 0;
 			overflow-y: none;
 			// backdrop-filter: blur(4px);

@@ -3,7 +3,12 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import type { GameOrganization, GameBuilding, GameState, GamePageData } from '$lib/types/types.game';
+	import type {
+		GameOrganization,
+		GameBuilding,
+		GameState,
+		GamePageData
+	} from '$lib/types/types.game';
 	import { gameStore, gameService } from '$lib/stores/gameStore';
 	import { get } from 'svelte/store';
 	import GameNavigator from '$lib/features/game/components/GameNavigator.svelte';

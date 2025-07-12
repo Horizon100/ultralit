@@ -16,9 +16,9 @@ export const tagCounts = writable<TagCount[]>([]);
 export const tagFilterStore = {
 	// Toggle a tag selection
 	toggleTag: (tagName: string) => {
-		selectedTags.update(tags => {
+		selectedTags.update((tags) => {
 			if (tags.includes(tagName)) {
-				return tags.filter(t => t !== tagName);
+				return tags.filter((t) => t !== tagName);
 			} else {
 				return [...tags, tagName];
 			}
@@ -34,7 +34,7 @@ export const tagFilterStore = {
 	updateTagCounts: () => {
 		const posts = get(postStore).posts;
 		console.log('🏷️ updateTagCounts called with posts:', posts.length);
-		
+
 		if (!posts || posts.length === 0) {
 			console.log('🏷️ No posts available for tag counting');
 			tagCounts.set([]);
@@ -45,27 +45,27 @@ export const tagFilterStore = {
 
 		// Count all tags across all posts
 		posts.forEach((post, index) => {
-			console.log(`🏷️ Processing post ${index + 1}:`, {
-				id: post.id,
-				tags: post.tags,
-				tagCount: post.tagCount,
-				tagsType: typeof post.tags,
-				tagsIsArray: Array.isArray(post.tags)
-			});
+			// console.log(`🏷️ Processing post ${index + 1}:`, {
+			// 	id: post.id,
+			// 	tags: post.tags,
+			// 	tagCount: post.tagCount,
+			// 	tagsType: typeof post.tags,
+			// 	tagsIsArray: Array.isArray(post.tags)
+			// });
 
 			if (post.tags && Array.isArray(post.tags)) {
 				post.tags.forEach((tag, tagIndex) => {
-					console.log(`🏷️ Processing tag ${tagIndex + 1} from post ${post.id}:`, {
-						tag,
-						tagType: typeof tag,
-						tagValue: tag
-					});
+					// console.log(`🏷️ Processing tag ${tagIndex + 1} from post ${post.id}:`, {
+					// 	tag,
+					// 	tagType: typeof tag,
+					// 	tagValue: tag
+					// });
 
 					if (typeof tag === 'string' && tag.trim()) {
 						const normalizedTag = tag.trim().toLowerCase();
 						const currentCount = tagCountMap.get(normalizedTag) || 0;
 						tagCountMap.set(normalizedTag, currentCount + 1);
-						console.log(`🏷️ Added tag "${normalizedTag}", count: ${currentCount + 1}`);
+						// console.log(`🏷️ Added tag "${normalizedTag}", count: ${currentCount + 1}`);
 					} else if (typeof tag === 'object' && tag !== null) {
 						// Handle case where tag might be an object with name property
 						const tagName = tag.name || tag.title || tag.label;
@@ -73,7 +73,7 @@ export const tagFilterStore = {
 							const normalizedTag = tagName.trim().toLowerCase();
 							const currentCount = tagCountMap.get(normalizedTag) || 0;
 							tagCountMap.set(normalizedTag, currentCount + 1);
-							console.log(`🏷️ Added object tag "${normalizedTag}", count: ${currentCount + 1}`);
+							// console.log(`🏷️ Added object tag "${normalizedTag}", count: ${currentCount + 1}`);
 						}
 					}
 				});
@@ -95,70 +95,67 @@ export const tagFilterStore = {
 };
 
 // Derived store for filtered posts
-export const filteredPosts = derived(
-	[postStore, selectedTags],
-	([$postStore, $selectedTags]) => {
-		console.log('🏷️ filteredPosts derived store update:', {
-			totalPosts: $postStore.posts.length,
-			selectedTags: $selectedTags,
-			selectedTagsLength: $selectedTags.length
+export const filteredPosts = derived([postStore, selectedTags], ([$postStore, $selectedTags]) => {
+	console.log('🏷️ filteredPosts derived store update:', {
+		totalPosts: $postStore.posts.length,
+		selectedTags: $selectedTags,
+		selectedTagsLength: $selectedTags.length
+	});
+
+	// If no tags selected, return all posts
+	if (!$selectedTags || $selectedTags.length === 0) {
+		console.log('🏷️ No tags selected, returning all posts');
+		return $postStore.posts;
+	}
+
+	console.log('🏷️ Filtering posts with selected tags:', $selectedTags);
+
+	const filtered = $postStore.posts.filter((post) => {
+		console.log(`🏷️ Checking post ${post.id}:`, {
+			postTags: post.tags,
+			postTagsLength: post.tags?.length || 0,
+			postTagsType: typeof post.tags,
+			postTagsIsArray: Array.isArray(post.tags)
 		});
 
-		// If no tags selected, return all posts
-		if (!$selectedTags || $selectedTags.length === 0) {
-			console.log('🏷️ No tags selected, returning all posts');
-			return $postStore.posts;
+		if (!post.tags || !Array.isArray(post.tags) || post.tags.length === 0) {
+			console.log(`🏷️ Post ${post.id} has no tags, excluding`);
+			return false;
 		}
 
-		console.log('🏷️ Filtering posts with selected tags:', $selectedTags);
+		// Check if post has ANY of the selected tags
+		const hasMatchingTag = $selectedTags.some((selectedTag) => {
+			const tagMatch = post.tags.some((postTag) => {
+				// Handle both string tags and object tags
+				let tagName = '';
+				if (typeof postTag === 'string') {
+					tagName = postTag.trim().toLowerCase();
+				} else if (typeof postTag === 'object' && postTag !== null) {
+					tagName = (postTag.name || postTag.title || postTag.label || '').trim().toLowerCase();
+				}
 
-		const filtered = $postStore.posts.filter(post => {
-			console.log(`🏷️ Checking post ${post.id}:`, {
-				postTags: post.tags,
-				postTagsLength: post.tags?.length || 0,
-				postTagsType: typeof post.tags,
-				postTagsIsArray: Array.isArray(post.tags)
+				const selectedTagLower = selectedTag.trim().toLowerCase();
+				const matches = tagName === selectedTagLower;
+
+				if (matches) {
+					console.log(`🏷️ Post ${post.id} matches tag "${selectedTag}" (postTag: "${tagName}")`);
+				}
+
+				return matches;
 			});
 
-			if (!post.tags || !Array.isArray(post.tags) || post.tags.length === 0) {
-				console.log(`🏷️ Post ${post.id} has no tags, excluding`);
-				return false;
-			}
-
-			// Check if post has ANY of the selected tags
-			const hasMatchingTag = $selectedTags.some(selectedTag => {
-				const tagMatch = post.tags.some(postTag => {
-					// Handle both string tags and object tags
-					let tagName = '';
-					if (typeof postTag === 'string') {
-						tagName = postTag.trim().toLowerCase();
-					} else if (typeof postTag === 'object' && postTag !== null) {
-						tagName = (postTag.name || postTag.title || postTag.label || '').trim().toLowerCase();
-					}
-					
-					const selectedTagLower = selectedTag.trim().toLowerCase();
-					const matches = tagName === selectedTagLower;
-					
-					if (matches) {
-						console.log(`🏷️ Post ${post.id} matches tag "${selectedTag}" (postTag: "${tagName}")`);
-					}
-					
-					return matches;
-				});
-				
-				return tagMatch;
-			});
-
-			console.log(`🏷️ Post ${post.id} hasMatchingTag: ${hasMatchingTag}`);
-			return hasMatchingTag;
+			return tagMatch;
 		});
 
-		console.log('🏷️ Filtered posts result:', {
-			originalCount: $postStore.posts.length,
-			filteredCount: filtered.length,
-			filteredPostIds: filtered.map(p => p.id)
-		});
-		
-		return filtered;
-	}
-);
+		console.log(`🏷️ Post ${post.id} hasMatchingTag: ${hasMatchingTag}`);
+		return hasMatchingTag;
+	});
+
+	console.log('🏷️ Filtered posts result:', {
+		originalCount: $postStore.posts.length,
+		filteredCount: filtered.length,
+		filteredPostIds: filtered.map((p) => p.id)
+	});
+
+	return filtered;
+});

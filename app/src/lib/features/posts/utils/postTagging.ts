@@ -56,7 +56,7 @@ export async function generatePostTagsLocalNEW(
 	options: LocalTaggingOptions = {}
 ): Promise<GeneratedTag[]> {
 	console.log('🏷️ *** NEW CLEAN VERSION CALLED ***');
-	
+
 	try {
 		const {
 			model = 'qwen2.5:0.5b',
@@ -93,7 +93,7 @@ export async function generatePostTagsLocalNEW(
 					maxTags,
 					temperature
 				})
-			}).then(r => r.json()),
+			}).then((r) => r.json()),
 			'Failed to generate tags with local AI'
 		);
 
@@ -106,7 +106,7 @@ export async function generatePostTagsLocalNEW(
 		}
 
 		// Access the tags from the nested structure
-		const tagsData = response.data.data;  // Get the inner data object
+		const tagsData = response.data.data; // Get the inner data object
 		console.log('🏷️ Tags data:', tagsData);
 
 		const tags = tagsData.tags.map((tagName: string, index: number) => ({
@@ -116,7 +116,6 @@ export async function generatePostTagsLocalNEW(
 
 		console.log('🏷️ Returning processed tags:', tags);
 		return tags;
-
 	} catch (error) {
 		console.error('🏷️ Error generating tags:', error);
 		return [];
@@ -141,20 +140,20 @@ export async function handlePostTagging(
 			return { tags: [], postId, success: false, tagIds: [] };
 		}
 
-const generatedTags = await generatePostTagsLocalNEW(content, attachments, options);
-		
+		const generatedTags = await generatePostTagsLocalNEW(content, attachments, options);
+
 		if (generatedTags.length === 0) {
 			return { tags: [], postId, success: false, tagIds: [] };
 		}
 
-		const tagNames = generatedTags.map(tag => tag.name);
+		const tagNames = generatedTags.map((tag) => tag.name);
 
 		const updateResult = await clientTryCatch(
 			fetch(`/api/posts/${postId}/tags`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ tags: tagNames, tagCount: tagNames.length })
-			}).then(r => r.json()),
+			}).then((r) => r.json()),
 			'Failed to update post tags'
 		);
 
@@ -163,7 +162,6 @@ const generatedTags = await generatePostTagsLocalNEW(content, attachments, optio
 		}
 
 		return { tags: generatedTags, postId, success: true, tagIds: tagNames };
-
 	} catch (error) {
 		console.error('❌ Error in post tagging:', error);
 		return { tags: [], postId, success: false, tagIds: [] };

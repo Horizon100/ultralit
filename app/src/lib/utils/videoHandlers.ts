@@ -87,21 +87,23 @@ export async function convertVideoToUniversalFormat(videoFile: File): Promise<Re
 
 			// Get the converted video blob
 			const convertedBlob = await response.blob();
-			
+
 			// Get original and converted names from headers
 			const originalName = response.headers.get('X-Original-Name') || videoFile.name;
-			const convertedName = response.headers.get('X-Converted-Name') || 
-				videoFile.name.replace(/\.[^/.]+$/, '.mp4');
+			const convertedName =
+				response.headers.get('X-Converted-Name') || videoFile.name.replace(/\.[^/.]+$/, '.mp4');
 
 			// Create File object from blob
-			const convertedFile = new File([convertedBlob], convertedName, { 
+			const convertedFile = new File([convertedBlob], convertedName, {
 				type: 'video/mp4',
 				lastModified: Date.now()
 			});
 
 			console.log('Server-side conversion successful!');
-			console.log(`Original: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB -> Converted: ${(convertedFile.size / 1024 / 1024).toFixed(2)}MB`);
-			
+			console.log(
+				`Original: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB -> Converted: ${(convertedFile.size / 1024 / 1024).toFixed(2)}MB`
+			);
+
 			return convertedFile;
 		})()
 	);

@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 		const videoFile = formData.get('video') as File;
 		const userAgent = request.headers.get('user-agent') || '';
 		const forceH264 = formData.get('forceH264') === 'true';
-		
+
 		if (!videoFile) {
 			return json({ error: 'No video file provided' }, { status: 400 });
 		}
@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 		// Forward the file to the video converter service
 		const converterFormData = new FormData();
 		converterFormData.append('video', videoFile);
-		
+
 		if (needsConversion) {
 			converterFormData.append('outputFormat', 'mp4');
 			converterFormData.append('codec', 'libx264');
@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 
 		// Get the converted video as a blob
 		const convertedVideoBlob = await response.blob();
-		
+
 		// Create a new File object with the converted video
 		const originalName = videoFile.name;
 		const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
@@ -78,7 +78,6 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 				'X-Safari-Compatible': needsConversion ? 'true' : 'false'
 			}
 		});
-
 	} catch (error) {
 		console.error('Video conversion API error:', error);
 		return json({ error: 'Internal server error' }, { status: 500 });

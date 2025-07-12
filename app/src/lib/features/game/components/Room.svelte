@@ -10,10 +10,9 @@
 	export let isExpanded: boolean = false;
 	export let data: GameRoomData | null = null;
 	export let gridSize: { width: number; height: number };
-	
+
 	export const pixelToGridX = (pixel: number): number => Math.floor(pixel / gridSize.width);
 	export const pixelToGridY = (pixel: number): number => Math.floor(pixel / gridSize.height);
-
 
 	export let gridX: number;
 	export let gridY: number;

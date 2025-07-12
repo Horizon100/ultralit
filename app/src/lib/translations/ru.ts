@@ -61,7 +61,9 @@ export default {
 		yes: 'Дв',
 		no: 'Нет',
 		on: 'Вкл.',
-		off: 'Выкл.'
+		off: 'Выкл.',
+		settings: 'Настройки',
+		tags: 'Теги'
 	},
 	posts: {
 		loginPrompt: 'Пожалуйста, войдите, чтобы создать запись.',
@@ -544,6 +546,7 @@ export default {
 	},
 
 	profile: {
+		profile: 'Профиль',
 		name: 'Имя',
 		email: 'Почта',
 		emailReset: 'Ваш адрес электронной почты для восстановления пароля',
@@ -565,6 +568,7 @@ export default {
 		signup: 'Зарегистрироваться',
 		clause: 'Используя vRazum, вы автоматически соглашаетесь с нашими',
 		terms: 'Условия',
+		wallpaper: 'Обои',
 		privacy: 'Конфиденциальность',
 		invitation: 'У меня есть код приглашения',
 		invitationPlaceholder: 'Код приглашения (12 символов)',
@@ -603,7 +607,8 @@ export default {
 		followers: 'Подписчики',
 		following: 'Подписан',
 		follow: 'Подписаться',
-		favorites: 'Избранное'
+		favorites: 'Избранное',
+		stats: 'Статистика'
 	},
 	button: {
 		tags: 'Тагы'

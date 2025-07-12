@@ -62,7 +62,7 @@ export const GET: RequestHandler = async ({ url, locals }) =>
 			});
 
 			const sanitizedModels = models.map(({ api_key, ...rest }) => rest);
-return json({ success: true, models: sanitizedModels });
+			return json({ success: true, models: sanitizedModels });
 		}
 
 		const userId = params.userId || url.searchParams.get('userId');

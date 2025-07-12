@@ -56,17 +56,20 @@ function createPostStore() {
 					console.log('Adding tags to post:', { postId, tagIds });
 
 					// Update the post with new tags
-const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}/tags`, {
-						method: 'PATCH',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							tags: tagIds,
-							tagCount: tagIds.length
-						}),
-						credentials: 'include'
-					});
+					const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(
+						`/api/posts/${postId}/tags`,
+						{
+							method: 'PATCH',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
+								tags: tagIds,
+								tagCount: tagIds.length
+							}),
+							credentials: 'include'
+						}
+					);
 
 					if (isFailure(postUpdateResult)) {
 						throw new Error(`Failed to add tags to post: ${postUpdateResult.error}`);
@@ -216,62 +219,65 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 			return result.data;
 		},
 
-	setPostTags: async (postId: string, newTagIds: string[]) => {
-	const result = await clientTryCatch(
-		(async () => {
-			const user = get(currentUser);
-			if (!user?.id) {
-				throw new Error('User not authenticated');
-			}
+		setPostTags: async (postId: string, newTagIds: string[]) => {
+			const result = await clientTryCatch(
+				(async () => {
+					const user = get(currentUser);
+					if (!user?.id) {
+						throw new Error('User not authenticated');
+					}
 
-			console.log('Setting post tags:', { postId, newTagIds });
+					console.log('Setting post tags:', { postId, newTagIds });
 
-			// Update the post with new tags - USE THE CORRECT ENDPOINT
-			const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${postId}/tags`, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					tags: newTagIds,
-					tagCount: newTagIds.length
-				}),
-				credentials: 'include'
-			});
-
-			if (isFailure(postUpdateResult)) {
-				throw new Error(`Failed to set post tags: ${postUpdateResult.error}`);
-			}
-
-			const updatedPost = postUpdateResult.data;
-
-			// Update local store immediately
-			update((state) => ({
-				...state,
-				posts: state.posts.map((post) =>
-					post.id === postId
-						? {
-								...post,
+					// Update the post with new tags - USE THE CORRECT ENDPOINT
+					const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(
+						`/api/posts/${postId}/tags`,
+						{
+							method: 'PATCH',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
 								tags: newTagIds,
 								tagCount: newTagIds.length
-							}
-						: post
-				)
-			}));
+							}),
+							credentials: 'include'
+						}
+					);
 
-			console.log('Successfully set post tags:', postId);
-			return updatedPost;
-		})(),
-		`Setting tags for post ${postId}`
-	);
+					if (isFailure(postUpdateResult)) {
+						throw new Error(`Failed to set post tags: ${postUpdateResult.error}`);
+					}
 
-	if (isFailure(result)) {
-		console.error('Error setting post tags:', result.error);
-		throw new Error(result.error);
-	}
+					const updatedPost = postUpdateResult.data;
 
-	return result.data;
-},
+					// Update local store immediately
+					update((state) => ({
+						...state,
+						posts: state.posts.map((post) =>
+							post.id === postId
+								? {
+										...post,
+										tags: newTagIds,
+										tagCount: newTagIds.length
+									}
+								: post
+						)
+					}));
+
+					console.log('Successfully set post tags:', postId);
+					return updatedPost;
+				})(),
+				`Setting tags for post ${postId}`
+			);
+
+			if (isFailure(result)) {
+				console.error('Error setting post tags:', result.error);
+				throw new Error(result.error);
+			}
+
+			return result.data;
+		},
 
 		/**
 		 * Fetch posts by tag
@@ -509,6 +515,17 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 						throw new Error('User not authenticated');
 					}
 
+					console.log('🏪 PostStore.addPost called:', {
+						hasUser: !!user,
+						userId: user.id,
+						hasParentId: !!parentId,
+						attachmentCount: attachments
+							? Array.isArray(attachments)
+								? attachments.length
+								: attachments.length
+							: 0
+					});
+
 					// Only set loading for main posts, not comments
 					if (!parentId) {
 						update((state) => ({ ...state, loading: true, error: null }));
@@ -521,6 +538,7 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 					// Add parent ID if this is a comment
 					if (parentId) {
 						formData.append('parent', parentId);
+						console.log('🔗 Adding parent ID to formData:', parentId);
 					}
 
 					// Normalize attachments to always be an array
@@ -538,25 +556,57 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 						filesToUpload.forEach((file, index) => {
 							formData.append(`attachment_${index}`, file);
 						});
+						console.log(
+							'📎 Added attachments to formData:',
+							filesToUpload.map((f) => f.name)
+						);
 					}
 
-					const fetchResult = await fetchTryCatch<{ success: boolean; data: PostWithInteractions }>(
-						'/api/posts',
-						{
-							method: 'POST',
-							body: formData,
-							credentials: 'include'
+					console.log('📡 Making fetch request to /api/posts...');
+
+					// FIXED: Use direct fetch with proper error handling instead of fetchTryCatch
+					const response = await fetch('/api/posts', {
+						method: 'POST',
+						body: formData,
+						credentials: 'include', // Ensure cookies are included
+						headers: {
+							// Don't set Content-Type for FormData - browser will set it with boundary
 						}
-					);
+					});
 
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to create post: ${fetchResult.error}`);
+					console.log('📡 Response received:', {
+						status: response.status,
+						ok: response.ok,
+						statusText: response.statusText
+					});
+
+					if (!response.ok) {
+						const errorText = await response.text();
+						console.error('❌ Server error response:', errorText);
+						throw new Error(`Failed to create post: HTTP ${response.status} - ${errorText}`);
 					}
 
-					// Fix: Same double nesting issue - POST also uses apiTryCatch
-					const newPost = fetchResult.data.data; // Note the double .data
+					const responseData = await response.json();
+					console.log('📡 Response data:', responseData);
 
-					console.log('✅ FIXED - Post created successfully:', newPost.id);
+					// Handle different response formats
+					let newPost;
+					if (responseData.success && responseData.data) {
+						// Response wrapped in apiTryCatch format
+						newPost = responseData.data;
+					} else if (responseData.id) {
+						// Direct post object
+						newPost = responseData;
+					} else {
+						console.error('❌ Unexpected response format:', responseData);
+						throw new Error('Invalid response format from server');
+					}
+
+					console.log('✅ Post created successfully:', {
+						id: newPost.id,
+						content: newPost.content?.substring(0, 50) + '...',
+						hasParent: !!newPost.parent
+					});
 
 					// Only update posts list and loading for main posts
 					if (!parentId) {
@@ -573,6 +623,7 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 			);
 
 			if (isFailure(result)) {
+				console.error('❌ PostStore.addPost failed:', result.error);
 				// Only update loading state for main posts
 				if (!parentId) {
 					update((state) => ({ ...state, error: result.error, loading: false }));
@@ -650,7 +701,7 @@ const postUpdateResult = await fetchTryCatch<PostUpdateResponse>(`/api/posts/${p
 				throw new Error(result.error);
 			}
 
-	return await postStore.addPost(content, attachments, parentId);
+			return await postStore.addPost(content, attachments, parentId);
 		},
 
 		fetchChildren: async (postId: string, limit = 20, depth = 1) => {

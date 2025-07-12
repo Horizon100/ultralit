@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
 	import { t } from '$lib/stores/translationStore';
 
@@ -12,43 +13,53 @@
 	let error: string | null = null;
 
 	onMount(async () => {
-		if (browser) {
-			const {
-				success,
-				error: err,
-				data: user
-			} = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
+		if (!browser) return;
 
-			if (success && user) {
-				await goto('/home');
-			} else {
-				error = err ?? 'Failed to check authentication status';
-				await goto('/welcome');
-			}
-
+		// Only handle redirects if we're actually on the root page
+		if ($page.url.pathname !== '/') {
+			pageReady = true;
 			isLoading = false;
+			return;
+		}
+
+		const {
+			success,
+			error: err,
+			data: user
+		} = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
+
+		if (success && user) {
+			await goto('/home');
+		} else {
+			error = err ?? 'Failed to check authentication status';
+			await goto('/welcome');
 		}
 	});
 </script>
 
-{#if isLoading}
-	<div class="loading-container">
-		<div class="loading-content">
-			<div class="spinner"></div>
-			<p>{$t('loading')}</p>
+{#if $page.url.pathname === '/'}
+	{#if isLoading}
+		<div class="loading">
+			<p>Loading...</p>
 		</div>
-	</div>
-{/if}
-
-<!-- Error state -->
-{#if error}
-	<div class="error-container">
-		<div class="error-content">
-			<h2>Authentication Error</h2>
+	{:else if error}
+		<div class="error">
 			<p>{error}</p>
-			<button class="error-button" on:click={() => goto('/welcome')}> Go to Welcome </button>
+			<button on:click={() => goto('/welcome')}>Go to Welcome</button>
 		</div>
-	</div>
+	{:else if pageReady}
+		<div class="content">
+			<h1>Welcome to the App</h1>
+			<p>You shouldn't normally see this page.</p>
+			<div class="actions">
+				<button on:click={() => goto('/home')}>Go to Home</button>
+				<button on:click={() => goto('/chat')}>Go to Chat</button>
+			</div>
+		</div>
+	{/if}
+{:else}
+	<!-- If not on root path, don't render anything here - let other routes handle themselves -->
+	<div style="display: none;"></div>
 {/if}
 
 <style lang="scss">

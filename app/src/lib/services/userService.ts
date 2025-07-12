@@ -169,7 +169,7 @@ export class UserService {
 			avatarUrl: user.avatarUrl || this.getAvatarUrl(user)
 		};
 	}
-/**
+	/**
 	 * Preloads user profiles using batch fetching with improved caching
 	 */
 	static async preloadUserProfilesBatch(messages: InternalChatMessage[]): Promise<void> {
@@ -269,7 +269,6 @@ export class UserService {
 		}
 	}
 
-
 	/**
 	 * Check if user is cached and cache is fresh
 	 */
@@ -290,7 +289,6 @@ export class UserService {
 	/**
 	 * Debounced batch fetching to prevent multiple simultaneous requests
 	 */
-
 
 	private static convertUserToPublicProfile(user: Partial<User>): PublicUserProfile | null {
 		if (!user.id || !user.username) return null;
@@ -329,7 +327,6 @@ export class UserService {
 			following: user.following || []
 		};
 	}
-
 
 	/**
 	 * Checks if a thread is favorited by the current user

@@ -3,9 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
-	
-	import type { PostWithInteractions, CommentWithInteractions} from '$lib/types/types.posts';
-	import type { Tag, AIAgent} from '$lib/types/types'; // Add this import
+
+	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
+	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
 	import ShareModal from '$lib/components/modals/ShareModal.svelte';
@@ -17,7 +17,8 @@
 	import { slide, fly, fade } from 'svelte/transition';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
-import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
+	import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
+	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
 
 	import {
 		initAudioState,
@@ -41,10 +42,10 @@ import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	import { toast } from '$lib/utils/toastUtils';
 	import { agentStore } from '$lib/stores/agentStore'; // Add this import
 	import LocalAIAnalysisModal from '$lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte';
+	import LocalAIAnalysisButton from '$lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte';
+
 	import PDFThumbnail from '$lib/features/pdf/components/PDFThumbnail.svelte';
 	import PDFReader from '$lib/features/pdf/components/PDFReader.svelte';
-  
-
 
 	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
@@ -55,7 +56,7 @@ import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	export let isQuote: boolean = false;
 
 	export let hideHeaderOnScroll: boolean = false;
-export let selectedLocalModel: string = 'qwen2.5:0.5b';
+	export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
 	let showTooltip = false;
 	let showShareModal = false;
@@ -71,11 +72,52 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	let loadingTags = false;
 	let tagsLoaded = false;
 	let agentsExpanded = false;
+	let showLabels = false;
+	let attachmentTags: Array<{
+		attachmentId: string;
+		tags: string[];
+		analysis?: string;
+		fileName: string;
+	}> = [];
+	let loadingAttachmentTags = false;
+	let attachmentTagsLoaded = false;
+	let agentsLoaded = false;
 
 	$: postAgentIds = post.agents || [];
-	$: availableAgents = $agentStore.agents || [];
+	$: availableAgents = $agentStore.agents;
+	$: console.log('🤖 Store agents:', $agentStore.agents.length);
 	$: activeAgents = availableAgents.filter((agent) => agent.status === 'active');
 
+	$: hasPostTags = Array.isArray(post.tags) && post.tags.length > 0;
+	$: hasAttachmentTags =
+		post.attachments && post.attachments.some((att) => att.tags && att.tags.length > 0);
+
+	$: postTagCount = Array.isArray(post.tags) ? post.tags.length : 0;
+
+	$: attachmentTagCount = post.attachments
+		? post.attachments.reduce((sum, att) => sum + (att.tags?.length || 0), 0)
+		: 0;
+	$: totalTagCount = postTagCount + attachmentTagCount;
+	$: hasAnyTags = hasPostTags || hasAttachmentTags;
+	$: {
+		if (totalTagCount === 0) {
+			tagsTitle = 'No tags';
+		} else {
+			const postTagText =
+				post.tagCount > 0 ? `${post.tagCount} post tag${post.tagCount !== 1 ? 's' : ''}` : '';
+			const attachmentTagCount = attachmentTags.reduce((sum, att) => sum + att.tags.length, 0);
+			const attachmentTagText =
+				attachmentTagCount > 0
+					? `${attachmentTagCount} attachment tag${attachmentTagCount !== 1 ? 's' : ''}`
+					: '';
+
+			if (postTagText && attachmentTagText) {
+				tagsTitle = `${postTagText} and ${attachmentTagText}`;
+			} else {
+				tagsTitle = postTagText || attachmentTagText;
+			}
+		}
+	}
 	$: postAgents = postAgentIds
 		.map((agentId) => activeAgents.find((agent) => agent.id === agentId))
 		.filter((agent): agent is AIAgent => agent !== undefined);
@@ -110,7 +152,9 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		// Optional: Show toast notification
 		toast.success(`Analysis complete using ${selectedLocalModel}`);
 	}
-	
+	function toggleLabels() {
+		showLabels = !showLabels;
+	}
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
@@ -127,25 +171,25 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		const postUrl = `/${post.author_username}/posts/${post.id}`;
 		goto(postUrl);
 	}
-	  
-  function openPDFReader(attachmentData) {
-    currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
-    showPDFReader = true;
-  }
-  
-  function closePDFReader() {
-    showPDFReader = false;
-    currentPDFUrl = '';
-    // Ensure body scroll is restored (backup)
-    document.body.style.overflow = '';
-  }
 
-  function getPDFUrl(attachmentData) {
-    return `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
-  }
+	function openPDFReader(attachmentData) {
+		currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+		showPDFReader = true;
+	}
+
+	function closePDFReader() {
+		showPDFReader = false;
+		currentPDFUrl = '';
+		// Ensure body scroll is restored (backup)
+		document.body.style.overflow = '';
+	}
+
+	function getPDFUrl(attachmentData) {
+		return `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
+	}
 	function handleModelSelect(event: CustomEvent<{ model: string }>) {
-	selectedLocalModel = event.detail.model;
-	console.log('🔄 Model updated to:', selectedLocalModel);
+		selectedLocalModel = event.detail.model;
+		console.log('🔄 Model updated to:', selectedLocalModel);
 	}
 	function formatTimestamp(timestamp: string): string {
 		const date = new Date(timestamp);
@@ -193,6 +237,22 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
 		// If different year, show: "15. March 2023"
 		return `${day}. ${monthName} ${year}`;
+	}
+	async function loadAgentsOnDemand() {
+		if (agentsLoaded || $agentStore.isLoading) {
+			console.log('🤖 Agents already loaded or loading, skipping...');
+			return;
+		}
+
+		try {
+			console.log('🤖 Loading agents on demand...');
+			agentsLoaded = true; // Set this first to prevent multiple calls
+			await agentStore.loadAgents();
+			console.log('🤖 Agents loaded successfully');
+		} catch (error) {
+			console.error('🤖 Failed to load agents:', error);
+			agentsLoaded = false; // Reset so user can retry
+		}
 	}
 	async function toggleAgentAssignment(agentId: string) {
 		console.log('Toggling agent assignment:', agentId);
@@ -244,16 +304,98 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	}
 	// Updated handleTags function for inline expansion
 	async function handleTags() {
-		if (tagCount === 0) return;
+		if (totalTagCount === 0) return;
 
 		tagsExpanded = !tagsExpanded;
 
-		// Fetch tag details when expanding for the first time
-		if (tagsExpanded && !tagsLoaded && hasTagIds) {
-			await fetchTagDetails();
+		// Fetch details when expanding for the first time
+		if (tagsExpanded && (!tagsLoaded || !attachmentTagsLoaded)) {
+			await Promise.all([
+				hasAttachmentTags && !attachmentTagsLoaded ? fetchAttachmentTags() : Promise.resolve()
+			]);
 		}
 	}
+	async function fetchAttachmentTags() {
+		if (!post.attachments || attachmentTagsLoaded || loadingAttachmentTags) return;
 
+		loadingAttachmentTags = true;
+		console.log('🏷️ Fetching attachment tags for post:', post.id);
+
+		try {
+			const attachmentsWithTags = await Promise.all(
+				post.attachments.map(async (attachment) => {
+					if (!attachment.tags || attachment.tags.length === 0) {
+						return null;
+					}
+
+					try {
+						// Fetch the attachment details including tags
+						const response = await fetch(
+							`/api/posts/${post.id}/attachment?attachmentId=${attachment.id}`,
+							{ credentials: 'include' }
+						);
+
+						if (!response.ok) {
+							console.warn(
+								`Failed to fetch attachment ${attachment.id} tags:`,
+								response.statusText
+							);
+							// Fallback to using the tags we already have
+							return {
+								attachmentId: attachment.id,
+								tags: attachment.tags,
+								analysis: attachment.analysis,
+								fileName: attachment.original_name
+							};
+						}
+
+						const result = await response.json();
+
+						if (result.success && result.attachment) {
+							return {
+								attachmentId: attachment.id,
+								tags: result.attachment.tags || [],
+								analysis: result.attachment.analysis,
+								fileName: attachment.original_name
+							};
+						} else {
+							// Fallback
+							return {
+								attachmentId: attachment.id,
+								tags: attachment.tags,
+								analysis: attachment.analysis,
+								fileName: attachment.original_name
+							};
+						}
+					} catch (error) {
+						console.error(`Error fetching attachment ${attachment.id} tags:`, error);
+						// Fallback to existing data
+						return {
+							attachmentId: attachment.id,
+							tags: attachment.tags || [],
+							analysis: attachment.analysis,
+							fileName: attachment.original_name
+						};
+					}
+				})
+			);
+
+			attachmentTags = attachmentsWithTags.filter(Boolean);
+			attachmentTagsLoaded = true;
+			console.log('🏷️ Loaded attachment tags:', attachmentTags);
+		} catch (error) {
+			console.error('🏷️ Error fetching attachment tags:', error);
+			attachmentTags = [];
+		} finally {
+			loadingAttachmentTags = false;
+		}
+	}
+	function handleAttachmentTagClick(tag: string, attachmentId: string, event: MouseEvent) {
+		event.stopPropagation();
+		console.log('🏷️ Clicked attachment tag:', tag, 'from attachment:', attachmentId);
+		// You can implement navigation to search by attachment tag here
+		// For example: goto(`/search?attachment_tag=${encodeURIComponent(tag)}`);
+	}
 	// Fetch tag details
 
 	async function fetchTagDetails() {
@@ -479,6 +621,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		dispatch('quote', event.detail);
 		showQuoteModal = false;
 	}
+
 	/*
 	 * $: {
 	 *     debugCount++;
@@ -491,41 +634,51 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	 * }
 	 */
 
-    $: upvoteCount = post.upvoteCount !== undefined && post.upvoteCount !== null ? post.upvoteCount : 0;
-    $: shareTitle = $t('generic.share') as string;
-    $: upvoteTitle = $t('posts.postUpvote') as string;
-    $: repostTitle = $t('posts.repost') as string;
-    $: tagsTitle = tagsExpanded ? 'Hide tags' : `Show ${tagCount} tags`;
-    
-    $: postAuthor = {
-        id: post.user,
-        avatar: post.author_avatar,
-        collectionId: '_pb_users_auth_'
-    };
-    
-    $: expandedUser = post.expand?.user ? {
-        id: post.expand.user.id,
-        avatar: post.expand.user.avatar,
-        collectionId: '_pb_users_auth_' 
-    } : null;
-    
-    $: {
-        console.log('🔍 Post Data Debug:', {
-            post,
-            user: post.user,
-            author_username: post.author_username,
-            author_name: post.author_name,
-            expand_user: post.expand?.user
-        });
-    }
-    
-    $: avatarUserData = {
-        id: post.user,
-        avatar: post.author_avatar,
-        username: post.author_username || post.expand?.user?.username,
-        name: post.author_name || post.expand?.user?.name
-    };
-    
+	$: upvoteCount =
+		post.upvoteCount !== undefined && post.upvoteCount !== null ? post.upvoteCount : 0;
+	$: shareTitle = $t('generic.share') as string;
+	$: upvoteTitle = $t('posts.postUpvote') as string;
+	$: repostTitle = $t('posts.repost') as string;
+	$: tagsTitle = tagsExpanded ? 'Hide tags' : `Show ${tagCount} tags`;
+
+	$: postAuthor = {
+		id: post.user,
+		avatar: post.author_avatar,
+		collectionId: '_pb_users_auth_'
+	};
+
+	$: expandedUser = post.expand?.user
+		? {
+				id: post.expand.user.id,
+				avatar: post.expand.user.avatar,
+				collectionId: '_pb_users_auth_'
+			}
+		: null;
+
+	// $: {
+	//     console.log('🔍 Post Data Debug:', {
+	//         post,
+	//         user: post.user,
+	//         author_username: post.author_username,
+	//         author_name: post.author_name,
+	//         expand_user: post.expand?.user
+	//     });
+	// }
+
+	$: avatarUserData = {
+		id: post.user,
+		avatar: post.author_avatar,
+		username: post.author_username || post.expand?.user?.username,
+		name: post.author_name || post.expand?.user?.name
+	};
+	$: if (agentsExpanded && !agentsLoaded && !$agentStore.isLoading) {
+		console.log('🤖 Agents expanded for first time, loading...');
+		loadAgentsOnDemand();
+	}
+	//     onMount(async () => {
+	//     console.log('🤖 Loading agents...');
+	//     // await agentStore.loadAgents();
+	// });
 
 	onDestroy(() => {
 		if (post.attachments) {
@@ -551,13 +704,9 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		</div>
 	{/if}
 	<div class="post-header" class:scrolled={hideHeaderOnScroll}>
-<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
-    <Avatar 
-        user={avatarUserData} 
-        size={40} 
-        className="post-avatar" 
-    />
-</a>
+		<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
+			<Avatar user={avatarUserData} size={40} className="post-avatar" />
+		</a>
 		<div class="post-meta">
 			<!-- Make author name clickable -->
 			<a
@@ -617,59 +766,69 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
 										alt={attachment.original_name}
 										class="attachment-image"
+										title={attachment.analysis}
+										transition:fade
 									/>
 								</a>
-{:else if attachment.file_type === 'video'}
-    <div class="attachment-video" on:click|stopPropagation>
-        <VideoPlayer
-            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
-            mimeType={attachment.mime_type}
-            autoplay={!isComment}
-            showControls={true}
-            loop={true}
-            muted={true}
-            threshold={0.8}
-            className="post-video-player"
-        />
-    </div>
-{:else if attachment.file_type === 'audio'}
-    <div class="attachment-audio" on:click|stopPropagation>
-
-        <AudioPlayer
-            attachmentId={attachment.id}
-            audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
-            mimeType={attachment.mime_type}
-            fileName={attachment.original_name}
-        />
-    </div>
-		{:else if attachment.file_type === 'document'}
+							{:else if attachment.file_type === 'video'}
+								<div class="attachment-video" on:click|stopPropagation>
+									<VideoPlayer
+										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+										mimeType={attachment.mime_type}
+										autoplay={!isComment}
+										showControls={true}
+										loop={true}
+										muted={true}
+										threshold={0.8}
+										className="post-video-player"
+										enableMLDetection={true}
+										showMLControls={true}
+										showPerformanceMonitor={true}
+										autoTagging={true}
+										attachmentId={attachment.id}
+										postId={post.id}
+										minTaggingConfidence={0.7}
+										onTagsUpdated={(tags) => {
+											console.log('Video tags updated for attachment:', attachment.id, tags);
+										}}
+									/>
+								</div>
+							{:else if attachment.file_type === 'audio'}
+								<div class="attachment-audio" on:click|stopPropagation>
+									<AudioPlayer
+										attachmentId={attachment.id}
+										audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+										mimeType={attachment.mime_type}
+										fileName={attachment.original_name}
+									/>
+								</div>
+							{:else if attachment.file_type === 'document'}
 								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
 									<div class="attachment-file">
-  {#if attachment.mime_type === 'application/pdf'}
-    <div class="pdf-attachment">
-      <PDFThumbnail 
-        pdfUrl={getPDFUrl(attachment)} 
-        onClick={() => openPDFReader(attachment)}
-      />
-      <div class="pdf-info">
-        <span class="pdf-name">{attachment.original_name}</span>
-        {#if attachment.file_size}
-          <span class="filesize">({formatFileSize(attachment.file_size)})</span>
-        {/if}
-      </div>
-    </div>
-  {:else}
-    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
-      <div class="attachment-file">
-        <Icon name="Paperclip" size={16} />
-        <span>{attachment.original_name}</span>
-        {#if attachment.file_size}
-          <span class="filesize">({formatFileSize(attachment.file_size)})</span>
-        {/if}
-      </div>
-    </a>
-  {/if}
-
+										{#if attachment.mime_type === 'application/pdf'}
+											<div class="pdf-attachment">
+												<PDFThumbnail
+													pdfUrl={getPDFUrl(attachment)}
+													onClick={() => openPDFReader(attachment)}
+												/>
+												<div class="pdf-info">
+													<span class="pdf-name">{attachment.original_name}</span>
+													{#if attachment.file_size}
+														<span class="filesize">({formatFileSize(attachment.file_size)})</span>
+													{/if}
+												</div>
+											</div>
+										{:else}
+											<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+												<div class="attachment-file">
+													<Icon name="Paperclip" size={16} />
+													<span>{attachment.original_name}</span>
+													{#if attachment.file_size}
+														<span class="filesize">({formatFileSize(attachment.file_size)})</span>
+													{/if}
+												</div>
+											</a>
+										{/if}
 									</div>
 								</a>
 							{:else}
@@ -698,47 +857,46 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 					{#each post.attachments as attachment}
 						<div class="attachment">
 							{#if attachment.file_type === 'image'}
-    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
-        <img
-            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
-            alt={attachment.original_name}
-            class="attachment-image"
-        />
-    </a>
-{:else if attachment.file_type === 'video'}
-    <div class="attachment-video" on:click|stopPropagation>
-        <VideoPlayer
-            src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
-            mimeType={attachment.mime_type}
-            autoplay={!isComment}
-            showControls={true}
-            loop={true}
-            muted={true}
-            threshold={0.8}
-            className="post-video-player"
-        />
-    </div>
-{:else if attachment.file_type === 'audio'}
-    <div class="attachment-audio" on:click|stopPropagation>
-        
-        <AudioPlayer
-            attachmentId={attachment.id}
-            audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
-            mimeType={attachment.mime_type}
-            fileName={attachment.original_name}
-        />
-    </div>
-{:else}
-    <a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
-        <div class="attachment-file">
-            <Icon name="Paperclip" size={16} />
-            <span>{attachment.original_name}</span>
-            {#if attachment.file_size}
-                <span class="filesize">({formatFileSize(attachment.file_size)})</span>
-            {/if}
-        </div>
-    </a>
-{/if}
+								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+									<img
+										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+										alt={attachment.original_name}
+										class="attachment-image"
+									/>
+								</a>
+							{:else if attachment.file_type === 'video'}
+								<div class="attachment-video" on:click|stopPropagation>
+									<VideoPlayer
+										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+										mimeType={attachment.mime_type}
+										autoplay={!isComment}
+										showControls={true}
+										loop={true}
+										muted={true}
+										threshold={0.8}
+										className="post-video-player"
+									/>
+								</div>
+							{:else if attachment.file_type === 'audio'}
+								<div class="attachment-audio" on:click|stopPropagation>
+									<AudioPlayer
+										attachmentId={attachment.id}
+										audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
+										mimeType={attachment.mime_type}
+										fileName={attachment.original_name}
+									/>
+								</div>
+							{:else}
+								<a href="/{post.author_username}/posts/{post.id}" class="attachment-link">
+									<div class="attachment-file">
+										<Icon name="Paperclip" size={16} />
+										<span>{attachment.original_name}</span>
+										{#if attachment.file_size}
+											<span class="filesize">({formatFileSize(attachment.file_size)})</span>
+										{/if}
+									</div>
+								</a>
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -746,6 +904,119 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		</div>
 	{/if}
 
+	<!-- Expanded tags section -->
+	{#if tagsExpanded && totalTagCount > 0}
+		<div class="tags-expansion" transition:slide={{ duration: 200 }}>
+			<!-- Post Tags Section -->
+			{#if hasPostTags}
+				<div class="tags-section post-tags">
+					<!-- <div class="tags-section-header">
+					<Icon name="FileText" size={14} />
+					<span class="section-title">Post Tags ({post.tagCount})</span>
+				</div> -->
+
+					{#if loadingTags}
+						<div class="loading-tags">
+							<div class="loading-spinner"></div>
+							<span>Loading post tags...</span>
+						</div>
+					{:else if tagDetails.length > 0}
+						<div class="tags-list">
+							{#each tagDetails as tag (tag.id)}
+								<button
+									class="tag-chip post-tag"
+									style="--tag-color: {getTagColor(tag)}"
+									on:click={(e) => handleTagClick(tag, e)}
+									title="Click to filter posts by '{tag.name}'"
+								>
+									<span class="tag-name">#{tag.name}</span>
+								</button>
+							{/each}
+						</div>
+					{:else}
+						<div class="tags-list">
+							{#each post.tags as tagId (tagId)}
+								<span class="tag-chip post-tag fallback">
+									<span class="tag-name">#{tagId}</span>
+								</span>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<!-- Attachment Tags Section -->
+			{#if hasAttachmentTags}
+				<div class="tags-section attachment-tags">
+					{#if loadingAttachmentTags}
+						<div class="loading-tags">
+							<div class="loading-spinner"></div>
+							<span>Loading attachment tags...</span>
+						</div>
+					{:else if attachmentTags.length > 0}
+						<div class="attachment-tags-list">
+							{#each attachmentTags as attachment (attachment.attachmentId)}
+								{#if attachment.tags.length > 0}
+									<div class="attachment-tag-group">
+										<div class="tags-list">
+											{#each attachment.tags as tag (tag)}
+												<button
+													class="tag-chip attachment-tag"
+													on:click={(e) =>
+														handleAttachmentTagClick(tag, attachment.attachmentId, e)}
+													title="Attachment tag: {tag}"
+												>
+													<!-- <span class="tag-indicator"></span> -->
+													<span class="tag-name">
+														<span class="indicator"> * </span>
+														{tag}
+													</span>
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{:else}
+						<!-- Fallback: show tags directly from post.attachments if async loading failed -->
+						<div class="attachment-tags-list">
+							{#each post.attachments as attachment (attachment.id)}
+								{#if attachment.tags && attachment.tags.length > 0}
+									<div class="attachment-tag-group">
+										<div class="attachment-info">
+											<Icon name="File" size={12} />
+											<span class="attachment-name">{attachment.original_name}</span>
+											<span class="tag-count-badge">{attachment.tags.length}</span>
+										</div>
+
+										<div class="tags-list">
+											{#each attachment.tags as tag (tag)}
+												<button
+													class="tag-chip attachment-tag"
+													on:click={(e) => handleAttachmentTagClick(tag, attachment.id, e)}
+													title="Attachment tag: {tag}"
+												>
+													<span class="tag-indicator"></span>
+													<span class="tag-name">{tag}</span>
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			{#if !hasPostTags && !hasAttachmentTags}
+				<div class="no-tags-message">
+					<span>No tags available</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
 	{#if agentsExpanded}
 		<div class="agents-row" transition:slide={{ duration: 200 }}>
 			{#if activeAgents.length === 0}
@@ -754,9 +1025,6 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 					<p><small>Total agents in store: {availableAgents.length}</small></p>
 				</div>
 			{:else}
-				<div class="agents-header">
-					<span class="agents-title">Click agents to assign/unassign:</span>
-				</div>
 				{#each activeAgents.slice(0, 5) as agent (agent.id)}
 					<div
 						class="agent-avatar clickable"
@@ -793,32 +1061,33 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 						<span class="overflow-count">+{activeAgents.length - 5}</span>
 					</div>
 				{/if}
-
-				{#if postAgentIds.length > 0}
-					<div class="agents-summary">
-						<small
-							>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small
-						>
-					</div>
-				{/if}
 			{/if}
 		</div>
+		<div class="agents-info">
+			{#if postAgentIds.length > 0}
+				<div class="agents-summary">
+					<small
+						>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small
+					>
+				</div>
+			{/if}
+			<div class="agents-header">
+				<span class="agents-title">Click agents to assign/unassign:</span>
+			</div>
+		</div>
 	{/if}
+	<LocalAIAnalysisButton
+		bind:isOpen={showAIAnalysisModal}
+		on:close={() => (showAIAnalysisModal = false)}
+		{post}
+		selectedModel={selectedLocalModel}
+		on:analyzed={handleAIAnalysis}
+	/>
 	{#if showActions}
 		<div class="post-actions">
 			<button class="action-button comment" title="Comment" on:click={handleComment}>
 				<Icon name="MessageSquare" size={16} />
 				<span>{post.commentCount || 0}</span>
-			</button>
-
-			<button
-				class="action-button repost"
-				class:active={post.repost}
-				on:click={() => handleInteraction('repost')}
-				title={repostTitle}
-			>
-				<Icon name="Repeat" size={16} />
-				<span>{post.repostCount || 0}</span>
 			</button>
 
 			<button
@@ -831,129 +1100,94 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 				<span>{upvoteCount}</span>
 			</button>
 
-			<button
-				class="action-button share"
-				class:shared={post.share}
-				title={shareTitle}
-				on:click={handleShare}
-			>
-				<Icon name="Share" size={16} />
-				<span>{(post.shareCount || 0) + (post.quoteCount || 0)}</span>
-				{#if showTooltip}
-					<span class="tooltip">{$t('generic.copiedLink')} </span>
-				{/if}
-			</button>
-			
-			<!-- Read indicator -->
-			<div class="action-button read" title="{post.readCount || 0} readers">
-				<Icon name="EyeIcon" size={14} />
-				<span class="read-count">{post.readCount || 0}</span>
-			</div>
-			<!-- Updated tags button -->
-			<button
-				class="action-button tags"
-				class:expanded={tagsExpanded}
-				class:has-tags={tagCount > 0}
-				class:no-tags={tagCount === 0}
-				title={tagsTitle}
-				on:click={handleTags}
-				disabled={tagCount === 0}
-			>
-				<Icon name="TagsIcon" size={16} />
-				<span class="tag-count">{tagCount}</span>
+			<div class="action-wrapper">
+				<button
+					class="action-button tags"
+					class:expanded={tagsExpanded}
+					class:has-tags={totalTagCount > 0}
+					class:no-tags={totalTagCount === 0}
+					title={tagsTitle}
+					on:click={handleTags}
+					disabled={totalTagCount === 0}
+				>
+					<Icon name="TagsIcon" size={16} />
+					<span class="tag-count">{totalTagCount}</span>
 
-				{#if tagCount > 0}
+					{#if totalTagCount > 0}
+						<span class="expand-icon">
+							{#if tagsExpanded}
+								<Icon name="ChevronDown" size={12} />
+							{:else}
+								<Icon name="ChevronRight" size={12} />
+							{/if}
+						</span>
+					{/if}
+				</button>
+				<button
+					class="action-button agents"
+					class:expanded={agentsExpanded}
+					class:has-agents={agentCount > 0}
+					class:no-agents={agentCount === 0}
+					title={agentsTitle}
+					on:click={handleAgents}
+				>
+					<Icon name="Bot" size={16} />
+					<!-- <span>Agents</span> -->
+					<span class="agent-count">{activeAgents.length}</span>
+
 					<span class="expand-icon">
-						{#if tagsExpanded}
+						{#if agentsExpanded}
 							<Icon name="ChevronDown" size={12} />
 						{:else}
 							<Icon name="ChevronRight" size={12} />
 						{/if}
 					</span>
-				{/if}
-			</button>
-			<button
-				class="action-button agents"
-				class:expanded={agentsExpanded}
-				class:has-agents={agentCount > 0}
-				class:no-agents={agentCount === 0}
-				title={agentsTitle}
-				on:click={handleAgents}
-			>
-				<Icon name="Bot" size={16} />
-				<span class="agent-count">{activeAgents.length}</span>
-
-				<span class="expand-icon">
-					{#if agentsExpanded}
-						<Icon name="ChevronDown" size={12} />
-					{:else}
-						<Icon name="ChevronRight" size={12} />
-					{/if}
-				</span>
-			</button>
-			<button 
-					class="action-button"
-					on:click={() => showAIAnalysisModal = true}
+				</button>
+				<button
+					class="action-button ai"
+					class:active={showAIAnalysisModal}
+					on:click={() => (showAIAnalysisModal = !showAIAnalysisModal)}
 					title="Analyze with Local AI"
 					disabled={!post.content?.trim()}
-					>
+				>
 					<Icon name="Brain" size={12} />
+					<!-- <span>AI tools</span> -->
 				</button>
-		</div>
-
-		<!-- Expanded tags section -->
-		{#if tagsExpanded && tagCount > 0}
-			<div class="tags-expansion" transition:slide={{ duration: 200 }}>
-				{#if loadingTags}
-					<div class="loading-tags">
-						<div class="loading-spinner"></div>
-						<span>Loading tags...</span>
-					</div>
-				{:else if tagDetails.length > 0}
-					<div class="tags-list">
-						{#each tagDetails as tag (tag.id)}
-							<button
-								class="tag-chip"
-								style="--tag-color: {getTagColor(tag)}"
-								on:click={(e) => handleTagClick(tag, e)}
-								title="Click to filter posts by '{tag.name}'"
-							>
-								<span class="tag-name">#{tag.name}</span>
-							</button>
-						{/each}
-					</div>
-				{:else if hasTagIds}
-					<div class="tags-list">
-						<!-- Fallback: show tag IDs if details couldn't be loaded -->
-						{#each post.tags as tagId (tagId)}
-							<span class="tag-chip fallback">
-								<span class="tag-name">#{tagId.slice(0, 8)}...</span>
-							</span>
-						{/each}
-					</div>
-				{:else}
-					<div class="no-tags-message">
-						<span>No tags available</span>
-					</div>
-				{/if}
 			</div>
-		{/if}
+			<div class="action-wrapper">
+				<button
+					class="action-button repost"
+					class:active={post.repost}
+					on:click={() => handleInteraction('repost')}
+					title={repostTitle}
+				>
+					<Icon name="Repeat" size={16} />
+					<span>{post.repostCount || 0}</span>
+				</button>
+				<button
+					class="action-button share"
+					class:shared={post.share}
+					title={shareTitle}
+					on:click={handleShare}
+				>
+					<Icon name="Share" size={16} />
+					<span>{(post.shareCount || 0) + (post.quoteCount || 0)}</span>
+					{#if showTooltip}
+						<span class="tooltip">{$t('generic.copiedLink')} </span>
+					{/if}
+				</button>
+				<!-- Read indicator -->
+				<div class="action-button read" title="{post.readCount || 0} readers">
+					<Icon name="EyeIcon" size={14} />
+					<span class="read-count">{post.readCount || 0}</span>
+				</div>
+			</div>
+		</div>
 	{/if}
 </article>
 {#if showPDFReader}
-  <PDFReader 
-    pdfUrl={currentPDFUrl} 
-    onClose={closePDFReader}
-    enableAI={true}
-  />
+	<PDFReader pdfUrl={currentPDFUrl} onClose={closePDFReader} enableAI={true} />
 {/if}
-<LocalAIAnalysisModal
-  bind:isOpen={showAIAnalysisModal}
-  {post}
-  selectedModel={selectedLocalModel}
-  on:close={() => showAIAnalysisModal = false}
-  on:analyzed={handleAIAnalysis}
-/>
 
 <ShareModal
 	bind:isOpen={showShareModal}
@@ -980,9 +1214,79 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	* {
 		font-family: var(--font-family);
 	}
+	.tags-list {
+		display: flex;
+		flex-wrap: wrap;
+		flex-direction: row;
+		align-items: flex-end;
+		justify-content: flex-end;
+		height: auto;
+		gap: 0.25rem;
+	}
+	.tag-chip.attachment-tag {
+		width: auto;
+		& .tag-name {
+			& .indicator {
+				color: var(--tertiary-color);
+				font-weight: 800;
+				font-size: auto;
+			}
+		}
+		&:hover {
+			max-width: 400px;
+			& .tag-name {
+				color: var(--tertiary-color);
+			}
+		}
+	}
+	.tag-chip {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 0.25rem 0.5rem;
+		border-radius: 3rem;
+		background: transparent;
+		border: 1px solid transparent;
+		font-style: italic;
+		color: var(--placeholder-color);
+		white-space: nowrap;
+		max-width: 100px;
+		transition: all 0.2s ease;
+
+		&:hover {
+			width: auto;
+			max-width: auto;
+			overflow: visible;
+			padding: 0.25rem 2rem;
+			background: var(--primary-color);
+
+			& span.tag-name {
+				font-style: italic;
+				font-size: 0.8rem;
+				text-overflow: unset;
+				white-space: nowrap;
+				overflow: visible;
+				width: auto;
+				color: var(--placeholder-color);
+			}
+		}
+		& span.tag-name {
+			font-style: italic;
+			font-size: 0.8rem;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			overflow: hidden;
+
+			color: var(--placeholder-color);
+		}
+	}
 	.post-card {
-		border-bottom: 1px solid var(--line-color);
-		padding: 0.5rem 0;
+		border-radius: 1rem 1rem 0 0;
+
+		box-shadow: rgba(255, 255, 255, 0.05) 0 -100px 200px 20px;
+		// border-bottom: 1px solid var(--line-color);
+		padding: 0;
+		padding-top: 1rem;
 		transition: all 0.2s ease;
 		&:last-child {
 			border-bottom: none;
@@ -1129,7 +1433,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		height: 100%;
 		max-height: 400px;
 		border-radius: 8px;
-		border: 1px solid var(--line-color);
+		// border: 1px solid var(--line-color);
 	}
 
 	.attachment-file {
@@ -1146,21 +1450,62 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	.post-actions {
 		display: flex;
 		align-items: center;
-		justify-content: flex-start;
+		justify-content: flex-end;
 		gap: 1rem;
 		margin-left: 1rem;
 	}
+	.action-wrapper {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		gap: 0;
+		cursor: pointer;
+		transition: all 0.3s ease;
+		&:hover {
+			padding: 0 0.5rem;
+			gap: 0;
+			& .action-button {
+				padding: 0.5rem;
+				margin-left: 0;
+				gap: 0.5rem;
+				& span {
+					display: flex;
+				}
+			}
+		}
 
+		& .action-button {
+			padding: 0.5rem;
+			margin-left: -1.25rem;
+			border: 1px solid var(--line-color);
+			position: relative;
+			z-index: 1;
+			background-color: var(--bg-color);
+			&:first-child {
+				margin-left: 0;
+			}
+
+			&:hover {
+				z-index: 2;
+			}
+
+			& span {
+				display: none;
+			}
+		}
+	}
 	.action-button {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		background: none;
+		background: transparent;
 		border: none;
 		color: var(--placeholder-color);
 		font-size: 0.9rem;
 		padding: 0.5rem;
-		border-radius: 6px;
+		border-radius: 0.75rem;
+		height: 2rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
 	}
@@ -1170,10 +1515,44 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		color: var(--text-color);
 	}
 
-	.action-button.active {
-		color: var(--primary-color);
+	.action-button.upvote.active {
+		background: none;
+	}
+	.action-button.agents.expanded {
+		border-left: 1px solid var(--line-color);
 	}
 
+	.action-button.active,
+	.action-button.expanded {
+		color: var(--text-color);
+		background-color: var(--primary-color);
+		& span {
+			display: flex;
+		}
+	}
+	.action-button.ai {
+		& span {
+			display: none;
+		}
+		&:hover {
+			color: var(--tertiary-color);
+			background: var(--primary-color);
+			& span {
+				display: flex;
+			}
+		}
+	}
+	.action-button.ai.active {
+		color: var(--tertiary-color);
+		background: var(--primary-color);
+		border-radius: 0 0 1rem 1rem;
+		border: none;
+		border-left: 1px solid var(--line-color);
+
+		& span {
+			display: flex;
+		}
+	}
 	.action-button.active:hover {
 		color: var(--primary-color);
 		background: var(--line-color);
@@ -1201,8 +1580,8 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		bottom: 100%;
 		left: 50%;
 		transform: translateX(-50%);
-		background: var(--text-color);
-		color: var(--bg-color);
+		background: var(--primary-color);
+		color: var(--tertiary-color);
 		padding: 4px 8px;
 		border-radius: 4px;
 		font-size: 0.8rem;
@@ -1258,21 +1637,16 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	}
 
 	.action-button:disabled {
-		opacity: 0.5;
+		opacity: 1;
 		cursor: not-allowed;
 	}
 
 	.action-button.active {
-		color: var(--accent-color, #3b82f6);
-	}
-
-	.action-button.agents.expanded {
-		background-color: var(--accent-bg, #dbeafe);
-		color: var(--accent-color, #3b82f6);
+		color: var(--tertiary-color);
 	}
 
 	.action-button.agents.no-agents {
-		opacity: 0.4;
+		opacity: 1;
 	}
 
 	.expand-icon {
@@ -1285,13 +1659,19 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	.agents-row {
 		display: flex;
 		align-items: center;
+		justify-content: flex-end;
 		gap: 0.5rem;
-		margin-top: 0.5rem;
-		padding: 0.25rem;
-		background-color: var(--bg-color);
+		border-radius: 1rem 1rem 0 0;
+		width: 100%;
+
+		background: var(--bg-gradient-r);
 		color: var(--text-color);
-		border-radius: 0.5rem;
-		border: 1px solid var(--border-color, #e5e7eb);
+		transition: all 0.2s ease;
+		&:hover {
+			& .agent-name {
+				color: var(--text-color);
+			}
+		}
 	}
 
 	.agent-avatar {
@@ -1312,7 +1692,6 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		border: 2px solid var(--border-color, #e5e7eb);
 	}
 
 	.avatar-image {
@@ -1323,7 +1702,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--accent-color, #3b82f6);
+		background-color: var(--secondary-color);
 		color: white;
 		font-weight: 600;
 		font-size: 0.75rem;
@@ -1331,7 +1710,7 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
 	.agent-name {
 		font-size: 0.625rem;
-		color: var(--text-muted, #6b7280);
+		color: var(--placeholder-color);
 		text-align: center;
 		max-width: 48px;
 		overflow: hidden;
@@ -1357,6 +1736,8 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 	.action-button.read {
 		cursor: default;
 		pointer-events: none;
+		display: flex;
+		height: 1rem !important;
 	}
 	.agent-avatar.clickable {
 		cursor: pointer;
@@ -1369,13 +1750,12 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
 	.agent-avatar.clickable:hover {
 		transform: translateY(-2px);
-		border-color: var(--accent-color, #3b82f6);
-		background-color: var(--accent-bg-light, #f0f9ff);
+		background-color: var(--secondary-color);
 	}
 
 	.agent-avatar.assigned {
-		border-color: var(--success-color, #10b981);
-		background-color: var(--success-bg, #ecfdf5);
+		box-shadow: var(--tertiary-color) 0 0 10px 2px;
+		background-color: var(--primary-color);
 	}
 
 	.assigned-indicator {
@@ -1393,52 +1773,64 @@ export let selectedLocalModel: string = 'qwen2.5:0.5b';
 		font-size: 10px;
 		font-weight: bold;
 	}
-
+	.agents-info {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: flex-start;
+		width: 100%;
+	}
 	.agents-header {
 		width: 100%;
-		margin-bottom: 0.5rem;
+		display: flex;
+		position: relative;
+		justify-content: flex-end;
+		background-color: var(--primary-color);
 	}
 
 	.agents-title {
-		font-size: 0.75rem;
-		color: var(--text-muted, #6b7280);
-		font-weight: 500;
+		padding: 0 0.5rem;
+		font-size: 0.8rem;
+		color: var(--placeholder-color);
 	}
 
 	.agents-summary {
-		width: 100%;
+		display: flex;
+		position: relative;
+		justify-content: flex-end;
+		width: calc(100% - 1rem);
+		padding: 0.25rem;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.1rem;
+
 		text-align: center;
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid var(--line-color);
-		color: var(--text-muted, #6b7280);
+		color: var(--tertiary-color);
 	}
-.pdf-attachment {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
-  border-radius: 8px;
+	.pdf-attachment {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1rem;
+		border-radius: 8px;
+	}
 
+	.pdf-info {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
 
-}
+	.pdf-name {
+		font-weight: 500;
+		color: var(--placeholder-color);
+		font-size: 14px;
+	}
 
-  .pdf-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .pdf-name {
-    font-weight: 500;
-    color: var(--placeholder-color);
-    font-size: 14px;
-  }
-
-  .filesize {
-    color: var(--placeholder-color);
-    font-size: 12px;
-  }
+	.filesize {
+		color: var(--placeholder-color);
+		font-size: 12px;
+	}
 	/* Mobile responsive */
 	@media (max-width: 768px) {
 		.post-card {

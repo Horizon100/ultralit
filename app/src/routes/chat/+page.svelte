@@ -97,16 +97,11 @@
 		</div>
 	{:else if user}
 		<div class="chat" in:fly={{ y: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat
-				message={defaultMessage}
-				{threadId}
-				initialMessageId={messageId}
-				{aiModel}
-				{userId}
-			/>
+			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
 		</div>
 	{/if}
 {/if}
+
 <style lang="scss">
 	@use 'src/lib/styles/themes.scss' as *;
 	* {

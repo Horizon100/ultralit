@@ -3,50 +3,53 @@ import { get } from 'svelte/store';
 import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Updated import
 import type { User, AIAgent } from '$lib/types/types';
 export interface AvatarUser {
-    id: string;
-    avatar?: string;
-    avatarUrl?: string;
-    collectionId?: string;
+	id: string;
+	avatar?: string;
+	avatarUrl?: string;
+	collectionId?: string;
 }
 
 const avatarUrlCache = new Map<string, string>();
 
 export function getAvatarUrl(user: AvatarUser): string {
-    if (!user) return '';
+	if (!user) return '';
 
-    const cacheKey = `${user.id}-${user.avatar}`;
-    const cachedUrl = avatarUrlCache.get(cacheKey);
-    if (cachedUrl !== undefined) {
-        return cachedUrl;
-    }
+	const cacheKey = `${user.id}-${user.avatar}`;
+	const cachedUrl = avatarUrlCache.get(cacheKey);
+	if (cachedUrl !== undefined) {
+		return cachedUrl;
+	}
 
-    const avatar = user.avatar || user.avatarUrl;
-    const userId = user.id;
-    const collectionId = user.collectionId || '_pb_users_auth_';
+	const avatar = user.avatar || user.avatarUrl;
+	const userId = user.id;
+	const collectionId = user.collectionId || '_pb_users_auth_';
 
-    if (!avatar || !userId || avatar === 'uploaded') {
-        avatarUrlCache.set(cacheKey, '');
-        return '';
-    }
+	if (!avatar || !userId || avatar === 'uploaded') {
+		avatarUrlCache.set(cacheKey, '');
+		return '';
+	}
 
-    let avatarUrl = '';
+	let avatarUrl = '';
 
-    if (typeof avatar === 'string' && avatar.startsWith('http')) {
-        avatarUrl = avatar;
-    } else if (typeof avatar === 'string') {
-        const baseUrl = get(pocketbaseUrl);
-        avatarUrl = `${baseUrl}/api/files/${collectionId}/${userId}/${avatar}`;
-    }
+	if (typeof avatar === 'string' && avatar.startsWith('http')) {
+		avatarUrl = avatar;
+	} else if (typeof avatar === 'string') {
+		const baseUrl = get(pocketbaseUrl);
+		avatarUrl = `${baseUrl}/api/files/${collectionId}/${userId}/${avatar}`;
+	}
 
-    avatarUrlCache.set(cacheKey, avatarUrl);
-    return avatarUrl;
+	avatarUrlCache.set(cacheKey, avatarUrl);
+	return avatarUrl;
 }
-export function getExpandedUserAvatarUrl(expandedUser: {
-	id: string;
-	name?: string;
-	username?: string;
-	avatar?: string;
-}, timestamp?: number): string {
+export function getExpandedUserAvatarUrl(
+	expandedUser: {
+		id: string;
+		name?: string;
+		username?: string;
+		avatar?: string;
+	},
+	timestamp?: number
+): string {
 	if (!expandedUser?.avatar || !expandedUser?.id || expandedUser.avatar === 'uploaded') {
 		return '';
 	}
@@ -60,7 +63,7 @@ export function getExpandedUserAvatarUrl(expandedUser: {
 	const currentPocketbaseUrl = get(pocketbaseUrl);
 	// Build the avatar URL from PocketBase
 	let avatarUrl = `${currentPocketbaseUrl}/api/files/_pb_users_auth_/${expandedUser.id}/${expandedUser.avatar}`;
-	
+
 	// Add timestamp for cache busting if provided
 	if (timestamp) {
 		avatarUrl = `${avatarUrl}?t=${timestamp}`;
