@@ -47,14 +47,15 @@ export async function createAgent(
 		}
 
 		// Ensure role and user_input are lowercase with type validation
-		if (formData.has('role')) {
-			const role = formData.get('role') as string;
-			const lowerRole = role.toLowerCase();
-			// Validate that it's a valid RoleType before setting
-			if (['system', 'user', 'assistant', 'function', 'tool'].includes(lowerRole)) {
-				formData.set('role', lowerRole);
-			}
-		}
+if (formData.has('role')) {
+	const role = formData.get('role') as string;
+	const lowerRole = role.toLowerCase();
+	// Validate that it's a valid RoleType before setting
+	if (['system', 'human', 'user', 'assistant', 'proxy', 'hub', 'moderator', 'thinking'].includes(lowerRole)) {
+		formData.set('role', lowerRole);
+	}
+}
+
 
 		if (formData.has('user_input')) {
 			const userInput = formData.get('user_input') as string;
@@ -116,13 +117,13 @@ export async function createAgent(
 		}
 
 		// Ensure role and user_input are lowercase with proper type casting
-		if (finalAgentData.role) {
-			const lowerRole = (finalAgentData.role as string).toLowerCase();
-			// Type-safe assignment with validation
-			if (['system', 'user', 'assistant', 'function', 'tool'].includes(lowerRole)) {
-				finalAgentData.role = lowerRole as RoleType;
-			}
-		}
+if (finalAgentData.role) {
+	const lowerRole = (finalAgentData.role as string).toLowerCase();
+	// Type-safe assignment with validation
+	if (['system', 'human', 'user', 'assistant', 'proxy', 'hub', 'moderator', 'thinking'].includes(lowerRole)) {
+		finalAgentData.role = lowerRole as RoleType;
+	}
+}
 
 		if (finalAgentData.user_input) {
 			const lowerUserInput = (finalAgentData.user_input as string).toLowerCase();

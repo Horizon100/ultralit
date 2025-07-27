@@ -76,213 +76,298 @@ const createModelStore = () => {
 		}
 	};
 
-	async function loadModels(userId: string): Promise<boolean> {
-		console.log('🔍 loadModels called for userId:', userId);
+async function cleanupDuplicateModels(userId: string): Promise<void> {
+	console.log('🧹 Starting cleanup of duplicate models...');
+	
+	try {
+		// Fetch all models for the user
+		const response = await fetch(`/api/ai/models?userId=${userId}`, {
+			method: 'GET',
+			credentials: 'include'
+		});
 
-		const result = await clientTryCatch(
-			(async () => {
-				const connectionResponse = await fetch('/api/verify/health');
-				const connectionData = await connectionResponse.json();
-				if (!connectionData.success) throw new Error('PocketBase not available');
+		if (!response.ok) {
+			throw new Error(`Failed to fetch models: ${response.statusText}`);
+		}
 
-				console.log('🔍 Fetching models from API for userId:', userId);
-				const response = await fetch(`/api/ai/models?userId=${userId}`, {
-					method: 'GET',
-					credentials: 'include'
-				});
+		const data = await response.json();
+		if (!data.success) {
+			throw new Error(data.error || 'Failed to fetch models');
+		}
 
-				console.log('🔍 Models API response status:', response.status);
-				if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
+		const allModels = data.data?.models || data.models || [];
+		console.log('📋 Found', allModels.length, 'total models');
 
-				const data = await response.json();
-				console.log('🔍 Raw models API response:', data);
+		// Group models by provider + api_type to find duplicates
+		const modelGroups: Record<string, AIModel[]> = {};
+		
+		allModels.forEach((model: AIModel) => {
+			const key = `${model.provider}:${model.api_type}`;
+			if (!modelGroups[key]) {
+				modelGroups[key] = [];
+			}
+			modelGroups[key].push(model);
+		});
 
-				if (!data.success) throw new Error(data.error || 'Failed to load models');
-
-				let models: AIModel[] = [];
-				if (data.data && data.data.models) {
-					models = data.data.models;
-				} else if (data.models) {
-					models = data.models;
-				} else if (data.data && Array.isArray(data.data)) {
-					models = data.data;
-				} else {
-					console.log('❌ Unexpected models API structure:', data);
-					models = [];
+		// Find and delete duplicates (keep the first one, delete the rest)
+		let deletedCount = 0;
+		for (const [key, models] of Object.entries(modelGroups)) {
+			if (models.length > 1) {
+				console.log(`🔍 Found ${models.length} duplicates for ${key}`);
+				
+				// Keep the first model, delete the rest
+				const toDelete = models.slice(1);
+				
+				for (const model of toDelete) {
+					try {
+						const deleteResponse = await fetch(`/api/ai/models/${model.id}`, {
+							method: 'DELETE',
+							credentials: 'include'
+						});
+						
+						if (deleteResponse.ok) {
+							console.log(`🗑️ Deleted duplicate model: ${model.name} (${model.id})`);
+							deletedCount++;
+						} else {
+							console.warn(`⚠️ Failed to delete model ${model.id}`);
+						}
+					} catch (error) {
+						console.warn(`⚠️ Error deleting model ${model.id}:`, error);
+					}
 				}
+			}
+		}
 
-				console.log('🔍 Loaded models from API:', models?.length || 0, 'models');
+		console.log(`✅ Cleanup complete! Deleted ${deletedCount} duplicate models`);
+	} catch (error) {
+		console.error('❌ Error during cleanup:', error);
+	}
+}
 
-				// Filter models by available API keys
-				const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'].filter(
-					(provider) => apiKey.hasKey(provider)
+// Update the loadModels function to prevent loading duplicates
+async function loadModels(userId: string): Promise<boolean> {
+	console.log('🔍 loadModels called for userId:', userId);
+
+	const result = await clientTryCatch(
+		(async () => {
+			const connectionResponse = await fetch('/api/verify/health');
+			const connectionData = await connectionResponse.json();
+			if (!connectionData.success) throw new Error('PocketBase not available');
+
+			console.log('🔍 Fetching models from API for userId:', userId);
+			const response = await fetch(`/api/ai/models?userId=${userId}`, {
+				method: 'GET',
+				credentials: 'include'
+			});
+
+			console.log('🔍 Models API response status:', response.status);
+			if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
+
+			const data = await response.json();
+			console.log('🔍 Raw models API response:', data);
+
+			if (!data.success) throw new Error(data.error || 'Failed to load models');
+
+			let models: AIModel[] = [];
+			if (data.data && data.data.models) {
+				models = data.data.models;
+			} else if (data.models) {
+				models = data.models;
+			} else if (data.data && Array.isArray(data.data)) {
+				models = data.data;
+			} else {
+				console.log('❌ Unexpected models API structure:', data);
+				models = [];
+			}
+
+			console.log('🔍 Loaded models from API:', models?.length || 0, 'models');
+
+			// DEDUPLICATE MODELS BY provider + api_type
+			const uniqueModels = models.reduce((acc: AIModel[], model: AIModel) => {
+				const exists = acc.find(m => m.provider === model.provider && m.api_type === model.api_type);
+				if (!exists) {
+					acc.push(model);
+				} else {
+					console.log(`🚫 Skipping duplicate model: ${model.name} (${model.provider}:${model.api_type})`);
+				}
+				return acc;
+			}, []);
+
+			console.log('🔍 After deduplication:', uniqueModels.length, 'unique models');
+
+			// Filter models by available API keys
+			const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'].filter(
+				(provider) => apiKey.hasKey(provider)
+			);
+
+			const filteredModels = uniqueModels.filter((model: AIModel) => {
+				const hasKey = availableKeyProviders.includes(model.provider);
+				if (!hasKey) {
+					console.log(`🚫 Filtered out ${model.name} - no key for ${model.provider}`);
+				}
+				return hasKey;
+			});
+
+			console.log('🔍 Final filtered models:', filteredModels?.length || 0, 'models');
+
+			if (filteredModels && filteredModels.length > 0) {
+				console.log(
+					'🔍 Valid model details:',
+					filteredModels.map((m) => `${m.provider}-${m.name}-${m.id}`)
+				);
+			}
+
+			update((state) => ({
+				...state,
+				models: filteredModels || [],
+				isOffline: false,
+				updateStatus: ''
+			}));
+
+			return true;
+		})()
+	);
+
+	if (isSuccess(result)) {
+		return result.data;
+	} else {
+		console.warn('❌ Failed to load models:', result.error);
+		update((state) => ({ ...state, isOffline: true }));
+		return false;
+	}
+}
+
+// Update the setSelectedModel function to prevent creating duplicates
+async function setSelectedModel(userId: string, model: AIModel): Promise<boolean> {
+	const result = await clientTryCatch(
+		(async () => {
+			let savedModel = model;
+
+			// Get current state safely
+			let currentState: any = null;
+			const unsubscribe = subscribe((state) => {
+				currentState = state;
+			});
+			unsubscribe();
+
+			// First check if model has an ID (already exists in DB)
+			if (model.id && !model.id.startsWith('template-') && !model.id.startsWith('fallback-')) {
+				// Model already exists, just use it
+				savedModel = model;
+				console.log('✅ Using existing model with ID:', model.id);
+			} else {
+				// Check if a similar model already exists in the store
+				const existingModel = (currentState?.models || []).find(
+					(m: any) =>
+						m.api_type === model.api_type &&
+						m.provider === model.provider
 				);
 
-				const filteredModels = models.filter((model: AIModel) => {
-					const hasKey = availableKeyProviders.includes(model.provider);
-					if (!hasKey) {
-						console.log(`🚫 Filtered out ${model.name} - no key for ${model.provider}`);
-					}
-					return hasKey;
-				});
-
-				console.log('🔍 Filtered models:', filteredModels?.length || 0, 'models');
-
-				if (filteredModels && filteredModels.length > 0) {
-					console.log(
-						'🔍 Valid model details:',
-						filteredModels.map((m) => `${m.provider}-${m.name}-${m.id}`)
-					);
-				}
-
-				update((state) => ({
-					...state,
-					models: filteredModels || [],
-					isOffline: false,
-					updateStatus: ''
-				}));
-
-				return true;
-			})()
-		);
-
-		if (isSuccess(result)) {
-			return result.data;
-		} else {
-			console.warn('❌ Failed to load models:', result.error);
-			update((state) => ({ ...state, isOffline: true }));
-			return false;
-		}
-	}
-
-	async function setSelectedModel(userId: string, model: AIModel): Promise<boolean> {
-		const result = await clientTryCatch(
-			(async () => {
-				let savedModel = model;
-
-				// Get current state safely
-				let currentState: any = null;
-				const unsubscribe = subscribe((state) => {
-					currentState = state;
-				});
-				unsubscribe();
-
-				// First check if model has an ID (already exists in DB)
-				if (model.id) {
-					// Model already exists, just use it
-					savedModel = model;
-					console.log('Using existing model with ID:', model.id);
+				if (existingModel) {
+					// Use the existing model from store
+					savedModel = existingModel;
+					console.log('✅ Found existing model in store:', existingModel.id);
 				} else {
-					// Check if a similar model already exists in the store
-					const existingModel = (currentState?.models || []).find(
-						(m: any) =>
-							m.api_type === model.api_type &&
-							m.provider === model.provider &&
-							m.name === model.name
+					// Check if model exists in database by searching for similar models
+					console.log('🔍 Checking database for existing model...');
+					const searchResult = await clientTryCatch(
+						fetch(`/api/ai/models?userId=${userId}&provider=${model.provider}&api_type=${model.api_type}`, {
+							method: 'GET',
+							credentials: 'include'
+						}).then(async (response) => {
+							if (!response.ok)
+								throw new Error(`Failed to search models: ${response.statusText}`);
+							const data = await response.json();
+							if (!data.success) throw new Error(data.error || 'Failed to search models');
+							return data.models || data.data?.models || [];
+						})
 					);
 
-					if (existingModel) {
-						// Use the existing model from store
-						savedModel = existingModel;
-						console.log('Found existing model in store:', existingModel.id);
-					} else {
-						// Check if model exists in database by searching for similar models
-						const searchResult = await clientTryCatch(
-							fetch(`/api/ai/models?userId=${userId}&provider=${model.provider}`, {
-								method: 'GET',
-								credentials: 'include'
-							}).then(async (response) => {
-								if (!response.ok)
-									throw new Error(`Failed to search models: ${response.statusText}`);
-								const data = await response.json();
-								if (!data.success) throw new Error(data.error || 'Failed to search models');
-								return data.models as AIModel[];
-							})
+					if (isSuccess(searchResult)) {
+						const existingDbModel = searchResult.data.find(
+							(m: AIModel) =>
+								m.api_type === model.api_type &&
+								m.provider === model.provider
 						);
 
-						if (isSuccess(searchResult)) {
-							const existingDbModel = searchResult.data.find(
-								(m) =>
-									m.api_type === model.api_type &&
-									m.provider === model.provider &&
-									m.name === model.name
-							);
-
-							if (existingDbModel) {
-								// Use existing model from database
-								savedModel = existingDbModel;
-								console.log('Found existing model in database:', existingDbModel.id);
-							} else {
-								// Only create new model if none exists
-								console.log('No existing model found, creating new one');
-								const newModel = await saveModelToPocketBase(model, userId);
-								if (newModel) {
-									savedModel = newModel;
-									console.log('Created new model:', newModel.id);
-								} else {
-									throw new Error('Failed to save new model to API.');
-								}
-							}
+						if (existingDbModel) {
+							// Use existing model from database
+							savedModel = existingDbModel;
+							console.log('✅ Found existing model in database:', existingDbModel.id);
 						} else {
-							// If search fails, try to create new model
-							console.log('Model search failed, attempting to create new model');
+							// Only create new model if none exists
+							console.log('➕ No existing model found, creating new one');
 							const newModel = await saveModelToPocketBase(model, userId);
 							if (newModel) {
 								savedModel = newModel;
+								console.log('✅ Created new model:', newModel.id);
 							} else {
 								throw new Error('Failed to save new model to API.');
 							}
 						}
+					} else {
+						// If search fails, try to create new model
+						console.log('⚠️ Model search failed, attempting to create new model');
+						const newModel = await saveModelToPocketBase(model, userId);
+						if (newModel) {
+							savedModel = newModel;
+						} else {
+							throw new Error('Failed to save new model to API.');
+						}
 					}
 				}
+			}
 
-				// Update user's selected model
-				const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ model: savedModel.id })
-				});
+			// Update user's selected model
+			const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ model: savedModel.id })
+			});
 
-				if (!userUpdateResponse.ok) {
-					throw new Error(
-						`Failed to update user's selected model: ${userUpdateResponse.statusText}`
-					);
-				}
+			if (!userUpdateResponse.ok) {
+				throw new Error(
+					`Failed to update user's selected model: ${userUpdateResponse.statusText}`
+				);
+			}
 
-				update((state) => {
-					const updatedModels = (state.models || []).some((m: any) => m.id === savedModel.id)
-						? state.models
-						: [...(state.models || []), savedModel];
+			update((state) => {
+				// Prevent adding duplicates to the store
+				const modelExists = (state.models || []).some((m: any) => m.id === savedModel.id);
+				const updatedModels = modelExists 
+					? state.models 
+					: [...(state.models || []), savedModel];
 
-					return {
-						...state,
-						selectedModel: savedModel,
-						models: updatedModels,
-						isOffline: false,
-						updateStatus: 'Model selected successfully'
-					};
-				});
+				return {
+					...state,
+					selectedModel: savedModel,
+					models: updatedModels,
+					isOffline: false,
+					updateStatus: 'Model selected successfully'
+				};
+			});
 
-				return true;
-			})()
+			return true;
+		})()
+	);
+
+	if (isSuccess(result)) {
+		return result.data;
+	} else {
+		console.error(
+			'Error setting selected model:',
+			result.error,
+			'Model:',
+			model,
+			'UserId:',
+			userId
 		);
-
-		if (isSuccess(result)) {
-			return result.data;
-		} else {
-			console.error(
-				'Error setting selected model:',
-				result.error,
-				'Model:',
-				model,
-				'UserId:',
-				userId
-			);
-			update((state) => ({ ...state, isOffline: true }));
-			return false;
-		}
+		update((state) => ({ ...state, isOffline: true }));
+		return false;
 	}
+}
+
 
 	async function setSelectedProvider(userId: string, provider: ProviderType): Promise<boolean> {
 		const result = await clientTryCatch(
@@ -325,7 +410,7 @@ const createModelStore = () => {
 		setSelectedModel,
 		setSelectedProvider,
 		reset,
-
+	cleanupDuplicateModels,
 		updateModel(id: string, updatedModel: Partial<AIModel>) {
 			update((state) => ({
 				...state,

@@ -966,7 +966,8 @@
 		align-items: stretch;
 		justify-content: flex-end;
 		border-radius: 1rem;
-		padding-inline-start: 1rem;
+		padding-inline-start: 1rem !important;
+		padding: 0.5rem 0;
 		width: 100% !important;
 		border: 1px solid var(--line-color);
 		background: var(--bg-color);
@@ -999,7 +1000,7 @@
 			display: flex;
 			flex-direction: row;
 			padding: 0 !important;
-			width: 500px !important;
+			width: 600px !important;
 			font-size: 0.9rem !important;
 			// padding: 0.75rem 2.75rem 0.75rem 2.75rem;
 			border: 1px solid transparent;

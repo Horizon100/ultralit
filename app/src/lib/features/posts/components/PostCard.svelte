@@ -3,10 +3,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
-
+	import { page } from '$app/stores';
 	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
 	import ShareModal from '$lib/components/modals/ShareModal.svelte';
 	import { postStore } from '$lib/stores/postStore';
@@ -19,6 +20,7 @@
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
 	import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
+import { analytics } from '$lib/stores/analyticsStore';
 
 	import {
 		initAudioState,
@@ -136,6 +138,11 @@
 						: `${agentCount} active agents`
 					: `${agentCount} of ${totalAgentIds} agents active`;
 	function handleAgents() {
+			if (!$currentUser) {
+		toast.warning('Please sign in to view agents');
+		return;
+	}
+
 		console.log('=== AGENT DEBUG ===');
 		console.log('Post agent IDs:', postAgentIds);
 		console.log('Available agents in store:', availableAgents.length);
@@ -155,6 +162,38 @@
 	function toggleLabels() {
 		showLabels = !showLabels;
 	}
+	$: isAgentReply = post.type === 'agent_reply' && post.agent;
+$: agentData = isAgentReply && post.expand?.agent ? post.expand.agent : null;
+
+// Function to get agent avatar URL
+function getAgentAvatarUrl(agent: any): string {
+	if (!agent?.avatar) return '';
+	
+	// Get the current pocketbase URL value
+	let baseUrl = '';
+	if (typeof $pocketbaseUrl === 'string') {
+		baseUrl = $pocketbaseUrl;
+	} else {
+		baseUrl = 'http://localhost:8090'; // fallback
+	}
+	
+	// Get auth token
+	let token = '';
+	if (typeof window !== 'undefined') {
+		const authData = localStorage.getItem('pocketbase_auth');
+		if (authData) {
+			try {
+				const parsed = JSON.parse(authData);
+				token = parsed.token || '';
+			} catch (e) {
+				console.warn('Failed to parse auth data');
+			}
+		}
+	}
+	
+	const url = `${baseUrl}/api/files/4pbqdhs3elnrnss/${agent.id}/${agent.avatar}`;
+	return token ? `${url}?token=${token}` : url;
+}
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
@@ -254,42 +293,140 @@
 			agentsLoaded = false; // Reset so user can retry
 		}
 	}
-	async function toggleAgentAssignment(agentId: string) {
-		console.log('Toggling agent assignment:', agentId);
+async function toggleAgentAssignment(agentId: string) {
+	console.log('🤖 Toggling agent assignment:', agentId);
 
+	try {
+		// Show loading state
+		const agent = activeAgents.find((a) => a.id === agentId);
 		const isCurrentlyAssigned = postAgentIds.includes(agentId);
-		let newAgentIds: string[];
-
-		if (isCurrentlyAssigned) {
-			// Remove agent
-			newAgentIds = postAgentIds.filter((id) => id !== agentId);
-		} else {
-			// Add agent
-			newAgentIds = [...postAgentIds, agentId];
+		
+		if (agent) {
+			console.log(`🤖 ${isCurrentlyAssigned ? 'Unassigning' : 'Assigning'} agent: ${agent.name}`);
 		}
 
-		try {
-			const response = await fetch(`/api/posts/${post.id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				credentials: 'include',
-				body: JSON.stringify({
-					agents: newAgentIds
-				})
-			});
+		// Track the agent interaction
+		analytics.trackAgentInteraction(
+			isCurrentlyAssigned ? 'unassign' : 'assign', 
+			agentId, 
+			post.id
+		);
 
-			if (response.ok) {
-				// Update local state
-				post.agents = newAgentIds;
-				const agent = activeAgents.find((a) => a.id === agentId);
-				console.log(`✅ ${isCurrentlyAssigned ? 'Unassigned' : 'Assigned'} agent:`, agent?.name);
+		// Use the enhanced postStore method that includes auto-reply
+		const result = await postStore.assignAgentWithAutoReply(post.id, agentId, postAgentIds);
+
+		// Update local post state
+		post.agents = result.newAgentIds;
+		postAgentIds = result.newAgentIds;
+
+		// Show success message
+		const isAssigned = result.newAgentIds.includes(agentId);
+		if (isAssigned && result.autoReplyTriggered) {
+			toast.success(`Agent assigned and auto-reply triggered for ${agent?.name}`);
+			
+			// Track auto-reply event
+			analytics.trackAgentInteraction('auto-reply', agentId, post.id);
+		} else if (isAssigned) {
+			toast.success(`Agent ${agent?.name} assigned`);
+		} else {
+			toast.success(`Agent ${agent?.name} unassigned`);
+		}
+
+		// Trigger post update for reactivity
+		post = { ...post, agents: result.newAgentIds };
+
+	} catch (error) {
+		console.error('🤖 Error updating agent assignment:', error);
+		toast.error('Failed to update agent assignment');
+		
+		// Track assignment errors
+		analytics.trackEvent('agent_assignment_error', {
+			post_id: post.id,
+			agent_id: agentId,
+			error: error.message
+		});
+	}
+}
+
+async function triggerBatchAutoReply() {
+	if (postAgentIds.length === 0) {
+		toast.warning('No agents assigned to this post');
+		return;
+	}
+
+	try {
+		console.log('🤖 Triggering batch auto-reply for all assigned agents...');
+		
+		// Track the batch auto-reply event
+		analytics.trackEvent('batch_auto_reply_triggered', { 
+			post_id: post.id,
+			agent_count: postAgentIds.length,
+			agent_ids: postAgentIds
+		});
+		
+		const result = await postStore.triggerAgentAutoReply(post.id, postAgentIds);
+		
+		if (result.skipped) {
+			toast.info('Post already analyzed by agents');
+			
+			// Track skipped auto-reply
+			analytics.trackEvent('auto_reply_skipped', {
+				post_id: post.id,
+				reason: result.reason || 'unknown'
+			});
+		} else {
+			const successCount = result.responses.filter(r => r.success).length;
+			const totalCount = result.responses.length;
+			
+			if (successCount === totalCount) {
+				toast.success(`All ${successCount} agents replied successfully`);
 			} else {
-				console.error('Failed to update agent assignment');
+				toast.warning(`${successCount}/${totalCount} agents replied successfully`);
 			}
-		} catch (error) {
-			console.error('Error updating agent assignment:', error);
+			
+			// Track successful auto-replies
+			analytics.trackEvent('auto_reply_completed', {
+				post_id: post.id,
+				success_count: successCount,
+				total_count: totalCount,
+				success_rate: successCount / totalCount
+			});
+		}
+	} catch (error) {
+		console.error('🤖 Error triggering batch auto-reply:', error);
+		toast.error('Failed to trigger agent auto-reply');
+		
+		// Track auto-reply errors
+		analytics.trackEvent('auto_reply_error', {
+			post_id: post.id,
+			agent_count: postAgentIds.length,
+			error: error.message
+		});
+	}
+}
+
+// Add this reactive statement to automatically trigger auto-reply when agents are first assigned
+$: {
+	// Only trigger auto-reply if:
+	// 1. Post has assigned agents
+	// 2. User is authenticated
+	// 3. Not a comment (only main posts)
+	// 4. Post was just created or agents were just assigned
+	if (postAgentIds.length > 0 && $currentUser && !isComment && post.created) {
+		const postAge = Date.now() - new Date(post.created).getTime();
+		const isRecentPost = postAge < 60000; // Less than 1 minute old
+		
+		if (isRecentPost) {
+			console.log('🤖 Recent post with agents detected, checking for auto-reply...');
+			// Debounce this to avoid multiple calls
+			setTimeout(() => {
+				postStore.triggerAgentAutoReply(post.id, postAgentIds).catch(error => {
+					console.warn('🤖 Auto-reply check failed:', error);
+				});
+			}, 2000);
 		}
 	}
+}
 	function handleInteraction(action: 'upvote' | 'repost' | 'read') {
 		dispatch('interact', { postId: post.id, action });
 	}
@@ -664,13 +801,26 @@
 	//         expand_user: post.expand?.user
 	//     });
 	// }
+$: {
+	console.log('🔍 FULL POST DEBUG:', {
+		postId: post.id,
+		userId: post.user,
+		author_name: post.author_name,
+		author_username: post.author_username, 
+		author_avatar: post.author_avatar,
+		expand: post.expand,
+		expand_user: post.expand?.user,
+		isGuest: !$currentUser,
+		fullPost: post // This will show the entire post object
+	});
+}
 
-	$: avatarUserData = {
-		id: post.user,
-		avatar: post.author_avatar,
-		username: post.author_username || post.expand?.user?.username,
-		name: post.author_name || post.expand?.user?.name
-	};
+$: avatarUserData = {
+	id: post.user || 'guest',
+	avatar: post.author_avatar || post.expand?.user?.avatar || null,
+	username: post.author_username || post.expand?.user?.username || 'user',
+	name: post.author_name || post.expand?.user?.name || post.author_username || post.expand?.user?.username || 'User'
+};
 	$: if (agentsExpanded && !agentsLoaded && !$agentStore.isLoading) {
 		console.log('🤖 Agents expanded for first time, loading...');
 		loadAgentsOnDemand();
@@ -679,6 +829,9 @@
 	//     console.log('🤖 Loading agents...');
 	//     // await agentStore.loadAgents();
 	// });
+
+	$: isUsernameRoute = $page.route.id === '/[username]';
+
 
 	onDestroy(() => {
 		if (post.attachments) {
@@ -703,12 +856,58 @@
 			<span>{$t('posts.youReposted')}</span>
 		</div>
 	{/if}
-	<div class="post-header" class:scrolled={hideHeaderOnScroll}>
-		<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
-			<Avatar user={avatarUserData} size={40} className="post-avatar" />
-		</a>
-		<div class="post-meta">
-			<!-- Make author name clickable -->
+{#if !isUsernameRoute}
+	<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
+		{#if isAgentReply && agentData}
+			<!-- Agent Reply Header -->
+			<div class="agent-reply-indicator">
+				<Icon name="Bot" size={14} />
+				<span>Agent Reply</span>
+			</div>
+			
+			<div class="agent-avatar-container">
+				{#if agentData.avatar}
+					<img 
+						src={getAgentAvatarUrl(agentData)} 
+						alt={agentData.name}
+						class="agent-avatar-image"
+						on:error={(e) => {
+							console.warn('Failed to load agent avatar:', e.target.src);
+							e.target.style.display = 'none';
+							const fallback = e.target.nextElementSibling;
+							if (fallback) fallback.style.display = 'flex';
+						}}
+					/>
+					<div class="agent-avatar-fallback" style="display: none;">
+						<Icon name="Bot" size={20} />
+					</div>
+				{:else}
+					<div class="agent-avatar-fallback">
+						<Icon name="Bot" size={20} />
+					</div>
+				{/if}
+			</div>
+			
+			<div class="agent-info">
+				<div class="agent-name">{agentData.name || 'AI Agent'}</div>
+				<div class="agent-role">{agentData.role || 'assistant'}</div>
+			</div>
+		{:else}
+			<!-- Regular User Post Header -->
+			<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
+				<Avatar 
+					user={{
+						id: post.user || 'guest',
+						name: post.author_name || post.expand?.user?.name,
+						username: post.author_username || 
+								  post.expand?.user?.username || 
+								  `user_${(post.user || 'guest').slice(-4)}`,
+						avatar: post.author_avatar || post.expand?.user?.avatar
+					}} 
+					size={40} 
+					className="post-avatar" 
+				/>
+			</a>
 			<a
 				href="/{post.author_username || post.expand?.user?.username}"
 				class="author-link"
@@ -722,14 +921,47 @@
 						'Unknown User'}
 				</div>
 			</a>
+		{/if}
+		
+		<div class="post-meta">
 			<div class="post-timestamp">{formatTimestamp(post.created)}</div>
+			{#if isAgentReply}
+				<div class="auto-reply-badge">
+					<Icon name="Zap" size={12} />
+					Auto-reply
+				</div>
+			{/if}
 		</div>
-		{#if showActions}
+	</div>
+{:else}
+	<!-- Username route - simplified header -->
+	<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
+		{#if isAgentReply}
+			<div class="agent-reply-indicator">
+				<Icon name="Bot" size={14} />
+				<span>Agent Reply</span>
+			</div>
+		{/if}
+		
+		<div class="post-meta">
+			<div class="post-timestamp">{formatTimestamp(post.created)}</div>
+			{#if isAgentReply}
+				<div class="auto-reply-badge">
+					<Icon name="Zap" size={12} />
+					Auto-reply
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
+
+
+		<!-- {#if showActions}
 			<button class="post-options">
 				<Icon name="MoreHorizontal" size={16} />
 			</button>
-		{/if}
-	</div>
+		{/if} -->
+
 
 	{#if !isComment}
 		<div class="post-content">
@@ -1017,65 +1249,95 @@
 			{/if}
 		</div>
 	{/if}
-	{#if agentsExpanded}
-		<div class="agents-row" transition:slide={{ duration: 200 }}>
-			{#if activeAgents.length === 0}
-				<div class="no-agents-message">
-					<p>No active agents available</p>
-					<p><small>Total agents in store: {availableAgents.length}</small></p>
-				</div>
-			{:else}
-				{#each activeAgents.slice(0, 5) as agent (agent.id)}
-					<div
-						class="agent-avatar clickable"
-						class:assigned={postAgentIds.includes(agent.id)}
-						title="{agent.name} - Click to {postAgentIds.includes(agent.id)
-							? 'unassign'
-							: 'assign'}"
-						on:click={() => toggleAgentAssignment(agent.id)}
-						on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
-						role="button"
-						tabindex="0"
-						animate:flip={{ duration: 200 }}
-					>
-						{#if agent.avatar}
-							<img
-								src="{pocketbaseUrl}/api/files/ai_agents/{agent.id}/{agent.avatar}"
-								alt={agent.name}
-								class="avatar-image"
-							/>
-						{:else}
-							<div class="avatar-fallback">
-								{agent.name.charAt(0).toUpperCase()}
-							</div>
-						{/if}
-						<span class="agent-name">{agent.name}</span>
-						{#if postAgentIds.includes(agent.id)}
-							<div class="assigned-indicator">✓</div>
-						{/if}
-					</div>
-				{/each}
-
-				{#if activeAgents.length > 5}
-					<div class="agent-overflow" title={`+${activeAgents.length - 5} more agents available`}>
-						<span class="overflow-count">+{activeAgents.length - 5}</span>
-					</div>
-				{/if}
-			{/if}
-		</div>
-		<div class="agents-info">
-			{#if postAgentIds.length > 0}
-				<div class="agents-summary">
-					<small
-						>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small
-					>
-				</div>
-			{/if}
-			<div class="agents-header">
-				<span class="agents-title">Click agents to assign/unassign:</span>
+{#if agentsExpanded}
+	<div class="agents-row" transition:slide={{ duration: 200 }}>
+		{#if activeAgents.length === 0}
+			<div class="no-agents-message">
+				<p>No active agents available</p>
+				<p><small>Total agents in store: {availableAgents.length}</small></p>
 			</div>
+		{:else}
+			{#each activeAgents.slice(0, 5) as agent (agent.id)}
+				<div
+					class="agent-avatar clickable"
+					class:assigned={postAgentIds.includes(agent.id)}
+					class:analyzing={agent.status === 'analyzing'}
+					title="{agent.name} - Click to {postAgentIds.includes(agent.id)
+						? 'unassign'
+						: 'assign'}"
+					on:click={() => toggleAgentAssignment(agent.id)}
+					on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
+					role="button"
+					tabindex="0"
+					animate:flip={{ duration: 200 }}
+				>
+					{#if agent.avatar}
+						<img
+							src={getAvatarUrl(agent)}
+							alt={agent.name}
+							class="avatar-image"
+							on:error={(e) => {
+								console.warn('Failed to load avatar for', agent.name, ':', e.target.src);
+								e.target.style.display = 'none';
+								const fallback = e.target.nextElementSibling;
+								if (fallback) {
+									fallback.style.display = 'flex';
+								}
+							}}
+						/>
+						<!-- Fallback shown when image fails to load -->
+						<div class="avatar-fallback" style="display: none;">
+							{agent.name.charAt(0).toUpperCase()}
+						</div>
+					{:else}
+						<div class="avatar-fallback">
+							{agent.name.charAt(0).toUpperCase()}
+						</div>
+					{/if}
+					<span class="agent-name">{agent.name}</span>
+					{#if postAgentIds.includes(agent.id)}
+						<div class="assigned-indicator">
+							{#if agent.status === 'analyzing'}
+								<Icon name="Loader2" size={12} class="animate-spin" />
+							{:else}
+								✓
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/each}
+
+			{#if activeAgents.length > 5}
+				<div class="agent-overflow" title={`+${activeAgents.length - 5} more agents available`}>
+					<span class="overflow-count">+{activeAgents.length - 5}</span>
+				</div>
+			{/if}
+		{/if}
+	</div>
+	
+	<div class="agents-info">
+		{#if postAgentIds.length > 0}
+			<div class="agents-summary">
+				<small>{postAgentIds.length} agent{postAgentIds.length === 1 ? '' : 's'} assigned to this post</small>
+				<!-- Auto-reply control buttons -->
+				<div class="agent-controls">
+					<button 
+						class="auto-reply-btn"
+						on:click={triggerBatchAutoReply}
+						title="Trigger auto-reply for all assigned agents"
+					>
+						<Icon name="MessageSquare" size={14} />
+						Auto-reply
+					</button>
+				</div>
+			</div>
+		{/if}
+		<div class="agents-header">
+			<span class="agents-title">Click agents to assign/unassign:</span>
+			<small>Active: {activeAgents.length} | Total: {availableAgents.length}</small>
 		</div>
-	{/if}
+	</div>
+{/if}
 	<LocalAIAnalysisButton
 		bind:isOpen={showAIAnalysisModal}
 		on:close={() => (showAIAnalysisModal = false)}
@@ -1359,8 +1621,9 @@
 	.post-meta {
 		display: flex;
 		flex-direction: row;
-		align-items: center;
-		justify-content: flex-start;
+		align-items: flex-start;
+
+		justify-content: flex-end;
 		gap: 1rem;
 		flex: 1;
 	}
@@ -1370,7 +1633,8 @@
 		font-size: 0.85rem;
 		display: flex;
 		justify-content: flex-end;
-		width: 100%;
+		margin-right: 0.5rem;
+		width: auto;
 	}
 
 	.post-options {
@@ -1453,6 +1717,8 @@
 		justify-content: flex-end;
 		gap: 1rem;
 		margin-left: 1rem;
+		margin-right: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 	.action-wrapper {
 		display: flex;
@@ -1464,11 +1730,12 @@
 		transition: all 0.3s ease;
 		&:hover {
 			padding: 0 0.5rem;
-			gap: 0;
+			gap: 0.25rem;
 			& .action-button {
 				padding: 0.5rem;
 				margin-left: 0;
 				gap: 0.5rem;
+				background: var(--secondary-color);
 				& span {
 					display: flex;
 				}
@@ -1477,17 +1744,19 @@
 
 		& .action-button {
 			padding: 0.5rem;
-			margin-left: -1.25rem;
+			margin-left: -1.75rem;
 			border: 1px solid var(--line-color);
 			position: relative;
 			z-index: 1;
-			background-color: var(--bg-color);
+			backdrop-filter: blur(20px);
 			&:first-child {
 				margin-left: 0;
 			}
 
 			&:hover {
 				z-index: 2;
+				color: var(--tertiary-color);
+				border: 1px solid var(--tertiary-color);
 			}
 
 			& span {

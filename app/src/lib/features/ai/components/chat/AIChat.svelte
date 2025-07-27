@@ -4,6 +4,7 @@
 	import { get, writable, derived } from 'svelte/store';
 	import { fade, fly, scale, slide } from 'svelte/transition';
 	import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
+import { currentLanguage } from '$lib/stores/languageStore';
 
 	// ===== STORE IMPORTS =====
 	import {
@@ -601,47 +602,89 @@
 		if (pageCleanup) {
 			pageCleanup();
 		}
+		if (threadsDebounceTimer) clearTimeout(threadsDebounceTimer);
+    if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
 	});
 
 	// ===== REACTIVE STATEMENTS =====
-	$: filteredThreads = (() => {
-		let filtered = threads || [];
-		if ($showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-			const favoriteThreads = $currentUser.favoriteThreads;
-			filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
-		}
-		if ($searchQuery?.trim()) {
-			const query = $searchQuery.toLowerCase();
-			filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
-		}
-		return filtered;
-	})();
-
+	// $: filteredThreads = (() => {
+	// 	let filtered = threads || [];
+	// 	if ($showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
+	// 		const favoriteThreads = $currentUser.favoriteThreads;
+	// 		filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
+	// 	}
+	// 	if ($searchQuery?.trim()) {
+	// 		const query = $searchQuery.toLowerCase();
+	// 		filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
+	// 	}
+	// 	return filtered;
+	// })();
+let threadsDebounceTimer: NodeJS.Timeout;
+$: {
+    if (threadsDebounceTimer) clearTimeout(threadsDebounceTimer);
+    
+    threadsDebounceTimer = setTimeout(() => {
+        let allThreads = $threadsStore.threads || [];
+        // ... your existing filtering logic
+        threads = allThreads;
+    }, 100);
+}
 	$: groupedThreads = DateUtils.groupThreadsByTime(threads);
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 	$: placeholderText = $isTextareaFocused ? $currentPlaceholder : $t('chat.manualPlaceholder');
 
 	// ===== REACTIVE PROMPT UPDATES =====
-	$: {
-		const greetings = $t('extras.greetings') as string[];
-		if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
-			currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-		}
-	}
+	// $: {
+	// 	const greetings = $t('extras.greetings') as string[];
+	// 	// if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
+	// 	// 	currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+	// 	// }
+	// }
 
-	$: {
-		const questions = $t('extras.questions') as string[];
-		if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
-			currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-		}
-	}
+	// $: {
+	// 	const questions = $t('extras.questions') as string[];
+	// 	// if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
+	// 	// 	currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+	// 	// }
+	// }
 
-	$: {
-		const quotes = $t('extras.quotes') as string[];
-		if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
-			currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
-		}
-	}
+	// $: {
+	// 	const quotes = $t('extras.quotes') as string[];
+	// 	// if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
+	// 	// 	currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
+	// 	// }
+	// }
+
+let cachedGreeting: string;
+let cachedQuestion: string; 
+let cachedQuote: string;
+let lastLanguageUpdate = '';
+
+$: {
+    const currentLang = $currentLanguage; // Use your currentLanguage store
+    if (currentLang !== lastLanguageUpdate) {
+        const greetings = $t('extras.greetings') as string[];
+        if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
+            cachedGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+        }
+        
+        const questions = $t('extras.questions') as string[];
+        if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
+            cachedQuestion = questions[Math.floor(Math.random() * questions.length)];
+        }
+        
+        const quotes = $t('extras.quotes') as string[];
+        if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
+            cachedQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        }
+        
+        lastLanguageUpdate = currentLang;
+    }
+}
+
+$: currentGreeting = cachedGreeting;
+$: currentQuestion = cachedQuestion;
+$: currentQuote = cachedQuote;
 
 	$: {
 		const prompts = $t('startPrompts') as string[];
@@ -703,41 +746,55 @@
 	}
 
 	// ===== UI SECTION MANAGEMENT =====
-	$: if ($expandedSections.models) {
-		uiStore.setExpandedSectionExclusive('models', true);
-	} else if ($expandedSections.collaborators) {
-		uiStore.setExpandedSectionExclusive('collaborators', true);
-	} else if ($expandedSections.sysprompts) {
-		uiStore.setExpandedSectionExclusive('sysprompts', true);
-	} else if ($expandedSections.prompts) {
-		uiStore.setExpandedSectionExclusive('prompts', true);
-	} else if ($expandedSections.cites) {
-		uiStore.setExpandedSectionExclusive('cites', true);
-	} else if ($expandedSections.bookmarks) {
-		uiStore.setExpandedSectionExclusive('bookmarks', true);
-	}
-	function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
-		if (set1.size !== set2.size) return false;
-		for (const item of set1) {
-			if (!set2.has(item)) return false;
-		}
-		return true;
-	}
-	let lastProcessedMessageIds = new Set<string>();
-	$: if ($chatMessages && $chatMessages.length > 0) {
-		// Check if messages actually changed (not just reactive update)
-		const currentMessageIds = new Set($chatMessages.map((m) => m.id));
-		const hasNewMessages =
-			$chatMessages.length !== lastMessageCount ||
-			!areSetsEqual(currentMessageIds, lastProcessedMessageIds);
+	// $: if ($expandedSections.models) {
+	// 	uiStore.setExpandedSectionExclusive('models', true);
+	// } else if ($expandedSections.collaborators) {
+	// 	uiStore.setExpandedSectionExclusive('collaborators', true);
+	// } else if ($expandedSections.sysprompts) {
+	// 	uiStore.setExpandedSectionExclusive('sysprompts', true);
+	// } else if ($expandedSections.prompts) {
+	// 	uiStore.setExpandedSectionExclusive('prompts', true);
+	// } else if ($expandedSections.cites) {
+	// 	uiStore.setExpandedSectionExclusive('cites', true);
+	// } else if ($expandedSections.bookmarks) {
+	// 	uiStore.setExpandedSectionExclusive('bookmarks', true);
+	// }
 
-		if (hasNewMessages) {
-			console.log('Messages changed, deduping...');
-			MessageService.dedupeCurrentMessages();
-			lastMessageCount = $chatMessages.length;
-			lastProcessedMessageIds = currentMessageIds;
-		}
-	}
+$: {
+    const sections: Array<keyof ExpandedSections> = ['models', 'collaborators', 'sysprompts', 'prompts', 'cites', 'bookmarks'];
+    const currentExpanded = sections.find(section => $expandedSections[section]);
+    
+    if (currentExpanded) {
+        uiStore.setExpandedSectionExclusive(currentExpanded, true);
+    }
+}
+function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
+    if (set1.size !== set2.size) return false;
+    for (const item of set1) {
+        if (!set2.has(item)) return false;
+    }
+    return true;
+}
+	let lastProcessedMessageIds = new Set<string>();
+let messageProcessingTimer: NodeJS.Timeout;
+
+$: if ($chatMessages && $chatMessages.length > 0) {
+    if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
+    
+    messageProcessingTimer = setTimeout(() => {
+        const currentMessageIds = new Set($chatMessages.map((m) => m.id));
+        const hasNewMessages = 
+            $chatMessages.length !== lastMessageCount ||
+            !areSetsEqual(currentMessageIds, lastProcessedMessageIds);
+
+        if (hasNewMessages) {
+            console.log('Messages changed, deduping...');
+            MessageService.dedupeCurrentMessages();
+            lastMessageCount = $chatMessages.length;
+            lastProcessedMessageIds = currentMessageIds;
+        }
+    }, 50);
+}
 </script>
 
 {#if $currentUser}
@@ -2005,13 +2062,13 @@
 		margin-top: 0.5rem !important;
 		margin-left: 0.5rem !important;
 		margin-right: 0.5rem;
+
 		border: 1px solid var(--line-color);
 		border-radius: 2rem;
-		margin-top: 0;
 		// animation: pulsateShadow 1.5s infinite alternate;
 		// background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
 		width: 100%;
-		height: 100%;
+		height: calc(100% - 1rem);
 		// width: 50%;
 		// margin: 0 1rem;
 		// margin-left: 25%;
@@ -2104,7 +2161,6 @@
 			top: 0;
 			margin-top: 0;
 			width: 100%;
-			height: 100%;
 		}
 		& .chat-container {
 			right: 0;
@@ -3228,7 +3284,6 @@
 		// width: calc(50% - 1rem);
 		// margin-left: calc(50% - 1rem);
 		width: 100% !important;
-
 		height: auto;
 		display: flex;
 		margin-right: 0;
@@ -3561,7 +3616,7 @@
 			margin-left: 0 !important;
 			height: auto;
 			margin-top: 0;
-			margin-right: 1rem !important;
+			margin-right: 0 !important;
 			height: auto;
 			// width: 50%;
 			// margin: 0 1rem;

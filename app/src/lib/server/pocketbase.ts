@@ -169,6 +169,7 @@ export async function getUserById(id: string): Promise<User | null> {
 			username: record.username,
 			name: record.name,
 			avatar: record.avatar,
+			role: record.role,
 			created: record.created,
 			updated: record.updated
 		};
@@ -188,7 +189,8 @@ export async function getPublicUserData(userId: string): Promise<Partial<User> |
 			id: record.id,
 			username: record.username,
 			name: record.name,
-			avatar: record.avatar
+			avatar: record.avatar,
+			role: record.role
 		};
 	} else {
 		console.error('Error fetching public user data:', result.error);

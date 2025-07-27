@@ -50,6 +50,10 @@ export interface Post {
 	quotedPost: string;
 	created: string;
 	updated: string;
+	analyzed?: boolean;
+	analyzed_at?: string;
+	type?: 'post' | 'comment' | 'agent_reply';
+	agent?: string;
 }
 
 export interface PostWithInteractions extends Post {
@@ -72,6 +76,10 @@ export interface PostWithInteractions extends Post {
 	repostedBy_username?: string;
 	repostedBy_name?: string;
 	repostedBy_avatar?: string;
+	analyzed?: boolean;
+	analyzed_at?: string;
+	type?: 'post' | 'comment' | 'agent_reply';
+	agent?: string;
 	expand?: {
 		user?: {
 			id: string;
@@ -175,6 +183,10 @@ export interface CommentWithInteractions extends Comment {
 	repostedBy_username?: string;
 	repostedBy_name?: string;
 	repostedBy_avatar?: string;
+	analyzed?: boolean;
+	analyzed_at?: string;
+	type?: 'post' | 'comment' | 'agent_reply';
+	agent?: string;
 	expand?: {
 		user?: {
 			id: string;
@@ -288,3 +300,32 @@ export type PostUpdateData =
 	| Pick<UpvoteResponse, 'upvoted' | 'upvoteCount' | 'downvoteCount'>
 	| Pick<RepostResponse, 'reposted' | 'repostCount'>
 	| Pick<MarkAsReadResponse, 'hasRead'>;
+export interface PostAnalysisStatusResponse {
+	success: boolean;
+	analyzed: boolean;
+}
+
+export interface MarkAnalyzedResponse {
+	success: boolean;
+	post: PostWithInteractions;
+}
+
+export interface AgentAutoReplyResponse {
+	success: boolean;
+	reply: PostWithInteractions;
+	agent: string;
+	content: string;
+}
+
+export interface AgentBatchReplyResponse {
+	success: boolean;
+	responses: Array<{
+		agentId: string;
+		success: boolean;
+		data?: AgentAutoReplyResponse;
+		error?: string;
+	}>;
+	analyzed: boolean;
+	skipped?: boolean;
+	reason?: string;
+}

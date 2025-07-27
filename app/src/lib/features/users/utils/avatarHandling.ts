@@ -2,16 +2,21 @@
 import { get } from 'svelte/store';
 import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Updated import
 import type { User, AIAgent } from '$lib/types/types';
+import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils'; // Adjust path as needed
+
 export interface AvatarUser {
 	id: string;
 	avatar?: string;
 	avatarUrl?: string;
 	collectionId?: string;
+	email?: string;
+	username?: string;
+	name?: string;
 }
 
 const avatarUrlCache = new Map<string, string>();
 
-export function getAvatarUrl(user: AvatarUser): string {
+export function getAvatarUrl(user: AvatarUser | null): string {
 	if (!user) return '';
 
 	const cacheKey = `${user.id}-${user.avatar}`;
@@ -41,6 +46,22 @@ export function getAvatarUrl(user: AvatarUser): string {
 	avatarUrlCache.set(cacheKey, avatarUrl);
 	return avatarUrl;
 }
+
+// New function that includes identicon fallback
+export function getAvatarUrlWithFallback(user: AvatarUser | null, size: number = 64): string {
+	if (!user) return '';
+	
+	// Try to get uploaded avatar first
+	const uploadedAvatar = getAvatarUrl(user);
+	
+	// If no uploaded avatar, generate identicon
+	if (!uploadedAvatar) {
+		return generateUserIdenticon(getUserIdentifier(user), size);
+	}
+	
+	return uploadedAvatar;
+}
+
 export function getExpandedUserAvatarUrl(
 	expandedUser: {
 		id: string;
@@ -70,6 +91,29 @@ export function getExpandedUserAvatarUrl(
 	}
 
 	return avatarUrl;
+}
+
+// New function for expanded user with identicon fallback
+export function getExpandedUserAvatarUrlWithFallback(
+	expandedUser: {
+		id: string;
+		name?: string;
+		username?: string;
+		avatar?: string;
+		email?: string;
+	},
+	timestamp?: number,
+	size: number = 64
+): string {
+	// Try to get uploaded avatar first
+	const uploadedAvatar = getExpandedUserAvatarUrl(expandedUser, timestamp);
+	
+	// If no uploaded avatar, generate identicon
+	if (!uploadedAvatar) {
+		return generateUserIdenticon(getUserIdentifier(expandedUser), size);
+	}
+	
+	return uploadedAvatar;
 }
 
 const agentAvatarUrlCache = new Map<string, string>();

@@ -5,6 +5,9 @@
 	import { clientTryCatch } from '$lib/utils/errorUtils';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
+		import { currentUser } from '$lib/pocketbase';
+	import { toast } from '$lib/utils/toastUtils';
+	import Toast from '$lib/components/modals/Toast.svelte';
 	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
 	import { sidenavStore, showRightSidenav, showSettings } from '$lib/stores/sidenavStore';
 	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
@@ -719,13 +722,18 @@
 		pdfAnalysisLoading = false;
 	}
 
-	function handleAnalyze() {
-		if (analysisType.startsWith('pdf_')) {
-			analyzePdf();
-		} else {
-			analyzePost();
-		}
+function handleAnalyze() {
+	if (!$currentUser) {
+		toast.warning('Please sign in to analyze posts');
+		return;
 	}
+
+	if (analysisType.startsWith('pdf_')) {
+		analyzePdf();
+	} else {
+		analyzePost();
+	}
+}
 
 	function isAnyAnalysisLoading(): boolean {
 		return loading || pdfAnalysisLoading || autoAnalyzingPdf || transcriptionLoading;
@@ -1166,7 +1174,7 @@
 		border-radius: 0 0 1rem 1rem;
 		width: auto;
 		margin: 0;
-		max-width: 600px;
+		max-width: auto;
 		max-height: 90vh;
 		overflow-y: auto;
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1276,7 +1284,7 @@
 	}
 
 	.type-btn.active {
-		box-shadow: var(--text-color) 0 0 15px 2px;
+		border: var(--tertiary-color) 1px solid;
 		background: var(--primary-color);
 		color: var(--text-color);
 		font-weight: 700;

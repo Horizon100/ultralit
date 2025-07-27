@@ -4,6 +4,7 @@ import { browser } from '$app/environment';
 
 export const isNavigating = writable(false);
 
+
 interface NavigationState {
 	activeSection: string;
 	isScrolling: boolean;
@@ -45,101 +46,61 @@ function createNavigationStore() {
 			}
 		},
 
-		initializeScrollObserver: () => {
-			if (!browser) return () => {};
+initializeScrollObserver: () => {
+    if (!browser) return () => {};
 
-			const sections = ['start', 'features', 'pricing', 'about'];
-			let isUserScrolling = false;
+    console.log('🔍 Initializing scroll observer...');
+    const sections = ['start', 'features', 'pricing', 'integrations'];
+    
+    // Check if sections exist in DOM
+    sections.forEach(sectionId => {
+        const element = document.getElementById(sectionId);
+        console.log(`Section ${sectionId}:`, element ? 'Found' : 'NOT FOUND');
+    });
 
-			const observerOptions = {
-				root: null,
-				rootMargin: '-20% 0px -20% 0px',
-				threshold: 0.3
-			};
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px 0px -50% 0px',
+        threshold: 0.1
+    };
 
-			const observer = new IntersectionObserver((entries) => {
-				if (isUserScrolling) {
-					entries.forEach((entry) => {
-						if (entry.isIntersecting) {
-							const sectionId = entry.target.id;
-							update((state) => ({ ...state, activeSection: sectionId }));
-						}
-					});
-				}
-			}, observerOptions);
+    const observer = new IntersectionObserver((entries) => {
+        console.log('🔍 Observer triggered with entries:', entries.length);
+        entries.forEach((entry) => {
+            console.log(`Section ${entry.target.id}:`, entry.isIntersecting ? 'VISIBLE' : 'hidden');
+            if (entry.isIntersecting) {
+                const sectionId = entry.target.id;
+                update((state) => {
+                    if (!state.isScrolling) {
+                        console.log('✅ Setting active section:', sectionId);
+                        return { ...state, activeSection: sectionId };
+                    }
+                    console.log('⏸️ Skipping update - currently scrolling');
+                    return state;
+                });
+            }
+        });
+    }, observerOptions);
 
-			sections.forEach((sectionId) => {
-				const element = document.getElementById(sectionId);
-				if (element) {
-					observer.observe(element);
-				}
-			});
+    let observedCount = 0;
+    sections.forEach((sectionId) => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+            observer.observe(element);
+            observedCount++;
+            console.log(`📍 Observing section: ${sectionId}`);
+        } else {
+            console.warn(`❌ Could not find section: ${sectionId}`);
+        }
+    });
+    
+    console.log(`📊 Total sections observed: ${observedCount}/${sections.length}`);
 
-			let scrollTimeout: ReturnType<typeof setTimeout>;
-
-			const handleScroll = () => {
-				isUserScrolling = true;
-
-				if (scrollTimeout) {
-					clearTimeout(scrollTimeout);
-				}
-
-				scrollTimeout = setTimeout(() => {
-					isUserScrolling = false;
-				}, 150);
-			};
-
-			const handleScrollPosition = () => {
-				if (!isUserScrolling) return;
-
-				const scrollY = window.scrollY;
-				const windowHeight = window.innerHeight;
-
-				const sectionElements = sections
-					.map((id) => ({
-						id,
-						element: document.getElementById(id)
-					}))
-					.filter((item) => item.element);
-
-				let currentSection = 'start';
-				let maxVisibility = 0;
-
-				sectionElements.forEach(({ id, element }) => {
-					if (!element) return;
-
-					const rect = element.getBoundingClientRect();
-					const elementTop = rect.top;
-					const elementBottom = rect.bottom;
-
-					const visibleTop = Math.max(0, Math.min(windowHeight, windowHeight - elementTop));
-					const visibleBottom = Math.max(0, Math.min(windowHeight, elementBottom));
-					const visibleHeight = Math.max(0, visibleBottom - Math.max(0, windowHeight - elementTop));
-
-					const visibility = visibleHeight / windowHeight;
-
-					if (visibility > maxVisibility) {
-						maxVisibility = visibility;
-						currentSection = id;
-					}
-				});
-
-				update((state) => ({ ...state, activeSection: currentSection }));
-			};
-
-			window.addEventListener('scroll', handleScroll, { passive: true });
-			window.addEventListener('scroll', handleScrollPosition, { passive: true });
-
-			// Cleanup function
-			return () => {
-				observer.disconnect();
-				window.removeEventListener('scroll', handleScroll);
-				window.removeEventListener('scroll', handleScrollPosition);
-				if (scrollTimeout) {
-					clearTimeout(scrollTimeout);
-				}
-			};
-		},
+    return () => {
+        console.log('🧹 Cleaning up scroll observer');
+        observer.disconnect();
+    };
+},
 
 		reset: () => {
 			set({ activeSection: 'start', isScrolling: false });

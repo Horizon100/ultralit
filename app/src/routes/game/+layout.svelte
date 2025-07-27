@@ -8,11 +8,9 @@
 	import { goto } from '$app/navigation';
 	import AddHero from '$lib/features/game/components/AddHero.svelte';
 
-	// Type the data prop
 	interface LayoutData {
 		user?: {
 			id: string;
-			// Add other user properties as needed
 		} | null;
 	}
 

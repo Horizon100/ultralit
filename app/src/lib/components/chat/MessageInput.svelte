@@ -11,7 +11,7 @@
 		adjustFontSize
 	} from '$lib/stores/textareaFocusStore';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
-	import { expandedSections } from '$lib/stores/uiStore';
+	import { uiStore,expandedSections } from '$lib/stores/uiStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import ThreadCollaborators from '$lib/features/threads/components/ThreadCollaborators.svelte';
@@ -22,6 +22,7 @@
 	import { availablePrompts } from '$lib/features/ai/utils/prompts';
 	import type { AIModel } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+import { derived } from 'svelte/store';
 
 	// Props
 	export let userInput = '';
@@ -57,41 +58,103 @@
 	}
 
 	// Event handlers
-	function onTextareaFocus(event: FocusEvent) {
-		console.log('Textarea focused');
-		localIsFocused = true;
-		handleTextareaFocus();
-		dispatch('textareaFocus');
-	}
-	function handleClickOutside(event: MouseEvent) {
-		if (textareaElement && !textareaElement.contains(event.target as Node)) {
-			localIsFocused = false;
-			handleTextareaBlur();
-		}
-	}
-	function onTextareaBlur(event: FocusEvent) {
-		console.log('Textarea blurred');
-		localIsFocused = false;
-		handleTextareaBlur();
-		textTooLong = userInput.length > MAX_VISIBLE_CHARS;
-		dispatch('textareaBlur');
-	}
+function onTextareaFocus(event: FocusEvent) {
+    if (localIsFocused) return; // Prevent redundant operations
+    
+    localIsFocused = true;
+    handleTextareaFocus();
+    dispatch('textareaFocus');
+}
+let clickOutsideTimeout: NodeJS.Timeout | undefined;
+
+function handleClickOutside(event: MouseEvent) {
+    // Debounce click outside to prevent rapid state changes
+    if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
+    
+    clickOutsideTimeout = setTimeout(() => {
+        const target = event.target as Node;
+        const inputContainer = textareaElement?.closest('.input-container');
+        
+        // Check if click is outside the input container
+        if (inputContainer && !inputContainer.contains(target)) {
+            // Close textarea focus if it was focused
+            if (localIsFocused) {
+                localIsFocused = false;
+                handleTextareaBlur();
+            }
+            
+            // Close all expanded sections when clicking outside
+            // Import uiStore at the top: import { uiStore } from '$lib/stores/uiStore';
+            uiStore.closeAllSections();
+        }
+    }, 10);
+}
+function onTextareaBlur(event: FocusEvent) {
+    if (!localIsFocused) return; // Prevent redundant operations
+    
+    localIsFocused = false;
+    handleTextareaBlur();
+    
+    // Batch these operations
+    requestAnimationFrame(() => {
+        textTooLong = userInput.length > MAX_VISIBLE_CHARS;
+        dispatch('textareaBlur');
+    });
+}
 	$: showButtons = localIsFocused || $isTextareaFocused;
 
-	let inputTimeout: ReturnType<typeof setTimeout>;
+let inputTimeout: NodeJS.Timeout | undefined;
+let resizeTimeout: NodeJS.Timeout | undefined;
+const DEBOUNCE_DELAY = 150; 
 
-	function handleInput(event: Event) {
-		const target = event.currentTarget as HTMLTextAreaElement;
-		userInput = target.value;
+function handleInput(event: Event) {
+    const target = event.currentTarget as HTMLTextAreaElement;
+    const newValue = target.value;
+    
+    // Only update if value actually changed
+    if (newValue === userInput) return;
+    
+    userInput = newValue;
 
-		// Debounce expensive operations
-		clearTimeout(inputTimeout);
-		inputTimeout = setTimeout(() => {
-			adjustFontSize(target);
-			textTooLong = target.value.length > MAX_VISIBLE_CHARS;
-		}, 100);
-	}
+    // Clear existing timeouts
+    if (inputTimeout) clearTimeout(inputTimeout);
+    if (resizeTimeout) clearTimeout(resizeTimeout);
 
+    // Immediate updates for critical UI
+    textTooLong = newValue.length > MAX_VISIBLE_CHARS;
+
+    // Debounce expensive operations
+    inputTimeout = setTimeout(() => {
+        if (localIsFocused && textareaElement) {
+            adjustFontSize(textareaElement);
+        }
+    }, DEBOUNCE_DELAY);
+
+    // Separate timeout for resize to avoid conflicts
+    resizeTimeout = setTimeout(() => {
+        if (textareaElement) {
+            autoResize(textareaElement);
+        }
+    }, 50); // Faster resize for better UX
+}
+function autoResize(element: HTMLTextAreaElement) {
+    if (!element) return;
+    
+    // Store current values to avoid multiple DOM reads
+    const currentHeight = element.style.height;
+    const scrollHeight = element.scrollHeight;
+    
+    // Only resize if needed
+    if (scrollHeight > element.clientHeight || element.value === '') {
+        element.style.height = 'auto';
+        const newHeight = `${scrollHeight}px`;
+        
+        // Only update if height changed
+        if (newHeight !== currentHeight) {
+            element.style.height = newHeight;
+        }
+    }
+}
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -164,33 +227,69 @@
 	}
 	let cachedShowButtons = false;
 	let cachedProjectId = '';
+let currentThreadData = null;
+let expandedSectionsData = {};
+let currentUserData = null;
 
-	$: {
-		// Only update if actually changed
-		const newShowButtons = localIsFocused || $isTextareaFocused;
-		if (newShowButtons !== cachedShowButtons) {
-			cachedShowButtons = newShowButtons;
-		}
 
-		const newProjectId = $threadsStore.currentThread?.project_id || '';
-		if (newProjectId !== cachedProjectId) {
-			cachedProjectId = newProjectId;
-		}
-	}
+$: projectId = $threadsStore.currentThread?.project_id || '';
 
-	$: placeholderText = (currentManualPlaceholder as string) || '';
+	// $: placeholderText = (currentManualPlaceholder as string) || '';
 
 	// Export textarea element for parent access
 	export { textareaElement };
 
+	// 6. Memoize expensive computations
+let lastUserInputLength = 0;
+let memoizedTextTooLong = false;
+
+$: {
+    // Only recalculate if length actually changed
+    if (userInput.length !== lastUserInputLength) {
+        memoizedTextTooLong = userInput.length > MAX_VISIBLE_CHARS;
+        lastUserInputLength = userInput.length;
+    }
+    textTooLong = memoizedTextTooLong;
+}
+
+// 7. Optimize section expansion checks
+let cachedExpandedSections = {};
+$: {
+    // Only update if expandedSections actually changed
+    const currentSections = $expandedSections;
+    if (JSON.stringify(currentSections) !== JSON.stringify(cachedExpandedSections)) {
+        cachedExpandedSections = { ...currentSections };
+    }
+}
+
 	// Debug reactive statement
 	// $: console.log('MessageInput props:', { isPlaceholder, currentThreadId, isAiActive });
 	onMount(() => {
-		document.addEventListener('click', handleClickOutside);
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
-	});
+		    placeholderText = (currentManualPlaceholder as string) || '';
+
+    const options = { passive: true };
+    
+    if (textareaElement) {
+        textareaElement.addEventListener('input', handleInput, options);
+        // Remove this line: textareaElement.addEventListener('scroll', handleScroll, options);
+    }
+    
+    document.addEventListener('click', handleClickOutside, options);
+    
+    return () => {
+        if (textareaElement) {
+            textareaElement.removeEventListener('input', handleInput);
+            // Remove this line: textareaElement.removeEventListener('scroll', handleScroll);
+        }
+        document.removeEventListener('click', handleClickOutside);
+        
+        // Clean up timeouts
+        if (inputTimeout) clearTimeout(inputTimeout);
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
+    };
+});
+
 </script>
 
 <div
@@ -252,7 +351,7 @@
 
 		<!-- Input Area -->
 		<div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
-			{#if userInput.length > MAX_VISIBLE_CHARS && !$isTextareaFocused}
+			<!-- {#if userInput.length > MAX_VISIBLE_CHARS && !$isTextareaFocused}
 				<div class="text-preview-container">
 					<button class="text-preview-btn" on:click={openTextModal}>
 						View/Edit Text ({userInput.length} chars)
@@ -261,7 +360,7 @@
 						<Icon name="TrashIcon" size={16} />
 					</button>
 				</div>
-			{:else}
+			{:else} -->
 				<!-- Textarea -->
 				<textarea
 					bind:this={textareaElement}
@@ -275,7 +374,7 @@
 					disabled={isLoading}
 					rows="1"
 				/>
-			{/if}
+			<!-- {/if} -->
 
 			<!-- Button Row -->
 			{#if showButtons}
@@ -621,7 +720,8 @@
 		width: auto;
 		&.model {
 			border-radius: 1rem;
-			width: 2rem !important;
+			width: 1rem !important;
+			padding: 0;
 			background: var(--bg-color) !important;
 			p.selector-lable {
 				display: none;
@@ -670,14 +770,14 @@
 		flex-direction: column;
 		max-width: 1200px;
 		width: 100%;
-		position: absolute;
+
 		flex-grow: 0;
 		left: auto;
 		margin-top: 0;
 		height: auto;
 		bottom: 3rem;
 		margin-bottom: 0;
-		border: 1px solid var(--line-color);
+		// border: 1px solid var(--line-color);
 		transition: all 0.2s ease;
 		// backdrop-filter: blur(10px);
 		border-radius: 2rem;
@@ -776,12 +876,15 @@
 			}
 		}
 	}
+	.ai-selector {
+		width: 100%;
+	}
 	.input-container-start {
 		display: flex;
 		flex-direction: column;
 		position: absolute;
-
-		width: 100%;
+    height: calc(100vh - 2rem); 
+		width: calc(100% - 2rem);
 		margin-top: 0;
 		height: auto;
 		right: auto;
@@ -794,18 +897,17 @@
 		align-items: center;
 		// background: var(--bg-gradient);
 		z-index: 1;
+		backdrop-filter: blur(20px);
 		transition: all 0.1s ease;
-
 		& .combo-input {
 			background: var(--primary-color);
 			display: flex;
 			justify-content: center;
-			align-items: center;
-			border: 1px solid var(--secondary-color);
+			align-items: stretch;
+
 			border-radius: 2rem;
 			width: 100%;
-
-			height: auto;
+			height: 100%;
 		}
 
 		&::placeholder {
@@ -841,12 +943,13 @@
 			transition: all 0.5s ease;
 
 			& :focus {
-				color: white;
+				color: red;
 				// animation: pulse 10.5s infinite alternate;
 				box-shadow: none;
 				overflow-y: auto !important;
 				transition: all 0.3s ease;
-
+				height: 100%;
+				max-height: 500px;
 				display: flex;
 				// background: var(--bg-gradient-left) !important;
 				// box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
@@ -868,7 +971,7 @@
 		left: 0;
 		display: flex;
 		position: relative;
-		align-items: flex-end;
+		align-items: stretch;
 		// background: var(--bg-color);
 		flex-direction: row;
 		// background: var(--bg-gradient);
@@ -876,7 +979,6 @@
 		transition: all 0.3s ease;
 		max-height: 400px;
 		overflow: hidden; //
-
 		& textarea {
 			// max-height: 50vh;
 			padding: 1rem;
@@ -886,24 +988,28 @@
 			margin-top: 0;
 			margin-bottom: 0;
 			font-size: 1rem !important;
-			height: 100vh;
+			height: auto;
+			flex: 1;
 			// background: var(--bg-gradient-left);
 			&:focus {
 				// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
 				// border-bottom: 1px solid var(--placeholder-color);
 				// border-top-left-radius: 0;
-				height: 100% !important;
+				height: auto !important;
 				// background: var(--primary-color);
 				// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
 				// margin: 2.5rem;
 				margin-top: 1.5rem;
 				margin-bottom: 0;
 				overflow-y: scroll !important;
-
+    height: 100%; /* Fill container when focused */
+            flex: 1; /* Ensure it takes available space */
 				// background: var(--primary-color);
 			}
 		}
 	}
+
+
 	.combo-input-human {
 		// width: 100vw;;
 		border-radius: var(--radius-m);
@@ -968,12 +1074,11 @@
 		transition: all 0.3s ease;
 		width: 100%;
 		height: 100%;
-		padding-top: 1rem !important;
+		// padding-top: 1rem !important;
 		display: flex;
 		text-align: center;
 		user-select: none !important;
-
-		font-size: 1.5rem;
+		font-size: 1.1rem;
 		letter-spacing: 0.2rem;
 	}
 
@@ -1012,7 +1117,7 @@
 		// background-color: #020101;
 		color: #818380;
 		line-height: 1.4;
-		height: auto;
+		height: 100%;
 		// max-height: 50vh;
 		text-justify: center;
 		box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
@@ -1023,25 +1128,49 @@
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 		margin-left: 1rem;
 		margin-top: 1rem;
+				padding: 0.5rem;
+
 		&:focus {
 			/* margin-right: 5rem; */
 			outline: none;
+
 			// border: 2px solid #000000;
 			transform: translateY(0) rotate(0deg);
 			/* height: 400px; */
+			flex: 1;
 			display: flex;
+			min-height: calc(100% - 1rem);
 			/* min-height: 200px; */
 		}
 	}
+				.section-content {
+				// width: calc(50% - 1rem);
+				// margin-left: calc(50% - 1rem);
+				width: 100% !important;
+				max-width: 1200px;
+				height: auto;
+				display: flex;
+				margin-right: 0;
+				position: relative;
+				bottom: 0;
+				right: 0;
+				background: var(--bg-gradient-r);
+				margin-bottom: 1rem;
+				border-radius: 2rem;
+				justify-content: flex-end;
+						box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
+
+			}
 	.btn-row {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		height: 100%;
-		gap: 2rem;
-		width: 3rem !important;
 		margin-right: 1rem;
+		margin-bottom: 2rem;
+		width: 2rem !important;
+
 		margin-bottom: 0.5rem;
 		z-index: 8000;
 		// background: var(--bg-gradient-r);
@@ -1049,12 +1178,14 @@
 	.submission {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem !important;
-		margin: 0;
+		margin: 0.5rem;
+		
+						gap: 0.5rem !important;
+
 		padding: 0;
-		width: 3rem !important;
+		width: 2rem !important;
 		height: 100%;
-		justify-content: center;
+		justify-content: flex-end;
 		align-self: flex-end;
 		// padding: 0.5rem;
 		transition: all 0.3s ease;
@@ -1065,22 +1196,7 @@
 		z-index: 7000;
 	}
 	@media (max-width: 1000px) {
-		.input-container {
-			left: 0rem !important;
-			right: 0;
-			margin-bottom: 0;
-			bottom: 6rem !important;
-			background: transparent;
-			border-radius: 0;
-			border: 1px solid transparent;
-			border-top: 1px solid var(--line-color);
-			flex-grow: 0;
-			width: auto;
-			position: absolute;
-			align-items: center;
-			justify-content: flex-end;
-			overflow: none;
-		}
+
 
 		.chat-placeholder {
 			display: flex;
@@ -1144,116 +1260,7 @@
 			}
 		}
 
-		.input-container-start {
-			display: flex;
-			flex-direction: column;
 
-			width: calc(100%);
-			max-width: 1200px;
-			margin-top: 0;
-			height: auto;
-			right: 0;
-			bottom: 0 !important;
-			margin-bottom: 0;
-			overflow-y: none;
-			// backdrop-filter: blur(4px);
-			justify-content: flex-start;
-			align-items: flex-end;
-			// background: var(--bg-gradient);
-			z-index: 1;
-
-			& .combo-input {
-				background: transparent;
-				// background: var(--primary-color);
-				position: absolute;
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				border: 1px solid var(--secondary-color);
-				border-radius: 2rem;
-				bottom: 0;
-				width: calc(100% - 2rem);
-				height: auto;
-				padding-inline-start: 2rem;
-				backdrop-filter: blur(10px);
-
-				& textarea {
-					padding-inline-start: 3.5rem;
-					max-height: 200px;
-					font-size: 1rem !important;
-					padding: 2rem;
-
-					&::placeholder {
-						color: var(--placeholder-color);
-						font-size: 0.65rem !important;
-					}
-					&:focus {
-						padding-inline-start: 4rem;
-						height: auto !important;
-						padding: 0;
-					}
-				}
-			}
-			.section-content-sysprompts {
-				// width: calc(50% - 1rem);
-				// margin-left: calc(50% - 1rem);
-				width: 100% !important;
-				max-width: 1200px;
-				height: auto;
-				display: flex;
-				margin-right: 0;
-				position: relative;
-				bottom: 4rem;
-				right: 0;
-				justify-content: flex-end;
-			}
-
-			:global(svg) {
-				color: var(--primary-color);
-				stroke: var(--primary-color);
-				fill: var(--tertiary-color);
-			}
-
-			& textarea {
-				border: none;
-				box-shadow: none;
-				transition: all 0.3s ease;
-				background: var(--bg-color);
-				margin-top: 0 !important;
-				padding: 0;
-				margin: 0;
-				// backdrop-filter: blur(14px);
-				// margin-left: 7rem;
-				// padding-left: 1rem;
-				// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-				color: var(--text-color);
-				// background: transparent;
-				display: flex;
-				// backdrop-filter: blur(40px);
-				font-size: 1.5rem;
-				width: 100%;
-				border-radius: 0;
-				background: transparent;
-				// max-height: 400px;
-				// margin-left: 2rem !important;
-				// margin-right: 2rem !important;
-
-				// & :focus {
-				// color: white;
-				// animation: none;
-				// box-shadow: none;
-				// overflow-y: auto !important;
-				// transition: all 0.3s ease;
-				// display: flex;
-				// // background: var(--bg-gradient-left) !important;
-				//     // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-				//     // border-top: 4px solid var(--secondary-color) !important;
-
-				// box-shadow: none !important;
-
-				// }
-			}
-		}
 		button {
 			display: flex;
 			user-select: none;
@@ -1432,39 +1439,39 @@
 	}
 
 	@media (max-width: 450px) {
-		.input-container {
-			margin-bottom: 0;
-			margin-left: 0;
-			bottom: 4rem !important;
-			height: auto;
-			// width: 100%;
-			backdrop-filter: blur(10px);
-			border-top: 1px solid var(--line-color);
-			border-top-left-radius: 1rem;
-			border-top-right-radius: 1rem;
-			flex-grow: 0;
-			max-height: 200px;
+		// .input-container {
+		// 	margin-bottom: 0;
+		// 	margin-left: 0;
+		// 	bottom: 4rem !important;
+		// 	height: auto;
+		// 	// width: 100%;
+		// 	backdrop-filter: blur(10px);
+		// 	border-top: 1px solid var(--line-color);
+		// 	border-top-left-radius: 1rem;
+		// 	border-top-right-radius: 1rem;
+		// 	flex-grow: 0;
+		// 	max-height: 200px;
 
-			& .combo-input textarea {
-				padding: 0 !important;
-				margin-left: 2.5rem;
-				height: 2rem !important;
-				border: none;
+		// 	& .combo-input textarea {
+		// 		padding: 0 !important;
+		// 		margin-left: 2.5rem;
+		// 		height: 2rem !important;
+		// 		border: none;
 
-				&:focus {
-					margin-left: 0;
-					padding-inline-start: 2rem !important;
-					font-size: 0.7rem !important;
-					background: transparent !important;
-				}
-			}
-		}
+		// 		&:focus {
+		// 			margin-left: 0;
+		// 			padding-inline-start: 2rem !important;
+		// 			font-size: 0.7rem !important;
+		// 			background: transparent !important;
+		// 		}
+		// 	}
+		// }
 		textarea::placeholder {
 			color: var(--placeholder-color);
 			transition: all 0.3s ease;
 			width: 100%;
 			padding: 0.5rem;
-			height: 3rem !important;
+			// height: 3rem !important;
 			user-select: none;
 			line-height: 1.5;
 			margin-top: auto;
@@ -1478,13 +1485,26 @@
 			font-style: italic;
 			color: var(--placeholder-color);
 			opacity: 0.8;
-			height: auto;
+			height: 100%;
 			user-select: none;
 		}
 
 		textarea {
 			font-size: 0.8rem !important;
 		}
+
+				.section-content {
+				// width: calc(50% - 1rem);
+				// margin-left: calc(50% - 1rem);
+				width: 100% !important;
+				max-width: 1200px;
+				height: auto;
+				display: flex;
+				margin-right: 0;
+				position: relative;
+				right: 0;
+				justify-content: flex-end;
+			}
 		.input-container-start {
 			bottom: 0rem;
 			width: 100%;
@@ -1496,21 +1516,18 @@
 				justify-content: center;
 				align-items: center;
 				border: 0;
-				border-top-left-radius: 2rem;
-				border-top-right-radius: 2rem;
-				border-bottom-left-radius: 0;
-				border-bottom-right-radius: 0;
+				border-radius: 2rem;
 				border-top: 1px solid var(--line-color);
 				width: calc(100% - 2rem) !important;
 				background: var(--primary-color);
 				height: auto;
 				user-select: none;
-
+				margin-bottom: 0.5rem;
 				& textarea {
 					// max-height: 50vh;
 					height: auto;
 					width: 100%;
-					margin: 1rem;
+
 					margin-top: 0;
 					margin-bottom: 0;
 					z-index: 1000;
@@ -1533,6 +1550,7 @@
 
 			&::placeholder {
 				color: var(--placeholder-color);
+				
 			}
 
 			:global(svg) {

@@ -270,11 +270,11 @@
 	}
 	.prompt-container {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: center;
 		// background-color: red;
 		right: 0;
 		top: auto;
-		bottom: auto;
+		bottom: 0;
 		height: auto;
 		border-radius: 1rem;
 
@@ -287,7 +287,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 1rem;
-		width: 100%;
 	}
 
 	.header-row {
@@ -385,6 +384,7 @@
 	.system-prompt-name {
 		font-weight: 600;
 		font-size: 1rem;
+		color: var(--tertiary-color);
 	}
 	.select-button,
 	.apply-button {
@@ -639,12 +639,14 @@
 
 	@media (max-width: 1000px) {
 		.prompt-wrapper {
-			max-width: auto;
-			width: calc(100% - 5rem);
+			max-width: 100%;
+			width: calc(100vw - 6rem) !important;
+			// width: calc(100% - 5rem);
 			display: flex;
 			flex-direction: column;
 			padding: 0;
 			margin-top: 1rem;
+			margin-right: 1rem;
 		}
 	}
 	.prompt-list {
@@ -716,19 +718,19 @@
 	@media (max-width: 450px) {
 		.prompt-container {
 			display: flex;
-			justify-content: flex-end;
-			position: fixed;
+			justify-content: center;
+			position: absolute;
 			right: 0;
 			top: auto;
 			bottom: 7rem;
 			width: 100%;
-			max-width: 400px;
+			// max-width: 400px;
 			// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
 			backdrop-filter: blur(20px);
 		}
 
 		.prompt-wrapper {
-			max-width: 400px;
+			width: 100%;
 			display: flex;
 			flex-direction: column;
 			padding: 1rem;

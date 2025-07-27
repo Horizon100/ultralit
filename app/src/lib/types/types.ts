@@ -113,8 +113,13 @@ export interface User extends RecordModel {
 	lifetime_tokens: number;
 	current_subscription?: string;
 	activated_features: string[];
+	languagePreference?: string;
 	theme_preference?: string;
 	wallpaper_preference: string[];
+	  timezonePreference?: string;
+  notificationPreferences?: Record<string, boolean>;
+  factorValidated?: boolean; 
+
 	profileWallpaper: string;
 	created: string;
 	updated: string;
@@ -421,6 +426,25 @@ export interface AIAgent extends RecordModel {
 	expanded: boolean;
 	created: string;
 	updated: string;
+		last_reply?: string; 
+	auto_reply_enabled?: boolean; 
+	reply_delay?: number; 
+	reply_conditions?: {
+		keywords?: string[]; 
+		user_types?: string[];
+		min_content_length?: number;
+	};
+}
+export interface AgentAutoReplyConfig {
+	enabled: boolean;
+	delay: number; // seconds
+	conditions?: {
+		keywords?: string[];
+		user_types?: string[];
+		min_content_length?: number;
+		max_replies_per_hour?: number;
+	};
+	response_template?: string;
 }
 export interface AIMessage {
 	role: RoleType;
@@ -460,6 +484,25 @@ export interface UserModelPreferences {
 	created: string;
 	updated: string;
 }
+
+
+export interface SelectableAIModel {
+	id: string;
+	name: string;
+	provider: ProviderType;
+	context_length?: number;
+	description?: string;
+	api_type?: string;
+	size?: number;
+	parameters?: string;
+	families?: string[];
+	available?: boolean;
+	collectionId?: string;
+	collectionName?: string;
+	created?: string;
+	updated?: string;
+}
+
 
 export interface NodeConfig {
 	maxTokens: number;

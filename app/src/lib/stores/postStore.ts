@@ -1189,6 +1189,161 @@ function createPostStore() {
 			update((state) => ({ ...state, loading: false }));
 		},
 
+/**
+ * Check if a post has been analyzed by any agent
+ */
+checkPostAnalyzed: async (postId: string): Promise<boolean> => {
+	const result = await clientTryCatch(
+		(async () => {
+			const response = await fetch(`/api/posts/${postId}/analysis-status`, {
+				method: 'GET',
+				credentials: 'include'
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to check analysis status');
+			}
+
+			const data = await response.json();
+			return data.analyzed || false;
+		})(),
+		'Checking post analysis status'
+	);
+
+	if (isFailure(result)) {
+		console.error('Error checking analysis status:', result.error);
+		return false;
+	}
+
+	return result.data;
+},
+
+/**
+ * Trigger agent auto-reply for assigned agents
+ */
+triggerAgentAutoReply: async (postId: string, agentIds: string[]) => {
+	const result = await clientTryCatch(
+		(async () => {
+			console.log('🤖 Triggering auto-reply for agents:', { postId, agentIds });
+
+			// First check if post has already been analyzed
+			const isAnalyzed = await postStore.checkPostAnalyzed(postId);
+			if (isAnalyzed) {
+				console.log('🤖 Post already analyzed, skipping auto-reply');
+				return { skipped: true, reason: 'already_analyzed' };
+			}
+
+			// Trigger auto-reply for each agent
+			const responses = await Promise.all(
+				agentIds.map(async (agentId) => {
+					try {
+						const response = await fetch(`/api/agents/${agentId}/auto-reply`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'include',
+							body: JSON.stringify({ postId })
+						});
+
+						if (!response.ok) {
+							throw new Error(`Agent ${agentId} auto-reply failed: ${response.statusText}`);
+						}
+
+						const data = await response.json();
+						console.log(`🤖 Agent ${agentId} auto-reply success:`, data);
+						return { agentId, success: true, data };
+					} catch (error) {
+						console.error(`🤖 Agent ${agentId} auto-reply error:`, error);
+						return { agentId, success: false, error: error.message };
+					}
+				})
+			);
+
+			// Mark post as analyzed
+			await fetch(`/api/posts/${postId}/mark-analyzed`, {
+				method: 'POST',
+				credentials: 'include'
+			});
+
+			return { responses, analyzed: true };
+		})(),
+		'Triggering agent auto-reply'
+	);
+
+	if (isFailure(result)) {
+		console.error('Error triggering agent auto-reply:', result.error);
+		throw new Error(result.error);
+	}
+
+	return result.data;
+},
+
+/**
+ * Enhanced toggleAgentAssignment with auto-reply
+ */
+assignAgentWithAutoReply: async (postId: string, agentId: string, currentAgentIds: string[]) => {
+	const result = await clientTryCatch(
+		(async () => {
+			const isCurrentlyAssigned = currentAgentIds.includes(agentId);
+			let newAgentIds: string[];
+
+			if (isCurrentlyAssigned) {
+				// Remove agent
+				newAgentIds = currentAgentIds.filter((id) => id !== agentId);
+			} else {
+				// Add agent
+				newAgentIds = [...currentAgentIds, agentId];
+			}
+
+			// Update post with new agent assignments
+			const response = await fetch(`/api/posts/${postId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({
+					agents: newAgentIds
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to update agent assignment');
+			}
+
+			const updatedPost = await response.json();
+
+			// Update local store
+			update((state) => ({
+				...state,
+				posts: state.posts.map((post) =>
+					post.id === postId
+						? { ...post, agents: newAgentIds }
+						: post
+				)
+			}));
+
+			// If agent was assigned (not removed) and post is not analyzed, trigger auto-reply
+			if (!isCurrentlyAssigned && newAgentIds.length > 0) {
+				console.log('🤖 New agent assigned, checking for auto-reply...');
+				
+				try {
+					await postStore.triggerAgentAutoReply(postId, [agentId]);
+				} catch (error) {
+					console.warn('🤖 Auto-reply failed, but assignment was successful:', error);
+				}
+			}
+
+			return { updatedPost, newAgentIds, autoReplyTriggered: !isCurrentlyAssigned };
+		})(),
+		'Assigning agent with auto-reply'
+	);
+
+	if (isFailure(result)) {
+		console.error('Error assigning agent:', result.error);
+		throw new Error(result.error);
+	}
+
+	return result.data;
+},
+
 		clear: () => {
 			set({
 				posts: [],

@@ -146,9 +146,9 @@
 					<li><code>ledger_transactions</code></li>
 				</ul>
 				<p>
-					Visit your <a href="http://100.87.185.104:8090/_/" target="_blank"
-						>PocketBase Admin Panel</a
-					> to set up collections.
+					Visit your
+					PocketBase Admin Panel
+					to set up collections.
 				</p>
 			</div>
 		</div>

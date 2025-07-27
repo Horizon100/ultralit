@@ -871,6 +871,8 @@ Priorities: low, medium, high`;
 		width: 100%;
 		margin: 0 2rem;
 		z-index: 1000;
+						background: transparent;
+
 	}
 
 	.modal-content {
@@ -879,6 +881,7 @@ Priorities: low, medium, high`;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+
 	}
 
 	.modal-body {
@@ -891,7 +894,7 @@ Priorities: low, medium, high`;
 	}
 
 	.modal-nav {
-		background: var(--primary-color);
+
 		padding: 1rem 1.5rem;
 		display: flex;
 		align-items: center;

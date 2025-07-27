@@ -39,12 +39,12 @@ export const GET: RequestHandler = async ({ params }) =>
 		const post = postResult.data;
 
 		// Check if this post belongs to the user or if the user has reposted it
-		const isOwnPost = post.user === user.id;
-		const isReposted = post.repostedBy?.includes(user.id);
+		// const isOwnPost = post.user === user.id;
+		// const isReposted = post.repostedBy?.includes(user.id);
 
-		if (!isOwnPost && !isReposted) {
-			throw new Error('Post not found');
-		}
+		// if (!isOwnPost && !isReposted) {
+		// 	throw new Error('Post not found');
+		// }
 
 		// Get comments for the post
 		const commentsResult = await pbTryCatch(

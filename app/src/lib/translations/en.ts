@@ -1,5 +1,6 @@
 import { type IconName } from '$lib/utils/lucideIcons';
 
+
 export default {
 	nav: {
 		home: 'Home',
@@ -26,7 +27,10 @@ export default {
 		welcome: 'Welcome',
 		signup: 'Sign Up',
 		quickAccess: 'Quick Access',
-		debug: 'Debug'
+		debug: 'Debug',
+		posts: 'Posts',
+		filters: 'Filters',
+		agents: 'Agents',
 	},
 	generic: {
 		created: 'Created',
@@ -63,7 +67,9 @@ export default {
 		on: 'On',
 		off: 'Off',
 		settings: 'Settings',
-		tags: 'Tags'
+		tags: 'Tags',
+		add: 'Add',
+		new: 'New',
 	},
 	posts: {
 		loginPrompt: 'Please sign in to create a post.',
@@ -100,7 +106,8 @@ export default {
 		media: 'media',
 		likes: 'likes',
 		historySignin: 'Sign in to browse this user`s complete post history',
-		seeAll: 'See all'
+		seeAll: 'See all',
+		joinConversation: 'Join Conversation',
 	},
 	lang: {
 		notification: 'Language: English',
@@ -453,7 +460,9 @@ export default {
 		weeks: 'weeks',
 		month: 'month',
 		months: 'months',
-		now: 'Now'
+		now: 'Now',
+		online: 'Online',
+		offline: 'Offline',
 	},
 	months: {
 		january: 'January',
@@ -548,8 +557,14 @@ export default {
 		message: 'Message',
 		messages: 'Messages',
 		messagecount: 'messages',
+		prompt: 'Prompt',
 		prompts: 'Prompts',
-		models: 'Models'
+		model: 'Model',
+		models: 'Models',
+		thread: 'Thread',
+		threads: 'Threads',
+		local: 'Local',
+		locals: 'Locals',
 	},
 
 	profile: {
@@ -619,6 +634,53 @@ export default {
 		follow: 'Follow',
 		favorites: 'Favorites',
 		stats: 'Stats'
+	},
+	status: {
+		download: 'Download',
+		downloading: 'Downloading...',
+		downloaded: 'Downloaded',
+		process: 'Process',
+		processing: 'Processing...',
+		processed: 'Processed',
+		upload: 'Upload',
+		uploading: 'Uploading...',
+		uploaded: 'Uploaded',
+		waiting: 'Waiting...',
+		error: 'Error',
+		success: 'Success',
+		failed: 'Failed',
+		cancel: 'Cancel',
+		cancelling: 'Cancelling...',
+		cancelled: 'Cancelled',
+		pause: 'Pause',
+		pausing: 'Pausing...',
+		paused: 'Paused',
+		run: 'Run',
+		running: 'Running',
+		stop: 'Stop',
+		stopping: 'Stopping...',
+		stopped: 'Stopped',
+		save: 'Save',
+		saving: 'Saving...',
+		saved: 'Saved',
+		delete: 'Delete',
+		deleting: 'Deleting...',
+		deleted: 'Deleted',
+		load: 'Load',
+		loading: 'Loading...',
+		loaded: 'Loaded',
+		create: 'Create',
+		creating: 'Creating...',
+		created: 'Created',
+		add: 'Add',
+		adding: 'Adding...',
+		added: 'Added',
+		export: 'Export',
+		exporting: 'Exporting...',
+		exported: 'Exported',
+		import: 'Import',
+		importing: 'Importing...',
+		imported: 'Imported',
 	},
 	button: {
 		tags: 'Tags'

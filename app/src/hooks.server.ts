@@ -14,9 +14,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 
 	// Rate limiting for API endpoints (skip debug endpoints in development)
-	if (event.url.pathname.startsWith('/api/') && !event.url.pathname.startsWith('/api/debug/')) {
+if (event.url.pathname.startsWith('/api/') && 
+    !event.url.pathname.startsWith('/api/debug/') &&
+    !event.url.pathname.includes('/media')) { // ADD THIS LINE TO EXCLUDE MEDIA
 		// Different limits for different endpoints
-		let maxRequests = 60;
+		let maxRequests = 300;
 		let windowMs = 60000; // 1 minute
 
 		if (event.url.pathname.includes('/auth')) {

@@ -44,8 +44,12 @@ export const GET: RequestHandler = async ({ cookies }) => {
 					email: pb.authStore.model?.email,
 					username: pb.authStore.model?.username,
 					name: pb.authStore.model?.name,
-					avatar: pb.authStore.model?.avatar
-					// other safe fields
+					avatar: pb.authStore.model?.avatar,
+					role: pb.authStore.model?.role, 
+					verified: pb.authStore.model?.verified,
+					status: pb.authStore.model?.status,
+					created: pb.authStore.model?.created,
+					updated: pb.authStore.model?.updated
 				}
 			};
 		},

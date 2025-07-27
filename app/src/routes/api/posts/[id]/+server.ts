@@ -5,9 +5,20 @@ import { pb } from '$lib/server/pocketbase';
 import type { PostAttachment, Post } from '$lib/types/types.posts';
 import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
-// Add this as a temporary test endpoint
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	try {
+		      if (locals.user && cookies) {
+            const authCookie = cookies.get('pb_auth');
+            if (authCookie) {
+                try {
+                    const authData = JSON.parse(authCookie);
+                    pb.authStore.save(authData.token, authData.model);
+                    console.log('✅ Server authenticated with user session');
+                } catch (e) {
+                    console.error('Failed to parse auth cookie:', e);
+                }
+            }
+        }
 		const postId = params.id;
 		console.log('Testing post ID:', postId);
 
@@ -34,8 +45,25 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		console.log('Post retrieved:', { id: post.id, user: post.user });
 
 		// Test 3: Try to get the user separately
-		const user = await pb.collection('users').getOne(post.user);
-		console.log('User retrieved:', { id: user.id, username: user.username });
+let user;
+try {
+    user = await pb.collection('users').getOne(post.user);
+    console.log('User retrieved:', { id: user.id, username: user.username });
+} catch (error) {
+    console.error('Error fetching user:', error);
+    if (error.status === 404 || error.status === 403 || error.status === 401) {
+        // Create minimal user data for non-authenticated access
+        user = {
+            id: post.user,
+            username: 'user',
+            name: 'User',
+            avatar: null
+        };
+        console.log('Using fallback user data for non-authenticated access');
+    } else {
+        throw error; // Re-throw other errors
+    }
+}
 
 		// Get post attachments
 		const postAttachments = await pb.collection('posts_attachments').getFullList({
@@ -53,15 +81,27 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		// Get users for comments
 		const commentUserIds = [...new Set(comments.items.map((c) => c.user))];
 		const commentUsers = new Map();
-
-		for (const userId of commentUserIds) {
-			try {
-				const commentUser = await pb.collection('users').getOne(userId);
-				commentUsers.set(userId, commentUser);
-			} catch (error) {
-				console.error('Error fetching comment user:', userId, error);
-			}
-		}
+for (const userId of commentUserIds) {
+    try {
+        const commentUser = await pb.collection('users').getOne(userId);
+        commentUsers.set(userId, commentUser);
+    } catch (error) {
+        console.error('Error fetching comment user:', userId, error);
+        if (error.status === 404 || error.status === 403 || error.status === 401) {
+            // Create minimal user data for comment
+            const fallbackUser = {
+                id: userId,  // ✅ Use the comment userId, not post.user
+                username: 'user',
+                name: 'User',
+                avatar: null
+            };
+            commentUsers.set(userId, fallbackUser);  // ✅ Set the fallback user in the map
+            console.log('Using fallback user data for comment user:', userId);
+        } else {
+            throw error;
+        }
+    }
+}
 
 		// Get comment attachments
 		const commentIds = comments.items.map((c) => c.id);
@@ -190,7 +230,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		);
 	}
 };
-// Update your PATCH handler in src/routes/api/posts/[id]/+server.ts
 
 export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 	apiTryCatch(async () => {

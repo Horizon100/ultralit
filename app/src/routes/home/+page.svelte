@@ -291,20 +291,19 @@
 	}
 
 	// Handle opening comment modal (from PostCard)
-	function handleComment(event: CustomEvent<{ postId: string }>) {
-		if (!$currentUser) {
-			// Redirect to login or show login prompt
-			alert('Please sign in to comment on posts');
-			return;
-		}
-
-		const post = posts.find((p) => p.id === event.detail.postId);
-		if (post) {
-			selectedPost = post;
-			isCommentModalOpen = true;
-		}
+function handleComment(event: CustomEvent<{ postId: string }>) {
+	if (!$currentUser) {
+		// Redirect to login or show login prompt
+		toast.warning('Please sign in to comment on posts');
+		return;
 	}
 
+	const post = posts.find((p) => p.id === event.detail.postId);
+	if (post) {
+		selectedPost = post;
+		isCommentModalOpen = true;
+	}
+}
 	// Handle submitting a comment (from PostCommentModal)
 	async function handleCommentSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId: string }>
@@ -910,6 +909,7 @@
 		class:drawer-visible={$showSidenav}
 		class:hide-right-sidebar={!$showRightSidenav}
 		class:drawer-right-visible={$showRightSidenav}
+		class:hide-toggle={!$currentUser}
 	>
 		<!-- <img src={Greek} alt="Notes illustration" class="illustration left" />
 		<img src={Headmaster} alt="Notes illustration" class="illustration center" />
@@ -1233,13 +1233,17 @@
 	.main-content {
 		flex: 1;
 		padding: 0.5rem;
-		margin-bottom: 3rem !important;
+		margin-bottom: 0 !important;
+		margin-top: 0;
 		width: 100%;
 		max-width: 100vw;
 		overflow-y: auto;
 		overflow-x: hidden;
 		margin-bottom: 0;
 		justify-content: flex;
+		&.hide-toggle {
+			margin-bottom: 0 !important
+		}
 		&.hide-left-sidebar {
 			justify-content: flex-start;
 		}
@@ -1273,6 +1277,7 @@
 		text-align: center;
 		position: relative;
 	}
+
 
 	.trigger-loader {
 		width: 20px;
@@ -1463,11 +1468,15 @@
 		width: 100%;
 		height: auto;
 		// background: rgba(0, 0, 0, 0.5);
-		border-radius: 2rem 2rem 0 0 !important;
+		border-radius: 2rem !important;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		background-color: transparent;
+				width: calc(100% - 6.5rem) !important;
+		margin-left: 3.5rem;
+		margin-bottom: 2rem;
+
 		z-index: 1000;
 
 		// padding: 1rem;
@@ -1482,7 +1491,7 @@
 		bottom: 0;
 		left: 0;
 		right: 0;
-		border-radius: 2rem 2rem 0 0;
+		border-radius: 2rem;
 		backdrop-filter: blur(10px);
 		background: var(--bg-color);
 
@@ -1519,7 +1528,7 @@
 			display: flex;
 		}
 		.composer-overlay {
-			bottom: 2rem;
+			bottom: 3rem;
 		}
 		.side-menu,
 		.side-right-menu {
@@ -1563,9 +1572,9 @@
 		}
 
 		.composer-overlay {
-			margin-left: 3rem;
-			width: calc(100% - 4rem);
-			bottom: 0;
+
+			width: calc(100% - 4.5rem) !important;
+			bottom: 0.5rem;
 		}
 	}
 

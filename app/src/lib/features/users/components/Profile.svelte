@@ -1033,12 +1033,14 @@
 	.modal-content {
 		height: 100%;
 		margin-bottom: 3rem;
-		margin-left: 0;
+		margin-left: 2rem;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: flex-end;
 		width: 100%;
+		max-width: 600px;
+		border-right: 1px solid var(--line-color);
 	}
 
 	.key-overlay {
@@ -1111,6 +1113,7 @@
 			justify-content: center;
 			height: auto;
 			padding: 0.5rem;
+
 			font-size: 2.5rem;
 			letter-spacing: 0.1rem;
 			font-weight: 800;
@@ -1500,11 +1503,12 @@
 	}
 	.tab-button.active {
 		background-color: var(--tertiary-color);
-		margin-top: 2rem;
+		margin-top: 2.5rem;
 		margin-left: 1rem;
 		margin-right: -0.5rem;
 		left: auto;
-		width: 90%;
+		width: 100%;
+		max-width: 400px;
 		font-size: 1.5rem;
 		padding: 0.25rem;
 		border-radius: 2rem 0 0 2rem;
@@ -1745,7 +1749,7 @@
 		margin-top: 1rem;
 	}
 	.tabs-container {
-		margin-top: 1rem;
+		margin-top: 2rem;
 		margin-bottom: 1rem;
 		margin-right: 0;
 		display: flex;
@@ -1757,7 +1761,7 @@
 	.tabs-navigation {
 		display: flex;
 		flex-direction: column;
-		margin-top: 0;
+		margin-top: 1rem;
 	}
 	@media (max-width: 1000px) {
 		.label {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { currentUser } from '$lib/pocketbase';
 	import { goto } from '$app/navigation';
@@ -23,7 +23,8 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import type { FeatureCardType, PricingPlan, Task } from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
-
+	import { page } from '$app/stores';
+	import { navigationStore } from '$lib/stores/navigationStore';
 	let pageReady = false;
 	let redirectedFromLogin = false;
 	let isLoading = true;
@@ -146,7 +147,10 @@
 	$: featureCards = $t('features.cards') as FeatureCardType[];
 	$: pricingPlans = $t('pricing.plans') as PricingPlan[];
 	$: introText = $t('landing.introText') as string;
-
+$: {
+    console.log('Current active section:', $navigationStore.activeSection);
+    console.log('Current page:', $page.url.pathname);
+}
 	$: if (
 		browser &&
 		$currentUser &&

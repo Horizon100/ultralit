@@ -4,7 +4,8 @@
 	import { browser } from '$app/environment';
 	import { invalidateAll } from '$app/navigation';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import { currentUser } from '$lib/pocketbase';
+	
 	export let size: number = 30;
 	export let fallbackUrl: string = '/';
 	export let showText: boolean = false;
@@ -14,6 +15,10 @@
 	async function handleBack() {
 		if (browser) {
 			// Check if we have a referrer from the same origin
+						if (!$currentUser) {
+				await goto('/home', { invalidateAll: true });
+				return;
+			}
 			const referrer = document.referrer;
 			const currentOrigin = window.location.origin;
 

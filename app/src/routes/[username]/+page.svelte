@@ -45,9 +45,13 @@
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import UsersList from '$lib/features/users/components/UsersList.svelte';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+import MediaGrid from '$lib/features/posts/components/MediaGrid.svelte';
+  import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
+  import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 
 	export let data;
 
+	let activeTab: 'posts' | 'media' | 'likes' = 'posts';
 	let wallpaperError = false;
 	let dmModule: DMModule;
 	let selectedUserId: string | null = null;
@@ -78,11 +82,70 @@
 	let activeOverlay: 'followers' | 'following' = 'followers';
 	let followerCount = 0;
 	let followingCount = 0;
+let totalMediaCount = 0;
 
 	const PROFILE_POSTS_PER_PAGE = 10;
-	const SCROLL_THRESHOLD = 100;
+	const SCROLL_THRESHOLD = 20;
 	const dispatch = createEventDispatcher();
 
+	$: username = $page.params.username;
+
+
+function switchTab(tab: 'posts' | 'media') {
+	activeTab = tab;
+	
+	if ($showInput) {
+		sidenavStore.hideInput();
+	}
+	if ($showOverlay) {
+		sidenavStore.hideOverlay();
+		activeOverlay = 'followers'; 
+
+	}
+}
+function switchOverlay(overlay: 'followers' | 'following') {
+    // Close main tab selection when opening overlay
+    activeTab = 'posts'; // Reset to default main tab
+    
+    if ($showInput) {
+        sidenavStore.hideInput();
+    }
+    
+    if ($showOverlay && activeOverlay === overlay) {
+        // If same overlay is open, close it
+        sidenavStore.hideOverlay();
+    } else {
+        // Open the overlay
+        activeOverlay = overlay;
+        sidenavStore.showOverlay();
+    }
+}
+$: if (username && browser) {
+	activeTab = 'posts'; 
+	fetchUserData();
+}
+
+async function fetchMediaCount() {
+    if (!username) return;
+    
+    try {
+        // Use your existing media API but only get 1 item to get the count
+        const response = await fetch(`/api/users/username/${username}/media?limit=1&offset=0`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            totalMediaCount = data.data.totalItems || 0;
+        }
+    } catch (error) {
+        console.error('Error fetching media count:', error);
+        totalMediaCount = 0;
+    }
+}
+
+// Call it when user data loads
+$: if (user?.username) {
+    fetchMediaCount();
+}
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
 		const result = await clientTryCatch(
 			(async () => {
@@ -816,8 +879,26 @@
 
 		console.log('👤 Calculated status:', userStatus);
 	}
-	$: userAvatarUrl = getAvatarUrl(user);
 
+ $: userAvatarUrl = getAvatarUrl(user);
+  $: userIdentifier = user ? getUserIdentifier(user) : null;
+  $: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
+  $: finalAvatarUrl = (userAvatarUrl && userAvatarUrl.trim() !== '') 
+    ? userAvatarUrl 
+    : identiconUrl;
+
+
+	 $: if (user) {
+    console.log('🔍 Avatar Debug:');
+    console.log('- user exists:', !!user);
+    console.log('- user.email:', user.email);
+    console.log('- user.username:', user.username);
+    console.log('- userAvatarUrl:', userAvatarUrl);
+    console.log('- userIdentifier:', userIdentifier);
+    console.log('- identiconUrl:', identiconUrl);
+    console.log('- finalAvatarUrl:', finalAvatarUrl);
+    console.log('---');
+  }
 	onMount(() => {
 		console.log('=== USERNAME PAGE MOUNT START ===');
 
@@ -940,6 +1021,8 @@
 					{$t('generic.back')}
 				</button>
 			</div>
+			{:else if !user}
+			
 		{:else if user}
 			{#if isScrolled || $showInput || $showOverlay}
 				<div
@@ -951,11 +1034,11 @@
 					<div class="avatar-header">
 						<div class="status-indicator" class:online={userStatus === 'online'}></div>
 
-						<img
-							src={userAvatarUrl || '/api/placeholder/120/120'}
-							alt="{user.name || user.username}'s avatar"
-							class="sticky-avatar"
-						/>
+<img
+  src={finalAvatarUrl || '/api/placeholder/120/120'}
+  alt="{user?.name || user?.username || 'User'}'s avatar"
+  class="profile-avatar"
+/>
 					</div>
 					<div class="header-username">
 						<span class="username-text">{user.name || user.username}</span>
@@ -990,129 +1073,110 @@
 											}
 										}}
 									>
-										<Icon name="MessageSquare" size={16} />
-										{$t('chat.message')}
+										<Icon name="MessageCircleMore" size={16} />
+										<!-- {$t('chat.message')} -->
 									</button>
 								{:else}{/if}
 							{:else}
-								<button class="btn btn-primary" on:click={() => goto('/login')}>
+								<!-- <button class="btn btn-primary" on:click={() => goto('/login')}>
 									<Icon name="UserIcon" size={16} />
 									{$t('generic.signin')}
-								</button>
+								</button> -->
 							{/if}
 
 							<button
 								class="tab"
+    class:active={activeTab === 'posts' && !$showOverlay && !$showInput}
 								on:click={(event) => {
 									event.preventDefault();
+									switchTab('posts');
+
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
 									if ($showOverlay) {
 										sidenavStore.hideOverlay();
 									}
-									// TODO: Add posts tab functionality here
 								}}
 							>
+							<Icon name="MessageSquare" size={16} />
+
 								<span>{totalPosts}</span>
-								<span>{$t('posts.posts')}</span>
+								<!-- <span>{$t('posts.posts')}</span> -->
 							</button>
 
 							<button
 								class="tab"
+    class:active={activeTab === 'media' && !$showOverlay && !$showInput} 
 								on:click={(event) => {
 									event.preventDefault();
+									switchTab('media');
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
 									if ($showOverlay) {
 										sidenavStore.hideOverlay();
 									}
-									// TODO: Add media tab functionality here
 								}}
 							>
-								{$t('posts.media')}
+							    {#if totalMediaCount > 0}
+									<Icon name="Image" size={16} />
+									<span>{totalMediaCount}</span>
+								{/if}
+							<!-- <span class="capitalize">{$t('posts.media')}</span> -->
 							</button>
 
-							<button
+							<!-- <button
 								class="tab"
+								class:active={activeTab === 'likes'}
+
 								on:click={(event) => {
 									event.preventDefault();
+									switchTab('likes');
 									if ($showInput) {
 										sidenavStore.hideInput();
 									}
 									if ($showOverlay) {
 										sidenavStore.hideOverlay();
 									}
-									// TODO: Add likes tab functionality here
 								}}
 							>
-								{$t('posts.likes')}
-							</button>
+							<span class="capitalize">{$t('posts.likes')}</span>
+							</button> -->
+<button
+    class="tab"
+    class:active={$showOverlay && activeOverlay === 'followers'}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        switchOverlay('followers'); // Use new function
+    }}
+>
+<Icon name="TrendingUp" size={16} />
+    <span>{followerCount}</span>
+    <!-- <span>{$t('profile.followers')}</span> -->
+</button>
 
-							<button
-								class="tab"
-								class:activeOverlay={activeOverlay === 'followers'}
-								class:active={$showOverlay && activeOverlay === 'followers'}
-								on:click={(event) => {
-									event.preventDefault();
+<button
+    class="tab"
+    class:active={$showOverlay && activeOverlay === 'following'}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        switchOverlay('following'); // Use new function
+    }}
+>
+<Icon name="EyeIcon" size={16} />
 
-									if (innerWidth <= 450) {
-										sidenavStore.hideLeft();
-										sidenavStore.hideRight();
-									}
-
-									// Close input if open
-									if ($showInput) {
-										sidenavStore.hideInput();
-									}
-
-									// Handle followers overlay
-									if ($showOverlay && activeOverlay === 'followers') {
-										// If followers overlay is currently open, close it
-										sidenavStore.hideOverlay();
-									} else {
-										// Set active overlay to followers and show it
-										activeOverlay = 'followers';
-										sidenavStore.showOverlay();
-									}
-								}}
-							>
-								<span>{followerCount}</span>
-								<span>{$t('profile.followers')}</span>
-							</button>
-
-							<button
-								class="tab"
-								class:activeOverlay={activeOverlay === 'following'}
-								class:active={$showOverlay && activeOverlay === 'following'}
-								on:click={(event) => {
-									event.preventDefault();
-
-									if (innerWidth <= 450) {
-										sidenavStore.hideLeft();
-										sidenavStore.hideRight();
-									}
-
-									// Close input if open
-									if ($showInput) {
-										sidenavStore.hideInput();
-									}
-
-									// Handle following overlay
-									if ($showOverlay && activeOverlay === 'following') {
-										// If following overlay is currently open, close it
-										sidenavStore.hideOverlay();
-									} else {
-										// Set active overlay to following and show it
-										activeOverlay = 'following';
-										sidenavStore.showOverlay();
-									}
-								}}
-							>
-								<span>{followingCount}</span>
-								<span>{$t('profile.following')}</span>
-							</button>
+    <span>{followingCount}</span>
+    <!-- <span>{$t('profile.following')}</span> -->
+</button>
 						</nav>
 					</div>
 				</div>
@@ -1157,13 +1221,21 @@
 								style="display: none;"
 							/>
 						{/if}
+						<div class="back-btn">
+							<BackButton />
+						</div>
+
 						<div class="profile-info">
 							<div class="avatar-section">
-								<img
-									src={userAvatarUrl || '/api/placeholder/120/120'}
-									alt="{user.name || user.username}'s avatar"
-									class="profile-avatar"
-								/>
+<img
+	src="/api/users/{user?.id}/avatar"
+	alt="{user?.name || user?.username || 'User'}'s avatar"
+	class="profile-avatar"
+	on:error={(e) => {
+		console.log('🖼️ Server avatar failed, using identicon');
+		if (identiconUrl) e.target.src = identiconUrl;
+	}}
+/>
 							</div>
 
 							<div class="user-details">
@@ -1255,40 +1327,50 @@
 								<div class="content-nav">
 									<nav class="tab-nav">
 										<button
-											class="tab active"
+											class="tab"
+    class:active={activeTab === 'posts' && !$showOverlay}
+
 											on:click={(event) => {
 												event.preventDefault();
+												switchTab('posts');
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
 												if ($showOverlay) {
 													sidenavStore.hideOverlay();
 												}
-												// TODO: Add posts tab functionality here
 											}}
 										>
-											{totalPosts}
-											{$t('posts.posts')}
+											<span class="capitalize">{$t('posts.posts')}</span>
+											({totalPosts})
+
 										</button>
 										<button
 											class="tab"
+    class:active={activeTab === 'media' && !$showOverlay}
 											on:click={(event) => {
 												event.preventDefault();
+												switchTab('media');
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
 												if ($showOverlay) {
 													sidenavStore.hideOverlay();
 												}
-												// TODO: Add media tab functionality here
 											}}
 										>
-											{$t('posts.media')}
+
+							<span class="capitalize">{$t('posts.media')}</span>
+																								    {#if totalMediaCount > 0}
+									<span> ({totalMediaCount})</span>
+								{/if}
 										</button>
-										<button
+										<!-- <button
 											class="tab"
+											class:active={activeTab === 'likes'}
 											on:click={(event) => {
 												event.preventDefault();
+												switchTab('likes');
 												if ($showInput) {
 													sidenavStore.hideInput();
 												}
@@ -1298,73 +1380,39 @@
 												// TODO: Add likes tab functionality here
 											}}
 										>
-											{$t('posts.likes')}
-										</button>
+							<span class="capitalize">{$t('posts.likes')}</span>
+										</button> -->
+<button
+    class="tab"
+    class:active={$showOverlay && activeOverlay === 'followers'}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        switchOverlay('followers'); // Use new function
+    }}
+>
+    <span>{followerCount}</span>
+    <span>{$t('profile.followers')}</span>
+</button>
 
-										<button
-											class="tab"
-											class:activeOverlay={activeOverlay === 'followers'}
-											class:active={$showOverlay && activeOverlay === 'followers'}
-											on:click={(event) => {
-												event.preventDefault();
-
-												if (innerWidth <= 450) {
-													sidenavStore.hideLeft();
-													sidenavStore.hideRight();
-												}
-
-												// Close input if open
-												if ($showInput) {
-													sidenavStore.hideInput();
-												}
-
-												// Handle followers overlay
-												if ($showOverlay && activeOverlay === 'followers') {
-													// If followers overlay is currently open, close it
-													sidenavStore.hideOverlay();
-												} else {
-													// Set active overlay to followers and show it
-													activeOverlay = 'followers';
-													sidenavStore.showOverlay();
-												}
-											}}
-										>
-											{followerCount}
-											<Icon name="User" size={16} />
-											{$t('profile.followers')}
-										</button>
-										<button
-											class="tab"
-											class:activeOverlay={activeOverlay === 'following'}
-											class:active={$showOverlay && activeOverlay === 'following'}
-											on:click={(event) => {
-												event.preventDefault();
-
-												if (innerWidth <= 450) {
-													sidenavStore.hideLeft();
-													sidenavStore.hideRight();
-												}
-
-												// Close input if open
-												if ($showInput) {
-													sidenavStore.hideInput();
-												}
-
-												// Handle following overlay
-												if ($showOverlay && activeOverlay === 'following') {
-													// If following overlay is currently open, close it
-													sidenavStore.hideOverlay();
-												} else {
-													// Set active overlay to following and show it
-													activeOverlay = 'following';
-													sidenavStore.showOverlay();
-												}
-											}}
-										>
-											{followingCount}
-											<Icon name="User" size={16} />
-											{$t('profile.following')}
-										</button>
+<button
+    class="tab"
+    class:active={$showOverlay && activeOverlay === 'following'}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        switchOverlay('following'); // Use new function
+    }}
+>
+    <span>{followingCount}</span>
+    <span>{$t('profile.following')}</span>
+</button>
 										{#if $currentUser}
 											{#if !isCurrentUser}
 												<button
@@ -1415,10 +1463,10 @@
 												</button>
 											{/if}
 										{:else}
-											<button class="btn btn-primary" on:click={() => goto('/login')}>
+											<!-- <button class="btn btn-primary" on:click={() => goto('/login')}>
 												<Icon name="UserIcon" size={16} />
 												{$t('generic.signin')}
-											</button>
+											</button> -->
 										{/if}
 									</nav>
 								</div>
@@ -1428,6 +1476,8 @@
 				{/if}
 				<!-- Profile Content -->
 				<main class="profile-content">
+						{#if activeTab === 'posts'}
+
 					<!-- Posts Feed -->
 					<section
 						class="posts-section"
@@ -1554,6 +1604,23 @@
 							</div>
 						{/if}
 					</section>
+					{:else if activeTab === 'media'}
+		<!-- Media Grid -->
+	<MediaGrid 
+		username={user?.username || ''} 
+		isActive={activeTab === 'media'}
+	/>	{:else if activeTab === 'likes'}
+		<!-- Likes content - to be implemented -->
+		<section
+			class="likes-section"
+			in:fly={{ y: 200, duration: 300 }}
+			out:fly={{ y: -200, duration: 200 }}
+		>
+			<div class="empty-state">
+				<p>Likes feature coming soon...</p>
+			</div>
+		</section>
+	{/if}
 				</main>
 			</div>
 		{/if}
@@ -1685,7 +1752,9 @@
 	.close-button:hover {
 		background: var(--tertiary-color);
 	}
-
+	span.capitalize {
+		text-transform: capitalize;
+	}
 	.overlay-body {
 		flex: 1;
 		overflow: hidden;
@@ -1783,11 +1852,12 @@
 		}
 
 		& .tab {
-			display: flex;
-			flex-direction: column;
+			display: inline-flex;
+			// flex-direction: column;
 			align-items: center;
 			justify-content: center;
 			padding: 0.5rem 1rem;
+			gap: 0.5rem;
 			border: none;
 			color: var(--placeholder-color);
 			font-weight: 500;
@@ -1897,7 +1967,25 @@
 		position: relative;
 		overflow: hidden;
 		transition: all 0.3s ease;
+			border-bottom-left-radius: 1rem;
+				border-bottom-right-radius: 1rem;
+
+
 	}
+
+	.profile-background::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: linear-gradient(to bottom, 
+        transparent 10%, 
+        var(--bg-color) 100%);
+    pointer-events: none;
+	backdrop-filter: blur(1px);
+}
 
 	.profile-background.interactive {
 		cursor: pointer;
@@ -2241,6 +2329,19 @@
 	.trigger-loader:after {
 		animation-delay: -1s;
 	}
+
+	.back-btn {
+		position: absolute;
+		top: 3.5rem;
+		left: 0.5rem;
+		background: var(--secondary-color);
+		border-radius: 50%;
+		opacity: 0.75;
+		transition: all 0.2s ease;
+		&:hover {
+			opacity: 1;
+		}
+	}
 	@keyframes l2 {
 		100% {
 			box-shadow: 0 0 0 40px var(--primary-color);
@@ -2252,7 +2353,10 @@
 	}
 
 	.tab {
-		padding: 1rem 1.5rem 0.5rem 0;
+		padding: 0.5rem 1rem;
+		align-items: center;
+		display: inline-flex;
+		gap: 0.5rem;
 		background: none;
 		border: none;
 		color: var(--placeholder-color);
@@ -2264,9 +2368,11 @@
 	}
 
 	.tab.active {
-		color: var(--text-color);
+		color: var(--tertiary-color);
 		font-weight: 800;
 		letter-spacing: 0.1rem;
+		background: var(--primary-color);
+		border-radius: 0.5rem;
 	}
 
 	.tab:hover {

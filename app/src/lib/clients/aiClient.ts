@@ -7,7 +7,6 @@ import type {
 	RoleType,
 	ProviderType
 } from '$lib/types/types';
-import { defaultModel } from '$lib/features/ai/utils/models';
 import { getPrompt, prepareMessagesWithCustomPrompts } from '$lib/features/ai/utils/prompts';
 import { get } from 'svelte/store';
 import { apiKey } from '$lib/stores/apiKeyStore';
@@ -17,6 +16,8 @@ import {
 	validationTryCatch,
 	thirdPartyApiTryCatch
 } from '$lib/utils/errorUtils';
+import { defaultModel, getDefaultModel, checkLocalServerAvailability, defaultLocalModel } from '$lib/features/ai/utils/models';
+
 
 export async function fetchAIResponse(
 	messages: AIMessage[],
@@ -47,10 +48,11 @@ export async function fetchAIResponse(
 
 	console.log('Original model:', model);
 
-	let modelToUse: AIModel;
+let modelToUse: AIModel;
 	if (!model || typeof model === 'string') {
 		console.log('Using default model due to invalid model data');
-		modelToUse = { ...defaultModel };
+		// Use dynamic default model selection
+		modelToUse = await getDefaultModel();
 	} else {
 		modelToUse = {
 			...model,
@@ -64,6 +66,11 @@ export async function fetchAIResponse(
 
 	console.log('Initial model to use:', modelToUse);
 
+// Handle local models - don't proceed with API logic
+	if (modelToUse.provider === 'local') {
+		console.log('🤖 Local model detected, redirecting to local handler');
+		throw new Error('LOCAL_MODEL_REDIRECT');
+	}
 	let requestBody: FormData | string;
 
 	const modelData = {
@@ -109,41 +116,70 @@ export async function fetchAIResponse(
 			anthropic: 'claude-3-haiku-20240307',
 			google: 'gemini-pro',
 			grok: 'grok-beta',
-			deepseek: 'deepseek-chat'
+			deepseek: 'deepseek-chat',
+			local: 'qwen2.5:0.5b'
+
 		};
 
-		// Check which providers have keys
-		const availableProviders = Object.keys(providerDefaults).filter((p) =>
-			apiKey.hasKey(p as ProviderType)
-		) as ProviderType[];
+
+		// Check which providers have keys or are available
+		const availableProviders: ProviderType[] = [];
+		
+		// Check API providers
+		Object.keys(providerDefaults).forEach((p) => {
+			if (p !== 'local' && apiKey.hasKey(p as ProviderType)) {
+				availableProviders.push(p as ProviderType);
+			}
+		});
+
+		// Check local availability
+		const localAvailable = await checkLocalServerAvailability();
+		if (localAvailable) {
+			availableProviders.unshift('local' as ProviderType); // Add local at the beginning for priority
+		}
+
+		console.log('Available providers:', availableProviders);
 
 		if (availableProviders.length > 0) {
-			const fallbackProvider = availableProviders[0];
+			const fallbackProvider = availableProviders[0]; // This will prioritize local if available
 			console.log(`Falling back to provider: ${fallbackProvider}`);
 
-			// Update model to use fallback provider
-			modelToUse = {
-				...modelToUse,
-				provider: fallbackProvider,
-				api_type: providerDefaults[fallbackProvider],
-				name: providerDefaults[fallbackProvider]
-			};
-
-			userApiKey = apiKey.getKey(fallbackProvider);
+			if (fallbackProvider === 'local') {
+				// Create local model and redirect
+				modelToUse = {
+					...defaultLocalModel,
+					api_type: providerDefaults[fallbackProvider],
+					name: providerDefaults[fallbackProvider]
+				};
+				throw new Error('LOCAL_MODEL_REDIRECT');
+			} else {
+				// Update model to use API fallback provider
+				modelToUse = {
+					...modelToUse,
+					provider: fallbackProvider,
+					api_type: providerDefaults[fallbackProvider],
+					name: providerDefaults[fallbackProvider]
+				};
+				userApiKey = apiKey.getKey(fallbackProvider);
+			}
 		} else {
-			throw new Error('No API keys available for any provider. Please add API keys in settings.');
+			throw new Error('No API keys available for any provider and local server is not available. Please add API keys in settings or ensure local AI server is running.');
 		}
 	}
 
-	// Final validation
+	// Final validation for non-local providers
 	const finalApiKey = apiKey.getKey(modelToUse.provider);
-	if (!finalApiKey) {
+	if (!finalApiKey && modelToUse.provider !== 'local') {
 		throw new Error(
 			`No API key found for provider: ${modelToUse.provider}. Please add an API key for this provider.`
 		);
 	}
 
-	console.log('Final model to use:', modelToUse);
+// Replace your current error handling section in aiClient.ts with this:
+
+console.log('Final model to use:', modelToUse);
+
+try {
 	const response = await fetch('/api/ai', {
 		method: 'POST',
 		headers: {
@@ -158,7 +194,29 @@ export async function fetchAIResponse(
 	if (!response.ok) {
 		const errorText = await response.text();
 		console.error('API error:', response.status, errorText);
-		throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+		
+		// Check for specific error types that might indicate model issues
+		const isModelError = errorText.includes('Model Not Exist') || 
+							errorText.includes('model not found') ||
+							errorText.includes('invalid model') ||
+							errorText.includes('model does not exist') ||
+							errorText.includes('Model not found');
+							
+		const isBillingError = errorText.includes('credit balance') || 
+							 errorText.includes('billing') ||
+							 errorText.includes('quota') ||
+							 errorText.includes('rate limit') ||
+							 errorText.includes('insufficient credits');
+
+		if (isModelError) {
+			console.log('🤖 Model error detected, attempting fallback...');
+			throw new Error(`MODEL_NOT_EXIST: ${errorText}`);
+		} else if (isBillingError) {
+			console.log('🤖 Billing error detected, attempting fallback...');
+			throw new Error(`BILLING_ERROR: ${errorText}`);
+		} else {
+			throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+		}
 	}
 
 	const responseData = await response.json();
@@ -172,10 +230,8 @@ export async function fetchAIResponse(
 	console.log('🔍 CLIENT DEBUG - responseData.response type:', typeof responseData.response);
 
 	// Handle different possible response structures
-	// Initialize finalResponse with empty string at the beginning
 	let finalResponse: string = '';
 
-	// Then in your response parsing logic, replace the if/else chain with:
 	if (responseData.success && responseData.data && typeof responseData.data === 'object') {
 		const wrappedData = responseData.data;
 		if (wrappedData.response && typeof wrappedData.response === 'string') {
@@ -218,8 +274,26 @@ export async function fetchAIResponse(
 		console.error('❌ Full response structure:', JSON.stringify(responseData, null, 2));
 		throw new Error('Could not extract response text from AI API response');
 	}
+	
 	console.log('🎯 Final extracted response:', finalResponse);
 	return finalResponse;
+
+} catch (error) {
+	const errorMessage = error instanceof Error ? error.message : String(error);
+	
+	// Check if this is a model error that we should handle with fallback
+	if (errorMessage.includes('MODEL_NOT_EXIST') || 
+		errorMessage.includes('BILLING_ERROR') || 
+		errorMessage.includes('LOCAL_MODEL_REDIRECT')) {
+		console.log('🤖 Detected recoverable error, will be handled by MessageService:', errorMessage);
+		throw error; // Re-throw for MessageService to handle
+	}
+	
+	// For other errors, throw as is
+	console.error('🤖 Non-recoverable error in aiClient:', errorMessage);
+	throw error;
+}
+
 }
 export async function debugApiKeys() {
 	console.log('=== API KEY DEBUG ===');

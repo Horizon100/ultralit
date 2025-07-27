@@ -30,7 +30,8 @@
 		PostUpdateData
 	} from '$lib/types/types.posts';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Adjust import path as needed
-
+	import { toast } from '$lib/utils/toastUtils';
+	import Toast from '$lib/components/modals/Toast.svelte';
 	// State
 	let loading = true;
 	let error = '';
@@ -59,65 +60,98 @@
 	$: username = $page.params.username;
 	$: postId = $page.params.id;
 
-	async function fetchPostData() {
-		if (!postId) return;
+async function fetchPostData() {
+	if (!postId) return;
+	
+	console.log('🔍 fetchPostData called:', { 
+		postId, 
+		username, 
+		currentUser: $currentUser?.id || 'not authenticated',
+		mounted 
+	});
 
-		const result = await clientTryCatch(
-			(async () => {
-				loading = true;
-				error = '';
+	const result = await clientTryCatch(
+		(async () => {
+			loading = true;
+			error = '';
 
-				const fetchResult = await fetchTryCatch<{
-					post: PostWithInteractions;
-					comments: CommentWithInteractions[];
-					user: User;
-					error?: string;
-				}>(`/api/posts/${postId}`);
+			console.log('🌐 Making fetch request to:', `/api/posts/${postId}`);
+			
+			const fetchResult = await fetchTryCatch<{
+				post: PostWithInteractions;
+				comments: CommentWithInteractions[];
+				user: User;
+				error?: string;
+			}>(`/api/posts/${postId}`);
 
-				if (isFailure(fetchResult)) {
-					throw new Error(`Failed to load post: ${fetchResult.error}`);
-				}
+			console.log('🌐 Fetch result:', {
+				success: fetchResult.success,
+				hasData: !!fetchResult.data,
+				error: fetchResult.error
+			});
 
-				const data = fetchResult.data;
+			if (isFailure(fetchResult)) {
+				console.error('❌ Fetch failed:', fetchResult.error);
+				throw new Error(`Failed to load post: ${fetchResult.error}`);
+			}
 
-				if (data.error) {
-					throw new Error(data.error);
-				}
+			const data = fetchResult.data;
+			console.log('📦 Data received:', {
+				hasPost: !!data.post,
+				hasUser: !!data.user,
+				hasComments: !!data.comments,
+				commentsLength: data.comments?.length || 0,
+				dataError: data.error
+			});
 
-				// Ensure we have the required data
-				if (!data.post) {
-					throw new Error('Post not found');
-				}
+			if (data.error) {
+				console.error('❌ Data error:', data.error);
+				throw new Error(data.error);
+			}
 
-				if (!data.user) {
-					throw new Error('Post author not found');
-				}
+			// Ensure we have the required data
+			if (!data.post) {
+				console.error('❌ No post in response');
+				throw new Error('Post not found');
+			}
 
-				post = data.post;
-				comments = data.comments || [];
-				user = data.user;
+			if (!data.user) {
+				console.error('❌ No user in response');
+				throw new Error('Post author not found');
+			}
 
-				// Verify the username matches the post's author (only if username is provided in URL)
-				if (username && user && user.username !== username) {
-					throw new Error('Post not found');
-				}
+			post = data.post;
+			comments = data.comments || [];
+			user = data.user;
 
-				return { post, comments, user };
-			})(),
-			`Fetching post data for ${postId}`
-		);
+			console.log('✅ Post data loaded successfully:', {
+				postId: post.id,
+				authorUsername: user.username,
+				commentsCount: comments.length
+			});
 
-		if (isFailure(result)) {
-			console.error('Error fetching post data:', result.error);
-			error = result.error;
-			// Reset state on error
-			post = null;
-			comments = [];
-			user = null;
-		}
+			// Verify the username matches the post's author (only if username is provided in URL)
+if (username && user && user.username !== username && user.username !== 'user') {
+    console.error('❌ Username mismatch:', { expected: username, actual: user.username });
+    throw new Error('Post not found');
+}
 
-		loading = false;
+			return { post, comments, user };
+		})(),
+		`Fetching post data for ${postId}`
+	);
+
+	if (isFailure(result)) {
+		console.error('💥 Final error in fetchPostData:', result.error);
+		error = result.error;
+		// Reset state on error
+		post = null;
+		comments = [];
+		user = null;
 	}
+
+	loading = false;
+}
 
 	// Handle scroll detection
 	let showPDFReader = false;
@@ -184,7 +218,7 @@
 		event: CustomEvent<{ postId: string; action: 'upvote' | 'repost' | 'read' | 'share' }>
 	) {
 		if (!$currentUser) {
-			alert($t('posts.interactPrompt'));
+			toast.warning($t('posts.interactPrompt'));
 			return;
 		}
 
@@ -604,37 +638,25 @@
 
 	$: replyPlaceholder = $t('posts.replyToThis') as string;
 
-	$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
-		setTimeout(async () => {
-			// Add additional null check inside timeout
-			if (!post) return;
+$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
+	setTimeout(async () => {
+		if (!post || !$currentUser) return;
 
-			const result = await clientTryCatch(
-				(async () => {
-					await postStore.markAsRead(post.id);
+		const result = await clientTryCatch(
+			(async () => {
+				await postStore.markAsRead(post.id);
+				// Don't refetch the entire post, just update the local state
+				post = { ...post, hasRead: true };
+				return true;
+			})(),
+			`Marking post ${post.id} as read`
+		);
 
-					// Update local post state
-					const fetchResult = await fetchTryCatch<{ post: PostWithInteractions }>(
-						`/api/posts/${post.id}`
-					);
-
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to fetch updated post: ${fetchResult.error}`);
-					}
-
-					const data = fetchResult.data;
-					post = data.post;
-
-					return data;
-				})(),
-				`Marking post ${post.id} as read`
-			);
-
-			if (isFailure(result)) {
-				console.error('Error marking post as read:', result.error);
-			}
-		}, 2000);
-	}
+		if (isFailure(result)) {
+			console.error('Error marking post as read:', result.error);
+		}
+	}, 2000);
+}
 
 	onMount(() => {
 		console.log('🏗️ Component mounted');
@@ -957,6 +979,7 @@
 		justify-content: center;
 		min-height: 100vh;
 		width: 100% !important;
+		margin-top: 2rem;
 		flex: 1;
 		transition: all 0.3s ease;
 		padding: 1rem;

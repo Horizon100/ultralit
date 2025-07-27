@@ -32,6 +32,7 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { MessageService } from '$lib/services/messageService';
+	import Avatar from '$lib/features/users/components/Avatar.svelte';
 
 	export let message: InternalChatMessage;
 
@@ -93,6 +94,8 @@
 	$: providerIconSrc = getProviderIcon(provider);
 	$: promptLabel = getPromptLabelFromContent(message.prompt_type);
 	$: promptDescription = getPromptDescription(message.prompt_type);
+
+	
 
 	function handleToggleReplies(messageId: string) {
 		if (hiddenReplies.has(messageId)) {
@@ -751,36 +754,48 @@
 		);
 	}
 
-	async function processContent() {
-		if (!message?.content || isProcessingContent) return;
+async function processContent() {
+	if (!message?.content || isProcessingContent) return;
 
-		console.log('Processing message:', message.id, 'Content:', message.content);
-		isProcessingContent = true;
+	console.log('🔍 MESSAGE PROCESSING - Starting for message:', message.id);
+	console.log('🔍 MESSAGE PROCESSING - Raw content type:', typeof message.content);
+	console.log('🔍 MESSAGE PROCESSING - Raw content value:', message.content);
+	console.log('🔍 MESSAGE PROCESSING - Is Promise?', isPromise(message.content));
+	
+	isProcessingContent = true;
 
-		let contentToProcess: string = '';
+	let contentToProcess: string = '';
 
-		try {
-			if (isPromise(message.content)) {
-				const resolvedContent = await message.content;
-				contentToProcess = String(resolvedContent || '');
-			} else {
-				contentToProcess = String(message.content || '');
-			}
-
-			// Use the MessageService method directly
-			processedContent = await MessageService.processMessageContentWithReplyable(
-				contentToProcess,
-				message.id
-			);
-
-			console.log('Final processed content length:', processedContent.length);
-		} catch (error) {
-			console.error('Error processing message content:', error);
-			processedContent = contentToProcess || 'Error loading message content';
-		} finally {
-			isProcessingContent = false;
+	try {
+		if (isPromise(message.content)) {
+			console.log('🔍 MESSAGE PROCESSING - Awaiting promise content...');
+			const resolvedContent = await message.content;
+			contentToProcess = String(resolvedContent || '');
+			console.log('🔍 MESSAGE PROCESSING - Resolved content:', contentToProcess);
+		} else {
+			contentToProcess = String(message.content || '');
+			console.log('🔍 MESSAGE PROCESSING - Direct content:', contentToProcess);
 		}
+
+		console.log('🔍 MESSAGE PROCESSING - Content to process length:', contentToProcess.length);
+		console.log('🔍 MESSAGE PROCESSING - Content preview:', contentToProcess.substring(0, 100));
+
+		// Use the MessageService method directly
+		processedContent = await MessageService.processMessageContentWithReplyable(
+			contentToProcess,
+			message.id
+		);
+
+		console.log('🔍 MESSAGE PROCESSING - Final processed content length:', processedContent.length);
+		console.log('🔍 MESSAGE PROCESSING - Final processed preview:', processedContent.substring(0, 100));
+	} catch (error) {
+		console.error('❌ MESSAGE PROCESSING - Error:', error);
+		processedContent = contentToProcess || 'Error loading message content';
+	} finally {
+		isProcessingContent = false;
+		console.log('🔍 MESSAGE PROCESSING - Completed for message:', message.id);
 	}
+}
 	$: if (message?.id && message.id !== lastProcessedMessageId) {
 		lastProcessedMessageId = message.id;
 		processContent();
@@ -831,29 +846,24 @@
 >
 	<div class="message-header">
 		{#if message.role === 'user'}
-			<div class="user-header">
-				<div class="avatar-container">
-					{#if message.user}
-						{#if $currentUser && getAvatarUrl($currentUser)}
-							<img src={getAvatarUrl($currentUser)} alt="User avatar" class="avatar" />
-						{:else}
-							<div class="default-avatar">
-								{($currentUser?.name ||
-									$currentUser?.username ||
-									$currentUser?.email ||
-									'?')[0]?.toUpperCase()}
-							</div>
-						{/if}
-					{/if}
-				</div>
-				<span class="role">
-					{#if message.type === 'human' && message.user}
-						{$currentUser?.id === message.user ? $currentUser.name : name}
-					{:else}
-						{name}
-					{/if}
-				</span>
-			</div>
+        <div class="user-header">
+            <div class="avatar-container">
+                {#if message.user}
+                    <Avatar 
+                        user={$currentUser} 
+                        size={40} 
+                        className="message-avatar"
+                    />
+                {/if}
+            </div>
+            <span class="role">
+                {#if message.type === 'human' && message.user}
+                    {$currentUser?.id === message.user ? $currentUser.name : name}
+                {:else}
+                    {name}
+                {/if}
+            </span>
+        </div>
 		{:else if message.role === 'assistant'}
 			<div class="user-header ai">
 				<div

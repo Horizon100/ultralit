@@ -204,11 +204,55 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			}
 		});
 
+// Collect all unique user IDs from posts
+		const userIds = new Set<string>();
+		allPosts.forEach(post => {
+			if (post.user) userIds.add(post.user);
+		});
+
+		// Fetch user data for all posts (this should work for guests too)
+		const usersMap = new Map();
+		if (userIds.size > 0) {
+			try {
+				const userIdArray = Array.from(userIds);
+				const usersResult = await pbTryCatch(
+					pb.collection('users').getList(1, userIdArray.length, {
+						filter: userIdArray.map(id => `id = "${id}"`).join(' || '),
+						fields: 'id,username,name,avatar'
+					}),
+					'fetch post authors'
+				);
+				
+				if (usersResult.success) {
+					usersResult.data.items.forEach(user => {
+						usersMap.set(user.id, user);
+					});
+				}
+			} catch (error) {
+				console.warn('Could not fetch user data for posts:', error);
+			}
+		}
+
+		// Now set author data with fallbacks
 		allPosts.forEach((post) => {
+			// First try to use expanded user data
 			if (post.expand?.user) {
 				post.author_name = post.expand.user.name;
 				post.author_username = post.expand.user.username;
 				post.author_avatar = post.expand.user.avatar;
+			} 
+			// Fallback to separately fetched user data
+			else if (post.user && usersMap.has(post.user)) {
+				const userData = usersMap.get(post.user);
+				post.author_name = userData.name;
+				post.author_username = userData.username;
+				post.author_avatar = userData.avatar;
+			}
+			// Final fallback - ensure we have at least basic data
+			else {
+				post.author_name = post.author_name || 'User';
+				post.author_username = post.author_username || 'user';
+				post.author_avatar = post.author_avatar || null;
 			}
 		});
 

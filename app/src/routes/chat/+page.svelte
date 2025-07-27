@@ -207,6 +207,19 @@
 		}
 	}
 
+	@media (max-width: 450px) {
+	.chat {
+		display: flex;
+		position: relative;
+		justify-content: center;
+		width: 100%;
+		margin-left: 0.5rem !important;
+		left: 0 !important;
+		margin-top: 1rem !important;
+		margin-bottom: 1rem !important;
+	}
+	}
+
 	.section {
 		padding: 1rem;
 		margin-top: 2rem;
@@ -228,8 +241,9 @@
 		position: relative;
 		justify-content: center;
 		width: 100%;
+		margin-left: 3.5rem;
 		margin-top: 1rem !important;
-		margin-bottom: 0 !important;
+		margin-bottom: 1rem !important;
 	}
 
 	.user-container {

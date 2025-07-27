@@ -11,6 +11,10 @@
 	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
 	import { taskNotifications } from '$lib/stores/taskNotificationStore';
 	import { navigationStore } from '$lib/stores/navigationStore';
+  import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
+  import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
+	import UmamiAnalytics from '$lib/components/analytics/UmamiAnalytics.svelte';
+import { dev } from '$app/environment';
 
 	// Components
 	import Kanban from '$lib/features/tasks/Kanban.svelte';
@@ -33,7 +37,7 @@
 	import type { User, PromptSelectEvent, PromptAuxClickEvent } from '$lib/types/types';
 	// Stores
 	import { currentUser, refreshCurrentUser, signOut } from '$lib/pocketbase';
-	import { currentTheme } from '$lib/stores/themeStore';
+	import { currentTheme, availableThemes } from '$lib/stores/themeStore';
 	import {
 		currentLanguage,
 		setLanguage,
@@ -71,7 +75,11 @@
 		isFailure
 	} from '$lib/utils/errorUtils';
 	import { createHoverManager } from '$lib/utils/hoverUtils';
-
+  import Avatar from '$lib/features/users/components/Avatar.svelte';
+import { analytics } from '$lib/stores/analyticsStore';
+if (dev) {
+	analytics.enableDebug(true);
+}
 	// Component props
 	export let onStyleClick: (() => void) | undefined = undefined;
 	export let isOpen = false;
@@ -84,6 +92,8 @@
 	let isStylesOpen = false;
 	let placeholderText = '';
 	let username: string = 'You';
+	  let user: User | null = null;
+
 	let isMenuOpen = true;
 	let innerWidth: number;
 	let isNavExpanded = false;
@@ -99,7 +109,8 @@
 	let wallpaperSrc: string | null = null;
 	let preference: WallpaperPreference;
 	let isLogoHovered = false;
-	let scrollObserverCleanup: (() => void) | null = null;
+	// let scrollObserverCleanup: (() => void) | null = null;
+    let cleanup: (() => void) | undefined;
 
 	// Reactive declarations
 	$: placeholderText = getRandomQuote();
@@ -110,6 +121,11 @@
 	$: user = $currentUser;
 	$: activeSection = $navigationStore.activeSection;
 	$: isScrolling = $navigationStore.isScrolling;
+  $: userAvatarUrl = $currentUser ? getAvatarUrl($currentUser) : '';
+  $: finalAvatarUrl = (userAvatarUrl && userAvatarUrl.trim() !== '') 
+    ? `${userAvatarUrl}?t=${avatarTimestamp}`
+    : ($currentUser ? generateUserIdenticon(getUserIdentifier($currentUser), 48) : '');
+
 	// Event handling
 	const dispatch = createEventDispatcher<{
 		promptSelect: PromptSelectEvent;
@@ -315,9 +331,29 @@
 		wallpaperSrc = getWallpaperSrc(wallpaperPreference);
 		console.log('Layout wallpaper updated:', { wallpaperPreference, wallpaperSrc });
 	}
-
+	$: {
+    console.log('Current active section:', $navigationStore.activeSection);
+    console.log('Current page:', $page.url.pathname);
+}
+$: if ($page.url.pathname === '/welcome') {
+    if (!cleanup) {
+        console.log('🚀 Welcome page detected, waiting for animations...');
+        // Wait for all your welcome page animations to complete
+        // Your animations: showFade (200ms) + showH2 (700ms) + showButton (1000ms)
+        setTimeout(() => {
+            cleanup = navigationStore.initializeScrollObserver();
+            console.log('✅ Observer initialization complete after animations');
+        }, 1500); // Wait 1.5 seconds for all animations
+    }
+} else {
+    if (cleanup) {
+        console.log('🔄 Leaving welcome page, cleaning up...');
+        cleanup();
+        cleanup = undefined;
+        navigationStore.reset();
+    }
+}
 	onMount(() => {
-		scrollObserverCleanup = navigationStore.initializeScrollObserver();
 
 		if (browser) {
 			window.addEventListener('avatarUpdated', handleAvatarUpdate);
@@ -444,9 +480,9 @@
 		});
 
 		// Set up theme tracker (global)
-		themeUnsubscribe = currentTheme.subscribe((theme) => {
-			document.documentElement.className = theme;
-		});
+		// themeUnsubscribe = currentTheme.subscribe((theme) => {
+		// 	document.documentElement.className = theme;
+		// });
 
 		// Initialize async operations - call initialize() directly since onMount can't be async
 		initialize().catch((error) => {
@@ -456,19 +492,19 @@
 		// Return cleanup function synchronously
 		return () => {
 			unsubscribe?.();
-			themeUnsubscribe?.();
+			// themeUnsubscribe?.();
 		};
 	});
 	onDestroy(() => {
+		if (cleanup) cleanup();
+
 		if (browser) {
 			window.removeEventListener('avatarUpdated', handleAvatarUpdate);
 		}
 		if (pageCleanup) {
 			pageCleanup();
 		}
-		if (scrollObserverCleanup) {
-			scrollObserverCleanup();
-		}
+
 	});
 </script>
 
@@ -491,6 +527,8 @@
 	</div> -->
 
 	{#if wallpaperSrc}
+<div class="wallpaper-container">
+	{#if wallpaperSrc}
 		<img
 			src={wallpaperSrc}
 			alt="Background illustration"
@@ -499,6 +537,8 @@
 			on:load={() => console.log('Wallpaper image loaded successfully')}
 			on:error={(e) => console.error('Wallpaper image failed to load:', e)}
 		/>
+	{/if}
+</div>
 	{:else}
 		<!-- Debug: Show when no wallpaper -->
 		<div
@@ -514,6 +554,8 @@
 				<div class="header-center">
 					<!-- Navigation anchor buttons -->
 					<div class="header-navigation">
+
+					{#if $page.url.pathname === '/welcome'}
 						<button
 							class="nav-anchor-btn"
 							on:click={() => navigationStore.scrollToSection('start')}
@@ -527,6 +569,16 @@
 							<!-- <Icon name="Key" size={16} />
 				<span>Home</span> -->
 						</button>
+					<button
+						class="nav-anchor-btn"
+						on:click={() => {
+							navigateTo('/home');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					>
+						<Icon name="Compass"  size={14}/>
+							<span>{$t('nav.posts')}</span>
+					</button>
 
 						<button
 							class="nav-anchor-btn"
@@ -534,7 +586,7 @@
 							class:active={$navigationStore.activeSection === 'features'}
 							title="Go to Features"
 						>
-							<Icon name="Play" size={16} />
+							<!-- <Icon name="Play" size={16} /> -->
 							<span>Features</span>
 						</button>
 
@@ -544,7 +596,6 @@
 							class:active={$navigationStore.activeSection === 'pricing'}
 							title="Go to Pricing"
 						>
-							$
 							<span>Pricing</span>
 						</button>
 
@@ -554,35 +605,53 @@
 							class:active={$navigationStore.activeSection === 'integrations'}
 							title="Go to About"
 						>
-							<Icon name="Info" size={16} />
+							<!-- <Icon name="Info" size={16} /> -->
 							<span>About</span>
 						</button>
+						{:else}
+												<button
+							class="nav-anchor-btn main"
+						on:click={() => {
+							navigateTo('/welcome');
+							if (isNavExpanded) isNavExpanded = false;
+						}}
+					
+						>
+							<div class="header-logo" class:active={$navigationStore.activeSection === 'start'}>
+								<img src={horizon100} alt="Horizon100" class="logo" />
+								<h2>vRAZUM</h2>
+							</div>
+							<!-- <Icon name="Key" size={16} />
+				<span>Home</span> -->
+						</button>
+						{/if}
 					</div>
 				</div>
 
-				<span class="auth-language">
-					<button class="nav-link language" on:click={handleLanguageChange}>
-						<Icon name="Languages" size={16} />
-						<span>{$t('lang.flag')}</span>
-					</button>
-				</span>
+
 				<button
 					class="nav-link login"
 					on:click={() => toggleAuthOrProfile()}
 					in:fly={{ y: 0, duration: 500, delay: 400 }}
 					out:fly={{ y: 50, duration: 500, delay: 400 }}
 				>
-					<Icon name="LogIn" size={16} />
+					<!-- <Icon name="LogIn" size={16} /> -->
 
 					<span>
 						{$t('profile.login')}
 					</span>
 				</button>
+								<span class="auth-language">
+					<button class="nav-link language" on:click={handleLanguageChange}>
+						<Icon name="Languages" size={16} />
+						<span>{$t('lang.flag')}</span>
+					</button>
+				</span>
 			</span>
 		</header>
 	{/if}
 
-	<nav style="z-index: 1000;"></nav>
+	<!-- <nav style="z-index: 1000;"></nav> -->
 	<div
 		class="sidenav"
 		class:expanded={isNavExpanded}
@@ -591,6 +660,7 @@
 		class:active-left={$showSidenav}
 		transition:slide={{ duration: 300 }}
 	>
+	{#if $currentUser}
 		<div class="toggle-container">
 			<button
 				class="nav-button drawer"
@@ -656,6 +726,7 @@
 						{/if}
 					</button> -->
 		</div>
+		{/if}
 		<div
 			class="navigation-buttons"
 			class:hidden={isNarrowScreen}
@@ -666,152 +737,162 @@
 			{#if $currentUser}
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
-					<button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showSidenav}
-						class:inactive={!$showSidenav}
-						class:reveal-active={$showSidenav}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeRight: () => {
-								console.log('🟢 Left button swiped right - showing sidenav');
-								if (innerWidth <= 450) {
-									sidenavStore.hideInput();
-									sidenavStore.hideRight();
-								}
-								if (!$showSidenav) {
-									sidenavStore.toggleLeft();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeLeft: () => {
-								console.log('🟢 Left button swiped left - hiding sidenav');
-								if ($showSidenav) {
-									sidenavStore.hideLeft();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideInput();
-								sidenavStore.hideRight();
-							}
-							sidenavStore.toggleLeft();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showSidenav}
-							<Icon name="ChevronLeft" />
-						{:else}
-							<Icon name="Filter" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.sidebar')}</span>
-						{/if}
-					</button>
+
 
 					<!-- Composer Button -->
-					<button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showInput}
-						class:reveal-active={$showInput}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeUp: () => {
-								console.log('🟢 Composer button swiped up - showing input');
-								if (innerWidth <= 450) {
-									sidenavStore.hideLeft();
-									sidenavStore.hideRight();
-								}
-								if (!$showInput) {
-									sidenavStore.toggleInput();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeDown: () => {
-								console.log('🟢 Composer button swiped down - hiding input');
-								if ($showInput) {
-									sidenavStore.hideInput();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideLeft();
-								sidenavStore.hideRight();
-							}
-							sidenavStore.toggleInput();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showInput}
-							<Icon name="ChevronDown" />
-						{:else}
-							<Icon name="MessageCirclePlus" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.compose')}</span>
-						{/if}
-					</button>
+<button
+    class="nav-button drawer"
+    class:expanded={isNavExpanded}
+    class:active={$showInput}
+    class:reveal-active={$showInput}
+    use:swipeGesture={{
+        threshold: 50,
+        enableVisualFeedback: true,
+        onSwipeUp: () => {
+            console.log('🟢 Composer button swiped up - showing input');
+            if (innerWidth <= 450) {
+                sidenavStore.hideLeft();
+                sidenavStore.hideRight();
+				
+            }
+            sidenavStore.hideSearch(); // Close search when opening input
+            if (!$showInput) {
+                sidenavStore.toggleInput();
+            }
+            isNavExpanded = false;
+        },
+        onSwipeDown: () => {
+            console.log('🟢 Composer button swiped down - hiding input');
+            if ($showInput) {
+                sidenavStore.hideInput();
+            }
+            isNavExpanded = false;
+        }
+    }}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        sidenavStore.hideSearch(); 
+				sidenavStore.hideRight();
 
-					<!-- Right Navigation Button (Right Sidenav) -->
-					<button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showRightSidenav}
-						class:reveal-active={$showRightSidenav}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeLeft: () => {
-								console.log('🟢 Right button swiped left - showing right sidenav');
-								if (innerWidth <= 450) {
-									sidenavStore.hideLeft();
-									sidenavStore.hideInput();
-								}
-								if (!$showRightSidenav) {
-									sidenavStore.toggleRight();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeRight: () => {
-								console.log('🟢 Right button swiped right - hiding right sidenav');
-								if ($showRightSidenav) {
-									sidenavStore.hideRight();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideLeft();
-								sidenavStore.hideInput();
-							}
-							sidenavStore.toggleRight();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showRightSidenav}
-							<Icon name="ChevronRight" />
-						{:else}
-							<Icon name="ScanFace" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.profile')}</span>
-						{/if}
-					</button>
+        sidenavStore.toggleInput();
+        isNavExpanded = false;
+    }}
+>
+    {#if $showInput}
+        <Icon name="ChevronDown" />
+    {:else}
+        <Icon name="MessageCirclePlus" />
+    {/if}
+    {#if isNavExpanded}
+        <span class="nav-text">{$t('generic.add')} {$t('posts.post')}</span>
+    {/if}
+</button>
+<!-- Right Navigation Button (Right Sidenav) -->
+<button
+    class="nav-button drawer"
+    class:expanded={isNavExpanded}
+    class:active={$showRightSidenav}
+    class:reveal-active={$showRightSidenav}
+    use:swipeGesture={{
+        threshold: 50,
+        enableVisualFeedback: true,
+        onSwipeLeft: () => {
+            console.log('🟢 Right button swiped left - showing right sidenav');
+            if (innerWidth <= 450) {
+                sidenavStore.hideLeft();
+                sidenavStore.hideInput();
+                sidenavStore.hideSearch(); // Close search when opening right panel
+            }
+            if (!$showRightSidenav) {
+                sidenavStore.toggleRight();
+            }
+            isNavExpanded = false;
+        },
+        onSwipeRight: () => {
+            console.log('🟢 Right button swiped right - hiding right sidenav');
+            if ($showRightSidenav) {
+                sidenavStore.hideRight();
+            }
+            isNavExpanded = false;
+        }
+    }}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            // Mobile: close others first
+            sidenavStore.hideLeft();
+            sidenavStore.hideInput();
+            sidenavStore.hideSearch(); // Close search when opening right panel
+        }
+		        sidenavStore.hideSearch(); 
+		        sidenavStore.hideInput(); 
+
+        sidenavStore.toggleRight();
+        isNavExpanded = false;
+    }}
+>
+    {#if $showRightSidenav}
+        <Icon name="ChevronRight" />
+    {:else}
+        <Icon name="ScanFace" />
+    {/if}
+    {#if isNavExpanded}
+        <span class="nav-text">{$t('nav.agents')}</span>
+    {/if}
+</button>
+<button
+    class="nav-button drawer"
+    class:expanded={isNavExpanded}
+    class:active={$showSearch}
+    class:reveal-active={$showSearch}
+    use:swipeGesture={{
+        threshold: 50,
+        enableVisualFeedback: true,
+        onSwipeUp: () => {
+            console.log('🟢 Search button swiped up - showing search');
+            if (innerWidth <= 450) {
+                sidenavStore.hideLeft();
+                sidenavStore.hideRight();
+                sidenavStore.hideInput();
+            }
+            if (!$showSearch) {
+                sidenavStore.toggleSearch();
+            }
+            isNavExpanded = false;
+        },
+        onSwipeDown: () => {
+            console.log('🟢 Search button swiped down - hiding search');
+            if ($showSearch) {
+                sidenavStore.hideSearch();
+            }
+            isNavExpanded = false;
+        }
+    }}
+    on:click={(event) => {
+        event.preventDefault();
+        if (innerWidth <= 450) {
+            sidenavStore.hideLeft();
+            sidenavStore.hideRight();
+        }
+        sidenavStore.hideInput();
+		sidenavStore.hideRight();
+        sidenavStore.toggleSearch();
+        isNavExpanded = false;
+    }}
+>
+    {#if $showSearch}
+        <Icon name="ChevronDown" />
+    {:else}
+        <Icon name="Search" />
+    {/if}
+    {#if isNavExpanded}
+        <span class="nav-text">{$t('nav.search')}</span>
+    {/if}
+</button>
 				{/if}
 
 				<!-- Chat Route Navigation -->
@@ -840,104 +921,8 @@
 				{/if}
 
 				<!-- Kanban/Lean Route Navigation -->
-				{#if currentPath === '/lean'}
-					<!-- <button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showSidenav}
-						class:reveal-active={$showSidenav}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeRight: () => {
-								console.log('🟢 Left button swiped right - showing sidenav');
-								if (innerWidth <= 450) {
-									sidenavStore.hideInput();
-									sidenavStore.hideRight();
-								}
-								if (!$showSidenav) {
-									sidenavStore.toggleLeft();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeLeft: () => {
-								console.log('🟢 Left button swiped left - hiding sidenav');
-								if ($showSidenav) {
-									sidenavStore.hideLeft();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideInput();
-								sidenavStore.hideRight();
-							}
-							sidenavStore.toggleLeft();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showSidenav}
-							<Icon name="ListX" /> Stages
-						{:else}
-							<Icon name="ListFilter" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.sidebar')}</span>
-						{/if}
-					</button> -->
 
-					<!-- <button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showRightSidenav}
-						class:reveal-active={$showRightSidenav}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeLeft: () => {
-								console.log('🟢 Right button swiped left - showing right sidenav');
-								if (innerWidth <= 450) {
-									sidenavStore.hideLeft();
-									sidenavStore.hideInput();
-								}
-								if (!$showRightSidenav) {
-									sidenavStore.toggleRight();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeRight: () => {
-								console.log('🟢 Right button swiped right - hiding right sidenav');
-								if ($showRightSidenav) {
-									sidenavStore.hideRight();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideLeft();
-								sidenavStore.hideInput();
-							}
-							sidenavStore.toggleRight();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showRightSidenav}
-							<Icon name="CalendarOff" />
-						{:else}
-							<Icon name="Calendar" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.profile')}</span>
-						{/if}
-					</button> -->
-				{/if}
-				{#if currentPath === '/chat'}
+				<!-- {#if currentPath === '/chat'}
 					<button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -982,7 +967,7 @@
 							<Icon name="MessageSquare" />
 						{/if}
 						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.profile')}</span>
+							<span class="nav-text">{$t('chat.threads')}</span>
 						{/if}
 					</button>
 					{#if $showOverlay}
@@ -1007,7 +992,7 @@
 								<span class="nav-text">{$t('nav.chat')}</span>
 							{/if}
 						</button>
-					{/if}
+					{/if} -->
 					<!-- <button
 						class="nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -1082,7 +1067,7 @@
 							{/if}
 						</button>
 					{/if} -->
-				{/if}
+				<!-- {/if} -->
 				<!-- Game Route Navigation -->
 				{#if currentPath.startsWith('/game')}
 					<button
@@ -1149,53 +1134,7 @@
 						{/if}
 					</button>
 				{/if}
-				<!-- <button
-					class="nav-button drawer"
-					class:expanded={isNavExpanded}
-					class:active={$showSearch}
-					class:reveal-active={$showSearch}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeUp: () => {
-							console.log('🟢 Composer button swiped up - showing input');
-							if (innerWidth <= 450) {
-								sidenavStore.hideLeft();
-								sidenavStore.hideRight();
-							}
-							if (!$showSearch) {
-								sidenavStore.toggleSearch();
-							}
-							isNavExpanded = false;
-						},
-						onSwipeDown: () => {
-							console.log('🟢 Composer button swiped down - hiding input');
-							if ($showSearch) {
-								sidenavStore.hideSearch();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideLeft();
-							sidenavStore.hideRight();
-						}
-						sidenavStore.toggleSearch();
-						isNavExpanded = false;
-					}}
-				>
-					{#if $showInput}
-						<Icon name="ChevronDown" />
-					{:else}
-						<Icon name="Search" />
-					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.compose')}</span>
-					{/if}
-				</button> -->
+
 			{:else}
 				<!-- Unauthenticated state -->
 				<!-- <LogIn /> -->
@@ -1300,97 +1239,287 @@
 			>
 				<img src={horizon100} alt="Horizon100" class="logo" />
 				<h2>vRAZUM</h2>
-			</div>
-			<button
+							<!-- <a
+				href="https://github.com/Horizon100/ultralit"
+				target="_blank"
+				rel="noopener noreferrer"
 				class="shortcut"
 				class:expanded={isNavExpanded}
-				class:active={$showDebug}
-				class:reveal-active={$showDebug}
-				use:swipeGesture={{
-					threshold: 50,
-					enableVisualFeedback: true,
-					onSwipeLeft: () => {
-						console.log('🟢 Right button swiped left - showing right sidenav');
+			>
+				<Icon name="Github" /> <span class="nav-text">GitHub</span>
+				{#if isNavExpanded}
+				
+				{/if}
+			</a> -->
+			</div>
+{#if $currentUser?.role === 'admin' || $currentUser?.role === 'tester'}
+    <button
+        class="shortcut"
+        class:expanded={isNavExpanded}
+        class:active={$showDebug}
+        class:reveal-active={$showDebug}
+        use:swipeGesture={{
+            threshold: 50,
+            enableVisualFeedback: true,
+            onSwipeLeft: () => {
+                console.log('🟢 Right button swiped left - showing right sidenav');
+                if (innerWidth <= 450) {
+                    sidenavStore.hideLeft();
+                    sidenavStore.hideInput();
+                }
+                if (!$showDebug) {
+                    sidenavStore.toggleRight();
+                }
+                isNavExpanded = false;
+            },
+            onSwipeRight: () => {
+                console.log('🟢 Right button swiped right - hiding right sidenav');
+                if ($showDebug) {
+                    sidenavStore.hideRight();
+                }
+                isNavExpanded = false;
+            }
+        }}
+        on:click={(event) => {
+            event.preventDefault();
+            if (innerWidth <= 450) {
+                // Mobile: close others first
+                sidenavStore.hideLeft();
+                sidenavStore.hideInput();
+            }
+            sidenavStore.toggleDebug();
+            isNavExpanded = false;
+        }}
+    >
+        {#if $showSettings}
+            <Icon name="AlertCircle" />
+        {:else}
+            <Icon name="AlertCircle" />
+        {/if}
+        {#if isNavExpanded}
+            <span class="nav-text">{$t('nav.debug')}</span>
+        {/if}
+    </button>
+{/if}
+{#if currentPath === '/home'}
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={$showSidenav}
+					class:inactive={!$showSidenav}
+					class:reveal-active={$showSidenav}
+					use:swipeGesture={{
+						threshold: 50,
+						enableVisualFeedback: true,
+						onSwipeRight: () => {
+							console.log('🟢 Left button swiped right - showing sidenav');
+							if (innerWidth <= 450) {
+								sidenavStore.hideInput();
+								sidenavStore.hideRight();
+								sidenavStore.hideSearch();
+
+							}
+							if (!$showSidenav) {
+								sidenavStore.toggleLeft();
+							}
+							isNavExpanded = false;
+						},
+						onSwipeLeft: () => {
+							console.log('🟢 Left button swiped left - hiding sidenav');
+							if ($showSidenav) {
+								sidenavStore.hideLeft();
+							}
+							isNavExpanded = false;
+						}
+					}}
+					on:click={(event) => {
+						event.preventDefault();
 						if (innerWidth <= 450) {
+							// Mobile: close others first
+							sidenavStore.hideInput();
+							sidenavStore.hideRight();
+						}
+						sidenavStore.toggleLeft();
+						isNavExpanded = false;
+					}}
+				>
+					{#if $showSidenav}
+						<Icon name="ChevronLeft" />
+					{:else}
+						<Icon name="Filter" />
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.filters')}</span>
+					{/if}
+				</a>
+			{:else}
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/home'}
+					on:click={() => {
+						navigateTo('/home');
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}}
+				>
+					<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
+					{#if isNavExpanded}{/if}
+				</a>
+			{/if}
+			
+			{#if currentPath === '/lean'}
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={$showSidenav}
+					class:reveal-active={$showSidenav}
+					use:swipeGesture={{
+						threshold: 50,
+						enableVisualFeedback: true,
+						onSwipeRight: () => {
+							console.log('🟢 Left button swiped right - showing sidenav');
+							if (innerWidth <= 450) {
+								sidenavStore.hideInput();
+								sidenavStore.hideRight();
+							}
+							if (!$showSidenav) {
+								sidenavStore.toggleLeft();
+							}
+							isNavExpanded = false;
+						},
+						onSwipeLeft: () => {
+							console.log('🟢 Left button swiped left - hiding sidenav');
+							if ($showSidenav) {
+								sidenavStore.hideLeft();
+							}
+							isNavExpanded = false;
+						}
+					}}
+					on:click={(event) => {
+						event.preventDefault();
+						if (innerWidth <= 450) {
+							// Mobile: close others first
+							sidenavStore.hideInput();
+							sidenavStore.hideRight();
+						}
+						sidenavStore.toggleLeft();
+						isNavExpanded = false;
+					}}
+				>
+					{#if $showSidenav}
+						<Icon name="ListX" />
+					{:else}
+						<Icon name="ListFilter" />
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('nav.sidebar')}</span>
+					{/if}
+				</a>
+			{:else}
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/lean'}
+					on:click={() => {
+						navigateTo('/lean');
+						if (isNavExpanded) {
+							isNavExpanded = false;
+						}
+					}}
+				>
+					<Icon name="Command" /> <span class="nav-text">{$t('nav.tools')}</span>
+					{#if isNavExpanded}{/if}
+				</a>
+			{/if}
+{#if currentPath === '/chat'}
+				<a
+					class="shortcut "
+					class:expanded={isNavExpanded}
+					class:active={$showOverlay}
+					class:reveal-active={$showOverlay}
+					use:swipeGesture={{
+						threshold: 50,
+						enableVisualFeedback: true,
+						onSwipeLeft: () => {
+							console.log('🟢 Right button swiped left - showing right sidenav');
+							if (innerWidth <= 450) {
+								sidenavStore.hideLeft();
+								sidenavStore.hideInput();
+							}
+							if (!$showOverlay) {
+								sidenavStore.toggleOverlay();
+							}
+							isNavExpanded = false;
+						},
+						onSwipeRight: () => {
+							console.log('🟢 Right button swiped right - hiding right sidenav');
+							if ($showOverlay) {
+								sidenavStore.hideOverlay();
+							}
+							isNavExpanded = false;
+						}
+					}}
+					on:click={(event) => {
+						event.preventDefault();
+						if (innerWidth <= 450) {
+							// Mobile: close others first
 							sidenavStore.hideLeft();
 							sidenavStore.hideInput();
 						}
-						if (!$showDebug) {
-							sidenavStore.toggleRight();
+						sidenavStore.toggleOverlay();
+						isNavExpanded = false;
+					}}
+				>
+					{#if $showOverlay}
+						<Icon name="MessageCircleOff" />
+					{:else}
+						<Icon name="MessageSquare" />
+					{/if}
+					{#if isNavExpanded}
+						<span class="nav-text">{$t('chat.threads')}</span>
+					{/if}
+				</a>
+				<!-- {#if $showOverlay}
+					<button
+						class="shortcut nav-button drawer"
+						class:expanded={isNavExpanded}
+						class:active={$showThreadList}
+						class:reveal-active={activeRevealButton === 'chat'}
+						on:click={(event) => {
+							event.preventDefault();
+							activeRevealButton = activeRevealButton === 'chat' ? null : 'chat';
+							sidenavStore.toggleThreadList(); // Use sidenavStore instead of toggleThreadList()
+							isNavExpanded = false;
+						}}
+					>
+						{#if $showThreadList}
+							<Icon name="ListCollapseIcon" />
+						{:else}
+							<Icon name="ListCollapse" />
+						{/if}
+						{#if isNavExpanded}
+							<span class="nav-text">{$t('nav.chat')}</span>
+						{/if}
+					</button>
+				{/if} -->
+			{:else}
+				<a
+					class="shortcut"
+					class:expanded={isNavExpanded}
+					class:active={currentPath === '/chat'}
+					on:click={() => {
+						navigateTo('/chat');
+						if (isNavExpanded) {
+							isNavExpanded = false;
 						}
-						isNavExpanded = false;
-					},
-					onSwipeRight: () => {
-						console.log('🟢 Right button swiped right - hiding right sidenav');
-						if ($showDebug) {
-							sidenavStore.hideRight();
-						}
-						isNavExpanded = false;
-					}
-				}}
-				on:click={(event) => {
-					event.preventDefault();
-					if (innerWidth <= 450) {
-						// Mobile: close others first
-						sidenavStore.hideLeft();
-						sidenavStore.hideInput();
-					}
-					sidenavStore.toggleDebug();
-					isNavExpanded = false;
-				}}
-			>
-				{#if $showSettings}
-					<Icon name="AlertCircle" />
-				{:else}
-					<Icon name="AlertCircle" />
-				{/if}
-				{#if isNavExpanded}
-					<span class="nav-text">{$t('nav.debug')}</span>
-				{/if}
-			</button>
-
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/home'}
-				on:click={() => {
-					navigateTo('/home');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
-				{#if isNavExpanded}{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/lean'}
-				on:click={() => {
-					navigateTo('/lean');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				<Icon name="Command" /> <span class="nav-text">{$t('nav.tools')}</span>
-				{#if isNavExpanded}{/if}
-			</a>
-			<a
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				class:active={currentPath === '/chat'}
-				on:click={() => {
-					navigateTo('/chat');
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				<Icon name="MessageSquare" /> <span class="nav-text">{$t('nav.chat')}</span>
-				{#if isNavExpanded}{/if}
-			</a>
+					}}
+				>
+					<Icon name="MessageSquare" /> <span class="nav-text">{$t('nav.chat')}</span>
+					{#if isNavExpanded}{/if}
+				</a>
+			{/if}
 			<!-- <a
 				class="shortcut"
 				class:expanded={isNavExpanded}
@@ -1436,16 +1565,7 @@
 				{#if isNavExpanded}
 				{/if}
 			</a> -->
-			<a
-				href="https://github.com/Horizon100/ultralit"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="shortcut"
-				class:expanded={isNavExpanded}
-			>
-				<Icon name="Github" /> <span class="nav-text">GitHub</span>
-				{#if isNavExpanded}{/if}
-			</a>
+
 			<button
 				class="shortcut"
 				class:expanded={isNavExpanded}
@@ -1482,13 +1602,13 @@
 				<div class="user-wrapper">
 					<div class="user-shortcuts">
 						{#if $currentUser?.id}
-							<img
-								src="/api/users/{$currentUser.id}/avatar?t={avatarTimestamp}"
-								alt="User avatar"
-								class="user-avatar"
-							/>
-						{:else}
-							<div class="default-avatar">?</div>
+<img 
+	src="/api/users/{$currentUser.id}/avatar" 
+	alt="Your avatar"
+	style="width: 30px; height: 30px; border-radius: 50%;"
+	class="user-avatar"
+/>
+
 						{/if}
 						<!-- <span class="nav-text">{username} </span> -->
 						<div class="tracker">
@@ -1536,16 +1656,19 @@
 	{/if}
 	{#if $showSearch}
 		<!-- Search wrapper - hidden when logo is hovered -->
+		 <div class="main-wrapper">
 		<div
 			class="search-wrapper"
-			in:fly={{ x: 50, duration: 500, delay: 400 }}
-			out:fly={{ x: 50, duration: 500, delay: 400 }}
+			in:fly={{ y: 50, duration: 500, delay: 400 }}
+			out:fly={{ y: 50, duration: 500, delay: 400 }}
 			class:dropdown-open={isDropdownOpen}
 			class:search-open={isSearchFocused}
 		>
 			<SearchEngine size="large" placeholder={searchPlaceholder} bind:isFocused={isSearchFocused} />
 		</div>
+		 </div>
 	{/if}
+<UmamiAnalytics />
 
 	<footer>
 		<!-- Footer content -->
@@ -1575,7 +1698,7 @@
 	.navigator-menu {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: flex-end;
 		position: absolute;
 		flex: 1;
@@ -1598,19 +1721,37 @@
 			border: 1px solid transparent;
 			width: 2rem !important;
 			height: 2rem !important;
+			&.expanded { 
+				justify-content: flex-start;
+				align-items: center;
+				padding: 0.5rem;
+				background: var(--primary-color);
+				opacity: 1;
+				width: 200px !important;
+				box-shadow: var(--line-color) 0 0 10px 2px;
+								height: 2rem;
+
+			}
+
 		}
 		& button.shortcut {
-			padding: 0;
+			display: flex;
+			justify-content: flex-start;
+			align-items: center;
+			gap: 0.5rem;
+			padding: 0.5rem;
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
-			width: 2rem;
-			height: 2rem;
+			width: 2rem !important;
+
+			height: 2rem !important;
 			& .user-avatar {
 				width: 2rem !important;
 				height: 2rem !important;
 				border-radius: 50%;
 				object-fit: cover;
+				
 			}
 			& .nav-text {
 				display: none;
@@ -1641,37 +1782,47 @@
 			justify-content: flex-end;
 			background: transparent !important;
 			height: auto;
-			width: auto;
+			
 			gap: 0;
 		}
 		.user-shortcuts {
 			display: flex;
 			align-items: center;
-			width: 100%;
-			border: 1px solid var(--line-color);
+			width: auto;
+			// width: 100%;
 			gap: 0.5rem;
+			margin-left: -0.25rem;
 			border-radius: 2rem;
 			transition: all 0.2s ease;
+							height: 2rem;
 			&:hover {
-				transform: translateX(2rem);
-				padding-right: 1rem;
+				transform: translateX(0.25rem);
+				padding: 0.5rem 1rem;
+				width: 100%;
 				background: var(--primary-color);
+							border: 1px solid var(--line-color);
+
 			}
 		}
 		&.expanded {
-			width: 200px !important;
+			width: auto !important;
+
+			align-items: flex-start;
 			& button.shortcut {
-				padding: 0;
+				padding: 1.5rem;
 				margin: 0;
-				background: transparent;
-				border: 1px solid transparent;
-				width: 100%;
-				height: 3rem;
+				background: var(--primary-color);
+				box-shadow: var(--line-color) 0 0 10px 2px;
+
+				border-radius: 2rem;
+				width: 100% !important;
+				height: 2rem;
 				.user-shortcuts {
-					width: 200px;
+					// width: 200px;
 					&:hover {
-						transform: translateX(1rem);
+						transform: translateX(0);
 						padding-right: 0;
+						border: 1px solid transparent;
 					}
 				}
 
@@ -1751,7 +1902,7 @@
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
-		height: 3rem;
+		height: 2rem;
 		gap: 1rem;
 		position: fixed;
 		left: 1rem;
@@ -1872,7 +2023,7 @@
 
 	.profile-content {
 		position: relative;
-		width: 50vw;
+		width: auto;
 		height: calc(100vh - 5rem);
 		max-width: 1000px;
 		top: 0;
@@ -1968,8 +2119,16 @@
 		flex-direction: row;
 		position: fixed;
 		z-index: 9999;
-		background: var(--bg-gradient);
-		top: 0;
+    background: linear-gradient(
+        to bottom,
+        rgba(63, 75, 75, 0.9) 0%,
+        rgba(63, 75, 75, 0.7) 20%,
+        rgba(63, 75, 75, 0.5) 40%,
+        rgba(63, 75, 75, 0.3) 60%,
+        rgba(63, 75, 75, 0.1) 80%,
+        rgba(63, 75, 75, 0) 100%
+    );
+			top: 0;
 		left: 0;
 		right: 1rem;
 		width: calc(100%);
@@ -2010,6 +2169,7 @@
       ); */
 		/* backdrop-filter: blur(3px); */
 		/* padding: 1rem 0; */
+		
 		& .header-auth {
 			display: flex;
 			flex-direction: row;
@@ -2065,13 +2225,26 @@
 		gap: 1rem;
 		position: relative;
 		user-select: none;
-
+		transition: all 0.2s ease;
 		& h2 {
 			padding: 0 !important;
 			height: auto !important;
 			margin: 0;
 			font-style: normal;
 			display: none;
+		}
+		& a {
+			display: none;
+		}
+		&:hover {
+			background-color: var(--primary-color);
+			padding: 0 1rem;
+			& h2 {
+				display: flex;
+			}
+			& a {
+				display: flex;
+			}
 		}
 	}
 
@@ -2142,24 +2315,33 @@
 		max-height: 90%;
 		overflow: auto;
 	}
-
+	.main-wrapper {
+		display: flex;
+		justify-content: center;
+		position: fixed;
+		bottom: 3.5rem;
+		left: 3.5rem;
+		width: calc(100% - 8rem);
+		margin: 0 auto;
+	}
 	.search-wrapper {
 		display: flex;
 		flex-direction: row;
-		justify-content: flex-end;
-		align-items: flex-end;
-		position: fixed;
+		justify-content: center;
+		align-items: center;
 		bottom: 3rem;
-		left: 50%;
-		right: 0.5rem;
+		border-radius: 1rem 1rem 0 0;
+		max-width: 600px;
 		height: 3rem;
-		padding: 1rem;
+		padding: 0;
+		backdrop-filter: blur(3px);
+
 		// backdrop-filter: blur(3px);
 		transition:
 			opacity 0.2s ease,
 			transform 0.2s ease;
 		&.search-open {
-			height: 100%;
+			height: 100vh;
 		}
 		&.dropdown-open {
 			height: auto !important;
@@ -2279,12 +2461,24 @@
 
 		&.login {
 			display: flex;
+			background-color: var(--primary-color);
+			margin-right: 0.5rem;
+			margin-left: 0.5rem;
+			height: 1.5rem;
 			flex-direction: row;
-			padding: 0;
+				padding: 0 0.5rem;
+				border-radius: 0.5rem;
+				border-radius: 2rem;
+				&:hover {
+					border-radius: 2rem;
+				box-shadow: var(--tertiary-color) 0px 0px 4px 1px;
+				}
 			& span {
-				display: flex;
+				display: inline-flex;
 				font-size: 0.7rem;
 				width: auto;
+				text-wrap: nowrap;
+				color: var(--tertiary-color);
 				gap: 0.5rem;
 			}
 		}
@@ -2394,25 +2588,49 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.illustration {
-		position: fixed;
-		width: 100%;
-		max-width: 1000px;
-		height: auto;
-		right: 0;
-		left: 30%;
-		bottom: 50%;
-		display: static;
-		overflow-x: hidden !important;
-		transform: translateY(50%) translateX(10%);
-		opacity: 0.05;
-		z-index: 1;
-		pointer-events: none;
-		mix-blend-mode: multiply;
-		filter: contrast(20) brightness(0.1);
-		border-radius: 10rem;
-		object-fit: content;
-	}
+	body::before {
+	content: '';
+	position: fixed;
+	width: 100%;
+	max-width: 1000px;
+	height: auto;
+	right: 0;
+	left: 30%;
+	bottom: 50%;
+	transform: translateY(50%) translateX(10%);
+	background-image: url('your-wallpaper-image.jpg');
+	background-size: contain;
+	background-repeat: no-repeat;
+	opacity: 0.05;
+	z-index: -999;
+	pointer-events: none;
+	mix-blend-mode: multiply;
+	filter: contrast(20) brightness(0.1);
+	border-radius: 10rem;
+}
+.wallpaper-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 1; /* Changed from 1 to -1 to prevent overlap */
+	pointer-events: none;
+}
+
+.illustration {
+	position: absolute;
+	width: 100%;
+	height: 100%; /* Fill full height of container */
+	top: 0;
+	left: 0;
+	opacity: 0.05;
+	pointer-events: none;
+	mix-blend-mode: multiply;
+	filter: contrast(10) brightness(0.2);
+	object-fit: cover; /* This scales to fill while maintaining aspect ratio */
+	object-position: center; /* Center the image */
+}
 
 	.mobile-menu {
 		display: flex;
@@ -2668,6 +2886,8 @@
 		background: var(--bg-gradient-r);
 		box-shadow: none;
 		border: none;
+		height: 3rem;
+		border-radius: 1rem 1rem 0 0;
 	}
 	.sidenav.active-right,
 	.sidenav.active,
@@ -2678,7 +2898,7 @@
 	.sidenav {
 		display: flex;
 		flex-direction: row;
-		align-items: flex-end;
+		align-items: center;
 		justify-content: center;
 		position: absolute;
 		left: auto;
@@ -2687,9 +2907,10 @@
 		top: auto;
 		bottom: 0;
 		padding: 0;
+		margin-bottom: 0;
 		z-index: 1;
+		height: 3rem;
 		flex: 1;
-
 		border-radius: 0 1rem 1rem 0;
 		transition: all 0.3s ease-in;
 		border: 0px solid transparent;
@@ -2701,14 +2922,17 @@
 		transform: none !important;
 		will-change: auto;
 		pointer-events: auto;
-		box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+		// box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 		/* Lock positioning */
 		transform: translateZ(0) !important;
 		backface-visibility: hidden;
+		backdrop-filter: blur(10px);
+  mask: linear-gradient(to bottom, transparent 0%, black 20px);
 
 		&.expanded {
-			width: 100%;
-
+			width: auto;
+			flex: 1;
+			border-radius: 0;
 			backdrop-filter: blur(10px);
 			justify-content: flex-end;
 			align-items: stretch;
@@ -2726,7 +2950,7 @@
 				align-items: flex-start;
 				touch-action: none;
 				transform: none !important;
-				max-width: 100%;
+
 				margin-left: 10rem;
 			}
 		}
@@ -3013,6 +3237,7 @@
 				padding-inline-start: 1rem;
 				&.expanded {
 					max-width: 350px;
+
 				}
 			}
 			& a {
@@ -3357,10 +3582,11 @@
 
 	.header-navigation {
 		display: flex;
-		gap: 0.25rem;
+		gap: 0.5rem;
 		transition: all 0.3s ease;
 		width: 100%;
 		margin-left: 1rem;
+		margin-right: 1rem;
 	}
 
 	.nav-anchor-btn {
@@ -3368,10 +3594,10 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 0.875rem;
-		height: 3rem;
+		height: 2rem;
 		background: transparent;
 		border: 1px solid var(--primary-color);
-		border-radius: 6px;
+		border-radius: 1rem;
 		color: var(--text-color);
 		background: var(--secondary-color);
 		font-size: 0.875rem;
@@ -3379,6 +3605,12 @@
 		transition: all 0.3s ease;
 		text-decoration: none;
 		white-space: nowrap;
+		&.main {
+			background-color: transparent;
+			& h2 {
+				font-size: 1rem;
+			}
+		}
 	}
 
 	.nav-anchor-btn:hover {
@@ -3440,20 +3672,20 @@
 		.nav-anchor-btn {
 			padding: 0.375rem 0.75rem;
 		}
-		.nav-link.login {
-			width: 2rem !important;
-			background: var(--primary-color);
-			border-radius: 1rem;
-			display: flex;
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-			position: absolute;
+		// .nav-link.login {
+		// 	width: 2rem !important;
+		// 	background: var(--primary-color);
+		// 	border-radius: 1rem;
+		// 	display: flex;
+		// 	flex-direction: row;
+		// 	justify-content: center;
+		// 	align-items: center;
+		// 	position: absolute;
 
-			& span {
-				display: none;
-			}
-		}
+		// 	& span {
+		// 		display: none;
+		// 	}
+		// }
 		.navigator-menu {
 			&:hover {
 			}
@@ -3507,11 +3739,14 @@
 			.user-shortcuts {
 				display: flex;
 				align-items: center;
+				justify-content: center;
 				width: 100%;
 				border: 1px solid var(--line-color);
 				gap: 0.5rem;
+				padding: 0 !important;
 				border-radius: 2rem;
 				transition: all 0.2s ease;
+				
 
 				&:hover {
 					transform: scale(1.05);
@@ -3608,11 +3843,11 @@
 			top: 50%;
 			transform: translateY(-50%) translateX(50%);
 			border-radius: 10rem;
-			opacity: 0.1;
-			z-index: 1;
+			opacity: 0.005;
+			z-index: 0;
 			pointer-events: none;
 			mix-blend-mode: multiply;
-			filter: contrast(2.5) brightness(0.8);
+	filter: contrast(10) brightness(0.2);
 			object-fit: contain;
 		}
 		.auth-content {
@@ -4037,8 +4272,8 @@
 			}
 		}
 		.navigation-buttons {
-			margin-left: 3rem;
-			margin-right: 1rem;
+			margin-left: 3.5rem;
+			margin-right: 1.5rem;
 		}
 		.nav-link {
 			font-size: 0.8rem;

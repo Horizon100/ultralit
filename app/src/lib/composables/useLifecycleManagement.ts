@@ -14,6 +14,8 @@ import { ThreadService } from '$lib/services/threadService';
 import { PromptService } from '$lib/services/promptService';
 import { debugApiKeys } from '$lib/clients/aiClient';
 import { debugCompleteApiKeyFlow } from '$lib/stores/apiKeyStore';
+import { getRuntimeDefaultModel, checkLocalServerAvailability } from '$lib/features/ai/utils/models';
+import type { SelectableAIModel } from '$lib/types/types';
 
 import type {
 	AIModel,
@@ -40,45 +42,81 @@ export function useLifecycleManagement() {
 		observer: null,
 		cleanupFunctions: []
 	};
+/**
+ * Enhanced initializeApp that prioritizes local models
+ */
+async function initializeApp(
+	textareaElement: HTMLTextAreaElement | null,
+	chatMessagesDiv: HTMLDivElement | null,
+	currentThreadId: string | null,
+	aiModel: AIModel,
+	setAiModel: (model: AIModel) => void,
+	handleSendMessage: (message: string) => Promise<void>
+): Promise<void> {
+	try {
+		console.log('🎯 App initialization started with local model priority');
+		await debugApiKeys();
 
-	/**
-	 * Initializes the entire application
-	 */
-	async function initializeApp(
-		textareaElement: HTMLTextAreaElement | null,
-		chatMessagesDiv: HTMLDivElement | null,
-		currentThreadId: string | null,
-		aiModel: AIModel,
-		setAiModel: (model: AIModel) => void,
-		handleSendMessage: (message: string) => Promise<void>
-	): Promise<void> {
-		try {
-			console.log('onMount initiated');
-			await debugApiKeys();
+		// Authentication
+		state.isAuthenticated = await ensureAuthenticated();
 
-			// Authentication
-			state.isAuthenticated = await ensureAuthenticated();
+		// Wait for user to be set in the store
+		let currentUserValue = get(currentUser);
+		let retries = 0;
+		while (!currentUserValue?.id && retries < 10) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			currentUserValue = get(currentUser);
+			retries++;
+		}
 
-			// Wait a bit for the user to be set in the store
-			let currentUserValue = get(currentUser);
-			let retries = 0;
-			while (!currentUserValue?.id && retries < 10) {
-				await new Promise((resolve) => setTimeout(resolve, 100));
-				currentUserValue = get(currentUser);
-				retries++;
+		if (!currentUserValue?.id) {
+			console.error('No authenticated user found after retries');
+			return;
+		}
+
+		console.log('Current user:', currentUserValue);
+
+		// Initialize user-related data
+		await initializeUserData();
+
+		// PRIORITY: Check local models first
+		console.log('🎯 Checking local models before API models...');
+		const localModel = await checkAndInitializeLocalModels();
+		
+		if (localModel) {
+			console.log('🎯 Local model available, setting as default:', localModel.name);
+			
+			// Convert to AIModel format
+			const localAIModel: AIModel = {
+				id: localModel.id,
+				name: localModel.name,
+				provider: 'local',
+				api_key: '',
+				base_url: 'http://localhost:11434',
+				api_type: localModel.api_type || localModel.id,
+				api_version: 'v1',
+				description: localModel.description || '',
+				user: [],
+				created: new Date().toISOString(),
+				updated: new Date().toISOString(),
+				collectionId: 'local_models',
+				collectionName: 'local_models'
+			};
+			
+			setAiModel(localAIModel);
+			
+			// Set in model store
+			if (currentUserValue?.id) {
+				try {
+					await modelStore.setSelectedProvider(currentUserValue.id, 'local');
+					console.log('🎯 Set local provider in model store');
+				} catch (error) {
+					console.warn('Error setting local provider in store:', error);
+				}
 			}
-
-			if (!currentUserValue?.id) {
-				console.error('No authenticated user found after retries');
-				return;
-			}
-
-			console.log('Current user:', currentUserValue);
-
-			// Initialize user-related data
-			await initializeUserData();
-
-			// Initialize models
+		} else {
+			// Fallback to API models initialization
+			console.log('🎯 No local models, initializing API models...');
 			if (!state.modelInitialized) {
 				const initializedModel = await initializeModels(currentUserValue.id, aiModel);
 				if (initializedModel) {
@@ -86,21 +124,24 @@ export function useLifecycleManagement() {
 				}
 				state.modelInitialized = true;
 			}
-
-			// Initialize projects and threads
-			await initializeProjectsAndThreads(handleSendMessage);
-
-			// Setup DOM observers and handlers
-			setupDOMObservers(textareaElement, chatMessagesDiv);
-
-			// Load thread-specific data if needed
-			if (currentThreadId) {
-				await loadThreadSpecificData(chatMessagesDiv);
-			}
-		} catch (error) {
-			console.error('Error during app initialization:', error);
 		}
+
+		// Initialize projects and threads
+		await initializeProjectsAndThreads(handleSendMessage);
+
+		// Setup DOM observers and handlers
+		setupDOMObservers(textareaElement, chatMessagesDiv);
+
+		// Load thread-specific data if needed
+		if (currentThreadId) {
+			await loadThreadSpecificData(chatMessagesDiv);
+		}
+		
+		console.log('🎯 App initialization completed with model:', aiModel?.name);
+	} catch (error) {
+		console.error('Error during app initialization:', error);
 	}
+}
 
 	/**
 	 * Initializes user-related data
@@ -119,123 +160,251 @@ export function useLifecycleManagement() {
 			console.error('Error initializing user data:', error);
 		}
 	}
-	/**
-	 * Initializes AI models for the user
-	 */
-	// Update for src/lib/composables/useLifecycleManagement.ts - initializeModels function
-	async function initializeModels(
-		userId: string,
-		currentAiModel: AIModel
-	): Promise<AIModel | null> {
-		try {
-			console.log('Initializing models for user:', userId);
-			await debugCompleteApiKeyFlow();
+/**
+ * Enhanced initializeModels function that prioritizes local models
+ */
+async function initializeModels(
+	userId: string,
+	currentAiModel: AIModel
+): Promise<AIModel | null> {
+	try {
+		console.log('🎯 Initializing models for user:', userId);
+		await debugCompleteApiKeyFlow();
 
-			console.log('🔍 Ensuring API keys loaded in lifecycle...');
-			await apiKey.ensureLoaded();
+		console.log('🔍 Ensuring API keys loaded in lifecycle...');
+		await apiKey.ensureLoaded();
 
-			// Get available providers with keys
-			const providers = ['anthropic', 'deepseek', 'grok', 'google', 'openai']; // Prioritize non-OpenAI
-			const availableProviders = providers.filter((provider) => apiKey.hasKey(provider));
-			console.log('🔍 Lifecycle - Available API key providers:', availableProviders);
-
-			// If no API keys, can't initialize properly
-			if (availableProviders.length === 0) {
-				console.log('❌ No API keys available in lifecycle, using default model');
-				return defaultModel;
-			}
-
-			// Load existing models from database
-			await modelStore.loadModels(userId);
-
-			// Get current state after loading
-			let currentState: any = null;
-			const unsubscribe = modelStore.subscribe((state) => {
-				currentState = state;
-			});
-			unsubscribe();
-
-			console.log('Loaded models from database:', currentState?.models?.length || 0);
-
-			// FILTER MODELS BY AVAILABLE API KEYS
-			const validModels = (currentState?.models || []).filter((model: AIModel) => {
-				const hasKey = availableProviders.includes(model.provider);
-				if (!hasKey) {
-					console.log(`🚫 Lifecycle filtering out ${model.name} - no key for ${model.provider}`);
+		// First priority: Check if local models are available
+		console.log('🎯 Checking local model availability first...');
+		const localAvailable = await checkLocalServerAvailability();
+		
+		if (localAvailable) {
+			console.log('🎯 Local models available! Using local as primary option');
+			
+			// Get local runtime default
+			try {
+				const runtimeDefault = await getRuntimeDefaultModel();
+				if (runtimeDefault.provider === 'local') {
+					console.log('🎯 Using local runtime default model:', runtimeDefault.name);
+					
+					// Convert SelectableAIModel to AIModel for compatibility
+					const localAIModel: AIModel = {
+						id: runtimeDefault.id,
+						name: runtimeDefault.name,
+						provider: runtimeDefault.provider,
+						api_key: '',
+						base_url: 'http://localhost:11434',
+						api_type: runtimeDefault.api_type || runtimeDefault.id,
+						api_version: 'v1',
+						description: runtimeDefault.description || '',
+						user: [],
+						created: new Date().toISOString(),
+						updated: new Date().toISOString(),
+						collectionId: 'local_models',
+						collectionName: 'local_models'
+					};
+					
+					// Set local provider in model store
+					await modelStore.setSelectedProvider(userId, 'local');
+					console.log('🎯 Set local provider in model store');
+					
+					return localAIModel;
 				}
-				return hasKey;
-			});
-
-			console.log('Valid models with API keys:', validModels.length);
-
-			// If no valid models, use model store initialize
-			if (validModels.length === 0) {
-				console.log('No valid models found, using model store initialize');
-				const initializedModel = await modelStore.initialize(userId);
-				console.log('Initialized model:', initializedModel?.name);
-				return initializedModel;
+			} catch (error) {
+				console.warn('Error getting local runtime default, falling back to API models:', error);
 			}
+		} else {
+			console.log('🎯 Local models not available, checking API providers...');
+		}
 
-			// Check if current AI model is valid (has API key)
-			let modelToUse: AIModel | null = null;
+		// Second priority: API providers (only if local not available)
+		const providers = ['deepseek', 'anthropic', 'grok', 'google', 'openai']; // deepseek first
+		const availableProviders = providers.filter((provider) => apiKey.hasKey(provider));
+		console.log('🔍 Lifecycle - Available API key providers:', availableProviders);
 
-			if (currentAiModel?.id && availableProviders.includes(currentAiModel.provider)) {
-				// Current model is valid, try to find it in valid models
-				modelToUse = validModels.find((m: AIModel) => m.id === currentAiModel.id) || null;
-				console.log('Current model is valid and found:', modelToUse?.id);
-			}
-
-			if (!modelToUse) {
-				// Select first model from preferred providers
-				const preferredProviders = ['anthropic', 'deepseek', 'grok'];
-
-				for (const provider of preferredProviders) {
-					if (availableProviders.includes(provider)) {
-						const providerModels = validModels.filter((m: AIModel) => m.provider === provider);
-						if (providerModels.length > 0) {
-							modelToUse = providerModels[0];
-							console.log(`Selected model from preferred provider ${provider}:`, modelToUse.name);
-							break;
-						}
-					}
-				}
-			}
-
-			if (!modelToUse && validModels.length > 0) {
-				// Use first valid model
-				modelToUse = validModels[0];
-				console.log('Using first valid model:', modelToUse.name);
-			}
-
-			if (modelToUse) {
-				await modelStore.setSelectedModel(userId, modelToUse);
-				return modelToUse;
-			}
-
-			// Final fallback
-			console.log('No valid model found, using model store initialize as fallback');
-			const initializedModel = await modelStore.initialize(userId);
-			return initializedModel;
-		} catch (error) {
-			console.error('Error initializing models:', error);
-
-			// Fallback to a model with available API key
-			await apiKey.ensureLoaded();
-			const availableProviders = ['anthropic', 'deepseek', 'grok', 'google', 'openai'].filter(
-				(provider) => apiKey.hasKey(provider)
-			);
-
-			if (availableProviders.length > 0) {
-				const validProvider = availableProviders[0] as ProviderType;
-				const fallbackModel =
-					availableModels.find((m) => m.provider === validProvider) || defaultModel;
-				console.log('Using fallback model after error:', fallbackModel.name);
-				return fallbackModel;
-			}
-
+		// If no API keys and no local, can't initialize properly
+		if (availableProviders.length === 0 && !localAvailable) {
+			console.log('❌ No API keys and no local models available, using static default');
 			return defaultModel;
 		}
+
+		// Load existing models from database
+		await modelStore.loadModels(userId);
+
+		// Get current state after loading
+		let currentState: any = null;
+		const unsubscribe = modelStore.subscribe((state) => {
+			currentState = state;
+		});
+		unsubscribe();
+
+		console.log('Loaded models from database:', currentState?.models?.length || 0);
+
+		// FILTER MODELS BY AVAILABLE API KEYS (only for API providers)
+		const validModels = (currentState?.models || []).filter((model: AIModel) => {
+			if (model.provider === 'local') {
+				// Local models are valid if local server is available
+				return localAvailable;
+			}
+			
+			const hasKey = availableProviders.includes(model.provider);
+			if (!hasKey) {
+				console.log(`🚫 Lifecycle filtering out ${model.name} - no key for ${model.provider}`);
+			}
+			return hasKey;
+		});
+
+		console.log('Valid models (including local):', validModels.length);
+
+		// If we have local models and local is available, prioritize them
+		const localModels = validModels.filter((m: AIModel) => m.provider === 'local');
+		if (localModels.length > 0 && localAvailable) {
+			console.log('🎯 Found valid local models, using first local model');
+			const selectedLocal = localModels[0];
+			await modelStore.setSelectedProvider(userId, 'local');
+			return selectedLocal;
+		}
+
+		// Check if current AI model is valid
+		let modelToUse: AIModel | null = null;
+
+		if (currentAiModel?.id) {
+			// For local models, check if local server is available
+			if (currentAiModel.provider === 'local' && localAvailable) {
+				modelToUse = currentAiModel;
+				console.log('Current local model is valid:', modelToUse.id);
+			} 
+			// For API models, check if we have the API key
+			else if (currentAiModel.provider !== 'local' && availableProviders.includes(currentAiModel.provider)) {
+				modelToUse = validModels.find((m: AIModel) => m.id === currentAiModel.id) || null;
+				console.log('Current API model is valid and found:', modelToUse?.id);
+			}
+		}
+
+		if (!modelToUse) {
+			// Priority order: local first, then preferred API providers
+			const allPreferredProviders = localAvailable ? 
+				['local', 'deepseek', 'anthropic', 'grok'] : 
+				['deepseek', 'anthropic', 'grok'];
+
+			for (const provider of allPreferredProviders) {
+				let providerModels: AIModel[] = [];
+				
+				if (provider === 'local' && localAvailable) {
+					providerModels = validModels.filter((m: AIModel) => m.provider === 'local');
+				} else if (provider !== 'local' && availableProviders.includes(provider)) {
+					providerModels = validModels.filter((m: AIModel) => m.provider === provider);
+				}
+				
+				if (providerModels.length > 0) {
+					modelToUse = providerModels[0];
+					console.log(`🎯 Selected model from preferred provider ${provider}:`, modelToUse.name);
+					break;
+				}
+			}
+		}
+
+		if (!modelToUse && validModels.length > 0) {
+			// Use first valid model
+			modelToUse = validModels[0];
+			console.log('🎯 Using first valid model:', modelToUse.name);
+		}
+
+		if (modelToUse) {
+			if (modelToUse.provider === 'local') {
+				await modelStore.setSelectedProvider(userId, 'local');
+			} else {
+				await modelStore.setSelectedModel(userId, modelToUse);
+			}
+			return modelToUse;
+		}
+
+		// Final fallback to model store initialize
+		console.log('🎯 No valid model found, using model store initialize as fallback');
+		const initializedModel = await modelStore.initialize(userId);
+		return initializedModel;
+		
+	} catch (error) {
+		console.error('Error initializing models:', error);
+
+		// Enhanced fallback: try local first, then API providers
+		try {
+			const localAvailable = await checkLocalServerAvailability();
+			if (localAvailable) {
+				console.log('🎯 Error fallback: using local model');
+				const runtimeDefault = await getRuntimeDefaultModel();
+				if (runtimeDefault.provider === 'local') {
+					return {
+						id: runtimeDefault.id,
+						name: runtimeDefault.name,
+						provider: 'local' as ProviderType,
+						api_key: '',
+						base_url: 'http://localhost:11434',
+						api_type: runtimeDefault.api_type || runtimeDefault.id,
+						api_version: 'v1',
+						description: runtimeDefault.description || '',
+						user: [],
+						created: new Date().toISOString(),
+						updated: new Date().toISOString(),
+						collectionId: 'local_models',
+						collectionName: 'local_models'
+					};
+				}
+			}
+		} catch (localError) {
+			console.warn('Local fallback also failed:', localError);
+		}
+
+		// API fallback
+		await apiKey.ensureLoaded();
+		const availableProviders = ['deepseek', 'anthropic', 'grok', 'google', 'openai'].filter(
+			(provider) => apiKey.hasKey(provider)
+		);
+
+		if (availableProviders.length > 0) {
+			const validProvider = availableProviders[0] as ProviderType;
+			const fallbackModel =
+				availableModels.find((m) => m.provider === validProvider) || defaultModel;
+			console.log('🎯 Using API fallback model after error:', fallbackModel.name);
+			return fallbackModel;
+		}
+
+		return defaultModel;
 	}
+}
+/**
+ * Checks and initializes local models if available
+ */
+async function checkAndInitializeLocalModels(): Promise<SelectableAIModel | null> {
+	try {
+		console.log('🎯 Checking for local models...');
+		
+		const response = await fetch('/api/ai/local/models');
+		const result = await response.json();
+		
+		if (result.success && result.data?.models?.length > 0) {
+			console.log('🎯 Local models found:', result.data.models.length);
+			
+			// Return the first available local model
+			const firstModel = result.data.models[0];
+			return {
+				id: firstModel.api_type,
+				name: firstModel.name,
+				provider: 'local' as ProviderType,
+				api_type: firstModel.api_type,
+				description: `${firstModel.parameters} - ${firstModel.families?.join(', ') || 'Local Model'}`,
+				parameters: firstModel.parameters,
+				size: firstModel.size
+			};
+		}
+		
+		return null;
+	} catch (error) {
+		console.log('🎯 Local models not available:', error);
+		return null;
+	}
+}
+
 
 	/**
 	 * Initializes projects and threads

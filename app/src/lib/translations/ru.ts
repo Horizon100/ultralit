@@ -26,7 +26,10 @@ export default {
 		welcome: 'Добро пожаловать',
 		signup: 'Новый пользователь? Создайте учетную запись',
 		quickAccess: 'Быстрый доступ',
-		debug: 'Отладка'
+		debug: 'Отладка',
+		posts: 'Посты',
+		filters: 'Фильтры',
+		agents: 'Агенты',
 	},
 	generic: {
 		created: 'Создано',
@@ -63,7 +66,9 @@ export default {
 		on: 'Вкл.',
 		off: 'Выкл.',
 		settings: 'Настройки',
-		tags: 'Теги'
+		tags: 'Теги',
+		add: 'Добавить',
+		new: 'Новый',
 	},
 	posts: {
 		loginPrompt: 'Пожалуйста, войдите, чтобы создать запись.',
@@ -100,7 +105,8 @@ export default {
 		media: 'Медиа',
 		likes: 'Лайки',
 		historySignin: 'Войдите, чтобы просмотреть полную историю сообщений этого пользователя',
-		seeAll: 'Просмотреть все'
+		seeAll: 'Просмотреть все',
+		joinConversation: 'Присоединиться к обсуждению',
 	},
 	lang: {
 		notification: 'Язык: русский',
@@ -448,7 +454,9 @@ export default {
 		weeks: 'недель',
 		month: 'месяц',
 		months: 'месяцев',
-		now: 'Сейчас'
+		now: 'Сейчас',
+		online: 'Онлайн',
+		offline: 'Оффлайн',
 	},
 	months: {
 		january: 'Январь',
@@ -541,8 +549,14 @@ export default {
 		message: 'Сообщение',
 		messages: 'Сообщений',
 		messagecount: 'сообщений',
+		prompt: 'Подсказка',
 		prompts: 'Подсказки',
-		models: 'Моделы'
+		model: 'Модель',
+		models: 'Моделы',
+		thread: 'Поток',
+		threads: 'Потоки',
+		local: 'Локальный',
+		locals: 'Локальные',
 	},
 
 	profile: {
@@ -609,6 +623,32 @@ export default {
 		follow: 'Подписаться',
 		favorites: 'Избранное',
 		stats: 'Статистика'
+	},
+	status: {
+		downloading: 'Загрузка...',
+		downloaded: 'Загружено',
+		processing: 'Обработка...',
+		processed: 'Обработано',
+		uploading: 'Загрузка...',
+		uploaded: 'Загружено',
+		waiting: 'Ожидание...',
+		error: 'Ошибка',
+		success: 'Успешно',
+		failed: 'Не удалось',
+		cancelling: 'Отмена...',
+		cancelled: 'Отменено',
+		pausing: 'Пауза...',
+		paused: 'Пауза',
+		running: 'Выполняется',
+		stopped: 'Остановлено',
+		saving: 'Сохранение...',
+		saved: 'Сохранено',
+		deleting: 'Удаление...',
+		deleted: 'Удалено',
+		loading: 'Загрузка...',
+		loaded: 'Загружено',
+		creating: 'Создание...',
+		created: 'Создано',
 	},
 	button: {
 		tags: 'Тагы'

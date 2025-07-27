@@ -10,7 +10,7 @@
 	import { UIUtils } from '$lib/utils/uiUtils';
 	import type { Threads } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-
+	import { fly } from 'svelte/transition';
 	// Props
 	export let currentThread: Threads | null = null;
 	export let userId: string;
@@ -53,7 +53,9 @@
 	transition:slide={{ duration: 300, easing: cubicOut }}
 >
 	{#if currentThread}
-		<div class="chat-header-thread">
+		<div class="chat-header-thread"
+
+		>
 			{#if currentThread && (currentThread.user === userId || currentThread.op === userId)}
 				{#if isUpdatingThreadName}
 					<div class="spinner-container">
@@ -64,9 +66,11 @@
 						<div class="icon" in:fade>
 							<!-- Optional icon -->
 						</div>
-						<h3>
-							{currentThread?.name || '(untitled)'}
-						</h3>
+						{#key currentThread?.name}
+							<h3 in:fly={{ y: 50, duration: 200 }} out:fade={{ duration: 100 }}>
+								{currentThread?.name || '(untitled)'}
+							</h3>
+						{/key}
 					</span>
 				{/if}
 			{:else}
@@ -190,7 +194,6 @@
 			max-width: 800px;
 			gap: 0.5rem;
 			margin: 0;
-
 			position: relative;
 			transition: all 0.3s ease;
 			& p {
@@ -267,7 +270,7 @@
 		left: 0rem;
 		right: 0;
 		width: 100%;
-		z-index: 2000;
+		z-index: 1;
 		// padding: 0.5rem;
 		color: var(--text-color);
 		text-align: left;

@@ -2,7 +2,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	import { currentTheme, type Theme } from '$lib/stores/themeStore';
+	import { currentTheme, type Theme, availableThemes } from '$lib/stores/themeStore';
 	import { t } from '$lib/stores/translationStore';
 	import { get } from 'svelte/store';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -83,10 +83,12 @@
 		dispatch('close');
 	}
 
-	function applyTheme(theme: string) {
-		document.body.className = theme;
-	}
-
+function applyTheme(theme: string) {
+	// Remove all available theme classes first
+	document.documentElement.classList.remove(...availableThemes);
+	// Add the new theme class
+	document.documentElement.classList.add(theme);
+}
 	function handleHover(style: Style) {
 		hoveredStyle = style;
 		applyTheme(style.value);

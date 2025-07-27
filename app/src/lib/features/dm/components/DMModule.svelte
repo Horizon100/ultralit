@@ -283,17 +283,17 @@
 		loadConversations();
 	}
 
-	$: if (initialConversationId && conversations.length > 0) {
-		selectConversationById(initialConversationId);
-	} else if (
-		!initialConversationId &&
-		user &&
-		conversations.length > 0 &&
-		$currentUser &&
-		user.id !== $currentUser.id
-	) {
-		findOrCreateConversationWithUser(user.id);
-	}
+	// $: if (initialConversationId && conversations.length > 0) {
+	// 	selectConversationById(initialConversationId);
+	// } else if (
+	// 	!initialConversationId &&
+	// 	user &&
+	// 	conversations.length > 0 &&
+	// 	$currentUser &&
+	// 	user.id !== $currentUser.id
+	// ) {
+	// 	findOrCreateConversationWithUser(user.id);
+	// }
 
 	onMount(async () => {
 		if ($currentUser && shouldLoadConversations) {

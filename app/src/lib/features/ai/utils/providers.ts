@@ -4,6 +4,8 @@ import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
 import grokIcon from '$lib/assets/icons/providers/x.svg';
 import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
+import ollamaIcon from '$lib/assets/icons/providers/ollama.svg';
+
 import { fetchTryCatch, isFailure, clientTryCatch } from '$lib/utils/errorUtils';
 export interface ProviderConfig {
 	name: string;
@@ -31,6 +33,50 @@ const handleFetchError = (providerName: string) => (error: unknown) => {
 };
 
 export const providers: Record<ProviderType, ProviderConfig> = {
+	local: {
+		name: 'Local Models',
+		icon: ollamaIcon, // You'll need to create this icon or use a placeholder
+		validateApiKey: async (): Promise<boolean> => {
+			// Local models don't need API key validation, check server availability instead
+			try {
+				const response = await fetch('/api/ai/local/models');
+				const result = await response.json();
+				return result.success && result.data?.models?.length > 0;
+			} catch {
+				return false;
+			}
+		},
+		fetchModels: async (): Promise<AIModel[]> => {
+			// Fetch local models from your local API
+			try {
+				const response = await fetch('/api/ai/local/models');
+				const result = await response.json();
+				
+				if (result.success && result.data?.models) {
+					return result.data.models.map((model: any) => ({
+						id: `local-${model.api_type}`,
+						name: model.name,
+						provider: 'local' as ProviderType,
+						api_key: '', // Local models don't need API keys
+						base_url: 'http://localhost:11434',
+						api_type: model.api_type,
+						api_version: 'v1',
+						description: `${model.parameters} - ${model.families?.join(', ') || 'Local Model'}`,
+						user: [],
+						created: new Date().toISOString(),
+						updated: new Date().toISOString(),
+						collectionId: 'local_models',
+						collectionName: 'local_models'
+					}));
+				}
+				
+				return [];
+			} catch (error) {
+				console.error('Error fetching local models:', error);
+				return [];
+			}
+		}
+	},
 	openai: {
 		name: 'OpenAI',
 		icon: openaiIcon,
@@ -367,14 +413,28 @@ export const fetchAllProviderModels = async (
 	const result = await clientTryCatch(
 		(async () => {
 			const modelPromises = selectedProviders.map(async (provider) => {
+				// Local provider doesn't need API key
+				if (provider === 'local') {
+					const providerResult = await clientTryCatch(
+						providers[provider].fetchModels(''), // Local doesn't use API key
+						`Fetching models for ${provider}`
+					);
+
+					if (isFailure(providerResult)) {
+						console.error(`Error fetching ${provider} models:`, providerResult.error);
+						return [];
+					}
+
+					return providerResult.data;
+				}
+
+				// For other providers, check API key
 				if (!apiKeys[provider]) {
 					return [];
 				}
 
 				const providerResult = await clientTryCatch(
-					(async () => {
-						return await providers[provider].fetchModels(apiKeys[provider]);
-					})(),
+					providers[provider].fetchModels(apiKeys[provider]),
 					`Fetching models for ${provider}`
 				);
 
@@ -403,6 +463,11 @@ export const fetchAllProviderModels = async (
 export function getProviderFromModel(modelName: string): ProviderType {
 	const model = modelName.toLowerCase();
 
+		if (model.includes('qwen') || model.includes('llama') || model.includes('tinyllama') || 
+		model.includes('deepseek-r1') || model.includes('ollama') || model.includes('local')) {
+		return 'local';
+	}
+
 	if (model.includes('gpt') || model.includes('o1') || model.includes('openai')) {
 		return 'openai';
 	}
@@ -428,6 +493,8 @@ export function getProviderFromModel(modelName: string): ProviderType {
 
 export function getProviderIcon(provider: ProviderType): string {
 	switch (provider) {
+		case 'local':
+			return ollamaIcon;
 		case 'openai':
 			return openaiIcon;
 		case 'anthropic':

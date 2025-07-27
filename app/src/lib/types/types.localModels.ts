@@ -72,7 +72,11 @@ export interface LocalAIRequest {
 export interface OllamaResponse {
 	model: string;
 	created_at: string;
-	response: string;
+	response?: string; // For /api/generate endpoint
+	message?: {        // For /api/chat endpoint
+		role: string;
+		content: string;
+	};
 	done: boolean;
 	context?: number[];
 	total_duration?: number;

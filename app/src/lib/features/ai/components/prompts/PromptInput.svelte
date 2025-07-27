@@ -10,7 +10,7 @@
 		InternalChatMessage
 	} from '$lib/types/types';
 	import Calendar from '$lib/components/data/Calendar.svelte';
-
+	import { t } from '$lib/stores/translationStore';
 	import { currentUser, updateUser, getUserById, signOut } from '$lib/pocketbase';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -220,7 +220,7 @@
 				error = '';
 			}}
 		>
-			{showInputForm ? '' : 'Add Prompt'}
+			{showInputForm ? '' : '+'} 
 		</button>
 	</div>
 
@@ -256,9 +256,12 @@
 					disabled={isSubmitting || !promptText.trim()}
 				>
 					{#if isSubmitting}
-						{editingPromptId ? 'Updating...' : 'Adding...'}
+						{editingPromptId ? $t('status.updating') + '...' : $t('status.adding') + '...'}
+
 					{:else}
-						{editingPromptId ? 'Update Prompt' : 'Add Prompt'}
+
+						{editingPromptId ? $t('status.update') + ' ' + $t('chat.prompt') : $t('status.add') + ' ' + $t('chat.prompt')}
+
 					{/if}
 				</button>
 			</div>
@@ -312,6 +315,7 @@
 		max-width: 1200px;
 		margin-right: 1rem;
 		margin-left: 1rem;
+
 	}
 
 	.header-row {
@@ -439,7 +443,12 @@
 		cursor: pointer;
 		font-weight: bold;
 		transition: all 0.3s ease;
-
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.5rem;
 		&:hover {
 			background: var(--secondary-color);
 		}
@@ -510,6 +519,8 @@
 		}
 	}
 
+
+
 	.cancel-button {
 		padding: 0.5rem 1rem;
 		background: transparent;
@@ -561,13 +572,25 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		overflow-y: auto;
-		overflow-x: hidden;
-
+		justify-content: space-between;
 		height: 400px;
 		width: 100%;
 		gap: 0;
 		backdrop-filter: blur(20px);
+				scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: auto;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.prompt-item {
@@ -597,6 +620,7 @@
 		color: var(--text-color);
 		line-height: 1.5;
 		white-space: pre-wrap;
+		font-size: 0.8rem;
 	}
 
 	.prompt-meta {
@@ -648,10 +672,16 @@
 
 	@media (max-width: 768px) {
 		.header-row {
-			flex-direction: column;
+			flex-direction: row;
 			align-items: stretch;
 			gap: 0.5rem;
 		}
+			.button-container {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+	}
 
 		.button-group {
 			flex-direction: column;
@@ -661,15 +691,16 @@
 			flex-direction: column;
 		}
 
-		.delete-button {
-			margin-left: 0;
-			margin-top: 0.5rem;
-			align-self: flex-end;
-		}
+		// .delete-button {
+		// 	margin-left: 0;
+		// 	margin-top: 0.5rem;
+		// 	align-self: flex-end;
+		// }
 
 		.prompt-meta {
 			flex-direction: column;
 			gap: 0.25rem;
 		}
+		
 	}
 </style>

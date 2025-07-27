@@ -13,7 +13,7 @@ import {
 } from '$lib/utils/errorUtils';
 import { pocketbaseUrl } from '$lib/stores/pocketbase';
 
-interface RequestInitCustom {
+export interface RequestInitCustom {
 	method?: string;
 	headers?: Record<string, string>;
 	body?: string | FormData;
@@ -85,14 +85,49 @@ export async function checkPocketBaseConnection(): Promise<boolean> {
 	return false;
 }
 
-export function getFileUrl(
-	record: { id: string },
-	filename: string,
-	collection: string = 'ai_agents'
-): string {
-	if (!filename) return '';
-	return `${pocketbaseUrl}/api/files/${collection}/${record.id}/${filename}`;
+export function getFileUrl( 
+	record: { id: string }, 
+	filename: string, 
+	collectionId: string = '4pbqdhs3elnrnss' // Your ai_agents collection ID
+): string { 
+	if (!filename) return ''; 
+	
+	// Get auth token
+	let token = '';
+	
+	if (typeof window !== 'undefined') {
+		const authData = localStorage.getItem('pocketbase_auth');
+		if (authData) {
+			try {
+				const parsed = JSON.parse(authData);
+				token = parsed.token || '';
+			} catch (e) {
+				// Try cookie fallback
+				const cookies = document.cookie.split(';');
+				const authCookie = cookies.find(cookie => cookie.trim().startsWith('pb_auth='));
+				if (authCookie) {
+					try {
+						const cookieValue = authCookie.split('=')[1];
+						const decodedCookie = decodeURIComponent(cookieValue);
+						const cookieData = JSON.parse(decodedCookie);
+						token = cookieData.token || '';
+					} catch (cookieError) {
+						console.error('Failed to parse auth cookie:', cookieError);
+					}
+				}
+			}
+		}
+	}
+	
+	const baseUrl = `${pocketbaseUrl}/api/files/${collectionId}/${record.id}/${filename}`;
+	
+	if (token) {
+		return `${baseUrl}?token=${token}`;
+	}
+	
+	return baseUrl;
 }
+
 
 export async function ensureAuthenticated(): Promise<boolean> {
 	// If there's already an auth check in progress, return that promise

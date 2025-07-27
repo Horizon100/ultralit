@@ -231,7 +231,6 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 					prompt_preference: user.prompt_preference || '',
 					sysprompt_preference: user.sysprompt_preference || '',
 					model_preference: user.model_preference
-					// ... add other fields as needed
 				};
 
 				return { success: true, user: sanitizedUser };

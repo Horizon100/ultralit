@@ -1,7 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const WHISPER_DAEMON_URL = 'http://100.77.36.61:3001';
+import { WHISPER_DAEMON_URL } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {

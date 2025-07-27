@@ -25,6 +25,7 @@
 		type AttachmentTaggingOptions
 	} from '$lib/features/posts/utils/attachmentTagging';
 	import { extractPdfKeywords } from '$lib/utils/pdfKeywordExtractor';
+	import Avatar from '$lib/features/users/components/Avatar.svelte'; 
 
 	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
 	export let buttonText: string = $t('posts.postButton') as string;
@@ -421,11 +422,11 @@
 
 <div class="post-composer">
 	<div class="composer-header">
-		<img
-			src={$currentUser ? getAvatarUrl($currentUser) : '/api/placeholder/40/40'}
-			alt="Your avatar"
-			class="composer-avatar"
-		/>
+							<Avatar 
+							user={$currentUser} 
+							size={30} 
+							className="user-avatar"
+							/>
 		<textarea
 			bind:this={textareaElement}
 			class="composer-textarea"
@@ -565,7 +566,7 @@
 	.post-composer {
 		// background: var(--primary-color);
 		background: transparent !important;
-		border-radius: 2rem 2rem 0 0 !important;
+		border-radius: 2rem!important;
 		padding: 1rem;
 		height: auto;
 	}

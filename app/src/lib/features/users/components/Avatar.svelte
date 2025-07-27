@@ -1,22 +1,17 @@
 <script lang="ts">
-	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
-
 	export let user: any = null;
 	export let size: number = 40;
 	export let className: string = '';
+	export let timestamp: number | null = null;
 
-	let imageError = false;
+	$: displayName = user?.name || user?.username || 'User';
 
-	$: avatarUrl = user
-		? getAvatarUrl({
-				id: user.id,
-				avatar: user.avatar,
-				collectionId: '_pb_users_auth_'
-			})
+	// Always try server avatar if we have a user ID - server will handle identicon fallback
+	$: avatarUrl = user?.id 
+		? `/api/users/${user.id}/avatar${timestamp ? `?t=${timestamp}` : ''}`
 		: '';
 
-	$: displayName = user?.name || user?.username || 'Unknown';
-
+	// Fallback initials (only used if server completely fails)
 	$: initials = (() => {
 		if (user?.name && user.name.trim()) {
 			const nameParts = user.name.trim().split(' ');
@@ -51,29 +46,29 @@
 		return colors[hash % colors.length];
 	})();
 
-	$: initialsPlaceholder = `data:image/svg+xml;charset=UTF-8,%3csvg width='${size}' height='${size}' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='${size}' height='${size}' fill='${encodeURIComponent(backgroundColor)}'/%3e%3ctext x='50%25' y='50%25' text-anchor='middle' dy='0.35em' font-family='system-ui, sans-serif' font-size='${Math.round(size * 0.4)}' font-weight='600' fill='white'%3e${initials}%3c/text%3e%3c/svg%3e`;
-
-	// Reset error when URL changes
-	$: if (avatarUrl) {
-		imageError = false;
+	// Handle image load error
+	let imageError = false;
+	function handleImageError() {
+		imageError = true;
 	}
 </script>
 
-{#if !avatarUrl || imageError}
-	<div
-		class="avatar-placeholder {className}"
-		style="width: {size}px; height: {size}px; background-color: {backgroundColor};"
-	>
-		{initials}
-	</div>
-{:else}
+{#if avatarUrl && !imageError}
 	<img
 		src={avatarUrl}
 		alt="{displayName}'s avatar"
 		class="avatar {className}"
 		style="width: {size}px; height: {size}px; border-radius: 50%;"
-		on:error={() => (imageError = true)}
+		on:error={handleImageError}
 	/>
+{:else}
+	<!-- Show initials fallback (only if server completely fails) -->
+	<div
+		class="avatar-placeholder {className}"
+		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size * 0.4}px;"
+	>
+		{initials}
+	</div>
 {/if}
 
 <style>
@@ -88,6 +83,5 @@
 		justify-content: center;
 		color: white;
 		font-weight: 600;
-		border-radius: 50%;
 	}
 </style>

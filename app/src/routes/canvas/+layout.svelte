@@ -26,6 +26,12 @@
 		tryCatchSync
 	} from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import { toast } from '$lib/utils/toastUtils';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
+
+let isAuthenticated = false;
+let isLoading = true;
 	interface ShapeWithAnimation extends Shape {
 		opacity: Tweened<number>;
 	}
@@ -621,30 +627,43 @@
 		showImportDocs = false;
 	}
 
-	onMount(() => {
-		updateDimensions();
-		window.addEventListener('resize', updateDimensions);
+onMount(async () => {
+   if (!browser) return;
 
-		if (!svgElement) {
-			console.error('SVG element is not defined after mounting');
-		} else {
-			console.log('SVG element is properly defined');
-		}
-		const unsubscribe = agentStore.subscribe(
-			(value: { agents: AIAgent[]; updateStatus: string }) => {
-				agents = Array.isArray(value.agents) ? value.agents : [];
-			}
-		);
+   // Check authentication first
+   const {
+   	success,
+   	error: err,
+   	data: user
+   } = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
 
-		return () => {
-			unsubscribe();
-		};
-	});
-	onDestroy(() => {
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('resize', updateDimensions);
-		}
-	});
+   if (!success || !user) {
+   	toast.error('Access denied. Please log in to access the canvas.');
+   	await goto('/welcome');
+   	return;
+   }
+
+   isAuthenticated = true;
+   isLoading = false;
+
+   updateDimensions();
+   window.addEventListener('resize', updateDimensions);
+
+   if (!svgElement) {
+   	console.error('SVG element is not defined after mounting');
+   } else {
+   	console.log('SVG element is properly defined');
+   }
+   const unsubscribe = agentStore.subscribe(
+   	(value: { agents: AIAgent[]; updateStatus: string }) => {
+   		agents = Array.isArray(value.agents) ? value.agents : [];
+   	}
+   );
+
+   return () => {
+   	unsubscribe();
+   };
+});
 </script>
 
 <ConfigWrapper />

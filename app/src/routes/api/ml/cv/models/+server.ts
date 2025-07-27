@@ -2,8 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { CV_DETECTION_URL } from '$env/static/private';
 
-const CV_DETECTION_URL = process.env.CV_DETECTION_URL || 'http://100.77.36.61:8000';
-
 export const GET: RequestHandler = async () => {
 	try {
 		const response = await fetch(`${CV_DETECTION_URL}/models`);

@@ -6,13 +6,14 @@
 	import { page } from '$app/stores';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
 	import { t } from '$lib/stores/translationStore';
+	import { toast } from '$lib/utils/toastUtils'; // Add this back
 
 	let pageReady = false;
 	let redirectedFromLogin = false;
 	let isLoading = true;
 	let error: string | null = null;
 
-	onMount(async () => {
+onMount(async () => {
 		if (!browser) return;
 
 		// Only handle redirects if we're actually on the root page
@@ -32,6 +33,7 @@
 			await goto('/home');
 		} else {
 			error = err ?? 'Failed to check authentication status';
+			toast.error('Authentication failed. Redirecting to welcome page.'); // Test toast here
 			await goto('/welcome');
 		}
 	});
@@ -39,9 +41,10 @@
 
 {#if $page.url.pathname === '/'}
 	{#if isLoading}
-		<div class="loading">
-			<p>Loading...</p>
+		<div class="spinnter-container">
+			<div class="spinner"></div>
 		</div>
+
 	{:else if error}
 		<div class="error">
 			<p>{error}</p>
@@ -59,7 +62,7 @@
 	{/if}
 {:else}
 	<!-- If not on root path, don't render anything here - let other routes handle themselves -->
-	<div style="display: none;"></div>
+	<div style="display: none; margin-top: 3rem;"></div>
 {/if}
 
 <style lang="scss">

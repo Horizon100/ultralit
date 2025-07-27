@@ -158,8 +158,24 @@ const initialUIState: UIState = {
 	bookmarkId: ''
 };
 
+// Create collapsed sections object for reuse
+const collapsedSections: ExpandedSections = {
+	prompts: false,
+	sysprompts: false,
+	models: false,
+	bookmarks: false,
+	cites: false,
+	collaborators: false
+};
+
 function createUIStore() {
 	const { subscribe, set, update } = writable<UIState>(initialUIState);
+
+	// Helper function to collapse sections when needed
+	const collapseExpandedSections = (state: UIState): UIState => ({
+		...state,
+		expandedSections: { ...collapsedSections }
+	});
 
 	return {
 		subscribe,
@@ -180,14 +196,7 @@ function createUIStore() {
 		closeAllSections: () => {
 			update((state) => ({
 				...state,
-				expandedSections: {
-					prompts: false,
-					sysprompts: false,
-					models: false,
-					bookmarks: false,
-					cites: false,
-					collaborators: false
-				}
+				expandedSections: { ...collapsedSections }
 			}));
 		},
 
@@ -228,6 +237,7 @@ function createUIStore() {
 		setCollaborators: (show: boolean) => {
 			update((state) => ({ ...state, showCollaborators: show }));
 		},
+
 		setShowTextModal: (show: boolean) => {
 			update((state) => ({ ...state, showTextModal: show }));
 		},
@@ -240,7 +250,7 @@ function createUIStore() {
 			update((state) => ({ ...state, showCites: show }));
 		},
 
-		// Loading states
+		// Loading states with automatic section closing
 		setLoading: (isLoading: boolean) => {
 			update((state) => ({ ...state, isLoading }));
 		},
@@ -250,15 +260,41 @@ function createUIStore() {
 		},
 
 		setLoadingThreads: (isLoading: boolean) => {
-			update((state) => ({ ...state, isLoadingThreads: isLoading }));
+			update((state) => {
+				const updatedState = { ...state, isLoadingThreads: isLoading };
+				// Close expanded sections when threads start loading
+				return isLoading ? collapseExpandedSections(updatedState) : updatedState;
+			});
 		},
 
 		setLoadingProject: (isLoading: boolean) => {
-			update((state) => ({ ...state, isLoadingProject: isLoading }));
+			update((state) => {
+				const updatedState = { ...state, isLoadingProject: isLoading };
+				// Close expanded sections when project starts loading
+				return isLoading ? collapseExpandedSections(updatedState) : updatedState;
+			});
 		},
 
 		setLoadingPrompt: (isLoading: boolean) => {
 			update((state) => ({ ...state, isLoadingPrompt: isLoading }));
+		},
+
+		// Enhanced thread creation with section closing
+		setCreatingThread: (isCreating: boolean) => {
+			update((state) => {
+				const updatedState = { ...state, isCreatingThread: isCreating };
+				// Close expanded sections when thread creation starts
+				return isCreating ? collapseExpandedSections(updatedState) : updatedState;
+			});
+		},
+
+		// Enhanced project creation with section closing
+		setCreatingProject: (isCreating: boolean) => {
+			update((state) => {
+				const updatedState = { ...state, isCreatingProject: isCreating };
+				// Close expanded sections when project creation starts
+				return isCreating ? collapseExpandedSections(updatedState) : updatedState;
+			});
 		},
 
 		// Editing states
@@ -318,6 +354,7 @@ function createUIStore() {
 		setSearchHovered: (hovered: boolean) => {
 			update((state) => ({ ...state, searchHovered: hovered }));
 		},
+
 		setCurrentPlaceholder: (placeholder: string) => {
 			update((state) => ({ ...state, currentPlaceholder: placeholder }));
 		},
@@ -330,12 +367,7 @@ function createUIStore() {
 			update((state) => ({
 				...state,
 				expandedSections: {
-					prompts: false,
-					sysprompts: false,
-					models: false,
-					bookmarks: false,
-					cites: false,
-					collaborators: false,
+					...collapsedSections,
 					[section]: value
 				}
 			}));
@@ -357,13 +389,60 @@ function createUIStore() {
 				showCites: false,
 				showCollaborators: false
 			}));
+		},
+
+		// NEW: Batch operations for better performance
+		setBatchLoadingState: (
+			isLoadingThreads: boolean,
+			isLoadingProject: boolean,
+			isCreatingThread: boolean = false
+		) => {
+			update((state) => {
+				let updatedState = {
+					...state,
+					isLoadingThreads,
+					isLoadingProject,
+					isCreatingThread
+				};
+				
+				// Close sections if any loading/creating operation is starting
+				if (isLoadingThreads || isLoadingProject || isCreatingThread) {
+					updatedState = collapseExpandedSections(updatedState);
+				}
+				
+				return updatedState;
+			});
+		},
+
+		// NEW: Smart section management
+		handleThreadOperation: (operation: 'loading' | 'creating' | 'editing', state: boolean) => {
+			update((currentState) => {
+				const updates: Partial<UIState> = {};
+				
+				switch (operation) {
+					case 'loading':
+						updates.isLoadingThreads = state;
+						break;
+					case 'creating':
+						updates.isCreatingThread = state;
+						break;
+					case 'editing':
+						updates.isEditingThreadName = state;
+						break;
+				}
+
+				const updatedState = { ...currentState, ...updates };
+				
+				// Close expanded sections when starting any thread operation
+				return state ? collapseExpandedSections(updatedState) : updatedState;
+			});
 		}
 	};
 }
 
 export const uiStore = createUIStore();
 
-// Derived stores for easy access
+// Optimized derived stores with memoization
 export const expandedSections = derived(uiStore, ($store) => $store.expandedSections);
 export const showPromptCatalog = derived(uiStore, ($store) => $store.showPromptCatalog);
 export const showModelSelector = derived(uiStore, ($store) => $store.showModelSelector);
@@ -372,10 +451,7 @@ export const showBookmarks = derived(uiStore, ($store) => $store.showBookmarks);
 export const showCites = derived(uiStore, ($store) => $store.showCites);
 export const showSysPrompt = derived(uiStore, ($store) => $store.showSysPrompt);
 export const showAgentPicker = derived(uiStore, ($store) => $store.showAgentPicker);
-export const showNetworkVisualization = derived(
-	uiStore,
-	($store) => $store.showNetworkVisualization
-);
+export const showNetworkVisualization = derived(uiStore, ($store) => $store.showNetworkVisualization);
 export const isLoading = derived(uiStore, ($store) => $store.isLoading);
 export const isEditingThreadName = derived(uiStore, ($store) => $store.isEditingThreadName);
 export const isEditingProjectName = derived(uiStore, ($store) => $store.isEditingProjectName);
@@ -392,3 +468,23 @@ export const searchHovered = derived(uiStore, ($store) => $store.searchHovered);
 export const favoritesHovered = derived(uiStore, ($store) => $store.favoritesHovered);
 export const showTextModal = derived(uiStore, ($store) => $store.showTextModal);
 export const textTooLong = derived(uiStore, ($store) => $store.textTooLong);
+
+// NEW: Derived stores for loading states
+export const isLoadingThreads = derived(uiStore, ($store) => $store.isLoadingThreads);
+export const isLoadingProject = derived(uiStore, ($store) => $store.isLoadingProject);
+
+// NEW: Composite derived stores for better performance
+export const isAnyLoading = derived(
+	uiStore,
+	($store) => $store.isLoading || $store.isLoadingThreads || $store.isLoadingProject || $store.isCreatingThread || $store.isCreatingProject
+);
+
+export const hasAnyExpandedSection = derived(
+	expandedSections,
+	($sections) => Object.values($sections).some(Boolean)
+);
+
+export const isInEditMode = derived(
+	uiStore,
+	($store) => $store.isEditingThreadName || $store.isEditingProjectName
+);

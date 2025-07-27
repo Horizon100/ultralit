@@ -219,8 +219,9 @@
 <style>
 	.local-model-selector {
 		width: auto;
-		max-width: 250px;
 		display: flex;
+
+		padding: 1rem;
 		flex-direction: column;
 	}
 

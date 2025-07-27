@@ -203,7 +203,7 @@ export class DateUtils {
 		const diffDays = Math.floor(diffHours / 24);
 
 		if (diffSeconds < 60) {
-			return ($t('dates.justNow') as string) || 'Just now';
+			return ($t('dates.online') as string) || 'Just now';
 		} else if (diffMinutes < 60) {
 			return `${diffMinutes} ${($t('dates.minutesAgo') as string) || 'minutes ago'}`;
 		} else if (diffHours < 24) {

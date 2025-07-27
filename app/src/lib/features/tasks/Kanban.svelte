@@ -44,7 +44,7 @@
 	} from '$lib/stores/sidenavStore';
 	import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
-	import { createHoverManager } from '$lib/utils/hoverUtils';
+	// import { createHoverManager } from '$lib/utils/hoverUtils';
 
 	let currentProjectId: string | null = null;
 	projectStore.subscribe((state) => {
@@ -87,19 +87,19 @@
 	let usersMap = new Map();
 	let isLoadingUsers = false;
 
-	const pageHoverManager = createHoverManager({
-		hoverZone: 50,
-		minScreenWidth: 700,
-		debounceDelay: 100,
-		controls: ['sidenav'],
-		direction: 'left'
-	});
+	// const pageHoverManager = createHoverManager({
+	// 	hoverZone: 50,
+	// 	minScreenWidth: 700,
+	// 	debounceDelay: 100,
+	// 	controls: ['sidenav'],
+	// 	direction: 'left'
+	// });
 
-	const {
-		hoverState: pageHoverState,
-		handleMenuLeave: handlePageMenuLeave,
-		toggleMenu: togglePageMenu
-	} = pageHoverManager;
+	// const {
+	// 	hoverState: pageHoverState,
+	// 	handleMenuLeave: handlePageMenuLeave,
+	// 	toggleMenu: togglePageMenu
+	// } = pageHoverManager;
 
 	const userNameCache = new Map<string, string>();
 
@@ -1875,14 +1875,14 @@
 			question: 0
 		}
 	} as InternalChatMessage;
-	onMount(() => {
-		pageCleanup = pageHoverManager.initialize();
-	});
+	// onMount(() => {
+	// 	pageCleanup = pageHoverManager.initialize();
+	// });
 	onDestroy(() => {
 		unsubscribe();
-		if (pageCleanup) {
-			pageCleanup();
-		}
+		// if (pageCleanup) {
+		// 	pageCleanup();
+		// }
 	});
 </script>
 
@@ -2539,7 +2539,7 @@
 		margin-top: 1rem;
 		margin-bottom: 1rem;
 
-		height: calc(100vh - 1rem);
+		height: calc(100vh - 4rem);
 		width: auto;
 		margin-left: 3rem !important;
 		overflow-x: scroll;
@@ -2564,20 +2564,21 @@
 		height: calc(100% - 3rem);
 		padding: 0.5rem;
 		gap: 2rem;
+		margin-left: 3rem;
 	}
 	.lean-container {
 		display: flex;
 	}
-	.lean-container.nav-open {
-		margin-left: 5rem;
-	}
-	.column-wrapper.nav-open {
-		margin-left: 5rem;
-		padding: 0.5rem;
-		& .kanban-container.nav-open {
-			margin-left: 0 !important;
-		}
-	}
+	// .lean-container.nav-open {
+	// 	margin-left: 5rem;
+	// }
+	// .column-wrapper.nav-open {
+	// 	margin-left: 5rem;
+	// 	padding: 0.5rem;
+	// 	& .kanban-container.nav-open {
+	// 		margin-left: 0 !important;
+	// 	}
+	// }
 	.input-wrapper {
 		display: flex;
 		width: auto;

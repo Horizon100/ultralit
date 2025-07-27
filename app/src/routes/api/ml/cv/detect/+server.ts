@@ -2,8 +2,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const CV_DETECTION_URL = process.env.CV_DETECTION_URL || 'http://100.77.36.61:8000';
+import { CV_DETECTION_URL } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
