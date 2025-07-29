@@ -19,6 +19,7 @@
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { t } from '$lib/stores/translationStore';
 import { ensureModelsExist } from '$lib/features/ai/utils/modelUtils';
+import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 
 	let showCreateForm = false;
 	let selectedAgent: AIAgent | null = null;
@@ -428,50 +429,7 @@ onMount(async () => {
 			}
 		}
 	}
-function getAvatarUrl(agent: AIAgent): string {
-	if (agent.avatar) {
-		console.log('Agent object:', agent);
-		console.log('Agent ID:', agent.id);
-		console.log('Avatar filename:', agent.avatar);
-		
-		// Get the actual URL value from the store
-		let baseUrl = '';
-		
-		// If pocketbaseUrl is a store, subscribe to get the value
-		if (typeof pocketbaseUrl === 'object' && 'subscribe' in pocketbaseUrl) {
-			pocketbaseUrl.subscribe(value => baseUrl = value)();
-		} else {
-			baseUrl = String(pocketbaseUrl);
-		}
-		
-		console.log('Base URL resolved:', baseUrl);
-		
-		// Get auth token
-		let token = '';
-		if (typeof window !== 'undefined') {
-			const authData = localStorage.getItem('pocketbase_auth');
-			if (authData) {
-				try {
-					const parsed = JSON.parse(authData);
-					token = parsed.token || '';
-					console.log('Auth token available:', !!token);
-				} catch (e) {
-					console.log('No auth token found');
-				}
-			}
-		}
-		
-		// Construct the proper URL
-		const url = `${baseUrl}/api/files/4pbqdhs3elnrnss/${agent.id}/${agent.avatar}`;
-		console.log('Final URL (no auth):', url);
-		
-		const finalUrl = token ? `${url}?token=${token}` : url;
-		console.log('Final URL (with auth):', finalUrl);
-		
-		return finalUrl;
-	}
-	return '';
-}
+
 	async function handleAvatarUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
 		if (input.files && input.files[0]) {
@@ -717,7 +675,7 @@ $: {
 								
 															<div class="avatar-container">
 								{#if agent.avatar}
-									<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+									<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 								{:else}
 									<div class="avatar-placeholder">
 										<Icon name="Bot" size={20} />
@@ -731,7 +689,7 @@ $: {
 						<div class="agent-wrapper">
 							<div class="avatar-container">
 								{#if agent.avatar}
-									<img src={getAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+									<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
 								{:else}
 									<div class="avatar-placeholder">
 										<Icon name="Bot" size={20} />
@@ -863,7 +821,7 @@ $: {
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Icon name="Bot" size={16} />
 							{/if}
@@ -1148,7 +1106,7 @@ $: {
 							{#if avatarFile}
 								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
 							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAvatarUrl(selectedAgent)} alt="Current avatar" />
+								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
 							{:else}
 								<Icon name="Bot" size={48} />
 							{/if}

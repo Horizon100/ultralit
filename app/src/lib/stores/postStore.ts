@@ -1300,7 +1300,7 @@ assignAgentWithAutoReply: async (postId: string, agentId: string, currentAgentId
 				headers: { 'Content-Type': 'application/json' },
 				credentials: 'include',
 				body: JSON.stringify({
-					agents: newAgentIds
+					assignedAgents: newAgentIds  // Changed from 'agents' to 'assignedAgents'
 				})
 			});
 
@@ -1315,7 +1315,7 @@ assignAgentWithAutoReply: async (postId: string, agentId: string, currentAgentId
 				...state,
 				posts: state.posts.map((post) =>
 					post.id === postId
-						? { ...post, agents: newAgentIds }
+						? { ...post, assignedAgents: newAgentIds }  // Changed from 'agents' to 'assignedAgents'
 						: post
 				)
 			}));

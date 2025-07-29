@@ -24,8 +24,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 			const limit = parseInt(url.searchParams.get('limit') ?? '20', 10);
 			const depth = parseInt(url.searchParams.get('depth') ?? '1', 10);
+			const latest = url.searchParams.get('latest') === 'true'; // Add this line
 
-			console.log(`Fetching children for post ${postId} with depth ${depth}`);
+			console.log(`Fetching children for post ${postId} with depth ${depth}${latest ? ' (latest only)' : ''}`);
 
 			// Verify post exists
 			await pb.collection('posts').getOne(postId);
@@ -36,8 +37,15 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 			): Promise<PostChild[]> {
 				if (currentDepth > depth) return [];
 
+				// Add time filter for latest comments
+				let filter = `parent = "${parentId}"`;
+				if (latest && currentDepth === 1) { // Only apply to direct children
+					const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+					filter += ` && created >= "${fiveMinutesAgo}"`;
+				}
+
 				const childrenResult = await pb.collection('posts').getList(1, limit, {
-					filter: `parent = "${parentId}"`,
+					filter,
 					sort: '-created'
 				});
 

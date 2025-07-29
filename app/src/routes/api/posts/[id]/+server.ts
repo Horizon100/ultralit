@@ -71,15 +71,51 @@ try {
 		});
 		console.log('Post attachments found:', postAttachments.length);
 
-		// Get comments (posts with this post as parent)
-		const comments = await pb.collection('posts').getList(1, 100, {
-			filter: `parent = "${postId}"`,
-			sort: 'created'
-		});
-		console.log('Comments found:', comments.items.length);
+console.log('Fetching ALL comments in thread for post:', postId);
 
-		// Get users for comments
-		const commentUserIds = [...new Set(comments.items.map((c) => c.user))];
+// STEP 1: Get direct comments
+const directComments = await pb.collection('posts').getList(1, 100, {
+    filter: `parent = "${postId}"`,
+    sort: 'created'
+});
+
+console.log('Direct comments found:', directComments.items.length);
+
+// STEP 2: Get nested replies (replies to comments)
+let allComments = [...directComments.items];
+
+if (directComments.items.length > 0) {
+    const directCommentIds = directComments.items.map(c => c.id);
+    
+    // Get replies to any of the direct comments
+    const nestedReplies = await pb.collection('posts').getList(1, 200, {
+        filter: directCommentIds.map(id => `parent = "${id}"`).join(' || '),
+        sort: 'created'
+    });
+    
+    console.log('Nested replies found:', nestedReplies.items.length);
+    allComments = [...allComments, ...nestedReplies.items];
+    
+    // STEP 3: Get deeper nesting if needed (replies to replies)
+    if (nestedReplies.items.length > 0) {
+        const nestedCommentIds = nestedReplies.items.map(c => c.id);
+        
+        const deepNested = await pb.collection('posts').getList(1, 100, {
+            filter: nestedCommentIds.map(id => `parent = "${id}"`).join(' || '),
+            sort: 'created'
+        });
+        
+        if (deepNested.items.length > 0) {
+            console.log('Deep nested replies found:', deepNested.items.length);
+            allComments = [...allComments, ...deepNested.items];
+        }
+    }
+}
+
+const comments = { items: allComments };
+console.log('Total comments in thread:', comments.items.length);
+
+const commentUserIds = [...new Set(allComments.map((c) => c.user))];
 		const commentUsers = new Map();
 for (const userId of commentUserIds) {
     try {
@@ -324,6 +360,36 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 				} else {
 					console.log('🔗 Not a tag update request, proceeding to vote handling');
 				}
+				// Handle assignedAgents updates
+if (requestData.assignedAgents !== undefined) {
+    console.log('🔗 This is an assignedAgents update request');
+    console.log('Updating post assignedAgents:', { postId, assignedAgents: requestData.assignedAgents });
+
+    if (!Array.isArray(requestData.assignedAgents)) {
+        throw new Error('assignedAgents must be an array');
+    }
+
+    // Update the post with new assigned agents
+    const updatedPost = unwrap(
+        await pbTryCatch(
+            pb.collection('posts').update(postId, {
+                assignedAgents: requestData.assignedAgents
+            }),
+            'update post assignedAgents'
+        )
+    );
+
+    console.log('Successfully updated post assignedAgents:', postId);
+    console.log('Updated post assignedAgents field:', updatedPost.assignedAgents);
+
+    const response = {
+        success: true,
+        data: updatedPost
+    };
+
+    console.log('Returning assignedAgents update response:', response);
+    return json(response);
+}
 			} catch (jsonError) {
 				console.error('🔗 JSON parsing failed:', jsonError);
 				console.log('No JSON body found, treating as vote request');

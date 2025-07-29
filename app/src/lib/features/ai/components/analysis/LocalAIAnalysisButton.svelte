@@ -12,7 +12,7 @@
 	import { sidenavStore, showRightSidenav, showSettings } from '$lib/stores/sidenavStore';
 	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
 	import { prompts, pdfPrompts, getTagsPrompt } from '$lib/features/ai/utils/localPrompts.ts';
-
+	import { t } from '$lib/stores/translationStore';
 	// Props
 	export let isOpen: boolean = false;
 	export let post: PostWithInteractions | CommentWithInteractions;
@@ -1083,7 +1083,7 @@ function handleAnalyze() {
 			</div>
 			<div class="analysis-types footer">
 				<div class="post-meta">
-					Model:
+					{$t('chat.model')}:
 					<button
 						class="model-name"
 						on:click={(event) => {
@@ -1116,24 +1116,22 @@ function handleAnalyze() {
 				>
 					{#if loading || pdfAnalysisLoading || autoAnalyzingPdf || transcriptionLoading}
 						{#if autoAnalyzingPdf}
-							<Icon name="Loader2" size={14} class="animate-spin" />
+							<Icon name="Loader2" size={14} />
 							Auto-analyzing PDF...
 						{:else if pdfAnalysisLoading}
-							<Icon name="Loader2" size={14} class="animate-spin" />
+							<Icon name="Loader2" size={14} />
 							Analyzing PDF...
 						{:else if transcriptionLoading}
-							<Icon name="Loader2" size={14} class="animate-spin" />
+							<Icon name="Loader2" size={14} />
 							Transcribing...
 						{:else}
-							<Icon name="Loader2" size={14} class="animate-spin" />
-							Analyzing...
+							<div class="spinner"></div>
 						{/if}
 					{:else}
-						<Icon name="Brain" size={14} />
 						{#if analysisType.startsWith('pdf_')}
 							Analyze PDF
 						{:else}
-							Analyze
+							<Icon name="RefreshCcw" size={14} />
 						{/if}
 					{/if}
 				</button>
@@ -1170,9 +1168,10 @@ function handleAnalyze() {
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
-		background: var(--bg-gradient);
-		border-radius: 0 0 1rem 1rem;
-		width: auto;
+		background: var(--bg-gradient-right);
+		// background: var(--bg-gradient);
+		border-radius: 1rem 0 0 1rem;
+		width: 100%;
 		margin: 0;
 		max-width: auto;
 		max-height: 90vh;
@@ -1206,7 +1205,7 @@ function handleAnalyze() {
 		align-items: center;
 		justify-content: flex-end;
 		gap: 0.25rem;
-		padding: 0.5rem;
+		// padding: 0.5rem;
 		width: auto;
 		font-size: 12px;
 		color: var(--placeholder-color);
@@ -1225,6 +1224,7 @@ function handleAnalyze() {
 	}
 
 	.analysis-controls {
+		width: auto;
 	}
 
 	.control-label {
@@ -1244,12 +1244,17 @@ function handleAnalyze() {
 		gap: 0.5rem;
 		padding: 0.5rem;
 		&.footer {
-			align-items: spcace-between;
+			flex-wrap: wrap;
+			// align-items: spcace-between;
 			flex-direction: row;
 			align-items: center;
-			justify-content: flex-end;
 		}
 	}
+
+.spinner {
+	width: 0.5rem;
+	height: 0.5rem;
+}
 
 	.type-btn {
 		display: flex;
@@ -1264,7 +1269,7 @@ function handleAnalyze() {
 		border-radius: 6px;
 		cursor: pointer;
 		transition: all 0.2s ease;
-		font-size: 0.9rem;
+		font-size: 0.7rem;
 		font-weight: 500;
 		opacity: 0.5;
 	}
@@ -1322,8 +1327,8 @@ function handleAnalyze() {
 		align-items: center;
 		justify-content: center;
 		gap: 8px;
-		width: 100%;
-		padding: 12px 24px;
+		width: auto;
+		padding: 0.5rem;
 		background: var(--tertiary-color);
 		color: white;
 		border: none;
@@ -1393,6 +1398,7 @@ function handleAnalyze() {
 
 	.analysis-text {
 		color: var(--text-color);
+		font-size: 0.8rem;
 		line-height: 1.6;
 		white-space: pre-wrap;
 	}

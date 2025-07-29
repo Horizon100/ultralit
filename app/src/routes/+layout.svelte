@@ -7,6 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { fly, fade, slide } from 'svelte/transition';
+	import { elasticOut } from 'svelte/easing';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import TaskNotification from '$lib/components/feedback/TaskNotification.svelte';
 	import { taskNotifications } from '$lib/stores/taskNotificationStore';
@@ -1643,9 +1644,10 @@ $: if ($page.url.pathname === '/welcome') {
 		<div
 			class="profile-overlay"
 			on:click={handleOverlayClick}
-			transition:fly={{ y: -200, duration: 300 }}
+								in:slide={{ duration: 300, axis: 'x' }}
+								out:slide={{ duration: 300, axis: 'x' }}
 		>
-			<div class="profile-content" transition:fly={{ y: -20, duration: 300 }}>
+			<div class="profile-content" >
 				<Profile
 					user={$currentUser}
 					onClose={() => (showProfile = false)}
@@ -1739,7 +1741,7 @@ $: if ($page.url.pathname === '/welcome') {
 			justify-content: flex-start;
 			align-items: center;
 			gap: 0.5rem;
-			padding: 0.5rem;
+			// padding: 0.5rem;
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
@@ -3928,7 +3930,7 @@ $: if ($page.url.pathname === '/welcome') {
 			/* max-height: 90vh; */
 			overflow: none;
 			transition: all 0.3s ease;
-			backdrop-filter: blur(30px);
+			// backdrop-filter: blur(30px);
 			border: 1px solid var(--secondary-color);
 		}
 		.nav-button {

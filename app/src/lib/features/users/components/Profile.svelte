@@ -1018,6 +1018,7 @@
 		padding: 1rem 0;
 		transition: all 0.3s ease;
 		background: transparent;
+		backdrop-filter: none;
 	}
 
 	.btn-row {
@@ -1033,7 +1034,7 @@
 	.modal-content {
 		height: 100%;
 		margin-bottom: 3rem;
-		margin-left: 2rem;
+		margin-left: 3.5rem;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
@@ -1041,6 +1042,8 @@
 		width: 100%;
 		max-width: 600px;
 		border-right: 1px solid var(--line-color);
+		background: var(--bg-gradient-r);
+
 	}
 
 	.key-overlay {

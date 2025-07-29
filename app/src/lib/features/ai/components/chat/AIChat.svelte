@@ -288,20 +288,20 @@ import { currentLanguage } from '$lib/stores/languageStore';
 	}
 
 	// ===== EVENT HANDLERS =====
-	const onTextareaFocus = () => {
-		handleTextareaFocus();
-		uiStore.closeAllInputRelatedSections();
-		sidenavStore.hideThreadList();
-		uiStore.setCurrentPlaceholder(PromptService.getRandomQuote());
-	};
+// const onTextareaFocus = () => {
+//     // Only handle external side effects
+//     sidenavStore.hideThreadList();
+//     uiStore.setCurrentPlaceholder(PromptService.getRandomQuote());
+//     // Let MessageInput handle its own focus state
+// };
 
-	const onTextareaBlur = () => {
-		handleTextareaBlur();
-	};
+// 	const onTextareaBlur = () => {
+// 		// handleTextareaBlur();
+// 	};
 
-	function handleTextSelection() {
-		chatStore.setActiveSelection(TextUtils.getTextSelection());
-	}
+	// function handleTextSelection() {
+	// 	chatStore.setActiveSelection(TextUtils.getTextSelection());
+	// }
 
 	function handleSearchChange(event?: Event) {
 		if (event) {
@@ -631,7 +631,7 @@ $: {
 }
 	$: groupedThreads = DateUtils.groupThreadsByTime(threads);
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
-	$: placeholderText = $isTextareaFocused ? $currentPlaceholder : $t('chat.manualPlaceholder');
+$: placeholderText = $t('chat.manualPlaceholder');
 
 	// ===== REACTIVE PROMPT UPDATES =====
 	// $: {
@@ -924,8 +924,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 						isPlaceholder={true}
 						bind:textareaElement
 						on:sendMessage={(e) => handleSendMessage(e.detail.message)}
-						on:textareaFocus={onTextareaFocus}
-						on:textareaBlur={onTextareaBlur}
 						on:toggleSection={(e) => toggleSection(e.detail.section)}
 						on:toggleAiActive={toggleAiActive}
 						on:modelSelection={(e) => handleModelSelection(e.detail)}
@@ -978,8 +976,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 								isPlaceholder={true}
 								bind:textareaElement
 								on:sendMessage={(e) => handleSendMessage(e.detail.message)}
-								on:textareaFocus={onTextareaFocus}
-								on:textareaBlur={onTextareaBlur}
 								on:toggleSection={(e) => toggleSection(e.detail.section)}
 								on:toggleAiActive={toggleAiActive}
 								on:modelSelection={(e) => handleModelSelection(e.detail)}

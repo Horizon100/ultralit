@@ -136,7 +136,7 @@ export async function getRuntimeDefaultModel(): Promise<SelectableAIModel> {
 
 // Static default for backwards compatibility (but prefer getRuntimeDefaultModel)
 export const defaultModel: AIModel = 
-	availableModels.find((model) => model.provider === 'deepseek') || // Changed: deepseek first
+	availableModels.find((model) => model.provider === 'local') || 
 	availableModels.find((model) => model.provider === 'anthropic') ||
 	availableModels[0];
 

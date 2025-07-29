@@ -4,12 +4,12 @@
 	import { onMount } from 'svelte';
 	import { slide, fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import {
-		isTextareaFocused,
-		handleTextareaFocus,
-		handleTextareaBlur,
-		adjustFontSize
-	} from '$lib/stores/textareaFocusStore';
+	// import {
+	// 	isTextareaFocused,
+	// 	handleTextareaFocus,
+	// 	handleTextareaBlur,
+	// 	adjustFontSize
+	// } from '$lib/stores/textareaFocusStore';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
 	import { uiStore,expandedSections } from '$lib/stores/uiStore';
 	import { currentUser } from '$lib/pocketbase';
@@ -47,112 +47,113 @@ import { derived } from 'svelte/store';
 	// DOM references
 	let textareaElement: HTMLTextAreaElement | null = null;
 	let localIsFocused = false;
+let isButtonAreaHovered = false;
+let blurTimeout: NodeJS.Timeout | undefined;
+let isTextareaFocused = false;
 
 	// Event dispatcher
 	const dispatch = createEventDispatcher();
 
-	// Debug function to test if component is working
-	function testClick() {
-		console.log('MessageInput component is working!');
-		dispatch('test', { message: 'Component is responsive' });
-	}
 
 	// Event handlers
-function onTextareaFocus(event: FocusEvent) {
-    if (localIsFocused) return; // Prevent redundant operations
-    
-    localIsFocused = true;
-    handleTextareaFocus();
-    dispatch('textareaFocus');
-}
+
 let clickOutsideTimeout: NodeJS.Timeout | undefined;
 
 function handleClickOutside(event: MouseEvent) {
-    // Debounce click outside to prevent rapid state changes
     if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
     
     clickOutsideTimeout = setTimeout(() => {
         const target = event.target as Node;
         const inputContainer = textareaElement?.closest('.input-container');
         
-        // Check if click is outside the input container
         if (inputContainer && !inputContainer.contains(target)) {
-            // Close textarea focus if it was focused
-            if (localIsFocused) {
-                localIsFocused = false;
-                handleTextareaBlur();
-            }
-            
-            // Close all expanded sections when clicking outside
-            // Import uiStore at the top: import { uiStore } from '$lib/stores/uiStore';
             uiStore.closeAllSections();
         }
     }, 10);
 }
-function onTextareaBlur(event: FocusEvent) {
-    if (!localIsFocused) return; // Prevent redundant operations
+
+let focusDebounceTimer: NodeJS.Timeout | undefined;
+let focusLocked = false;
+let focusLockTimer: NodeJS.Timeout | undefined;
+
+function onTextareaFocus(event: FocusEvent) {
+    if (focusLocked || isTextareaFocused) return;
     
-    localIsFocused = false;
-    handleTextareaBlur();
+    focusLocked = true;
     
-    // Batch these operations
-    requestAnimationFrame(() => {
-        textTooLong = userInput.length > MAX_VISIBLE_CHARS;
-        dispatch('textareaBlur');
-    });
+    if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+    if (blurTimeout) clearTimeout(blurTimeout);
+    
+    localIsFocused = true;
+    isTextareaFocused = true;
+    dispatch('textareaFocus');
+    
+    // Unlock after short delay
+    focusLockTimer = setTimeout(() => {
+        focusLocked = false;
+    }, 150);
 }
-	$: showButtons = localIsFocused || $isTextareaFocused;
+
+function onTextareaBlur(event: FocusEvent) {
+    if (focusLocked || !localIsFocused) return;
+    
+    focusLocked = true;
+    localIsFocused = false;
+    
+    blurTimeout = setTimeout(() => {
+        isTextareaFocused = false;
+        dispatch('textareaBlur');
+        
+        // Unlock after delay
+        focusLockTimer = setTimeout(() => {
+            focusLocked = false;
+        }, 150);
+    }, 100);
+}
+
 
 let inputTimeout: NodeJS.Timeout | undefined;
 let resizeTimeout: NodeJS.Timeout | undefined;
-const DEBOUNCE_DELAY = 150; 
+const DEBOUNCE_DELAY = 300; 
+
+// function autoResize(element: HTMLTextAreaElement) {
+//     if (!element || isResizing) return;
+    
+//     isResizing = true;
+    
+//     // Use requestAnimationFrame to batch DOM operations
+//     requestAnimationFrame(() => {
+//         const currentHeight = parseInt(element.style.height) || 0;
+        
+//         // Reset height to measure content
+//         element.style.height = 'auto';
+//         const newHeight = element.scrollHeight;
+        
+//         // Only update if height actually changed (prevents loops)
+//         if (Math.abs(newHeight - currentHeight) > 1) {
+//             element.style.height = `${newHeight}px`;
+//         }
+        
+//         isResizing = false;
+//     });
+// }
+
 
 function handleInput(event: Event) {
     const target = event.currentTarget as HTMLTextAreaElement;
     const newValue = target.value;
     
-    // Only update if value actually changed
     if (newValue === userInput) return;
-    
     userInput = newValue;
-
-    // Clear existing timeouts
+    
+    // Clear existing timeout to prevent accumulation
     if (inputTimeout) clearTimeout(inputTimeout);
-    if (resizeTimeout) clearTimeout(resizeTimeout);
-
-    // Immediate updates for critical UI
-    textTooLong = newValue.length > MAX_VISIBLE_CHARS;
-
-    // Debounce expensive operations
-    inputTimeout = setTimeout(() => {
-        if (localIsFocused && textareaElement) {
-            adjustFontSize(textareaElement);
-        }
-    }, DEBOUNCE_DELAY);
-
-    // Separate timeout for resize to avoid conflicts
-    resizeTimeout = setTimeout(() => {
-        if (textareaElement) {
-            autoResize(textareaElement);
-        }
-    }, 50); // Faster resize for better UX
-}
-function autoResize(element: HTMLTextAreaElement) {
-    if (!element) return;
     
-    // Store current values to avoid multiple DOM reads
-    const currentHeight = element.style.height;
-    const scrollHeight = element.scrollHeight;
-    
-    // Only resize if needed
-    if (scrollHeight > element.clientHeight || element.value === '') {
-        element.style.height = 'auto';
-        const newHeight = `${scrollHeight}px`;
-        
-        // Only update if height changed
-        if (newHeight !== currentHeight) {
-            element.style.height = newHeight;
-        }
+    // Only debounce if there's actual processing needed
+    if (localIsFocused && textareaElement) {
+        inputTimeout = setTimeout(() => {
+            // Keep this minimal - remove any heavy operations
+        }, DEBOUNCE_DELAY);
     }
 }
 	function handleKeydown(event: KeyboardEvent) {
@@ -225,70 +226,65 @@ function autoResize(element: HTMLTextAreaElement) {
 		console.log('Text modal opened');
 		dispatch('textModalOpen');
 	}
-	let cachedShowButtons = false;
-	let cachedProjectId = '';
-let currentThreadData = null;
-let expandedSectionsData = {};
-let currentUserData = null;
+// 	let cachedShowButtons = false;
+// 	let cachedProjectId = '';
+// let currentThreadData = null;
+// let expandedSectionsData = {};
+// let currentUserData = null;
 
 
-$: projectId = $threadsStore.currentThread?.project_id || '';
+// $: projectId = $threadsStore.currentThread?.project_id || '';
 
 	// $: placeholderText = (currentManualPlaceholder as string) || '';
 
-	// Export textarea element for parent access
 	export { textareaElement };
 
-	// 6. Memoize expensive computations
-let lastUserInputLength = 0;
-let memoizedTextTooLong = false;
+// let lastUserInputLength = 0;
+// let memoizedTextTooLong = false;
 
-$: {
-    // Only recalculate if length actually changed
-    if (userInput.length !== lastUserInputLength) {
-        memoizedTextTooLong = userInput.length > MAX_VISIBLE_CHARS;
-        lastUserInputLength = userInput.length;
-    }
-    textTooLong = memoizedTextTooLong;
-}
+// $: {
+//     if (userInput.length !== lastUserInputLength) {
+//         memoizedTextTooLong = userInput.length > MAX_VISIBLE_CHARS;
+//         lastUserInputLength = userInput.length;
+//     }
+//     textTooLong = memoizedTextTooLong;
+// }
 
-// 7. Optimize section expansion checks
-let cachedExpandedSections = {};
-$: {
-    // Only update if expandedSections actually changed
-    const currentSections = $expandedSections;
-    if (JSON.stringify(currentSections) !== JSON.stringify(cachedExpandedSections)) {
-        cachedExpandedSections = { ...currentSections };
-    }
-}
+// let cachedExpandedSections = {};
+// $: {
+//     // Only update if expandedSections actually changed
+//     const currentSections = $expandedSections;
+//     if (JSON.stringify(currentSections) !== JSON.stringify(cachedExpandedSections)) {
+//         cachedExpandedSections = { ...currentSections };
+//     }
+// }
 
 	// Debug reactive statement
 	// $: console.log('MessageInput props:', { isPlaceholder, currentThreadId, isAiActive });
-	onMount(() => {
-		    placeholderText = (currentManualPlaceholder as string) || '';
 
-    const options = { passive: true };
-    
-    if (textareaElement) {
-        textareaElement.addEventListener('input', handleInput, options);
-        // Remove this line: textareaElement.addEventListener('scroll', handleScroll, options);
-    }
-    
-    document.addEventListener('click', handleClickOutside, options);
+	$: textTooLong = userInput.length > MAX_VISIBLE_CHARS;
+$: showButtons = localIsFocused || isTextareaFocused || isButtonAreaHovered;
+
+function clearAllTimers() {
+    if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+    if (inputTimeout) clearTimeout(inputTimeout);
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
+    if (blurTimeout) clearTimeout(blurTimeout);
+    if (focusLockTimer) clearTimeout(focusLockTimer);
+}
+
+
+onMount(() => {
+    placeholderText = (currentManualPlaceholder as string) || '';
+    document.addEventListener('click', handleClickOutside, { passive: true });
     
     return () => {
-        if (textareaElement) {
-            textareaElement.removeEventListener('input', handleInput);
-            // Remove this line: textareaElement.removeEventListener('scroll', handleScroll);
-        }
         document.removeEventListener('click', handleClickOutside);
-        
-        // Clean up timeouts
-        if (inputTimeout) clearTimeout(inputTimeout);
-        if (resizeTimeout) clearTimeout(resizeTimeout);
-        if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
+        clearAllTimers();
     };
 });
+
 
 </script>
 
@@ -315,7 +311,7 @@ $: {
 			<!-- System Prompts Section -->
 			{#if $expandedSections.sysprompts}
 				<div
-					class="section-content-sysprompts"
+					class="section-content"
 					in:slide={{ duration: 200 }}
 					out:slide={{ duration: 200 }}
 				>
@@ -365,21 +361,43 @@ $: {
 				<textarea
 					bind:this={textareaElement}
 					bind:value={userInput}
-					class:quote-placeholder={$isTextareaFocused}
 					on:input={handleInput}
 					on:keydown={handleKeydown}
 					on:focus={onTextareaFocus}
 					on:blur={onTextareaBlur}
-					placeholder={$isTextareaFocused ? currentPlaceholder : placeholderText}
+					placeholder={isTextareaFocused ? currentPlaceholder : placeholderText}
 					disabled={isLoading}
 					rows="1"
 				/>
 			<!-- {/if} -->
 
 			<!-- Button Row -->
-			{#if showButtons}
-				<div class="btn-row" transition:slide>
-					<div class="submission" class:visible={$isTextareaFocused}>
+    <div 
+        class="btn-row" 
+        transition:slide
+        on:mouseenter={() => {
+            isButtonAreaHovered = true;
+            // Cancel blur if hovering over buttons
+            if (blurTimeout) {
+                clearTimeout(blurTimeout);
+                blurTimeout = undefined;
+            }
+        }}
+        on:mouseleave={() => {
+            isButtonAreaHovered = false;
+            // If textarea isn't focused, start blur timeout
+            if (!localIsFocused && !isTextareaFocused) {
+                blurTimeout = setTimeout(() => {
+                    // Double check states before hiding
+                    // if (!localIsFocused && !isTextareaFocused && !isButtonAreaHovered) {
+                    //     handleTextareaBlur();
+                    // }
+                }, 100);
+            }
+        }}
+    >
+	{#if showButtons} 
+					<div class="submission" >
 						<!-- AI Toggle Button (only for existing threads) -->
 						{#if currentThreadId && !isPlaceholder}
 							<button
@@ -494,6 +512,8 @@ $: {
 						<button
 							class="btn model"
 							type="button"
+							disabled={isLoading}
+
 							transition:slide
 							on:click={() => toggleSection('models')}
 						>
@@ -509,7 +529,6 @@ $: {
 						<button
 							class="btn send-btn"
 							type="button"
-							class:visible={$isTextareaFocused}
 							transition:slide
 							on:click={handleSendMessage}
 							disabled={isLoading}
@@ -517,8 +536,8 @@ $: {
 							<Icon name="Send" />
 						</button>
 					</div>
+					{/if}
 				</div>
-			{/if}
 		</div>
 	{/if}
 
@@ -528,7 +547,6 @@ $: {
 			<textarea
 				bind:this={textareaElement}
 				bind:value={userInput}
-				class:quote-placeholder={$isTextareaFocused}
 				on:input={handleInput}
 				on:keydown={handleKeydown}
 				on:focus={onTextareaFocus}
@@ -539,8 +557,8 @@ $: {
 			/>
 
 			<div class="btn-row" transition:slide>
-				<div class="submission" class:visible={$isTextareaFocused}>
-					{#if $isTextareaFocused}
+				<div class="submission" class:visible={isTextareaFocused}>
+					{#if isTextareaFocused}
 						{#if currentThreadId}
 							<!-- AI Toggle Button -->
 							<button
@@ -577,7 +595,7 @@ $: {
 						<button
 							class="btn send-btn"
 							type="button"
-							class:visible={$isTextareaFocused}
+							class:visible={isTextareaFocused}
 							transition:slide
 							on:click={handleSendMessage}
 							disabled={isLoading}
@@ -623,7 +641,7 @@ $: {
 			padding: 0.5rem;
 			width: 2rem;
 			height: 2rem;
-			transition: all 0.3s ease;
+			transition: all 0.2s ease;
 			border: none;
 			z-index: 9999;
 			&:hover {
@@ -646,7 +664,6 @@ $: {
 			margin: 0;
 
 			position: relative;
-			transition: all 0.3s ease;
 			& p {
 				font-size: 1.5rem;
 			}
@@ -675,7 +692,7 @@ $: {
 		}
 
 		&.icon {
-			transition: all 0.2s ease-in-out;
+			transition: color 0.2s ease-in-out;
 			gap: 0.5rem;
 			height: 36px;
 
@@ -709,26 +726,24 @@ $: {
 			border-radius: 1rem;
 		}
 	}
-
 	.btn {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		// box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
-		transition: all 0.3s ease;
+		transition: all 0.2s ease;
 		border: none;
 		width: auto;
-		&.model {
+
+		&.send-btn {
 			border-radius: 1rem;
-			width: 1rem !important;
-			padding: 0;
+			width: 3rem !important;
+			height: 3rem !important;
 			background: var(--bg-color) !important;
-			p.selector-lable {
-				display: none;
+			&:hover {
+				background: var(--tertiary-color);
 			}
-			& .prompt-label {
-				display: none;
-			}
+		}
 			&:hover {
 				width: 10rem !important;
 				transform: translateX(-1rem);
@@ -739,120 +754,15 @@ $: {
 					display: flex;
 				}
 			}
-		}
-
-		&.send-btn {
-			border-radius: 1rem;
-			width: 3rem !important;
-			height: 3rem !important;
-			background: var(--bg-color) !important;
-			&:hover {
-				transform: scale(1.1);
-			}
-		}
-	}
-	.casual-input {
-		background: var(--bg-color);
-		width: 100%;
-		display: flex;
-		position: relative;
-		bottom: auto;
-		top: 0;
-		height: 200px;
-	}
-	.drawer-visible .input-container {
-		bottom: 3rem;
-		position: absolute;
-	}
-
-	.input-container {
-		display: flex;
-		flex-direction: column;
-		max-width: 1200px;
-		width: 100%;
-
-		flex-grow: 0;
-		left: auto;
-		margin-top: 0;
-		height: auto;
-		bottom: 3rem;
-		margin-bottom: 0;
-		// border: 1px solid var(--line-color);
-		transition: all 0.2s ease;
-		// backdrop-filter: blur(10px);
-		border-radius: 2rem;
-		align-items: center;
-		// backdrop-filter: blur(4px);
-		justify-content: center;
-		// background: var(--bg-gradient);
-		z-index: 7700;
-		pointer-events: auto;
-
-		&::placeholder {
-			color: var(--placeholder-color);
-		}
-
-		:global(svg) {
-			color: var(--primary-color);
-			stroke: var(--primary-color);
-			fill: var(--tertiary-color);
-		}
-		&.combo-input {
-			backdrop-filter: blur(1px);
-		}
-
-		& textarea {
-			font-size: 1.5rem;
-			// border: 1px solid var(--secondary-color);
-			border: none;
-			box-shadow: none;
-			position: relative;
-			border-radius: 1rem;
-			backdrop-filter: blur(14px);
-			// border-top-left-radius: var(--radius-m);
-			// border-bottom-left-radius: var(--radius-m);
-			// background-color: transparent;
-			// margin-left: 7rem;
-			// transition: 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
-			// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-			color: var(--text-color);
-			// background: transparent;
-			display: flex;
-			// max-height: 400px;
-			// backdrop-filter: blur(40 px);
-			// & :focus {
-			//   border-top: 1px solid red;
-			// color: white;
-			// animation: pulse 10.5s infinite alternate;
-			// box-shadow: none;
-
-			// display: flex;
-			// // background: var(--bg-gradient-left) !important;
-			//     // box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-			//     border-top: 1px solid var(--secondary-color) !important;
-
-			// background: black !important;
-			// padding: 2rem;
-			// margin-left: 2rem;
-			// margin-right: 0;
-			// height: auto;
-			// box-shadow: none !important;
-
-			// }
-		}
-	}
-	.btn {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		// box-shadow: 2px -4px 20px 1px rgba(255, 255, 255, 0.1);
-		transition: all 0.3s ease;
-		border: none;
-		width: auto;
 		&.model {
-			width: auto;
-			width: auto !important;
+			border-radius: 1rem;
+			width: auto !important;			padding: 0;
+			background: var(--bg-color) !important;
+				display: flex;
 			p.selector-lable {
+				display: none;
+			}
+						& .prompt-label {
 				display: none;
 			}
 			&:hover {
@@ -876,215 +786,234 @@ $: {
 			}
 		}
 	}
-	.ai-selector {
+
+	.casual-input {
+		background: var(--bg-color);
 		width: 100%;
-	}
-	.input-container-start {
 		display: flex;
-		flex-direction: column;
+		position: relative;
+		bottom: auto;
+		top: 0;
+		height: 200px;
+	}
+	.drawer-visible .input-container {
+		bottom: 3rem;
 		position: absolute;
-    height: calc(100vh - 2rem); 
-		width: calc(100% - 2rem);
-		margin-top: 0;
-		height: auto;
-		right: auto;
-		left: auto;
-		bottom: 1rem;
-		margin-bottom: 0;
-		overflow-y: none;
-		// backdrop-filter: blur(4px);
-		justify-content: flex-end;
-		align-items: center;
-		// background: var(--bg-gradient);
-		z-index: 1;
-		backdrop-filter: blur(20px);
-		transition: all 0.1s ease;
-		& .combo-input {
-			background: var(--primary-color);
-			display: flex;
-			justify-content: center;
-			align-items: stretch;
-
-			border-radius: 2rem;
-			width: 100%;
-			height: 100%;
-		}
-
-		&::placeholder {
-			color: var(--placeholder-color);
-		}
-
-		:global(svg) {
-			color: var(--primary-color);
-			stroke: var(--primary-color);
-			fill: var(--tertiary-color);
-		}
-
-		& textarea {
-			border: none;
-			box-shadow: none;
-			background: var(--bg-color);
-			margin-top: 1rem !important;
-			// backdrop-filter: blur(14px);
-			// margin-left: 7rem;
-			// padding-left: 1rem;
-			// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-			color: var(--text-color);
-			// background: transparent;
-			display: flex;
-			// backdrop-filter: blur(40px);
-			font-size: 1.5rem;
-			width: calc(100% - 2rem);
-			border-radius: 2rem;
-			background: transparent;
-			// max-height: 400px;
-			// margin-left: 2rem !important;
-			// margin-right: 2rem !important;
-			transition: all 0.5s ease;
-
-			& :focus {
-				color: red;
-				// animation: pulse 10.5s infinite alternate;
-				box-shadow: none;
-				overflow-y: auto !important;
-				transition: all 0.3s ease;
-				height: 100%;
-				max-height: 500px;
-				display: flex;
-				// background: var(--bg-gradient-left) !important;
-				// box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-				// border-top: 4px solid var(--secondary-color) !important;
-
-				box-shadow: none !important;
-			}
-		}
 	}
+/* =============================================================================
+   INPUT CONTAINER STYLES
+   ============================================================================= */
 
-	.combo-input {
-		// width: 100vw;;
-		border-radius: var(--radius-m);
-		margin-bottom: 0;
-		height: auto;
-		width: 100%;
-		margin-left: 0;
-		bottom: auto;
-		left: 0;
-		display: flex;
-		position: relative;
-		align-items: stretch;
-		// background: var(--bg-color);
-		flex-direction: row;
-		// background: var(--bg-gradient);
-		// backdrop-filter: blur(40px);
-		transition: all 0.3s ease;
-		max-height: 400px;
-		overflow: hidden; //
-		& textarea {
-			// max-height: 50vh;
-			padding: 1rem;
-			height: auto !important;
-			width: 100%;
-			margin: 1rem;
-			margin-top: 0;
-			margin-bottom: 0;
-			font-size: 1rem !important;
-			height: auto;
-			flex: 1;
-			// background: var(--bg-gradient-left);
-			&:focus {
-				// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
-				// border-bottom: 1px solid var(--placeholder-color);
-				// border-top-left-radius: 0;
-				height: auto !important;
-				// background: var(--primary-color);
-				// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-				// margin: 2.5rem;
-				margin-top: 1.5rem;
-				margin-bottom: 0;
-				overflow-y: scroll !important;
-    height: 100%; /* Fill container when focused */
-            flex: 1; /* Ensure it takes available space */
-				// background: var(--primary-color);
-			}
-		}
-	}
+.input-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	max-width: 1200px;
+	width: 100%;
+	height: auto;
+	bottom: 3rem;
+	border-radius: 2rem;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+	z-index: 7700;
+	pointer-events: auto;
 
-
-	.combo-input-human {
-		// width: 100vw;;
-		border-radius: var(--radius-m);
-		margin-bottom: 0;
-		height: auto;
-		width: 100%;
-		max-width: 1200px;
-		margin-left: 0;
-		bottom: auto;
-		left: 0;
-		display: flex;
-		position: relative;
-		background: transparent;
-		flex-direction: column;
-		// background: var(--bg-gradient);
-		// backdrop-filter: blur(40px);
-		transition: all 0.3s ease;
-		& .btn-row {
-			display: flex;
-			flex-direction: row !important;
-			justify-content: flex-end;
-			margin-top: 0.5rem;
-			width: calc(100% - 8rem) !important;
-		}
-		& span.btn {
-			padding: auto;
-		}
-		& .submission {
-			flex-direction: row;
-		}
-
-		& textarea {
-			// max-height: 50vh;
-			height: 100px !important;
-			border-radius: 4rem;
-			margin: 1rem;
-			margin-top: 0.5rem;
-			margin-bottom: 0;
-			padding-left: 2rem;
-			font-style: normal;
-			z-index: 1000;
-			// background: var(--bg-color);
-
-			&:focus {
-				// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
-				// border-bottom: 1px solid var(--placeholder-color);
-				// border-top-left-radius: 0;
-				min-height: 400px !important;
-				// background: var(--primary-color);
-				// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-				box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-				margin: 2.5rem;
-				margin-top: 0.5rem;
-				margin-bottom: 0;
-				// background: var(--primary-color);
-			}
-		}
-	}
-
-	textarea::placeholder {
+	&::placeholder {
 		color: var(--placeholder-color);
-		transition: all 0.3s ease;
+	}
+
+	:global(svg) {
+		color: var(--primary-color);
+		stroke: var(--primary-color);
+		fill: var(--tertiary-color);
+	}
+
+	& textarea {
+		font-size: 1.5rem;
+		border: none;
+		border-radius: 1rem;
+		color: var(--text-color);
+		display: flex;
+	}
+}
+
+.drawer-visible .input-container {
+	bottom: 3rem;
+	position: absolute;
+}
+
+/* =============================================================================
+   INPUT CONTAINER START
+   ============================================================================= */
+
+.input-container-start {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: center;
+	position: absolute;
+	width: calc(100% - 1rem);
+	height: auto;
+	bottom: 0.5rem;
+	z-index: 1;
+	transition: all 0.1s ease;
+
+	& .combo-input {
+		background: var(--primary-color);
+		display: flex;
+		justify-content: center;
+		align-items: stretch;
+		border-radius: 2rem;
 		width: 100%;
-		height: 100%;
-		// padding-top: 1rem !important;
+		height: auto;
+	}
+
+	&::placeholder {
+		color: var(--placeholder-color);
+	}
+
+	:global(svg) {
+		color: var(--primary-color);
+		stroke: var(--primary-color);
+		fill: var(--tertiary-color);
+	}
+
+	& textarea {
+		border: none;
+		background: transparent;
+		color: var(--text-color);
+		display: flex;
+		font-size: 1.5rem;
+		width: calc(100% - 2rem);
+		border-radius: 2rem;
+		transition: height 0.1s ease;
+		max-height: 100px;
+		&:focus {
+			overflow-y: auto;
+			display: flex;
+			max-height: 400px;
+		} 
+	}
+}
+
+/* =============================================================================
+   COMBO INPUT STYLES
+   ============================================================================= */
+
+.combo-input {
+	border-radius: var(--radius-m);
+	height: auto;
+	width: 100%;
+	display: flex;
+	position: relative;
+	align-items: stretch;
+	flex-direction: row;
+	max-height: 400px;
+	overflow: hidden;
+
+	& textarea {
+		padding: 1rem;
+		height: auto;
+		width: 100%;
+		margin: 1rem 1rem 0;
+		font-size: 1rem;
+		flex: 1;
+
+		&:focus {
+			height: auto;
+			margin-top: 1.5rem;
+			margin-bottom: 0;
+			overflow-y: scroll;
+			flex: 1;
+		}
+	}
+}
+
+.combo-input-human {
+	border-radius: var(--radius-m);
+	height: auto;
+	width: 100%;
+	max-width: 1200px;
+	display: flex;
+	position: relative;
+	background: transparent;
+	flex-direction: column;
+
+	& .btn-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		margin-top: 0.5rem;
+		width: calc(100% - 8rem);
+	}
+
+	& .submission {
+		flex-direction: row;
+	}
+
+	& textarea {
+		height: 100px;
+		border-radius: 4rem;
+		margin: 1rem 1rem 0;
+		margin-top: 0.5rem;
+		padding-left: 2rem;
+		font-style: normal;
+		z-index: 1000;
+
+		&:focus {
+			min-height: 400px;
+			box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+			margin: 2.5rem 2.5rem 0;
+			margin-top: 0.5rem;
+		}
+	}
+}
+
+/* =============================================================================
+   TEXTAREA STYLES
+   ============================================================================= */
+
+textarea {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	min-height: 80px;
+	resize: none;
+	letter-spacing: 1.4px;
+	background: transparent;
+	border: 1px solid rgba(8, 16, 16, 0.5);
+	color: var(--text-color);
+	line-height: 1.4;
+	text-align: left;
+	overflow: scroll;
+	scrollbar-width: none;
+	scrollbar-color: #21201d transparent;
+	vertical-align: middle;
+	transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+	// margin: 1rem 0 0 1rem;
+	// padding: 0.5rem;
+
+	&:focus {
+		align-items: stretch;
+		outline: none;
+		transform: translateY(0) rotate(0deg);
+		flex: 1;
+		display: flex;
+		height: auto !important;
+	}
+
+	&::placeholder {
+		color: var(--placeholder-color);
+		width: 100%;
 		display: flex;
 		text-align: center;
-		user-select: none !important;
+		user-select: none;
 		font-size: 1.1rem;
 		letter-spacing: 0.2rem;
 	}
 
-	textarea.quote-placeholder::placeholder {
+	&.quote-placeholder::placeholder {
 		font-style: italic;
-		color: var(--placeholder-color);
 		opacity: 0.8;
 		padding: 1rem;
 		font-size: 0.8rem;
@@ -1093,108 +1022,56 @@ $: {
 		justify-content: center;
 		align-items: flex-start;
 		height: auto;
-		user-select: none !important;
-		// transform: translateY(50%);
+		user-select: none;
 	}
+}
 
-	textarea {
-		display: flex;
-		flex-direction: column;
-		/* font-family: 'Merriweather', serif; */
-		width: auto;
-		min-height: 80px;
-		/* min-height: 60px; Set a minimum height */
-		/* max-height: 1200px; Set a maximum height */
-		// padding: 1rem;
-		text-justify: center;
-		justify-content: center;
-		resize: none;
-		letter-spacing: 1.4px;
-		background: transparent;
-		border: 1px solid rgba(53, 63, 63, 0.5);
-		// border-radius: 20px;
-		/* background-color: #2e3838; */
-		// background-color: #020101;
-		color: #818380;
-		line-height: 1.4;
-		height: 100%;
-		// max-height: 50vh;
-		text-justify: center;
-		box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-		overflow: scroll;
-		scrollbar-width: none;
-		scrollbar-color: #21201d transparent;
-		vertical-align: middle; /* Align text vertically */
-		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		margin-left: 1rem;
-		margin-top: 1rem;
-				padding: 0.5rem;
+/* =============================================================================
+   SECTION AND BUTTON STYLES
+   ============================================================================= */
 
-		&:focus {
-			/* margin-right: 5rem; */
-			outline: none;
+.section-content {
+	width: calc(100vw - 2rem);
+	max-width: 1200px;
+	height: auto;
+	display: flex;
+	position: relative;
+	bottom: 0;
+	right: 0;
+	background: var(--bg-gradient-r);
+	margin-bottom: 1rem;
+	border-radius: 2rem;
+	justify-content: flex-end;
+	box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
+}
 
-			// border: 2px solid #000000;
-			transform: translateY(0) rotate(0deg);
-			/* height: 400px; */
-			flex: 1;
-			display: flex;
-			min-height: calc(100% - 1rem);
-			/* min-height: 200px; */
-		}
-	}
-				.section-content {
-				// width: calc(50% - 1rem);
-				// margin-left: calc(50% - 1rem);
-				width: 100% !important;
-				max-width: 1200px;
-				height: auto;
-				display: flex;
-				margin-right: 0;
-				position: relative;
-				bottom: 0;
-				right: 0;
-				background: var(--bg-gradient-r);
-				margin-bottom: 1rem;
-				border-radius: 2rem;
-				justify-content: flex-end;
-						box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
+.btn-row {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	margin: 0 1rem 0.5rem 0;
+	width: 2rem;
+	z-index: 8000;
+}
 
-			}
-	.btn-row {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		height: 100%;
-		margin-right: 1rem;
-		margin-bottom: 2rem;
-		width: 2rem !important;
+.submission {
+	display: flex;
+	flex-direction: column;
+	margin: 0.5rem;
+	gap: 0.5rem;
+	padding: 0;
+	width: 2rem;
+	height: 100%;
+	justify-content: flex-end;
+	align-self: flex-end;
+	transition: all 0.3s ease;
 
-		margin-bottom: 0.5rem;
-		z-index: 8000;
-		// background: var(--bg-gradient-r);
-	}
-	.submission {
-		display: flex;
-		flex-direction: column;
-		margin: 0.5rem;
-		
-						gap: 0.5rem !important;
-
-		padding: 0;
-		width: 2rem !important;
-		height: 100%;
-		justify-content: flex-end;
-		align-self: flex-end;
-		// padding: 0.5rem;
-		transition: all 0.3s ease;
-	}
-
-	.visible.submission {
-		// backdrop-filter: blur(4px);
+	&.visible {
 		z-index: 7000;
 	}
+}
 	@media (max-width: 1000px) {
 
 
@@ -1388,22 +1265,7 @@ $: {
 			width: 100%;
 		}
 
-		.btn-row {
-			display: flex;
-			flex-direction: column;
-			width: 100%;
-			margin-top: 0;
-			padding-top: 0;
-			padding-bottom: 0;
-			justify-content: flex-end;
-			align-items: flex-end;
-			gap: 0;
-			padding-top: 0.5rem;
-			padding-bottom: 0.5rem;
-			height: auto;
-			// z-index: 8000;
-			// background: var(--bg-gradient-r);
-		}
+
 		.submission {
 			display: flex;
 			flex-direction: column;
@@ -1439,197 +1301,12 @@ $: {
 	}
 
 	@media (max-width: 450px) {
-		// .input-container {
-		// 	margin-bottom: 0;
-		// 	margin-left: 0;
-		// 	bottom: 4rem !important;
-		// 	height: auto;
-		// 	// width: 100%;
-		// 	backdrop-filter: blur(10px);
-		// 	border-top: 1px solid var(--line-color);
-		// 	border-top-left-radius: 1rem;
-		// 	border-top-right-radius: 1rem;
-		// 	flex-grow: 0;
-		// 	max-height: 200px;
 
-		// 	& .combo-input textarea {
-		// 		padding: 0 !important;
-		// 		margin-left: 2.5rem;
-		// 		height: 2rem !important;
-		// 		border: none;
-
-		// 		&:focus {
-		// 			margin-left: 0;
-		// 			padding-inline-start: 2rem !important;
-		// 			font-size: 0.7rem !important;
-		// 			background: transparent !important;
-		// 		}
-		// 	}
-		// }
-		textarea::placeholder {
-			color: var(--placeholder-color);
-			transition: all 0.3s ease;
-			width: 100%;
-			padding: 0.5rem;
-			// height: 3rem !important;
-			user-select: none;
-			line-height: 1.5;
-			margin-top: auto;
-			display: flex;
-			text-align: left;
-			font-size: 0.7rem;
-			letter-spacing: 0rem;
-		}
-
-		textarea.quote-placeholder::placeholder {
-			font-style: italic;
-			color: var(--placeholder-color);
-			opacity: 0.8;
-			height: 100%;
-			user-select: none;
-		}
-
-		textarea {
-			font-size: 0.8rem !important;
-		}
-
-				.section-content {
-				// width: calc(50% - 1rem);
-				// margin-left: calc(50% - 1rem);
-				width: 100% !important;
-				max-width: 1200px;
-				height: auto;
-				display: flex;
-				margin-right: 0;
-				position: relative;
-				right: 0;
-				justify-content: flex-end;
-			}
 		.input-container-start {
-			bottom: 0rem;
-			width: 100%;
-			height: auto;
-
-			& .combo-input {
-				background: var(--primary-color);
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				border: 0;
-				border-radius: 2rem;
-				border-top: 1px solid var(--line-color);
-				width: calc(100% - 2rem) !important;
-				background: var(--primary-color);
-				height: auto;
-				user-select: none;
-				margin-bottom: 0.5rem;
-				& textarea {
-					// max-height: 50vh;
-					height: auto;
-					width: 100%;
-
-					margin-top: 0;
-					margin-bottom: 0;
-					z-index: 1000;
-					// background: var(--bg-gradient-left);
-					&:focus {
-						// box-shadow: 0 20px -60px 0 var(--secondary-color, 0.11);
-						// border-bottom: 1px solid var(--placeholder-color);
-						// border-top-left-radius: 0;
-						height: 100px !important;
-						min-height: auto !important;
-						// background: var(--primary-color);
-						// box-shadow: -100px -1px 100px 4px rgba(255, 255, 255, 0.2);
-						// margin: 2.5rem;
-						margin-top: 0.5rem;
-						margin-bottom: 0;
-						// background: var(--primary-color);
-					}
-				}
-			}
-
-			&::placeholder {
-				color: var(--placeholder-color);
-				
-			}
-
-			:global(svg) {
-				color: var(--primary-color);
-				stroke: var(--primary-color);
-				fill: var(--tertiary-color);
-			}
-
-			& textarea {
-				border: none;
-				box-shadow: none;
-				transition: all 0.3s ease;
-				background: var(--bg-color);
-				margin-top: 1rem !important;
-				// backdrop-filter: blur(14px);
-				// margin-left: 7rem;
-				// padding-left: 1rem;
-				// box-shadow: 0px 1px 20px 1px rgba(255, 255, 255, 0.2);
-				color: var(--text-color);
-				// background: transparent;
-				display: flex;
-				// backdrop-filter: blur(40px);
-				font-size: 1rem;
-				width: calc(100% - 2rem);
-				border-radius: 0;
-				background: transparent;
-				// max-height: 400px;
-				// margin-left: 2rem !important;
-				// margin-right: 2rem !important;
-
-				&:focus {
-					color: white;
-					animation: none;
-					box-shadow: none;
-					overflow-y: auto !important;
-					transition: all 0.3s ease;
-					display: flex;
-					font-size: 1rem;
-					// background: var(--bg-gradient-left) !important;
-					// box-shadow: -0 -1px 50px 4px rgba(255, 255, 255, 0.78);
-					// border-top: 4px solid var(--secondary-color) !important;
-
-					box-shadow: none !important;
-				}
-			}
+			width: calc(100% - 2rem);
+			margin-bottom: 0.5rem;
 		}
 
-		.input-container {
-			flex-direction: column;
-		}
 
-		.combo-input {
-			width: 100% !important;
-			padding: 0;
-			max-height: 200px;
-		}
-		.btn-row {
-			flex-direction: row;
-			gap: 0.1rem;
-		}
-
-		.submission {
-			flex-direction: row;
-			gap: 0.1rem;
-		}
-		.submission {
-			gap: 0.5rem;
-			margin-right: 0;
-			margin-left: 2rem;
-			margin-bottom: 0;
-			width: 100%;
-		}
-
-		.drawer-container {
-			margin-right: 0;
-			margin-left: 0;
-			right: 0;
-			left: 0;
-			width: 100%;
-		}
 	}
 </style>

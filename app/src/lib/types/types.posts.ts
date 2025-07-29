@@ -54,6 +54,7 @@ export interface Post {
 	analyzed_at?: string;
 	type?: 'post' | 'comment' | 'agent_reply';
 	agent?: string;
+	assignedAgents?: string[];
 }
 
 export interface PostWithInteractions extends Post {
@@ -80,6 +81,7 @@ export interface PostWithInteractions extends Post {
 	analyzed_at?: string;
 	type?: 'post' | 'comment' | 'agent_reply';
 	agent?: string;
+	assignedAgents?: string[];
 	expand?: {
 		user?: {
 			id: string;
@@ -169,6 +171,7 @@ export interface CommentWithInteractions extends Comment {
 	quotedBy: string[];
 	readBy: string[];
 	agents?: string[];
+	assignedAgents?: string[];
 	parent: string;
 	children: string[];
 	tags: string[];

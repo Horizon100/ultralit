@@ -70,6 +70,8 @@ export default {
 		tags: 'Tags',
 		add: 'Add',
 		new: 'New',
+		and: 'and',
+		for: 'for',
 	},
 	posts: {
 		loginPrompt: 'Please sign in to create a post.',
@@ -635,6 +637,19 @@ export default {
 		favorites: 'Favorites',
 		stats: 'Stats'
 	},
+	agents: {
+		title: 'Agent',
+		agents: 'Agents',
+		analysis: 'Analysis',
+		response: 'Response',
+		summary: 'Summary',
+		priority: 'Priority',
+		sentiment: 'Sentiment',
+		ai: 'AI',
+		analyze: 'Analyze',
+		autoreply: 'auto-reply',
+		autoReply: 'Auto-reply',
+	},
 	status: {
 		download: 'Download',
 		downloading: 'Downloading...',
@@ -681,6 +696,17 @@ export default {
 		import: 'Import',
 		importing: 'Importing...',
 		imported: 'Imported',
+		active: 'Active',
+		inactive: 'Inactive',
+		total: 'Total',
+		assign: 'Assign',
+		assigning: 'Assigning...',
+		assigned: 'assigned',
+		unassign: 'Unassign',
+		unassigning: 'Unassigning...',
+		unassigned: 'unassigned',
+		trigger: 'Trigger',
+		triggered: 'triggered',
 	},
 	button: {
 		tags: 'Tags'

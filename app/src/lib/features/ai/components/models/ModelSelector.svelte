@@ -229,7 +229,12 @@ async function loadProviderModels(provider: ProviderType) {
 				provider: provider,
 				description: model.description,
 				context_length: model.context_length,
-				// Add other properties as needed
+				// description: model.description || `Local model: ${model.name}`,
+				api_type: model.api_type,
+				size: model.size,
+				parameters: model.parameters,
+				families: model.families || [],
+				available: true
 			}));
 			
 			console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
@@ -401,6 +406,12 @@ async function loadLocalModels() {
 				name: model.name,
 				provider: 'local' as ProviderType,
 				context_length: model.context_length || 4096,
+				description: model.description || `Local model: ${model.name}`,
+				api_type: model.api_type,
+				size: model.size,
+				parameters: model.parameters,
+				families: model.families || [],
+				available: true
 				// Add any other properties you need
 			}));
 			

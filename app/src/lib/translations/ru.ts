@@ -69,6 +69,8 @@ export default {
 		tags: 'Теги',
 		add: 'Добавить',
 		new: 'Новый',
+		and: 'и',
+		for: 'для',
 	},
 	posts: {
 		loginPrompt: 'Пожалуйста, войдите, чтобы создать запись.',
@@ -624,6 +626,19 @@ export default {
 		favorites: 'Избранное',
 		stats: 'Статистика'
 	},
+	agents: {
+		title: 'Агент',
+		agents: 'Агенты',
+		analysis: 'Анализ',
+		response: 'Ответ',
+		summary: 'Сводка',
+		priority: 'Приоритет',
+		sentiment: 'Настроение чувствительности',
+		ai: 'ИИ',
+		analyze: 'Анализировать',
+		autoreply: 'автоответ',
+		autoReply: 'Автоответ',
+	},
 	status: {
 		downloading: 'Загрузка...',
 		downloaded: 'Загружено',
@@ -649,6 +664,17 @@ export default {
 		loaded: 'Загружено',
 		creating: 'Создание...',
 		created: 'Создано',
+		active: 'Активный',
+		inactive: 'Неактивный',
+		total: 'Всего',
+		assign: 'Назначить',
+		assigning: 'Назначение...',
+		assigned: 'назначено',
+		unassign: 'Отменить назначение',
+		unassigning: 'Отмена назначения...',
+		unassigned: 'Назначение отменено',
+		trigger: 'Триггер',
+		triggered: 'триггерировано',
 	},
 	button: {
 		tags: 'Тагы'

@@ -650,7 +650,7 @@ $: if (user?.username) {
 
 	function handleComment(event: CustomEvent<{ postId: string }>) {
 		if (!$currentUser) {
-			alert($t('generic.interactPrompt'));
+			toast.warning($t('posts.interactPrompt') as string);
 			return;
 		}
 

@@ -287,6 +287,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 1rem;
+		width: 100%;
 	}
 
 	.header-row {

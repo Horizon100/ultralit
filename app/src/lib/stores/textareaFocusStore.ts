@@ -37,7 +37,7 @@ export function handleTextareaFocus() {
 export function handleTextareaBlur() {
     hideTimeout = setTimeout(() => {
         isTextareaFocused.set(false);
-    }, 500);
+    }, 100);
 }
 
 export function handleImmediateTextareaBlur() {

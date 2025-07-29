@@ -1,8 +1,11 @@
+
+//  src/routes/api/agents/[id]/+server.ts
+
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
-import type { AIAgent } from '$lib/types/types'; // Assuming you have this type defined for AI agents
+import type { AIAgent } from '$lib/types/types';
 import { error } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ cookies }) =>
